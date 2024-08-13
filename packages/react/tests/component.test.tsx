@@ -200,5 +200,6 @@ describe('Component', () => {
 		set({ x: 11, y: 22 });
 
 		expect(changes.length).toBe(1);
+		expect(changes[0]).toBe(ref!);
 	});
 });

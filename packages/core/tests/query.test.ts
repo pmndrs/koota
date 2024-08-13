@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { define } from '../component/component';
-import { createAdded } from '../query/modifiers/added';
-import { createChanged } from '../query/modifiers/changed';
-import { Not } from '../query/modifiers/not';
-import { createRemoved } from '../query/modifiers/removed';
-import { $queriesHashMap } from '../world/symbols';
-import { World } from '../world/world';
+import { define } from '../src/component/component';
+import { createAdded } from '../src/query/modifiers/added';
+import { createChanged } from '../src/query/modifiers/changed';
+import { Not } from '../src/query/modifiers/not';
+import { createRemoved } from '../src/query/modifiers/removed';
+import { $queriesHashMap } from '../src/world/symbols';
+import { World } from '../src/world/world';
 
 const Position = define({ x: 0, y: 0 });
 const Name = define({ name: 'name' });

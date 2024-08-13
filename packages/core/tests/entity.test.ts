@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { World } from '../world/world';
-import { $entityCursor, $entitySparseSet, $recyclingBin, $removed } from '../world/symbols';
-import { define } from '../component/component';
+import { World } from '../src/world/world';
+import { $entityCursor, $entitySparseSet, $recyclingBin, $removed } from '../src/world/symbols';
+import { define } from '../src/component/component';
 
 const Foo = define();
 const Bar = define();
