@@ -1,5 +1,5 @@
 import { registerComponent } from '../component/component';
-import { ComponentRecord } from '../component/component-instance';
+import { ComponentRecord } from '../component/component-record';
 import { Component } from '../component/types';
 import { SparseSet } from '../utils/sparse-set';
 import {
