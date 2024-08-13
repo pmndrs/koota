@@ -1,0 +1,16 @@
+{
+	"name": "@sweet-ecs/core",
+	"version": "0.0.1",
+	"description": "ECS toolkit",
+	"license": "ISC",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"scripts": {
+		"test": "vitest"
+	},
+	"devDependencies": {
+		"tsconfig": "workspace:*",
+		"vitest": "^1.4.0"
+	}
+}
