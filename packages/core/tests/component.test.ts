@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { World } from '../world/world';
-import { define, registerComponent } from '../component/component';
-import { $bitflag, $componentRecords } from '../world/symbols';
+import { define, registerComponent } from '../src/component/component';
+import { World } from '../src/world/world';
+import { $bitflag, $componentRecords } from '../src/world/symbols';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
