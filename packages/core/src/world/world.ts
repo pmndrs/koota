@@ -167,35 +167,6 @@ export class World {
 		return getRelationTargets(this, relation, entity);
 	}
 
-	// query(...parameters: QueryParameter[]) {
-	// 	const hash = archetypeHash(this, parameters);
-	// 	let query = this[$queriesHashMap].get(hash);
-
-	// 	if (!query) {
-	// 		query = new Query(this, parameters);
-	// 		this[$queriesHashMap].set(hash, query);
-	// 	}
-
-	// 	return query.run(this);
-	// }
-
-	// subscribe(callback: QuerySubscriber, parameters: QueryParameter[]) {
-	// 	const hash = archetypeHash(this, parameters);
-	// 	let query = this[$queriesHashMap].get(hash);
-
-	// 	if (!query) {
-	// 		query = new Query(this, parameters);
-	// 		this[$queriesHashMap].set(hash, query);
-	// 	}
-
-	// 	query.subscriptions.push(callback);
-
-	// 	return () => {
-	// 		const index = query.subscriptions.indexOf(callback);
-	// 		if (index !== -1) query.subscriptions.splice(index, 1);
-	// 	};
-	// }
-
 	query = Object.assign(
 		function (this: World, ...parameters: QueryParameter[]) {
 			const hash = archetypeHash(this, parameters);
