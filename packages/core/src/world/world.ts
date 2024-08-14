@@ -158,35 +158,6 @@ export class World {
 		this[$onInit].length = 0;
 	}
 
-	query(...parameters: QueryParameter[]) {
-		const hash = archetypeHash(this, parameters);
-		let query = this[$queriesHashMap].get(hash);
-
-		if (!query) {
-			query = new Query(this, parameters);
-			this[$queriesHashMap].set(hash, query);
-		}
-
-		return query.run(this);
-	}
-
-	subscribe(callback: QuerySubscriber, parameters: QueryParameter[]) {
-		const hash = archetypeHash(this, parameters);
-		let query = this[$queriesHashMap].get(hash);
-
-		if (!query) {
-			query = new Query(this, parameters);
-			this[$queriesHashMap].set(hash, query);
-		}
-
-		query.subscriptions.push(callback);
-
-		return () => {
-			const index = query.subscriptions.indexOf(callback);
-			if (index !== -1) query.subscriptions.splice(index, 1);
-		};
-	}
-
 	recycle() {
 		this[$removed].enqueue(...this[$recyclingBin]);
 		this[$recyclingBin].length = 0;
@@ -196,7 +167,89 @@ export class World {
 		return getRelationTargets(this, relation, entity);
 	}
 
-	changed(entity: number, component: Component) {
-		setChanged(this, entity, component);
-	}
+	// query(...parameters: QueryParameter[]) {
+	// 	const hash = archetypeHash(this, parameters);
+	// 	let query = this[$queriesHashMap].get(hash);
+
+	// 	if (!query) {
+	// 		query = new Query(this, parameters);
+	// 		this[$queriesHashMap].set(hash, query);
+	// 	}
+
+	// 	return query.run(this);
+	// }
+
+	// subscribe(callback: QuerySubscriber, parameters: QueryParameter[]) {
+	// 	const hash = archetypeHash(this, parameters);
+	// 	let query = this[$queriesHashMap].get(hash);
+
+	// 	if (!query) {
+	// 		query = new Query(this, parameters);
+	// 		this[$queriesHashMap].set(hash, query);
+	// 	}
+
+	// 	query.subscriptions.push(callback);
+
+	// 	return () => {
+	// 		const index = query.subscriptions.indexOf(callback);
+	// 		if (index !== -1) query.subscriptions.splice(index, 1);
+	// 	};
+	// }
+
+	query = Object.assign(
+		function (this: World, ...parameters: QueryParameter[]) {
+			const hash = archetypeHash(this, parameters);
+			let query = this[$queriesHashMap].get(hash);
+
+			if (!query) {
+				query = new Query(this, parameters);
+				this[$queriesHashMap].set(hash, query);
+			}
+
+			return query.run(this);
+		},
+		{
+			subscribe: function (
+				this: World,
+				parameters: QueryParameter[],
+				callback: QuerySubscriber
+			) {
+				const hash = archetypeHash(this, parameters);
+				let query = this[$queriesHashMap].get(hash);
+
+				if (!query) {
+					query = new Query(this, parameters);
+					this[$queriesHashMap].set(hash, query);
+				}
+
+				query.subscriptions.add(callback);
+
+				return () => query.subscriptions.delete(callback);
+			}.bind(this),
+		}
+	);
+
+	changed = Object.assign(
+		function (this: World, entity: number, component: Component) {
+			setChanged(this, entity, component);
+		},
+		{
+			subscribe: function (
+				this: World,
+				component: Component,
+				callback: (entity: number) => void
+			) {
+				let record = this[$componentRecords].get(component)!;
+
+				if (!record) {
+					record = new ComponentRecord(this, component);
+					this[$componentRecords].set(component, record);
+				}
+
+				record.changedSubscriptions.add(callback);
+
+				return () => record.changedSubscriptions.delete(callback);
+			}.bind(this),
+		}
+	);
 }

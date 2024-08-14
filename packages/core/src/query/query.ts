@@ -47,7 +47,7 @@ export class Query {
 	entities = new SparseSet();
 	isTracking = false;
 	toRemove = new SparseSet();
-	subscriptions: QuerySubscriber[] = [];
+	subscriptions = new Set<QuerySubscriber>();
 
 	constructor(world: World, parameters: QueryParameter[] = []) {
 		this.world = world;
@@ -284,8 +284,8 @@ export class Query {
 		this.entities.add(entity);
 
 		// Notify subscriptions.
-		for (let i = 0; i < this.subscriptions.length; i++) {
-			this.subscriptions[i]('add', entity);
+		for (const sub of this.subscriptions) {
+			sub('add', entity);
 		}
 	}
 
@@ -296,8 +296,8 @@ export class Query {
 		world[$dirtyQueries].add(this);
 
 		// Notify subscriptions.
-		for (let i = 0; i < this.subscriptions.length; i++) {
-			this.subscriptions[i]('remove', entity);
+		for (const sub of this.subscriptions) {
+			sub('remove', entity);
 		}
 	}
 

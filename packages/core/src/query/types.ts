@@ -13,4 +13,4 @@ export type Modifier<W extends World = World> = (...components: Component[]) => 
 
 export type QueryParameter = Component | ReturnType<Modifier>;
 
-export type QuerySubscriber = (type: 'add' | 'remove' | 'change', entity: number) => void;
+export type QuerySubscriber = (type: 'add' | 'remove', entity: number) => void;

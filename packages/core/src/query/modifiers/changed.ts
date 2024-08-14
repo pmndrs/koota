@@ -1,3 +1,4 @@
+import { ComponentRecord } from '../../component/component-record';
 import { Component } from '../../component/types';
 import { universe } from '../../universe/universe';
 import { $changedMasks, $componentRecords } from '../../world/symbols';
@@ -16,25 +17,27 @@ export function createChanged() {
 }
 
 export function setChanged(world: World, entity: number, component: Component) {
-	const instance = world[$componentRecords].get(component)!;
+	let record = world[$componentRecords].get(component)!;
+
+	if (!record) {
+		record = new ComponentRecord(world, component);
+		world[$componentRecords].set(component, record);
+	}
 
 	for (const changedMask of world[$changedMasks].values()) {
-		changedMask[entity][instance.id] = 1;
+		changedMask[entity][record.id] = 1;
 	}
 
 	// Update queries.
-	for (const query of instance.queries) {
+	for (const query of record.queries) {
 		// Check if the entity matches the query.
-		let match = query.check(world, entity, { type: 'change', component: instance });
+		let match = query.check(world, entity, { type: 'change', component: record });
 
-		if (match) {
-			query.add(entity);
+		if (match) query.add(entity);
+		else query.remove(world, entity);
+	}
 
-			for (const sub of query.subscriptions) {
-				sub('change', entity);
-			}
-		} else {
-			query.remove(world, entity);
-		}
+	for (const sub of record.changedSubscriptions) {
+		sub(entity);
 	}
 }

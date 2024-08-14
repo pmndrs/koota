@@ -188,12 +188,9 @@ describe('Component', () => {
 		const world = universe.worlds[0];
 
 		// Subscribe to changes.
-		world.subscribe(
-			(type, entity) => {
-				if (type === 'change') changes.push(entity);
-			},
-			[Position]
-		);
+		world.changed.subscribe(Position, (entity) => {
+			changes.push(entity);
+		});
 
 		expect(changes.length).toBe(0);
 
