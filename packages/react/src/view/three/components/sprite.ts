@@ -1,10 +1,3 @@
-import { Object3D } from './object-3d';
+import { define } from '@sweet-ecs/core';
 
-export class Sprite extends Object3D {
-	object: THREE.Sprite;
-
-	constructor(object: THREE.Sprite) {
-		super(object);
-		this.object = object;
-	}
-}
+export const Sprite = define<{ object: THREE.Sprite }>({ object: null! });

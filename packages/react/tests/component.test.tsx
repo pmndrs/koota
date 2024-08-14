@@ -5,6 +5,7 @@ import { Entity } from '../src/entity/entity';
 import { StrictMode } from 'react';
 import { World } from '../src/world/world';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
+import { act } from '@react-three/fiber';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -85,7 +86,9 @@ describe('Component', () => {
 		expect(ref.x).toBe(0);
 		expect(ref.y).toBe(0);
 
-		set({ x: 12, y: 14 });
+		act(() => {
+			set({ x: 12, y: 14 });
+		});
 
 		expect(ref.x).toBe(12);
 		expect(ref.y).toBe(14);
@@ -156,7 +159,36 @@ describe('Component', () => {
 		expect(world.get(Position).y[ref!]).toBe(22);
 	});
 
-	it('triggers a change when a component instance is set and attached to an entity', async () => {
+	it('can add components with params to Entity', async () => {
+		let ref: number | null = null;
+
+		await ReactThreeTestRenderer.create(
+			<StrictMode>
+				<World>
+					<Entity
+						ref={(node) => {
+							ref = node;
+						}}
+						components={[Position.with({ x: 11, y: 22 }), Name.with({ name: 'test' })]}
+					>
+						<group />
+					</Entity>
+				</World>
+			</StrictMode>
+		);
+
+		const world = universe.worlds[0];
+
+		expect(world.has(ref!, Position)).toBe(true);
+		expect(world.has(ref!, Name)).toBe(true);
+
+		expect(world.get(Position).x[ref!]).toBe(11);
+		expect(world.get(Position).y[ref!]).toBe(22);
+
+		expect(world.get(Name).name[ref!]).toBe('test');
+	});
+
+	it('triggers a change and sets the store when a component instance is set and attached to an entity', async () => {
 		let ref: number | null = null;
 		let set: any;
 		let changes: number[] = [];
@@ -186,6 +218,7 @@ describe('Component', () => {
 		);
 
 		const world = universe.worlds[0];
+		const store = world.get(Position);
 
 		// Subscribe to changes.
 		world.changed.subscribe(Position, (entity) => {
@@ -193,10 +226,16 @@ describe('Component', () => {
 		});
 
 		expect(changes.length).toBe(0);
+		expect(store.x[ref!]).toBe(0);
+		expect(store.y[ref!]).toBe(0);
 
-		set({ x: 11, y: 22 });
+		act(() => {
+			set({ x: 11, y: 22 });
+		});
 
 		expect(changes.length).toBe(1);
 		expect(changes[0]).toBe(ref!);
+		expect(store.x[ref!]).toBe(11);
+		expect(store.y[ref!]).toBe(22);
 	});
 });

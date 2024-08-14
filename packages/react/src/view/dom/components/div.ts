@@ -1,10 +1,3 @@
-import { Component } from '@sweet-ecs/core';
+import { define } from '@sweet-ecs/core';
 
-export class Div extends Component {
-	object: HTMLDivElement;
-
-	constructor(object: HTMLDivElement) {
-		super();
-		this.object = object;
-	}
-}
+export const Div = define<{ object: HTMLDivElement }>({ object: null! });

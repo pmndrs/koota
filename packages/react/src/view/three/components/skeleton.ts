@@ -1,10 +1,3 @@
-import { Component } from '@sweet-ecs/core';
+import { define } from '@sweet-ecs/core';
 
-export class Skeleton extends Component {
-	object: THREE.Skeleton;
-
-	constructor(object: THREE.Skeleton) {
-		super();
-		this.object = object;
-	}
-}
+export const Skeleton = define<{ object: THREE.Skeleton }>({ object: null! });

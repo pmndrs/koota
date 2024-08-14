@@ -5,7 +5,7 @@ export { Object3D } from './object-3d';
 export { Mesh } from './mesh';
 export { Group } from './group';
 export { Bone } from './bone';
-export { Line } from './line';
+// export { Line } from './line'; // Not supported in R3F v8
 export { LineLoop } from './line-loop';
 export { LineSegments } from './line-segments';
 export { LOD } from './lod';

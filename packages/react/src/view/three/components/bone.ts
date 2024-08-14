@@ -1,10 +1,3 @@
-import { Object3D } from './object-3d';
+import { define } from '@sweet-ecs/core';
 
-export class Bone extends Object3D {
-	object: THREE.Bone;
-
-	constructor(object: THREE.Bone) {
-		super(object);
-		this.object = object;
-	}
-}
+export const Bone = define<{ object: THREE.Bone }>({ object: null! });

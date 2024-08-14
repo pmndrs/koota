@@ -1,10 +1,3 @@
-import { Object3D } from './object-3d';
+import { define } from '@sweet-ecs/core';
 
-export class Line extends Object3D {
-	object: THREE.Line;
-
-	constructor(object: THREE.Line) {
-		super(object);
-		this.object = object;
-	}
-}
+export const Line = define<{ object: THREE.Line }>({ object: null! });

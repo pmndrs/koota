@@ -1,11 +1,13 @@
-import { SweetElement } from './sweet-element';
+import { SweetElement, SweetElementType } from './sweet-element';
 import { threeComponents } from './components/components';
+import { forwardRef } from 'react';
 
 type SweetElemnets = 'object3D' extends keyof React.JSX.IntrinsicElements
 	? {
-			[K in keyof typeof threeComponents]: (
-				props: Omit<React.ComponentProps<typeof SweetElement<K>>, 'type'>
-			) => JSX.Element;
+			[K in keyof typeof threeComponents]: React.ForwardRefRenderFunction<
+				React.ComponentRef<SweetElementType<K>>,
+				Omit<React.ComponentProps<SweetElementType<K>>, 'type'>
+			>;
 	  }
 	: Record<string, never>;
 
@@ -23,18 +25,43 @@ export const sweet = {} as SweetElemnets;
 // Makes a difference when spawning lots of entities at once.
 
 if (hasR3F) {
-	sweet.object3D = (props: any) => <SweetElement type="object3D" {...props} />;
-	sweet.skeleton = (props: any) => <SweetElement type="skeleton" {...props} />;
-	sweet.batchedMesh = (props: any) => <SweetElement type="batchedMesh" {...props} />;
-	sweet.instancedMesh = (props: any) => <SweetElement type="instancedMesh" {...props} />;
-	sweet.mesh = (props: any) => <SweetElement type="mesh" {...props} />;
-	sweet.group = (props: any) => <SweetElement type="group" {...props} />;
-	sweet.bone = (props: any) => <SweetElement type="bone" {...props} />;
-	sweet.line = (props: any) => <SweetElement type="line" {...props} />;
-	sweet.lineLoop = (props: any) => <SweetElement type="lineLoop" {...props} />;
-	sweet.lineSegments = (props: any) => <SweetElement type="lineSegments" {...props} />;
-	sweet.lOD = (props: any) => <SweetElement type="lOD" {...props} />;
-	sweet.points = (props: any) => <SweetElement type="points" {...props} />;
-	sweet.skinnedMesh = (props: any) => <SweetElement type="skinnedMesh" {...props} />;
-	sweet.sprite = (props: any) => <SweetElement type="sprite" {...props} />;
+	sweet.object3D = forwardRef((props: any, ref) => (
+		<SweetElement type="object3D" {...props} ref={ref} />
+	)) as any;
+	sweet.skeleton = forwardRef((props: any, ref) => (
+		<SweetElement type="skeleton" {...props} ref={ref} />
+	)) as any;
+	sweet.batchedMesh = forwardRef((props: any, ref) => (
+		<SweetElement type="batchedMesh" {...props} ref={ref} />
+	)) as any;
+	sweet.instancedMesh = forwardRef((props: any, ref) => (
+		<SweetElement type="instancedMesh" {...props} ref={ref} />
+	)) as any;
+	sweet.mesh = forwardRef((props: any, ref) => (
+		<SweetElement type="mesh" {...props} ref={ref} />
+	)) as any;
+	sweet.group = forwardRef((props: any, ref) => (
+		<SweetElement type="group" {...props} ref={ref} />
+	)) as any;
+	sweet.bone = forwardRef((props: any, ref) => (
+		<SweetElement type="bone" {...props} ref={ref} />
+	)) as any;
+	sweet.lineLoop = forwardRef((props: any, ref) => (
+		<SweetElement type="lineLoop" {...props} ref={ref} />
+	)) as any;
+	sweet.lineSegments = forwardRef((props: any, ref) => (
+		<SweetElement type="lineSegments" {...props} ref={ref} />
+	)) as any;
+	sweet.lOD = forwardRef((props: any, ref) => (
+		<SweetElement type="lOD" {...props} ref={ref} />
+	)) as any;
+	sweet.points = forwardRef((props: any, ref) => (
+		<SweetElement type="points" {...props} ref={ref} />
+	)) as any;
+	sweet.skinnedMesh = forwardRef((props: any, ref) => (
+		<SweetElement type="skinnedMesh" {...props} ref={ref} />
+	)) as any;
+	sweet.sprite = forwardRef((props: any, ref) => (
+		<SweetElement type="sprite" {...props} ref={ref} />
+	)) as any;
 }

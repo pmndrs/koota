@@ -1,10 +1,3 @@
-import { Mesh } from './mesh';
+import { define } from '@sweet-ecs/core';
 
-export class InstancedMesh extends Mesh {
-	object: THREE.InstancedMesh;
-
-	constructor(object: THREE.InstancedMesh) {
-		super(object);
-		this.object = object;
-	}
-}
+export const InstancedMesh = define<{ object: THREE.InstancedMesh }>({ object: null! });

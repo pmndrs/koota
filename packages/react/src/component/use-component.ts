@@ -1,5 +1,6 @@
 import { Component, ComponentInstance, Schema, SchemaFromComponent, SYMBOLS } from '@sweet-ecs/core';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useWorld } from '../world/use-world';
 
 export function useComponent<T extends Component, TSchema extends Schema = SchemaFromComponent<T>>(
 	component: T,
@@ -7,7 +8,9 @@ export function useComponent<T extends Component, TSchema extends Schema = Schem
 		| Partial<ComponentInstance<TSchema>>
 		| (() => Partial<ComponentInstance<TSchema>>) = {}
 ) {
+	const world = useWorld();
 	const [, rerender] = useState(0);
+	const store = useMemo(() => world.get(component), [world, component]);
 
 	const ref = useRef(
 		(() => {
@@ -24,18 +27,22 @@ export function useComponent<T extends Component, TSchema extends Schema = Schem
 		})()
 	);
 
-	const set = useCallback((value: Partial<ComponentInstance<TSchema>>) => {
+	const set = useCallback((value: Partial<ComponentInstance<TSchema>>, isSilent = false) => {
 		// Merge values.
 		Object.assign(ref.current, value);
 
-		// Notify changed.
+		// Set store then notify changed.
 		const c = ref.current;
-		if (c[SYMBOLS.$world] !== null && c[SYMBOLS.$entity] !== null) {
-			c[SYMBOLS.$world]!.changed(c[SYMBOLS.$entity]!, c[SYMBOLS.$component]);
+		if (c[SYMBOLS.$entity] !== null) {
+			for (const key in value) {
+				store[key][c[SYMBOLS.$entity]!] = c[key];
+			}
+
+			world.changed(c[SYMBOLS.$entity]!, c[SYMBOLS.$component]);
 		}
 
 		// Force React to rerender.
-		rerender((v) => v + 1);
+		if (!isSilent) rerender((v) => v + 1);
 	}, []);
 
 	return [ref.current, set] as const;

@@ -2,8 +2,7 @@ import { Component, World, SYMBOLS, ComponentInstance, ComponentOrWithParams } f
 import React, { forwardRef, useImperativeHandle, useInsertionEffect, useRef } from 'react';
 import { useWorld } from '../world/use-world';
 import { EntityContext } from './entity-context';
-
-type ComponentProp = Component | ComponentInstance | null | undefined;
+import { ComponentProp } from '../component/types';
 
 type Props = {
 	children?: React.ReactNode;

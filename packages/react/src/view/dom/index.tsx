@@ -1,11 +1,13 @@
+import { forwardRef } from 'react';
 import { domComponents } from './components/components';
-import { SweetElement } from './sweet-element';
+import { SweetElement, SweetElementType } from './sweet-element';
 
 type SweetElemnets = 'div' extends keyof React.JSX.IntrinsicElements
 	? {
-			[K in keyof typeof domComponents]: (
-				props: Omit<React.ComponentProps<typeof SweetElement<K>>, 'type'>
-			) => JSX.Element;
+			[K in keyof typeof domComponents]: React.ForwardRefRenderFunction<
+				React.ComponentRef<SweetElementType<K>>,
+				Omit<React.ComponentProps<SweetElementType<K>>, 'type'>
+			>;
 	  }
 	: Record<string, never>;
 
@@ -23,5 +25,7 @@ export const sweet = {} as SweetElemnets;
 // Makes a difference when spawning lots of entities at once.
 
 if (hasReactDom) {
-	sweet.div = (props: any) => <SweetElement type="div" {...props} />;
+	sweet.div = forwardRef((props: any, ref) => (
+		<SweetElement type="div" {...props} ref={ref} />
+	)) as any;
 }

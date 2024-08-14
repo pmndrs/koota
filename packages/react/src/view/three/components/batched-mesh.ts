@@ -1,10 +1,3 @@
-import { Mesh } from './mesh';
+import { define } from '@sweet-ecs/core';
 
-export class BatchedMesh extends Mesh {
-	object: THREE.BatchedMesh;
-
-	constructor(object: THREE.BatchedMesh) {
-		super(object);
-		this.object = object;
-	}
-}
+export const BatchedMesh = define<{ object: THREE.BatchedMesh }>({ object: null! });
