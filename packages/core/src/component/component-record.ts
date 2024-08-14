@@ -16,6 +16,7 @@ export class ComponentRecord<
 	queries: Set<Query>;
 	notQueries: Set<Query>;
 	schema: S;
+	changedSubscriptions: Set<(entity: number) => void>;
 
 	constructor(world: World, component: C) {
 		this.id = world[$componentCount]++;
@@ -26,5 +27,6 @@ export class ComponentRecord<
 		this.queries = new Set();
 		this.notQueries = new Set();
 		this.schema = component.schema;
+		this.changedSubscriptions = new Set();
 	}
 }

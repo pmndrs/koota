@@ -510,7 +510,7 @@ describe('Query', () => {
 		// Static query subscriptions.
 		const entity = world.create();
 
-		world.subscribe(staticCb, [Position, Foo]);
+		world.query.subscribe([Position, Foo], staticCb);
 
 		world.add(entity, Position);
 		expect(staticCb).toHaveBeenCalledTimes(0);
@@ -531,7 +531,7 @@ describe('Query', () => {
 		const trackingCb = vi.fn();
 		const Added = createAdded();
 
-		world.subscribe(trackingCb, [Added(Foo)]);
+		world.query.subscribe([Added(Foo)], trackingCb);
 
 		world.add(entity, Foo);
 		expect(trackingCb).toHaveBeenCalledTimes(1);
@@ -545,7 +545,7 @@ describe('Query', () => {
 		const Removed = createRemoved();
 		const removedCb = vi.fn();
 
-		world.subscribe(removedCb, [Removed(Foo)]);
+		world.query.subscribe([Removed(Foo)], removedCb);
 
 		world.add(entity, Foo);
 		expect(removedCb).toHaveBeenCalledTimes(0);
@@ -557,5 +557,34 @@ describe('Query', () => {
 		world.add(entity, Foo);
 		expect(removedCb).toHaveBeenCalledTimes(2);
 		expect(removedCb).toHaveBeenCalledWith('remove', entity);
+	});
+
+	it('can subscribe to changes on a specific component', () => {
+		const entity = world.create(Position);
+
+		const cb = vi.fn();
+		const unsub = world.changed.subscribe(Position, cb);
+
+		const positions = world.get(Position);
+		positions.x[entity] = 10;
+		positions.y[entity] = 20;
+
+		world.changed(entity, Position);
+
+		expect(cb).toHaveBeenCalledTimes(1);
+		expect(cb).toHaveBeenCalledWith(entity);
+
+		unsub();
+
+		positions.x[entity] = 30;
+		positions.y[entity] = 40;
+
+		world.changed(entity, Position);
+
+		expect(cb).toHaveBeenCalledTimes(1);
+
+		world.changed(entity, Name);
+
+		expect(cb).toHaveBeenCalledTimes(1);
 	});
 });
