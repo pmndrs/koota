@@ -1,10 +1,3 @@
-import { Line } from './line';
+import { define } from '@sweet-ecs/core';
 
-export class LineLoop extends Line {
-	object: THREE.LineLoop;
-
-	constructor(object: THREE.LineLoop) {
-		super(object);
-		this.object = object;
-	}
-}
+export const LineLoop = define<{ object: THREE.LineLoop }>({ object: null! });

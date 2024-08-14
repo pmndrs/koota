@@ -1,10 +1,3 @@
-import { Object3D } from './object-3d';
+import { define } from '@sweet-ecs/core';
 
-export class Group extends Object3D {
-	object: THREE.Group;
-
-	constructor(object: THREE.Group) {
-		super(object);
-		this.object = object;
-	}
-}
+export const Group = define<{ object: THREE.Group }>({ object: null! });

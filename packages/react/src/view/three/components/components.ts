@@ -1,9 +1,9 @@
 import * as compnonents from './index';
 
-export const threeComponents = {} as Record<
-	Uncapitalize<keyof typeof compnonents>,
-	typeof compnonents.Object3D | typeof compnonents.Skeleton
->;
+// Union of all components
+type Components = (typeof compnonents)[keyof typeof compnonents];
+
+export const threeComponents = {} as Record<Uncapitalize<keyof typeof compnonents>, Components>;
 
 for (const key in compnonents) {
 	threeComponents[(key[0].toLowerCase() + key.slice(1)) as Uncapitalize<keyof typeof compnonents>] =

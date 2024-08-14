@@ -1,10 +1,3 @@
-import { Object3D } from './object-3d';
+import { define } from '@sweet-ecs/core';
 
-export class Points extends Object3D {
-	object: THREE.Points;
-
-	constructor(object: THREE.Points) {
-		super(object);
-		this.object = object;
-	}
-}
+export const Points = define<{ object: THREE.Points }>({ object: null! });

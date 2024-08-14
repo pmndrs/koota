@@ -1,10 +1,3 @@
-import { Mesh } from './mesh';
+import { define } from '@sweet-ecs/core';
 
-export class SkinnedMesh extends Mesh {
-	object: THREE.SkinnedMesh;
-
-	constructor(object: THREE.SkinnedMesh) {
-		super(object);
-		this.object = object;
-	}
-}
+export const SkinnedMesh = define<{ object: THREE.SkinnedMesh }>({ object: null! });

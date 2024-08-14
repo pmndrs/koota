@@ -1,17 +1,34 @@
-import { ThreeElements } from '@react-three/fiber';
-import { Component as ComponentCore } from '@sweet-ecs/core';
-import { useMemo } from 'react';
+import { Object3DNode, ThreeElements } from '@react-three/fiber';
+import React, { forwardRef } from 'react';
+import { ComponentProp } from '../../component/types';
+import { useComponent } from '../../component/use-component';
 import { Entity } from '../../entity/entity';
 import { threeComponents } from './components/components';
+import * as THREE from 'three';
 
-export function SweetElement<T extends keyof typeof threeComponents>({
-	type,
-	components = [],
-	ref,
-	...props
-}: { components?: (typeof ComponentCore | ComponentCore)[]; type: T } & ThreeElements[T]) {
+type ThreeKeys = keyof typeof threeComponents;
+
+type PatchedElements = ThreeElements extends { ['batchedMesh']: any }
+	? ThreeElements
+	: ThreeElements & { ['batchedMesh']: Object3DNode<THREE.BatchedMesh, typeof THREE.BatchedMesh> };
+
+export type SweetElementType<T extends ThreeKeys> = React.ForwardRefRenderFunction<
+	PatchedElements[T],
+	{ components?: ComponentProp[]; type: T } & Omit<PatchedElements[T], 'ref'> & {
+			ref?: React.Ref<PatchedElements[T]>;
+		}
+>;
+
+export const SweetElement = forwardRef(function SweetElement<T extends ThreeKeys>(
+	{
+		type,
+		components = [],
+		...props
+	}: { components?: ComponentProp[]; type: T } & PatchedElements[T],
+	ref: React.Ref<PatchedElements[T]>
+) {
 	const View = threeComponents[type];
-	const view = useMemo(() => new View(null!), []);
+	const [view, setView] = useComponent(View);
 	const Type = type as unknown as React.FunctionComponent;
 
 	return (
@@ -22,10 +39,10 @@ export function SweetElement<T extends keyof typeof threeComponents>({
 					if (ref && typeof ref === 'function') ref(instance);
 					// @ts-expect-error - more ref type issues ???
 					else if (ref && 'current' in ref) ref.current = instance;
-					if (instance) view.object = instance;
+					if (instance) !view.object && setView({ object: instance } as any, true);
 				}}
 				{...props}
 			/>
 		</Entity>
 	);
-}
+}) as SweetElementType<ThreeKeys>;

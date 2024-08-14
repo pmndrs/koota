@@ -1,10 +1,3 @@
-import { Line } from './line';
+import { define } from '@sweet-ecs/core';
 
-export class LineSegments extends Line {
-	object: THREE.LineSegments;
-
-	constructor(object: THREE.LineSegments) {
-		super(object);
-		this.object = object;
-	}
-}
+export const LineSegments = define<{ object: THREE.LineSegments }>({ object: null! });
