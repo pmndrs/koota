@@ -103,6 +103,7 @@ function CentralMass() {
 		<Entity components={[IsCentralMass, position, velocity, mass, circle, Acceleration, Color]} />
 	);
 }
+
 // Simulation runs a schedule.
 function Simulation() {
 	const world = useWorld();
