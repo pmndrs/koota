@@ -103,3 +103,7 @@ const createEmitter = (spawner: Spawner) => {
 		return entities;
 	};
 };
+
+export function createSpawner(component: React.FunctionComponent<any>) {
+	return new Spawner(component);
+}
