@@ -1,4 +1,4 @@
-import { Component, World, SYMBOLS, ComponentInstance, ComponentOrWithParams } from '@sweet-ecs/core';
+import { SYMBOLS } from '@sweet-ecs/core';
 import React, { forwardRef, useImperativeHandle, useInsertionEffect, useRef } from 'react';
 import { useWorld } from '../world/use-world';
 import { EntityContext } from './entity-context';
@@ -55,11 +55,11 @@ function consumeRef<T>(ref: React.Ref<T>, node: T | null) {
 	return (ref.current = node);
 }
 
-function createEntity(world: World, ...components: ComponentProp[]) {
-	const instances: ComponentInstance[] = [];
+function createEntity(world: Sweet.World, ...components: ComponentProp[]) {
+	const instances: Sweet.ComponentInstance[] = [];
 
 	// Use a Map to track components, allowing to overwrite them if necessary.
-	const componentMap = new Map<Component, ComponentOrWithParams>();
+	const componentMap = new Map<Sweet.Component, Sweet.ComponentOrWithParams>();
 
 	components.forEach((c) => {
 		if (c === null || c === undefined) {
@@ -92,10 +92,14 @@ function createEntity(world: World, ...components: ComponentProp[]) {
 	return entity;
 }
 
-function isComponentInstance(c: ComponentOrWithParams | ComponentInstance): c is ComponentInstance {
+function isComponentInstance(
+	c: Sweet.ComponentOrWithParams | Sweet.ComponentInstance
+): c is Sweet.ComponentInstance {
 	return (c as any)[SYMBOLS.$component] !== undefined;
 }
 
-function isComponentWithParams(c: ComponentOrWithParams): c is [Component, Record<string, any>] {
+function isComponentWithParams(
+	c: Sweet.ComponentOrWithParams
+): c is [Sweet.Component, Record<string, any>] {
 	return Array.isArray(c);
 }

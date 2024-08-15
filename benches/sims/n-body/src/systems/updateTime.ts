@@ -1,7 +1,6 @@
-import { World } from '@sweet-ecs/core';
 import { Time } from '../components/Time';
 
-export const updateTime = ({ world }: { world: World }) => {
+export const updateTime = ({ world }: { world: Sweet.World }) => {
 	const time = world.resources.get(Time);
 
 	if (time.then === 0) time.then = performance.now();

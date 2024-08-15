@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { createWorld } from '../src';
 import { define, registerComponent } from '../src/component/component';
-import { World } from '../src/world/world';
 import { $bitflag, $componentRecords } from '../src/world/symbols';
 
 class TestClass {
@@ -17,7 +17,7 @@ const Test = define({
 });
 
 describe('Component', () => {
-	const world = new World();
+	const world = createWorld();
 	world.init();
 
 	beforeEach(() => {

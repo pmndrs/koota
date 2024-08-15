@@ -1,12 +1,15 @@
-import { Component, ComponentInstance, Schema, SchemaFromComponent, SYMBOLS } from '@sweet-ecs/core';
+import { SYMBOLS } from '@sweet-ecs/core';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
-export function useComponent<T extends Component, TSchema extends Schema = SchemaFromComponent<T>>(
+export function useComponent<
+	T extends Sweet.Component,
+	TSchema extends Sweet.Schema = Sweet.SchemaFromComponent<T>
+>(
 	component: T,
 	initialValue:
-		| Partial<ComponentInstance<TSchema>>
-		| (() => Partial<ComponentInstance<TSchema>>) = {}
+		| Partial<Sweet.ComponentInstance<TSchema>>
+		| (() => Partial<Sweet.ComponentInstance<TSchema>>) = {}
 ) {
 	const world = useWorld();
 	const [, rerender] = useState(0);
@@ -14,7 +17,7 @@ export function useComponent<T extends Component, TSchema extends Schema = Schem
 
 	const ref = useRef(
 		(() => {
-			const instance = component[SYMBOLS.$createInstance]() as ComponentInstance<TSchema>;
+			const instance = component[SYMBOLS.$createInstance]() as Sweet.ComponentInstance<TSchema>;
 
 			// Initialize the component with the initial state.
 			if (typeof initialValue === 'function') {
@@ -27,7 +30,7 @@ export function useComponent<T extends Component, TSchema extends Schema = Schem
 		})()
 	);
 
-	const set = useCallback((value: Partial<ComponentInstance<TSchema>>, isSilent = false) => {
+	const set = useCallback((value: Partial<Sweet.ComponentInstance<TSchema>>, isSilent = false) => {
 		// Merge values.
 		Object.assign(ref.current, value);
 

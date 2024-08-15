@@ -1,21 +1,20 @@
 import { Circle, Color, Position } from '@sim/n-body';
-import { World } from '@sweet-ecs/core';
-import * as Sweet from '@sweet-ecs/react';
 import * as THREE from 'three';
+import { InstancedMesh } from '@sweet-ecs/react';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
 
 const dummy = new THREE.Object3D();
 const dummyColor = new THREE.Color();
 
-export const syncThreeObjects = ({ world }: { world: World }) => {
+export const syncThreeObjects = ({ world }: { world: Sweet.World }) => {
 	const ents = world.query(Position, Circle, Color);
-	const instanceEnt = world.query(Sweet.InstancedMesh)[0];
+	const instanceEnt = world.query(InstancedMesh)[0];
 	const [position, circle, color] = world.get(Position, Circle, Color);
 
 	if (instanceEnt === undefined) return;
 
-	const instancedMesh = world.get(Sweet.InstancedMesh).object[instanceEnt];
+	const instancedMesh = world.get(InstancedMesh).object[instanceEnt];
 
 	for (let i = 0; i < ents.length; i++) {
 		const e = ents[i];

@@ -1,9 +1,8 @@
 import { Velocity } from '../components/Velocity';
 import { Color } from '../components/Color';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
-import { World } from '@sweet-ecs/core';
 
-export const updateColor = ({ world }: { world: World }) => {
+export const updateColor = ({ world }: { world: Sweet.World }) => {
 	const ents = world.query(Velocity, Color);
 	const [velocity, color] = world.get(Velocity, Color);
 

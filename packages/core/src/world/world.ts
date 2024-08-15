@@ -34,6 +34,11 @@ import {
 } from './symbols';
 import { Resources } from './utils/resource';
 
+type Options = {
+	resources?: Component | Component[];
+	init?: boolean;
+};
+
 export class World {
 	[$entityMasks]: number[][] = [new Array()];
 	[$entityComponents] = new Map();
@@ -66,7 +71,7 @@ export class World {
 	components = new Set<Component>();
 	resources = new Resources();
 
-	constructor(options: { resources?: Component | Component[]; init?: boolean } = {}) {
+	constructor(options: Options = {}) {
 		if (options.resources) {
 			const resources = Array.isArray(options.resources)
 				? options.resources
@@ -223,4 +228,8 @@ export class World {
 			}.bind(this),
 		}
 	);
+}
+
+export function createWorld(options?: Options) {
+	return new World(options);
 }

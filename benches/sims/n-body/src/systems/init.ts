@@ -1,10 +1,9 @@
-import { World } from '@sweet-ecs/core';
 import { Acceleration, Circle, Color, IsCentralMass, Mass, Position, Velocity } from '../components';
 import { CONSTANTS } from '../constants';
 
 let inited = false;
 
-export const init = ({ world }: { world: World }) => {
+export const init = ({ world }: { world: Sweet.World }) => {
 	if (inited) return;
 
 	for (let i = 0; i < CONSTANTS.NBODIES; i++) {

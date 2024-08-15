@@ -1,3 +1,1 @@
-import { ComponentInstance, ComponentOrWithParams } from '@sweet-ecs/core';
-
-export type ComponentProp = ComponentOrWithParams | ComponentInstance | null | undefined;
+export type ComponentProp = Sweet.ComponentOrWithParams | Sweet.ComponentInstance | null | undefined;

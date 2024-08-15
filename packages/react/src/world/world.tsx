@@ -1,4 +1,4 @@
-import { Component, World as WorldCore } from '@sweet-ecs/core';
+import { createWorld } from '@sweet-ecs/core';
 import {
 	forwardRef,
 	useEffect,
@@ -12,16 +12,16 @@ import { WorldContext } from './world-context';
 type Props = {
 	size?: number;
 	children?: React.ReactNode;
-	resources?: Component[];
-	world?: WorldCore;
+	resources?: Sweet.Component[];
+	world?: Sweet.World;
 };
 
-export const World = forwardRef<WorldCore, Props>(function World(
+export const World = forwardRef<Sweet.World, Props>(function World(
 	{ children, resources = [], world: src },
 	ref
 ): React.ReactElement<any, any> {
 	const memoizedResources = useRef(resources);
-	const world = useMemo(() => src ?? new WorldCore({ init: false }), [src]);
+	const world = useMemo(() => src ?? createWorld({ init: false }), [src]);
 	useImperativeHandle(ref, () => world);
 	const hasSrc = src !== undefined;
 

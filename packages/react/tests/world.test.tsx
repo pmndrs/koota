@@ -1,5 +1,5 @@
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { define, universe, World as WorldCore } from '@sweet-ecs/core';
+import { createWorld, define, universe } from '@sweet-ecs/core';
 import { StrictMode, Suspense, useLayoutEffect } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useWorld } from '../src/world/use-world';
@@ -18,7 +18,7 @@ describe('World', () => {
 	});
 
 	it('creates World on mount', async () => {
-		let ref: WorldCore | null = null;
+		let ref: Sweet.World | null = null;
 
 		const renderer = await ReactThreeTestRenderer.create(
 			<StrictMode>
@@ -35,13 +35,13 @@ describe('World', () => {
 		// Should mount children.
 		expect((renderer.scene.children[0].instance as any).isGroup).toBe(true);
 		// Ref should fill with World instance on mount.
-		expect(ref).toBeInstanceOf(WorldCore);
+		expect(ref!.entities).toBeDefined();
 		expect(ref!.isInitialized).toBe(true);
 		expect(universe.worlds.length).toBe(1);
 	});
 
 	it('should add resources', async () => {
-		let ref: WorldCore | null = null;
+		let ref: Sweet.World | null = null;
 
 		const Time = define({ then: 0, delta: 0 });
 
@@ -139,7 +139,7 @@ describe('World', () => {
 	});
 
 	it('can get world using useWorld hook', async () => {
-		let ref: WorldCore | null = null;
+		let ref: Sweet.World | null = null;
 
 		function Test() {
 			const world = useWorld();
@@ -156,13 +156,13 @@ describe('World', () => {
 			</StrictMode>
 		);
 
-		expect(ref).toBeInstanceOf(WorldCore);
+		expect(ref!.isInitialized).toBe(true);
 	});
 
 	it('can take an already defined world as a prop', async () => {
-		const world = new WorldCore();
+		const world = createWorld();
 
-		let ref: WorldCore | null = null;
+		let ref: Sweet.World | null = null;
 
 		const renderer = await ReactThreeTestRenderer.create(
 			<StrictMode>
