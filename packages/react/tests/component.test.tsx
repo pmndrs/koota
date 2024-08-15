@@ -188,6 +188,50 @@ describe('Component', () => {
 		expect(world.get(Name).name[ref!]).toBe('test');
 	});
 
+	it('overwrites components of the same kind if they come last', async () => {
+		let ref: number | null = null;
+
+		function Test() {
+			const [position] = useComponent(Position, { x: 11, y: 22 });
+			const [name] = useComponent(Name, { name: 'test' });
+
+			return (
+				<Entity
+					ref={(node) => {
+						ref = node;
+					}}
+					components={[
+						position,
+						name,
+						Position.with({ x: 33, y: 44 }),
+						Name.with({ name: 'test2' }),
+					]}
+				>
+					<group />
+				</Entity>
+			);
+		}
+
+		await ReactThreeTestRenderer.create(
+			<StrictMode>
+				<World>
+					<Test />
+				</World>
+			</StrictMode>
+		);
+
+		const world = universe.worlds[0];
+		const [position, name] = world.get(Position, Name);
+
+		expect(world.has(ref!, Position)).toBe(true);
+		expect(world.has(ref!, Name)).toBe(true);
+
+		expect(position.x[ref!]).toBe(33);
+		expect(position.y[ref!]).toBe(44);
+
+		expect(name.name[ref!]).toBe('test2');
+	});
+
 	it('triggers a change and sets the store when a component instance is set and attached to an entity', async () => {
 		let ref: number | null = null;
 		let set: any;

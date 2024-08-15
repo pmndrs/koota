@@ -58,17 +58,30 @@ function consumeRef<T>(ref: React.Ref<T>, node: T | null) {
 function createEntity(world: World, ...components: ComponentProp[]) {
 	const instances: ComponentInstance[] = [];
 
-	const filteredComponents = components.filter((c) => c !== null && c !== undefined) as Component[];
-	const allThoseCompies = filteredComponents.map((c) => {
+	// Use a Map to track components, allowing to overwrite them if necessary.
+	const componentMap = new Map<Component, ComponentOrWithParams>();
+
+	components.forEach((c) => {
+		if (c === null || c === undefined) {
+			// Skip null or undefined components
+			return;
+		}
+
 		if (isComponentInstance(c)) {
 			instances.push(c);
-			return c[SYMBOLS.$component].with(c);
+			// If it's an instance, store the "with" version in the map, overwriting if necessary
+			componentMap.set(c[SYMBOLS.$component], c[SYMBOLS.$component].with(c));
+		} else if (isComponentWithParams(c)) {
+			// If it is a component with params stor it, overwriting if necessary
+			componentMap.set(c[0], c);
 		} else {
-			return c;
+			// Store the component directly, overwriting if necessary
+			componentMap.set(c, c);
 		}
-	}) as ComponentOrWithParams[];
+	});
 
-	const entity = world.create(...allThoseCompies);
+	// Create the entity with the components from the map
+	const entity = world.create(...Array.from(componentMap.values()));
 
 	// Add metadata to the instances.
 	instances.forEach((instance) => {
@@ -79,6 +92,10 @@ function createEntity(world: World, ...components: ComponentProp[]) {
 	return entity;
 }
 
-function isComponentInstance(c: Component | ComponentInstance): c is ComponentInstance {
+function isComponentInstance(c: ComponentOrWithParams | ComponentInstance): c is ComponentInstance {
 	return (c as any)[SYMBOLS.$component] !== undefined;
+}
+
+function isComponentWithParams(c: ComponentOrWithParams): c is [Component, Record<string, any>] {
+	return Array.isArray(c);
 }
