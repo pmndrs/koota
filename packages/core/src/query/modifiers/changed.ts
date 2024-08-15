@@ -25,6 +25,10 @@ export function setChanged(world: World, entity: number, component: Component) {
 	}
 
 	for (const changedMask of world[$changedMasks].values()) {
+		if (!changedMask[entity]) {
+			changedMask[entity] = new Array();
+		}
+
 		changedMask[entity][record.id] = 1;
 	}
 
