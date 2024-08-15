@@ -99,9 +99,7 @@ function CentralMass() {
 	const [mass] = useComponent(Mass, { value: CONSTANTS.CENTRAL_MASS });
 	const [circle] = useComponent(Circle, { radius: CONSTANTS.MAX_RADIUS / 1.5 });
 
-	return (
-		<Entity components={[IsCentralMass, position, velocity, mass, circle, Acceleration, Color]} />
-	);
+	return <Body components={[IsCentralMass, position, velocity, mass, circle]} />;
 }
 
 // Simulation runs a schedule.
