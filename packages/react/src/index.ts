@@ -5,6 +5,7 @@ export { Entity } from './entity/entity';
 export { useEntity } from './entity/use-entity';
 export { useComponent } from './component/use-component';
 export { type ComponentProp } from './component/types';
+export { useQuery } from './query/use-query';
 
 // Views
 import { sweet as sweetThree } from './view/three/index';
