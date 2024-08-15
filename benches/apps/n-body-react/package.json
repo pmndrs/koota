@@ -16,6 +16,7 @@
 		"@sweet-ecs/core": "workspace:*",
 		"@sweet-ecs/react": "workspace:*",
 		"directed": "github:pmndrs/directed#v0.0.1-alpha.5",
+		"extras": "workspace:*",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"three": "^0.162.0"
