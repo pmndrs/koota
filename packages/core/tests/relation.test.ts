@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { relation } from '../src/relation/relation';
-import { World } from '../src/world/world';
+import { createWorld } from '../src';
 
 describe('Relation', () => {
-	const world = new World();
+	const world = createWorld();
 	world.init();
 
 	beforeEach(() => {

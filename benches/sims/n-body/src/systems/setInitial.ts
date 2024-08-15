@@ -1,12 +1,12 @@
 import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../components';
 import { CONSTANTS } from '../constants';
 import { randInRange } from '../utils/randInRange';
-import { createAdded, World } from '@sweet-ecs/core';
+import { createAdded } from '@sweet-ecs/core';
 
 export const body = [Position, Velocity, Mass, Circle, Acceleration] as const;
 const Added = createAdded();
 
-export const setInitial = ({ world }: { world: World }) => {
+export const setInitial = ({ world }: { world: Sweet.World }) => {
 	const ents = world.query(Added(...body));
 	const centralMassEnts = world.query(Added(...body, IsCentralMass));
 	const [position, velocity, mass, circle] = world.get(...body);

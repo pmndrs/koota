@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { World } from '../src/world/world';
-import { $entityCursor, $entitySparseSet, $recyclingBin, $removed } from '../src/world/symbols';
+import { createWorld } from '../src';
 import { define } from '../src/component/component';
+import { $entityCursor, $entitySparseSet, $recyclingBin, $removed } from '../src/world/symbols';
 
 const Foo = define();
 const Bar = define();
 
 describe('Entity', () => {
-	const world = new World();
+	const world = createWorld();
 	world.init();
 
 	beforeEach(() => {

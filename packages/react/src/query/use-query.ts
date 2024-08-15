@@ -1,8 +1,7 @@
-import { QueryParameter } from '@sweet-ecs/core/src/query/types';
 import { useEffect, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
-export function useQuery(...parameters: QueryParameter[]) {
+export function useQuery(...parameters: Sweet.QueryParameter[]) {
 	const world = useWorld();
 	const [entities, setEntities] = useState<number[]>([]);
 

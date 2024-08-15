@@ -4,10 +4,9 @@ import { updateGravity } from './updateGravity';
 import { moveBodies } from './moveBodies';
 import { updateColor } from './updateColor';
 import { updateTime } from './updateTime';
-import { World } from '@sweet-ecs/core';
 import { init } from './init';
 
-export const schedule = new Schedule<{ world: World }>();
+export const schedule = new Schedule<{ world: Sweet.World }>();
 
 schedule.createTag('init');
 schedule.createTag('update', { after: 'init' });

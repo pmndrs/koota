@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { universe } from '../src/universe/universe';
-import { World } from '../src/world/world';
 import { define } from '../src/component/component';
+import { createWorld } from '../src';
 
 describe('World', () => {
 	beforeEach(() => {
@@ -9,7 +9,7 @@ describe('World', () => {
 	});
 
 	it('should create a world', () => {
-		const world = new World();
+		const world = createWorld();
 
 		// World inits on creation.
 
@@ -18,7 +18,7 @@ describe('World', () => {
 	});
 
 	it('can create a world without initing', () => {
-		const world = new World({ init: false });
+		const world = createWorld({ init: false });
 
 		expect(world.isInitialized).toBe(false);
 		expect(universe.worlds.length).toBe(0);
@@ -30,17 +30,14 @@ describe('World', () => {
 	});
 
 	it('should reset the world', () => {
-		const world = new World();
-
-		world.init();
+		const world = createWorld();
 		world.reset();
 
 		expect(world.entities.length).toBe(0);
 	});
 
 	it('should add, remove and get resources', () => {
-		const world = new World();
-		world.init();
+		const world = createWorld();
 
 		const Time = define({ then: 0, delta: 0 });
 

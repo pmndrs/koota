@@ -1,9 +1,8 @@
-import { World } from '@sweet-ecs/core';
 import { Time } from '../components/Time';
 import { CONSTANTS } from '../constants';
 import { body } from './setInitial';
 
-export const updateGravity = ({ world }: { world: World }) => {
+export const updateGravity = ({ world }: { world: Sweet.World }) => {
 	const ents = world.query(...body);
 	const { delta } = world.resources.get(Time)!;
 	const [position, velocity, mass, _, acceleration] = world.get(...body);

@@ -1,10 +1,9 @@
 import { CONSTANTS } from '../constants';
 import { Velocity } from '../components/Velocity';
 import { Position } from '../components/Position';
-import { World } from '@sweet-ecs/core';
 import { Time } from '../components/Time';
 
-export const moveBodies = ({ world }: { world: World }) => {
+export const moveBodies = ({ world }: { world: Sweet.World }) => {
 	const ents = world.query(Position, Velocity);
 	const { delta } = world.resources.get(Time);
 	const [position, velocity] = world.get(Position, Velocity);
