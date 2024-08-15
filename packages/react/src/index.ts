@@ -4,6 +4,7 @@ export { WorldContext } from './world/world-context';
 export { Entity } from './entity/entity';
 export { useEntity } from './entity/use-entity';
 export { useComponent } from './component/use-component';
+export { type ComponentProp } from './component/types';
 
 // Views
 import { sweet as sweetThree } from './view/three/index';

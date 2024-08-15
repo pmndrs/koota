@@ -39,7 +39,7 @@ export const SweetElement = forwardRef(function SweetElement<T extends ThreeKeys
 					if (ref && typeof ref === 'function') ref(instance);
 					// @ts-expect-error - more ref type issues ???
 					else if (ref && 'current' in ref) ref.current = instance;
-					if (instance) !view.object && setView({ object: instance } as any, true);
+					if (instance) setView({ object: instance } as any, true);
 				}}
 				{...props}
 			/>
