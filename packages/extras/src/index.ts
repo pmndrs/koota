@@ -1,1 +1,1 @@
-export { Spawner } from './spawner/spawner';
+export { createSpawner, type Spawner } from './spawner/spawner';
