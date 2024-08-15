@@ -158,6 +158,49 @@ importers:
         specifier: ^1.4.0
         version: 1.6.0(@types/node@22.3.0)(jsdom@24.1.1)
 
+  packages/extras:
+    dependencies:
+      '@react-three/fiber':
+        specifier: ^8.17.5
+        version: 8.17.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
+      '@sweet-ecs/core':
+        specifier: workspace:*
+        version: link:../core
+      three:
+        specifier: '>=0.159'
+        version: 0.162.0
+    devDependencies:
+      '@react-three/test-renderer':
+        specifier: ^8.2.1
+        version: 8.2.1(@react-three/fiber@8.17.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(react@18.3.1)(three@0.162.0)
+      '@testing-library/react':
+        specifier: ^16.0.0
+        version: 16.0.0(@testing-library/dom@10.4.0)(@types/react-dom@18.3.0)(@types/react@18.3.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.3
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.0
+      '@types/three':
+        specifier: ^0.162.0
+        version: 0.162.0
+      jsdom:
+        specifier: ^24.1.1
+        version: 24.1.1
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      vitest:
+        specifier: ^1.4.0
+        version: 1.6.0(@types/node@22.3.0)(jsdom@24.1.1)
+
   packages/react:
     dependencies:
       '@react-three/fiber':
