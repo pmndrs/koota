@@ -15,7 +15,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
 	const instanceEnt = world.query(InstancedMesh)[0];
 	if (instanceEnt === undefined) return;
 
-	const instancedMesh = world.get(InstancedMesh).value[instanceEnt];
+	const instancedMesh = world.get(InstancedMesh).object[instanceEnt];
 
 	for (let i = 0; i < ents.length; i++) {
 		const e = ents[i];

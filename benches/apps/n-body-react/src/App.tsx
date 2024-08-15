@@ -1,12 +1,11 @@
-import { Canvas } from '@react-three/fiber';
-import { schedule } from '@sim/n-body';
-import { Entity, useComponent, useEntity, useWorld, World } from '@sweet-ecs/react';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { CONSTANTS, schedule, world } from '@sim/n-body';
+import { ComponentProp, sweet, useWorld, World } from '@sweet-ecs/react';
 import { useSchedule } from 'directed/react';
-import { StrictMode, useLayoutEffect } from 'react';
+import { StrictMode, useMemo } from 'react';
+import * as THREE from 'three';
 import { syncThreeObjects } from './systems/syncThreeObjects';
-import { define } from '@sweet-ecs/core';
-
-const Position = define({ x: 0, y: 0 });
+import { useStats } from './use-stats';
 
 export function App() {
 	const frustumSize = 7000;
@@ -16,73 +15,47 @@ export function App() {
 	useSchedule(schedule, syncThreeObjects, { after: 'update' });
 
 	return (
-		<Canvas
-			orthographic
-			camera={{
-				left: (-frustumSize * aspect) / 2,
-				right: (frustumSize * aspect) / 2,
-				top: frustumSize / 2,
-				bottom: -frustumSize / 2,
-				near: 0.1,
-				far: 500,
-				position: [0, 0, 100],
-			}}
-		>
-			<StrictMode>
-				<World>
-					<Body />
-				</World>
-			</StrictMode>
-		</Canvas>
+		<World world={world}>
+			<Canvas
+				orthographic
+				camera={{
+					left: (-frustumSize * aspect) / 2,
+					right: (frustumSize * aspect) / 2,
+					top: frustumSize / 2,
+					bottom: -frustumSize / 2,
+					near: 0.1,
+					far: 500,
+					position: [0, 0, 100],
+				}}
+			>
+				<StrictMode>
+					<Bodies />
+					<Simulation />
+				</StrictMode>
+			</Canvas>
+		</World>
 	);
 }
 
-function Body() {
+// View is added automatically.
+function Bodies({ components = [] }: { components?: ComponentProp[] }) {
+	const geo = useMemo(() => new THREE.CircleGeometry(CONSTANTS.MAX_RADIUS / 1.5, 12), []);
+	const mat = useMemo(() => new THREE.MeshBasicMaterial(), []);
+
+	return <sweet.instancedMesh args={[geo, mat, CONSTANTS.NBODIES]} components={components} />;
+}
+
+// Simulation runs a schedule.
+function Simulation() {
 	const world = useWorld();
-	const [position] = useComponent(Position);
+	const statsApi = useStats({ Bodies: () => CONSTANTS.NBODIES });
 
-	return (
-		<Entity
-			ref={(node) => {
-				console.log(node, world.entities.length);
-			}}
-			components={[position]}
-		>
-			<Test />
-		</Entity>
-	);
+	useFrame(() => {
+		statsApi.measure(() => {
+			schedule.run({ world });
+		});
+		statsApi.updateStats();
+	});
+
+	return null;
 }
-
-function Test() {
-	const entity = useEntity();
-
-	useLayoutEffect(() => {
-		console.log('entity', entity.current);
-	}, [entity]);
-
-	return <mesh />;
-}
-
-// let isResolved = false;
-// const promise = new Promise((resolve) => {
-// 	setTimeout(() => {
-// 		isResolved = true;
-// 		resolve(null);
-// 	}, 1000);
-// });
-
-// function SuspendingComponent() {
-// 	if (!isResolved) throw promise;
-
-// 	const world = useWorld();
-// 	console.log(world.isInitialized);
-// 	console.log(universe.worlds.length);
-
-// 	useLayoutEffect(() => {
-// 		console.log('SC');
-// 		console.log(world.isInitialized);
-// 		console.log(universe.worlds.length);
-// 	}, []);
-
-// 	return null;
-// }

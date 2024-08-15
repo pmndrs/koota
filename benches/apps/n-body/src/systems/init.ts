@@ -19,7 +19,7 @@ export function init({ world }: { world: World }) {
 	const instancedMesh = new THREE.InstancedMesh(geometry, material, CONSTANTS.NBODIES);
 
 	scene.add(instancedMesh);
-	world.add(entity, InstancedMesh.with({ value: instancedMesh }));
+	world.add(entity, InstancedMesh.with({ object: instancedMesh }));
 
 	// Compile Three shaders.
 	renderer.compile(scene, camera);

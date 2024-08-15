@@ -4,6 +4,7 @@ export { createAdded } from './query/modifiers/added';
 export { createRemoved } from './query/modifiers/removed';
 export { createChanged } from './query/modifiers/changed';
 export { universe } from './universe/universe';
+import { World as WorldCore } from './world/world';
 
 export {
 	type Component,
@@ -25,3 +26,7 @@ export const SYMBOLS = {
 	...querySymbols,
 	...relationSymbols,
 };
+
+namespace Sweet {
+	export type World = WorldCore;
+}

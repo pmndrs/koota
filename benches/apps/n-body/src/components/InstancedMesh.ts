@@ -1,4 +1,4 @@
 import { define } from '@sweet-ecs/core';
 import * as THREE from 'three';
 
-export const InstancedMesh = define({ value: null! as THREE.InstancedMesh });
+export const InstancedMesh = define({ object: null! as THREE.InstancedMesh });
