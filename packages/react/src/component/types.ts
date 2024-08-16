@@ -1,1 +1,1 @@
-export type ComponentProp = Sweet.ComponentOrWithParams | Sweet.ComponentInstance | null | undefined;
+export type ComponentProp = Koota.ComponentOrWithParams | Koota.ComponentInstance | null | undefined;

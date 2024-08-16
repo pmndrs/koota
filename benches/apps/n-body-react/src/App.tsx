@@ -14,7 +14,7 @@ import {
 	Velocity,
 	world,
 } from '@sim/n-body';
-import { ComponentProp, Entity, sweet, useComponent, useWorld, World } from '@sweet-ecs/react';
+import { ComponentProp, Entity, koota, useComponent, useWorld, World } from '@koota/react';
 import { useSchedule } from 'directed/react';
 import { createSpawner } from 'extras';
 import { StrictMode, useLayoutEffect } from 'react';
@@ -67,7 +67,7 @@ function Bodies() {
 	const geo = new THREE.CircleGeometry(CONSTANTS.MAX_RADIUS / 1.5, 12);
 	const mat = new THREE.MeshBasicMaterial();
 
-	return <sweet.instancedMesh args={[geo, mat, CONSTANTS.NBODIES]} />;
+	return <koota.instancedMesh args={[geo, mat, CONSTANTS.NBODIES]} />;
 }
 
 function Body({ components = [] }: { components: ComponentProp[] }) {

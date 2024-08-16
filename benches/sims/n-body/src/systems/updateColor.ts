@@ -2,7 +2,7 @@ import { Velocity } from '../components/Velocity';
 import { Color } from '../components/Color';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
 
-export const updateColor = ({ world }: { world: Sweet.World }) => {
+export const updateColor = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(Velocity, Color);
 	const [velocity, color] = world.get(Velocity, Color);
 

@@ -1,5 +1,5 @@
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { createWorld, define, universe } from '@sweet-ecs/core';
+import { createWorld, define, universe } from '@koota/core';
 import { StrictMode, Suspense, useLayoutEffect } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useWorld } from '../src/world/use-world';
@@ -18,7 +18,7 @@ describe('World', () => {
 	});
 
 	it('creates World on mount', async () => {
-		let ref: Sweet.World | null = null;
+		let ref: Koota.World | null = null;
 
 		const renderer = await ReactThreeTestRenderer.create(
 			<StrictMode>
@@ -41,7 +41,7 @@ describe('World', () => {
 	});
 
 	it('should add resources', async () => {
-		let ref: Sweet.World | null = null;
+		let ref: Koota.World | null = null;
 
 		const Time = define({ then: 0, delta: 0 });
 
@@ -139,7 +139,7 @@ describe('World', () => {
 	});
 
 	it('can get world using useWorld hook', async () => {
-		let ref: Sweet.World | null = null;
+		let ref: Koota.World | null = null;
 
 		function Test() {
 			const world = useWorld();
@@ -162,7 +162,7 @@ describe('World', () => {
 	it('can take an already defined world as a prop', async () => {
 		const world = createWorld();
 
-		let ref: Sweet.World | null = null;
+		let ref: Koota.World | null = null;
 
 		const renderer = await ReactThreeTestRenderer.create(
 			<StrictMode>

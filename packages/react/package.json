@@ -1,7 +1,7 @@
 {
-	"name": "@sweet-ecs/react",
+	"name": "@koota/react",
 	"version": "0.0.1",
-	"description": "React bindings for Sweet",
+	"description": "React bindings for Koota",
 	"private": true,
 	"license": "ISC",
 	"type": "module",
@@ -17,7 +17,7 @@
 		"test": "vitest --environment=jsdom"
 	},
 	"dependencies": {
-		"@sweet-ecs/core": "workspace:*"
+		"@koota/core": "workspace:*"
 	},
 	"devDependencies": {
 		"@react-three/test-renderer": "^8.2.1",

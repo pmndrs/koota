@@ -1,15 +1,15 @@
-import { SYMBOLS } from '@sweet-ecs/core';
+import { SYMBOLS } from '@koota/core';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
 export function useComponent<
-	T extends Sweet.Component,
-	TSchema extends Sweet.Schema = Sweet.SchemaFromComponent<T>
+	T extends Koota.Component,
+	TSchema extends Koota.Schema = Koota.SchemaFromComponent<T>
 >(
 	component: T,
 	initialValue:
-		| Partial<Sweet.ComponentInstance<TSchema>>
-		| (() => Partial<Sweet.ComponentInstance<TSchema>>) = {}
+		| Partial<Koota.ComponentInstance<TSchema>>
+		| (() => Partial<Koota.ComponentInstance<TSchema>>) = {}
 ) {
 	const world = useWorld();
 	const [, rerender] = useState(0);
@@ -17,7 +17,7 @@ export function useComponent<
 
 	const ref = useRef(
 		(() => {
-			const instance = component[SYMBOLS.$createInstance]() as Sweet.ComponentInstance<TSchema>;
+			const instance = component[SYMBOLS.$createInstance]() as Koota.ComponentInstance<TSchema>;
 
 			// Initialize the component with the initial state.
 			if (typeof initialValue === 'function') {
@@ -30,7 +30,7 @@ export function useComponent<
 		})()
 	);
 
-	const set = useCallback((value: Partial<Sweet.ComponentInstance<TSchema>>, isSilent = false) => {
+	const set = useCallback((value: Partial<Koota.ComponentInstance<TSchema>>, isSilent = false) => {
 		// Merge values.
 		Object.assign(ref.current, value);
 

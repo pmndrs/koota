@@ -33,12 +33,12 @@ importers:
       '@app/bench-tools':
         specifier: workspace:*
         version: link:../app-tools
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
       '@sim/n-body':
         specifier: workspace:*
         version: link:../../sims/n-body
-      '@sweet-ecs/core':
-        specifier: workspace:*
-        version: link:../../../packages/core
       three:
         specifier: ^0.162.0
         version: 0.162.0
@@ -58,18 +58,18 @@ importers:
       '@app/bench-tools':
         specifier: workspace:*
         version: link:../app-tools
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
+      '@koota/react':
+        specifier: workspace:*
+        version: link:../../../packages/react
       '@react-three/fiber':
         specifier: ^8.17.5
         version: 8.17.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
       '@sim/n-body':
         specifier: workspace:*
         version: link:../../sims/n-body
-      '@sweet-ecs/core':
-        specifier: workspace:*
-        version: link:../../../packages/core
-      '@sweet-ecs/react':
-        specifier: workspace:*
-        version: link:../../../packages/react
       directed:
         specifier: github:pmndrs/directed#v0.0.1-alpha.5
         version: https://codeload.github.com/pmndrs/directed/tar.gz/84a2949f1c22d4e8313b0ac12af570181ab2caba
@@ -135,12 +135,12 @@ importers:
 
   benches/sims/n-body:
     dependencies:
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
       '@sim/bench-tools':
         specifier: workspace:*
         version: link:../bench-tools
-      '@sweet-ecs/core':
-        specifier: workspace:*
-        version: link:../../../packages/core
       directed:
         specifier: github:pmndrs/directed#v0.0.1-alpha.5
         version: https://codeload.github.com/pmndrs/directed/tar.gz/84a2949f1c22d4e8313b0ac12af570181ab2caba
@@ -163,12 +163,12 @@ importers:
 
   packages/extras:
     dependencies:
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../core
       '@react-three/fiber':
         specifier: ^8.17.5
         version: 8.17.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
-      '@sweet-ecs/core':
-        specifier: workspace:*
-        version: link:../core
       three:
         specifier: '>=0.159'
         version: 0.162.0
@@ -197,12 +197,12 @@ importers:
 
   packages/react:
     dependencies:
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../core
       '@react-three/fiber':
         specifier: ^8.17.5
         version: 8.17.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
-      '@sweet-ecs/core':
-        specifier: workspace:*
-        version: link:../core
       three:
         specifier: '>=0.159'
         version: 0.162.0
@@ -237,6 +237,34 @@ importers:
       vitest:
         specifier: ^1.4.0
         version: 1.6.0(@types/node@22.3.0)(jsdom@24.1.1)
+
+  packages/react-three:
+    dependencies:
+      '@react-three/fiber':
+        specifier: ^8.17.5
+        version: 8.17.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
+      three:
+        specifier: '>=0.159'
+        version: 0.162.0
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.3
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.0
+      '@types/three':
+        specifier: ^0.162.0
+        version: 0.162.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
 
   packages/tsconfig: {}
 

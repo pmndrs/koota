@@ -1,3 +1,3 @@
-import { define } from '@sweet-ecs/core';
+import { define } from '@koota/core';
 
 export const Acceleration = define({ x: 0, y: 0 });

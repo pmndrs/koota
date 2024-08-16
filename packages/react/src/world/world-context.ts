@@ -1,3 +1,3 @@
 import { createContext } from 'react';
 
-export const WorldContext = createContext<Sweet.World>(null!);
+export const WorldContext = createContext<Koota.World>(null!);

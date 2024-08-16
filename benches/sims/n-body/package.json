@@ -7,7 +7,7 @@
 	"main": "./src/index.ts",
 	"dependencies": {
 		"@sim/bench-tools": "workspace:*",
-		"@sweet-ecs/core": "workspace:*",
+		"@koota/core": "workspace:*",
 		"directed": "github:pmndrs/directed#v0.0.1-alpha.5"
 	},
 	"devDependencies": {

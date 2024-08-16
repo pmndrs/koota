@@ -3,6 +3,6 @@ import { WorldContext } from './world-context';
 
 export function useWorld() {
 	const world = useContext(WorldContext);
-	if (!world) throw new Error('Sweet ECS: Hooks can only be used within the World component!');
+	if (!world) throw new Error('Koota ECS: Hooks can only be used within the World component!');
 	return world;
 }

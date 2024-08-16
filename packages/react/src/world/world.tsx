@@ -1,4 +1,4 @@
-import { createWorld } from '@sweet-ecs/core';
+import { createWorld } from '@koota/core';
 import {
 	forwardRef,
 	useEffect,
@@ -12,11 +12,11 @@ import { WorldContext } from './world-context';
 type Props = {
 	size?: number;
 	children?: React.ReactNode;
-	resources?: Sweet.Component[];
-	world?: Sweet.World;
+	resources?: Koota.Component[];
+	world?: Koota.World;
 };
 
-export const World = forwardRef<Sweet.World, Props>(function World(
+export const World = forwardRef<Koota.World, Props>(function World(
 	{ children, resources = [], world: src },
 	ref
 ): React.ReactElement<any, any> {

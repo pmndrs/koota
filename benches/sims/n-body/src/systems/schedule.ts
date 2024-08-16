@@ -6,7 +6,7 @@ import { updateColor } from './updateColor';
 import { updateTime } from './updateTime';
 import { init } from './init';
 
-export const schedule = new Schedule<{ world: Sweet.World }>();
+export const schedule = new Schedule<{ world: Koota.World }>();
 
 schedule.createTag('init');
 schedule.createTag('update', { after: 'init' });

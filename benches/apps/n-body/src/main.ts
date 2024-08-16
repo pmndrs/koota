@@ -5,7 +5,7 @@ import './styles.css';
 import { init } from './systems/init';
 import { render } from './systems/render';
 import { syncThreeObjects } from './systems/syncThreeObjects';
-import { define } from '@sweet-ecs/core';
+import { define } from '@koota/core';
 import { scene } from './scene';
 
 // Configure the simulation

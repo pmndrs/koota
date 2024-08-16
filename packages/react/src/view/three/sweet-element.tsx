@@ -12,14 +12,14 @@ type PatchedElements = ThreeElements extends { ['batchedMesh']: any }
 	? ThreeElements
 	: ThreeElements & { ['batchedMesh']: Object3DNode<THREE.BatchedMesh, typeof THREE.BatchedMesh> };
 
-export type SweetElementType<T extends ThreeKeys> = React.ForwardRefRenderFunction<
+export type KootaElementType<T extends ThreeKeys> = React.ForwardRefRenderFunction<
 	PatchedElements[T],
 	{ components?: ComponentProp[]; type: T } & Omit<PatchedElements[T], 'ref'> & {
 			ref?: React.Ref<PatchedElements[T]>;
 		}
 >;
 
-export const SweetElement = forwardRef(function SweetElement<T extends ThreeKeys>(
+export const KootaElement = forwardRef(function KootaElement<T extends ThreeKeys>(
 	{
 		type,
 		components = [],
@@ -45,4 +45,4 @@ export const SweetElement = forwardRef(function SweetElement<T extends ThreeKeys
 			/>
 		</Entity>
 	);
-}) as SweetElementType<ThreeKeys>;
+}) as KootaElementType<ThreeKeys>;

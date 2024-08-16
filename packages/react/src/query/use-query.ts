@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
-export function useQuery(...parameters: Sweet.QueryParameter[]) {
+export function useQuery(...parameters: Koota.QueryParameter[]) {
 	const world = useWorld();
 	const [entities, setEntities] = useState<number[]>([]);
 

@@ -1,8 +1,7 @@
 {
-	"name": "extras",
+	"name": "@react-three/koota",
 	"version": "0.0.1",
-	"description": "Some nice extras for making stuff.",
-	"private": true,
+	"description": "Composable state with entities",
 	"license": "ISC",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -16,21 +15,29 @@
 	"scripts": {
 		"test": "vitest --environment=jsdom"
 	},
-	"dependencies": {
-		"@koota/core": "workspace:*"
-	},
 	"devDependencies": {
-		"@react-three/test-renderer": "^8.2.1",
-		"@testing-library/react": "^16.0.0",
 		"@types/react": "^18.3.3",
+		"@types/react-dom": "^18.3.0",
 		"@types/three": "^0.162.0",
 		"react": "^18.3.1",
-		"tsconfig": "workspace:*",
-		"vitest": "^1.4.0"
+		"react-dom": "^18.3.1",
+		"tsconfig": "workspace:*"
 	},
 	"peerDependencies": {
 		"@react-three/fiber": "^8.17.5",
 		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
 		"three": ">=0.159"
+	},
+	"peerDependenciesMeta": {
+		"@react-three/fiber": {
+			"optional": true
+		},
+		"three": {
+			"optional": true
+		},
+		"react-dom": {
+			"optional": true
+		}
 	}
 }
