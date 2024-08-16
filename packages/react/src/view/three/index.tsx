@@ -1,12 +1,12 @@
-import { SweetElement, SweetElementType } from './sweet-element';
+import { KootaElement, KootaElementType } from './sweet-element';
 import { threeComponents } from './components/components';
 import { forwardRef } from 'react';
 
-type SweetElemnets = 'object3D' extends keyof React.JSX.IntrinsicElements
+type KootaElemnets = 'object3D' extends keyof React.JSX.IntrinsicElements
 	? {
 			[K in keyof typeof threeComponents]: React.ForwardRefRenderFunction<
-				React.ComponentRef<SweetElementType<K>>,
-				Omit<React.ComponentProps<SweetElementType<K>>, 'type'>
+				React.ComponentRef<KootaElementType<K>>,
+				Omit<React.ComponentProps<KootaElementType<K>>, 'type'>
 			>;
 	  }
 	: Record<string, never>;
@@ -19,49 +19,49 @@ try {
 	});
 } catch {}
 
-export const sweet = {} as SweetElemnets;
+export const koota = {} as KootaElemnets;
 
 // Hardcode the keys for faster iteration speeds vs computed keys.
 // Makes a difference when spawning lots of entities at once.
 
 if (hasR3F) {
-	sweet.object3D = forwardRef((props: any, ref) => (
-		<SweetElement type="object3D" {...props} ref={ref} />
+	koota.object3D = forwardRef((props: any, ref) => (
+		<KootaElement type="object3D" {...props} ref={ref} />
 	)) as any;
-	sweet.skeleton = forwardRef((props: any, ref) => (
-		<SweetElement type="skeleton" {...props} ref={ref} />
+	koota.skeleton = forwardRef((props: any, ref) => (
+		<KootaElement type="skeleton" {...props} ref={ref} />
 	)) as any;
-	sweet.batchedMesh = forwardRef((props: any, ref) => (
-		<SweetElement type="batchedMesh" {...props} ref={ref} />
+	koota.batchedMesh = forwardRef((props: any, ref) => (
+		<KootaElement type="batchedMesh" {...props} ref={ref} />
 	)) as any;
-	sweet.instancedMesh = forwardRef((props: any, ref) => (
-		<SweetElement type="instancedMesh" {...props} ref={ref} />
+	koota.instancedMesh = forwardRef((props: any, ref) => (
+		<KootaElement type="instancedMesh" {...props} ref={ref} />
 	)) as any;
-	sweet.mesh = forwardRef((props: any, ref) => (
-		<SweetElement type="mesh" {...props} ref={ref} />
+	koota.mesh = forwardRef((props: any, ref) => (
+		<KootaElement type="mesh" {...props} ref={ref} />
 	)) as any;
-	sweet.group = forwardRef((props: any, ref) => (
-		<SweetElement type="group" {...props} ref={ref} />
+	koota.group = forwardRef((props: any, ref) => (
+		<KootaElement type="group" {...props} ref={ref} />
 	)) as any;
-	sweet.bone = forwardRef((props: any, ref) => (
-		<SweetElement type="bone" {...props} ref={ref} />
+	koota.bone = forwardRef((props: any, ref) => (
+		<KootaElement type="bone" {...props} ref={ref} />
 	)) as any;
-	sweet.lineLoop = forwardRef((props: any, ref) => (
-		<SweetElement type="lineLoop" {...props} ref={ref} />
+	koota.lineLoop = forwardRef((props: any, ref) => (
+		<KootaElement type="lineLoop" {...props} ref={ref} />
 	)) as any;
-	sweet.lineSegments = forwardRef((props: any, ref) => (
-		<SweetElement type="lineSegments" {...props} ref={ref} />
+	koota.lineSegments = forwardRef((props: any, ref) => (
+		<KootaElement type="lineSegments" {...props} ref={ref} />
 	)) as any;
-	sweet.lOD = forwardRef((props: any, ref) => (
-		<SweetElement type="lOD" {...props} ref={ref} />
+	koota.lOD = forwardRef((props: any, ref) => (
+		<KootaElement type="lOD" {...props} ref={ref} />
 	)) as any;
-	sweet.points = forwardRef((props: any, ref) => (
-		<SweetElement type="points" {...props} ref={ref} />
+	koota.points = forwardRef((props: any, ref) => (
+		<KootaElement type="points" {...props} ref={ref} />
 	)) as any;
-	sweet.skinnedMesh = forwardRef((props: any, ref) => (
-		<SweetElement type="skinnedMesh" {...props} ref={ref} />
+	koota.skinnedMesh = forwardRef((props: any, ref) => (
+		<KootaElement type="skinnedMesh" {...props} ref={ref} />
 	)) as any;
-	sweet.sprite = forwardRef((props: any, ref) => (
-		<SweetElement type="sprite" {...props} ref={ref} />
+	koota.sprite = forwardRef((props: any, ref) => (
+		<KootaElement type="sprite" {...props} ref={ref} />
 	)) as any;
 }

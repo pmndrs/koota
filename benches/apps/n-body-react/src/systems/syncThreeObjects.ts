@@ -1,13 +1,13 @@
 import { Circle, Color, Position } from '@sim/n-body';
 import * as THREE from 'three';
-import { InstancedMesh } from '@sweet-ecs/react';
+import { InstancedMesh } from '@koota/react';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
 
 const dummy = new THREE.Object3D();
 const dummyColor = new THREE.Color();
 
-export const syncThreeObjects = ({ world }: { world: Sweet.World }) => {
+export const syncThreeObjects = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(Position, Circle, Color);
 	const instanceEnt = world.query(InstancedMesh)[0];
 	const [position, circle, color] = world.get(Position, Circle, Color);

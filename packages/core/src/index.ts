@@ -21,7 +21,7 @@ export const SYMBOLS = {
 
 // prettier-ignore
 declare global {
-	namespace Sweet {
+	namespace Koota {
 		type World = import('./world/world').World;
 		type Schema = import('./component/types').Schema;
 		type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = import('./component/types').Component<TSchema, TStore>;

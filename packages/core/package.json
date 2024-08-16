@@ -1,7 +1,7 @@
 {
-	"name": "@sweet-ecs/core",
+	"name": "@koota/core",
 	"version": "0.0.1",
-	"description": "ECS toolkit",
+	"description": "Composable state with entities",
 	"private": true,
 	"license": "ISC",
 	"type": "module",

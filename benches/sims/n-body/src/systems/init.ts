@@ -3,7 +3,7 @@ import { CONSTANTS } from '../constants';
 
 let inited = false;
 
-export const init = ({ world }: { world: Sweet.World }) => {
+export const init = ({ world }: { world: Koota.World }) => {
 	if (inited) return;
 
 	for (let i = 0; i < CONSTANTS.NBODIES; i++) {

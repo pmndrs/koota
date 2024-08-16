@@ -11,7 +11,7 @@
 	"dependencies": {
 		"@app/bench-tools": "workspace:*",
 		"@sim/n-body": "workspace:*",
-		"@sweet-ecs/core": "workspace:*",
+		"@koota/core": "workspace:*",
 		"three": "^0.162.0"
 	},
 	"devDependencies": {

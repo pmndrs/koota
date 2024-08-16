@@ -7,7 +7,7 @@ const normalize = (x: number, min: number, max: number) => (x - min) / (max - mi
 const dummy = new THREE.Object3D();
 const dummyColor = new THREE.Color();
 
-export const syncThreeObjects = ({ world }: { world: Sweet.World }) => {
+export const syncThreeObjects = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(Position, Circle, Color);
 	const [position, circle, color] = world.get(Position, Circle, Color);
 

@@ -1,5 +1,5 @@
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { universe } from '@sweet-ecs/core';
+import { universe } from '@koota/core';
 import { StrictMode, Suspense } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Entity } from '../src/entity/entity';

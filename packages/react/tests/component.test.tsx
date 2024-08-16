@@ -1,4 +1,4 @@
-import { define, universe } from '@sweet-ecs/core';
+import { define, universe } from '@koota/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useComponent } from '../src/component/use-component';
 import { Entity } from '../src/entity/entity';

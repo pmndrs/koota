@@ -1,8 +1,8 @@
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { define, universe } from '@sweet-ecs/core';
+import { define, universe } from '@koota/core';
 import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { Object3D, Div, World, sweet } from '../src';
+import { Object3D, Div, World, koota } from '../src';
 import { render } from '@testing-library/react';
 
 declare global {
@@ -27,7 +27,7 @@ describe('View', () => {
 		await ReactThreeTestRenderer.create(
 			<StrictMode>
 				<World>
-					<sweet.object3D
+					<koota.object3D
 						ref={(node) => {
 							ref = node;
 						}}
@@ -52,7 +52,7 @@ describe('View', () => {
 		await ReactThreeTestRenderer.create(
 			<StrictMode>
 				<World>
-					<sweet.object3D
+					<koota.object3D
 						ref={(node) => {
 							ref = node;
 						}}
@@ -79,7 +79,7 @@ describe('View', () => {
 
 		await render(
 			<World>
-				<sweet.div
+				<koota.div
 					ref={(node) => {
 						ref = node;
 					}}

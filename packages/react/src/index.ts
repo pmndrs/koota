@@ -8,9 +8,11 @@ export { type ComponentProp } from './component/types';
 export { useQuery } from './query/use-query';
 
 // Views
-import { sweet as sweetThree } from './view/three/index';
-import { sweet as sweetDom } from './view/dom/index';
+import { koota as kootaThree } from './view/three/index';
+import { koota as kootaDom } from './view/dom/index';
 
-export const sweet = { ...sweetThree, ...sweetDom };
+export const koota = { ...kootaThree, ...kootaDom };
+export const k = koota;
+
 export * from './view/three/components/index';
 export * from './view/dom/components/index';

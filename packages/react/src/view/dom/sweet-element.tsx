@@ -6,14 +6,14 @@ import { domComponents } from './components/components';
 
 type DomKeys = keyof typeof domComponents;
 
-export type SweetElementType<T extends DomKeys> = React.ForwardRefRenderFunction<
+export type KootaElementType<T extends DomKeys> = React.ForwardRefRenderFunction<
 	JSX.IntrinsicElements[T],
 	{ components?: ComponentProp[]; type: T } & Omit<JSX.IntrinsicElements[T], 'ref'> & {
 			ref?: React.Ref<JSX.IntrinsicElements[T]>;
 		}
 >;
 
-export const SweetElement = forwardRef(function SweetElement<T extends DomKeys>(
+export const KootaElement = forwardRef(function KootaElement<T extends DomKeys>(
 	{
 		type,
 		components = [],
@@ -39,4 +39,4 @@ export const SweetElement = forwardRef(function SweetElement<T extends DomKeys>(
 			/>
 		</Entity>
 	);
-}) as SweetElementType<DomKeys>;
+}) as KootaElementType<DomKeys>;
