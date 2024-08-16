@@ -15,7 +15,6 @@ import { SparseSet } from '../utils/sparse-set';
 import {
 	$bitflag,
 	$changedMasks,
-	$componentCount,
 	$componentRecords,
 	$dirtyMasks,
 	$dirtyQueries,
@@ -44,7 +43,6 @@ export class World {
 	[$entityComponents] = new Map();
 	[$bitflag] = 1;
 	[$componentRecords] = new Map<Component, ComponentRecord>();
-	[$componentCount] = 0;
 	[$queries] = new Set<Query>();
 	[$queriesHashMap] = new Map<string, Query>();
 	[$notQueries] = new Set<Query>();
@@ -147,7 +145,6 @@ export class World {
 		this[$recyclingBin].length = 0;
 
 		this[$componentRecords].clear();
-		this[$componentCount] = 0;
 
 		this[$queries].clear();
 		this[$queriesHashMap].clear();
@@ -174,7 +171,7 @@ export class World {
 
 	query = Object.assign(
 		function (this: World, ...parameters: QueryParameter[]) {
-			const hash = archetypeHash(this, parameters);
+			const hash = archetypeHash(parameters);
 			let query = this[$queriesHashMap].get(hash);
 
 			if (!query) {
@@ -190,7 +187,7 @@ export class World {
 				parameters: QueryParameter[],
 				callback: QuerySubscriber
 			) {
-				const hash = archetypeHash(this, parameters);
+				const hash = archetypeHash(parameters);
 				let query = this[$queriesHashMap].get(hash);
 
 				if (!query) {

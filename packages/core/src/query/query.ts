@@ -66,7 +66,13 @@ export class Query {
 			const parameter = parameters[i];
 
 			if (isModifier(parameter)) {
-				const components = parameter(world);
+				const components = parameter();
+
+				// Register components if they don't exist.
+				for (let j = 0; j < components.length; j++) {
+					const component = components[j];
+					if (!world[$componentRecords].has(component)) registerComponent(world, component);
+				}
 
 				if (parameter[$modifier] === 'not') {
 					this.components.forbidden.push(
@@ -184,7 +190,7 @@ export class Query {
 		});
 
 		// Create hash.
-		this.hash = archetypeHash(world, parameters);
+		this.hash = archetypeHash(parameters);
 
 		// Add it to world.
 		world[$queries].add(this);
