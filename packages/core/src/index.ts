@@ -4,6 +4,7 @@ export { createAdded } from './query/modifiers/added';
 export { createRemoved } from './query/modifiers/removed';
 export { createChanged } from './query/modifiers/changed';
 export { universe } from './universe/universe';
+export { cacheQuery } from './query/utils/cache-query';
 
 import * as worldSymbols from './world/symbols';
 import * as componentSymbols from './component/symbols';

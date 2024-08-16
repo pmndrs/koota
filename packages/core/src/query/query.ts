@@ -19,7 +19,7 @@ import { World } from '../world/world';
 import { isModifier } from './modifier';
 import { $modifier } from './symbols';
 import { QueryParameter, QuerySubscriber } from './types';
-import { archetypeHash } from './utils/archetypes-hash';
+import { createQueryHash } from './utils/create-query-hash';
 
 export class Query {
 	world: World;
@@ -190,7 +190,7 @@ export class Query {
 		});
 
 		// Create hash.
-		this.hash = archetypeHash(parameters);
+		this.hash = createQueryHash(parameters);
 
 		// Add it to world.
 		world[$queries].add(this);
