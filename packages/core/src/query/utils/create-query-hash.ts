@@ -1,12 +1,11 @@
 import { $componentId } from '../../component/symbols';
-import { World } from '../../world/world';
 import { isModifier } from '../modifier';
 import { $modifierID } from '../symbols';
 import { QueryParameter } from '../types';
 
 const sortedIDs = new Float32Array(1024);
 
-export const archetypeHash = (parameters: QueryParameter[]) => {
+export const createQueryHash = (parameters: QueryParameter[]) => {
 	sortedIDs.fill(0);
 	let cursor = 0;
 
