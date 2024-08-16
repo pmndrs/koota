@@ -1,7 +1,10 @@
 import { $entityMasks, $trackingSnapshots, $dirtyMasks, $changedMasks } from '../../world/symbols';
 import { World } from '../../world/world';
 
-let cursor = 0;
+// Some values are reserved.
+// 0 - has
+// 1 - not
+let cursor = 2;
 
 export function createTrackingId() {
 	return cursor++;
