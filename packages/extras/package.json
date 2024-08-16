@@ -2,6 +2,7 @@
 	"name": "extras",
 	"version": "0.0.1",
 	"description": "Some nice extras for making stuff.",
+	"private": true,
 	"license": "ISC",
 	"type": "module",
 	"main": "./src/index.ts",

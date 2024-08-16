@@ -2,6 +2,7 @@
 	"name": "@sweet-ecs/react",
 	"version": "0.0.1",
 	"description": "React bindings for Sweet",
+	"private": true,
 	"license": "ISC",
 	"type": "module",
 	"main": "./src/index.ts",

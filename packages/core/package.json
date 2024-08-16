@@ -2,6 +2,7 @@
 	"name": "@sweet-ecs/core",
 	"version": "0.0.1",
 	"description": "ECS toolkit",
+	"private": true,
 	"license": "ISC",
 	"type": "module",
 	"main": "./src/index.ts",
