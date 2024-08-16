@@ -45,19 +45,33 @@ describe('Query', () => {
 	});
 
 	it('should only create one hash indpendent of the order of the parameters', () => {
-		let entities = world.query(Position, Name, IsActive);
+		let entities = world.query(Position, Name, Not(IsActive));
 		expect(entities.length).toBe(0);
 
 		const entA = world.create();
-		world.add(entA, Position, Name, IsActive);
+		world.add(entA, Position, Name);
 
-		entities = world.query(Position, Name, IsActive);
+		entities = world.query(Position, Name, Not(IsActive));
 		expect(entities.length).toBe(1);
 
-		entities = world.query(Name, IsActive, Position);
+		entities = world.query(Name, Not(IsActive), Position);
 		expect(entities.length).toBe(1);
 
 		expect(world[$queriesHashMap].size).toBe(1);
+
+		// Test various permutations of modifiers.
+		entities = world.query(IsActive, Not(Position, Name));
+		expect(entities.length).toBe(0);
+
+		expect(world[$queriesHashMap].size).toBe(2);
+
+		entities = world.query(Not(Name, Position), IsActive);
+		expect(entities.length).toBe(0);
+
+		entities = world.query(Not(Position), IsActive, Not(Name));
+		expect(entities.length).toBe(0);
+
+		expect(world[$queriesHashMap].size).toBe(2);
 	});
 
 	it('should return an empty array if there are no query parameters', () => {
