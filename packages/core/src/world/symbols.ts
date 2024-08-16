@@ -6,7 +6,6 @@ export const $notQueries = Symbol('notQueries');
 export const $entityComponents = Symbol('entityComponents');
 export const $entityMasks = Symbol('entityMasks');
 export const $componentRecords = Symbol('componentRecords');
-export const $componentCount = Symbol('componentCount');
 export const $queriesHashMap = Symbol('queriesHashMap');
 export const $bitflag = Symbol('bitflag');
 export const $queries = Symbol('queries');

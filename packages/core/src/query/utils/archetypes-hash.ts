@@ -1,6 +1,4 @@
-import { registerComponent } from '../../component/component';
-import { Component } from '../../component/types';
-import { $componentRecords } from '../../world/symbols';
+import { $componentId } from '../../component/symbols';
 import { World } from '../../world/world';
 import { isModifier } from '../modifier';
 import { $modifierID } from '../symbols';
@@ -8,22 +6,22 @@ import { QueryParameter } from '../types';
 
 const sortedIDs = new Float32Array(1024);
 
-export const archetypeHash = (world: World, parameters: QueryParameter[]) => {
+export const archetypeHash = (parameters: QueryParameter[]) => {
 	sortedIDs.fill(0);
 	let cursor = 0;
 
 	for (let i = 0; i < parameters.length; i++) {
 		const param = parameters[i];
 		if (isModifier(param)) {
-			const modifierID = param[$modifierID];
-			const components = param(world);
+			const modifierId = param[$modifierID];
+			const components = param();
 
 			for (let i = 0; i < components.length; i++) {
-				const componentID = getComponentID(world, components[i]);
-				sortedIDs[cursor++] = modifierID * 100000 + componentID;
+				const componentId = components[i][$componentId];
+				sortedIDs[cursor++] = modifierId * 100000 + componentId;
 			}
 		} else {
-			const componentID = getComponentID(world, param);
+			const componentID = param[$componentId];
 			sortedIDs[cursor++] = componentID;
 		}
 	}
@@ -37,9 +35,3 @@ export const archetypeHash = (world: World, parameters: QueryParameter[]) => {
 
 	return hash;
 };
-
-function getComponentID(world: World, component: Component) {
-	if (!world[$componentRecords].has(component)) registerComponent(world, component);
-	const record = world[$componentRecords].get(component)!;
-	return record.id;
-}
