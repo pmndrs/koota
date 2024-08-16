@@ -13,7 +13,7 @@ export function createChanged() {
 		setTrackingMasks(world, id);
 	}
 
-	return modifier(`changed-${id}`, (world, ...components) => components);
+	return modifier(`changed-${id}`, id, (world, ...components) => components);
 }
 
 export function setChanged(world: World, entity: number, component: Component) {

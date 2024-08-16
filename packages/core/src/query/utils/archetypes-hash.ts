@@ -3,60 +3,43 @@ import { Component } from '../../component/types';
 import { $componentRecords } from '../../world/symbols';
 import { World } from '../../world/world';
 import { isModifier } from '../modifier';
-import { $modifier } from '../symbols';
+import { $modifierID } from '../symbols';
 import { QueryParameter } from '../types';
 
+const sortedIDs = new Float32Array(1024);
+
 export const archetypeHash = (world: World, parameters: QueryParameter[]) => {
-	// Group parameters by modifier
-	const groupedParams = new Map<string | undefined, Component[]>();
+	sortedIDs.fill(0);
+	let cursor = 0;
 
-	parameters.forEach((param: QueryParameter) => {
-		let modifier: string | undefined;
-		let components: Component[];
-
+	for (let i = 0; i < parameters.length; i++) {
+		const param = parameters[i];
 		if (isModifier(param)) {
-			modifier = param[$modifier];
-			components = param(world);
+			const modifierID = param[$modifierID];
+			const components = param(world);
+
+			for (let i = 0; i < components.length; i++) {
+				const componentID = getComponentID(world, components[i]);
+				sortedIDs[cursor++] = modifierID * 100000 + componentID;
+			}
 		} else {
-			components = [param as Component];
+			const componentID = getComponentID(world, param);
+			sortedIDs[cursor++] = componentID;
 		}
+	}
 
-		if (!groupedParams.has(modifier)) {
-			groupedParams.set(modifier, []);
-		}
-		groupedParams.get(modifier)!.push(...components);
-	});
+	// Sort only the portion of the array that has been filled.
+	const filledArray = sortedIDs.subarray(0, cursor);
+	filledArray.sort();
 
-	// Sort components within each group
-	groupedParams.forEach((components, modifier) => {
-		components.sort((a: Component, b: Component) => {
-			if (!world[$componentRecords].has(a)) registerComponent(world, a);
-			if (!world[$componentRecords].has(b)) registerComponent(world, b);
-			const aInstance = world[$componentRecords].get(a)!;
-			const bInstance = world[$componentRecords].get(b)!;
-			return aInstance.id > bInstance.id ? 1 : -1;
-		});
-	});
-
-	// Generate hash
-	const sortedModifiers = Array.from(groupedParams.keys()).sort();
-	const hash = sortedModifiers.reduce((acc: string, modifier: string | undefined) => {
-		const components = groupedParams.get(modifier)!;
-		const componentIds = components
-			.map((comp) => {
-				if (!world[$componentRecords].has(comp)) {
-					registerComponent(world, comp);
-				}
-				return world[$componentRecords].get(comp)!.id;
-			})
-			.join(',');
-
-		if (modifier) {
-			return `${acc}-${modifier}(${componentIds})`;
-		} else {
-			return `${acc}-${componentIds}`;
-		}
-	}, '');
+	// Create string key.
+	const hash = filledArray.join(',');
 
 	return hash;
 };
+
+function getComponentID(world: World, component: Component) {
+	if (!world[$componentRecords].has(component)) registerComponent(world, component);
+	const record = world[$componentRecords].get(component)!;
+	return record.id;
+}

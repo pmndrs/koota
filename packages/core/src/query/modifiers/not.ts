@@ -1,3 +1,3 @@
 import { modifier } from '../modifier';
 
-export const Not = modifier('not', (world, ...components) => components);
+export const Not = modifier('not', 1, (world, ...components) => components);
