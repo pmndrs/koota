@@ -1,10 +1,11 @@
 import { Component } from '../component/types';
 import { World } from '../world/world';
-import { $modifier, $modifierID } from './symbols';
+import { $modifier, $modifierComponentIds, $modifierID } from './symbols';
 
 export type ModifierFn = ((...components: Component[]) => Component[]) & {
 	[$modifier]: string;
 	[$modifierID]: number;
+	[$modifierComponentIds]: number[];
 };
 
 export type Modifier = (...components: Component[]) => ModifierFn;
