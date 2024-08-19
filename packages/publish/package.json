@@ -1,7 +1,7 @@
 {
-	"name": "@react-three/koota",
+	"name": "koota",
 	"version": "0.0.1",
-	"description": "Composable state with entities",
+	"description": "🌎 Compose a world of performance with data-oriented state management for React and vanilla",
 	"license": "ISC",
 	"type": "module",
 	"main": "./src/index.ts",
@@ -10,6 +10,10 @@
 		".": {
 			"default": "./src/index.ts",
 			"types": "./src/index.ts"
+		},
+		"./react": {
+			"default": "./src/react.ts",
+			"types": "./src/react.ts"
 		}
 	},
 	"scripts": {

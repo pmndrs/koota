@@ -1,5 +1,5 @@
 import { CONSTANTS } from '@sim/n-body';
-import { World } from '@koota/core';
+import { World } from 'koota';
 import * as THREE from 'three';
 import { InstancedMesh } from '../components/InstancedMesh';
 import { scene } from '../scene';
