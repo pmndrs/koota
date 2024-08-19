@@ -1,7 +1,7 @@
 import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../components';
 import { CONSTANTS } from '../constants';
 import { randInRange } from '../utils/randInRange';
-import { createAdded } from '@koota/core';
+import { createAdded } from 'koota';
 
 export const body = [Position, Velocity, Mass, Circle, Acceleration] as const;
 const Added = createAdded();

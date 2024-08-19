@@ -1,6 +1,6 @@
 import { Circle, Color, Position } from '@sim/n-body';
 import * as THREE from 'three';
-import { InstancedMesh } from '@koota/react';
+import { InstancedMesh } from 'koota/react';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
 

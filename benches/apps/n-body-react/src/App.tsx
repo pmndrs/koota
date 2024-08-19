@@ -14,7 +14,7 @@ import {
 	Velocity,
 	world,
 } from '@sim/n-body';
-import { ComponentProp, Entity, koota, useComponent, useWorld, World } from '@koota/react';
+import { ComponentProp, Entity, koota, useComponent, useWorld, World } from 'koota/react';
 import { useSchedule } from 'directed/react';
 import { createSpawner } from 'extras';
 import { StrictMode, useLayoutEffect } from 'react';

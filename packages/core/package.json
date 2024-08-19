@@ -1,7 +1,7 @@
 {
 	"name": "@koota/core",
 	"version": "0.0.1",
-	"description": "Composable state with entities",
+	"description": "Core vanilla library for Koota",
 	"private": true,
 	"license": "ISC",
 	"type": "module",
