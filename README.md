@@ -1,4 +1,4 @@
-# Sweet ECS
+# Koota
 
 To install dependencies:
 
