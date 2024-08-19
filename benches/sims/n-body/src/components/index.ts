@@ -6,3 +6,4 @@ export { Mass } from './Mass';
 export { Position } from './Position';
 export { Velocity } from './Velocity';
 export { Time } from './Time';
+export { Explosion } from './Explosion';

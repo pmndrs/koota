@@ -8,9 +8,7 @@ export const moveBodies = ({ world }: { world: Koota.World }) => {
 	const { delta } = world.resources.get(Time);
 	const [position, velocity] = world.get(Position, Velocity);
 
-	for (let i = 0; i < ents.length; i++) {
-		const e = ents[i];
-
+	for (const e of ents) {
 		// Update position based on velocity and the global SPEED factor
 		position.x[e] += CONSTANTS.SPEED * velocity.x[e] * delta;
 		position.y[e] += CONSTANTS.SPEED * velocity.y[e] * delta;

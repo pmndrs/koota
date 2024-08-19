@@ -1,5 +1,5 @@
 import { initStats } from '@app/bench-tools';
-import { CONSTANTS, schedule, world } from '@sim/n-body';
+import { Circle, Color, CONSTANTS, Position, schedule, world } from '@sim/n-body';
 import * as THREE from 'three';
 import './styles.css';
 import { init } from './systems/init';
@@ -7,9 +7,8 @@ import { render } from './systems/render';
 import { syncThreeObjects } from './systems/syncThreeObjects';
 import { define } from 'koota';
 import { scene } from './scene';
-
-// Configure the simulation
-// CONSTANTS.NBODIES = 2000;
+import { Explosion } from '@sim/n-body/src/components';
+import { cleanupBodies } from './systems/cleanupBodies';
 
 // Renderer
 export const renderer = new THREE.WebGLRenderer({
@@ -50,8 +49,9 @@ camera.position.set(0, 0, 100);
 camera.lookAt(0, 0, 0);
 
 // Add view systems to the schedule
-schedule.add(syncThreeObjects, { after: 'update', before: render });
-schedule.add(render);
+schedule.add(syncThreeObjects, { after: 'update' });
+schedule.add(cleanupBodies, { after: syncThreeObjects });
+// schedule.add(render);
 schedule.add(init, { tag: 'init' });
 schedule.build();
 
@@ -65,11 +65,59 @@ create();
 
 // Run the simulation
 const main = async () => {
-	await measure(async () => {
-		await schedule.run({ world });
+	measure(async () => {
+		schedule.run({ world });
+		render({ world });
 		updateStats();
 	});
 	requestAnimationFrame(main);
 };
 
 requestAnimationFrame(main);
+
+let isPointerDown = false;
+let lastSpawnTime = 0;
+const spawnInterval = 100; // milliseconds
+
+function spawnExplosion(e: PointerEvent) {
+	const now = performance.now();
+	if (now - lastSpawnTime < spawnInterval) return;
+
+	lastSpawnTime = now;
+
+	const aspect = window.innerWidth / window.innerHeight;
+	const viewWidth = frustumSize * aspect;
+	const viewHeight = frustumSize;
+
+	const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+	const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+
+	const x = (ndcX * viewWidth) / 2;
+	const y = (ndcY * viewHeight) / 2;
+
+	world.create(
+		Position.with({ x, y }),
+		Circle.with({ radius: 160 }),
+		Color.with({ r: 255, g: 0, b: 0 }),
+		Explosion.with({ force: 5, decay: 0.96 })
+	);
+}
+
+window.addEventListener('pointerdown', (e) => {
+	isPointerDown = true;
+	spawnExplosion(e);
+});
+
+window.addEventListener('pointermove', (e) => {
+	if (isPointerDown) {
+		spawnExplosion(e);
+	}
+});
+
+window.addEventListener('pointerup', () => {
+	isPointerDown = false;
+});
+
+window.addEventListener('pointerout', () => {
+	isPointerDown = false;
+});
