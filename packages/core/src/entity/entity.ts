@@ -83,10 +83,14 @@ export function destroyEntity(world: World, entity: number) {
 		}
 	}
 
-	// Remove entity from all queries.
-	for (const query of world[$queries]) {
-		query.remove(world, entity);
+	// Remove all components.
+	for (const component of world[$entityComponents].get(entity)!) {
+		removeComponent(world, entity, component);
 	}
+
+	// for (const query of world[$queries]) {
+	// 	query.remove(world, entity);
+	// }
 
 	// Recycle the entity.
 	world[$recyclingBin].push(entity);
