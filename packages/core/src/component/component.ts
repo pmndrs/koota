@@ -152,9 +152,9 @@ export function removeComponent(world: World, entity: number, ...components: Com
 		// Exit early if the entity doesn't have the component.
 		if (!world.has(entity, component)) return;
 
-		// Get component instance.
-		const instance = world[$componentRecords].get(component)!;
-		const { generationId, bitflag, queries } = instance;
+		// Get component record.
+		const record = world[$componentRecords].get(component)!;
+		const { generationId, bitflag, queries } = record;
 
 		// Remove bitflag from entity bitmask.
 		world[$entityMasks][generationId][entity] &= ~bitflag;
@@ -167,7 +167,7 @@ export function removeComponent(world: World, entity: number, ...components: Com
 		// Update queries.
 		for (const query of queries) {
 			// Check if the entity matches the query.
-			let match = query.check(world, entity, { type: 'remove', component: instance });
+			let match = query.check(world, entity, { type: 'remove', component: record });
 
 			if (match) query.add(entity);
 			else query.remove(world, entity);
