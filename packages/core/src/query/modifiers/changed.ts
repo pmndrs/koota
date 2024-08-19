@@ -1,4 +1,5 @@
 import { ComponentRecord } from '../../component/component-record';
+import { $componentId } from '../../component/symbols';
 import { Component } from '../../component/types';
 import { universe } from '../../universe/universe';
 import { $changedMasks, $componentRecords } from '../../world/symbols';
@@ -13,7 +14,7 @@ export function createChanged() {
 		setTrackingMasks(world, id);
 	}
 
-	return modifier(`changed-${id}`, id, (world, ...components) => components);
+	return modifier(`changed-${id}`, id, (...components) => components);
 }
 
 export function setChanged(world: World, entity: number, component: Component) {
@@ -29,7 +30,9 @@ export function setChanged(world: World, entity: number, component: Component) {
 			changedMask[entity] = new Array();
 		}
 
-		changedMask[entity][record.id] = 1;
+		const componentId = component[$componentId];
+
+		changedMask[entity][componentId] = 1;
 	}
 
 	// Update queries.

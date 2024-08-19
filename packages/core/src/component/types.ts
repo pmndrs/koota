@@ -2,6 +2,7 @@ import { RelationTarget } from '../relation/types';
 import { World } from '../world/world';
 import {
 	$component,
+	$componentId,
 	$createInstance,
 	$createStore,
 	$entity,
@@ -21,6 +22,7 @@ export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 	[$isPairComponent]: boolean;
 	[$relation]: any | null;
 	[$pairTarget]: RelationTarget | null;
+	[$componentId]: number;
 };
 
 export type ComponentOrWithParams<C extends Component = Component> =

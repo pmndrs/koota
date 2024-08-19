@@ -9,5 +9,5 @@ export function createRemoved() {
 		setTrackingMasks(world, id);
 	}
 
-	return modifier(`removed-${id}`, id, (world, ...components) => components);
+	return modifier(`removed-${id}`, id, (...components) => components);
 }

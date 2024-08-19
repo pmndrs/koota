@@ -11,10 +11,19 @@ import {
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { ComponentRecord } from './component-record';
-import { $createInstance, $createStore, $isPairComponent, $pairTarget, $relation } from './symbols';
+import {
+	$componentId,
+	$createInstance,
+	$createStore,
+	$isPairComponent,
+	$pairTarget,
+	$relation,
+} from './symbols';
 import { Component, ComponentOrWithParams, Normalized, Schema, StoreFromComponent } from './types';
 import { createInstance } from './utils/create-instance';
 import { createStore } from './utils/create-store';
+
+let componentId = 0;
 
 function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<Normalized<S>> {
 	const Component: Component<Normalized<S>> = {
@@ -27,6 +36,7 @@ function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<
 		[$isPairComponent]: false,
 		[$relation]: null,
 		[$pairTarget]: null,
+		[$componentId]: componentId++,
 	};
 
 	return Component;

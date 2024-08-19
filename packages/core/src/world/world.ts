@@ -5,7 +5,7 @@ import { createEntity, destroyEntity } from '../entity/entity';
 import { setChanged } from '../query/modifiers/changed';
 import { Query } from '../query/query';
 import { QueryParameter, QuerySubscriber } from '../query/types';
-import { archetypeHash } from '../query/utils/archetypes-hash';
+import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { getRelationTargets } from '../relation/relation';
 import { Relation, RelationTarget } from '../relation/types';
@@ -15,7 +15,6 @@ import { SparseSet } from '../utils/sparse-set';
 import {
 	$bitflag,
 	$changedMasks,
-	$componentCount,
 	$componentRecords,
 	$dirtyMasks,
 	$dirtyQueries,
@@ -44,7 +43,6 @@ export class World {
 	[$entityComponents] = new Map();
 	[$bitflag] = 1;
 	[$componentRecords] = new Map<Component, ComponentRecord>();
-	[$componentCount] = 0;
 	[$queries] = new Set<Query>();
 	[$queriesHashMap] = new Map<string, Query>();
 	[$notQueries] = new Set<Query>();
@@ -92,6 +90,12 @@ export class World {
 		const cursor = getTrackingCursor();
 		for (let i = 0; i < cursor; i++) {
 			setTrackingMasks(this, i);
+		}
+
+		// Create cached queries.
+		for (const [hash, parameters] of universe.cachedQueries) {
+			const query = new Query(this, parameters);
+			this[$queriesHashMap].set(hash, query);
 		}
 
 		// Call onInit callbacks.
@@ -147,7 +151,6 @@ export class World {
 		this[$recyclingBin].length = 0;
 
 		this[$componentRecords].clear();
-		this[$componentCount] = 0;
 
 		this[$queries].clear();
 		this[$queriesHashMap].clear();
@@ -172,9 +175,9 @@ export class World {
 		return getRelationTargets(this, relation, entity);
 	}
 
-	query = Object.assign(
-		function (this: World, ...parameters: QueryParameter[]) {
-			const hash = archetypeHash(this, parameters);
+	query = Object.assign(query, {
+		subscribe: function (this: World, parameters: QueryParameter[], callback: QuerySubscriber) {
+			const hash = createQueryHash(parameters);
 			let query = this[$queriesHashMap].get(hash);
 
 			if (!query) {
@@ -182,28 +185,11 @@ export class World {
 				this[$queriesHashMap].set(hash, query);
 			}
 
-			return query.run(this);
-		},
-		{
-			subscribe: function (
-				this: World,
-				parameters: QueryParameter[],
-				callback: QuerySubscriber
-			) {
-				const hash = archetypeHash(this, parameters);
-				let query = this[$queriesHashMap].get(hash);
+			query.subscriptions.add(callback);
 
-				if (!query) {
-					query = new Query(this, parameters);
-					this[$queriesHashMap].set(hash, query);
-				}
-
-				query.subscriptions.add(callback);
-
-				return () => query.subscriptions.delete(callback);
-			}.bind(this),
-		}
-	);
+			return () => query.subscriptions.delete(callback);
+		}.bind(this),
+	});
 
 	changed = Object.assign(
 		function (this: World, entity: number, component: Component) {
@@ -232,4 +218,24 @@ export class World {
 
 export function createWorld(options?: Options) {
 	return new World(options);
+}
+
+function query(this: World, key: string): readonly number[];
+function query(this: World, ...parameters: QueryParameter[]): readonly number[];
+function query(this: World, ...args: [string] | QueryParameter[]) {
+	if (typeof args[0] === 'string') {
+		const query = this[$queriesHashMap].get(args[0]);
+		if (!query) return [];
+		return query.run(this);
+	} else {
+		const hash = createQueryHash(args as QueryParameter[]);
+		let query = this[$queriesHashMap].get(hash);
+
+		if (!query) {
+			query = new Query(this, args as QueryParameter[]);
+			this[$queriesHashMap].set(hash, query);
+		}
+
+		return query.run(this);
+	}
 }
