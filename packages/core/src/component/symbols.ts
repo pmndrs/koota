@@ -6,3 +6,4 @@ export const $createInstance = Symbol('createInstance');
 export const $component = Symbol('component');
 export const $entity = Symbol('entity');
 export const $world = Symbol('world');
+export const $componentId = Symbol('componentId');

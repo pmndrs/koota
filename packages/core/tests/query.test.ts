@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld } from '../src';
+import { cacheQuery, createWorld } from '../src';
 import { define } from '../src/component/component';
 import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
@@ -75,7 +75,7 @@ describe('Query', () => {
 	});
 
 	it('should return an empty array if there are no query parameters', () => {
-		const entity = world.create();
+		world.create();
 		const entities = world.query();
 		expect(entities).toEqual([]);
 	});
@@ -600,5 +600,19 @@ describe('Query', () => {
 		world.changed(entity, Name);
 
 		expect(cb).toHaveBeenCalledTimes(1);
+	});
+
+	it('can cache and use the query key', () => {
+		const key = cacheQuery(Position, Name, IsActive);
+
+		const entityA = world.create();
+		const entityB = world.create();
+
+		world.add(entityA, Position, Name, IsActive);
+		world.add(entityB, Position, Name);
+
+		let entities = world.query(key);
+
+		expect(entities).toEqual([entityA]);
 	});
 });
