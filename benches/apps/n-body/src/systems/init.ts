@@ -6,6 +6,8 @@ import { scene } from '../scene';
 
 let inited = false;
 
+const zeroScaleMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+
 export function init({ world }: { world: Koota.World }) {
 	if (inited) return;
 
@@ -13,6 +15,9 @@ export function init({ world }: { world: Koota.World }) {
 	const geometry = new THREE.CircleGeometry(CONSTANTS.MAX_RADIUS / 1.5, 12);
 	const material = new THREE.MeshBasicMaterial({ color: new THREE.Color().setRGB(1, 1, 1) });
 	const instancedMesh = new THREE.InstancedMesh(geometry, material, CONSTANTS.NBODIES + 200);
+
+	// Set initial scale to zero
+	for (let i = 0; i < CONSTANTS.NBODIES + 200; i++) instancedMesh.setMatrixAt(i, zeroScaleMatrix);
 
 	scene.add(instancedMesh);
 	world.create(InstancedMesh({ object: instancedMesh }));

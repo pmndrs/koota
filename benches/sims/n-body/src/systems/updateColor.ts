@@ -1,9 +1,11 @@
 import { Velocity } from '../components/Velocity';
 import { Color } from '../components/Color';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
+import { Not } from 'koota';
+import { Repulse } from '../components';
 
 export const updateColor = ({ world }: { world: Koota.World }) => {
-	const ents = world.query(Velocity, Color);
+	const ents = world.query(Velocity, Color, Not(Repulse));
 	const [velocity, color] = world.get(Velocity, Color);
 
 	for (let i = 0; i < ents.length; i++) {

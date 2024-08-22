@@ -1,4 +1,4 @@
-import { Circle, Color, Position, world } from '@sim/n-body';
+import { Acceleration, Circle, Color, Mass, Position, Velocity, world } from '@sim/n-body';
 import { Repulse } from '@sim/n-body/src/components/Repulse';
 import { camera } from '../main';
 
@@ -26,6 +26,9 @@ export function spawnRepulsor(e: PointerEvent) {
 		Position({ x, y }),
 		Circle({ radius: 160 }),
 		Color({ r: 255, g: 0, b: 0 }),
-		Repulse({ force: 5, decay: 0.96, delay: 1 })
+		Repulse({ force: 5, decay: 0.96, delay: 1 }),
+		Velocity,
+		Acceleration,
+		Mass({ value: 200 })
 	);
 }

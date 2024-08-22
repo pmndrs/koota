@@ -14,6 +14,8 @@ export const setInitial = ({ world }: { world: Koota.World }) => {
 	for (let i = 0; i < ents.length; i++) {
 		const e = ents[i];
 
+		if (mass.value[e] !== 0) return;
+
 		// Random positions
 		position.x[e] = randInRange(-4000, 4000);
 		position.y[e] = randInRange(-100, 100);
