@@ -6,4 +6,4 @@ export { Mass } from './Mass';
 export { Position } from './Position';
 export { Velocity } from './Velocity';
 export { Time } from './Time';
-export { Repulse as Explosion } from './Repulse';
+export { Repulse } from './Repulse';

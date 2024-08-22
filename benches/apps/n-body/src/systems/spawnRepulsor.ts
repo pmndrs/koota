@@ -26,6 +26,6 @@ export function spawnRepulsor(e: PointerEvent) {
 		Position({ x, y }),
 		Circle({ radius: 160 }),
 		Color({ r: 255, g: 0, b: 0 }),
-		Repulse({ force: 5, decay: 0.96 })
+		Repulse({ force: 5, decay: 0.96, delay: 1 })
 	);
 }
