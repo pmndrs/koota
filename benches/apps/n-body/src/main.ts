@@ -85,12 +85,12 @@ let isPointerDown = false;
 
 window.addEventListener('pointerdown', (e) => {
 	isPointerDown = true;
-	spawnRepulsor(e);
+	spawnRepulsor(e, frustumSize);
 });
 
 window.addEventListener('pointermove', (e) => {
 	if (isPointerDown) {
-		spawnRepulsor(e);
+		spawnRepulsor(e, frustumSize);
 	}
 });
 
