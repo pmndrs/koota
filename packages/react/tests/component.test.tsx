@@ -169,7 +169,7 @@ describe('Component', () => {
 						ref={(node) => {
 							ref = node;
 						}}
-						components={[Position.with({ x: 11, y: 22 }), Name.with({ name: 'test' })]}
+						components={[Position({ x: 11, y: 22 }), Name({ name: 'test' })]}
 					>
 						<group />
 					</Entity>
@@ -200,12 +200,7 @@ describe('Component', () => {
 					ref={(node) => {
 						ref = node;
 					}}
-					components={[
-						position,
-						name,
-						Position.with({ x: 33, y: 44 }),
-						Name.with({ name: 'test2' }),
-					]}
+					components={[position, name, Position({ x: 33, y: 44 }), Name({ name: 'test2' })]}
 				>
 					<group />
 				</Entity>

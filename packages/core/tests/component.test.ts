@@ -27,7 +27,8 @@ describe('Component', () => {
 	it('should create a component', () => {
 		const Test = define({ x: 0, y: 0 });
 
-		expect(Object.keys(Test)).toEqual(['schema', 'with']);
+		expect(Object.keys(Test)).toEqual(['schema']);
+		expect(typeof Test === 'function').toBe(true);
 	});
 
 	it('should register a component', () => {
@@ -107,7 +108,7 @@ describe('Component', () => {
 		const entity = world.create();
 
 		// Partial
-		world.add(entity, Test.with({ current: 2, arr: ['d', 'e', 'f'] }));
+		world.add(entity, Test({ current: 2, arr: ['d', 'e', 'f'] }));
 		const store = world.get(Test);
 
 		expect(store).toMatchObject({
@@ -124,7 +125,7 @@ describe('Component', () => {
 		// Full
 		world.add(
 			entity,
-			Test.with({
+			Test({
 				current: 3,
 				test: 'world',
 				bool: false,

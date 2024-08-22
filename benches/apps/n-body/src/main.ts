@@ -96,10 +96,10 @@ function spawnExplosion(e: PointerEvent) {
 	const y = (ndcY * viewHeight) / 2;
 
 	world.create(
-		Position.with({ x, y }),
-		Circle.with({ radius: 160 }),
-		Color.with({ r: 255, g: 0, b: 0 }),
-		Explosion.with({ force: 5, decay: 0.96 })
+		Position({ x, y }),
+		Circle({ radius: 160 }),
+		Color({ r: 255, g: 0, b: 0 }),
+		Explosion({ force: 5, decay: 0.96 })
 	);
 }
 

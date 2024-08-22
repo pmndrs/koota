@@ -70,7 +70,7 @@ function createEntity(world: Koota.World, ...components: ComponentProp[]) {
 		if (isComponentInstance(c)) {
 			instances.push(c);
 			// If it's an instance, store the "with" version in the map, overwriting if necessary
-			componentMap.set(c[SYMBOLS.$component], c[SYMBOLS.$component].with(c));
+			componentMap.set(c[SYMBOLS.$component], c[SYMBOLS.$component](c));
 		} else if (isComponentWithParams(c)) {
 			// If it is a component with params stor it, overwriting if necessary
 			componentMap.set(c[0], c);

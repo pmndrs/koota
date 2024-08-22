@@ -15,7 +15,7 @@ export function init({ world }: { world: Koota.World }) {
 	const instancedMesh = new THREE.InstancedMesh(geometry, material, CONSTANTS.NBODIES + 200);
 
 	scene.add(instancedMesh);
-	world.create(InstancedMesh.with({ object: instancedMesh }));
+	world.create(InstancedMesh({ object: instancedMesh }));
 
 	// Compile Three shaders.
 	renderer.compile(scene, camera);
