@@ -22,9 +22,12 @@ export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 	[$componentId]: number;
 } & ((params: Partial<PropsFromSchema<TSchema>>) => [Component<TSchema, TStore>, Partial<TSchema>]);
 
-export type ComponentOrWithParams<C extends Component = Component> =
-	| C
-	| [C, C extends Component<infer S, any> ? Partial<PropsFromSchema<S>> : never];
+export type ComponentWithParams<C extends Component = Component> = [
+	C,
+	C extends Component<infer S, any> ? Partial<PropsFromSchema<S>> : never
+];
+
+export type ComponentOrWithParams<C extends Component = Component> = C | ComponentWithParams<C>;
 
 export type Schema = {
 	[key: string]: number | string | boolean | any[] | object | null | undefined;

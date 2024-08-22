@@ -189,4 +189,17 @@ describe('Component', () => {
 
 		expect(world.has(entity, Position)).toBe(true);
 	});
+
+	it('should set component params', () => {
+		const eid = world.create(Test);
+		world.set(eid, Test({ current: 2, test: 'world' }));
+
+		const store = world.get(Test);
+		expect(store).toMatchObject({
+			current: [2],
+			test: ['world'],
+			bool: [true],
+			arr: [['a', 'b', 'c']],
+		});
+	});
 });
