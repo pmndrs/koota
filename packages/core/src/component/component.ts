@@ -220,6 +220,6 @@ export function getStore<C extends Component = Component>(
 	// Need this for relation components. There might be a better way to handle this.
 	if (!world[$componentRecords].has(component)) registerComponent(world, component);
 
-	const instance = world[$componentRecords].get(component)!;
-	return instance.store as StoreFromComponent<C>;
+	const record = world[$componentRecords].get(component)!;
+	return record.store as StoreFromComponent<C>;
 }

@@ -1,6 +1,11 @@
 import { addComponent, getStore, hasComponent, removeComponent } from '../component/component';
 import { ComponentRecord } from '../component/component-record';
-import { Component, ComponentOrWithParams, StoreFromComponents } from '../component/types';
+import {
+	Component,
+	ComponentOrWithParams,
+	ComponentWithParams,
+	StoreFromComponents,
+} from '../component/types';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { setChanged } from '../query/modifiers/changed';
 import { Query } from '../query/query';
@@ -123,6 +128,16 @@ export class World {
 	get<T extends [Component, ...Component[]]>(...components: T): StoreFromComponents<T> {
 		const stores = components.map((component) => getStore(this, component));
 		return (components.length === 1 ? stores[0] : stores) as StoreFromComponents<T>;
+	}
+
+	set<T extends ComponentWithParams[]>(entity: number, ...components: T) {
+		for (const [component, params] of components) {
+			const store = this.get(component);
+
+			for (const key in params) {
+				(store as any)[key][entity] = params[key];
+			}
+		}
 	}
 
 	destroy(target?: number) {
