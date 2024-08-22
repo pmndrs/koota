@@ -26,18 +26,20 @@ import { createStore } from './utils/create-store';
 let componentId = 0;
 
 function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<Normalized<S>> {
-	const Component: Component<Normalized<S>> = {
-		schema: schema as Normalized<S>,
-		with: (params) => {
+	const Component = Object.assign(
+		function (params: Partial<Normalized<S>>) {
 			return [Component, params];
 		},
-		[$createStore]: () => createStore(schema as Normalized<S>),
-		[$createInstance]: () => createInstance(schema as Normalized<S>, Component),
-		[$isPairComponent]: false,
-		[$relation]: null,
-		[$pairTarget]: null,
-		[$componentId]: componentId++,
-	};
+		{
+			schema: schema as Normalized<S>,
+			[$createStore]: () => createStore(schema as Normalized<S>),
+			[$createInstance]: () => createInstance(schema as Normalized<S>, Component),
+			[$isPairComponent]: false,
+			[$relation]: null,
+			[$pairTarget]: null,
+			[$componentId]: componentId++,
+		}
+	) as Component<Normalized<S>>;
 
 	return Component;
 }

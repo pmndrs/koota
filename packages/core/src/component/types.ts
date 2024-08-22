@@ -14,16 +14,13 @@ import {
 
 export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 	schema: TSchema;
-	with: (
-		params: Partial<PropsFromSchema<TSchema>>
-	) => [Component<TSchema, TStore>, Partial<TSchema>];
 	[$createStore]: () => TStore;
 	[$createInstance]: () => ComponentInstance<TSchema>;
 	[$isPairComponent]: boolean;
 	[$relation]: any | null;
 	[$pairTarget]: RelationTarget | null;
 	[$componentId]: number;
-};
+} & ((params: Partial<PropsFromSchema<TSchema>>) => [Component<TSchema, TStore>, Partial<TSchema>]);
 
 export type ComponentOrWithParams<C extends Component = Component> =
 	| C
