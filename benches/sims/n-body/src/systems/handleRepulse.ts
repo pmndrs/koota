@@ -1,6 +1,6 @@
-import { Circle, Explosion, Mass, Position, Time, Velocity } from '../components';
+import { Circle, Repulse, Mass, Position, Time, Velocity } from '../components';
 
-const repulsor = [Explosion, Position, Circle];
+const repulsor = [Repulse, Position, Circle];
 const body = [Position, Velocity, Mass];
 
 export const handleRepulse = ({ world }: { world: Koota.World }) => {
@@ -8,13 +8,19 @@ export const handleRepulse = ({ world }: { world: Koota.World }) => {
 	if (repuslorIds.length === 0) return;
 
 	const bodyIds = world.query(...body);
-	const [position, velocity, mass, explosion, circle] = world.get(Position, Velocity, Mass, Explosion, Circle); // prettier-ignore
+	const [position, velocity, mass, explosion, circle] = world.get(Position, Velocity, Mass, Repulse, Circle); // prettier-ignore
 	const { delta } = world.resources.get(Time);
 
 	for (let i = repuslorIds.length - 1; i >= 0; i--) {
 		const rid = repuslorIds[i];
+
+		// Count down the delay
+		if (explosion.delay[rid] > 0) explosion.delay[rid] -= delta;
+
 		// Decay the circle radius by the explosion decay
-		circle.radius[rid] -= circle.radius[rid] * explosion.decay[rid] * delta;
+		if (explosion.delay[rid] <= 0) {
+			circle.radius[rid] -= circle.radius[rid] * explosion.decay[rid] * delta;
+		}
 
 		if (circle.radius[rid] <= 5) {
 			world.destroy(rid);

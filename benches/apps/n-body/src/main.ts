@@ -4,7 +4,7 @@ import { define } from 'koota';
 import * as THREE from 'three';
 import { scene } from './scene';
 import './styles.css';
-import { cleanupBodies } from './systems/cleanupBodies';
+import { cleanupBodies } from './systems/cleanupRepulsors';
 import { init } from './systems/init';
 import { render } from './systems/render';
 import { spawnRepulsor } from './systems/spawnRepulsor';
