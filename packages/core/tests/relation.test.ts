@@ -73,6 +73,12 @@ describe('Relation', () => {
 		const childChildB = world.create(ChildOf(child));
 		const childChildC = world.create(ChildOf(childChildB));
 
+		expect(world.has(parent)).toBe(true);
+		expect(world.has(child)).toBe(true);
+		expect(world.has(childChildA)).toBe(true);
+		expect(world.has(childChildB)).toBe(true);
+		expect(world.has(childChildC)).toBe(true);
+
 		world.destroy(parent);
 
 		expect(world.has(parent)).toBe(false);
