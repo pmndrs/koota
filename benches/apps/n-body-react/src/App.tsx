@@ -17,19 +17,23 @@ import {
 import { ComponentProp, Entity, koota, useComponent, useWorld, World } from 'koota/react';
 import { useSchedule } from 'directed/react';
 import { createSpawner } from 'extras';
-import { StrictMode, useLayoutEffect } from 'react';
+import { StrictMode, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { syncThreeObjects } from './systems/syncThreeObjects';
 import { useStats } from './use-stats';
+import { spawnRepulsor } from './systems/spawnRepulsor';
+import { cleanupBodies } from './systems/cleanupRepulsors';
 
 const BodySpawner = createSpawner(Body);
 
 export function App() {
 	const frustumSize = 7000;
 	const aspect = window.innerWidth / window.innerHeight;
+	const isPointerDown = useRef(false);
 
 	// Add a system to sync the instanced mesh with component data.
 	useSchedule(schedule, syncThreeObjects, { after: 'update' });
+	useSchedule(schedule, cleanupBodies, { after: syncThreeObjects });
 
 	useLayoutEffect(() => {
 		// Remove init systems
@@ -51,6 +55,19 @@ export function App() {
 					far: 500,
 					position: [0, 0, 100],
 				}}
+				onPointerDown={(e) => {
+					isPointerDown.current = true;
+					spawnRepulsor(e, frustumSize);
+				}}
+				onPointerMove={(e) => {
+					if (isPointerDown.current) spawnRepulsor(e, frustumSize);
+				}}
+				onPointerUp={() => {
+					isPointerDown.current = false;
+				}}
+				onPointerOut={() => {
+					isPointerDown.current = false;
+				}}
 			>
 				<StrictMode>
 					<Bodies />
@@ -67,7 +84,7 @@ function Bodies() {
 	const geo = new THREE.CircleGeometry(CONSTANTS.MAX_RADIUS / 1.5, 12);
 	const mat = new THREE.MeshBasicMaterial();
 
-	return <koota.instancedMesh args={[geo, mat, CONSTANTS.NBODIES]} />;
+	return <koota.instancedMesh args={[geo, mat, CONSTANTS.NBODIES + 500]} />;
 }
 
 function Body({ components = [] }: { components: ComponentProp[] }) {

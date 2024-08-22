@@ -4,7 +4,7 @@ import { Repulse } from '@sim/n-body/src/components/Repulse';
 let lastSpawnTime = 0;
 const spawnInterval = 100; // milliseconds
 
-export function spawnRepulsor(e: PointerEvent, frustumSize: number) {
+export function spawnRepulsor(e: React.PointerEvent, frustumSize: number) {
 	const now = performance.now();
 	if (now - lastSpawnTime < spawnInterval) return;
 
