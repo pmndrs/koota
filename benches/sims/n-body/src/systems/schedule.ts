@@ -5,7 +5,7 @@ import { moveBodies } from './moveBodies';
 import { updateColor } from './updateColor';
 import { updateTime } from './updateTime';
 import { init } from './init';
-import { handleExplosions } from './handleExplosions';
+import { handleRepulse } from './handleRepulse';
 
 export const schedule = new Schedule<{ world: Koota.World }>();
 
@@ -17,8 +17,8 @@ schedule.add(setInitial, { tag: 'init', after: init, before: 'update' });
 
 schedule.add(updateTime, { tag: 'update' });
 schedule.add(updateGravity, { after: setInitial, tag: 'update' });
-schedule.add(handleExplosions, { after: updateGravity, tag: 'update' });
-schedule.add(moveBodies, { after: handleExplosions, tag: 'update' });
+schedule.add(handleRepulse, { after: updateGravity, tag: 'update' });
+schedule.add(moveBodies, { after: handleRepulse, tag: 'update' });
 schedule.add(updateColor, { after: moveBodies, tag: 'update' });
 
 schedule.build();

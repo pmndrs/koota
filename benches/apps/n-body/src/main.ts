@@ -1,14 +1,14 @@
 import { initStats } from '@app/bench-tools';
-import { Circle, Color, CONSTANTS, Position, schedule, world } from '@sim/n-body';
+import { CONSTANTS, schedule, world } from '@sim/n-body';
+import { define } from 'koota';
 import * as THREE from 'three';
+import { scene } from './scene';
 import './styles.css';
+import { cleanupBodies } from './systems/cleanupBodies';
 import { init } from './systems/init';
 import { render } from './systems/render';
+import { spawnRepulsor } from './systems/spawnRepulsor';
 import { syncThreeObjects } from './systems/syncThreeObjects';
-import { define } from 'koota';
-import { scene } from './scene';
-import { Explosion } from '@sim/n-body/src/components';
-import { cleanupBodies } from './systems/cleanupBodies';
 
 // Renderer
 export const renderer = new THREE.WebGLRenderer({
@@ -29,9 +29,12 @@ export const camera = new THREE.OrthographicCamera(
 	0.1,
 	500
 );
+camera.userData.frustumSize = frustumSize;
+camera.userData.aspect = aspect;
 
 function onWindowResize() {
 	const aspect = window.innerWidth / window.innerHeight;
+	const frustumSize = camera.userData.frustumSize;
 
 	camera.left = (-frustumSize * aspect) / 2;
 	camera.right = (frustumSize * aspect) / 2;
@@ -40,6 +43,8 @@ function onWindowResize() {
 	camera.updateProjectionMatrix();
 
 	renderer.setSize(window.innerWidth, window.innerHeight);
+
+	camera.userData.aspect = aspect;
 }
 
 window.addEventListener('resize', onWindowResize);
@@ -75,42 +80,17 @@ const main = async () => {
 
 requestAnimationFrame(main);
 
+// Pointer events for spawning repulsors.
 let isPointerDown = false;
-let lastSpawnTime = 0;
-const spawnInterval = 100; // milliseconds
-
-function spawnExplosion(e: PointerEvent) {
-	const now = performance.now();
-	if (now - lastSpawnTime < spawnInterval) return;
-
-	lastSpawnTime = now;
-
-	const aspect = window.innerWidth / window.innerHeight;
-	const viewWidth = frustumSize * aspect;
-	const viewHeight = frustumSize;
-
-	const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
-	const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
-
-	const x = (ndcX * viewWidth) / 2;
-	const y = (ndcY * viewHeight) / 2;
-
-	world.create(
-		Position({ x, y }),
-		Circle({ radius: 160 }),
-		Color({ r: 255, g: 0, b: 0 }),
-		Explosion({ force: 5, decay: 0.96 })
-	);
-}
 
 window.addEventListener('pointerdown', (e) => {
 	isPointerDown = true;
-	spawnExplosion(e);
+	spawnRepulsor(e);
 });
 
 window.addEventListener('pointermove', (e) => {
 	if (isPointerDown) {
-		spawnExplosion(e);
+		spawnRepulsor(e);
 	}
 });
 
