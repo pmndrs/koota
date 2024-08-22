@@ -9,7 +9,6 @@ import {
 	$entityMasks,
 	$entitySparseSet,
 	$notQueries,
-	$queries,
 	$recyclingBin,
 	$relationTargetEntities,
 	$removed,

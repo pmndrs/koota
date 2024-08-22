@@ -3,8 +3,10 @@ export { define } from './component/component';
 export { createAdded } from './query/modifiers/added';
 export { createRemoved } from './query/modifiers/removed';
 export { createChanged } from './query/modifiers/changed';
+export { Not } from './query/modifiers/not';
 export { universe } from './universe/universe';
 export { cacheQuery } from './query/utils/cache-query';
+export { relation, Pair, Wildcard } from './relation/relation';
 
 import * as worldSymbols from './world/symbols';
 import * as componentSymbols from './component/symbols';
