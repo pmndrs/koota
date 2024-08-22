@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { relation } from '../src/relation/relation';
+import { relation, Wildcard } from '../src/relation/relation';
 import { createWorld } from '../src';
 
 describe('Relation', () => {
@@ -108,5 +108,28 @@ describe('Relation', () => {
 		expect(silverStore.amount[inventory]).toBe(12);
 		expect(world.get(Contains(gold)).amount[inventory]).toBe(5);
 		expect(world.get(Contains(silver)).amount[inventory]).toBe(12);
+	});
+
+	it('should query all relations with a wildcard', () => {
+		const Contains = relation();
+
+		const inventory = world.create();
+		const shop = world.create();
+		const gold = world.create();
+		const silver = world.create();
+
+		world.add(inventory, Contains(gold));
+		world.add(inventory, Contains(silver));
+
+		let relations = world.query(Contains('*'));
+		expect(relations.length).toBe(1);
+		expect(relations).toContain(inventory);
+
+		world.add(shop, Contains(gold));
+
+		relations = world.query(Contains('*'));
+		expect(relations.length).toBe(2);
+		expect(relations).toContain(inventory);
+		expect(relations).toContain(shop);
 	});
 });
