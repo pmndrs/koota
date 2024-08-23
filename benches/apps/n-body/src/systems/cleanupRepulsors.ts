@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import { InstancedMesh } from '../components/InstancedMesh';
 
 const Removed = createRemoved();
-
 const zeroScaleMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
 export function cleanupBodies({ world }: { world: Koota.World }) {
