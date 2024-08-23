@@ -14,6 +14,10 @@
 		"./react": {
 			"default": "./src/react.ts",
 			"types": "./src/react.ts"
+		},
+		"./utils": {
+			"default": "./src/utils.ts",
+			"types": "./src/utils.ts"
 		}
 	},
 	"scripts": {

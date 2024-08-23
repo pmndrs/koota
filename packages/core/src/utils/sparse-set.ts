@@ -33,6 +33,10 @@ export class SparseSet {
 		}
 	}
 
+	getIndex(val: number): number {
+		return this.#sparse[val];
+	}
+
 	get dense(): number[] {
 		return this.#dense;
 	}
