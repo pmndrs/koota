@@ -91,6 +91,7 @@ export function addComponent(world: World, entity: number, ...components: Compon
 
 		// Set the entity as dirty.
 		for (const dirtyMask of world[$dirtyMasks].values()) {
+			if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
 			dirtyMask[generationId][entity] |= bitflag;
 		}
 
