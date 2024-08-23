@@ -1,0 +1,17 @@
+{
+	"name": "@sim/add-remove",
+	"private": true,
+	"version": "0.0.1",
+	"description": "Particle simulator to stress test adding and removing entities",
+	"type": "module",
+	"main": "src/index.ts",
+	"dependencies": {
+		"@sim/bench-tools": "workspace:*",
+		"koota": "workspace:*",
+		"directed": "github:pmndrs/directed#v0.0.1-alpha.5"
+	},
+	"devDependencies": {
+		"tsx": "latest",
+		"tsconfig": "workspace:*"
+	}
+}

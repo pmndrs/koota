@@ -18,6 +18,34 @@ importers:
         specifier: latest
         version: 5.5.4
 
+  benches/apps/add-remove:
+    dependencies:
+      '@app/bench-tools':
+        specifier: workspace:*
+        version: link:../app-tools
+      '@sim/add-remove':
+        specifier: workspace:*
+        version: link:../../sims/add-remove
+      directed:
+        specifier: github:pmndrs/directed#v0.0.1-alpha.5
+        version: https://codeload.github.com/pmndrs/directed/tar.gz/84a2949f1c22d4e8313b0ac12af570181ab2caba
+      koota:
+        specifier: workspace:*
+        version: link:../../../packages/publish
+      three:
+        specifier: ^0.162.0
+        version: 0.162.0
+    devDependencies:
+      '@types/three':
+        specifier: ^0.162.0
+        version: 0.162.0
+      typescript:
+        specifier: ^5.2.2
+        version: 5.5.4
+      vite:
+        specifier: ^5.1.6
+        version: 5.4.1(@types/node@22.4.1)
+
   benches/apps/app-tools:
     dependencies:
       '@sim/bench-tools':
@@ -119,6 +147,25 @@ importers:
       vite:
         specifier: ^5.2.0
         version: 5.4.1(@types/node@22.4.1)
+
+  benches/sims/add-remove:
+    dependencies:
+      '@sim/bench-tools':
+        specifier: workspace:*
+        version: link:../bench-tools
+      directed:
+        specifier: github:pmndrs/directed#v0.0.1-alpha.5
+        version: https://codeload.github.com/pmndrs/directed/tar.gz/84a2949f1c22d4e8313b0ac12af570181ab2caba
+      koota:
+        specifier: workspace:*
+        version: link:../../../packages/publish
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../../../packages/tsconfig
+      tsx:
+        specifier: latest
+        version: 4.17.0
 
   benches/sims/bench-tools:
     dependencies:
