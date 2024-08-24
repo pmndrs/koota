@@ -4,7 +4,7 @@ import { setInitial } from './setInitial';
 import { updateTime } from './updateTime';
 import { updateGravity } from './updateGravity';
 import { moveBodies } from './moveBodies';
-import { recycleBodies } from './recycleBodies';
+import { recycleBodiesSim } from './recycleBodies';
 import { recycleEntities } from './recycleEntities';
 
 export const schedule = new Schedule<{ world: Koota.World }>();
@@ -20,7 +20,7 @@ schedule.add(updateTime, { tag: 'update' });
 schedule.add(updateGravity, { after: updateTime, tag: 'update' });
 schedule.add(moveBodies, { after: updateGravity, tag: 'update' });
 
-schedule.add(recycleBodies, { tag: 'end', after: 'update' });
-schedule.add(recycleEntities, { tag: 'end', after: recycleBodies });
+schedule.add(recycleBodiesSim, { tag: 'end', after: 'update' });
+schedule.add(recycleEntities, { tag: 'end', after: recycleBodiesSim });
 
 schedule.build();

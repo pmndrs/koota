@@ -8,7 +8,7 @@ import { addBody } from './init';
 
 let draining = true;
 
-export const recycleBodies = ({ world }: { world: Koota.World }) => {
+export const recycleBodiesSim = ({ world }: { world: Koota.World }) => {
 	const eids = world.query(Position, Circle, Mass, Velocity, Color);
 	const position = world.get(Position);
 
