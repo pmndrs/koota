@@ -1,6 +1,6 @@
 import { Circle, Color, Position } from '@sim/add-remove';
 import { createRemoved } from 'koota';
-import { Points } from '../components/Points';
+import { Points } from 'koota/react';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
 const Removed = createRemoved();

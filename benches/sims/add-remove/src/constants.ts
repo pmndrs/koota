@@ -1,5 +1,5 @@
 export const CONSTANTS = {
-	BODIES: 50000,
+	BODIES: 5000,
 	GRAVITY: -9.81 * 2,
 	FLOOR: -1000,
 	COMPONENTS: 100,
