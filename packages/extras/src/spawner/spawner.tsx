@@ -1,19 +1,26 @@
 import { SparseSet } from 'koota/utils';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { SpawnerContext } from './spawner-context';
+import { memo, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useTransition } from 'react';
+import { jsx } from 'react/jsx-runtime';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export class Spawner {
 	#pointer = 0;
-	#spawnCallbacks: ((sid: number) => void)[] = [];
-	#destroyCallbacks: ((sid: number) => void)[] = [];
 	#sparseSet = new SparseSet();
 	#pendingSpawns = new SparseSet();
-	#pendingDestroys: number[] = [];
+	#pendingDestroys = new SparseSet();
 	#recycleBin: number[] = [];
+	#chunks: (React.ReactNode | null)[][] = [];
+	#onChunkUpdateCbs: (() => void)[] = [];
+	#onChunkAdd = () => {};
+	#chunkSize = 250;
+	#dirtyChunks = new Set<number>();
 
-	entities: JSX.Element[] = [];
+	#generations: number[] = [];
+	#maxGeneration = (1 << 12) - 1; // Use 12 bits for generation (4096 generations)
+	#maxId = (1 << 20) - 1; // Use 20 bits for ID (1,048,575 unique IDs)
+
 	component: React.FunctionComponent<any>;
+	elements: React.ReactNode[] = []; // Fill with Chunks
 
 	get sids(): readonly number[] {
 		return this.#sparseSet.dense;
@@ -26,118 +33,171 @@ export class Spawner {
 	Emitter = createEmitter(this);
 
 	spawn(): number {
-		const sid = this.#recycleBin.length ? this.#recycleBin.pop()! : this.#pointer++;
+		let id: number;
+		if (this.#recycleBin.length) {
+			id = this.#recycleBin.pop()!;
+			this.#generations[id] = (this.#generations[id] + 1) & this.#maxGeneration;
+		} else {
+			id = this.#pointer++;
+			if (id > this.#maxId) throw new Error('Maximum number of unique IDs reached');
+			this.#generations[id] = 0;
+		}
+
+		const sid = this.#combineIdAndGeneration(id, this.#generations[id]);
+
 		this.#sparseSet.add(sid);
+		this.#addToChunk(sid);
 
-		// Create entity JSX.
-		const newEntity = (
-			<SpawnerContext.Provider key={sid} value={{ sid }}>
-				<this.component />
-			</SpawnerContext.Provider>
-		);
-		this.entities.push(newEntity);
-
-		// Call spawn callbacks.
-		this.#spawnCallbacks.forEach((callback) => {
-			callback(sid);
-		});
+		const chunkId = Math.floor(id / this.#chunkSize);
+		this.#onChunkUpdateCbs[chunkId]();
 
 		return sid;
 	}
 
 	destroy(sid: number) {
-		const index = this.#sparseSet.getIndex(sid);
+		const id = this.extractId(sid);
 		this.#sparseSet.remove(sid);
+		this.#removeFromChunk(sid);
+		this.#recycleBin.push(id);
 
-		// Mirror the SparseSet's removal process
-		const lastEntity = this.entities.pop()!;
-		if (index !== this.entities.length) {
-			this.entities[index] = lastEntity;
-		}
-
-		this.#recycleBin.push(sid);
-
-		// Call destroy callbacks.
-		this.#destroyCallbacks.forEach((callback) => {
-			callback(sid);
-		});
+		const chunkId = Math.floor(id / this.#chunkSize);
+		this.#onChunkUpdateCbs[chunkId]();
 	}
 
 	queueSpawn(): number {
-		const sid = this.#recycleBin.length ? this.#recycleBin.pop()! : this.#pointer++;
+		let id: number;
+		if (this.#recycleBin.length) {
+			id = this.#recycleBin.pop()!;
+			this.#generations[id] = (this.#generations[id] + 1) & this.#maxGeneration;
+		} else {
+			id = this.#pointer++;
+			if (id > this.#maxId) throw new Error('Maximum number of unique IDs reached');
+			this.#generations[id] = 0;
+		}
+
+		const sid = this.#combineIdAndGeneration(id, this.#generations[id]);
+
 		this.#pendingSpawns.add(sid);
+
 		return sid;
 	}
 
 	queueDestroy(sid: number): void {
-		if (this.#sparseSet.has(sid)) {
-			this.#recycleBin.push(sid);
-			this.#pendingDestroys.push(sid);
+		const id = this.extractId(sid);
+		if (this.#sparseSet.has(sid) && !this.#pendingDestroys.has(sid)) {
+			this.#pendingDestroys.add(sid);
+			this.#recycleBin.push(id);
 			// Remove from spawn queue.
 		} else if (this.#pendingSpawns.has(sid)) {
 			this.#pendingSpawns.remove(sid);
+			this.#recycleBin.push(id);
 		}
 	}
 
-	processedQueued(): void {
+	processQueue(): void {
 		// Process destroys first
-		for (const sid of this.#pendingDestroys) {
-			if (this.#sparseSet.has(sid)) {
-				const index = this.#sparseSet.getIndex(sid);
-				this.#sparseSet.remove(sid);
+		for (const sid of this.#pendingDestroys.dense) {
+			this.#sparseSet.remove(sid);
+			this.#removeFromChunk(sid);
 
-				const lastEntity = this.entities.pop()!;
-				if (index !== this.entities.length) {
-					this.entities[index] = lastEntity;
-				}
-
-				this.#destroyCallbacks.forEach((callback) => callback(sid));
-			}
+			const id = this.extractId(sid);
+			const chunkId = Math.floor(id / this.#chunkSize);
+			this.#dirtyChunks.add(chunkId);
 		}
 
 		// Process spawns
 		for (const sid of this.#pendingSpawns.dense) {
 			this.#sparseSet.add(sid);
-			this.entities.push(this.#createEntityJSX(sid));
-			this.#spawnCallbacks.forEach((callback) => callback(sid));
+			this.#addToChunk(sid);
+
+			const id = this.extractId(sid);
+			const chunkId = Math.floor(id / this.#chunkSize);
+			this.#dirtyChunks.add(chunkId);
 		}
 
 		// Clear pending operations
 		this.#pendingSpawns.clear();
-		this.#pendingDestroys = [];
+		this.#pendingDestroys.clear();
+
+		// Trigger updates
+		for (const chunkId of this.#dirtyChunks) {
+			this.#onChunkUpdateCbs[chunkId]?.();
+		}
+
+		this.#dirtyChunks.clear();
 	}
 
-	onSpawn(callback: (sid: number) => void): () => void {
-		this.#spawnCallbacks.push(callback);
+	setOnChunkAdd(callback: () => void) {
+		this.#onChunkAdd = callback;
 
 		return () => {
-			const index = this.#spawnCallbacks.indexOf(callback);
-			if (index === -1) return;
-			this.#spawnCallbacks.splice(index, 1);
+			this.#onChunkAdd = () => {};
 		};
 	}
 
-	onDestroy(callback: (sid: number) => void): () => void {
-		this.#destroyCallbacks.push(callback);
+	setOnChunkUpdate(chunkId: number, callback: () => void) {
+		this.#onChunkUpdateCbs[chunkId] = callback;
 
 		return () => {
-			const index = this.#destroyCallbacks.indexOf(callback);
-			if (index === -1) return;
-			this.#destroyCallbacks.splice(index, 1);
+			this.#onChunkUpdateCbs[chunkId] = () => {};
 		};
+	}
+
+	getChunk(chunkId: number): React.ReactNode[] | undefined {
+		return this.#chunks[chunkId];
+	}
+
+	#addToChunk(sid: number): void {
+		const id = this.extractId(sid);
+		const chunkId = Math.floor(id / this.#chunkSize);
+		const indexInChunk = id % this.#chunkSize;
+
+		let chunkAdded = false;
+
+		if (!this.#chunks[chunkId]) {
+			this.#chunks[chunkId] = new Array(this.#chunkSize).fill(null);
+			this.elements[chunkId] = jsx(Chunk, { id: chunkId, spawner: this }, chunkId);
+			chunkAdded = true;
+		}
+
+		const chunk = this.#chunks[chunkId];
+		chunk[indexInChunk] = this.#createEntityJSX(sid);
+
+		if (chunkAdded) this.#onChunkAdd();
+	}
+
+	#removeFromChunk(sid: number): void {
+		const id = this.extractId(sid);
+		const chunkId = Math.floor(id / this.#chunkSize);
+		const indexInChunk = id % this.#chunkSize;
+
+		const chunk = this.#chunks[chunkId];
+		chunk[indexInChunk] = null;
+	}
+
+	#combineIdAndGeneration(id: number, generation: number): number {
+		return (generation << 20) | id;
+	}
+
+	extractId(sid: number): number {
+		return sid & this.#maxId;
+	}
+
+	extractGeneration(sid: number): number {
+		return sid >> 20;
 	}
 
 	#createEntityJSX(sid: number) {
-		return <this.component key={sid} _sid={sid} />;
+		return jsx(this.component, { _sid: sid }, sid);
 	}
 }
 
 const createEmitter = (spawner: Spawner) => {
-	return ({ initial }: { initial?: number }) => {
+	return memo(({ initial }: { initial?: number }) => {
 		const initialSidRef = useRef<number[]>([]);
-
-		const [, setVersion] = useState(0);
-		const rerender = useCallback(() => setVersion((v) => v + 1), []);
+		const [, startTransition] = useTransition();
+		const [, rerender] = useReducer((v) => v + 1, 0);
+		const deferredRerender = () => startTransition(() => rerender());
 
 		// Create initial entities.
 		useLayoutEffect(() => {
@@ -148,8 +208,8 @@ const createEmitter = (spawner: Spawner) => {
 				initialSids.push(spawner.queueSpawn());
 			}
 
-			spawner.processedQueued();
-			rerender();
+			spawner.processQueue();
+			deferredRerender();
 
 			return () => {
 				for (let i = 0; i < initialSids.length; i++) {
@@ -161,21 +221,29 @@ const createEmitter = (spawner: Spawner) => {
 			// eslint-disable-next-line react-hooks/exhaustive-deps
 		}, []);
 
-		// Subscribe to spawn and destroy events.
 		useEffect(() => {
-			const unsubSpawn = spawner.onSpawn(rerender);
-			const unsubDestroy = spawner.onDestroy(rerender);
+			const unsub = spawner.setOnChunkAdd(deferredRerender);
+			return unsub;
+		}, []);
 
-			return () => {
-				unsubSpawn();
-				unsubDestroy();
-			};
-		}, [rerender]);
-
-		return spawner.entities;
-	};
+		return useMemo(() => spawner.elements, [spawner]);
+	});
 };
 
 export function createSpawner(component: React.FunctionComponent<any>) {
 	return new Spawner(component);
 }
+
+const Chunk = memo(({ id, spawner }: { id: number; spawner: Spawner }) => {
+	const chunk = useMemo(() => spawner.getChunk(id), [id, spawner]);
+	const [, rerender] = useReducer((v) => v + 1, 0);
+
+	useEffect(() => {
+		const unsub = spawner.setOnChunkUpdate(id, () => {
+			rerender();
+		});
+		return unsub;
+	}, [id, spawner]);
+
+	return <>{chunk}</>;
+});
