@@ -14,6 +14,7 @@ describe('World', () => {
 		// World inits on creation.
 
 		expect(world.isInitialized).toBe(true);
+		expect(world.id).toBe(0);
 		expect(universe.worlds.length).toBe(1);
 	});
 
@@ -34,6 +35,24 @@ describe('World', () => {
 		world.reset();
 
 		expect(world.entities.length).toBe(0);
+	});
+
+	it('errors if more than 16 worlds are created', () => {
+		for (let i = 0; i < 16; i++) {
+			createWorld();
+		}
+
+		expect(() => createWorld()).toThrow();
+	});
+
+	it('should recycle world IDs when destroyed', () => {
+		const world = createWorld();
+		const id = world.id;
+
+		world.destroy();
+
+		const newWorld = createWorld();
+		expect(newWorld.id).toBe(id);
 	});
 
 	it('should add, remove and get resources', () => {
