@@ -19,9 +19,9 @@ describe('Relation', () => {
 		const Targeting = relation();
 		const Attacking = relation();
 
-		const player = world.create();
-		const guard = world.create();
-		const goblin = world.create(Targeting(player), Attacking(guard), Targeting(guard));
+		const player = world.spawn();
+		const guard = world.spawn();
+		const goblin = world.spawn(Targeting(player), Attacking(guard), Targeting(guard));
 
 		let targets = world.getTargets(Targeting, goblin);
 		expect(targets.length).toBe(2);
@@ -36,9 +36,9 @@ describe('Relation', () => {
 	it('should maintain exclusive relations', () => {
 		const Targeting = relation({ exclusive: true });
 
-		const player = world.create();
-		const guard = world.create();
-		const goblin = world.create(Targeting(player));
+		const player = world.spawn();
+		const guard = world.spawn();
+		const goblin = world.spawn(Targeting(player));
 
 		let targets = world.getTargets(Targeting, goblin);
 
@@ -66,12 +66,12 @@ describe('Relation', () => {
 	it('should auto remove target and its descendants', () => {
 		const ChildOf = relation({ autoRemoveTarget: true });
 
-		const parent = world.create();
-		const child = world.create(ChildOf(parent));
+		const parent = world.spawn();
+		const child = world.spawn(ChildOf(parent));
 
-		const childChildA = world.create(ChildOf(child));
-		const childChildB = world.create(ChildOf(child));
-		const childChildC = world.create(ChildOf(childChildB));
+		const childChildA = world.spawn(ChildOf(child));
+		const childChildB = world.spawn(ChildOf(child));
+		const childChildC = world.spawn(ChildOf(childChildB));
 
 		expect(world.has(parent)).toBe(true);
 		expect(world.has(child)).toBe(true);
@@ -91,9 +91,9 @@ describe('Relation', () => {
 	it('should create stores for relations', () => {
 		const Contains = relation({ store: { amount: 0 } });
 
-		const inventory = world.create();
-		const gold = world.create();
-		const silver = world.create();
+		const inventory = world.spawn();
+		const gold = world.spawn();
+		const silver = world.spawn();
 
 		world.add(inventory, Contains(gold));
 		const goldStore = world.get(Contains(gold));
@@ -113,10 +113,10 @@ describe('Relation', () => {
 	it('should query all relations with a wildcard', () => {
 		const Contains = relation();
 
-		const inventory = world.create();
-		const shop = world.create();
-		const gold = world.create();
-		const silver = world.create();
+		const inventory = world.spawn();
+		const shop = world.spawn();
+		const gold = world.spawn();
+		const silver = world.spawn();
 
 		world.add(inventory, Contains(gold));
 		world.add(inventory, Contains(silver));

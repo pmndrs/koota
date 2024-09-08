@@ -22,9 +22,9 @@ describe('Query', () => {
 	});
 
 	it('should query entities that match the parameters', () => {
-		const entityA = world.create();
-		const entityB = world.create();
-		const entityC = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
+		const entityC = world.spawn();
 
 		world.add(entityA, Position, Name, IsActive);
 		world.add(entityB, Position, Name);
@@ -48,7 +48,7 @@ describe('Query', () => {
 		let entities = world.query(Position, Name, Not(IsActive));
 		expect(entities.length).toBe(0);
 
-		const entA = world.create();
+		const entA = world.spawn();
 		world.add(entA, Position, Name);
 
 		entities = world.query(Position, Name, Not(IsActive));
@@ -75,15 +75,15 @@ describe('Query', () => {
 	});
 
 	it('should return an empty array if there are no query parameters', () => {
-		world.create();
+		world.spawn();
 		const entities = world.query();
 		expect(entities).toEqual([]);
 	});
 
 	it('should correctly populate Not queries when components are added and removed', () => {
-		const entityA = world.create();
-		const entityB = world.create();
-		const entityC = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
+		const entityC = world.spawn();
 
 		let entities = world.query(Foo);
 		expect(entities.length).toBe(0);
@@ -129,7 +129,7 @@ describe('Query', () => {
 	});
 
 	it('modifiers can be added as one call or separately', () => {
-		const entity = world.create();
+		const entity = world.spawn();
 		world.add(entity, Position, IsActive);
 
 		let entities = world.query(Not(Foo), Not(Bar));
@@ -145,9 +145,9 @@ describe('Query', () => {
 	it('should correctly populate Added queries when components are added', () => {
 		const Added = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
-		const entityC = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
+		const entityC = world.spawn();
 
 		let entities: readonly number[] = [];
 
@@ -198,8 +198,8 @@ describe('Query', () => {
 	it('should properly populate Added queries with mulitple tracked components', () => {
 		const Added = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Added(Foo, Bar));
 		expect(entities.length).toBe(0);
@@ -225,8 +225,8 @@ describe('Query', () => {
 		const Added = createAdded();
 		const Added2 = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Added(Foo));
 		expect(entities.length).toBe(0);
@@ -250,8 +250,8 @@ describe('Query', () => {
 	it('should populate Added queries even if they are registered after the component is added', () => {
 		const Added = createAdded();
 
-		const entityA = world.create(Foo);
-		const entityB = world.create(Foo, Bar);
+		const entityA = world.spawn(Foo);
+		const entityB = world.spawn(Foo, Bar);
 
 		let entities = world.query(Added(Foo));
 		expect(entities).toEqual([entityA, entityB]);
@@ -276,8 +276,8 @@ describe('Query', () => {
 	it('should combine Not and Added modifiers with logical AND', () => {
 		const Added = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		// No entities should match this query since while Not will match
 		// all empty entities, Added will only match entities that have Foo.
@@ -298,8 +298,8 @@ describe('Query', () => {
 	it('should properly populate Removed queries when components are removed', () => {
 		const Removed = createRemoved();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Removed(Foo));
 		expect(entities.length).toBe(0);
@@ -342,7 +342,7 @@ describe('Query', () => {
 	it('should populate Removed queries even if they are registered after the component is removed', () => {
 		const Removed = createRemoved();
 
-		const entity = world.create(Foo);
+		const entity = world.spawn(Foo);
 		world.remove(entity, Foo);
 
 		let entities = world.query(Removed(Foo));
@@ -366,8 +366,8 @@ describe('Query', () => {
 	it('should combine Not and Removed modifiers with logical AND', () => {
 		const Removed = createRemoved();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		// Initially, no entities should match the query because no entities
 		// have Foo removed even though Not matches all empty entities.
@@ -401,8 +401,8 @@ describe('Query', () => {
 		const Added = createAdded();
 		const Removed = createRemoved();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Added(Foo), Removed(Bar));
 		expect(entities.length).toBe(0);
@@ -442,8 +442,8 @@ describe('Query', () => {
 		expect(entities).toEqual([entityB]);
 
 		// Make sure changes in one entity do not leak to the other.
-		const entityC = world.create();
-		const entityD = world.create();
+		const entityC = world.spawn();
+		const entityD = world.spawn();
 
 		world.add(entityC, Foo);
 		world.add(entityD, Bar);
@@ -456,7 +456,7 @@ describe('Query', () => {
 	it('should properly populate Changed queries when components are changed', () => {
 		const Changed = createChanged();
 
-		const entityA = world.create();
+		const entityA = world.spawn();
 
 		let entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
@@ -488,7 +488,7 @@ describe('Query', () => {
 	it('should populate Changed queries even if they are registered after the component is changed', () => {
 		const Changed = createChanged();
 
-		const entity = world.create(Position);
+		const entity = world.spawn(Position);
 
 		const positions = world.get(Position);
 		positions.x[entity] = 10;
@@ -522,7 +522,7 @@ describe('Query', () => {
 		});
 
 		// Static query subscriptions.
-		const entity = world.create();
+		const entity = world.spawn();
 
 		world.query.subscribe([Position, Foo], staticCb);
 
@@ -574,7 +574,7 @@ describe('Query', () => {
 	});
 
 	it('can subscribe to changes on a specific component', () => {
-		const entity = world.create(Position);
+		const entity = world.spawn(Position);
 
 		const cb = vi.fn();
 		const unsub = world.changed.subscribe(Position, cb);
@@ -605,8 +605,8 @@ describe('Query', () => {
 	it('can cache and use the query key', () => {
 		const key = cacheQuery(Position, Name, IsActive);
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		world.add(entityA, Position, Name, IsActive);
 		world.add(entityB, Position, Name);
