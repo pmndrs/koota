@@ -7,6 +7,7 @@ import {
 	StoreFromComponents,
 } from '../component/types';
 import { createEntity, destroyEntity } from '../entity/entity';
+import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { setChanged } from '../query/modifiers/changed';
 import { Query } from '../query/query';
 import { QueryParameter, QuerySubscriber } from '../query/types';
@@ -15,27 +16,19 @@ import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cur
 import { getRelationTargets } from '../relation/relation';
 import { Relation, RelationTarget } from '../relation/types';
 import { universe } from '../universe/universe';
-import { Deque } from '../utils/deque';
-import { SparseSet } from '../utils/sparse-set';
 import {
-	$bitflag,
 	$changedMasks,
 	$componentRecords,
 	$dirtyMasks,
 	$dirtyQueries,
-	$entityComponents,
-	$entityCursor,
-	$entityMasks,
-	$entitySparseSet,
-	$notQueries,
+	$internal,
 	$onInit,
 	$queries,
 	$queriesHashMap,
-	$recyclingBin,
 	$relationTargetEntities,
-	$removed,
 	$trackingSnapshots,
 } from './symbols';
+import { createWorldId } from './utils/create-world-id';
 import { Resources } from './utils/resource';
 
 type Options = {
@@ -44,31 +37,37 @@ type Options = {
 };
 
 export class World {
-	[$entityMasks]: number[][] = [new Array()];
-	[$entityComponents] = new Map();
-	[$bitflag] = 1;
+	#id = createWorldId();
+
+	[$internal] = {
+		entityIndex: createEntityIndex(this.#id),
+		entityMasks: [[]] as number[][],
+		entityComponents: new Map<number, Set<Component>>(),
+		notQueries: new Set<Query>(),
+		bitflag: 1,
+	};
+
 	[$componentRecords] = new Map<Component, ComponentRecord>();
 	[$queries] = new Set<Query>();
 	[$queriesHashMap] = new Map<string, Query>();
-	[$notQueries] = new Set<Query>();
 	[$dirtyQueries] = new Set<Query>();
-	[$entityCursor] = 0;
-	[$removed] = new Deque<number>();
-	[$recyclingBin]: number[] = [];
 	[$relationTargetEntities] = new Set<RelationTarget>();
 	[$trackingSnapshots] = new Map<number, number[][]>();
 	[$dirtyMasks] = new Map<number, number[][]>();
 	[$changedMasks] = new Map<number, number[][]>();
 	[$onInit]: (() => void)[] = [];
 
+	get id() {
+		return this.#id;
+	}
+
 	#isInitialized = false;
 	get isInitialized() {
 		return this.#isInitialized;
 	}
 
-	[$entitySparseSet] = new SparseSet();
 	get entities() {
-		return this[$entitySparseSet].dense;
+		return getAliveEntities(this[$internal].entityIndex);
 	}
 
 	components = new Set<Component>();
@@ -107,7 +106,7 @@ export class World {
 		this[$onInit].forEach((callback) => callback());
 	}
 
-	create(...components: ComponentOrWithParams[]): number {
+	spawn(...components: ComponentOrWithParams[]): number {
 		return createEntity(this, ...components);
 	}
 
@@ -122,7 +121,9 @@ export class World {
 	has(entity: number): boolean;
 	has(entity: number, component: Component): boolean;
 	has(entity: number, component?: Component) {
-		return component ? hasComponent(this, entity, component) : this[$entitySparseSet].has(entity);
+		return component
+			? hasComponent(this, entity, component)
+			: isEntityAlive(this[$internal].entityIndex, entity);
 	}
 
 	get<T extends [Component, ...Component[]]>(...components: T): StoreFromComponents<T> {
@@ -154,22 +155,20 @@ export class World {
 	}
 
 	reset() {
+		const ctx = this[$internal];
+
+		ctx.entityIndex = createEntityIndex(this.#id);
+		ctx.entityComponents.clear();
+		ctx.notQueries.clear();
+		ctx.entityMasks = [[]];
+		ctx.bitflag = 1;
+
 		if (this.entities) this.entities.forEach((entity) => this.destroy(entity));
-
-		this[$entityMasks].forEach((mask) => (mask.length = 0));
-		this[$entityComponents].clear();
-		this[$entitySparseSet].clear();
-
-		this[$bitflag] = 1;
-		this[$entityCursor] = 0;
-		this[$removed].clear();
-		this[$recyclingBin].length = 0;
 
 		this[$componentRecords].clear();
 
 		this[$queries].clear();
 		this[$queriesHashMap].clear();
-		this[$notQueries].clear();
 		this[$dirtyQueries].clear();
 		this[$relationTargetEntities].clear();
 
@@ -179,11 +178,6 @@ export class World {
 		this.resources.clear();
 
 		this[$onInit].length = 0;
-	}
-
-	recycle() {
-		this[$removed].enqueue(...this[$recyclingBin]);
-		this[$recyclingBin].length = 0;
 	}
 
 	getTargets<T>(relation: Relation<T>, entity: number) {

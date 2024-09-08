@@ -1,7 +1,7 @@
 import { define } from '../component/component';
 import { $isPairComponent, $pairTarget, $relation } from '../component/symbols';
 import { Component, Schema } from '../component/types';
-import { $entityComponents } from '../world/symbols';
+import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { $autoRemoveTarget, $createComponent, $exclusiveRelation, $pairsMap } from './symbols';
 import { Relation, RelationTarget } from './types';
@@ -48,12 +48,13 @@ export function getRelationComponent<T extends Component>(
 }
 
 export const getRelationTargets = (world: World, relation: Relation<any>, entity: number) => {
-	const components = world[$entityComponents].get(entity) || [];
+	const ctx = world[$internal];
+	const components = ctx.entityComponents.get(entity) || [];
 	const targets: RelationTarget[] = [];
 
 	for (const component of components) {
 		if (component[$relation] === relation && component[$pairTarget] !== Wildcard) {
-			targets.push(component[$pairTarget]);
+			targets.push(component[$pairTarget]!);
 		}
 	}
 

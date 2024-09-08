@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
 import { define, registerComponent } from '../src/component/component';
-import { $bitflag, $componentRecords } from '../src/world/symbols';
+import { $componentRecords } from '../src/world/symbols';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
@@ -38,11 +38,10 @@ describe('Component', () => {
 		expect(world.components.size).toBe(1);
 		expect(world[$componentRecords].size).toBe(1);
 		expect(world[$componentRecords].get(Position)).toBeDefined();
-		expect(world[$bitflag]).toBe(2);
 	});
 
 	it('should add and remove components to an entity', () => {
-		const entity = world.create();
+		const entity = world.spawn();
 
 		world.add(entity, Position);
 		world.add(entity, Test);
@@ -63,7 +62,7 @@ describe('Component', () => {
 	});
 
 	it('should create SoA stores when registered by adding', () => {
-		const entity = world.create();
+		const entity = world.spawn();
 
 		world.add(entity, Position);
 		const store = world.get(Position);
@@ -72,7 +71,7 @@ describe('Component', () => {
 	});
 
 	it('should get multiple stores at once', () => {
-		const entity = world.create();
+		const entity = world.spawn();
 
 		world.add(entity, Position, Test);
 		const [position, test] = world.get(Position, Test);
@@ -91,7 +90,7 @@ describe('Component', () => {
 	});
 
 	it('should set defaults based on the schema', () => {
-		const entity = world.create();
+		const entity = world.spawn();
 
 		world.add(entity, Test);
 		const store = world.get(Test);
@@ -105,7 +104,7 @@ describe('Component', () => {
 	});
 
 	it('should override defaults with params', () => {
-		const entity = world.create();
+		const entity = world.spawn();
 
 		// Partial
 		world.add(entity, Test({ current: 2, arr: ['d', 'e', 'f'] }));
@@ -145,7 +144,7 @@ describe('Component', () => {
 
 	it('should create tags with empty stores', () => {
 		const IsTag = define();
-		const entity = world.create();
+		const entity = world.spawn();
 
 		world.add(entity, IsTag);
 		expect(world.has(entity, IsTag)).toBe(true);
@@ -156,7 +155,7 @@ describe('Component', () => {
 
 	// This tests for the component bitmask limit of 32.
 	it('should correctly register more than 32 components', () => {
-		const entity = world.create();
+		const entity = world.spawn();
 
 		new Array(1024)
 			.fill(null)
@@ -172,17 +171,15 @@ describe('Component', () => {
 		let entity = 0;
 
 		for (let i = 0; i < 10; i++) {
-			entity = world.create();
+			entity = world.spawn();
 		}
 
 		for (let i = 0; i < 10; i++) {
 			world.destroy(i);
 		}
 
-		world.recycle();
-
 		for (let i = 0; i < 10; i++) {
-			entity = world.create();
+			entity = world.spawn();
 		}
 
 		world.add(entity, Position);
@@ -191,7 +188,7 @@ describe('Component', () => {
 	});
 
 	it('should set component params', () => {
-		const eid = world.create(Test);
+		const eid = world.spawn(Test);
 		world.set(eid, Test({ current: 2, test: 'world' }));
 
 		const store = world.get(Test);

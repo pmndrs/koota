@@ -7,10 +7,7 @@ import {
 	$componentRecords,
 	$dirtyMasks,
 	$dirtyQueries,
-	$entityCursor,
-	$entityMasks,
-	$entitySparseSet,
-	$notQueries,
+	$internal,
 	$queries,
 	$queriesHashMap,
 	$trackingSnapshots,
@@ -52,6 +49,7 @@ export class Query {
 	constructor(world: World, parameters: QueryParameter[] = []) {
 		this.world = world;
 		this.parameters = parameters;
+		const ctx = world[$internal];
 
 		// Initialize tracking paramters.
 		const trackingParams: {
@@ -202,7 +200,7 @@ export class Query {
 		});
 
 		// Add query instance to the world's not-query store.
-		if (this.components.forbidden.length > 0) world[$notQueries].add(this);
+		if (this.components.forbidden.length > 0) ctx.notQueries.add(this);
 
 		// If the query has an Added modifier, we populate it with its snapshot.
 		if (trackingParams.length > 0) {
@@ -220,7 +218,7 @@ export class Query {
 					for (const component of components) {
 						const { generationId, bitflag } = component;
 						const oldMask = snapshot[generationId][entity] || 0;
-						const currentMask = world[$entityMasks][generationId][entity];
+						const currentMask = ctx.entityMasks[generationId][entity];
 
 						let componentMatches = false;
 
@@ -262,11 +260,10 @@ export class Query {
 		} else {
 			// Populate the query immediately.
 			if (this.components.required.length > 0 || this.components.forbidden.length > 0) {
-				for (let ent = 0; ent < world[$entityCursor]; ent++) {
-					if (!world[$entitySparseSet].has(ent)) continue;
-
-					const match = this.check(world, ent);
-					if (match) this.add(ent);
+				for (let i = 0; i < world.entities.length; i++) {
+					const entity = world.entities[i];
+					const match = this.check(world, entity);
+					if (match) this.add(entity);
 				}
 			}
 		}
@@ -313,6 +310,7 @@ export class Query {
 		event?: { type: 'add' | 'remove' | 'change'; component: ComponentRecord }
 	) {
 		const { bitmasks, generations } = this;
+		const ctx = world[$internal];
 
 		// If the query is empty, the check fails.
 		if (this.components.all.length === 0) return false;
@@ -321,7 +319,7 @@ export class Query {
 			const generationId = generations[i];
 			const bitmask = bitmasks[i];
 			const { required, forbidden, added, removed, changed } = bitmask;
-			const entityMask = world[$entityMasks][generationId][entity];
+			const entityMask = ctx.entityMasks[generationId][entity];
 
 			// Handle add/remove events.
 			if (event && event.component.generationId === generationId && this.isTracking) {

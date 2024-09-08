@@ -3,8 +3,7 @@ import { $exclusiveRelation } from '../relation/symbols';
 import {
 	$componentRecords,
 	$dirtyMasks,
-	$entityComponents,
-	$entityMasks,
+	$internal,
 	$queries,
 	$relationTargetEntities,
 } from '../world/symbols';
@@ -65,6 +64,8 @@ export function registerComponent(world: World, component: Component) {
 }
 
 export function addComponent(world: World, entity: number, ...components: ComponentOrWithParams[]) {
+	const ctx = world[$internal];
+
 	for (let i = 0; i < components.length; i++) {
 		// Get component and params.
 		let component: Component;
@@ -87,7 +88,7 @@ export function addComponent(world: World, entity: number, ...components: Compon
 		const { generationId, bitflag, queries } = instance;
 
 		// Add bitflag to entity bitmask.
-		world[$entityMasks][generationId][entity] |= bitflag;
+		ctx.entityMasks[generationId][entity] |= bitflag;
 
 		// Set the entity as dirty.
 		for (const dirtyMask of world[$dirtyMasks].values()) {
@@ -108,7 +109,7 @@ export function addComponent(world: World, entity: number, ...components: Compon
 		}
 
 		// Add component to entity internally.
-		world[$entityComponents].get(entity)!.add(component);
+		ctx.entityComponents.get(entity)!.add(component);
 
 		const relation = component[$relation];
 		const target = component[$pairTarget];
@@ -149,6 +150,8 @@ export function addComponent(world: World, entity: number, ...components: Compon
 }
 
 export function removeComponent(world: World, entity: number, ...components: Component[]) {
+	const ctx = world[$internal];
+
 	for (let i = 0; i < components.length; i++) {
 		const component = components[i];
 
@@ -160,7 +163,7 @@ export function removeComponent(world: World, entity: number, ...components: Com
 		const { generationId, bitflag, queries } = record;
 
 		// Remove bitflag from entity bitmask.
-		world[$entityMasks][generationId][entity] &= ~bitflag;
+		ctx.entityMasks[generationId][entity] &= ~bitflag;
 
 		// Set the entity as dirty.
 		for (const dirtyMask of world[$dirtyMasks].values()) {
@@ -177,7 +180,7 @@ export function removeComponent(world: World, entity: number, ...components: Com
 		}
 
 		// Remove component from entity internally.
-		world[$entityComponents].get(entity)!.delete(component);
+		ctx.entityComponents.get(entity)!.delete(component);
 
 		// Remove wildcard relations if it is a Pair component.
 		if (component[$isPairComponent]) {
@@ -208,8 +211,10 @@ export function hasComponent(world: World, entity: number, component: Component)
 	const registeredComponent = world[$componentRecords].get(component);
 	if (!registeredComponent) return false;
 
+	const ctx = world[$internal];
+
 	const { generationId, bitflag } = registeredComponent;
-	const mask = world[$entityMasks][generationId][entity];
+	const mask = ctx.entityMasks[generationId][entity];
 
 	return (mask & bitflag) === bitflag;
 }

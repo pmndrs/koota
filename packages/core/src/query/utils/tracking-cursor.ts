@@ -1,4 +1,4 @@
-import { $entityMasks, $trackingSnapshots, $dirtyMasks, $changedMasks } from '../../world/symbols';
+import { $changedMasks, $dirtyMasks, $internal, $trackingSnapshots } from '../../world/symbols';
 import { World } from '../../world/world';
 
 // Some values are reserved.
@@ -15,7 +15,8 @@ export function getTrackingCursor() {
 }
 
 export function setTrackingMasks(world: World, id: number) {
-	const snapshot = structuredClone(world[$entityMasks]);
+	const ctx = world[$internal];
+	const snapshot = structuredClone(ctx.entityMasks);
 	world[$trackingSnapshots].set(id, snapshot);
 
 	// For dirty and changed masks, make clone of entity masks and set all bits to 0.
