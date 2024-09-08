@@ -1,4 +1,4 @@
-import { removeComponent } from '../component/component';
+import { addComponent, removeComponent } from '../component/component';
 import { $isPairComponent, $pairTarget, $relation } from '../component/symbols';
 import { ComponentOrWithParams } from '../component/types';
 import { Pair, Wildcard } from '../relation/relation';
@@ -94,3 +94,8 @@ export function destroyEntity(world: World, entity: Entity) {
 		}
 	}
 }
+
+// // Add methods to the Number prototype for convenience.
+// Number.prototype.add = function (this: Entity) {
+// 	return addComponent(this);
+// };

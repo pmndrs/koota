@@ -28,7 +28,7 @@ import {
 	$relationTargetEntities,
 	$trackingSnapshots,
 } from './symbols';
-import { createWorldId } from './utils/create-world-id';
+import { allocateWorldId, releaseWorldId } from './utils/world-index';
 import { Resources } from './utils/resource';
 
 type Options = {
@@ -37,7 +37,7 @@ type Options = {
 };
 
 export class World {
-	#id = createWorldId();
+	#id = allocateWorldId(universe.worldIndex);
 
 	[$internal] = {
 		entityIndex: createEntityIndex(this.#id),
@@ -147,6 +147,7 @@ export class World {
 			this.entities.forEach((entity) => destroyEntity(this, entity));
 			this.reset();
 			this.#isInitialized = false;
+			releaseWorldId(universe.worldIndex, this.#id);
 			universe.worlds.splice(universe.worlds.indexOf(this), 1);
 		} else if (typeof target === 'number') {
 			// Destroy target entity.
