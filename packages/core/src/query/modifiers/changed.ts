@@ -11,6 +11,7 @@ export function createChanged() {
 	const id = createTrackingId();
 
 	for (const world of universe.worlds) {
+		if (!world) continue;
 		setTrackingMasks(world, id);
 	}
 

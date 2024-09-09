@@ -8,6 +8,7 @@ export function cacheQuery(...parameters: QueryParameter[]): string {
 	const hash = createQueryHash(parameters);
 
 	for (const world of universe.worlds) {
+		if (!world) continue;
 		if (!world[$queriesHashMap].has(hash)) {
 			const query = new Query(world, parameters);
 			world[$queriesHashMap].set(hash, query);

@@ -88,7 +88,7 @@ export class World {
 		if (this.#isInitialized) return;
 
 		this.#isInitialized = true;
-		universe.worlds.push(this);
+		universe.worlds[this.#id] = this;
 
 		// Create uninitialized added masks.
 		const cursor = getTrackingCursor();
