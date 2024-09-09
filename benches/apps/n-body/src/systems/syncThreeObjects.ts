@@ -1,6 +1,7 @@
 import { Circle, Color, Position } from '@sim/n-body';
 import * as THREE from 'three';
 import { InstancedMesh } from '../components/InstancedMesh';
+import { getIndex } from 'koota';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
 
@@ -17,7 +18,7 @@ export const syncThreeObjects = ({ world }: { world: Koota.World }) => {
 	const instancedMesh = world.get(InstancedMesh).object[instanceEnt];
 
 	for (let i = 0; i < ents.length; i++) {
-		const e = ents[i];
+		const e = getIndex(ents[i]);
 
 		dummy.position.set(position.x[e], position.y[e], 0);
 

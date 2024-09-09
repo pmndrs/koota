@@ -30,6 +30,7 @@ import {
 } from './symbols';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 import { Resources } from './utils/resource';
+import { Entity } from '../entity/types';
 
 type Options = {
 	resources?: Component | Component[];
@@ -106,24 +107,12 @@ export class World {
 		this[$onInit].forEach((callback) => callback());
 	}
 
-	spawn(...components: ComponentOrWithParams[]): number {
+	spawn(...components: ComponentOrWithParams[]): Entity {
 		return createEntity(this, ...components);
 	}
 
-	add(entity: number, ...components: ComponentOrWithParams[]) {
-		addComponent(this, entity, ...components);
-	}
-
-	remove(entity: number, ...components: Component[]) {
-		removeComponent(this, entity, ...components);
-	}
-
-	has(entity: number): boolean;
-	has(entity: number, component: Component): boolean;
-	has(entity: number, component?: Component) {
-		return component
-			? hasComponent(this, entity, component)
-			: isEntityAlive(this[$internal].entityIndex, entity);
+	has(entity: Entity): boolean {
+		return isEntityAlive(this[$internal].entityIndex, entity);
 	}
 
 	get<T extends [Component, ...Component[]]>(...components: T): StoreFromComponents<T> {
@@ -141,7 +130,7 @@ export class World {
 		}
 	}
 
-	destroy(target?: number) {
+	destroy(target?: Entity) {
 		if (target === undefined) {
 			// Destroy itself and all entities.
 			this.entities.forEach((entity) => destroyEntity(this, entity));
@@ -230,8 +219,8 @@ export function createWorld(options?: Options) {
 	return new World(options);
 }
 
-function query(this: World, key: string): readonly number[];
-function query(this: World, ...parameters: QueryParameter[]): readonly number[];
+function query(this: World, key: string): readonly Entity[];
+function query(this: World, ...parameters: QueryParameter[]): readonly Entity[];
 function query(this: World, ...args: [string] | QueryParameter[]) {
 	if (typeof args[0] === 'string') {
 		const query = this[$queriesHashMap].get(args[0]);

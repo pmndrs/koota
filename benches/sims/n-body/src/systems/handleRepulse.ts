@@ -1,18 +1,19 @@
+import { getIndex } from 'koota';
 import { Circle, Repulse, Mass, Position, Time, Velocity } from '../components';
 
 const repulsor = [Repulse, Position, Circle];
 const body = [Position, Velocity, Mass];
 
 export const handleRepulse = ({ world }: { world: Koota.World }) => {
-	const repuslorIds = world.query(...repulsor);
-	if (repuslorIds.length === 0) return;
+	const repuslors = world.query(...repulsor);
+	if (repuslors.length === 0) return;
 
 	const bodyIds = world.query(...body);
 	const [position, velocity, mass, repulse, circle] = world.get(Position, Velocity, Mass, Repulse, Circle); // prettier-ignore
 	const { delta } = world.resources.get(Time);
 
-	for (let i = repuslorIds.length - 1; i >= 0; i--) {
-		const rid = repuslorIds[i];
+	for (let i = repuslors.length - 1; i >= 0; i--) {
+		const rid = getIndex(repuslors[i]);
 
 		// Count down the delay
 		if (repulse.delay[rid] > 0) repulse.delay[rid] -= delta;
@@ -24,7 +25,7 @@ export const handleRepulse = ({ world }: { world: Koota.World }) => {
 		}
 
 		if (circle.radius[rid] <= 5) {
-			world.destroy(rid);
+			repuslors[i].destroy();
 			continue;
 		}
 

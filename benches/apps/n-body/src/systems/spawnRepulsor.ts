@@ -20,7 +20,7 @@ export function spawnRepulsor(e: PointerEvent, frustumSize: number) {
 	const x = (ndcX * viewWidth) / 2;
 	const y = (ndcY * viewHeight) / 2;
 
-	world.create(
+	world.spawn(
 		Position({ x, y }),
 		Circle({ radius: 160 }),
 		Color({ r: 255, g: 0, b: 0 }),
