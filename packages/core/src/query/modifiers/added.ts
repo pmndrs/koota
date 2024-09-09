@@ -6,6 +6,7 @@ export function createAdded() {
 	const id = createTrackingId();
 
 	for (const world of universe.worlds) {
+		if (!world) continue;
 		setTrackingMasks(world, id);
 	}
 

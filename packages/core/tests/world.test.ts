@@ -15,19 +15,19 @@ describe('World', () => {
 
 		expect(world.isInitialized).toBe(true);
 		expect(world.id).toBe(0);
-		expect(universe.worlds.length).toBe(1);
+		expect(universe.worlds).toContain(world);
 	});
 
 	it('can create a world without initing', () => {
 		const world = createWorld({ init: false });
 
 		expect(world.isInitialized).toBe(false);
-		expect(universe.worlds.length).toBe(0);
+		expect(universe.worlds).not.toContain(world);
 
 		world.init();
 
 		expect(world.isInitialized).toBe(true);
-		expect(universe.worlds.length).toBe(1);
+		expect(universe.worlds).toContain(world);
 	});
 
 	it('should reset the world', () => {
