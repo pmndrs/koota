@@ -1,3 +1,4 @@
+import { getIndex } from 'koota';
 import { Time } from '../components/Time';
 import { CONSTANTS } from '../constants';
 import { body } from './setInitial';
@@ -8,13 +9,13 @@ export const updateGravity = ({ world }: { world: Koota.World }) => {
 	const [position, velocity, mass, _, acceleration] = world.get(...body);
 
 	for (let j = 0; j < ents.length; j++) {
-		const eSelf = ents[j];
+		const eSelf = getIndex(ents[j]);
 
 		acceleration.x[eSelf] = 0;
 		acceleration.y[eSelf] = 0;
 
 		for (let i = 0; i < ents.length; i++) {
-			const eTarget = ents[i];
+			const eTarget = getIndex(ents[i]);
 			if (eSelf === eTarget) continue; // Skip self
 
 			const dx = +position.x[eTarget] - +position.x[eSelf];

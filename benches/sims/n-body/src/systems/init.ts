@@ -7,10 +7,10 @@ export const init = ({ world }: { world: Koota.World }) => {
 	if (inited) return;
 
 	for (let i = 0; i < CONSTANTS.NBODIES; i++) {
-		const entity = world.create(Position, Velocity, Mass, Circle, Color, Acceleration);
+		const entity = world.spawn(Position, Velocity, Mass, Circle, Color, Acceleration);
 
 		// Make the first entity the central mass.
-		if (i === 0) world.add(entity, IsCentralMass);
+		if (i === 0) entity.add(IsCentralMass);
 	}
 
 	inited = true;

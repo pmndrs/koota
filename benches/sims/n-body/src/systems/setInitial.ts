@@ -1,7 +1,7 @@
 import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../components';
 import { CONSTANTS } from '../constants';
 import { randInRange } from '../utils/randInRange';
-import { createAdded } from 'koota';
+import { createAdded, getIndex } from 'koota';
 
 export const body = [Position, Velocity, Mass, Circle, Acceleration] as const;
 const Added = createAdded();
@@ -12,7 +12,7 @@ export const setInitial = ({ world }: { world: Koota.World }) => {
 	const [position, velocity, mass, circle] = world.get(...body);
 
 	for (let i = 0; i < ents.length; i++) {
-		const e = ents[i];
+		const e = getIndex(ents[i]);
 
 		if (mass.value[e] !== 0) return;
 

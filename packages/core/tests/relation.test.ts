@@ -44,23 +44,23 @@ describe('Relation', () => {
 
 		expect(targets.length).toBe(1);
 		expect(targets[0]).toBe(player);
-		expect(world.has(goblin, Targeting(player))).toBe(true);
+		expect(goblin.has(Targeting(player))).toBe(true);
 
-		world.add(goblin, Targeting(guard));
+		goblin.add(Targeting(guard));
 		targets = world.getTargets(Targeting, goblin);
 
 		expect(targets.length).toBe(1);
 		expect(targets[0]).toBe(guard);
-		expect(world.has(goblin, Targeting(player))).toBe(false);
-		expect(world.has(goblin, Targeting(guard))).toBe(true);
+		expect(goblin.has(Targeting(player))).toBe(false);
+		expect(goblin.has(Targeting(guard))).toBe(true);
 
-		world.add(goblin, Targeting(player));
+		goblin.add(Targeting(player));
 		targets = world.getTargets(Targeting, goblin);
 
 		expect(targets.length).toBe(1);
 		expect(targets[0]).toBe(player);
-		expect(world.has(goblin, Targeting(player))).toBe(true);
-		expect(world.has(goblin, Targeting(guard))).toBe(false);
+		expect(goblin.has(Targeting(player))).toBe(true);
+		expect(goblin.has(Targeting(guard))).toBe(false);
 	});
 
 	it('should auto remove target and its descendants', () => {
@@ -95,12 +95,12 @@ describe('Relation', () => {
 		const gold = world.spawn();
 		const silver = world.spawn();
 
-		world.add(inventory, Contains(gold));
+		inventory.add(Contains(gold));
 		const goldStore = world.get(Contains(gold));
 		const silverStore = world.get(Contains(silver));
 		goldStore.amount[inventory] = 5;
 
-		world.add(inventory, Contains(silver));
+		inventory.add(Contains(silver));
 		silverStore.amount[inventory] = 12;
 
 		expect(Contains(gold)).not.toBe(Contains(silver));
@@ -118,14 +118,14 @@ describe('Relation', () => {
 		const gold = world.spawn();
 		const silver = world.spawn();
 
-		world.add(inventory, Contains(gold));
-		world.add(inventory, Contains(silver));
+		inventory.add(Contains(gold));
+		inventory.add(Contains(silver));
 
 		let relations = world.query(Contains('*'));
 		expect(relations.length).toBe(1);
 		expect(relations).toContain(inventory);
 
-		world.add(shop, Contains(gold));
+		shop.add(Contains(gold));
 
 		relations = world.query(Contains('*'));
 		expect(relations.length).toBe(2);

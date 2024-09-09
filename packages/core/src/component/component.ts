@@ -1,3 +1,4 @@
+import { Entity } from '../entity/types';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { $exclusiveRelation } from '../relation/symbols';
 import {
@@ -63,7 +64,7 @@ export function registerComponent(world: World, component: Component) {
 	incrementWorldBitflag(world);
 }
 
-export function addComponent(world: World, entity: number, ...components: ComponentOrWithParams[]) {
+export function addComponent(world: World, entity: Entity, ...components: ComponentOrWithParams[]) {
 	const ctx = world[$internal];
 
 	for (let i = 0; i < components.length; i++) {
@@ -78,7 +79,7 @@ export function addComponent(world: World, entity: number, ...components: Compon
 		}
 
 		// Exit early if the entity already has the component.
-		if (world.has(entity, component)) return;
+		if (entity.has(component)) return;
 
 		// Register the component if it's not already registered.
 		if (!world[$componentRecords].has(component)) registerComponent(world, component);
@@ -120,8 +121,8 @@ export function addComponent(world: World, entity: number, ...components: Compon
 			world[$relationTargetEntities].add(target);
 
 			// Add wildcard relation components.
-			world.add(entity, Pair(Wildcard, target));
-			world.add(entity, Pair(relation, Wildcard));
+			entity.add(Pair(Wildcard, target));
+			entity.add(Pair(relation, Wildcard));
 
 			// If it's an exclusive relation, remove the old target.
 			if (relation[$exclusiveRelation] === true && target !== Wildcard) {
@@ -149,14 +150,14 @@ export function addComponent(world: World, entity: number, ...components: Compon
 	}
 }
 
-export function removeComponent(world: World, entity: number, ...components: Component[]) {
+export function removeComponent(world: World, entity: Entity, ...components: Component[]) {
 	const ctx = world[$internal];
 
 	for (let i = 0; i < components.length; i++) {
 		const component = components[i];
 
 		// Exit early if the entity doesn't have the component.
-		if (!world.has(entity, component)) return;
+		if (!entity.has(component)) return;
 
 		// Get component record.
 		const record = world[$componentRecords].get(component)!;
@@ -207,7 +208,7 @@ export function removeComponent(world: World, entity: number, ...components: Com
 	}
 }
 
-export function hasComponent(world: World, entity: number, component: Component): boolean {
+export function hasComponent(world: World, entity: Entity, component: Component): boolean {
 	const registeredComponent = world[$componentRecords].get(component);
 	if (!registeredComponent) return false;
 

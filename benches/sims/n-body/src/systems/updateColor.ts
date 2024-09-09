@@ -1,7 +1,7 @@
 import { Velocity } from '../components/Velocity';
 import { Color } from '../components/Color';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
-import { Not } from 'koota';
+import { getIndex, Not } from 'koota';
 import { Repulse } from '../components';
 
 export const updateColor = ({ world }: { world: Koota.World }) => {
@@ -9,7 +9,7 @@ export const updateColor = ({ world }: { world: Koota.World }) => {
 	const [velocity, color] = world.get(Velocity, Color);
 
 	for (let i = 0; i < ents.length; i++) {
-		const eid = ents[i];
+		const eid = getIndex(ents[i]);
 
 		const speed = Math.sqrt(velocity.x[eid] ** 2 + velocity.y[eid] ** 2);
 		const { r, g, b, a } = colorFromSpeed(speed);

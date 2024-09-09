@@ -1,12 +1,14 @@
-import { addComponent, removeComponent } from '../component/component';
+import { addComponent, hasComponent, removeComponent } from '../component/component';
 import { $isPairComponent, $pairTarget, $relation } from '../component/symbols';
-import { ComponentOrWithParams } from '../component/types';
+import { Component, ComponentOrWithParams } from '../component/types';
 import { Pair, Wildcard } from '../relation/relation';
 import { $autoRemoveTarget } from '../relation/symbols';
+import { universe } from '../universe/universe';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
+import { getEntityWorldId } from './utils/pack-entity';
 
 export function createEntity(world: World, ...components: ComponentOrWithParams[]): Entity {
 	const ctx = world[$internal];
@@ -20,7 +22,7 @@ export function createEntity(world: World, ...components: ComponentOrWithParams[
 	ctx.entityComponents.set(entity, new Set());
 
 	// Add components.
-	world.add(entity, ...components);
+	entity.add(...components);
 
 	return entity;
 }
@@ -95,7 +97,31 @@ export function destroyEntity(world: World, entity: Entity) {
 	}
 }
 
-// // Add methods to the Number prototype for convenience.
-// Number.prototype.add = function (this: Entity) {
-// 	return addComponent(this);
-// };
+// Add methods to the Number prototype for convenience.
+// @ts-expect-error
+Number.prototype.add = function (this: Entity, ...components: ComponentOrWithParams[]) {
+	const worldId = getEntityWorldId(this);
+	const world = universe.worlds[worldId];
+	return addComponent(world, this, ...components);
+};
+
+// @ts-expect-error
+Number.prototype.remove = function (this: Entity, ...components: Component[]) {
+	const worldId = getEntityWorldId(this);
+	const world = universe.worlds[worldId];
+	return removeComponent(world, this, ...components);
+};
+
+// @ts-expect-error
+Number.prototype.has = function (this: Entity, component: Component) {
+	const worldId = getEntityWorldId(this);
+	const world = universe.worlds[worldId];
+	return hasComponent(world, this, component);
+};
+
+// @ts-expect-error
+Number.prototype.destroy = function (this: Entity) {
+	const worldId = getEntityWorldId(this);
+	const world = universe.worlds[worldId];
+	return destroyEntity(world, this);
+};

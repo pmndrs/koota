@@ -20,7 +20,7 @@ export function init({ world }: { world: Koota.World }) {
 	for (let i = 0; i < CONSTANTS.NBODIES + 200; i++) instancedMesh.setMatrixAt(i, zeroScaleMatrix);
 
 	scene.add(instancedMesh);
-	world.create(InstancedMesh({ object: instancedMesh }));
+	world.spawn(InstancedMesh({ object: instancedMesh }));
 
 	// Compile Three shaders.
 	renderer.compile(scene, camera);

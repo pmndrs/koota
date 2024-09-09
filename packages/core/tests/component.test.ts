@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
 import { define, registerComponent } from '../src/component/component';
 import { $componentRecords } from '../src/world/symbols';
+import { Entity } from '../src/entity/types';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
@@ -43,28 +44,28 @@ describe('Component', () => {
 	it('should add and remove components to an entity', () => {
 		const entity = world.spawn();
 
-		world.add(entity, Position);
-		world.add(entity, Test);
-		expect(world.has(entity, Position)).toBe(true);
-		expect(world.has(entity, Test)).toBe(true);
+		entity.add(Position);
+		entity.add(Test);
+		expect(entity.has(Position)).toBe(true);
+		expect(entity.has(Test)).toBe(true);
 
-		world.remove(entity, Position);
-		expect(world.has(entity, Position)).toBe(false);
-		expect(world.has(entity, Test)).toBe(true);
+		entity.remove(Position);
+		expect(entity.has(Position)).toBe(false);
+		expect(entity.has(Test)).toBe(true);
 
 		// Add multiple components at once.
-		world.add(entity, Position, Test);
-		expect(world.has(entity, Position)).toBe(true);
+		entity.add(Position, Test);
+		expect(entity.has(Position)).toBe(true);
 
 		// Remove multiple components at once.
-		world.remove(entity, Position, Test);
-		expect(world.has(entity, Position)).toBe(false);
+		entity.remove(Position, Test);
+		expect(entity.has(Position)).toBe(false);
 	});
 
 	it('should create SoA stores when registered by adding', () => {
 		const entity = world.spawn();
 
-		world.add(entity, Position);
+		entity.add(Position);
 		const store = world.get(Position);
 
 		expect(store).toMatchObject({ x: [0], y: [0] });
@@ -73,7 +74,7 @@ describe('Component', () => {
 	it('should get multiple stores at once', () => {
 		const entity = world.spawn();
 
-		world.add(entity, Position, Test);
+		entity.add(Position, Test);
 		const [position, test] = world.get(Position, Test);
 
 		position.x[0] = 1;
@@ -92,7 +93,7 @@ describe('Component', () => {
 	it('should set defaults based on the schema', () => {
 		const entity = world.spawn();
 
-		world.add(entity, Test);
+		entity.add(Test);
 		const store = world.get(Test);
 
 		expect(store).toMatchObject({
@@ -107,7 +108,7 @@ describe('Component', () => {
 		const entity = world.spawn();
 
 		// Partial
-		world.add(entity, Test({ current: 2, arr: ['d', 'e', 'f'] }));
+		entity.add(Test({ current: 2, arr: ['d', 'e', 'f'] }));
 		const store = world.get(Test);
 
 		expect(store).toMatchObject({
@@ -119,11 +120,10 @@ describe('Component', () => {
 		});
 
 		// Reset
-		world.remove(entity, Test);
+		entity.remove(Test);
 
 		// Full
-		world.add(
-			entity,
+		entity.add(
 			Test({
 				current: 3,
 				test: 'world',
@@ -146,8 +146,8 @@ describe('Component', () => {
 		const IsTag = define();
 		const entity = world.spawn();
 
-		world.add(entity, IsTag);
-		expect(world.has(entity, IsTag)).toBe(true);
+		entity.add(IsTag);
+		expect(entity.has(IsTag)).toBe(true);
 
 		const store = world.get(IsTag);
 		expect(store).toMatchObject({});
@@ -161,30 +161,29 @@ describe('Component', () => {
 			.fill(null)
 			.map((_) => define())
 			.forEach((c) => {
-				world.add(entity, c);
+				entity.add(c);
 
-				expect(world.has(entity, c)).toBe(true);
+				expect(entity.has(c)).toBe(true);
 			});
 	});
 
 	it('should add components to entities after recycling', () => {
-		let entity = 0;
+		let entity = world.spawn();
 
 		for (let i = 0; i < 10; i++) {
 			entity = world.spawn();
 		}
 
 		for (let i = 0; i < 10; i++) {
-			world.destroy(i);
+			entity.destroy();
 		}
 
 		for (let i = 0; i < 10; i++) {
 			entity = world.spawn();
 		}
 
-		world.add(entity, Position);
-
-		expect(world.has(entity, Position)).toBe(true);
+		entity.add(Position);
+		expect(entity.has(Position)).toBe(true);
 	});
 
 	it('should set component params', () => {

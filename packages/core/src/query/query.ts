@@ -1,6 +1,7 @@
 import { registerComponent } from '../component/component';
 import { ComponentRecord } from '../component/component-record';
 import { Component } from '../component/types';
+import { Entity } from '../entity/types';
 import { SparseSet } from '../utils/sparse-set';
 import {
 	$changedMasks,
@@ -269,7 +270,7 @@ export class Query {
 		}
 	}
 
-	run(world: World): number[] {
+	run(world: World): Entity[] {
 		this.commitRemovals(world);
 
 		const result = this.entities.dense.slice();
@@ -279,7 +280,7 @@ export class Query {
 			this.entities.clear();
 		}
 
-		return result;
+		return result as Entity[];
 	}
 
 	add(entity: number) {

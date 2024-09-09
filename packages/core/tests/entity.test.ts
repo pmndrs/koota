@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
 import { define } from '../src/component/component';
 import { unpackEntity } from '../src/entity/utils/pack-entity';
+import { Entity } from '../src/entity/types';
 
 const Foo = define();
 const Bar = define();
@@ -23,9 +24,9 @@ describe('Entity', () => {
 		const entityC = world.spawn();
 		expect(entityC).toBe(2);
 
-		world.destroy(entityA);
-		world.destroy(entityC);
-		world.destroy(entityB);
+		entityA.destroy();
+		entityC.destroy();
+		entityB.destroy();
 
 		expect(world.entities.length).toBe(0);
 	});
@@ -46,14 +47,14 @@ describe('Entity', () => {
 	});
 
 	it('should recycle entities and increment generation', () => {
-		const entities: number[] = [];
+		const entities: Entity[] = [];
 
 		for (let i = 0; i < 1500; i++) {
 			entities.push(world.spawn());
 		}
 
 		for (const entity of entities) {
-			world.destroy(entity);
+			entity.destroy();
 		}
 
 		// IDs are recycled in reverse order.
@@ -76,7 +77,25 @@ describe('Entity', () => {
 	it('should add entities with create', () => {
 		const entity = world.spawn(Foo, Bar);
 
-		expect(world.has(entity, Foo)).toBe(true);
-		expect(world.has(entity, Bar)).toBe(true);
+		expect(entity.has(Foo)).toBe(true);
+		expect(entity.has(Bar)).toBe(true);
+	});
+
+	it('can add components', () => {
+		const entity = world.spawn();
+
+		entity.add(Foo, Bar);
+
+		expect(entity.has(Foo)).toBe(true);
+		expect(entity.has(Bar)).toBe(true);
+	});
+
+	it('can remove components', () => {
+		const entity = world.spawn(Foo, Bar);
+
+		entity.remove(Foo);
+
+		expect(entity.has(Foo)).toBe(false);
+		expect(entity.has(Bar)).toBe(true);
 	});
 });
