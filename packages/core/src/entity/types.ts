@@ -5,4 +5,5 @@ export type Entity = number & {
 	remove: (...components: Component[]) => void;
 	has: (component: Component) => boolean;
 	destroy: () => void;
+	changed: (component: Component) => void;
 };

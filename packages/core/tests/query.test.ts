@@ -470,7 +470,7 @@ describe('Query', () => {
 		positions.y[entityA] = 20;
 
 		// Set changed should populate the query.
-		world.changed(entityA, Position);
+		entityA.changed(Position);
 		entities = world.query(Changed(Position));
 		expect(entities).toEqual([entityA]);
 
@@ -480,7 +480,7 @@ describe('Query', () => {
 
 		// Should not populate the query if the component is removed.
 		entityA.remove(Position);
-		world.changed(entityA, Position);
+		entityA.changed(Position);
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 	});
@@ -493,7 +493,7 @@ describe('Query', () => {
 		const positions = world.get(Position);
 		positions.x[entity] = 10;
 		positions.y[entity] = 20;
-		world.changed(entity, Position);
+		entity.changed(Position);
 
 		let entities = world.query(Changed(Position));
 		expect(entities).toEqual([entity]);
@@ -505,7 +505,7 @@ describe('Query', () => {
 
 		positions.x[entity] = 30;
 		positions.y[entity] = 40;
-		world.changed(entity, Position);
+		entity.changed(Position);
 
 		entities = world.query(Changed(Position));
 		entities2 = world.query(LaterChanged(Position));
@@ -583,7 +583,7 @@ describe('Query', () => {
 		positions.x[entity] = 10;
 		positions.y[entity] = 20;
 
-		world.changed(entity, Position);
+		entity.changed(Position);
 
 		expect(cb).toHaveBeenCalledTimes(1);
 		expect(cb).toHaveBeenCalledWith(entity);
@@ -593,11 +593,11 @@ describe('Query', () => {
 		positions.x[entity] = 30;
 		positions.y[entity] = 40;
 
-		world.changed(entity, Position);
+		entity.changed(Position);
 
 		expect(cb).toHaveBeenCalledTimes(1);
 
-		world.changed(entity, Name);
+		entity.changed(Name);
 
 		expect(cb).toHaveBeenCalledTimes(1);
 	});
