@@ -1,6 +1,7 @@
 import { addComponent, hasComponent, removeComponent } from '../component/component';
 import { $isPairComponent, $pairTarget, $relation } from '../component/symbols';
 import { Component, ComponentOrWithParams } from '../component/types';
+import { setChanged } from '../query/modifiers/changed';
 import { Pair, Wildcard } from '../relation/relation';
 import { $autoRemoveTarget } from '../relation/symbols';
 import { universe } from '../universe/universe';
@@ -124,4 +125,11 @@ Number.prototype.destroy = function (this: Entity) {
 	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return destroyEntity(world, this);
+};
+
+// @ts-expect-error
+Number.prototype.changed = function (this: Entity, component: Component) {
+	const worldId = getEntityWorldId(this);
+	const world = universe.worlds[worldId];
+	return setChanged(world, this, component);
 };

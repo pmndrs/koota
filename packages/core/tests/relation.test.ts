@@ -79,7 +79,7 @@ describe('Relation', () => {
 		expect(world.has(childChildB)).toBe(true);
 		expect(world.has(childChildC)).toBe(true);
 
-		world.destroy(parent);
+		parent.destroy();
 
 		expect(world.has(parent)).toBe(false);
 		expect(world.has(child)).toBe(false);

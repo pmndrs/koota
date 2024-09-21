@@ -1,4 +1,4 @@
-import { addComponent, getStore, hasComponent, removeComponent } from '../component/component';
+import { getStore } from '../component/component';
 import { ComponentRecord } from '../component/component-record';
 import {
 	Component,
@@ -7,6 +7,7 @@ import {
 	StoreFromComponents,
 } from '../component/types';
 import { createEntity, destroyEntity } from '../entity/entity';
+import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { setChanged } from '../query/modifiers/changed';
 import { Query } from '../query/query';
@@ -28,9 +29,8 @@ import {
 	$relationTargetEntities,
 	$trackingSnapshots,
 } from './symbols';
-import { allocateWorldId, releaseWorldId } from './utils/world-index';
 import { Resources } from './utils/resource';
-import { Entity } from '../entity/types';
+import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 type Options = {
 	resources?: Component | Component[];
@@ -130,18 +130,13 @@ export class World {
 		}
 	}
 
-	destroy(target?: Entity) {
-		if (target === undefined) {
-			// Destroy itself and all entities.
-			this.entities.forEach((entity) => destroyEntity(this, entity));
-			this.reset();
-			this.#isInitialized = false;
-			releaseWorldId(universe.worldIndex, this.#id);
-			universe.worlds.splice(universe.worlds.indexOf(this), 1);
-		} else if (typeof target === 'number') {
-			// Destroy target entity.
-			destroyEntity(this, target);
-		}
+	destroy() {
+		// Destroy itself and all entities.
+		this.entities.forEach((entity) => destroyEntity(this, entity));
+		this.reset();
+		this.#isInitialized = false;
+		releaseWorldId(universe.worldIndex, this.#id);
+		universe.worlds.splice(universe.worlds.indexOf(this), 1);
 	}
 
 	reset() {
@@ -153,7 +148,7 @@ export class World {
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
 
-		if (this.entities) this.entities.forEach((entity) => this.destroy(entity));
+		if (this.entities) this.entities.forEach((entity) => entity.destroy());
 
 		this[$componentRecords].clear();
 
@@ -190,6 +185,7 @@ export class World {
 		}.bind(this),
 	});
 
+	// To be removed.
 	changed = Object.assign(
 		function (this: World, entity: number, component: Component) {
 			setChanged(this, entity, component);
