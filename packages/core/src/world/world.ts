@@ -1,11 +1,6 @@
 import { getStore } from '../component/component';
 import { ComponentRecord } from '../component/component-record';
-import {
-	Component,
-	ComponentOrWithParams,
-	ComponentWithParams,
-	StoreFromComponents,
-} from '../component/types';
+import { Component, ComponentOrWithParams, StoreFromComponents } from '../component/types';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
@@ -17,18 +12,7 @@ import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cur
 import { getRelationTargets } from '../relation/relation';
 import { Relation, RelationTarget } from '../relation/types';
 import { universe } from '../universe/universe';
-import {
-	$changedMasks,
-	$componentRecords,
-	$dirtyMasks,
-	$dirtyQueries,
-	$internal,
-	$onInit,
-	$queries,
-	$queriesHashMap,
-	$relationTargetEntities,
-	$trackingSnapshots,
-} from './symbols';
+import { $internal } from './symbols';
 import { Resources } from './utils/resource';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
@@ -46,17 +30,15 @@ export class World {
 		entityComponents: new Map<number, Set<Component>>(),
 		notQueries: new Set<Query>(),
 		bitflag: 1,
+		componentRecords: new Map<Component, ComponentRecord>(),
+		queries: new Set<Query>(),
+		queriesHashMap: new Map<string, Query>(),
+		dirtyQueries: new Set<Query>(),
+		relationTargetEntities: new Set<RelationTarget>(),
+		dirtyMasks: new Map<number, number[][]>(),
+		trackingSnapshots: new Map<number, number[][]>(),
+		changedMasks: new Map<number, number[][]>(),
 	};
-
-	[$componentRecords] = new Map<Component, ComponentRecord>();
-	[$queries] = new Set<Query>();
-	[$queriesHashMap] = new Map<string, Query>();
-	[$dirtyQueries] = new Set<Query>();
-	[$relationTargetEntities] = new Set<RelationTarget>();
-	[$trackingSnapshots] = new Map<number, number[][]>();
-	[$dirtyMasks] = new Map<number, number[][]>();
-	[$changedMasks] = new Map<number, number[][]>();
-	[$onInit]: (() => void)[] = [];
 
 	get id() {
 		return this.#id;
@@ -86,6 +68,7 @@ export class World {
 	}
 
 	init() {
+		const ctx = this[$internal];
 		if (this.#isInitialized) return;
 
 		this.#isInitialized = true;
@@ -100,11 +83,8 @@ export class World {
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
 			const query = new Query(this, parameters);
-			this[$queriesHashMap].set(hash, query);
+			ctx.queriesHashMap.set(hash, query);
 		}
-
-		// Call onInit callbacks.
-		this[$onInit].forEach((callback) => callback());
 	}
 
 	spawn(...components: ComponentOrWithParams[]): Entity {
@@ -118,16 +98,6 @@ export class World {
 	get<T extends [Component, ...Component[]]>(...components: T): StoreFromComponents<T> {
 		const stores = components.map((component) => getStore(this, component));
 		return (components.length === 1 ? stores[0] : stores) as StoreFromComponents<T>;
-	}
-
-	set<T extends ComponentWithParams[]>(entity: number, ...components: T) {
-		for (const [component, params] of components) {
-			const store = this.get(component);
-
-			for (const key in params) {
-				(store as any)[key][entity] = params[key];
-			}
-		}
 	}
 
 	destroy() {
@@ -150,19 +120,17 @@ export class World {
 
 		if (this.entities) this.entities.forEach((entity) => entity.destroy());
 
-		this[$componentRecords].clear();
+		ctx.componentRecords.clear();
 
-		this[$queries].clear();
-		this[$queriesHashMap].clear();
-		this[$dirtyQueries].clear();
-		this[$relationTargetEntities].clear();
+		ctx.queries.clear();
+		ctx.queriesHashMap.clear();
+		ctx.dirtyQueries.clear();
+		ctx.relationTargetEntities.clear();
 
-		this[$trackingSnapshots].clear();
-		this[$dirtyMasks].clear();
-		this[$changedMasks].clear();
+		ctx.trackingSnapshots.clear();
+		ctx.dirtyMasks.clear();
+		ctx.changedMasks.clear();
 		this.resources.clear();
-
-		this[$onInit].length = 0;
 	}
 
 	getTargets<T>(relation: Relation<T>, entity: number) {
@@ -171,12 +139,13 @@ export class World {
 
 	query = Object.assign(query, {
 		subscribe: function (this: World, parameters: QueryParameter[], callback: QuerySubscriber) {
+			const ctx = this[$internal];
 			const hash = createQueryHash(parameters);
-			let query = this[$queriesHashMap].get(hash);
+			let query = ctx.queriesHashMap.get(hash);
 
 			if (!query) {
 				query = new Query(this, parameters);
-				this[$queriesHashMap].set(hash, query);
+				ctx.queriesHashMap.set(hash, query);
 			}
 
 			query.subscriptions.add(callback);
@@ -196,11 +165,12 @@ export class World {
 				component: Component,
 				callback: (entity: number) => void
 			) {
-				let record = this[$componentRecords].get(component)!;
+				const ctx = this[$internal];
+				let record = ctx.componentRecords.get(component)!;
 
 				if (!record) {
 					record = new ComponentRecord(this, component);
-					this[$componentRecords].set(component, record);
+					ctx.componentRecords.set(component, record);
 				}
 
 				record.changedSubscriptions.add(callback);
@@ -218,17 +188,19 @@ export function createWorld(options?: Options) {
 function query(this: World, key: string): readonly Entity[];
 function query(this: World, ...parameters: QueryParameter[]): readonly Entity[];
 function query(this: World, ...args: [string] | QueryParameter[]) {
+	const ctx = this[$internal];
+
 	if (typeof args[0] === 'string') {
-		const query = this[$queriesHashMap].get(args[0]);
+		const query = ctx.queriesHashMap.get(args[0]);
 		if (!query) return [];
 		return query.run(this);
 	} else {
 		const hash = createQueryHash(args as QueryParameter[]);
-		let query = this[$queriesHashMap].get(hash);
+		let query = ctx.queriesHashMap.get(hash);
 
 		if (!query) {
 			query = new Query(this, args as QueryParameter[]);
-			this[$queriesHashMap].set(hash, query);
+			ctx.queriesHashMap.set(hash, query);
 		}
 
 		return query.run(this);

@@ -1,15 +1,14 @@
-import { addComponent, hasComponent, removeComponent } from '../component/component';
-import { $isPairComponent, $pairTarget, $relation } from '../component/symbols';
-import { Component, ComponentOrWithParams } from '../component/types';
-import { setChanged } from '../query/modifiers/changed';
+import { removeComponent } from '../component/component';
+import { ComponentOrWithParams } from '../component/types';
 import { Pair, Wildcard } from '../relation/relation';
 import { $autoRemoveTarget } from '../relation/symbols';
-import { universe } from '../universe/universe';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
-import { getEntityWorldId } from './utils/pack-entity';
+
+// Ensure entity methods are patched.
+import './entity-methods-patch';
 
 export function createEntity(world: World, ...components: ComponentOrWithParams[]): Entity {
 	const ctx = world[$internal];
@@ -59,14 +58,15 @@ export function destroyEntity(world: World, entity: Entity) {
 			if (!world.has(subject)) continue;
 
 			for (const component of ctx.entityComponents.get(subject)!) {
-				if (!component[$isPairComponent]) continue;
+				const componentCtx = component[$internal];
+				if (!componentCtx.isPairComponent) continue;
 
-				const relation = component[$relation];
+				const relation = componentCtx.relation;
 
 				// Remove wildcard pair component.
 				removeComponent(world, subject, Pair(Wildcard, currentEid));
 
-				if (component[$pairTarget] === currentEid) {
+				if (componentCtx.pairTarget === currentEid) {
 					// Remove the specific pair component.
 					removeComponent(world, subject, component);
 
@@ -97,39 +97,3 @@ export function destroyEntity(world: World, entity: Entity) {
 		}
 	}
 }
-
-// Add methods to the Number prototype for convenience.
-// @ts-expect-error
-Number.prototype.add = function (this: Entity, ...components: ComponentOrWithParams[]) {
-	const worldId = getEntityWorldId(this);
-	const world = universe.worlds[worldId];
-	return addComponent(world, this, ...components);
-};
-
-// @ts-expect-error
-Number.prototype.remove = function (this: Entity, ...components: Component[]) {
-	const worldId = getEntityWorldId(this);
-	const world = universe.worlds[worldId];
-	return removeComponent(world, this, ...components);
-};
-
-// @ts-expect-error
-Number.prototype.has = function (this: Entity, component: Component) {
-	const worldId = getEntityWorldId(this);
-	const world = universe.worlds[worldId];
-	return hasComponent(world, this, component);
-};
-
-// @ts-expect-error
-Number.prototype.destroy = function (this: Entity) {
-	const worldId = getEntityWorldId(this);
-	const world = universe.worlds[worldId];
-	return destroyEntity(world, this);
-};
-
-// @ts-expect-error
-Number.prototype.changed = function (this: Entity, component: Component) {
-	const worldId = getEntityWorldId(this);
-	const world = universe.worlds[worldId];
-	return setChanged(world, this, component);
-};

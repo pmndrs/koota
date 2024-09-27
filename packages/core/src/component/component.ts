@@ -1,25 +1,19 @@
 import { Entity } from '../entity/types';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { $exclusiveRelation } from '../relation/symbols';
-import {
-	$componentRecords,
-	$dirtyMasks,
-	$internal,
-	$queries,
-	$relationTargetEntities,
-} from '../world/symbols';
+import { $internal } from '../world/symbols';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { ComponentRecord } from './component-record';
 import {
-	$componentId,
-	$createInstance,
-	$createStore,
-	$isPairComponent,
-	$pairTarget,
-	$relation,
-} from './symbols';
-import { Component, ComponentOrWithParams, Normalized, Schema, StoreFromComponent } from './types';
+	Component,
+	ComponentOrWithParams,
+	Normalized,
+	Schema,
+	Store,
+	StoreFromComponent,
+} from './types';
+import { createGetFunction, createSetFunction } from './utils/create-accessors';
 import { createInstance } from './utils/create-instance';
 import { createStore } from './utils/create-store';
 
@@ -32,12 +26,17 @@ function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<
 		},
 		{
 			schema: schema as Normalized<S>,
-			[$createStore]: () => createStore(schema as Normalized<S>),
-			[$createInstance]: () => createInstance(schema as Normalized<S>, Component),
-			[$isPairComponent]: false,
-			[$relation]: null,
-			[$pairTarget]: null,
-			[$componentId]: componentId++,
+			[$internal]: {
+				set: createSetFunction(schema),
+				get: createGetFunction(schema),
+				stores: [] as Store<S>[],
+				id: componentId++,
+				createStore: () => createStore(schema as Normalized<S>),
+				createInstance: () => createInstance(schema as Normalized<S>, Component),
+				isPairComponent: false,
+				relation: null,
+				pairTarget: null,
+			},
 		}
 	) as Component<Normalized<S>>;
 
@@ -47,17 +46,18 @@ function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<
 export const define = defineComponent;
 
 export function registerComponent(world: World, component: Component) {
+	const ctx = world[$internal];
 	const record = new ComponentRecord(world, component);
 
 	// Collect all queries that match this component.
-	world[$queries].forEach((query) => {
+	ctx.queries.forEach((query) => {
 		if (query.components.all.some((instance) => instance.component === component)) {
 			record.queries.add(query);
 		}
 	});
 
 	// Add component instance to the world.
-	world[$componentRecords].set(component, record);
+	ctx.componentRecords.set(component, record);
 	world.components.add(component);
 
 	// Increment the world bitflag.
@@ -81,18 +81,20 @@ export function addComponent(world: World, entity: Entity, ...components: Compon
 		// Exit early if the entity already has the component.
 		if (entity.has(component)) return;
 
+		const componentCtx = component[$internal];
+
 		// Register the component if it's not already registered.
-		if (!world[$componentRecords].has(component)) registerComponent(world, component);
+		if (!ctx.componentRecords.has(component)) registerComponent(world, component);
 
 		// Get component instance.
-		const instance = world[$componentRecords].get(component)!;
+		const instance = ctx.componentRecords.get(component)!;
 		const { generationId, bitflag, queries } = instance;
 
 		// Add bitflag to entity bitmask.
 		ctx.entityMasks[generationId][entity] |= bitflag;
 
 		// Set the entity as dirty.
-		for (const dirtyMask of world[$dirtyMasks].values()) {
+		for (const dirtyMask of ctx.dirtyMasks.values()) {
 			if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
 			dirtyMask[generationId][entity] |= bitflag;
 		}
@@ -112,13 +114,13 @@ export function addComponent(world: World, entity: Entity, ...components: Compon
 		// Add component to entity internally.
 		ctx.entityComponents.get(entity)!.add(component);
 
-		const relation = component[$relation];
-		const target = component[$pairTarget];
+		const relation = componentCtx.relation;
+		const target = componentCtx.pairTarget;
 
 		// Add relation target entity.
-		if (component[$isPairComponent] && relation !== null && target !== null) {
+		if (componentCtx.isPairComponent && relation !== null && target !== null) {
 			// Mark entity as a relation target.
-			world[$relationTargetEntities].add(target);
+			ctx.relationTargetEntities.add(target);
 
 			// Add wildcard relation components.
 			entity.add(Pair(Wildcard, target));
@@ -155,19 +157,20 @@ export function removeComponent(world: World, entity: Entity, ...components: Com
 
 	for (let i = 0; i < components.length; i++) {
 		const component = components[i];
+		const componentCtx = component[$internal];
 
 		// Exit early if the entity doesn't have the component.
 		if (!entity.has(component)) return;
 
 		// Get component record.
-		const record = world[$componentRecords].get(component)!;
+		const record = ctx.componentRecords.get(component)!;
 		const { generationId, bitflag, queries } = record;
 
 		// Remove bitflag from entity bitmask.
 		ctx.entityMasks[generationId][entity] &= ~bitflag;
 
 		// Set the entity as dirty.
-		for (const dirtyMask of world[$dirtyMasks].values()) {
+		for (const dirtyMask of ctx.dirtyMasks.values()) {
 			dirtyMask[generationId][entity] |= bitflag;
 		}
 
@@ -184,21 +187,21 @@ export function removeComponent(world: World, entity: Entity, ...components: Com
 		ctx.entityComponents.get(entity)!.delete(component);
 
 		// Remove wildcard relations if it is a Pair component.
-		if (component[$isPairComponent]) {
+		if (componentCtx.isPairComponent) {
 			// Check if entity is still a subject of any relation or not.
 			if (world.query(Wildcard(entity)).length === 0) {
-				world[$relationTargetEntities].delete(entity);
+				ctx.relationTargetEntities.delete(entity);
 
 				// TODO: cleanup query by hash
 				// removeQueryByHash(world, [Wildcard(eid)])
 			}
 
 			// Remove wildcard to this target for this entity.
-			const target = component[$pairTarget]!;
+			const target = componentCtx.pairTarget!;
 			removeComponent(world, entity, Pair(Wildcard, target));
 
 			// Remove wildcard relation if the entity has no other relations.
-			const relation = component[$relation]!;
+			const relation = componentCtx.relation!;
 			const otherTargets = getRelationTargets(world, relation, entity);
 
 			if (otherTargets.length === 0) {
@@ -209,10 +212,9 @@ export function removeComponent(world: World, entity: Entity, ...components: Com
 }
 
 export function hasComponent(world: World, entity: Entity, component: Component): boolean {
-	const registeredComponent = world[$componentRecords].get(component);
-	if (!registeredComponent) return false;
-
 	const ctx = world[$internal];
+	const registeredComponent = ctx.componentRecords.get(component);
+	if (!registeredComponent) return false;
 
 	const { generationId, bitflag } = registeredComponent;
 	const mask = ctx.entityMasks[generationId][entity];
@@ -224,9 +226,12 @@ export function getStore<C extends Component = Component>(
 	world: World,
 	component: C
 ): StoreFromComponent<C> {
+	const ctx = world[$internal];
 	// Need this for relation components. There might be a better way to handle this.
-	if (!world[$componentRecords].has(component)) registerComponent(world, component);
+	if (!ctx.componentRecords.has(component)) registerComponent(world, component);
 
-	const record = world[$componentRecords].get(component)!;
-	return record.store as StoreFromComponent<C>;
+	const record = ctx.componentRecords.get(component)!;
+	const store = record.store as StoreFromComponent<C>;
+
+	return store;
 }

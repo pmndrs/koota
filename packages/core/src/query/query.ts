@@ -3,16 +3,7 @@ import { ComponentRecord } from '../component/component-record';
 import { Component } from '../component/types';
 import { Entity } from '../entity/types';
 import { SparseSet } from '../utils/sparse-set';
-import {
-	$changedMasks,
-	$componentRecords,
-	$dirtyMasks,
-	$dirtyQueries,
-	$internal,
-	$queries,
-	$queriesHashMap,
-	$trackingSnapshots,
-} from '../world/symbols';
+import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { isModifier } from './modifier';
 import { $modifier } from './symbols';
@@ -70,18 +61,18 @@ export class Query {
 				// Register components if they don't exist.
 				for (let j = 0; j < components.length; j++) {
 					const component = components[j];
-					if (!world[$componentRecords].has(component)) registerComponent(world, component);
+					if (!ctx.componentRecords.has(component)) registerComponent(world, component);
 				}
 
 				if (parameter[$modifier] === 'not') {
 					this.components.forbidden.push(
-						...components.map((component) => world[$componentRecords].get(component)!)
+						...components.map((component) => ctx.componentRecords.get(component)!)
 					);
 				}
 
 				if (parameter[$modifier].includes('added')) {
 					this.components.added.push(
-						...components.map((component) => world[$componentRecords].get(component)!)
+						...components.map((component) => ctx.componentRecords.get(component)!)
 					);
 
 					this.isTracking = true;
@@ -96,7 +87,7 @@ export class Query {
 
 				if (parameter[$modifier].includes('removed')) {
 					this.components.removed.push(
-						...components.map((component) => world[$componentRecords].get(component)!)
+						...components.map((component) => ctx.componentRecords.get(component)!)
 					);
 
 					this.isTracking = true;
@@ -111,7 +102,7 @@ export class Query {
 
 				if (parameter[$modifier].includes('changed')) {
 					this.components.changed.push(
-						...components.map((component) => world[$componentRecords].get(component)!)
+						...components.map((component) => ctx.componentRecords.get(component)!)
 					);
 					this.isTracking = true;
 
@@ -126,14 +117,14 @@ export class Query {
 				for (let j = 0; j < components.length; j++) {
 					const component = components[j];
 
-					if (!world[$componentRecords].has(component)) {
+					if (!ctx.componentRecords.has(component)) {
 						registerComponent(world, component);
 					}
 				}
 			} else {
 				const component = parameter as Component;
-				if (!world[$componentRecords].has(component)) registerComponent(world, component);
-				this.components.required.push(world[$componentRecords].get(component)!);
+				if (!ctx.componentRecords.has(component)) registerComponent(world, component);
+				this.components.required.push(ctx.componentRecords.get(component)!);
 			}
 		}
 
@@ -192,8 +183,8 @@ export class Query {
 		this.hash = createQueryHash(parameters);
 
 		// Add it to world.
-		world[$queries].add(this);
-		world[$queriesHashMap].set(this.hash, this);
+		ctx.queries.add(this);
+		ctx.queriesHashMap.set(this.hash, this);
 
 		// Add query to each component instance.
 		this.components.all.forEach((instance) => {
@@ -209,9 +200,9 @@ export class Query {
 				const type = trackingParams[i].type;
 				const id = trackingParams[i].id;
 				const components = trackingParams[i].components;
-				const snapshot = world[$trackingSnapshots].get(id)!;
-				const dirtyMask = world[$dirtyMasks].get(id)!;
-				const changedMask = world[$changedMasks].get(id)!;
+				const snapshot = ctx.trackingSnapshots.get(id)!;
+				const dirtyMask = ctx.dirtyMasks.get(id)!;
+				const changedMask = ctx.changedMasks.get(id)!;
 
 				for (const entity of world.entities) {
 					let allComponentsMatch = true;
@@ -252,11 +243,6 @@ export class Query {
 						this.add(entity);
 					}
 				}
-
-				// Clean up.
-				// world[$trackingSnapshots].delete(id);
-				// world[$dirtyMasks].delete(id);
-				// world[$changedMasks].delete(id);
 			}
 		} else {
 			// Populate the query immediately.
@@ -296,8 +282,10 @@ export class Query {
 	remove(world: World, entity: number) {
 		if (!this.entities.has(entity) || this.toRemove.has(entity)) return;
 
+		const ctx = world[$internal];
+
 		this.toRemove.add(entity);
-		world[$dirtyQueries].add(this);
+		ctx.dirtyQueries.add(this);
 
 		// Notify subscriptions.
 		for (const sub of this.subscriptions) {
@@ -389,9 +377,10 @@ export class Query {
 	}
 
 	commitRemovals(world: World) {
-		if (!world[$dirtyQueries].size) return;
+		const ctx = world[$internal];
+		if (!ctx.dirtyQueries.size) return;
 
-		for (const query of world[$dirtyQueries]) {
+		for (const query of ctx.dirtyQueries) {
 			for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
 				const eid = query.toRemove.dense[i];
 				query.toRemove.remove(eid);
@@ -399,6 +388,6 @@ export class Query {
 			}
 		}
 
-		world[$dirtyQueries].clear();
+		ctx.dirtyQueries.clear();
 	}
 }

@@ -1,25 +1,21 @@
 import { RelationTarget } from '../relation/types';
+import { $internal } from '../world/symbols';
 import { World } from '../world/world';
-import {
-	$component,
-	$componentId,
-	$createInstance,
-	$createStore,
-	$entity,
-	$isPairComponent,
-	$pairTarget,
-	$relation,
-	$world,
-} from './symbols';
+import { $component, $entity, $world } from './symbols';
 
 export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 	schema: TSchema;
-	[$createStore]: () => TStore;
-	[$createInstance]: () => ComponentInstance<TSchema>;
-	[$isPairComponent]: boolean;
-	[$relation]: any | null;
-	[$pairTarget]: RelationTarget | null;
-	[$componentId]: number;
+	[$internal]: {
+		set: (index: number, store: TStore, values: Partial<PropsFromSchema<TSchema>>) => void;
+		get: (index: number, store: TStore) => PropsFromSchema<TSchema>;
+		stores: TStore[];
+		id: number;
+		createStore: () => TStore;
+		createInstance: () => ComponentInstance<TSchema>;
+		isPairComponent: boolean;
+		relation: any | null;
+		pairTarget: RelationTarget | null;
+	};
 } & ((params: Partial<PropsFromSchema<TSchema>>) => [Component<TSchema, TStore>, Partial<TSchema>]);
 
 export type ComponentWithParams<C extends Component = Component> = [

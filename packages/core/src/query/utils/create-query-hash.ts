@@ -1,4 +1,4 @@
-import { $componentId } from '../../component/symbols';
+import { $internal } from '../../world/symbols';
 import { isModifier } from '../modifier';
 import { $modifierComponentIds, $modifierID } from '../symbols';
 import { QueryParameter } from '../types';
@@ -20,7 +20,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 				sortedIDs[cursor++] = modifierId * 100000 + componentId;
 			}
 		} else {
-			const componentID = param[$componentId];
+			const componentID = param[$internal].id;
 			sortedIDs[cursor++] = componentID;
 		}
 	}

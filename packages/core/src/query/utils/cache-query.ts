@@ -1,5 +1,5 @@
 import { universe } from '../../universe/universe';
-import { $queriesHashMap } from '../../world/symbols';
+import { $internal } from '../../world/symbols';
 import { Query } from '../query';
 import { QueryParameter } from '../types';
 import { createQueryHash } from './create-query-hash';
@@ -9,9 +9,10 @@ export function cacheQuery(...parameters: QueryParameter[]): string {
 
 	for (const world of universe.worlds) {
 		if (!world) continue;
-		if (!world[$queriesHashMap].has(hash)) {
+		const ctx = world[$internal];
+		if (!ctx.queriesHashMap.has(hash)) {
 			const query = new Query(world, parameters);
-			world[$queriesHashMap].set(hash, query);
+			ctx.queriesHashMap.set(hash, query);
 		}
 	}
 

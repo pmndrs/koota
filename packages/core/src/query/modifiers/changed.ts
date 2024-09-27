@@ -1,8 +1,7 @@
 import { ComponentRecord } from '../../component/component-record';
-import { $componentId } from '../../component/symbols';
 import { Component } from '../../component/types';
 import { universe } from '../../universe/universe';
-import { $changedMasks, $componentRecords } from '../../world/symbols';
+import { $internal } from '../../world/symbols';
 import { World } from '../../world/world';
 import { modifier } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
@@ -19,19 +18,20 @@ export function createChanged() {
 }
 
 export function setChanged(world: World, entity: number, component: Component) {
-	let record = world[$componentRecords].get(component)!;
+	const ctx = world[$internal];
+	let record = ctx.componentRecords.get(component)!;
 
 	if (!record) {
 		record = new ComponentRecord(world, component);
-		world[$componentRecords].set(component, record);
+		ctx.componentRecords.set(component, record);
 	}
 
-	for (const changedMask of world[$changedMasks].values()) {
+	for (const changedMask of ctx.changedMasks.values()) {
 		if (!changedMask[entity]) {
 			changedMask[entity] = new Array();
 		}
 
-		const componentId = component[$componentId];
+		const componentId = component[$internal].id;
 
 		changedMask[entity][componentId] = 1;
 	}

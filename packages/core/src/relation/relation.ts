@@ -1,5 +1,4 @@
 import { define } from '../component/component';
-import { $isPairComponent, $pairTarget, $relation } from '../component/symbols';
 import { Component, Schema } from '../component/types';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
@@ -36,10 +35,11 @@ export function getRelationComponent<T extends Component>(
 ) {
 	if (!pairsMap.has(target)) {
 		const component = componentFactory();
+		const componentCtx = component[$internal];
 
-		component[$isPairComponent] = true;
-		component[$relation] = relation;
-		component[$pairTarget] = target;
+		componentCtx.isPairComponent = true;
+		componentCtx.relation = relation;
+		componentCtx.pairTarget = target;
 
 		pairsMap.set(target, component);
 	}
@@ -53,8 +53,9 @@ export const getRelationTargets = (world: World, relation: Relation<any>, entity
 	const targets: RelationTarget[] = [];
 
 	for (const component of components) {
-		if (component[$relation] === relation && component[$pairTarget] !== Wildcard) {
-			targets.push(component[$pairTarget]!);
+		const componentCtx = component[$internal];
+		if (componentCtx.relation === relation && componentCtx.pairTarget !== Wildcard) {
+			targets.push(componentCtx.pairTarget!);
 		}
 	}
 
