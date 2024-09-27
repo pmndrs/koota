@@ -5,7 +5,7 @@ import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
 import { createRemoved } from '../src/query/modifiers/removed';
-import { $queriesHashMap } from '../src/world/symbols';
+import { $internal } from '../src/world/symbols';
 
 const Position = define({ x: 0, y: 0 });
 const Name = define({ name: 'name' });
@@ -45,6 +45,7 @@ describe('Query', () => {
 	});
 
 	it('should only create one hash indpendent of the order of the parameters', () => {
+		const ctx = world[$internal];
 		let entities = world.query(Position, Name, Not(IsActive));
 		expect(entities.length).toBe(0);
 
@@ -57,13 +58,13 @@ describe('Query', () => {
 		entities = world.query(Name, Not(IsActive), Position);
 		expect(entities.length).toBe(1);
 
-		expect(world[$queriesHashMap].size).toBe(1);
+		expect(ctx.queriesHashMap.size).toBe(1);
 
 		// Test various permutations of modifiers.
 		entities = world.query(IsActive, Not(Position, Name));
 		expect(entities.length).toBe(0);
 
-		expect(world[$queriesHashMap].size).toBe(2);
+		expect(ctx.queriesHashMap.size).toBe(2);
 
 		entities = world.query(Not(Name, Position), IsActive);
 		expect(entities.length).toBe(0);
@@ -71,7 +72,7 @@ describe('Query', () => {
 		entities = world.query(Not(Position), IsActive, Not(Name));
 		expect(entities.length).toBe(0);
 
-		expect(world[$queriesHashMap].size).toBe(2);
+		expect(ctx.queriesHashMap.size).toBe(2);
 	});
 
 	it('should return an empty array if there are no query parameters', () => {
@@ -129,6 +130,7 @@ describe('Query', () => {
 	});
 
 	it('modifiers can be added as one call or separately', () => {
+		const ctx = world[$internal];
 		const entity = world.spawn();
 		entity.add(Position, IsActive);
 
@@ -139,7 +141,7 @@ describe('Query', () => {
 		expect(entities.length).toBe(1);
 
 		// These queries should be hashed the same.
-		expect(world[$queriesHashMap].size).toBe(1);
+		expect(ctx.queriesHashMap.size).toBe(1);
 	});
 
 	it('should correctly populate Added queries when components are added', () => {

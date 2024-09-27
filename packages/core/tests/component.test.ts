@@ -1,8 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
 import { define, registerComponent } from '../src/component/component';
-import { $componentRecords } from '../src/world/symbols';
-import { Entity } from '../src/entity/types';
+import { $internal } from '../src/world/symbols';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
@@ -36,9 +35,10 @@ describe('Component', () => {
 		const Position = define({ x: 0, y: 0 });
 		registerComponent(world, Position);
 
+		const ctx = world[$internal];
 		expect(world.components.size).toBe(1);
-		expect(world[$componentRecords].size).toBe(1);
-		expect(world[$componentRecords].get(Position)).toBeDefined();
+		expect(ctx.componentRecords.size).toBe(1);
+		expect(ctx.componentRecords.get(Position)).toBeDefined();
 	});
 
 	it('should add and remove components to an entity', () => {
@@ -187,8 +187,8 @@ describe('Component', () => {
 	});
 
 	it('should set component params', () => {
-		const eid = world.spawn(Test);
-		world.set(eid, Test({ current: 2, test: 'world' }));
+		const entity = world.spawn(Test);
+		entity.set(Test, { current: 2, test: 'world' });
 
 		const store = world.get(Test);
 		expect(store).toMatchObject({

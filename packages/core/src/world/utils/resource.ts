@@ -1,12 +1,13 @@
-import { $createInstance } from '../../component/symbols';
 import { Component, ComponentInstance, SchemaFromComponent } from '../../component/types';
+import { $internal } from '../symbols';
 
 export class Resources {
 	#resources = new Map<Component, ComponentInstance>();
 
 	add(...components: Component[]) {
 		for (const component of components) {
-			this.#resources.set(component, component[$createInstance]());
+			const ctx = component[$internal];
+			this.#resources.set(component, ctx.createInstance());
 		}
 	}
 

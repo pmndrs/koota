@@ -1,7 +1,6 @@
 import { Query } from '../query/query';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
-import { $createStore } from './symbols';
 import { Component, Schema, SchemaFromComponent, Store } from './types';
 
 export class ComponentRecord<
@@ -19,14 +18,17 @@ export class ComponentRecord<
 
 	constructor(world: World, component: C) {
 		const ctx = world[$internal];
+		const componentCtx = component[$internal];
 
 		this.generationId = ctx.entityMasks.length - 1;
 		this.bitflag = ctx.bitflag;
 		this.component = component;
-		this.store = component[$createStore]();
+		this.store = componentCtx.createStore();
 		this.queries = new Set();
 		this.notQueries = new Set();
 		this.schema = component.schema;
 		this.changedSubscriptions = new Set();
+
+		componentCtx.stores[world.id] = this.store;
 	}
 }
