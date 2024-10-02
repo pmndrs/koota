@@ -3,6 +3,7 @@ import { createWorld } from '../src';
 import { define } from '../src/component/component';
 import { unpackEntity } from '../src/entity/utils/pack-entity';
 import { Entity } from '../src/entity/types';
+import { $internal } from '../src/world/symbols';
 
 const Foo = define();
 const Bar = define();
@@ -16,19 +17,19 @@ describe('Entity', () => {
 
 	it('should create and destroy an entity', () => {
 		const entityA = world.spawn();
-		expect(entityA).toBe(0);
+		expect(entityA).toBe(1);
 
 		const entityB = world.spawn();
-		expect(entityB).toBe(1);
+		expect(entityB).toBe(2);
 
 		const entityC = world.spawn();
-		expect(entityC).toBe(2);
+		expect(entityC).toBe(3);
 
 		entityA.destroy();
 		entityC.destroy();
 		entityB.destroy();
 
-		expect(world.entities.length).toBe(0);
+		expect(world.entities.length).toBe(1);
 	});
 
 	it('should encode world ID in entity', () => {
@@ -36,14 +37,15 @@ describe('Entity', () => {
 		const { worldId, entityId } = unpackEntity(entity);
 
 		expect(worldId).toBe(world.id);
-		expect(entityId).toBe(0);
+		expect(entityId).toBe(1);
+		console.log(world[$internal].worldEntity);
 
 		const world2 = createWorld();
 		const entity2 = world2.spawn();
 		const { worldId: worldId2, entityId: entityId2 } = unpackEntity(entity2);
 
 		expect(worldId2).toBe(world2.id);
-		expect(entityId2).toBe(0);
+		expect(entityId2).toBe(1);
 	});
 
 	it('should recycle entities and increment generation', () => {
@@ -61,17 +63,17 @@ describe('Entity', () => {
 		let entity = world.spawn();
 		let { generation, entityId } = unpackEntity(entity);
 		expect(generation).toBe(1);
+		expect(entityId).toBe(500);
+
+		entity = world.spawn();
+		({ generation, entityId } = unpackEntity(entity));
+		expect(generation).toBe(1);
 		expect(entityId).toBe(499);
 
 		entity = world.spawn();
 		({ generation, entityId } = unpackEntity(entity));
 		expect(generation).toBe(1);
 		expect(entityId).toBe(498);
-
-		entity = world.spawn();
-		({ generation, entityId } = unpackEntity(entity));
-		expect(generation).toBe(1);
-		expect(entityId).toBe(497);
 	});
 
 	it('should add entities with create', () => {

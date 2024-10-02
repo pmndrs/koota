@@ -1,11 +1,17 @@
 import { getStore } from '../component/component';
 import { ComponentRecord } from '../component/component-record';
-import { Component, ComponentOrWithParams, StoreFromComponents } from '../component/types';
+import {
+	Component,
+	ComponentOrWithParams,
+	PropsFromSchema,
+	SchemaFromComponent,
+	StoreFromComponents,
+} from '../component/types';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { setChanged } from '../query/modifiers/changed';
-import { Query } from '../query/query';
+import { IsExcluded, Query } from '../query/query';
 import { QueryParameter, QuerySubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
@@ -13,13 +19,7 @@ import { getRelationTargets } from '../relation/relation';
 import { Relation, RelationTarget } from '../relation/types';
 import { universe } from '../universe/universe';
 import { $internal } from './symbols';
-import { Resources } from './utils/resource';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
-
-type Options = {
-	resources?: Component | Component[];
-	init?: boolean;
-};
 
 export class World {
 	#id = allocateWorldId(universe.worldIndex);
@@ -28,16 +28,17 @@ export class World {
 		entityIndex: createEntityIndex(this.#id),
 		entityMasks: [[]] as number[][],
 		entityComponents: new Map<number, Set<Component>>(),
-		notQueries: new Set<Query>(),
 		bitflag: 1,
 		componentRecords: new Map<Component, ComponentRecord>(),
 		queries: new Set<Query>(),
 		queriesHashMap: new Map<string, Query>(),
+		notQueries: new Set<Query>(),
 		dirtyQueries: new Set<Query>(),
 		relationTargetEntities: new Set<RelationTarget>(),
 		dirtyMasks: new Map<number, number[][]>(),
 		trackingSnapshots: new Map<number, number[][]>(),
 		changedMasks: new Map<number, number[][]>(),
+		worldEntity: null! as Entity,
 	};
 
 	get id() {
@@ -54,20 +55,12 @@ export class World {
 	}
 
 	components = new Set<Component>();
-	resources = new Resources();
 
-	constructor(options: Options = {}) {
-		if (options.resources) {
-			const resources = Array.isArray(options.resources)
-				? options.resources
-				: [options.resources];
-			this.resources.add(...resources);
-		}
-
-		if (options.init !== false) this.init();
+	constructor(components?: ComponentOrWithParams | ComponentOrWithParams[]) {
+		this.init(components);
 	}
 
-	init() {
+	init(components: ComponentOrWithParams | ComponentOrWithParams[] = []) {
 		const ctx = this[$internal];
 		if (this.#isInitialized) return;
 
@@ -85,17 +78,43 @@ export class World {
 			const query = new Query(this, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
+
+		// Create world entity.
+		const componentsArray = Array.isArray(components)
+			? (components as ComponentOrWithParams[])
+			: [components];
+		ctx.worldEntity = createEntity(this, IsExcluded, ...componentsArray);
 	}
 
 	spawn(...components: ComponentOrWithParams[]): Entity {
 		return createEntity(this, ...components);
 	}
 
-	has(entity: Entity): boolean {
-		return isEntityAlive(this[$internal].entityIndex, entity);
+	has(entity: Entity): boolean;
+	has(component: Component): boolean;
+	has(target: Entity | Component): boolean {
+		return typeof target === 'number'
+			? isEntityAlive(this[$internal].entityIndex, target)
+			: this[$internal].worldEntity.has(target);
 	}
 
-	get<T extends [Component, ...Component[]]>(...components: T): StoreFromComponents<T> {
+	add(...components: ComponentOrWithParams[]) {
+		this[$internal].worldEntity.add(...components);
+	}
+
+	remove(...components: Component[]) {
+		this[$internal].worldEntity.remove(...components);
+	}
+
+	get<T extends Component>(component: T): PropsFromSchema<SchemaFromComponent<T>> {
+		return this[$internal].worldEntity.get(component);
+	}
+
+	set<T extends Component>(component: T, value: Partial<PropsFromSchema<SchemaFromComponent<T>>>) {
+		this[$internal].worldEntity.set(component, value);
+	}
+
+	getStore<T extends [Component, ...Component[]]>(...components: T): StoreFromComponents<T> {
 		const stores = components.map((component) => getStore(this, component));
 		return (components.length === 1 ? stores[0] : stores) as StoreFromComponents<T>;
 	}
@@ -107,6 +126,10 @@ export class World {
 		this.#isInitialized = false;
 		releaseWorldId(universe.worldIndex, this.#id);
 		universe.worlds.splice(universe.worlds.indexOf(this), 1);
+
+		// Destroy world entity.
+		destroyEntity(this, this[$internal].worldEntity);
+		this[$internal].worldEntity = null!;
 	}
 
 	reset() {
@@ -121,6 +144,7 @@ export class World {
 		if (this.entities) this.entities.forEach((entity) => entity.destroy());
 
 		ctx.componentRecords.clear();
+		this.components.clear();
 
 		ctx.queries.clear();
 		ctx.queriesHashMap.clear();
@@ -130,7 +154,9 @@ export class World {
 		ctx.trackingSnapshots.clear();
 		ctx.dirtyMasks.clear();
 		ctx.changedMasks.clear();
-		this.resources.clear();
+
+		// Create new world entity.
+		ctx.worldEntity = createEntity(this, IsExcluded);
 	}
 
 	getTargets<T>(relation: Relation<T>, entity: number) {
@@ -181,8 +207,8 @@ export class World {
 	);
 }
 
-export function createWorld(options?: Options) {
-	return new World(options);
+export function createWorld(components?: ComponentOrWithParams | ComponentOrWithParams[]) {
+	return new World(components);
 }
 
 function query(this: World, key: string): readonly Entity[];

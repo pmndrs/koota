@@ -11,7 +11,6 @@ export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 		stores: TStore[];
 		id: number;
 		createStore: () => TStore;
-		createInstance: () => ComponentInstance<TSchema>;
 		isPairComponent: boolean;
 		relation: any | null;
 		pairTarget: RelationTarget | null;
