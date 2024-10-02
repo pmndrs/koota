@@ -1,4 +1,4 @@
-import { registerComponent } from '../component/component';
+import { define, registerComponent } from '../component/component';
 import { ComponentRecord } from '../component/component-record';
 import { Component } from '../component/types';
 import { Entity } from '../entity/types';
@@ -9,6 +9,8 @@ import { isModifier } from './modifier';
 import { $modifier } from './symbols';
 import { QueryParameter, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
+
+export const IsExcluded = define();
 
 export class Query {
 	world: World;
@@ -249,6 +251,8 @@ export class Query {
 			if (this.components.required.length > 0 || this.components.forbidden.length > 0) {
 				for (let i = 0; i < world.entities.length; i++) {
 					const entity = world.entities[i];
+					// Skip if the entity is excluded.
+					if (entity.has(IsExcluded)) continue;
 					const match = this.check(world, entity);
 					if (match) this.add(entity);
 				}

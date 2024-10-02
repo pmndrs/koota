@@ -36,8 +36,9 @@ describe('Component', () => {
 		registerComponent(world, Position);
 
 		const ctx = world[$internal];
-		expect(world.components.size).toBe(1);
-		expect(ctx.componentRecords.size).toBe(1);
+		// Has sytem components registered by default.
+		expect(world.components.size).toBe(2);
+		expect(ctx.componentRecords.size).toBe(2);
 		expect(ctx.componentRecords.get(Position)).toBeDefined();
 	});
 
@@ -66,41 +67,23 @@ describe('Component', () => {
 		const entity = world.spawn();
 
 		entity.add(Position);
-		const store = world.get(Position);
+		const store = world.getStore(Position);
 
-		expect(store).toMatchObject({ x: [0], y: [0] });
-	});
-
-	it('should get multiple stores at once', () => {
-		const entity = world.spawn();
-
-		entity.add(Position, Test);
-		const [position, test] = world.get(Position, Test);
-
-		position.x[0] = 1;
-		test.current[0] = 2;
-
-		expect(position).toMatchObject({ x: [1], y: [0] });
-		expect(test).toMatchObject({
-			current: [2],
-			test: ['hello'],
-			bool: [true],
-			arr: [['a', 'b', 'c']],
-			class: [new TestClass()],
-		});
+		// First entry is the world entity.
+		expect(store).toMatchObject({ x: [undefined, 0], y: [undefined, 0] });
 	});
 
 	it('should set defaults based on the schema', () => {
 		const entity = world.spawn();
 
 		entity.add(Test);
-		const store = world.get(Test);
+		const test = entity.get(Test);
 
-		expect(store).toMatchObject({
-			current: [1],
-			test: ['hello'],
-			bool: [true],
-			arr: [['a', 'b', 'c']],
+		expect(test).toMatchObject({
+			current: 1,
+			test: 'hello',
+			bool: true,
+			arr: ['a', 'b', 'c'],
 		});
 	});
 
@@ -109,14 +92,14 @@ describe('Component', () => {
 
 		// Partial
 		entity.add(Test({ current: 2, arr: ['d', 'e', 'f'] }));
-		const store = world.get(Test);
+		let test = entity.get(Test);
 
-		expect(store).toMatchObject({
-			current: [2],
-			test: ['hello'],
-			bool: [true],
-			arr: [['d', 'e', 'f']],
-			class: [new TestClass()],
+		expect(test).toMatchObject({
+			current: 2,
+			test: 'hello',
+			bool: true,
+			arr: ['d', 'e', 'f'],
+			class: new TestClass(),
 		});
 
 		// Reset
@@ -133,12 +116,13 @@ describe('Component', () => {
 			})
 		);
 
-		expect(store).toMatchObject({
-			current: [3],
-			test: ['world'],
-			bool: [false],
-			arr: [['g', 'h', 'i']],
-			class: [new TestClass('Me')],
+		test = entity.get(Test);
+		expect(test).toMatchObject({
+			current: 3,
+			test: 'world',
+			bool: false,
+			arr: ['g', 'h', 'i'],
+			class: new TestClass('Me'),
 		});
 	});
 
@@ -149,7 +133,7 @@ describe('Component', () => {
 		entity.add(IsTag);
 		expect(entity.has(IsTag)).toBe(true);
 
-		const store = world.get(IsTag);
+		const store = world.getStore(IsTag);
 		expect(store).toMatchObject({});
 	});
 
@@ -190,12 +174,12 @@ describe('Component', () => {
 		const entity = world.spawn(Test);
 		entity.set(Test, { current: 2, test: 'world' });
 
-		const store = world.get(Test);
-		expect(store).toMatchObject({
-			current: [2],
-			test: ['world'],
-			bool: [true],
-			arr: [['a', 'b', 'c']],
+		const test = entity.get(Test);
+		expect(test).toMatchObject({
+			current: 2,
+			test: 'world',
+			bool: true,
+			arr: ['a', 'b', 'c'],
 		});
 	});
 });

@@ -14,7 +14,6 @@ import {
 	StoreFromComponent,
 } from './types';
 import { createGetFunction, createSetFunction } from './utils/create-accessors';
-import { createInstance } from './utils/create-instance';
 import { createStore } from './utils/create-store';
 
 let componentId = 0;
@@ -32,7 +31,6 @@ function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<
 				stores: [] as Store<S>[],
 				id: componentId++,
 				createStore: () => createStore(schema as Normalized<S>),
-				createInstance: () => createInstance(schema as Normalized<S>, Component),
 				isPairComponent: false,
 				relation: null,
 				pairTarget: null,
@@ -47,14 +45,8 @@ export const define = defineComponent;
 
 export function registerComponent(world: World, component: Component) {
 	const ctx = world[$internal];
-	const record = new ComponentRecord(world, component);
 
-	// Collect all queries that match this component.
-	ctx.queries.forEach((query) => {
-		if (query.components.all.some((instance) => instance.component === component)) {
-			record.queries.add(query);
-		}
-	});
+	const record = new ComponentRecord(world, component);
 
 	// Add component instance to the world.
 	ctx.componentRecords.set(component, record);
@@ -137,7 +129,7 @@ export function addComponent(world: World, entity: Entity, ...components: Compon
 		}
 
 		// Set default values or override with provided params.
-		const store = world.get(component);
+		const store = world.getStore(component);
 		const defaults = instance.schema;
 
 		for (const key in store) {

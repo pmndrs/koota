@@ -18,23 +18,12 @@ describe('World', () => {
 		expect(universe.worlds).toContain(world);
 	});
 
-	it('can create a world without initing', () => {
-		const world = createWorld({ init: false });
-
-		expect(world.isInitialized).toBe(false);
-		expect(universe.worlds).not.toContain(world);
-
-		world.init();
-
-		expect(world.isInitialized).toBe(true);
-		expect(universe.worlds).toContain(world);
-	});
-
 	it('should reset the world', () => {
 		const world = createWorld();
 		world.reset();
 
-		expect(world.entities.length).toBe(0);
+		// Always has one entity that is the world itself.
+		expect(world.entities.length).toBe(1);
 	});
 
 	it('errors if more than 16 worlds are created', () => {
@@ -55,22 +44,31 @@ describe('World', () => {
 		expect(newWorld.id).toBe(id);
 	});
 
-	it('should add, remove and get resources', () => {
-		const world = createWorld();
+	it('should add, remove and get singletons', () => {
+		const Test = define({ then: 0, delta: 0 });
+
+		const world = createWorld(Test);
+		expect(world.has(Test)).toBe(true);
 
 		const Time = define({ then: 0, delta: 0 });
 
-		world.resources.add(Time);
-		expect(world.resources.has(Time)).toBe(true);
+		world.add(Time);
+		expect(world.has(Time)).toBe(true);
+		expect(world.has(Test)).toBe(true);
 
-		const time = world.resources.get(Time);
+		// Does not show up in a query.
+		const query = world.query(Time);
+		expect(query.length).toBe(0);
+
+		const time = world.get(Time);
 		time.then = 1;
 		time.delta = 1;
+		world.set(Time, time);
 
 		expect(time.then).toBe(1);
 		expect(time.delta).toBe(1);
 
-		world.resources.remove(Time);
-		expect(world.resources.has(Time)).toBe(false);
+		world.remove(Time);
+		expect(world.has(Time)).toBe(false);
 	});
 });
