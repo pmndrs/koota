@@ -159,10 +159,6 @@ export class World {
 		ctx.worldEntity = createEntity(this, IsExcluded);
 	}
 
-	getTargets<T>(relation: Relation<T>, entity: number) {
-		return getRelationTargets(this, relation, entity);
-	}
-
 	query = Object.assign(query, {
 		subscribe: function (this: World, parameters: QueryParameter[], callback: QuerySubscriber) {
 			const ctx = this[$internal];

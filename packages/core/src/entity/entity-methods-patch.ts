@@ -6,6 +6,8 @@
 import { addComponent, hasComponent, removeComponent } from '../component/component';
 import { Component, ComponentOrWithParams } from '../component/types';
 import { setChanged } from '../query/modifiers/changed';
+import { getRelationTargets } from '../relation/relation';
+import { Relation, RelationTarget } from '../relation/types';
 import { universe } from '../universe/universe';
 import { $internal } from '../world/symbols';
 import { destroyEntity } from './entity';
@@ -70,4 +72,18 @@ Number.prototype.set = function (this: Entity, component: Component, value: any)
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
 	return ctx.set(index, store, value);
+};
+
+//@ts-expect-error
+Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
+	const worldId = this >>> WORLD_ID_SHIFT;
+	const world = universe.worlds[worldId];
+	return getRelationTargets(world, relation, this);
+};
+
+//@ts-expect-error
+Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
+	const worldId = this >>> WORLD_ID_SHIFT;
+	const world = universe.worlds[worldId];
+	return getRelationTargets(world, relation, this)[0];
 };
