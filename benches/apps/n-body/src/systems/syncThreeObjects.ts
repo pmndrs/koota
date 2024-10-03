@@ -10,12 +10,12 @@ const dummyColor = new THREE.Color();
 
 export const syncThreeObjects = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(Position, Circle, Color);
-	const [position, circle, color] = world.get(Position, Circle, Color);
+	const [position, circle, color] = world.getStore(Position, Circle, Color);
 
 	const instanceEnt = world.query(InstancedMesh)[0];
 	if (instanceEnt === undefined) return;
 
-	const instancedMesh = world.get(InstancedMesh).object[instanceEnt];
+	const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
 
 	for (let i = 0; i < ents.length; i++) {
 		const e = getIndex(ents[i]);

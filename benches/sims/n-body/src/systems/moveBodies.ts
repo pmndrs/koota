@@ -6,8 +6,8 @@ import { getIndex } from 'koota';
 
 export const moveBodies = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(Position, Velocity);
-	const { delta } = world.resources.get(Time);
-	const [position, velocity] = world.get(Position, Velocity);
+	const { delta } = world.get(Time);
+	const [position, velocity] = world.getStore(Position, Velocity);
 
 	for (let i = 0; i < ents.length; i++) {
 		const e = getIndex(ents[i]);

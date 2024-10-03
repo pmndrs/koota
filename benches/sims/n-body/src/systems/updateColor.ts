@@ -6,7 +6,7 @@ import { Repulse } from '../components';
 
 export const updateColor = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(Velocity, Color, Not(Repulse));
-	const [velocity, color] = world.get(Velocity, Color);
+	const [velocity, color] = world.getStore(Velocity, Color);
 
 	for (let i = 0; i < ents.length; i++) {
 		const eid = getIndex(ents[i]);

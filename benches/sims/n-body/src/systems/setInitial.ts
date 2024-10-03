@@ -9,7 +9,7 @@ const Added = createAdded();
 export const setInitial = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(Added(...body));
 	const centralMassEnts = world.query(Added(...body, IsCentralMass));
-	const [position, velocity, mass, circle] = world.get(...body);
+	const [position, velocity, mass, circle] = world.getStore(...body);
 
 	for (let i = 0; i < ents.length; i++) {
 		const e = getIndex(ents[i]);

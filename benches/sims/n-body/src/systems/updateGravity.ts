@@ -5,8 +5,8 @@ import { body } from './setInitial';
 
 export const updateGravity = ({ world }: { world: Koota.World }) => {
 	const ents = world.query(...body);
-	const { delta } = world.resources.get(Time)!;
-	const [position, velocity, mass, _, acceleration] = world.get(...body);
+	const { delta } = world.get(Time)!;
+	const [position, velocity, mass, _, acceleration] = world.getStore(...body);
 
 	for (let j = 0; j < ents.length; j++) {
 		const eSelf = getIndex(ents[j]);

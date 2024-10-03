@@ -9,8 +9,8 @@ export const handleRepulse = ({ world }: { world: Koota.World }) => {
 	if (repuslors.length === 0) return;
 
 	const bodyIds = world.query(...body);
-	const [position, velocity, mass, repulse, circle] = world.get(Position, Velocity, Mass, Repulse, Circle); // prettier-ignore
-	const { delta } = world.resources.get(Time);
+	const [position, velocity, mass, repulse, circle] = world.getStore(Position, Velocity, Mass, Repulse, Circle); // prettier-ignore
+	const { delta } = world.get(Time);
 
 	for (let i = repuslors.length - 1; i >= 0; i--) {
 		const rid = getIndex(repuslors[i]);
