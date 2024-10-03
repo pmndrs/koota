@@ -40,6 +40,7 @@ export const getEntityAndWorldId = (entity: Entity): [number, number] => [
 export const getEntityGeneration = (entity: Entity) =>
 	(entity >>> GENERATION_SHIFT) & GENERATION_MASK;
 
-export const incrementGeneration = (entity: Entity) =>
-	(entity & ~(GENERATION_MASK << GENERATION_SHIFT)) | // Clear current generation bits
-	(((((entity >>> GENERATION_SHIFT) & GENERATION_MASK) + 1) & GENERATION_MASK) << GENERATION_SHIFT); // Extract generation, increment, wrap around, shift back, and combine
+export const incrementGeneration = (entity: Entity): Entity =>
+	((entity & ~(GENERATION_MASK << GENERATION_SHIFT)) | // Clear current generation bits
+		(((((entity >>> GENERATION_SHIFT) & GENERATION_MASK) + 1) & GENERATION_MASK) <<
+			GENERATION_SHIFT)) as unknown as Entity; // Extract generation, increment, wrap around, shift back, and combine

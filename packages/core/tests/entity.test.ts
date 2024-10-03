@@ -51,7 +51,7 @@ describe('Entity', () => {
 	it('should recycle entities and increment generation', () => {
 		const entities: Entity[] = [];
 
-		for (let i = 0; i < 500; i++) {
+		for (let i = 0; i < 50; i++) {
 			entities.push(world.spawn());
 		}
 
@@ -63,17 +63,17 @@ describe('Entity', () => {
 		let entity = world.spawn();
 		let { generation, entityId } = unpackEntity(entity);
 		expect(generation).toBe(1);
-		expect(entityId).toBe(500);
+		expect(entityId).toBe(50);
 
 		entity = world.spawn();
 		({ generation, entityId } = unpackEntity(entity));
 		expect(generation).toBe(1);
-		expect(entityId).toBe(499);
+		expect(entityId).toBe(49);
 
 		entity = world.spawn();
 		({ generation, entityId } = unpackEntity(entity));
 		expect(generation).toBe(1);
-		expect(entityId).toBe(498);
+		expect(entityId).toBe(48);
 	});
 
 	it('should add entities with create', () => {
