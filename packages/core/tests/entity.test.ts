@@ -1,12 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
 import { define } from '../src/component/component';
-import { unpackEntity } from '../src/entity/utils/pack-entity';
 import { Entity } from '../src/entity/types';
-import { $internal } from '../src/world/symbols';
+import { unpackEntity } from '../src/entity/utils/pack-entity';
 
 const Foo = define();
-const Bar = define();
+const Bar = define({ value: 0 });
 
 describe('Entity', () => {
 	const world = createWorld();
@@ -38,7 +37,6 @@ describe('Entity', () => {
 
 		expect(worldId).toBe(world.id);
 		expect(entityId).toBe(1);
-		console.log(world[$internal].worldEntity);
 
 		const world2 = createWorld();
 		const entity2 = world2.spawn();
@@ -52,8 +50,13 @@ describe('Entity', () => {
 		const entities: Entity[] = [];
 
 		for (let i = 0; i < 50; i++) {
-			entities.push(world.spawn());
+			entities.push(world.spawn(Bar));
 		}
+
+		const bar = world.getStore(Bar);
+
+		// Length should be 50 + 1 (world entity).
+		expect(bar.value.length).toBe(51);
 
 		for (const entity of entities) {
 			entity.destroy();
@@ -74,6 +77,9 @@ describe('Entity', () => {
 		({ generation, entityId } = unpackEntity(entity));
 		expect(generation).toBe(1);
 		expect(entityId).toBe(48);
+
+		// Should remain the same and not increase because of the entity encoding.
+		expect(bar.value.length).toBe(51);
 	});
 
 	it('should add entities with create', () => {
