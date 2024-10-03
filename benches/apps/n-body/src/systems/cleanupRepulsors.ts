@@ -12,7 +12,7 @@ export function cleanupBodies({ world }: { world: Koota.World }) {
 	const instanceEnt = world.query(InstancedMesh)[0];
 	if (instanceEnt === undefined) return;
 
-	const instancedMesh = world.get(InstancedMesh).object[instanceEnt];
+	const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
 
 	for (let i = 0; i < ents.length; i++) {
 		const e = getIndex(ents[i]);

@@ -62,7 +62,7 @@ schedule.build();
 
 // Add Three resources to the world
 export const Three = define({ renderer, camera, scene });
-world.resources.add(Three);
+world.add(Three);
 
 // Init stats
 const { updateStats, measure, create } = initStats({ Bodies: () => CONSTANTS.NBODIES });
