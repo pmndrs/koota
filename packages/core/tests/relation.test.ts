@@ -23,12 +23,12 @@ describe('Relation', () => {
 		const guard = world.spawn();
 		const goblin = world.spawn(Targeting(player), Attacking(guard), Targeting(guard));
 
-		let targets = world.getTargets(Targeting, goblin);
+		let targets = goblin.targetsFor(Targeting);
 		expect(targets.length).toBe(2);
 		expect(targets).toContain(player);
 		expect(targets).toContain(guard);
 
-		targets = world.getTargets(Attacking, goblin);
+		targets = goblin.targetsFor(Attacking);
 		expect(targets.length).toBe(1);
 		expect(targets).toContain(guard);
 	});
@@ -40,25 +40,22 @@ describe('Relation', () => {
 		const guard = world.spawn();
 		const goblin = world.spawn(Targeting(player));
 
-		let targets = world.getTargets(Targeting, goblin);
+		let target = goblin.targetFor(Targeting);
 
-		expect(targets.length).toBe(1);
-		expect(targets[0]).toBe(player);
+		expect(target).toBe(player);
 		expect(goblin.has(Targeting(player))).toBe(true);
 
 		goblin.add(Targeting(guard));
-		targets = world.getTargets(Targeting, goblin);
+		target = goblin.targetFor(Targeting);
 
-		expect(targets.length).toBe(1);
-		expect(targets[0]).toBe(guard);
+		expect(target).toBe(guard);
 		expect(goblin.has(Targeting(player))).toBe(false);
 		expect(goblin.has(Targeting(guard))).toBe(true);
 
 		goblin.add(Targeting(player));
-		targets = world.getTargets(Targeting, goblin);
+		target = goblin.targetFor(Targeting);
 
-		expect(targets.length).toBe(1);
-		expect(targets[0]).toBe(player);
+		expect(target).toBe(player);
 		expect(goblin.has(Targeting(player))).toBe(true);
 		expect(goblin.has(Targeting(guard))).toBe(false);
 	});
