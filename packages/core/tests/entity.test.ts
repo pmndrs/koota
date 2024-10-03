@@ -63,17 +63,17 @@ describe('Entity', () => {
 		}
 
 		// IDs are recycled in reverse order.
-		let entity = world.spawn();
+		let entity = world.spawn(Bar);
 		let { generation, entityId } = unpackEntity(entity);
 		expect(generation).toBe(1);
 		expect(entityId).toBe(50);
 
-		entity = world.spawn();
+		entity = world.spawn(Bar);
 		({ generation, entityId } = unpackEntity(entity));
 		expect(generation).toBe(1);
 		expect(entityId).toBe(49);
 
-		entity = world.spawn();
+		entity = world.spawn(Bar);
 		({ generation, entityId } = unpackEntity(entity));
 		expect(generation).toBe(1);
 		expect(entityId).toBe(48);

@@ -129,18 +129,15 @@ export function addComponent(world: World, entity: Entity, ...components: Compon
 		}
 
 		// Set default values or override with provided params.
-		const store = world.getStore(component);
 		const defaults = instance.schema;
-
-		for (const key in store) {
-			if (typeof defaults[key] === 'function' && !defaults[key].prototype?.constructor) {
-				// Run functions and return the result. Ignore constructors.
-				store[key][entity] = params?.[key] ?? defaults[key]();
-			} else {
-				// Or just return the value.
-				store[key][entity] = params?.[key] ?? defaults[key];
+		// Execute any functions in the defaults.
+		for (const key in defaults) {
+			if (typeof defaults[key] === 'function') {
+				defaults[key] = defaults[key]();
 			}
 		}
+
+		entity.set(component, { ...defaults, ...params });
 	}
 }
 
