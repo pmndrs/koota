@@ -82,7 +82,7 @@ describe('Entity', () => {
 		expect(bar.value.length).toBe(51);
 	});
 
-	it('should add entities with create', () => {
+	it('should add entities with spawn', () => {
 		const entity = world.spawn(Foo, Bar);
 
 		expect(entity.has(Foo)).toBe(true);
