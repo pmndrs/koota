@@ -43,7 +43,7 @@ export const setInitial = ({ world }: { world: Koota.World }) => {
 
 	// Set the central mass properties.
 	for (let i = 0; i < centralMassEnts.length; i++) {
-		const e = centralMassEnts[i];
+		const e = getIndex(centralMassEnts[i]);
 
 		position.x[e] = 0;
 		position.y[e] = 0;
