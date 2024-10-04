@@ -137,7 +137,7 @@ export function addComponent(world: World, entity: Entity, ...components: Compon
 			}
 		}
 
-		entity.set(component, { ...defaults, ...params });
+		entity.set(component, { ...defaults, ...params }, false);
 	}
 }
 

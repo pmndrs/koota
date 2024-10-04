@@ -518,85 +518,43 @@ describe('Query', () => {
 	});
 
 	it('can be subscribed to for a stream of updates', () => {
-		const event = { type: '', entity: 0 };
-		const staticCb = vi.fn((type, entity) => {
-			event.type = type;
+		const event = { entity: 0 };
+		const staticCb = vi.fn((entity) => {
 			event.entity = entity;
 		});
 
 		// Static query subscriptions.
 		const entity = world.spawn();
 
-		world.query.subscribe([Position, Foo], staticCb);
+		world.onAdd([Position, Foo], staticCb);
+		world.onRemove([Position, Foo], staticCb);
 
 		entity.add(Position);
 		expect(staticCb).toHaveBeenCalledTimes(0);
 
 		entity.add(Foo);
 		expect(staticCb).toHaveBeenCalledTimes(1);
-		expect(event.type).toBe('add');
 		expect(event.entity).toBe(entity);
 
 		entity.remove(Foo);
 		expect(staticCb).toHaveBeenCalledTimes(2);
-		expect(event.type).toBe('remove');
 		expect(event.entity).toBe(entity);
-
-		// Added query subscriptions.
-		// This acts the same as a static query since we
-		// get a stream of matching if the components were added.
-		const trackingCb = vi.fn();
-		const Added = createAdded();
-
-		world.query.subscribe([Added(Foo)], trackingCb);
-
-		entity.add(Foo);
-		expect(trackingCb).toHaveBeenCalledTimes(1);
-		expect(trackingCb).toHaveBeenCalledWith('add', entity);
-
-		entity.remove(Foo);
-		expect(trackingCb).toHaveBeenCalledTimes(2);
-		expect(trackingCb).toHaveBeenCalledWith('remove', entity);
-
-		// Removed query subscriptions.
-		const Removed = createRemoved();
-		const removedCb = vi.fn();
-
-		world.query.subscribe([Removed(Foo)], removedCb);
-
-		entity.add(Foo);
-		expect(removedCb).toHaveBeenCalledTimes(0);
-
-		entity.remove(Foo);
-		expect(removedCb).toHaveBeenCalledTimes(1);
-		expect(removedCb).toHaveBeenCalledWith('add', entity);
-
-		entity.add(Foo);
-		expect(removedCb).toHaveBeenCalledTimes(2);
-		expect(removedCb).toHaveBeenCalledWith('remove', entity);
 	});
 
 	it('can subscribe to changes on a specific component', () => {
 		const entity = world.spawn(Position);
 
 		const cb = vi.fn();
-		const unsub = world.changed.subscribe(Position, cb);
+		const unsub = world.onChange(Position, cb);
 
-		const positions = world.getStore(Position);
-		positions.x[entity] = 10;
-		positions.y[entity] = 20;
-
-		entity.changed(Position);
+		entity.set(Position, { x: 10, y: 20 });
 
 		expect(cb).toHaveBeenCalledTimes(1);
 		expect(cb).toHaveBeenCalledWith(entity);
 
 		unsub();
 
-		positions.x[entity] = 30;
-		positions.y[entity] = 40;
-
-		entity.changed(Position);
+		entity.set(Position, { x: 20, y: 30 });
 
 		expect(cb).toHaveBeenCalledTimes(1);
 

@@ -66,11 +66,12 @@ Number.prototype._getWithStore = function (this: Entity, component: Component, s
 };
 
 // @ts-expect-error
-Number.prototype.set = function (this: Entity, component: Component, value: any) {
+Number.prototype.set = function (this: Entity, component: Component, value: any, flagChanged = true) {
 	const ctx = component[$internal];
 	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
+	flagChanged && setChanged(universe.worlds[worldId], this, component);
 	return ctx.set(index, store, value);
 };
 

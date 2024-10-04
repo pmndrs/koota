@@ -14,7 +14,8 @@ export type Entity = number & {
 	changed: (component: Component) => void;
 	set: <C extends Component>(
 		component: C,
-		value: Partial<PropsFromSchema<SchemaFromComponent<C>>>
+		value: Partial<PropsFromSchema<SchemaFromComponent<C>>>,
+		flagChanged?: boolean
 	) => void;
 	get: <C extends Component>(component: C) => PropsFromSchema<SchemaFromComponent<C>>;
 	targetFor: <T>(relation: Relation<T>) => Entity | undefined;

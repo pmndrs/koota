@@ -10,13 +10,11 @@ import {
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
-import { setChanged } from '../query/modifiers/changed';
 import { IsExcluded, Query } from '../query/query';
-import { QueryParameter, QuerySubscriber } from '../query/types';
+import { QueryParameter } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { getRelationTargets } from '../relation/relation';
-import { Relation, RelationTarget } from '../relation/types';
+import { RelationTarget } from '../relation/types';
 import { universe } from '../universe/universe';
 import { $internal } from './symbols';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
@@ -159,72 +157,73 @@ export class World {
 		ctx.worldEntity = createEntity(this, IsExcluded);
 	}
 
-	query = Object.assign(query, {
-		subscribe: function (this: World, parameters: QueryParameter[], callback: QuerySubscriber) {
-			const ctx = this[$internal];
-			const hash = createQueryHash(parameters);
+	query(this: World, key: string): readonly Entity[];
+	query(this: World, ...parameters: QueryParameter[]): readonly Entity[];
+	query(this: World, ...args: [string] | QueryParameter[]) {
+		const ctx = this[$internal];
+
+		if (typeof args[0] === 'string') {
+			const query = ctx.queriesHashMap.get(args[0]);
+			if (!query) return [];
+			return query.run(this);
+		} else {
+			const hash = createQueryHash(args as QueryParameter[]);
 			let query = ctx.queriesHashMap.get(hash);
 
 			if (!query) {
-				query = new Query(this, parameters);
+				query = new Query(this, args as QueryParameter[]);
 				ctx.queriesHashMap.set(hash, query);
 			}
 
-			query.subscriptions.add(callback);
-
-			return () => query.subscriptions.delete(callback);
-		}.bind(this),
-	});
-
-	// To be removed.
-	changed = Object.assign(
-		function (this: World, entity: number, component: Component) {
-			setChanged(this, entity, component);
-		},
-		{
-			subscribe: function (
-				this: World,
-				component: Component,
-				callback: (entity: number) => void
-			) {
-				const ctx = this[$internal];
-				let record = ctx.componentRecords.get(component)!;
-
-				if (!record) {
-					record = new ComponentRecord(this, component);
-					ctx.componentRecords.set(component, record);
-				}
-
-				record.changedSubscriptions.add(callback);
-
-				return () => record.changedSubscriptions.delete(callback);
-			}.bind(this),
+			return query.run(this);
 		}
-	);
+	}
+
+	onAdd(parameters: QueryParameter[], callback: (entity: Entity) => void) {
+		const ctx = this[$internal];
+		const hash = createQueryHash(parameters);
+		let query = ctx.queriesHashMap.get(hash);
+
+		if (!query) {
+			query = new Query(this, parameters);
+			ctx.queriesHashMap.set(hash, query);
+		}
+
+		query.addSubscriptions.add(callback);
+
+		return () => query.addSubscriptions.delete(callback);
+	}
+
+	onRemove(parameters: QueryParameter[], callback: (entity: Entity) => void) {
+		const ctx = this[$internal];
+		const hash = createQueryHash(parameters);
+		let query = ctx.queriesHashMap.get(hash);
+
+		if (!query) {
+			query = new Query(this, parameters);
+			ctx.queriesHashMap.set(hash, query);
+		}
+
+		query.removeSubscriptions.add(callback);
+
+		return () => query.removeSubscriptions.delete(callback);
+	}
+
+	onChange(component: Component, callback: (entity: Entity) => void) {
+		const ctx = this[$internal];
+		let record = ctx.componentRecords.get(component)!;
+
+		if (!record) {
+			record = new ComponentRecord(this, component);
+			ctx.componentRecords.set(component, record);
+		}
+
+		record.changedSubscriptions.add(callback);
+
+		return () => record.changedSubscriptions.delete(callback);
+	}
 }
 
 export function createWorld(components?: ComponentOrWithParams | ComponentOrWithParams[]) {
 	return new World(components);
-}
-
-function query(this: World, key: string): readonly Entity[];
-function query(this: World, ...parameters: QueryParameter[]): readonly Entity[];
-function query(this: World, ...args: [string] | QueryParameter[]) {
-	const ctx = this[$internal];
-
-	if (typeof args[0] === 'string') {
-		const query = ctx.queriesHashMap.get(args[0]);
-		if (!query) return [];
-		return query.run(this);
-	} else {
-		const hash = createQueryHash(args as QueryParameter[]);
-		let query = ctx.queriesHashMap.get(hash);
-
-		if (!query) {
-			query = new Query(this, args as QueryParameter[]);
-			ctx.queriesHashMap.set(hash, query);
-		}
-
-		return query.run(this);
-	}
 }
