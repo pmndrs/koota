@@ -1,5 +1,6 @@
 import { ComponentRecord } from '../../component/component-record';
 import { Component } from '../../component/types';
+import { Entity } from '../../entity/types';
 import { universe } from '../../universe/universe';
 import { $internal } from '../../world/symbols';
 import { World } from '../../world/world';
@@ -17,7 +18,7 @@ export function createChanged() {
 	return modifier(`changed-${id}`, id, (...components) => components);
 }
 
-export function setChanged(world: World, entity: number, component: Component) {
+export function setChanged(world: World, entity: Entity, component: Component) {
 	const ctx = world[$internal];
 	let record = ctx.componentRecords.get(component)!;
 
@@ -27,12 +28,8 @@ export function setChanged(world: World, entity: number, component: Component) {
 	}
 
 	for (const changedMask of ctx.changedMasks.values()) {
-		if (!changedMask[entity]) {
-			changedMask[entity] = new Array();
-		}
-
+		if (!changedMask[entity]) changedMask[entity] = new Array();
 		const componentId = component[$internal].id;
-
 		changedMask[entity][componentId] = 1;
 	}
 

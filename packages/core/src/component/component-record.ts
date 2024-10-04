@@ -1,3 +1,4 @@
+import { Entity } from '../entity/types';
 import { Query } from '../query/query';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
@@ -14,7 +15,7 @@ export class ComponentRecord<
 	queries: Set<Query>;
 	notQueries: Set<Query>;
 	schema: S;
-	changedSubscriptions: Set<(entity: number) => void>;
+	changedSubscriptions: Set<(entity: Entity) => void>;
 
 	constructor(world: World, component: C) {
 		const ctx = world[$internal];
