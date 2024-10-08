@@ -16,7 +16,8 @@ export class Query {
 	world: World;
 	parameters: QueryParameter[];
 	hash: string;
-	components: {
+	components: Component[] = [];
+	componentRecords: {
 		required: ComponentRecord[];
 		forbidden: ComponentRecord[];
 		added: ComponentRecord[];
@@ -68,15 +69,17 @@ export class Query {
 				}
 
 				if (parameter[$modifier] === 'not') {
-					this.components.forbidden.push(
+					this.componentRecords.forbidden.push(
 						...components.map((component) => ctx.componentRecords.get(component)!)
 					);
 				}
 
 				if (parameter[$modifier].includes('added')) {
-					this.components.added.push(
-						...components.map((component) => ctx.componentRecords.get(component)!)
-					);
+					for (const component of components) {
+						const record = ctx.componentRecords.get(component)!;
+						this.componentRecords.added.push(record);
+						this.components.push(component);
+					}
 
 					this.isTracking = true;
 
@@ -84,14 +87,16 @@ export class Query {
 					trackingParams.push({
 						type: 'add',
 						id: parseInt(id),
-						components: this.components.added,
+						components: this.componentRecords.added,
 					});
 				}
 
 				if (parameter[$modifier].includes('removed')) {
-					this.components.removed.push(
-						...components.map((component) => ctx.componentRecords.get(component)!)
-					);
+					for (const component of components) {
+						const record = ctx.componentRecords.get(component)!;
+						this.componentRecords.removed.push(record);
+						this.components.push(component);
+					}
 
 					this.isTracking = true;
 
@@ -99,48 +104,44 @@ export class Query {
 					trackingParams.push({
 						type: 'remove',
 						id: parseInt(id),
-						components: this.components.removed,
+						components: this.componentRecords.removed,
 					});
 				}
 
 				if (parameter[$modifier].includes('changed')) {
-					this.components.changed.push(
-						...components.map((component) => ctx.componentRecords.get(component)!)
-					);
+					for (const component of components) {
+						const record = ctx.componentRecords.get(component)!;
+						this.componentRecords.changed.push(record);
+						this.components.push(component);
+					}
+
 					this.isTracking = true;
 
 					const id = parameter[$modifier].split('-')[1];
 					trackingParams.push({
 						type: 'change',
 						id: parseInt(id),
-						components: this.components.changed,
+						components: this.componentRecords.changed,
 					});
-				}
-
-				for (let j = 0; j < components.length; j++) {
-					const component = components[j];
-
-					if (!ctx.componentRecords.has(component)) {
-						registerComponent(world, component);
-					}
 				}
 			} else {
 				const component = parameter as Component;
 				if (!ctx.componentRecords.has(component)) registerComponent(world, component);
-				this.components.required.push(ctx.componentRecords.get(component)!);
+				this.componentRecords.required.push(ctx.componentRecords.get(component)!);
+				this.components.push(component);
 			}
 		}
 
-		this.components.all = [
-			...this.components.required,
-			...this.components.forbidden,
-			...this.components.added,
-			...this.components.removed,
-			...this.components.changed,
+		this.componentRecords.all = [
+			...this.componentRecords.required,
+			...this.componentRecords.forbidden,
+			...this.componentRecords.added,
+			...this.componentRecords.removed,
+			...this.componentRecords.changed,
 		];
 
 		// Create an array of all component generations.
-		this.generations = this.components.all
+		this.generations = this.componentRecords.all
 			.map((c) => c.generationId)
 			.reduce((a: number[], v) => {
 				if (a.includes(v)) return a;
@@ -150,23 +151,23 @@ export class Query {
 
 		// Create bitmasks.
 		this.bitmasks = this.generations.map((generationId) => {
-			const required = this.components.required
+			const required = this.componentRecords.required
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const forbidden = this.components.forbidden
+			const forbidden = this.componentRecords.forbidden
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const added = this.components.added
+			const added = this.componentRecords.added
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const removed = this.components.removed
+			const removed = this.componentRecords.removed
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const changed = this.components.changed
+			const changed = this.componentRecords.changed
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
@@ -190,12 +191,12 @@ export class Query {
 		ctx.queriesHashMap.set(this.hash, this);
 
 		// Add query to each component instance.
-		this.components.all.forEach((instance) => {
+		this.componentRecords.all.forEach((instance) => {
 			instance.queries.add(this);
 		});
 
 		// Add query instance to the world's not-query store.
-		if (this.components.forbidden.length > 0) ctx.notQueries.add(this);
+		if (this.componentRecords.forbidden.length > 0) ctx.notQueries.add(this);
 
 		// If the query has an Added modifier, we populate it with its snapshot.
 		if (trackingParams.length > 0) {
@@ -249,7 +250,10 @@ export class Query {
 			}
 		} else {
 			// Populate the query immediately.
-			if (this.components.required.length > 0 || this.components.forbidden.length > 0) {
+			if (
+				this.componentRecords.required.length > 0 ||
+				this.componentRecords.forbidden.length > 0
+			) {
 				for (let i = 0; i < world.entities.length; i++) {
 					const entity = world.entities[i];
 					// Skip if the entity is excluded.
@@ -263,13 +267,10 @@ export class Query {
 
 	run(world: World): Entity[] {
 		this.commitRemovals(world);
-
 		const result = this.entities.dense.slice();
 
 		// Clear so it can accumulate again.
-		if (this.isTracking) {
-			this.entities.clear();
-		}
+		if (this.isTracking) this.entities.clear();
 
 		return result as Entity[];
 	}
@@ -307,7 +308,7 @@ export class Query {
 		const ctx = world[$internal];
 
 		// If the query is empty, the check fails.
-		if (this.components.all.length === 0) return false;
+		if (this.componentRecords.all.length === 0) return false;
 
 		for (let i = 0; i < generations.length; i++) {
 			const generationId = generations[i];

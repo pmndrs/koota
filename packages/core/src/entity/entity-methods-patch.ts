@@ -59,19 +59,12 @@ Number.prototype.get = function (this: Entity, component: Component) {
 };
 
 // @ts-expect-error
-Number.prototype._getWithStore = function (this: Entity, component: Component, store: any) {
-	const ctx = component[$internal];
-	const index = this & ENTITY_ID_MASK;
-	return ctx.get(index, store);
-};
-
-// @ts-expect-error
 Number.prototype.set = function (this: Entity, component: Component, value: any, flagChanged = true) {
 	const ctx = component[$internal];
 	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
-	flagChanged && setChanged(universe.worlds[worldId], this, component);
+	// flagChanged && setChanged(universe.worlds[worldId], this, component);
 	return ctx.set(index, store, value);
 };
 

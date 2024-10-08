@@ -11,7 +11,8 @@ import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { IsExcluded, Query } from '../query/query';
-import { QueryParameter } from '../query/types';
+import { createQueryResult } from '../query/query-result';
+import { QueryParameter, QueryResult } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
@@ -157,9 +158,9 @@ export class World {
 		ctx.worldEntity = createEntity(this, IsExcluded);
 	}
 
-	query(this: World, key: string): readonly Entity[];
-	query(this: World, ...parameters: QueryParameter[]): readonly Entity[];
-	query(this: World, ...args: [string] | QueryParameter[]) {
+	query(key: string): QueryResult;
+	query(...parameters: QueryParameter[]): QueryResult;
+	query(...args: [string] | QueryParameter[]) {
 		const ctx = this[$internal];
 
 		if (typeof args[0] === 'string') {
@@ -167,16 +168,24 @@ export class World {
 			if (!query) return [];
 			return query.run(this);
 		} else {
-			const hash = createQueryHash(args as QueryParameter[]);
+			const params = args as QueryParameter[];
+			const hash = createQueryHash(params);
 			let query = ctx.queriesHashMap.get(hash);
 
 			if (!query) {
-				query = new Query(this, args as QueryParameter[]);
+				query = new Query(this, params);
 				ctx.queriesHashMap.set(hash, query);
 			}
 
-			return query.run(this);
+			return createQueryResult(query.run(this), this, params);
 		}
+	}
+
+	queryFirst(key: string): Entity | undefined;
+	queryFirst(...parameters: QueryParameter[]): Entity | undefined;
+	queryFirst(...args: [string] | QueryParameter[]) {
+		// @ts-expect-error - Having an issue with the TS overloads.
+		return this.query(...args)[0];
 	}
 
 	onAdd(parameters: QueryParameter[], callback: (entity: Entity) => void) {
