@@ -1,18 +1,12 @@
+import { Position, Time, Velocity } from '../components';
 import { CONSTANTS } from '../constants';
-import { Velocity } from '../components/Velocity';
-import { Position } from '../components/Position';
-import { Time } from '../components/Time';
-import { getIndex } from 'koota';
 
 export const moveBodies = ({ world }: { world: Koota.World }) => {
-	const ents = world.query(Position, Velocity);
+	const bodies = world.query(Position, Velocity);
 	const { delta } = world.get(Time);
-	const [position, velocity] = world.getStore(Position, Velocity);
 
-	for (let i = 0; i < ents.length; i++) {
-		const e = getIndex(ents[i]);
-		// Update position based on velocity and the global SPEED factor
-		position.x[e] += CONSTANTS.SPEED * velocity.x[e] * delta;
-		position.y[e] += CONSTANTS.SPEED * velocity.y[e] * delta;
-	}
+	bodies.updateEach(([position, velocity]) => {
+		position.x += CONSTANTS.SPEED * velocity.x * delta;
+		position.y += CONSTANTS.SPEED * velocity.y * delta;
+	});
 };

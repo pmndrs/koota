@@ -1,12 +1,12 @@
 import { getIndex } from 'koota';
 import { Time } from '../components/Time';
 import { CONSTANTS } from '../constants';
-import { body } from './setInitial';
+import { bodyTraits } from './setInitial';
 
 export const updateGravity = ({ world }: { world: Koota.World }) => {
-	const ents = world.query(...body);
+	const ents = world.query(...bodyTraits);
 	const { delta } = world.get(Time)!;
-	const [position, velocity, mass, _, acceleration] = world.getStore(...body);
+	const [position, velocity, mass, _, acceleration] = world.getStore(...bodyTraits);
 
 	for (let j = 0; j < ents.length; j++) {
 		const eSelf = getIndex(ents[j]);
