@@ -1,51 +1,92 @@
-import { getIndex } from 'koota';
-import { Circle, Repulse, Mass, Position, Time, Velocity } from '../components';
+import { Circle, Mass, Position, Repulse, Time, Velocity } from '../components';
 
-const repulsor = [Repulse, Position, Circle];
-const body = [Position, Velocity, Mass];
+const repulsorTraits = [Repulse, Position, Circle];
+const bodyTraits = [Position, Velocity, Mass];
 
 export const handleRepulse = ({ world }: { world: Koota.World }) => {
-	const repuslors = world.query(...repulsor);
-	if (repuslors.length === 0) return;
+	const repulsors = world.query(...repulsorTraits);
+	if (repulsors.length === 0) return;
 
-	const bodyIds = world.query(...body);
-	const [position, velocity, mass, repulse, circle] = world.getStore(Position, Velocity, Mass, Repulse, Circle); // prettier-ignore
+	const bodies = world.query(...bodyTraits);
 	const { delta } = world.get(Time);
 
-	for (let i = repuslors.length - 1; i >= 0; i--) {
-		const rid = getIndex(repuslors[i]);
-
+	repulsors.updateEach(([repulse, position, circle], entity) => {
 		// Count down the delay
-		if (repulse.delay[rid] > 0) repulse.delay[rid] -= delta;
+		if (repulse.delay > 0) repulse.delay -= delta;
 
 		// Decay the circle radius by the explosion decay
-		if (repulse.delay[rid] <= 0) {
-			circle.radius[rid] -= circle.radius[rid] * repulse.decay[rid] * delta;
-			repulse.force[rid] -= repulse.force[rid] * repulse.decay[rid] * delta;
+		if (repulse.delay <= 0) {
+			circle.radius -= circle.radius * repulse.decay * delta;
+			repulse.force -= repulse.force * repulse.decay * delta;
 		}
 
-		if (circle.radius[rid] <= 5) {
-			repuslors[i].destroy();
-			continue;
+		if (circle.radius <= 5) {
+			entity.destroy();
+			return;
 		}
 
-		for (let j = bodyIds.length - 1; j >= 0; j--) {
-			const bid = bodyIds[j];
-			if (rid === bid) continue;
+		bodies.updateEach(([bodyPostion, bodyVelocity, bodyMass], bodyEntity) => {
+			if (entity === bodyEntity) return;
 
-			const dx = position.x[bid] - position.x[rid];
-			const dy = position.y[bid] - position.y[rid];
+			const dx = bodyPostion.x - position.x;
+			const dy = bodyPostion.y - position.y;
 			const distanceSquared = dx * dx + dy * dy;
 
-			if (distanceSquared < circle.radius[rid] * circle.radius[rid]) {
+			if (distanceSquared < circle.radius * circle.radius) {
 				const distance = Math.sqrt(distanceSquared);
-				const forceMagnitude = (repulse.force[rid] * (circle.radius[rid] - distance)) / circle.radius[rid]; // prettier-ignore
+				const forceMagnitude = (repulse.force * (circle.radius - distance)) / circle.radius; // prettier-ignore
 				const forceX = (dx / distance) * forceMagnitude;
 				const forceY = (dy / distance) * forceMagnitude;
 
-				velocity.x[bid] += (forceX * delta) / mass.value[bid];
-				velocity.y[bid] += (forceY * delta) / mass.value[bid];
+				bodyVelocity.x += (forceX * delta) / bodyMass.value;
+				bodyVelocity.y += (forceY * delta) / bodyMass.value;
 			}
-		}
-	}
+		});
+	});
 };
+
+// export const handleRepulse = ({ world }: { world: Koota.World }) => {
+// 	const repulsors = world.queryResults(...repulsor);
+// 	if (repulsors.length === 0) return;
+
+// 	const bodies = world.queryResults(...body);
+// 	const [position, velocity, mass, repulse, circle] = world.getStore(Position, Velocity, Mass, Repulse, Circle); // prettier-ignore
+// 	const { delta } = world.get(Time);
+
+// 	for (let i = repulsors.length - 1; i >= 0; i--) {
+// 		const rid = getIndex(repulsors[i]);
+
+// 		// Count down the delay
+// 		if (repulse.delay[rid] > 0) repulse.delay[rid] -= delta;
+
+// 		// Decay the circle radius by the explosion decay
+// 		if (repulse.delay[rid] <= 0) {
+// 			circle.radius[rid] -= circle.radius[rid] * repulse.decay[rid] * delta;
+// 			repulse.force[rid] -= repulse.force[rid] * repulse.decay[rid] * delta;
+// 		}
+
+// 		if (circle.radius[rid] <= 5) {
+// 			repulsors[i].destroy();
+// 			continue;
+// 		}
+
+// 		for (let j = bodies.length - 1; j >= 0; j--) {
+// 			const bid = bodies[j];
+// 			if (rid === bid) continue;
+
+// 			const dx = position.x[bid] - position.x[rid];
+// 			const dy = position.y[bid] - position.y[rid];
+// 			const distanceSquared = dx * dx + dy * dy;
+
+// 			if (distanceSquared < circle.radius[rid] * circle.radius[rid]) {
+// 				const distance = Math.sqrt(distanceSquared);
+// 				const forceMagnitude = (repulse.force[rid] * (circle.radius[rid] - distance)) / circle.radius[rid]; // prettier-ignore
+// 				const forceX = (dx / distance) * forceMagnitude;
+// 				const forceY = (dy / distance) * forceMagnitude;
+
+// 				velocity.x[bid] += (forceX * delta) / mass.value[bid];
+// 				velocity.y[bid] += (forceY * delta) / mass.value[bid];
+// 			}
+// 		}
+// 	}
+// };

@@ -7,17 +7,15 @@ const Removed = createRemoved();
 const zeroScaleMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
 export function cleanupBodies({ world }: { world: Koota.World }) {
-	const ents = world.query(Removed(Repulse, Position));
+	const instanceEntity = world.queryFirst(InstancedMesh);
+	if (instanceEntity === undefined) return;
 
-	const instanceEnt = world.query(InstancedMesh)[0];
-	if (instanceEnt === undefined) return;
+	const instancedMesh = instanceEntity.get(InstancedMesh)!.object;
 
-	const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
-
-	for (let i = 0; i < ents.length; i++) {
-		const e = getIndex(ents[i]);
-		instancedMesh.setMatrixAt(e, zeroScaleMatrix);
-	}
+	world.query(Removed(Repulse, Position)).forEach((e) => {
+		const i = getIndex(e);
+		instancedMesh.setMatrixAt(i, zeroScaleMatrix);
+	});
 
 	instancedMesh.instanceMatrix.needsUpdate = true;
 }

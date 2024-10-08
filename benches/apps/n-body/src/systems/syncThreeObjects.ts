@@ -9,32 +9,29 @@ const dummy = new THREE.Object3D();
 const dummyColor = new THREE.Color();
 
 export const syncThreeObjects = ({ world }: { world: Koota.World }) => {
-	const ents = world.query(Position, Circle, Color);
-	const [position, circle, color] = world.getStore(Position, Circle, Color);
-
-	const instanceEnt = world.query(InstancedMesh)[0];
+	const instanceEnt = world.queryFirst(InstancedMesh);
 	if (instanceEnt === undefined) return;
 
 	const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
 
-	for (let i = 0; i < ents.length; i++) {
-		const e = getIndex(ents[i]);
+	world.query(Position, Circle, Color).updateEach(([position, circle, color], entity) => {
+		const i = getIndex(entity);
 
-		dummy.position.set(position.x[e], position.y[e], 0);
+		dummy.position.set(position.x, position.y, 0);
 
-		const radius = normalize(circle.radius[e], 0, 60);
+		const radius = normalize(circle.radius, 0, 60);
 		dummy.scale.set(radius, radius, radius);
 
 		dummy.updateMatrix();
+		instancedMesh.setMatrixAt(i, dummy.matrix);
 
-		instancedMesh.setMatrixAt(e, dummy.matrix);
-
-		const r = normalize(color.r[e], 0, 255);
-		const g = normalize(color.g[e], 0, 255);
-		const b = normalize(color.b[e], 0, 255);
-		dummyColor.setRGB(r, g, b);
-		instancedMesh.setColorAt(e, dummyColor);
-	}
+		dummyColor.setRGB(
+			normalize(color.r, 0, 255),
+			normalize(color.g, 0, 255),
+			normalize(color.b, 0, 255)
+		);
+		instancedMesh.setColorAt(i, dummyColor);
+	});
 
 	instancedMesh.instanceMatrix.needsUpdate = true;
 	instancedMesh.instanceColor!.needsUpdate = true;

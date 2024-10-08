@@ -1,58 +1,53 @@
+import { createAdded } from 'koota';
 import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../components';
 import { CONSTANTS } from '../constants';
 import { randInRange } from '../utils/randInRange';
-import { createAdded, getIndex } from 'koota';
 
-export const body = [Position, Velocity, Mass, Circle, Acceleration] as const;
+export const bodyTraits = [Position, Velocity, Mass, Circle, Acceleration] as const;
 const Added = createAdded();
 
 export const setInitial = ({ world }: { world: Koota.World }) => {
-	const ents = world.query(Added(...body));
-	const centralMassEnts = world.query(Added(...body, IsCentralMass));
-	const [position, velocity, mass, circle] = world.getStore(...body);
+	const bodies = world.query(Added(...bodyTraits));
+	const centralMasses = world.query(Added(...bodyTraits, IsCentralMass));
 
-	for (let i = 0; i < ents.length; i++) {
-		const e = getIndex(ents[i]);
+	bodies.updateEach(([position, velocity, mass, circle]) => {
+		if (mass.value === 0) {
+			// Random positions
+			position.x = randInRange(-4000, 4000);
+			position.y = randInRange(-100, 100);
+			mass.value = CONSTANTS.BASE_MASS + randInRange(0, CONSTANTS.VAR_MASS);
 
-		if (mass.value[e] !== 0) return;
+			// Calculate velocity for a stable orbit, assuming a circular orbit logic
+			if (position.x !== 0 || position.y !== 0) {
+				const radius = Math.sqrt(position.x ** 2 + position.y ** 2);
+				const normX = position.x / radius;
+				const normY = position.y / radius;
 
-		// Random positions
-		position.x[e] = randInRange(-4000, 4000);
-		position.y[e] = randInRange(-100, 100);
-		mass.value[e] = CONSTANTS.BASE_MASS + randInRange(0, CONSTANTS.VAR_MASS);
+				// Perpendicular vector for circular orbit
+				const vecRotX = -normY;
+				const vecRotY = normX;
 
-		// Calculate velocity for a stable orbit, assuming a circular orbit logic
-		if (position.x[e] !== 0 || position.y[e] !== 0) {
-			const radius = Math.sqrt(position.x[e] ** 2 + position.y[e] ** 2);
-			const normX = position.x[e] / radius;
-			const normY = position.y[e] / radius;
+				const v = Math.sqrt(CONSTANTS.INITIAL_C / radius / mass.value / CONSTANTS.SPEED);
+				velocity.x = vecRotX * v;
+				velocity.y = vecRotY * v;
+			}
 
-			// Perpendicular vector for circular orbit
-			const vecRotX = -normY;
-			const vecRotY = normX;
-
-			const v = Math.sqrt(CONSTANTS.INITIAL_C / radius / mass.value[e] / CONSTANTS.SPEED);
-			velocity.x[e] = vecRotX * v;
-			velocity.y[e] = vecRotY * v;
+			// Set circle radius based on mass
+			circle.radius =
+				CONSTANTS.MAX_RADIUS * (mass.value / (CONSTANTS.BASE_MASS + CONSTANTS.VAR_MASS)) + 1;
 		}
-
-		// Set circle radius based on mass
-		circle.radius[e] =
-			CONSTANTS.MAX_RADIUS * (mass.value[e] / (CONSTANTS.BASE_MASS + CONSTANTS.VAR_MASS)) + 1;
-	}
+	});
 
 	// Set the central mass properties.
-	for (let i = 0; i < centralMassEnts.length; i++) {
-		const e = getIndex(centralMassEnts[i]);
+	centralMasses.updateEach(([position, velocity, mass, circle]) => {
+		position.x = 0;
+		position.y = 0;
 
-		position.x[e] = 0;
-		position.y[e] = 0;
+		velocity.x = 0;
+		velocity.y = 0;
 
-		velocity.x[e] = 0;
-		velocity.y[e] = 0;
+		mass.value = CONSTANTS.CENTRAL_MASS;
 
-		mass.value[e] = CONSTANTS.CENTRAL_MASS;
-
-		circle.radius[e] = CONSTANTS.MAX_RADIUS / 1.5;
-	}
+		circle.radius = CONSTANTS.MAX_RADIUS / 1.5;
+	});
 };
