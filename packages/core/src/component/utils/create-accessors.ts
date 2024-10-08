@@ -21,6 +21,25 @@ export function createSetFunction(schema: Schema) {
 	return set;
 }
 
+export function createFastSetFunction(schema: Schema) {
+	const keys = Object.keys(schema);
+
+	// Generate a hardcoded set function based on the schema keys
+	const setFunctionBody = keys.map((key) => `store.${key}[index] = values.${key};`).join('\n    ');
+
+	// Use new Function to create a set function with hardcoded keys
+	const set = new Function(
+		'index',
+		'store',
+		'values',
+		`
+		${setFunctionBody}
+	  `
+	);
+
+	return set;
+}
+
 export function createGetFunction(schema: Schema) {
 	const keys = Object.keys(schema);
 

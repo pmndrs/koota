@@ -13,7 +13,11 @@ import {
 	Store,
 	StoreFromComponent,
 } from './types';
-import { createGetFunction, createSetFunction } from './utils/create-accessors';
+import {
+	createFastSetFunction,
+	createGetFunction,
+	createSetFunction,
+} from './utils/create-accessors';
 import { createStore } from './utils/create-store';
 
 let componentId = 0;
@@ -27,6 +31,7 @@ function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<
 			schema: schema as Normalized<S>,
 			[$internal]: {
 				set: createSetFunction(schema),
+				fastSet: createFastSetFunction(schema),
 				get: createGetFunction(schema),
 				stores: [] as Store<S>[],
 				id: componentId++,
@@ -34,6 +39,7 @@ function defineComponent<S extends Schema = {}>(schema: S = {} as S): Component<
 				isPairComponent: false,
 				relation: null,
 				pairTarget: null,
+				isTag: Object.keys(schema).length === 0,
 			},
 		}
 	) as Component<Normalized<S>>;

@@ -7,6 +7,7 @@ export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 	schema: TSchema;
 	[$internal]: {
 		set: (index: number, store: TStore, values: Partial<PropsFromSchema<TSchema>>) => void;
+		fastSet: (index: number, store: TStore, values: Partial<PropsFromSchema<TSchema>>) => void;
 		get: (index: number, store: TStore) => PropsFromSchema<TSchema>;
 		stores: TStore[];
 		id: number;
@@ -14,6 +15,7 @@ export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 		isPairComponent: boolean;
 		relation: any | null;
 		pairTarget: RelationTarget | null;
+		isTag: boolean;
 	};
 } & ((params: Partial<PropsFromSchema<TSchema>>) => [Component<TSchema, TStore>, Partial<TSchema>]);
 

@@ -34,5 +34,6 @@ declare global {
 		type SchemaFromComponent<T extends Component> = import('./component/types').SchemaFromComponent<T>;
 		type ComponentOrWithParams<T extends Component = Component<any, Store<any>>> = import('./component/types').ComponentOrWithParams<T>;
 		type QueryParameter = import('./query/types').QueryParameter;
+		type Entity = import('./entity/types').Entity;
 	}
 }
