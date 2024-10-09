@@ -4,7 +4,8 @@ import { World } from '../../world/world';
 // Some values are reserved.
 // 0 - has
 // 1 - not
-let cursor = 2;
+// 2 - or
+let cursor = 3;
 
 export function createTrackingId() {
 	return cursor++;
