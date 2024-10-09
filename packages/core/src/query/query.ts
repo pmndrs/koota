@@ -5,8 +5,7 @@ import { Entity } from '../entity/types';
 import { SparseSet } from '../utils/sparse-set';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
-import { isModifier } from './modifier';
-import { $modifier } from './symbols';
+import { ModifierData } from './modifier';
 import { QueryParameter, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
 
@@ -59,8 +58,8 @@ export class Query {
 		for (let i = 0; i < parameters.length; i++) {
 			const parameter = parameters[i];
 
-			if (isModifier(parameter)) {
-				const components = parameter();
+			if (parameter instanceof ModifierData) {
+				const components = parameter.components;
 
 				// Register components if they don't exist.
 				for (let j = 0; j < components.length; j++) {
@@ -68,13 +67,13 @@ export class Query {
 					if (!ctx.componentRecords.has(component)) registerComponent(world, component);
 				}
 
-				if (parameter[$modifier] === 'not') {
+				if (parameter.type === 'not') {
 					this.componentRecords.forbidden.push(
 						...components.map((component) => ctx.componentRecords.get(component)!)
 					);
 				}
 
-				if (parameter[$modifier].includes('added')) {
+				if (parameter.type.includes('added')) {
 					for (const component of components) {
 						const record = ctx.componentRecords.get(component)!;
 						this.componentRecords.added.push(record);
@@ -83,7 +82,7 @@ export class Query {
 
 					this.isTracking = true;
 
-					const id = parameter[$modifier].split('-')[1];
+					const id = parameter.type.split('-')[1];
 					trackingParams.push({
 						type: 'add',
 						id: parseInt(id),
@@ -91,7 +90,7 @@ export class Query {
 					});
 				}
 
-				if (parameter[$modifier].includes('removed')) {
+				if (parameter.type.includes('removed')) {
 					for (const component of components) {
 						const record = ctx.componentRecords.get(component)!;
 						this.componentRecords.removed.push(record);
@@ -100,7 +99,7 @@ export class Query {
 
 					this.isTracking = true;
 
-					const id = parameter[$modifier].split('-')[1];
+					const id = parameter.type.split('-')[1];
 					trackingParams.push({
 						type: 'remove',
 						id: parseInt(id),
@@ -108,7 +107,7 @@ export class Query {
 					});
 				}
 
-				if (parameter[$modifier].includes('changed')) {
+				if (parameter.type.includes('changed')) {
 					for (const component of components) {
 						const record = ctx.componentRecords.get(component)!;
 						this.componentRecords.changed.push(record);
@@ -117,7 +116,7 @@ export class Query {
 
 					this.isTracking = true;
 
-					const id = parameter[$modifier].split('-')[1];
+					const id = parameter.type.split('-')[1];
 					trackingParams.push({
 						type: 'change',
 						id: parseInt(id),

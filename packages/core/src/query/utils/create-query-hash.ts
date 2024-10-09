@@ -1,6 +1,5 @@
 import { $internal } from '../../world/symbols';
-import { isModifier } from '../modifier';
-import { $modifierComponentIds, $modifierID } from '../symbols';
+import { ModifierData } from '../modifier';
 import { QueryParameter } from '../types';
 
 const sortedIDs = new Float32Array(1024);
@@ -11,9 +10,9 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 
 	for (let i = 0; i < parameters.length; i++) {
 		const param = parameters[i];
-		if (isModifier(param)) {
-			const modifierId = param[$modifierID];
-			const componentIds = param[$modifierComponentIds];
+		if (param instanceof ModifierData) {
+			const modifierId = param.id;
+			const componentIds = param.componentIds;
 
 			for (let i = 0; i < componentIds.length; i++) {
 				const componentId = componentIds[i];

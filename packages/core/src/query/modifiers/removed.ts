@@ -1,5 +1,6 @@
+import { Component } from '../../component/types';
 import { universe } from '../../universe/universe';
-import { modifier } from '../modifier';
+import { ModifierData } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createRemoved() {
@@ -10,5 +11,6 @@ export function createRemoved() {
 		setTrackingMasks(world, id);
 	}
 
-	return modifier(`removed-${id}`, id, (...components) => components);
+	return <T extends Component[] = Component[]>(...components: T) =>
+		new ModifierData<T>(`removed-${id}`, id, components);
 }

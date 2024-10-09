@@ -1,28 +1,10 @@
 import { Component } from '../component/types';
 import { $internal } from '../world/symbols';
-import { $modifier, $modifierComponentIds, $modifierID } from './symbols';
-import { Modifier } from './types';
 
-type Fn = (...components: Component[]) => Component[];
+export class ModifierData<TComp extends Component[] = Component[], TType extends string = string> {
+	componentIds: number[];
 
-export function modifier<T extends Fn>(name: string, id: number, fn: T): Modifier {
-	return function _modifier(...components: Component[]) {
-		const componentIds = components.map((component) => component[$internal].id);
-
-		const returnFn = function () {
-			return fn(...components);
-		};
-
-		Object.assign(returnFn, {
-			[$modifier]: name,
-			[$modifierID]: id,
-			[$modifierComponentIds]: componentIds,
-		});
-
-		return returnFn;
-	} as Modifier;
-}
-
-export function isModifier(target: any): target is ReturnType<Modifier> {
-	return typeof target === 'function' && target[$modifier];
+	constructor(public type: TType, public id: number, public components: TComp) {
+		this.componentIds = components.map((component) => component[$internal].id);
+	}
 }
