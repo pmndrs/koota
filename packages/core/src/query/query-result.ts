@@ -4,15 +4,14 @@ import { Component, Store } from '../component/types';
 import { Entity } from '../entity/types';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
-import { isModifier } from './modifier';
-import { $modifier } from './symbols';
-import { QueryParameter, QueryResult } from './types';
+import { ModifierData } from './modifier';
+import { QueryParameter, QueryResult, SnapshotFromParameters } from './types';
 
-export function createQueryResult(
+export function createQueryResult<T extends QueryParameter[]>(
 	entities: readonly Entity[],
 	world: World,
-	params: QueryParameter[]
-): QueryResult {
+	params: T
+): QueryResult<T> {
 	const results = Array.from(entities);
 
 	const stores: Store<any>[] = [];
@@ -21,11 +20,11 @@ export function createQueryResult(
 	// Get the components for the query parameters in the order they appear
 	// and not the order of they are sorted for the query hash.
 	for (const param of params) {
-		if (isModifier(param)) {
+		if (param instanceof ModifierData) {
 			// Skip not modifier.
-			if (param[$modifier] === 'not') continue;
+			if (param.type === 'not') continue;
 
-			const modifierComponents = param();
+			const modifierComponents = param.components;
 			for (const component of modifierComponents) {
 				if (component[$internal].isTag) continue; // Skip tags
 				components.push(component);
@@ -39,7 +38,7 @@ export function createQueryResult(
 	}
 
 	function updateEach(
-		callback: (state: Record<string, any>[], entity: Entity, index: number) => void
+		callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void
 	) {
 		for (let i = 0; i < results.length; i++) {
 			const entity = results[i];
@@ -51,7 +50,7 @@ export function createQueryResult(
 				return ctx.get(index, stores[j]);
 			});
 
-			callback(state, entity, i);
+			callback(state as any, entity, i);
 
 			// Skip if the entity has been destroyed.
 			if (!world.has(entity)) return;

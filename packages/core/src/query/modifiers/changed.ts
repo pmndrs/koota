@@ -4,7 +4,7 @@ import { Entity } from '../../entity/types';
 import { universe } from '../../universe/universe';
 import { $internal } from '../../world/symbols';
 import { World } from '../../world/world';
-import { modifier } from '../modifier';
+import { ModifierData } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createChanged() {
@@ -15,7 +15,8 @@ export function createChanged() {
 		setTrackingMasks(world, id);
 	}
 
-	return modifier(`changed-${id}`, id, (...components) => components);
+	return <T extends Component[] = Component[]>(...components: T) =>
+		new ModifierData<T>(`changed-${id}`, id, components);
 }
 
 export function setChanged(world: World, entity: Entity, component: Component) {

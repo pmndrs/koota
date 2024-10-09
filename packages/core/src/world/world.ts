@@ -158,8 +158,8 @@ export class World {
 		ctx.worldEntity = createEntity(this, IsExcluded);
 	}
 
-	query(key: string): QueryResult;
-	query(...parameters: QueryParameter[]): QueryResult;
+	query<T extends QueryParameter[]>(key: string): QueryResult<T>;
+	query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
 	query(...args: [string] | QueryParameter[]) {
 		const ctx = this[$internal];
 

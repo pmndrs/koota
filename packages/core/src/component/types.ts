@@ -3,7 +3,13 @@ import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { $component, $entity, $world } from './symbols';
 
-export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
+type IsEmpty<T> = T extends Record<string, never> ? true : false;
+
+export type Component<
+	TSchema extends Schema = any,
+	TStore = Store<TSchema>,
+	TTag extends boolean = IsEmpty<TSchema>
+> = {
 	schema: TSchema;
 	[$internal]: {
 		set: (index: number, store: TStore, values: Partial<PropsFromSchema<TSchema>>) => void;
@@ -15,7 +21,7 @@ export type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = {
 		isPairComponent: boolean;
 		relation: any | null;
 		pairTarget: RelationTarget | null;
-		isTag: boolean;
+		isTag: TTag;
 	};
 } & ((params: Partial<PropsFromSchema<TSchema>>) => [Component<TSchema, TStore>, Partial<TSchema>]);
 
@@ -52,6 +58,10 @@ export type PropsFromSchema<T extends Schema> = {
 	[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]> : T[P];
 };
 
+export type SnapshotFromComponent<T extends Component> = T extends Component<infer S, any>
+	? PropsFromSchema<S>
+	: never;
+
 export type SchemaFromComponent<T extends Component> = T extends Component<infer S, any> ? S : never;
 export type StoreFromComponent<T extends Component> = T extends Component<any, infer S> ? S : never;
 
@@ -60,3 +70,5 @@ export type StoreFromComponents<T extends [Component, ...Component[]]> = T exten
 		? StoreFromComponent<C>
 		: never
 	: { [K in keyof T]: StoreFromComponent<T[K]> };
+
+export type IsTag<T extends Component> = T extends Component<any, any, infer Tag> ? Tag : false;

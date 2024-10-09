@@ -11,13 +11,11 @@ export { getEntityId as getIndex } from './entity/utils/pack-entity';
 
 import * as worldSymbols from './world/symbols';
 import * as componentSymbols from './component/symbols';
-import * as querySymbols from './query/symbols';
 import * as relationSymbols from './relation/symbols';
 
 export const SYMBOLS = {
 	...worldSymbols,
 	...componentSymbols,
-	...querySymbols,
 	...relationSymbols,
 };
 
