@@ -19,14 +19,16 @@ export class Query {
 	componentRecords: {
 		required: ComponentRecord[];
 		forbidden: ComponentRecord[];
+		or: ComponentRecord[];
 		added: ComponentRecord[];
 		removed: ComponentRecord[];
 		changed: ComponentRecord[];
 		all: ComponentRecord[];
-	} = { required: [], forbidden: [], added: [], removed: [], changed: [], all: [] };
+	} = { required: [], forbidden: [], or: [], added: [], removed: [], changed: [], all: [] };
 	bitmasks: {
 		required: number;
 		forbidden: number;
+		or: number;
 		added: number;
 		removed: number;
 		changed: number;
@@ -69,6 +71,12 @@ export class Query {
 
 				if (parameter.type === 'not') {
 					this.componentRecords.forbidden.push(
+						...components.map((component) => ctx.componentRecords.get(component)!)
+					);
+				}
+
+				if (parameter.type === 'or') {
+					this.componentRecords.or.push(
 						...components.map((component) => ctx.componentRecords.get(component)!)
 					);
 				}
@@ -134,6 +142,7 @@ export class Query {
 		this.componentRecords.all = [
 			...this.componentRecords.required,
 			...this.componentRecords.forbidden,
+			...this.componentRecords.or,
 			...this.componentRecords.added,
 			...this.componentRecords.removed,
 			...this.componentRecords.changed,
@@ -158,6 +167,10 @@ export class Query {
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
+			const or = this.componentRecords.or
+				.filter((c) => c.generationId === generationId)
+				.reduce((a, c) => a | c.bitflag, 0);
+
 			const added = this.componentRecords.added
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
@@ -173,6 +186,7 @@ export class Query {
 			return {
 				required: required | added,
 				forbidden,
+				or,
 				added,
 				removed,
 				changed,
@@ -251,7 +265,8 @@ export class Query {
 			// Populate the query immediately.
 			if (
 				this.componentRecords.required.length > 0 ||
-				this.componentRecords.forbidden.length > 0
+				this.componentRecords.forbidden.length > 0 ||
+				this.componentRecords.or.length > 0
 			) {
 				for (let i = 0; i < world.entities.length; i++) {
 					const entity = world.entities[i];
@@ -312,7 +327,7 @@ export class Query {
 		for (let i = 0; i < generations.length; i++) {
 			const generationId = generations[i];
 			const bitmask = bitmasks[i];
-			const { required, forbidden, added, removed, changed } = bitmask;
+			const { required, forbidden, or, added, removed, changed } = bitmask;
 			const entityMask = ctx.entityMasks[generationId][entity];
 
 			// Handle add/remove events.
@@ -339,7 +354,7 @@ export class Query {
 			}
 
 			// If there are no components to match, return false.
-			if (!forbidden && !required && !removed && !added && !changed) {
+			if (!forbidden && !required && !or && !removed && !added && !changed) {
 				return false;
 			}
 
@@ -350,6 +365,11 @@ export class Query {
 
 			// Check required components.
 			if ((entityMask & required) !== required) {
+				return false;
+			}
+
+			// Check Or components.
+			if (or !== 0 && (entityMask & or) === 0) {
 				return false;
 			}
 

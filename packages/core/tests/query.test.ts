@@ -7,6 +7,7 @@ import { Not } from '../src/query/modifiers/not';
 import { createRemoved } from '../src/query/modifiers/removed';
 import { $internal } from '../src/world/symbols';
 import { IsExcluded } from '../src/query/query';
+import { Or } from '../src/query/modifiers/or';
 
 const Position = define({ x: 0, y: 0 });
 const Name = define({ name: 'name' });
@@ -31,7 +32,7 @@ describe('Query', () => {
 		entityB.add(Position, Name);
 		entityC.add(Position);
 
-		let entities = world.query(Position, Name, IsActive);
+		let entities: any = world.query(Position, Name, IsActive);
 		expect(entities[0]).toBe(entityA);
 
 		entities = world.query(Position, Name);
@@ -50,7 +51,7 @@ describe('Query', () => {
 
 	it('should only create one hash indpendent of the order of the parameters', () => {
 		const ctx = world[$internal];
-		let entities = world.query(Position, Name, Not(IsActive));
+		let entities: any = world.query(Position, Name, Not(IsActive));
 		expect(entities.length).toBe(0);
 
 		const entA = world.spawn();
@@ -617,5 +618,17 @@ describe('Query', () => {
 
 		const entity = world.queryFirst(Position);
 		expect(entity).toBe(entityA);
+	});
+
+	it.only('should implement Or', () => {
+		const entityA = world.spawn(Position);
+		const entityB = world.spawn(Foo);
+		const entityC = world.spawn(Bar);
+
+		const entities = world.query(Or(Position, Foo));
+
+		expect(entities).toContain(entityA);
+		expect(entities).toContain(entityB);
+		expect(entities).not.toContain(entityC);
 	});
 });
