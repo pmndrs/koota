@@ -1,13 +1,10 @@
 import { Circle, Mass, Position, Repulse, Time, Velocity } from '../components';
 
-const repulsorTraits = [Repulse, Position, Circle];
-const bodyTraits = [Position, Velocity, Mass];
-
 export const handleRepulse = ({ world }: { world: Koota.World }) => {
-	const repulsors = world.query(...repulsorTraits);
+	const repulsors = world.query(Repulse, Position, Circle);
 	if (repulsors.length === 0) return;
 
-	const bodies = world.query(...bodyTraits);
+	const bodies = world.query(Position, Velocity, Mass);
 	const { delta } = world.get(Time);
 
 	repulsors.updateEach(([repulse, position, circle], entity) => {
