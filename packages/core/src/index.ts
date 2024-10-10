@@ -9,12 +9,10 @@ export { cacheQuery } from './query/utils/cache-query';
 export { relation, Pair, Wildcard } from './relation/relation';
 
 import * as worldSymbols from './world/symbols';
-import * as componentSymbols from './component/symbols';
 import * as relationSymbols from './relation/symbols';
 
 export const SYMBOLS = {
 	...worldSymbols,
-	...componentSymbols,
 	...relationSymbols,
 };
 
@@ -27,7 +25,6 @@ declare global {
 		type Schema = import('./component/types').Schema;
 		type Component<TSchema extends Schema = any, TStore = Store<TSchema>> = import('./component/types').Component<TSchema, TStore>;
 		type Store<T extends Schema = any> = import('./component/types').Store<T>;
-		type ComponentInstance<T extends Schema = any> = import('./component/types').ComponentInstance<T>;
 		type SchemaFromComponent<T extends Component> = import('./component/types').SchemaFromComponent<T>;
 		type ComponentOrWithParams<T extends Component = Component<any, Store<any>>> = import('./component/types').ComponentOrWithParams<T>;
 		type QueryParameter = import('./query/types').QueryParameter;
