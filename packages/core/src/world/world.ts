@@ -172,7 +172,7 @@ export class World {
 				ctx.queriesHashMap.set(hash, query);
 			}
 
-			return createQueryResult(query.run(this), this, params);
+			return createQueryResult(query, this, params);
 		}
 	}
 

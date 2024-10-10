@@ -5,14 +5,18 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { ModifierData } from './modifier';
+import { Query } from './query';
 import { QueryParameter, QueryResult, SnapshotFromParameters, StoresFromParameters } from './types';
 
 export function createQueryResult<T extends QueryParameter[]>(
-	entities: readonly Entity[],
+	query: Query,
 	world: World,
 	params: T
 ): QueryResult<T> {
-	const results = Array.from(entities);
+	query.commitRemovals(world);
+	const results = query.entities.dense.slice() as Entity[];
+	// Clear so it can accumulate again.
+	if (query.isTracking) query.entities.clear();
 
 	const stores: Store<any>[] = [];
 	const components: Component[] = [];
