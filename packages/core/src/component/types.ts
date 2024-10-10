@@ -1,7 +1,5 @@
 import { RelationTarget } from '../relation/types';
 import { $internal } from '../world/symbols';
-import { World } from '../world/world';
-import { $component, $entity, $world } from './symbols';
 
 type IsEmpty<T> = T extends Record<string, never> ? true : false;
 
@@ -42,14 +40,6 @@ export type Normalized<T extends Schema> = {
 
 export type Store<T extends Schema = any> = {
 	[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]>[] : T[P][];
-};
-
-export type ComponentInstance<T extends Schema = any> = {
-	[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]> : T[P];
-} & {
-	[$component]: Component<T>;
-	[$entity]: number | null;
-	[$world]: World | null;
 };
 
 // Utils
