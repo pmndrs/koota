@@ -1,5 +1,5 @@
-import { Repulse, Position } from '@sim/n-body/src/components';
-import { createRemoved, getIndex } from 'koota';
+import { Position, Repulse } from '@sim/n-body/src/components';
+import { createRemoved } from 'koota';
 import * as THREE from 'three';
 import { InstancedMesh } from '../components/InstancedMesh';
 
@@ -13,8 +13,7 @@ export function cleanupBodies({ world }: { world: Koota.World }) {
 	const instancedMesh = instanceEntity.get(InstancedMesh)!.object;
 
 	world.query(Removed(Repulse, Position)).forEach((e) => {
-		const i = getIndex(e);
-		instancedMesh.setMatrixAt(i, zeroScaleMatrix);
+		instancedMesh.setMatrixAt(e.id(), zeroScaleMatrix);
 	});
 
 	instancedMesh.instanceMatrix.needsUpdate = true;
