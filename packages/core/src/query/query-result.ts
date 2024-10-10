@@ -1,11 +1,11 @@
-import { getIndex } from '..';
 import { getStore } from '../component/component';
 import { Component, Store } from '../component/types';
 import { Entity } from '../entity/types';
+import { getEntityId } from '../entity/utils/pack-entity';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { ModifierData } from './modifier';
-import { QueryParameter, QueryResult, SnapshotFromParameters } from './types';
+import { QueryParameter, QueryResult, SnapshotFromParameters, StoresFromParameters } from './types';
 
 export function createQueryResult<T extends QueryParameter[]>(
 	entities: readonly Entity[],
@@ -42,12 +42,12 @@ export function createQueryResult<T extends QueryParameter[]>(
 	) {
 		for (let i = 0; i < results.length; i++) {
 			const entity = results[i];
-			const index = getIndex(entity);
+			const eid = getEntityId(entity);
 
 			// Create a snapshot for each component in the order they appear in the query params.
 			const state = components.map((component, j) => {
 				const ctx = component[$internal];
-				return ctx.get(index, stores[j]);
+				return ctx.get(eid, stores[j]);
 			});
 
 			callback(state as any, entity, i);
@@ -59,10 +59,16 @@ export function createQueryResult<T extends QueryParameter[]>(
 			for (let j = 0; j < components.length; j++) {
 				const component = components[j];
 				const ctx = component[$internal];
-				ctx.fastSet(index, stores[j], state[j]);
+				ctx.fastSet(eid, stores[j], state[j]);
 			}
 		}
 	}
 
-	return Object.assign(results, { updateEach });
+	function useStores(
+		callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
+	) {
+		callback(stores as any, results);
+	}
+
+	return Object.assign(results, { updateEach, useStores });
 }

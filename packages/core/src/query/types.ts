@@ -12,6 +12,9 @@ export type QueryResult<T extends QueryParameter[]> = readonly Entity[] & {
 	updateEach: (
 		callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void
 	) => void;
+	useStores: (
+		callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
+	) => void;
 };
 
 type UnwrapModifierData<T> = T extends ModifierData<infer C> ? C : never;

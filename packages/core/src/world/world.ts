@@ -113,11 +113,6 @@ export class World {
 		this[$internal].worldEntity.set(component, value);
 	}
 
-	getStore<T extends [Component, ...Component[]]>(...components: T): StoreFromComponents<T> {
-		const stores = components.map((component) => getStore(this, component));
-		return (components.length === 1 ? stores[0] : stores) as StoreFromComponents<T>;
-	}
-
 	destroy() {
 		// Destroy itself and all entities.
 		this.entities.forEach((entity) => destroyEntity(this, entity));

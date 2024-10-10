@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
-import { define } from '../src/component/component';
+import { define, getStores } from '../src/component/component';
 import { Entity } from '../src/entity/types';
 import { unpackEntity } from '../src/entity/utils/pack-entity';
 
@@ -53,7 +53,7 @@ describe('Entity', () => {
 			entities.push(world.spawn(Bar));
 		}
 
-		const bar = world.getStore(Bar);
+		const bar = getStores(world, Bar);
 
 		// Length should be 50 + 1 (world entity).
 		expect(bar.value.length).toBe(51);

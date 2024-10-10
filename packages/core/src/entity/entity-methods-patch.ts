@@ -81,3 +81,9 @@ Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
 	const world = universe.worlds[worldId];
 	return getRelationTargets(world, relation, this)[0];
 };
+
+//@ts-expect-error
+Number.prototype.id = function (this: Entity) {
+	const id = this & ENTITY_ID_MASK;
+	return id;
+};

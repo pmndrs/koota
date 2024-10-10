@@ -12,6 +12,7 @@ import {
 	Schema,
 	Store,
 	StoreFromComponent,
+	StoreFromComponents,
 } from './types';
 import {
 	createFastSetFunction,
@@ -229,4 +230,12 @@ export function getStore<C extends Component = Component>(
 	const store = record.store as StoreFromComponent<C>;
 
 	return store;
+}
+
+export function getStores<T extends [Component, ...Component[]]>(
+	world: World,
+	...components: T
+): StoreFromComponents<T> {
+	const stores = components.map((component) => getStore(world, component));
+	return (components.length === 1 ? stores[0] : stores) as StoreFromComponents<T>;
 }
