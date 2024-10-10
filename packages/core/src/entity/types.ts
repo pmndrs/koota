@@ -20,4 +20,5 @@ export type Entity = number & {
 	get: <C extends Component>(component: C) => PropsFromSchema<SchemaFromComponent<C>>;
 	targetFor: <T>(relation: Relation<T>) => Entity | undefined;
 	targetsFor: <T>(relation: Relation<T>) => Entity[];
+	id: () => number;
 };

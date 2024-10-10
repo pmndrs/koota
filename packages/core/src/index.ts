@@ -7,7 +7,6 @@ export { Not } from './query/modifiers/not';
 export { universe } from './universe/universe';
 export { cacheQuery } from './query/utils/cache-query';
 export { relation, Pair, Wildcard } from './relation/relation';
-export { getEntityId as getIndex } from './entity/utils/pack-entity';
 
 import * as worldSymbols from './world/symbols';
 import * as componentSymbols from './component/symbols';

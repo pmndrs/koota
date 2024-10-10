@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cacheQuery, createWorld } from '../src';
-import { define } from '../src/component/component';
+import { define, getStores } from '../src/component/component';
 import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
@@ -477,7 +477,7 @@ describe('Query', () => {
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 
-		const positions = world.getStore(Position);
+		const positions = getStores(world, Position);
 		positions.x[entityA] = 10;
 		positions.y[entityA] = 20;
 
@@ -502,7 +502,7 @@ describe('Query', () => {
 
 		const entity = world.spawn(Position);
 
-		const positions = world.getStore(Position);
+		const positions = getStores(world, Position);
 		positions.x[entity] = 10;
 		positions.y[entity] = 20;
 		entity.changed(Position);
@@ -620,7 +620,7 @@ describe('Query', () => {
 		expect(entity).toBe(entityA);
 	});
 
-	it.only('should implement Or', () => {
+	it('should implement Or', () => {
 		const entityA = world.spawn(Position);
 		const entityB = world.spawn(Foo);
 		const entityC = world.spawn(Bar);

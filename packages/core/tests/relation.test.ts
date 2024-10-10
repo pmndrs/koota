@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { relation, Wildcard } from '../src/relation/relation';
 import { createWorld } from '../src';
+import { getStores } from '../src/component/component';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -93,8 +94,8 @@ describe('Relation', () => {
 		const silver = world.spawn();
 
 		inventory.add(Contains(gold));
-		const goldStore = world.getStore(Contains(gold));
-		const silverStore = world.getStore(Contains(silver));
+		const goldStore = getStores(world, Contains(gold));
+		const silverStore = getStores(world, Contains(silver));
 		goldStore.amount[inventory] = 5;
 
 		inventory.add(Contains(silver));
@@ -103,8 +104,6 @@ describe('Relation', () => {
 		expect(Contains(gold)).not.toBe(Contains(silver));
 		expect(goldStore.amount[inventory]).toBe(5);
 		expect(silverStore.amount[inventory]).toBe(12);
-		expect(world.getStore(Contains(gold)).amount[inventory]).toBe(5);
-		expect(world.getStore(Contains(silver)).amount[inventory]).toBe(12);
 	});
 
 	it('should query all relations with a wildcard', () => {
