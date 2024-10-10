@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cacheQuery, createWorld } from '../src';
-import { define, getStores } from '../src/component/component';
+import { trait, getStores } from '../src/component/component';
 import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
@@ -9,11 +9,11 @@ import { $internal } from '../src/world/symbols';
 import { IsExcluded } from '../src/query/query';
 import { Or } from '../src/query/modifiers/or';
 
-const Position = define({ x: 0, y: 0 });
-const Name = define({ name: 'name' });
-const IsActive = define();
-const Foo = define({});
-const Bar = define({});
+const Position = trait({ x: 0, y: 0 });
+const Name = trait({ name: 'name' });
+const IsActive = trait();
+const Foo = trait({});
+const Bar = trait({});
 
 describe('Query', () => {
 	const world = createWorld();
@@ -91,7 +91,7 @@ describe('Query', () => {
 		const entityB = world.spawn();
 		const entityC = world.spawn();
 
-		let entities = world.query(Foo);
+		let entities: any = world.query(Foo);
 		expect(entities.length).toBe(0);
 
 		entities = world.query(Not(Foo));
@@ -265,7 +265,7 @@ describe('Query', () => {
 		const entityA = world.spawn(Foo);
 		const entityB = world.spawn(Foo, Bar);
 
-		let entities = world.query(Added(Foo));
+		let entities: any = world.query(Added(Foo));
 		expect(entities[0]).toBe(entityA);
 		expect(entities[1]).toBe(entityB);
 
