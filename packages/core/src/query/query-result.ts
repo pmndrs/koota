@@ -1,5 +1,5 @@
-import { getStore } from '../component/component';
-import { Component, Store } from '../component/types';
+import { getStore } from '../trait/trait';
+import { Trait, Store } from '../trait/types';
 import { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { $internal } from '../world/symbols';
@@ -19,24 +19,24 @@ export function createQueryResult<T extends QueryParameter[]>(
 	if (query.isTracking) query.entities.clear();
 
 	const stores: Store<any>[] = [];
-	const components: Component[] = [];
+	const traits: Trait[] = [];
 
-	// Get the components for the query parameters in the order they appear
+	// Get the traits for the query parameters in the order they appear
 	// and not the order of they are sorted for the query hash.
 	for (const param of params) {
 		if (param instanceof ModifierData) {
 			// Skip not modifier.
 			if (param.type === 'not') continue;
 
-			const modifierComponents = param.components;
-			for (const component of modifierComponents) {
-				if (component[$internal].isTag) continue; // Skip tags
-				components.push(component);
-				stores.push(getStore(world, component));
+			const modifierTraits = param.traits;
+			for (const trait of modifierTraits) {
+				if (trait[$internal].isTag) continue; // Skip tags
+				traits.push(trait);
+				stores.push(getStore(world, trait));
 			}
 		} else {
 			if (param[$internal].isTag) continue; // Skip tags
-			components.push(param);
+			traits.push(param);
 			stores.push(getStore(world, param));
 		}
 	}
@@ -48,9 +48,9 @@ export function createQueryResult<T extends QueryParameter[]>(
 			const entity = results[i];
 			const eid = getEntityId(entity);
 
-			// Create a snapshot for each component in the order they appear in the query params.
-			const state = components.map((component, j) => {
-				const ctx = component[$internal];
+			// Create a snapshot for each trait in the order they appear in the query params.
+			const state = traits.map((trait, j) => {
+				const ctx = trait[$internal];
 				return ctx.get(eid, stores[j]);
 			});
 
@@ -60,9 +60,9 @@ export function createQueryResult<T extends QueryParameter[]>(
 			if (!world.has(entity)) return;
 
 			// Commit all changes back to the stores.
-			for (let j = 0; j < components.length; j++) {
-				const component = components[j];
-				const ctx = component[$internal];
+			for (let j = 0; j < traits.length; j++) {
+				const trait = traits[j];
+				const ctx = trait[$internal];
 				ctx.fastSet(eid, stores[j], state[j]);
 			}
 		}

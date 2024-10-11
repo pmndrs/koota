@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cacheQuery, createWorld } from '../src';
-import { trait, getStores } from '../src/component/component';
+import { trait, getStores } from '../src/trait/trait';
 import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
@@ -86,7 +86,7 @@ describe('Query', () => {
 		expect(entities.length).toBe(0);
 	});
 
-	it('should correctly populate Not queries when components are added and removed', () => {
+	it('should correctly populate Not queries when traits are added and removed', () => {
 		const entityA = world.spawn();
 		const entityB = world.spawn();
 		const entityC = world.spawn();
@@ -127,7 +127,7 @@ describe('Query', () => {
 		entities = world.query(Not(Foo), Not(Bar));
 		expect(entities[0]).toBe(entityA);
 
-		// Remove more so entity A and C have no components
+		// Remove more so entity A and C have no traits
 		entityC.remove(Foo);
 		entityC.remove(Bar);
 
@@ -153,7 +153,7 @@ describe('Query', () => {
 		expect(ctx.queriesHashMap.size).toBe(1);
 	});
 
-	it('should correctly populate Added queries when components are added', () => {
+	it('should correctly populate Added queries when traits are added', () => {
 		const Added = createAdded();
 
 		const entityA = world.spawn();
@@ -182,7 +182,7 @@ describe('Query', () => {
 		expect(entities[0]).toBe(entityA);
 		expect(entities[1]).toBe(entityB);
 
-		// Should not be added to the query if the component is removed before it is read.
+		// Should not be added to the query if the trait is removed before it is read.
 		entityC.add(Foo);
 		entityC.remove(Foo);
 		entities = world.query(Added(Foo));
@@ -194,7 +194,7 @@ describe('Query', () => {
 		entities = world.query(Added(Foo));
 		expect(entities[0]).toBe(entityA);
 
-		// Should only populate the query if tracked component is added,
+		// Should only populate the query if tracked trait is added,
 		// even if it matches the query otherwise.
 		entityA.remove(Foo, Bar); // Quick reset
 		entityA.add(Foo);
@@ -207,7 +207,7 @@ describe('Query', () => {
 		expect(entities[0]).toBe(entityA); // But matches static query
 	});
 
-	it('should properly populate Added queries with mulitple tracked components', () => {
+	it('should properly populate Added queries with mulitple tracked traits', () => {
 		const Added = createAdded();
 
 		const entityA = world.spawn();
@@ -259,7 +259,7 @@ describe('Query', () => {
 		expect(entities2.length).toBe(2);
 	});
 
-	it('should populate Added queries even if they are registered after the component is added', () => {
+	it('should populate Added queries even if they are registered after the trait is added', () => {
 		const Added = createAdded();
 
 		const entityA = world.spawn(Foo);
@@ -308,7 +308,7 @@ describe('Query', () => {
 		expect(entities.length).toBe(0);
 	});
 
-	it('should properly populate Removed queries when components are removed', () => {
+	it('should properly populate Removed queries when traits are removed', () => {
 		const Removed = createRemoved();
 
 		const entityA = world.spawn();
@@ -326,7 +326,7 @@ describe('Query', () => {
 		entities = world.query(Removed(Foo));
 		expect(entities[0]).toBe(entityA);
 
-		// Should work with components added and removed in the same frame.
+		// Should work with traits added and removed in the same frame.
 		entityA.add(Foo);
 		entityA.remove(Foo);
 		entities = world.query(Removed(Foo));
@@ -351,7 +351,7 @@ describe('Query', () => {
 		expect(entities2.length).toBe(2);
 	});
 
-	it('should populate Removed queries even if they are registered after the component is removed', () => {
+	it('should populate Removed queries even if they are registered after the trait is removed', () => {
 		const Removed = createRemoved();
 
 		const entity = world.spawn(Foo);
@@ -465,7 +465,7 @@ describe('Query', () => {
 		expect(entities.length).toBe(0);
 	});
 
-	it('should properly populate Changed queries when components are changed', () => {
+	it('should properly populate Changed queries when traits are changed', () => {
 		const Changed = createChanged();
 
 		const entityA = world.spawn();
@@ -490,14 +490,14 @@ describe('Query', () => {
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 
-		// Should not populate the query if the component is removed.
+		// Should not populate the query if the trait is removed.
 		entityA.remove(Position);
 		entityA.changed(Position);
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 	});
 
-	it('should populate Changed queries even if they are registered after the component is changed', () => {
+	it('should populate Changed queries even if they are registered after the trait is changed', () => {
 		const Changed = createChanged();
 
 		const entity = world.spawn(Position);
@@ -550,7 +550,7 @@ describe('Query', () => {
 		expect(event.entity).toBe(entity);
 	});
 
-	it.fails('can subscribe to changes on a specific component', () => {
+	it.fails('can subscribe to changes on a specific trait', () => {
 		const entity = world.spawn(Position);
 
 		const cb = vi.fn();

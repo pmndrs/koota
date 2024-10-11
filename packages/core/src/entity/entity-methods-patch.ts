@@ -3,11 +3,11 @@
 // and the convenience of using methods. Type guards are used to ensure
 // that the methods are only called on entities.
 
-import { addComponent, hasComponent, removeComponent } from '../component/component';
-import { Component, ComponentOrWithParams } from '../component/types';
+import { addTrait, hasTrait, removeTrait } from '../trait/trait';
+import { ConfigurableTrait, Trait } from '../trait/types';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
-import { Relation, RelationTarget } from '../relation/types';
+import { Relation } from '../relation/types';
 import { universe } from '../universe/universe';
 import { $internal } from '../world/symbols';
 import { destroyEntity } from './entity';
@@ -15,24 +15,24 @@ import { Entity } from './types';
 import { ENTITY_ID_MASK, WORLD_ID_SHIFT } from './utils/pack-entity';
 
 // @ts-expect-error
-Number.prototype.add = function (this: Entity, ...components: ComponentOrWithParams[]) {
+Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const world = universe.worlds[worldId];
-	return addComponent(world, this, ...components);
+	return addTrait(world, this, ...traits);
 };
 
 // @ts-expect-error
-Number.prototype.remove = function (this: Entity, ...components: Component[]) {
+Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const world = universe.worlds[worldId];
-	return removeComponent(world, this, ...components);
+	return removeTrait(world, this, ...traits);
 };
 
 // @ts-expect-error
-Number.prototype.has = function (this: Entity, component: Component) {
+Number.prototype.has = function (this: Entity, trait: Trait) {
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const world = universe.worlds[worldId];
-	return hasComponent(world, this, component);
+	return hasTrait(world, this, trait);
 };
 
 // @ts-expect-error
@@ -43,15 +43,15 @@ Number.prototype.destroy = function (this: Entity) {
 };
 
 // @ts-expect-error
-Number.prototype.changed = function (this: Entity, component: Component) {
+Number.prototype.changed = function (this: Entity, trait: Trait) {
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const world = universe.worlds[worldId];
-	return setChanged(world, this, component);
+	return setChanged(world, this, trait);
 };
 
 // @ts-expect-error
-Number.prototype.get = function (this: Entity, component: Component) {
-	const ctx = component[$internal];
+Number.prototype.get = function (this: Entity, trait: Trait) {
+	const ctx = trait[$internal];
 	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
@@ -59,12 +59,12 @@ Number.prototype.get = function (this: Entity, component: Component) {
 };
 
 // @ts-expect-error
-Number.prototype.set = function (this: Entity, component: Component, value: any, flagChanged = true) {
-	const ctx = component[$internal];
+Number.prototype.set = function (this: Entity, trait: Trait, value: any, flagChanged = true) {
+	const ctx = trait[$internal];
 	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
-	// flagChanged && setChanged(universe.worlds[worldId], this, component);
+	// flagChanged && setChanged(universe.worlds[worldId], this, trait);
 	return ctx.set(index, store, value);
 };
 

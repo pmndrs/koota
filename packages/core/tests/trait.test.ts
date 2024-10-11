@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
-import { define, getStores, registerComponent } from '../src/component/component';
+import { trait, getStores, registerTrait } from '../src/trait/trait';
 import { $internal } from '../src/world/symbols';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
 }
 
-const Position = define({ x: 0, y: 0 });
-const Test = define({
+const Position = trait({ x: 0, y: 0 });
+const Test = trait({
 	current: 1,
 	test: 'hello',
 	bool: true,
@@ -16,7 +16,7 @@ const Test = define({
 	class: () => new TestClass(),
 });
 
-describe('Component', () => {
+describe('Trait', () => {
 	const world = createWorld();
 	world.init();
 
@@ -24,25 +24,25 @@ describe('Component', () => {
 		world.reset();
 	});
 
-	it('should create a component', () => {
-		const Test = define({ x: 0, y: 0 });
+	it('should create a trait', () => {
+		const Test = trait({ x: 0, y: 0 });
 
 		expect(Object.keys(Test)).toEqual(['schema']);
 		expect(typeof Test === 'function').toBe(true);
 	});
 
-	it('should register a component', () => {
-		const Position = define({ x: 0, y: 0 });
-		registerComponent(world, Position);
+	it('should register a trait', () => {
+		const Position = trait({ x: 0, y: 0 });
+		registerTrait(world, Position);
 
 		const ctx = world[$internal];
-		// Has sytem components registered by default.
-		expect(world.components.size).toBe(2);
-		expect(ctx.componentRecords.size).toBe(2);
-		expect(ctx.componentRecords.get(Position)).toBeDefined();
+		// Has sytem traits registered by default.
+		expect(world.traits.size).toBe(2);
+		expect(ctx.traitData.size).toBe(2);
+		expect(ctx.traitData.get(Position)).toBeDefined();
 	});
 
-	it('should add and remove components to an entity', () => {
+	it('should add and remove traits to an entity', () => {
 		const entity = world.spawn();
 
 		entity.add(Position);
@@ -54,11 +54,11 @@ describe('Component', () => {
 		expect(entity.has(Position)).toBe(false);
 		expect(entity.has(Test)).toBe(true);
 
-		// Add multiple components at once.
+		// Add multiple traits at once.
 		entity.add(Position, Test);
 		expect(entity.has(Position)).toBe(true);
 
-		// Remove multiple components at once.
+		// Remove multiple traits at once.
 		entity.remove(Position, Test);
 		expect(entity.has(Position)).toBe(false);
 	});
@@ -127,7 +127,7 @@ describe('Component', () => {
 	});
 
 	it('should create tags with empty stores', () => {
-		const IsTag = define();
+		const IsTag = trait();
 		const entity = world.spawn();
 
 		entity.add(IsTag);
@@ -137,13 +137,13 @@ describe('Component', () => {
 		expect(store).toMatchObject({});
 	});
 
-	// This tests for the component bitmask limit of 32.
-	it('should correctly register more than 32 components', () => {
+	// This tests for the trait bitmask limit of 32.
+	it('should correctly register more than 32 traits', () => {
 		const entity = world.spawn();
 
 		new Array(1024)
 			.fill(null)
-			.map((_) => define())
+			.map((_) => trait())
 			.forEach((c) => {
 				entity.add(c);
 
@@ -151,7 +151,7 @@ describe('Component', () => {
 			});
 	});
 
-	it('should add components to entities after recycling', () => {
+	it('should add traits to entities after recycling', () => {
 		let entity = world.spawn();
 
 		for (let i = 0; i < 10; i++) {
@@ -170,7 +170,7 @@ describe('Component', () => {
 		expect(entity.has(Position)).toBe(true);
 	});
 
-	it('should set component params', () => {
+	it('should set trait params', () => {
 		const entity = world.spawn(Test);
 		entity.set(Test, { current: 2, test: 'world' });
 

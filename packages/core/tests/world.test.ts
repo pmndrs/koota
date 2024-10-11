@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { universe } from '../src/universe/universe';
-import { define } from '../src/component/component';
+import { trait } from '../src/trait/trait';
 import { createWorld } from '../src';
 
 describe('World', () => {
@@ -45,12 +45,12 @@ describe('World', () => {
 	});
 
 	it('should add, remove and get singletons', () => {
-		const Test = define({ then: 0, delta: 0 });
+		const Test = trait({ then: 0, delta: 0 });
 
 		const world = createWorld(Test);
 		expect(world.has(Test)).toBe(true);
 
-		const Time = define({ then: 0, delta: 0 });
+		const Time = trait({ then: 0, delta: 0 });
 
 		world.add(Time);
 		expect(world.has(Time)).toBe(true);

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
-import { define, getStores } from '../src/component/component';
+import { trait, getStores } from '../src/trait/trait';
 import { Entity } from '../src/entity/types';
 import { unpackEntity } from '../src/entity/utils/pack-entity';
 
-const Foo = define();
-const Bar = define({ value: 0 });
+const Foo = trait();
+const Bar = trait({ value: 0 });
 
 describe('Entity', () => {
 	const world = createWorld();
@@ -89,7 +89,7 @@ describe('Entity', () => {
 		expect(entity.has(Bar)).toBe(true);
 	});
 
-	it('can add components', () => {
+	it('can add traits', () => {
 		const entity = world.spawn();
 
 		entity.add(Foo, Bar);
@@ -98,7 +98,7 @@ describe('Entity', () => {
 		expect(entity.has(Bar)).toBe(true);
 	});
 
-	it('can remove components', () => {
+	it('can remove traits', () => {
 		const entity = world.spawn(Foo, Bar);
 
 		entity.remove(Foo);

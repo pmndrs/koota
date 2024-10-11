@@ -12,15 +12,15 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 		const param = parameters[i];
 		if (param instanceof ModifierData) {
 			const modifierId = param.id;
-			const componentIds = param.componentIds;
+			const traitIds = param.traitIds;
 
-			for (let i = 0; i < componentIds.length; i++) {
-				const componentId = componentIds[i];
-				sortedIDs[cursor++] = modifierId * 100000 + componentId;
+			for (let i = 0; i < traitIds.length; i++) {
+				const traitId = traitIds[i];
+				sortedIDs[cursor++] = modifierId * 100000 + traitId;
 			}
 		} else {
-			const componentID = param[$internal].id;
-			sortedIDs[cursor++] = componentID;
+			const traitId = param[$internal].id;
+			sortedIDs[cursor++] = traitId;
 		}
 	}
 

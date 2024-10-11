@@ -1,6 +1,6 @@
-import { define, registerComponent } from '../component/component';
-import { ComponentRecord } from '../component/component-record';
-import { Component } from '../component/types';
+import { trait, registerTrait } from '../trait/trait';
+import { TraitData } from '../trait/trait-data';
+import { Trait } from '../trait/types';
 import { Entity } from '../entity/types';
 import { SparseSet } from '../utils/sparse-set';
 import { $internal } from '../world/symbols';
@@ -9,21 +9,21 @@ import { ModifierData } from './modifier';
 import { QueryParameter, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
 
-export const IsExcluded = define();
+export const IsExcluded = trait();
 
 export class Query {
 	world: World;
 	parameters: QueryParameter[];
 	hash: string;
-	components: Component[] = [];
-	componentRecords: {
-		required: ComponentRecord[];
-		forbidden: ComponentRecord[];
-		or: ComponentRecord[];
-		added: ComponentRecord[];
-		removed: ComponentRecord[];
-		changed: ComponentRecord[];
-		all: ComponentRecord[];
+	traits: Trait[] = [];
+	traitData: {
+		required: TraitData[];
+		forbidden: TraitData[];
+		or: TraitData[];
+		added: TraitData[];
+		removed: TraitData[];
+		changed: TraitData[];
+		all: TraitData[];
 	} = { required: [], forbidden: [], or: [], added: [], removed: [], changed: [], all: [] };
 	bitmasks: {
 		required: number;
@@ -52,40 +52,38 @@ export class Query {
 		const trackingParams: {
 			type: 'add' | 'remove' | 'change';
 			id: number;
-			components: ComponentRecord[];
+			traits: TraitData[];
 		}[] = [];
 
 		// Iterate over the parameters and run any modifiers.
-		// Sort into components and not-components.
+		// Sort into traits and not-traits.
 		for (let i = 0; i < parameters.length; i++) {
 			const parameter = parameters[i];
 
 			if (parameter instanceof ModifierData) {
-				const components = parameter.components;
+				const traits = parameter.traits;
 
-				// Register components if they don't exist.
-				for (let j = 0; j < components.length; j++) {
-					const component = components[j];
-					if (!ctx.componentRecords.has(component)) registerComponent(world, component);
+				// Register traits if they don't exist.
+				for (let j = 0; j < traits.length; j++) {
+					const trait = traits[j];
+					if (!ctx.traitData.has(trait)) registerTrait(world, trait);
 				}
 
 				if (parameter.type === 'not') {
-					this.componentRecords.forbidden.push(
-						...components.map((component) => ctx.componentRecords.get(component)!)
+					this.traitData.forbidden.push(
+						...traits.map((trait) => ctx.traitData.get(trait)!)
 					);
 				}
 
 				if (parameter.type === 'or') {
-					this.componentRecords.or.push(
-						...components.map((component) => ctx.componentRecords.get(component)!)
-					);
+					this.traitData.or.push(...traits.map((trait) => ctx.traitData.get(trait)!));
 				}
 
 				if (parameter.type.includes('added')) {
-					for (const component of components) {
-						const record = ctx.componentRecords.get(component)!;
-						this.componentRecords.added.push(record);
-						this.components.push(component);
+					for (const trait of traits) {
+						const data = ctx.traitData.get(trait)!;
+						this.traitData.added.push(data);
+						this.traits.push(trait);
 					}
 
 					this.isTracking = true;
@@ -94,15 +92,15 @@ export class Query {
 					trackingParams.push({
 						type: 'add',
 						id: parseInt(id),
-						components: this.componentRecords.added,
+						traits: this.traitData.added,
 					});
 				}
 
 				if (parameter.type.includes('removed')) {
-					for (const component of components) {
-						const record = ctx.componentRecords.get(component)!;
-						this.componentRecords.removed.push(record);
-						this.components.push(component);
+					for (const trait of traits) {
+						const data = ctx.traitData.get(trait)!;
+						this.traitData.removed.push(data);
+						this.traits.push(trait);
 					}
 
 					this.isTracking = true;
@@ -111,15 +109,15 @@ export class Query {
 					trackingParams.push({
 						type: 'remove',
 						id: parseInt(id),
-						components: this.componentRecords.removed,
+						traits: this.traitData.removed,
 					});
 				}
 
 				if (parameter.type.includes('changed')) {
-					for (const component of components) {
-						const record = ctx.componentRecords.get(component)!;
-						this.componentRecords.changed.push(record);
-						this.components.push(component);
+					for (const trait of traits) {
+						const data = ctx.traitData.get(trait)!;
+						this.traitData.changed.push(data);
+						this.traits.push(trait);
 					}
 
 					this.isTracking = true;
@@ -128,28 +126,28 @@ export class Query {
 					trackingParams.push({
 						type: 'change',
 						id: parseInt(id),
-						components: this.componentRecords.changed,
+						traits: this.traitData.changed,
 					});
 				}
 			} else {
-				const component = parameter as Component;
-				if (!ctx.componentRecords.has(component)) registerComponent(world, component);
-				this.componentRecords.required.push(ctx.componentRecords.get(component)!);
-				this.components.push(component);
+				const trait = parameter as Trait;
+				if (!ctx.traitData.has(trait)) registerTrait(world, trait);
+				this.traitData.required.push(ctx.traitData.get(trait)!);
+				this.traits.push(trait);
 			}
 		}
 
-		this.componentRecords.all = [
-			...this.componentRecords.required,
-			...this.componentRecords.forbidden,
-			...this.componentRecords.or,
-			...this.componentRecords.added,
-			...this.componentRecords.removed,
-			...this.componentRecords.changed,
+		this.traitData.all = [
+			...this.traitData.required,
+			...this.traitData.forbidden,
+			...this.traitData.or,
+			...this.traitData.added,
+			...this.traitData.removed,
+			...this.traitData.changed,
 		];
 
-		// Create an array of all component generations.
-		this.generations = this.componentRecords.all
+		// Create an array of all trait generations.
+		this.generations = this.traitData.all
 			.map((c) => c.generationId)
 			.reduce((a: number[], v) => {
 				if (a.includes(v)) return a;
@@ -159,27 +157,27 @@ export class Query {
 
 		// Create bitmasks.
 		this.bitmasks = this.generations.map((generationId) => {
-			const required = this.componentRecords.required
+			const required = this.traitData.required
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const forbidden = this.componentRecords.forbidden
+			const forbidden = this.traitData.forbidden
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const or = this.componentRecords.or
+			const or = this.traitData.or
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const added = this.componentRecords.added
+			const added = this.traitData.added
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const removed = this.componentRecords.removed
+			const removed = this.traitData.removed
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
-			const changed = this.componentRecords.changed
+			const changed = this.traitData.changed
 				.filter((c) => c.generationId === generationId)
 				.reduce((a, c) => a | c.bitflag, 0);
 
@@ -203,41 +201,41 @@ export class Query {
 		ctx.queries.add(this);
 		ctx.queriesHashMap.set(this.hash, this);
 
-		// Add query to each component instance.
-		this.componentRecords.all.forEach((instance) => {
+		// Add query to each trait instance.
+		this.traitData.all.forEach((instance) => {
 			instance.queries.add(this);
 		});
 
 		// Add query instance to the world's not-query store.
-		if (this.componentRecords.forbidden.length > 0) ctx.notQueries.add(this);
+		if (this.traitData.forbidden.length > 0) ctx.notQueries.add(this);
 
 		// If the query has an Added modifier, we populate it with its snapshot.
 		if (trackingParams.length > 0) {
 			for (let i = 0; i < trackingParams.length; i++) {
 				const type = trackingParams[i].type;
 				const id = trackingParams[i].id;
-				const components = trackingParams[i].components;
+				const traits = trackingParams[i].traits;
 				const snapshot = ctx.trackingSnapshots.get(id)!;
 				const dirtyMask = ctx.dirtyMasks.get(id)!;
 				const changedMask = ctx.changedMasks.get(id)!;
 
 				for (const entity of world.entities) {
-					let allComponentsMatch = true;
+					let allTraitsMatch = true;
 
-					for (const component of components) {
-						const { generationId, bitflag } = component;
+					for (const trait of traits) {
+						const { generationId, bitflag } = trait;
 						const oldMask = snapshot[generationId][entity] || 0;
 						const currentMask = ctx.entityMasks[generationId][entity];
 
-						let componentMatches = false;
+						let traitMatches = false;
 
 						switch (type) {
 							case 'add':
-								componentMatches =
+								traitMatches =
 									(oldMask & bitflag) === 0 && (currentMask & bitflag) === bitflag;
 								break;
 							case 'remove':
-								componentMatches =
+								traitMatches =
 									((oldMask & bitflag) === bitflag &&
 										(currentMask & bitflag) === 0) ||
 									((oldMask & bitflag) === 0 &&
@@ -245,18 +243,18 @@ export class Query {
 										(dirtyMask[generationId][entity] & bitflag) === bitflag);
 								break;
 							case 'change':
-								componentMatches =
+								traitMatches =
 									(changedMask[generationId][entity] & bitflag) === bitflag;
 								break;
 						}
 
-						if (!componentMatches) {
-							allComponentsMatch = false;
-							break; // No need to check other components if one doesn't match
+						if (!traitMatches) {
+							allTraitsMatch = false;
+							break; // No need to check other traits if one doesn't match
 						}
 					}
 
-					if (allComponentsMatch) {
+					if (allTraitsMatch) {
 						this.add(entity);
 					}
 				}
@@ -264,9 +262,9 @@ export class Query {
 		} else {
 			// Populate the query immediately.
 			if (
-				this.componentRecords.required.length > 0 ||
-				this.componentRecords.forbidden.length > 0 ||
-				this.componentRecords.or.length > 0
+				this.traitData.required.length > 0 ||
+				this.traitData.forbidden.length > 0 ||
+				this.traitData.or.length > 0
 			) {
 				for (let i = 0; i < world.entities.length; i++) {
 					const entity = world.entities[i];
@@ -316,13 +314,13 @@ export class Query {
 	check(
 		world: World,
 		entity: number,
-		event?: { type: 'add' | 'remove' | 'change'; component: ComponentRecord }
+		event?: { type: 'add' | 'remove' | 'change'; traitData: TraitData }
 	) {
 		const { bitmasks, generations } = this;
 		const ctx = world[$internal];
 
 		// If the query is empty, the check fails.
-		if (this.componentRecords.all.length === 0) return false;
+		if (this.traitData.all.length === 0) return false;
 
 		for (let i = 0; i < generations.length; i++) {
 			const generationId = generations[i];
@@ -331,49 +329,49 @@ export class Query {
 			const entityMask = ctx.entityMasks[generationId][entity];
 
 			// Handle add/remove events.
-			if (event && event.component.generationId === generationId && this.isTracking) {
-				const componentMask = event.component.bitflag;
+			if (event && event.traitData.generationId === generationId && this.isTracking) {
+				const traitMask = event.traitData.bitflag;
 
 				if (event.type === 'add') {
-					if (removed & componentMask) return false;
-					if (added & componentMask) {
-						bitmask.addedTracker[entity] |= componentMask;
+					if (removed & traitMask) return false;
+					if (added & traitMask) {
+						bitmask.addedTracker[entity] |= traitMask;
 					}
 				} else if (event.type === 'remove') {
-					if (added & componentMask) return false;
-					if (removed & componentMask) {
-						bitmask.removedTracker[entity] |= componentMask;
+					if (added & traitMask) return false;
+					if (removed & traitMask) {
+						bitmask.removedTracker[entity] |= traitMask;
 					}
 				} else if (event.type === 'change') {
-					// Check that the component is on the entity.
-					if (!(entityMask & componentMask)) return false;
-					if (changed & componentMask) {
-						bitmask.changedTracker[entity] |= componentMask;
+					// Check that the trait is on the entity.
+					if (!(entityMask & traitMask)) return false;
+					if (changed & traitMask) {
+						bitmask.changedTracker[entity] |= traitMask;
 					}
 				}
 			}
 
-			// If there are no components to match, return false.
+			// If there are no traits to match, return false.
 			if (!forbidden && !required && !or && !removed && !added && !changed) {
 				return false;
 			}
 
-			// Check forbidden components.
+			// Check forbidden traits.
 			if ((entityMask & forbidden) !== 0) {
 				return false;
 			}
 
-			// Check required components.
+			// Check required traits.
 			if ((entityMask & required) !== required) {
 				return false;
 			}
 
-			// Check Or components.
+			// Check Or traits.
 			if (or !== 0 && (entityMask & or) === 0) {
 				return false;
 			}
 
-			// Check if all required added components have been added.
+			// Check if all required added traits have been added.
 			if (added) {
 				const entityAddedTracker = bitmask.addedTracker[entity] || 0;
 				if ((entityAddedTracker & added) !== added) {
@@ -381,7 +379,7 @@ export class Query {
 				}
 			}
 
-			// Check if all required removed components have been removed.
+			// Check if all required removed traits have been removed.
 			if (removed) {
 				const entityRemovedTracker = bitmask.removedTracker[entity] || 0;
 				if ((entityRemovedTracker & removed) !== removed) {
@@ -389,7 +387,7 @@ export class Query {
 				}
 			}
 
-			// Check if all required changed components have been changed.
+			// Check if all required changed traits have been changed.
 			if (changed) {
 				const entityChangedTracker = bitmask.changedTracker[entity] || 0;
 				if ((entityChangedTracker & changed) !== changed) {

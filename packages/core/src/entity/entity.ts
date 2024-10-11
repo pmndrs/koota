@@ -1,5 +1,5 @@
-import { removeComponent } from '../component/component';
-import { ComponentOrWithParams } from '../component/types';
+import { removeTrait } from '../trait/trait';
+import { ConfigurableTrait } from '../trait/types';
 import { Pair, Wildcard } from '../relation/relation';
 import { $autoRemoveTarget } from '../relation/symbols';
 import { $internal } from '../world/symbols';
@@ -10,7 +10,7 @@ import { allocateEntity, releaseEntity } from './utils/entity-index';
 // Ensure entity methods are patched.
 import './entity-methods-patch';
 
-export function createEntity(world: World, ...components: ComponentOrWithParams[]): Entity {
+export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
 	const ctx = world[$internal];
 	const entity = allocateEntity(ctx.entityIndex);
 
@@ -19,10 +19,8 @@ export function createEntity(world: World, ...components: ComponentOrWithParams[
 		if (match) query.add(entity);
 	}
 
-	ctx.entityComponents.set(entity, new Set());
-
-	// Add components.
-	entity.add(...components);
+	ctx.entityTraits.set(entity, new Set());
+	entity.add(...traits);
 
 	return entity;
 }
@@ -53,22 +51,22 @@ export function destroyEntity(world: World, entity: Entity) {
 		if (processedEntities.has(currentEid)) continue;
 		processedEntities.add(currentEid);
 
-		// Process all related entities and components.
+		// Process all related entities and traits.
 		for (const subject of world.query(Wildcard(currentEid))) {
 			if (!world.has(subject)) continue;
 
-			for (const component of ctx.entityComponents.get(subject)!) {
-				const componentCtx = component[$internal];
-				if (!componentCtx.isPairComponent) continue;
+			for (const trait of ctx.entityTraits.get(subject)!) {
+				const traitCtx = trait[$internal];
+				if (!traitCtx.isPairTrait) continue;
 
-				const relation = componentCtx.relation;
+				const relation = traitCtx.relation;
 
-				// Remove wildcard pair component.
-				removeComponent(world, subject, Pair(Wildcard, currentEid));
+				// Remove wildcard pair trait.
+				removeTrait(world, subject, Pair(Wildcard, currentEid));
 
-				if (componentCtx.pairTarget === currentEid) {
-					// Remove the specific pair component.
-					removeComponent(world, subject, component);
+				if (traitCtx.pairTarget === currentEid) {
+					// Remove the specific pair trait.
+					removeTrait(world, subject, trait);
 
 					if (relation[$autoRemoveTarget]) {
 						entityQueue.push(subject);
@@ -77,11 +75,11 @@ export function destroyEntity(world: World, entity: Entity) {
 			}
 		}
 
-		// Remove all components of the current entity.
-		const entityComponents = ctx.entityComponents.get(currentEid);
-		if (entityComponents) {
-			for (const component of entityComponents) {
-				removeComponent(world, currentEid, component);
+		// Remove all traits of the current entity.
+		const entityTraits = ctx.entityTraits.get(currentEid);
+		if (entityTraits) {
+			for (const trait of entityTraits) {
+				removeTrait(world, currentEid, trait);
 			}
 		}
 
@@ -89,7 +87,7 @@ export function destroyEntity(world: World, entity: Entity) {
 		releaseEntity(ctx.entityIndex, currentEid);
 
 		// Remove all entity state from world.
-		ctx.entityComponents.delete(entity);
+		ctx.entityTraits.delete(entity);
 
 		// Clear entity bitmasks.
 		for (let i = 0; i < ctx.entityMasks.length; i++) {

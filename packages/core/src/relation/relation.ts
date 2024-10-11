@@ -1,47 +1,48 @@
-import { define } from '../component/component';
-import { Component, Schema } from '../component/types';
+import { trait } from '../trait/trait';
+import { Trait, Schema } from '../trait/types';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
 import { $autoRemoveTarget, $createComponent, $exclusiveRelation, $pairsMap } from './symbols';
 import { Relation, RelationTarget } from './types';
 
-function defineRelation<
-	T extends Schema = any,
-	C extends Component = Component<Schema>
->(definition?: { exclusive?: boolean; autoRemoveTarget?: boolean; store?: T }): Relation<C> {
-	const pairsMap = new Map<any, C>();
-	const componentFactory = () => define(definition?.store ?? {}) as C;
+function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>(definition?: {
+	exclusive?: boolean;
+	autoRemoveTarget?: boolean;
+	store?: S;
+}): Relation<T> {
+	const pairsMap = new Map<any, T>();
+	const traitFactory = () => trait(definition?.store ?? {}) as T;
 
 	function relationFn(target: RelationTarget) {
 		if (target === undefined) throw Error('Relation target is undefined');
 		if (target === '*') target = Wildcard;
-		return getRelationComponent<C>(relationFn, componentFactory, pairsMap, target);
+		return getRelationComponent<T>(relationFn, traitFactory, pairsMap, target);
 	}
 
 	return Object.assign(relationFn, {
 		[$exclusiveRelation]: definition?.exclusive ?? false,
-		[$createComponent]: componentFactory,
+		[$createComponent]: traitFactory,
 		[$pairsMap]: pairsMap,
 		[$autoRemoveTarget]: definition?.autoRemoveTarget ?? false,
-	}) as Relation<C>;
+	}) as Relation<T>;
 }
 export const relation = defineRelation;
 
-export function getRelationComponent<T extends Component>(
+export function getRelationComponent<T extends Trait>(
 	relation: (target: RelationTarget) => T,
-	componentFactory: () => T,
+	traitFactory: () => T,
 	pairsMap: Map<any, T>,
 	target: RelationTarget
 ) {
 	if (!pairsMap.has(target)) {
-		const component = componentFactory();
-		const componentCtx = component[$internal];
+		const trait = traitFactory();
+		const tratCtx = trait[$internal];
 
-		componentCtx.isPairComponent = true;
-		componentCtx.relation = relation;
-		componentCtx.pairTarget = target;
+		tratCtx.isPairTrait = true;
+		tratCtx.relation = relation;
+		tratCtx.pairTarget = target;
 
-		pairsMap.set(target, component);
+		pairsMap.set(target, trait);
 	}
 
 	return pairsMap.get(target)!;
@@ -49,28 +50,28 @@ export function getRelationComponent<T extends Component>(
 
 export const getRelationTargets = (world: World, relation: Relation<any>, entity: number) => {
 	const ctx = world[$internal];
-	const components = ctx.entityComponents.get(entity) || [];
+	const traits = ctx.entityTraits.get(entity) || [];
 	const targets: RelationTarget[] = [];
 
-	for (const component of components) {
-		const componentCtx = component[$internal];
-		if (componentCtx.relation === relation && componentCtx.pairTarget !== Wildcard) {
-			targets.push(componentCtx.pairTarget!);
+	for (const trait of traits) {
+		const traitCtx = trait[$internal];
+		if (traitCtx.relation === relation && traitCtx.pairTarget !== Wildcard) {
+			targets.push(traitCtx.pairTarget!);
 		}
 	}
 
 	return targets as readonly RelationTarget[];
 };
 
-export const Pair = <T extends Component>(relation: Relation<T>, target: RelationTarget): T => {
+export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTarget): T => {
 	if (relation === undefined) throw Error('Relation is undefined');
 	if (target === undefined) throw Error('Relation target is undefined');
 	if (target === '*') target = Wildcard;
 
 	const pairsMap = relation[$pairsMap];
-	const componentFactory = relation[$createComponent];
+	const traitFactory = relation[$createComponent];
 
-	return getRelationComponent<T>(relation, componentFactory, pairsMap, target);
+	return getRelationComponent<T>(relation, traitFactory, pairsMap, target);
 };
 
 export const Wildcard: Relation<any> | string = defineRelation();

@@ -1,5 +1,5 @@
-import { ComponentRecord } from '../../component/component-record';
-import { Component } from '../../component/types';
+import { TraitData } from '../../trait/trait-data';
+import { Trait } from '../../trait/types';
 import { Entity } from '../../entity/types';
 import { universe } from '../../universe/universe';
 import { $internal } from '../../world/symbols';
@@ -15,35 +15,35 @@ export function createChanged() {
 		setTrackingMasks(world, id);
 	}
 
-	return <T extends Component[] = Component[]>(...components: T) =>
-		new ModifierData<T>(`changed-${id}`, id, components);
+	return <T extends Trait[] = Trait[]>(...traits: T) =>
+		new ModifierData<T>(`changed-${id}`, id, traits);
 }
 
-export function setChanged(world: World, entity: Entity, component: Component) {
+export function setChanged(world: World, entity: Entity, trait: Trait) {
 	const ctx = world[$internal];
-	let record = ctx.componentRecords.get(component)!;
+	let data = ctx.traitData.get(trait)!;
 
-	if (!record) {
-		record = new ComponentRecord(world, component);
-		ctx.componentRecords.set(component, record);
+	if (!data) {
+		data = new TraitData(world, trait);
+		ctx.traitData.set(trait, data);
 	}
 
 	for (const changedMask of ctx.changedMasks.values()) {
 		if (!changedMask[entity]) changedMask[entity] = new Array();
-		const componentId = component[$internal].id;
-		changedMask[entity][componentId] = 1;
+		const traitId = trait[$internal].id;
+		changedMask[entity][traitId] = 1;
 	}
 
 	// Update queries.
-	for (const query of record.queries) {
+	for (const query of data.queries) {
 		// Check if the entity matches the query.
-		let match = query.check(world, entity, { type: 'change', component: record });
+		let match = query.check(world, entity, { type: 'change', traitData: data });
 
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}
 
-	for (const sub of record.changedSubscriptions) {
+	for (const sub of data.changedSubscriptions) {
 		sub(entity);
 	}
 }

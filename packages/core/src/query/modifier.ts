@@ -1,10 +1,10 @@
-import { Component } from '../component/types';
+import { Trait } from '../trait/types';
 import { $internal } from '../world/symbols';
 
-export class ModifierData<TComp extends Component[] = Component[], TType extends string = string> {
-	componentIds: number[];
+export class ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> {
+	traitIds: number[];
 
-	constructor(public type: TType, public id: number, public components: TComp) {
-		this.componentIds = components.map((component) => component[$internal].id);
+	constructor(public type: TType, public id: number, public traits: TTrait) {
+		this.traitIds = traits.map((trait) => trait[$internal].id);
 	}
 }
