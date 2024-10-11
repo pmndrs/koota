@@ -1,6 +1,6 @@
 import { CONSTANTS } from '@sim/n-body';
 import * as THREE from 'three';
-import { InstancedMesh } from '../components/InstancedMesh';
+import { InstancedMesh } from '../traits/InstancedMesh';
 import { camera, renderer } from '../main';
 import { scene } from '../scene';
 

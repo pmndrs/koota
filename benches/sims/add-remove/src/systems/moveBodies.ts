@@ -1,6 +1,6 @@
-import { Position } from '../components/Position';
-import { Time } from '../components/Time';
-import { Velocity } from '../components/Velocity';
+import { Position } from '../trait/Position';
+import { Time } from '../trait/Time';
+import { Velocity } from '../trait/Velocity';
 
 export const moveBodies = ({ world }: { world: Koota.World }) => {
 	const { delta } = world.resources.get(Time);

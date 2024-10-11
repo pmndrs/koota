@@ -1,4 +1,4 @@
-import { Position, Time, Velocity } from '../components';
+import { Position, Time, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
 
 export const moveBodies = ({ world }: { world: Koota.World }) => {
