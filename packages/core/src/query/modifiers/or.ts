@@ -1,5 +1,4 @@
-import { Component } from '../../component/types';
+import { Trait } from '../../trait/types';
 import { ModifierData } from '../modifier';
 
-export const Or = <T extends Component[] = Component[]>(...components: T) =>
-	new ModifierData('or', 2, components);
+export const Or = <T extends Trait[] = Trait[]>(...traits: T) => new ModifierData('or', 2, traits);

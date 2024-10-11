@@ -1,3 +1,3 @@
-import { define } from 'koota';
+import { trait } from 'koota';
 
-export const IsCentralMass = define();
+export const IsCentralMass = trait();

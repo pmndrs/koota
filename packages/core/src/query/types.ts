@@ -1,10 +1,10 @@
-import { Component, IsTag, SnapshotFromComponent, StoreFromComponent } from '../component/types';
+import { Trait, IsTag, SnapshotFromComponent, ExtractStore } from '../trait/types';
 import { Entity } from '../entity/types';
 import { ModifierData } from './modifier';
 
-export type QueryModifier = (...components: Component[]) => ModifierData;
+export type QueryModifier = (...components: Trait[]) => ModifierData;
 
-export type QueryParameter = Component | ReturnType<QueryModifier>;
+export type QueryParameter = Trait | ReturnType<QueryModifier>;
 
 export type QuerySubscriber = (entity: Entity) => void;
 
@@ -21,8 +21,8 @@ type UnwrapModifierData<T> = T extends ModifierData<infer C> ? C : never;
 
 export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
 	? [
-			...(First extends Component
-				? [StoreFromComponent<First>]
+			...(First extends Trait
+				? [ExtractStore<First>]
 				: First extends ModifierData<any>
 				? StoresFromParameters<UnwrapModifierData<First>>
 				: []),
@@ -35,7 +35,7 @@ export type SnapshotFromParameters<T extends QueryParameter[]> = T extends [
 	...infer Rest
 ]
 	? [
-			...(First extends Component
+			...(First extends Trait
 				? IsTag<First> extends false
 					? [SnapshotFromComponent<First>]
 					: []

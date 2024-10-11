@@ -1,3 +1,3 @@
-import { define } from 'koota';
+import { trait } from 'koota';
 
-export const Acceleration = define({ x: 0, y: 0 });
+export const Acceleration = trait({ x: 0, y: 0 });

@@ -1,12 +1,5 @@
-import { getStore } from '../component/component';
-import { ComponentRecord } from '../component/component-record';
-import {
-	Component,
-	ComponentOrWithParams,
-	PropsFromSchema,
-	SchemaFromComponent,
-	StoreFromComponents,
-} from '../component/types';
+import { TraitData } from '../trait/trait-data';
+import { ConfigurableTrait, ExtractSchema, TraitInstance, Trait } from '../trait/types';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
@@ -26,9 +19,9 @@ export class World {
 	[$internal] = {
 		entityIndex: createEntityIndex(this.#id),
 		entityMasks: [[]] as number[][],
-		entityComponents: new Map<number, Set<Component>>(),
+		entityTraits: new Map<number, Set<Trait>>(),
 		bitflag: 1,
-		componentRecords: new Map<Component, ComponentRecord>(),
+		traitData: new Map<Trait, TraitData>(),
 		queries: new Set<Query>(),
 		queriesHashMap: new Map<string, Query>(),
 		notQueries: new Set<Query>(),
@@ -53,13 +46,13 @@ export class World {
 		return getAliveEntities(this[$internal].entityIndex);
 	}
 
-	components = new Set<Component>();
+	traits = new Set<Trait>();
 
-	constructor(components?: ComponentOrWithParams | ComponentOrWithParams[]) {
-		this.init(components);
+	constructor(...traits: ConfigurableTrait[]) {
+		this.init(...traits);
 	}
 
-	init(components: ComponentOrWithParams | ComponentOrWithParams[] = []) {
+	init(...traits: ConfigurableTrait[]) {
 		const ctx = this[$internal];
 		if (this.#isInitialized) return;
 
@@ -79,38 +72,35 @@ export class World {
 		}
 
 		// Create world entity.
-		const componentsArray = Array.isArray(components)
-			? (components as ComponentOrWithParams[])
-			: [components];
-		ctx.worldEntity = createEntity(this, IsExcluded, ...componentsArray);
+		ctx.worldEntity = createEntity(this, IsExcluded, ...traits);
 	}
 
-	spawn(...components: ComponentOrWithParams[]): Entity {
-		return createEntity(this, ...components);
+	spawn(...traits: ConfigurableTrait[]): Entity {
+		return createEntity(this, ...traits);
 	}
 
 	has(entity: Entity): boolean;
-	has(component: Component): boolean;
-	has(target: Entity | Component): boolean {
+	has(trait: Trait): boolean;
+	has(target: Entity | Trait): boolean {
 		return typeof target === 'number'
 			? isEntityAlive(this[$internal].entityIndex, target)
 			: this[$internal].worldEntity.has(target);
 	}
 
-	add(...components: ComponentOrWithParams[]) {
-		this[$internal].worldEntity.add(...components);
+	add(...traits: ConfigurableTrait[]) {
+		this[$internal].worldEntity.add(...traits);
 	}
 
-	remove(...components: Component[]) {
-		this[$internal].worldEntity.remove(...components);
+	remove(...traits: Trait[]) {
+		this[$internal].worldEntity.remove(...traits);
 	}
 
-	get<T extends Component>(component: T): PropsFromSchema<SchemaFromComponent<T>> {
-		return this[$internal].worldEntity.get(component);
+	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> {
+		return this[$internal].worldEntity.get(trait);
 	}
 
-	set<T extends Component>(component: T, value: Partial<PropsFromSchema<SchemaFromComponent<T>>>) {
-		this[$internal].worldEntity.set(component, value);
+	set<T extends Trait>(trait: T, value: Partial<TraitInstance<ExtractSchema<T>>>) {
+		this[$internal].worldEntity.set(trait, value);
 	}
 
 	destroy() {
@@ -130,15 +120,15 @@ export class World {
 		const ctx = this[$internal];
 
 		ctx.entityIndex = createEntityIndex(this.#id);
-		ctx.entityComponents.clear();
+		ctx.entityTraits.clear();
 		ctx.notQueries.clear();
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
 
 		if (this.entities) this.entities.forEach((entity) => entity.destroy());
 
-		ctx.componentRecords.clear();
-		this.components.clear();
+		ctx.traitData.clear();
+		this.traits.clear();
 
 		ctx.queries.clear();
 		ctx.queriesHashMap.clear();
@@ -213,21 +203,21 @@ export class World {
 		return () => query.removeSubscriptions.delete(callback);
 	}
 
-	onChange(component: Component, callback: (entity: Entity) => void) {
+	onChange(trait: Trait, callback: (entity: Entity) => void) {
 		const ctx = this[$internal];
-		let record = ctx.componentRecords.get(component)!;
+		let data = ctx.traitData.get(trait)!;
 
-		if (!record) {
-			record = new ComponentRecord(this, component);
-			ctx.componentRecords.set(component, record);
+		if (!data) {
+			data = new TraitData(this, trait);
+			ctx.traitData.set(trait, data);
 		}
 
-		record.changedSubscriptions.add(callback);
+		data.changedSubscriptions.add(callback);
 
-		return () => record.changedSubscriptions.delete(callback);
+		return () => data.changedSubscriptions.delete(callback);
 	}
 }
 
-export function createWorld(components?: ComponentOrWithParams | ComponentOrWithParams[]) {
-	return new World(components);
+export function createWorld(...traits: ConfigurableTrait[]) {
+	return new World(...traits);
 }

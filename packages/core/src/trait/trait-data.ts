@@ -2,34 +2,31 @@ import { Entity } from '../entity/types';
 import { Query } from '../query/query';
 import { $internal } from '../world/symbols';
 import { World } from '../world/world';
-import { Component, Schema, SchemaFromComponent, Store } from './types';
+import { Trait, Schema, ExtractSchema, Store } from './types';
 
-export class ComponentRecord<
-	C extends Component = Component,
-	S extends Schema = SchemaFromComponent<C>
-> {
+export class TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
 	generationId: number;
 	bitflag: number;
-	component: Component;
+	trait: Trait;
 	store: Store<S>;
 	queries: Set<Query>;
 	notQueries: Set<Query>;
 	schema: S;
 	changedSubscriptions: Set<(entity: Entity) => void>;
 
-	constructor(world: World, component: C) {
+	constructor(world: World, trait: T) {
 		const ctx = world[$internal];
-		const componentCtx = component[$internal];
+		const traitCtx = trait[$internal];
 
 		this.generationId = ctx.entityMasks.length - 1;
 		this.bitflag = ctx.bitflag;
-		this.component = component;
-		this.store = componentCtx.createStore();
+		this.trait = trait;
+		this.store = traitCtx.createStore();
 		this.queries = new Set();
 		this.notQueries = new Set();
-		this.schema = component.schema;
+		this.schema = trait.schema;
 		this.changedSubscriptions = new Set();
 
-		componentCtx.stores[world.id] = this.store;
+		traitCtx.stores[world.id] = this.store;
 	}
 }

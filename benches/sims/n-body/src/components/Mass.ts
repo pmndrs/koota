@@ -1,3 +1,3 @@
-import { define } from 'koota';
+import { trait } from 'koota';
 
-export const Mass = define({ value: 0 });
+export const Mass = trait({ value: 0 });
