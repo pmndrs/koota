@@ -143,7 +143,7 @@ describe('Query', () => {
 		const entity = world.spawn();
 		entity.add(Position, IsActive);
 
-		let entities = world.query(Not(Foo), Not(Bar));
+		let entities: any = world.query(Not(Foo), Not(Bar));
 		expect(entities.length).toBe(1);
 
 		entities = world.query(Not(Foo, Bar));
@@ -630,5 +630,21 @@ describe('Query', () => {
 		expect(entities).toContain(entityA);
 		expect(entities).toContain(entityB);
 		expect(entities).not.toContain(entityC);
+	});
+
+	it('should select traits', () => {
+		world.spawn(Position, Name);
+
+		const results = world.query(Position, Name);
+		// Default should be the same as the query.
+		results.updateEach(([position, name]) => {
+			expect(position.x).toBeDefined();
+			expect(name.name).toBeDefined();
+		});
+
+		// Select only Name.
+		results.select(Name).updateEach(([name]) => {
+			expect(name.name).toBeDefined();
+		});
 	});
 });
