@@ -1,6 +1,6 @@
 import { Entity } from '../entity/types';
 import { Query } from '../query/query';
-import { $internal } from '../world/symbols';
+import { $internal } from '../common';
 import { World } from '../world/world';
 import { Trait, Schema, ExtractSchema, Store } from './types';
 

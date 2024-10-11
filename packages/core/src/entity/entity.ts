@@ -1,8 +1,7 @@
 import { removeTrait } from '../trait/trait';
 import { ConfigurableTrait } from '../trait/types';
 import { Pair, Wildcard } from '../relation/relation';
-import { $autoRemoveTarget } from '../relation/symbols';
-import { $internal } from '../world/symbols';
+import { $internal } from '../common';
 import { World } from '../world/world';
 import { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
@@ -59,7 +58,7 @@ export function destroyEntity(world: World, entity: Entity) {
 				const traitCtx = trait[$internal];
 				if (!traitCtx.isPairTrait) continue;
 
-				const relation = traitCtx.relation;
+				const relationCtx = traitCtx.relation[$internal];
 
 				// Remove wildcard pair trait.
 				removeTrait(world, subject, Pair(Wildcard, currentEid));
@@ -68,7 +67,7 @@ export function destroyEntity(world: World, entity: Entity) {
 					// Remove the specific pair trait.
 					removeTrait(world, subject, trait);
 
-					if (relation[$autoRemoveTarget]) {
+					if (relationCtx.autoRemoveTarget) {
 						entityQueue.push(subject);
 					}
 				}

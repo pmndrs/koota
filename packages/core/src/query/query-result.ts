@@ -2,7 +2,7 @@ import { getStore } from '../trait/trait';
 import { Trait, Store } from '../trait/types';
 import { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { $internal } from '../world/symbols';
+import { $internal } from '../common';
 import { World } from '../world/world';
 import { ModifierData } from './modifier';
 import { Query } from './query';

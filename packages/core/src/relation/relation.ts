@@ -1,8 +1,7 @@
 import { trait } from '../trait/trait';
 import { Trait, Schema } from '../trait/types';
-import { $internal } from '../world/symbols';
+import { $internal } from '../common';
 import { World } from '../world/world';
-import { $autoRemoveTarget, $createComponent, $exclusiveRelation, $pairsMap } from './symbols';
 import { Relation, RelationTarget } from './types';
 
 function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>(definition?: {
@@ -20,10 +19,12 @@ function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>
 	}
 
 	return Object.assign(relationFn, {
-		[$exclusiveRelation]: definition?.exclusive ?? false,
-		[$createComponent]: traitFactory,
-		[$pairsMap]: pairsMap,
-		[$autoRemoveTarget]: definition?.autoRemoveTarget ?? false,
+		[$internal]: {
+			pairsMap,
+			createComponent: traitFactory,
+			exclusive: definition?.exclusive ?? false,
+			autoRemoveTarget: definition?.autoRemoveTarget ?? false,
+		},
 	}) as Relation<T>;
 }
 export const relation = defineRelation;
@@ -68,8 +69,9 @@ export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTar
 	if (target === undefined) throw Error('Relation target is undefined');
 	if (target === '*') target = Wildcard;
 
-	const pairsMap = relation[$pairsMap];
-	const traitFactory = relation[$createComponent];
+	const ctx = relation[$internal];
+	const pairsMap = ctx.pairsMap;
+	const traitFactory = ctx.createComponent;
 
 	return getRelationComponent<T>(relation, traitFactory, pairsMap, target);
 };

@@ -3,7 +3,7 @@ import { TraitData } from '../trait/trait-data';
 import { Trait } from '../trait/types';
 import { Entity } from '../entity/types';
 import { SparseSet } from '../utils/sparse-set';
-import { $internal } from '../world/symbols';
+import { $internal } from '../common';
 import { World } from '../world/world';
 import { ModifierData } from './modifier';
 import { QueryParameter, QuerySubscriber } from './types';

@@ -1,7 +1,6 @@
 import { Entity } from '../entity/types';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
-import { $exclusiveRelation } from '../relation/symbols';
-import { $internal } from '../world/symbols';
+import { $internal } from '../common';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { TraitData } from './trait-data';
@@ -124,7 +123,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			entity.add(Pair(relation, Wildcard));
 
 			// If it's an exclusive relation, remove the old target.
-			if (relation[$exclusiveRelation] === true && target !== Wildcard) {
+			if (relation[$internal].exclusive === true && target !== Wildcard) {
 				const oldTarget = getRelationTargets(world, relation, entity)[0];
 
 				if (oldTarget !== null && oldTarget !== undefined && oldTarget !== target) {

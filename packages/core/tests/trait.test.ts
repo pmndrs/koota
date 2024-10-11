@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
 import { trait, getStores, registerTrait } from '../src/trait/trait';
-import { $internal } from '../src/world/symbols';
+import { $internal } from '../src/common';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
