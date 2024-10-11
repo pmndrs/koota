@@ -3,18 +3,17 @@ import { Entity } from '../entity/types';
 import { ModifierData } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;
-
 export type QueryParameter = Trait | ReturnType<QueryModifier>;
-
 export type QuerySubscriber = (entity: Entity) => void;
 
 export type QueryResult<T extends QueryParameter[]> = readonly Entity[] & {
 	updateEach: (
 		callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void
-	) => void;
+	) => QueryResult<T>;
 	useStores: (
 		callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
-	) => void;
+	) => QueryResult<T>;
+	select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
 };
 
 type UnwrapModifierData<T> = T extends ModifierData<infer C> ? C : never;
