@@ -1,4 +1,4 @@
-import { $internal } from '../../world/symbols';
+import { $internal } from '../../';
 import { ModifierData } from '../modifier';
 import { QueryParameter } from '../types';
 

@@ -7,14 +7,7 @@ export { Not } from './query/modifiers/not';
 export { universe } from './universe/universe';
 export { cacheQuery } from './query/utils/cache-query';
 export { relation, Pair, Wildcard } from './relation/relation';
-
-import * as worldSymbols from './world/symbols';
-import * as relationSymbols from './relation/symbols';
-
-export const SYMBOLS = {
-	...worldSymbols,
-	...relationSymbols,
-};
+export { $internal } from './common';
 
 // Export types a global namespace to avoid conflicts with user code.
 

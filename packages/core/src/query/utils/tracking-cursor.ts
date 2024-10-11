@@ -1,4 +1,4 @@
-import { $internal } from '../../world/symbols';
+import { $internal } from '../../common';
 import { World } from '../../world/world';
 
 // Some values are reserved.

@@ -1,5 +1,5 @@
-import { RelationTarget } from '../relation/types';
-import { $internal } from '../world/symbols';
+import { Relation, RelationTarget } from '../relation/types';
+import { $internal } from '../common';
 
 type IsEmpty<T> = T extends Record<string, never> ? true : false;
 
@@ -17,7 +17,7 @@ export type Trait<
 		id: number;
 		createStore: () => TStore;
 		isPairTrait: boolean;
-		relation: any | null;
+		relation: Relation<any> | null;
 		pairTarget: RelationTarget | null;
 		isTag: TTag;
 	};

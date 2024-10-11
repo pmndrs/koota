@@ -1,4 +1,4 @@
-import { $internal } from '../symbols';
+import { $internal } from '../../common';
 import { World } from '../world';
 
 // These should be Float32Arrays since we are using bitwise operations.

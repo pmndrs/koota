@@ -9,7 +9,7 @@ import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
 import { universe } from '../universe/universe';
-import { $internal } from '../world/symbols';
+import { $internal } from '../common';
 import { destroyEntity } from './entity';
 import { Entity } from './types';
 import { ENTITY_ID_MASK, WORLD_ID_SHIFT } from './utils/pack-entity';

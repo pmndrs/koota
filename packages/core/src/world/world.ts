@@ -10,7 +10,7 @@ import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
 import { universe } from '../universe/universe';
-import { $internal } from './symbols';
+import { $internal } from '../common';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 export class World {

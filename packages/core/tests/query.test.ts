@@ -5,7 +5,7 @@ import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
 import { createRemoved } from '../src/query/modifiers/removed';
-import { $internal } from '../src/world/symbols';
+import { $internal } from '../src/common';
 import { IsExcluded } from '../src/query/query';
 import { Or } from '../src/query/modifiers/or';
 
