@@ -1,7 +1,7 @@
 import { CONSTANTS } from '@sim/add-remove';
 import * as THREE from 'three';
 import { scene } from '../scene';
-import { Points } from '../components/Points';
+import { Points } from '../trait/Points';
 
 let first = false;
 

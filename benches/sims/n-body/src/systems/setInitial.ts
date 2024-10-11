@@ -1,5 +1,5 @@
 import { createAdded } from 'koota';
-import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../components';
+import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
 import { randInRange } from '../utils/randInRange';
 

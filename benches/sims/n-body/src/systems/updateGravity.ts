@@ -1,4 +1,4 @@
-import { Time } from '../components/Time';
+import { Time } from '../traits/Time';
 import { CONSTANTS } from '../constants';
 import { bodyTraits } from './setInitial';
 

@@ -1,8 +1,8 @@
-import { Velocity } from '../components/Velocity';
-import { Mass } from '../components/Mass';
-import { Position } from '../components/Position';
+import { Velocity } from '../trait/Velocity';
+import { Mass } from '../trait/Mass';
+import { Position } from '../trait/Position';
 import { CONSTANTS } from '../constants';
-import { Time } from '../components/Time';
+import { Time } from '../trait/Time';
 
 export const updateGravity = ({ world }: { world: Koota.World }) => {
 	const eids = world.query(Position, Mass, Velocity);

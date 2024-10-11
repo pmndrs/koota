@@ -1,4 +1,4 @@
-export * from './components';
+export * from './traits';
 
 export { updateColor } from './systems/updateColor';
 export { updateGravity } from './systems/updateGravity';

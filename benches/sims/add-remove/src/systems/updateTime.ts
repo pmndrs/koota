@@ -1,4 +1,4 @@
-import { Time } from '../components/Time';
+import { Time } from '../trait/Time';
 
 export const updateTime = ({ world }: { world: Koota.World }) => {
 	const time = world.resources.get(Time);

@@ -1,8 +1,8 @@
-import { Circle } from '../components/Circle';
-import { Color } from '../components/Color';
-import { Mass } from '../components/Mass';
-import { Position } from '../components/Position';
-import { Velocity } from '../components/Velocity';
+import { Circle } from '../trait/Circle';
+import { Color } from '../trait/Color';
+import { Mass } from '../trait/Mass';
+import { Position } from '../trait/Position';
+import { Velocity } from '../trait/Velocity';
 import { CONSTANTS } from '../constants';
 import { addBody } from './init';
 

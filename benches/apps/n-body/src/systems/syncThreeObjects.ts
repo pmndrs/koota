@@ -1,6 +1,6 @@
 import { Circle, Color, Position } from '@sim/n-body';
 import * as THREE from 'three';
-import { InstancedMesh } from '../components/InstancedMesh';
+import { InstancedMesh } from '../traits/InstancedMesh';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
 

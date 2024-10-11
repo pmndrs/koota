@@ -1,4 +1,4 @@
-import { Acceleration, Circle, Color, IsCentralMass, Mass, Position, Velocity } from '../components';
+import { Acceleration, Circle, Color, IsCentralMass, Mass, Position, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
 
 let inited = false;

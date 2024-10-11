@@ -1,11 +1,11 @@
 import { CONSTANTS } from '../constants';
-import { Position } from '../components/Position';
-import { Velocity } from '../components/Velocity';
-import { Mass } from '../components/Mass';
-import { Circle } from '../components/Circle';
+import { Position } from '../trait/Position';
+import { Velocity } from '../trait/Velocity';
+import { Mass } from '../trait/Mass';
+import { Circle } from '../trait/Circle';
 import { randInRange } from '../utils/randInRange';
-import { Color } from '../components/Color';
-import { DummyComponents } from '../components/Dummy';
+import { Color } from '../trait/Color';
+import { DummyComponents } from '../trait/Dummy';
 import { createAdded } from 'koota';
 
 const body = [Position, Velocity, Mass, Circle] as const;

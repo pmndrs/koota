@@ -1,5 +1,5 @@
 import { Not } from 'koota';
-import { Repulse, Color, Velocity } from '../components';
+import { Repulse, Color, Velocity } from '../traits';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
 
 export const updateColor = ({ world }: { world: Koota.World }) => {
