@@ -550,7 +550,7 @@ describe('Query', () => {
 		expect(event.entity).toBe(entity);
 	});
 
-	it.fails('can subscribe to changes on a specific trait', () => {
+	it('can subscribe to changes on a specific trait', () => {
 		const entity = world.spawn(Position);
 
 		const cb = vi.fn();

@@ -64,7 +64,7 @@ Number.prototype.set = function (this: Entity, trait: Trait, value: any, flagCha
 	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
-	// flagChanged && setChanged(universe.worlds[worldId], this, trait);
+	flagChanged && setChanged(universe.worlds[worldId], this, trait);
 	return ctx.set(index, store, value);
 };
 
