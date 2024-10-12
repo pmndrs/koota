@@ -3,12 +3,13 @@ import * as THREE from 'three';
 import { InstancedMesh } from '../traits/InstancedMesh';
 import { camera, renderer } from '../main';
 import { scene } from '../scene';
+import { World } from 'koota';
 
 let inited = false;
 
 const zeroScaleMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
 
-export function init({ world }: { world: Koota.World }) {
+export function init({ world }: { world: World }) {
 	if (inited) return;
 
 	// I'm not sure why it matters, but you can't set iniitial radius to 1 or everything is invisible.

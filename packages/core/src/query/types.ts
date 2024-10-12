@@ -1,4 +1,4 @@
-import { Trait, IsTag, SnapshotFromComponent, ExtractStore } from '../trait/types';
+import { Trait, IsTag, TraitSnapshot, ExtractStore } from '../trait/types';
 import { Entity } from '../entity/types';
 import { ModifierData } from './modifier';
 
@@ -36,7 +36,7 @@ export type SnapshotFromParameters<T extends QueryParameter[]> = T extends [
 	? [
 			...(First extends Trait
 				? IsTag<First> extends false
-					? [SnapshotFromComponent<First>]
+					? [TraitSnapshot<First>]
 					: []
 				: First extends ModifierData<any>
 				? IsNotModifier<First> extends true

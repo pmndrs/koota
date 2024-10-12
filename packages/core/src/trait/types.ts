@@ -1,7 +1,6 @@
 import { Relation, RelationTarget } from '../relation/types';
 import { $internal } from '../common';
-
-type IsEmpty<T> = T extends Record<string, never> ? true : false;
+import { IsEmpty } from '../utils/types';
 
 export type Trait<
 	TSchema extends Schema = any,
@@ -30,12 +29,12 @@ export type TraitTuple<T extends Trait = Trait> = [
 
 export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T>;
 
-export type Schema = {
-	[key: string]: number | string | boolean | any[] | object | null | undefined;
+export type TraitInstance<T extends Schema> = {
+	[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]> : T[P];
 };
 
-export type Norm<T extends Schema> = {
-	[K in keyof T]: T[K] extends boolean ? boolean : T[K];
+export type Schema = {
+	[key: string]: number | string | boolean | any[] | object | null | undefined;
 };
 
 export type Store<T extends Schema = any> = {
@@ -44,18 +43,15 @@ export type Store<T extends Schema = any> = {
 
 // Utils
 
-export type TraitInstance<T extends Schema> = {
-	[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]> : T[P];
+export type Norm<T extends Schema> = {
+	[K in keyof T]: T[K] extends boolean ? boolean : T[K];
 };
 
-export type SnapshotFromComponent<T extends Trait> = T extends Trait<infer S, any>
-	? TraitInstance<S>
-	: never;
-
+export type TraitSnapshot<T extends Trait> = T extends Trait<infer S, any> ? TraitInstance<S> : never;
 export type ExtractSchema<T extends Trait> = T extends Trait<infer S, any> ? S : never;
 export type ExtractStore<T extends Trait> = T extends Trait<any, infer S> ? S : never;
 
-export type StoreFromComponents<T extends [Trait, ...Trait[]]> = T extends [infer C]
+export type ExtractStores<T extends [Trait, ...Trait[]]> = T extends [infer C]
 	? C extends Trait<any, Store<any>>
 		? ExtractStore<C>
 		: never
