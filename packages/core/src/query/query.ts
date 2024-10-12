@@ -8,6 +8,7 @@ import { World } from '../world/world';
 import { ModifierData } from './modifier';
 import { QueryParameter, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
+import { getEntityId } from '../entity/utils/pack-entity';
 
 export const IsExcluded = trait();
 
@@ -221,11 +222,12 @@ export class Query {
 
 				for (const entity of world.entities) {
 					let allTraitsMatch = true;
+					const eid = getEntityId(entity);
 
 					for (const trait of traits) {
 						const { generationId, bitflag } = trait;
-						const oldMask = snapshot[generationId][entity] || 0;
-						const currentMask = ctx.entityMasks[generationId][entity];
+						const oldMask = snapshot[generationId][eid] || 0;
+						const currentMask = ctx.entityMasks[generationId][eid];
 
 						let traitMatches = false;
 
@@ -240,11 +242,10 @@ export class Query {
 										(currentMask & bitflag) === 0) ||
 									((oldMask & bitflag) === 0 &&
 										(currentMask & bitflag) === 0 &&
-										(dirtyMask[generationId][entity] & bitflag) === bitflag);
+										(dirtyMask[generationId][eid] & bitflag) === bitflag);
 								break;
 							case 'change':
-								traitMatches =
-									(changedMask[generationId][entity] & bitflag) === bitflag;
+								traitMatches = (changedMask[generationId][eid] & bitflag) === bitflag;
 								break;
 						}
 
@@ -313,11 +314,12 @@ export class Query {
 
 	check(
 		world: World,
-		entity: number,
+		entity: Entity,
 		event?: { type: 'add' | 'remove' | 'change'; traitData: TraitData }
 	) {
 		const { bitmasks, generations } = this;
 		const ctx = world[$internal];
+		const eid = getEntityId(entity);
 
 		// If the query is empty, the check fails.
 		if (this.traitData.all.length === 0) return false;
@@ -326,7 +328,7 @@ export class Query {
 			const generationId = generations[i];
 			const bitmask = bitmasks[i];
 			const { required, forbidden, or, added, removed, changed } = bitmask;
-			const entityMask = ctx.entityMasks[generationId][entity];
+			const entityMask = ctx.entityMasks[generationId][eid];
 
 			// Handle add/remove events.
 			if (event && event.traitData.generationId === generationId && this.isTracking) {

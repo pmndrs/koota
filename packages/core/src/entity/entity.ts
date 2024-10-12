@@ -8,6 +8,7 @@ import { allocateEntity, releaseEntity } from './utils/entity-index';
 
 // Ensure entity methods are patched.
 import './entity-methods-patch';
+import { getEntityId } from './utils/pack-entity';
 
 export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
 	const ctx = world[$internal];
@@ -46,12 +47,12 @@ export function destroyEntity(world: World, entity: Entity) {
 	// In addition, if the relation has the autoRemoveTarget flag set,
 	// the target entity should also be destroyed, for example children relations.
 	while (entityQueue.length > 0) {
-		const currentEid = entityQueue.pop()!;
-		if (processedEntities.has(currentEid)) continue;
-		processedEntities.add(currentEid);
+		const currentEntity = entityQueue.pop()!;
+		if (processedEntities.has(currentEntity)) continue;
+		processedEntities.add(currentEntity);
 
 		// Process all related entities and traits.
-		for (const subject of world.query(Wildcard(currentEid))) {
+		for (const subject of world.query(Wildcard(currentEntity))) {
 			if (!world.has(subject)) continue;
 
 			for (const trait of ctx.entityTraits.get(subject)!) {
@@ -61,9 +62,9 @@ export function destroyEntity(world: World, entity: Entity) {
 				const relationCtx = traitCtx.relation[$internal];
 
 				// Remove wildcard pair trait.
-				removeTrait(world, subject, Pair(Wildcard, currentEid));
+				removeTrait(world, subject, Pair(Wildcard, currentEntity));
 
-				if (traitCtx.pairTarget === currentEid) {
+				if (traitCtx.pairTarget === currentEntity) {
 					// Remove the specific pair trait.
 					removeTrait(world, subject, trait);
 
@@ -75,22 +76,23 @@ export function destroyEntity(world: World, entity: Entity) {
 		}
 
 		// Remove all traits of the current entity.
-		const entityTraits = ctx.entityTraits.get(currentEid);
+		const entityTraits = ctx.entityTraits.get(currentEntity);
 		if (entityTraits) {
 			for (const trait of entityTraits) {
-				removeTrait(world, currentEid, trait);
+				removeTrait(world, currentEntity, trait);
 			}
 		}
 
 		// Free the entity.
-		releaseEntity(ctx.entityIndex, currentEid);
+		releaseEntity(ctx.entityIndex, currentEntity);
 
 		// Remove all entity state from world.
 		ctx.entityTraits.delete(entity);
 
 		// Clear entity bitmasks.
+		const eid = getEntityId(currentEntity);
 		for (let i = 0; i < ctx.entityMasks.length; i++) {
-			ctx.entityMasks[i][entity] = 0;
+			ctx.entityMasks[i][eid] = 0;
 		}
 	}
 }
