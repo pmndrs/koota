@@ -344,6 +344,8 @@ export class Query {
 					if (removed & traitMask) {
 						bitmask.removedTracker[entity] |= traitMask;
 					}
+					// Remove from changed tracker when the trait is removed.
+					if (changed & traitMask) return false;
 				} else if (event.type === 'change') {
 					// Check that the trait is on the entity.
 					if (!(entityMask & traitMask)) return false;
