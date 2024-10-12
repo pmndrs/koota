@@ -11,6 +11,7 @@ import {
 	createSetFunction,
 } from './utils/create-accessors';
 import { createStore } from './utils/create-store';
+import { getEntityId } from '../entity/utils/pack-entity';
 
 let traitId = 0;
 
@@ -79,12 +80,13 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		const { generationId, bitflag, queries } = data;
 
 		// Add bitflag to entity bitmask.
-		ctx.entityMasks[generationId][entity] |= bitflag;
+		const eid = getEntityId(entity);
+		ctx.entityMasks[generationId][eid] |= bitflag;
 
 		// Set the entity as dirty.
 		for (const dirtyMask of ctx.dirtyMasks.values()) {
 			if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
-			dirtyMask[generationId][entity] |= bitflag;
+			dirtyMask[generationId][eid] |= bitflag;
 		}
 
 		// Update queries.
@@ -151,11 +153,12 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		const { generationId, bitflag, queries } = data;
 
 		// Remove bitflag from entity bitmask.
-		ctx.entityMasks[generationId][entity] &= ~bitflag;
+		const eid = getEntityId(entity);
+		ctx.entityMasks[generationId][eid] &= ~bitflag;
 
 		// Set the entity as dirty.
 		for (const dirtyMask of ctx.dirtyMasks.values()) {
-			dirtyMask[generationId][entity] |= bitflag;
+			dirtyMask[generationId][eid] |= bitflag;
 		}
 
 		// Update queries.
@@ -201,7 +204,8 @@ export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	if (!data) return false;
 
 	const { generationId, bitflag } = data;
-	const mask = ctx.entityMasks[generationId][entity];
+	const eid = getEntityId(entity);
+	const mask = ctx.entityMasks[generationId][eid];
 
 	return (mask & bitflag) === bitflag;
 }

@@ -6,6 +6,7 @@ import { $internal } from '../../common';
 import { World } from '../../world/world';
 import { ModifierData } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
+import { getEntityId } from '../../entity/utils/pack-entity';
 
 export function createChanged() {
 	const id = createTrackingId();
@@ -21,6 +22,10 @@ export function createChanged() {
 
 export function setChanged(world: World, entity: Entity, trait: Trait) {
 	const ctx = world[$internal];
+
+	// Early exit if the trait is not on the entity.
+	if (!entity.has(trait)) return;
+
 	let data = ctx.traitData.get(trait)!;
 
 	if (!data) {
@@ -29,9 +34,10 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	}
 
 	for (const changedMask of ctx.changedMasks.values()) {
-		if (!changedMask[entity]) changedMask[entity] = new Array();
+		const eid = getEntityId(entity);
+		if (!changedMask[eid]) changedMask[eid] = new Array();
 		const traitId = trait[$internal].id;
-		changedMask[entity][traitId] = 1;
+		changedMask[eid][traitId] = 1;
 	}
 
 	// Update queries.
