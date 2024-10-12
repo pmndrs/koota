@@ -1,13 +1,14 @@
 import { Circle, Color, Position } from '@sim/n-body';
 import * as THREE from 'three';
 import { InstancedMesh } from '../traits/InstancedMesh';
+import { World } from 'koota';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
 
 const dummy = new THREE.Object3D();
 const dummyColor = new THREE.Color();
 
-export const syncThreeObjects = ({ world }: { world: Koota.World }) => {
+export const syncThreeObjects = ({ world }: { world: World }) => {
 	const instanceEnt = world.queryFirst(InstancedMesh);
 	if (instanceEnt === undefined) return;
 

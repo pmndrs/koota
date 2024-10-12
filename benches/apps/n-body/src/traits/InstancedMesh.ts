@@ -1,4 +1,4 @@
-import { define } from 'koota';
+import { trait } from 'koota';
 import * as THREE from 'three';
 
-export const InstancedMesh = define({ object: null! as THREE.InstancedMesh });
+export const InstancedMesh = trait({ object: null! as THREE.InstancedMesh });

@@ -1,9 +1,10 @@
 import { Acceleration, Circle, Color, IsCentralMass, Mass, Position, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
+import { World } from 'koota';
 
 let inited = false;
 
-export const init = ({ world }: { world: Koota.World }) => {
+export const init = ({ world }: { world: World }) => {
 	if (inited) return;
 
 	for (let i = 0; i < CONSTANTS.NBODIES; i++) {

@@ -4,15 +4,7 @@ import { $internal } from '../common';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { TraitData } from './trait-data';
-import {
-	ConfigurableTrait,
-	Norm,
-	Schema,
-	Store,
-	ExtractStore,
-	StoreFromComponents,
-	Trait,
-} from './types';
+import { ConfigurableTrait, Norm, Schema, Store, ExtractStore, ExtractStores, Trait } from './types';
 import {
 	createFastSetFunction,
 	createGetFunction,
@@ -228,7 +220,7 @@ export function getStore<C extends Trait = Trait>(world: World, trait: C): Extra
 export function getStores<T extends [Trait, ...Trait[]]>(
 	world: World,
 	...traits: T
-): StoreFromComponents<T> {
+): ExtractStores<T> {
 	const stores = traits.map((trait) => getStore(world, trait));
-	return (traits.length === 1 ? stores[0] : stores) as StoreFromComponents<T>;
+	return (traits.length === 1 ? stores[0] : stores) as ExtractStores<T>;
 }

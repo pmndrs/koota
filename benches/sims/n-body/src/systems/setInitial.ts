@@ -1,4 +1,4 @@
-import { createAdded } from 'koota';
+import { createAdded, World } from 'koota';
 import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
 import { randInRange } from '../utils/randInRange';
@@ -6,7 +6,7 @@ import { randInRange } from '../utils/randInRange';
 export const bodyTraits = [Position, Velocity, Mass, Circle, Acceleration] as const;
 const Added = createAdded();
 
-export const setInitial = ({ world }: { world: Koota.World }) => {
+export const setInitial = ({ world }: { world: World }) => {
 	const bodies = world.query(Added(...bodyTraits));
 	const centralMasses = world.query(Added(...bodyTraits, IsCentralMass));
 

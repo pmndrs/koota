@@ -6,8 +6,9 @@ import { updateColor } from './updateColor';
 import { updateTime } from './updateTime';
 import { init } from './init';
 import { handleRepulse } from './handleRepulse';
+import { World } from 'koota';
 
-export const schedule = new Schedule<{ world: Koota.World }>();
+export const schedule = new Schedule<{ world: World }>();
 
 schedule.createTag('init');
 schedule.createTag('update', { after: 'init' });

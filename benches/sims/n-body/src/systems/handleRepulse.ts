@@ -1,6 +1,7 @@
+import { World } from 'koota';
 import { Circle, Mass, Position, Repulse, Time, Velocity } from '../traits';
 
-export const handleRepulse = ({ world }: { world: Koota.World }) => {
+export const handleRepulse = ({ world }: { world: World }) => {
 	const repulsors = world.query(Repulse, Position, Circle);
 	if (repulsors.length === 0) return;
 

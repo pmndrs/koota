@@ -1,7 +1,8 @@
 import { Position, Time, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
+import { World } from 'koota';
 
-export const moveBodies = ({ world }: { world: Koota.World }) => {
+export const moveBodies = ({ world }: { world: World }) => {
 	const bodies = world.query(Position, Velocity);
 	const { delta } = world.get(Time);
 

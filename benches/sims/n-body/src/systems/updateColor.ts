@@ -1,8 +1,8 @@
-import { Not } from 'koota';
+import { Not, World } from 'koota';
 import { Repulse, Color, Velocity } from '../traits';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
 
-export const updateColor = ({ world }: { world: Koota.World }) => {
+export const updateColor = ({ world }: { world: World }) => {
 	const results = world.query(Velocity, Color, Not(Repulse));
 
 	results.updateEach(([velocity, color]) => {
