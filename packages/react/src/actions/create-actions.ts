@@ -3,13 +3,14 @@ import { useWorld } from '../world/use-world';
 
 export function createActions<T extends Record<string, (...args: any[]) => any>>(
 	actionSet: (world: World) => T
-): () => T {
-	const actionFactory = Object.assign(actionSet, {
-		get: (world: World): T => actionSet(world),
-	});
-
-	return () => {
-		const world = useWorld();
-		return actionFactory.get(world);
-	};
+): (() => T) & { get: (world: World) => T } {
+	return Object.assign(
+		() => {
+			const world = useWorld();
+			return actionSet(world);
+		},
+		{
+			get: (world: World): T => actionSet(world),
+		}
+	);
 }
