@@ -11,6 +11,11 @@ export type Trait<
 	[$internal]: {
 		set: (index: number, store: TStore, values: Partial<TraitInstance<TSchema>>) => void;
 		fastSet: (index: number, store: TStore, values: Partial<TraitInstance<TSchema>>) => void;
+		fastSetWithChangeDetection: (
+			index: number,
+			store: TStore,
+			values: Partial<TraitInstance<TSchema>>
+		) => boolean;
 		get: (index: number, store: TStore) => TraitInstance<TSchema>;
 		stores: TStore[];
 		id: number;

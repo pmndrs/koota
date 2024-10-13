@@ -59,12 +59,12 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 };
 
 // @ts-expect-error
-Number.prototype.set = function (this: Entity, trait: Trait, value: any, flagChanged = true) {
+Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
 	const ctx = trait[$internal];
 	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
-	flagChanged && setChanged(universe.worlds[worldId], this, trait);
+	triggerChanged && setChanged(universe.worlds[worldId], this, trait);
 	return ctx.set(index, store, value);
 };
 

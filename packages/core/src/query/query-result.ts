@@ -29,6 +29,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 		updateEach(
 			callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void
 		) {
+			const changedPairs: [Entity, Trait][] = [];
+
 			for (let i = 0; i < entities.length; i++) {
 				const entity = entities[i];
 				const eid = getEntityId(entity);
@@ -45,11 +47,20 @@ export function createQueryResult<T extends QueryParameter[]>(
 				if (!world.has(entity)) continue;
 
 				// Commit all changes back to the stores.
+				let changed = false;
 				for (let j = 0; j < traits.length; j++) {
 					const trait = traits[j];
 					const ctx = trait[$internal];
-					ctx.fastSet(eid, stores[j], state[j]);
+					changed = ctx.fastSetWithChangeDetection(eid, stores[j], state[j]);
+
+					// Collect changed traits.
+					if (changed) changedPairs.push([entity, trait] as const);
 				}
+			}
+
+			// Trigger change events for each entity that was modified.
+			for (const [entity, trait] of changedPairs) {
+				entity.changed(trait);
 			}
 
 			return results;

@@ -612,6 +612,32 @@ describe('Query', () => {
 		}
 	});
 
+	it('should trigger change events when traits are modified with updateEach', () => {
+		const cb = vi.fn();
+		world.onChange(Position, cb);
+
+		for (let i = 0; i < 10; i++) {
+			world.spawn(Position);
+		}
+
+		const query = world.query(Position);
+
+		query.updateEach(([position], entity, index) => {
+			if (index === 0) return;
+			position.x = 10;
+		});
+
+		expect(cb).toHaveBeenCalledTimes(9);
+
+		// If values do not change, no events should be triggered.
+		query.updateEach(([position], entity, index) => {
+			if (index === 0) return;
+			position.x = 10;
+		});
+
+		expect(cb).toHaveBeenCalledTimes(9);
+	});
+
 	it('should return the first entity in a query', () => {
 		const entityA = world.spawn(Position);
 		const entityB = world.spawn(Position);

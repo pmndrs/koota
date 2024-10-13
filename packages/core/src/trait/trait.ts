@@ -7,6 +7,7 @@ import { TraitData } from './trait-data';
 import { ConfigurableTrait, Norm, Schema, Store, ExtractStore, ExtractStores, Trait } from './types';
 import {
 	createFastSetFunction,
+	createFastSetWithChangeDetectionFunction,
 	createGetFunction,
 	createSetFunction,
 } from './utils/create-accessors';
@@ -25,6 +26,7 @@ function defineTrait<S extends Schema = {}>(schema: S = {} as S): Trait<Norm<S>>
 			[$internal]: {
 				set: createSetFunction(schema),
 				fastSet: createFastSetFunction(schema),
+				fastSetWithChangeDetection: createFastSetWithChangeDetectionFunction(schema),
 				get: createGetFunction(schema),
 				stores: [] as Store<S>[],
 				id: traitId++,
