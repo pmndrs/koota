@@ -1,4 +1,4 @@
-import { Trait, ConfigurableTrait, TraitInstance, ExtractSchema } from '../trait/types';
+import { Trait, ConfigurableTrait, TraitInstanceFromSchema, ExtractSchema } from '../trait/types';
 import { Relation } from '../relation/types';
 
 export type Entity = number & {
@@ -9,10 +9,10 @@ export type Entity = number & {
 	changed: (trait: Trait) => void;
 	set: <T extends Trait>(
 		trait: T,
-		value: Partial<TraitInstance<ExtractSchema<T>>>,
+		value: Partial<TraitInstanceFromSchema<ExtractSchema<T>>>,
 		flagChanged?: boolean
 	) => void;
-	get: <T extends Trait>(trait: T) => TraitInstance<ExtractSchema<T>>;
+	get: <T extends Trait>(trait: T) => TraitInstanceFromSchema<ExtractSchema<T>>;
 	targetFor: <T>(relation: Relation<T>) => Entity | undefined;
 	targetsFor: <T>(relation: Relation<T>) => Entity[];
 	id: () => number;
