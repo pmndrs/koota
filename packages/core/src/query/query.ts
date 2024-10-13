@@ -226,8 +226,8 @@ export class Query {
 
 					for (const trait of traits) {
 						const { generationId, bitflag } = trait;
-						const oldMask = snapshot[generationId][eid] || 0;
-						const currentMask = ctx.entityMasks[generationId][eid];
+						const oldMask = snapshot[generationId]?.[eid] || 0;
+						const currentMask = ctx.entityMasks[generationId]?.[eid] || 0;
 
 						let traitMatches = false;
 
