@@ -64,8 +64,8 @@ Number.prototype.set = function (this: Entity, trait: Trait, value: any, trigger
 	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
+	ctx.set(index, store, value);
 	triggerChanged && setChanged(universe.worlds[worldId], this, trait);
-	return ctx.set(index, store, value);
 };
 
 //@ts-expect-error
