@@ -9,14 +9,22 @@ export type Trait<
 > = {
 	schema: TSchema;
 	[$internal]: {
-		set: (index: number, store: TStore, values: Partial<TraitInstance<TSchema>>) => void;
-		fastSet: (index: number, store: TStore, values: Partial<TraitInstance<TSchema>>) => void;
+		set: (
+			index: number,
+			store: TStore,
+			values: Partial<TraitInstanceFromSchema<TSchema>>
+		) => void;
+		fastSet: (
+			index: number,
+			store: TStore,
+			values: Partial<TraitInstanceFromSchema<TSchema>>
+		) => void;
 		fastSetWithChangeDetection: (
 			index: number,
 			store: TStore,
-			values: Partial<TraitInstance<TSchema>>
+			values: Partial<TraitInstanceFromSchema<TSchema>>
 		) => boolean;
-		get: (index: number, store: TStore) => TraitInstance<TSchema>;
+		get: (index: number, store: TStore) => TraitInstanceFromSchema<TSchema>;
 		stores: TStore[];
 		id: number;
 		createStore: () => TStore;
@@ -25,17 +33,25 @@ export type Trait<
 		pairTarget: RelationTarget | null;
 		isTag: TTag;
 	};
-} & ((params: Partial<TraitInstance<TSchema>>) => [Trait<TSchema, TStore>, Partial<TSchema>]);
+} & ((
+	params: Partial<TraitInstanceFromSchema<TSchema>>
+) => [Trait<TSchema, TStore>, Partial<TSchema>]);
 
 export type TraitTuple<T extends Trait = Trait> = [
 	T,
-	T extends Trait<infer S, any> ? Partial<TraitInstance<S>> : never
+	T extends Trait<infer S, any> ? Partial<TraitInstanceFromSchema<S>> : never
 ];
 
 export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T>;
 
-export type TraitInstance<T extends Schema> = {
+export type TraitInstanceFromSchema<T extends Schema> = {
 	[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]> : T[P];
+};
+
+export type TraitInstance<T extends Trait> = {
+	[P in keyof T['schema']]: T['schema'][P] extends (...args: any[]) => any
+		? ReturnType<T['schema'][P]>
+		: T['schema'][P];
 };
 
 export type Schema = {
@@ -52,7 +68,9 @@ export type Norm<T extends Schema> = {
 	[K in keyof T]: T[K] extends boolean ? boolean : T[K];
 };
 
-export type TraitSnapshot<T extends Trait> = T extends Trait<infer S, any> ? TraitInstance<S> : never;
+export type TraitSnapshot<T extends Trait> = T extends Trait<infer S, any>
+	? TraitInstanceFromSchema<S>
+	: never;
 export type ExtractSchema<T extends Trait> = T extends Trait<infer S, any> ? S : never;
 export type ExtractStore<T extends Trait> = T extends Trait<any, infer S> ? S : never;
 

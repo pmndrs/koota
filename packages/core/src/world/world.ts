@@ -1,5 +1,5 @@
 import { TraitData } from '../trait/trait-data';
-import { ConfigurableTrait, ExtractSchema, TraitInstance, Trait } from '../trait/types';
+import { ConfigurableTrait, ExtractSchema, TraitInstanceFromSchema, Trait } from '../trait/types';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
@@ -95,11 +95,11 @@ export class World {
 		this[$internal].worldEntity.remove(...traits);
 	}
 
-	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> {
+	get<T extends Trait>(trait: T): TraitInstanceFromSchema<ExtractSchema<T>> {
 		return this[$internal].worldEntity.get(trait);
 	}
 
-	set<T extends Trait>(trait: T, value: Partial<TraitInstance<ExtractSchema<T>>>) {
+	set<T extends Trait>(trait: T, value: Partial<TraitInstanceFromSchema<ExtractSchema<T>>>) {
 		this[$internal].worldEntity.set(trait, value);
 	}
 
