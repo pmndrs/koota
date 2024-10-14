@@ -222,7 +222,7 @@ export class Query {
 				const dirtyMask = ctx.dirtyMasks.get(id)!;
 				const changedMask = ctx.changedMasks.get(id)!;
 
-				for (const entity of world.entities) {
+				for (const entity of ctx.entityIndex.dense) {
 					let allTraitsMatch = true;
 					const eid = getEntityId(entity);
 
@@ -269,8 +269,9 @@ export class Query {
 				this.traitData.forbidden.length > 0 ||
 				this.traitData.or.length > 0
 			) {
-				for (let i = 0; i < world.entities.length; i++) {
-					const entity = world.entities[i];
+				const entities = ctx.entityIndex.dense;
+				for (let i = 0; i < entities.length; i++) {
+					const entity = entities[i];
 					// Skip if the entity is excluded.
 					if (entity.has(IsExcluded)) continue;
 					const match = this.check(world, entity);
