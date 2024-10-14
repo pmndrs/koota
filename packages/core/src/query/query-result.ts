@@ -59,7 +59,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 			}
 
 			// Trigger change events for each entity that was modified.
-			for (const [entity, trait] of changedPairs) {
+			for (let i = 0; i < changedPairs.length; i++) {
+				const [entity, trait] = changedPairs[i];
 				entity.changed(trait);
 			}
 
@@ -88,7 +89,9 @@ function getQueryStores<T extends QueryParameter[]>(
 	stores: Store<any>[],
 	world: World
 ) {
-	for (const param of params) {
+	for (let i = 0; i < params.length; i++) {
+		const param = params[i];
+
 		if (param instanceof ModifierData) {
 			// Skip not modifier.
 			if (param.type === 'not') continue;
