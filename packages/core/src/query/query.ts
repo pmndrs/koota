@@ -40,6 +40,7 @@ export class Query {
 	generations: number[];
 	entities = new SparseSet();
 	isTracking = false;
+	hasChangedModifiers = false;
 	toRemove = new SparseSet();
 	addSubscriptions = new Set<QuerySubscriber>();
 	removeSubscriptions = new Set<QuerySubscriber>();
@@ -119,6 +120,7 @@ export class Query {
 						const data = ctx.traitData.get(trait)!;
 						this.traitData.changed.push(data);
 						this.traits.push(trait);
+						this.hasChangedModifiers = true;
 					}
 
 					this.isTracking = true;
