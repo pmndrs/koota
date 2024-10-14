@@ -1,3 +1,3 @@
-import { define } from 'koota';
+import { trait } from 'koota';
 
-export const Color = define({ r: 0, g: 0, b: 0, a: 0 });
+export const Color = trait({ r: 0, g: 0, b: 0, a: 0 });

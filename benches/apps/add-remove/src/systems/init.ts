@@ -2,10 +2,11 @@ import { CONSTANTS } from '@sim/add-remove';
 import * as THREE from 'three';
 import { scene } from '../scene';
 import { Points } from '../trait/Points';
+import { World } from 'koota';
 
 let first = false;
 
-export function init({ world }: { world: Koota.World }) {
+export function init({ world }: { world: World }) {
 	if (first) return;
 
 	const particleCount = CONSTANTS.BODIES;
@@ -29,7 +30,7 @@ export function init({ world }: { world: Koota.World }) {
 	const particles = new THREE.Points(geometry, material);
 
 	scene.add(particles);
-	world.create(Points({ object: particles }));
+	world.spawn(Points({ object: particles }));
 
 	first = true;
 }

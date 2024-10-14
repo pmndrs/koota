@@ -1,4 +1,4 @@
-import { define } from 'koota';
+import { trait } from 'koota';
 import * as THREE from 'three';
 
-export const Points = define({ object: null! as THREE.Points });
+export const Points = trait({ object: null! as THREE.Points });
