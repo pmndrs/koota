@@ -54,24 +54,26 @@ export function destroyEntity(world: World, entity: Entity) {
 		processedEntities.add(currentEntity);
 
 		// Process all related entities and traits.
-		for (const subject of world.query(Wildcard(currentEntity))) {
-			if (!world.has(subject)) continue;
+		if (ctx.relationTargetEntities.has(currentEntity)) {
+			for (const subject of world.query(Wildcard(currentEntity))) {
+				if (!world.has(subject)) continue;
 
-			for (const trait of ctx.entityTraits.get(subject)!) {
-				const traitCtx = trait[$internal];
-				if (!traitCtx.isPairTrait) continue;
+				for (const trait of ctx.entityTraits.get(subject)!) {
+					const traitCtx = trait[$internal];
+					if (!traitCtx.isPairTrait) continue;
 
-				const relationCtx = traitCtx.relation[$internal];
+					const relationCtx = traitCtx.relation[$internal];
 
-				// Remove wildcard pair trait.
-				removeTrait(world, subject, Pair(Wildcard, currentEntity));
+					// Remove wildcard pair trait.
+					removeTrait(world, subject, Pair(Wildcard, currentEntity));
 
-				if (traitCtx.pairTarget === currentEntity) {
-					// Remove the specific pair trait.
-					removeTrait(world, subject, trait);
+					if (traitCtx.pairTarget === currentEntity) {
+						// Remove the specific pair trait.
+						removeTrait(world, subject, trait);
 
-					if (relationCtx.autoRemoveTarget) {
-						entityQueue.push(subject);
+						if (relationCtx.autoRemoveTarget) {
+							entityQueue.push(subject);
+						}
 					}
 				}
 			}
