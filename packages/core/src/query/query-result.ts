@@ -6,7 +6,13 @@ import { $internal } from '../common';
 import { World } from '../world/world';
 import { ModifierData } from './modifier';
 import { Query } from './query';
-import { QueryParameter, QueryResult, SnapshotFromParameters, StoresFromParameters } from './types';
+import {
+	QueryParameter,
+	QueryResult,
+	QueryResultOptions,
+	SnapshotFromParameters,
+	StoresFromParameters,
+} from './types';
 
 export function createQueryResult<T extends QueryParameter[]>(
 	query: Query,
@@ -27,41 +33,74 @@ export function createQueryResult<T extends QueryParameter[]>(
 
 	const results = Object.assign(entities, {
 		updateEach(
-			callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void
+			callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void,
+			options?: QueryResultOptions
 		) {
-			const changedPairs: [Entity, Trait][] = [];
+			const passive = options?.passive ?? false;
+			const state = new Array(traits.length);
 
-			for (let i = 0; i < entities.length; i++) {
-				const entity = entities[i];
-				const eid = getEntityId(entity);
+			// Inline both passive and active updateEach for performance.
+			if (passive) {
+				for (let i = 0; i < entities.length; i++) {
+					const entity = entities[i];
+					const eid = getEntityId(entity);
 
-				// Create a snapshot for each trait in the order they appear in the query params.
-				const state = traits.map((trait, j) => {
-					const ctx = trait[$internal];
-					return ctx.get(eid, stores[j]);
-				});
+					// Create a snapshot for each trait in the order they appear in the query params.
+					for (let j = 0; j < traits.length; j++) {
+						const trait = traits[j];
+						const ctx = trait[$internal];
+						state[j] = ctx.get(eid, stores[j]);
+					}
 
-				callback(state as any, entity, i);
+					callback(state as any, entity, i);
 
-				// Skip if the entity has been destroyed.
-				if (!world.has(entity)) continue;
+					// Skip if the entity has been destroyed.
+					if (!world.has(entity)) continue;
 
-				// Commit all changes back to the stores.
-				let changed = false;
-				for (let j = 0; j < traits.length; j++) {
-					const trait = traits[j];
-					const ctx = trait[$internal];
-					changed = ctx.fastSetWithChangeDetection(eid, stores[j], state[j]);
-
-					// Collect changed traits.
-					if (changed) changedPairs.push([entity, trait] as const);
+					// Commit all changes back to the stores.
+					let changed = false;
+					for (let j = 0; j < traits.length; j++) {
+						const trait = traits[j];
+						const ctx = trait[$internal];
+						ctx.fastSet(eid, stores[j], state[j]);
+					}
 				}
-			}
+			} else {
+				const changedPairs: [Entity, Trait][] = [];
 
-			// Trigger change events for each entity that was modified.
-			for (let i = 0; i < changedPairs.length; i++) {
-				const [entity, trait] = changedPairs[i];
-				entity.changed(trait);
+				for (let i = 0; i < entities.length; i++) {
+					const entity = entities[i];
+					const eid = getEntityId(entity);
+
+					// Create a snapshot for each trait in the order they appear in the query params.
+					for (let j = 0; j < traits.length; j++) {
+						const trait = traits[j];
+						const ctx = trait[$internal];
+						state[j] = ctx.get(eid, stores[j]);
+					}
+
+					callback(state as any, entity, i);
+
+					// Skip if the entity has been destroyed.
+					if (!world.has(entity)) continue;
+
+					// Commit all changes back to the stores.
+					let changed = false;
+					for (let j = 0; j < traits.length; j++) {
+						const trait = traits[j];
+						const ctx = trait[$internal];
+						changed = ctx.fastSetWithChangeDetection(eid, stores[j], state[j]);
+
+						// Collect changed traits.
+						if (changed) changedPairs.push([entity, trait] as const);
+					}
+				}
+
+				// Trigger change events for each entity that was modified.
+				for (let i = 0; i < changedPairs.length; i++) {
+					const [entity, trait] = changedPairs[i];
+					entity.changed(trait);
+				}
 			}
 
 			return results;

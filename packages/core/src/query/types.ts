@@ -6,9 +6,14 @@ export type QueryModifier = (...components: Trait[]) => ModifierData;
 export type QueryParameter = Trait | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
 
+export type QueryResultOptions = {
+	passive?: boolean;
+};
+
 export type QueryResult<T extends QueryParameter[]> = readonly Entity[] & {
 	updateEach: (
-		callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void
+		callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void,
+		options?: QueryResultOptions
 	) => QueryResult<T>;
 	useStores: (
 		callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
