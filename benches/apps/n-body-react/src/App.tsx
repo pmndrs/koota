@@ -1,122 +1,100 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import {
-	Acceleration,
-	Circle,
-	Color,
-	CONSTANTS,
-	init,
-	IsCentralMass,
-	Mass,
-	Position,
-	randInRange,
-	schedule,
-	setInitial,
-	Velocity,
-	world,
-} from '@sim/n-body';
-import { ComponentProp, Entity, koota, useComponent, useWorld, World } from 'koota/react';
+import { CONSTANTS, init, schedule } from '@sim/n-body';
 import { useSchedule } from 'directed/react';
-import { createSpawner } from 'extras';
+import { Entity } from 'koota';
+import { useWorld } from 'koota/react';
 import { StrictMode, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { syncThreeObjects } from './systems/syncThreeObjects';
-import { useStats } from './use-stats';
-import { spawnRepulsor } from './systems/spawnRepulsor';
 import { cleanupBodies } from './systems/cleanupRepulsors';
-
-const BodySpawner = createSpawner(Body);
+import { syncThreeObjects } from './systems/syncThreeObjects';
+import { InstancedMesh } from './traits/InstancedMesh';
+import { useActions } from './use-actions';
+import { useStats } from './use-stats';
 
 export function App() {
 	const frustumSize = 7000;
 	const aspect = window.innerWidth / window.innerHeight;
 	const isPointerDown = useRef(false);
 
+	const { spawnRepulsor, spawnBodies, spawnCentralMasses, destroyAllBodies } = useActions();
+
 	// Add a system to sync the instanced mesh with component data.
 	useSchedule(schedule, syncThreeObjects, { after: 'update' });
 	useSchedule(schedule, cleanupBodies, { after: syncThreeObjects });
 
+	// Remove the init system from the schedule.
 	useLayoutEffect(() => {
-		// Remove init systems
-		if (schedule.has(init)) schedule.remove(init);
-		if (schedule.has(setInitial)) schedule.remove(setInitial);
+		schedule.remove(init);
 		schedule.build();
 	}, []);
 
+	useLayoutEffect(() => {
+		spawnCentralMasses(1);
+		spawnBodies(CONSTANTS.NBODIES - 1);
+
+		return () => {
+			destroyAllBodies();
+		};
+	}, [destroyAllBodies, spawnBodies, spawnCentralMasses]);
+
 	return (
-		<World world={world}>
-			<Canvas
-				orthographic
-				camera={{
-					left: (-frustumSize * aspect) / 2,
-					right: (frustumSize * aspect) / 2,
-					top: frustumSize / 2,
-					bottom: -frustumSize / 2,
-					near: 0.1,
-					far: 500,
-					position: [0, 0, 100],
-				}}
-				onPointerDown={(e) => {
-					isPointerDown.current = true;
-					spawnRepulsor(e, frustumSize);
-				}}
-				onPointerMove={(e) => {
-					if (isPointerDown.current) spawnRepulsor(e, frustumSize);
-				}}
-				onPointerUp={() => {
-					isPointerDown.current = false;
-				}}
-				onPointerOut={() => {
-					isPointerDown.current = false;
-				}}
-			>
-				<StrictMode>
-					<Bodies />
-					<BodySpawner.Emitter initial={CONSTANTS.NBODIES - 1} />
-					<CentralMass />
-					<Simulation />
-				</StrictMode>
-			</Canvas>
-		</World>
+		<Canvas
+			orthographic
+			camera={{
+				left: (-frustumSize * aspect) / 2,
+				right: (frustumSize * aspect) / 2,
+				top: frustumSize / 2,
+				bottom: -frustumSize / 2,
+				near: 0.1,
+				far: 500,
+				position: [0, 0, 100],
+			}}
+			onPointerDown={(e) => {
+				isPointerDown.current = true;
+				spawnRepulsor(e, frustumSize);
+			}}
+			onPointerMove={(e) => {
+				if (isPointerDown.current) spawnRepulsor(e, frustumSize);
+			}}
+			onPointerUp={() => {
+				isPointerDown.current = false;
+			}}
+			onPointerOut={() => {
+				isPointerDown.current = false;
+			}}
+		>
+			<StrictMode>
+				<Simulation />
+				<Bodies />
+			</StrictMode>
+		</Canvas>
 	);
 }
 
 function Bodies() {
+	const world = useWorld();
 	const geo = new THREE.CircleGeometry(CONSTANTS.MAX_RADIUS / 1.5, 12);
 	const mat = new THREE.MeshBasicMaterial();
 
-	return <koota.instancedMesh args={[geo, mat, CONSTANTS.NBODIES + 500]} />;
-}
-
-function Body({ components = [] }: { components: ComponentProp[] }) {
-	const [position] = useComponent(Position, {
-		x: randInRange(-4000, 4000),
-		y: randInRange(-100, 100),
-	});
-
-	const [mass] = useComponent(Mass, {
-		value: CONSTANTS.BASE_MASS + randInRange(0, CONSTANTS.VAR_MASS),
-	});
-
-	const [velocity] = useComponent(Velocity, () =>
-		calcStableVelocity(position.x, position.y, mass.value)
-	);
-
-	const [circle] = useComponent(Circle, () => ({
-		radius: CONSTANTS.MAX_RADIUS * (mass.value / (CONSTANTS.BASE_MASS + CONSTANTS.VAR_MASS)) + 1,
-	}));
-
 	return (
-		<Entity components={[position, mass, velocity, circle, Acceleration, Color, ...components]} />
+		<instancedMesh
+			ref={(node) => {
+				let entity: Entity | undefined;
+				if (node) {
+					// Set initial scale to zero
+					for (let i = 0; i < CONSTANTS.NBODIES + 200; i++) {
+						node.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
+						node.setColorAt(i, new THREE.Color(1, 1, 1));
+					}
+
+					entity = world.spawn(InstancedMesh({ object: node }));
+				} else if (entity) {
+					entity.destroy();
+				}
+			}}
+			args={[geo, mat, CONSTANTS.NBODIES + 500]}
+		/>
 	);
-}
-
-function CentralMass() {
-	const [position] = useComponent(Position);
-	const [velocity] = useComponent(Velocity);
-	const [mass] = useComponent(Mass, { value: CONSTANTS.CENTRAL_MASS });
-	const [circle] = useComponent(Circle, { radius: CONSTANTS.MAX_RADIUS / 1.5 });
-
-	return <Body components={[IsCentralMass, position, velocity, mass, circle]} />;
 }
 
 // Simulation runs a schedule.
@@ -132,17 +110,4 @@ function Simulation() {
 	});
 
 	return null;
-}
-
-function calcStableVelocity(x: number, y: number, mass: number) {
-	const radius = Math.sqrt(x ** 2 + y ** 2);
-	const normX = x / radius;
-	const normY = y / radius;
-
-	// Perpendicular vector for circular orbit
-	const vecRotX = -normY;
-	const vecRotY = normX;
-
-	const v = Math.sqrt(CONSTANTS.INITIAL_C / radius / mass / CONSTANTS.SPEED);
-	return { x: vecRotX * v, y: vecRotY * v };
 }
