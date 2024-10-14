@@ -20,7 +20,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
 
 	entities.useStores(([position, circle, color]) => {
 		for (let i = 0; i < entities.length; i++) {
-			const eid = entities[i];
+			const eid = entities[i].id();
 
 			// Update positions
 			positions[eid * 3] = position.x[eid];
