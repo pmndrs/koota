@@ -82,7 +82,7 @@ function Bodies() {
 				let entity: Entity | undefined;
 				if (node) {
 					// Set initial scale to zero
-					for (let i = 0; i < CONSTANTS.NBODIES + 200; i++) {
+					for (let i = 0; i < node.count; i++) {
 						node.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
 						node.setColorAt(i, new THREE.Color(1, 1, 1));
 					}

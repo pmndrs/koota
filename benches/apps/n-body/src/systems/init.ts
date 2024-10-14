@@ -18,7 +18,7 @@ export function init({ world }: { world: World }) {
 	const instancedMesh = new THREE.InstancedMesh(geometry, material, CONSTANTS.NBODIES + 200);
 
 	// Set initial scale to zero
-	for (let i = 0; i < CONSTANTS.NBODIES + 200; i++) instancedMesh.setMatrixAt(i, zeroScaleMatrix);
+	for (let i = 0; i < instancedMesh.count; i++) instancedMesh.setMatrixAt(i, zeroScaleMatrix);
 
 	scene.add(instancedMesh);
 	world.spawn(InstancedMesh({ object: instancedMesh }));
