@@ -17,6 +17,8 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
 	for (const query of ctx.notQueries) {
 		const match = query.check(world, entity);
 		if (match) query.add(entity);
+		// Reset all tracking bitmasks for the query.
+		query.resetTrackingBitmasks(entity.id());
 	}
 
 	ctx.entityTraits.set(entity, new Set());
