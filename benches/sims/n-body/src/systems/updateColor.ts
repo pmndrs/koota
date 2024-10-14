@@ -3,9 +3,7 @@ import { Repulse, Color, Velocity } from '../traits';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
 
 export const updateColor = ({ world }: { world: World }) => {
-	const results = world.query(Velocity, Color, Not(Repulse));
-
-	results.updateEach(([velocity, color]) => {
+	world.query(Velocity, Color, Not(Repulse)).updateEach(([velocity, color]) => {
 		const speed = Math.hypot(velocity.x, velocity.y);
 		const { r, g, b, a } = colorFromSpeed(speed);
 
