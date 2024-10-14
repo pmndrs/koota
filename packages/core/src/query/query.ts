@@ -212,7 +212,7 @@ export class Query {
 		// Add query instance to the world's not-query store.
 		if (this.traitData.forbidden.length > 0) ctx.notQueries.add(this);
 
-		// If the query has an Added modifier, we populate it with its snapshot.
+		// Populate the query with tracking parameters.
 		if (trackingParams.length > 0) {
 			for (let i = 0; i < trackingParams.length; i++) {
 				const type = trackingParams[i].type;
@@ -332,19 +332,27 @@ export class Query {
 			const { required, forbidden, or, added, removed, changed } = bitmask;
 			const entityMask = ctx.entityMasks[generationId][eid];
 
-			// Handle add/remove events.
-			if (event && event.traitData.generationId === generationId && this.isTracking) {
+			// If there are no traits to match, return false.
+			if (!forbidden && !required && !or && !removed && !added && !changed) {
+				return false;
+			}
+
+			// Only process events for the current trait's generation or the masks will not be relevant.
+			const isEventGeneration = event && event.traitData.generationId === generationId;
+
+			// Handle events.
+			if (this.isTracking && isEventGeneration) {
 				const traitMask = event.traitData.bitflag;
 
 				if (event.type === 'add') {
 					if (removed & traitMask) return false;
 					if (added & traitMask) {
-						bitmask.addedTracker[entity] |= traitMask;
+						bitmask.addedTracker[eid] |= traitMask;
 					}
 				} else if (event.type === 'remove') {
 					if (added & traitMask) return false;
 					if (removed & traitMask) {
-						bitmask.removedTracker[entity] |= traitMask;
+						bitmask.removedTracker[eid] |= traitMask;
 					}
 					// Remove from changed tracker when the trait is removed.
 					if (changed & traitMask) return false;
@@ -352,50 +360,37 @@ export class Query {
 					// Check that the trait is on the entity.
 					if (!(entityMask & traitMask)) return false;
 					if (changed & traitMask) {
-						bitmask.changedTracker[entity] |= traitMask;
+						bitmask.changedTracker[eid] |= traitMask;
 					}
 				}
 			}
 
-			// If there are no traits to match, return false.
-			if (!forbidden && !required && !or && !removed && !added && !changed) {
-				return false;
-			}
-
 			// Check forbidden traits.
-			if ((entityMask & forbidden) !== 0) {
-				return false;
-			}
+			if ((entityMask & forbidden) !== 0) return false;
 
 			// Check required traits.
-			if ((entityMask & required) !== required) {
-				return false;
-			}
+			if ((entityMask & required) !== required) return false;
 
 			// Check Or traits.
-			if (or !== 0 && (entityMask & or) === 0) {
-				return false;
-			}
+			if (or !== 0 && (entityMask & or) === 0) return false;
 
 			// Check if all required added traits have been added.
-			if (added) {
-				const entityAddedTracker = bitmask.addedTracker[entity] || 0;
-				if ((entityAddedTracker & added) !== added) {
-					return false;
-				}
+			if (added && isEventGeneration) {
+				const entityAddedTracker = bitmask.addedTracker[eid] || 0;
+				if ((entityAddedTracker & added) !== added) return false;
 			}
 
 			// Check if all required removed traits have been removed.
-			if (removed) {
-				const entityRemovedTracker = bitmask.removedTracker[entity] || 0;
+			if (removed && isEventGeneration) {
+				const entityRemovedTracker = bitmask.removedTracker[eid] || 0;
 				if ((entityRemovedTracker & removed) !== removed) {
 					return false;
 				}
 			}
 
 			// Check if all required changed traits have been changed.
-			if (changed) {
-				const entityChangedTracker = bitmask.changedTracker[entity] || 0;
+			if (changed && isEventGeneration) {
+				const entityChangedTracker = bitmask.changedTracker[eid] || 0;
 				if ((entityChangedTracker & changed) !== changed) {
 					return false;
 				}
@@ -418,5 +413,13 @@ export class Query {
 		}
 
 		ctx.dirtyQueries.clear();
+	}
+
+	resetTrackingBitmasks(eid: number) {
+		for (const bitmask of this.bitmasks) {
+			bitmask.addedTracker[eid] = 0;
+			bitmask.removedTracker[eid] = 0;
+			bitmask.changedTracker[eid] = 0;
+		}
 	}
 }
