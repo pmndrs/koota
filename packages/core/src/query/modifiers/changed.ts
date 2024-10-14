@@ -42,6 +42,9 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 
 	// Update queries.
 	for (const query of data.queries) {
+		// If the query has no changed modifiers, continue.
+		if (!query.hasChangedModifiers) continue;
+
 		// Check if the entity matches the query.
 		let match = query.check(world, entity, { type: 'change', traitData: data });
 
