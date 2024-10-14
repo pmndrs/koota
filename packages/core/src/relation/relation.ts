@@ -21,7 +21,7 @@ function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>
 	return Object.assign(relationFn, {
 		[$internal]: {
 			pairsMap,
-			createComponent: traitFactory,
+			createTrait: traitFactory,
 			exclusive: definition?.exclusive ?? false,
 			autoRemoveTarget: definition?.autoRemoveTarget ?? false,
 		},
@@ -71,7 +71,7 @@ export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTar
 
 	const ctx = relation[$internal];
 	const pairsMap = ctx.pairsMap;
-	const traitFactory = ctx.createComponent;
+	const traitFactory = ctx.createTrait;
 
 	return getRelationComponent<T>(relation, traitFactory, pairsMap, target);
 };
