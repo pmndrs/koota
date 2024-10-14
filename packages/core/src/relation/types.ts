@@ -5,7 +5,7 @@ export type RelationTarget = number | string;
 export type Relation<T> = T & {
 	[$internal]: {
 		pairsMap: Map<number | string, T>;
-		createComponent: () => T;
+		createTrait: () => T;
 		exclusive: boolean;
 		autoRemoveTarget: boolean;
 	};
