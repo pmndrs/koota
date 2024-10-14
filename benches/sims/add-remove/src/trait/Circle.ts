@@ -1,3 +1,3 @@
-import { define } from 'koota';
+import { trait } from 'koota';
 
-export const Circle = define({ radius: 0 });
+export const Circle = trait({ radius: 0 });

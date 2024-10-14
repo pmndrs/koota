@@ -4,6 +4,5 @@ export const CONSTANTS = {
 	FLOOR: -1000,
 	COMPONENTS: 100,
 	MAX_COMPS_PER_ENTITY: 20,
-	DELETE_DATA: true,
 	DRAIN: false,
 };
