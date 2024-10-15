@@ -1,7 +1,5 @@
 # Koota
 
-🌎 Performant data-oriented state management for React and TypeScript.
-
 Koota is an ECS-based state management library optimized for real-time apps, games, and XR experiences. Use as much or as little as you need.
 
 ```bash
@@ -18,8 +16,10 @@ import { trait } from 'koota';
 // Basic trait with default values
 const Position = trait({ x: 0, y: 0 });
 const Velocity = trait({ x: 0, y: 0 });
+
 // Trait with a callback for initial value
 const Mesh = trait({ value: () => THREE.Mesh() });
+
 // Tag trait (no data)
 const IsActive = trait();
 ```
@@ -45,8 +45,8 @@ Queries fetch entities sharing traits (archetypes). Use them to batch update ent
 ```js
 // Run this in a loop
 world.query(Position, Velocity).updateEach(([position, velocity]) => {
-	position.x += velocity.x * delta;
-	position.y += velocity.y * delta;
+    position.x += velocity.x * delta;
+    position.y += velocity.y * delta;
 });
 ```
 
@@ -69,19 +69,18 @@ function RocketRenderer() {
     const rockets = useQuery(Position, Velocity)
     return (
         <>
-            {rockets.map((entity) => <RocketShip key={entity} entity={entity} />)}
+            {rockets.map((entity) => <Rocket key={entity} entity={entity} />)}
         </>
     )
 }
 
-function RocketShip(entity) {
+function Rocket({ entity }) {
     // Observes this entity's position trait and reactively updates when it changes
     const position = useObserve(entity, Position)
     return (
         <div style={{ position: 'absolute', left: position.x ?? 0, top: position.y ?? 0 }}>
         🚀
         </div>
-
     )
 }
 ```
@@ -94,29 +93,29 @@ Use actions to safely modify Koota from inside of React in either effects or eve
 import { createActions } from 'koota/react';
 
 const useMyActions = createActions((world) => ({
-	spawnShip: (position) => world.spawn(Position(position), Velocity),
-	destroyAllShips: (world) => {
-		world.query(Position, Velocity).forEach((entity) => {
-			entity.destroy();
-		});
-	},
+    spawnShip: (position) => world.spawn(Position(position), Velocity),
+    destroyAllShips: (world) => {
+        world.query(Position, Velocity).forEach((entity) => {
+            entity.destroy();
+        });
+    },
 }));
 
 function DoomButton() {
-	const { spawnShip, destroyAllShips } = useMyActions();
+    const { spawnShip, destroyAllShips } = useMyActions();
 
-	// Spawn three ships on mount
-	useEffect(() => {
-		spawnShip({ x: 0, y: 1 });
-		spawnShip({ x: 1, y: 0 });
-		spawnShip({ x: 1, y: 1 });
+    // Spawn three ships on mount
+    useEffect(() => {
+        spawnShip({ x: 0, y: 1 });
+        spawnShip({ x: 1, y: 0 });
+        spawnShip({ x: 1, y: 1 });
 
-		// Destroy all ships during cleanup
-		return () => drestroyAllShips();
-	}, []);
+        // Destroy all ships during cleanup
+        return () => drestroyAllShips();
+    }, []);
 
-	// And destroy all ships on click!
-	return <button onClick={destroyAllShips}>Boom!</button>;
+    // And destroy all ships on click!
+    return <button onClick={destroyAllShips}>Boom!</button>;
 }
 ```
 
@@ -126,8 +125,8 @@ Or access world directly and use it.
 const world = useWorld();
 
 useEffect(() => {
-	const entity = world.spawn(Velocity, Position);
-	return () => entity.destroy();
+    const entity = world.spawn(Velocity, Position);
+    return () => entity.destroy();
 });
 ```
 
@@ -288,17 +287,17 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 ```js
 // Subscribe to Position changes
 const unsub = world.onChange(Position, (entity) => {
-	console.log(`Entity ${entity} changed position`);
+    console.log(`Entity ${entity} changed position`);
 });
 
 // Subscribe to Position additions
 const unsub = world.onAdd(Position, (entity) => {
-	console.log(`Entity ${entity} added position`);
+    console.log(`Entity ${entity} added position`);
 });
 
 // Subscribe to Position removals
 const unsub = world.onRemove(Position, (entity) => {
-	console.log(`Entity ${entity} removed position`);
+    console.log(`Entity ${entity} removed position`);
 });
 
 // Trigger events
@@ -326,13 +325,13 @@ For performance-critical operations, you can modify trait stores directly using 
 ```js
 // Returns the SoA stores
 world.query(Position, Velocity).useStore(([position, store], entities) => {
-	// Write our own loop over the stores
-	for (let i = 0; i > entities.length; i++) {
-		// Get the entity ID to use as the array index
-		const eid = entities[i].id();
-		// Write to each array in the store
-		position.x[eid] += velocity.x[eid] * delta;
-		position.y[eid] += velocity.y[eid] * delta;
-	}
+    // Write our own loop over the stores
+    for (let i = 0; i > entities.length; i++) {
+        // Get the entity ID to use as the array index
+        const eid = entities[i].id();
+        // Write to each array in the store
+        position.x[eid] += velocity.x[eid] * delta;
+        position.y[eid] += velocity.y[eid] * delta;
+    }
 });
 ```
