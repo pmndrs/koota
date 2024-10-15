@@ -3,12 +3,12 @@
 
 import { measure, requestAnimationFrame } from '@sim/bench-tools';
 import { init } from './systems/init';
-import { pipeline } from './systems/pipeline';
 import { world } from './world';
+import { schedule } from './systems/schedule';
 
 // Start the simulation.
 const main = () => {
-	measure(() => pipeline({ world }));
+	measure(() => schedule.run({ world }));
 	requestAnimationFrame(main);
 };
 

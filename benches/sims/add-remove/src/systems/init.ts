@@ -1,13 +1,14 @@
-import { Circle } from '../components/Circle';
-import { Color } from '../components/Color';
-import { Mass } from '../components/Mass';
-import { Position } from '../components/Position';
-import { Velocity } from '../components/Velocity';
+import { Circle } from '../trait/Circle';
+import { Color } from '../trait/Color';
+import { Mass } from '../trait/Mass';
+import { Position } from '../trait/Position';
+import { Velocity } from '../trait/Velocity';
 import { CONSTANTS } from '../constants';
+import { World } from 'koota';
 
 let first = false;
 
-export const init = ({ world }: { world: Koota.World }) => {
+export const init = ({ world }: { world: World }) => {
 	if (first) return;
 
 	for (let i = 0; i < CONSTANTS.BODIES; i++) {
@@ -17,6 +18,6 @@ export const init = ({ world }: { world: Koota.World }) => {
 	first = true;
 };
 
-export const addBody = (world: Koota.World) => {
-	world.create(Position, Velocity, Mass, Circle, Color);
+export const addBody = (world: World) => {
+	world.spawn(Position, Velocity, Mass, Circle, Color);
 };

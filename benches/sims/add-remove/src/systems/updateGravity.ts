@@ -1,18 +1,15 @@
-import { Velocity } from '../components/Velocity';
-import { Mass } from '../components/Mass';
-import { Position } from '../components/Position';
 import { CONSTANTS } from '../constants';
-import { Time } from '../components/Time';
+import { World } from 'koota';
+import { Velocity, Time } from '../trait';
 
-export const updateGravity = ({ world }: { world: Koota.World }) => {
-	const eids = world.query(Position, Mass, Velocity);
-	const { delta } = world.resources.get(Time);
-	const velocity = world.get(Velocity);
+export const updateGravity = ({ world }: { world: World }) => {
+	const { delta } = world.get(Time);
 
-	for (let i = 0; i < eids.length; i++) {
-		const eid = eids[i];
-
-		// Apply gravity directly to the velocity
-		velocity.y[eid] += CONSTANTS.GRAVITY * delta;
-	}
+	world.query(Velocity).updateEach(
+		([velocity]) => {
+			// Apply gravity directly to the velocity
+			velocity.y += CONSTANTS.GRAVITY * delta;
+		},
+		{ passive: true }
+	);
 };

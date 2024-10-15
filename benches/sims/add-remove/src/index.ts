@@ -1,9 +1,9 @@
-export { Circle } from './components/Circle';
-export { Position } from './components/Position';
-export { Velocity } from './components/Velocity';
-export { Mass } from './components/Mass';
-export { Color } from './components/Color';
-export { DummyComponents } from './components/Dummy';
+export { Circle } from './trait/Circle';
+export { Position } from './trait/Position';
+export { Velocity } from './trait/Velocity';
+export { Mass } from './trait/Mass';
+export { Color } from './trait/Color';
+export { DummyComponents } from './trait/Dummy';
 
 export { updateGravity } from './systems/updateGravity';
 export { moveBodies } from './systems/moveBodies';

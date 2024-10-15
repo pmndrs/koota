@@ -1,3 +1,4 @@
-import { modifier } from '../modifier';
+import { Trait } from '../../trait/types';
+import { ModifierData } from '../modifier';
 
-export const Not = modifier('not', 1, (...components) => components);
+export const Not = <T extends Trait[] = Trait[]>(...traits: T) => new ModifierData('not', 1, traits);

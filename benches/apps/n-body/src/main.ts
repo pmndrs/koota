@@ -1,6 +1,6 @@
 import { initStats } from '@app/bench-tools';
 import { CONSTANTS, schedule, world } from '@sim/n-body';
-import { define } from 'koota';
+import { trait } from 'koota';
 import * as THREE from 'three';
 import { scene } from './scene';
 import './styles.css';
@@ -61,8 +61,8 @@ schedule.add(init, { tag: 'init' });
 schedule.build();
 
 // Add Three resources to the world
-export const Three = define({ renderer, camera, scene });
-world.resources.add(Three);
+export const Three = trait({ renderer, camera, scene });
+world.add(Three);
 
 // Init stats
 const { updateStats, measure, create } = initStats({ Bodies: () => CONSTANTS.NBODIES });

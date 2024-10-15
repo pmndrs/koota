@@ -1,13 +1,16 @@
+import { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
-import { modifier } from '../modifier';
+import { ModifierData } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createAdded() {
 	const id = createTrackingId();
 
 	for (const world of universe.worlds) {
+		if (!world) continue;
 		setTrackingMasks(world, id);
 	}
 
-	return modifier(`added-${id}`, id, (...components) => components);
+	return <T extends Trait[] = Trait[]>(...traits: T) =>
+		new ModifierData<T>(`added-${id}`, id, traits);
 }
