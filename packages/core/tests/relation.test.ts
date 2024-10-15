@@ -94,16 +94,14 @@ describe('Relation', () => {
 		const silver = world.spawn();
 
 		inventory.add(Contains(gold));
-		const goldStore = getStores(world, Contains(gold));
-		const silverStore = getStores(world, Contains(silver));
-		goldStore.amount[inventory] = 5;
+		inventory.set(Contains(gold), { amount: 5 });
 
 		inventory.add(Contains(silver));
-		silverStore.amount[inventory] = 12;
+		inventory.set(Contains(silver), { amount: 12 });
 
 		expect(Contains(gold)).not.toBe(Contains(silver));
-		expect(goldStore.amount[inventory]).toBe(5);
-		expect(silverStore.amount[inventory]).toBe(12);
+		expect(inventory.get(Contains(gold)).amount).toBe(5);
+		expect(inventory.get(Contains(silver)).amount).toBe(12);
 	});
 
 	it('should query all relations with a wildcard', () => {
