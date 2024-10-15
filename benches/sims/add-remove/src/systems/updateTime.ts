@@ -1,7 +1,8 @@
-import { Time } from '../components/Time';
+import { World } from 'koota';
+import { Time } from '../trait/Time';
 
-export const updateTime = ({ world }: { world: Koota.World }) => {
-	const time = world.resources.get(Time);
+export const updateTime = ({ world }: { world: World }) => {
+	const time = world.get(Time);
 
 	if (time.then === 0) time.then = performance.now();
 
@@ -10,4 +11,6 @@ export const updateTime = ({ world }: { world: Koota.World }) => {
 
 	time.delta = Math.min(delta / 1000, 1 / 30);
 	time.then = now;
+
+	world.set(Time, time);
 };

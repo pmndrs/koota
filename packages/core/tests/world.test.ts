@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { universe } from '../src/universe/universe';
-import { define } from '../src/component/component';
+import { trait } from '../src/trait/trait';
 import { createWorld } from '../src';
 
 describe('World', () => {
@@ -14,44 +14,61 @@ describe('World', () => {
 		// World inits on creation.
 
 		expect(world.isInitialized).toBe(true);
-		expect(universe.worlds.length).toBe(1);
-	});
-
-	it('can create a world without initing', () => {
-		const world = createWorld({ init: false });
-
-		expect(world.isInitialized).toBe(false);
-		expect(universe.worlds.length).toBe(0);
-
-		world.init();
-
-		expect(world.isInitialized).toBe(true);
-		expect(universe.worlds.length).toBe(1);
+		expect(world.id).toBe(0);
+		expect(universe.worlds).toContain(world);
 	});
 
 	it('should reset the world', () => {
 		const world = createWorld();
 		world.reset();
 
-		expect(world.entities.length).toBe(0);
+		// Always has one entity that is the world itself.
+		expect(world.entities.length).toBe(1);
 	});
 
-	it('should add, remove and get resources', () => {
+	it('errors if more than 16 worlds are created', () => {
+		for (let i = 0; i < 16; i++) {
+			createWorld();
+		}
+
+		expect(() => createWorld()).toThrow();
+	});
+
+	it('should recycle world IDs when destroyed', () => {
 		const world = createWorld();
+		const id = world.id;
 
-		const Time = define({ then: 0, delta: 0 });
+		world.destroy();
 
-		world.resources.add(Time);
-		expect(world.resources.has(Time)).toBe(true);
+		const newWorld = createWorld();
+		expect(newWorld.id).toBe(id);
+	});
 
-		const time = world.resources.get(Time);
+	it('should add, remove and get singletons', () => {
+		const Test = trait({ then: 0, delta: 0 });
+
+		const world = createWorld(Test);
+		expect(world.has(Test)).toBe(true);
+
+		const Time = trait({ then: 0, delta: 0 });
+
+		world.add(Time);
+		expect(world.has(Time)).toBe(true);
+		expect(world.has(Test)).toBe(true);
+
+		// Does not show up in a query.
+		const query = world.query(Time);
+		expect(query.length).toBe(0);
+
+		const time = world.get(Time);
 		time.then = 1;
 		time.delta = 1;
+		world.set(Time, time);
 
 		expect(time.then).toBe(1);
 		expect(time.delta).toBe(1);
 
-		world.resources.remove(Time);
-		expect(world.resources.has(Time)).toBe(false);
+		world.remove(Time);
+		expect(world.has(Time)).toBe(false);
 	});
 });

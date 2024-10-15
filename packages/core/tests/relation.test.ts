@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { relation, Wildcard } from '../src/relation/relation';
 import { createWorld } from '../src';
+import { relation } from '../src/relation/relation';
+import { getStores } from '../src/trait/trait';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -19,16 +20,16 @@ describe('Relation', () => {
 		const Targeting = relation();
 		const Attacking = relation();
 
-		const player = world.create();
-		const guard = world.create();
-		const goblin = world.create(Targeting(player), Attacking(guard), Targeting(guard));
+		const player = world.spawn();
+		const guard = world.spawn();
+		const goblin = world.spawn(Targeting(player), Attacking(guard), Targeting(guard));
 
-		let targets = world.getTargets(Targeting, goblin);
+		let targets = goblin.targetsFor(Targeting);
 		expect(targets.length).toBe(2);
 		expect(targets).toContain(player);
 		expect(targets).toContain(guard);
 
-		targets = world.getTargets(Attacking, goblin);
+		targets = goblin.targetsFor(Attacking);
 		expect(targets.length).toBe(1);
 		expect(targets).toContain(guard);
 	});
@@ -36,42 +37,39 @@ describe('Relation', () => {
 	it('should maintain exclusive relations', () => {
 		const Targeting = relation({ exclusive: true });
 
-		const player = world.create();
-		const guard = world.create();
-		const goblin = world.create(Targeting(player));
+		const player = world.spawn();
+		const guard = world.spawn();
+		const goblin = world.spawn(Targeting(player));
 
-		let targets = world.getTargets(Targeting, goblin);
+		let target = goblin.targetFor(Targeting);
 
-		expect(targets.length).toBe(1);
-		expect(targets[0]).toBe(player);
-		expect(world.has(goblin, Targeting(player))).toBe(true);
+		expect(target).toBe(player);
+		expect(goblin.has(Targeting(player))).toBe(true);
 
-		world.add(goblin, Targeting(guard));
-		targets = world.getTargets(Targeting, goblin);
+		goblin.add(Targeting(guard));
+		target = goblin.targetFor(Targeting);
 
-		expect(targets.length).toBe(1);
-		expect(targets[0]).toBe(guard);
-		expect(world.has(goblin, Targeting(player))).toBe(false);
-		expect(world.has(goblin, Targeting(guard))).toBe(true);
+		expect(target).toBe(guard);
+		expect(goblin.has(Targeting(player))).toBe(false);
+		expect(goblin.has(Targeting(guard))).toBe(true);
 
-		world.add(goblin, Targeting(player));
-		targets = world.getTargets(Targeting, goblin);
+		goblin.add(Targeting(player));
+		target = goblin.targetFor(Targeting);
 
-		expect(targets.length).toBe(1);
-		expect(targets[0]).toBe(player);
-		expect(world.has(goblin, Targeting(player))).toBe(true);
-		expect(world.has(goblin, Targeting(guard))).toBe(false);
+		expect(target).toBe(player);
+		expect(goblin.has(Targeting(player))).toBe(true);
+		expect(goblin.has(Targeting(guard))).toBe(false);
 	});
 
 	it('should auto remove target and its descendants', () => {
 		const ChildOf = relation({ autoRemoveTarget: true });
 
-		const parent = world.create();
-		const child = world.create(ChildOf(parent));
+		const parent = world.spawn();
+		const child = world.spawn(ChildOf(parent));
 
-		const childChildA = world.create(ChildOf(child));
-		const childChildB = world.create(ChildOf(child));
-		const childChildC = world.create(ChildOf(childChildB));
+		const childChildA = world.spawn(ChildOf(child));
+		const childChildB = world.spawn(ChildOf(child));
+		const childChildC = world.spawn(ChildOf(childChildB));
 
 		expect(world.has(parent)).toBe(true);
 		expect(world.has(child)).toBe(true);
@@ -79,7 +77,7 @@ describe('Relation', () => {
 		expect(world.has(childChildB)).toBe(true);
 		expect(world.has(childChildC)).toBe(true);
 
-		world.destroy(parent);
+		parent.destroy();
 
 		expect(world.has(parent)).toBe(false);
 		expect(world.has(child)).toBe(false);
@@ -91,41 +89,37 @@ describe('Relation', () => {
 	it('should create stores for relations', () => {
 		const Contains = relation({ store: { amount: 0 } });
 
-		const inventory = world.create();
-		const gold = world.create();
-		const silver = world.create();
+		const inventory = world.spawn();
+		const gold = world.spawn();
+		const silver = world.spawn();
 
-		world.add(inventory, Contains(gold));
-		const goldStore = world.get(Contains(gold));
-		const silverStore = world.get(Contains(silver));
-		goldStore.amount[inventory] = 5;
+		inventory.add(Contains(gold));
+		inventory.set(Contains(gold), { amount: 5 });
 
-		world.add(inventory, Contains(silver));
-		silverStore.amount[inventory] = 12;
+		inventory.add(Contains(silver));
+		inventory.set(Contains(silver), { amount: 12 });
 
 		expect(Contains(gold)).not.toBe(Contains(silver));
-		expect(goldStore.amount[inventory]).toBe(5);
-		expect(silverStore.amount[inventory]).toBe(12);
-		expect(world.get(Contains(gold)).amount[inventory]).toBe(5);
-		expect(world.get(Contains(silver)).amount[inventory]).toBe(12);
+		expect(inventory.get(Contains(gold)).amount).toBe(5);
+		expect(inventory.get(Contains(silver)).amount).toBe(12);
 	});
 
 	it('should query all relations with a wildcard', () => {
 		const Contains = relation();
 
-		const inventory = world.create();
-		const shop = world.create();
-		const gold = world.create();
-		const silver = world.create();
+		const inventory = world.spawn();
+		const shop = world.spawn();
+		const gold = world.spawn();
+		const silver = world.spawn();
 
-		world.add(inventory, Contains(gold));
-		world.add(inventory, Contains(silver));
+		inventory.add(Contains(gold));
+		inventory.add(Contains(silver));
 
 		let relations = world.query(Contains('*'));
 		expect(relations.length).toBe(1);
 		expect(relations).toContain(inventory);
 
-		world.add(shop, Contains(gold));
+		shop.add(Contains(gold));
 
 		relations = world.query(Contains('*'));
 		expect(relations.length).toBe(2);

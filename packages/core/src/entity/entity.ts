@@ -1,101 +1,102 @@
-import { removeComponent } from '../component/component';
-import { $isPairComponent, $pairTarget, $relation } from '../component/symbols';
-import { ComponentOrWithParams } from '../component/types';
+import { removeTrait } from '../trait/trait';
+import { ConfigurableTrait } from '../trait/types';
 import { Pair, Wildcard } from '../relation/relation';
-import { $autoRemoveTarget } from '../relation/symbols';
-import {
-	$entityComponents,
-	$entityCursor,
-	$entityMasks,
-	$entitySparseSet,
-	$notQueries,
-	$recyclingBin,
-	$relationTargetEntities,
-	$removed,
-} from '../world/symbols';
+import { $internal } from '../common';
 import { World } from '../world/world';
+import { Entity } from './types';
+import { allocateEntity, releaseEntity } from './utils/entity-index';
 
-export function createEntity(world: World, ...components: ComponentOrWithParams[]): number {
-	let entity: number;
+// Ensure entity methods are patched.
+import './entity-methods-patch';
+import { getEntityId } from './utils/pack-entity';
 
-	// Recycle an entity if possible.
-	if (world[$removed].length > 0) {
-		entity = world[$removed].dequeue();
-	} else {
-		entity = world[$entityCursor]++;
-	}
+export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
+	const ctx = world[$internal];
+	const entity = allocateEntity(ctx.entityIndex);
 
-	// Add entity to the world.
-	world[$entitySparseSet].add(entity);
-
-	for (const query of world[$notQueries]) {
+	for (const query of ctx.notQueries) {
 		const match = query.check(world, entity);
 		if (match) query.add(entity);
+		// Reset all tracking bitmasks for the query.
+		query.resetTrackingBitmasks(entity.id());
 	}
 
-	world[$entityComponents].set(entity, new Set());
-
-	// Add components.
-	world.add(entity, ...components);
+	ctx.entityTraits.set(entity, new Set());
+	entity.add(...traits);
 
 	return entity;
 }
 
-export function destroyEntity(world: World, entity: number) {
+const cachedSet = new Set<Entity>();
+const cachedQueue = [] as Entity[];
+
+export function destroyEntity(world: World, entity: Entity) {
+	const ctx = world[$internal];
+
 	// Check if entity exists.
-	if (!world[$entitySparseSet].has(entity)) return;
+	if (!world.has(entity)) return;
 
-	// Remove relation components from entities that have a relation to this one.
-	// For example with children.
+	// Caching the lookup in the outer scope of the loop increases performance.
+	const entityQueue = cachedQueue;
+	const processedEntities = cachedSet;
 
-	// Check to see if this entity is a relation target at all.
-	if (world[$relationTargetEntities].has(entity)) {
-		// If it is, iterate over all subjects with any relation to this entity.
-		for (const subject of world.query(Wildcard(entity))) {
-			const subjectExists = world[$entitySparseSet].has(subject);
+	// Ensure the queue is empty before starting.
+	entityQueue.length = 0;
+	entityQueue.push(entity);
 
-			// TODO: can we avoid this check? (subject may have been removed already)
-			if (!subjectExists) continue;
+	// Destroyed entities may be the target of relations.
+	// To avoid stale references, all these relations must be removed.
+	// In addition, if the relation has the autoRemoveTarget flag set,
+	// the target entity should also be destroyed, for example children relations.
+	while (entityQueue.length > 0) {
+		const currentEntity = entityQueue.pop()!;
+		if (processedEntities.has(currentEntity)) continue;
+		processedEntities.add(currentEntity);
 
-			// Remove the wildcard association with the subject for this entity.
-			removeComponent(world, subject, Pair(Wildcard, entity));
+		// Process all related entities and traits.
+		if (ctx.relationTargetEntities.has(currentEntity)) {
+			for (const subject of world.query(Wildcard(currentEntity))) {
+				if (!world.has(subject)) continue;
 
-			// Iterate all relations that the subject has to this entity.
-			for (const component of world[$entityComponents].get(subject)!) {
-				// TODO: Can we avoid this check? (subject may have been removed by this loop already)
-				if (!component[$isPairComponent] || !subjectExists) {
-					continue;
-				}
-				const relation = component[$relation]!;
+				for (const trait of ctx.entityTraits.get(subject)!) {
+					const traitCtx = trait[$internal];
+					if (!traitCtx.isPairTrait) continue;
 
-				if (component[$pairTarget] === entity) {
-					if (relation[$autoRemoveTarget]) {
-						destroyEntity(world, subject);
-					} else {
-						removeComponent(world, subject, component);
+					const relationCtx = traitCtx.relation[$internal];
+
+					// Remove wildcard pair trait.
+					removeTrait(world, subject, Pair(Wildcard, currentEntity));
+
+					if (traitCtx.pairTarget === currentEntity) {
+						// Remove the specific pair trait.
+						removeTrait(world, subject, trait);
+
+						if (relationCtx.autoRemoveTarget) {
+							entityQueue.push(subject);
+						}
 					}
-					// if (relation[$onTargetRemoved]) {
-					// 	relation[$onTargetRemoved](world, subject, eid);
-					// }
 				}
 			}
 		}
+
+		// Remove all traits of the current entity.
+		const entityTraits = ctx.entityTraits.get(currentEntity);
+		if (entityTraits) {
+			for (const trait of entityTraits) {
+				removeTrait(world, currentEntity, trait);
+			}
+		}
+
+		// Free the entity.
+		releaseEntity(ctx.entityIndex, currentEntity);
+
+		// Remove all entity state from world.
+		ctx.entityTraits.delete(entity);
+
+		// Clear entity bitmasks.
+		const eid = getEntityId(currentEntity);
+		for (let i = 0; i < ctx.entityMasks.length; i++) {
+			ctx.entityMasks[i][eid] = 0;
+		}
 	}
-
-	// Remove all components.
-	for (const component of world[$entityComponents].get(entity)!) {
-		removeComponent(world, entity, component);
-	}
-
-	// for (const query of world[$queries]) {
-	// 	query.remove(world, entity);
-	// }
-
-	// Recycle the entity.
-	world[$recyclingBin].push(entity);
-	world[$entitySparseSet].remove(entity);
-	world[$entityComponents].delete(entity);
-
-	// Clear entity bitmasks.
-	for (let i = 0; i < world[$entityMasks].length; i++) world[$entityMasks][i][entity] = 0;
 }

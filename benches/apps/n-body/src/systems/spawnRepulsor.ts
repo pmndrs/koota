@@ -1,5 +1,4 @@
-import { Acceleration, Circle, Color, Mass, Position, Velocity, world } from '@sim/n-body';
-import { Repulse } from '@sim/n-body/src/components/Repulse';
+import { Acceleration, Circle, Color, Mass, Position, Velocity, Repulse, world } from '@sim/n-body';
 
 let lastSpawnTime = 0;
 const spawnInterval = 100; // milliseconds
@@ -20,7 +19,7 @@ export function spawnRepulsor(e: PointerEvent, frustumSize: number) {
 	const x = (ndcX * viewWidth) / 2;
 	const y = (ndcY * viewHeight) / 2;
 
-	world.create(
+	world.spawn(
 		Position({ x, y }),
 		Circle({ radius: 160 }),
 		Color({ r: 255, g: 0, b: 0 }),

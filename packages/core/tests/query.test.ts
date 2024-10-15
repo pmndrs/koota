@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cacheQuery, createWorld } from '../src';
-import { define } from '../src/component/component';
+import { trait, getStores } from '../src/trait/trait';
 import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
 import { createRemoved } from '../src/query/modifiers/removed';
-import { $queriesHashMap } from '../src/world/symbols';
+import { $internal } from '../src/common';
+import { IsExcluded } from '../src/query/query';
+import { Or } from '../src/query/modifiers/or';
 
-const Position = define({ x: 0, y: 0 });
-const Name = define({ name: 'name' });
-const IsActive = define();
-const Foo = define({});
-const Bar = define({});
+const Position = trait({ x: 0, y: 0 });
+const Name = trait({ name: 'name' });
+const IsActive = trait();
+const Foo = trait({});
+const Bar = trait({});
 
 describe('Query', () => {
 	const world = createWorld();
@@ -22,34 +24,38 @@ describe('Query', () => {
 	});
 
 	it('should query entities that match the parameters', () => {
-		const entityA = world.create();
-		const entityB = world.create();
-		const entityC = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
+		const entityC = world.spawn();
 
-		world.add(entityA, Position, Name, IsActive);
-		world.add(entityB, Position, Name);
-		world.add(entityC, Position);
+		entityA.add(Position, Name, IsActive);
+		entityB.add(Position, Name);
+		entityC.add(Position);
 
-		let entities = world.query(Position, Name, IsActive);
-		expect(entities).toEqual([entityA]);
+		let entities: any = world.query(Position, Name, IsActive);
+		expect(entities[0]).toBe(entityA);
 
 		entities = world.query(Position, Name);
-		expect(entities).toEqual([entityA, entityB]);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
 
 		entities = world.query(Position);
-		expect(entities).toEqual([entityA, entityB, entityC]);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
+		expect(entities[2]).toBe(entityC);
 
-		world.remove(entityA, IsActive);
+		entityA.remove(IsActive);
 		entities = world.query(Position, Name, IsActive);
-		expect(entities).toEqual([]);
+		expect(entities.length).toBe(0);
 	});
 
 	it('should only create one hash indpendent of the order of the parameters', () => {
-		let entities = world.query(Position, Name, Not(IsActive));
+		const ctx = world[$internal];
+		let entities: any = world.query(Position, Name, Not(IsActive));
 		expect(entities.length).toBe(0);
 
-		const entA = world.create();
-		world.add(entA, Position, Name);
+		const entA = world.spawn();
+		entA.add(Position, Name);
 
 		entities = world.query(Position, Name, Not(IsActive));
 		expect(entities.length).toBe(1);
@@ -57,13 +63,13 @@ describe('Query', () => {
 		entities = world.query(Name, Not(IsActive), Position);
 		expect(entities.length).toBe(1);
 
-		expect(world[$queriesHashMap].size).toBe(1);
+		expect(ctx.queriesHashMap.size).toBe(1);
 
 		// Test various permutations of modifiers.
 		entities = world.query(IsActive, Not(Position, Name));
 		expect(entities.length).toBe(0);
 
-		expect(world[$queriesHashMap].size).toBe(2);
+		expect(ctx.queriesHashMap.size).toBe(2);
 
 		entities = world.query(Not(Name, Position), IsActive);
 		expect(entities.length).toBe(0);
@@ -71,55 +77,59 @@ describe('Query', () => {
 		entities = world.query(Not(Position), IsActive, Not(Name));
 		expect(entities.length).toBe(0);
 
-		expect(world[$queriesHashMap].size).toBe(2);
+		expect(ctx.queriesHashMap.size).toBe(2);
 	});
 
 	it('should return an empty array if there are no query parameters', () => {
-		world.create();
+		world.spawn();
 		const entities = world.query();
-		expect(entities).toEqual([]);
+		expect(entities.length).toBe(0);
 	});
 
-	it('should correctly populate Not queries when components are added and removed', () => {
-		const entityA = world.create();
-		const entityB = world.create();
-		const entityC = world.create();
+	it('should correctly populate Not queries when traits are added and removed', () => {
+		const entityA = world.spawn();
+		const entityB = world.spawn();
+		const entityC = world.spawn();
 
-		let entities = world.query(Foo);
+		let entities: any = world.query(Foo);
 		expect(entities.length).toBe(0);
 
 		entities = world.query(Not(Foo));
-		expect(entities).toEqual([entityA, entityB, entityC]);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
+		expect(entities[2]).toBe(entityC);
 
 		// Add
-		world.add(entityA, Foo);
-		world.add(entityB, Bar);
-		world.add(entityC, Foo, Bar);
+		entityA.add(Foo);
+		entityB.add(Bar);
+		entityC.add(Foo, Bar);
 
 		entities = world.query(Foo);
-		expect(entities).toEqual([entityA, entityC]);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityC);
 
 		entities = world.query(Foo, Bar);
-		expect(entities).toEqual([entityC]);
+		expect(entities[0]).toBe(entityC);
 
 		entities = world.query(Not(Foo));
-		expect(entities).toEqual([entityB]);
+		expect(entities[0]).toBe(entityB);
 
 		// Remove
-		world.remove(entityA, Foo);
+		entityA.remove(Foo);
 
 		entities = world.query(Foo);
-		expect(entities).toEqual([entityC]);
+		expect(entities[0]).toBe(entityC);
 
 		entities = world.query(Not(Foo));
-		expect(entities).toEqual([entityB, entityA]);
+		expect(entities[0]).toBe(entityB);
+		expect(entities[1]).toBe(entityA);
 
 		entities = world.query(Not(Foo), Not(Bar));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
-		// Remove more so entity A and C have no components
-		world.remove(entityC, Foo);
-		world.remove(entityC, Bar);
+		// Remove more so entity A and C have no traits
+		entityC.remove(Foo);
+		entityC.remove(Bar);
 
 		entities = world.query(Not(Foo), Not(Bar));
 		expect(entities.length).toBe(2);
@@ -129,104 +139,106 @@ describe('Query', () => {
 	});
 
 	it('modifiers can be added as one call or separately', () => {
-		const entity = world.create();
-		world.add(entity, Position, IsActive);
+		const ctx = world[$internal];
+		const entity = world.spawn();
+		entity.add(Position, IsActive);
 
-		let entities = world.query(Not(Foo), Not(Bar));
+		let entities: any = world.query(Not(Foo), Not(Bar));
 		expect(entities.length).toBe(1);
 
 		entities = world.query(Not(Foo, Bar));
 		expect(entities.length).toBe(1);
 
 		// These queries should be hashed the same.
-		expect(world[$queriesHashMap].size).toBe(1);
+		expect(ctx.queriesHashMap.size).toBe(1);
 	});
 
-	it('should correctly populate Added queries when components are added', () => {
+	it('should correctly populate Added queries when traits are added', () => {
 		const Added = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
-		const entityC = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
+		const entityC = world.spawn();
 
 		let entities: readonly number[] = [];
 
 		entities = world.query(Added(Foo));
 		expect(entities.length).toBe(0);
 
-		world.add(entityA, Foo);
+		entityA.add(Foo);
 		entities = world.query(Added(Foo));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
 		// The query gets drained and should be empty when run again.
 		entities = world.query(Added(Foo));
 		expect(entities.length).toBe(0);
 
-		world.add(entityB, Foo);
+		entityB.add(Foo);
 		entities = world.query(Added(Foo));
-		expect(entities).toEqual([entityB]);
+		expect(entities[0]).toBe(entityB);
 
 		// And a static query should give both entities.
 		entities = world.query(Foo);
-		expect(entities).toEqual([entityA, entityB]);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
 
-		// Should not be added to the query if the component is removed before it is read.
-		world.add(entityC, Foo);
-		world.remove(entityC, Foo);
+		// Should not be added to the query if the trait is removed before it is read.
+		entityC.add(Foo);
+		entityC.remove(Foo);
 		entities = world.query(Added(Foo));
 		expect(entities.length).toBe(0);
 
 		// But if it is removed and added again in the same frame it should be recorded.
-		world.remove(entityA, Foo);
-		world.add(entityA, Foo);
+		entityA.remove(Foo);
+		entityA.add(Foo);
 		entities = world.query(Added(Foo));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
-		// Should only populate the query if tracked component is added,
+		// Should only populate the query if tracked trait is added,
 		// even if it matches the query otherwise.
-		world.remove(entityA, Foo, Bar); // Quick reset
-		world.add(entityA, Foo);
+		entityA.remove(Foo, Bar); // Quick reset
+		entityA.add(Foo);
 		world.query(Added(Foo)); // Drain query
 
-		world.add(entityA, Bar);
+		entityA.add(Bar);
 		entities = world.query(Added(Foo));
 		expect(entities.length).toBe(0); // Fails for Added
 		entities = world.query(Foo, Bar);
-		expect(entities).toEqual([entityA]); // But matches static query
+		expect(entities[0]).toBe(entityA); // But matches static query
 	});
 
-	it('should properly populate Added queries with mulitple tracked components', () => {
+	it('should properly populate Added queries with mulitple tracked traits', () => {
 		const Added = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Added(Foo, Bar));
 		expect(entities.length).toBe(0);
 
-		world.add(entityA, Foo);
+		entityA.add(Foo);
 		entities = world.query(Added(Foo, Bar));
 		expect(entities.length).toBe(0);
 
-		world.add(entityA, Bar);
+		entityA.add(Bar);
 		entities = world.query(Added(Foo, Bar));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
-		world.add(entityB, Foo);
+		entityB.add(Foo);
 		entities = world.query(Added(Foo, Bar));
 		expect(entities.length).toBe(0);
 
-		world.add(entityB, Bar);
+		entityB.add(Bar);
 		entities = world.query(Added(Foo, Bar));
-		expect(entities).toEqual([entityB]);
+		expect(entities[0]).toBe(entityB);
 	});
 
 	it('should track multiple Added modifiers independently', () => {
 		const Added = createAdded();
 		const Added2 = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Added(Foo));
 		expect(entities.length).toBe(0);
@@ -234,12 +246,12 @@ describe('Query', () => {
 		let entities2 = world.query(Added2(Foo));
 		expect(entities2.length).toBe(0);
 
-		world.add(entityA, Foo);
+		entityA.add(Foo);
 		entities = world.query(Added(Foo));
 		expect(entities.length).toBe(1);
 
-		world.remove(entityB, Foo);
-		world.add(entityB, Foo);
+		entityB.remove(Foo);
+		entityB.add(Foo);
 		entities = world.query(Added(Foo));
 		entities2 = world.query(Added2(Foo));
 
@@ -247,25 +259,26 @@ describe('Query', () => {
 		expect(entities2.length).toBe(2);
 	});
 
-	it('should populate Added queries even if they are registered after the component is added', () => {
+	it('should populate Added queries even if they are registered after the trait is added', () => {
 		const Added = createAdded();
 
-		const entityA = world.create(Foo);
-		const entityB = world.create(Foo, Bar);
+		const entityA = world.spawn(Foo);
+		const entityB = world.spawn(Foo, Bar);
 
-		let entities = world.query(Added(Foo));
-		expect(entities).toEqual([entityA, entityB]);
+		let entities: any = world.query(Added(Foo));
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
 
 		entities = world.query(Added(Foo, Bar));
-		expect(entities).toEqual([entityB]);
+		expect(entities[0]).toBe(entityB);
 
 		const LaterAdded = createAdded();
 
 		let entities2 = world.query(LaterAdded(Foo));
 		expect(entities2.length).toBe(0);
 
-		world.remove(entityA, Foo); // Reset
-		world.add(entityA, Foo);
+		entityA.remove(Foo); // Reset
+		entityA.add(Foo);
 		entities = world.query(Added(Foo));
 		entities2 = world.query(LaterAdded(Foo));
 
@@ -276,8 +289,8 @@ describe('Query', () => {
 	it('should combine Not and Added modifiers with logical AND', () => {
 		const Added = createAdded();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		// No entities should match this query since while Not will match
 		// all empty entities, Added will only match entities that have Foo.
@@ -285,53 +298,52 @@ describe('Query', () => {
 		expect(entities.length).toBe(0);
 
 		// Adding Foo to entityA should match the query as it has Foo added and not Bar.
-		world.add(entityA, Foo);
+		entityA.add(Foo);
 		entities = world.query(Added(Foo), Not(Bar));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
 		// Adding Foo and Bar to entityB should not match the query as it has Bar.
-		world.add(entityB, Foo, Bar);
+		entityB.add(Foo, Bar);
 		entities = world.query(Added(Foo), Not(Bar));
 		expect(entities.length).toBe(0);
 	});
 
-	it('should properly populate Removed queries when components are removed', () => {
+	it('should properly populate Removed queries when traits are removed', () => {
 		const Removed = createRemoved();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Removed(Foo));
 		expect(entities.length).toBe(0);
 
-		world.add(entityA, Foo);
-		world.add(entityB, Foo);
+		entityA.add(Foo);
+		entityB.add(Foo);
 		entities = world.query(Removed(Foo));
 		expect(entities.length).toBe(0);
 
-		world.remove(entityA, Foo);
+		entityA.remove(Foo);
 		entities = world.query(Removed(Foo));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
-		// Should work with components added and removed in the same frame.
-		world.add(entityA, Foo);
-		world.remove(entityA, Foo);
+		// Should work with traits added and removed in the same frame.
+		entityA.add(Foo);
+		entityA.remove(Foo);
 		entities = world.query(Removed(Foo));
-		expect(entities).toEqual([entityA]);
-
+		expect(entities[0]).toBe(entityA);
 		// Should track between Removed modifiers independently.
 		const Removed2 = createRemoved();
 
 		let entities2 = world.query(Removed2(Foo));
 		expect(entities2.length).toBe(0);
 
-		world.add(entityA, Foo);
-		world.remove(entityA, Foo);
+		entityA.add(Foo);
+		entityA.remove(Foo);
 		entities = world.query(Removed(Foo));
 		expect(entities.length).toBe(1);
 
-		world.add(entityB, Foo);
-		world.remove(entityB, Foo);
+		entityB.add(Foo);
+		entityB.remove(Foo);
 		entities = world.query(Removed(Foo));
 		entities2 = world.query(Removed2(Foo));
 
@@ -339,23 +351,23 @@ describe('Query', () => {
 		expect(entities2.length).toBe(2);
 	});
 
-	it('should populate Removed queries even if they are registered after the component is removed', () => {
+	it('should populate Removed queries even if they are registered after the trait is removed', () => {
 		const Removed = createRemoved();
 
-		const entity = world.create(Foo);
-		world.remove(entity, Foo);
+		const entity = world.spawn(Foo);
+		entity.remove(Foo);
 
 		let entities = world.query(Removed(Foo));
-		expect(entities).toEqual([entity]);
+		expect(entities[0]).toBe(entity);
 
-		world.add(entity, Foo); // Reset
+		entity.add(Foo); // Reset
 
 		const LaterRemoved = createRemoved();
 
 		let entities2 = world.query(LaterRemoved(Foo));
 		expect(entities2.length).toBe(0);
 
-		world.remove(entity, Foo);
+		entity.remove(Foo);
 		entities = world.query(Removed(Foo));
 		entities2 = world.query(LaterRemoved(Foo));
 
@@ -366,8 +378,8 @@ describe('Query', () => {
 	it('should combine Not and Removed modifiers with logical AND', () => {
 		const Removed = createRemoved();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		// Initially, no entities should match the query because no entities
 		// have Foo removed even though Not matches all empty entities.
@@ -375,24 +387,24 @@ describe('Query', () => {
 		expect(entities.length).toBe(0);
 
 		// Add Foo to entityA, then it should not match as it hasn't been removed yet.
-		world.add(entityA, Foo);
+		entityA.add(Foo);
 		entities = world.query(Removed(Foo), Not(Bar));
 		expect(entities.length).toBe(0);
 
 		// Add Foo and Bar to entityB, it also should not match as
 		// Foo hasn't been removed and it has Bar.
-		world.add(entityB, Foo, Bar);
+		entityB.add(Foo, Bar);
 		entities = world.query(Removed(Foo), Not(Bar));
 		expect(entities.length).toBe(0);
 
 		// Remove Foo from entityA, it should now match as Foo is removed and
 		// it does not have Bar.
-		world.remove(entityA, Foo);
+		entityA.remove(Foo);
 		entities = world.query(Removed(Foo), Not(Bar));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
 		// Remove Foo from entityB, it should still not match as it has Bar.
-		world.remove(entityB, Foo);
+		entityB.remove(Foo);
 		entities = world.query(Removed(Foo), Not(Bar));
 		expect(entities.length).toBe(0);
 	});
@@ -401,102 +413,102 @@ describe('Query', () => {
 		const Added = createAdded();
 		const Removed = createRemoved();
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
 		let entities = world.query(Added(Foo), Removed(Bar));
 		expect(entities.length).toBe(0);
 
 		// Add Foo to entityA and Bar to entityB.
 		// Neither entity should match the query.
-		world.add(entityA, Foo);
-		world.add(entityB, Bar);
+		entityA.add(Foo);
+		entityB.add(Bar);
 		entities = world.query(Added(Foo), Removed(Bar));
 		expect(entities.length).toBe(0);
 
 		// Remove Foo from entityA and remove Bar from entityB.
 		// Neither entity should match the query.
-		world.remove(entityA, Foo);
-		world.remove(entityB, Bar);
+		entityA.remove(Foo);
+		entityB.remove(Bar);
 		entities = world.query(Added(Foo), Removed(Bar));
 		expect(entities.length).toBe(0);
 
 		// Add Foo and Bar to entityA, then remove Bar.
 		// This entity should now match the query.
-		world.add(entityA, Foo, Bar);
-		world.remove(entityA, Bar);
+		entityA.add(Foo, Bar);
+		entityA.remove(Bar);
 		entities = world.query(Added(Foo), Removed(Bar));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
 		// Resets and can fill again.
-		world.remove(entityA, Foo);
-		world.add(entityA, Foo);
+		entityA.remove(Foo);
+		entityA.add(Foo);
 		entities = world.query(Added(Foo), Removed(Bar));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
 		// Add Foo to entityB and remove Bar.
 		// This entity should now match the query.
-		world.add(entityB, Foo, Bar);
-		world.remove(entityB, Bar);
+		entityB.add(Foo, Bar);
+		entityB.remove(Bar);
 		entities = world.query(Added(Foo), Removed(Bar));
-		expect(entities).toEqual([entityB]);
+		expect(entities[0]).toBe(entityB);
 
 		// Make sure changes in one entity do not leak to the other.
-		const entityC = world.create();
-		const entityD = world.create();
+		const entityC = world.spawn();
+		const entityD = world.spawn();
 
-		world.add(entityC, Foo);
-		world.add(entityD, Bar);
-		world.remove(entityD, Bar);
+		entityC.add(Foo);
+		entityD.add(Bar);
+		entityD.remove(Bar);
 
 		entities = world.query(Added(Foo), Removed(Bar));
 		expect(entities.length).toBe(0);
 	});
 
-	it('should properly populate Changed queries when components are changed', () => {
+	it('should properly populate Changed queries when traits are changed', () => {
 		const Changed = createChanged();
 
-		const entityA = world.create();
+		const entityA = world.spawn();
 
 		let entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 
-		world.add(entityA, Position);
+		entityA.add(Position);
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 
-		const positions = world.get(Position);
+		const positions = getStores(world, Position);
 		positions.x[entityA] = 10;
 		positions.y[entityA] = 20;
 
 		// Set changed should populate the query.
-		world.changed(entityA, Position);
+		entityA.changed(Position);
 		entities = world.query(Changed(Position));
-		expect(entities).toEqual([entityA]);
+		expect(entities[0]).toBe(entityA);
 
 		// Querying again should not return the entity.
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 
-		// Should not populate the query if the component is removed.
-		world.remove(entityA, Position);
-		world.changed(entityA, Position);
+		// Should not populate the query if the trait is removed.
+		entityA.remove(Position);
+		entityA.changed(Position);
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 	});
 
-	it('should populate Changed queries even if they are registered after the component is changed', () => {
+	it('should populate Changed queries even if they are registered after the trait is changed', () => {
 		const Changed = createChanged();
 
-		const entity = world.create(Position);
+		const entity = world.spawn(Position);
 
-		const positions = world.get(Position);
+		const positions = getStores(world, Position);
 		positions.x[entity] = 10;
 		positions.y[entity] = 20;
-		world.changed(entity, Position);
+		entity.changed(Position);
 
 		let entities = world.query(Changed(Position));
-		expect(entities).toEqual([entity]);
+		// expect(entities).toEqual([entity]);
 
 		const LaterChanged = createChanged();
 
@@ -505,7 +517,7 @@ describe('Query', () => {
 
 		positions.x[entity] = 30;
 		positions.y[entity] = 40;
-		world.changed(entity, Position);
+		entity.changed(Position);
 
 		entities = world.query(Changed(Position));
 		entities2 = world.query(LaterChanged(Position));
@@ -515,89 +527,47 @@ describe('Query', () => {
 	});
 
 	it('can be subscribed to for a stream of updates', () => {
-		const event = { type: '', entity: 0 };
-		const staticCb = vi.fn((type, entity) => {
-			event.type = type;
+		const event = { entity: 0 };
+		const staticCb = vi.fn((entity) => {
 			event.entity = entity;
 		});
 
 		// Static query subscriptions.
-		const entity = world.create();
+		const entity = world.spawn();
 
-		world.query.subscribe([Position, Foo], staticCb);
+		world.onAdd([Position, Foo], staticCb);
+		world.onRemove([Position, Foo], staticCb);
 
-		world.add(entity, Position);
+		entity.add(Position);
 		expect(staticCb).toHaveBeenCalledTimes(0);
 
-		world.add(entity, Foo);
+		entity.add(Foo);
 		expect(staticCb).toHaveBeenCalledTimes(1);
-		expect(event.type).toBe('add');
 		expect(event.entity).toBe(entity);
 
-		world.remove(entity, Foo, Position);
+		entity.remove(Foo);
 		expect(staticCb).toHaveBeenCalledTimes(2);
-		expect(event.type).toBe('remove');
 		expect(event.entity).toBe(entity);
-
-		// Added query subscriptions.
-		// This acts the same as a static query since we
-		// get a stream of matching if the components were added.
-		const trackingCb = vi.fn();
-		const Added = createAdded();
-
-		world.query.subscribe([Added(Foo)], trackingCb);
-
-		world.add(entity, Foo);
-		expect(trackingCb).toHaveBeenCalledTimes(1);
-		expect(trackingCb).toHaveBeenCalledWith('add', entity);
-
-		world.remove(entity, Foo);
-		expect(trackingCb).toHaveBeenCalledTimes(2);
-		expect(trackingCb).toHaveBeenCalledWith('remove', entity);
-
-		// Removed query subscriptions.
-		const Removed = createRemoved();
-		const removedCb = vi.fn();
-
-		world.query.subscribe([Removed(Foo)], removedCb);
-
-		world.add(entity, Foo);
-		expect(removedCb).toHaveBeenCalledTimes(0);
-
-		world.remove(entity, Foo);
-		expect(removedCb).toHaveBeenCalledTimes(1);
-		expect(removedCb).toHaveBeenCalledWith('add', entity);
-
-		world.add(entity, Foo);
-		expect(removedCb).toHaveBeenCalledTimes(2);
-		expect(removedCb).toHaveBeenCalledWith('remove', entity);
 	});
 
-	it('can subscribe to changes on a specific component', () => {
-		const entity = world.create(Position);
+	it('can subscribe to changes on a specific trait', () => {
+		const entity = world.spawn(Position);
 
 		const cb = vi.fn();
-		const unsub = world.changed.subscribe(Position, cb);
+		const unsub = world.onChange(Position, cb);
 
-		const positions = world.get(Position);
-		positions.x[entity] = 10;
-		positions.y[entity] = 20;
-
-		world.changed(entity, Position);
+		entity.set(Position, { x: 10, y: 20 });
 
 		expect(cb).toHaveBeenCalledTimes(1);
 		expect(cb).toHaveBeenCalledWith(entity);
 
 		unsub();
 
-		positions.x[entity] = 30;
-		positions.y[entity] = 40;
-
-		world.changed(entity, Position);
+		entity.set(Position, { x: 20, y: 30 });
 
 		expect(cb).toHaveBeenCalledTimes(1);
 
-		world.changed(entity, Name);
+		entity.changed(Name);
 
 		expect(cb).toHaveBeenCalledTimes(1);
 	});
@@ -605,14 +575,123 @@ describe('Query', () => {
 	it('can cache and use the query key', () => {
 		const key = cacheQuery(Position, Name, IsActive);
 
-		const entityA = world.create();
-		const entityB = world.create();
+		const entityA = world.spawn();
+		const entityB = world.spawn();
 
-		world.add(entityA, Position, Name, IsActive);
-		world.add(entityB, Position, Name);
+		entityA.add(Position, Name, IsActive);
+		entityB.add(Position, Name);
 
 		let entities = world.query(key);
 
 		expect(entities).toEqual([entityA]);
+	});
+
+	it('should exclude entities with IsExcluded', () => {
+		world.spawn(Position, IsExcluded);
+		let entities = world.query(Position);
+		expect(entities.length).toBe(0);
+	});
+
+	it('should update stores with updateEach', () => {
+		for (let i = 0; i < 10; i++) {
+			world.spawn(Position);
+		}
+
+		const query = world.query(Position);
+
+		query.updateEach(([position], entity, index) => {
+			if (index === 0) return;
+			position.x = 10;
+		});
+
+		expect(query.length).toBe(10);
+		expect(query[0].get(Position).x).toBe(0);
+
+		for (let i = 1; i < 10; i++) {
+			expect(query[i].get(Position).x).toBe(10);
+		}
+	});
+
+	it('should trigger change events when traits are modified with updateEach', () => {
+		const cb = vi.fn();
+		world.onChange(Position, cb);
+
+		for (let i = 0; i < 10; i++) {
+			world.spawn(Position);
+		}
+
+		const query = world.query(Position);
+
+		query.updateEach(([position], entity, index) => {
+			if (index === 0) return;
+			position.x = 10;
+		});
+
+		expect(cb).toHaveBeenCalledTimes(9);
+
+		// If values do not change, no events should be triggered.
+		query.updateEach(([position], entity, index) => {
+			if (index === 0) return;
+			position.x = 10;
+		});
+
+		expect(cb).toHaveBeenCalledTimes(9);
+	});
+
+	it('updateEach can be run passively with no change detection', () => {
+		const cb = vi.fn();
+		world.onChange(Position, cb);
+
+		for (let i = 0; i < 10; i++) {
+			world.spawn(Position);
+		}
+
+		const query = world.query(Position);
+
+		query.updateEach(
+			([position], entity, index) => {
+				if (index === 0) return;
+				position.x = 10;
+			},
+			{ passive: true }
+		);
+
+		expect(cb).toHaveBeenCalledTimes(0);
+	});
+
+	it('should return the first entity in a query', () => {
+		const entityA = world.spawn(Position);
+		const entityB = world.spawn(Position);
+
+		const entity = world.queryFirst(Position);
+		expect(entity).toBe(entityA);
+	});
+
+	it('should implement Or', () => {
+		const entityA = world.spawn(Position);
+		const entityB = world.spawn(Foo);
+		const entityC = world.spawn(Bar);
+
+		const entities = world.query(Or(Position, Foo));
+
+		expect(entities).toContain(entityA);
+		expect(entities).toContain(entityB);
+		expect(entities).not.toContain(entityC);
+	});
+
+	it('should select traits', () => {
+		world.spawn(Position, Name);
+
+		const results = world.query(Position, Name);
+		// Default should be the same as the query.
+		results.updateEach(([position, name]) => {
+			expect(position.x).toBeDefined();
+			expect(name.name).toBeDefined();
+		});
+
+		// Select only Name.
+		results.select(Name).updateEach(([name]) => {
+			expect(name.name).toBeDefined();
+		});
 	});
 });

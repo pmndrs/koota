@@ -1,36 +1,33 @@
-import { Circle } from '../components/Circle';
-import { Color } from '../components/Color';
-import { Mass } from '../components/Mass';
-import { Position } from '../components/Position';
-import { Velocity } from '../components/Velocity';
 import { CONSTANTS } from '../constants';
+import { Circle, Color, Mass, Position, Velocity } from '../trait';
 import { addBody } from './init';
+import { World } from 'koota';
 
 let draining = true;
 
-export const recycleBodiesSim = ({ world }: { world: Koota.World }) => {
-	const eids = world.query(Position, Circle, Mass, Velocity, Color);
-	const position = world.get(Position);
+export const recycleBodiesSim = ({ world }: { world: World }) => {
+	const entities = world.query(Position, Circle, Mass, Velocity, Color);
 
-	if (eids.length === 0) draining = false;
-	if (eids.length > CONSTANTS.BODIES * 0.95) draining = true;
+	if (entities.length === 0) draining = false;
+	if (entities.length > CONSTANTS.BODIES * 0.95) draining = true;
 
-	for (let i = 0; i < eids.length; i++) {
-		const eid = eids[i];
+	entities.select(Position).updateEach(
+		([position], entity) => {
+			if (position.y < CONSTANTS.FLOOR) {
+				// Remove the entity
+				entity.destroy();
 
-		if (position.y[eid] < CONSTANTS.FLOOR) {
-			// Remove entity
-			world.destroy(eid);
-
-			if (!CONSTANTS.DRAIN) addBody(world);
-		}
-	}
+				if (!CONSTANTS.DRAIN) addBody(world);
+			}
+		},
+		{ passive: true }
+	);
 
 	if (!CONSTANTS.DRAIN) return;
 
 	const target = Math.min(
-		Math.max(CONSTANTS.BODIES * 0.01, eids.length * 0.5),
-		CONSTANTS.BODIES - eids.length
+		Math.max(CONSTANTS.BODIES * 0.01, entities.length * 0.5),
+		CONSTANTS.BODIES - entities.length
 	);
 
 	if (!draining) {

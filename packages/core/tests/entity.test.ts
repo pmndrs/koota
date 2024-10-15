@@ -1,81 +1,138 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
-import { define } from '../src/component/component';
-import { $entityCursor, $entitySparseSet, $recyclingBin, $removed } from '../src/world/symbols';
+import { trait, getStores } from '../src/trait/trait';
+import { Entity } from '../src/entity/types';
+import { unpackEntity } from '../src/entity/utils/pack-entity';
 
-const Foo = define();
-const Bar = define();
+const Foo = trait();
+const Bar = trait({ value: 0 });
 
 describe('Entity', () => {
 	const world = createWorld();
-	world.init();
 
 	beforeEach(() => {
 		world.reset();
 	});
 
 	it('should create and destroy an entity', () => {
-		const entityA = world.create();
-		expect(entityA).toBe(0);
-		expect(world[$entitySparseSet].dense.length).toBe(1);
-		expect(world[$entityCursor]).toBe(1);
+		const entityA = world.spawn();
+		expect(entityA).toBe(1);
 
-		const entityB = world.create();
-		expect(entityB).toBe(1);
-		expect(world[$entitySparseSet].dense.length).toBe(2);
-		expect(world[$entityCursor]).toBe(2);
+		const entityB = world.spawn();
+		expect(entityB).toBe(2);
 
-		const entityC = world.create();
-		expect(entityC).toBe(2);
-		expect(world[$entitySparseSet].dense.length).toBe(3);
-		expect(world[$entityCursor]).toBe(3);
+		const entityC = world.spawn();
+		expect(entityC).toBe(3);
 
-		world.destroy(entityA);
-		world.destroy(entityC);
-		world.destroy(entityB);
+		entityA.destroy();
+		entityC.destroy();
+		entityB.destroy();
 
-		expect(world[$entitySparseSet].dense.length).toBe(0);
-
-		const recyclingBin = world[$recyclingBin];
-		expect(recyclingBin.length).toBe(3);
-		expect(recyclingBin[0]).toBe(0);
-		expect(recyclingBin[1]).toBe(2);
-		expect(recyclingBin[2]).toBe(1);
+		expect(world.entities.length).toBe(1);
 	});
 
-	it('should recycle entities', () => {
-		const entities: number[] = [];
+	it('should encode world ID in entity', () => {
+		const entity = world.spawn();
+		const { worldId, entityId } = unpackEntity(entity);
 
-		for (let i = 0; i < 1500; i++) {
-			entities.push(world.create());
+		expect(worldId).toBe(world.id);
+		expect(entityId).toBe(1);
+
+		const world2 = createWorld();
+		const entity2 = world2.spawn();
+		const { worldId: worldId2, entityId: entityId2 } = unpackEntity(entity2);
+
+		expect(worldId2).toBe(world2.id);
+		expect(entityId2).toBe(1);
+	});
+
+	it('should recycle entities and increment generation', () => {
+		const entities: Entity[] = [];
+
+		for (let i = 0; i < 50; i++) {
+			entities.push(world.spawn(Bar));
 		}
 
-		expect(world[$entitySparseSet].dense.length).toBe(1500);
-		expect(world[$entityCursor]).toBe(1500);
+		const bar = getStores(world, Bar);
+
+		// Length should be 50 + 1 (world entity).
+		expect(bar.value.length).toBe(51);
 
 		for (const entity of entities) {
-			world.destroy(entity);
+			entity.destroy();
 		}
 
-		world.recycle();
+		// IDs are recycled in reverse order.
+		let entity = world.spawn(Bar);
+		let { generation, entityId } = unpackEntity(entity);
+		expect(generation).toBe(1);
+		expect(entityId).toBe(50);
 
-		expect(world[$recyclingBin].length).toBe(0);
-		expect(world[$removed].length).toBe(1500);
+		entity = world.spawn(Bar);
+		({ generation, entityId } = unpackEntity(entity));
+		expect(generation).toBe(1);
+		expect(entityId).toBe(49);
 
-		let entity = world.create();
-		expect(entity).toBe(0);
+		entity = world.spawn(Bar);
+		({ generation, entityId } = unpackEntity(entity));
+		expect(generation).toBe(1);
+		expect(entityId).toBe(48);
 
-		entity = world.create();
-		expect(entity).toBe(1);
-
-		entity = world.create();
-		expect(entity).toBe(2);
+		// Should remain the same and not increase because of the entity encoding.
+		expect(bar.value.length).toBe(51);
 	});
 
-	it('should add entities with create', () => {
-		const entity = world.create(Foo, Bar);
+	it('should add entities with spawn', () => {
+		const entity = world.spawn(Foo, Bar);
 
-		expect(world.has(entity, Foo)).toBe(true);
-		expect(world.has(entity, Bar)).toBe(true);
+		expect(entity.has(Foo)).toBe(true);
+		expect(entity.has(Bar)).toBe(true);
+	});
+
+	it('can add traits', () => {
+		const entity = world.spawn();
+
+		entity.add(Foo, Bar);
+
+		expect(entity.has(Foo)).toBe(true);
+		expect(entity.has(Bar)).toBe(true);
+	});
+
+	it('can remove traits', () => {
+		const entity = world.spawn(Foo, Bar);
+
+		entity.remove(Foo);
+
+		expect(entity.has(Foo)).toBe(false);
+		expect(entity.has(Bar)).toBe(true);
+	});
+
+	it('can get trait state', () => {
+		const entity = world.spawn(Bar({ value: 1 }));
+		const bar = entity.get(Bar);
+		expect(bar.value).toBe(1);
+
+		// Changing trait state should not affect the entity.
+		bar.value = 2;
+		expect(entity.get(Bar).value).toBe(1);
+	});
+
+	it('can set trait state', () => {
+		const entity = world.spawn(Bar);
+		entity.set(Bar, { value: 1 });
+		expect(entity.get(Bar).value).toBe(1);
+	});
+
+	it('should trigger change events when trait state is set', () => {
+		const entity = world.spawn(Bar);
+		let called = false;
+		world.onChange(Bar, () => (called = true));
+		entity.set(Bar, { value: 1 });
+		expect(called).toBe(true);
+
+		// Can optionally suppress the event.
+		called = false;
+		entity.set(Bar, { value: 2 }, false);
+		expect(called).toBe(false);
 	});
 });

@@ -1,9 +1,8 @@
 export const CONSTANTS = {
-	BODIES: 5000,
+	BODIES: 40000,
 	GRAVITY: -9.81 * 2,
 	FLOOR: -1000,
 	COMPONENTS: 100,
 	MAX_COMPS_PER_ENTITY: 20,
-	DELETE_DATA: true,
 	DRAIN: false,
 };
