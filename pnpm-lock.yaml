@@ -65,8 +65,8 @@ importers:
         specifier: workspace:*
         version: link:../../sims/n-body
       koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
+        specifier: workspace:@koota/dev@*
+        version: link:../../../packages/dev
       three:
         specifier: ^0.162.0
         version: 0.162.0
@@ -96,8 +96,8 @@ importers:
         specifier: github:pmndrs/directed#v0.0.1-alpha.5
         version: https://codeload.github.com/pmndrs/directed/tar.gz/84a2949f1c22d4e8313b0ac12af570181ab2caba
       koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
+        specifier: workspace:@koota/dev@*
+        version: link:../../../packages/dev
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -183,8 +183,8 @@ importers:
         specifier: github:pmndrs/directed#v0.0.1-alpha.5
         version: https://codeload.github.com/pmndrs/directed/tar.gz/84a2949f1c22d4e8313b0ac12af570181ab2caba
       koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
+        specifier: workspace:@koota/dev@*
+        version: link:../../../packages/dev
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -202,6 +202,34 @@ importers:
         specifier: ^1.4.0
         version: 1.6.0(@types/node@22.7.5)(jsdom@24.1.1)
 
+  packages/dev:
+    dependencies:
+      '@react-three/fiber':
+        specifier: ^8.17.5
+        version: 8.17.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
+      three:
+        specifier: '>=0.159'
+        version: 0.162.0
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.3
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.0
+      '@types/three':
+        specifier: ^0.162.0
+        version: 0.162.0
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+
   packages/publish:
     dependencies:
       '@react-three/fiber':
@@ -211,6 +239,12 @@ importers:
         specifier: '>=0.159'
         version: 0.162.0
     devDependencies:
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../core
+      '@koota/react':
+        specifier: workspace:*
+        version: link:../react
       '@types/react':
         specifier: ^18.3.3
         version: 18.3.3
