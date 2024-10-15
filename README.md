@@ -1,7 +1,5 @@
 # Koota
 
-🌎 Performant data-oriented state management for React and TypeScript.
-
 Koota is an ECS-based state management library optimized for real-time apps, games, and XR experiences. Use as much or as little as you need.
 
 ```bash
