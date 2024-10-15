@@ -4,19 +4,19 @@
 	"description": "🌎 Performant data-oriented state management for React and TypeScript.",
 	"license": "ISC",
 	"type": "module",
-	"main": "./src/index.cjs",
-	"module": "./src/index.js",
-	"types": "./src/index.d.ts",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
-			"types": "./src/index.d.ts",
-			"import": "./src/index.js",
-			"require": "./src/index.cjs"
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
 		},
 		"./react": {
-			"types": "./src/react.d.ts",
-			"import": "./src/react.js",
-			"require": "./src/react.cjs"
+			"types": "./dist/react.d.ts",
+			"import": "./dist/react.js",
+			"require": "./dist/react.cjs"
 		}
 	},
 	"files": [
@@ -25,10 +25,12 @@
 		"LICENSE"
 	],
 	"scripts": {
-		"build": "tsup src/index.ts src/react.ts --format esm,cjs --dts && tsx scripts/copy-readme.ts",
+		"build": "tsup src/index.ts src/react.ts --format esm,cjs --dts --dts-resolve && tsx scripts/copy-readme.ts",
 		"test": "vitest --environment=jsdom"
 	},
 	"devDependencies": {
+		"@koota/core": "workspace:*",
+		"@koota/react": "workspace:*",
 		"@types/react": "^18.3.3",
 		"@types/react-dom": "^18.3.0",
 		"@types/three": "^0.162.0",
