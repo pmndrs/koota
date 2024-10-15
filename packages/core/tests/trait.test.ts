@@ -18,7 +18,6 @@ const Test = trait({
 
 describe('Trait', () => {
 	const world = createWorld();
-	world.init();
 
 	beforeEach(() => {
 		world.reset();
