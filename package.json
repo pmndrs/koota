@@ -4,7 +4,8 @@
 	"private": true,
 	"scripts": {
 		"app": "npx tsx ./scripts/app.ts",
-		"sim": "npx tsx ./scripts/sim.ts"
+		"sim": "npx tsx ./scripts/sim.ts",
+		"send": "pnpm -F koota build && pnpm -F koota publish"
 	},
 	"dependencies": {
 		"@types/node": "latest",
