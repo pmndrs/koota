@@ -16,8 +16,10 @@ import { trait } from 'koota';
 // Basic trait with default values
 const Position = trait({ x: 0, y: 0 });
 const Velocity = trait({ x: 0, y: 0 });
+
 // Trait with a callback for initial value
 const Mesh = trait({ value: () => THREE.Mesh() });
+
 // Tag trait (no data)
 const IsActive = trait();
 ```
@@ -67,19 +69,18 @@ function RocketRenderer() {
     const rockets = useQuery(Position, Velocity)
     return (
         <>
-            {rockets.map((entity) => <RocketShip key={entity} entity={entity} />)}
+            {rockets.map((entity) => <Rocket key={entity} entity={entity} />)}
         </>
     )
 }
 
-function RocketShip(entity) {
+function Rocket({ entity }) {
     // Observes this entity's position trait and reactively updates when it changes
     const position = useObserve(entity, Position)
     return (
         <div style={{ position: 'absolute', left: position.x ?? 0, top: position.y ?? 0 }}>
         🚀
         </div>
-
     )
 }
 ```
