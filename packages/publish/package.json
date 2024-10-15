@@ -1,26 +1,31 @@
 {
 	"name": "koota",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "🌎 Performant data-oriented state management for React and TypeScript.",
 	"license": "ISC",
 	"type": "module",
-	"main": "./src/index.ts",
-	"types": "./src/index.ts",
+	"main": "./src/index.cjs",
+	"module": "./src/index.js",
+	"types": "./src/index.d.ts",
 	"exports": {
 		".": {
-			"default": "./src/index.ts",
-			"types": "./src/index.ts"
+			"types": "./src/index.d.ts",
+			"import": "./src/index.js",
+			"require": "./src/index.cjs"
 		},
 		"./react": {
-			"default": "./src/react.ts",
-			"types": "./src/react.ts"
-		},
-		"./utils": {
-			"default": "./src/utils.ts",
-			"types": "./src/utils.ts"
+			"types": "./src/react.d.ts",
+			"import": "./src/react.js",
+			"require": "./src/react.cjs"
 		}
 	},
+	"files": [
+		"dist",
+		"README.md",
+		"LICENSE"
+	],
 	"scripts": {
+		"build": "tsup src/index.ts src/react.ts --format esm,cjs --dts",
 		"test": "vitest --environment=jsdom"
 	},
 	"devDependencies": {
@@ -29,7 +34,8 @@
 		"@types/three": "^0.162.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"tsconfig": "workspace:*"
+		"tsconfig": "workspace:*",
+		"tsup": "^8.3.0"
 	},
 	"peerDependencies": {
 		"@react-three/fiber": "^8.17.5",
