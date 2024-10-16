@@ -6,10 +6,10 @@ import { Position } from '../traits';
 const dummy = new THREE.Object3D();
 
 export const syncThreeObjects = ({ world }: { world: World }) => {
-	const instanceEnt = world.queryFirst(InstancedMesh);
-	if (instanceEnt === undefined) return;
+	const instanceEntity = world.queryFirst(InstancedMesh);
+	if (instanceEntity === undefined) return;
 
-	const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
+	const instancedMesh = instanceEntity.get(InstancedMesh)!.object;
 
 	world.query(Position).updateEach(([{ value: position }], entity) => {
 		dummy.position.copy(position);

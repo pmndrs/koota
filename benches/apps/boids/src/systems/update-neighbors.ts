@@ -16,6 +16,7 @@ export const updateNeighbors = ({ world }: { world: World }) => {
 				neighbors,
 				100
 			);
+
 			/* Remove entity itself from neighbors */
 			neighbors.splice(neighbors.indexOf(entity), 1);
 		},
