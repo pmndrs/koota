@@ -11,10 +11,12 @@ import * as THREE from 'three';
 import { between } from './utils/between';
 import { Entity } from 'koota';
 import { InstancedMesh } from './traits/instanced-mesh';
+import { SpatialHashMap } from './traits';
 
 const COUNT = 1000;
 
 export function App() {
+	const world = useWorld();
 	const { spawnBoid, destroyAllBoids } = useActions();
 
 	useLayoutEffect(() => {
@@ -26,9 +28,11 @@ export function App() {
 
 		return () => {
 			destroyAllBoids();
-			console.log('destroyed', COUNT, 'boids');
+			// Reset the spatial hash map.
+			const { value: spatialHashMap } = world.get(SpatialHashMap);
+			spatialHashMap?.reset();
 		};
-	}, [spawnBoid, destroyAllBoids]);
+	}, [spawnBoid, destroyAllBoids, world]);
 
 	return (
 		<Canvas>
@@ -52,28 +56,26 @@ function Boids() {
 	const geo = new THREE.IcosahedronGeometry();
 	const mat = new THREE.MeshStandardMaterial({ color: 'hotpink' });
 
-	const entityRef = useRef<Entity | undefined>(undefined);
+	const entityRef = useRef<Entity>(null!);
 
 	const setInitial = useCallback(
 		(node: THREE.InstancedMesh) => {
 			if (node) {
-				if (entityRef.current) return;
-
 				// Set initial scale to zero
 				for (let i = 0; i < node.count; i++) {
 					node.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
 				}
 
+				if (entityRef.current) entityRef.current.destroy();
 				entityRef.current = world.spawn(InstancedMesh({ object: node }));
 			} else if (entityRef.current) {
 				entityRef.current.destroy();
-				entityRef.current = undefined;
 			}
 		},
 		[world]
 	);
 
-	return <instancedMesh ref={setInitial} args={[geo, mat, COUNT]} />;
+	return <instancedMesh ref={setInitial} args={[geo, mat, COUNT + COUNT * 2]} />;
 }
 
 // Simulation runs a schedule.

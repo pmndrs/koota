@@ -63,6 +63,11 @@ export class SpatialHashMap {
 		return entities;
 	}
 
+	reset() {
+		this.cells.clear();
+		this.entityToCell.clear();
+	}
+
 	protected getCell(x: number, y: number, z: number) {
 		const hash = this.calculateHash(x, y, z, this.cellSize);
 
