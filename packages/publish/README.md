@@ -318,15 +318,22 @@ const time = world.get(Time);
 world.set(Time, { current: performance.now() });
 ```
 
+### Select traits on queries for updates
+Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStore`.
+
+```js
+// Add example when I get the energy
+```
+
 ### Modifying trait stores direclty
 
 For performance-critical operations, you can modify trait stores directly using the useStore hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
 
 ```js
 // Returns the SoA stores
-world.query(Position, Velocity).useStore(([position, store], entities) => {
+world.query(Position, Velocity).useStore(([position, velocity], entities) => {
     // Write our own loop over the stores
-    for (let i = 0; i > entities.length; i++) {
+    for (let i = 0; i < entities.length; i++) {
         // Get the entity ID to use as the array index
         const eid = entities[i].id();
         // Write to each array in the store
@@ -334,4 +341,112 @@ world.query(Position, Velocity).useStore(([position, store], entities) => {
         position.y[eid] += velocity.y[eid] * delta;
     }
 });
+```
+
+## APIs in detail until I make docs
+
+These are more like notes for docs. Take a look around, ask questions. Eventually this will become proper docs.
+
+### World
+
+This is where all data is stored. We have methods on entities but this is a bit of a trick, entities don't actually store any data and instead it is operating on the connected world. Each world has its own set of entities that do not overlap with another. Typically you only need one world.
+
+Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is no queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
+
+```js
+// Spawns an entity
+// Can pass any number of traits
+// Return Entity
+const entity = world.spawn()
+
+// Checks if the world has the entity
+// Return boolean
+const result = world.has(entity)
+
+// Get all entities that match the query parameters
+// Return QueryResult (which is Entity[] with extras)
+const entities = world.query(Position)
+
+// Return the first entity that matches the query
+// Return Entity
+const entity = world.queryFirst(Position)
+
+// The trait API is identical to entity's
+
+// Add a trait to the world
+world.add(Time)
+
+// Remove a trait from the world
+world.remove(Time)
+
+// Check if the world has a trait
+// Return boolean
+const result = world.has(Time)
+
+// Gets a snapshot instance of the trait
+// Return TraitInstance
+const time = world.get(Time)
+
+// Sets the trait and triggers a change event
+world.set(Time, { current: performance.now() })
+
+// Subscribe to add, remove or change events for a set of query parameters
+// Anything you can put in a query is legal
+// Return unsub function
+const unsub = world.onAdd([Position], (entity) => {})
+const unsub = world.onRemove([Position], (entity) => {})
+const unsub = world.onChange([Position], (entity) => {})
+
+// An array of all entities alive in the world
+// This is a copy so editing it won't do anything!
+// Entity[]
+world.entities
+
+// Returns the world's unique ID
+// Return number
+const id = world.id()
+
+// Resets the world as if it were just created
+world.reset()
+
+// Nukes the world and releases its ID
+world.destroy()
+```
+
+### Entity
+
+An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instaed be decoded with `entity.id()`.
+
+```js
+// Add a trait to the entity
+entity.add(Position) 
+
+// Remove a trait from the entity
+entity.remove(Position)
+
+// Checks if the entity has the trait
+// Return boolean
+const result = enttiy.has(Position) 
+
+// Gets a snapshot instance of the trait
+// Return TraitInstance
+const position = entity.get(Position)
+
+// Sets the trait and triggers a change event
+entity.set(Position, { x: 10, y: 10 })
+
+// Get the targets for a relationship
+// Return Entity[]
+const targets = entity.targetsFor(Contains)
+
+// Get the first target for a relationship
+// Return Entity
+const target = entity.targetFor(Contains)
+
+// Get the entity ID
+// Return number
+const id = entity.id()
+
+// Destroys the entity making its number no longer valid
+entity.destroy()
 ```
