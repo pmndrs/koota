@@ -11,5 +11,6 @@
 		"@types/node": "latest",
 		"tsx": "latest",
 		"typescript": "latest"
-	}
+	},
+	"packageManager": "pnpm@8.6.1+sha256.5380612e01e0a3029991d3f329f07429313f4825de47b885b4bb3d1aec9e44e1"
 }
