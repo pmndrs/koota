@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useWorld } from '../world/use-world';
-import { QueryParameter } from '@koota/core';
+import { Entity, QueryParameter } from '@koota/core';
 
 export function useQuery(...parameters: QueryParameter[]) {
 	const world = useWorld();
-	const [entities, setEntities] = useState<number[]>([]);
+	const [entities, setEntities] = useState<Entity[]>([]);
 
 	useEffect(() => {
 		const unsubAdd = world.onAdd(parameters, (entity) => {
