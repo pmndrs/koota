@@ -216,9 +216,6 @@ export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 
 export function getStore<C extends Trait = Trait>(world: World, trait: C): ExtractStore<C> {
 	const ctx = world[$internal];
-	// Need this for relation traits. There might be a better way to handle this.
-	if (!ctx.traitData.has(trait)) registerTrait(world, trait);
-
 	const data = ctx.traitData.get(trait)!;
 	const store = data.store as ExtractStore<C>;
 
