@@ -450,3 +450,19 @@ const id = entity.id()
 // Destroys the entity making its number no longer valid
 entity.destroy()
 ```
+
+### React
+
+`useEntityRef` is a safe way to spawn an entity per React primitive and add traits. It is usually used for adding traits that capture the ref to the entity. The entity will be stable for the lifetime of the React component, except in cases like HMR.
+
+```js
+const Ref = trait({ value: null! })
+
+function Rocket() {
+    const entityRef = useEntityRef((node, entity) => {
+        entity.add(Ref({ value: node }))
+    })
+
+    return <div ref={entityRef}>🚀</div>
+}
+```
