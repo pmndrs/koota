@@ -129,11 +129,13 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		}
 
 		// Set default values or override with provided params.
-		const defaults = data.schema;
-		// Execute any functions in the defaults.
-		for (const key in defaults) {
-			if (typeof defaults[key] === 'function') {
-				defaults[key] = defaults[key]();
+		const defaults: Record<string, any> = {};
+		// Execute any functions in the schema for default values.
+		for (const key in data.schema) {
+			if (typeof data.schema[key] === 'function') {
+				defaults[key] = data.schema[key]();
+			} else {
+				defaults[key] = data.schema[key];
 			}
 		}
 
