@@ -7,19 +7,19 @@ import { StrictMode, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
-import { SpatialHashMap } from './traits';
+import { BoidsConfig, SpatialHashMap } from './traits';
 import { InstancedMesh } from './traits/instanced-mesh';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
-
-const COUNT = 1000;
 
 export function App() {
 	const world = useWorld();
 	const { spawnBoid, destroyAllBoids } = useActions();
 
 	useLayoutEffect(() => {
-		for (let i = 0; i < COUNT; i++) {
+		const { count } = world.get(BoidsConfig);
+
+		for (let i = 0; i < count; i++) {
 			const position = new THREE.Vector3().randomDirection().multiplyScalar(between(0, 10));
 			const velocity = new THREE.Vector3().randomDirection();
 			spawnBoid(position, velocity);
@@ -51,6 +51,8 @@ export function App() {
 }
 
 function Boids() {
+	const world = useWorld();
+	const { count } = world.get(BoidsConfig);
 	const geo = new THREE.IcosahedronGeometry();
 	const mat = new THREE.MeshStandardMaterial({ color: 'hotpink' });
 
@@ -62,7 +64,7 @@ function Boids() {
 		entity.add(InstancedMesh({ object: node }));
 	});
 
-	return <instancedMesh ref={entityRef} args={[geo, mat, COUNT + COUNT * 2]} />;
+	return <instancedMesh ref={entityRef} args={[geo, mat, count * 2]} />;
 }
 
 // Simulation runs a schedule.

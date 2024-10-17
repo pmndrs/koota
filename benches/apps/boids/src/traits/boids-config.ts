@@ -1,6 +1,7 @@
 import { trait } from 'koota';
 
 export const BoidsConfig = trait({
+	count: 1000,
 	maxVelocity: 1,
 	separationFactor: 1,
 	alignmentFactor: 1,
