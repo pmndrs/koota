@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorld } from '../src';
 import { trait, getStores, registerTrait } from '../src/trait/trait';
 import { $internal } from '../src/common';
@@ -180,5 +180,19 @@ describe('Trait', () => {
 			bool: true,
 			arr: ['a', 'b', 'c'],
 		});
+	});
+
+	it('trait props with callbacks should be called on each add', () => {
+		const mock = vi.fn(() => new TestClass());
+		const Test = trait({ value: mock });
+
+		const entityA = world.spawn(Test);
+
+		expect(mock).toHaveBeenCalledTimes(1);
+		expect(entityA.get(Test).value).toBeInstanceOf(TestClass);
+
+		const entityB = world.spawn(Test);
+		expect(mock).toHaveBeenCalledTimes(2);
+		expect(entityB.get(Test).value).toBeInstanceOf(TestClass);
 	});
 });
