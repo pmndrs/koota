@@ -1,17 +1,17 @@
 // Based on work by Hendrik Mans: https://github.com/hmans/miniplex/tree/main/apps/demo
 
+import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
+import { Entity } from 'koota';
 import { useWorld } from 'koota/react';
 import { StrictMode, useCallback, useLayoutEffect, useRef } from 'react';
-import { useStats } from './utils/use-stats';
-import { schedule } from './systems/schedule';
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
-import { useActions } from './actions';
 import * as THREE from 'three';
-import { between } from './utils/between';
-import { Entity } from 'koota';
-import { InstancedMesh } from './traits/instanced-mesh';
+import { useActions } from './actions';
+import { schedule } from './systems/schedule';
 import { SpatialHashMap } from './traits';
+import { InstancedMesh } from './traits/instanced-mesh';
+import { between } from './utils/between';
+import { useStats } from './utils/use-stats';
 
 const COUNT = 1000;
 
@@ -51,31 +51,37 @@ export function App() {
 	);
 }
 
-function Boids() {
+function useEntityRef<T = any>(callback: (node: T, entity: Entity) => void) {
 	const world = useWorld();
-	const geo = new THREE.IcosahedronGeometry();
-	const mat = new THREE.MeshStandardMaterial({ color: 'hotpink' });
-
 	const entityRef = useRef<Entity>(null!);
 
-	const setInitial = useCallback(
-		(node: THREE.InstancedMesh) => {
+	return useCallback(
+		(node: T) => {
 			if (node) {
-				// Set initial scale to zero
-				for (let i = 0; i < node.count; i++) {
-					node.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
-				}
-
 				if (entityRef.current) entityRef.current.destroy();
-				entityRef.current = world.spawn(InstancedMesh({ object: node }));
+				entityRef.current = world.spawn();
+				callback(node, entityRef.current);
 			} else if (entityRef.current) {
 				entityRef.current.destroy();
 			}
 		},
 		[world]
 	);
+}
 
-	return <instancedMesh ref={setInitial} args={[geo, mat, COUNT + COUNT * 2]} />;
+function Boids() {
+	const geo = new THREE.IcosahedronGeometry();
+	const mat = new THREE.MeshStandardMaterial({ color: 'hotpink' });
+
+	const entityRef = useEntityRef<THREE.InstancedMesh>((node, entity) => {
+		// Set initial scale to zero
+		for (let i = 0; i < node.count; i++) {
+			node.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
+		}
+		entity.add(InstancedMesh({ object: node }));
+	});
+
+	return <instancedMesh ref={entityRef} args={[geo, mat, COUNT + COUNT * 2]} />;
 }
 
 // Simulation runs a schedule.
