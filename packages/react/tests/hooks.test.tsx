@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koota/core';
-import { useObserve } from '../src/trait/use-observe';
-import { useQuery, WorldProvider } from '../src';
+import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useQuery, WorldProvider } from '../src';
 import { createActions } from '../src/actions/create-actions';
+import { useEntityRef } from '../src/hooks/use-entity-ref';
+import { useObserve } from '../src/hooks/use-observe';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -129,10 +130,8 @@ describe('Hooks', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			await ReactThreeTestRenderer.create(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -142,5 +141,32 @@ describe('Hooks', () => {
 		});
 
 		expect(spawnedEntity).toBeDefined();
+	});
+
+	it('useEntityRef', async () => {
+		const mock = vi.fn();
+
+		const Ref = trait({ value: null! });
+
+		function Test() {
+			const entityRef = useEntityRef((mesh, entity) => {
+				expect(mesh.isMesh).toBe(true);
+				entity.add(Ref({ value: mesh }));
+				mock();
+			});
+			return <mesh ref={entityRef} />;
+		}
+
+		await act(async () => {
+			await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(mock).toHaveBeenCalledTimes(1);
 	});
 });
