@@ -2,9 +2,8 @@
 
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Entity } from 'koota';
-import { useWorld } from 'koota/react';
-import { StrictMode, useCallback, useLayoutEffect, useRef } from 'react';
+import { useEntityRef, useWorld } from 'koota/react';
+import { StrictMode, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
@@ -48,24 +47,6 @@ export function App() {
 				<Simulation />
 			</StrictMode>
 		</Canvas>
-	);
-}
-
-function useEntityRef<T = any>(callback: (node: T, entity: Entity) => void) {
-	const world = useWorld();
-	const entityRef = useRef<Entity>(null!);
-
-	return useCallback(
-		(node: T) => {
-			if (node) {
-				if (entityRef.current) entityRef.current.destroy();
-				entityRef.current = world.spawn();
-				callback(node, entityRef.current);
-			} else if (entityRef.current) {
-				entityRef.current.destroy();
-			}
-		},
-		[world]
 	);
 }
 
