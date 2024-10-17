@@ -1,9 +1,9 @@
 import { World } from 'koota';
-import { Forces, Neighbors, Position } from '../traits';
-
-const factor = 3;
+import { BoidsConfig, Forces, Neighbors, Position } from '../traits';
 
 export const updateCoherence = ({ world }: { world: World }) => {
+	const { coherenceFactor } = world.get(BoidsConfig);
+
 	world
 		.query(Forces, Neighbors, Position)
 		.updateEach(([forces, { value: neighbors }, { value: position }]) => {
@@ -18,6 +18,6 @@ export const updateCoherence = ({ world }: { world: World }) => {
 			}
 
 			coherence.divideScalar(neighbors.length);
-			coherence.sub(position).multiplyScalar(factor);
+			coherence.sub(position).multiplyScalar(coherenceFactor);
 		});
 };

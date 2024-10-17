@@ -1,9 +1,9 @@
 import { World } from 'koota';
-import { Forces, Neighbors, Position } from '../traits';
-
-const factor = 16;
+import { BoidsConfig, Forces, Neighbors, Position } from '../traits';
 
 export const updateSeparation = ({ world }: { world: World }) => {
+	const { separationFactor } = world.get(BoidsConfig);
+
 	world
 		.query(Forces, Neighbors, Position)
 		.updateEach(([{ separation }, { value: neighbors }, { value: position }]) => {
@@ -21,6 +21,6 @@ export const updateSeparation = ({ world }: { world: World }) => {
 				separation.add(direction.divideScalar(safeDistance * safeDistance));
 			}
 
-			separation.divideScalar(neighbors.length).multiplyScalar(factor);
+			separation.divideScalar(neighbors.length).multiplyScalar(separationFactor);
 		});
 };

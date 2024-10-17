@@ -1,9 +1,9 @@
 import { World } from 'koota';
-import { Forces, Neighbors, Velocity } from '../traits';
-
-const factor = 1;
+import { BoidsConfig, Forces, Neighbors, Velocity } from '../traits';
 
 export const updateAlignment = ({ world }: { world: World }) => {
+	const { alignmentFactor } = world.get(BoidsConfig);
+
 	world.query(Forces, Neighbors).updateEach(([{ alignment }, { value: neighbors }]) => {
 		alignment.set(0, 0, 0);
 
@@ -13,6 +13,6 @@ export const updateAlignment = ({ world }: { world: World }) => {
 			alignment.add(neighbor.get(Velocity).value);
 		}
 
-		alignment.divideScalar(neighbors.length).multiplyScalar(factor);
+		alignment.divideScalar(neighbors.length).multiplyScalar(alignmentFactor);
 	});
 };

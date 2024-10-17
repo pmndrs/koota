@@ -36,7 +36,7 @@ export function App() {
 	return (
 		<Canvas>
 			<StrictMode>
-				<ambientLight intensity={0.2} />
+				<ambientLight intensity={Math.PI * 0.2} />
 				<directionalLight position={[1, 2, 3]} intensity={0.8} />
 
 				<PerspectiveCamera makeDefault position={[0, 0, 50]} />

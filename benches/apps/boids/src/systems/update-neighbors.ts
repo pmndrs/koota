@@ -1,10 +1,9 @@
 import { World } from 'koota';
-import { Neighbors, Position, SpatialHashMap } from '../traits';
-
-const maxDistance = 3;
+import { BoidsConfig, Neighbors, Position, SpatialHashMap } from '../traits';
 
 export const updateNeighbors = ({ world }: { world: World }) => {
 	const { value: spatialHashMap } = world.get(SpatialHashMap);
+	const { neighborSearchRadius } = world.get(BoidsConfig);
 
 	world.query(Position, Neighbors).updateEach(
 		([{ value: position }, { value: neighbors }], entity) => {
@@ -12,7 +11,7 @@ export const updateNeighbors = ({ world }: { world: World }) => {
 				position.x,
 				position.y,
 				position.z,
-				maxDistance,
+				neighborSearchRadius,
 				neighbors,
 				100
 			);
