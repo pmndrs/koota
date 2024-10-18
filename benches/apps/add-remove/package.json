@@ -9,7 +9,7 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"koota": "workspace:*",
+		"koota": "workspace:@koota/dev@*",
 		"@app/bench-tools": "workspace:*",
 		"@sim/add-remove": "workspace:*",
 		"three": "^0.162.0",
