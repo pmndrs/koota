@@ -36,11 +36,11 @@ export function createQueryResult<T extends QueryParameter[]>(
 			callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void,
 			options?: QueryResultOptions
 		) {
-			const passive = options?.passive ?? false;
+			const observeChanges = options?.observeChanges ?? false;
 			const state = new Array(traits.length);
 
 			// Inline both passive and active updateEach for performance.
-			if (passive) {
+			if (!observeChanges) {
 				for (let i = 0; i < entities.length; i++) {
 					const entity = entities[i];
 					const eid = getEntityId(entity);
