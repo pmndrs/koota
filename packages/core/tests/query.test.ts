@@ -627,7 +627,7 @@ describe('Query', () => {
 				if (index === 0) return;
 				position.x = 10;
 			},
-			{ observeChanges: true }
+			{ changeDetection: true }
 		);
 
 		expect(cb).toHaveBeenCalledTimes(9);
@@ -638,7 +638,7 @@ describe('Query', () => {
 				if (index === 0) return;
 				position.x = 10;
 			},
-			{ observeChanges: true }
+			{ changeDetection: true }
 		);
 
 		expect(cb).toHaveBeenCalledTimes(9);
