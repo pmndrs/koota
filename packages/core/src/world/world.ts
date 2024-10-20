@@ -1,5 +1,4 @@
-import { TraitData } from '../trait/trait-data';
-import { ConfigurableTrait, ExtractSchema, TraitInstanceFromSchema, Trait } from '../trait/types';
+import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
@@ -9,8 +8,9 @@ import { QueryParameter, QueryResult } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
+import { TraitData } from '../trait/trait-data';
+import { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
 import { universe } from '../universe/universe';
-import { $internal } from '../common';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 export class World {
@@ -95,11 +95,11 @@ export class World {
 		this[$internal].worldEntity.remove(...traits);
 	}
 
-	get<T extends Trait>(trait: T): TraitInstanceFromSchema<ExtractSchema<T>> {
+	get<T extends Trait>(trait: T): TraitInstance<T> {
 		return this[$internal].worldEntity.get(trait);
 	}
 
-	set<T extends Trait>(trait: T, value: Partial<TraitInstanceFromSchema<ExtractSchema<T>>>) {
+	set<T extends Trait>(trait: T, value: Partial<TraitInstance<T>>) {
 		this[$internal].worldEntity.set(trait, value);
 	}
 
