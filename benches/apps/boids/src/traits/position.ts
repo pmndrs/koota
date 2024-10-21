@@ -1,4 +1,4 @@
 import { trait } from 'koota';
 import * as THREE from 'three';
 
-export const Position = trait({ value: () => new THREE.Vector3() });
+export const Position = trait(() => new THREE.Vector3());

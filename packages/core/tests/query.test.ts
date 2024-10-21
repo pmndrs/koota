@@ -679,4 +679,45 @@ describe('Query', () => {
 			expect(name.name).toBeDefined();
 		});
 	});
+
+	it('updateEach works with atomic traits', () => {
+		const Position = trait(() => ({ x: 0, y: 0 }));
+		const Mass = trait(() => ({ value: 0 }));
+
+		const entity = world.spawn(Position, Mass);
+		world.query(Position, Mass).updateEach(([position, mass]) => {
+			position.x = 1;
+			mass.value = 10;
+		});
+
+		expect(entity.get(Position).x).toBe(1);
+		expect(entity.get(Mass).value).toBe(10);
+	});
+
+	it('updateEach works with atomic traits and change detection', () => {
+		const Position = trait(() => ({ x: 0, y: 0 }));
+		const cb = vi.fn();
+		world.onChange(Position, cb);
+		world.spawn(Position);
+
+		expect(cb).toHaveBeenCalledTimes(0);
+
+		world.query(Position).updateEach(
+			([position]) => {
+				position.x = 0;
+			},
+			{ changeDetection: true }
+		);
+
+		expect(cb).toHaveBeenCalledTimes(0);
+
+		world.query(Position).updateEach(
+			([position]) => {
+				position.x = 1;
+			},
+			{ changeDetection: true }
+		);
+
+		expect(cb).toHaveBeenCalledTimes(1);
+	});
 });

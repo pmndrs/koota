@@ -11,7 +11,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
 
 	const instancedMesh = instanceEntity.get(InstancedMesh)!.object;
 
-	world.query(Position).updateEach(([{ value: position }], entity) => {
+	world.query(Position).updateEach(([position], entity) => {
 		dummy.position.copy(position);
 		dummy.scale.set(0.5, 0.5, 0.5);
 		dummy.updateMatrix();

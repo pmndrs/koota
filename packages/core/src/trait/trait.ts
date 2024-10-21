@@ -1,10 +1,20 @@
-import { Entity } from '../entity/types';
-import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { $internal } from '../common';
+import { Entity } from '../entity/types';
+import { getEntityId } from '../entity/utils/pack-entity';
+import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { TraitData } from './trait-data';
-import { ConfigurableTrait, Norm, Schema, Store, ExtractStore, ExtractStores, Trait } from './types';
+import {
+	ConfigurableTrait,
+	ExtractStore,
+	ExtractStores,
+	Norm,
+	Schema,
+	Store,
+	Trait,
+	TraitType,
+} from './types';
 import {
 	createFastSetFunction,
 	createFastSetWithChangeDetectionFunction,
@@ -12,11 +22,13 @@ import {
 	createSetFunction,
 } from './utils/create-accessors';
 import { createStore } from './utils/create-store';
-import { getEntityId } from '../entity/utils/pack-entity';
 
 let traitId = 0;
 
 function defineTrait<S extends Schema = {}>(schema: S = {} as S): Trait<Norm<S>> {
+	const isAtomic = typeof schema === 'function';
+	const traitType: TraitType = isAtomic ? 'atomic' : 'schematic';
+
 	const Trait = Object.assign(
 		function (params: Partial<Norm<S>>) {
 			return [Trait, params];
@@ -24,20 +36,40 @@ function defineTrait<S extends Schema = {}>(schema: S = {} as S): Trait<Norm<S>>
 		{
 			schema: schema as Norm<S>,
 			[$internal]: {
-				set: createSetFunction(schema),
-				fastSet: createFastSetFunction(schema),
-				fastSetWithChangeDetection: createFastSetWithChangeDetectionFunction(schema),
-				get: createGetFunction(schema),
+				set: isAtomic
+					? (index: number, store: any, value: any) => {
+							store[index] = value;
+					  }
+					: createSetFunction(schema),
+				fastSet: isAtomic
+					? (index: number, store: any, value: any) => {
+							store[index] = value;
+					  }
+					: createFastSetFunction(schema),
+				fastSetWithChangeDetection: isAtomic
+					? (index: number, store: any, value: any) => {
+							let changed = false;
+							if (value !== store[index]) {
+								store[index] = value;
+								changed = true;
+							}
+							return changed;
+					  }
+					: createFastSetWithChangeDetectionFunction(schema),
+				get: isAtomic
+					? (index: number, store: any) => store[index]
+					: createGetFunction(schema),
 				stores: [] as Store<S>[],
 				id: traitId++,
 				createStore: () => createStore(schema as Norm<S>),
 				isPairTrait: false,
 				relation: null,
 				pairTarget: null,
-				isTag: Object.keys(schema).length === 0,
+				isTag: !isAtomic && Object.keys(schema).length === 0,
+				type: traitType,
 			},
 		}
-	) as Trait<Norm<S>>;
+	) as any;
 
 	return Trait;
 }
@@ -128,18 +160,23 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			}
 		}
 
-		// Set default values or override with provided params.
-		const defaults: Record<string, any> = {};
-		// Execute any functions in the schema for default values.
-		for (const key in data.schema) {
-			if (typeof data.schema[key] === 'function') {
-				defaults[key] = data.schema[key]();
-			} else {
-				defaults[key] = data.schema[key];
+		if (traitCtx.type === 'schematic') {
+			// Set default values or override with provided params.
+			const defaults: Record<string, any> = {};
+			// Execute any functions in the schema for default values.
+			for (const key in data.schema) {
+				if (typeof data.schema[key] === 'function') {
+					defaults[key] = data.schema[key]();
+				} else {
+					defaults[key] = data.schema[key];
+				}
 			}
-		}
 
-		entity.set(trait, { ...defaults, ...params }, false);
+			entity.set(trait, { ...defaults, ...params }, false);
+		} else {
+			const state = params ?? data.schema();
+			entity.set(trait, state, false);
+		}
 	}
 }
 
