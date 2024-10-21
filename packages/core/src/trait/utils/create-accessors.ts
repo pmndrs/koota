@@ -5,14 +5,14 @@ export function createSetFunction(schema: Schema) {
 
 	// Generate a hardcoded set function based on the schema keys
 	const setFunctionBody = keys
-		.map((key) => `if ('${key}' in values) store.${key}[index] = values.${key};`)
+		.map((key) => `if ('${key}' in value) store.${key}[index] = value.${key};`)
 		.join('\n    ');
 
 	// Use new Function to create a set function with hardcoded keys
 	const set = new Function(
 		'index',
 		'store',
-		'values',
+		'value',
 		`
 		${setFunctionBody}
 	  `
@@ -25,13 +25,13 @@ export function createFastSetFunction(schema: Schema) {
 	const keys = Object.keys(schema);
 
 	// Generate a hardcoded set function based on the schema keys
-	const setFunctionBody = keys.map((key) => `store.${key}[index] = values.${key};`).join('\n    ');
+	const setFunctionBody = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
 
 	// Use new Function to create a set function with hardcoded keys
 	const set = new Function(
 		'index',
 		'store',
-		'values',
+		'value',
 		`
 		${setFunctionBody}
 	  `
@@ -40,7 +40,7 @@ export function createFastSetFunction(schema: Schema) {
 	return set;
 }
 
-// Return true if any trait values were changed.
+// Return true if any trait value were changed.
 export function createFastSetWithChangeDetectionFunction(schema: Schema) {
 	const keys = Object.keys(schema);
 
@@ -48,8 +48,8 @@ export function createFastSetWithChangeDetectionFunction(schema: Schema) {
 	const setFunctionBody = keys
 		.map(
 			(key) =>
-				`if (store.${key}[index] !== values.${key}) {
-            store.${key}[index] = values.${key};
+				`if (store.${key}[index] !== value.${key}) {
+            store.${key}[index] = value.${key};
             changed = true;
         }`
 		)
@@ -59,7 +59,7 @@ export function createFastSetWithChangeDetectionFunction(schema: Schema) {
 	const set = new Function(
 		'index',
 		'store',
-		'values',
+		'value',
 		`
         let changed = false;
         ${setFunctionBody}

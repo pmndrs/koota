@@ -4,7 +4,7 @@ import * as THREE from 'three';
 
 export const useActions = createActions((world) => ({
 	spawnBoid: (position: THREE.Vector3, velocity: THREE.Vector3) => {
-		world.spawn(Position({ value: position }), Velocity({ value: velocity }), Neighbors, Forces);
+		world.spawn(Position(position), Velocity(velocity), Neighbors, Forces);
 	},
 	destroyAllBoids: () => {
 		world.query(Position, Velocity, Neighbors, Forces).forEach((entity) => {

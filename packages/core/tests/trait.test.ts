@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld } from '../src';
-import { trait, getStores, registerTrait } from '../src/trait/trait';
+import { createWorld, Entity } from '../src';
 import { $internal } from '../src/common';
+import { getStores, registerTrait, trait } from '../src/trait/trait';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
@@ -194,5 +194,32 @@ describe('Trait', () => {
 		const entityB = world.spawn(Test);
 		expect(mock).toHaveBeenCalledTimes(2);
 		expect(entityB.get(Test).value).toBeInstanceOf(TestClass);
+	});
+
+	it('can create atomic traits', () => {
+		let object = { a: 1, b: 2 };
+		const AtomicObject = trait(() => object);
+		let entity = world.spawn(AtomicObject);
+
+		// The object is returned by reference.
+		expect(object).toBe(entity.get(AtomicObject));
+		expect(entity.get(AtomicObject).a).toBe(1);
+
+		entity.set(AtomicObject, { a: 2, b: 3 });
+
+		// A new object is set making the reference different.
+		expect(object).not.toBe(entity.get(AtomicObject));
+		expect(entity.get(AtomicObject).a).toBe(2);
+
+		// Can pass in a custom object into the trait.
+		entity = world.spawn(AtomicObject({ a: 3, b: 4 }));
+		expect(entity.get(AtomicObject).a).toBe(3);
+		// Works with arrays too.
+		const AtomicArray = trait(() => [1, 2, 3]);
+		entity = world.spawn(AtomicArray);
+		expect(entity.get(AtomicArray)).toEqual([1, 2, 3]);
+
+		entity.set(AtomicArray, [4, 5, 6]);
+		expect(entity.get(AtomicArray)).toEqual([4, 5, 6]);
 	});
 });

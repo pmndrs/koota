@@ -1,10 +1,10 @@
 import { createWorld } from 'koota';
-import { SpatialHashMap, Time, BoidsConfig } from './traits';
+import { BoidsConfig, SpatialHashMap, Time } from './traits';
 import { SpatialHashMap as SpatialHashMapImpl } from './utils/spatial-hash';
 
 export const world = createWorld(
 	Time,
-	SpatialHashMap({ value: new SpatialHashMapImpl(5) }),
+	SpatialHashMap(new SpatialHashMapImpl(5)),
 	BoidsConfig({
 		count: 1000,
 		maxVelocity: 6,
