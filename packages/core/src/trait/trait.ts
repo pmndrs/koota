@@ -16,8 +16,8 @@ import {
 	TraitType,
 } from './types';
 import {
+	createFastSetChangeFunction,
 	createFastSetFunction,
-	createFastSetWithChangeDetectionFunction,
 	createGetFunction,
 	createSetFunction,
 } from './utils/create-accessors';
@@ -26,8 +26,8 @@ import { createStore } from './utils/create-store';
 let traitId = 0;
 
 function defineTrait<S extends Schema = {}>(schema: S = {} as S): Trait<Norm<S>> {
-	const isAtomic = typeof schema === 'function';
-	const traitType: TraitType = isAtomic ? 'atomic' : 'schematic';
+	const isAoS = typeof schema === 'function';
+	const traitType: TraitType = isAoS ? 'aos' : 'soa';
 
 	const Trait = Object.assign(
 		function (params: Partial<Norm<S>>) {
@@ -36,36 +36,17 @@ function defineTrait<S extends Schema = {}>(schema: S = {} as S): Trait<Norm<S>>
 		{
 			schema: schema as Norm<S>,
 			[$internal]: {
-				set: isAtomic
-					? (index: number, store: any, value: any) => {
-							store[index] = value;
-					  }
-					: createSetFunction(schema),
-				fastSet: isAtomic
-					? (index: number, store: any, value: any) => {
-							store[index] = value;
-					  }
-					: createFastSetFunction(schema),
-				fastSetWithChangeDetection: isAtomic
-					? (index: number, store: any, value: any) => {
-							let changed = false;
-							if (value !== store[index]) {
-								store[index] = value;
-								changed = true;
-							}
-							return changed;
-					  }
-					: createFastSetWithChangeDetectionFunction(schema),
-				get: isAtomic
-					? (index: number, store: any) => store[index]
-					: createGetFunction(schema),
+				set: createSetFunction[traitType](schema),
+				fastSet: createFastSetFunction[traitType](schema),
+				fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
+				get: createGetFunction[traitType](schema),
 				stores: [] as Store<S>[],
 				id: traitId++,
 				createStore: () => createStore(schema as Norm<S>),
 				isPairTrait: false,
 				relation: null,
 				pairTarget: null,
-				isTag: !isAtomic && Object.keys(schema).length === 0,
+				isTag: !isAoS && Object.keys(schema).length === 0,
 				type: traitType,
 			},
 		}
@@ -160,7 +141,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			}
 		}
 
-		if (traitCtx.type === 'schematic') {
+		if (traitCtx.type === 'soa') {
 			// Set default values or override with provided params.
 			const defaults: Record<string, any> = {};
 			// Execute any functions in the schema for default values.

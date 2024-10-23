@@ -79,7 +79,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 						const ctx = trait[$internal];
 						const value = ctx.get(eid, stores[j]);
 						state[j] = value;
-						atomicSnapshots[j] = ctx.type === 'atomic' ? { ...value } : null;
+						atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
 					}
 
 					callback(state as any, entity, i);
@@ -94,7 +94,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 						const newValue = state[j];
 
 						let changed = false;
-						if (ctx.type === 'atomic') {
+						if (ctx.type === 'aos') {
 							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
 							if (!changed) {
 								changed = !shallowEqual(newValue, atomicSnapshots[j]);
