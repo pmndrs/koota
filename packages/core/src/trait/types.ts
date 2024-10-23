@@ -4,7 +4,7 @@ import { IsEmpty } from '../utils/types';
 
 export type TraitType = 'aos' | 'soa';
 
-type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
+export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
 	? ReturnType<TSchema>
 	: Partial<TraitInstance<TSchema>>;
 
@@ -22,7 +22,7 @@ export type Trait<
 			store: any,
 			value: TraitValue<TSchema>
 		) => boolean;
-		get: (index: number, store: any) => TraitValue<TSchema>;
+		get: (index: number, store: any) => TraitInstance<TSchema>;
 		stores: TStore[];
 		id: number;
 		createStore: () => TStore;
