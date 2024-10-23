@@ -5,6 +5,7 @@ Koota is an ECS-based state management library optimized for real-time apps, gam
 ```bash
 npm i koota
 ```
+👉 [Try the starter template](https://github.com/Ctrlmonster/r3f-koota-starter)
 
 ### First, define traits
 
@@ -52,7 +53,7 @@ world.query(Position, Velocity).updateEach(([position, velocity]) => {
 
 ### Use in your React components
 
-Traits can be used reactievely inside of React components.
+Traits can be used reactively inside of React components.
 
 ```js
 import { WorldProvider, useQuery, useObserve } from 'koota/react'
@@ -194,7 +195,7 @@ hero.has(Targeting(goblin)); // True
 
 #### Querying relationships
 
-Relationships can be queried with specific targets, wildcard targets using `*` and even inverted wildcard searches with `Wildcard` to get all entities with a relationships targeting another entity.
+Relationships can be queried with specific targets, wildcard targets using `*` and even inverted wildcard searches with `Wildcard` to get all entities with a relationship targeting another entity.
 
 ```js
 const gold = world.spawn();
@@ -213,7 +214,7 @@ const relatesToGold = world.query(Widlcard(gold)); // Returns [inventory, chest,
 
 ### Query modifiers
 
-Modifiers are used to filter query results enabling powerful patterns. All modifiers can mixed together.
+Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
 
 #### Not
 
@@ -227,7 +228,7 @@ const staticEntities = world.query(Position, Not(Velocity));
 
 #### Or
 
-By default all query paramters are combined with logical AND. The `Or` modifier enables using logical OR instead.
+By default all query parameters are combined with logical AND. The `Or` modifier enables using logical OR instead.
 
 ```js
 import { Or } from 'koota';
@@ -415,7 +416,7 @@ world.destroy()
 
 ### Entity
 
-An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instaed be decoded with `entity.id()`.
+An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instead be decoded with `entity.id()`.
 
 ```js
 // Add a trait to the entity

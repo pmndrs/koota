@@ -1,4 +1,4 @@
-import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koota/core';
+import { createWorld, Entity, QueryResult, trait, TraitInstance, universe, World } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -23,7 +23,7 @@ describe('Hooks', () => {
 		world = createWorld();
 	});
 
-	it('useObserve', async () => {
+	it('useObserve with entity', async () => {
 		const entity = world.spawn(Position);
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 
@@ -60,11 +60,13 @@ describe('Hooks', () => {
 		expect(position).toEqual({ x: 1, y: 1 });
 	});
 
-	it('useQuery', async () => {
-		let entities: number[] = [];
+	it.only('useObserve with world', async () => {
+		const TimeOfDay = trait({ hour: 0 });
+		world.add(TimeOfDay);
+		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
 
 		function Test() {
-			entities = useQuery(Position);
+			timeOfDay = useObserve(world, TimeOfDay);
 			return null;
 		}
 
@@ -80,14 +82,54 @@ describe('Hooks', () => {
 			);
 		});
 
-		expect(entities.length).toBe(0);
+		expect(timeOfDay).toEqual({ hour: 0 });
+
+		await act(async () => {
+			world.set(TimeOfDay, { hour: 1 });
+
+			await renderer!.update(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(timeOfDay).toEqual({ hour: 1 });
+	});
+
+	it('useQuery', async () => {
+		let entities: QueryResult<[typeof Position]> = null!;
 
 		let entityA: Entity;
 		let entityB: Entity;
+		let entityC: Entity;
+
+		function Test() {
+			entities = useQuery(Position);
+			return null;
+		}
+
+		let renderer: any;
 
 		await act(async () => {
 			entityA = world.spawn(Position);
+
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(entities.length).toBe(1);
+
+		await act(async () => {
 			entityB = world.spawn(Position);
+			entityC = world.spawn(Position);
 			world.spawn(Position);
 
 			await renderer!.update(
@@ -99,11 +141,12 @@ describe('Hooks', () => {
 			);
 		});
 
-		expect(entities.length).toBe(3);
+		expect(entities.length).toBe(4);
 
 		await act(async () => {
 			entityA.destroy();
 			entityB.destroy();
+			entityC.destroy();
 
 			await renderer!.update(
 				<StrictMode>
