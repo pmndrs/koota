@@ -5,7 +5,8 @@
 	"scripts": {
 		"app": "npx tsx ./scripts/app.ts",
 		"sim": "npx tsx ./scripts/sim.ts",
-		"send": "pnpm -F koota build && pnpm -F koota publish"
+		"send": "pnpm -F koota build && pnpm -F koota publish",
+		"prepublish": "pnpm -F koota build"
 	},
 	"dependencies": {
 		"@types/node": "latest",
