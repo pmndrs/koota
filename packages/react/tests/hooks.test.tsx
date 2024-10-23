@@ -1,4 +1,4 @@
-import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koota/core';
+import { createWorld, Entity, QueryResult, trait, TraitInstance, universe, World } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -61,7 +61,11 @@ describe('Hooks', () => {
 	});
 
 	it('useQuery', async () => {
-		let entities: number[] = [];
+		let entities: QueryResult<[typeof Position]> = null!;
+
+		let entityA: Entity;
+		let entityB: Entity;
+		let entityC: Entity;
 
 		function Test() {
 			entities = useQuery(Position);
@@ -71,6 +75,8 @@ describe('Hooks', () => {
 		let renderer: any;
 
 		await act(async () => {
+			entityA = world.spawn(Position);
+
 			renderer = await ReactThreeTestRenderer.create(
 				<StrictMode>
 					<WorldProvider world={world}>
@@ -80,14 +86,11 @@ describe('Hooks', () => {
 			);
 		});
 
-		expect(entities.length).toBe(0);
-
-		let entityA: Entity;
-		let entityB: Entity;
+		expect(entities.length).toBe(1);
 
 		await act(async () => {
-			entityA = world.spawn(Position);
 			entityB = world.spawn(Position);
+			entityC = world.spawn(Position);
 			world.spawn(Position);
 
 			await renderer!.update(
@@ -99,11 +102,12 @@ describe('Hooks', () => {
 			);
 		});
 
-		expect(entities.length).toBe(3);
+		expect(entities.length).toBe(4);
 
 		await act(async () => {
 			entityA.destroy();
 			entityB.destroy();
+			entityC.destroy();
 
 			await renderer!.update(
 				<StrictMode>
