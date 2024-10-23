@@ -9,7 +9,7 @@ import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
 import { TraitData } from '../trait/trait-data';
-import { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
+import { ConfigurableTrait, ExtractSchema, Trait, TraitValue } from '../trait/types';
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
@@ -99,7 +99,7 @@ export class World {
 		return this[$internal].worldEntity.get(trait);
 	}
 
-	set<T extends Trait>(trait: T, value: Partial<TraitInstance<T>>) {
+	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>>) {
 		this[$internal].worldEntity.set(trait, value);
 	}
 

@@ -21,7 +21,7 @@ export class TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema
 		this.generationId = ctx.entityMasks.length - 1;
 		this.bitflag = ctx.bitflag;
 		this.trait = trait;
-		this.store = traitCtx.createStore();
+		this.store = traitCtx.createStore() as Store<S>;
 		this.queries = new Set();
 		this.notQueries = new Set();
 		this.schema = trait.schema;
