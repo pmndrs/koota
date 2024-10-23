@@ -5,6 +5,7 @@ Koota is an ECS-based state management library optimized for real-time apps, gam
 ```bash
 npm i koota
 ```
+👉 [Try the starter template](https://github.com/Ctrlmonster/r3f-koota-starter)
 
 ### First, define traits
 
@@ -18,7 +19,8 @@ const Position = trait({ x: 0, y: 0 });
 const Velocity = trait({ x: 0, y: 0 });
 
 // Trait with a callback for initial value
-const Mesh = trait({ value: () => THREE.Mesh() });
+// ⚠️ Must be an object
+const Mesh = trait(() => THREE.Mesh());
 
 // Tag trait (no data)
 const IsActive = trait();
@@ -52,7 +54,7 @@ world.query(Position, Velocity).updateEach(([position, velocity]) => {
 
 ### Use in your React components
 
-Traits can be used reactievely inside of React components.
+Traits can be used reactively inside of React components.
 
 ```js
 import { WorldProvider, useQuery, useObserve } from 'koota/react'
@@ -194,7 +196,7 @@ hero.has(Targeting(goblin)); // True
 
 #### Querying relationships
 
-Relationships can be queried with specific targets, wildcard targets using `*` and even inverted wildcard searches with `Wildcard` to get all entities with a relationships targeting another entity.
+Relationships can be queried with specific targets, wildcard targets using `*` and even inverted wildcard searches with `Wildcard` to get all entities with a relationship targeting another entity.
 
 ```js
 const gold = world.spawn();
@@ -213,7 +215,7 @@ const relatesToGold = world.query(Widlcard(gold)); // Returns [inventory, chest,
 
 ### Query modifiers
 
-Modifiers are used to filter query results enabling powerful patterns. All modifiers can mixed together.
+Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
 
 #### Not
 
@@ -227,7 +229,7 @@ const staticEntities = world.query(Position, Not(Velocity));
 
 #### Or
 
-By default all query paramters are combined with logical AND. The `Or` modifier enables using logical OR instead.
+By default all query parameters are combined with logical AND. The `Or` modifier enables using logical OR instead.
 
 ```js
 import { Or } from 'koota';
@@ -415,7 +417,7 @@ world.destroy()
 
 ### Entity
 
-An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instaed be decoded with `entity.id()`.
+An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instead be decoded with `entity.id()`.
 
 ```js
 // Add a trait to the entity
@@ -449,6 +451,59 @@ const id = entity.id()
 
 // Destroys the entity making its number no longer valid
 entity.destroy()
+```
+
+### Trait
+
+A trait defines a kind of data. If you are familiar with ECS, it is our version of a component. We call it a trait instead to not get confused with React or web components. From a high level, you just create traits either with a schema or with a callback returning an object.
+
+```js
+// A schema
+const Position = trait({ x: 0, y: 0, z: 0 })
+
+// A callback
+const Velocity = trait(() => THREE.Vector3())
+```
+
+Both schema-based and callback-based traits are used similarly, but they have different performance implications due to how their data is stored internally:
+
+1. Schema-based traits use a Structure of Arrays (SoA) storage.
+2. Callback-based traits use an Array of Structures (AoS) storage.
+
+[Learn more about AoS and SoA here](https://en.wikipedia.org/wiki/AoS_and_SoA).
+
+### Structure of Arrays (SoA) - Schema-based traits
+
+When using a schema, each property is stored in its own array. This can lead to better cache locality when accessing a single property across many entities. This is always the fastest option for data that has intensive operations.
+
+```js
+const Position = trait({ x: 0, y: 0, z: 0 });
+
+// Internally, this creates a store structure like:
+const store = {
+  x: [0, 0, 0, ...], // Array for x values
+  y: [0, 0, 0, ...], // Array for y values
+  z: [0, 0, 0, ...], // Array for z values
+};
+```
+
+### Array of Structures (AoS) - Callback-based traits
+
+When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibiilty with third party libraries like Three, or class instnaces in general.
+
+```js
+const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }));
+
+// Internally, this creates a store structure like:
+const store = [
+  { x: 0, y: 0, z: 0 },
+  { x: 0, y: 0, z: 0 },
+  { x: 0, y: 0, z: 0 },
+  // ...
+];
+
+// Similarly, this will create a new instance of Mesh in each index
+const Mesh = trait(() => THREE.Mesh())
 ```
 
 ### React
