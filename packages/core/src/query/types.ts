@@ -1,5 +1,5 @@
-import { Trait, IsTag, TraitSnapshot, ExtractStore } from '../trait/types';
 import { Entity } from '../entity/types';
+import { AoSFactory, ExtractSchema, ExtractStore, IsTag, Trait, TraitInstance } from '../trait/types';
 import { ModifierData } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;
@@ -12,7 +12,7 @@ export type QueryResultOptions = {
 
 export type QueryResult<T extends QueryParameter[]> = readonly Entity[] & {
 	updateEach: (
-		callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void,
+		callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
 		options?: QueryResultOptions
 	) => QueryResult<T>;
 	useStores: (
@@ -34,21 +34,23 @@ export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer 
 	  ]
 	: [];
 
-export type SnapshotFromParameters<T extends QueryParameter[]> = T extends [
+export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 	infer First,
 	...infer Rest
 ]
 	? [
 			...(First extends Trait
 				? IsTag<First> extends false
-					? [TraitSnapshot<First>]
+					? ExtractSchema<First> extends AoSFactory
+						? [ReturnType<ExtractSchema<First>>]
+						: [TraitInstance<First>]
 					: []
 				: First extends ModifierData<any>
 				? IsNotModifier<First> extends true
 					? []
-					: SnapshotFromParameters<UnwrapModifierData<First>>
+					: InstancesFromParameters<UnwrapModifierData<First>>
 				: []),
-			...(Rest extends QueryParameter[] ? SnapshotFromParameters<Rest> : [])
+			...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest> : [])
 	  ]
 	: [];
 
