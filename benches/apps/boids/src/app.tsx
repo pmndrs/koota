@@ -28,7 +28,7 @@ export function App() {
 		return () => {
 			destroyAllBoids();
 			// Reset the spatial hash map.
-			const { value: spatialHashMap } = world.get(SpatialHashMap);
+			const spatialHashMap = world.get(SpatialHashMap);
 			spatialHashMap?.reset();
 		};
 	}, [spawnBoid, destroyAllBoids, world]);
