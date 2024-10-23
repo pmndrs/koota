@@ -1,12 +1,5 @@
 import { Entity } from '../entity/types';
-import {
-	ExtractSchema,
-	ExtractStore,
-	ExtractTraitType,
-	IsTag,
-	Trait,
-	TraitInstance,
-} from '../trait/types';
+import { AoSFactory, ExtractSchema, ExtractStore, IsTag, Trait, TraitInstance } from '../trait/types';
 import { ModifierData } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;
@@ -48,7 +41,7 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 	? [
 			...(First extends Trait
 				? IsTag<First> extends false
-					? ExtractTraitType<First> extends 'atomic'
+					? ExtractSchema<First> extends AoSFactory
 						? [ReturnType<ExtractSchema<First>>]
 						: [TraitInstance<First>]
 					: []

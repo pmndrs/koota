@@ -1,6 +1,6 @@
 import { Schema } from '../types';
 
-export function createSetFunction(schema: Schema) {
+function createSoASetFunction(schema: Schema) {
 	const keys = Object.keys(schema);
 
 	// Generate a hardcoded set function based on the schema keys
@@ -21,7 +21,7 @@ export function createSetFunction(schema: Schema) {
 	return set;
 }
 
-export function createFastSetFunction(schema: Schema) {
+function createSoAFastSetFunction(schema: Schema) {
 	const keys = Object.keys(schema);
 
 	// Generate a hardcoded set function based on the schema keys
@@ -41,7 +41,7 @@ export function createFastSetFunction(schema: Schema) {
 }
 
 // Return true if any trait value were changed.
-export function createFastSetWithChangeDetectionFunction(schema: Schema) {
+function createSoAFastSetChangeFunction(schema: Schema) {
 	const keys = Object.keys(schema);
 
 	// Generate a hardcoded set function based on the schema keys
@@ -70,7 +70,7 @@ export function createFastSetWithChangeDetectionFunction(schema: Schema) {
 	return set;
 }
 
-export function createGetFunction(schema: Schema) {
+function createSoAGetFunction(schema: Schema) {
 	const keys = Object.keys(schema);
 
 	// Create an object literal with all keys assigned from the store
@@ -87,3 +87,44 @@ export function createGetFunction(schema: Schema) {
 
 	return get;
 }
+
+function createAoSSetFunction(_schema: Schema) {
+	return (index: number, store: any, value: any) => {
+		store[index] = value;
+	};
+}
+
+function createAoSFastSetChangeFunction(_schema: Schema) {
+	return (index: number, store: any, value: any) => {
+		let changed = false;
+		if (value !== store[index]) {
+			store[index] = value;
+			changed = true;
+		}
+		return changed;
+	};
+}
+
+function createAoSGetFunction(_schema: Schema) {
+	return (index: number, store: any) => store[index];
+}
+
+export const createSetFunction = {
+	soa: createSoASetFunction,
+	aos: createAoSSetFunction,
+};
+
+export const createFastSetFunction = {
+	soa: createSoAFastSetFunction,
+	aos: createAoSSetFunction,
+};
+
+export const createFastSetChangeFunction = {
+	soa: createSoAFastSetChangeFunction,
+	aos: createAoSFastSetChangeFunction,
+};
+
+export const createGetFunction = {
+	soa: createSoAGetFunction,
+	aos: createAoSGetFunction,
+};
