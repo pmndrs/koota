@@ -1,16 +1,17 @@
-import { getStore } from '../trait/trait';
-import { Trait, Store } from '../trait/types';
+import { $internal } from '../common';
 import { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { $internal } from '../common';
+import { getStore } from '../trait/trait';
+import { Store, Trait } from '../trait/types';
+import { shallowEqual } from '../utils/shallow-equal';
 import { World } from '../world/world';
 import { ModifierData } from './modifier';
 import { Query } from './query';
 import {
+	InstancesFromParameters,
 	QueryParameter,
 	QueryResult,
 	QueryResultOptions,
-	SnapshotFromParameters,
 	StoresFromParameters,
 } from './types';
 
@@ -33,7 +34,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
 	const results = Object.assign(entities, {
 		updateEach(
-			callback: (state: SnapshotFromParameters<T>, entity: Entity, index: number) => void,
+			callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
 			options?: QueryResultOptions
 		) {
 			const changeDetection = options?.changeDetection ?? false;
@@ -58,7 +59,6 @@ export function createQueryResult<T extends QueryParameter[]>(
 					if (!world.has(entity)) continue;
 
 					// Commit all changes back to the stores.
-					let changed = false;
 					for (let j = 0; j < traits.length; j++) {
 						const trait = traits[j];
 						const ctx = trait[$internal];
@@ -67,6 +67,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 				}
 			} else {
 				const changedPairs: [Entity, Trait][] = [];
+				const atomicSnapshots: any[] = [];
 
 				for (let i = 0; i < entities.length; i++) {
 					const entity = entities[i];
@@ -76,7 +77,9 @@ export function createQueryResult<T extends QueryParameter[]>(
 					for (let j = 0; j < traits.length; j++) {
 						const trait = traits[j];
 						const ctx = trait[$internal];
-						state[j] = ctx.get(eid, stores[j]);
+						const value = ctx.get(eid, stores[j]);
+						state[j] = value;
+						atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
 					}
 
 					callback(state as any, entity, i);
@@ -85,11 +88,20 @@ export function createQueryResult<T extends QueryParameter[]>(
 					if (!world.has(entity)) continue;
 
 					// Commit all changes back to the stores.
-					let changed = false;
 					for (let j = 0; j < traits.length; j++) {
 						const trait = traits[j];
 						const ctx = trait[$internal];
-						changed = ctx.fastSetWithChangeDetection(eid, stores[j], state[j]);
+						const newValue = state[j];
+
+						let changed = false;
+						if (ctx.type === 'aos') {
+							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+							if (!changed) {
+								changed = !shallowEqual(newValue, atomicSnapshots[j]);
+							}
+						} else {
+							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+						}
 
 						// Collect changed traits.
 						if (changed) changedPairs.push([entity, trait] as const);

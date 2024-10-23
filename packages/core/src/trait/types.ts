@@ -2,6 +2,12 @@ import { Relation, RelationTarget } from '../relation/types';
 import { $internal } from '../common';
 import { IsEmpty } from '../utils/types';
 
+export type TraitType = 'aos' | 'soa';
+
+type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
+	? ReturnType<TSchema>
+	: Partial<TraitInstance<TSchema>>;
+
 export type Trait<
 	TSchema extends Schema = any,
 	TStore = Store<TSchema>,
@@ -9,14 +15,14 @@ export type Trait<
 > = {
 	schema: TSchema;
 	[$internal]: {
-		set: (index: number, store: TStore, values: Partial<TraitInstance<TSchema>>) => void;
-		fastSet: (index: number, store: TStore, values: Partial<TraitInstance<TSchema>>) => void;
+		set: (index: number, store: any, value: TraitValue<TSchema>) => void;
+		fastSet: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
 		fastSetWithChangeDetection: (
 			index: number,
-			store: TStore,
-			values: Partial<TraitInstance<TSchema>>
+			store: any,
+			value: TraitValue<TSchema>
 		) => boolean;
-		get: (index: number, store: TStore) => TraitInstance<TSchema>;
+		get: (index: number, store: any) => TraitValue<TSchema>;
 		stores: TStore[];
 		id: number;
 		createStore: () => TStore;
@@ -24,43 +30,70 @@ export type Trait<
 		relation: Relation<any> | null;
 		pairTarget: RelationTarget | null;
 		isTag: TTag;
+		type: TraitType;
 	};
-} & ((params: Partial<TraitInstance<TSchema>>) => [Trait<TSchema, TStore>, Partial<TSchema>]);
+} & ((params?: TraitValue<TSchema>) => [Trait<TSchema, TStore, TTag>, TraitValue<TSchema>]);
 
 export type TraitTuple<T extends Trait = Trait> = [
 	T,
-	T extends Trait<infer S, any> ? Partial<TraitInstance<S>> : never
+	T extends Trait<infer S, any>
+		? S extends AoSFactory
+			? ReturnType<S>
+			: Partial<TraitInstance<S>>
+		: never
 ];
 
 export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T>;
 
-export type TraitInstance<T extends Trait | Schema> = T extends Trait
-	? {
+type TraitInstanceFromTrait<T extends Trait> = T['schema'] extends AoSFactory
+	? ReturnType<T['schema']>
+	: {
 			[P in keyof T['schema']]: T['schema'][P] extends (...args: any[]) => any
 				? ReturnType<T['schema'][P]>
 				: T['schema'][P];
-	  }
+	  };
+
+type TraitInstanceFromSchema<T extends Schema> = T extends AoSFactory
+	? ReturnType<T>
 	: {
 			[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]> : T[P];
 	  };
 
-export type Schema = {
-	[key: string]: number | string | boolean | any[] | object | null | undefined;
-};
+export type TraitInstance<T extends Trait | Schema> = T extends Trait
+	? TraitInstanceFromTrait<T>
+	: TraitInstanceFromSchema<T>;
 
-export type Store<T extends Schema = any> = {
-	[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]>[] : T[P][];
-};
+export type Schema =
+	| {
+			[key: string]: number | string | boolean | any[] | object | null | undefined;
+	  }
+	| AoSFactory;
+
+export type AoSFactory = () => Record<string, any>;
+
+export type Store<T extends Schema = any> = T extends AoSFactory
+	? ReturnType<T>[]
+	: {
+			[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]>[] : T[P][];
+	  };
 
 // Utils
 
-export type Norm<T extends Schema> = {
-	[K in keyof T]: T[K] extends boolean ? boolean : T[K];
-};
+export type Norm<T extends Schema> = T extends AoSFactory
+	? () => ReturnType<T> extends number
+			? number
+			: ReturnType<T> extends boolean
+			? boolean
+			: ReturnType<T> extends string
+			? string
+			: ReturnType<T>
+	: {
+			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
+	  };
 
-export type TraitSnapshot<T extends Trait> = T extends Trait<infer S, any> ? TraitInstance<S> : never;
 export type ExtractSchema<T extends Trait> = T extends Trait<infer S, any> ? S : never;
 export type ExtractStore<T extends Trait> = T extends Trait<any, infer S> ? S : never;
+export type ExtractIsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
 
 export type ExtractStores<T extends [Trait, ...Trait[]]> = T extends [infer C]
 	? C extends Trait<any, Store<any>>

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { cacheQuery, createWorld } from '../src';
-import { trait, getStores } from '../src/trait/trait';
+import { $internal } from '../src/common';
 import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
-import { createRemoved } from '../src/query/modifiers/removed';
-import { $internal } from '../src/common';
-import { IsExcluded } from '../src/query/query';
 import { Or } from '../src/query/modifiers/or';
+import { createRemoved } from '../src/query/modifiers/removed';
+import { IsExcluded } from '../src/query/query';
+import { getStores, trait } from '../src/trait/trait';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -678,5 +678,46 @@ describe('Query', () => {
 		results.select(Name).updateEach(([name]) => {
 			expect(name.name).toBeDefined();
 		});
+	});
+
+	it('updateEach works with atomic traits', () => {
+		const Position = trait(() => ({ x: 0, y: 0 }));
+		const Mass = trait(() => ({ value: 0 }));
+
+		const entity = world.spawn(Position, Mass);
+		world.query(Position, Mass).updateEach(([position, mass]) => {
+			position.x = 1;
+			mass.value = 10;
+		});
+
+		expect(entity.get(Position).x).toBe(1);
+		expect(entity.get(Mass).value).toBe(10);
+	});
+
+	it('updateEach works with atomic traits and change detection', () => {
+		const Position = trait(() => ({ x: 0, y: 0 }));
+		const cb = vi.fn();
+		world.onChange(Position, cb);
+		world.spawn(Position);
+
+		expect(cb).toHaveBeenCalledTimes(0);
+
+		world.query(Position).updateEach(
+			([position]) => {
+				position.x = 0;
+			},
+			{ changeDetection: true }
+		);
+
+		expect(cb).toHaveBeenCalledTimes(0);
+
+		world.query(Position).updateEach(
+			([position]) => {
+				position.x = 1;
+			},
+			{ changeDetection: true }
+		);
+
+		expect(cb).toHaveBeenCalledTimes(1);
 	});
 });
