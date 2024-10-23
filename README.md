@@ -5,6 +5,7 @@ Koota is an ECS-based state management library optimized for real-time apps, gam
 ```bash
 npm i koota
 ```
+[Link to starter template](https://github.com/Ctrlmonster/r3f-koota-starter)
 
 ### First, define traits
 
