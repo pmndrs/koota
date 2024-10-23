@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { universe } from '../src/universe/universe';
 import { trait } from '../src/trait/trait';
-import { createWorld } from '../src';
+import { createWorld, TraitInstance } from '../src';
 
 describe('World', () => {
 	beforeEach(() => {
@@ -70,5 +70,18 @@ describe('World', () => {
 
 		world.remove(Time);
 		expect(world.has(Time)).toBe(false);
+	});
+
+	it('should observe traits', () => {
+		const TimeOfDay = trait({ hour: 0 });
+		const world = createWorld(TimeOfDay);
+
+		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
+		world.onChange(TimeOfDay, (e) => {
+			timeOfDay = e.get(TimeOfDay);
+		});
+
+		world.set(TimeOfDay, { hour: 1 });
+		expect(timeOfDay).toEqual({ hour: 1 });
 	});
 });
