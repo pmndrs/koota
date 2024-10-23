@@ -23,7 +23,7 @@ describe('Hooks', () => {
 		world = createWorld();
 	});
 
-	it('useObserve', async () => {
+	it('useObserve with entity', async () => {
 		const entity = world.spawn(Position);
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 
@@ -58,6 +58,45 @@ describe('Hooks', () => {
 		});
 
 		expect(position).toEqual({ x: 1, y: 1 });
+	});
+
+	it.only('useObserve with world', async () => {
+		const TimeOfDay = trait({ hour: 0 });
+		world.add(TimeOfDay);
+		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
+
+		function Test() {
+			timeOfDay = useObserve(world, TimeOfDay);
+			return null;
+		}
+
+		let renderer: any;
+
+		await act(async () => {
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(timeOfDay).toEqual({ hour: 0 });
+
+		await act(async () => {
+			world.set(TimeOfDay, { hour: 1 });
+
+			await renderer!.update(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(timeOfDay).toEqual({ hour: 1 });
 	});
 
 	it('useQuery', async () => {
