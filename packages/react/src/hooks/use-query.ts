@@ -2,7 +2,7 @@ import { QueryParameter, QueryResult } from '@koota/core';
 import { useEffect, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
-export function useQuery<T extends QueryParameter[]>(...parameters: T) {
+export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryResult<T> {
 	const world = useWorld();
 	const [entities, setEntities] = useState<QueryResult<T>>(world.query(...parameters));
 
@@ -26,7 +26,6 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T) {
 				// @ts-expect-error - QueryResult is a readonly array, but we need to mutate it
 				v.pop();
 
-				console.log(entity, v);
 				return v;
 			});
 		});
