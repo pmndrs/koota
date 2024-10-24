@@ -2,13 +2,14 @@
 
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { useEntityRef, useWorld } from 'koota/react';
-import { StrictMode, useLayoutEffect } from 'react';
+import { Entity } from 'koota';
+import { useQuery, useWorld } from 'koota/react';
+import { memo, StrictMode, useCallback, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
-import { BoidsConfig, Position, SpatialHashMap } from './traits';
-import { InstancedMesh } from './traits/instanced-mesh';
+import { BoidsConfig, Position, SpatialHashMap, Velocity } from './traits';
+import { Mesh } from './traits';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
 
@@ -17,7 +18,7 @@ export function App() {
 	const { spawnBoid, destroyAllBoids } = useActions();
 
 	useLayoutEffect(() => {
-		const { count } = world.get(BoidsConfig);
+		const { initialCount: count } = world.get(BoidsConfig);
 
 		for (let i = 0; i < count; i++) {
 			const position = new THREE.Vector3().randomDirection().multiplyScalar(between(0, 10));
@@ -35,18 +36,10 @@ export function App() {
 
 	return (
 		<>
-			<button
-				style={{ position: 'absolute', top: 0, right: 0, zIndex: 1 }}
-				onClick={() => {
-					const position = new THREE.Vector3()
-						.randomDirection()
-						.multiplyScalar(between(0, 10));
-					const velocity = new THREE.Vector3().randomDirection();
-					spawnBoid(position, velocity);
-				}}
-			>
-				Spawn Boid
-			</button>
+			<div style={{ position: 'absolute', top: 0, right: 0, zIndex: 1 }}>
+				<SpawnButton />
+				<DestroyButton />
+			</div>
 			<Canvas>
 				<StrictMode>
 					<ambientLight intensity={Math.PI * 0.2} />
@@ -65,21 +58,32 @@ export function App() {
 }
 
 function Boids() {
-	const world = useWorld();
-	const { count } = world.get(BoidsConfig);
-	const geo = new THREE.IcosahedronGeometry();
-	const mat = new THREE.MeshStandardMaterial({ color: 'hotpink' });
-
-	const entityRef = useEntityRef<THREE.InstancedMesh>((node, entity) => {
-		// Set initial scale to zero
-		for (let i = 0; i < node.count; i++) {
-			node.setMatrixAt(i, new THREE.Matrix4().makeScale(0, 0, 0));
-		}
-		entity.add(InstancedMesh({ object: node }));
-	});
-
-	return <instancedMesh ref={entityRef} args={[geo, mat, count * 2]} />;
+	const boids = useQuery(Position, Velocity);
+	return (
+		<>
+			{boids.map((boid) => (
+				<Boid key={boid.id()} entity={boid} />
+			))}
+		</>
+	);
 }
+
+const Boid = memo(({ entity }: { entity: Entity }) => {
+	const entityRef = useCallback(
+		(node: THREE.Mesh) => {
+			if (node) entity?.add(Mesh(node));
+			else entity?.remove(Mesh);
+		},
+		[entity]
+	);
+
+	return (
+		<mesh ref={entityRef} scale={0.5}>
+			<icosahedronGeometry />
+			<meshStandardMaterial color="hotpink" />
+		</mesh>
+	);
+});
 
 // Simulation runs a schedule.
 function Simulation() {
@@ -94,4 +98,24 @@ function Simulation() {
 	});
 
 	return null;
+}
+
+function SpawnButton() {
+	const { spawnBoid } = useActions();
+	return (
+		<button
+			onClick={() => {
+				const position = new THREE.Vector3().randomDirection().multiplyScalar(between(0, 10));
+				const velocity = new THREE.Vector3().randomDirection();
+				spawnBoid(position, velocity);
+			}}
+		>
+			Spawn Boid
+		</button>
+	);
+}
+
+function DestroyButton() {
+	const { destroyRandomBoid } = useActions();
+	return <button onClick={destroyRandomBoid}>Destroy Boid</button>;
 }

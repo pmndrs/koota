@@ -6,7 +6,7 @@ export const world = createWorld(
 	Time,
 	SpatialHashMap(new SpatialHashMapImpl(5)),
 	BoidsConfig({
-		count: 1000,
+		initialCount: 500,
 		maxVelocity: 6,
 		separationFactor: 16,
 		alignmentFactor: 0.5,
