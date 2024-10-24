@@ -7,7 +7,7 @@ import { StrictMode, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
-import { BoidsConfig, SpatialHashMap } from './traits';
+import { BoidsConfig, Position, SpatialHashMap } from './traits';
 import { InstancedMesh } from './traits/instanced-mesh';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
@@ -34,19 +34,33 @@ export function App() {
 	}, [spawnBoid, destroyAllBoids, world]);
 
 	return (
-		<Canvas>
-			<StrictMode>
-				<ambientLight intensity={Math.PI * 0.2} />
-				<directionalLight position={[1, 2, 3]} intensity={0.8} />
+		<>
+			<button
+				style={{ position: 'absolute', top: 0, right: 0, zIndex: 1 }}
+				onClick={() => {
+					const position = new THREE.Vector3()
+						.randomDirection()
+						.multiplyScalar(between(0, 10));
+					const velocity = new THREE.Vector3().randomDirection();
+					spawnBoid(position, velocity);
+				}}
+			>
+				Spawn Boid
+			</button>
+			<Canvas>
+				<StrictMode>
+					<ambientLight intensity={Math.PI * 0.2} />
+					<directionalLight position={[1, 2, 3]} intensity={0.8} />
 
-				<PerspectiveCamera makeDefault position={[0, 0, 50]} />
-				<OrbitControls />
+					<PerspectiveCamera makeDefault position={[0, 0, 50]} />
+					<OrbitControls />
 
-				<Boids />
+					<Boids />
 
-				<Simulation />
-			</StrictMode>
-		</Canvas>
+					<Simulation />
+				</StrictMode>
+			</Canvas>
+		</>
 	);
 }
 
@@ -70,7 +84,7 @@ function Boids() {
 // Simulation runs a schedule.
 function Simulation() {
 	const world = useWorld();
-	const statsApi = useStats({});
+	const statsApi = useStats({ count: () => world.query(Position).length });
 
 	useFrame(() => {
 		statsApi.measure(() => {
