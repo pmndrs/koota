@@ -60,7 +60,7 @@ describe('Hooks', () => {
 		expect(position).toEqual({ x: 1, y: 1 });
 	});
 
-	it.only('useObserve with world', async () => {
+	it('useObserve with world', async () => {
 		const TimeOfDay = trait({ hour: 0 });
 		world.add(TimeOfDay);
 		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
@@ -102,10 +102,6 @@ describe('Hooks', () => {
 	it('useQuery', async () => {
 		let entities: QueryResult<[typeof Position]> = null!;
 
-		let entityA: Entity;
-		let entityB: Entity;
-		let entityC: Entity;
-
 		function Test() {
 			entities = useQuery(Position);
 			return null;
@@ -114,8 +110,6 @@ describe('Hooks', () => {
 		let renderer: any;
 
 		await act(async () => {
-			entityA = world.spawn(Position);
-
 			renderer = await ReactThreeTestRenderer.create(
 				<StrictMode>
 					<WorldProvider world={world}>
@@ -125,36 +119,23 @@ describe('Hooks', () => {
 			);
 		});
 
-		expect(entities.length).toBe(1);
+		expect(entities.length).toBe(0);
 
 		await act(async () => {
-			entityB = world.spawn(Position);
-			entityC = world.spawn(Position);
 			world.spawn(Position);
-
-			await renderer!.update(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
 		});
 
-		expect(entities.length).toBe(4);
+		expect(entities.length).toBe(1);
+
+		let entityToDestroy: Entity;
+		await act(async () => {
+			entityToDestroy = world.spawn(Position);
+		});
+
+		expect(entities.length).toBe(2);
 
 		await act(async () => {
-			entityA.destroy();
-			entityB.destroy();
-			entityC.destroy();
-
-			await renderer!.update(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
+			entityToDestroy.destroy();
 		});
 
 		expect(entities.length).toBe(1);
