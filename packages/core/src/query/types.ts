@@ -10,7 +10,7 @@ export type QueryResultOptions = {
 	changeDetection?: boolean;
 };
 
-export type QueryResult<T extends QueryParameter[]> = readonly Entity[] & {
+export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
 	updateEach: (
 		callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
 		options?: QueryResultOptions
