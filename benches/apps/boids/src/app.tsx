@@ -8,8 +8,7 @@ import { memo, StrictMode, useCallback, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
-import { BoidsConfig, Position, SpatialHashMap, Velocity } from './traits';
-import { Mesh } from './traits';
+import { BoidsConfig, Mesh, Position, SpatialHashMap, Velocity } from './traits';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
 
