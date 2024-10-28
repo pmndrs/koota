@@ -14,7 +14,7 @@
 		"@react-three/fiber": "^8.17.5",
 		"@sim/n-body": "workspace:*",
 		"koota": "workspace:@koota/dev@*",
-		"directed": "github:pmndrs/directed#v0.0.1-alpha.5",
+		"directed": "latest",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"three": "^0.162.0"
