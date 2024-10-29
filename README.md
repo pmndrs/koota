@@ -210,7 +210,7 @@ const dwarf = world.spawn(Desires(gold));
 
 const constainsSilver = world.query(Contains(silver)); // Returns [inventory]
 const containsAnything = world.query(Contains('*')); // Returns [inventory, chest]
-const relatesToGold = world.query(Widlcard(gold)); // Returns [inventory, chest, dwarf]
+const relatesToGold = world.query(Wildcard(gold)); // Returns [inventory, chest, dwarf]
 ```
 
 ### Query modifiers
