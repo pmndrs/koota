@@ -13,7 +13,6 @@
 		"isolatedModules": true,
 		"noEmit": true,
 		"jsx": "react-jsx",
-		// "jsxImportSource": "@sweet-ecs/react",
 
 		/* Linting */
 		"strict": true,
