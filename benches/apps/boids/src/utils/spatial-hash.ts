@@ -45,10 +45,23 @@ export class SpatialHashMap {
 		let count = 0;
 		entities.length = 0;
 
-		for (let dx = x - radius; dx <= x + radius; dx += this.cellSize) {
-			for (let dy = y - radius; dy <= y + radius; dy += this.cellSize) {
-				for (let dz = z - radius; dz <= z + radius; dz += this.cellSize) {
-					const cell = this.getCell(dx, dy, dz);
+		// Calculate the cell coordinates that contain the sphere defined by radius
+		const minCellX = Math.floor((x - radius) / this.cellSize);
+		const maxCellX = Math.floor((x + radius) / this.cellSize);
+		const minCellY = Math.floor((y - radius) / this.cellSize);
+		const maxCellY = Math.floor((y + radius) / this.cellSize);
+		const minCellZ = Math.floor((z - radius) / this.cellSize);
+		const maxCellZ = Math.floor((z + radius) / this.cellSize);
+
+		// Iterate through all cells that might contain entities within the radius
+		for (let cx = minCellX; cx <= maxCellX; cx++) {
+			for (let cy = minCellY; cy <= maxCellY; cy++) {
+				for (let cz = minCellZ; cz <= maxCellZ; cz++) {
+					const cell = this.getCell(
+						cx * this.cellSize,
+						cy * this.cellSize,
+						cz * this.cellSize
+					);
 
 					for (const entity of cell) {
 						entities.push(entity);
