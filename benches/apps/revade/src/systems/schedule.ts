@@ -11,6 +11,9 @@ import { dampPlayerMovement } from './damp-player-movement';
 import { updateAvoidance } from './update-avoidance';
 import { updateSpatialHashing } from './update-spatial-hashing';
 import { pushEnemies } from './push-enemies';
+import { handleShooting } from './handle-shooting';
+import { updateBullets } from './update-bullet';
+import { updateBulletCollisions } from './update-bullet-collisions';
 
 export const schedule = new Schedule<{ world: World }>();
 
@@ -22,7 +25,10 @@ schedule.add(updateAvoidance);
 schedule.add(applyInput);
 schedule.add(dampPlayerMovement);
 schedule.add(pushEnemies);
+schedule.add(handleShooting);
 schedule.add(updateMovement);
+schedule.add(updateBullets);
+schedule.add(updateBulletCollisions);
 schedule.add(updateAutoRotate);
 schedule.add(updateSpatialHashing);
 
