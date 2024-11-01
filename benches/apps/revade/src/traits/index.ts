@@ -7,3 +7,4 @@ export * from './auto-rotate.ts';
 export * from './is-enemy.ts';
 export * from './spatial-hash-map.ts';
 export * from './avoidance.ts';
+export * from './bullet.ts';

@@ -8,7 +8,7 @@ import { memo, StrictMode, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
-import { Movement, Transform, IsEnemy } from './traits';
+import { Movement, Transform, IsEnemy, Bullet } from './traits';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
 
@@ -24,6 +24,7 @@ export function App() {
 
 				<Player />
 				<Enemies />
+				<Bullets />
 
 				<Simulation />
 			</StrictMode>
@@ -33,10 +34,10 @@ export function App() {
 
 function Enemies() {
 	const enemies = useQuery(IsEnemy, Transform);
-	return enemies.map((enemy) => <Enemy key={enemy.id()} entity={enemy} />);
+	return enemies.map((enemy) => <EnemyRenderer key={enemy.id()} entity={enemy} />);
 }
 
-const Enemy = memo(({ entity }: { entity: Entity }) => {
+const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 	const meshRef = useRef<THREE.Mesh>(null);
 
 	useLayoutEffect(() => {
@@ -88,6 +89,39 @@ function Player() {
 		</mesh>
 	);
 }
+
+function Bullets() {
+	const bullets = useQuery(Bullet, Transform);
+	return bullets.map((bullet) => <BulletRenderer key={bullet.id()} entity={bullet} />);
+}
+
+const BulletRenderer = memo(({ entity }: { entity: Entity }) => {
+	const meshRef = useRef<THREE.Mesh>(null);
+
+	useLayoutEffect(() => {
+		if (!meshRef.current) return;
+
+		// Copy current values
+		const { position, rotation, quaternion } = entity.get(Transform);
+		meshRef.current.position.copy(position);
+		meshRef.current.rotation.copy(rotation);
+		meshRef.current.quaternion.copy(quaternion);
+
+		// Sync transform with the trait
+		entity.set(Transform, {
+			position: meshRef.current.position,
+			rotation: meshRef.current.rotation,
+			quaternion: meshRef.current.quaternion,
+		});
+	}, []);
+
+	return (
+		<mesh ref={meshRef} scale={0.2}>
+			<sphereGeometry />
+			<meshStandardMaterial color="red" wireframe emissive={'red'} />
+		</mesh>
+	);
+});
 
 // Simulation runs a schedule.
 function Simulation() {
