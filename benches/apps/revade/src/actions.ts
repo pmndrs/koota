@@ -9,6 +9,12 @@ export const useActions = createActions((world) => ({
 		return world.spawn(IsPlayer, Movement, Input, Transform(transform));
 	},
 	spawnEnemy: (transform?: TransformValue) => {
-		return world.spawn(IsEnemy, Movement, Transform(transform), AutoRotate, Avoidance);
+		return world.spawn(
+			IsEnemy,
+			Movement({ thrust: 0.5, damping: 0.98 }),
+			Transform(transform),
+			AutoRotate,
+			Avoidance
+		);
 	},
 }));
