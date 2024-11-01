@@ -20,7 +20,7 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 					entity.has(IsEnemy) && entity.get(Transform).position.distanceTo(position) < 1
 			);
 
-			if (hitEnemy) {
+			if (hitEnemy !== undefined) {
 				hitEnemy.destroy();
 				entity.destroy();
 			}

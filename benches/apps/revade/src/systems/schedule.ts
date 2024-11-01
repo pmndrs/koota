@@ -14,6 +14,7 @@ import { pushEnemies } from './push-enemies';
 import { handleShooting } from './handle-shooting';
 import { updateBullets } from './update-bullet';
 import { updateBulletCollisions } from './update-bullet-collisions';
+import { cleanupSpatialHashMap } from './cleanup-spatial-hash-map';
 
 export const schedule = new Schedule<{ world: World }>();
 
@@ -31,5 +32,6 @@ schedule.add(updateBullets);
 schedule.add(updateBulletCollisions);
 schedule.add(updateAutoRotate);
 schedule.add(updateSpatialHashing);
+schedule.add(cleanupSpatialHashMap);
 
 schedule.build();
