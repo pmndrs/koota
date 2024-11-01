@@ -18,8 +18,12 @@ export const updateAvoidance = ({ world }: { world: World }) => {
 				avoidance.neighbors
 			);
 
+			// Only avoid other avoidance entities
 			avoidance.neighbors = avoidance.neighbors.filter((neighbor) => {
-				return neighbor.get(Transform).position.distanceTo(position) <= avoidance.range;
+				return (
+					neighbor.has(Avoidance) &&
+					neighbor.get(Transform).position.distanceTo(position) <= avoidance.range
+				);
 			});
 
 			if (avoidance.neighbors.length) {
