@@ -1,10 +1,10 @@
 import { World } from 'koota';
-import { Transform, SpatialHashMap, IsEnemy } from '../traits';
+import { SpatialHashMap, Transform } from '../traits';
 
 export const updateSpatialHashing = ({ world }: { world: World }) => {
 	const spatialHashMap = world.get(SpatialHashMap);
 
-	world.query(Transform, IsEnemy).updateEach(([{ position }], entity) => {
+	world.query(Transform).updateEach(([{ position }], entity) => {
 		spatialHashMap.setEntity(entity, position.x, position.y, position.z);
 	});
 };

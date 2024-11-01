@@ -16,11 +16,9 @@ export function App() {
 	return (
 		<Canvas>
 			<StrictMode>
+				<color attach="background" args={['#111']} />
 				<ambientLight intensity={0.2} />
 				<directionalLight position={[10, 10, 10]} intensity={0.4} />
-
-				<color attach="background" args={['#111']} />
-				<fog attach="fog" args={['#111', 64, 512]} />
 
 				<PerspectiveCamera position={[0, 0, 50]} makeDefault />
 

@@ -20,6 +20,6 @@
 		"noUnusedParameters": true,
 		"noFallthroughCasesInSwitch": true
 	},
-	"include": ["src"],
+	"include": ["src", ".triplex/provider.tsx"],
 	"references": [{ "path": "./tsconfig.node.json" }]
 }
