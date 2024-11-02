@@ -34,7 +34,7 @@ export function destroyEntity(world: World, entity: Entity) {
 	const ctx = world[$internal];
 
 	// Check if entity exists.
-	if (!world.has(entity)) return;
+	if (!world.has(entity)) throw new Error('Koota: The entity being destroyed does not exist.');
 
 	// Caching the lookup in the outer scope of the loop increases performance.
 	const entityQueue = cachedQueue;
