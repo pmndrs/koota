@@ -1,8 +1,8 @@
-import { Entity, QueryParameter } from '@koota/core';
+import { Entity, QueryParameter, QueryResult } from '@koota/core';
 import { useEffect, useMemo, useReducer } from 'react';
 import { useWorld } from '../world/use-world';
 
-export function useQuery<T extends QueryParameter[]>(...parameters: T) {
+export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryResult<T> {
 	const memoizedParameters = useMemo(() => parameters, [parameters]);
 	const world = useWorld();
 	const entities = useMemo(() => world.query(...memoizedParameters), [world, memoizedParameters]);
