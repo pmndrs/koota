@@ -7,7 +7,8 @@ function isWorld(target: Entity | World): target is World {
 }
 
 export function useObserve<T extends Trait>(target: Entity | World, trait: T) {
-	const world = useMemo(() => (isWorld(target) ? target : useWorld()), [target]);
+	const contextWorld = useWorld();
+	const world = useMemo(() => (isWorld(target) ? target : contextWorld), [target, contextWorld]);
 	const entity = useMemo(
 		() => (isWorld(target) ? target[$internal].worldEntity : target),
 		[target]
