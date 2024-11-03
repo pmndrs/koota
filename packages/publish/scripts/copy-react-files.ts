@@ -4,27 +4,6 @@ import path from 'path';
 const sourceDir = 'dist';
 const targetDir = 'react';
 
-async function findTypeImports(filePath: string): Promise<string[]> {
-	const content = await fs.readFile(filePath, 'utf-8');
-	// Match import statements and reference directives
-	const importRegex = /from\s+['"](.+?)['"]|\/\/\/\s*<reference\s+path\s*=\s*['"](.+?)['"]/g;
-	const imports: string[] = [];
-
-	let match;
-	while ((match = importRegex.exec(content)) !== null) {
-		const importPath = match[1] || match[2];
-		if (importPath && !importPath.startsWith('.')) continue; // Skip non-relative imports
-
-		// Remove any existing extension and add .d.ts
-		const withoutExtension = importPath.replace(/\.(d\.ts|ts|js|jsx|tsx)$/, '');
-		// Add both .d.ts and .d.cts versions
-		imports.push(`${withoutExtension}.d.ts`);
-		imports.push(`${withoutExtension}.d.cts`);
-	}
-
-	return imports;
-}
-
 async function copyAndRename() {
 	try {
 		// Ensure the target directory exists
@@ -42,24 +21,19 @@ async function copyAndRename() {
 			console.log(`Copied ${file.src} to ${targetDir}/${file.dest}`);
 		}
 
-		// Check index.d.ts for additional dependencies
-		const dtsPath = path.join(targetDir, 'index.d.ts');
-		const additionalImports = await findTypeImports(dtsPath);
+		// Update imports in all files
+		for (const file of ['index.js', 'index.cjs', 'index.d.ts', 'index.d.cts']) {
+			const filePath = path.join(targetDir, file);
+			const content = await fs.readFile(filePath, 'utf-8');
 
-		// Copy additional type definition files
-		for (const importPath of additionalImports) {
-			const sourcePath = path.join(sourceDir, importPath);
-			const targetPath = path.join(targetDir, importPath);
+			// Replace relative imports with paths pointing to dist folder
+			const updatedContent = content.replace(
+				/(from\s+['"])\.\.?\/(.*?)(['"])/g,
+				`$1../${sourceDir}/$2$3`
+			);
 
-			// Create target directory if needed
-			await fs.mkdir(path.dirname(targetPath), { recursive: true });
-
-			try {
-				await fs.copyFile(sourcePath, targetPath);
-				console.log(`Copied additional dependency: ${importPath}`);
-			} catch (err) {
-				console.warn(`Warning: Could not copy ${importPath}:`, err);
-			}
+			await fs.writeFile(filePath, updatedContent);
+			console.log(`Updated imports in ${file}`);
 		}
 
 		console.log('React files copied and renamed successfully.');
