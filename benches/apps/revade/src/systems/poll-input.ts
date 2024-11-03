@@ -65,19 +65,23 @@ window.addEventListener('keyup', (e) => {
 });
 
 export const pollInput = ({ world }: { world: World }) => {
-	world.query(IsPlayer, Input).updateEach(([direction]) => {
-		// Get horizontal and vertical input.
-		const horizontal = (keys.arrowRight || keys.d ? 1 : 0) - (keys.arrowLeft || keys.a ? 1 : 0);
-		const vertical = (keys.arrowUp || keys.w ? 1 : 0) - (keys.arrowDown || keys.s ? 1 : 0);
+	world.query(IsPlayer, Input).updateEach(
+		([input]) => {
+			// Get horizontal and vertical input.
+			const horizontal =
+				(keys.arrowRight || keys.d ? 1 : 0) - (keys.arrowLeft || keys.a ? 1 : 0);
+			const vertical = (keys.arrowUp || keys.w ? 1 : 0) - (keys.arrowDown || keys.s ? 1 : 0);
 
-		// Normalize the vector if moving diagonally.
-		const length = Math.sqrt(horizontal * horizontal + vertical * vertical);
-		if (length > 0) {
-			direction.x = horizontal / (length || 1);
-			direction.y = vertical / (length || 1);
-		} else {
-			direction.x = 0;
-			direction.y = 0;
-		}
-	});
+			// Normalize the vector if moving diagonally.
+			const length = Math.sqrt(horizontal * horizontal + vertical * vertical);
+			if (length > 0) {
+				input.x = horizontal / (length || 1);
+				input.y = vertical / (length || 1);
+			} else {
+				input.x = 0;
+				input.y = 0;
+			}
+		},
+		{ changeDetection: true }
+	);
 };
