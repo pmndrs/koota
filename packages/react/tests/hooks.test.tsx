@@ -107,10 +107,8 @@ describe('Hooks', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			await ReactThreeTestRenderer.create(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
