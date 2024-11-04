@@ -8,3 +8,5 @@ export * from './is-enemy.ts';
 export * from './spatial-hash-map.ts';
 export * from './avoidance.ts';
 export * from './bullet.ts';
+export * from './shield-visibility.ts';
+export * from './is-shield-visible.ts';

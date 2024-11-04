@@ -15,6 +15,7 @@ import { handleShooting } from './handle-shooting';
 import { updateBullets } from './update-bullet';
 import { updateBulletCollisions } from './update-bullet-collisions';
 import { cleanupSpatialHashMap } from './cleanup-spatial-hash-map';
+import { tickShieldVisibility } from './tick-shield-visibility';
 
 export const schedule = new Schedule<{ world: World }>();
 
@@ -33,5 +34,6 @@ schedule.add(updateBulletCollisions);
 schedule.add(updateAutoRotate);
 schedule.add(updateSpatialHashing);
 schedule.add(cleanupSpatialHashMap);
+schedule.add(tickShieldVisibility);
 
 schedule.build();
