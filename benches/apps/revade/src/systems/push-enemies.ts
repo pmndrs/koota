@@ -1,6 +1,6 @@
 import { Entity, World } from 'koota';
 import * as THREE from 'three';
-import { IsEnemy, IsPlayer, Movement, SpatialHashMap, Transform } from '../traits';
+import { ShieldVisibility, IsEnemy, IsPlayer, Movement, SpatialHashMap, Transform } from '../traits';
 
 const collisionRadius = 2;
 const pushStrength = 0.1;
@@ -9,7 +9,7 @@ const pushForce = new THREE.Vector3();
 export const pushEnemies = ({ world }: { world: World }) => {
 	const spatialHashMap = world.get(SpatialHashMap);
 
-	world.query(IsPlayer, Transform, Movement).updateEach(([{ position }, { velocity }]) => {
+	world.query(IsPlayer, Transform, Movement).updateEach(([{ position }, { velocity }], player) => {
 		// Get nearby entities
 		const nearbyEntities: any[] = [];
 		spatialHashMap.getNearbyEntities(
@@ -42,6 +42,11 @@ export const pushEnemies = ({ world }: { world: World }) => {
 
 			// Apply push force to enemy
 			enemyMovement.force.add(pushForce);
+		}
+
+		if (collidingEnemies.length > 0) {
+			if (!player.has(ShieldVisibility)) player.add(ShieldVisibility);
+			else player.set(ShieldVisibility, { current: 0 });
 		}
 	});
 };

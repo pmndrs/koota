@@ -3,12 +3,12 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Entity } from 'koota';
-import { useQuery, useWorld } from 'koota/react';
+import { useObserve, useQuery, useQueryFirst, useWorld } from 'koota/react';
 import { memo, StrictMode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
-import { Movement, Transform, IsEnemy, Bullet, Input } from './traits';
+import { Bullet, Input, IsEnemy, IsPlayer, IsShieldVisible, Movement, Transform } from './traits';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
 
@@ -22,7 +22,7 @@ export function App() {
 
 				<PerspectiveCamera position={[0, 0, 50]} makeDefault />
 
-				<PlayerRenderer />
+				<Player />
 				<Enemies />
 				<Bullets />
 
@@ -65,16 +65,30 @@ const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 	);
 });
 
-export function PlayerRenderer() {
+function Player() {
+	const player = useQueryFirst(IsPlayer, Transform);
+
+	const { spawnPlayer } = useActions();
+
+	useLayoutEffect(() => {
+		const entity = spawnPlayer();
+		return () => entity?.destroy();
+	}, [spawnPlayer]);
+
+	return player && <PlayerRenderer entity={player} />;
+}
+
+const PlayerRenderer = memo(({ entity }: { entity: Entity }) => {
 	const ref = useRef<THREE.Group>(null);
-	const playerRef = useRef<Entity | null>(null);
 	const world = useWorld();
+
+	// Thrusting state
 	const [isThrusting, setIsThrusting] = useState(false);
 
 	useEffect(() => {
-		const unsub = world.onChange(Input, (entity) => {
-			if (entity.id() !== playerRef.current?.id()) return;
-			if (entity.get(Input).length() > 0) setIsThrusting(true);
+		const unsub = world.onChange(Input, (e) => {
+			if (e.id() !== entity.id()) return;
+			if (e.get(Input).length() > 0) setIsThrusting(true);
 			else setIsThrusting(false);
 		});
 		return () => {
@@ -82,21 +96,19 @@ export function PlayerRenderer() {
 		};
 	}, []);
 
-	const { spawnPlayer } = useActions();
+	// Shield visibility state
+	const isShieldVisible = useObserve(entity, IsShieldVisible);
+	console.log(isShieldVisible);
 
 	useLayoutEffect(() => {
 		if (!ref.current) return;
-		const player = spawnPlayer({
+		entity.set(Transform, {
 			position: ref.current.position,
 			rotation: ref.current.rotation,
 			quaternion: ref.current.quaternion,
 		});
-		playerRef.current = player;
-
-		player.set(Movement, { maxSpeed: 50, damping: 0.99 });
-
-		return () => player.destroy();
-	}, [spawnPlayer]);
+		entity.set(Movement, { maxSpeed: 50, damping: 0.99 });
+	}, [entity]);
 
 	return (
 		<group ref={ref}>
@@ -105,7 +117,17 @@ export function PlayerRenderer() {
 				<meshStandardMaterial color="orange" wireframe emissive={'orange'} />
 			</mesh>
 			{isThrusting && <Thruster />}
+			{isShieldVisible && <Shield />}
 		</group>
+	);
+});
+
+function Shield() {
+	return (
+		<mesh>
+			<sphereGeometry args={[1.1, 8, 8]} />
+			<meshStandardMaterial color="blue" wireframe emissive={'blue'} />
+		</mesh>
 	);
 }
 
