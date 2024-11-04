@@ -107,7 +107,7 @@ const PlayerRenderer = memo(({ entity }: { entity: Entity }) => {
 			rotation: ref.current.rotation,
 			quaternion: ref.current.quaternion,
 		});
-		entity.set(Movement, { maxSpeed: 50, damping: 0.99 });
+		entity.set(Movement, { maxSpeed: 50, damping: 0.99, thrust: 2 });
 	}, [entity]);
 
 	return (
