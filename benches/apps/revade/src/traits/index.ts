@@ -10,3 +10,4 @@ export * from './avoidance.ts';
 export * from './bullet.ts';
 export * from './shield-visibility.ts';
 export * from './is-shield-visible.ts';
+export * from './explosion.ts';

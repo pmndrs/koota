@@ -8,7 +8,16 @@ import { memo, StrictMode, useEffect, useLayoutEffect, useRef, useState } from '
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
-import { Bullet, Input, IsEnemy, IsPlayer, IsShieldVisible, Movement, Transform } from './traits';
+import {
+	Bullet,
+	Explosion,
+	Input,
+	IsEnemy,
+	IsPlayer,
+	IsShieldVisible,
+	Movement,
+	Transform,
+} from './traits';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
 
@@ -25,6 +34,7 @@ export function App() {
 				<Player />
 				<Enemies />
 				<Bullets />
+				<Explosions />
 
 				<Simulation />
 			</StrictMode>
@@ -125,13 +135,13 @@ const PlayerRenderer = memo(({ entity }: { entity: Entity }) => {
 				<boxGeometry />
 				<meshBasicMaterial color="orange" wireframe />
 			</mesh>
-			{isThrusting && <Thruster />}
-			{isShieldVisible && <Shield />}
+			{isThrusting && <ThrusterRenderer />}
+			{isShieldVisible && <ShieldRenderer />}
 		</group>
 	);
 });
 
-function Shield() {
+function ShieldRenderer() {
 	return (
 		<mesh>
 			<sphereGeometry args={[1.1, 8, 8]} />
@@ -140,7 +150,7 @@ function Shield() {
 	);
 }
 
-function Thruster() {
+function ThrusterRenderer() {
 	const meshRef = useRef<THREE.Mesh>(null);
 
 	useFrame(({ clock }) => {
@@ -157,6 +167,72 @@ function Thruster() {
 				<coneGeometry args={[0.3, 1, 8]} />
 				<meshBasicMaterial color="#ff4400" wireframe />
 			</mesh>
+		</group>
+	);
+}
+
+function Explosions() {
+	const explosions = useQuery(Explosion, Transform);
+	return explosions.map((explosion) => (
+		<ExplosionRenderer key={explosion.id()} entity={explosion} />
+	));
+}
+
+function ExplosionRenderer({ entity }: { entity: Entity }) {
+	const groupRef = useRef<THREE.Group>(null);
+	const particleCount = entity.get(Explosion).count;
+
+	useLayoutEffect(() => {
+		if (!groupRef.current) return;
+
+		// Position the explosion group
+		groupRef.current.position.copy(entity.get(Transform).position);
+
+		// Set particle velocities with random offset
+		const velocities = entity.get(Explosion).velocities;
+		const randomOffset = Math.random() * Math.PI * 2; // Random starting angle
+		console.log(randomOffset);
+		for (let i = 0; i < particleCount; i++) {
+			const angle = randomOffset + (i / particleCount) * Math.PI * 2;
+			velocities.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
+		}
+
+		return () => {
+			velocities.length = 0;
+		};
+	}, []);
+
+	useFrame(() => {
+		if (!groupRef.current) return;
+
+		const { duration, current } = entity.get(Explosion);
+		const progress = current / duration;
+
+		const velocities = entity.get(Explosion).velocities;
+		const particles = groupRef.current.children as THREE.Mesh[];
+
+		for (let i = 0; i < particleCount; i++) {
+			const particle = particles[i];
+			if (!particle) continue;
+			particle.position.add(velocities[i].clone().multiplyScalar(1.0 - progress));
+
+			// Update scale and opacity
+			const scale = Math.max(0, 1 - progress);
+			particle.scale.setScalar(scale);
+			(particle.material as THREE.MeshBasicMaterial).opacity = scale;
+		}
+	});
+
+	return (
+		<group ref={groupRef}>
+			{Array.from({ length: particleCount }).map((_, i) => {
+				return (
+					<mesh key={i}>
+						<sphereGeometry args={[0.2, 8, 8]} />
+						<meshBasicMaterial color={[1, 0.5, 0]} transparent />
+					</mesh>
+				);
+			})}
 		</group>
 	);
 }
