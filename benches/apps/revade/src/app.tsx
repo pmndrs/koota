@@ -191,7 +191,7 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 		// Set particle velocities with random offset
 		const velocities = entity.get(Explosion).velocities;
 		const randomOffset = Math.random() * Math.PI * 2; // Random starting angle
-		console.log(randomOffset);
+
 		for (let i = 0; i < particleCount; i++) {
 			const angle = randomOffset + (i / particleCount) * Math.PI * 2;
 			velocities.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
@@ -202,7 +202,7 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 		};
 	}, []);
 
-	useFrame(() => {
+	useFrame((_, delta) => {
 		if (!groupRef.current) return;
 
 		const { duration, current } = entity.get(Explosion);
@@ -214,7 +214,7 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 		for (let i = 0; i < particleCount; i++) {
 			const particle = particles[i];
 			if (!particle) continue;
-			particle.position.add(velocities[i].clone().multiplyScalar(1.0 - progress));
+			particle.position.add(velocities[i].clone().multiplyScalar(delta * 40));
 
 			// Update scale and opacity
 			const scale = Math.max(0, 1 - progress);
