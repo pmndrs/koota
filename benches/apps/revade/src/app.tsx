@@ -39,6 +39,7 @@ function Enemies() {
 
 const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 	const meshRef = useRef<THREE.Mesh>(null);
+	const scaleRef = useRef(0);
 
 	useLayoutEffect(() => {
 		if (!meshRef.current) return;
@@ -56,6 +57,15 @@ const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 
 		entity.set(Movement, { maxSpeed: between(5, 10) });
 	}, []);
+
+	useFrame((_, delta) => {
+		if (!meshRef.current) return;
+		const progress = Math.min(scaleRef.current + delta * 2, 1);
+		// Apply easing - this uses cubic easing out
+		const eased = 1 - Math.pow(1 - progress, 3);
+		scaleRef.current = progress;
+		meshRef.current.scale.setScalar(eased);
+	});
 
 	return (
 		<mesh ref={meshRef}>
