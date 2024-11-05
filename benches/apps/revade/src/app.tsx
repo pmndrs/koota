@@ -98,7 +98,6 @@ const PlayerRenderer = memo(({ entity }: { entity: Entity }) => {
 
 	// Shield visibility state
 	const isShieldVisible = useObserve(entity, IsShieldVisible);
-	console.log(isShieldVisible);
 
 	useLayoutEffect(() => {
 		if (!ref.current) return;
