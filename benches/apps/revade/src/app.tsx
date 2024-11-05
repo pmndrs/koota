@@ -70,7 +70,7 @@ const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 	return (
 		<mesh ref={meshRef}>
 			<dodecahedronGeometry />
-			<meshStandardMaterial color="white" wireframe emissive={'white'} emissiveIntensity={1} />
+			<meshBasicMaterial color="white" wireframe />
 		</mesh>
 	);
 });
@@ -123,7 +123,7 @@ const PlayerRenderer = memo(({ entity }: { entity: Entity }) => {
 		<group ref={ref}>
 			<mesh>
 				<boxGeometry />
-				<meshStandardMaterial color="orange" wireframe emissive={'orange'} />
+				<meshBasicMaterial color="orange" wireframe />
 			</mesh>
 			{isThrusting && <Thruster />}
 			{isShieldVisible && <Shield />}
@@ -135,7 +135,7 @@ function Shield() {
 	return (
 		<mesh>
 			<sphereGeometry args={[1.1, 8, 8]} />
-			<meshStandardMaterial color="blue" wireframe emissive={'blue'} />
+			<meshBasicMaterial color="blue" wireframe />
 		</mesh>
 	);
 }
@@ -155,12 +155,7 @@ function Thruster() {
 		<group position={[0, -1, 0]} rotation={[0, 0, 3.14]}>
 			<mesh ref={meshRef}>
 				<coneGeometry args={[0.3, 1, 8]} />
-				<meshStandardMaterial
-					color="#ff4400"
-					wireframe
-					emissive="#ff4400"
-					emissiveIntensity={2}
-				/>
+				<meshBasicMaterial color="#ff4400" wireframe />
 			</mesh>
 		</group>
 	);
@@ -194,7 +189,7 @@ const BulletRenderer = memo(({ entity }: { entity: Entity }) => {
 	return (
 		<mesh ref={meshRef} scale={0.2}>
 			<sphereGeometry />
-			<meshStandardMaterial color="red" wireframe emissive={'red'} />
+			<meshBasicMaterial color="red" wireframe />
 		</mesh>
 	);
 });
