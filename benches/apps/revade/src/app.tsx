@@ -44,7 +44,13 @@ export function App() {
 
 function Enemies() {
 	const enemies = useQuery(IsEnemy, Transform);
-	return enemies.map((enemy) => <EnemyRenderer key={enemy.id()} entity={enemy} />);
+	return (
+		<>
+			{enemies.map((enemy) => (
+				<EnemyRenderer key={enemy.id()} entity={enemy} />
+			))}
+		</>
+	);
 }
 
 const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
@@ -95,7 +101,7 @@ function Player() {
 		return () => entity?.destroy();
 	}, [spawnPlayer]);
 
-	return player && <PlayerRenderer entity={player} />;
+	return <>{player && <PlayerRenderer entity={player} />}</>;
 }
 
 const PlayerRenderer = memo(({ entity }: { entity: Entity }) => {
@@ -173,9 +179,13 @@ function ThrusterRenderer() {
 
 function Explosions() {
 	const explosions = useQuery(Explosion, Transform);
-	return explosions.map((explosion) => (
-		<ExplosionRenderer key={explosion.id()} entity={explosion} />
-	));
+	return (
+		<>
+			{explosions.map((explosion) => (
+				<ExplosionRenderer key={explosion.id()} entity={explosion} />
+			))}
+		</>
+	);
 }
 
 function ExplosionRenderer({ entity }: { entity: Entity }) {
@@ -239,7 +249,13 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 
 function Bullets() {
 	const bullets = useQuery(Bullet, Transform);
-	return bullets.map((bullet) => <BulletRenderer key={bullet.id()} entity={bullet} />);
+	return (
+		<>
+			{bullets.map((bullet) => (
+				<BulletRenderer key={bullet.id()} entity={bullet} />
+			))}
+		</>
+	);
 }
 
 const BulletRenderer = memo(({ entity }: { entity: Entity }) => {
