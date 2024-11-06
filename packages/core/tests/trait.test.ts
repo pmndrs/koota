@@ -151,22 +151,22 @@ describe('Trait', () => {
 	});
 
 	it('should add traits to entities after recycling', () => {
-		let entity = world.spawn();
+		let entities: Entity[] = [];
 
 		for (let i = 0; i < 10; i++) {
-			entity = world.spawn();
+			entities.push(world.spawn());
 		}
 
 		for (let i = 0; i < 10; i++) {
-			entity.destroy();
+			entities.pop()?.destroy();
 		}
 
 		for (let i = 0; i < 10; i++) {
-			entity = world.spawn();
+			entities.push(world.spawn());
 		}
 
-		entity.add(Position);
-		expect(entity.has(Position)).toBe(true);
+		entities[0].add(Position);
+		expect(entities[0].has(Position)).toBe(true);
 	});
 
 	it('should set trait params', () => {
