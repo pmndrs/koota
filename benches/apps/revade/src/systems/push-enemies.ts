@@ -11,13 +11,11 @@ export const pushEnemies = ({ world }: { world: World }) => {
 
 	world.query(IsPlayer, Transform, Movement).updateEach(([{ position }, { velocity }], player) => {
 		// Get nearby entities
-		const nearbyEntities: any[] = [];
-		spatialHashMap.getNearbyEntities(
+		const nearbyEntities = spatialHashMap.getNearbyEntities(
 			position.x,
 			position.y,
 			position.z,
-			collisionRadius, // You'll need to add this to Player trait
-			nearbyEntities
+			collisionRadius
 		);
 
 		// Filter for enemies within collision range

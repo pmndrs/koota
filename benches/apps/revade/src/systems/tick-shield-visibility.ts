@@ -11,7 +11,7 @@ export const tickShieldVisibility = ({ world }: { world: World }) => {
 		} else {
 			// // Calculate remaining time percentage
 			// const remainingPercent = 1 - shield.current / shield.duration;
-			// // Increase blink frequency as time runs out (from 1Hz to 8Hz)
+			// // Increase blink frequency as time runs out
 			// const blinkFrequency = 250 + remainingPercent * 400;
 
 			const blinkFrequency = 250;
