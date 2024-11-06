@@ -7,7 +7,7 @@ const tmpvec3 = new THREE.Vector3();
 export const updateMovement = ({ world }: { world: World }) => {
 	const { delta } = world.get(Time);
 	world.query(Transform, Movement).updateEach(([transform, { velocity, maxSpeed, force }]) => {
-		// Apply max speed.
+		// Apply max speed
 		velocity.clampLength(0, maxSpeed);
 		velocity.add(force);
 
@@ -18,7 +18,7 @@ export const updateMovement = ({ world }: { world: World }) => {
 			force.setScalar(0);
 		}
 
-		// Apply velocity.
+		// Apply velocity
 		transform.position.add(tmpvec3.copy(velocity).multiplyScalar(delta));
 	});
 };

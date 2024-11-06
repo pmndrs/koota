@@ -10,7 +10,7 @@ export const updateAvoidance = ({ world }: { world: World }) => {
 	world
 		.query(Avoidance, Transform, Movement)
 		.updateEach(([avoidance, { position }, { velocity }]) => {
-			spatialHashMap.getNearbyEntities(
+			let neighbors = spatialHashMap.getNearbyEntities(
 				position.x,
 				position.y,
 				position.z,
@@ -19,21 +19,21 @@ export const updateAvoidance = ({ world }: { world: World }) => {
 			);
 
 			// Only avoid other avoidance entities
-			avoidance.neighbors = avoidance.neighbors.filter((neighbor) => {
+			neighbors = neighbors.filter((neighbor) => {
 				return (
 					neighbor.has(Avoidance) &&
 					neighbor.get(Transform).position.distanceTo(position) <= avoidance.range
 				);
 			});
 
-			if (avoidance.neighbors.length) {
+			if (neighbors.length) {
 				acceleration.setScalar(0);
 
-				for (const neighbor of avoidance.neighbors) {
+				for (const neighbor of neighbors) {
 					acceleration.add(neighbor.get(Transform).position).sub(position);
 				}
 
-				acceleration.divideScalar(-avoidance.neighbors.length).normalize().multiplyScalar(2);
+				acceleration.divideScalar(-neighbors.length).normalize().multiplyScalar(2);
 				velocity.add(acceleration);
 			}
 		});
