@@ -47,7 +47,6 @@ describe('SparseSet', () => {
 		set.add(2);
 		set.clear();
 		expect(set.dense).toEqual([]);
-		expect(set.sparse).toEqual([]);
 	});
 
 	it('should sort the set correctly', () => {

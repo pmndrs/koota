@@ -1,20 +1,24 @@
 export class SparseSet {
 	#dense: number[] = [];
 	#sparse: number[] = [];
+	#cursor: number = 0;
 
 	has(val: number): boolean {
-		return this.#dense[this.#sparse[val]] === val;
+		const index = this.#sparse[val];
+		return index < this.#cursor && this.#dense[index] === val;
 	}
 
 	add(val: number): void {
 		if (this.has(val)) return;
-		this.#sparse[val] = this.#dense.push(val) - 1;
+		this.#sparse[val] = this.#cursor;
+		this.#dense[this.#cursor++] = val;
 	}
 
 	remove(val: number): void {
 		if (!this.has(val)) return;
 		const index = this.#sparse[val];
-		const swapped = this.#dense.pop()!;
+		this.#cursor--;
+		const swapped = this.#dense[this.#cursor];
 		if (swapped !== val) {
 			this.#dense[index] = swapped;
 			this.#sparse[swapped] = index;
@@ -22,8 +26,11 @@ export class SparseSet {
 	}
 
 	clear(): void {
-		this.#dense.length = 0;
-		this.#sparse.length = 0;
+		// Clear the sparse array entries for all active values
+		for (let i = 0; i < this.#cursor; i++) {
+			this.#sparse[this.#dense[i]] = 0;
+		}
+		this.#cursor = 0;
 	}
 
 	sort(): void {
@@ -38,7 +45,7 @@ export class SparseSet {
 	}
 
 	get dense(): number[] {
-		return this.#dense;
+		return this.#dense.slice(0, this.#cursor);
 	}
 
 	get sparse(): number[] {
