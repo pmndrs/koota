@@ -24,7 +24,7 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 			if (hitEnemy !== undefined) {
 				// Spawn explosion in enemy's position.
 				world.spawn(
-					Explosion({ count: between(12, 20) }),
+					Explosion({ count: Math.floor(between(12, 20)) }),
 					Transform({ position: hitEnemy.get(Transform).position.clone() })
 				);
 
