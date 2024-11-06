@@ -521,3 +521,13 @@ function Rocket() {
     return <div ref={entityRef}>🚀</div>
 }
 ```
+
+`useQuery` reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
+
+`usQueryFirst` works like `useQuery` but only returns the first result. Can either be an entity of undefined.
+
+`useWorld` returns the world passed in via the `WorldProvider`.
+
+`WorldProvider` the provider for the world context. A world must be created and passed in.
+
+`useObserve` observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
