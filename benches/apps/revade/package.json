@@ -17,7 +17,8 @@
 		"koota": "workspace:@koota/dev@*",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"three": "^0.162.0"
+		"three": "^0.162.0",
+		"@react-three/postprocessing": "^2.16.3"
 	},
 	"devDependencies": {
 		"@types/react": "^18.3.3",

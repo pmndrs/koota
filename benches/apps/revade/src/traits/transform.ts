@@ -5,4 +5,5 @@ export const Transform = trait({
 	position: () => new THREE.Vector3(),
 	rotation: () => new THREE.Euler(),
 	quaternion: () => new THREE.Quaternion(),
+	scale: () => new THREE.Vector3()
 });

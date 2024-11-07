@@ -17,6 +17,7 @@ import { updateBulletCollisions } from './update-bullet-collisions';
 import { cleanupSpatialHashMap } from './cleanup-spatial-hash-map';
 import { tickShieldVisibility } from './tick-shield-visibility';
 import { tickExplosion } from './tick-explosion';
+import { UpdateBlackHole } from "./update-black-hole.ts";
 
 export const schedule = new Schedule<{ world: World }>();
 
@@ -37,5 +38,6 @@ schedule.add(updateSpatialHashing);
 schedule.add(cleanupSpatialHashMap);
 schedule.add(tickShieldVisibility);
 schedule.add(tickExplosion);
+schedule.add(UpdateBlackHole);
 
 schedule.build();
