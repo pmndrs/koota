@@ -3,7 +3,7 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Entity } from 'koota';
-import { useObserve, useQuery, useQueryFirst, useWorld } from 'koota/react';
+import { useObserve, useObservePassive, useQuery, useQueryFirst, useWorld } from 'koota/react';
 import { memo, StrictMode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
@@ -57,6 +57,7 @@ const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 	const meshRef = useRef<THREE.Mesh>(null);
 	const scaleRef = useRef(0);
 
+	// Set initial values and sync with the entity
 	useLayoutEffect(() => {
 		if (!meshRef.current) return;
 
@@ -93,7 +94,6 @@ const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 
 function Player() {
 	const player = useQueryFirst(IsPlayer, Transform);
-
 	const { spawnPlayer } = useActions();
 
 	useLayoutEffect(() => {
@@ -101,51 +101,60 @@ function Player() {
 		return () => entity?.destroy();
 	}, [spawnPlayer]);
 
-	return <>{player && <PlayerRenderer entity={player} />}</>;
+	return (
+		<>{player && <PlayerRenderer entity={player} maxSpeed={50} damping={0.99} thrust={2} />}</>
+	);
 }
 
-const PlayerRenderer = memo(({ entity }: { entity: Entity }) => {
-	const ref = useRef<THREE.Group>(null);
-	const world = useWorld();
+const PlayerRenderer = memo(
+	({
+		entity,
+		maxSpeed = 50,
+		damping = 0.99,
+		thrust = 2,
+	}: {
+		entity: Entity;
+		maxSpeed?: number;
+		damping?: number;
+		thrust?: number;
+	}) => {
+		const ref = useRef<THREE.Group>(null);
 
-	// Thrusting state
-	const [isThrusting, setIsThrusting] = useState(false);
+		// Thrusting state
+		const [isThrusting, setIsThrusting] = useState(false);
 
-	useEffect(() => {
-		const unsub = world.onChange(Input, (e) => {
-			if (e.id() !== entity.id()) return;
-			if (e.get(Input).length() > 0) setIsThrusting(true);
+		useObservePassive(entity, Input, (input) => {
+			if (input && input.length() > 0) setIsThrusting(true);
 			else setIsThrusting(false);
 		});
-		return () => {
-			unsub();
-		};
-	}, []);
 
-	// Shield visibility state
-	const isShieldVisible = useObserve(entity, IsShieldVisible);
+		// Shield visibility state
+		const isShieldVisible = useObserve(entity, IsShieldVisible);
 
-	useLayoutEffect(() => {
-		if (!ref.current) return;
-		entity.set(Transform, {
-			position: ref.current.position,
-			rotation: ref.current.rotation,
-			quaternion: ref.current.quaternion,
-		});
-		entity.set(Movement, { maxSpeed: 50, damping: 0.99, thrust: 2 });
-	}, [entity]);
+		// Set initial values and sync with the entity
+		useLayoutEffect(() => {
+			if (!ref.current) return;
 
-	return (
-		<group ref={ref}>
-			<mesh>
-				<boxGeometry />
-				<meshBasicMaterial color="orange" wireframe />
-			</mesh>
-			{isThrusting && <ThrusterRenderer />}
-			{isShieldVisible && <ShieldRenderer />}
-		</group>
-	);
-});
+			entity.set(Transform, {
+				position: ref.current.position,
+				rotation: ref.current.rotation,
+				quaternion: ref.current.quaternion,
+			});
+			entity.set(Movement, { maxSpeed, damping, thrust });
+		}, [entity]);
+
+		return (
+			<group ref={ref}>
+				<mesh>
+					<boxGeometry />
+					<meshBasicMaterial color="orange" wireframe />
+				</mesh>
+				{isThrusting && <ThrusterRenderer />}
+				{isShieldVisible && <ShieldRenderer />}
+			</group>
+		);
+	}
+);
 
 function ShieldRenderer() {
 	return (
@@ -261,6 +270,7 @@ function Bullets() {
 const BulletRenderer = memo(({ entity }: { entity: Entity }) => {
 	const meshRef = useRef<THREE.Mesh>(null);
 
+	// Set initial values and sync with the entity
 	useLayoutEffect(() => {
 		if (!meshRef.current) return;
 
