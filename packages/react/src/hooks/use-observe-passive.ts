@@ -1,12 +1,13 @@
 import { $internal, Entity, Trait, TraitInstance, World } from '@koota/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useWorld } from '../world/use-world';
 import { isWorld } from '../utils/is-world';
 
-export function useObserve<T extends Trait>(
+export function useObservePassive<T extends Trait>(
 	target: Entity | World,
-	trait: T
-): TraitInstance<T> | undefined {
+	trait: T,
+	callback: (value: TraitInstance<T> | undefined) => void
+) {
 	const contextWorld = useWorld();
 	const world = useMemo(() => (isWorld(target) ? target : contextWorld), [target, contextWorld]);
 	const entity = useMemo(
@@ -14,22 +15,17 @@ export function useObserve<T extends Trait>(
 		[target]
 	);
 
-	const [value, setValue] = useState<TraitInstance<T> | undefined>(() => {
-		if (entity.has(trait)) return entity.get(trait);
-		return undefined;
-	});
-
 	useEffect(() => {
 		const onChangeUnsub = world.onChange(trait, (e) => {
-			if (e === entity) setValue(e.get(trait));
+			if (e === entity) callback(e.get(trait));
 		});
 
 		const onAddUnsub = world.onAdd([trait], (e) => {
-			if (e === entity) setValue(e.get(trait));
+			if (e === entity) callback(e.get(trait));
 		});
 
 		const onRemoveUnsub = world.onRemove([trait], (e) => {
-			if (e === entity) setValue(undefined);
+			if (e === entity) callback(undefined);
 		});
 
 		return () => {
@@ -38,6 +34,4 @@ export function useObserve<T extends Trait>(
 			onRemoveUnsub();
 		};
 	}, [target, trait]);
-
-	return value;
 }
