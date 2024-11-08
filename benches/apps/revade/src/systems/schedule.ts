@@ -18,6 +18,7 @@ import { cleanupSpatialHashMap } from './cleanup-spatial-hash-map';
 import { tickShieldVisibility } from './tick-shield-visibility';
 import { tickExplosion } from './tick-explosion';
 import { UpdateBlackHole } from "./update-black-hole.ts";
+import {UpdateFollowCam} from "./update-follow-cam.ts";
 
 export const schedule = new Schedule<{ world: World }>();
 
@@ -39,5 +40,6 @@ schedule.add(cleanupSpatialHashMap);
 schedule.add(tickShieldVisibility);
 schedule.add(tickExplosion);
 schedule.add(UpdateBlackHole);
+schedule.add(UpdateFollowCam);
 
 schedule.build();

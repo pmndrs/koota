@@ -6,7 +6,7 @@ import {Entity} from 'koota';
 import {useObserve, useQuery, useQueryFirst, useWorld} from 'koota/react';
 import {memo, StrictMode, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import * as THREE from 'three';
-import {Color, Mesh, ShaderMaterial, Vector3} from 'three';
+import {Color, Mesh, ShaderMaterial} from 'three';
 import {useActions} from './actions';
 import {schedule} from './systems/schedule';
 import {Bullet, Explosion, Input, IsEnemy, IsPlayer, IsShieldVisible, Movement, Transform,} from './traits';
@@ -16,16 +16,39 @@ import {BlackHole} from "./traits/black-hole.ts";
 import {TMesh} from "./traits/mesh-trait.ts";
 import {Bloom, EffectComposer, Outline, SMAA} from "@react-three/postprocessing";
 import {Spaceship} from "./assets/Spaceship.tsx";
-import {OutlineEffect} from "three/examples/jsm/effects/OutlineEffect";
+import {IsActiveCamera} from "./traits/is-active-camera.ts";
 
 export function App() {
+
+  const camRef = useRef<THREE.PerspectiveCamera>(null!);
+
+  const world = useWorld();
+  useEffect(() => {
+    let camEntity;
+
+    console.log(camRef.current);
+
+    if (camRef.current)
+      camEntity = world.spawn(
+        IsActiveCamera,
+        Transform({
+          position: camRef.current.position,
+          rotation: camRef.current.rotation,
+          quaternion: camRef.current.quaternion,
+          scale: camRef.current.scale,
+        })
+      );
+    return () => camEntity?.destroy();
+  }, []);
+
+
   return (
     <Canvas gl={{antialias: false}}>
       <StrictMode>
         <color attach="background" args={['#000000']}/>
-        {<directionalLight position={[10, 10, -10]} intensity={0.3}/>}
+        <directionalLight position={[10, 10, -10]} intensity={0.3}/>
 
-        <PerspectiveCamera position={[0, 0, 50]} makeDefault/>
+        <PerspectiveCamera ref={camRef} position={[0, 0, 50]} makeDefault far={10000}/>
 
         <Player/>
         <Enemies/>
@@ -33,7 +56,8 @@ export function App() {
         <Explosions/>
         <BlackHoleRenderer/>
 
-        <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={0.5} />
+
+        <Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>
 
         <Environment preset={"night"}/>
         <PostProcessing/>
@@ -47,24 +71,24 @@ export function App() {
 
 
 function PostProcessing() {
-  const outlined = useQuery(TMesh);
-  const selection = outlined.map(entity => entity.get(TMesh));
-  const outlineRef = useRef<OutlineEffect>(null!);
+  //const outlined = useQuery(TMesh);
+  //const selection = outlined.map(entity => entity.get(TMesh));
+  //const outlineRef = useRef<any>();
 
 
   return (
     <EffectComposer multisampling={1}>
-      <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.8} height={300} mipmapBlur intensity={0.4}/>
+      <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.8} height={100} mipmapBlur intensity={0.4}/>
       <SMAA/>
 
-      <Outline
+      {/*<Outline
         ref={outlineRef}
         selection={selection} // selection of objects that will be outlined
         //edgeStrength={2.5} // the edge strength
         //visibleEdgeColor={0xffff00} // the color of visible edges
         //hiddenEdgeColor={0xffff00} // the color of hidden edges
         xRay={true} // indicates whether X-Ray outlines are enabled
-      />
+      />*/}
 
     </EffectComposer>
   )
@@ -124,7 +148,6 @@ const EnemyRenderer = memo(({entity}: { entity: Entity }) => {
 
 function Player() {
   const player = useQueryFirst(IsPlayer, Transform);
-
   const {spawnPlayer} = useActions();
 
   useLayoutEffect(() => {
@@ -132,7 +155,10 @@ function Player() {
     return () => entity?.destroy();
   }, [spawnPlayer]);
 
-  return <>{player && <PlayerRenderer entity={player}/>}</>;
+
+  return <>
+    {player && <PlayerRenderer entity={player}/>}
+  </>;
 }
 
 
@@ -175,26 +201,25 @@ const PlayerRenderer = memo(({entity}: { entity: Entity }) => {
       {/*<Spaceship position={[0, -5, 3]} />
       */}
 
+
       <pointLight intensity={70} position-z={2} color={"lightblue"}/>
       <pointLight intensity={input?.isFiring ? 180 : 0} position-z={2.2} position-y={5} color={"hotpink"}/>
 
 
-        <Trail
-          width={45} // Width of the line
-          color={new Color("orangered").multiplyScalar(10)} // Color of the line
-          length={8} // Length of the line
-          decay={15} // How fast the line fades away
-          local={false} // Wether to use the target's world or local positions
-          stride={0} // Min distance between previous and current point
-          //interval={1} // Number of frames to wait before next calculation
-          attenuation={(width) => width} // A function to define the width in each point along it.
-        >
-          <Spaceship entity={entity} rotation-y={Math.PI / 2} rotation-x={Math.PI / 2} scale={[.3, .3, .3]} />
+      <Trail
+        width={25} // Width of the line
+        color={new Color("orangered").multiplyScalar(10)} // Color of the line
+        length={7} // Length of the line
+        decay={13} // How fast the line fades away
+        local={false} // Wether to use the target's world or local positions
+        stride={0} // Min distance between previous and current point
+        //interval={1} // Number of frames to wait before next calculation
+        attenuation={(width) => width} // A function to define the width in each point along it.
+      >
 
+        <Spaceship entity={entity} rotation-y={Math.PI / 2} rotation-x={Math.PI / 2} scale={[.3, .3, .3]}/>
 
-        </Trail>
-
-
+      </Trail>
 
 
       {/*
@@ -211,9 +236,9 @@ const PlayerRenderer = memo(({entity}: { entity: Entity }) => {
 
 function ShieldRenderer() {
   return (
-    <mesh>
+    <mesh scale={2}>
       <sphereGeometry args={[1.1, 8, 8]}/>
-      <meshBasicMaterial color="blue" wireframe/>
+      <meshBasicMaterial color={new Color("blue").multiplyScalar(5)} wireframe/>
     </mesh>
   );
 }
@@ -241,6 +266,7 @@ function ThrusterRenderer() {
 
 function Explosions() {
   const explosions = useQuery(Explosion, Transform);
+
   return (
     <>
       {explosions.map((explosion) => (
@@ -351,7 +377,7 @@ const BulletRenderer = memo(({entity}: { entity: Entity }) => {
   return (
     <mesh ref={meshRef} scale={0.2}>
       <capsuleGeometry args={[0.5, 2.5, 4, 4]}/>
-      <meshBasicMaterial color={bulletColor} />
+      <meshBasicMaterial color={bulletColor}/>
     </mesh>
   );
 });

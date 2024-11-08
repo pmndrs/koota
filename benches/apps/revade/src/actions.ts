@@ -19,6 +19,9 @@ export const useActions = createActions((world) => ({
 		return world.spawn(IsPlayer, Movement, Input, Transform(transform));
 	},
 	spawnEnemy: (transform?: TransformValue) => {
+
+
+		
 		return world.spawn(
 			IsEnemy,
 			Movement({ thrust: 0.5, damping: 0.98 }),
@@ -33,7 +36,7 @@ export const useActions = createActions((world) => ({
 
 		return world.spawn(
 			Transform({ position: position.clone(), quaternion: rotation.clone() }),
-			Bullet({ direction, speed: 60, lifetime: 2 }),
+			Bullet({ direction, speed: 100, lifetime: 2 }),
 			Movement({ damping: 0})
 		);
 	},
