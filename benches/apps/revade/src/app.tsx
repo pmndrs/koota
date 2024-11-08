@@ -575,7 +575,7 @@ function BlackHoleRenderer() {
   });
 
   return (
-    <mesh ref={meshRef}>
+    <mesh ref={meshRef} renderOrder={99}>
       <planeGeometry args={[16 * 3, 9 * 3, 1, 1]}/>
       <customShaderMaterial ref={materialRef}/>
     </mesh>
