@@ -12,6 +12,7 @@ const keys = {
 	a: false,
 	s: false,
 	d: false,
+	space: false
 };
 
 window.addEventListener('keydown', (e) => {
@@ -35,6 +36,9 @@ window.addEventListener('keydown', (e) => {
 		case 'd':
 			keys.arrowRight = true;
 			keys.d = true;
+			break;
+		case " ":
+			keys.space = true;
 			break;
 	}
 });
@@ -61,12 +65,17 @@ window.addEventListener('keyup', (e) => {
 			keys.arrowRight = false;
 			keys.d = false;
 			break;
+		case " ":
+			keys.space = false;
+			break;
 	}
 });
 
 export const pollInput = ({ world }: { world: World }) => {
 	world.query(IsPlayer, Input).updateEach(
 		([input]) => {
+			input.isFiring = keys.space;
+
 			// Get horizontal and vertical input.
 			const horizontal =
 				(keys.arrowRight || keys.d ? 1 : 0) - (keys.arrowLeft || keys.a ? 1 : 0);
@@ -75,11 +84,11 @@ export const pollInput = ({ world }: { world: World }) => {
 			// Normalize the vector if moving diagonally.
 			const length = Math.sqrt(horizontal * horizontal + vertical * vertical);
 			if (length > 0) {
-				input.x = horizontal / (length || 1);
-				input.y = vertical / (length || 1);
+				input.direction.x = horizontal / (length || 1);
+				input.direction.y = vertical / (length || 1);
 			} else {
-				input.x = 0;
-				input.y = 0;
+				input.direction.x = 0;
+				input.direction.y = 0;
 			}
 		},
 		{ changeDetection: true }

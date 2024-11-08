@@ -33,7 +33,8 @@ export const useActions = createActions((world) => ({
 
 		return world.spawn(
 			Transform({ position: position.clone(), quaternion: rotation.clone() }),
-			Bullet({ direction })
+			Bullet({ direction, speed: 60, lifetime: 2 }),
+			Movement({ damping: 0})
 		);
 	},
 }));

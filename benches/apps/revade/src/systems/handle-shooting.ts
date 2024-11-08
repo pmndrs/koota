@@ -1,27 +1,10 @@
 import { World } from 'koota';
 import { useActions } from '../actions';
-import { IsPlayer, Time, Transform } from '../traits';
+import {Input, IsPlayer, Time, Transform} from '../traits';
 
 let canShoot = true;
 const SHOOT_COOLDOWN = 0.15; // seconds
 let cooldownTimer = 0;
-
-// Track spacebar state
-const keys = {
-	space: false,
-};
-
-window.addEventListener('keydown', (e) => {
-	if (e.code === 'Space') {
-		keys.space = true;
-	}
-});
-
-window.addEventListener('keyup', (e) => {
-	if (e.code === 'Space') {
-		keys.space = false;
-	}
-});
 
 export const handleShooting = ({ world }: { world: World }) => {
 	const { delta } = world.get(Time);
@@ -37,9 +20,10 @@ export const handleShooting = ({ world }: { world: World }) => {
 	}
 
 	// Check for shooting input
-	if (keys.space && canShoot) {
-		const player = world.queryFirst(IsPlayer, Transform);
-		if (player) {
+	if (canShoot) {
+		const player = world.queryFirst(IsPlayer, Transform, Input);
+
+		if (player && player.get(Input).isFiring) {
 			const playerTransform = player.get(Transform);
 			spawnBullet(playerTransform.position, playerTransform.quaternion);
 			canShoot = false;

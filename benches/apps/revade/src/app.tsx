@@ -1,28 +1,28 @@
 // Based on work by Hendrik Mans: https://github.com/hmans/miniplex/tree/main/apps/demo
 
-import {Environment, PerspectiveCamera, shaderMaterial} from '@react-three/drei';
+import {Environment, PerspectiveCamera, shaderMaterial, Trail} from '@react-three/drei';
 import {Canvas, extend, useFrame} from '@react-three/fiber';
 import {Entity} from 'koota';
 import {useObserve, useQuery, useQueryFirst, useWorld} from 'koota/react';
 import {memo, StrictMode, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import * as THREE from 'three';
-import {Color, Mesh, Vector3} from 'three';
+import {Color, Mesh, ShaderMaterial, Vector3} from 'three';
 import {useActions} from './actions';
 import {schedule} from './systems/schedule';
 import {Bullet, Explosion, Input, IsEnemy, IsPlayer, IsShieldVisible, Movement, Transform,} from './traits';
 import {between} from './utils/between';
 import {useStats} from './utils/use-stats';
-import {BlackHoleStats} from "./traits/black-hole-stats.ts";
+import {BlackHole} from "./traits/black-hole.ts";
 import {TMesh} from "./traits/mesh-trait.ts";
-import {Bloom, EffectComposer, SMAA} from "@react-three/postprocessing";
-import {Spaceship} from "./assets/Space_ranger_sr1.tsx";
+import {Bloom, EffectComposer, Outline, SMAA} from "@react-three/postprocessing";
+import {Spaceship} from "./assets/Spaceship.tsx";
+import {OutlineEffect} from "three/examples/jsm/effects/OutlineEffect";
 
 export function App() {
   return (
     <Canvas gl={{antialias: false}}>
       <StrictMode>
         <color attach="background" args={['#000000']}/>
-        {/*<ambientLight intensity={0.5}/>*/}
         {<directionalLight position={[10, 10, -10]} intensity={0.3}/>}
 
         <PerspectiveCamera position={[0, 0, 50]} makeDefault/>
@@ -31,19 +31,41 @@ export function App() {
         <Enemies/>
         <Bullets/>
         <Explosions/>
-        <BlackHole/>
+        <BlackHoleRenderer/>
 
         <Environment preset={"night"}/>
+        <PostProcessing/>
 
         <Simulation/>
 
-        <EffectComposer multisampling={1}>
-          <Bloom luminanceThreshold={1} luminanceSmoothing={0.8} height={300} mipmapBlur intensity={0.4} />
-          <SMAA />
-        </EffectComposer>
       </StrictMode>
     </Canvas>
   );
+}
+
+
+function PostProcessing() {
+  const outlined = useQuery(TMesh);
+  const selection = outlined.map(entity => entity.get(TMesh));
+  const outlineRef = useRef<OutlineEffect>(null!);
+
+
+  return (
+    <EffectComposer multisampling={1}>
+      <Bloom luminanceThreshold={1} luminanceSmoothing={0.8} height={300} mipmapBlur intensity={0.4}/>
+      <SMAA/>
+
+      <Outline
+        ref={outlineRef}
+        selection={selection} // selection of objects that will be outlined
+        //edgeStrength={2.5} // the edge strength
+        //visibleEdgeColor={0xffff00} // the color of visible edges
+        //hiddenEdgeColor={0xffff00} // the color of hidden edges
+        xRay={true} // indicates whether X-Ray outlines are enabled
+      />
+
+    </EffectComposer>
+  )
 }
 
 function Enemies() {
@@ -73,6 +95,7 @@ const EnemyRenderer = memo(({entity}: { entity: Entity }) => {
       position: meshRef.current.position,
       rotation: meshRef.current.rotation,
       quaternion: meshRef.current.quaternion,
+      scale: meshRef.current.scale
     });
 
     entity.add(TMesh(meshRef.current));
@@ -110,17 +133,19 @@ function Player() {
   return <>{player && <PlayerRenderer entity={player}/>}</>;
 }
 
+
 const PlayerRenderer = memo(({entity}: { entity: Entity }) => {
   const ref = useRef<THREE.Group>(null);
   const world = useWorld();
 
   // Thrusting state
   const [isThrusting, setIsThrusting] = useState(false);
+  const input = useObserve(entity, Input);
 
   useEffect(() => {
     const unsub = world.onChange(Input, (e) => {
       if (e.id() !== entity.id()) return;
-      if (e.get(Input).length() > 0) setIsThrusting(true);
+      if (e.get(Input).direction.length() > 0) setIsThrusting(true);
       else setIsThrusting(false);
     });
     return () => {
@@ -146,11 +171,36 @@ const PlayerRenderer = memo(({entity}: { entity: Entity }) => {
   return (
     <group ref={ref}>
       {/*<Spaceship position={[0, -5, 3]} />
-      <pointLight intensity={50}/>*/}
-      <mesh>
+      */}
+
+      <pointLight intensity={70} position-z={2} color={"lightblue"}/>
+      <pointLight intensity={input?.isFiring ? 180 : 0} position-z={2.2} position-y={5} color={"hotpink"}/>
+
+
+        <Trail
+          width={45} // Width of the line
+          color={new Color("orangered").multiplyScalar(10)} // Color of the line
+          length={8} // Length of the line
+          decay={15} // How fast the line fades away
+          local={false} // Wether to use the target's world or local positions
+          stride={0} // Min distance between previous and current point
+          //interval={1} // Number of frames to wait before next calculation
+          attenuation={(width) => width} // A function to define the width in each point along it.
+        >
+          <Spaceship entity={entity} rotation-y={Math.PI / 2} rotation-x={Math.PI / 2} scale={[.3, .3, .3]} />
+
+
+        </Trail>
+
+
+
+
+      {/*
+      <mesh position-z={1}>
         <boxGeometry/>
         <meshBasicMaterial color="orange" wireframe/>
       </mesh>
+      */}
       {isThrusting && <ThrusterRenderer/>}
       {isShieldVisible && <ShieldRenderer/>}
     </group>
@@ -269,7 +319,6 @@ function Bullets() {
 }
 
 
-
 const bulletColor = new Color("hotpink");
 bulletColor.multiplyScalar(50);
 
@@ -293,13 +342,14 @@ const BulletRenderer = memo(({entity}: { entity: Entity }) => {
       position: meshRef.current.position,
       rotation: meshRef.current.rotation,
       quaternion: meshRef.current.quaternion,
+      scale: meshRef.current.scale
     });
   }, []);
 
   return (
     <mesh ref={meshRef} scale={0.2}>
       <capsuleGeometry args={[0.5, 2.5, 4, 4]}/>
-      <meshBasicMaterial color={bulletColor} wireframe/>
+      <meshBasicMaterial color={bulletColor} />
     </mesh>
   );
 });
@@ -496,15 +546,18 @@ void main() {
 // Register the material with Three.js
 extend({CustomShaderMaterial});
 
-function BlackHole() {
+function BlackHoleRenderer() {
   const world = useWorld();
   const meshRef = useRef<Mesh>(null!);
 
   useLayoutEffect(() => {
     const entity = world.spawn(
-      BlackHoleStats,
+      BlackHole,
       Transform({
-        position: new Vector3(Math.random() * 10, 0, 0)
+        position: meshRef.current.position,
+        rotation: meshRef.current.rotation,
+        quaternion: meshRef.current.quaternion,
+        scale: meshRef.current.scale,
       }),
       TMesh(meshRef.current)
     );
@@ -512,7 +565,7 @@ function BlackHole() {
   }, [world]);
 
 
-  const materialRef = useRef();
+  const materialRef = useRef<ShaderMaterial>(null!);
 
   useFrame(({clock, viewport}) => {
     materialRef.current.iResolution.set(viewport.width, viewport.height, 1);

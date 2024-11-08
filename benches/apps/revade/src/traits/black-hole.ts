@@ -1,6 +1,6 @@
 import {trait} from 'koota';
 
-export const BlackHoleStats = trait({
+export const BlackHole = trait({
   radius: 1,
   mass: 2
 });

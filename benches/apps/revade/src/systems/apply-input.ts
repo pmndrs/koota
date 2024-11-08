@@ -10,7 +10,7 @@ export const applyInput = ({ world }: { world: World }) => {
 	world
 		.query(IsPlayer, Input, Transform, Movement)
 		.updateEach(([input, transform, { velocity, thrust }]) => {
-			velocity.add(tmpvec3.set(input.x, input.y, 0).multiplyScalar(thrust * delta * 100));
+			velocity.add(tmpvec3.set(input.direction.x, input.direction.y, 0).multiplyScalar(thrust * delta * 100));
 			transform.quaternion.setFromUnitVectors(UP, velocity.clone().normalize());
 		});
 };
