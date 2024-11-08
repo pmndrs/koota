@@ -1,6 +1,6 @@
 // Based on work by Hendrik Mans: https://github.com/hmans/miniplex/tree/main/apps/demo
 
-import {Environment, PerspectiveCamera, shaderMaterial, Trail} from '@react-three/drei';
+import {Environment, PerspectiveCamera, shaderMaterial, Stars, Trail} from '@react-three/drei';
 import {Canvas, extend, useFrame} from '@react-three/fiber';
 import {Entity} from 'koota';
 import {useObserve, useQuery, useQueryFirst, useWorld} from 'koota/react';
@@ -33,6 +33,8 @@ export function App() {
         <Explosions/>
         <BlackHoleRenderer/>
 
+        <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={0.5} />
+
         <Environment preset={"night"}/>
         <PostProcessing/>
 
@@ -52,7 +54,7 @@ function PostProcessing() {
 
   return (
     <EffectComposer multisampling={1}>
-      <Bloom luminanceThreshold={1} luminanceSmoothing={0.8} height={300} mipmapBlur intensity={0.4}/>
+      <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.8} height={300} mipmapBlur intensity={0.4}/>
       <SMAA/>
 
       <Outline
