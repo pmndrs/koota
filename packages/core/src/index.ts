@@ -8,6 +8,7 @@ export { universe } from './universe/universe';
 export { cacheQuery } from './query/utils/cache-query';
 export { relation, Pair, Wildcard } from './relation/relation';
 export { $internal } from './common';
+export { createActions } from './actions/create-actions';
 
 // Export types
 export * from './trait/types';
