@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useQuery, WorldProvider } from '../src';
 import { createActions } from '../src/actions/create-actions';
 import { useEntityRef } from '../src/hooks/use-entity-ref';
-import { useObserve } from '../src/hooks/use-observe';
+import { useTrait } from '../src/hooks/use-trait';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -28,7 +28,7 @@ describe('Hooks', () => {
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 
 		function Test() {
-			position = useObserve(entity, Position);
+			position = useTrait(entity, Position);
 			return null;
 		}
 
@@ -66,7 +66,7 @@ describe('Hooks', () => {
 		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
 
 		function Test() {
-			timeOfDay = useObserve(world, TimeOfDay);
+			timeOfDay = useTrait(world, TimeOfDay);
 			return null;
 		}
 
