@@ -92,9 +92,10 @@ function Rocket({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { createActions } from 'koota/react';
+import { createActions } from 'koota'
+import { useActions } from 'koota/react';
 
-const useMyActions = createActions((world) => ({
+const actions = createActions((world) => ({
     spawnShip: (position) => world.spawn(Position(position), Velocity),
     destroyAllShips: (world) => {
         world.query(Position, Velocity).forEach((entity) => {
@@ -104,7 +105,7 @@ const useMyActions = createActions((world) => ({
 }));
 
 function DoomButton() {
-    const { spawnShip, destroyAllShips } = useMyActions();
+    const { spawnShip, destroyAllShips } = useActions(actions);
 
     // Spawn three ships on mount
     useEffect(() => {
@@ -519,3 +520,5 @@ const Mesh = trait(() => THREE.Mesh())
 `useTrait` observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
 
 `useTraitEffect` subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
+
+`useActions` returns actions bound to the world that is context.

@@ -1,10 +1,17 @@
-import { createWorld, Entity, QueryResult, trait, TraitInstance, universe, World } from '@koota/core';
+import {
+	createActions,
+	createWorld,
+	Entity,
+	QueryResult,
+	trait,
+	TraitInstance,
+	universe,
+	World,
+} from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useQuery, WorldProvider } from '../src';
-import { createActions } from '../src/actions/create-actions';
-import { useEntityRef } from '../src/hooks/use-entity-ref';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useActions, useQuery, WorldProvider } from '../src';
 import { useTrait } from '../src/hooks/use-trait';
 
 declare global {
@@ -139,15 +146,15 @@ describe('Hooks', () => {
 		expect(entities.length).toBe(1);
 	});
 
-	it('creates actions hook', async () => {
-		const useActions = createActions((world) => ({
+	it('useActions', async () => {
+		const actions = createActions((world) => ({
 			spawnBody: () => world.spawn(Position),
 		}));
 
 		let spawnedEntity: Entity | undefined = undefined;
 
 		function Test() {
-			const { spawnBody } = useActions();
+			const { spawnBody } = useActions(actions);
 			spawnedEntity = spawnBody();
 			return null;
 		}
@@ -163,32 +170,5 @@ describe('Hooks', () => {
 		});
 
 		expect(spawnedEntity).toBeDefined();
-	});
-
-	it('useEntityRef', async () => {
-		const mock = vi.fn();
-
-		const Ref = trait({ value: null! });
-
-		function Test() {
-			const entityRef = useEntityRef((mesh, entity) => {
-				expect(mesh.isMesh).toBe(true);
-				entity.add(Ref({ value: mesh }));
-				mock();
-			});
-			return <mesh ref={entityRef} />;
-		}
-
-		await act(async () => {
-			await ReactThreeTestRenderer.create(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
-
-		expect(mock).toHaveBeenCalledTimes(1);
 	});
 });
