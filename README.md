@@ -57,7 +57,7 @@ world.query(Position, Velocity).updateEach(([position, velocity]) => {
 Traits can be used reactively inside of React components.
 
 ```js
-import { WorldProvider, useQuery, useObserve } from 'koota/react'
+import { WorldProvider, useQuery, useTrait } from 'koota/react'
 
 // Wrap your app in WorldProvider
 createRoot(document.getElementById('root')!).render(
@@ -78,7 +78,7 @@ function RocketRenderer() {
 
 function Rocket({ entity }) {
     // Observes this entity's position trait and reactively updates when it changes
-    const position = useObserve(entity, Position)
+    const position = useTrait(entity, Position)
     return (
         <div style={{ position: 'absolute', left: position.x ?? 0, top: position.y ?? 0 }}>
         🚀
@@ -508,20 +508,6 @@ const Mesh = trait(() => THREE.Mesh())
 
 ### React
 
-`useEntityRef` is a safe way to spawn an entity per React primitive and add traits. It is usually used for adding traits that capture the ref to the entity. The entity will be stable for the lifetime of the React component, except in cases like HMR.
-
-```js
-const Ref = trait({ value: null! })
-
-function Rocket() {
-    const entityRef = useEntityRef((node, entity) => {
-        entity.add(Ref({ value: node }))
-    })
-
-    return <div ref={entityRef}>🚀</div>
-}
-```
-
 `useQuery` reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
 
 `usQueryFirst` works like `useQuery` but only returns the first result. Can either be an entity of undefined.
@@ -530,4 +516,6 @@ function Rocket() {
 
 `WorldProvider` the provider for the world context. A world must be created and passed in.
 
-`useObserve` observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
+`useTrait` observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
+
+`useTraitEffect` subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
