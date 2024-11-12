@@ -3,10 +3,10 @@
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Entity } from 'koota';
-import { useQuery, useWorld } from 'koota/react';
+import { useActions, useQuery, useWorld } from 'koota/react';
 import { memo, StrictMode, useCallback, useLayoutEffect } from 'react';
 import * as THREE from 'three';
-import { useActions } from './actions';
+import { actions } from './actions';
 import { schedule } from './systems/schedule';
 import { BoidsConfig, Mesh, Position, SpatialHashMap, Velocity } from './traits';
 import { between } from './utils/between';
@@ -14,7 +14,7 @@ import { useStats } from './utils/use-stats';
 
 export function App() {
 	const world = useWorld();
-	const { spawnBoid, destroyAllBoids } = useActions();
+	const { spawnBoid, destroyAllBoids } = useActions(actions);
 
 	useLayoutEffect(() => {
 		const { initialCount: count } = world.get(BoidsConfig);
@@ -100,7 +100,7 @@ function Simulation() {
 }
 
 function SpawnButton() {
-	const { spawnBoid } = useActions();
+	const { spawnBoid } = useActions(actions);
 	return (
 		<button
 			onClick={() => {
@@ -115,6 +115,6 @@ function SpawnButton() {
 }
 
 function DestroyButton() {
-	const { destroyRandomBoid } = useActions();
+	const { destroyRandomBoid } = useActions(actions);
 	return <button onClick={destroyRandomBoid}>Destroy Boid</button>;
 }
