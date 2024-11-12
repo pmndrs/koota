@@ -3,10 +3,10 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Entity } from 'koota';
-import { useTrait, useTraitEffect, useQuery, useQueryFirst, useWorld } from 'koota/react';
+import { useTrait, useTraitEffect, useQuery, useQueryFirst, useWorld, useActions } from 'koota/react';
 import { memo, StrictMode, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useActions } from './actions';
+import { actions } from './actions';
 import { schedule } from './systems/schedule';
 import {
 	Bullet,
@@ -94,7 +94,7 @@ const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 
 function Player() {
 	const player = useQueryFirst(IsPlayer, Transform);
-	const { spawnPlayer } = useActions();
+	const { spawnPlayer } = useActions(actions);
 
 	useLayoutEffect(() => {
 		const entity = spawnPlayer();

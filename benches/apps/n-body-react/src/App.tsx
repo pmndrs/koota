@@ -2,13 +2,13 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { CONSTANTS, init, schedule } from '@sim/n-body';
 import { useSchedule } from 'directed/react';
 import { Entity } from 'koota';
-import { useWorld } from 'koota/react';
+import { useActions, useWorld } from 'koota/react';
 import { StrictMode, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { cleanupBodies } from './systems/cleanupRepulsors';
 import { syncThreeObjects } from './systems/syncThreeObjects';
 import { InstancedMesh } from './traits/InstancedMesh';
-import { useActions } from './use-actions';
+import { actions } from './actions';
 import { useStats } from './use-stats';
 
 export function App() {
@@ -16,7 +16,7 @@ export function App() {
 	const aspect = window.innerWidth / window.innerHeight;
 	const isPointerDown = useRef(false);
 
-	const { spawnRepulsor, spawnBodies, spawnCentralMasses, destroyAllBodies } = useActions();
+	const { spawnRepulsor, spawnBodies, spawnCentralMasses, destroyAllBodies } = useActions(actions);
 
 	// Add a system to sync the instanced mesh with component data.
 	useSchedule(schedule, syncThreeObjects, { after: 'update' });

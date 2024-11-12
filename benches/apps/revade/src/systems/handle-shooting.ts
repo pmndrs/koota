@@ -1,5 +1,5 @@
 import { World } from 'koota';
-import { useActions } from '../actions';
+import { actions } from '../actions';
 import { IsPlayer, Time, Transform } from '../traits';
 
 let canShoot = true;
@@ -25,7 +25,7 @@ window.addEventListener('keyup', (e) => {
 
 export const handleShooting = ({ world }: { world: World }) => {
 	const { delta } = world.get(Time);
-	const { spawnBullet } = useActions.get(world);
+	const { spawnBullet } = actions(world);
 
 	// Update cooldown
 	if (!canShoot) {
