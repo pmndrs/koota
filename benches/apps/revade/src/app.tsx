@@ -3,8 +3,8 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Entity } from 'koota';
-import { useObserve, useObservePassive, useQuery, useQueryFirst, useWorld } from 'koota/react';
-import { memo, StrictMode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useTrait, useTraitEffect, useQuery, useQueryFirst, useWorld } from 'koota/react';
+import { memo, StrictMode, useLayoutEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { useActions } from './actions';
 import { schedule } from './systems/schedule';
@@ -123,13 +123,13 @@ const PlayerRenderer = memo(
 		// Thrusting state
 		const [isThrusting, setIsThrusting] = useState(false);
 
-		useObservePassive(entity, Input, (input) => {
+		useTraitEffect(entity, Input, (input) => {
 			if (input && input.length() > 0) setIsThrusting(true);
 			else setIsThrusting(false);
 		});
 
 		// Shield visibility state
-		const isShieldVisible = useObserve(entity, IsShieldVisible);
+		const isShieldVisible = useTrait(entity, IsShieldVisible);
 
 		// Set initial values and sync with the entity
 		useLayoutEffect(() => {
