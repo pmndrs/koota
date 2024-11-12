@@ -1,5 +1,4 @@
-import { TraitValue } from 'koota';
-import { createActions } from 'koota/react';
+import { createActions, TraitValue } from 'koota';
 import {
 	AutoRotate,
 	Avoidance,
@@ -14,7 +13,7 @@ import * as THREE from 'three';
 
 type TransformValue = TraitValue<(typeof Transform)['schema']>;
 
-export const useActions = createActions((world) => ({
+export const actions = createActions((world) => ({
 	spawnPlayer: (transform?: TransformValue) => {
 		return world.spawn(IsPlayer, Movement, Input, Transform(transform));
 	},

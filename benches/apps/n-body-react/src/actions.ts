@@ -8,12 +8,12 @@ import {
 	Color,
 	IsCentralMass,
 } from '@sim/n-body';
-import { createActions } from 'koota/react';
+import { createActions } from 'koota';
 
 let lastSpawnTime = 0;
 const spawnInterval = 100; // milliseconds
 
-export const useActions = createActions((world) => ({
+export const actions = createActions((world) => ({
 	spawnRepulsor: (e: React.PointerEvent, frustumSize: number) => {
 		const now = performance.now();
 		if (now - lastSpawnTime < spawnInterval) return;
