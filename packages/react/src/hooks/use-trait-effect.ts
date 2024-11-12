@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react';
 import { useWorld } from '../world/use-world';
 import { isWorld } from '../utils/is-world';
 
-export function useObservePassive<T extends Trait>(
+export function useTraitEffect<T extends Trait>(
 	target: Entity | World,
 	trait: T,
 	callback: (value: TraitInstance<T> | undefined) => void
