@@ -1,7 +1,7 @@
 import { universe, World } from '@koota/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '@koota/core';
-import { useWorld, WorldProvider } from '../src';
+import { getDefaultWorld, useWorld, WorldProvider } from '../src';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
 
@@ -39,5 +39,20 @@ describe('World', () => {
 		});
 
 		expect(worldTest).toBe(world);
+	});
+
+	it('provides the default world if no world is provided', async () => {
+		let worldTest: World | null = null;
+
+		function Test() {
+			worldTest = useWorld();
+			return null;
+		}
+
+		await act(async () => {
+			await ReactThreeTestRenderer.create(<Test />);
+		});
+
+		expect(worldTest).toBe(getDefaultWorld());
 	});
 });
