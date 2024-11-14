@@ -57,7 +57,7 @@ world.query(Position, Velocity).updateEach(([position, velocity]) => {
 Traits can be used reactively inside of React components.
 
 ```js
-import { WorldProvider, useQuery, useObserve } from 'koota/react'
+import { WorldProvider, useQuery, useTrait } from 'koota/react'
 
 // Wrap your app in WorldProvider
 createRoot(document.getElementById('root')!).render(
@@ -78,7 +78,7 @@ function RocketRenderer() {
 
 function Rocket({ entity }) {
     // Observes this entity's position trait and reactively updates when it changes
-    const position = useObserve(entity, Position)
+    const position = useTrait(entity, Position)
     return (
         <div style={{ position: 'absolute', left: position.x ?? 0, top: position.y ?? 0 }}>
         🚀
@@ -92,9 +92,10 @@ function Rocket({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { createActions } from 'koota/react';
+import { createActions } from 'koota'
+import { useActions } from 'koota/react';
 
-const useMyActions = createActions((world) => ({
+const actions = createActions((world) => ({
     spawnShip: (position) => world.spawn(Position(position), Velocity),
     destroyAllShips: (world) => {
         world.query(Position, Velocity).forEach((entity) => {
@@ -104,7 +105,7 @@ const useMyActions = createActions((world) => ({
 }));
 
 function DoomButton() {
-    const { spawnShip, destroyAllShips } = useMyActions();
+    const { spawnShip, destroyAllShips } = useActions(actions);
 
     // Spawn three ships on mount
     useEffect(() => {
@@ -508,26 +509,134 @@ const Mesh = trait(() => THREE.Mesh())
 
 ### React
 
-`useEntityRef` is a safe way to spawn an entity per React primitive and add traits. It is usually used for adding traits that capture the ref to the entity. The entity will be stable for the lifetime of the React component, except in cases like HMR.
+### `useQuery` 
+
+Reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
 
 ```js
-const Ref = trait({ value: null! })
+// Get all entities with Position and Velocity traits
+const entities = useQuery(Position, Velocity);
 
-function Rocket() {
-    const entityRef = useEntityRef((node, entity) => {
-        entity.add(Ref({ value: node }))
-    })
-
-    return <div ref={entityRef}>🚀</div>
-}
+// Render them
+return (
+  <>
+    {entities.map(entity => <Renderer key={entity.id()} entity={entity} />)}
+  </>
+);
 ```
 
-`useQuery` reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
+### `usQueryFirst` 
 
-`usQueryFirst` works like `useQuery` but only returns the first result. Can either be an entity of undefined.
+Works like `useQuery` but only returns the first result. Can either be an entity of undefined.
 
-`useWorld` returns the world passed in via the `WorldProvider`.
+```js
+// Get the first entity with Player and Position traits
+const player = useQueryFirst(Player, Position);
 
-`WorldProvider` the provider for the world context. A world must be created and passed in.
+// Render it if found
+return player ? (
+  <Renderer entity={player} />
+) : null;
 
-`useObserve` observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
+```
+
+### `useWorld` 
+
+Returns the default world. If a world is passed in via `WorldProvider` then this is returned instead. The default world can be gotten at any time with `getDefaultWorld`.
+
+```js
+// Get the default world
+const world = useWorld();
+
+// Use the world to create an entity on mount
+useEffect(() => {
+    const entity = world.spawn()
+    return => entity.destroy()
+}, [])
+
+```
+
+### `WorldProvider` 
+
+The provider for the world context. A world must be created and passed in, which then overrides the default world.
+
+```js
+// Create a world and pass it to the provider
+const world = createWorld();
+
+// All hooks will now use this world instead of the default
+function App() {
+  return (
+    <WorldProvider world={world}>
+      <Game />
+    </WorldProvider>
+  );
+}
+
+```
+
+### `useTrait` 
+
+Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
+
+```js
+// Get the position trait from an entity and reactively updates
+// when it changes
+const position = useTrait(entity, Position);
+
+// If position is removed from entity then it will be undefined
+if (!position) return null
+
+// Render the position
+return (
+  <div>
+    Position: {position.x}, {position.y}
+  </div>
+);
+
+```
+
+### `useTraitEffect` 
+
+Subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
+
+```js
+// Subscribe to position changes on an entity and update a ref
+// without causing a rerender
+useTraitEffect(entity, Position, (position) => {
+  if (!position) return;
+  meshRef.current.position.copy(position);
+});
+
+// Subscribe to world-level traits
+useTraitEffect(world, GameState, (state) => {
+  if (!state) return;
+  console.log('Game state changed:', state);
+});
+
+```
+
+### `useActions` 
+
+Returns actions bound to the world that is context. Use actions created by `createActions`.
+
+```js
+// Create actions
+const actions = createActions((world) => ({
+    spawnPlayer: () => world.spawn(IsPlayer).
+    destroyAllPlayers: () => {
+        world.query(IsPlayer).forEach((player) => {
+            player.destroy()
+        })
+    }
+}))
+
+// Get actions bound to the world in context
+const { spawnPlayer, destroyAllPlayers } = useActions();
+
+// Call actions to modify the world in an effect or handlers
+useEffect(() => {
+    spawnPlayer()
+    return () => destroyAllPlayers()
+}, [])
+```
