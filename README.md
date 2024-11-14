@@ -509,16 +509,134 @@ const Mesh = trait(() => THREE.Mesh())
 
 ### React
 
-`useQuery` reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
+### `useQuery` 
 
-`usQueryFirst` works like `useQuery` but only returns the first result. Can either be an entity of undefined.
+Reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
 
-`useWorld` returns the world passed in via the `WorldProvider`.
+```js
+// Get all entities with Position and Velocity traits
+const entities = useQuery(Position, Velocity);
 
-`WorldProvider` the provider for the world context. A world must be created and passed in.
+// Render them
+return (
+  <>
+    {entities.map(entity => <Renderer key={entity.id()} entity={entity} />)}
+  </>
+);
+```
 
-`useTrait` observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
+### `usQueryFirst` 
 
-`useTraitEffect` subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
+Works like `useQuery` but only returns the first result. Can either be an entity of undefined.
 
-`useActions` returns actions bound to the world that is context.
+```js
+// Get the first entity with Player and Position traits
+const player = useQueryFirst(Player, Position);
+
+// Render it if found
+return player ? (
+  <Renderer entity={player} />
+) : null;
+
+```
+
+### `useWorld` 
+
+Returns the default world. If a world is passed in via `WorldProvider` then this is returned instead. The default world can be gotten at any time with `getDefaultWorld`.
+
+```js
+// Get the default world
+const world = useWorld();
+
+// Use the world to create an entity on mount
+useEffect(() => {
+    const entity = world.spawn()
+    return => entity.destroy()
+}, [])
+
+```
+
+### `WorldProvider` 
+
+The provider for the world context. A world must be created and passed in, which then overrides the default world.
+
+```js
+// Create a world and pass it to the provider
+const world = createWorld();
+
+// All hooks will now use this world instead of the default
+function App() {
+  return (
+    <WorldProvider world={world}>
+      <Game />
+    </WorldProvider>
+  );
+}
+
+```
+
+### `useTrait` 
+
+Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
+
+```js
+// Get the position trait from an entity and reactively updates
+// when it changes
+const position = useTrait(entity, Position);
+
+// If position is removed from entity then it will be undefined
+if (!position) return null
+
+// Render the position
+return (
+  <div>
+    Position: {position.x}, {position.y}
+  </div>
+);
+
+```
+
+### `useTraitEffect` 
+
+Subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
+
+```js
+// Subscribe to position changes on an entity and update a ref
+// without causing a rerender
+useTraitEffect(entity, Position, (position) => {
+  if (!position) return;
+  meshRef.current.position.copy(position);
+});
+
+// Subscribe to world-level traits
+useTraitEffect(world, GameState, (state) => {
+  if (!state) return;
+  console.log('Game state changed:', state);
+});
+
+```
+
+### `useActions` 
+
+Returns actions bound to the world that is context. Use actions created by `createActions`.
+
+```js
+// Create actions
+const actions = createActions((world) => ({
+    spawnPlayer: () => world.spawn(IsPlayer).
+    destroyAllPlayers: () => {
+        world.query(IsPlayer).forEach((player) => {
+            player.destroy()
+        })
+    }
+}))
+
+// Get actions bound to the world in context
+const { spawnPlayer, destroyAllPlayers } = useActions();
+
+// Call actions to modify the world in an effect or handlers
+useEffect(() => {
+    spawnPlayer()
+    return () => destroyAllPlayers()
+}, [])
+```
