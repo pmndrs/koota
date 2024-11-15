@@ -6,4 +6,5 @@ export const Bullet = trait({
 	direction: () => new THREE.Vector3(),
 	lifetime: 2,
 	timeAlive: 0,
+	target: () => new THREE.Vector3(),
 });

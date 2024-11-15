@@ -5,6 +5,8 @@ import './index.css';
 import { WorldProvider } from 'koota/react';
 import { world } from './world.ts';
 
+import "@fontsource/russo-one";
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
 	<React.StrictMode>
 		<WorldProvider world={world}>

@@ -19,6 +19,7 @@ import { tickShieldVisibility } from './tick-shield-visibility';
 import { tickExplosion } from './tick-explosion';
 import { UpdateBlackHole } from "./update-black-hole.ts";
 import {UpdateFollowCam} from "./update-follow-cam.ts";
+import {limitRange} from "./limit-range.ts";
 
 export const schedule = new Schedule<{ world: World }>();
 
@@ -41,5 +42,6 @@ schedule.add(tickShieldVisibility);
 schedule.add(tickExplosion);
 schedule.add(UpdateBlackHole);
 schedule.add(UpdateFollowCam);
+schedule.add(limitRange);
 
 schedule.build();

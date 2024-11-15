@@ -214,6 +214,12 @@ importers:
       '@app/bench-tools':
         specifier: workspace:*
         version: link:../app-tools
+      '@fontsource/russo-one':
+        specifier: ^5.1.0
+        version: 5.1.0
+      '@number-flow/react':
+        specifier: ^0.3.2
+        version: 0.3.2(react-dom@18.3.1)(react@18.3.1)
       '@react-three/drei':
         specifier: ^9.114.3
         version: 9.115.0(@react-three/fiber@8.17.10)(@types/react@18.3.12)(@types/three@0.162.0)(react-dom@18.3.1)(react@18.3.1)(three@0.162.0)
@@ -1310,6 +1316,10 @@ packages:
       levn: 0.4.1
     dev: true
 
+  /@fontsource/russo-one@5.1.0:
+    resolution: {integrity: sha512-KGIAuppiZjl/m2roM9UV4lSCmJ75G9pjQtO0fmFMdxJT6Zg8FfOB6pfo5getW+qfyAAEVX/TkjAIUg1Ne4laOA==}
+    dev: false
+
   /@humanfs/core@0.19.1:
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
     engines: {node: '>=18.18.0'}
@@ -1420,6 +1430,17 @@ packages:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.17.1
     dev: true
+
+  /@number-flow/react@0.3.2(react-dom@18.3.1)(react@18.3.1):
+    resolution: {integrity: sha512-/Rg7WjIZR/yjHJAzRHN7+Cif+s9U02QewMl9WEKPoAY9O6jg0wA/IsAl3lJgeM1ic31bDJ92wfCkwE9ud62VmQ==}
+    peerDependencies:
+      react: ^18 || ^19.0.0-rc-915b914b3a-20240515
+      react-dom: ^18
+    dependencies:
+      number-flow: 0.3.7
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    dev: false
 
   /@pkgjs/parseargs@0.11.0:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3419,6 +3440,10 @@ packages:
     dependencies:
       path-key: 4.0.0
     dev: true
+
+  /number-flow@0.3.7:
+    resolution: {integrity: sha512-N3pKXV7hw4PhdhZ3Z6QQspRO4djveotVBetxedHB3QrFw9oDluGfdwh7ju7mK9GO9CjTV9XmGjEcaCIwJ3IJMQ==}
+    dev: false
 
   /nwsapi@2.2.13:
     resolution: {integrity: sha512-cTGB9ptp9dY9A5VbMSe7fQBcl/tt22Vcqdq8+eN93rblOuE0aCFu4aZ2vMwct/2t+lFnosm8RkQW1I0Omb1UtQ==}

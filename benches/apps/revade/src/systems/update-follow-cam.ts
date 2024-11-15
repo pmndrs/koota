@@ -1,6 +1,7 @@
 import {World} from "koota";
 import {IsActiveCamera} from "../traits/is-active-camera.ts";
 import {IsPlayer, Time, Transform} from "../traits";
+// @ts-ignore
 import {damp} from "three/src/math/MathUtils";
 import {Vector3} from "three";
 
@@ -21,7 +22,7 @@ export const UpdateFollowCam = ({world}: { world: World }) => {
   const playerPosition = playerEntity.get(Transform).position;
   const camPosition = camEntity.get(Transform).position;
 
-  dampedPos.x = damp(camPosition.x, playerPosition.x, 120, delta);
-  dampedPos.y = damp(camPosition.y, playerPosition.y, 120, delta);
+  dampedPos.x = damp(camPosition.x, playerPosition.x, 2.7, delta);
+  dampedPos.y = damp(camPosition.y, playerPosition.y, 2.7, delta);
   camPosition.copy(dampedPos);
 };

@@ -1,10 +1,18 @@
 // Based on work by Hendrik Mans: https://github.com/hmans/miniplex/tree/main/apps/demo
 
-import {Environment, OrthographicCamera, PerspectiveCamera, shaderMaterial, Stars, Trail} from '@react-three/drei';
+import {
+  Center,
+  Environment,
+  OrthographicCamera,
+  PerspectiveCamera,
+  shaderMaterial,
+  Stars,
+  Trail
+} from '@react-three/drei';
 import {Canvas, extend, useFrame} from '@react-three/fiber';
-import {Entity} from 'koota';
+import {Entity, Not} from 'koota';
 import {useObserve, useQuery, useQueryFirst, useWorld} from 'koota/react';
-import {memo, StrictMode, useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, {memo, StrictMode, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {Color, Mesh, ShaderMaterial} from 'three';
 import {useActions} from './actions';
@@ -18,8 +26,28 @@ import {Bloom, EffectComposer, Outline, SMAA} from "@react-three/postprocessing"
 import {Spaceship} from "./assets/Spaceship.tsx";
 import {Score} from "./traits/score.ts";
 import NumberFlow from "@number-flow/react";
+import {IsActiveCamera} from "./traits/is-active-camera.ts";
+import {IsBomb} from "./traits/is-bomb.ts";
 
 export function App() {
+
+  const camRef = useRef<THREE.PerspectiveCamera>(null!);
+  const world = useWorld();
+  useEffect(() => {
+    let camEntity;
+    console.log(camRef.current);
+    if (camRef.current)
+      camEntity = world.spawn(
+        IsActiveCamera,
+        Transform({
+          position: camRef.current.position,
+          rotation: camRef.current.rotation,
+          quaternion: camRef.current.quaternion,
+          scale: camRef.current.scale,
+        })
+      );
+    return () => camEntity?.destroy();
+  }, []);
 
 
   return (
@@ -30,16 +58,18 @@ export function App() {
           <color attach="background" args={['#000000']}/>
           <directionalLight position={[10, 10, -10]} intensity={0.3}/>
 
-          <PerspectiveCamera position={[0, 0, 50]} makeDefault far={10000}/>
+          <Player/>
+          <Enemies/>
+          <Bullets/>
+          <Bombs/>
+          <Explosions/>
+          <BlackHoleRenderer/>
 
-          <group>
-            <Player/>
-            <Enemies/>
-            <Bullets/>
-            <Explosions/>
-            <BlackHoleRenderer/>
-          </group>
 
+          {/*left border*/}
+
+
+          <PerspectiveCamera position={[0, 0, 50]} makeDefault far={10000} ref={camRef}/>
 
 
           <Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>
@@ -62,20 +92,24 @@ function GameUI() {
   return (player) ? <GameUIDisplay player={player}/> : null
 }
 
+
 function GameUIDisplay({player}: { player: Entity }) {
   const score = useObserve(player, Score)!;
 
   return (
     <div style={{
       position: "absolute",
-      bottom: 100,
-      right: 50,
-      border: "1px solid red",
-      color: "white",
+      bottom: 25,
+      left: 50,
+      color: "gold",
       display: "flex",
-      fontSize: "2rem",
+      fontSize: "3rem",
       justifyContent: "space-between",
-      alignItems: "center"
+      alignItems: "center",
+      textShadow: "0 0 0.25rem orange",
+      fontFamily: "Russo One",
+      // need to add flex gap
+      gap: "0.5rem"
     }}>
 
       <div>Score:</div>
@@ -128,7 +162,7 @@ const EnemyRenderer = memo(({entity}: { entity: Entity }) => {
     if (!meshRef.current) return;
 
     // Set initial position and orientation
-    meshRef.current.position.set(between(-50, 50), between(-50, 50), 0);
+    meshRef.current.position.set(between(-25, 25), between(-45, 45), 0);
     meshRef.current.quaternion.random();
 
     // Sync transform with the trait
@@ -284,14 +318,14 @@ function Explosions() {
 
   return (
     <>
-      {explosions.map((explosion) => (
-        <ExplosionRenderer key={explosion.id()} entity={explosion}/>
+      {explosions.map((explosion, i) => (
+        <ExplosionRenderer key={explosion.id()} entity={explosion} color={explosionColors[i]}/>
       ))}
     </>
   );
 }
 
-function ExplosionRenderer({entity}: { entity: Entity }) {
+function ExplosionRenderer({entity, color}: { entity: Entity, color: Color }) {
   const groupRef = useRef<THREE.Group>(null);
   const particleCount = entity.get(Explosion).count;
 
@@ -326,7 +360,7 @@ function ExplosionRenderer({entity}: { entity: Entity }) {
 
     for (let i = 0; i < particleCount; i++) {
       const particle = particles[i];
-      if (!particle) continue;
+      if (!particle || !velocities[i]) continue;
       particle.position.add(velocities[i].clone().multiplyScalar(delta * 40));
 
       // Update scale and opacity
@@ -336,13 +370,14 @@ function ExplosionRenderer({entity}: { entity: Entity }) {
     }
   });
 
+
   return (
     <group ref={groupRef}>
       {Array.from({length: particleCount}).map((_, i) => {
         return (
           <mesh key={i}>
-            <sphereGeometry args={[0.2, 8, 8]}/>
-            <meshBasicMaterial color={explosionColor} transparent/>
+            <sphereGeometry args={[0.1, 8, 8]}/>
+            <meshBasicMaterial color={color} transparent/>
           </mesh>
         );
       })}
@@ -351,7 +386,7 @@ function ExplosionRenderer({entity}: { entity: Entity }) {
 }
 
 function Bullets() {
-  const bullets = useQuery(Bullet, Transform);
+  const bullets = useQuery(Bullet, Transform, Not(IsBomb));
   return (
     <>
       {bullets.map((bullet) => (
@@ -362,11 +397,58 @@ function Bullets() {
 }
 
 
+function Bombs() {
+  const bombs = useQuery(Bullet, Transform, IsBomb);
+  return (
+    <>
+      {bombs.map((bullet) => (
+        <BombRenderer key={bullet.id()} entity={bullet}/>
+      ))}
+    </>
+  );
+}
+
+const bombColor = new Color("blue");
+bombColor.multiplyScalar(50);
+
+const BombRenderer = memo(({entity}: { entity: Entity }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  useLayoutEffect(() => {
+    if (!meshRef.current) return;
+
+    // Copy current values
+    const {position, rotation, quaternion} = entity.get(Transform);
+    meshRef.current.position.copy(position);
+    meshRef.current.rotation.copy(rotation);
+    meshRef.current.quaternion.copy(quaternion);
+
+    // Sync transform with the trait
+    entity.set(Transform, {
+      position: meshRef.current.position,
+      rotation: meshRef.current.rotation,
+      quaternion: meshRef.current.quaternion,
+      scale: meshRef.current.scale
+    });
+  }, []);
+
+
+  return (
+    <mesh ref={meshRef} scale={2}>
+      <sphereGeometry args={[1, 8, 8]}/>
+      <meshBasicMaterial color={bombColor}/>
+    </mesh>
+  );
+});
+
 const bulletColor = new Color("hotpink");
 bulletColor.multiplyScalar(50);
 
 const explosionColor = new Color("orangered");
 explosionColor.multiplyScalar(50);
+
+
+const explosionColors = [explosionColor, ...Array.from({length: 25}).map(() => new Color(`hsl(${Math.random() * 360}, 100%, 50%)`).multiplyScalar(50))];
 
 const BulletRenderer = memo(({entity}: { entity: Entity }) => {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -391,7 +473,7 @@ const BulletRenderer = memo(({entity}: { entity: Entity }) => {
 
   return (
     <mesh ref={meshRef} scale={0.2}>
-      <capsuleGeometry args={[0.5, 2.5, 4, 4]}/>
+      <capsuleGeometry args={[0.2, 1.5, 4, 4]}/>
       <meshBasicMaterial color={bulletColor}/>
     </mesh>
   );

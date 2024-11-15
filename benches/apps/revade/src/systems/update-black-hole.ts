@@ -4,6 +4,7 @@ import {BlackHole} from "../traits/black-hole.ts";
 import {TMesh} from "../traits/mesh-trait.ts";
 import {Color, MeshBasicMaterial, Vector3} from "three";
 import {CrossedEventHorizon} from "../traits/crossed-event-horizon.ts";
+// @ts-ignore
 import {mapLinear} from "three/src/math/MathUtils";
 import {Score} from "../traits/score.ts";
 import {between} from "../utils/between.ts";
@@ -36,8 +37,8 @@ export const UpdateBlackHole = ({world}: { world: World }) => {
   // --------------------------------------------------------------------------
 
 
-  // apply black hole forces to all bodies (except the black holes themselves)
-  world.query(Transform, Movement, Not(BlackHole)).updateEach(([bodyTransform, movement], bodyEntity) => {
+  // apply black hole forces to all bodies (except the black holes themselves or the player)
+  world.query(Transform, Movement, Not(BlackHole), Not(IsPlayer)).updateEach(([bodyTransform, movement], bodyEntity) => {
     // prepare a resulting force vector
     forceVec.set(0, 0, 0);
     let crossedEventHorizon = false;
@@ -90,7 +91,7 @@ export const UpdateBlackHole = ({world}: { world: World }) => {
 
     if (distSq <= blackHoleRadiusSq) {
       entity.destroy();
-      player?.set(Score, {current: player.get(Score).current + 1}, true);
+      player?.set(Score, {current: player.get(Score).current + 25}, true);
 
       // Spawn explosion in enemy's position.
       world.spawn(

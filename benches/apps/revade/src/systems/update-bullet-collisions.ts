@@ -26,9 +26,9 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 				// increase score
 				const player = world.queryFirst(Score, IsPlayer);
 				if (player !== undefined) {
-					player.set(Score, {current: player.get(Score).current + 1}, true);
+					player.set(Score, {current: player.get(Score).current + 10}, true);
 				}
-				
+
 
 				// Spawn explosion in enemy's position.
 				world.spawn(
