@@ -1,10 +1,12 @@
 import {createAdded, createRemoved, Not, World} from "koota";
-import {IsPlayer, Movement, Time, Transform} from "../traits";
+import {Explosion, IsPlayer, Movement, Time, Transform} from "../traits";
 import {BlackHole} from "../traits/black-hole.ts";
 import {TMesh} from "../traits/mesh-trait.ts";
 import {Color, MeshBasicMaterial, Vector3} from "three";
 import {CrossedEventHorizon} from "../traits/crossed-event-horizon.ts";
 import {mapLinear} from "three/src/math/MathUtils";
+import {Score} from "../traits/score.ts";
+import {between} from "../utils/between.ts";
 
 
 let totalTime = 0;
@@ -77,6 +79,8 @@ export const UpdateBlackHole = ({world}: { world: World }) => {
     (mesh.material as MeshBasicMaterial).color = normalColor;
   });
 
+  const player = world.queryFirst(Score, IsPlayer);
+
   world.query(Transform, CrossedEventHorizon, Not(IsPlayer)).updateEach(([transform, {blackHoleEntity}], entity) => {
 
     const blackHoleRadiusSq = blackHoleEntity.get(BlackHole).radius ** 2;
@@ -86,6 +90,15 @@ export const UpdateBlackHole = ({world}: { world: World }) => {
 
     if (distSq <= blackHoleRadiusSq) {
       entity.destroy();
+      player?.set(Score, {current: player.get(Score).current + 1}, true);
+
+      // Spawn explosion in enemy's position.
+      world.spawn(
+        Explosion({ count: Math.floor(between(12, 20)) }),
+        Transform({ position: entity.get(Transform).position.clone() })
+      );
+
+
     } else {
       transform.scale.set(scale, scale, scale);
     }

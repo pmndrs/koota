@@ -3,7 +3,7 @@ import { useActions } from '../actions';
 import {Input, IsPlayer, Time, Transform} from '../traits';
 
 let canShoot = true;
-const SHOOT_COOLDOWN = 0.1; // seconds
+const SHOOT_COOLDOWN = 0.15; // seconds
 
 let cooldownTimer = 0;
 

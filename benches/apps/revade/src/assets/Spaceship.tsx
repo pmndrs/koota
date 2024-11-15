@@ -6,11 +6,11 @@ https://www.fab.com/listings/fd6a9c48-1f01-4bf3-9b78-eadca660ed97
 */
 
 import * as THREE from 'three'
-import {Mesh} from 'three'
+import {Mesh, MeshToonMaterial} from 'three'
 
 import {useGLTF} from '@react-three/drei'
 import path from "././spaceship-transformed.glb?url";
-import {useEffect, useRef} from "react";
+import {useEffect, useLayoutEffect, useMemo, useRef} from "react";
 import {Entity} from 'koota'
 import {TMesh} from "../traits/mesh-trait.ts";
 
@@ -29,6 +29,23 @@ type GLTFResult = {
 export function Spaceship(props: JSX.IntrinsicElements['group'] & { entity: Entity }) {
   const {nodes, materials} = useGLTF(path) as unknown as GLTFResult;
   const ref = useRef<Mesh>(null!);
+  /*
+  const matBody = useMemo(() => new MeshToonMaterial({
+    map: materials.Body.map,
+    alphaMap: materials.Body.alphaMap,
+    emissiveMap: materials.Body.emissiveMap,
+    emissiveIntensity: materials.Body.emissiveIntensity,
+    color: materials.Body.color,
+  }), [materials.Body]);
+
+  const matWeapons = useMemo(() => new MeshToonMaterial({
+    map: materials.Weapons.map,
+    alphaMap: materials.Weapons.alphaMap,
+    emissiveMap: materials.Weapons.emissiveMap,
+    emissiveIntensity: materials.Weapons.emissiveIntensity,
+    //color: "darkblue",
+  }), [materials.Weapons]);*/
+
 
   useEffect(() => {
     materials.Body.emissiveIntensity = 80;

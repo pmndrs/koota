@@ -11,17 +11,16 @@ import {
 	Transform,
 } from './traits';
 import * as THREE from 'three';
+import {Score} from "./traits/score.ts";
 
 type TransformValue = TraitValue<(typeof Transform)['schema']>;
 
 export const useActions = createActions((world) => ({
 	spawnPlayer: (transform?: TransformValue) => {
-		return world.spawn(IsPlayer, Movement, Input, Transform(transform));
+		return world.spawn(IsPlayer, Movement, Input, Transform(transform), Score);
 	},
 	spawnEnemy: (transform?: TransformValue) => {
 
-
-		
 		return world.spawn(
 			IsEnemy,
 			Movement({ thrust: 0.5, damping: 0.98 }),

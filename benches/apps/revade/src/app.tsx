@@ -1,6 +1,6 @@
 // Based on work by Hendrik Mans: https://github.com/hmans/miniplex/tree/main/apps/demo
 
-import {Environment, PerspectiveCamera, shaderMaterial, Stars, Trail} from '@react-three/drei';
+import {Environment, OrthographicCamera, PerspectiveCamera, shaderMaterial, Stars, Trail} from '@react-three/drei';
 import {Canvas, extend, useFrame} from '@react-three/fiber';
 import {Entity} from 'koota';
 import {useObserve, useQuery, useQueryFirst, useWorld} from 'koota/react';
@@ -16,57 +16,72 @@ import {BlackHole} from "./traits/black-hole.ts";
 import {TMesh} from "./traits/mesh-trait.ts";
 import {Bloom, EffectComposer, Outline, SMAA} from "@react-three/postprocessing";
 import {Spaceship} from "./assets/Spaceship.tsx";
-import {IsActiveCamera} from "./traits/is-active-camera.ts";
+import {Score} from "./traits/score.ts";
+import NumberFlow from "@number-flow/react";
 
 export function App() {
 
-  const camRef = useRef<THREE.PerspectiveCamera>(null!);
-
-  const world = useWorld();
-  useEffect(() => {
-    let camEntity;
-
-    console.log(camRef.current);
-
-    if (camRef.current)
-      camEntity = world.spawn(
-        IsActiveCamera,
-        Transform({
-          position: camRef.current.position,
-          rotation: camRef.current.rotation,
-          quaternion: camRef.current.quaternion,
-          scale: camRef.current.scale,
-        })
-      );
-    return () => camEntity?.destroy();
-  }, []);
-
 
   return (
-    <Canvas gl={{antialias: false}}>
-      <StrictMode>
-        <color attach="background" args={['#000000']}/>
-        <directionalLight position={[10, 10, -10]} intensity={0.3}/>
+    <>
 
-        <PerspectiveCamera ref={camRef} position={[0, 0, 50]} makeDefault far={10000}/>
+      <Canvas gl={{antialias: false}}>
+        <StrictMode>
+          <color attach="background" args={['#000000']}/>
+          <directionalLight position={[10, 10, -10]} intensity={0.3}/>
 
-        <Player/>
-        <Enemies/>
-        <Bullets/>
-        <Explosions/>
-        <BlackHoleRenderer/>
+          <PerspectiveCamera position={[0, 0, 50]} makeDefault far={10000}/>
+
+          <group>
+            <Player/>
+            <Enemies/>
+            <Bullets/>
+            <Explosions/>
+            <BlackHoleRenderer/>
+          </group>
 
 
-        <Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>
 
-        <Environment preset={"night"}/>
-        <PostProcessing/>
+          <Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>
 
-        <Simulation/>
+          <Environment preset={"night"}/>
+          <PostProcessing/>
 
-      </StrictMode>
-    </Canvas>
+          <Simulation/>
+
+        </StrictMode>
+      </Canvas>
+
+      <GameUI/>
+    </>
   );
+}
+
+function GameUI() {
+  const player = useQueryFirst(Score, IsPlayer);
+  return (player) ? <GameUIDisplay player={player}/> : null
+}
+
+function GameUIDisplay({player}: { player: Entity }) {
+  const score = useObserve(player, Score)!;
+
+  return (
+    <div style={{
+      position: "absolute",
+      bottom: 100,
+      right: 50,
+      border: "1px solid red",
+      color: "white",
+      display: "flex",
+      fontSize: "2rem",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }}>
+
+      <div>Score:</div>
+      <NumberFlow value={score?.current}/>
+    </div>
+  )
 }
 
 
@@ -139,7 +154,7 @@ const EnemyRenderer = memo(({entity}: { entity: Entity }) => {
   });
 
   return (
-    <mesh ref={meshRef}>
+    <mesh ref={meshRef} scale={0.66}>
       <dodecahedronGeometry/>
       <meshStandardMaterial color="white" metalness={.5} roughness={0.25}/>
     </mesh>
@@ -217,7 +232,7 @@ const PlayerRenderer = memo(({entity}: { entity: Entity }) => {
         attenuation={(width) => width} // A function to define the width in each point along it.
       >
 
-        <Spaceship entity={entity} rotation-y={Math.PI / 2} rotation-x={Math.PI / 2} scale={[.3, .3, .3]}/>
+        <Spaceship entity={entity} rotation-y={Math.PI / 2} rotation-x={Math.PI / 2} scale={[.2, .2, .2]}/>
 
       </Trail>
 
@@ -602,7 +617,7 @@ function BlackHoleRenderer() {
 
   return (
     <mesh ref={meshRef} renderOrder={99}>
-      <planeGeometry args={[16 * 3, 9 * 3, 1, 1]}/>
+      <planeGeometry args={[16 * 1.5, 9 * 1.5, 1, 1]}/>
       <customShaderMaterial ref={materialRef}/>
     </mesh>
   )
