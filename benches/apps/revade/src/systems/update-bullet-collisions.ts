@@ -2,6 +2,7 @@ import { World } from 'koota';
 import {Bullet, Explosion, IsEnemy, IsPlayer, SpatialHashMap, Transform} from '../traits';
 import { between } from '../utils/between';
 import {Score} from "../traits/score.ts";
+import {ScoreFade} from "../traits/score-fade.ts";
 
 export const updateBulletCollisions = ({ world }: { world: World }) => {
 	const spatialHashMap = world.get(SpatialHashMap);
@@ -33,8 +34,11 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 				// Spawn explosion in enemy's position.
 				world.spawn(
 					Explosion({ count: Math.floor(between(12, 20)) }),
-					Transform({ position: hitEnemy.get(Transform).position.clone() })
+					Transform({ position: hitEnemy.get(Transform).position.clone() }),
+					ScoreFade({ position: hitEnemy.get(Transform).position.clone() })
 				);
+
+
 
 				// Destroy bullet and enemy.
 				hitEnemy.destroy();

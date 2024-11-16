@@ -20,7 +20,8 @@
 		"koota": "workspace:@koota/dev@*",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"three": "^0.162.0"
+		"three": "^0.162.0",
+		"@react-spring/web": "^9.7.5"
 	},
 	"devDependencies": {
 		"@types/react": "^18.3.3",

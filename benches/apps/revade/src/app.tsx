@@ -2,7 +2,7 @@
 
 import {
   Center,
-  Environment,
+  Environment, Html,
   OrthographicCamera,
   PerspectiveCamera,
   shaderMaterial,
@@ -28,6 +28,8 @@ import {Score} from "./traits/score.ts";
 import NumberFlow from "@number-flow/react";
 import {IsActiveCamera} from "./traits/is-active-camera.ts";
 import {IsBomb} from "./traits/is-bomb.ts";
+import {ScoreFade} from "./traits/score-fade.ts";
+import {useSpring, animated} from "@react-spring/web";
 
 export function App() {
 
@@ -72,9 +74,9 @@ export function App() {
           <PerspectiveCamera position={[0, 0, 50]} makeDefault far={10000} ref={camRef}/>
 
 
-          <Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>
+          {<Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>}
 
-          <Environment preset={"night"}/>
+          {/*<Environment preset={"night"}/>*/}
           <PostProcessing/>
 
           <Simulation/>
@@ -116,6 +118,28 @@ function GameUIDisplay({player}: { player: Entity }) {
       <NumberFlow value={score?.current}/>
     </div>
   )
+}
+
+function ScoreDisplay() {
+  const entities = useQuery(ScoreFade);
+  return entities.map(e => <ScoreRenderer key={e} entity={e}/>)
+}
+
+function ScoreRenderer({entity}: { entity: Entity }) {
+
+  const {position} = useObserve(entity, ScoreFade);
+
+  const props = useSpring({
+    from: {opacity: 0},
+    to: {opacity: 1},
+  })
+
+  return <animated.div style={{
+    position: 'absolute',
+    left: position.x,
+    top: position.y,
+    ...props
+  }}>Hello World</animated.div>
 }
 
 
@@ -370,6 +394,14 @@ function ExplosionRenderer({entity, color}: { entity: Entity, color: Color }) {
     }
   });
 
+  const props = useSpring({
+    from: {opacity: 0, fontSize: "0rem"},
+    to: {opacity: 0.5, fontSize: "1.5rem"},
+    tension: 1485,
+    friction: 8,
+    velocity: 0.047
+  });
+
 
   return (
     <group ref={groupRef}>
@@ -381,6 +413,14 @@ function ExplosionRenderer({entity, color}: { entity: Entity, color: Color }) {
           </mesh>
         );
       })}
+      <Html style={{
+        color: "orange",
+        fontFamily: "Russo One",
+      }}>
+        <animated.div style={props}>
+          100
+        </animated.div>
+      </Html>
     </group>
   );
 }
