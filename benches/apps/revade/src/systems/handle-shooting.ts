@@ -2,6 +2,7 @@ import {World} from 'koota';
 import {useActions} from '../actions';
 import {Input, IsEnemy, IsPlayer, SpatialHashMap, Time, Transform} from '../traits';
 import {Vector3} from "three";
+import {CrossedEventHorizon} from "../traits/crossed-event-horizon.ts";
 
 let canShoot = true;
 const SHOOT_COOLDOWN = 0.1; // seconds
@@ -57,17 +58,16 @@ export const handleShooting = ({world}: { world: World }) => {
       3
     );
 
-    const filtered = nearbyEntities.filter(e => e.has(IsEnemy));
+    const filtered = nearbyEntities.filter(e => e.has(IsEnemy) && !e.has(CrossedEventHorizon));
 
     const distances = filtered.map((e) => ({e, dist: e.get(Transform).position.distanceToSquared(position)}));
     distances.sort((a, b) => a.dist - b.dist);
 
     if (filtered.length > 0) {
-      for (let i = 0; i < Math.min(2, filtered.length); i++) {
+      for (let i = 0; i < Math.min(3, filtered.length); i++) {
         const target = distances[i].e;
         spawnBullet(position, target.get(Transform).position);
       }
-
     }
 
     else {

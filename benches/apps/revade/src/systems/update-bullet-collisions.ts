@@ -15,7 +15,7 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 				position.x,
 				position.y,
 				position.z,
-				2
+				5
 			);
 
 			const hitEnemy = nearbyEntities.find(
@@ -29,6 +29,10 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 				if (player !== undefined) {
 					player.set(Score, {current: player.get(Score).current + 10}, true);
 				}
+
+
+
+
 
 
 				// Spawn explosion in enemy's position.

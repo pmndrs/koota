@@ -7,12 +7,12 @@ import {
   PerspectiveCamera,
   shaderMaterial,
   Stars,
-  Trail
+  Trail, useTexture
 } from '@react-three/drei';
-import {Canvas, extend, useFrame} from '@react-three/fiber';
+import {Canvas, extend, useFrame, useThree} from '@react-three/fiber';
 import {Entity, Not} from 'koota';
 import {useObserve, useQuery, useQueryFirst, useWorld} from 'koota/react';
-import React, {memo, StrictMode, useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, {memo, StrictMode, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import * as THREE from 'three';
 import {Color, Mesh, ShaderMaterial} from 'three';
 import {useActions} from './actions';
@@ -30,6 +30,8 @@ import {IsActiveCamera} from "./traits/is-active-camera.ts";
 import {IsBomb} from "./traits/is-bomb.ts";
 import {ScoreFade} from "./traits/score-fade.ts";
 import {useSpring, animated} from "@react-spring/web";
+import {useControls} from "leva";
+
 
 export function App() {
 
@@ -74,10 +76,14 @@ export function App() {
           <PerspectiveCamera position={[0, 0, 50]} makeDefault far={10000} ref={camRef}/>
 
 
-          {<Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>}
+          {/*<Stars radius={100} depth={500} count={5000} factor={10} saturation={0} fade speed={0.1}/>*/}
 
-          {/*<Environment preset={"night"}/>*/}
-          <PostProcessing/>
+          <MosaicCloud/>
+
+          <Environment preset={"night"} background>
+          </Environment>
+
+          {<PostProcessing/>}
 
           <Simulation/>
 
@@ -325,6 +331,8 @@ function ThrusterRenderer() {
     const scale = 0.8 + Math.sin(clock.elapsedTime * 10) * 0.2;
     meshRef.current.scale.setY(scale);
     meshRef.current.position.y = -(1 - scale) / 2;
+
+    explosionColors.sort(() => Math.random() - 0.5)
   });
 
   return (
@@ -396,11 +404,14 @@ function ExplosionRenderer({entity, color}: { entity: Entity, color: Color }) {
 
   const props = useSpring({
     from: {opacity: 0, fontSize: "0rem"},
-    to: {opacity: 0.5, fontSize: "1.5rem"},
-    tension: 1485,
-    friction: 8,
-    velocity: 0.047
+    to: {opacity: 0.6, fontSize: "1.5rem"},
+    mass: 1.2,
+    tension: 500,
+    friction: 13
   });
+
+
+  const num = useMemo(() => Math.random() < 0.33 ? "100" : Math.random() < 0.5 ? "50" : "25", []);
 
 
   return (
@@ -408,8 +419,9 @@ function ExplosionRenderer({entity, color}: { entity: Entity, color: Color }) {
       {Array.from({length: particleCount}).map((_, i) => {
         return (
           <mesh key={i}>
-            <sphereGeometry args={[0.1, 8, 8]}/>
+            <sphereGeometry args={[0.18, 8, 8]}/>
             <meshBasicMaterial color={color} transparent/>
+
           </mesh>
         );
       })}
@@ -418,7 +430,7 @@ function ExplosionRenderer({entity, color}: { entity: Entity, color: Color }) {
         fontFamily: "Russo One",
       }}>
         <animated.div style={props}>
-          100
+          {num}
         </animated.div>
       </Html>
     </group>
@@ -739,15 +751,213 @@ function BlackHoleRenderer() {
 
   return (
     <mesh ref={meshRef} renderOrder={99}>
-      <planeGeometry args={[16 * 1.5, 9 * 1.5, 1, 1]}/>
+      <planeGeometry args={[16 * 2.5, 9 * 2.5, 1, 1]}/>
       <customShaderMaterial ref={materialRef}/>
     </mesh>
   )
 }
 
 
+const MosaicCloud = (props) => {
+  const mesh = useRef();
+
+  const {viewport} = useThree();
+  /*const noisetexture = useTexture("assets/noise-textures/noise2.png");
+
+  noisetexture.wrapS = THREE.RepeatWrapping;
+  noisetexture.wrapT = THREE.RepeatWrapping;
+
+  noisetexture.minFilter = THREE.NearestMipmapLinearFilter;
+  noisetexture.magFilter = THREE.NearestMipmapLinearFilter;*/
+
+  const uniforms = {
+    uTime: {
+      value: 0.0,
+    },
+    uResolution: new THREE.Uniform(new THREE.Vector2()),
+    uNoise: new THREE.Uniform(null),
+    uSpeed: new THREE.Uniform(0.0),
+    uScale: new THREE.Uniform(0.0),
+    uOctaves: new THREE.Uniform(0.0),
+    uTwinkleStrength: new THREE.Uniform(0.0),
+  };
+
+  const {speed, scale, octaves, twinkleStrength} = useControls({
+    speed: {value: 0.012, min: 0, max: 0.1, step: 0.001},
+    scale: {value: 2.25, min: 0, max: 10, step: 0.01},
+    octaves: {value: 5, min: 0, max: 10, step: 1},
+    twinkleStrength: {value: 0.1, min: 0, max: 1, step: 0.01},
+  });
+
+  useFrame((state) => {
+    const {clock} = state;
+
+    mesh.current.material.uniforms.uTime.value = clock.getElapsedTime();
+    mesh.current.material.uniforms.uResolution.value = new THREE.Vector2(
+      window.innerWidth * 1,
+      window.innerHeight * 1
+    );
+
+    mesh.current.material.uniforms.uSpeed.value = speed;
+    mesh.current.material.uniforms.uScale.value = scale;
+    mesh.current.material.uniforms.uOctaves.value = octaves;
+    mesh.current.material.uniforms.uTwinkleStrength.value = twinkleStrength;
+    //mesh.current.material.uniforms.uNoise.value = noisetexture;
+  });
+
+  return (
+    <mesh ref={mesh} scale={[viewport.width * 5, viewport.height * 5, 1]}>
+      <planeGeometry args={[1, 1]}/>
+      <shaderMaterial
+        key={crypto.randomUUID()}
+        fragmentShader={cloudfragmentShader}
+        vertexShader={vertexShader}
+        uniforms={uniforms}
+        wireframe={false}
+      />
+    </mesh>
+  );
+};
+
+const vertexShader = `varying vec2 vUv;
+
+void main() {
+  vUv = uv;
+
+  vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+  vec4 viewPosition = viewMatrix * modelPosition;
+  vec4 projectedPosition = projectionMatrix * viewPosition;
+
+  gl_Position = projectedPosition;
+}`;
+
+const cloudfragmentShader = `
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uSpeed;
+uniform float uScale;
+uniform float uOctaves;
+uniform float uTwinkleStrength;
 
 
+float random(vec2 c) {
+  return fract(sin(dot(c.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+vec4 mod289(vec4 x) {
+ return x - floor(x * (1.0 / 289.0)) * 289.0;
+}
+
+vec4 permute(vec4 x) {
+ return mod289(((x*34.0)+1.0)*x);
+}
+
+vec4 taylorInvSqrt(vec4 r) {
+  return 1.79284291400159 - 0.85373472095314 * r;
+}
+
+vec2 fade(vec2 t) {
+  return t*t*t*(t*(t*6.0-15.0)+10.0);
+}
+
+// Classic Perlin noise
+float cnoise(vec2 P) {
+    vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);
+    vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);
+    Pi = mod289(Pi); // To avoid truncation effects in permutation
+    vec4 ix = Pi.xzxz;
+    vec4 iy = Pi.yyww;
+    vec4 fx = Pf.xzxz;
+    vec4 fy = Pf.yyww;
+
+    vec4 i = permute(permute(ix) + iy);
+
+    vec4 gx = fract(i * (1.0 / 41.0)) * 2.0 - 1.0 ;
+    vec4 gy = abs(gx) - 0.5 ;
+    vec4 tx = floor(gx + 0.5);
+    gx = gx - tx;
+
+    vec2 g00 = vec2(gx.x,gy.x);
+    vec2 g10 = vec2(gx.y,gy.y);
+    vec2 g01 = vec2(gx.z,gy.z);
+    vec2 g11 = vec2(gx.w,gy.w);
+
+    vec4 norm = taylorInvSqrt(vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11)));
+    g00 *= norm.x;
+    g01 *= norm.y;
+    g10 *= norm.z;
+    g11 *= norm.w;
+
+    float n00 = dot(g00, vec2(fx.x, fy.x));
+    float n10 = dot(g10, vec2(fx.y, fy.y));
+    float n01 = dot(g01, vec2(fx.z, fy.z));
+    float n11 = dot(g11, vec2(fx.w, fy.w));
+
+    vec2 fade_xy = fade(Pf.xy);
+    vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);
+    float n_xy = mix(n_x.x, n_x.y, fade_xy.y);
+    return 2.3 * n_xy;
+}
+
+float starField(vec2 p) {
+    vec2 pRandom = vec2(random(p.xy), random(p.yx));
+    vec2 fp = fract(pRandom * 200.0) - 0.5;
+    float d = length(fp);
+    float brightness = smoothstep(0.05, 0.0, d);
+
+    float twinkleSpeed = 1.25;
+    float twinkleStrength = uTwinkleStrength;
+    float twinkle = sin(uTime * twinkleSpeed * pRandom.y) * twinkleStrength + 0.5;
+    return brightness * twinkle;
+}
+
+float fbm(vec2 p) {
+    // Initial values
+    float value = -0.17;
+    float amplitude = 0.75;
+    float frequency = uScale;
+    // Loop of octaves
+    for (int i = 0; i < int(uOctaves); i++) {
+        value += amplitude * abs(cnoise(p));
+        p *= frequency;
+        amplitude *= 0.35;
+    }
+    return value;
+}
+
+const float X_DIR = 1.0;
+const float Y_DIR = -1.0;
+
+float pattern(vec2 p) {  
+    vec2 p2 = vec2(p.x * X_DIR, p.y * Y_DIR) - uTime * uSpeed;
+
+    return fbm(p - fbm(p2 + fbm(p2)));
+}
+
+void main() {
+
+  vec2 uv = gl_FragCoord.xy/uResolution.xy;
+  uv -= 0.5;
+  uv.x *= uResolution.x / uResolution.y;
+
+  vec3 col = vec3(0.0);
+
+  float f = pattern(uv);
+  float stars = starField(uv);
 
 
+  float remappedPattern = smoothstep(0.0, 3.3, f);
+  
+  
+  
+  vec3 nebulaColor = mix(
+    vec3(0.2, 0.2, 1.0),  // Red / Orange
+    vec3(0.8, 0.2, 0.2),  // Blue / Purple
+    remappedPattern
+  );
+   
 
+  col = nebulaColor * remappedPattern + stars;
+  gl_FragColor = vec4(col, 1.0);
+}
+`

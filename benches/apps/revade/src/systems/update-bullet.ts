@@ -29,7 +29,7 @@ export const updateBullets = ({world}: { world: World }) => {
       //return;
     }
 
-    deltaVec.setLength(playerSpeed + bullet.speed * delta * 0.1 + 3 * bullet.timeAlive / bullet.lifetime);
+    deltaVec.setLength(3 * playerSpeed + bullet.speed * delta * 0.4 + 3 * bullet.timeAlive / bullet.lifetime);
     transform.position.add(deltaVec);
 
     // Update lifetime
@@ -55,7 +55,7 @@ export const updateBullets = ({world}: { world: World }) => {
     transform.rotation.copy(dummy.rotation);
     transform.rotation.y += Math.PI / 2;
 
-    transform.position.add(tmpVec3.copy(bullet.direction).multiplyScalar(playerSpeed + bullet.speed * delta * 0.1 + 3 * bullet.timeAlive / bullet.lifetime))
+    transform.position.add(tmpVec3.copy(bullet.direction).multiplyScalar(3 * playerSpeed + bullet.speed * delta * 0.4 + 3 * bullet.timeAlive / bullet.lifetime))
 
     // Update lifetime
     bullet.timeAlive += delta;

@@ -13,15 +13,16 @@
 		"@app/bench-tools": "workspace:*",
 		"@fontsource/russo-one": "^5.1.0",
 		"@number-flow/react": "^0.3.2",
+		"@react-spring/web": "^9.7.5",
 		"@react-three/drei": "^9.114.3",
 		"@react-three/fiber": "^8.17.5",
 		"@react-three/postprocessing": "^2.16.3",
 		"directed": "latest",
 		"koota": "workspace:@koota/dev@*",
+		"leva": "^0.9.35",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"three": "^0.162.0",
-		"@react-spring/web": "^9.7.5"
+		"three": "^0.162.0"
 	},
 	"devDependencies": {
 		"@types/react": "^18.3.3",
