@@ -20,6 +20,8 @@ export function useTrait<T extends Trait>(
 	});
 
 	useEffect(() => {
+		setValue(entity.has(trait) ? entity.get(trait) : undefined);
+		
 		const onChangeUnsub = world.onChange(trait, (e) => {
 			if (e === entity) setValue(e.get(trait));
 		});
