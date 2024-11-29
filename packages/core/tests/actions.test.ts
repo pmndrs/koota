@@ -1,7 +1,6 @@
-import { createActions } from '../src/actions/create-actions';
-import { createWorld } from '../src';
-import { trait } from '../src';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { createWorld, trait } from '../src';
+import { createActions } from '../src/actions/create-actions';
 
 const IsPlayer = trait();
 
@@ -29,5 +28,27 @@ describe('Actions', () => {
 
 		// Should be the same function
 		expect(spawnPlayer2).toBe(spawnPlayer);
+	});
+
+	it('should create multiple memoized actions per world', () => {
+		const actions1 = createActions((world) => ({
+			spawnPlayer: () => world.spawn(IsPlayer),
+			destroyPlayers: () => {
+				world.query(IsPlayer).forEach((e) => e.destroy());
+			},
+		}));
+
+		const actions2 = createActions((world) => ({
+			spawnPlayer: () => world.spawn(IsPlayer),
+			destroyPlayers: () => {
+				world.query(IsPlayer).forEach((e) => e.destroy());
+			},
+		}));
+
+		const { spawnPlayer: spawnPlayer1 } = actions1(world);
+		const { spawnPlayer: spawnPlayer2 } = actions2(world);
+
+		// Should be different functions
+		expect(spawnPlayer1).not.toBe(spawnPlayer2);
 	});
 });
