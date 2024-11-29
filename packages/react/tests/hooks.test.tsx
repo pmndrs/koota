@@ -9,7 +9,7 @@ import {
 	World,
 } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { act, StrictMode } from 'react';
+import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useActions, useQuery, WorldProvider } from '../src';
 import { useTrait } from '../src/hooks/use-trait';
@@ -30,7 +30,7 @@ describe('Hooks', () => {
 		world = createWorld();
 	});
 
-	it('useObserve with entity', async () => {
+	it('useTrait with entity', async () => {
 		const entity = world.spawn(Position);
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 
@@ -67,7 +67,55 @@ describe('Hooks', () => {
 		expect(position).toEqual({ x: 1, y: 1 });
 	});
 
-	it('useObserve with world', async () => {
+	it.only('useTrait with entity at effect time', async () => {
+		const dummyEntity = world.spawn();
+		let entity: Entity | undefined = undefined;
+		let position: TraitInstance<typeof Position> | undefined = undefined;
+
+		function Test() {
+			const [, set] = useState(0);
+
+			// Rerender to ensure the entity is not stale for useTrait
+			useEffect(() => {
+				entity = world.spawn(Position);
+				set((v) => v + 1);
+			}, []);
+
+			position = useTrait(entity ?? dummyEntity, Position);
+			return null;
+		}
+
+		let renderer: any;
+
+		await act(async () => {
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		console.log('position', position);
+
+		expect(position).toEqual({ x: 0, y: 0 });
+
+		await act(async () => {
+			entity!.set(Position, { x: 1, y: 1 });
+			await renderer!.update(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(position).toEqual({ x: 1, y: 1 });
+	});
+
+	it('useTrait with world', async () => {
 		const TimeOfDay = trait({ hour: 0 });
 		world.add(TimeOfDay);
 		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
