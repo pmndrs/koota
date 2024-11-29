@@ -1,7 +1,7 @@
 import { $internal, Entity, Trait, TraitInstance, World } from '@koota/core';
 import { useEffect, useMemo, useState } from 'react';
-import { useWorld } from '../world/use-world';
 import { isWorld } from '../utils/is-world';
+import { useWorld } from '../world/use-world';
 
 export function useTrait<T extends Trait>(
 	target: Entity | World,
@@ -15,13 +15,10 @@ export function useTrait<T extends Trait>(
 	);
 
 	const [value, setValue] = useState<TraitInstance<T> | undefined>(() => {
-		if (entity.has(trait)) return entity.get(trait);
-		return undefined;
+		return entity.has(trait) ? entity.get(trait) : undefined;
 	});
 
 	useEffect(() => {
-		setValue(entity.has(trait) ? entity.get(trait) : undefined);
-		
 		const onChangeUnsub = world.onChange(trait, (e) => {
 			if (e === entity) setValue(e.get(trait));
 		});
@@ -34,10 +31,13 @@ export function useTrait<T extends Trait>(
 			if (e === entity) setValue(undefined);
 		});
 
+		setValue(entity.has(trait) ? entity.get(trait) : undefined);
+
 		return () => {
 			onChangeUnsub();
 			onAddUnsub();
 			onRemoveUnsub();
+			setValue(undefined);
 		};
 	}, [target, trait]);
 
