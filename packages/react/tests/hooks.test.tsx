@@ -67,7 +67,7 @@ describe('Hooks', () => {
 		expect(position).toEqual({ x: 1, y: 1 });
 	});
 
-	it.only('useTrait with entity at effect time', async () => {
+	it('useTrait with entity at effect time', async () => {
 		const dummyEntity = world.spawn();
 		let entity: Entity | undefined = undefined;
 		let position: TraitInstance<typeof Position> | undefined = undefined;
