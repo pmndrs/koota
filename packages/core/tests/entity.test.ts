@@ -123,6 +123,12 @@ describe('Entity', () => {
 		expect(entity.get(Bar).value).toBe(1);
 	});
 
+	it('can set trait state with a callback', () => {
+		const entity = world.spawn(Bar);
+		entity.set(Bar, (prev) => ({ value: prev.value + 1 }));
+		expect(entity.get(Bar).value).toBe(1);
+	});
+
 	it('should trigger change events when trait state is set', () => {
 		const entity = world.spawn(Bar);
 		let called = false;
