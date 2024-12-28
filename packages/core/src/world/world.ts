@@ -8,6 +8,7 @@ import { QueryParameter, QueryResult } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
+import { registerTrait } from '../trait/trait';
 import { TraitData } from '../trait/trait-data';
 import { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -205,13 +206,11 @@ export class World {
 
 	onChange(trait: Trait, callback: (entity: Entity) => void) {
 		const ctx = this[$internal];
-		let data = ctx.traitData.get(trait)!;
 
-		if (!data) {
-			data = new TraitData(this, trait);
-			ctx.traitData.set(trait, data);
-		}
+		// Register the trait if it's not already registered.
+		if (!ctx.traitData.has(trait)) registerTrait(this, trait);
 
+		const data = ctx.traitData.get(trait)!;
 		data.changedSubscriptions.add(callback);
 
 		return () => data.changedSubscriptions.delete(callback);
