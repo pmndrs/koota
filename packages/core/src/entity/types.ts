@@ -9,7 +9,9 @@ export type Entity = number & {
 	changed: (trait: Trait) => void;
 	set: <T extends Trait>(
 		trait: T,
-		value: TraitValue<ExtractSchema<T>>,
+		value:
+			| TraitValue<ExtractSchema<T>>
+			| ((prev: TraitInstance<ExtractSchema<T>>) => TraitValue<ExtractSchema<T>>),
 		flagChanged?: boolean
 	) => void;
 	get: <T extends Trait>(trait: T) => TraitInstance<ExtractSchema<T>>;
