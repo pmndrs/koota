@@ -68,7 +68,6 @@ describe('Hooks', () => {
 	});
 
 	it('useTrait with entity at effect time', async () => {
-		const dummyEntity = world.spawn();
 		let entity: Entity | undefined = undefined;
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 
@@ -81,7 +80,7 @@ describe('Hooks', () => {
 				set((v) => v + 1);
 			}, []);
 
-			position = useTrait(entity ?? dummyEntity, Position);
+			position = useTrait(entity, Position);
 			return null;
 		}
 
@@ -96,8 +95,6 @@ describe('Hooks', () => {
 				</StrictMode>
 			);
 		});
-
-		console.log('position', position);
 
 		expect(position).toEqual({ x: 0, y: 0 });
 
@@ -152,6 +149,43 @@ describe('Hooks', () => {
 		});
 
 		expect(timeOfDay).toEqual({ hour: 1 });
+	});
+
+	it('useTrait with undefined target', async () => {
+		let position: TraitInstance<typeof Position> | undefined = undefined;
+		let entity: Entity | undefined = undefined;
+
+		function Test() {
+			position = useTrait(entity, Position);
+			return null;
+		}
+
+		let renderer: any;
+
+		await act(async () => {
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(position).toBeUndefined();
+
+		await act(async () => {
+			entity = world.spawn(Position);
+			await renderer!.update(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(position).toEqual({ x: 0, y: 0 });
 	});
 
 	it('useQuery', async () => {
