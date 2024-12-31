@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '../src';
-import { relation } from '../src/relation/relation';
+import { relation, Wildcard } from '../src/relation/relation';
 import { getStores } from '../src/trait/trait';
 
 describe('Relation', () => {
@@ -125,5 +125,30 @@ describe('Relation', () => {
 		expect(relations.length).toBe(2);
 		expect(relations).toContain(inventory);
 		expect(relations).toContain(shop);
+
+		// Wildcard should be return the same as '*'.
+		relations = world.query(Contains(Wildcard));
+		expect(relations.length).toBe(2);
+		expect(relations).toContain(inventory);
+		expect(relations).toContain(shop);
+	});
+
+	it('should query all relations targeting an entity using Wildcard', () => {
+		const Contains = relation();
+		const Desires = relation();
+		const Fears = relation();
+
+		const gold = world.spawn();
+		const inventory = world.spawn(Contains(gold));
+		const chest = world.spawn(Contains(gold));
+		const dwarf = world.spawn(Desires(gold));
+		const dragon = world.spawn(Fears(gold));
+
+		const relatesToGold = world.query(Wildcard(gold));
+		expect(relatesToGold.length).toBe(4);
+		expect(relatesToGold).toContain(inventory);
+		expect(relatesToGold).toContain(chest);
+		expect(relatesToGold).toContain(dwarf);
+		expect(relatesToGold).toContain(dragon);
 	});
 });
