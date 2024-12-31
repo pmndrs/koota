@@ -720,4 +720,15 @@ describe('Query', () => {
 
 		expect(cb).toHaveBeenCalledTimes(1);
 	});
+
+	it.fails('updateEach does not overwrite when a trait is set instead of mutated', () => {
+		const entity = world.spawn(Position);
+
+		world.query(Position).updateEach(([position], entity) => {
+			entity.set(Position, { x: 10 });
+		});
+
+		const position = entity.get(Position);
+		expect(position.x).toBe(10);
+	});
 });
