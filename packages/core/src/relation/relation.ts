@@ -15,7 +15,7 @@ function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>
 	function relationFn(target: RelationTarget) {
 		if (target === undefined) throw Error('Relation target is undefined');
 		if (target === '*') target = Wildcard;
-		return getRelationComponent<T>(relationFn, traitFactory, pairsMap, target);
+		return getRelationTrait<T>(relationFn, traitFactory, pairsMap, target);
 	}
 
 	return Object.assign(relationFn, {
@@ -29,7 +29,7 @@ function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>
 }
 export const relation = defineRelation;
 
-export function getRelationComponent<T extends Trait>(
+export function getRelationTrait<T extends Trait>(
 	relation: (target: RelationTarget) => T,
 	traitFactory: () => T,
 	pairsMap: Map<any, T>,
@@ -73,7 +73,7 @@ export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTar
 	const pairsMap = ctx.pairsMap;
 	const traitFactory = ctx.createTrait;
 
-	return getRelationComponent<T>(relation, traitFactory, pairsMap, target);
+	return getRelationTrait<T>(relation, traitFactory, pairsMap, target);
 };
 
 export const Wildcard: Relation<any> | string = defineRelation();
