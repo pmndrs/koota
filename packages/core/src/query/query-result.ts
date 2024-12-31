@@ -28,8 +28,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 	const stores: Store<any>[] = [];
 	const traits: Trait[] = [];
 
-	// Get the traits for the query parameters in the order they appear
-	// and not the order of they are sorted for the query hash.
+	// Get the traits for the query parameters in the order they are defined
+	// and not the order they are sorted for the query hash.
 	getQueryStores<T>(params, traits, stores, world);
 
 	const results = Object.assign(entities, {
