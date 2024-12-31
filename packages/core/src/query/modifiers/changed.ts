@@ -31,8 +31,8 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	if (!ctx.traitData.has(trait)) registerTrait(world, trait);
 	const data = ctx.traitData.get(trait)!;
 
-	// Inline `setChangedMask` for performance.
 	// Mark the trait as changed for the entity.
+	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
 		if (!changedMask[eid]) changedMask[eid] = new Array();
