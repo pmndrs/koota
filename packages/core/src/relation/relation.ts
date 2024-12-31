@@ -14,8 +14,8 @@ function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>
 
 	function relationFn(target: RelationTarget) {
 		if (target === undefined) throw Error('Relation target is undefined');
-		if (target === '*') target = Wildcard;
-		return getRelationTrait<T>(relationFn, traitFactory, pairsMap, target);
+		if (target === '*') target = Wildcard as RelationTarget;
+		return getRelationTrait<T>(relationFn as Relation<T>, traitFactory, pairsMap, target);
 	}
 
 	return Object.assign(relationFn, {
@@ -30,7 +30,7 @@ function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>
 export const relation = defineRelation;
 
 export function getRelationTrait<T extends Trait>(
-	relation: (target: RelationTarget) => T,
+	relation: Relation<T>,
 	traitFactory: () => T,
 	pairsMap: Map<any, T>,
 	target: RelationTarget
@@ -67,7 +67,7 @@ export const getRelationTargets = (world: World, relation: Relation<any>, entity
 export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTarget): T => {
 	if (relation === undefined) throw Error('Relation is undefined');
 	if (target === undefined) throw Error('Relation target is undefined');
-	if (target === '*') target = Wildcard;
+	if (target === '*') target = Wildcard as RelationTarget;
 
 	const ctx = relation[$internal];
 	const pairsMap = ctx.pairsMap;
