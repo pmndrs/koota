@@ -71,12 +71,12 @@ function RocketRenderer() {
     const rockets = useQuery(Position, Velocity)
     return (
         <>
-            {rockets.map((entity) => <Rocket key={entity} entity={entity} />)}
+            {rockets.map((entity) => <RocketView key={entity} entity={entity} />)}
         </>
     )
 }
 
-function Rocket({ entity }) {
+function RocketView({ entity }) {
     // Observes this entity's position trait and reactively updates when it changes
     const position = useTrait(entity, Position)
     return (
@@ -322,10 +322,18 @@ world.set(Time, { current: performance.now() });
 ```
 
 ### Select traits on queries for updates
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStore`.
+Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStore`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
-// Add example when I get the energy
+// The query finds all entities with Position, Velocity and Mass
+world.query(Position, Velocity, Mass)
+  // And then select only Mass for updates
+  .select(Mass)
+  // Only mass will be used in the loop
+  .updateEach([mass] => {
+    // We are going blackhole
+    mass.value += 1
+  });
 ```
 
 ### Modifying trait stores direclty
@@ -517,10 +525,10 @@ Reactively updates when entities matching the query changes. Returns a `QueryRes
 // Get all entities with Position and Velocity traits
 const entities = useQuery(Position, Velocity);
 
-// Render them
+// Render a view
 return (
   <>
-    {entities.map(entity => <Renderer key={entity.id()} entity={entity} />)}
+    {entities.map(entity => <View key={entity.id()} entity={entity} />)}
   </>
 );
 ```
@@ -533,9 +541,9 @@ Works like `useQuery` but only returns the first result. Can either be an entity
 // Get the first entity with Player and Position traits
 const player = useQueryFirst(Player, Position);
 
-// Render it if found
+// Render a view if an entity is found
 return player ? (
-  <Renderer entity={player} />
+  <View entity={player} />
 ) : null;
 
 ```
@@ -577,11 +585,10 @@ function App() {
 
 ### `useTrait` 
 
-Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value.
+Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value. The returned trait snapshot maybe `undefined` if the trait is no longer on the target. This can be used to conditionally render.
 
 ```js
-// Get the position trait from an entity and reactively updates
-// when it changes
+// Get the position trait from an entity and reactively updates when it changes
 const position = useTrait(entity, Position);
 
 // If position is removed from entity then it will be undefined
@@ -593,7 +600,28 @@ return (
     Position: {position.x}, {position.y}
   </div>
 );
+```
 
+The entity passed into `useTrait` can be `undefined` or `null`. This helps with situations where `useTrait` is combined with queries in the same component since hooks cannot be conditionally called. However, this means that result can be `undefined` if the trait is not on the entity or if the target is itself `undefined`. In most cases the distinction will not matter, but if it does you can disambiguate by testing the target.
+
+```js
+// The entity may be undefined if there is no valid result
+const entity = useQueryFirst(Position, Velocity)
+// useTrait handles this by returned undefined if the target passed in does not exist
+const position = useTrait(entity, Position);
+
+// However, undefined here can mean no entity or no component on entity
+// To make the outcome no longer ambiguous you have to test the entity
+if (!entity) return <div>No entity found!</div>
+
+// Now this is narrowed to Position no longer being on the component
+if (!position) return null
+
+return (
+  <div>
+    Position: {position.x}, {position.y}
+  </div>
+);
 ```
 
 ### `useTraitEffect` 
@@ -601,8 +629,7 @@ return (
 Subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
 
 ```js
-// Subscribe to position changes on an entity and update a ref
-// without causing a rerender
+// Subscribe to position changes on an entity and update a ref without causing a rerender
 useTraitEffect(entity, Position, (position) => {
   if (!position) return;
   meshRef.current.position.copy(position);
