@@ -1,4 +1,3 @@
-import { TraitData } from '../../trait/trait-data';
 import { Trait } from '../../trait/types';
 import { Entity } from '../../entity/types';
 import { universe } from '../../universe/universe';
