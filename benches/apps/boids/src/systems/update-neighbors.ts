@@ -2,8 +2,8 @@ import { World } from 'koota';
 import { BoidsConfig, Neighbors, Position, SpatialHashMap } from '../traits';
 
 export const updateNeighbors = ({ world }: { world: World }) => {
-	const spatialHashMap = world.get(SpatialHashMap);
-	const { neighborSearchRadius } = world.get(BoidsConfig);
+	const spatialHashMap = world.get(SpatialHashMap)!;
+	const { neighborSearchRadius } = world.get(BoidsConfig)!;
 
 	world.query(Position, Neighbors).updateEach(([position, neighbors], entity) => {
 		spatialHashMap.getNearbyEntities(

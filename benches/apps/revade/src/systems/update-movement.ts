@@ -5,7 +5,7 @@ import { Movement, Time, Transform } from '../traits';
 const tmpvec3 = new THREE.Vector3();
 
 export const updateMovement = ({ world }: { world: World }) => {
-	const { delta } = world.get(Time);
+	const { delta } = world.get(Time)!;
 	world.query(Transform, Movement).updateEach(([transform, { velocity, maxSpeed, force }]) => {
 		// Apply max speed
 		velocity.clampLength(0, maxSpeed);

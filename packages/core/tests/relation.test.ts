@@ -100,8 +100,8 @@ describe('Relation', () => {
 		inventory.set(Contains(silver), { amount: 12 });
 
 		expect(Contains(gold)).not.toBe(Contains(silver));
-		expect(inventory.get(Contains(gold)).amount).toBe(5);
-		expect(inventory.get(Contains(silver)).amount).toBe(12);
+		expect(inventory.get(Contains(gold))!.amount).toBe(5);
+		expect(inventory.get(Contains(silver))!.amount).toBe(12);
 	});
 
 	it('should query all relations with a wildcard', () => {

@@ -12,7 +12,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
 	const particlesEntity = world.queryFirst(Points);
 	if (!particlesEntity) return;
 
-	const particles = particlesEntity.get(Points).object;
+	const particles = particlesEntity.get(Points)!.object;
 
 	const positions = particles.geometry.attributes.position.array;
 	const colors = particles.geometry.attributes.color.array;

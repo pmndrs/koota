@@ -96,7 +96,7 @@ export class World {
 		this[$internal].worldEntity.remove(...traits);
 	}
 
-	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> {
+	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> | undefined {
 		return this[$internal].worldEntity.get(trait);
 	}
 
