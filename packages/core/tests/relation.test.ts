@@ -151,4 +151,23 @@ describe('Relation', () => {
 		expect(relatesToGold).toContain(dwarf);
 		expect(relatesToGold).toContain(dragon);
 	});
+
+	it('should query a specific relation targeting an entity', () => {
+		const ChildOf = relation();
+
+		const root = world.spawn();
+		const child1 = world.spawn(ChildOf(root));
+		const child2 = world.spawn(ChildOf(root));
+		const leaf = world.spawn(ChildOf(child2));
+
+		const childrenOfRoot = world.query(ChildOf(root));
+		const childrenOfChild2 = world.query(ChildOf(child2));
+
+		expect(childrenOfRoot.length).toBe(2);
+		expect(childrenOfRoot).toContain(child1);
+		expect(childrenOfRoot).toContain(child2);
+
+		expect(childrenOfChild2.length).toBe(1);
+		expect(childrenOfChild2).toContain(leaf);
+	});
 });

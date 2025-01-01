@@ -62,7 +62,7 @@ export function destroyEntity(world: World, entity: Entity) {
 					const traitCtx = trait[$internal];
 					if (!traitCtx.isPairTrait) continue;
 
-					const relationCtx = traitCtx.relation[$internal];
+					const relationCtx = traitCtx.relation![$internal];
 
 					// Remove wildcard pair trait.
 					removeTrait(world, subject, Pair(Wildcard, currentEntity));
