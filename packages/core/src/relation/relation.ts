@@ -76,7 +76,4 @@ export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTar
 	return getRelationTrait<T>(relation, traitFactory, pairsMap, target);
 };
 
-const _Wildcard = defineRelation() as WildcardRelation;
-_Wildcard[$internal].wildcard = true;
-
-export const Wildcard: WildcardRelation = _Wildcard;
+export const Wildcard = defineRelation() as WildcardRelation;

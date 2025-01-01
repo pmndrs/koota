@@ -12,10 +12,12 @@ export type Relation<T extends Trait> = {
 	};
 } & ((target: RelationTarget) => T);
 
+declare const WILDCARD_RELATION_BRAND: unique symbol;
+
 export type WildcardRelation = {
 	[$internal]: {
 		/** Used to differentiate between wildcard and normal relations on the type level */
-		wildcard: true;
+		readonly [WILDCARD_RELATION_BRAND]: typeof WILDCARD_RELATION_BRAND;
 		pairsMap: Map<number | string, Trait>;
 		createTrait: () => Trait;
 		exclusive: boolean;
