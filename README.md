@@ -481,7 +481,7 @@ Both schema-based and callback-based traits are used similarly, but they have di
 
 [Learn more about AoS and SoA here](https://en.wikipedia.org/wiki/AoS_and_SoA).
 
-### Structure of Arrays (SoA) - Schema-based traits
+#### Structure of Arrays (SoA) - Schema-based traits
 
 When using a schema, each property is stored in its own array. This can lead to better cache locality when accessing a single property across many entities. This is always the fastest option for data that has intensive operations.
 
@@ -496,7 +496,7 @@ const store = {
 };
 ```
 
-### Array of Structures (AoS) - Callback-based traits
+#### Array of Structures (AoS) - Callback-based traits
 
 When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibiilty with third party libraries like Three, or class instnaces in general.
 
@@ -514,6 +514,47 @@ const store = [
 // Similarly, this will create a new instance of Mesh in each index
 const Mesh = trait(() => THREE.Mesh())
 ```
+
+#### Typing traits
+
+Traits can have a schema type passed into its generic. This can be useful if the inferred type is not good enough.
+
+```js
+type AttackerSchema = {
+	continueCombo: boolean | null,
+	currentStageIndex: number | null,
+	stages: Array<AttackStage> | null,
+	startedAt: number | null,
+}
+
+const Attacker = trait<AttackerSchema>({
+	continueCombo: null,
+	currentStageIndex: null,
+	stages: null,
+	startedAt: null,
+})
+```
+
+However, this will not work with interfaces without a workaround due to intended behavior in TypeScript: https://github.com/microsoft/TypeScript/issues/15300
+Interfaces can be used with `Pick` to convert the key signatures into something our type code can understand.
+
+```js
+interface AttackerSchema {
+	continueCombo: boolean | null,
+	currentStageIndex: number | null,
+	stages: Array<AttackStage> | null,
+	startedAt: number | null,
+}
+
+// Pick is required to not get type errors
+const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
+	continueCombo: null,
+	currentStageIndex: null,
+	stages: null,
+	startedAt: null,
+})
+```
+
 
 ### React
 
