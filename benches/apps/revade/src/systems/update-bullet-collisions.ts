@@ -3,7 +3,7 @@ import { Bullet, Explosion, IsEnemy, SpatialHashMap, Transform } from '../traits
 import { between } from '../utils/between';
 
 export const updateBulletCollisions = ({ world }: { world: World }) => {
-	const spatialHashMap = world.get(SpatialHashMap);
+	const spatialHashMap = world.get(SpatialHashMap)!;
 
 	world
 		.query(Bullet, Transform)
@@ -18,14 +18,14 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 
 			const hitEnemy = nearbyEntities.find(
 				(entity) =>
-					entity.has(IsEnemy) && entity.get(Transform).position.distanceTo(position) < 1
+					entity.has(IsEnemy) && entity.get(Transform)!.position.distanceTo(position) < 1
 			);
 
 			if (hitEnemy !== undefined) {
 				// Spawn explosion in enemy's position.
 				world.spawn(
 					Explosion({ count: Math.floor(between(12, 20)) }),
-					Transform({ position: hitEnemy.get(Transform).position.clone() })
+					Transform({ position: hitEnemy.get(Transform)!.position.clone() })
 				);
 
 				// Destroy bullet and enemy.

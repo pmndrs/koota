@@ -189,11 +189,11 @@ describe('Trait', () => {
 		const entityA = world.spawn(Test);
 
 		expect(mock).toHaveBeenCalledTimes(1);
-		expect(entityA.get(Test).value).toBeInstanceOf(TestClass);
+		expect(entityA.get(Test)!.value).toBeInstanceOf(TestClass);
 
 		const entityB = world.spawn(Test);
 		expect(mock).toHaveBeenCalledTimes(2);
-		expect(entityB.get(Test).value).toBeInstanceOf(TestClass);
+		expect(entityB.get(Test)!.value).toBeInstanceOf(TestClass);
 	});
 
 	it('can create atomic traits', () => {
@@ -203,17 +203,17 @@ describe('Trait', () => {
 
 		// The object is returned by reference.
 		expect(object).toBe(entity.get(AtomicObject));
-		expect(entity.get(AtomicObject).a).toBe(1);
+		expect(entity.get(AtomicObject)!.a).toBe(1);
 
 		entity.set(AtomicObject, { a: 2, b: 3 });
 
 		// A new object is set making the reference different.
 		expect(object).not.toBe(entity.get(AtomicObject));
-		expect(entity.get(AtomicObject).a).toBe(2);
+		expect(entity.get(AtomicObject)!.a).toBe(2);
 
 		// Can pass in a custom object into the trait.
 		entity = world.spawn(AtomicObject({ a: 3, b: 4 }));
-		expect(entity.get(AtomicObject).a).toBe(3);
+		expect(entity.get(AtomicObject)!.a).toBe(3);
 		// Works with arrays too.
 		const AtomicArray = trait(() => [1, 2, 3]);
 		entity = world.spawn(AtomicArray);

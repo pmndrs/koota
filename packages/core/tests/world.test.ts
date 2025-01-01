@@ -60,7 +60,7 @@ describe('World', () => {
 		const query = world.query(Time);
 		expect(query.length).toBe(0);
 
-		const time = world.get(Time);
+		const time = world.get(Time)!;
 		time.then = 1;
 		time.delta = 1;
 		world.set(Time, time);

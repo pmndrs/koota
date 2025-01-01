@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import { createWorld } from '../src';
 import { trait, getStores } from '../src/trait/trait';
 import { Entity } from '../src/entity/types';
@@ -6,6 +6,7 @@ import { unpackEntity } from '../src/entity/utils/pack-entity';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
+const Baz = trait(() => ({ value: 0 }));
 
 describe('Entity', () => {
 	const world = createWorld();
@@ -89,6 +90,18 @@ describe('Entity', () => {
 		expect(entity.has(Bar)).toBe(true);
 	});
 
+	it('should return undefined for missing traits', () => {
+		const entity = world.spawn();
+
+		expect(entity.has(Bar)).toBe(false);
+		expect(entity.get(Bar)).toEqual(undefined);
+		expectTypeOf(entity.get(Bar)).toEqualTypeOf<{ value: number } | undefined>();
+
+		expect(entity.has(Baz)).toBe(false);
+		expect(entity.get(Baz)).toBeUndefined();
+		expectTypeOf(entity.get(Baz)).toEqualTypeOf<{ value: number } | undefined>();
+	});
+
 	it('can add traits', () => {
 		const entity = world.spawn();
 
@@ -109,24 +122,24 @@ describe('Entity', () => {
 
 	it('can get trait state', () => {
 		const entity = world.spawn(Bar({ value: 1 }));
-		const bar = entity.get(Bar);
+		const bar = entity.get(Bar)!;
 		expect(bar.value).toBe(1);
 
 		// Changing trait state should not affect the entity.
 		bar.value = 2;
-		expect(entity.get(Bar).value).toBe(1);
+		expect(entity.get(Bar)!.value).toBe(1);
 	});
 
 	it('can set trait state', () => {
 		const entity = world.spawn(Bar);
 		entity.set(Bar, { value: 1 });
-		expect(entity.get(Bar).value).toBe(1);
+		expect(entity.get(Bar)!.value).toBe(1);
 	});
 
 	it('can set trait state with a callback', () => {
 		const entity = world.spawn(Bar);
 		entity.set(Bar, (prev) => ({ value: prev.value + 1 }));
-		expect(entity.get(Bar).value).toBe(1);
+		expect(entity.get(Bar)!.value).toBe(1);
 	});
 
 	it('should trigger change events when trait state is set', () => {

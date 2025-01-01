@@ -51,9 +51,14 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
+	const worldId = this >>> WORLD_ID_SHIFT;
+	const world = universe.worlds[worldId];
+	if (!hasTrait(world, this, trait)) {
+		return undefined;
+	}
+	
 	const ctx = trait[$internal];
 	const index = this & ENTITY_ID_MASK;
-	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
 	return ctx.get(index, store);
 };

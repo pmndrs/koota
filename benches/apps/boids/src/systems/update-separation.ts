@@ -2,7 +2,7 @@ import { World } from 'koota';
 import { BoidsConfig, Forces, Neighbors, Position } from '../traits';
 
 export const updateSeparation = ({ world }: { world: World }) => {
-	const { separationFactor } = world.get(BoidsConfig);
+	const { separationFactor } = world.get(BoidsConfig)!;
 
 	world.query(Forces, Neighbors, Position).updateEach(([{ separation }, neighbors, position]) => {
 		separation.set(0, 0, 0);
@@ -10,7 +10,7 @@ export const updateSeparation = ({ world }: { world: World }) => {
 		if (neighbors.length === 0) return;
 
 		for (const neighbor of neighbors) {
-			const neighborPosition = neighbor.get(Position);
+			const neighborPosition = neighbor.get(Position)!;
 			const distance = position.distanceTo(neighborPosition);
 			// Add a small epsilon to avoid division by zero
 			const safeDistance = Math.max(distance, 0.001);
