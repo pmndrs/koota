@@ -77,8 +77,10 @@ export type Store<T extends Schema = any> = T extends AoSFactory
 			[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]>[] : T[P][];
 	  };
 
-// Utils
+// Type Utils
 
+// This type utility ensures that explicit values like true, false or "string literal" are normalized to their primitive types.
+// Mostly used for schema types.
 export type Norm<T extends Schema> = T extends AoSFactory
 	? () => ReturnType<T> extends number
 			? number
