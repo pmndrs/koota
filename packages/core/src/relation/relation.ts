@@ -2,7 +2,7 @@ import { trait } from '../trait/trait';
 import { Trait, Schema } from '../trait/types';
 import { $internal } from '../common';
 import { World } from '../world/world';
-import { Relation, RelationTarget } from './types';
+import { Relation, RelationTarget, WildcardRelation } from './types';
 
 function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>(definition?: {
 	exclusive?: boolean;
@@ -67,7 +67,7 @@ export const getRelationTargets = (world: World, relation: Relation<any>, entity
 export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTarget): T => {
 	if (relation === undefined) throw Error('Relation is undefined');
 	if (target === undefined) throw Error('Relation target is undefined');
-	if (target === '*') target = Wildcard as RelationTarget;
+	if (target === '*') target = Wildcard;
 
 	const ctx = relation[$internal];
 	const pairsMap = ctx.pairsMap;
@@ -76,4 +76,7 @@ export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTar
 	return getRelationTrait<T>(relation, traitFactory, pairsMap, target);
 };
 
-export const Wildcard: Relation<any> | string = defineRelation();
+const _Wildcard = defineRelation() as WildcardRelation;
+_Wildcard[$internal].wildcard = true;
+
+export const Wildcard: WildcardRelation = _Wildcard;
