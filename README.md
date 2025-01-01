@@ -400,6 +400,11 @@ const time = world.get(Time)
 
 // Sets the trait and triggers a change event
 world.set(Time, { current: performance.now() })
+// Can take a callback with the previous state passed in
+world.set(Time, (prev) => ({
+  current: performance.now(),
+  delta: performance.now() - prev.current
+}))
 
 // Subscribe to add, remove or change events for a set of query parameters
 // Anything you can put in a query is legal
@@ -445,6 +450,11 @@ const position = entity.get(Position)
 
 // Sets the trait and triggers a change event
 entity.set(Position, { x: 10, y: 10 })
+// Can take a callback with the previous state passed in
+entity.set(Position, (prev) => ({
+  x: prev + 1,
+  y: prev + 1
+}))
 
 // Get the targets for a relationship
 // Return Entity[]
