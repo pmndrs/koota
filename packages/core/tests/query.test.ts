@@ -622,24 +622,18 @@ describe('Query', () => {
 
 		const query = world.query(Position);
 
-		query.updateEach(
-			([position], entity, index) => {
-				if (index === 0) return;
-				position.x = 10;
-			},
-			{ changeDetection: true }
-		);
+		query.updateEach(([position], entity, index) => {
+			if (index === 0) return;
+			position.x = 10;
+		});
 
 		expect(cb).toHaveBeenCalledTimes(9);
 
 		// If values do not change, no events should be triggered.
-		query.updateEach(
-			([position], entity, index) => {
-				if (index === 0) return;
-				position.x = 10;
-			},
-			{ changeDetection: true }
-		);
+		query.updateEach(([position], entity, index) => {
+			if (index === 0) return;
+			position.x = 10;
+		});
 
 		expect(cb).toHaveBeenCalledTimes(9);
 	});
@@ -702,21 +696,36 @@ describe('Query', () => {
 
 		expect(cb).toHaveBeenCalledTimes(0);
 
-		world.query(Position).updateEach(
-			([position]) => {
-				position.x = 0;
-			},
-			{ changeDetection: true }
-		);
+		world.query(Position).updateEach(([position]) => {
+			position.x = 0;
+		});
 
 		expect(cb).toHaveBeenCalledTimes(0);
 
-		world.query(Position).updateEach(
-			([position]) => {
-				position.x = 1;
-			},
-			{ changeDetection: true }
-		);
+		world.query(Position).updateEach(([position]) => {
+			position.x = 1;
+		});
+
+		expect(cb).toHaveBeenCalledTimes(1);
+	});
+
+	it('updaeEach automatically tracks changes for traits observed with onChange', () => {
+		const cb = vi.fn();
+		world.onChange(Position, cb);
+
+		// This has changes tracked automatically.
+		world.spawn(Position);
+		world.query(Position).updateEach(([position]) => {
+			position.x = 1;
+		});
+
+		expect(cb).toHaveBeenCalledTimes(1);
+
+		// This does not have changes tracked automatically.
+		world.spawn(Name);
+		world.query(Name).updateEach(([name]) => {
+			name.name = 'name';
+		});
 
 		expect(cb).toHaveBeenCalledTimes(1);
 	});
