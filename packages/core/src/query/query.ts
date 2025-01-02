@@ -41,6 +41,7 @@ export class Query {
 	entities = new SparseSet();
 	isTracking = false;
 	hasChangedModifiers = false;
+	changedTraits = new Set<Trait>();
 	toRemove = new SparseSet();
 	addSubscriptions = new Set<QuerySubscriber>();
 	removeSubscriptions = new Set<QuerySubscriber>();
@@ -117,6 +118,7 @@ export class Query {
 
 				if (parameter.type.includes('changed')) {
 					for (const trait of traits) {
+						this.changedTraits.add(trait);
 						const data = ctx.traitData.get(trait)!;
 						this.traitData.changed.push(data);
 						this.traits.push(trait);

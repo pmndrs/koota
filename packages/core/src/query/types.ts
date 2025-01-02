@@ -7,7 +7,7 @@ export type QueryParameter = Trait | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
 
 export type QueryResultOptions = {
-	changeDetection?: boolean;
+	changeDetection?: 'always' | 'auto' | 'never';
 };
 
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {

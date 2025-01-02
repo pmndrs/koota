@@ -309,6 +309,20 @@ entity.set(Position, { x: 10, y: 20 });
 entity.remove(Position);
 ```
 
+### Change detection with `udpateEach`
+
+By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.
+
+```js
+// Setting changeDetection to 'never' will silence it, triggering no change events
+world.query(Position, Velocity).updateEach(([position, velocity]) => {
+}, { changeDetection: 'never' });
+
+// Setting changeDetection to 'always' will ignore selective tracking and always emit change events for all traits that are mutated
+world.query(Position, Velocity).updateEach(([position, velocity]) => {
+}, { changeDetection: 'never' });
+```
+
 ### World traits
 
 For global data like time, these can be traits added to the world. **World traits do not appear in queries.**
