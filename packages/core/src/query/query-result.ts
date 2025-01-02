@@ -35,126 +35,13 @@ export function createQueryResult<T extends QueryParameter[]>(
 	const results = Object.assign(entities, {
 		updateEach(
 			callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-			options: QueryResultOptions = { changeDetection: 'auto' }
+			options?: QueryResultOptions
 		) {
+			const changeDetection = options?.changeDetection ?? false;
 			const state = new Array(traits.length);
 
-			// Inline all three permutations of updateEach for performance.
-			if (options.changeDetection === 'auto') {
-				const changedPairs: [Entity, Trait][] = [];
-				const atomicSnapshots: any[] = [];
-				const trackedTraits: Trait[] = [];
-				const untrackedTraits: Trait[] = [];
-
-				// Get the traits that are being tracked for changes.
-				for (const trait of traits) {
-					if (world[$internal].trackedTraits.has(trait)) {
-						trackedTraits.push(trait);
-					} else {
-						untrackedTraits.push(trait);
-					}
-				}
-
-				for (let i = 0; i < entities.length; i++) {
-					const entity = entities[i];
-					const eid = getEntityId(entity);
-
-					// Create a snapshot for each trait in the order they appear in the query params.
-					for (let j = 0; j < traits.length; j++) {
-						const trait = traits[j];
-						const ctx = trait[$internal];
-						const value = ctx.get(eid, stores[j]);
-						state[j] = value;
-						atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
-					}
-
-					callback(state as any, entity, i);
-
-					// Skip if the entity has been destroyed.
-					if (!world.has(entity)) continue;
-
-					// Commit all changes back to the stores for tracked traits.
-					for (let j = 0; j < trackedTraits.length; j++) {
-						const trait = trackedTraits[j];
-						const ctx = trait[$internal];
-						const newValue = state[j];
-
-						let changed = false;
-						if (ctx.type === 'aos') {
-							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
-							if (!changed) {
-								changed = !shallowEqual(newValue, atomicSnapshots[j]);
-							}
-						} else {
-							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
-						}
-
-						// Collect changed traits.
-						if (changed) changedPairs.push([entity, trait] as const);
-					}
-
-					// Commit all changes back to the stores for untracked traits.
-					for (let j = 0; j < untrackedTraits.length; j++) {
-						const trait = untrackedTraits[j];
-						const ctx = trait[$internal];
-						ctx.fastSet(eid, stores[j], state[j]);
-					}
-				}
-
-				// Trigger change events for each entity that was modified.
-				for (let i = 0; i < changedPairs.length; i++) {
-					const [entity, trait] = changedPairs[i];
-					entity.changed(trait);
-				}
-			} else if (options.changeDetection === 'always') {
-				const changedPairs: [Entity, Trait][] = [];
-				const atomicSnapshots: any[] = [];
-
-				for (let i = 0; i < entities.length; i++) {
-					const entity = entities[i];
-					const eid = getEntityId(entity);
-
-					// Create a snapshot for each trait in the order they appear in the query params.
-					for (let j = 0; j < traits.length; j++) {
-						const trait = traits[j];
-						const ctx = trait[$internal];
-						const value = ctx.get(eid, stores[j]);
-						state[j] = value;
-						atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
-					}
-
-					callback(state as any, entity, i);
-
-					// Skip if the entity has been destroyed.
-					if (!world.has(entity)) continue;
-
-					// Commit all changes back to the stores.
-					for (let j = 0; j < traits.length; j++) {
-						const trait = traits[j];
-						const ctx = trait[$internal];
-						const newValue = state[j];
-
-						let changed = false;
-						if (ctx.type === 'aos') {
-							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
-							if (!changed) {
-								changed = !shallowEqual(newValue, atomicSnapshots[j]);
-							}
-						} else {
-							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
-						}
-
-						// Collect changed traits.
-						if (changed) changedPairs.push([entity, trait] as const);
-					}
-				}
-
-				// Trigger change events for each entity that was modified.
-				for (let i = 0; i < changedPairs.length; i++) {
-					const [entity, trait] = changedPairs[i];
-					entity.changed(trait);
-				}
-			} else if (options.changeDetection === 'never') {
+			// Inline both passive and active updateEach for performance.
+			if (!changeDetection) {
 				for (let i = 0; i < entities.length; i++) {
 					const entity = entities[i];
 					const eid = getEntityId(entity);
@@ -177,6 +64,54 @@ export function createQueryResult<T extends QueryParameter[]>(
 						const ctx = trait[$internal];
 						ctx.fastSet(eid, stores[j], state[j]);
 					}
+				}
+			} else {
+				const changedPairs: [Entity, Trait][] = [];
+				const atomicSnapshots: any[] = [];
+
+				for (let i = 0; i < entities.length; i++) {
+					const entity = entities[i];
+					const eid = getEntityId(entity);
+
+					// Create a snapshot for each trait in the order they appear in the query params.
+					for (let j = 0; j < traits.length; j++) {
+						const trait = traits[j];
+						const ctx = trait[$internal];
+						const value = ctx.get(eid, stores[j]);
+						state[j] = value;
+						atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
+					}
+
+					callback(state as any, entity, i);
+
+					// Skip if the entity has been destroyed.
+					if (!world.has(entity)) continue;
+
+					// Commit all changes back to the stores.
+					for (let j = 0; j < traits.length; j++) {
+						const trait = traits[j];
+						const ctx = trait[$internal];
+						const newValue = state[j];
+
+						let changed = false;
+						if (ctx.type === 'aos') {
+							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+							if (!changed) {
+								changed = !shallowEqual(newValue, atomicSnapshots[j]);
+							}
+						} else {
+							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+						}
+
+						// Collect changed traits.
+						if (changed) changedPairs.push([entity, trait] as const);
+					}
+				}
+
+				// Trigger change events for each entity that was modified.
+				for (let i = 0; i < changedPairs.length; i++) {
+					const [entity, trait] = changedPairs[i];
+					entity.changed(trait);
 				}
 			}
 
