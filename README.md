@@ -338,7 +338,7 @@ world.query(Position, Velocity, Mass)
 
 ### Modifying trait stores direclty
 
-For performance-critical operations, you can modify trait stores directly using the useStore hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
+For performance-critical operations, you can modify trait stores directly using the `useStore` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
 
 ```js
 // Returns the SoA stores
@@ -554,17 +554,17 @@ Traits can have a schema type passed into its generic. This can be useful if the
 
 ```js
 type AttackerSchema = {
-	continueCombo: boolean | null,
-	currentStageIndex: number | null,
-	stages: Array<AttackStage> | null,
-	startedAt: number | null,
+  continueCombo: boolean | null,
+  currentStageIndex: number | null,
+  stages: Array<AttackStage> | null,
+  startedAt: number | null,
 }
 
 const Attacker = trait<AttackerSchema>({
-	continueCombo: null,
-	currentStageIndex: null,
-	stages: null,
-	startedAt: null,
+  continueCombo: null,
+  currentStageIndex: null,
+  stages: null,
+  startedAt: null,
 })
 ```
 
@@ -573,18 +573,18 @@ Interfaces can be used with `Pick` to convert the key signatures into something 
 
 ```js
 interface AttackerSchema {
-	continueCombo: boolean | null,
-	currentStageIndex: number | null,
-	stages: Array<AttackStage> | null,
-	startedAt: number | null,
+  continueCombo: boolean | null,
+  currentStageIndex: number | null,
+  stages: Array<AttackStage> | null,
+  startedAt: number | null,
 }
 
 // Pick is required to not get type errors
 const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
-	continueCombo: null,
-	currentStageIndex: null,
-	stages: null,
-	startedAt: null,
+  continueCombo: null,
+  currentStageIndex: null,
+  stages: null,
+  startedAt: null,
 })
 ```
 
