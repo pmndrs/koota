@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import { Entity } from '../entity/types';
 import { Trait } from '../trait/types';
 
-export type RelationTarget = Entity | string | WildcardRelation;
+export type RelationTarget = Entity | '*' | WildcardRelation;
 
 export type Relation<T extends Trait> = {
 	[$internal]: {
