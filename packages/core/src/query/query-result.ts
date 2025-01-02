@@ -48,7 +48,11 @@ export function createQueryResult<T extends QueryParameter[]>(
 
 				// Get the traits that are being tracked for changes.
 				for (const trait of traits) {
+					// Check if the trait's changes are being tracked via onChange.
+					// Then check if the trait's changes are being tracked via Changed modifiers in the query.
 					if (world[$internal].trackedTraits.has(trait)) {
+						trackedTraits.push(trait);
+					} else if (query.hasChangedModifiers && query.changedTraits.has(trait)) {
 						trackedTraits.push(trait);
 					} else {
 						untrackedTraits.push(trait);
