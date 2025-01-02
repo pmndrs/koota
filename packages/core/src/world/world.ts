@@ -32,7 +32,6 @@ export class World {
 		trackingSnapshots: new Map<number, number[][]>(),
 		changedMasks: new Map<number, number[][]>(),
 		worldEntity: null! as Entity,
-		trackedTraits: new Set<Trait>(),
 	};
 
 	get id() {
@@ -140,7 +139,6 @@ export class World {
 		ctx.trackingSnapshots.clear();
 		ctx.dirtyMasks.clear();
 		ctx.changedMasks.clear();
-		ctx.trackedTraits.clear();
 
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);
@@ -215,13 +213,7 @@ export class World {
 		const data = ctx.traitData.get(trait)!;
 		data.changedSubscriptions.add(callback);
 
-		// Used by auto change detection to know which traits to track.
-		ctx.trackedTraits.add(trait);
-
-		return () => {
-			data.changedSubscriptions.delete(callback);
-			ctx.trackedTraits.delete(trait);
-		};
+		return () => data.changedSubscriptions.delete(callback);
 	}
 }
 
