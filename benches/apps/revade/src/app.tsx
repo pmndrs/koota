@@ -199,16 +199,16 @@ function Explosions() {
 
 function ExplosionRenderer({ entity }: { entity: Entity }) {
 	const groupRef = useRef<THREE.Group>(null);
-	const particleCount = entity.get(Explosion).count;
+	const particleCount = entity.get(Explosion)!.count;
 
 	useLayoutEffect(() => {
 		if (!groupRef.current) return;
 
 		// Position the explosion group
-		groupRef.current.position.copy(entity.get(Transform).position);
+		groupRef.current.position.copy(entity.get(Transform)!.position);
 
 		// Set particle velocities with random offset
-		const velocities = entity.get(Explosion).velocities;
+		const velocities = entity.get(Explosion)!.velocities;
 		const randomOffset = Math.random() * Math.PI * 2; // Random starting angle
 
 		for (let i = 0; i < particleCount; i++) {
@@ -224,10 +224,10 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 	useFrame((_, delta) => {
 		if (!groupRef.current) return;
 
-		const { duration, current } = entity.get(Explosion);
+		const { duration, current } = entity.get(Explosion)!;
 		const progress = current / duration;
 
-		const velocities = entity.get(Explosion).velocities;
+		const velocities = entity.get(Explosion)!.velocities;
 		const particles = groupRef.current.children as THREE.Mesh[];
 
 		for (let i = 0; i < particleCount; i++) {
@@ -275,7 +275,7 @@ const BulletRenderer = memo(({ entity }: { entity: Entity }) => {
 		if (!meshRef.current) return;
 
 		// Copy current values
-		const { position, rotation, quaternion } = entity.get(Transform);
+		const { position, rotation, quaternion } = entity.get(Transform)!;
 		meshRef.current.position.copy(position);
 		meshRef.current.rotation.copy(rotation);
 		meshRef.current.quaternion.copy(quaternion);

@@ -6,7 +6,7 @@ export const handleRepulse = ({ world }: { world: World }) => {
 	if (repulsors.length === 0) return;
 
 	const bodies = world.query(Position, Velocity, Mass);
-	const { delta } = world.get(Time);
+	const { delta } = world.get(Time)!;
 
 	repulsors.updateEach(([repulse, position, circle], entity) => {
 		// Count down the delay

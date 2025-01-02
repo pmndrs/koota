@@ -14,7 +14,7 @@ export type Entity = number & {
 			| ((prev: TraitInstance<ExtractSchema<T>>) => TraitValue<ExtractSchema<T>>),
 		flagChanged?: boolean
 	) => void;
-	get: <T extends Trait>(trait: T) => TraitInstance<ExtractSchema<T>>;
+	get: <T extends Trait>(trait: T) => TraitInstance<ExtractSchema<T>> | undefined;
 	targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
 	targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
 	id: () => number;

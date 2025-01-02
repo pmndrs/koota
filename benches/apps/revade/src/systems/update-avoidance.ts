@@ -5,7 +5,7 @@ import { Avoidance, Movement, SpatialHashMap, Transform } from '../traits';
 const acceleration = new THREE.Vector3();
 
 export const updateAvoidance = ({ world }: { world: World }) => {
-	const spatialHashMap = world.get(SpatialHashMap);
+	const spatialHashMap = world.get(SpatialHashMap)!;
 
 	world
 		.query(Avoidance, Transform, Movement)
@@ -22,7 +22,7 @@ export const updateAvoidance = ({ world }: { world: World }) => {
 			neighbors = neighbors.filter((neighbor) => {
 				return (
 					neighbor.has(Avoidance) &&
-					neighbor.get(Transform).position.distanceTo(position) <= avoidance.range
+					neighbor.get(Transform)!.position.distanceTo(position) <= avoidance.range
 				);
 			});
 
@@ -30,7 +30,7 @@ export const updateAvoidance = ({ world }: { world: World }) => {
 				acceleration.setScalar(0);
 
 				for (const neighbor of neighbors) {
-					acceleration.add(neighbor.get(Transform).position).sub(position);
+					acceleration.add(neighbor.get(Transform)!.position).sub(position);
 				}
 
 				acceleration.divideScalar(-neighbors.length).normalize().multiplyScalar(2);

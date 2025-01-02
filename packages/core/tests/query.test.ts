@@ -605,10 +605,10 @@ describe('Query', () => {
 		});
 
 		expect(query.length).toBe(10);
-		expect(query[0].get(Position).x).toBe(0);
+		expect(query[0].get(Position)!.x).toBe(0);
 
 		for (let i = 1; i < 10; i++) {
-			expect(query[i].get(Position).x).toBe(10);
+			expect(query[i].get(Position)!.x).toBe(10);
 		}
 	});
 
@@ -690,8 +690,8 @@ describe('Query', () => {
 			mass.value = 10;
 		});
 
-		expect(entity.get(Position).x).toBe(1);
-		expect(entity.get(Mass).value).toBe(10);
+		expect(entity.get(Position)!.x).toBe(1);
+		expect(entity.get(Mass)!.value).toBe(10);
 	});
 
 	it('updateEach works with atomic traits and change detection', () => {
@@ -729,6 +729,6 @@ describe('Query', () => {
 		});
 
 		const position = entity.get(Position);
-		expect(position.x).toBe(10);
+		expect(position!.x).toBe(10);
 	});
 });

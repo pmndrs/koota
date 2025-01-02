@@ -7,7 +7,7 @@ const pushStrength = 0.1;
 const pushForce = new THREE.Vector3();
 
 export const pushEnemies = ({ world }: { world: World }) => {
-	const spatialHashMap = world.get(SpatialHashMap);
+	const spatialHashMap = world.get(SpatialHashMap)!;
 
 	world.query(IsPlayer, Transform, Movement).updateEach(([{ position }, { velocity }], player) => {
 		// Get nearby entities
@@ -22,14 +22,14 @@ export const pushEnemies = ({ world }: { world: World }) => {
 		const collidingEnemies: Entity[] = nearbyEntities.filter((entity) => {
 			return (
 				entity.has(IsEnemy) &&
-				entity.get(Transform).position.distanceTo(position) <= collisionRadius
+				entity.get(Transform)!.position.distanceTo(position) <= collisionRadius
 			);
 		});
 
 		// Apply push force to colliding enemies
 		for (const enemy of collidingEnemies) {
-			const enemyTransform = enemy.get(Transform);
-			const enemyMovement = enemy.get(Movement);
+			const enemyTransform = enemy.get(Transform)!;
+			const enemyMovement = enemy.get(Movement)!;
 
 			// Calculate push direction (away from player)
 			pushForce
