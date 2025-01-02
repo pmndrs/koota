@@ -6,7 +6,7 @@ const SPAWN_INTERVAL = 1;
 let accumulatedTime = 0;
 
 export const spawnEnemies = ({ world }: { world: World }) => {
-	const { delta } = world.get(Time);
+	const { delta } = world.get(Time)!;
 	const { spawnEnemy } = actions(world);
 
 	accumulatedTime += delta;

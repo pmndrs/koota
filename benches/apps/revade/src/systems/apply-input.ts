@@ -6,7 +6,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 const tmpvec3 = new THREE.Vector3();
 
 export const applyInput = ({ world }: { world: World }) => {
-	const { delta } = world.get(Time);
+	const { delta } = world.get(Time)!;
 	world
 		.query(IsPlayer, Input, Transform, Movement)
 		.updateEach(([input, transform, { velocity, thrust }]) => {

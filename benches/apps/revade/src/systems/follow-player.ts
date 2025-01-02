@@ -9,7 +9,7 @@ export const followPlayer = ({ world }: { world: World }) => {
 	const player = world.queryFirst(IsPlayer, Transform);
 	if (!player) return;
 
-	const playerTransform = player.get(Transform);
+	const playerTransform = player.get(Transform)!;
 
 	world
 		.query(IsEnemy, Transform, Movement)

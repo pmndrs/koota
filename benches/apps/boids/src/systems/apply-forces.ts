@@ -2,7 +2,7 @@ import { World } from 'koota';
 import { Forces, Time, Velocity } from '../traits';
 
 export const applyForces = ({ world }: { world: World }) => {
-	const { delta } = world.get(Time);
+	const { delta } = world.get(Time)!;
 
 	world.query(Forces, Velocity).updateEach(([forces, velocity]) => {
 		velocity.addScaledVector(forces.coherence, delta);

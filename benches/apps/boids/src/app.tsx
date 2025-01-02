@@ -17,7 +17,7 @@ export function App() {
 	const { spawnBoid, destroyAllBoids } = useActions(actions);
 
 	useLayoutEffect(() => {
-		const { initialCount: count } = world.get(BoidsConfig);
+		const { initialCount: count } = world.get(BoidsConfig)!;
 
 		for (let i = 0; i < count; i++) {
 			const position = new THREE.Vector3().randomDirection().multiplyScalar(between(0, 10));
