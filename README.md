@@ -20,7 +20,7 @@ const Velocity = trait({ x: 0, y: 0 });
 
 // Trait with a callback for initial value
 // ⚠️ Must be an object
-const Mesh = trait(() => THREE.Mesh());
+const Mesh = trait(() => new THREE.Mesh());
 
 // Tag trait (no data)
 const IsActive = trait();
@@ -474,14 +474,37 @@ entity.destroy()
 
 ### Trait
 
-A trait defines a kind of data. If you are familiar with ECS, it is our version of a component. We call it a trait instead to not get confused with React or web components. From a high level, you just create traits either with a schema or with a callback returning an object.
+A trait is a specific block of data. They are added to entities to build up its overall data signature. If you are familiar with ECS, it is our version of a component. It is called a trait instead to not get confused with React or web components. 
+
+A trait can be created with a schema that describes the kind of data it will hold. 
 
 ```js
-// A schema
 const Position = trait({ x: 0, y: 0, z: 0 })
+```
 
-// A callback
-const Velocity = trait(() => THREE.Vector3())
+In cases where the data needs to be initialized for each instance of the trait created, a callback can be passed in to be used a as a lazy initializer.
+
+```js
+// ❌ The items array will be shared between every instance of this trait
+const Inventory = trait({ 
+  items: [], 
+  max: 10, 
+})
+
+// ✅ With a lazy initializer, each instance will now get its own array
+const Inventory = trait({ 
+  items: () => [], 
+  max: 10, 
+})
+```
+
+Sometimes a trait only has one field that points to an object instance. In cases like this, it is useful to skip the schema and use a callback directly in the trait.
+
+```js
+const Velocity = trait(() => new THREE.Vector3())
+
+// The returned state is simply the instance
+const velocity = entity.get(Velocity)
 ```
 
 Both schema-based and callback-based traits are used similarly, but they have different performance implications due to how their data is stored internally:
@@ -522,7 +545,7 @@ const store = [
 ];
 
 // Similarly, this will create a new instance of Mesh in each index
-const Mesh = trait(() => THREE.Mesh())
+const Mesh = trait(() => new THREE.Mesh())
 ```
 
 #### Typing traits
