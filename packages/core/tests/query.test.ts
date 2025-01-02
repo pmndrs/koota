@@ -709,7 +709,7 @@ describe('Query', () => {
 		expect(cb).toHaveBeenCalledTimes(1);
 	});
 
-	it('updaeEach automatically tracks changes for traits observed with onChange', () => {
+	it('updateEach automatically tracks changes for traits observed with onChange', () => {
 		const cb = vi.fn();
 		world.onChange(Position, cb);
 
