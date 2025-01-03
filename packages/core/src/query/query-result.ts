@@ -43,20 +43,17 @@ export function createQueryResult<T extends QueryParameter[]>(
 			if (options.changeDetection === 'auto') {
 				const changedPairs: [Entity, Trait][] = [];
 				const atomicSnapshots: any[] = [];
-				const trackedTraits: Trait[] = [];
-				const untrackedTraits: Trait[] = [];
+				const trackedIndices: number[] = [];
+				const untrackedIndices: number[] = [];
 
 				// Get the traits that are being tracked for changes.
-				for (const trait of traits) {
-					// Check if the trait's changes are being tracked via onChange.
-					// Then check if the trait's changes are being tracked via Changed modifiers in the query.
-					if (world[$internal].trackedTraits.has(trait)) {
-						trackedTraits.push(trait);
-					} else if (query.hasChangedModifiers && query.changedTraits.has(trait)) {
-						trackedTraits.push(trait);
-					} else {
-						untrackedTraits.push(trait);
-					}
+				for (let i = 0; i < traits.length; i++) {
+					const trait = traits[i];
+					const hasTracked = world[$internal].trackedTraits.has(trait);
+					const hasChanged = query.hasChangedModifiers && query.changedTraits.has(trait);
+
+					if (hasTracked || hasChanged) trackedIndices.push(i);
+					else untrackedIndices.push(i);
 				}
 
 				for (let i = 0; i < entities.length; i++) {
@@ -78,10 +75,11 @@ export function createQueryResult<T extends QueryParameter[]>(
 					if (!world.has(entity)) continue;
 
 					// Commit all changes back to the stores for tracked traits.
-					for (let j = 0; j < trackedTraits.length; j++) {
-						const trait = trackedTraits[j];
+					for (let j = 0; j < trackedIndices.length; j++) {
+						const index = trackedIndices[j];
+						const trait = traits[index];
 						const ctx = trait[$internal];
-						const newValue = state[j];
+						const newValue = state[index];
 
 						let changed = false;
 						if (ctx.type === 'aos') {
@@ -98,10 +96,11 @@ export function createQueryResult<T extends QueryParameter[]>(
 					}
 
 					// Commit all changes back to the stores for untracked traits.
-					for (let j = 0; j < untrackedTraits.length; j++) {
-						const trait = untrackedTraits[j];
+					for (let j = 0; j < untrackedIndices.length; j++) {
+						const index = untrackedIndices[j];
+						const trait = traits[index];
 						const ctx = trait[$internal];
-						ctx.fastSet(eid, stores[j], state[j]);
+						ctx.fastSet(eid, stores[index], state[index]);
 					}
 				}
 
