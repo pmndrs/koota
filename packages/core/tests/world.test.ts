@@ -50,6 +50,10 @@ describe('World', () => {
 		const world = createWorld(Test);
 		expect(world.has(Test)).toBe(true);
 
+		const { then, delta } = world.get(Test)!;
+		expect(then).toBe(0);
+		expect(delta).toBe(0);
+
 		const Time = trait({ then: 0, delta: 0 });
 
 		world.add(Time);
