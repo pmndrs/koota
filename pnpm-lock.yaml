@@ -10,13 +10,13 @@ importers:
     dependencies:
       '@types/node':
         specifier: latest
-        version: 22.8.6
+        version: 22.10.5
       tsx:
         specifier: latest
         version: 4.19.2
       typescript:
         specifier: latest
-        version: 5.6.3
+        version: 5.7.2
 
   benches/apps/add-remove:
     dependencies:
@@ -44,7 +44,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.1.6
-        version: 5.2.0(@types/node@22.8.6)
+        version: 5.2.0(@types/node@22.10.5)
 
   benches/apps/app-tools:
     dependencies:
@@ -100,10 +100,10 @@ importers:
         version: 8.9.0(eslint@9.12.0)(typescript@5.6.3)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
-        version: 4.2.1(vite@5.2.0(@types/node@22.8.6))
+        version: 4.2.1(vite@5.2.0(@types/node@22.10.5))
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.5.0(vite@5.2.0(@types/node@22.8.6))
+        version: 3.5.0(vite@5.2.0(@types/node@22.10.5))
       eslint:
         specifier: ^9.12.0
         version: 9.12.0
@@ -118,7 +118,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.2.0
-        version: 5.2.0(@types/node@22.8.6)
+        version: 5.2.0(@types/node@22.10.5)
 
   benches/apps/n-body:
     dependencies:
@@ -143,7 +143,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.1.6
-        version: 5.2.0(@types/node@22.8.6)
+        version: 5.2.0(@types/node@22.10.5)
 
   benches/apps/n-body-react:
     dependencies:
@@ -189,10 +189,10 @@ importers:
         version: 8.9.0(eslint@9.12.0)(typescript@5.6.3)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
-        version: 4.2.1(vite@5.2.0(@types/node@22.8.6))
+        version: 4.2.1(vite@5.2.0(@types/node@22.10.5))
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.5.0(vite@5.2.0(@types/node@22.8.6))
+        version: 3.5.0(vite@5.2.0(@types/node@22.10.5))
       eslint:
         specifier: ^9.12.0
         version: 9.12.0
@@ -207,7 +207,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.2.0
-        version: 5.2.0(@types/node@22.8.6)
+        version: 5.2.0(@types/node@22.10.5)
 
   benches/apps/revade:
     dependencies:
@@ -253,10 +253,10 @@ importers:
         version: 8.9.0(eslint@9.12.0)(typescript@5.6.3)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
-        version: 4.2.1(vite@5.2.0(@types/node@22.8.6))
+        version: 4.2.1(vite@5.2.0(@types/node@22.10.5))
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.5.0(vite@5.2.0(@types/node@22.8.6))
+        version: 3.5.0(vite@5.2.0(@types/node@22.10.5))
       eslint:
         specifier: ^9.12.0
         version: 9.12.0
@@ -271,7 +271,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.2.0
-        version: 5.2.0(@types/node@22.8.6)
+        version: 5.2.0(@types/node@22.10.5)
 
   benches/sims/add-remove:
     dependencies:
@@ -290,7 +290,7 @@ importers:
         version: link:../../../packages/tsconfig
       tsx:
         specifier: latest
-        version: 4.19.1
+        version: 4.19.2
 
   benches/sims/bench-tools:
     dependencies:
@@ -319,7 +319,7 @@ importers:
         version: link:../../../packages/tsconfig
       tsx:
         specifier: latest
-        version: 4.19.1
+        version: 4.19.2
 
   packages/core:
     devDependencies:
@@ -328,7 +328,7 @@ importers:
         version: link:../tsconfig
       vitest:
         specifier: ^1.4.0
-        version: 1.4.0(@types/node@22.8.6)(jsdom@24.1.1)
+        version: 1.4.0(@types/node@22.10.5)(jsdom@24.1.1)
 
   packages/dev:
     dependencies:
@@ -363,6 +363,9 @@ importers:
       '@react-three/fiber':
         specifier: ^8.17.10
         version: 8.17.10(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.0.1
       three:
         specifier: '>=0.159'
         version: 0.162.0
@@ -393,7 +396,7 @@ importers:
         version: link:../tsconfig
       tsup:
         specifier: ^8.3.0
-        version: 8.3.0(@swc/core@1.7.40)(postcss@8.4.47)(tsx@4.19.2)(typescript@5.6.3)
+        version: 8.3.0(@swc/core@1.7.40)(postcss@8.4.47)(tsx@4.19.2)(typescript@5.7.2)
 
   packages/react:
     dependencies:
@@ -436,7 +439,7 @@ importers:
         version: link:../tsconfig
       vitest:
         specifier: ^1.4.0
-        version: 1.4.0(@types/node@22.8.6)(jsdom@24.1.1)
+        version: 1.4.0(@types/node@22.10.5)(jsdom@24.1.1)
 
   packages/tsconfig: {}
 
@@ -1203,8 +1206,8 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/node@22.8.6':
-    resolution: {integrity: sha512-tosuJYKrIqjQIlVCM4PEGxOmyg3FCPa/fViuJChnGeEIhjA46oy8FMVoF9su1/v8PNs2a8Q0iFNyOx0uOF91nw==}
+  '@types/node@22.10.5':
+    resolution: {integrity: sha512-F8Q+SeGimwOo86fiovQh8qiXfFEh2/ocYv7tU5pJ3EXMSSxk1Joj5wefpFK2fHTf/N6HKGSxIDBT9f3gCxXPkQ==}
 
   '@types/offscreencanvas@2019.7.3':
     resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
@@ -1742,6 +1745,11 @@ packages:
     resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
     hasBin: true
 
+  glob@11.0.0:
+    resolution: {integrity: sha512-9UiX/Bl6J2yaBbxKoEBRm4Cipxgok8kQYcOPEhScPwebu2I0HoQOuYdIO6S3hLuWoZgpDpwQZMzTFxgpkyT76g==}
+    engines: {node: 20 || >=22}
+    hasBin: true
+
   globals@11.12.0:
     resolution: {integrity: sha512-WOBp/EEGUiIsJSp7wcv/y6MO+lV9UoncWqxuFfm8eBwzWNgyfBd6Gz+IeKQ9jCmyhoH99g15M3T+QaVHFjizVA==}
     engines: {node: '>=4'}
@@ -1850,6 +1858,10 @@ packages:
   jackspeak@3.4.3:
     resolution: {integrity: sha512-OGlZQpz2yfahA/Rd1Y8Cd9SIEsqvXkLVoSw/cgwhnhFMDbsQFeZYoJJ7bIZBS9BcamUW96asq/npPWugM+RQBw==}
 
+  jackspeak@4.0.2:
+    resolution: {integrity: sha512-bZsjR/iRjl1Nk1UkjGpAzLNfQtzuijhn2g+pbZb98HQ1Gk8vM9hfbxeMBP+M2/UUdwj0RqGG3mlvk2MsAqwvEw==}
+    engines: {node: 20 || >=22}
+
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
     engines: {node: '>=10'}
@@ -1937,6 +1949,10 @@ packages:
   lru-cache@10.4.3:
     resolution: {integrity: sha512-JNAzZcXrCt42VGLuYz0zfAzDfAvJWW6AfYlDBQyDV5DClI2m5sAmK+OIO7s59XfsRsWHp02jAJrRadPRGTt6SQ==}
 
+  lru-cache@11.0.2:
+    resolution: {integrity: sha512-123qHRfJBmo2jXDbo/a5YOQrJoHF/GNQTLzQ5+IdK5pWpceK17yRc6ozlWd25FxvGKQbIUs91fDFkXmDHTKcyA==}
+    engines: {node: 20 || >=22}
+
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
@@ -1987,6 +2003,10 @@ packages:
   mimic-fn@4.0.0:
     resolution: {integrity: sha512-vqiC06CuhBTUdZH+RYl8sFrL096vA45Ok5ISO6sE/Mr1jRbGH4Csnhi8f3wKVl7x8mO4Au7Ir9D3Oyv1VYMFJw==}
     engines: {node: '>=12'}
+
+  minimatch@10.0.1:
+    resolution: {integrity: sha512-ethXTt3SGGR+95gudmqJ1eNhRO7eGEGIgYA9vnPatK4/etz2MEVDno5GMCibdMTuBMyElzIlgxMna3K94XDIDQ==}
+    engines: {node: 20 || >=22}
 
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
@@ -2087,6 +2107,10 @@ packages:
   path-scurry@1.11.1:
     resolution: {integrity: sha512-Xa4Nw17FS9ApQFJ9umLiJS4orGjm7ZzwUrwamcGQuHSzDyth9boKDaycYdDcZDuqYATXw4HFXgaqWTctW/v1HA==}
     engines: {node: '>=16 || 14 >=14.18'}
+
+  path-scurry@2.0.0:
+    resolution: {integrity: sha512-ypGJsmGtdXUOeM5u93TyeIEfEhM6s+ljAhrk5vAvSx8uyY/02OvrZnA0YNGUrPXfpJMgI1ODd3nwz8Npx4O4cg==}
+    engines: {node: 20 || >=22}
 
   pathe@1.1.2:
     resolution: {integrity: sha512-whLdWMYL2TwI08hn8/ZqAbrVemu0LNaNNJZX73O6qaIdCTfXutsLhMkjdENX0qhsQ9uIimo4/aQOmXkoon2nDQ==}
@@ -2229,6 +2253,11 @@ packages:
   reusify@1.0.4:
     resolution: {integrity: sha512-U9nH88a3fc/ekCF1l0/UP1IosiuIjyTh7hBvXVMHYgVcfGvt897Xguj2UOLDeI5BG2m7/uwyaLVT6fbtCwTyzw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
+
+  rimraf@6.0.1:
+    resolution: {integrity: sha512-9dkvaxAsk/xNXSJzMgFqqMCuFgt2+KsOFek3TMLfo8NCPfWpBmqwyNn5Y+NX56QUYfCtsyhF3ayiboEoUmJk/A==}
+    engines: {node: 20 || >=22}
+    hasBin: true
 
   rollup@4.24.2:
     resolution: {integrity: sha512-do/DFGq5g6rdDhdpPq5qb2ecoczeK6y+2UAjdJ5trjQJj5f1AiVdLRWRc9A9/fFukfvJRgM0UXzxBIYMovm5ww==}
@@ -2448,11 +2477,6 @@ packages:
       typescript:
         optional: true
 
-  tsx@4.19.1:
-    resolution: {integrity: sha512-0flMz1lh74BR4wOvBjuh9olbnwqCPc35OOlfyzHba0Dc+QNUeWX/Gq2YTbnwcWPO3BMd8fkzRVrHcsR+a7z7rA==}
-    engines: {node: '>=18.0.0'}
-    hasBin: true
-
   tsx@4.19.2:
     resolution: {integrity: sha512-pOUl6Vo2LUq/bSa8S5q7b91cgNSjctn9ugq/+Mvow99qW6x/UZYwzxy/3NmqoT66eHYfCVvFvACC58UBPFf28g==}
     engines: {node: '>=18.0.0'}
@@ -2474,11 +2498,16 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  typescript@5.7.2:
+    resolution: {integrity: sha512-i5t66RHxDvVN40HfDd1PsEThGNnlMCMT3jMUuoh9/0TaqWevNontacunWyN02LA9/fIbEWlcHZcgTKb9QoaLfg==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   ufo@1.5.4:
     resolution: {integrity: sha512-UsUk3byDzKd04EyoZ7U4DOlxQaD14JUKQl6/P7wiX4FNvUfm3XL246n9W5AmqwW5RSFJ27NAuM0iLscAOYUiGQ==}
 
-  undici-types@6.19.8:
-    resolution: {integrity: sha512-ve2KP6f/JnbPBFyobGHuerC9g1FYGn/F8n1LWTwNxCEzd6IfqTwUQcNXgEtmmQ6DlRrC1hrSrBnCZPokRrDHjw==}
+  undici-types@6.20.0:
+    resolution: {integrity: sha512-Ny6QZ2Nju20vw1SRHe3d9jVu6gJ+4e3+MMpqu7pqE5HT6WsTSlce++GQmK5UXS8mzV8DSYHrQH+Xrf2jVcuKNg==}
 
   universalify@0.2.0:
     resolution: {integrity: sha512-CJ1QgKmNg3CwvAv/kOFmtnEN05f0D/cn9QntgNOQlQF9dgvVTHj3t+8JPdjqawCHk7V/KA+fbUqzZ9XWhcqPUg==}
@@ -3304,9 +3333,9 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/node@22.8.6':
+  '@types/node@22.10.5':
     dependencies:
-      undici-types: 6.19.8
+      undici-types: 6.20.0
 
   '@types/offscreencanvas@2019.7.3': {}
 
@@ -3437,21 +3466,21 @@ snapshots:
       '@use-gesture/core': 10.3.1
       react: 18.3.1
 
-  '@vitejs/plugin-react-swc@3.5.0(vite@5.2.0(@types/node@22.8.6))':
+  '@vitejs/plugin-react-swc@3.5.0(vite@5.2.0(@types/node@22.10.5))':
     dependencies:
       '@swc/core': 1.7.40
-      vite: 5.2.0(@types/node@22.8.6)
+      vite: 5.2.0(@types/node@22.10.5)
     transitivePeerDependencies:
       - '@swc/helpers'
 
-  '@vitejs/plugin-react@4.2.1(vite@5.2.0(@types/node@22.8.6))':
+  '@vitejs/plugin-react@4.2.1(vite@5.2.0(@types/node@22.10.5))':
     dependencies:
       '@babel/core': 7.26.0
       '@babel/plugin-transform-react-jsx-self': 7.25.9(@babel/core@7.26.0)
       '@babel/plugin-transform-react-jsx-source': 7.25.9(@babel/core@7.26.0)
       '@types/babel__core': 7.20.5
       react-refresh: 0.14.2
-      vite: 5.2.0(@types/node@22.8.6)
+      vite: 5.2.0(@types/node@22.10.5)
     transitivePeerDependencies:
       - supports-color
 
@@ -3950,6 +3979,15 @@ snapshots:
       package-json-from-dist: 1.0.1
       path-scurry: 1.11.1
 
+  glob@11.0.0:
+    dependencies:
+      foreground-child: 3.3.0
+      jackspeak: 4.0.2
+      minimatch: 10.0.1
+      minipass: 7.1.2
+      package-json-from-dist: 1.0.1
+      path-scurry: 2.0.0
+
   globals@11.12.0: {}
 
   globals@14.0.0: {}
@@ -4035,6 +4073,10 @@ snapshots:
       '@isaacs/cliui': 8.0.2
     optionalDependencies:
       '@pkgjs/parseargs': 0.11.0
+
+  jackspeak@4.0.2:
+    dependencies:
+      '@isaacs/cliui': 8.0.2
 
   joycon@3.1.1: {}
 
@@ -4126,6 +4168,8 @@ snapshots:
 
   lru-cache@10.4.3: {}
 
+  lru-cache@11.0.2: {}
+
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
@@ -4165,6 +4209,10 @@ snapshots:
   mimic-fn@2.1.0: {}
 
   mimic-fn@4.0.0: {}
+
+  minimatch@10.0.1:
+    dependencies:
+      brace-expansion: 2.0.1
 
   minimatch@3.1.2:
     dependencies:
@@ -4259,6 +4307,11 @@ snapshots:
   path-scurry@1.11.1:
     dependencies:
       lru-cache: 10.4.3
+      minipass: 7.1.2
+
+  path-scurry@2.0.0:
+    dependencies:
+      lru-cache: 11.0.2
       minipass: 7.1.2
 
   pathe@1.1.2: {}
@@ -4373,6 +4426,11 @@ snapshots:
   resolve-pkg-maps@1.0.0: {}
 
   reusify@1.0.4: {}
+
+  rimraf@6.0.1:
+    dependencies:
+      glob: 11.0.0
+      package-json-from-dist: 1.0.1
 
   rollup@4.24.2:
     dependencies:
@@ -4578,7 +4636,7 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
-  tsup@8.3.0(@swc/core@1.7.40)(postcss@8.4.47)(tsx@4.19.2)(typescript@5.6.3):
+  tsup@8.3.0(@swc/core@1.7.40)(postcss@8.4.47)(tsx@4.19.2)(typescript@5.7.2):
     dependencies:
       bundle-require: 5.0.0(esbuild@0.23.1)
       cac: 6.7.14
@@ -4599,19 +4657,12 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.7.40
       postcss: 8.4.47
-      typescript: 5.6.3
+      typescript: 5.7.2
     transitivePeerDependencies:
       - jiti
       - supports-color
       - tsx
       - yaml
-
-  tsx@4.19.1:
-    dependencies:
-      esbuild: 0.23.1
-      get-tsconfig: 4.8.1
-    optionalDependencies:
-      fsevents: 2.3.3
 
   tsx@4.19.2:
     dependencies:
@@ -4636,9 +4687,11 @@ snapshots:
 
   typescript@5.6.3: {}
 
+  typescript@5.7.2: {}
+
   ufo@1.5.4: {}
 
-  undici-types@6.19.8: {}
+  undici-types@6.20.0: {}
 
   universalify@0.2.0: {}
 
@@ -4665,13 +4718,13 @@ snapshots:
 
   uuid@9.0.1: {}
 
-  vite-node@1.4.0(@types/node@22.8.6):
+  vite-node@1.4.0(@types/node@22.10.5):
     dependencies:
       cac: 6.7.14
       debug: 4.3.7
       pathe: 1.1.2
       picocolors: 1.1.1
-      vite: 5.2.0(@types/node@22.8.6)
+      vite: 5.2.0(@types/node@22.10.5)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -4682,16 +4735,16 @@ snapshots:
       - supports-color
       - terser
 
-  vite@5.2.0(@types/node@22.8.6):
+  vite@5.2.0(@types/node@22.10.5):
     dependencies:
       esbuild: 0.20.2
       postcss: 8.4.47
       rollup: 4.24.2
     optionalDependencies:
-      '@types/node': 22.8.6
+      '@types/node': 22.10.5
       fsevents: 2.3.3
 
-  vitest@1.4.0(@types/node@22.8.6)(jsdom@24.1.1):
+  vitest@1.4.0(@types/node@22.10.5)(jsdom@24.1.1):
     dependencies:
       '@vitest/expect': 1.4.0
       '@vitest/runner': 1.4.0
@@ -4710,11 +4763,11 @@ snapshots:
       strip-literal: 2.1.0
       tinybench: 2.9.0
       tinypool: 0.8.4
-      vite: 5.2.0(@types/node@22.8.6)
-      vite-node: 1.4.0(@types/node@22.8.6)
+      vite: 5.2.0(@types/node@22.10.5)
+      vite-node: 1.4.0(@types/node@22.10.5)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 22.8.6
+      '@types/node': 22.10.5
       jsdom: 24.1.1
     transitivePeerDependencies:
       - less
