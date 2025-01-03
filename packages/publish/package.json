@@ -32,7 +32,7 @@
 		"LICENSE"
 	],
 	"scripts": {
-		"build": "tsup src/index.ts src/react.ts --format esm,cjs --dts --dts-resolve && tsx scripts/copy-readme.ts && tsx scripts/copy-react-files.ts",
+		"build": "rimraf dist react && tsup src/index.ts src/react.ts --format esm,cjs --dts --dts-resolve && tsx scripts/copy-readme.ts && tsx scripts/copy-react-files.ts",
 		"test": "vitest --environment=jsdom"
 	},
 	"devDependencies": {
@@ -43,6 +43,7 @@
 		"@types/three": "^0.162.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
+		"rimraf": "^6.0.1",
 		"tsconfig": "workspace:*",
 		"tsup": "^8.3.0"
 	},
