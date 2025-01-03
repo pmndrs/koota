@@ -714,8 +714,9 @@ describe('Query', () => {
 		world.onChange(Position, cb);
 
 		// This has changes tracked automatically.
-		world.spawn(Position);
-		world.query(Position).updateEach(([position]) => {
+		// Here we test that mixing tracked and untracked traits works.
+		world.spawn(Position, Name);
+		world.query(Position, Name).updateEach(([position]) => {
 			position.x = 1;
 		});
 
