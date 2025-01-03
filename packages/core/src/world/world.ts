@@ -106,16 +106,16 @@ export class World {
 	}
 
 	destroy() {
+		// Destroy world entity.
+		destroyEntity(this, this[$internal].worldEntity);
+		this[$internal].worldEntity = null!;
+
 		// Destroy itself and all entities.
 		this.entities.forEach((entity) => destroyEntity(this, entity));
 		this.reset();
 		this.#isInitialized = false;
 		releaseWorldId(universe.worldIndex, this.#id);
 		universe.worlds.splice(universe.worlds.indexOf(this), 1);
-
-		// Destroy world entity.
-		destroyEntity(this, this[$internal].worldEntity);
-		this[$internal].worldEntity = null!;
 	}
 
 	reset() {
@@ -126,8 +126,6 @@ export class World {
 		ctx.notQueries.clear();
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
-
-		if (this.entities) this.entities.forEach((entity) => entity.destroy());
 
 		ctx.traitData.clear();
 		this.traits.clear();
