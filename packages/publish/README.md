@@ -20,7 +20,7 @@ const Velocity = trait({ x: 0, y: 0 });
 
 // Trait with a callback for initial value
 // ⚠️ Must be an object
-const Mesh = trait(() => THREE.Mesh());
+const Mesh = trait(() => new THREE.Mesh());
 
 // Tag trait (no data)
 const IsActive = trait();
@@ -309,6 +309,20 @@ entity.set(Position, { x: 10, y: 20 });
 entity.remove(Position);
 ```
 
+### Change detection with `udpateEach`
+
+By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.
+
+```js
+// Setting changeDetection to 'never' will silence it, triggering no change events
+world.query(Position, Velocity).updateEach(([position, velocity]) => {
+}, { changeDetection: 'never' });
+
+// Setting changeDetection to 'always' will ignore selective tracking and always emit change events for all traits that are mutated
+world.query(Position, Velocity).updateEach(([position, velocity]) => {
+}, { changeDetection: 'never' });
+```
+
 ### World traits
 
 For global data like time, these can be traits added to the world. **World traits do not appear in queries.**
@@ -338,7 +352,7 @@ world.query(Position, Velocity, Mass)
 
 ### Modifying trait stores direclty
 
-For performance-critical operations, you can modify trait stores directly using the useStore hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
+For performance-critical operations, you can modify trait stores directly using the `useStore` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
 
 ```js
 // Returns the SoA stores
@@ -400,6 +414,11 @@ const time = world.get(Time)
 
 // Sets the trait and triggers a change event
 world.set(Time, { current: performance.now() })
+// Can take a callback with the previous state passed in
+world.set(Time, (prev) => ({
+  current: performance.now(),
+  delta: performance.now() - prev.current
+}))
 
 // Subscribe to add, remove or change events for a set of query parameters
 // Anything you can put in a query is legal
@@ -445,6 +464,11 @@ const position = entity.get(Position)
 
 // Sets the trait and triggers a change event
 entity.set(Position, { x: 10, y: 10 })
+// Can take a callback with the previous state passed in
+entity.set(Position, (prev) => ({
+  x: prev + 1,
+  y: prev + 1
+}))
 
 // Get the targets for a relationship
 // Return Entity[]
@@ -464,14 +488,37 @@ entity.destroy()
 
 ### Trait
 
-A trait defines a kind of data. If you are familiar with ECS, it is our version of a component. We call it a trait instead to not get confused with React or web components. From a high level, you just create traits either with a schema or with a callback returning an object.
+A trait is a specific block of data. They are added to entities to build up its overall data signature. If you are familiar with ECS, it is our version of a component. It is called a trait instead to not get confused with React or web components. 
+
+A trait can be created with a schema that describes the kind of data it will hold. 
 
 ```js
-// A schema
 const Position = trait({ x: 0, y: 0, z: 0 })
+```
 
-// A callback
-const Velocity = trait(() => THREE.Vector3())
+In cases where the data needs to be initialized for each instance of the trait created, a callback can be passed in to be used a as a lazy initializer.
+
+```js
+// ❌ The items array will be shared between every instance of this trait
+const Inventory = trait({ 
+  items: [], 
+  max: 10, 
+})
+
+// ✅ With a lazy initializer, each instance will now get its own array
+const Inventory = trait({ 
+  items: () => [], 
+  max: 10, 
+})
+```
+
+Sometimes a trait only has one field that points to an object instance. In cases like this, it is useful to skip the schema and use a callback directly in the trait.
+
+```js
+const Velocity = trait(() => new THREE.Vector3())
+
+// The returned state is simply the instance
+const velocity = entity.get(Velocity)
 ```
 
 Both schema-based and callback-based traits are used similarly, but they have different performance implications due to how their data is stored internally:
@@ -512,7 +559,7 @@ const store = [
 ];
 
 // Similarly, this will create a new instance of Mesh in each index
-const Mesh = trait(() => THREE.Mesh())
+const Mesh = trait(() => new THREE.Mesh())
 ```
 
 #### Typing traits
@@ -521,17 +568,17 @@ Traits can have a schema type passed into its generic. This can be useful if the
 
 ```js
 type AttackerSchema = {
-	continueCombo: boolean | null,
-	currentStageIndex: number | null,
-	stages: Array<AttackStage> | null,
-	startedAt: number | null,
+  continueCombo: boolean | null,
+  currentStageIndex: number | null,
+  stages: Array<AttackStage> | null,
+  startedAt: number | null,
 }
 
 const Attacker = trait<AttackerSchema>({
-	continueCombo: null,
-	currentStageIndex: null,
-	stages: null,
-	startedAt: null,
+  continueCombo: null,
+  currentStageIndex: null,
+  stages: null,
+  startedAt: null,
 })
 ```
 
@@ -540,18 +587,18 @@ Interfaces can be used with `Pick` to convert the key signatures into something 
 
 ```js
 interface AttackerSchema {
-	continueCombo: boolean | null,
-	currentStageIndex: number | null,
-	stages: Array<AttackStage> | null,
-	startedAt: number | null,
+  continueCombo: boolean | null,
+  currentStageIndex: number | null,
+  stages: Array<AttackStage> | null,
+  startedAt: number | null,
 }
 
 // Pick is required to not get type errors
 const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
-	continueCombo: null,
-	currentStageIndex: null,
-	stages: null,
-	startedAt: null,
+  continueCombo: null,
+  currentStageIndex: null,
+  stages: null,
+  startedAt: null,
 })
 ```
 
