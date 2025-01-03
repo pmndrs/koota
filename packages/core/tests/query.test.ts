@@ -715,8 +715,9 @@ describe('Query', () => {
 
 		// This has changes tracked automatically.
 		// Here we test that mixing tracked and untracked traits works.
+		// We do it would of order to catch misaligned indices internally.
 		world.spawn(Position, Name);
-		world.query(Position, Name).updateEach(([position]) => {
+		world.query(Name, Position).updateEach(([name, position]) => {
 			position.x = 1;
 		});
 
