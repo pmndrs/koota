@@ -80,15 +80,16 @@ export function createQueryResult<T extends QueryParameter[]>(
 						const trait = traits[index];
 						const ctx = trait[$internal];
 						const newValue = state[index];
+						const store = stores[index];
 
 						let changed = false;
 						if (ctx.type === 'aos') {
-							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+							changed = ctx.fastSetWithChangeDetection(eid, store, newValue);
 							if (!changed) {
-								changed = !shallowEqual(newValue, atomicSnapshots[j]);
+								changed = !shallowEqual(newValue, atomicSnapshots[index]);
 							}
 						} else {
-							changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+							changed = ctx.fastSetWithChangeDetection(eid, store, newValue);
 						}
 
 						// Collect changed traits.
@@ -100,7 +101,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 						const index = untrackedIndices[j];
 						const trait = traits[index];
 						const ctx = trait[$internal];
-						ctx.fastSet(eid, stores[index], state[index]);
+						const store = stores[index];
+						ctx.fastSet(eid, store, state[index]);
 					}
 				}
 
