@@ -60,15 +60,13 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 	// If the trait does not exist on the world return undefined.
 	if (!data) return undefined;
 
-	// Get the entity index/id.
-	const index = this & ENTITY_ID_MASK;
-
 	// If the entity does not have the trait return undefined.
-	const mask = worldCtx.entityMasks[data.generationId][index];
+	const mask = worldCtx.entityMasks[data.generationId][this];
 	if ((mask & data.bitflag) !== data.bitflag) return undefined;
 
 	// Return a snapshot of the trait state.
 	const traitCtx = trait[$internal];
+	const index = this & ENTITY_ID_MASK;
 	const store = traitCtx.stores[worldId];
 	return traitCtx.get(index, store);
 };
