@@ -43,6 +43,7 @@ export function destroyEntity(world: World, entity: Entity) {
 	// Ensure the queue is empty before starting.
 	entityQueue.length = 0;
 	entityQueue.push(entity);
+	processedEntities.clear();
 
 	// Destroyed entities may be the target of relations.
 	// To avoid stale references, all these relations must be removed.
@@ -51,6 +52,7 @@ export function destroyEntity(world: World, entity: Entity) {
 	while (entityQueue.length > 0) {
 		const currentEntity = entityQueue.pop()!;
 		if (processedEntities.has(currentEntity)) continue;
+
 		processedEntities.add(currentEntity);
 
 		// Process all related entities and traits.
