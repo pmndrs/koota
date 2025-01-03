@@ -121,12 +121,18 @@ describe('Entity', () => {
 	});
 
 	it('can get trait state', () => {
-		const entity = world.spawn(Bar({ value: 1 }));
+		let entity = world.spawn(Bar({ value: 1 }));
 		const bar = entity.get(Bar)!;
 		expect(bar.value).toBe(1);
 
 		// Changing trait state should not affect the entity.
 		bar.value = 2;
+		expect(entity.get(Bar)!.value).toBe(1);
+
+		// Check this works with multi-generational entities.
+		entity.destroy();
+
+		entity = world.spawn(Bar({ value: 1 }));
 		expect(entity.get(Bar)!.value).toBe(1);
 	});
 
