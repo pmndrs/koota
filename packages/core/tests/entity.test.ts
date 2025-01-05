@@ -111,6 +111,11 @@ describe('Entity', () => {
 		expect(entity.has(Bar)).toBe(true);
 	});
 
+	it('can add traits with initial state', () => {
+		const entity = world.spawn(Bar({ value: 1 }));
+		expect(entity.get(Bar)!.value).toBe(1);
+	});
+
 	it('can remove traits', () => {
 		const entity = world.spawn(Foo, Bar);
 
