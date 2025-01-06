@@ -80,10 +80,15 @@ describe('Query', () => {
 		expect(ctx.queriesHashMap.size).toBe(2);
 	});
 
-	it('should return an empty array if there are no query parameters', () => {
+	it('should return all queryable entities when parameters are empty', () => {
 		world.spawn();
+		// IsExcluded marks the entity is non-queryable.
+		world.spawn(IsExcluded);
+		world.spawn(Position);
+		world.spawn(Name, Bar);
 		const entities = world.query();
-		expect(entities.length).toBe(0);
+
+		expect(entities.length).toBe(3);
 	});
 
 	it('should correctly populate Not queries when traits are added and removed', () => {
