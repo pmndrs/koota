@@ -142,6 +142,9 @@ export class Query {
 			}
 		}
 
+		// Add IsExcluded to the forbidden list.
+		this.traitData.forbidden.push(ctx.traitData.get(IsExcluded)!);
+
 		this.traitData.all = [
 			...this.traitData.required,
 			...this.traitData.forbidden,
@@ -274,8 +277,6 @@ export class Query {
 				const entities = ctx.entityIndex.dense;
 				for (let i = 0; i < entities.length; i++) {
 					const entity = entities[i];
-					// Skip if the entity is excluded.
-					if (entity.has(IsExcluded)) continue;
 					const match = this.check(world, entity);
 					if (match) this.add(entity);
 				}
