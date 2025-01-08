@@ -283,6 +283,15 @@ const movedEntities = world.query(Changed(Position));
 // After running the query, the Changed modifier is reset
 ```
 
+### Query all entities
+
+To get al queryable entities you simply query with not paramerters. Note, that not all entities are queryable. Any entity that has `IsExcluded` will not be able to be queried. This is used in Koota to exclude world entities, for example, but maybe used for other system level entities in the future. To get all entities regardless, use `world.entities`.
+
+```js
+// Returns all queryable entities
+const allQueryableEntities = world.query()
+```
+
 ### Add, remove and change events
 
 Koota allows you to subscribe to add, remove, and change events for specific traits.
@@ -427,7 +436,7 @@ const unsub = world.onAdd([Position], (entity) => {})
 const unsub = world.onRemove([Position], (entity) => {})
 const unsub = world.onChange([Position], (entity) => {})
 
-// An array of all entities alive in the world
+// An array of all entities alive in the world, including non-queryable entities
 // This is a copy so editing it won't do anything!
 // Entity[]
 world.entities
