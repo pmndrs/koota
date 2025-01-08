@@ -80,9 +80,8 @@ Number.prototype.set = function (this: Entity, trait: Trait, value: any, trigger
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const store = ctx.stores[worldId];
 
-	if (value instanceof Function) {
-		value = value(ctx.get(index, store));
-	}
+	// A short circuit is more performance than an if statement which creates a new code statement.
+	value instanceof Function && (value = value(ctx.get(index, store)));
 
 	ctx.set(index, store, value);
 	triggerChanged && setChanged(universe.worlds[worldId], this, trait);
