@@ -8,8 +8,7 @@ import { allocateEntity, releaseEntity } from './utils/entity-index';
 
 // Ensure entity methods are patched.
 import './entity-methods-patch';
-import { getEntityId, getEntityWorldId } from './utils/pack-entity';
-import { universe } from '../universe/universe';
+import { getEntityId } from './utils/pack-entity';
 
 export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
 	const ctx = world[$internal];
@@ -102,9 +101,4 @@ export function destroyEntity(world: World, entity: Entity) {
 			ctx.entityMasks[i][eid] = 0;
 		}
 	}
-}
-
-/* @inline */ export function getWorldFromEntity(entity: Entity) {
-	const worldId = getEntityWorldId(entity);
-	return universe.worlds[worldId];
 }
