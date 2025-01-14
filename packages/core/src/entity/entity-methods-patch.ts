@@ -10,49 +10,49 @@ import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
 import { universe } from '../universe/universe';
 import { $internal } from '../common';
-import { destroyEntity } from './entity';
+import { destroyEntity, getWorldFromEntity } from './entity';
 import { Entity } from './types';
-import { ENTITY_ID_MASK, WORLD_ID_SHIFT } from './utils/pack-entity';
+import { ENTITY_ID_MASK, getEntityWorldId } from './utils/pack-entity';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return addTrait(world, this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return removeTrait(world, this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return hasTrait(world, this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.destroy = function (this: Entity) {
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return destroyEntity(world, this);
 };
 
 // @ts-expect-error
 Number.prototype.changed = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return setChanged(world, this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const worldId = getEntityWorldId(this);
+	const world = getWorldFromEntity(this);
 	const worldCtx = world[$internal];
 	// TODO: Remove the need for a map to get the entity mask for the trait.
 	const data = worldCtx.traitData.get(trait);
@@ -77,7 +77,7 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
 	const ctx = trait[$internal];
 	const index = this & ENTITY_ID_MASK;
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const store = ctx.stores[worldId];
 
 	// A short circuit is more performance than an if statement which creates a new code statement.
@@ -89,14 +89,14 @@ Number.prototype.set = function (this: Entity, trait: Trait, value: any, trigger
 
 //@ts-expect-error
 Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return getRelationTargets(world, relation, this);
 };
 
 //@ts-expect-error
 Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
+	const worldId = getEntityWorldId(this);
 	const world = universe.worlds[worldId];
 	return getRelationTargets(world, relation, this)[0];
 };
