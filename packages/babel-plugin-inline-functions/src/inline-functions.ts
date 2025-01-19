@@ -4,20 +4,21 @@ import _traverse from '@babel/traverse';
 import {
 	ArrowFunctionExpression,
 	assignmentExpression,
+	blockStatement,
 	booleanLiteral,
 	cloneNode,
-	conditionalExpression,
 	Expression,
+	ExpressionStatement,
 	expressionStatement,
 	File,
 	FunctionDeclaration,
 	FunctionExpression,
 	identifier,
+	isBlockStatement,
 	isIdentifier,
-	isStatement,
+	isIfStatement,
 	logicalExpression,
 	Node,
-	numericLiteral,
 	ReturnStatement,
 	sequenceExpression,
 	Statement,
@@ -27,6 +28,7 @@ import {
 } from '@babel/types';
 import { addImportsForDependencies } from './utils/add-import-for-dependencies';
 import { collectLocalDependencies } from './utils/collect-local-dependencies';
+import { convertStatementToExpression } from './utils/convert-statement-to-expression';
 import { getFunctionBody } from './utils/get-function-content';
 import { getFunctionParams } from './utils/get-function-params';
 import { hasInlineDecorator } from './utils/has-inline-decorator';
@@ -100,6 +102,7 @@ export function inlineFunctions(ast: ParseResult<File>) {
 
 			// Create a mapping of parameter names to their argument expressions.
 			const paramMappings = new Map<string, Expression>();
+
 			inlinableFn.params.forEach((param, index) => {
 				const expression = path.node.arguments[index];
 				paramMappings.set(param, expression as Expression);
@@ -109,7 +112,6 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			removeImportForFunction(path, inlinableFn.name);
 			addImportsForDependencies(path, inlinableFn.name);
 
-			// const { body, returnStatement } = getFunctionContent(inlinableFn.func);
 			const body = getFunctionBody(inlinableFn.func);
 			const variableNames = new Map<string, string>();
 			const uniqueSuffix = `_${uniqueCounter++}`;
@@ -118,23 +120,16 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			let returnCount = 0;
 			let lastReturnStatement: ReturnStatement;
 
-			for (const statement of body) {
-				if (statement.type === 'ReturnStatement') {
-					returnCount++;
-					lastReturnStatement = statement;
-				}
-
-				traverse(
-					statement,
-					{
-						ReturnStatement(path) {
-							returnCount++;
-							lastReturnStatement = path.node;
-						},
+			traverse(
+				blockStatement(body),
+				{
+					ReturnStatement(path) {
+						returnCount++;
+						lastReturnStatement = path.node;
 					},
-					path.scope
-				);
-			}
+				},
+				path.scope
+			);
 
 			const hasSingleReturn = returnCount === 1;
 
@@ -207,44 +202,99 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			const resultName = `result_${callee.name}_${uniqueSuffix}`;
 			const completedName = `completed_${callee.name}_${uniqueSuffix}`;
 			let hasReturn = false;
+			const inlinedBody = body.map((statement) => cloneNode(statement));
 
-			const inlinedBody: Statement[] = [];
+			let returnCounter = 0;
 
-			for (const statement of body) {
-				const inlinedStatement = cloneNode(statement);
+			const createReturnTransformation = (
+				resultName: string,
+				completedName: string,
+				argument: Expression | null | undefined
+			) => {
+				// Now returns a sequence of all assignments
+				return sequenceExpression([
+					assignmentExpression(
+						'=',
+						identifier(resultName),
+						argument || identifier('undefined')
+					),
+					assignmentExpression('=', identifier(completedName), booleanLiteral(true)),
+				]);
+			};
 
-				// Check if the statement itself is a return statement
-				if (inlinedStatement.type === 'ReturnStatement') {
-					hasReturn = true;
-					const returnExpression = expressionStatement(
-						logicalExpression(
+			traverse(
+				blockStatement(inlinedBody),
+				{
+					IfStatement(ifPath) {
+						let consequent = ifPath.node.consequent;
+						let statements: Statement[];
+
+						if (isBlockStatement(consequent)) {
+							statements = consequent.body;
+						} else {
+							statements = [consequent];
+						}
+
+						// Transform the statements into a single sequence expression
+						const nonReturnStatements = statements
+							.filter((stmt) => stmt.type !== 'ReturnStatement')
+							.map(convertStatementToExpression);
+
+						const returnStatement = statements.find(
+							(stmt) => stmt.type === 'ReturnStatement'
+						);
+
+						if (returnStatement) returnCounter++;
+
+						const allExpressions = [
+							...nonReturnStatements,
+							returnStatement &&
+								createReturnTransformation(
+									resultName,
+									completedName,
+									returnStatement.argument
+								),
+						].filter(Boolean) as Expression[];
+
+						// Create a chain with only the condition and completion check
+						const chainedExpression = logicalExpression(
 							'&&',
-							unaryExpression('!', identifier(completedName)),
-							sequenceExpression([
-								assignmentExpression(
-									'=',
-									identifier(resultName),
-									inlinedStatement.argument || identifier('undefined')
-								),
-								assignmentExpression(
-									'=',
-									identifier(completedName),
-									booleanLiteral(true)
-								),
-							])
-						)
-					);
-					inlinedBody.push(returnExpression);
-					continue;
-				}
+							logicalExpression(
+								'&&',
+								ifPath.node.test,
+								unaryExpression('!', identifier(completedName))
+							),
+							sequenceExpression(allExpressions)
+						);
 
-				traverse(
-					inlinedStatement,
-					{
-						// Transform return statements into assignments with completion flag
-						ReturnStatement(returnPath) {
-							hasReturn = true;
-							const returnExpression = expressionStatement(
+						ifPath.replaceWith(expressionStatement(chainedExpression));
+					},
+					// Transform return statements into assignments with completion flag
+					ReturnStatement(returnPath) {
+						returnCounter++;
+
+						// Only handle returns that aren't inside if statements
+						if (isIfStatement(returnPath.parent)) {
+							return;
+						}
+
+						hasReturn = true;
+						let returnExpression: ExpressionStatement;
+
+						if (returnCounter === returnCount) {
+							returnExpression = expressionStatement(
+								logicalExpression(
+									'&&',
+									unaryExpression('!', identifier(completedName)),
+									assignmentExpression(
+										'=',
+										identifier(resultName),
+										returnPath.node.argument || identifier('undefined')
+									)
+								)
+							);
+						} else {
+							returnExpression = expressionStatement(
 								logicalExpression(
 									'&&',
 									unaryExpression('!', identifier(completedName)),
@@ -262,51 +312,35 @@ export function inlineFunctions(ast: ParseResult<File>) {
 									])
 								)
 							);
+						}
 
-							returnPath.replaceWith(returnExpression);
-						},
-						VariableDeclarator(varPath) {
-							if (isIdentifier(varPath.node.id)) {
-								const oldName = varPath.node.id.name;
-								const newName = `${oldName}${uniqueSuffix}`;
-								variableNames.set(oldName, newName);
-								varPath.node.id.name = newName;
-							}
-						},
-						Identifier(idPath) {
-							// Replace parameters.
-							if (paramMappings.has(idPath.node.name)) {
-								const param = paramMappings.get(idPath.node.name)!;
-								idPath.replaceWith(param);
-								return;
-							}
-							// Replace renamed variables.
-							if (variableNames.has(idPath.node.name)) {
-								idPath.node.name = variableNames.get(idPath.node.name)!;
-							}
-						},
+						returnPath.replaceWith(returnExpression);
 					},
-					path.scope
-				);
+					VariableDeclarator(varPath) {
+						if (isIdentifier(varPath.node.id)) {
+							const oldName = varPath.node.id.name;
+							const newName = `${oldName}${uniqueSuffix}`;
+							variableNames.set(oldName, newName);
+							varPath.node.id.name = newName;
+						}
+					},
+					Identifier(idPath) {
+						// Replace parameters.
+						if (paramMappings.has(idPath.node.name)) {
+							const param = paramMappings.get(idPath.node.name)!;
+							idPath.replaceWith(param);
+							return;
+						}
+						// Replace renamed variables.
+						if (variableNames.has(idPath.node.name)) {
+							idPath.node.name = variableNames.get(idPath.node.name)!;
+						}
+					},
+				},
+				path.scope
+			);
 
-				if (hasReturn) {
-					// Create a short-circuit expression: !completed && (statement)
-					const rightExpression = isStatement(inlinedStatement)
-						? convertStatementToExpression(inlinedStatement)
-						: (inlinedStatement as unknown as Expression);
-
-					const expression = logicalExpression(
-						'&&',
-						unaryExpression('!', identifier(completedName)),
-						rightExpression
-					);
-
-					inlinedBody.push(expressionStatement(expression));
-				} else {
-					// If no returns found yet, just add the statement normally
-					inlinedBody.push(inlinedStatement);
-				}
-			}
+			console.log(callee.name, returnCounter);
 
 			if (hasReturn) {
 				// Prepend our control variables
@@ -332,30 +366,4 @@ export function inlineFunctions(ast: ParseResult<File>) {
 	const { code } = generate(ast);
 
 	return code;
-}
-
-function convertStatementToExpression(statement: Statement): Expression {
-	// If it's already an ExpressionStatement, return its expression
-	if (statement.type === 'ExpressionStatement') {
-		return statement.expression;
-	}
-
-	// For blocks, convert to sequence expression
-	if (statement.type === 'BlockStatement') {
-		return sequenceExpression(statement.body.map((stmt) => convertStatementToExpression(stmt)));
-	}
-
-	// For if statements, convert to conditional expression
-	if (statement.type === 'IfStatement') {
-		return conditionalExpression(
-			statement.test,
-			convertStatementToExpression(statement.consequent),
-			statement.alternate
-				? convertStatementToExpression(statement.alternate)
-				: identifier('undefined')
-		);
-	}
-
-	// Default case - wrap in void operator if we can't convert
-	return unaryExpression('void', numericLiteral(0));
 }
