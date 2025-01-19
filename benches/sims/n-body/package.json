@@ -7,7 +7,7 @@
 	"main": "./src/index.ts",
 	"dependencies": {
 		"@sim/bench-tools": "workspace:*",
-		"koota": "workspace:@koota/dev@*",
+		"koota": "workspace:koota@*",
 		"directed": "^0.1.1"
 	},
 	"devDependencies": {
