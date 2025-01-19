@@ -11,7 +11,7 @@
 	"dependencies": {
 		"@app/bench-tools": "workspace:*",
 		"@sim/n-body": "workspace:*",
-		"koota": "workspace:@koota/dev@*",
+		"koota": "workspace:koota@*",
 		"three": "^0.162.0"
 	},
 	"devDependencies": {
