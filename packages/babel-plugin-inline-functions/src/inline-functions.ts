@@ -3,32 +3,28 @@ import { ParseResult } from '@babel/parser';
 import _traverse from '@babel/traverse';
 import {
 	ArrowFunctionExpression,
-	assignmentExpression,
 	blockStatement,
 	booleanLiteral,
 	cloneNode,
 	Expression,
 	ExpressionStatement,
-	expressionStatement,
 	File,
 	FunctionDeclaration,
 	FunctionExpression,
 	identifier,
 	isBlockStatement,
 	isIdentifier,
-	isIfStatement,
-	logicalExpression,
-	Node,
+	LogicalExpression,
 	ReturnStatement,
-	sequenceExpression,
+	SequenceExpression,
 	Statement,
-	unaryExpression,
 	variableDeclaration,
 	variableDeclarator,
 } from '@babel/types';
 import { addImportsForDependencies } from './utils/add-import-for-dependencies';
 import { collectLocalDependencies } from './utils/collect-local-dependencies';
 import { convertStatementToExpression } from './utils/convert-statement-to-expression';
+import { createShortCircuit, createShortCircuitAssignment } from './utils/create-short-circuit';
 import { getFunctionBody } from './utils/get-function-content';
 import { getFunctionParams } from './utils/get-function-params';
 import { hasInlineDecorator } from './utils/has-inline-decorator';
@@ -51,11 +47,10 @@ export function reset() {
 }
 
 export function inlineFunctions(ast: ParseResult<File>) {
-	let uniqueCounter = 0;
-
 	// First pass: Collect all inlineable functions.
 	// Look for any function that has a @inline decorator.
 	traverse(ast, {
+		// Collect function delcaratoins.
 		FunctionDeclaration(path) {
 			const node = path.node;
 			const hasInline = hasInlineDecorator(node) || hasInlineDecorator(path.parent);
@@ -69,6 +64,7 @@ export function inlineFunctions(ast: ParseResult<File>) {
 				params: getFunctionParams(node),
 			});
 		},
+		// Collect arrow functions and function expressions (assigned to a variable).
 		VariableDeclarator(path) {
 			const node = path.node;
 			const init = node.init;
@@ -89,6 +85,8 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			}
 		},
 	});
+
+	let uniqueCounter = 0;
 
 	// Second pass: Inline all invocations of the inlinable functions.
 	traverse(ast, {
@@ -113,210 +111,19 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			addImportsForDependencies(path, inlinableFn.name);
 
 			const body = getFunctionBody(inlinableFn.func);
+			const inlinedBody = body.map((statement) => cloneNode(statement));
 			const variableNames = new Map<string, string>();
 			const uniqueSuffix = `_${uniqueCounter++}`;
-
-			// Count return statements
-			let returnCount = 0;
-			let lastReturnStatement: ReturnStatement;
-
-			traverse(
-				blockStatement(body),
-				{
-					ReturnStatement(path) {
-						returnCount++;
-						lastReturnStatement = path.node;
-					},
-				},
-				path.scope
-			);
-
-			const hasSingleReturn = returnCount === 1;
-
-			if (hasSingleReturn && lastReturnStatement!) {
-				// For functions with a single return, we can inline directly
-				const inlinedBody: Statement[] = [];
-				let returnExpression: Expression =
-					lastReturnStatement.argument || identifier('undefined');
-
-				for (const statement of body) {
-					const inlinedStatement = cloneNode(statement);
-
-					traverse(
-						inlinedStatement,
-						{
-							VariableDeclarator(varPath) {
-								if (isIdentifier(varPath.node.id)) {
-									const oldName = varPath.node.id.name;
-									const newName = `${oldName}${uniqueSuffix}`;
-									variableNames.set(oldName, newName);
-									varPath.node.id.name = newName;
-								}
-							},
-							Identifier(idPath) {
-								// Replace parameters and renamed variables
-								if (paramMappings.has(idPath.node.name)) {
-									idPath.replaceWith(paramMappings.get(idPath.node.name)!);
-								} else if (variableNames.has(idPath.node.name)) {
-									idPath.node.name = variableNames.get(idPath.node.name)!;
-								}
-							},
-						},
-						path.scope
-					);
-
-					if (
-						inlinedStatement.type !== 'EmptyStatement' &&
-						inlinedStatement.type !== 'ReturnStatement'
-					) {
-						inlinedBody.push(inlinedStatement);
-					}
-				}
-
-				// Clone and transform the return expression
-				returnExpression = cloneNode(returnExpression);
-				traverse(
-					returnExpression as Node,
-					{
-						Identifier(idPath) {
-							if (paramMappings.has(idPath.node.name)) {
-								idPath.replaceWith(paramMappings.get(idPath.node.name)!);
-							} else if (variableNames.has(idPath.node.name)) {
-								idPath.node.name = variableNames.get(idPath.node.name)!;
-							}
-						},
-					},
-					path.scope
-				);
-
-				// Replace the call with the return expression
-				path.replaceWith(returnExpression);
-
-				// Insert our transformed code before the original call
-				const statementPath = path.getStatementParent();
-				if (statementPath) statementPath.insertBefore(inlinedBody);
-
-				return;
-			}
-
 			const resultName = `result_${callee.name}_${uniqueSuffix}`;
 			const completedName = `completed_${callee.name}_${uniqueSuffix}`;
-			let hasReturn = false;
-			const inlinedBody = body.map((statement) => cloneNode(statement));
-
-			let returnCounter = 0;
-
-			const createReturnTransformation = (
-				resultName: string,
-				completedName: string,
-				argument: Expression | null | undefined
-			) => {
-				// Now returns a sequence of all assignments
-				return sequenceExpression([
-					assignmentExpression(
-						'=',
-						identifier(resultName),
-						argument || identifier('undefined')
-					),
-					assignmentExpression('=', identifier(completedName), booleanLiteral(true)),
-				]);
-			};
+			const returnStatements: ReturnStatement[] = [];
+			const ifStatements: ExpressionStatement[] = [];
 
 			traverse(
 				blockStatement(inlinedBody),
 				{
-					IfStatement(ifPath) {
-						let consequent = ifPath.node.consequent;
-						let statements: Statement[];
-
-						if (isBlockStatement(consequent)) {
-							statements = consequent.body;
-						} else {
-							statements = [consequent];
-						}
-
-						// Transform the statements into a single sequence expression
-						const nonReturnStatements = statements
-							.filter((stmt) => stmt.type !== 'ReturnStatement')
-							.map(convertStatementToExpression);
-
-						const returnStatement = statements.find(
-							(stmt) => stmt.type === 'ReturnStatement'
-						);
-
-						if (returnStatement) returnCounter++;
-
-						const allExpressions = [
-							...nonReturnStatements,
-							returnStatement &&
-								createReturnTransformation(
-									resultName,
-									completedName,
-									returnStatement.argument
-								),
-						].filter(Boolean) as Expression[];
-
-						// Create a chain with only the condition and completion check
-						const chainedExpression = logicalExpression(
-							'&&',
-							logicalExpression(
-								'&&',
-								ifPath.node.test,
-								unaryExpression('!', identifier(completedName))
-							),
-							sequenceExpression(allExpressions)
-						);
-
-						ifPath.replaceWith(expressionStatement(chainedExpression));
-					},
-					// Transform return statements into assignments with completion flag
-					ReturnStatement(returnPath) {
-						returnCounter++;
-
-						// Only handle returns that aren't inside if statements
-						if (isIfStatement(returnPath.parent)) {
-							return;
-						}
-
-						hasReturn = true;
-						let returnExpression: ExpressionStatement;
-
-						if (returnCounter === returnCount) {
-							returnExpression = expressionStatement(
-								logicalExpression(
-									'&&',
-									unaryExpression('!', identifier(completedName)),
-									assignmentExpression(
-										'=',
-										identifier(resultName),
-										returnPath.node.argument || identifier('undefined')
-									)
-								)
-							);
-						} else {
-							returnExpression = expressionStatement(
-								logicalExpression(
-									'&&',
-									unaryExpression('!', identifier(completedName)),
-									sequenceExpression([
-										assignmentExpression(
-											'=',
-											identifier(resultName),
-											returnPath.node.argument || identifier('undefined')
-										),
-										assignmentExpression(
-											'=',
-											identifier(completedName),
-											booleanLiteral(true)
-										),
-									])
-								)
-							);
-						}
-
-						returnPath.replaceWith(returnExpression);
-					},
 					VariableDeclarator(varPath) {
+						// Rename variables to avoid conflicts.
 						if (isIdentifier(varPath.node.id)) {
 							const oldName = varPath.node.id.name;
 							const newName = `${oldName}${uniqueSuffix}`;
@@ -325,39 +132,115 @@ export function inlineFunctions(ast: ParseResult<File>) {
 						}
 					},
 					Identifier(idPath) {
-						// Replace parameters.
+						// Replace parameters and rename variables assignments.
 						if (paramMappings.has(idPath.node.name)) {
-							const param = paramMappings.get(idPath.node.name)!;
-							idPath.replaceWith(param);
-							return;
-						}
-						// Replace renamed variables.
-						if (variableNames.has(idPath.node.name)) {
+							idPath.replaceWith(paramMappings.get(idPath.node.name)!);
+						} else if (variableNames.has(idPath.node.name)) {
 							idPath.node.name = variableNames.get(idPath.node.name)!;
 						}
+					},
+					ReturnStatement(returnPath) {
+						returnStatements.push(returnPath.node);
+					},
+					IfStatement(ifPath) {
+						let consequent = ifPath.node.consequent;
+						let statements: Statement[];
+						const suffix = `_${Math.random().toString(36).substring(2, 15)}`;
+						const localVars = new Set<string>();
+
+						// Collect statements.
+						if (isBlockStatement(consequent)) statements = consequent.body;
+						else statements = [consequent];
+
+						traverse(
+							blockStatement(statements),
+							{
+								ReturnStatement(returnPath) {
+									// Collect return statements.
+									returnStatements.push(returnPath.node);
+								},
+								VariableDeclarator(varPath) {
+									// Collect local variables.
+									if (isIdentifier(varPath.node.id)) {
+										localVars.add(varPath.node.id.name);
+									}
+								},
+							},
+							path.scope
+						);
+
+						// Transform if statement into a short circuit with chained expressions.
+						const expressions = statements.map((stmt) =>
+							convertStatementToExpression(
+								stmt,
+								completedName,
+								resultName,
+								suffix,
+								localVars
+							)
+						);
+						const chainedExpression = createShortCircuit(ifPath.node.test, expressions);
+						ifPath.replaceWith(chainedExpression);
+
+						// Collect if statements.
+						ifStatements.push(chainedExpression);
 					},
 				},
 				path.scope
 			);
 
-			console.log(callee.name, returnCounter);
+			if (returnStatements.length === 1) {
+				const lastReturnStatement = returnStatements[returnStatements.length - 1];
+				// Remove from the inlined body.
+				const index = inlinedBody.indexOf(lastReturnStatement);
+				if (index !== -1) inlinedBody.splice(index, 1);
 
-			if (hasReturn) {
-				// Prepend our control variables
+				// Replace function call with assignment of the return value to the call identifier.
+				const expression = lastReturnStatement.argument || identifier('undefined');
+				path.replaceWith(expression);
+			} else if (returnStatements.length > 1) {
+				const lastReturnStatement = returnStatements[returnStatements.length - 1];
+				// // Remove from the inlined body.
+				// const index = inlinedBody.indexOf(lastReturnStatement);
+				// if (index !== -1) inlinedBody.splice(index, 1);
+
+				// Prepend our control variables.
 				inlinedBody.unshift(
 					variableDeclaration('let', [variableDeclarator(identifier(resultName), null)]),
 					variableDeclaration('let', [
 						variableDeclarator(identifier(completedName), booleanLiteral(false)),
 					])
 				);
-				// Replace the call with our result variable
+
+				// Transform the if statement to have a short circuit.
+				for (const ifStmnt of ifStatements) {
+					const index = inlinedBody.indexOf(ifStmnt);
+
+					const shortCircuit = createShortCircuit(
+						(ifStmnt.expression as LogicalExpression).left,
+						((ifStmnt.expression as LogicalExpression).right as SequenceExpression)
+							.expressions,
+						completedName
+					);
+
+					inlinedBody.splice(index, 1, shortCircuit);
+				}
+
+				// Transform the last return statement to have a short circuit assignment.
+				const returnExpression = createShortCircuitAssignment(
+					lastReturnStatement.argument || identifier('undefined'),
+					completedName,
+					resultName
+				);
+
+				const index = inlinedBody.indexOf(lastReturnStatement);
+				if (index !== -1) inlinedBody.splice(index, 1, returnExpression);
+
+				// Replace the function call with our result variable.
 				path.replaceWith({ type: 'Identifier', name: resultName });
-			} else {
-				// No returns found, just return undefined
-				path.replaceWith({ type: 'Identifier', name: 'undefined' });
 			}
 
-			// Insert our transformed code before the original call
+			// Insert our transformed code before the original call.
 			const statementPath = path.getStatementParent();
 			if (statementPath) statementPath.insertBefore(inlinedBody);
 		},

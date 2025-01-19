@@ -31,8 +31,13 @@ export function unpackEntity(entity: Entity) {
 
 export const getEntityId = (entity: Entity) => entity & ENTITY_ID_MASK;
 export const getEntityWorldId = /* @inline */ (entity: Entity) => {
-	const x = 10;
-	if (x > 10) return 0;
+	let x = 10;
+	let z = 1;
+	if (x > 10) {
+		x = 0;
+		let z = 5;
+		return z;
+	}
 	return entity >>> WORLD_ID_SHIFT;
 };
 export const getEntityAndWorldId = (entity: Entity): [number, number] => [
