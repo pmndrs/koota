@@ -51,17 +51,18 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
+	// Get entity index/id.
+	const index = this & ENTITY_ID_MASK;
+
 	const worldId = getEntityWorldId(this);
 	const world = getEntityWorld(this);
 	const worldCtx = world[$internal];
+
 	// TODO: Remove the need for a map to get the entity mask for the trait.
 	const data = worldCtx.traitData.get(trait);
 
 	// If the trait does not exist on the world return undefined.
 	if (!data) return undefined;
-
-	// Get entity index/id.
-	const index = this & ENTITY_ID_MASK;
 
 	// If the entity does not have the trait return undefined.
 	const mask = worldCtx.entityMasks[data.generationId][index];
