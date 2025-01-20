@@ -5,6 +5,7 @@ export default defineConfig({
 	format: ['esm', 'cjs'],
 	external: [
 		'node:fs',
+		'node:crypto',
 		'tty',
 		'util',
 		'os',
