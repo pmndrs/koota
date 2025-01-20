@@ -29,7 +29,7 @@ export function unpackEntity(entity: Entity) {
 	};
 }
 
-export const getEntityId = (entity: Entity) => entity & ENTITY_ID_MASK;
+export const getEntityId = /* @inline */ (entity: Entity) => entity & ENTITY_ID_MASK;
 export const getEntityWorldId = /* @inline */ (entity: Entity) => entity >>> WORLD_ID_SHIFT;
 export const getEntityAndWorldId = (entity: Entity): [number, number] => [
 	entity & ENTITY_ID_MASK,
