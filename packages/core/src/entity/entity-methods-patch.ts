@@ -10,7 +10,7 @@ import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
 import { universe } from '../universe/universe';
 import { $internal } from '../common';
-import { destroyEntity, getWorldFromEntity } from './entity';
+import { destroyEntity, getEntityWorld } from './entity';
 import { Entity } from './types';
 import { ENTITY_ID_MASK, getEntityWorldId } from './utils/pack-entity';
 
@@ -52,7 +52,7 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
 	const worldId = getEntityWorldId(this);
-	const world = getWorldFromEntity(this);
+	const world = getEntityWorld(this);
 	const worldCtx = world[$internal];
 	// TODO: Remove the need for a map to get the entity mask for the trait.
 	const data = worldCtx.traitData.get(trait);
