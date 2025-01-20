@@ -2,15 +2,12 @@ import _generate from '@babel/generator';
 import { ParseResult } from '@babel/parser';
 import _traverse from '@babel/traverse';
 import {
-	ArrowFunctionExpression,
 	blockStatement,
 	booleanLiteral,
 	cloneNode,
 	Expression,
 	ExpressionStatement,
 	File,
-	FunctionDeclaration,
-	FunctionExpression,
 	identifier,
 	isBlockStatement,
 	isIdentifier,
@@ -21,74 +18,21 @@ import {
 	variableDeclaration,
 	variableDeclarator,
 } from '@babel/types';
+import { inlinableFunctions } from './collect-inlinable-functions';
 import { addImportsForDependencies } from './utils/add-import-for-dependencies';
-import { collectLocalDependencies } from './utils/collect-local-dependencies';
 import { convertStatementToExpression } from './utils/convert-statement-to-expression';
 import { createShortCircuit, createShortCircuitAssignment } from './utils/create-short-circuit';
 import { getFunctionBody } from './utils/get-function-content';
-import { getFunctionParams } from './utils/get-function-params';
-import { hasInlineDecorator } from './utils/has-inline-decorator';
 import { removeImportForFunction } from './utils/remove-import-for-function';
 
 // Depending on the version of babel, the default export may be different.
 const generate = (_generate as unknown as { default: typeof _generate }).default || _generate;
 const traverse = (_traverse as unknown as { default: typeof _traverse }).default || _traverse;
 
-type InlinableFunction = {
-	name: string;
-	params: string[];
-	func: FunctionDeclaration | ArrowFunctionExpression | FunctionExpression;
-};
-
-const inlinableFunctions = new Map<string, InlinableFunction>();
-
-export function reset() {
-	inlinableFunctions.clear();
-}
-
 export function inlineFunctions(ast: ParseResult<File>) {
-	// First pass: Collect all inlineable functions.
-	// Look for any function that has a @inline decorator.
-	traverse(ast, {
-		// Collect function delcaratoins.
-		FunctionDeclaration(path) {
-			const node = path.node;
-			const hasInline = hasInlineDecorator(node) || hasInlineDecorator(path.parent);
-			if (!hasInline || !node.id) return;
-
-			collectLocalDependencies(path);
-
-			inlinableFunctions.set(node.id.name, {
-				name: node.id.name,
-				func: node,
-				params: getFunctionParams(node),
-			});
-		},
-		// Collect arrow functions and function expressions (assigned to a variable).
-		VariableDeclarator(path) {
-			const node = path.node;
-			const init = node.init;
-			if (
-				init &&
-				(init.type === 'ArrowFunctionExpression' || init.type === 'FunctionExpression')
-			) {
-				const id = node.id;
-				if (!hasInlineDecorator(init) || !isIdentifier(id)) return;
-
-				collectLocalDependencies(path);
-
-				inlinableFunctions.set(id.name, {
-					name: id.name,
-					func: init,
-					params: getFunctionParams(init),
-				});
-			}
-		},
-	});
-
 	let uniqueCounter = 0;
 
-	// Second pass: Inline all invocations of the inlinable functions.
+	// Inline all invocations of the inlinable functions.
 	traverse(ast, {
 		CallExpression(path) {
 			const callee = path.node.callee;
