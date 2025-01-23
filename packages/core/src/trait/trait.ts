@@ -220,7 +220,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 	}
 }
 
-export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
+export /* @inline */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
 	const data = ctx.traitData.get(trait);
 	if (!data) return false;
