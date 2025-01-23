@@ -1,6 +1,5 @@
 import {
 	assignmentExpression,
-	booleanLiteral,
 	conditionalExpression,
 	Expression,
 	identifier,
@@ -18,17 +17,11 @@ import {
 
 export function convertStatementToExpression(
 	statement: Statement,
-	completedName: string,
 	resultName: string,
 	suffix: string,
 	localVars: Set<string>
 ): Expression {
-	const rest = [completedName, resultName, suffix, localVars] as [
-		string,
-		string,
-		string,
-		Set<string>
-	];
+	const rest = [resultName, suffix, localVars] as [string, string, Set<string>];
 
 	// If it's already an ExpressionStatement, return its expression
 	if (isExpressionStatement(statement)) {
@@ -62,7 +55,6 @@ export function convertStatementToExpression(
 
 		return sequenceExpression([
 			assignmentExpression('=', identifier(resultName), argument || identifier('undefined')),
-			assignmentExpression('=', identifier(completedName), booleanLiteral(true)),
 		]);
 	}
 

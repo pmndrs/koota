@@ -2,26 +2,23 @@ import _generate from '@babel/generator';
 import { ParseResult } from '@babel/parser';
 import _traverse from '@babel/traverse';
 import {
+	AssignmentExpression,
+	assignmentExpression,
 	blockStatement,
-	booleanLiteral,
 	cloneNode,
 	Expression,
+	expressionStatement,
 	ExpressionStatement,
 	File,
 	identifier,
+	IfStatement,
 	isBlockStatement,
 	isIdentifier,
-	LogicalExpression,
-	ReturnStatement,
-	SequenceExpression,
-	Statement,
 	variableDeclaration,
 	variableDeclarator,
 } from '@babel/types';
 import { inlinableFunctions } from './collect-inlinable-functions';
 import { addImportsForDependencies } from './utils/add-import-for-dependencies';
-import { convertStatementToExpression } from './utils/convert-statement-to-expression';
-import { createShortCircuit, createShortCircuitAssignment } from './utils/create-short-circuit';
 import { getFunctionBody } from './utils/get-function-content';
 import { removeImportForFunction } from './utils/remove-import-for-function';
 
@@ -59,9 +56,8 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			const variableNames = new Map<string, string>();
 			const uniqueSuffix = `_${uniqueCounter++}`;
 			const resultName = `result_${callee.name}_${uniqueSuffix}`;
-			const completedName = `completed_${callee.name}_${uniqueSuffix}`;
-			const returnStatements: ReturnStatement[] = [];
-			const ifStatements: ExpressionStatement[] = [];
+			const returnStatements: ExpressionStatement[] = [];
+			const ifStatements: IfStatement[] = [];
 
 			traverse(
 				blockStatement(inlinedBody),
@@ -84,101 +80,70 @@ export function inlineFunctions(ast: ParseResult<File>) {
 						}
 					},
 					ReturnStatement(returnPath) {
-						returnStatements.push(returnPath.node);
-					},
-					IfStatement(ifPath) {
-						let consequent = ifPath.node.consequent;
-						let statements: Statement[];
-						const suffix = `_${Math.random().toString(36).substring(2, 15)}`;
-						const localVars = new Set<string>();
-
-						// Collect statements.
-						if (isBlockStatement(consequent)) statements = consequent.body;
-						else statements = [consequent];
-
-						traverse(
-							blockStatement(statements),
-							{
-								ReturnStatement(returnPath) {
-									// Collect return statements.
-									returnStatements.push(returnPath.node);
-								},
-								VariableDeclarator(varPath) {
-									// Collect local variables.
-									if (isIdentifier(varPath.node.id)) {
-										localVars.add(varPath.node.id.name);
-									}
-								},
-							},
-							path.scope
-						);
-
-						// Transform if statement into a short circuit with chained expressions.
-						const expressions = statements.map((stmt) =>
-							convertStatementToExpression(
-								stmt,
-								completedName,
-								resultName,
-								suffix,
-								localVars
+						// Replace return statement with result assignment
+						const returnExpression = expressionStatement(
+							assignmentExpression(
+								'=',
+								identifier(resultName),
+								returnPath.node.argument || identifier('undefined')
 							)
 						);
-						const chainedExpression = createShortCircuit(ifPath.node.test, expressions);
-						ifPath.replaceWith(chainedExpression);
 
-						// Collect if statements.
-						ifStatements.push(chainedExpression);
+						returnPath.replaceWith(returnExpression);
+
+						returnStatements.push(returnPath.node as unknown as ExpressionStatement);
+					},
+					IfStatement(ifPath) {
+						ifStatements.push(ifPath.node);
+						let consequent = ifPath.node.consequent;
+						let alternate = ifPath.node.alternate;
+
+						// Convert consequent to block statement if it isn't already
+						if (!isBlockStatement(consequent)) {
+							ifPath.node.consequent = blockStatement([consequent]);
+						}
+
+						// Convert alternate to block statement if it exists and isn't already
+						if (alternate && !isBlockStatement(alternate)) {
+							ifPath.node.alternate = blockStatement([alternate]);
+						}
 					},
 				},
 				path.scope
 			);
 
+			// Transform if statements that don't have an else branch
+			for (const ifStatement of ifStatements) {
+				if (!ifStatement.alternate) {
+					const ifIndex = inlinedBody.indexOf(ifStatement);
+					if (ifIndex !== -1) {
+						// Collect all statements that follow this if statement
+						const remainingStatements = inlinedBody.splice(ifIndex + 1);
+						// Create else block with the remaining statements
+						ifStatement.alternate = blockStatement(remainingStatements);
+					} else {
+						// Fallback to empty else block if if statement not found
+						ifStatement.alternate = blockStatement([]);
+					}
+				}
+			}
+
 			if (returnStatements.length === 1) {
-				const lastReturnStatement = returnStatements[returnStatements.length - 1];
+				const lastReturnStatement = returnStatements[0];
 				// Remove from the inlined body.
 				const index = inlinedBody.indexOf(lastReturnStatement);
 				if (index !== -1) inlinedBody.splice(index, 1);
 
 				// Replace function call with assignment of the return value to the call identifier.
-				const expression = lastReturnStatement.argument || identifier('undefined');
+				const expression =
+					(lastReturnStatement.expression as AssignmentExpression).right ||
+					identifier('undefined');
 				path.replaceWith(expression);
 			} else if (returnStatements.length > 1) {
-				const lastReturnStatement = returnStatements[returnStatements.length - 1];
-				// // Remove from the inlined body.
-				// const index = inlinedBody.indexOf(lastReturnStatement);
-				// if (index !== -1) inlinedBody.splice(index, 1);
-
 				// Prepend our control variables.
 				inlinedBody.unshift(
-					variableDeclaration('let', [variableDeclarator(identifier(resultName), null)]),
-					variableDeclaration('let', [
-						variableDeclarator(identifier(completedName), booleanLiteral(false)),
-					])
+					variableDeclaration('let', [variableDeclarator(identifier(resultName), null)])
 				);
-
-				// Transform the if statement to have a short circuit.
-				for (const ifStmnt of ifStatements) {
-					const index = inlinedBody.indexOf(ifStmnt);
-
-					const shortCircuit = createShortCircuit(
-						(ifStmnt.expression as LogicalExpression).left,
-						((ifStmnt.expression as LogicalExpression).right as SequenceExpression)
-							.expressions,
-						completedName
-					);
-
-					inlinedBody.splice(index, 1, shortCircuit);
-				}
-
-				// Transform the last return statement to have a short circuit assignment.
-				const returnExpression = createShortCircuitAssignment(
-					lastReturnStatement.argument || identifier('undefined'),
-					completedName,
-					resultName
-				);
-
-				const index = inlinedBody.indexOf(lastReturnStatement);
-				if (index !== -1) inlinedBody.splice(index, 1, returnExpression);
 
 				// Replace the function call with our result variable.
 				path.replaceWith({ type: 'Identifier', name: resultName });
