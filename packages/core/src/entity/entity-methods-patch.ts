@@ -12,7 +12,7 @@ import { universe } from '../universe/universe';
 import { $internal } from '../common';
 import { destroyEntity, getEntityWorld } from './entity';
 import { Entity } from './types';
-import { ENTITY_ID_MASK, getEntityWorldId } from './utils/pack-entity';
+import { ENTITY_ID_MASK, getEntityId, getEntityWorldId } from './utils/pack-entity';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
@@ -51,15 +51,10 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
-	// Get entity index/id.
-	const index = this & ENTITY_ID_MASK;
 	const world = getEntityWorld(this);
-	const worldId = getEntityWorldId(this);
 
 	const result = hasTrait(world, this, trait);
 	if (!result) return undefined;
-
-	const traitCtx = trait[$internal];
 
 	// const store = getStore(world, trait) as Store;
 
@@ -73,9 +68,12 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 	// const mask = worldCtx.entityMasks[data.generationId][index];
 	// if ((mask & data.bitflag) !== data.bitflag) return undefined;
 
-	// // Return a snapshot of the trait state.
-	// const traitCtx = trait[$internal];
-	const store = traitCtx.stores[worldId];
+	// Get entity index/id.
+	const index = getEntityId(this);
+	const traitCtx = trait[$internal];
+	// const store = traitCtx.stores[worldId];
+	const store = /* @inline */ getStore(world, trait);
+
 	return traitCtx.get(index, store);
 };
 
