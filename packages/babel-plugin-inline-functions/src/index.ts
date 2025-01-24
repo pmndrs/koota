@@ -1,9 +1,9 @@
 import { parse } from '@babel/parser';
 import * as esbuild from 'esbuild';
-import fs from 'node:fs';
-import { collectInlinableFunctions, inlinableFunctions } from './collect-inlinable-functions';
-import { inlineFunctions } from './inline-functions';
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import { collectInlinableFunctions, reset } from './collect-inlinable-functions';
+import { inlineFunctions } from './inline-functions';
 
 const astCache = new Map<string, any>(); // hash -> ast
 
@@ -57,7 +57,7 @@ function firstPass(): esbuild.Plugin {
 		name: 'inline-functions-first-pass',
 		setup(build) {
 			build.onStart(async () => {
-				inlinableFunctions.clear();
+				reset();
 				astCache.clear();
 			});
 			build.onLoad({ filter: /\.(js|ts)$/ }, async ({ path }) => {

@@ -7,19 +7,21 @@ import {
 	isIdentifier,
 } from '@babel/types';
 import _traverse from '@babel/traverse';
-import { hasInlineDecorator } from './utils/has-inline-decorator';
+import { hasInlineDecorator } from './utils/inline-decorator-utils';
 import { collectLocalDependencies } from './utils/collect-local-dependencies';
 import { getFunctionParams } from './utils/get-function-params';
 
 const traverse = (_traverse as unknown as { default: typeof _traverse }).default || _traverse;
 
-type InlinableFunction = {
+export type InlinableFunction = {
 	name: string;
 	params: string[];
 	func: FunctionDeclaration | ArrowFunctionExpression | FunctionExpression;
 };
 
+export const allFunctions = new Map<string, InlinableFunction>();
 export const inlinableFunctions = new Map<string, InlinableFunction>();
+export const inlinableFunctionCalls = new Map<string, InlinableFunction>();
 
 export function collectInlinableFunctions(ast: ParseResult<File>) {
 	// Collect all inlineable functions.
@@ -29,15 +31,26 @@ export function collectInlinableFunctions(ast: ParseResult<File>) {
 		FunctionDeclaration(path) {
 			const node = path.node;
 			const hasInline = hasInlineDecorator(node) || hasInlineDecorator(path.parent);
-			if (!hasInline || !node.id) return;
 
-			collectLocalDependencies(path);
+			// Ignore anonymous functions.
+			if (!node.id) return;
 
-			inlinableFunctions.set(node.id.name, {
-				name: node.id.name,
-				func: node,
-				params: getFunctionParams(node),
-			});
+			// If the function is not inlineable, save it in case there is a call to it.
+			if (!hasInline) {
+				allFunctions.set(node.id.name, {
+					name: node.id.name,
+					func: node,
+					params: getFunctionParams(node),
+				});
+			} else {
+				collectLocalDependencies(path);
+
+				inlinableFunctions.set(node.id.name, {
+					name: node.id.name,
+					func: node,
+					params: getFunctionParams(node),
+				});
+			}
 		},
 		// Collect arrow functions and function expressions (assigned to a variable).
 		VariableDeclarator(path) {
@@ -48,16 +61,43 @@ export function collectInlinableFunctions(ast: ParseResult<File>) {
 				(init.type === 'ArrowFunctionExpression' || init.type === 'FunctionExpression')
 			) {
 				const id = node.id;
-				if (!hasInlineDecorator(init) || !isIdentifier(id)) return;
 
-				collectLocalDependencies(path);
+				// Ignore anonymous functions.
+				if (!isIdentifier(id)) return;
 
-				inlinableFunctions.set(id.name, {
-					name: id.name,
-					func: init,
-					params: getFunctionParams(init),
-				});
+				// If the function is not inlineable, save it in case there is a call to it.
+				if (!hasInlineDecorator(init)) {
+					allFunctions.set(id.name, {
+						name: id.name,
+						func: init,
+						params: getFunctionParams(init),
+					});
+				} else {
+					collectLocalDependencies(path);
+
+					inlinableFunctions.set(id.name, {
+						name: id.name,
+						func: init,
+						params: getFunctionParams(init),
+					});
+				}
 			}
 		},
+		CallExpression(path) {
+			const node = path.node;
+			const callee = node.callee;
+
+			if (!isIdentifier(callee) || !hasInlineDecorator(node)) return;
+
+			const name = callee.name;
+			const func = allFunctions.get(name);
+			if (func) inlinableFunctionCalls.set(name, func);
+		},
 	});
+}
+
+export function reset() {
+	allFunctions.clear();
+	inlinableFunctions.clear();
+	inlinableFunctionCalls.clear();
 }

@@ -38,8 +38,17 @@ export function collectLocalDependencies(path: NodePath<FunctionDeclaration | Va
 			// Only process bindings from the same file.
 			if (binding.path.hub !== path.hub) return;
 
+			// Only collect module-level declarations and imports
+			const isModuleScope = binding.scope.path.isProgram();
+			const isImport =
+				binding.path.isImportSpecifier() ||
+				binding.path.isImportDefaultSpecifier() ||
+				binding.path.isImportNamespaceSpecifier();
+
+			if (!isModuleScope && !isImport) return;
+
 			const declaration = binding.path.node;
-			if (declaration.type !== 'VariableDeclarator') return;
+			if (!isImport && declaration.type !== 'VariableDeclarator') return;
 
 			const parentDeclaration = binding.path.parentPath?.node;
 			if (!parentDeclaration) return;
