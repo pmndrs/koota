@@ -14,13 +14,19 @@ import {
 	IfStatement,
 	isBlockStatement,
 	isIdentifier,
+	isMemberExpression,
 	variableDeclaration,
 	variableDeclarator,
 } from '@babel/types';
-import { inlinableFunctions } from './collect-inlinable-functions';
+import {
+	InlinableFunction,
+	inlinableFunctionCalls,
+	inlinableFunctions,
+} from './collect-inlinable-functions';
 import { addImportsForDependencies } from './utils/add-import-for-dependencies';
 import { getFunctionBody } from './utils/get-function-content';
 import { removeImportForFunction } from './utils/remove-import-for-function';
+import { hasInlineDecorator, removeInlineDecorator } from './utils/inline-decorator-utils';
 
 // Depending on the version of babel, the default export may be different.
 const generate = (_generate as unknown as { default: typeof _generate }).default || _generate;
@@ -35,9 +41,20 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			const callee = path.node.callee;
 
 			// Only support named function calls -- ie not methods or accessors.
-			if (!isIdentifier(callee) || !inlinableFunctions.has(callee.name)) return;
+			if (!isIdentifier(callee)) return;
 
-			const inlinableFn = inlinableFunctions.get(callee.name)!;
+			let inlinableFn: InlinableFunction | undefined;
+
+			if (inlinableFunctions.has(callee.name)) {
+				inlinableFn = inlinableFunctions.get(callee.name)!;
+			} else if (inlinableFunctionCalls.has(callee.name) && hasInlineDecorator(path.node)) {
+				inlinableFn = inlinableFunctionCalls.get(callee.name)!;
+			}
+
+			if (!inlinableFn) return;
+
+			// Remove @inline leading comments
+			removeInlineDecorator(path.node);
 
 			// Create a mapping of parameter names to their argument expressions.
 			const paramMappings = new Map<string, Expression>();
@@ -72,6 +89,15 @@ export function inlineFunctions(ast: ParseResult<File>) {
 						}
 					},
 					Identifier(idPath) {
+						// Skip renaming if this identifier is a property access
+						if (
+							isMemberExpression(idPath.parent) &&
+							idPath.parentKey === 'property' &&
+							!idPath.parent.computed
+						) {
+							return;
+						}
+
 						// Replace parameters and rename variables assignments.
 						if (paramMappings.has(idPath.node.name)) {
 							idPath.replaceWith(paramMappings.get(idPath.node.name)!);

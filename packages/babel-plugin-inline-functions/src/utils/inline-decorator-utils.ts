@@ -5,3 +5,8 @@ export function hasInlineDecorator(node: Node) {
 	const inlineComment = node.leadingComments.find((c) => c.value.includes('@inline'));
 	return !!inlineComment;
 }
+
+export function removeInlineDecorator(node: Node) {
+	if (!node.leadingComments) return;
+	node.leadingComments = node.leadingComments.filter((c) => !c.value.includes('@inline'));
+}
