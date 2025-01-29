@@ -1,6 +1,6 @@
 import _generate from '@babel/generator';
 import { ParseResult } from '@babel/parser';
-import _traverse from '@babel/traverse';
+import _traverse, { NodePath } from '@babel/traverse';
 import {
 	AssignmentExpression,
 	assignmentExpression,
@@ -10,6 +10,7 @@ import {
 	expressionStatement,
 	ExpressionStatement,
 	File,
+	Function,
 	identifier,
 	IfStatement,
 	isBlockStatement,
@@ -25,8 +26,8 @@ import {
 } from './collect-inlinable-functions';
 import { addImportsForDependencies } from './utils/add-import-for-dependencies';
 import { getFunctionBody } from './utils/get-function-content';
-import { removeImportForFunction } from './utils/remove-import-for-function';
 import { hasInlineDecorator, removeInlineDecorator } from './utils/inline-decorator-utils';
+import { removeImportForFunction } from './utils/remove-import-for-function';
 
 // Depending on the version of babel, the default export may be different.
 const generate = (_generate as unknown as { default: typeof _generate }).default || _generate;
@@ -34,6 +35,7 @@ const traverse = (_traverse as unknown as { default: typeof _traverse }).default
 
 export function inlineFunctions(ast: ParseResult<File>) {
 	let uniqueCounter = 0;
+	const transformedFunctions = new Set<NodePath<Function>>();
 
 	// Inline all invocations of the inlinable functions.
 	traverse(ast, {
@@ -53,6 +55,10 @@ export function inlineFunctions(ast: ParseResult<File>) {
 
 			if (!inlinableFn) return;
 
+			// Collect functions we are transforming so we can do a final pass later.
+			const containingFunction = path.getFunctionParent();
+			if (containingFunction) transformedFunctions.add(containingFunction);
+
 			// Remove @inline leading comments
 			removeInlineDecorator(path.node);
 
@@ -71,8 +77,8 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			const body = getFunctionBody(inlinableFn.func);
 			const inlinedBody = body.map((statement) => cloneNode(statement));
 			const variableNames = new Map<string, string>();
-			const uniqueSuffix = `_${uniqueCounter++}`;
-			const resultName = `result_${callee.name}_${uniqueSuffix}`;
+			const uniqueSuffix = `_${uniqueCounter++}_$f`;
+			const resultName = `result_${callee.name}${uniqueSuffix}`;
 			const returnStatements: ExpressionStatement[] = [];
 			const ifStatements: IfStatement[] = [];
 
@@ -180,6 +186,74 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			if (statementPath) statementPath.insertBefore(inlinedBody);
 		},
 	});
+
+	for (const functionPath of transformedFunctions) {
+		const expressionCounts = new Map<string, number>();
+		const variableDeclarations = new Map<string, string>();
+		const firstDeclarationForExpression = new Map<string, string>();
+		const variablesToReplace = new Map<string, string>();
+
+		// Count occurrences of member expressions.
+		traverse(
+			functionPath.node,
+			{
+				VariableDeclarator(path) {
+					// Handle variable declarations
+					if (!isIdentifier(path.node.id)) return;
+					const variableName = path.node.id.name;
+					if (!variableName.endsWith('_$f')) return;
+
+					const init = path.node.init;
+					if (!init) return;
+
+					let clonedInit = cloneNode(init);
+
+					// Remove nullish type annotations.
+					if (clonedInit.type === 'TSNonNullExpression') {
+						clonedInit = clonedInit.expression;
+					}
+
+					let code = generate(clonedInit).code;
+
+					// Replace any known variable references
+					for (const [varName, replacement] of variableDeclarations.entries()) {
+						code = code.replace(`${varName}.`, replacement);
+					}
+
+					variableDeclarations.set(variableName, code);
+					let expressionCount = expressionCounts.get(code) || 0;
+					expressionCount++;
+					expressionCounts.set(code, expressionCount);
+
+					if (expressionCount > 1) {
+						variablesToReplace.set(
+							variableName,
+							firstDeclarationForExpression.get(code)!
+						);
+
+						// Remove the declaration from the ast
+						path.remove();
+					} else {
+						firstDeclarationForExpression.set(code, variableName);
+					}
+				},
+			},
+			functionPath.scope
+		);
+
+		traverse(
+			functionPath.node,
+			{
+				Identifier(path) {
+					const name = path.node.name;
+					if (variablesToReplace.has(name)) {
+						path.node.name = variablesToReplace.get(name)!;
+					}
+				},
+			},
+			functionPath.scope
+		);
+	}
 
 	const { code } = generate(ast);
 
