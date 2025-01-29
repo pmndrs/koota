@@ -137,9 +137,8 @@ function get(this: Entity, trait: Trait) {
 	if (!hasTrait__data) {
         hasTrait_result = false
     } else {
-        const { generationId, bitflag } = hasTrait__data;
         const mask = hasTrait__ctx.entityMasks[hasTrait__data.generationId][eid];
-        hasTrait_result = (mask & hasTrait__data.bitflag) === bitflag;
+        hasTrait_result = (mask & hasTrait__data.bitflag) === hasTrait__data.bitflag;
     }
 
 	if (!hasTrait_result) return undefined;
