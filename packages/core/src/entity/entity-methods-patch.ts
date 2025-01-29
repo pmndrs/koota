@@ -68,13 +68,8 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 	// const mask = worldCtx.entityMasks[data.generationId][index];
 	// if ((mask & data.bitflag) !== data.bitflag) return undefined;
 
-	// Get entity index/id.
-	const index = getEntityId(this);
 	const traitCtx = trait[$internal];
-	// const store = traitCtx.stores[worldId];
-	const store = /* @inline */ getStore(world, trait);
-
-	return traitCtx.get(index, store);
+	return traitCtx.get(getEntityId(this), /* @inline */ getStore(world, trait));
 };
 
 // @ts-expect-error
