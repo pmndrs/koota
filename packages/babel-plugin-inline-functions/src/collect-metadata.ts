@@ -7,7 +7,7 @@ import {
 	isIdentifier,
 } from '@babel/types';
 import _traverse from '@babel/traverse';
-import { hasInlineDecorator } from './utils/inline-decorator-utils';
+import { hasInlineDecorator, hasPureDecorator } from './utils/decorator-utils';
 import { collectLocalDependencies } from './utils/collect-local-dependencies';
 import { getFunctionParams } from './utils/get-function-params';
 
@@ -22,15 +22,16 @@ export type InlinableFunction = {
 export const allFunctions = new Map<string, InlinableFunction>();
 export const inlinableFunctions = new Map<string, InlinableFunction>();
 export const inlinableFunctionCalls = new Map<string, InlinableFunction>();
+export const pureFunctions = new Set<string>();
 
-export function collectInlinableFunctions(ast: ParseResult<File>) {
-	// Collect all inlineable functions.
-	// Look for any function that has a @inline decorator.
+export function collectMetadata(ast: ParseResult<File>) {
+	// Look for any function that has a @inline or @pure decorator.
 	traverse(ast, {
 		// Collect function delcaratoins.
 		FunctionDeclaration(path) {
 			const node = path.node;
 			const hasInline = hasInlineDecorator(node) || hasInlineDecorator(path.parent);
+			const hasPure = hasPureDecorator(node) || hasPureDecorator(path.parent);
 
 			// Ignore anonymous functions.
 			if (!node.id) return;
@@ -51,6 +52,9 @@ export function collectInlinableFunctions(ast: ParseResult<File>) {
 					params: getFunctionParams(node),
 				});
 			}
+
+			// Collect pure functions.
+			if (hasPure) pureFunctions.add(node.id.name);
 		},
 		// Collect arrow functions and function expressions (assigned to a variable).
 		VariableDeclarator(path) {
@@ -81,6 +85,9 @@ export function collectInlinableFunctions(ast: ParseResult<File>) {
 						params: getFunctionParams(init),
 					});
 				}
+
+				// Collect pure functions.
+				if (hasPureDecorator(init)) pureFunctions.add(id.name);
 			}
 		},
 		CallExpression(path) {
@@ -96,8 +103,9 @@ export function collectInlinableFunctions(ast: ParseResult<File>) {
 	});
 }
 
-export function reset() {
+export function resetMetadata() {
 	allFunctions.clear();
 	inlinableFunctions.clear();
 	inlinableFunctionCalls.clear();
+	pureFunctions.clear();
 }

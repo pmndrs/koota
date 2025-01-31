@@ -23,13 +23,15 @@ import {
 	InlinableFunction,
 	inlinableFunctionCalls,
 	inlinableFunctions,
-} from './collect-inlinable-functions';
+	pureFunctions,
+} from './collect-metadata';
+import { dedupVariables } from './dedup-variables';
+import { STATS } from './stats';
 import { addImportsForDependencies } from './utils/add-import-for-dependencies';
+import { hasInlineDecorator, removeDecorators } from './utils/decorator-utils';
 import { getFunctionBody } from './utils/get-function-content';
-import { hasInlineDecorator, removeInlineDecorator } from './utils/inline-decorator-utils';
+import { getFunctionName } from './utils/get-function-name';
 import { removeImportForFunction } from './utils/remove-import-for-function';
-import { incrementInlinedFunctionCount, setTransformedFunction } from './stats';
-import { getFunctionName } from './utils/get-function-name-from-path';
 
 // Depending on the version of babel, the default export may be different.
 const generate = (_generate as unknown as { default: typeof _generate }).default || _generate;
@@ -37,7 +39,7 @@ const traverse = (_traverse as unknown as { default: typeof _traverse }).default
 
 export function inlineFunctions(ast: ParseResult<File>) {
 	let uniqueCounter = 0;
-	const transformedFunctions = new Set<NodePath<Function>>();
+	const transformedFunctions = new Map<NodePath<Function>, { isPure: boolean }>();
 
 	// Inline all invocations of the inlinable functions.
 	traverse(ast, {
@@ -56,24 +58,26 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			}
 
 			if (!inlinableFn) return;
-			incrementInlinedFunctionCount(inlinableFn.name);
+			STATS.incrementInlinedFunctionCount(inlinableFn.name);
 
-			// Get the parent function name.
-			let parentFunctionName = '';
+			// Save the transformed parent function.
 			const parentFunction = path.getFunctionParent();
-
 			if (parentFunction) {
-				parentFunctionName = getFunctionName(parentFunction);
+				STATS.setTransformedFunction(getFunctionName(parentFunction), true);
+
+				if (!transformedFunctions.has(parentFunction)) {
+					transformedFunctions.set(parentFunction, { isPure: true });
+				}
+
+				// Flag as impure if the inlined function is not pure.
+				if (!pureFunctions.has(inlinableFn.name)) {
+					transformedFunctions.set(parentFunction, { isPure: false });
+					STATS.setTransformedFunction(getFunctionName(parentFunction), false);
+				}
 			}
 
-			setTransformedFunction(parentFunctionName);
-
-			// Collect functions we are transforming so we can do a final pass later.
-			const containingFunction = path.getFunctionParent();
-			if (containingFunction) transformedFunctions.add(containingFunction);
-
-			// Remove @inline leading comments
-			removeInlineDecorator(path.node);
+			// Remove decorated leading comments.
+			removeDecorators(path.node);
 
 			// Create a mapping of parameter names to their argument expressions.
 			const paramMappings = new Map<string, Expression>();
@@ -173,6 +177,7 @@ export function inlineFunctions(ast: ParseResult<File>) {
 				}
 			}
 
+			// Transform return statements.
 			if (returnStatements.length === 1) {
 				const lastReturnStatement = returnStatements[0];
 				// Remove from the inlined body.
@@ -200,79 +205,8 @@ export function inlineFunctions(ast: ParseResult<File>) {
 		},
 	});
 
-	for (const functionPath of transformedFunctions) {
-		const expressionCounts = new Map<string, number>();
-		const variableDeclarations = new Map<string, string>();
-		const firstDeclarationForExpression = new Map<string, string>();
-		const variablesToReplace = new Map<string, string>();
-
-		// Remove duplicate memory access expressions if it is safe to do so.
-		traverse(
-			functionPath.node,
-			{
-				VariableDeclarator(path) {
-					// Handle variable declarations
-					if (!isIdentifier(path.node.id)) return;
-					const variableName = path.node.id.name;
-					if (!variableName.endsWith('_$f')) return;
-
-					// Only dedup const declarations
-					if (path.parent.type !== 'VariableDeclaration' || path.parent.kind !== 'const') {
-						return;
-					}
-
-					const init = path.node.init;
-					if (!init) return;
-
-					let clonedInit = cloneNode(init);
-
-					// Remove nullish type annotations.
-					if (clonedInit.type === 'TSNonNullExpression') {
-						clonedInit = clonedInit.expression;
-					}
-
-					let code = generate(clonedInit).code;
-
-					// Replace any known variable references.
-					for (const [varName, replacement] of variableDeclarations.entries()) {
-						code = code.replace(`${varName}.`, replacement);
-					}
-
-					variableDeclarations.set(variableName, code);
-					let expressionCount = expressionCounts.get(code) || 0;
-					expressionCount++;
-					expressionCounts.set(code, expressionCount);
-
-					if (expressionCount > 1) {
-						variablesToReplace.set(
-							variableName,
-							firstDeclarationForExpression.get(code)!
-						);
-
-						// Remove the declaration from the ast.
-						path.remove();
-					} else {
-						firstDeclarationForExpression.set(code, variableName);
-					}
-				},
-			},
-			functionPath.scope
-		);
-
-		// Replace variables with their first declaration.
-		traverse(
-			functionPath.node,
-			{
-				Identifier(path) {
-					const name = path.node.name;
-					if (variablesToReplace.has(name)) {
-						path.node.name = variablesToReplace.get(name)!;
-					}
-				},
-			},
-			functionPath.scope
-		);
-	}
+	// Remove duplicate memory access expressions if it is safe to do so.
+	dedupVariables(transformedFunctions);
 
 	const { code } = generate(ast);
 	return code;

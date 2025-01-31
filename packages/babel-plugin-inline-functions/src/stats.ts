@@ -1,22 +1,36 @@
 const inlinedFunctionCount = new Map<string, number>();
-const transformedFunctions = new Set<string>();
+const transformedFunctions = new Map<string, { isPure: boolean }>();
 
-export function getInlinedFunctionCount(name: string) {
+function getInlinedFunctionCount(name: string) {
 	return inlinedFunctionCount.get(name) ?? 0;
 }
 
-export function getAllInlinedFunctionCounts() {
+function getAllInlinedFunctionCounts() {
 	return inlinedFunctionCount.entries();
 }
 
-export function incrementInlinedFunctionCount(name: string) {
+function incrementInlinedFunctionCount(name: string) {
 	inlinedFunctionCount.set(name, (inlinedFunctionCount.get(name) ?? 0) + 1);
 }
 
-export function setTransformedFunction(name: string) {
-	transformedFunctions.add(name);
+function setTransformedFunction(name: string, isPure: boolean) {
+	transformedFunctions.set(name, { isPure });
 }
 
-export function getAllTransformedFunctions() {
+function getAllTransformedFunctions() {
 	return Array.from(transformedFunctions);
 }
+
+function reset() {
+	inlinedFunctionCount.clear();
+	transformedFunctions.clear();
+}
+
+export const STATS = {
+	getInlinedFunctionCount,
+	getAllInlinedFunctionCounts,
+	incrementInlinedFunctionCount,
+	setTransformedFunction,
+	getAllTransformedFunctions,
+	reset,
+};
