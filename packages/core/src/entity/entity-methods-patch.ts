@@ -57,7 +57,7 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 	if (!result) return undefined;
 
 	const traitCtx = trait[$internal];
-	return traitCtx.get(getEntityId(this), /* @inline */ getStore(world, trait));
+	return traitCtx.get(getEntityId(this), getStore(world, trait));
 };
 
 // @ts-expect-error

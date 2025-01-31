@@ -220,7 +220,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 	}
 }
 
-export /* @inline */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
+export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
 	const data = ctx.traitData.get(trait);
 	if (!data) return false;
@@ -232,7 +232,10 @@ export /* @inline */ function hasTrait(world: World, entity: Entity, trait: Trai
 	return (mask & bitflag) === bitflag;
 }
 
-export function getStore<C extends Trait = Trait>(world: World, trait: C): ExtractStore<C> {
+export /* @inline @pure */ function getStore<C extends Trait = Trait>(
+	world: World,
+	trait: C
+): ExtractStore<C> {
 	const ctx = world[$internal];
 	const data = ctx.traitData.get(trait)!;
 	const store = data.store as ExtractStore<C>;
