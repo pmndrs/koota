@@ -56,18 +56,6 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 	const result = hasTrait(world, this, trait);
 	if (!result) return undefined;
 
-	// const store = getStore(world, trait) as Store;
-
-	// // TODO: Remove the need for a map to get the entity mask for the trait.
-	// const data = worldCtx.traitData.get(trait);
-
-	// // If the trait does not exist on the world return undefined.
-	// if (!data) return undefined;
-
-	// // If the entity does not have the trait return undefined.
-	// const mask = worldCtx.entityMasks[data.generationId][index];
-	// if ((mask & data.bitflag) !== data.bitflag) return undefined;
-
 	const traitCtx = trait[$internal];
 	return traitCtx.get(getEntityId(this), /* @inline */ getStore(world, trait));
 };
