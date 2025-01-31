@@ -28,6 +28,8 @@ import { addImportsForDependencies } from './utils/add-import-for-dependencies';
 import { getFunctionBody } from './utils/get-function-content';
 import { hasInlineDecorator, removeInlineDecorator } from './utils/inline-decorator-utils';
 import { removeImportForFunction } from './utils/remove-import-for-function';
+import { incrementInlinedFunctionCount, setTransformedFunction } from './stats';
+import { getFunctionName } from './utils/get-function-name-from-path';
 
 // Depending on the version of babel, the default export may be different.
 const generate = (_generate as unknown as { default: typeof _generate }).default || _generate;
@@ -54,6 +56,17 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			}
 
 			if (!inlinableFn) return;
+			incrementInlinedFunctionCount(inlinableFn.name);
+
+			// Get the parent function name.
+			let parentFunctionName = '';
+			const parentFunction = path.getFunctionParent();
+
+			if (parentFunction) {
+				parentFunctionName = getFunctionName(parentFunction);
+			}
+
+			setTransformedFunction(parentFunctionName);
 
 			// Collect functions we are transforming so we can do a final pass later.
 			const containingFunction = path.getFunctionParent();
@@ -262,6 +275,5 @@ export function inlineFunctions(ast: ParseResult<File>) {
 	}
 
 	const { code } = generate(ast);
-
 	return code;
 }
