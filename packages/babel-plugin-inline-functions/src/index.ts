@@ -19,6 +19,8 @@ export function inlineFunctionsPlugin(): esbuild.Plugin {
 		name: 'inline-functions',
 		setup(build) {
 			let flag = true;
+			let isCached = false;
+			let hasPrintedStats = false;
 
 			build.onStart(async () => {
 				if (!flag) return;
@@ -40,6 +42,7 @@ export function inlineFunctionsPlugin(): esbuild.Plugin {
 				// The plugin can rerun for different formats (ESM, CJS, etc.)
 				// We can return the cached code if it exists since our transforms are indepndent.
 				if (codeCache.has(hash)) {
+					isCached = true;
 					return {
 						contents: codeCache.get(hash),
 						loader: path.endsWith('.ts') ? 'ts' : 'js',
@@ -64,6 +67,8 @@ export function inlineFunctionsPlugin(): esbuild.Plugin {
 			});
 
 			build.onEnd(() => {
+				if (isCached || hasPrintedStats) return;
+
 				const counts = Array.from(getAllInlinedFunctionCounts()).filter(
 					([name]) => name.trim() !== ''
 				);
@@ -80,15 +85,15 @@ export function inlineFunctionsPlugin(): esbuild.Plugin {
 
 				if (functions.length > 0) {
 					console.log(chalk.green('\n✓ Transformed functions:'));
-					// Group functions into lines of 4
+					// Group functions into lines of 4.
 					const chunkSize = 4;
-					// Calculate max width for each column
+					// Calculate max width for each column.
 					const columnWidths = Array(chunkSize).fill(0);
 					for (let i = 0; i < functions.length; i++) {
 						const col = i % chunkSize;
 						columnWidths[col] = Math.max(columnWidths[col], functions[i].length);
 					}
-					// Print in grid format
+					// Print in grid format.
 					for (let i = 0; i < functions.length; i += chunkSize) {
 						const chunk = functions.slice(i, i + chunkSize);
 						const paddedChunk = chunk.map((name, idx) =>
@@ -96,7 +101,10 @@ export function inlineFunctionsPlugin(): esbuild.Plugin {
 						);
 						console.log(`  ${paddedChunk.join('  ')}`);
 					}
+					console.log('');
 				}
+
+				hasPrintedStats = true;
 			});
 		},
 	};
