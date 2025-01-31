@@ -1,6 +1,6 @@
 import { Binding, NodePath } from '@babel/traverse';
 import { FunctionDeclaration, Node, VariableDeclarator } from '@babel/types';
-import { getFunctionNameFromDeclaration } from './get-function-name-from-path';
+import { getFunctionNameFromDeclaration } from './get-function-name';
 
 type LocalDependency = {
 	name: string;
