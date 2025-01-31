@@ -193,7 +193,7 @@ export function inlineFunctions(ast: ParseResult<File>) {
 		const firstDeclarationForExpression = new Map<string, string>();
 		const variablesToReplace = new Map<string, string>();
 
-		// Count occurrences of member expressions.
+		// Remove duplicate memory access expressions if it is safe to do so.
 		traverse(
 			functionPath.node,
 			{
@@ -202,6 +202,11 @@ export function inlineFunctions(ast: ParseResult<File>) {
 					if (!isIdentifier(path.node.id)) return;
 					const variableName = path.node.id.name;
 					if (!variableName.endsWith('_$f')) return;
+
+					// Only dedup const declarations
+					if (path.parent.type !== 'VariableDeclaration' || path.parent.kind !== 'const') {
+						return;
+					}
 
 					const init = path.node.init;
 					if (!init) return;
@@ -215,7 +220,7 @@ export function inlineFunctions(ast: ParseResult<File>) {
 
 					let code = generate(clonedInit).code;
 
-					// Replace any known variable references
+					// Replace any known variable references.
 					for (const [varName, replacement] of variableDeclarations.entries()) {
 						code = code.replace(`${varName}.`, replacement);
 					}
@@ -231,7 +236,7 @@ export function inlineFunctions(ast: ParseResult<File>) {
 							firstDeclarationForExpression.get(code)!
 						);
 
-						// Remove the declaration from the ast
+						// Remove the declaration from the ast.
 						path.remove();
 					} else {
 						firstDeclarationForExpression.set(code, variableName);
@@ -241,6 +246,7 @@ export function inlineFunctions(ast: ParseResult<File>) {
 			functionPath.scope
 		);
 
+		// Replace variables with their first declaration.
 		traverse(
 			functionPath.node,
 			{
