@@ -31,6 +31,7 @@
 		"@types/babel__generator": "^7.6.8",
 		"@types/babel__traverse": "^7.20.6",
 		"@types/node": "latest",
+		"chalk": "^5.4.1",
 		"esbuild": "^0.24.2",
 		"tsconfig": "workspace:*",
 		"tsup": "^8.3.0"

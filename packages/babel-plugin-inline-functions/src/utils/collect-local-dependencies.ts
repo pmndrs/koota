@@ -1,6 +1,6 @@
 import { Binding, NodePath } from '@babel/traverse';
 import { FunctionDeclaration, Node, VariableDeclarator } from '@babel/types';
-import { getFunctionNameFromPath } from './get-function-name-from-path';
+import { getFunctionNameFromDeclaration } from './get-function-name-from-path';
 
 type LocalDependency = {
 	name: string;
@@ -17,7 +17,7 @@ export function getFunctionLocalDeps(name: string) {
 }
 
 export function collectLocalDependencies(path: NodePath<FunctionDeclaration | VariableDeclarator>) {
-	const name = getFunctionNameFromPath(path);
+	const name = getFunctionNameFromDeclaration(path);
 	if (!name) return;
 
 	const localDeps = new Map<string, LocalDependency>();

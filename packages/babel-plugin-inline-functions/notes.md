@@ -148,3 +148,27 @@ function get(this: Entity, trait: Trait) {
 	return traitCtx.get(eid, data.store);
 }
 ```
+
+Instead of automatically deduping variables, we will have a `@pure` annotation. The dev then determines if the function is pure and if all functions in the transformed function are pure, we can safely dedup.
+
+```js
+export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
+	const ctx =world[$internal];
+	const data = ctx.traitData.get(trait);
+	if (!data) return false;
+
+	const { generationId, bitflag } = data;
+	const eid = getEntityId(entity);
+	const mask = ctx.entityMasks[generationId][eid];
+
+	return (mask & bitflag) === bitflag;
+}
+
+export /* @pure */ function getStore<C extends Trait = Trait>(world: World, trait: C): ExtractStore<C> {
+	const ctx = world[$internal];
+	const data = ctx.traitData.get(trait)!;
+	const store = data.store as ExtractStore<C>;
+
+	return store;
+}
+```
