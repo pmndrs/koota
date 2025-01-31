@@ -1,6 +1,6 @@
 import _generate from '@babel/generator';
 import _traverse, { NodePath } from '@babel/traverse';
-import { cloneNode, Function, isIdentifier } from '@babel/types';
+import { cloneNode, Function, isIdentifier, Node } from '@babel/types';
 
 // Depending on the version of babel, the default export may be different.
 const generate = (_generate as unknown as { default: typeof _generate }).default || _generate;
@@ -53,13 +53,24 @@ export function dedupVariables(transformedFunctions: Map<NodePath<Function>, { i
 					expressionCounts.set(code, expressionCount);
 
 					if (expressionCount > 1) {
-						variablesToReplace.set(
-							variableName,
-							firstDeclarationForExpression.get(code)!
-						);
+						const firstDeclaration = firstDeclarationForExpression.get(code)!;
 
-						// Remove the declaration from the ast.
-						path.remove();
+						// Check if declaration is inside an if statement
+						let parent: NodePath<Node> | null = path.parentPath;
+						let isInIfStatement = false;
+						while (parent) {
+							if (parent.isIfStatement()) {
+								isInIfStatement = true;
+								break;
+							}
+							parent = parent.parentPath;
+						}
+
+						if (!isInIfStatement) {
+							variablesToReplace.set(variableName, firstDeclaration);
+							// Remove the declaration from the ast.
+							path.remove();
+						}
 					} else {
 						firstDeclarationForExpression.set(code, variableName);
 					}
