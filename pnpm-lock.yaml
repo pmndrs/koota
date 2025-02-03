@@ -350,9 +350,6 @@ importers:
       esbuild:
         specifier: ^0.24.2
         version: 0.24.2
-      tsconfig:
-        specifier: workspace:*
-        version: link:../tsconfig
       tsup:
         specifier: ^8.3.0
         version: 8.3.0(@swc/core@1.7.40)(postcss@8.4.47)(tsx@4.19.2)(typescript@5.7.3)
@@ -418,6 +415,9 @@ importers:
       '@types/three':
         specifier: ^0.162.0
         version: 0.162.0
+      babel-plugin-inline-functions:
+        specifier: workspace:*
+        version: link:../babel-plugin-inline-functions
       react:
         specifier: ^18.3.1
         version: 18.3.1
