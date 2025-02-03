@@ -33,7 +33,6 @@
 		"@types/node": "latest",
 		"chalk": "^5.4.1",
 		"esbuild": "^0.24.2",
-		"tsconfig": "workspace:*",
 		"tsup": "^8.3.0"
 	},
 	"peerDependencies": {
