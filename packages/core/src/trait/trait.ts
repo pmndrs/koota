@@ -238,9 +238,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 ): ExtractStore<C> {
 	const ctx = world[$internal];
 	const data = ctx.traitData.get(trait)!;
-	const store = data.store as ExtractStore<C>;
-
-	return store;
+	return data.store as ExtractStore<C>;
 }
 
 export function getStores<T extends [Trait, ...Trait[]]>(
