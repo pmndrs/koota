@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorld, Entity } from '../src';
 import { $internal } from '../src/common';
-import { getStores, registerTrait, trait } from '../src/trait/trait';
+import { getStore, registerTrait, trait } from '../src/trait/trait';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
@@ -66,7 +66,7 @@ describe('Trait', () => {
 		const entity = world.spawn();
 
 		entity.add(Position);
-		const store = getStores(world, Position);
+		const store = getStore(world, Position);
 
 		// First entry is the world entity.
 		expect(store).toMatchObject({ x: [undefined, 0], y: [undefined, 0] });
@@ -132,7 +132,7 @@ describe('Trait', () => {
 		entity.add(IsTag);
 		expect(entity.has(IsTag)).toBe(true);
 
-		const store = getStores(world, IsTag);
+		const store = getStore(world, IsTag);
 		expect(store).toMatchObject({});
 	});
 

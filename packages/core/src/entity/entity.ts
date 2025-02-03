@@ -1,15 +1,15 @@
+import { $internal } from '../common';
+import { Pair, Wildcard } from '../relation/relation';
 import { removeTrait } from '../trait/trait';
 import { ConfigurableTrait } from '../trait/types';
-import { Pair, Wildcard } from '../relation/relation';
-import { $internal } from '../common';
 import { World } from '../world/world';
 import { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
 
 // Ensure entity methods are patched.
+import { universe } from '../universe/universe';
 import './entity-methods-patch';
 import { getEntityId, getEntityWorldId } from './utils/pack-entity';
-import { universe } from '../universe/universe';
 
 export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
 	const ctx = world[$internal];

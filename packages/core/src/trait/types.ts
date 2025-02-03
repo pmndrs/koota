@@ -97,10 +97,4 @@ export type ExtractSchema<T extends Trait> = T extends Trait<infer S, any> ? S :
 export type ExtractStore<T extends Trait> = T extends Trait<any, infer S> ? S : never;
 export type ExtractIsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
 
-export type ExtractStores<T extends [Trait, ...Trait[]]> = T extends [infer C]
-	? C extends Trait<any, Store<any>>
-		? ExtractStore<C>
-		: never
-	: { [K in keyof T]: ExtractStore<T[K]> };
-
 export type IsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
