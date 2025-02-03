@@ -7,7 +7,7 @@ import { Not } from '../src/query/modifiers/not';
 import { Or } from '../src/query/modifiers/or';
 import { createRemoved } from '../src/query/modifiers/removed';
 import { IsExcluded } from '../src/query/query';
-import { getStores, trait } from '../src/trait/trait';
+import { getStore, trait } from '../src/trait/trait';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -482,7 +482,7 @@ describe('Query', () => {
 		entities = world.query(Changed(Position));
 		expect(entities.length).toBe(0);
 
-		const positions = getStores(world, Position);
+		const positions = getStore(world, Position);
 		positions.x[entityA] = 10;
 		positions.y[entityA] = 20;
 
@@ -507,7 +507,7 @@ describe('Query', () => {
 
 		const entity = world.spawn(Position);
 
-		const positions = getStores(world, Position);
+		const positions = getStore(world, Position);
 		positions.x[entity] = 10;
 		positions.y[entity] = 20;
 		entity.changed(Position);

@@ -83,21 +83,21 @@ requestAnimationFrame(main);
 // Pointer events for spawning repulsors.
 let isPointerDown = false;
 
-window.addEventListener('pointerdown', (e) => {
+renderer.domElement.addEventListener('pointerdown', (e) => {
 	isPointerDown = true;
 	spawnRepulsor(e, frustumSize);
 });
 
-window.addEventListener('pointermove', (e) => {
+renderer.domElement.addEventListener('pointermove', (e) => {
 	if (isPointerDown) {
 		spawnRepulsor(e, frustumSize);
 	}
 });
 
-window.addEventListener('pointerup', () => {
+renderer.domElement.addEventListener('pointerup', () => {
 	isPointerDown = false;
 });
 
-window.addEventListener('pointerout', () => {
+renderer.domElement.addEventListener('pointerout', () => {
 	isPointerDown = false;
 });

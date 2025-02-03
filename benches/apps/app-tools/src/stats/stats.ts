@@ -17,6 +17,12 @@ export function initStats(extras?: Stats) {
 
 	let ele: HTMLElement | null = null;
 
+	const reset = () => {
+		measurementRef.current = { delta: 0, average: 0 };
+		fpsRef.current = 0;
+		updateStats();
+	};
+
 	const create = () => {
 		ele = document.createElement('div');
 		document.body.appendChild(ele);
@@ -27,6 +33,15 @@ export function initStats(extras?: Stats) {
 			ele.appendChild(div);
 			updates.push(update);
 		}
+
+		// Add reset button
+		const resetButton = document.createElement('button');
+		resetButton.textContent = 'Reset';
+		resetButton.onclick = (e) => {
+			e.preventDefault();
+			reset();
+		};
+		ele.appendChild(resetButton);
 	};
 
 	const updateStats = () => {
