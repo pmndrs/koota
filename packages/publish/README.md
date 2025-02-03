@@ -329,7 +329,7 @@ world.query(Position, Velocity).updateEach(([position, velocity]) => {
 
 // Setting changeDetection to 'always' will ignore selective tracking and always emit change events for all traits that are mutated
 world.query(Position, Velocity).updateEach(([position, velocity]) => {
-}, { changeDetection: 'never' });
+}, { changeDetection: 'always' });
 ```
 
 ### World traits
