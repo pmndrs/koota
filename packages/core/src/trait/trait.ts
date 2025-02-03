@@ -5,16 +5,7 @@ import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { TraitData } from './trait-data';
-import {
-	ConfigurableTrait,
-	ExtractStore,
-	ExtractStores,
-	Norm,
-	Schema,
-	Store,
-	Trait,
-	TraitType,
-} from './types';
+import { ConfigurableTrait, ExtractStore, Norm, Schema, Store, Trait, TraitType } from './types';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
@@ -238,12 +229,4 @@ export function getStore<C extends Trait = Trait>(world: World, trait: C): Extra
 	const store = data.store as ExtractStore<C>;
 
 	return store;
-}
-
-export function getStores<T extends [Trait, ...Trait[]]>(
-	world: World,
-	...traits: T
-): ExtractStores<T> {
-	const stores = traits.map((trait) => getStore(world, trait));
-	return (traits.length === 1 ? stores[0] : stores) as ExtractStores<T>;
 }
