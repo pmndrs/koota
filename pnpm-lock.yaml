@@ -44,7 +44,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.1.6
-        version: 5.2.0(@types/node@22.13.0)
+        version: 5.2.0(@types/node@22.13.1)
 
   benches/apps/app-tools:
     dependencies:
@@ -100,10 +100,10 @@ importers:
         version: 8.9.0(eslint@9.12.0)(typescript@5.6.3)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
-        version: 4.2.1(vite@5.2.0(@types/node@22.13.0))
+        version: 4.2.1(vite@5.2.0(@types/node@22.13.1))
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.5.0(vite@5.2.0(@types/node@22.13.0))
+        version: 3.5.0(vite@5.2.0(@types/node@22.13.1))
       eslint:
         specifier: ^9.12.0
         version: 9.12.0
@@ -118,7 +118,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.2.0
-        version: 5.2.0(@types/node@22.13.0)
+        version: 5.2.0(@types/node@22.13.1)
 
   benches/apps/n-body:
     dependencies:
@@ -143,7 +143,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.1.6
-        version: 5.2.0(@types/node@22.13.0)
+        version: 5.2.0(@types/node@22.13.1)
 
   benches/apps/n-body-react:
     dependencies:
@@ -189,10 +189,10 @@ importers:
         version: 8.9.0(eslint@9.12.0)(typescript@5.6.3)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
-        version: 4.2.1(vite@5.2.0(@types/node@22.13.0))
+        version: 4.2.1(vite@5.2.0(@types/node@22.13.1))
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.5.0(vite@5.2.0(@types/node@22.13.0))
+        version: 3.5.0(vite@5.2.0(@types/node@22.13.1))
       eslint:
         specifier: ^9.12.0
         version: 9.12.0
@@ -207,7 +207,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.2.0
-        version: 5.2.0(@types/node@22.13.0)
+        version: 5.2.0(@types/node@22.13.1)
 
   benches/apps/revade:
     dependencies:
@@ -253,10 +253,10 @@ importers:
         version: 8.9.0(eslint@9.12.0)(typescript@5.6.3)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
-        version: 4.2.1(vite@5.2.0(@types/node@22.13.0))
+        version: 4.2.1(vite@5.2.0(@types/node@22.13.1))
       '@vitejs/plugin-react-swc':
         specifier: ^3.5.0
-        version: 3.5.0(vite@5.2.0(@types/node@22.13.0))
+        version: 3.5.0(vite@5.2.0(@types/node@22.13.1))
       eslint:
         specifier: ^9.12.0
         version: 9.12.0
@@ -271,7 +271,7 @@ importers:
         version: 5.6.3
       vite:
         specifier: ^5.2.0
-        version: 5.2.0(@types/node@22.13.0)
+        version: 5.2.0(@types/node@22.13.1)
 
   benches/sims/add-remove:
     dependencies:
@@ -321,39 +321,6 @@ importers:
         specifier: latest
         version: 4.19.2
 
-  packages/babel-plugin-inline-functions:
-    devDependencies:
-      '@babel/generator':
-        specifier: ^7.26.3
-        version: 7.26.5
-      '@babel/parser':
-        specifier: ^7.26.3
-        version: 7.26.7
-      '@babel/traverse':
-        specifier: ^7.26.4
-        version: 7.26.7
-      '@babel/types':
-        specifier: ^7.26.3
-        version: 7.26.7
-      '@types/babel__generator':
-        specifier: ^7.6.8
-        version: 7.6.8
-      '@types/babel__traverse':
-        specifier: ^7.20.6
-        version: 7.20.6
-      '@types/node':
-        specifier: latest
-        version: 22.13.0
-      chalk:
-        specifier: ^5.4.1
-        version: 5.4.1
-      esbuild:
-        specifier: ^0.24.2
-        version: 0.24.2
-      tsup:
-        specifier: ^8.3.0
-        version: 8.3.0(@swc/core@1.7.40)(postcss@8.4.47)(tsx@4.19.2)(typescript@5.7.3)
-
   packages/core:
     devDependencies:
       tsconfig:
@@ -361,7 +328,7 @@ importers:
         version: link:../tsconfig
       vitest:
         specifier: ^1.4.0
-        version: 1.4.0(@types/node@22.13.0)(jsdom@24.1.1)
+        version: 1.4.0(@types/node@22.13.1)(jsdom@24.1.1)
 
   packages/dev:
     dependencies:
@@ -391,6 +358,39 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
 
+  packages/esbuild-plugin-inline-functions:
+    devDependencies:
+      '@babel/generator':
+        specifier: ^7.26.3
+        version: 7.26.5
+      '@babel/parser':
+        specifier: ^7.26.3
+        version: 7.26.7
+      '@babel/traverse':
+        specifier: ^7.26.4
+        version: 7.26.7
+      '@babel/types':
+        specifier: ^7.26.3
+        version: 7.26.7
+      '@types/babel__generator':
+        specifier: ^7.6.8
+        version: 7.6.8
+      '@types/babel__traverse':
+        specifier: ^7.20.6
+        version: 7.20.6
+      '@types/node':
+        specifier: latest
+        version: 22.13.1
+      chalk:
+        specifier: ^5.4.1
+        version: 5.4.1
+      esbuild:
+        specifier: ^0.24.2
+        version: 0.24.2
+      tsup:
+        specifier: ^8.3.0
+        version: 8.3.0(@swc/core@1.7.40)(postcss@8.4.47)(tsx@4.19.2)(typescript@5.7.3)
+
   packages/publish:
     dependencies:
       '@react-three/fiber':
@@ -415,9 +415,9 @@ importers:
       '@types/three':
         specifier: ^0.162.0
         version: 0.162.0
-      babel-plugin-inline-functions:
+      esbuild-plugin-inline-functions:
         specifier: workspace:*
-        version: link:../babel-plugin-inline-functions
+        version: link:../esbuild-plugin-inline-functions
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -472,7 +472,7 @@ importers:
         version: link:../tsconfig
       vitest:
         specifier: ^1.4.0
-        version: 1.4.0(@types/node@22.13.0)(jsdom@24.1.1)
+        version: 1.4.0(@types/node@22.13.1)(jsdom@24.1.1)
 
   packages/tsconfig: {}
 
@@ -1392,8 +1392,8 @@ packages:
   '@types/node@22.10.5':
     resolution: {integrity: sha512-F8Q+SeGimwOo86fiovQh8qiXfFEh2/ocYv7tU5pJ3EXMSSxk1Joj5wefpFK2fHTf/N6HKGSxIDBT9f3gCxXPkQ==}
 
-  '@types/node@22.13.0':
-    resolution: {integrity: sha512-ClIbNe36lawluuvq3+YYhnIN2CELi+6q8NpnM7PYp4hBn/TatfboPgVSm2rwKRfnV2M+Ty9GWDFI64KEe+kysA==}
+  '@types/node@22.13.1':
+    resolution: {integrity: sha512-jK8uzQlrvXqEU91UxiK5J7pKHyzgnI1Qnl0QDHIgVGuolJhRb9EEl28Cj9b3rGR8B2lhFCtvIm5os8lFnO/1Ew==}
 
   '@types/offscreencanvas@2019.7.3':
     resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
@@ -3581,7 +3581,7 @@ snapshots:
     dependencies:
       undici-types: 6.20.0
 
-  '@types/node@22.13.0':
+  '@types/node@22.13.1':
     dependencies:
       undici-types: 6.20.0
 
@@ -3714,21 +3714,21 @@ snapshots:
       '@use-gesture/core': 10.3.1
       react: 18.3.1
 
-  '@vitejs/plugin-react-swc@3.5.0(vite@5.2.0(@types/node@22.13.0))':
+  '@vitejs/plugin-react-swc@3.5.0(vite@5.2.0(@types/node@22.13.1))':
     dependencies:
       '@swc/core': 1.7.40
-      vite: 5.2.0(@types/node@22.13.0)
+      vite: 5.2.0(@types/node@22.13.1)
     transitivePeerDependencies:
       - '@swc/helpers'
 
-  '@vitejs/plugin-react@4.2.1(vite@5.2.0(@types/node@22.13.0))':
+  '@vitejs/plugin-react@4.2.1(vite@5.2.0(@types/node@22.13.1))':
     dependencies:
       '@babel/core': 7.26.0
       '@babel/plugin-transform-react-jsx-self': 7.25.9(@babel/core@7.26.0)
       '@babel/plugin-transform-react-jsx-source': 7.25.9(@babel/core@7.26.0)
       '@types/babel__core': 7.20.5
       react-refresh: 0.14.2
-      vite: 5.2.0(@types/node@22.13.0)
+      vite: 5.2.0(@types/node@22.13.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -4967,13 +4967,13 @@ snapshots:
 
   uuid@9.0.1: {}
 
-  vite-node@1.4.0(@types/node@22.13.0):
+  vite-node@1.4.0(@types/node@22.13.1):
     dependencies:
       cac: 6.7.14
       debug: 4.3.7
       pathe: 1.1.2
       picocolors: 1.1.1
-      vite: 5.2.0(@types/node@22.13.0)
+      vite: 5.2.0(@types/node@22.13.1)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -4984,16 +4984,16 @@ snapshots:
       - supports-color
       - terser
 
-  vite@5.2.0(@types/node@22.13.0):
+  vite@5.2.0(@types/node@22.13.1):
     dependencies:
       esbuild: 0.20.2
       postcss: 8.4.47
       rollup: 4.24.2
     optionalDependencies:
-      '@types/node': 22.13.0
+      '@types/node': 22.13.1
       fsevents: 2.3.3
 
-  vitest@1.4.0(@types/node@22.13.0)(jsdom@24.1.1):
+  vitest@1.4.0(@types/node@22.13.1)(jsdom@24.1.1):
     dependencies:
       '@vitest/expect': 1.4.0
       '@vitest/runner': 1.4.0
@@ -5012,11 +5012,11 @@ snapshots:
       strip-literal: 2.1.0
       tinybench: 2.9.0
       tinypool: 0.8.4
-      vite: 5.2.0(@types/node@22.13.0)
-      vite-node: 1.4.0(@types/node@22.13.0)
+      vite: 5.2.0(@types/node@22.13.1)
+      vite-node: 1.4.0(@types/node@22.13.1)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 22.13.0
+      '@types/node': 22.13.1
       jsdom: 24.1.1
     transitivePeerDependencies:
       - less
