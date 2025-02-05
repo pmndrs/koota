@@ -9,44 +9,33 @@ import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
 import { addTrait, getStore, hasTrait, removeTrait } from '../trait/trait';
 import { ConfigurableTrait, Trait } from '../trait/types';
-import { universe } from '../universe/universe';
 import { destroyEntity, getEntityWorld } from './entity';
 import { Entity } from './types';
-import { ENTITY_ID_MASK, getEntityId, WORLD_ID_SHIFT } from './utils/pack-entity';
+import { getEntityId } from './utils/pack-entity';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return addTrait(world, this, ...traits);
+	return addTrait(getEntityWorld(this), this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return removeTrait(world, this, ...traits);
+	return removeTrait(getEntityWorld(this), this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return hasTrait(world, this, trait);
+	return hasTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.destroy = function (this: Entity) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return destroyEntity(world, this);
+	return destroyEntity(getEntityWorld(this), this);
 };
 
 // @ts-expect-error
 Number.prototype.changed = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return setChanged(world, this, trait);
+	return setChanged(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
@@ -63,33 +52,28 @@ Number.prototype.get = function (this: Entity, trait: Trait) {
 // @ts-expect-error
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
 	const ctx = trait[$internal];
-	const index = this & ENTITY_ID_MASK;
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const store = ctx.stores[worldId];
+	const world = getEntityWorld(this);
+	const store = getStore(world, trait);
+	const index = getEntityId(this);
 
 	// A short circuit is more performance than an if statement which creates a new code statement.
 	value instanceof Function && (value = value(ctx.get(index, store)));
 
 	ctx.set(index, store, value);
-	triggerChanged && setChanged(universe.worlds[worldId], this, trait);
+	triggerChanged && setChanged(world, this, trait);
 };
 
 //@ts-expect-error
 Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return getRelationTargets(world, relation, this);
+	return getRelationTargets(getEntityWorld(this), relation, this);
 };
 
 //@ts-expect-error
 Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return getRelationTargets(world, relation, this)[0];
+	return getRelationTargets(getEntityWorld(this), relation, this)[0];
 };
 
 //@ts-expect-error
 Number.prototype.id = function (this: Entity) {
-	const id = this & ENTITY_ID_MASK;
-	return id;
+	return getEntityId(this);
 };

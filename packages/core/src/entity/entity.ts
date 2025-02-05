@@ -5,11 +5,11 @@ import { ConfigurableTrait } from '../trait/types';
 import { World } from '../world/world';
 import { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
+import { universe } from '../universe/universe';
+import { getEntityId, getEntityWorldId } from './utils/pack-entity';
 
 // Ensure entity methods are patched.
-import { universe } from '../universe/universe';
 import './entity-methods-patch';
-import { getEntityId, getEntityWorldId } from './utils/pack-entity';
 
 export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
 	const ctx = world[$internal];
