@@ -1,14 +1,21 @@
 import { ParseResult } from '@babel/parser';
+import _traverse, { NodePath } from '@babel/traverse';
 import {
 	ArrowFunctionExpression,
+	ExpressionStatement,
 	File,
 	FunctionDeclaration,
 	FunctionExpression,
+	isCallExpression,
 	isIdentifier,
+	VariableDeclarator,
 } from '@babel/types';
-import _traverse from '@babel/traverse';
+import {
+	collectDependencyChain,
+	collectLocalDependencies,
+	getFunctionLocalDeps,
+} from './utils/collect-local-dependencies';
 import { hasInlineDecorator, hasPureDecorator } from './utils/decorator-utils';
-import { collectLocalDependencies } from './utils/collect-local-dependencies';
 import { getFunctionParams } from './utils/get-function-params';
 
 const traverse = (_traverse as unknown as { default: typeof _traverse }).default || _traverse;
@@ -17,6 +24,9 @@ export type InlinableFunction = {
 	name: string;
 	params: string[];
 	func: FunctionDeclaration | ArrowFunctionExpression | FunctionExpression;
+	path: NodePath<
+		FunctionDeclaration | ArrowFunctionExpression | FunctionExpression | VariableDeclarator
+	>;
 };
 
 export const allFunctions = new Map<string, InlinableFunction>();
@@ -42,6 +52,7 @@ export function collectMetadata(ast: ParseResult<File>) {
 					name: node.id.name,
 					func: node,
 					params: getFunctionParams(node),
+					path,
 				});
 			} else {
 				collectLocalDependencies(path);
@@ -50,6 +61,7 @@ export function collectMetadata(ast: ParseResult<File>) {
 					name: node.id.name,
 					func: node,
 					params: getFunctionParams(node),
+					path,
 				});
 			}
 
@@ -75,6 +87,7 @@ export function collectMetadata(ast: ParseResult<File>) {
 						name: id.name,
 						func: init,
 						params: getFunctionParams(init),
+						path,
 					});
 				} else {
 					collectLocalDependencies(path);
@@ -83,6 +96,7 @@ export function collectMetadata(ast: ParseResult<File>) {
 						name: id.name,
 						func: init,
 						params: getFunctionParams(init),
+						path,
 					});
 				}
 
@@ -94,17 +108,37 @@ export function collectMetadata(ast: ParseResult<File>) {
 			const node = path.node;
 			const callee = node.callee;
 
-			if (!isIdentifier(callee) || !hasInlineDecorator(node)) return;
+			// Check if parent is an expression statement.
+			if (path.parent.type === 'ExpressionStatement') {
+				const parent = path.parent as unknown as ExpressionStatement;
+				if (
+					!isCallExpression(parent.expression) ||
+					!isIdentifier(parent.expression.callee) ||
+					!hasInlineDecorator(parent)
+				)
+					return;
 
-			const name = callee.name;
-			const func = allFunctions.get(name);
-			if (func) inlinableFunctionCalls.set(name, func);
+				const name = parent.expression.callee.name;
+				const func = allFunctions.get(name);
+				if (func) inlinableFunctionCalls.set(name, func);
+			} else {
+				if (!isIdentifier(callee) || !hasInlineDecorator(node)) return;
+
+				const name = callee.name;
+				const func = allFunctions.get(name);
+				if (func) inlinableFunctionCalls.set(name, func);
+			}
 		},
 	});
+
+	for (const func of inlinableFunctions.values()) {
+		collectDependencyChain(func.name, func.path);
+	}
 }
 
 export function resetMetadata() {
 	allFunctions.clear();
+
 	inlinableFunctions.clear();
 	inlinableFunctionCalls.clear();
 	pureFunctions.clear();

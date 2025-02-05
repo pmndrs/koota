@@ -6,11 +6,14 @@ export function removeImportForFunction(path: NodePath, name: string) {
 	if (!moduleProgram) return;
 
 	// Find and remove the specifier for the inlined function
-	moduleProgram.body.forEach((node) => {
+	for (const node of moduleProgram.body) {
 		if (node.type === 'ImportDeclaration') {
 			const specifierIndex = node.specifiers.findIndex((spec) => spec.local.name === name);
 
 			if (specifierIndex !== -1) {
+				// Store the import path before removing
+				const importPath = node.source.value;
+
 				// Remove just the specifier
 				node.specifiers.splice(specifierIndex, 1);
 
@@ -18,7 +21,9 @@ export function removeImportForFunction(path: NodePath, name: string) {
 				if (node.specifiers.length === 0) {
 					moduleProgram.body = moduleProgram.body.filter((n) => n !== node);
 				}
+
+				return importPath;
 			}
 		}
-	});
+	}
 }

@@ -1,19 +1,25 @@
 import { Binding, NodePath } from '@babel/traverse';
-import { FunctionDeclaration, Node, VariableDeclarator } from '@babel/types';
-import { getFunctionNameFromDeclaration } from './get-function-name';
+import { Function, FunctionDeclaration, isIdentifier, Node, VariableDeclarator } from '@babel/types';
+import { getFunctionName, getFunctionNameFromDeclaration } from './get-function-name';
+import { inlinableFunctions } from '../collect-metadata';
 
 type LocalDependency = {
 	name: string;
 	declaration: Node;
 	binding: Binding;
-	fullPath?: string;
+	fullPath: string;
 	dependencies?: Set<string>;
 };
 
 const functionLocalDeps = new Map<string, Map<string, LocalDependency>>();
+const functionDependencyChains = new Map<string, Set<string>>();
 
 export function getFunctionLocalDeps(name: string) {
 	return functionLocalDeps.get(name);
+}
+
+export function getFunctionDependencyChain(name: string) {
+	return functionDependencyChains.get(name) || new Set<string>();
 }
 
 export function collectLocalDependencies(path: NodePath<FunctionDeclaration | VariableDeclarator>) {
@@ -58,7 +64,7 @@ export function collectLocalDependencies(path: NodePath<FunctionDeclaration | Va
 				declaration: parentDeclaration,
 				binding: binding,
 				dependencies: collectTransitiveDependencies(binding.path),
-				fullPath: binding.path.node.loc?.filename,
+				fullPath: binding.path.node.loc?.filename || '',
 			});
 		},
 	});
@@ -80,4 +86,20 @@ function collectTransitiveDependencies(path: NodePath): Set<string> {
 	});
 
 	return deps;
+}
+
+export function collectDependencyChain(name: string, path: NodePath) {
+	path.traverse({
+		CallExpression(callPath) {
+			const node = callPath.node;
+			const callee = node.callee;
+			if (!isIdentifier(callee)) return;
+
+			if (inlinableFunctions.has(callee.name)) {
+				const dependencyChain = getFunctionDependencyChain(name);
+				dependencyChain.add(callee.name);
+				functionDependencyChains.set(name, dependencyChain);
+			}
+		},
+	});
 }

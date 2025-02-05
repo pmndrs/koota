@@ -1,45 +1,79 @@
 import { NodePath } from '@babel/traverse';
 import { getModuleProgram } from './get-module-program';
-import { getFunctionLocalDeps } from './collect-local-dependencies';
-import { createRelativePath } from './create-relative-path';
-import { identifier, importDeclaration, importSpecifier, stringLiteral } from '@babel/types';
+import { getFunctionDependencyChain, getFunctionLocalDeps } from './collect-local-dependencies';
+import { createRelativePath, createRelativePathWithRelativePath } from './create-relative-path';
+import {
+	identifier,
+	ImportDeclaration,
+	importDeclaration,
+	importSpecifier,
+	stringLiteral,
+} from '@babel/types';
 
-export function addImportsForDependencies(path: NodePath, name: string) {
+export function addImportsForDependencies(
+	path: NodePath,
+	inlinePath: NodePath,
+	name: string,
+	inlinedImportPath?: string
+) {
 	const moduleProgram = getModuleProgram(path);
 	const localDeps = getFunctionLocalDeps(name);
+	const dependencyChain = getFunctionDependencyChain(name);
 
 	if (localDeps && localDeps.size > 0 && moduleProgram) {
-		// Find the last import declaration, if any
-		const lastImportIndex = moduleProgram.body.reduce((acc, node, index) => {
-			return node.type === 'ImportDeclaration' ? index : acc;
-		}, -1);
-
-		for (const [name, dep] of localDeps) {
+		for (const [depName, dep] of localDeps) {
 			const currentPath = path.node.loc?.filename;
 			const importPath = dep.fullPath;
 			if (!importPath || !currentPath) continue;
 
-			// Check if the import already exists.
+			// Check if the import already exists in the file where transfomed code is.
 			const importExists = moduleProgram.body.some(
 				(node) =>
 					node.type === 'ImportDeclaration' &&
-					node.specifiers.some((spec) => spec.local.name === name)
+					node.specifiers.some((spec) => spec.local.name === depName)
 			);
 
 			if (importExists) continue;
 
-			// Create a relative path to the import.
-			const relativePath = createRelativePath(currentPath, importPath);
+			// Check if the import already exists in the file where the inlined function is.
+			const inlinedModuleProgram = getModuleProgram(inlinePath);
+			const inlinedImportExists = inlinedModuleProgram?.body.some(
+				(node) =>
+					node.type === 'ImportDeclaration' &&
+					node.specifiers.some((spec) => spec.local.name === depName)
+			);
+
+			let relativePath: string;
+
+			if (inlinedImportExists) {
+				const inlinedImport = inlinedModuleProgram?.body.find(
+					(node) =>
+						node.type === 'ImportDeclaration' &&
+						node.specifiers.some((spec) => spec.local.name === depName)
+				) as ImportDeclaration;
+
+				relativePath = createRelativePathWithRelativePath(
+					inlinedImport.source.value,
+					inlinedImportPath || ''
+				);
+			} else {
+				relativePath = createRelativePath(currentPath, importPath);
+			}
 
 			// Create an import declaration for each local dependency and add it to the program.
 			const importDecl = importDeclaration(
-				[importSpecifier(identifier(name), identifier(name))],
+				[importSpecifier(identifier(depName), identifier(depName))],
 				stringLiteral(relativePath)
 			);
 
-			/// Insert after the last import, or at the start of the program (after directives)
-			const insertIndex = lastImportIndex !== -1 ? lastImportIndex + 1 : 0;
-			moduleProgram.body.splice(insertIndex, 0, importDecl);
+			// Insert at the start of the program.
+			moduleProgram.body.unshift(importDecl);
+		}
+	}
+
+	if (dependencyChain.size > 0) {
+		for (const funcName of dependencyChain) {
+			addImportsForDependencies(path, inlinePath, funcName, inlinedImportPath);
 		}
 	}
 }
