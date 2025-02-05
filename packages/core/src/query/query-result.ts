@@ -46,29 +46,13 @@ export function createQueryResult<T extends QueryParameter[]>(
 				const trackedIndices: number[] = [];
 				const untrackedIndices: number[] = [];
 
-				// Get the traits that are being tracked for changes.
-				for (let i = 0; i < traits.length; i++) {
-					const trait = traits[i];
-					const hasTracked = world[$internal].trackedTraits.has(trait);
-					const hasChanged = query.hasChangedModifiers && query.changedTraits.has(trait);
-
-					if (hasTracked || hasChanged) trackedIndices.push(i);
-					else untrackedIndices.push(i);
-				}
+				getTrackedTraits(traits, world, query, trackedIndices, untrackedIndices);
 
 				for (let i = 0; i < entities.length; i++) {
 					const entity = entities[i];
 					const eid = getEntityId(entity);
 
-					// Create a snapshot for each trait in the order they appear in the query params.
-					for (let j = 0; j < traits.length; j++) {
-						const trait = traits[j];
-						const ctx = trait[$internal];
-						const value = ctx.get(eid, stores[j]);
-						state[j] = value;
-						atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
-					}
-
+					createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
 					callback(state as any, entity, i);
 
 					// Skip if the entity has been destroyed.
@@ -119,15 +103,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 					const entity = entities[i];
 					const eid = getEntityId(entity);
 
-					// Create a snapshot for each trait in the order they appear in the query params.
-					for (let j = 0; j < traits.length; j++) {
-						const trait = traits[j];
-						const ctx = trait[$internal];
-						const value = ctx.get(eid, stores[j]);
-						state[j] = value;
-						atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
-					}
-
+					createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
 					callback(state as any, entity, i);
 
 					// Skip if the entity has been destroyed.
@@ -163,14 +139,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 				for (let i = 0; i < entities.length; i++) {
 					const entity = entities[i];
 					const eid = getEntityId(entity);
-
-					// Create a snapshot for each trait in the order they appear in the query params.
-					for (let j = 0; j < traits.length; j++) {
-						const trait = traits[j];
-						const ctx = trait[$internal];
-						state[j] = ctx.get(eid, stores[j]);
-					}
-
+					createSnapshots(eid, traits, stores, state);
 					callback(state as any, entity, i);
 
 					// Skip if the entity has been destroyed.
@@ -204,7 +173,54 @@ export function createQueryResult<T extends QueryParameter[]>(
 	return results;
 }
 
-function getQueryStores<T extends QueryParameter[]>(
+/* @inline */ function getTrackedTraits(
+	traits: Trait[],
+	world: World,
+	query: Query,
+	trackedIndices: number[],
+	untrackedIndices: number[]
+) {
+	for (let i = 0; i < traits.length; i++) {
+		const trait = traits[i];
+		const hasTracked = world[$internal].trackedTraits.has(trait);
+		const hasChanged = query.hasChangedModifiers && query.changedTraits.has(trait);
+
+		if (hasTracked || hasChanged) trackedIndices.push(i);
+		else untrackedIndices.push(i);
+	}
+}
+
+/* @inline */ function createSnapshots(
+	entityId: number,
+	traits: Trait[],
+	stores: Store<any>[],
+	state: any[]
+) {
+	for (let i = 0; i < traits.length; i++) {
+		const trait = traits[i];
+		const ctx = trait[$internal];
+		const value = ctx.get(entityId, stores[i]);
+		state[i] = value;
+	}
+}
+
+/* @inline */ function createSnapshotsWithAtomic(
+	entityId: number,
+	traits: Trait[],
+	stores: Store<any>[],
+	state: any[],
+	atomicSnapshots: any[]
+) {
+	for (let j = 0; j < traits.length; j++) {
+		const trait = traits[j];
+		const ctx = trait[$internal];
+		const value = ctx.get(entityId, stores[j]);
+		state[j] = value;
+		atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
+	}
+}
+
+/* @inline */ function getQueryStores<T extends QueryParameter[]>(
 	params: T,
 	traits: Trait[],
 	stores: Store<any>[],
