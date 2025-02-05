@@ -30,8 +30,8 @@ importers:
         specifier: ^0.1.1
         version: 0.1.1(@react-three/fiber@8.17.10(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(react@18.3.1)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:koota@*
+        version: link:../../../packages/publish
       three:
         specifier: ^0.162.0
         version: 0.162.0
@@ -129,8 +129,8 @@ importers:
         specifier: workspace:*
         version: link:../../sims/n-body
       koota:
-        specifier: workspace:koota@*
-        version: link:../../../packages/publish
+        specifier: workspace:@koota/dev@*
+        version: link:../../../packages/dev
       three:
         specifier: ^0.162.0
         version: 0.162.0
@@ -282,8 +282,8 @@ importers:
         specifier: ^0.1.1
         version: 0.1.1(@react-three/fiber@8.17.10(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(react@18.3.1)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:koota@*
+        version: link:../../../packages/publish
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -311,8 +311,8 @@ importers:
         specifier: ^0.1.1
         version: 0.1.1(@react-three/fiber@8.17.10(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(react@18.3.1)
       koota:
-        specifier: workspace:koota@*
-        version: link:../../../packages/publish
+        specifier: workspace:@koota/dev@*
+        version: link:../../../packages/dev
     devDependencies:
       tsconfig:
         specifier: workspace:*
