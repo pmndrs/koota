@@ -1,5 +1,5 @@
 import { defineConfig } from 'tsup';
-import { inlineFunctionsPlugin } from 'babel-plugin-inline-functions';
+import { inlineFunctionsPlugin } from 'esbuild-plugin-inline-functions';
 
 export default defineConfig({
 	entry: ['src/index.ts', 'src/react.ts'],
