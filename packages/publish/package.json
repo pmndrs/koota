@@ -41,7 +41,7 @@
 		"@types/react": "^18.3.3",
 		"@types/react-dom": "^18.3.0",
 		"@types/three": "^0.162.0",
-		"esbuild-plugin-inline-functions": "workspace:*",
+		"esbuild-plugin-inline-functions": "^0.1.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"tsconfig": "workspace:*",
