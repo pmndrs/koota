@@ -28,20 +28,26 @@
 		"test": "vitest --environment=jsdom"
 	},
 	"devDependencies": {
-		"@types/react": "^18.3.3",
-		"@types/react-dom": "^18.3.0",
 		"@types/three": "^0.162.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"tsconfig": "workspace:*"
 	},
 	"peerDependencies": {
+		"@types/react": "^18.3.3",
+		"@types/react-dom": "^18.3.0",
 		"@react-three/fiber": "^8.17.10",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
 		"three": ">=0.159"
 	},
 	"peerDependenciesMeta": {
+		"@types/react": {
+			"optional": true
+		},
+		"@types/react-dom": {
+			"optional": true
+		},
 		"@react-three/fiber": {
 			"optional": true
 		},
@@ -49,6 +55,9 @@
 			"optional": true
 		},
 		"react-dom": {
+			"optional": true
+		},
+		"react": {
 			"optional": true
 		}
 	}
