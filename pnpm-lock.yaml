@@ -282,8 +282,8 @@ importers:
         specifier: ^0.1.4
         version: 0.1.4(@react-three/fiber@8.17.14(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(@types/react@18.3.18)(react@18.3.1)
       koota:
-        specifier: file:../../../koota-0.1.12.tgz
-        version: file:koota-0.1.12.tgz(@react-three/fiber@8.17.14(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
+        specifier: workspace:@koota/dev@*
+        version: link:../../../packages/dev
     devDependencies:
       tsconfig:
         specifier: workspace:*
@@ -2065,30 +2065,6 @@ packages:
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
-
-  koota@file:koota-0.1.12.tgz:
-    resolution: {integrity: sha512-1lUyvMOgxC2+JzOPzwTFTgokUDedpSRYIgjpqLJssk5eJhVI5/Pavi6puSuIdlux5By95lFq0+RXx8DlaTCvqQ==, tarball: file:koota-0.1.12.tgz}
-    version: 0.1.12
-    peerDependencies:
-      '@react-three/fiber': ^8.17.10
-      '@types/react': ^18.3.3
-      '@types/react-dom': ^18.3.0
-      react: ^18.3.1
-      react-dom: ^18.3.1
-      three: '>=0.159'
-    peerDependenciesMeta:
-      '@react-three/fiber':
-        optional: true
-      '@types/react':
-        optional: true
-      '@types/react-dom':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
-      three:
-        optional: true
 
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
@@ -4378,15 +4354,6 @@ snapshots:
   keyv@4.5.4:
     dependencies:
       json-buffer: 3.0.1
-
-  koota@file:koota-0.1.12.tgz(@react-three/fiber@8.17.14(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0):
-    optionalDependencies:
-      '@react-three/fiber': 8.17.14(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
-      '@types/react': 18.3.18
-      '@types/react-dom': 18.3.5(@types/react@18.3.18)
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-      three: 0.162.0
 
   levn@0.4.1:
     dependencies:
