@@ -12,6 +12,6 @@
 	},
 	"devDependencies": {
 		"tsconfig": "workspace:*",
-		"vitest": "^1.4.0"
+		"vitest": "^1.6.1"
 	}
 }
