@@ -318,7 +318,7 @@ entity.set(Position, { x: 10, y: 20 });
 entity.remove(Position);
 ```
 
-### Change detection with `udpateEach`
+### Change detection with `updateEach`
 
 By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.
 
