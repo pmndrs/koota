@@ -228,6 +228,58 @@ describe('Hooks', () => {
 		expect(entities.length).toBe(1);
 	});
 
+	it('useQuery with multiple parameters', async () => {
+		const Velocity = trait({ x: 0, y: 0 });
+		const Health = trait({ value: 100 });
+
+		let entities: QueryResult = null!;
+		let prevEntities: QueryResult = null!;
+
+		function Test({ changeOrder }: { changeOrder: boolean }) {
+			entities = useQuery(
+				...(changeOrder ? [Position, Velocity, Health] : [Position, Health, Velocity])
+			);
+			return null;
+		}
+
+		await act(async () => {
+			await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test changeOrder={false} />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(entities.length).toBe(0);
+		prevEntities = entities;
+
+		await act(async () => {
+			world.spawn(Position, Velocity, Health);
+		});
+
+		expect(entities.length).toBe(1);
+		// Test that the entities array is stable when the query parameters are the same
+		expect(entities).toBe(prevEntities);
+		prevEntities = entities;
+
+		// But unstable when the order of the parameters is different
+		await act(async () => {
+			await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test changeOrder={true} />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(entities.length).toBe(1);
+		expect(entities).not.toBe(prevEntities);
+		prevEntities = entities;
+	});
+
 	it('useActions', async () => {
 		const actions = createActions((world) => ({
 			spawnBody: () => world.spawn(Position),
