@@ -616,7 +616,7 @@ const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
 
 ### `useQuery` 
 
-Reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities. The returned query result is memoized and will *not* have a new array generated each rerender. Instead the array will get mutated and a rerender dispatched to update the host component. However, if the parameters change then a new query result will be generated.
+Reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
 
 ```js
 // Get all entities with Position and Velocity traits
