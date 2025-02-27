@@ -93,7 +93,11 @@ export type Norm<T extends Schema> = T extends AoSFactory
 			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
 	  };
 
-export type ExtractSchema<T extends Trait> = T extends Trait<infer S, any> ? S : never;
+export type ExtractSchema<T extends Trait | Relation<Trait>> = T extends Relation<infer R>
+	? ExtractSchema<R>
+	: T extends Trait<infer S>
+	? S
+	: never;
 export type ExtractStore<T extends Trait> = T extends Trait<any, infer S> ? S : never;
 export type ExtractIsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
 
