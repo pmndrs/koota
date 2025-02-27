@@ -1,17 +1,8 @@
-import {
-	createActions,
-	createWorld,
-	Entity,
-	QueryResult,
-	trait,
-	TraitInstance,
-	universe,
-	World,
-} from '@koota/core';
+import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useActions, useQuery, WorldProvider } from '../src';
+import { WorldProvider } from '../src';
 import { useTrait } from '../src/hooks/use-trait';
 
 declare global {
@@ -24,13 +15,13 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 let world: World;
 const Position = trait({ x: 0, y: 0 });
 
-describe('Hooks', () => {
+describe('useTrait', () => {
 	beforeEach(() => {
 		universe.reset();
 		world = createWorld();
 	});
 
-	it('useTrait with entity', async () => {
+	it('reactively returns the trait value for an entity', async () => {
 		const entity = world.spawn(Position);
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 
@@ -67,7 +58,7 @@ describe('Hooks', () => {
 		expect(position).toEqual({ x: 1, y: 1 });
 	});
 
-	it('useTrait with entity at effect time', async () => {
+	it('reactively works with an entity at effect time', async () => {
 		let entity: Entity | undefined = undefined;
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 
@@ -112,7 +103,7 @@ describe('Hooks', () => {
 		expect(position).toEqual({ x: 1, y: 1 });
 	});
 
-	it('useTrait with world', async () => {
+	it('works with a world', async () => {
 		const TimeOfDay = trait({ hour: 0 });
 		world.add(TimeOfDay);
 		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
@@ -151,7 +142,7 @@ describe('Hooks', () => {
 		expect(timeOfDay).toEqual({ hour: 1 });
 	});
 
-	it('useTrait with undefined target', async () => {
+	it('returns undefined when the target is undefined', async () => {
 		let position: TraitInstance<typeof Position> | undefined = undefined;
 		let entity: Entity | undefined = undefined;
 
@@ -186,123 +177,5 @@ describe('Hooks', () => {
 		});
 
 		expect(position).toEqual({ x: 0, y: 0 });
-	});
-
-	it('useQuery', async () => {
-		let entities: QueryResult<[typeof Position]> = null!;
-
-		function Test() {
-			entities = useQuery(Position);
-			return null;
-		}
-
-		await act(async () => {
-			await ReactThreeTestRenderer.create(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
-
-		expect(entities.length).toBe(0);
-
-		await act(async () => {
-			world.spawn(Position);
-		});
-
-		expect(entities.length).toBe(1);
-
-		let entityToDestroy: Entity;
-		await act(async () => {
-			entityToDestroy = world.spawn(Position);
-		});
-
-		expect(entities.length).toBe(2);
-
-		await act(async () => {
-			entityToDestroy.destroy();
-		});
-
-		expect(entities.length).toBe(1);
-	});
-
-	it('useQuery with multiple parameters', async () => {
-		const Velocity = trait({ x: 0, y: 0 });
-		const Health = trait({ value: 100 });
-
-		let entities: QueryResult = null!;
-		let prevEntities: QueryResult = null!;
-
-		function Test({ changeOrder }: { changeOrder: boolean }) {
-			entities = useQuery(
-				...(changeOrder ? [Position, Velocity, Health] : [Position, Health, Velocity])
-			);
-			return null;
-		}
-
-		await act(async () => {
-			await ReactThreeTestRenderer.create(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test changeOrder={false} />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
-
-		expect(entities.length).toBe(0);
-		prevEntities = entities;
-
-		await act(async () => {
-			world.spawn(Position, Velocity, Health);
-		});
-
-		expect(entities.length).toBe(1);
-		// Test that the entities array is stable when the query parameters are the same
-		expect(entities).toBe(prevEntities);
-		prevEntities = entities;
-
-		// But unstable when the order of the parameters is different
-		await act(async () => {
-			await ReactThreeTestRenderer.create(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test changeOrder={true} />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
-
-		expect(entities.length).toBe(1);
-		expect(entities).not.toBe(prevEntities);
-		prevEntities = entities;
-	});
-
-	it('useActions', async () => {
-		const actions = createActions((world) => ({
-			spawnBody: () => world.spawn(Position),
-		}));
-
-		let spawnedEntity: Entity | undefined = undefined;
-
-		function Test() {
-			const { spawnBody } = useActions(actions);
-			spawnedEntity = spawnBody();
-			return null;
-		}
-
-		await act(async () => {
-			await ReactThreeTestRenderer.create(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
-
-		expect(spawnedEntity).toBeDefined();
 	});
 });
