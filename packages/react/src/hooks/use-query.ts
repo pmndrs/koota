@@ -7,31 +7,31 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 	const entities = useMemo(() => world.query(...parameters), [world, ...parameters]);
 	const [, forceUpdate] = useReducer((v) => v + 1, 0);
 
-	// Set entities at effect time
+	// Immediately subscribe to changes.
+	const unsubAdd = useMemo(
+		() =>
+			world.onAdd(parameters, (entity) => {
+				const mutableEntities = entities as unknown as Entity[];
+				mutableEntities.push(entity);
+				forceUpdate();
+			}),
+		[world],
+	);
+
+	const unsubRemove = useMemo(
+		() =>
+			world.onRemove(parameters, (entity) => {
+				const mutableEntities = entities as unknown as Entity[];
+				const index = mutableEntities.indexOf(entity);
+				mutableEntities[index] =
+					mutableEntities[mutableEntities.length - 1];
+				mutableEntities.pop();
+				forceUpdate();
+			}),
+		[world],
+	);
+
 	useEffect(() => {
-		const mutableEntities = entities as unknown as Entity[];
-		mutableEntities.length = 0;
-		mutableEntities.push(...world.query(...parameters));
-
-		forceUpdate();
-	}, [world]);
-
-	// Subscribe to changes
-	useEffect(() => {
-		const unsubAdd = world.onAdd(parameters, (entity) => {
-			const mutableEntities = entities as unknown as Entity[];
-			mutableEntities.push(entity);
-			forceUpdate();
-		});
-
-		const unsubRemove = world.onRemove(parameters, (entity) => {
-			const mutableEntities = entities as unknown as Entity[];
-			const index = mutableEntities.indexOf(entity);
-			mutableEntities[index] = mutableEntities[mutableEntities.length - 1];
-			mutableEntities.pop();
-			forceUpdate();
-		});
-
 		return () => {
 			unsubAdd();
 			unsubRemove();
