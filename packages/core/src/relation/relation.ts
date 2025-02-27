@@ -4,18 +4,23 @@ import { $internal } from '../common';
 import { World } from '../world/world';
 import { Relation, RelationTarget, WildcardRelation } from './types';
 
-function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>(definition?: {
+function defineRelation<S extends Schema = any>(definition?: {
 	exclusive?: boolean;
 	autoRemoveTarget?: boolean;
 	store?: S;
-}): Relation<T> {
-	const pairsMap = new Map<any, T>();
-	const traitFactory = () => trait(definition?.store ?? {}) as T;
+}): Relation<Trait<S>> {
+	const pairsMap = new Map<any, Trait<S>>();
+	const traitFactory = () => trait(definition?.store ?? {}) as unknown as Trait<S>;
 
 	function relationFn(target: RelationTarget) {
 		if (target === undefined) throw Error('Relation target is undefined');
 		if (target === '*') target = Wildcard as RelationTarget;
-		return getRelationTrait<T>(relationFn as Relation<T>, traitFactory, pairsMap, target);
+		return getRelationTrait<Trait<S>>(
+			relationFn as Relation<Trait<S>>,
+			traitFactory,
+			pairsMap,
+			target
+		);
 	}
 
 	return Object.assign(relationFn, {
@@ -25,7 +30,7 @@ function defineRelation<S extends Schema = any, T extends Trait = Trait<Schema>>
 			exclusive: definition?.exclusive ?? false,
 			autoRemoveTarget: definition?.autoRemoveTarget ?? false,
 		},
-	}) as Relation<T>;
+	}) as Relation<Trait<S>>;
 }
 export const relation = defineRelation;
 
