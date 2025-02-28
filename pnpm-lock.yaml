@@ -333,17 +333,14 @@ importers:
   packages/dev:
     dependencies:
       '@types/react':
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: '>=18.0.0'
         version: 19.0.8
-      '@types/react-dom':
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.0.3(@types/react@19.0.8)
     devDependencies:
       react:
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: '>=18.0.0'
         version: 19.0.0
       react-dom:
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: '>=18.0.0'
         version: 19.0.0(react@19.0.0)
       tsconfig:
         specifier: workspace:*
@@ -352,11 +349,8 @@ importers:
   packages/publish:
     dependencies:
       '@types/react':
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: '>=18.0.0'
         version: 19.0.8
-      '@types/react-dom':
-        specifier: ^18.0.0 || ^19.0.0
-        version: 19.0.3(@types/react@19.0.8)
     devDependencies:
       '@koota/core':
         specifier: workspace:*
@@ -365,10 +359,10 @@ importers:
         specifier: workspace:*
         version: link:../react
       react:
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: '>=18.0.0'
         version: 19.0.0
       react-dom:
-        specifier: ^18.0.0 || ^19.0.0
+        specifier: '>=18.0.0'
         version: 19.0.0(react@19.0.0)
       tsconfig:
         specifier: workspace:*
@@ -383,15 +377,15 @@ importers:
         specifier: workspace:*
         version: link:../core
       '@react-three/fiber':
-        specifier: ^9.0.0-rc.7
-        version: 9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
+        specifier: ^9.0.4
+        version: 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       three:
         specifier: '>=0.159'
         version: 0.162.0
     devDependencies:
       '@react-three/test-renderer':
-        specifier: 9.0.1
-        version: 9.0.1(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)
+        specifier: ^9.0.1
+        version: 9.0.1(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)
       '@testing-library/react':
         specifier: ^16.2.0
         version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.3(@types/react@19.0.8))(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -3386,9 +3380,9 @@ snapshots:
       - '@types/react'
       - immer
 
-  '@react-three/test-renderer@9.0.1(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)':
+  '@react-three/test-renderer@9.0.1(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)':
     dependencies:
-      '@react-three/fiber': 9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
+      '@react-three/fiber': 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       react: 19.0.0
       three: 0.162.0
 
