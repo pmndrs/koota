@@ -27,8 +27,8 @@ importers:
         specifier: workspace:*
         version: link:../../sims/add-remove
       directed:
-        specifier: ^0.1.5
-        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.6
+        version: 0.1.6(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -68,8 +68,8 @@ importers:
         specifier: ^9.0.0-rc.7
         version: 9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       directed:
-        specifier: ^0.1.5
-        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.6
+        version: 0.1.6(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -157,8 +157,8 @@ importers:
         specifier: workspace:*
         version: link:../../sims/n-body
       directed:
-        specifier: ^0.1.5
-        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.6
+        version: 0.1.6(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -221,8 +221,8 @@ importers:
         specifier: ^9.0.4
         version: 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       directed:
-        specifier: ^0.1.5
-        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.6
+        version: 0.1.6(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -279,8 +279,8 @@ importers:
         specifier: workspace:*
         version: link:../bench-tools
       directed:
-        specifier: ^0.1.5
-        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.6
+        version: 0.1.6(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -308,8 +308,8 @@ importers:
         specifier: workspace:*
         version: link:../bench-tools
       directed:
-        specifier: ^0.1.5
-        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.6
+        version: 0.1.6(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -1694,11 +1694,11 @@ packages:
     resolution: {integrity: sha512-EjePK1srD3P08o2j4f0ExnylqRs5B9tJjcp9t1krH2qRi8CCdsYfwe9JgSLurFBWwq4uOlipzfk5fHNvwFKr8Q==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
 
-  directed@0.1.5:
-    resolution: {integrity: sha512-r1WTsbEfbMjXr3/zgJFY8vRv2JetB2iz6aUEi2BGwW/vrBd7cnXKoHgnXEFfG47hcSUTQSdUALVbNM/25qG/gg==}
+  directed@0.1.6:
+    resolution: {integrity: sha512-nF5Zm9Fdanolvvg/pohiuOfchRe5563LCVxFMekwwLz5vciRiK9Ej8B3JbKPGUsDeY5znStFPzSpZv3BtTwIoQ==}
     peerDependencies:
-      '@types/react': ^18.0.0 || ^19.0.0
-      react: ^18.0.0 || ^19.0.0
+      '@types/react': '>=18.0.0'
+      react: '>=18.0.0'
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3890,7 +3890,7 @@ snapshots:
 
   diff-sequences@29.6.3: {}
 
-  directed@0.1.5(@types/react@19.0.8)(react@19.0.0):
+  directed@0.1.6(@types/react@19.0.8)(react@19.0.0):
     optionalDependencies:
       '@types/react': 19.0.8
       react: 19.0.0
