@@ -22,7 +22,7 @@
 	"devDependencies": {
 		"@types/react": "^19.0.8",
 		"@types/react-dom": "^19.0.3",
-		"@react-three/test-renderer": "9.0.0",
+		"@react-three/test-renderer": "^9.0.1",
 		"@testing-library/react": "^16.2.0",
 		"@types/three": "^0.162.0",
 		"jsdom": "^26.0.0",

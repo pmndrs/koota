@@ -27,8 +27,8 @@ importers:
         specifier: workspace:*
         version: link:../../sims/add-remove
       directed:
-        specifier: ^0.1.4
-        version: 0.1.4(@react-three/fiber@8.18.0(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(@types/react@18.3.18)(react@18.3.1)
+        specifier: ^0.1.5
+        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -68,8 +68,8 @@ importers:
         specifier: ^9.0.0-rc.7
         version: 9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       directed:
-        specifier: ^0.1.3
-        version: 0.1.4(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.5
+        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -157,8 +157,8 @@ importers:
         specifier: workspace:*
         version: link:../../sims/n-body
       directed:
-        specifier: ^0.1.3
-        version: 0.1.4(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.5
+        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -221,8 +221,8 @@ importers:
         specifier: ^9.0.4
         version: 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       directed:
-        specifier: ^0.1.3
-        version: 0.1.4(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(@types/react@19.0.8)(react@19.0.0)
+        specifier: ^0.1.5
+        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -279,8 +279,8 @@ importers:
         specifier: workspace:*
         version: link:../bench-tools
       directed:
-        specifier: ^0.1.4
-        version: 0.1.4(@react-three/fiber@8.18.0(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(@types/react@18.3.18)(react@18.3.1)
+        specifier: ^0.1.5
+        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -308,8 +308,8 @@ importers:
         specifier: workspace:*
         version: link:../bench-tools
       directed:
-        specifier: ^0.1.4
-        version: 0.1.4(@react-three/fiber@8.18.0(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(@types/react@18.3.18)(react@18.3.1)
+        specifier: ^0.1.5
+        version: 0.1.5(@types/react@19.0.8)(react@19.0.0)
       koota:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
@@ -390,8 +390,8 @@ importers:
         version: 0.162.0
     devDependencies:
       '@react-three/test-renderer':
-        specifier: 9.0.0
-        version: 9.0.0(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)
+        specifier: 9.0.1
+        version: 9.0.1(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)
       '@testing-library/react':
         specifier: ^16.2.0
         version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.3(@types/react@19.0.8))(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -1110,31 +1110,6 @@ packages:
       react-dom:
         optional: true
 
-  '@react-three/fiber@8.18.0':
-    resolution: {integrity: sha512-FYZZqD0UUHUswKz3LQl2Z7H24AhD14XGTsIRw3SJaXUxyfVMi+1yiZGmqTcPt/CkPpdU7rrxqcyQ1zJE5DjvIQ==}
-    peerDependencies:
-      expo: '>=43.0'
-      expo-asset: '>=8.4'
-      expo-file-system: '>=11.0'
-      expo-gl: '>=11.0'
-      react: '>=18 <19'
-      react-dom: '>=18 <19'
-      react-native: '>=0.64'
-      three: '>=0.133'
-    peerDependenciesMeta:
-      expo:
-        optional: true
-      expo-asset:
-        optional: true
-      expo-file-system:
-        optional: true
-      expo-gl:
-        optional: true
-      react-dom:
-        optional: true
-      react-native:
-        optional: true
-
   '@react-three/fiber@9.0.0-rc.7':
     resolution: {integrity: sha512-RRdEMfFps7/y/B+EQNhCISuAZYOWrDEGVEKCcPCrCDa3vkPU6R4kVscUr6RmbnChGjBdVoHb8jtLH39w5Rr4kA==}
     peerDependencies:
@@ -1185,13 +1160,12 @@ packages:
       react-native:
         optional: true
 
-  '@react-three/test-renderer@9.0.0':
-    resolution: {integrity: sha512-uiARykWUyUJCf6IrpV74cgkTl+6EexqRuGr4B8Im41BPmxxAVRvwx+hSCq6Z3Tjb7OHVm7+BddZ+UDjNEKUrZw==}
-    deprecated: Major was released in error with no changes
+  '@react-three/test-renderer@9.0.1':
+    resolution: {integrity: sha512-CbMsjbjzZgRdIXL278bwlcg5hu8M/nrNJ81EKwxFeZCZEkyIsbiDQWQ35W1ed5BZzv+j6vz7toXCl67UIgelAA==}
     peerDependencies:
-      '@react-three/fiber': '>=8.1.0'
-      react: '>=17.0'
-      three: '>=0.126'
+      '@react-three/fiber': '>=9.0.0'
+      react: ^19.0.0
+      three: '>=0.156'
 
   '@rollup/rollup-android-arm-eabi@4.34.6':
     resolution: {integrity: sha512-+GcCXtOQoWuC7hhX1P00LqjjIiS/iOouHXhMdiDSnq/1DGTox4SpUvO52Xm+div6+106r+TcvOeo/cxvyEyTgg==}
@@ -1421,24 +1395,15 @@ packages:
   '@types/offscreencanvas@2019.7.3':
     resolution: {integrity: sha512-ieXiYmgSRXUDeOntE1InxjWyvEelZGP63M+cGuquuRLuIKKT1osnkXjxev9B7d1nXSug5vpunx+gNlbVxMlC9A==}
 
-  '@types/prop-types@15.7.14':
-    resolution: {integrity: sha512-gNMvNH49DJ7OJYv+KAKn0Xp45p8PLl6zo2YnvDIbTd4J6MER2BmWN49TG7n9LvkyihINxeKW8+3bfS2yDC9dzQ==}
-
   '@types/react-dom@19.0.3':
     resolution: {integrity: sha512-0Knk+HJiMP/qOZgMyNFamlIjw9OFCsyC2ZbigmEEyXXixgre6IQpm/4V+r3qH4GC1JPvRJKInw+on2rV6YZLeA==}
     peerDependencies:
       '@types/react': ^19.0.0
 
-  '@types/react-reconciler@0.26.7':
-    resolution: {integrity: sha512-mBDYl8x+oyPX/VBb3E638N0B7xG+SPk/EAMcVPeexqus/5aTpTphQi0curhhshOqRrc9t6OPoJfEUkbymse/lQ==}
-
   '@types/react-reconciler@0.28.9':
     resolution: {integrity: sha512-HHM3nxyUZ3zAylX8ZEyrDNd2XZOnQ0D5XfunJF5FLQnZbHHYq4UWvW1QfelQNXv1ICNkwYhfxjwfnqivYB6bFg==}
     peerDependencies:
       '@types/react': '*'
-
-  '@types/react@18.3.18':
-    resolution: {integrity: sha512-t4yC+vtgnkYjNSKlFx1jkAhH8LgTo2N/7Qvi83kdEaUtMDiwpbLAktKDaAMlRcJ5eSxZkH74eEGt1ky31d7kfQ==}
 
   '@types/react@19.0.8':
     resolution: {integrity: sha512-9P/o1IGdfmQxrujGbIMDyYaaCykhLKc0NGCtYcECNUr9UAaDe4gwvV9bR6tvd5Br1SG0j+PBpbKr2UYY8CwqSw==}
@@ -1735,15 +1700,12 @@ packages:
     resolution: {integrity: sha512-EjePK1srD3P08o2j4f0ExnylqRs5B9tJjcp9t1krH2qRi8CCdsYfwe9JgSLurFBWwq4uOlipzfk5fHNvwFKr8Q==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
 
-  directed@0.1.4:
-    resolution: {integrity: sha512-nf1ag1V8moUwAa0xIJY074keaZJmE5dUNzOfIzOK5MuZgJ0b/P30IZnifuCOnUaDcuHKDe1oU0/5NWJVIaNYCw==}
+  directed@0.1.5:
+    resolution: {integrity: sha512-r1WTsbEfbMjXr3/zgJFY8vRv2JetB2iz6aUEi2BGwW/vrBd7cnXKoHgnXEFfG47hcSUTQSdUALVbNM/25qG/gg==}
     peerDependencies:
-      '@react-three/fiber': ^8.17.5
-      '@types/react': ^18.3.3
-      react: ^18.3.1
+      '@types/react': ^18.0.0 || ^19.0.0
+      react: ^18.0.0 || ^19.0.0
     peerDependenciesMeta:
-      '@react-three/fiber':
-        optional: true
       '@types/react':
         optional: true
       react:
@@ -2117,10 +2079,6 @@ packages:
   lodash.sortby@4.7.0:
     resolution: {integrity: sha512-HDWXG8isMntAyRF5vZ7xKuEvOhT4AhlRt/3czTSjvGUxjYCBVRQY48ViDHyfYz9VIoBkW4TMGQNapx+l3RUwdA==}
 
-  loose-envify@1.4.0:
-    resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
-    hasBin: true
-
   loupe@2.3.7:
     resolution: {integrity: sha512-zSMINGVYkdpYSOBmLi0D1Uo7JU9nVdQKrHxC8eYlV+9YKK9WePqAlL7lSlorG/U2Fw1w0hTBmaa/jrQ3UbPHtA==}
 
@@ -2336,11 +2294,6 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
-  react-dom@18.3.1:
-    resolution: {integrity: sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==}
-    peerDependencies:
-      react: ^18.3.1
-
   react-dom@19.0.0:
     resolution: {integrity: sha512-4GV5sHFG0e/0AD4X+ySy6UJd3jVl1iNsNHdpad0qhABJ11twS3TTBnseqsKurKcsNqCEFeGL3uLpVChpIO3QfQ==}
     peerDependencies:
@@ -2351,12 +2304,6 @@ packages:
 
   react-is@18.3.1:
     resolution: {integrity: sha512-/LLMVyas0ljjAtoYiPqYiL8VWXzUUdThrmU5+n20DZv+a+ClRoevUzw5JxU+Ieh5/c87ytoTBV9G1FiKfNJdmg==}
-
-  react-reconciler@0.27.0:
-    resolution: {integrity: sha512-HmMDKciQjYmBRGuuhIaKA1ba/7a+UsM5FzOZsMO2JYHt9Jh8reCb7j1eDC95NOyUlKM9KRyvdx0flBuDvYSBoA==}
-    engines: {node: '>=0.10.0'}
-    peerDependencies:
-      react: ^18.0.0
 
   react-reconciler@0.31.0:
     resolution: {integrity: sha512-7Ob7Z+URmesIsIVRjnLoDGwBEG/tVitidU0nMsqX/eeJaLY89RISO/10ERe0MqmzuKUUB1rmY+h1itMbUHg9BQ==}
@@ -2376,10 +2323,6 @@ packages:
     peerDependenciesMeta:
       react-dom:
         optional: true
-
-  react@18.3.1:
-    resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
-    engines: {node: '>=0.10.0'}
 
   react@19.0.0:
     resolution: {integrity: sha512-V8AVnmPIICiWpGfm6GLzCR/W5FXLchHop40W4nXBmdlEceh16rCN8O8LNWm5bh5XUX91fh7KpA+W0TgMKmgTpQ==}
@@ -2428,12 +2371,6 @@ packages:
   saxes@6.0.0:
     resolution: {integrity: sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==}
     engines: {node: '>=v12.22.7'}
-
-  scheduler@0.21.0:
-    resolution: {integrity: sha512-1r87x5fz9MXqswA2ERLo0EbOAU74DpIUO090gIasYTqlVoJeMcl+Z1Rg7WHz+qtPujhS/hGIt9kxZOYBV3faRQ==}
-
-  scheduler@0.23.2:
-    resolution: {integrity: sha512-UOShsPwz7NrMUqhR6t0hWjFduvOzbtv7toDH1/hIrfRNIDBnnBWd0CwJTGvTpngVlmwGCdP9/Zl/tVrDqcuYzQ==}
 
   scheduler@0.25.0:
     resolution: {integrity: sha512-xFVuu11jh+xcO7JOAGJNOXld8/TcEHK/4CituBUeUb5hqxJLj9YuemAEuvm9gQ/+pgXYfbQuqAkiYu+u7YEsNA==}
@@ -2826,15 +2763,6 @@ packages:
   yocto-queue@1.1.1:
     resolution: {integrity: sha512-b4JR1PFR10y1mKjhHY9LaGo6tmrgjit7hxVIeAmyMw3jegXR4dhYqLaQF5zMXZxY7tLpMyJeLjr1C4rLmkVe8g==}
     engines: {node: '>=12.20'}
-
-  zustand@3.7.2:
-    resolution: {integrity: sha512-PIJDIZKtokhof+9+60cpockVOq05sJzHCriyvaLBmEJixseQ1a5Kdov6fWZfWOu5SK9c+FhH1jU0tntLxRJYMA==}
-    engines: {node: '>=12.7.0'}
-    peerDependencies:
-      react: '>=16.8'
-    peerDependenciesMeta:
-      react:
-        optional: true
 
   zustand@4.5.6:
     resolution: {integrity: sha512-ibr/n1hBzLLj5Y+yUcU7dYw8p6WnIVzdJbnX+1YpaScvZVF2ziugqHs+LAmHw4lWO9c/zRj+K1ncgWDQuthEdQ==}
@@ -3415,27 +3343,6 @@ snapshots:
       - '@types/three'
       - immer
 
-  '@react-three/fiber@8.18.0(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)':
-    dependencies:
-      '@babel/runtime': 7.26.7
-      '@types/react-reconciler': 0.26.7
-      '@types/webxr': 0.5.21
-      base64-js: 1.5.1
-      buffer: 6.0.3
-      its-fine: 1.2.5(@types/react@18.3.18)(react@18.3.1)
-      react: 18.3.1
-      react-reconciler: 0.27.0(react@18.3.1)
-      react-use-measure: 2.1.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      scheduler: 0.21.0
-      suspend-react: 0.1.3(react@18.3.1)
-      three: 0.162.0
-      zustand: 3.7.2(react@18.3.1)
-    optionalDependencies:
-      react-dom: 18.3.1(react@18.3.1)
-    transitivePeerDependencies:
-      - '@types/react'
-    optional: true
-
   '@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)':
     dependencies:
       '@babel/runtime': 7.26.7
@@ -3479,7 +3386,7 @@ snapshots:
       - '@types/react'
       - immer
 
-  '@react-three/test-renderer@9.0.0(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)':
+  '@react-three/test-renderer@9.0.1(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)':
     dependencies:
       '@react-three/fiber': 9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       react: 19.0.0
@@ -3656,32 +3563,13 @@ snapshots:
 
   '@types/offscreencanvas@2019.7.3': {}
 
-  '@types/prop-types@15.7.14':
-    optional: true
-
   '@types/react-dom@19.0.3(@types/react@19.0.8)':
     dependencies:
       '@types/react': 19.0.8
 
-  '@types/react-reconciler@0.26.7':
-    dependencies:
-      '@types/react': 19.0.8
-    optional: true
-
-  '@types/react-reconciler@0.28.9(@types/react@18.3.18)':
-    dependencies:
-      '@types/react': 18.3.18
-    optional: true
-
   '@types/react-reconciler@0.28.9(@types/react@19.0.8)':
     dependencies:
       '@types/react': 19.0.8
-
-  '@types/react@18.3.18':
-    dependencies:
-      '@types/prop-types': 15.7.14
-      csstype: 3.1.3
-    optional: true
 
   '@types/react@19.0.8':
     dependencies:
@@ -4008,21 +3896,8 @@ snapshots:
 
   diff-sequences@29.6.3: {}
 
-  directed@0.1.4(@react-three/fiber@8.18.0(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0))(@types/react@18.3.18)(react@18.3.1):
+  directed@0.1.5(@types/react@19.0.8)(react@19.0.0):
     optionalDependencies:
-      '@react-three/fiber': 8.18.0(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.162.0)
-      '@types/react': 18.3.18
-      react: 18.3.1
-
-  directed@0.1.4(@react-three/fiber@9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(@types/react@19.0.8)(react@19.0.0):
-    optionalDependencies:
-      '@react-three/fiber': 9.0.0-rc.7(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
-      '@types/react': 19.0.8
-      react: 19.0.0
-
-  directed@0.1.4(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(@types/react@19.0.8)(react@19.0.0):
-    optionalDependencies:
-      '@react-three/fiber': 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
       '@types/react': 19.0.8
       react: 19.0.0
 
@@ -4368,14 +4243,6 @@ snapshots:
 
   isexe@2.0.0: {}
 
-  its-fine@1.2.5(@types/react@18.3.18)(react@18.3.1):
-    dependencies:
-      '@types/react-reconciler': 0.28.9(@types/react@18.3.18)
-      react: 18.3.1
-    transitivePeerDependencies:
-      - '@types/react'
-    optional: true
-
   its-fine@1.2.5(@types/react@19.0.8)(react@19.0.0):
     dependencies:
       '@types/react-reconciler': 0.28.9(@types/react@19.0.8)
@@ -4475,11 +4342,6 @@ snapshots:
   lodash.merge@4.6.2: {}
 
   lodash.sortby@4.7.0: {}
-
-  loose-envify@1.4.0:
-    dependencies:
-      js-tokens: 4.0.0
-    optional: true
 
   loupe@2.3.7:
     dependencies:
@@ -4668,13 +4530,6 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  react-dom@18.3.1(react@18.3.1):
-    dependencies:
-      loose-envify: 1.4.0
-      react: 18.3.1
-      scheduler: 0.23.2
-    optional: true
-
   react-dom@19.0.0(react@19.0.0):
     dependencies:
       react: 19.0.0
@@ -4684,13 +4539,6 @@ snapshots:
 
   react-is@18.3.1: {}
 
-  react-reconciler@0.27.0(react@18.3.1):
-    dependencies:
-      loose-envify: 1.4.0
-      react: 18.3.1
-      scheduler: 0.21.0
-    optional: true
-
   react-reconciler@0.31.0(react@19.0.0):
     dependencies:
       react: 19.0.0
@@ -4698,23 +4546,11 @@ snapshots:
 
   react-refresh@0.14.2: {}
 
-  react-use-measure@2.1.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
-    dependencies:
-      react: 18.3.1
-    optionalDependencies:
-      react-dom: 18.3.1(react@18.3.1)
-    optional: true
-
   react-use-measure@2.1.7(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
     dependencies:
       react: 19.0.0
     optionalDependencies:
       react-dom: 19.0.0(react@19.0.0)
-
-  react@18.3.1:
-    dependencies:
-      loose-envify: 1.4.0
-    optional: true
 
   react@19.0.0: {}
 
@@ -4768,16 +4604,6 @@ snapshots:
   saxes@6.0.0:
     dependencies:
       xmlchars: 2.2.0
-
-  scheduler@0.21.0:
-    dependencies:
-      loose-envify: 1.4.0
-    optional: true
-
-  scheduler@0.23.2:
-    dependencies:
-      loose-envify: 1.4.0
-    optional: true
 
   scheduler@0.25.0: {}
 
@@ -4853,11 +4679,6 @@ snapshots:
   supports-color@7.2.0:
     dependencies:
       has-flag: 4.0.0
-
-  suspend-react@0.1.3(react@18.3.1):
-    dependencies:
-      react: 18.3.1
-    optional: true
 
   suspend-react@0.1.3(react@19.0.0):
     dependencies:
@@ -5144,11 +4965,6 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   yocto-queue@1.1.1: {}
-
-  zustand@3.7.2(react@18.3.1):
-    optionalDependencies:
-      react: 18.3.1
-    optional: true
 
   zustand@4.5.6(@types/react@19.0.8)(react@19.0.0):
     dependencies:
