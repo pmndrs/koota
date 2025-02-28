@@ -13,7 +13,7 @@
 		"@app/bench-tools": "workspace:*",
 		"@react-three/drei": "^10.0.3",
 		"@react-three/fiber": "^9.0.4",
-		"directed": "^0.1.3",
+		"directed": "^0.1.5",
 		"koota": "workspace:@koota/dev@*",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
