@@ -319,6 +319,8 @@ export class Query {
 		for (const sub of this.removeSubscriptions) {
 			sub(entity);
 		}
+
+		this.version++;
 	}
 
 	check(
