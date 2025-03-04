@@ -13,6 +13,7 @@ import { $internal } from '../common';
 import { destroyEntity } from './entity';
 import { Entity } from './types';
 import { ENTITY_ID_MASK, WORLD_ID_SHIFT } from './utils/pack-entity';
+import { isEntityAlive } from './utils/entity-index';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
@@ -105,4 +106,11 @@ Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
 Number.prototype.id = function (this: Entity) {
 	const id = this & ENTITY_ID_MASK;
 	return id;
+};
+
+//@ts-expect-error
+Number.prototype.isAlive = function (this: Entity) {
+	const worldId = this >>> WORLD_ID_SHIFT;
+	const world = universe.worlds[worldId];
+	return isEntityAlive(world[$internal].entityIndex, this);
 };
