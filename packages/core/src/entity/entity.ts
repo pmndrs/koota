@@ -92,6 +92,10 @@ export function destroyEntity(world: World, entity: Entity) {
 		// Free the entity.
 		releaseEntity(ctx.entityIndex, currentEntity);
 
+		// Remove the entity from the all query.
+		const allQuery = ctx.queriesHashMap.get('');
+		if (allQuery) allQuery.remove(world, currentEntity);
+
 		// Remove all entity state from world.
 		ctx.entityTraits.delete(entity);
 
