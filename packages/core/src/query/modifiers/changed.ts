@@ -6,7 +6,7 @@ import { World } from '../../world/world';
 import { ModifierData } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { registerTrait } from '../../trait/trait';
+import { hasTrait, registerTrait } from '../../trait/trait';
 
 export function createChanged() {
 	const id = createTrackingId();
@@ -24,7 +24,7 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	const ctx = world[$internal];
 
 	// Early exit if the trait is not on the entity.
-	if (!entity.has(trait)) return;
+	if (!hasTrait(world, entity, trait)) return;
 
 	// Register the trait if it's not already registered.
 	if (!ctx.traitData.has(trait)) registerTrait(world, trait);

@@ -8,7 +8,7 @@ import { QueryParameter, QueryResult } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
-import { registerTrait } from '../trait/trait';
+import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { TraitData } from '../trait/trait-data';
 import { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -86,23 +86,23 @@ export class World {
 	has(target: Entity | Trait): boolean {
 		return typeof target === 'number'
 			? isEntityAlive(this[$internal].entityIndex, target)
-			: this[$internal].worldEntity.has(target);
+			: hasTrait(this, this[$internal].worldEntity, target);
 	}
 
 	add(...traits: ConfigurableTrait[]) {
-		this[$internal].worldEntity.add(...traits);
+		addTrait(this, this[$internal].worldEntity, ...traits);
 	}
 
 	remove(...traits: Trait[]) {
-		this[$internal].worldEntity.remove(...traits);
+		removeTrait(this, this[$internal].worldEntity, ...traits);
 	}
 
 	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> | undefined {
-		return this[$internal].worldEntity.get(trait);
+		return getTrait(this, this[$internal].worldEntity, trait);
 	}
 
 	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>>) {
-		this[$internal].worldEntity.set(trait, value);
+		setTrait(this, this[$internal].worldEntity, trait, value);
 	}
 
 	destroy() {
