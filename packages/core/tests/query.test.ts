@@ -747,4 +747,21 @@ describe('Query', () => {
 		const position = entity.get(Position);
 		expect(position!.x).toBe(10);
 	});
+
+	it('should get all queryable entities from an emtpy query', () => {
+		let entities = world.query();
+		expect(entities.length).toBe(0);
+
+		world.spawn(Position);
+		world.spawn(Name);
+		world.spawn(IsExcluded);
+
+		entities = world.query();
+		expect(entities.length).toBe(2);
+
+		entities.forEach((entity) => entity.destroy());
+
+		entities = world.query();
+		expect(entities.length).toBe(0);
+	});
 });
