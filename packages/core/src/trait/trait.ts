@@ -1,9 +1,8 @@
 import { $internal } from '../common';
 import { Entity } from '../entity/types';
-import { ENTITY_ID_MASK, getEntityId, WORLD_ID_SHIFT } from '../entity/utils/pack-entity';
+import { ENTITY_ID_MASK, getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
-import { universe } from '../universe/universe';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { TraitData } from './trait-data';
