@@ -1,7 +1,9 @@
 import { $internal } from '../common';
 import { Entity } from '../entity/types';
-import { getEntityId } from '../entity/utils/pack-entity';
+import { ENTITY_ID_MASK, getEntityId, WORLD_ID_SHIFT } from '../entity/utils/pack-entity';
+import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
+import { universe } from '../universe/universe';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { World } from '../world/world';
 import { TraitData } from './trait-data';
@@ -75,7 +77,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		}
 
 		// Exit early if the entity already has the trait.
-		if (entity.has(trait)) return;
+		if (hasTrait(world, entity, trait)) return;
 
 		const traitCtx = trait[$internal];
 
@@ -119,8 +121,8 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			ctx.relationTargetEntities.add(target);
 
 			// Add wildcard relation traits.
-			entity.add(Pair(Wildcard, target));
-			entity.add(Pair(relation, Wildcard));
+			addTrait(world, entity, Pair(Wildcard, target));
+			addTrait(world, entity, Pair(relation, Wildcard));
 
 			// If it's an exclusive relation, remove the old target.
 			if (relation[$internal].exclusive === true && target !== Wildcard) {
@@ -144,10 +146,10 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 				}
 			}
 
-			entity.set(trait, { ...defaults, ...params }, false);
+			setTrait(world, entity, trait, { ...defaults, ...params }, false);
 		} else {
 			const state = params ?? data.schema();
-			entity.set(trait, state, false);
+			setTrait(world, entity, trait, state, false);
 		}
 	}
 }
@@ -160,7 +162,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		const traitCtx = trait[$internal];
 
 		// Exit early if the entity doesn't have the trait.
-		if (!entity.has(trait)) return;
+		if (!hasTrait(world, entity, trait)) return;
 
 		const data = ctx.traitData.get(trait)!;
 		const { generationId, bitflag, queries } = data;
@@ -229,4 +231,42 @@ export function getStore<C extends Trait = Trait>(world: World, trait: C): Extra
 	const store = data.store as ExtractStore<C>;
 
 	return store;
+}
+
+export function setTrait(
+	world: World,
+	entity: Entity,
+	trait: Trait,
+	value: any,
+	triggerChanged = true
+) {
+	const ctx = trait[$internal];
+	const index = entity & ENTITY_ID_MASK;
+	const store = getStore(world, trait);
+
+	// A short circuit is more performance than an if statement which creates a new code statement.
+	value instanceof Function && (value = value(ctx.get(index, store)));
+
+	ctx.set(index, store, value);
+	triggerChanged && setChanged(world, entity, trait);
+}
+
+export function getTrait(world: World, entity: Entity, trait: Trait) {
+	const worldCtx = world[$internal];
+	const data = worldCtx.traitData.get(trait);
+
+	// If the trait does not exist on the world return undefined.
+	if (!data) return undefined;
+
+	// Get entity index/id.
+	const index = getEntityId(entity);
+
+	// If the entity does not have the trait return undefined.
+	const mask = worldCtx.entityMasks[data.generationId][index];
+	if ((mask & data.bitflag) !== data.bitflag) return undefined;
+
+	// Return a snapshot of the trait state.
+	const traitCtx = trait[$internal];
+	const store = getStore(world, trait);
+	return traitCtx.get(index, store);
 }

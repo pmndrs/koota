@@ -1,14 +1,14 @@
-import { removeTrait } from '../trait/trait';
+import { addTrait, removeTrait } from '../trait/trait';
 import { ConfigurableTrait } from '../trait/types';
 import { Pair, Wildcard } from '../relation/relation';
 import { $internal } from '../common';
 import { World } from '../world/world';
 import { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
+import { getEntityId } from './utils/pack-entity';
 
 // Ensure entity methods are patched.
 import './entity-methods-patch';
-import { getEntityId } from './utils/pack-entity';
 
 export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
 	const ctx = world[$internal];
@@ -18,11 +18,11 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
 		const match = query.check(world, entity);
 		if (match) query.add(entity);
 		// Reset all tracking bitmasks for the query.
-		query.resetTrackingBitmasks(entity.id());
+		query.resetTrackingBitmasks(getEntityId(entity));
 	}
 
 	ctx.entityTraits.set(entity, new Set());
-	entity.add(...traits);
+	addTrait(world, entity, ...traits);
 
 	return entity;
 }
