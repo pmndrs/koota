@@ -3,7 +3,7 @@
 // and the convenience of using methods. Type guards are used to ensure
 // that the methods are only called on entities.
 
-import { addTrait, hasTrait, removeTrait } from '../trait/trait';
+import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
 import { ConfigurableTrait, Trait } from '../trait/types';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
@@ -54,38 +54,14 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 Number.prototype.get = function (this: Entity, trait: Trait) {
 	const worldId = this >>> WORLD_ID_SHIFT;
 	const world = universe.worlds[worldId];
-	const worldCtx = world[$internal];
-	// TODO: Remove the need for a map to get the entity mask for the trait.
-	const data = worldCtx.traitData.get(trait);
-
-	// If the trait does not exist on the world return undefined.
-	if (!data) return undefined;
-
-	// Get entity index/id.
-	const index = this & ENTITY_ID_MASK;
-
-	// If the entity does not have the trait return undefined.
-	const mask = worldCtx.entityMasks[data.generationId][index];
-	if ((mask & data.bitflag) !== data.bitflag) return undefined;
-
-	// Return a snapshot of the trait state.
-	const traitCtx = trait[$internal];
-	const store = traitCtx.stores[worldId];
-	return traitCtx.get(index, store);
+	return getTrait(world, this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
-	const ctx = trait[$internal];
-	const index = this & ENTITY_ID_MASK;
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const store = ctx.stores[worldId];
-
-	// A short circuit is more performance than an if statement which creates a new code statement.
-	value instanceof Function && (value = value(ctx.get(index, store)));
-
-	ctx.set(index, store, value);
-	triggerChanged && setChanged(universe.worlds[worldId], this, trait);
+	const world = universe.worlds[worldId];
+	setTrait(world, this, trait, value, triggerChanged);
 };
 
 //@ts-expect-error
