@@ -19,7 +19,7 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
 		callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
 	) => QueryResult<T>;
 	select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
-	sort(callback: (entity: Entity) => number): QueryResult<T>;
+	sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
 
 type UnwrapModifierData<T> = T extends ModifierData<infer C> ? C : never;
