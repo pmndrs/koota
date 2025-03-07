@@ -764,4 +764,41 @@ describe('Query', () => {
 		entities = world.query();
 		expect(entities.length).toBe(0);
 	});
+
+	it('can sort query results', () => {
+		const entityA = world.spawn(Position);
+		const entityB = world.spawn(Position);
+		const entityC = world.spawn(Position);
+		const entityD = world.spawn(Position);
+
+		let entities = world.query(Position);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
+		expect(entities[2]).toBe(entityC);
+		expect(entities[3]).toBe(entityD);
+
+		entityC.destroy();
+
+		entities = world.query(Position);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
+		expect(entities[2]).toBe(entityD);
+
+		// Recycles the entity id from entityC (3).
+		const entityE = world.spawn(Position);
+
+		entities = world.query(Position);
+		expect(entities[0]).toBe(entityA);
+		expect(entities[1]).toBe(entityB);
+		expect(entities[2]).toBe(entityD);
+		expect(entities[3]).toBe(entityE);
+
+		entities.sort();
+
+		// Test the entity.id() are in ascending order.
+		// [1, 2, 3, 4]
+		for (let i = 0; i < entities.length; i++) {
+			expect(entities[i].id()).toBe(i + 1);
+		}
+	});
 });
