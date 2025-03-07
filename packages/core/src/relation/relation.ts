@@ -54,10 +54,16 @@ export function getRelationTrait<T extends Trait>(
 	return pairsMap.get(target)!;
 }
 
-export const getRelationTargets = (world: World, relation: Relation<any>, entity: number) => {
+export const getRelationTargets = (
+	world: World,
+	relation: Relation<any>,
+	entity: number
+): readonly RelationTarget[] => {
 	const ctx = world[$internal];
-	const traits = ctx.entityTraits.get(entity) || [];
+	const traits = ctx.entityTraits.get(entity);
 	const targets: RelationTarget[] = [];
+
+	if (!traits) return targets;
 
 	for (const trait of traits) {
 		const traitCtx = trait[$internal];
@@ -66,7 +72,7 @@ export const getRelationTargets = (world: World, relation: Relation<any>, entity
 		}
 	}
 
-	return targets as readonly RelationTarget[];
+	return targets;
 };
 
 export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTarget): T => {
