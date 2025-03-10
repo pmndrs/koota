@@ -201,7 +201,9 @@ export function createQueryResult<T extends QueryParameter[]>(
 			return results as unknown as QueryResult<U>;
 		},
 
-		sort(callback: (a: Entity, b: Entity) => number = (a, b) => a.id() - b.id()): QueryResult<T> {
+		sort(
+			callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+		): QueryResult<T> {
 			Array.prototype.sort.call(entities, callback);
 			return results;
 		},
