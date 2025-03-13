@@ -17,6 +17,11 @@
 			"types": "./src/react.ts",
 			"import": "./src/react.ts",
 			"require": "./src/react.ts"
+		},
+		"./universe": {
+			"types": "./src/universe.ts",
+			"import": "./src/universe.ts",
+			"require": "./src/universe.ts"
 		}
 	},
 	"files": [

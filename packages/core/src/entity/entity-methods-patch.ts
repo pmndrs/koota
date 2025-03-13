@@ -3,8 +3,8 @@
 // and the convenience of using methods. Type guards are used to ensure
 // that the methods are only called on entities.
 
-import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
-import { ConfigurableTrait, Trait } from '../trait/types';
+import { hasTrait, setTrait } from '../trait/trait';
+import { Trait } from '../trait/types';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
@@ -14,20 +14,15 @@ import { destroyEntity } from './entity';
 import { Entity } from './types';
 import { ENTITY_ID_MASK, WORLD_ID_SHIFT } from './utils/pack-entity';
 import { isEntityAlive } from './utils/entity-index';
+import { createAdd, createGet, createRemove } from './entity-methods-pure';
 
 // @ts-expect-error
-Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return addTrait(world, this, ...traits);
-};
+Number.prototype.add = createAdd(universe);
 
 // @ts-expect-error
-Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return removeTrait(world, this, ...traits);
-};
+Number.prototype.remove = createRemove(universe);
+
+// TODO: etc...
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait) {
@@ -51,11 +46,7 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 };
 
 // @ts-expect-error
-Number.prototype.get = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
-	return getTrait(world, this, trait);
-};
+Number.prototype.get = createGet(universe);
 
 // @ts-expect-error
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {

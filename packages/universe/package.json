@@ -1,0 +1,26 @@
+{
+	"name": "@koota/universe",
+	"version": "0.0.1",
+	"description": "React bindings for Koota",
+	"private": true,
+	"license": "ISC",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"test": "vitest --environment=jsdom"
+	},
+	"dependencies": {
+		"@koota/core": "workspace:*"
+	},
+	"devDependencies": {
+		"tsconfig": "workspace:*",
+		"vitest": "^1.6.1"
+	}
+}

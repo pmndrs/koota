@@ -321,6 +321,22 @@ importers:
         specifier: latest
         version: 4.19.3
 
+  examples/multiverse:
+    dependencies:
+      koota:
+        specifier: workspace:@koota/dev@*
+        version: link:../../packages/dev
+    devDependencies:
+      '@types/three':
+        specifier: ^0.162.0
+        version: 0.162.0
+      typescript:
+        specifier: ^5.2.2
+        version: 5.8.2
+      vite:
+        specifier: ^5.1.6
+        version: 5.4.14(@types/node@22.13.5)
+
   packages/core:
     devDependencies:
       tsconfig:
@@ -369,7 +385,7 @@ importers:
         version: link:../tsconfig
       tsup:
         specifier: ^8.3.0
-        version: 8.3.6(@swc/core@1.10.15)(postcss@8.5.2)(tsx@4.19.3)(typescript@5.7.3)
+        version: 8.3.6(@swc/core@1.10.15)(postcss@8.5.2)(tsx@4.19.3)(typescript@5.8.2)
 
   packages/react:
     dependencies:
@@ -415,6 +431,19 @@ importers:
         version: 1.6.1(@types/node@22.13.5)(jsdom@26.0.0)
 
   packages/tsconfig: {}
+
+  packages/universe:
+    dependencies:
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      tsconfig:
+        specifier: workspace:*
+        version: link:../tsconfig
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.13.5)(jsdom@26.0.0)
 
 packages:
 
@@ -2583,6 +2612,11 @@ packages:
 
   typescript@5.7.3:
     resolution: {integrity: sha512-84MVSjMEHP+FQRPy3pX9sTVV/INIex71s9TL2Gm5FG/WG1SqXeKyZ0k7/blY/4FdOzI12CBy1vGc4og/eus0fw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  typescript@5.8.2:
+    resolution: {integrity: sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -4761,7 +4795,7 @@ snapshots:
 
   ts-interface-checker@0.1.13: {}
 
-  tsup@8.3.6(@swc/core@1.10.15)(postcss@8.5.2)(tsx@4.19.3)(typescript@5.7.3):
+  tsup@8.3.6(@swc/core@1.10.15)(postcss@8.5.2)(tsx@4.19.3)(typescript@5.8.2):
     dependencies:
       bundle-require: 5.1.0(esbuild@0.24.2)
       cac: 6.7.14
@@ -4782,7 +4816,7 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.10.15
       postcss: 8.5.2
-      typescript: 5.7.3
+      typescript: 5.8.2
     transitivePeerDependencies:
       - jiti
       - supports-color
@@ -4811,6 +4845,8 @@ snapshots:
   type-detect@4.1.0: {}
 
   typescript@5.7.3: {}
+
+  typescript@5.8.2: {}
 
   ufo@1.5.4: {}
 

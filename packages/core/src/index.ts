@@ -1,4 +1,4 @@
-export { createWorld } from './world/world';
+export { createWorld, createWorldFromUniverse } from './world/world';
 export { trait } from './trait/trait';
 export { createAdded } from './query/modifiers/added';
 export { createRemoved } from './query/modifiers/removed';

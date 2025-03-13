@@ -1,7 +1,12 @@
 import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
-import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
+import {
+	createEntityIndex,
+	EntityIndex,
+	getAliveEntities,
+	isEntityAlive,
+} from '../entity/utils/entity-index';
 import { IsExcluded, Query } from '../query/query';
 import { createQueryResult } from '../query/query-result';
 import { QueryParameter, QueryResult } from '../query/types';
@@ -11,55 +16,93 @@ import { RelationTarget } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { TraitData } from '../trait/trait-data';
 import { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } from '../trait/types';
-import { universe } from '../universe/universe';
+import { Universe, universe as universe_Singleton } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
-export class World {
-	#id = allocateWorldId(universe.worldIndex);
+const $protected = Symbol('protected');
+const $protected_factories = Symbol('protected_factories');
 
-	[$internal] = {
-		entityIndex: createEntityIndex(this.#id),
-		entityMasks: [[]] as number[][],
-		entityTraits: new Map<number, Set<Trait>>(),
-		bitflag: 1,
-		traitData: new Map<Trait, TraitData>(),
-		queries: new Set<Query>(),
-		queriesHashMap: new Map<string, Query>(),
-		notQueries: new Set<Query>(),
-		dirtyQueries: new Set<Query>(),
-		relationTargetEntities: new Set<RelationTarget>(),
-		dirtyMasks: new Map<number, number[][]>(),
-		trackingSnapshots: new Map<number, number[][]>(),
-		changedMasks: new Map<number, number[][]>(),
-		worldEntity: null! as Entity,
-		trackedTraits: new Set<Trait>(),
+export class World {
+	static [$protected_factories]: {
+		withCustomUniverse(universe: Universe, ...traits: ConfigurableTrait[]): World;
+	};
+
+	[$protected]: {
+		isInitialized: boolean;
+		universe: Universe;
+		id: number;
+		traits: Set<Trait>;
+	};
+
+	[$internal]: {
+		entityIndex: EntityIndex;
+		entityMasks: number[][];
+		entityTraits: Map<number, Set<Trait>>;
+		bitflag: number;
+		traitData: Map<Trait, TraitData>;
+		queries: Set<Query>;
+		queriesHashMap: Map<string, Query>;
+		notQueries: Set<Query>;
+		dirtyQueries: Set<Query>;
+		relationTargetEntities: Set<RelationTarget>;
+		dirtyMasks: Map<number, number[][]>;
+		trackingSnapshots: Map<number, number[][]>;
+		changedMasks: Map<number, number[][]>;
+		worldEntity: Entity;
+		trackedTraits: Set<Trait>;
 	};
 
 	get id() {
-		return this.#id;
+		return this[$protected].id;
 	}
 
-	#isInitialized = false;
 	get isInitialized() {
-		return this.#isInitialized;
+		return this[$protected].isInitialized;
 	}
 
 	get entities() {
 		return getAliveEntities(this[$internal].entityIndex);
 	}
 
-	traits = new Set<Trait>();
+	get traits() {
+		return this[$protected].traits;
+	}
 
 	constructor(...traits: ConfigurableTrait[]) {
+		this[$protected] = {
+			isInitialized: false,
+			universe: universe_Singleton,
+			id: allocateWorldId(universe_Singleton.worldIndex),
+			traits: new Set(),
+		};
+
+		this[$internal] = {
+			entityIndex: createEntityIndex(this[$protected].id),
+			entityMasks: [[]] as number[][],
+			entityTraits: new Map<number, Set<Trait>>(),
+			bitflag: 1,
+			traitData: new Map<Trait, TraitData>(),
+			queries: new Set<Query>(),
+			queriesHashMap: new Map<string, Query>(),
+			notQueries: new Set<Query>(),
+			dirtyQueries: new Set<Query>(),
+			relationTargetEntities: new Set<RelationTarget>(),
+			dirtyMasks: new Map<number, number[][]>(),
+			trackingSnapshots: new Map<number, number[][]>(),
+			changedMasks: new Map<number, number[][]>(),
+			worldEntity: null! as Entity,
+			trackedTraits: new Set<Trait>(),
+		};
+
 		this.init(...traits);
 	}
 
 	init(...traits: ConfigurableTrait[]) {
 		const ctx = this[$internal];
-		if (this.#isInitialized) return;
+		if (this[$protected].isInitialized) return;
 
-		this.#isInitialized = true;
-		universe.worlds[this.#id] = this;
+		this[$protected].isInitialized = true;
+		this[$protected].universe.worlds[this[$protected].id] = this;
 
 		// Create uninitialized added masks.
 		const cursor = getTrackingCursor();
@@ -68,7 +111,7 @@ export class World {
 		}
 
 		// Create cached queries.
-		for (const [hash, parameters] of universe.cachedQueries) {
+		for (const [hash, parameters] of this[$protected].universe.cachedQueries) {
 			const query = new Query(this, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
@@ -113,15 +156,15 @@ export class World {
 		// Destroy itself and all entities.
 		this.entities.forEach((entity) => destroyEntity(this, entity));
 		this.reset();
-		this.#isInitialized = false;
-		releaseWorldId(universe.worldIndex, this.#id);
-		universe.worlds.splice(universe.worlds.indexOf(this), 1);
+		this[$protected].isInitialized = false;
+		releaseWorldId(this[$protected].universe.worldIndex, this[$protected].id);
+		this[$protected].universe.worlds.splice(this[$protected].universe.worlds.indexOf(this), 1);
 	}
 
 	reset() {
 		const ctx = this[$internal];
 
-		ctx.entityIndex = createEntityIndex(this.#id);
+		ctx.entityIndex = createEntityIndex(this[$protected].id);
 		ctx.entityTraits.clear();
 		ctx.notQueries.clear();
 		ctx.entityMasks = [[]];
@@ -226,3 +269,40 @@ export class World {
 export function createWorld(...traits: ConfigurableTrait[]) {
 	return new World(...traits);
 }
+
+export function createWorldFromUniverse(universe: Universe, ...traits: ConfigurableTrait[]): World {
+	return World[$protected_factories].withCustomUniverse(universe, ...traits);
+}
+
+World[$protected_factories] = {
+	withCustomUniverse(universe: Universe, ...traits: ConfigurableTrait[]): World {
+		const world = Object.create(World.prototype) as World;
+		world[$protected] = {
+			traits: new Set(),
+			isInitialized: false,
+			id: allocateWorldId(universe.worldIndex),
+			universe: universe,
+		};
+
+		world[$internal] = {
+			entityIndex: createEntityIndex(world[$protected].id),
+			entityMasks: [[]] as number[][],
+			entityTraits: new Map<number, Set<Trait>>(),
+			bitflag: 1,
+			traitData: new Map<Trait, TraitData>(),
+			queries: new Set<Query>(),
+			queriesHashMap: new Map<string, Query>(),
+			notQueries: new Set<Query>(),
+			dirtyQueries: new Set<Query>(),
+			relationTargetEntities: new Set<RelationTarget>(),
+			dirtyMasks: new Map<number, number[][]>(),
+			trackingSnapshots: new Map<number, number[][]>(),
+			changedMasks: new Map<number, number[][]>(),
+			worldEntity: null! as Entity,
+			trackedTraits: new Set<Trait>(),
+		};
+
+		world.init(...traits);
+		return world;
+	},
+};
