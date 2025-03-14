@@ -1,10 +1,10 @@
 import { universe } from '../../universe/universe';
 import { $internal } from '../../';
 import { Query } from '../query';
-import { QueryParameter } from '../types';
+import { QueryHash, QueryParameter } from '../types';
 import { createQueryHash } from './create-query-hash';
 
-export function cacheQuery(...parameters: QueryParameter[]): string {
+export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryHash<T> {
 	const hash = createQueryHash(parameters);
 
 	for (const world of universe.worlds) {
@@ -18,5 +18,5 @@ export function cacheQuery(...parameters: QueryParameter[]): string {
 
 	universe.cachedQueries.set(hash, parameters);
 
-	return hash;
+	return hash as QueryHash<T>;
 }

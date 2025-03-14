@@ -4,7 +4,7 @@ import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { IsExcluded, Query } from '../query/query';
 import { createQueryResult } from '../query/query-result';
-import { QueryParameter, QueryResult } from '../query/types';
+import { QueryHash, QueryParameter, QueryResult } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
@@ -144,7 +144,7 @@ export class World {
 		ctx.worldEntity = createEntity(this, IsExcluded);
 	}
 
-	query<T extends QueryParameter[]>(key: string): QueryResult<T>;
+	query<T extends QueryParameter[]>(key: QueryHash<T>): QueryResult<T>;
 	query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
 	query(...args: [string] | QueryParameter[]) {
 		const ctx = this[$internal];
