@@ -60,3 +60,8 @@ export type IsNotModifier<T> = T extends ModifierData<any, infer TType>
 		? true
 		: false
 	: false;
+
+const $parameters = Symbol();
+export type QueryHash<T extends QueryParameter[]> = string & {
+	readonly [$parameters]: T;
+};
