@@ -12,23 +12,23 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 		return [hash, query.version];
 	}, [parameters]);
 
-	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(hash));
+	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(hash).sort());
 
 	// Subscribe to changes
 	useEffect(() => {
 		const unsubAdd = world.onAdd(parameters, () => {
-			setEntities(world.query(hash));
+			setEntities(world.query(hash).sort());
 		});
 
 		const unsubRemove = world.onRemove(parameters, () => {
-			setEntities(world.query(hash));
+			setEntities(world.query(hash).sort());
 		});
 
 		// Compare the initial version to the current version to
 		// see it the query has changed
 		const query = world[$internal].queriesHashMap.get(hash)!;
 		if (query.version !== initialVersion) {
-			setEntities(world.query(hash));
+			setEntities(world.query(hash).sort());
 		}
 
 		return () => {
