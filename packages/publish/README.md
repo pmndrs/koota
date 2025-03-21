@@ -446,7 +446,15 @@ world.entities
 const id = world.id()
 
 // Resets the world as if it were just created
-world.reset()
+// Options can be passed in to modify the reset behavior
+world.reset({
+  // Default false. If true, does not clear cached queries
+  preserveQueries: false 
+  // Default false. If true, does not clear cached traits
+  preserveTraits: false 
+  // Default false. If true, does not clear subscrptions, queries or traits
+  preserveSubscriptions: false 
+})
 
 // Nukes the world and releases its ID
 world.destroy()
@@ -647,7 +655,7 @@ return player ? (
 
 ### `useWorld` 
 
-Returns the default world. If a world is passed in via `WorldProvider` then this is returned instead. The default world can be gotten at any time with `getDefaultWorld`.
+Returns the world held in context via `WorldProvider`.
 
 ```js
 // Get the default world
@@ -663,7 +671,7 @@ useEffect(() => {
 
 ### `WorldProvider` 
 
-The provider for the world context. A world must be created and passed in, which then overrides the default world.
+The provider for the world context. A world must be created and passed in.
 
 ```js
 // Create a world and pass it to the provider
