@@ -108,12 +108,21 @@ describe('World', () => {
 		const entity = world.spawn(Position);
 		expect(addCounter).toBe(1);
 
+		let results = world.query(Position);
+		expect(results.length).toBe(1);
+
 		world.reset({ preserveSubscriptions: true });
 		expect(addCounter).toBe(1);
 		expect(removeCounter).toBe(0);
 
+		results = world.query(Position);
+		expect(results.length).toBe(0);
+
 		world.spawn(Position);
 		expect(addCounter).toBe(2);
+
+		results = world.query(Position);
+		expect(results.length).toBe(1);
 
 		entity.destroy();
 		expect(removeCounter).toBe(1);
