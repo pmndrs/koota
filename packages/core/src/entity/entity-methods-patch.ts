@@ -18,63 +18,63 @@ import { isEntityAlive } from './utils/entity-index';
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return addTrait(world, this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return removeTrait(world, this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return hasTrait(world, this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.destroy = function (this: Entity) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return destroyEntity(world, this);
 };
 
 // @ts-expect-error
 Number.prototype.changed = function (this: Entity, trait: Trait) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return setChanged(world, this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return getTrait(world, this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	setTrait(world, this, trait, value, triggerChanged);
 };
 
 //@ts-expect-error
 Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return getRelationTargets(world, relation, this);
 };
 
 //@ts-expect-error
 Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return getRelationTargets(world, relation, this)[0];
 };
 
@@ -87,6 +87,6 @@ Number.prototype.id = function (this: Entity) {
 //@ts-expect-error
 Number.prototype.isAlive = function (this: Entity) {
 	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId];
+	const world = universe.worlds[worldId]!.deref()!;
 	return isEntityAlive(world[$internal].entityIndex, this);
 };
