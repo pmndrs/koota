@@ -647,7 +647,7 @@ return player ? (
 
 ### `useWorld` 
 
-Returns the default world. If a world is passed in via `WorldProvider` then this is returned instead. The default world can be gotten at any time with `getDefaultWorld`.
+Returns the world held in context via `WorldProvider`.
 
 ```js
 // Get the default world
@@ -663,7 +663,7 @@ useEffect(() => {
 
 ### `WorldProvider` 
 
-The provider for the world context. A world must be created and passed in, which then overrides the default world.
+The provider for the world context. A world must be created and passed in.
 
 ```js
 // Create a world and pass it to the provider
