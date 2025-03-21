@@ -146,6 +146,11 @@ export class World {
 			ctx.queriesHashMap.clear();
 			ctx.dirtyQueries.clear();
 			ctx.notQueries.clear();
+		} else {
+			// Clear all queries that persist.
+			for (const query of ctx.queries) {
+				query.clear({ preserveSubscriptions: true });
+			}
 		}
 
 		ctx.relationTargetEntities.clear();
