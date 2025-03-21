@@ -7,8 +7,9 @@ import { createQueryHash } from './create-query-hash';
 export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryHash<T> {
 	const hash = createQueryHash(parameters);
 
-	for (const world of universe.worlds) {
-		if (!world) continue;
+	for (const worldRef of universe.worlds) {
+		if (!worldRef) continue;
+		const world = worldRef.deref()!;
 		const ctx = world[$internal];
 		if (!ctx.queriesHashMap.has(hash)) {
 			const query = new Query(world, parameters);
