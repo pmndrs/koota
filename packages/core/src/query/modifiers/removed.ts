@@ -8,7 +8,7 @@ export function createRemoved() {
 
 	for (const world of universe.worlds) {
 		if (!world) continue;
-		setTrackingMasks(world, id);
+		setTrackingMasks(world.deref()!, id);
 	}
 
 	return <T extends Trait[] = Trait[]>(...traits: T) =>

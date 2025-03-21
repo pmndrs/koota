@@ -59,7 +59,7 @@ export class World {
 		if (this.#isInitialized) return;
 
 		this.#isInitialized = true;
-		universe.worlds[this.#id] = this;
+		universe.worlds[this.#id] = new WeakRef(this);
 
 		// Create uninitialized added masks.
 		const cursor = getTrackingCursor();
@@ -114,8 +114,10 @@ export class World {
 		this.entities.forEach((entity) => destroyEntity(this, entity));
 		this.reset();
 		this.#isInitialized = false;
+
+		// Clean up universe side effects.
 		releaseWorldId(universe.worldIndex, this.#id);
-		universe.worlds.splice(universe.worlds.indexOf(this), 1);
+		universe.worlds[this.#id] = null;
 	}
 
 	reset() {
@@ -223,6 +225,14 @@ export class World {
 	}
 }
 
+// Clean up the world ID when it is garbage collected.
+const worldFinalizer = new FinalizationRegistry((worldId: number) => {
+	universe.worlds[worldId] = null;
+	releaseWorldId(universe.worldIndex, worldId);
+});
+
 export function createWorld(...traits: ConfigurableTrait[]) {
-	return new World(...traits);
+	const world = new World(...traits);
+	worldFinalizer.register(world, world.id);
+	return world;
 }
