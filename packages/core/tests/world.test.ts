@@ -15,7 +15,8 @@ describe('World', () => {
 
 		expect(world.isInitialized).toBe(true);
 		expect(world.id).toBe(0);
-		expect(universe.worlds).toContain(world);
+		expect(universe.worlds[0]!.deref()!).toBe(world);
+		expect(universe.worldIndex.worldCursor).toBe(1);
 	});
 
 	it('should reset the world', () => {
