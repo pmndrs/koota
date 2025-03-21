@@ -1,21 +1,15 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { CONSTANTS, init, schedule } from '@sim/n-body';
 import { useSchedule } from 'directed/react';
-import { createWorld, Entity, universe } from 'koota';
+import { Entity, universe } from 'koota';
 import { useActions, useWorld } from 'koota/react';
-import { StrictMode, useLayoutEffect, useMemo, useRef } from 'react';
+import { StrictMode, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { actions } from './actions';
 import { cleanupBodies } from './systems/cleanupRepulsors';
 import { syncThreeObjects } from './systems/syncThreeObjects';
 import { InstancedMesh } from './traits/InstancedMesh';
-import { actions } from './actions';
 import { useStats } from './use-stats';
-
-function WorldGCGTest() {
-	const world = useMemo(() => createWorld(), []);
-
-	return null;
-}
 
 export function App() {
 	const frustumSize = 7000;
