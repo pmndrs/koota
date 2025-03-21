@@ -14,12 +14,6 @@ import { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } fr
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
-type ResetOptions = {
-	preserveQueries?: boolean;
-	preserveTraits?: boolean;
-	preserveSubscriptions?: boolean;
-};
-
 export class World {
 	#id = allocateWorldId(universe.worldIndex);
 
@@ -126,28 +120,21 @@ export class World {
 		universe.worlds[this.#id] = null;
 	}
 
-	reset(options: ResetOptions = {}) {
+	reset() {
 		const ctx = this[$internal];
-		const shouldPreserveTraits = options.preserveTraits || options.preserveSubscriptions;
-		const shouldPreserveQueries = options.preserveQueries || options.preserveSubscriptions;
 
 		ctx.entityIndex = createEntityIndex(this.#id);
 		ctx.entityTraits.clear();
+		ctx.notQueries.clear();
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
 
-		if (!shouldPreserveTraits) {
-			ctx.traitData.clear();
-			this.traits.clear();
-		}
+		ctx.traitData.clear();
+		this.traits.clear();
 
-		if (!shouldPreserveQueries) {
-			ctx.queries.clear();
-			ctx.queriesHashMap.clear();
-			ctx.dirtyQueries.clear();
-			ctx.notQueries.clear();
-		}
-
+		ctx.queries.clear();
+		ctx.queriesHashMap.clear();
+		ctx.dirtyQueries.clear();
 		ctx.relationTargetEntities.clear();
 
 		ctx.trackingSnapshots.clear();
