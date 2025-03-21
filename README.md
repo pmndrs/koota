@@ -446,7 +446,15 @@ world.entities
 const id = world.id()
 
 // Resets the world as if it were just created
-world.reset()
+// Options can be passed in to modify the reset behavior
+world.reset({
+  // Default false. If true, does not clear cached queries
+  preserveQueries: false 
+  // Default false. If true, does not clear cached traits
+  preserveTraits: false 
+  // Default false. If true, does not clear subscrptions, queries or traits
+  preserveSubscriptions: false 
+})
 
 // Nukes the world and releases its ID
 world.destroy()
