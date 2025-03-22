@@ -102,11 +102,10 @@ describe('useQuery', () => {
 		// Spawn an initial entity
 		world.spawn(Position);
 
-		let entities: QueryResult<[typeof Position]> = null!;
 		let renderCount = 0;
 
 		function Test() {
-			entities = useQuery(Position);
+			useQuery(Position);
 			renderCount++;
 			return null;
 		}
