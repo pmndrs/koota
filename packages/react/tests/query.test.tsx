@@ -1,9 +1,8 @@
 import { createWorld, Entity, QueryResult, trait, universe, World } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
-import { act, ReactNode, StrictMode } from 'react';
+import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useQuery, WorldProvider } from '../src';
-import exp from 'constants';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -14,7 +13,7 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 let world: World;
 const Position = trait({ x: 0, y: 0 });
-const Velocity = trait({ x: 0, y: 0 });
+// const Velocity = trait({ x: 0, y: 0 });
 
 describe('useQuery', () => {
 	beforeEach(() => {
@@ -163,54 +162,43 @@ describe('useQuery', () => {
 		expect(renderCount).toBe(2);
 	});
 
-	// it('updates when query parameters change', async () => {
-	// 	// Create entities with different traits
-	// 	const positionEntity = world.spawn(Position);
-	// 	const bothEntity = world.spawn(Position, Velocity);
+	it('reactively updates when the world is reset', async () => {
+		let entities: QueryResult<[typeof Position]> = null!;
 
-	// 	let entities: QueryResult<any> = null!;
-	// 	let queryParams: any[] = [Position];
-	// 	let rerender: () => Promise<void>;
+		function Test() {
+			entities = useQuery(Position);
+			return null;
+		}
 
-	// 	function Test() {
-	// 		entities = useQuery(...queryParams);
-	// 		return null;
-	// 	}
+		await act(async () => {
+			await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
 
-	// 	// Render with initial parameters
-	// 	await act(async () => {
-	// 		const renderer = await ReactThreeTestRenderer.create(
-	// 			<StrictMode>
-	// 				<WorldProvider world={world}>
-	// 					<Test />
-	// 				</WorldProvider>
-	// 			</StrictMode>
-	// 		);
+		expect(entities.length).toBe(0);
 
-	// 		rerender = async () => {
-	// 			await renderer.update(
-	// 				<StrictMode>
-	// 					<WorldProvider world={world}>
-	// 						<Test />
-	// 					</WorldProvider>
-	// 				</StrictMode>
-	// 			);
-	// 		};
-	// 	});
+		await act(async () => {
+			world.spawn(Position);
+			world.spawn(Position);
+		});
 
-	// 	// Should have both entities with Position
-	// 	expect(entities.length).toBe(2);
-	// 	expect(entities).toContain(positionEntity);
-	// 	expect(entities).toContain(bothEntity);
+		expect(entities.length).toBe(2);
 
-	// 	// Change query parameters
-	// 	await act(async () => {
-	// 		queryParams = [Position, Velocity];
-	// 		await rerender();
-	// 	});
+		await act(async () => {
+			world.reset();
+		});
 
-	// 	// Should now only have the entity with both Position and Velocity
-	// 	expect(entities.length).toBe(1);
-	// 	expect(entities[0]).toBe(bothEntity);
-	// });
+		expect(entities.length).toBe(0);
+
+		await act(async () => {
+			world.spawn(Position);
+		});
+
+		expect(entities.length).toBe(1);
+	});
 });
