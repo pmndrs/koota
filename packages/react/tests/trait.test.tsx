@@ -46,13 +46,6 @@ describe('useTrait', () => {
 
 		await act(async () => {
 			entity.set(Position, { x: 1, y: 1 });
-			await renderer!.update(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
 		});
 
 		expect(position).toEqual({ x: 1, y: 1 });
@@ -91,13 +84,6 @@ describe('useTrait', () => {
 
 		await act(async () => {
 			entity!.set(Position, { x: 1, y: 1 });
-			await renderer!.update(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
 		});
 
 		expect(position).toEqual({ x: 1, y: 1 });
@@ -129,14 +115,6 @@ describe('useTrait', () => {
 
 		await act(async () => {
 			world.set(TimeOfDay, { hour: 1 });
-
-			await renderer!.update(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
 		});
 
 		expect(timeOfDay).toEqual({ hour: 1 });
@@ -167,6 +145,8 @@ describe('useTrait', () => {
 
 		await act(async () => {
 			entity = world.spawn(Position);
+
+			// Force re-render
 			await renderer!.update(
 				<StrictMode>
 					<WorldProvider world={world}>
@@ -177,5 +157,37 @@ describe('useTrait', () => {
 		});
 
 		expect(position).toEqual({ x: 0, y: 0 });
+	});
+
+	it('reactively updates when the world is reset', async () => {
+		const entity = world.spawn(Position);
+		let position: TraitInstance<typeof Position> | undefined = undefined;
+
+		function Test() {
+			position = useTrait(entity, Position);
+			return null;
+		}
+
+		let renderer: any;
+
+		await act(async () => {
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+
+			entity.set(Position, { x: 1, y: 1 });
+		});
+
+		expect(position).toEqual({ x: 1, y: 1 });
+
+		await act(async () => {
+			world.reset();
+		});
+
+		expect(position).toBeUndefined();
 	});
 });
