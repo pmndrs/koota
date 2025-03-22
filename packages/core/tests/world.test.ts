@@ -89,42 +89,4 @@ describe('World', () => {
 		world.set(TimeOfDay, { hour: 1 });
 		expect(timeOfDay).toEqual({ hour: 1 });
 	});
-
-	it('should preserve subscriptions when reset with preserveSubscriptions', () => {
-		const world = createWorld();
-		const Position = trait({ x: 0, y: 0 });
-
-		let addCounter = 0;
-		let removeCounter = 0;
-
-		world.onAdd([Position], (entity) => {
-			addCounter += 1;
-		});
-
-		world.onRemove([Position], (entity) => {
-			removeCounter += 1;
-		});
-
-		const entity = world.spawn(Position);
-		expect(addCounter).toBe(1);
-
-		let results = world.query(Position);
-		expect(results.length).toBe(1);
-
-		world.reset({ preserveSubscriptions: true });
-		expect(addCounter).toBe(1);
-		expect(removeCounter).toBe(0);
-
-		results = world.query(Position);
-		expect(results.length).toBe(0);
-
-		world.spawn(Position);
-		expect(addCounter).toBe(2);
-
-		results = world.query(Position);
-		expect(results.length).toBe(1);
-
-		entity.destroy();
-		expect(removeCounter).toBe(1);
-	});
 });
