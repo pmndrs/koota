@@ -431,16 +431,4 @@ export class Query {
 			bitmask.changedTracker[eid] = 0;
 		}
 	}
-
-	clear(options: { preserveSubscriptions: boolean } = { preserveSubscriptions: false }) {
-		this.entities.clear();
-		this.toRemove.clear();
-
-		if (!options.preserveSubscriptions) {
-			this.addSubscriptions.clear();
-			this.removeSubscriptions.clear();
-		}
-
-		this.version++;
-	}
 }
