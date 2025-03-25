@@ -16,4 +16,5 @@ export * from './trait/types';
 export * from './entity/types';
 export * from './query/types';
 export * from './relation/types';
+export * from './actions/types';
 export type { World } from './world/world';
