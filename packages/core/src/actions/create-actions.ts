@@ -13,10 +13,12 @@ export function createActions<T extends Actions>(initializer: ActionInitializer<
 		}
 
 		let actions = worldCache.get(initializer);
+
 		if (!actions) {
 			actions = initializer(world);
 			worldCache.set(initializer, actions);
 		}
+
 		return actions as T;
 	};
 }
