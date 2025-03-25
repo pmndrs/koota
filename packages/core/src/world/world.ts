@@ -14,12 +14,6 @@ import { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } fr
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
-type ResetOptions = {
-	preserveQueries?: boolean;
-	preserveTraits?: boolean;
-	preserveSubscriptions?: boolean;
-};
-
 export class World {
 	#id = allocateWorldId(universe.worldIndex);
 
@@ -39,6 +33,7 @@ export class World {
 		changedMasks: new Map<number, number[][]>(),
 		worldEntity: null! as Entity,
 		trackedTraits: new Set<Trait>(),
+		resetSubscriptions: new Set<(world: World) => void>(),
 	};
 
 	get id() {
@@ -126,32 +121,24 @@ export class World {
 		universe.worlds[this.#id] = null;
 	}
 
-	reset(options: ResetOptions = {}) {
+	reset() {
 		const ctx = this[$internal];
-		const shouldPreserveTraits = options.preserveTraits || options.preserveSubscriptions;
-		const shouldPreserveQueries = options.preserveQueries || options.preserveSubscriptions;
+
+		// Destroy all entities so any cleanup is done.
+		this.entities.forEach((entity) => destroyEntity(this, entity));
 
 		ctx.entityIndex = createEntityIndex(this.#id);
 		ctx.entityTraits.clear();
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
 
-		if (!shouldPreserveTraits) {
-			ctx.traitData.clear();
-			this.traits.clear();
-		}
+		ctx.traitData.clear();
+		this.traits.clear();
 
-		if (!shouldPreserveQueries) {
-			ctx.queries.clear();
-			ctx.queriesHashMap.clear();
-			ctx.dirtyQueries.clear();
-			ctx.notQueries.clear();
-		} else {
-			// Clear all queries that persist.
-			for (const query of ctx.queries) {
-				query.clear({ preserveSubscriptions: true });
-			}
-		}
+		ctx.queries.clear();
+		ctx.queriesHashMap.clear();
+		ctx.dirtyQueries.clear();
+		ctx.notQueries.clear();
 
 		ctx.relationTargetEntities.clear();
 
@@ -162,6 +149,10 @@ export class World {
 
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);
+
+		for (const sub of ctx.resetSubscriptions) {
+			sub(this);
+		}
 	}
 
 	query<T extends QueryParameter[]>(key: QueryHash<T>): QueryResult<T>;
