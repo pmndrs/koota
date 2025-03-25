@@ -2,5 +2,11 @@ import { useContext } from 'react';
 import { WorldContext } from './world-context';
 
 export function useWorld() {
-	return useContext(WorldContext);
+	const world = useContext(WorldContext);
+
+	if (!world) {
+		throw new Error('Koota: useWorld must be used within a WorldProvider');
+	}
+
+	return world;
 }
