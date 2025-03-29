@@ -2,6 +2,9 @@ import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
+import { createEvent, destroyEvent } from '../event/event';
+import { createSubscriber } from '../event/subscriber';
+import { EventSubscriber, EventType } from '../event/types';
 import { IsExcluded, Query } from '../query/query';
 import { createQueryResult } from '../query/query-result';
 import { QueryHash, QueryParameter, QueryResult } from '../query/types';
@@ -34,6 +37,7 @@ export class World {
 		worldEntity: null! as Entity,
 		trackedTraits: new Set<Trait>(),
 		resetSubscriptions: new Set<(world: World) => void>(),
+		eventTypes: new Set<EventType<any>>(),
 	};
 
 	get id() {
@@ -147,6 +151,9 @@ export class World {
 		ctx.changedMasks.clear();
 		ctx.trackedTraits.clear();
 
+		ctx.eventTypes.forEach((eventType) => destroyEvent(eventType));
+		ctx.eventTypes.clear();
+
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);
 
@@ -183,6 +190,35 @@ export class World {
 	queryFirst(...args: [string] | QueryParameter[]) {
 		// @ts-expect-error - Having an issue with the TS overloads.
 		return this.query(...args)[0];
+	}
+
+	createEvent<T extends Record<string, any>>(schema: T): EventType<T> {
+		const eventType = createEvent(schema);
+
+		this[$internal].eventTypes.add(eventType);
+
+		return eventType;
+	}
+
+	createSubscriber<T>(eventType: EventType<T>): EventSubscriber<T> {
+		if (!this[$internal].eventTypes.has(eventType)) {
+			throw new Error(`Event type does not belong to this world`);
+		}
+
+		const subscriber = createSubscriber(eventType);
+
+		return subscriber;
+	}
+
+	emit<T>(eventType: EventType<T>, data: T): void {
+		if (!this[$internal].eventTypes.has(eventType)) {
+			throw new Error(`Event type does not belong to this world`);
+		}
+
+		const ctx = eventType[$internal];
+		const event = { ...data } as T;
+
+		ctx.queue.push(event);
 	}
 
 	onAdd(parameters: QueryParameter[], callback: (entity: Entity) => void) {
