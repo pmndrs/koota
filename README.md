@@ -1,6 +1,6 @@
 [![Discord Shield](https://img.shields.io/discord/740090768164651008?style=flat&colorA=000000&colorB=000000&label=&logo=discord&logoColor=ffffff)](https://discord.gg/poimandres)
 
-![Koota](logo.svg)
+<img src="logo.svg" alt="Koota" width="100%" />
 
 Koota is an ECS-based state management library optimized for real-time apps, games, and XR experiences. Use as much or as little as you need.
 
