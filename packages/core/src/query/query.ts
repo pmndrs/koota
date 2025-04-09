@@ -155,6 +155,8 @@ export class Query {
 			...this.traitData.changed,
 		];
 
+		console.log('traitData', this.traitData);
+
 		// Create an array of all trait generations.
 		this.generations = this.traitData.all
 			.map((c) => c.generationId)
