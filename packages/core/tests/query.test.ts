@@ -116,25 +116,47 @@ describe('Query', () => {
 	});
 
 	it('can subscribe to changes on a specific trait', () => {
-		const entity = world.spawn(Position);
+		const entityA = world.spawn(Position);
+		const entityB = world.spawn(Position);
 
 		const cb = vi.fn();
 		const unsub = world.onChange(Position, cb);
 
-		entity.set(Position, { x: 10, y: 20 });
+		entityA.set(Position, { x: 10, y: 20 });
 
 		expect(cb).toHaveBeenCalledTimes(1);
-		expect(cb).toHaveBeenCalledWith(entity);
+		expect(cb).toHaveBeenCalledWith(entityA);
 
 		unsub();
 
-		entity.set(Position, { x: 20, y: 30 });
+		entityA.set(Position, { x: 20, y: 30 });
 
 		expect(cb).toHaveBeenCalledTimes(1);
 
-		entity.changed(Name);
+		entityA.changed(Name);
 
 		expect(cb).toHaveBeenCalledTimes(1);
+
+		// Test that subscribing to multiple entities with the same trait works.
+		world.onChange(Position, cb);
+
+		const cb2 = vi.fn();
+		world.onChange(Position, cb2);
+
+		entityB.set(Position, { x: 10, y: 20 });
+
+		expect(cb).toHaveBeenCalledTimes(2);
+		expect(cb2).toHaveBeenCalledTimes(1);
+		expect(cb2).toHaveBeenCalledWith(entityB);
+
+		// Test changed detection with updateEach.
+		world.query(Position).updateEach(([position]) => {
+			position.x = 100;
+		});
+
+		// Increments by 2 because we are updating two entities.
+		expect(cb).toHaveBeenCalledTimes(4);
+		expect(cb2).toHaveBeenCalledTimes(3);
 	});
 
 	it('can cache and use the query key', () => {
