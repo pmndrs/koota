@@ -17,7 +17,9 @@ import { createStore } from './utils/create-store';
 
 let traitId = 0;
 
-function defineTrait<S extends Schema = {}>(schema: S = {} as S): Trait<Norm<S>> {
+function defineTrait(): Trait<{}>;
+function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
+function defineTrait<S extends Schema>(schema: S = {} as S): Trait<any> {
 	const isAoS = typeof schema === 'function';
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
 
