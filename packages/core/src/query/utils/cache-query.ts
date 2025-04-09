@@ -9,8 +9,10 @@ export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryH
 
 	for (const worldRef of universe.worlds) {
 		if (!worldRef) continue;
+
 		const world = worldRef.deref()!;
 		const ctx = world[$internal];
+
 		if (!ctx.queriesHashMap.has(hash)) {
 			const query = new Query(world, parameters);
 			ctx.queriesHashMap.set(hash, query);

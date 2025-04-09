@@ -589,6 +589,13 @@ describe('Query', () => {
 		let entities = world.query(key);
 
 		expect(entities).toEqual([entityA]);
+
+		// Test caching before a world is created.
+		const world2 = createWorld();
+		const entityC = world2.spawn(Position, Name, IsActive);
+		const query2 = world2.query(key);
+
+		expect(query2).toEqual([entityC]);
 	});
 
 	it('should exclude entities with IsExcluded', () => {
