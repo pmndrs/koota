@@ -68,6 +68,9 @@ export class World {
 			setTrackingMasks(this, i);
 		}
 
+		// Register system traits.
+		if (!ctx.traitData.has(IsExcluded)) registerTrait(this, IsExcluded);
+
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
 			const query = new Query(this, parameters);
