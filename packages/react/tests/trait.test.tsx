@@ -168,7 +168,7 @@ describe('useTrait', () => {
 			return null;
 		}
 
-		let renderer: any;
+		let renderer: unknown;
 
 		await act(async () => {
 			renderer = await ReactThreeTestRenderer.create(
