@@ -120,7 +120,7 @@ describe('Query', () => {
 		const entityB = world.spawn(Position);
 
 		const cb = vi.fn();
-		const unsub = world.onChange(Position, cb);
+		let unsub = world.onChange(Position, cb);
 
 		entityA.set(Position, { x: 10, y: 20 });
 
@@ -138,7 +138,7 @@ describe('Query', () => {
 		expect(cb).toHaveBeenCalledTimes(1);
 
 		// Test that subscribing to multiple entities with the same trait works.
-		world.onChange(Position, cb);
+		unsub = world.onChange(Position, cb);
 
 		const cb2 = vi.fn();
 		world.onChange(Position, cb2);
@@ -149,13 +149,16 @@ describe('Query', () => {
 		expect(cb2).toHaveBeenCalledTimes(1);
 		expect(cb2).toHaveBeenCalledWith(entityB);
 
+		// Remove one unsub to test that we don't accidentally remove trait tracking
+		// for all callbacks associated with the trait.
+		unsub();
+
 		// Test changed detection with updateEach.
 		world.query(Position).updateEach(([position]) => {
 			position.x = 100;
 		});
 
 		// Increments by 2 because we are updating two entities.
-		expect(cb).toHaveBeenCalledTimes(4);
 		expect(cb2).toHaveBeenCalledTimes(3);
 	});
 
