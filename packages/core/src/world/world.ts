@@ -232,7 +232,7 @@ export class World {
 
 		return () => {
 			data.changedSubscriptions.delete(callback);
-			ctx.trackedTraits.delete(trait);
+			if (data.changedSubscriptions.size === 0) ctx.trackedTraits.delete(trait);
 		};
 	}
 }
