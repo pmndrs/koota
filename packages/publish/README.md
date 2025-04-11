@@ -1,4 +1,6 @@
-# Koota
+[![Discord Shield](https://img.shields.io/discord/740090768164651008?style=flat&colorA=000000&colorB=000000&label=&logo=discord&logoColor=ffffff)](https://discord.gg/poimandres)
+
+<img src="logo.svg" alt="Koota" width="100%" />
 
 Koota is an ECS-based state management library optimized for real-time apps, games, and XR experiences. Use as much or as little as you need.
 
@@ -446,15 +448,8 @@ world.entities
 const id = world.id()
 
 // Resets the world as if it were just created
-// Options can be passed in to modify the reset behavior
-world.reset({
-  // Default false. If true, does not clear cached queries
-  preserveQueries: false 
-  // Default false. If true, does not clear cached traits
-  preserveTraits: false 
-  // Default false. If true, does not clear subscrptions, queries or traits
-  preserveSubscriptions: false 
-})
+// The world ID and reference is preserved
+world.reset()
 
 // Nukes the world and releases its ID
 world.destroy()
