@@ -384,7 +384,8 @@ world.query(Position, Velocity).useStore(([position, velocity], entities) => {
 Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
 
 ```js
-// Every time this query runs a hash for the query parameters (Position, Velocity) is created and then used to get the cached query internally
+// Every time this query runs a hash for the query parameters (Position, Velocity) 
+// is created and then used to get the cached query internally
 function updateMovement(world) {
   world.query(Position, Velocity).updateEach(([pos, vel]) => { })
 }
@@ -425,10 +426,12 @@ function updateMovement(world) {
 A query result is just an array of entities with some extra methods. This means you can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.
 
 ```js
-// This is nice and ergonomic but will cost some overhead since we are creating a fresh function for each entity and then calling it
+// This is nice and ergonomic but will cost some overhead since we are 
+// creating a fresh function for each entity and then calling it
 world.query().forEach((entity) => { })
 
-// By contrast, this compiles down to a for loop and will have a single block of code executed for each entity
+// By contrast, this compiles down to a for loop and will have a 
+// single block of code executed for each entity
 for (const entity of world.query()) { }
 ```
 
