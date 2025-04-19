@@ -152,6 +152,11 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			const state = params ?? data.schema();
 			setTrait(world, entity, trait, state, false);
 		}
+
+		// Call add subscriptions.
+		for (const sub of data.addSubscriptions) {
+			sub(entity);
+		}
 	}
 }
 
@@ -167,6 +172,11 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 
 		const data = ctx.traitData.get(trait)!;
 		const { generationId, bitflag, queries } = data;
+
+		// Call remove subscriptions before removing the trait.
+		for (const sub of data.removeSubscriptions) {
+			sub(entity);
+		}
 
 		// Remove bitflag from entity bitmask.
 		const eid = getEntityId(entity);

@@ -4,7 +4,7 @@ import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { IsExcluded, Query } from '../query/query';
 import { createQueryResult } from '../query/query-result';
-import { QueryHash, QueryParameter, QueryResult } from '../query/types';
+import { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
@@ -188,15 +188,45 @@ export class World {
 		return this.query(...args)[0];
 	}
 
-
-	onAdd(parameters: QueryParameter[], callback: (entity: Entity) => void) {
+	onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 		const ctx = this[$internal];
-		const hash = createQueryHash(parameters);
-		let query = ctx.queriesHashMap.get(hash);
+		let data = ctx.traitData.get(trait)!;
 
-		if (!query) {
-			query = new Query(this, parameters);
-			ctx.queriesHashMap.set(hash, query);
+		if (!data) {
+			registerTrait(this, trait);
+			data = ctx.traitData.get(trait)!;
+		}
+
+		data.addSubscriptions.add(callback);
+
+		return () => data.addSubscriptions.delete(callback);
+	}
+
+	onQueryAdd<T extends QueryParameter[]>(
+		key: QueryHash<T>,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryAdd<T extends QueryParameter[]>(
+		parameters: T,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryAdd(
+		args: QueryHash<any> | QueryParameter[],
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber {
+		const ctx = this[$internal];
+		let query: Query;
+
+		if (typeof args === 'string') {
+			query = ctx.queriesHashMap.get(args)!;
+		} else {
+			const hash = createQueryHash(args);
+			query = ctx.queriesHashMap.get(hash)!;
+
+			if (!query) {
+				query = new Query(this, args);
+				ctx.queriesHashMap.set(hash, query);
+			}
 		}
 
 		query.addSubscriptions.add(callback);
@@ -204,19 +234,50 @@ export class World {
 		return () => query.addSubscriptions.delete(callback);
 	}
 
-	onRemove(parameters: QueryParameter[], callback: (entity: Entity) => void) {
+	onQueryRemove<T extends QueryParameter[]>(
+		key: QueryHash<T>,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryRemove<T extends QueryParameter[]>(
+		parameters: T,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryRemove(
+		args: QueryHash<any> | QueryParameter[],
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber {
 		const ctx = this[$internal];
-		const hash = createQueryHash(parameters);
-		let query = ctx.queriesHashMap.get(hash);
+		let query: Query;
 
-		if (!query) {
-			query = new Query(this, parameters);
-			ctx.queriesHashMap.set(hash, query);
+		if (typeof args === 'string') {
+			query = ctx.queriesHashMap.get(args)!;
+		} else {
+			const hash = createQueryHash(args);
+			query = ctx.queriesHashMap.get(hash)!;
+
+			if (!query) {
+				query = new Query(this, args);
+				ctx.queriesHashMap.set(hash, query);
+			}
 		}
 
 		query.removeSubscriptions.add(callback);
 
 		return () => query.removeSubscriptions.delete(callback);
+	}
+
+	onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
+		const ctx = this[$internal];
+		let data = ctx.traitData.get(trait)!;
+
+		if (!data) {
+			registerTrait(this, trait);
+			data = ctx.traitData.get(trait)!;
+		}
+
+		data.removeSubscriptions.add(callback);
+
+		return () => data.removeSubscriptions.delete(callback);
 	}
 
 	onChange(trait: Trait, callback: (entity: Entity) => void) {
@@ -226,14 +287,14 @@ export class World {
 		if (!ctx.traitData.has(trait)) registerTrait(this, trait);
 
 		const data = ctx.traitData.get(trait)!;
-		data.changedSubscriptions.add(callback);
+		data.changeSubscriptions.add(callback);
 
 		// Used by auto change detection to know which traits to track.
 		ctx.trackedTraits.add(trait);
 
 		return () => {
-			data.changedSubscriptions.delete(callback);
-			if (data.changedSubscriptions.size === 0) ctx.trackedTraits.delete(trait);
+			data.changeSubscriptions.delete(callback);
+			if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(trait);
 		};
 	}
 }

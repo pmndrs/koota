@@ -5,6 +5,7 @@ import { ModifierData } from './modifier';
 export type QueryModifier = (...components: Trait[]) => ModifierData;
 export type QueryParameter = Trait | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
+export type QueryUnsubscriber = () => void;
 
 export type QueryResultOptions = {
 	changeDetection?: 'always' | 'auto' | 'never';
