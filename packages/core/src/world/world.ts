@@ -181,12 +181,13 @@ export class World {
 		}
 	}
 
-	queryFirst(key: string): Entity | undefined;
-	queryFirst(...parameters: QueryParameter[]): Entity | undefined;
+	queryFirst<T extends QueryParameter[]>(key: QueryHash<T>): Entity | undefined;
+	queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
 	queryFirst(...args: [string] | QueryParameter[]) {
 		// @ts-expect-error - Having an issue with the TS overloads.
 		return this.query(...args)[0];
 	}
+
 
 	onAdd(parameters: QueryParameter[], callback: (entity: Entity) => void) {
 		const ctx = this[$internal];
