@@ -100,8 +100,10 @@ describe('Query', () => {
 		// Static query subscriptions.
 		const entity = world.spawn();
 
-		world.onAdd([Position, Foo], staticCb);
-		world.onRemove([Position, Foo], staticCb);
+		// With a cache key.
+		const queryKey = cacheQuery(Position, Foo);
+		world.onQueryAdd(queryKey, staticCb);
+		world.onQueryRemove(queryKey, staticCb);
 
 		entity.add(Position);
 		expect(staticCb).toHaveBeenCalledTimes(0);
@@ -113,6 +115,24 @@ describe('Query', () => {
 		entity.remove(Foo);
 		expect(staticCb).toHaveBeenCalledTimes(2);
 		expect(event.entity).toBe(entity);
+
+		// With parameters.
+		world.onQueryAdd([Position, Bar], staticCb);
+		world.onQueryRemove([Position, Bar], staticCb);
+
+		entity.add(Position);
+		expect(staticCb).toHaveBeenCalledTimes(2);
+
+		entity.add(Bar);
+		expect(staticCb).toHaveBeenCalledTimes(3);
+		expect(event.entity).toBe(entity);
+
+		entity.remove(Bar);
+		expect(staticCb).toHaveBeenCalledTimes(4);
+		expect(event.entity).toBe(entity);
+
+		entity.remove(Position);
+		expect(staticCb).toHaveBeenCalledTimes(4);
 	});
 
 	it('can subscribe to changes on a specific trait', () => {

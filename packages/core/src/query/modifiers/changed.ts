@@ -51,7 +51,7 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 		else query.remove(world, entity);
 	}
 
-	for (const sub of data.changedSubscriptions) {
+	for (const sub of data.changeSubscriptions) {
 		sub(entity);
 	}
 }
