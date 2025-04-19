@@ -20,13 +20,15 @@ export function useTraitEffect<T extends Trait>(
 			if (e === entity) callback(e.get(trait));
 		});
 
-		const onAddUnsub = world.onAdd([trait], (e) => {
+		const onAddUnsub = world.onAdd(trait, (e) => {
 			if (e === entity) callback(e.get(trait));
 		});
 
-		const onRemoveUnsub = world.onRemove([trait], (e) => {
+		const onRemoveUnsub = world.onRemove(trait, (e) => {
 			if (e === entity) callback(undefined);
 		});
+
+		callback(entity.has(trait) ? entity.get(trait) : undefined);
 
 		return () => {
 			onChangeUnsub();
