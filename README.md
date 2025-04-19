@@ -289,6 +289,10 @@ const movedEntities = world.query(Changed(Position));
 
 Koota allows you to subscribe to add, remove, and change events for specific traits.
 
+- `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
+- `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
+- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
+
 ```js
 // Subscribe to Position changes
 const unsub = world.onChange(Position, (entity) => {
@@ -487,12 +491,17 @@ world.set(Time, (prev) => ({
   delta: performance.now() - prev.current
 }))
 
-// Subscribe to add, remove or change events for a set of query parameters
-// Anything you can put in a query is legal
+// Subscribe to add, remove or change events for entity traits
 // Return unsub function
-const unsub = world.onAdd([Position], (entity) => {})
-const unsub = world.onRemove([Position], (entity) => {})
-const unsub = world.onChange([Position], (entity) => {})
+const unsub = world.onAdd(Position, (entity) => {})
+const unsub = world.onRemove(Position, (entity) => {})
+const unsub = world.onChange(Position, (entity) => {})
+
+// Subscribe to add or remove query events
+// This triggers whenever a query is updated
+// Return unsub function
+const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
+const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
 
 // An array of all entities alive in the world, including non-queryable entities
 // This is a copy so editing it won't do anything!
