@@ -17,11 +17,11 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 
 	// Subscribe to changes
 	useEffect(() => {
-		const unsubAdd = world.onAdd(parameters, () => {
+		const unsubAdd = world.onQueryAdd(parameters, () => {
 			setEntities(world.query(hash).sort());
 		});
 
-		const unsubRemove = world.onRemove(parameters, () => {
+		const unsubRemove = world.onQueryRemove(parameters, () => {
 			setEntities(world.query(hash).sort());
 		});
 
