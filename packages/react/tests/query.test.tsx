@@ -61,7 +61,7 @@ describe('useQuery', () => {
 		expect(entities.length).toBe(1);
 	});
 
-	it('captures entities added during effect timing', async () => {
+	it('captures entities added before useEffect runs', async () => {
 		// Spawn an initial entity
 		world.spawn(Position);
 
