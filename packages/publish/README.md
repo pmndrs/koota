@@ -285,18 +285,13 @@ const movedEntities = world.query(Changed(Position));
 // After running the query, the Changed modifier is reset
 ```
 
-### Query all entities
-
-To get al queryable entities you simply query with not paramerters. Note, that not all entities are queryable. Any entity that has `IsExcluded` will not be able to be queried. This is used in Koota to exclude world entities, for example, but maybe used for other system level entities in the future. To get all entities regardless, use `world.entities`.
-
-```js
-// Returns all queryable entities
-const allQueryableEntities = world.query()
-```
-
 ### Add, remove and change events
 
 Koota allows you to subscribe to add, remove, and change events for specific traits.
+
+- `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
+- `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
+- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
 
 ```js
 // Subscribe to Position changes
@@ -318,6 +313,15 @@ const unsub = world.onRemove(Position, (entity) => {
 const entity = world.spawn(Position);
 entity.set(Position, { x: 10, y: 20 });
 entity.remove(Position);
+```
+
+### Query all entities
+
+To get al queryable entities you simply query with not paramerters. Note, that not all entities are queryable. Any entity that has `IsExcluded` will not be able to be queried. This is used in Koota to exclude world entities, for example, but maybe used for other system level entities in the future. To get all entities regardless, use `world.entities`.
+
+```js
+// Returns all queryable entities
+const allQueryableEntities = world.query()
 ```
 
 ### Change detection with `updateEach`
@@ -379,6 +383,62 @@ world.query(Position, Velocity).useStore(([position, velocity], entities) => {
 });
 ```
 
+### Caching queries
+
+Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
+
+```js
+// Every time this query runs a hash for the query parameters (Position, Velocity) 
+// is created and then used to get the cached query internally
+function updateMovement(world) {
+  world.query(Position, Velocity).updateEach(([pos, vel]) => { })
+}
+```
+
+While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned key. This will have the additional effect of creating the internal query immediately on a worlds, otherwise it will get created the first time it is run.
+
+```js
+// The internal query is created immediately before it is invoked
+const movementQuery = cacheQuery(Position, Velocity)
+
+// They query key is hashed ahead of time and we just use it
+function updateMovement(world) {
+  world.query(movementQuery).updateEach(([pos, vel]) => { })
+}
+```
+
+### Query tips for the curious
+
+Performance and readability are often a tradeoff. The standard patterns are plenty fast, but if you are interested in diving deeper here are some quick tips.
+
+#### Create update functions once
+
+The standard pattern for `updateEach`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
+
+```js
+// Create the function once
+const handleMove = ([position, velocity]) => { }
+
+function updateMovement(world) {
+  // Use it for the updateEach
+  world.query(Position, Velocity).updateEach(handleMove)
+}
+```
+
+#### You can use `for of` instead of `forEach` on query results
+
+A query result is just an array of entities with some extra methods. This means you can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.
+
+```js
+// This is nice and ergonomic but will cost some overhead since we are 
+// creating a fresh function for each entity and then calling it
+world.query().forEach((entity) => { })
+
+// By contrast, this compiles down to a for loop and will have a 
+// single block of code executed for each entity
+for (const entity of world.query()) { }
+```
+
 ## APIs in detail until I make docs
 
 These are more like notes for docs. Take a look around, ask questions. Eventually this will become proper docs.
@@ -431,12 +491,17 @@ world.set(Time, (prev) => ({
   delta: performance.now() - prev.current
 }))
 
-// Subscribe to add, remove or change events for a set of query parameters
-// Anything you can put in a query is legal
+// Subscribe to add, remove or change events for entity traits
 // Return unsub function
-const unsub = world.onAdd([Position], (entity) => {})
-const unsub = world.onRemove([Position], (entity) => {})
-const unsub = world.onChange([Position], (entity) => {})
+const unsub = world.onAdd(Position, (entity) => {})
+const unsub = world.onRemove(Position, (entity) => {})
+const unsub = world.onChange(Position, (entity) => {})
+
+// Subscribe to add or remove query events
+// This triggers whenever a query is updated
+// Return unsub function
+const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
+const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
 
 // An array of all entities alive in the world, including non-queryable entities
 // This is a copy so editing it won't do anything!

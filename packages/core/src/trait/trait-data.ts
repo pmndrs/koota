@@ -12,7 +12,9 @@ export class TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema
 	queries: Set<Query>;
 	notQueries: Set<Query>;
 	schema: S;
-	changedSubscriptions: Set<(entity: Entity) => void>;
+	changeSubscriptions: Set<(entity: Entity) => void>;
+	addSubscriptions: Set<(entity: Entity) => void>;
+	removeSubscriptions: Set<(entity: Entity) => void>;
 
 	constructor(world: World, trait: T) {
 		const ctx = world[$internal];
@@ -25,7 +27,9 @@ export class TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema
 		this.queries = new Set();
 		this.notQueries = new Set();
 		this.schema = trait.schema;
-		this.changedSubscriptions = new Set();
+		this.changeSubscriptions = new Set();
+		this.addSubscriptions = new Set();
+		this.removeSubscriptions = new Set();
 
 		traitCtx.stores[world.id] = this.store;
 	}
