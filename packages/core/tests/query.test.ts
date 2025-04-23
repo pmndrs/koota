@@ -115,6 +115,16 @@ describe('Query', () => {
 		expect(event.entity).toBe(entity);
 	});
 
+	it('calls onAdd after the trait is added with data', () => {
+		const entity = world.spawn();
+
+		world.onAdd([Position], (entity) => {
+			expect(entity.get(Position)!.x).toBe(10);
+		});
+
+		entity.add(Position({ x: 10, y: 20 }));
+	});
+
 	it('can subscribe to changes on a specific trait', () => {
 		const entityA = world.spawn(Position);
 		const entityB = world.spawn(Position);
