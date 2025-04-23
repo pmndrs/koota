@@ -4,6 +4,7 @@ import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { WorldProvider } from '../src';
 import { useTrait } from '../src/hooks/use-trait';
+import { useTraitEffect } from '../src/hooks/use-trait-effect';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -189,5 +190,109 @@ describe('useTrait', () => {
 		});
 
 		expect(position).toBeUndefined();
+	});
+});
+
+describe('useTraitEffect', () => {
+	beforeEach(() => {
+		universe.reset();
+		world = createWorld();
+	});
+
+	it('reactively calls callback when trait value changes', async () => {
+		const entity = world.spawn(Position);
+		let position: TraitInstance<typeof Position> | undefined = undefined;
+
+		function Test() {
+			useTraitEffect(entity, Position, (value: TraitInstance<typeof Position> | undefined) => {
+				position = value;
+			});
+			return null;
+		}
+
+		let renderer: any;
+
+		await act(async () => {
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(position).toEqual({ x: 0, y: 0 });
+
+		await act(async () => {
+			entity.set(Position, { x: 1, y: 1 });
+		});
+
+		expect(position).toEqual({ x: 1, y: 1 });
+	});
+
+	it('calls callback with undefined when trait is removed', async () => {
+		const entity = world.spawn(Position);
+		let position: TraitInstance<typeof Position> | undefined = undefined;
+
+		function Test() {
+			useTraitEffect(entity, Position, (value: TraitInstance<typeof Position> | undefined) => {
+				position = value;
+			});
+			return null;
+		}
+
+		let renderer: any;
+
+		await act(async () => {
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(position).toEqual({ x: 0, y: 0 });
+
+		await act(async () => {
+			entity.remove(Position);
+		});
+
+		expect(position).toBeUndefined();
+	});
+
+	it('works with a world trait', async () => {
+		const TimeOfDay = trait({ hour: 0 });
+		world.add(TimeOfDay);
+		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
+
+		function Test() {
+			useTraitEffect(world, TimeOfDay, (value: TraitInstance<typeof TimeOfDay> | undefined) => {
+				timeOfDay = value;
+			});
+			return null;
+		}
+
+		let renderer: any;
+
+		await act(async () => {
+			renderer = await ReactThreeTestRenderer.create(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(timeOfDay).toEqual({ hour: 0 });
+
+		await act(async () => {
+			world.set(TimeOfDay, { hour: 1 });
+		});
+
+		expect(timeOfDay).toEqual({ hour: 1 });
 	});
 });
