@@ -2,6 +2,7 @@ import { createWorld, Entity, QueryResult, trait, universe, World } from '@koota
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import { useQuery, WorldProvider } from '../src';
 
 declare global {
@@ -199,5 +200,19 @@ describe('useQuery', () => {
 		});
 
 		expect(entities.length).toBe(1);
+	});
+
+	it('should define special methods on query result', () => {
+		function Wrapper({ children }: { children: React.ReactNode }) {
+			return <WorldProvider world={world}>{children}</WorldProvider>;
+		}
+		const { result } = renderHook(
+			() => {
+				return useQuery();
+			},
+			{ wrapper: Wrapper }
+		);
+
+		expect(result.current.updateEach).toBeDefined();
 	});
 });
