@@ -165,8 +165,9 @@ export class World {
 
 		if (typeof args[0] === 'string') {
 			const query = ctx.queriesHashMap.get(args[0]);
-			if (!query) return [];
-			return query.run(this);
+			// TODO: Query results need to be refactored so query.run() returns it and we can create emtpy ones
+			if (!query) return createQueryResult(new Query(this, []), this, []);
+			return createQueryResult(query, this, query.parameters);
 		} else {
 			const params = args as QueryParameter[];
 			const hash = createQueryHash(params);
