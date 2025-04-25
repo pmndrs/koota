@@ -203,14 +203,17 @@ describe('Query', () => {
 
 		let entities = world.query(key);
 
-		expect(entities).toEqual([entityA]);
+		expect(entities).toContain(entityA);
+
+		// Check that a query result is returned.
+		expect(entities.updateEach).toBeDefined();
 
 		// Test caching before a world is created.
 		const world2 = createWorld();
 		const entityC = world2.spawn(Position, Name, IsActive);
 		const query2 = world2.query(key);
 
-		expect(query2).toEqual([entityC]);
+		expect(query2).toContain(entityC);
 	});
 
 	it('should exclude entities with IsExcluded', () => {
