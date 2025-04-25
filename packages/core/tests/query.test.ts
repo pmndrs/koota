@@ -138,7 +138,7 @@ describe('Query', () => {
 	it('calls onAdd after the trait is added with data', () => {
 		const entity = world.spawn();
 
-		world.onAdd([Position], (entity) => {
+		world.onAdd(Position, (entity) => {
 			expect(entity.get(Position)!.x).toBe(10);
 		});
 
