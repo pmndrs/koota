@@ -3,12 +3,6 @@ name: PR Checks
 on:
     pull_request:
         branches: [main]
-    workflow_dispatch:
-        inputs:
-            test:
-                description: 'Run tests'
-                required: true
-                default: 'false'
 
 jobs:
     test:
