@@ -253,8 +253,8 @@ export function setTrait(
 	triggerChanged = true
 ) {
 	const ctx = trait[$internal];
-	const index = entity & ENTITY_ID_MASK;
 	const store = getStore(world, trait);
+	const index = getEntityId(entity);
 
 	// A short circuit is more performance than an if statement which creates a new code statement.
 	value instanceof Function && (value = value(ctx.get(index, store)));
@@ -264,21 +264,10 @@ export function setTrait(
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait) {
-	const worldCtx = world[$internal];
-	const data = worldCtx.traitData.get(trait);
+	const result = hasTrait(world, entity, trait);
+	if (!result) return undefined;
 
-	// If the trait does not exist on the world return undefined.
-	if (!data) return undefined;
-
-	// Get entity index/id.
-	const index = getEntityId(entity);
-
-	// If the entity does not have the trait return undefined.
-	const mask = worldCtx.entityMasks[data.generationId][index];
-	if ((mask & data.bitflag) !== data.bitflag) return undefined;
-
-	// Return a snapshot of the trait state.
 	const traitCtx = trait[$internal];
 	const store = getStore(world, trait);
-	return traitCtx.get(index, store);
+	return traitCtx.get(getEntityId(entity), store);
 }

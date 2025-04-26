@@ -110,5 +110,5 @@ export function destroyEntity(world: World, entity: Entity) {
 
 /* @inline @pure */ export function getEntityWorld(entity: Entity) {
 	const worldId = getEntityWorldId(entity);
-	return universe.worlds[worldId];
+	return universe.worlds[worldId]!.deref()!;
 }
