@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { Pair, Wildcard } from '../relation/relation';
-import { removeTrait } from '../trait/trait';
+import { addTrait, removeTrait } from '../trait/trait';
 import { ConfigurableTrait } from '../trait/types';
 import { World } from '../world/world';
 import { Entity } from './types';
@@ -19,11 +19,11 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
 		const match = query.check(world, entity);
 		if (match) query.add(entity);
 		// Reset all tracking bitmasks for the query.
-		query.resetTrackingBitmasks(entity.id());
+		query.resetTrackingBitmasks(getEntityId(entity));
 	}
 
 	ctx.entityTraits.set(entity, new Set());
-	entity.add(...traits);
+	addTrait(world, entity, ...traits);
 
 	return entity;
 }
@@ -92,6 +92,10 @@ export function destroyEntity(world: World, entity: Entity) {
 
 		// Free the entity.
 		releaseEntity(ctx.entityIndex, currentEntity);
+
+		// Remove the entity from the all query.
+		const allQuery = ctx.queriesHashMap.get('');
+		if (allQuery) allQuery.remove(world, currentEntity);
 
 		// Remove all entity state from world.
 		ctx.entityTraits.delete(entity);

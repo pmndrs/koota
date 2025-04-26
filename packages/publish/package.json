@@ -1,6 +1,6 @@
 {
 	"name": "koota",
-	"version": "0.1.12",
+	"version": "0.4.0",
 	"description": "🌎 Performant real-time state management for React and TypeScript",
 	"license": "ISC",
 	"type": "module",
@@ -38,29 +38,21 @@
 	"devDependencies": {
 		"@koota/core": "workspace:*",
 		"@koota/react": "workspace:*",
-		"@types/react": "^18.3.3",
-		"@types/react-dom": "^18.3.0",
-		"@types/three": "^0.162.0",
 		"esbuild-plugin-inline-functions": "^0.1.0",
-		"react": "^18.3.1",
-		"react-dom": "^18.3.1",
+		"react": ">=18.0.0",
+		"react-dom": ">=18.0.0",
 		"tsconfig": "workspace:*",
 		"tsup": "^8.3.0"
 	},
 	"peerDependencies": {
-		"@react-three/fiber": "^8.17.10",
-		"react": "^18.3.1",
-		"react-dom": "^18.3.1",
-		"three": ">=0.159"
+		"@types/react": ">=18.0.0",
+		"react": ">=18.0.0"
 	},
 	"peerDependenciesMeta": {
-		"@react-three/fiber": {
+		"@types/react": {
 			"optional": true
 		},
-		"three": {
-			"optional": true
-		},
-		"react-dom": {
+		"react": {
 			"optional": true
 		}
 	}

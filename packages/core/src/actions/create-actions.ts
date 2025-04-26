@@ -1,22 +1,24 @@
 import { World } from '../world/world';
+import { Actions, ActionInitializer, ActionGetter } from './types';
 
-const actionCache = new WeakMap<World, Map<Function, any>>();
+const actionCache = new WeakMap<World, Map<Function, Actions>>();
 
-export function createActions<T extends Record<string, (...args: any[]) => any>>(
-	actionSet: (world: World) => T
-): (world: World) => T {
+export function createActions<T extends Actions>(initializer: ActionInitializer<T>): ActionGetter<T> {
 	return (world: World): T => {
 		let worldCache = actionCache.get(world);
+
 		if (!worldCache) {
 			worldCache = new Map();
 			actionCache.set(world, worldCache);
 		}
 
-		let actions = worldCache.get(actionSet);
+		let actions = worldCache.get(initializer);
+
 		if (!actions) {
-			actions = actionSet(world);
-			worldCache.set(actionSet, actions);
+			actions = initializer(world);
+			worldCache.set(initializer, actions);
 		}
-		return actions;
+
+		return actions as T;
 	};
 }

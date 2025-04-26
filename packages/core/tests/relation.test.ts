@@ -169,4 +169,46 @@ describe('Relation', () => {
 		expect(childrenOfChild2.length).toBe(1);
 		expect(childrenOfChild2).toContain(leaf);
 	});
+
+	it('should correctly remove targets when they are destroyed', () => {
+		const Likes = relation();
+
+		const person = world.spawn();
+		const apple = world.spawn();
+		const banana = world.spawn();
+		const cherry = world.spawn();
+		const durian = world.spawn();
+
+		// Add multiple relations with different targets
+		person.add(Likes(apple));
+		person.add(Likes(banana));
+		person.add(Likes(cherry));
+		person.add(Likes(durian));
+
+		// Check that targetsFor returns all targets
+		const initialTargets = person.targetsFor(Likes);
+		expect(initialTargets.length).toBe(4);
+		expect(initialTargets).toContain(apple);
+		expect(initialTargets).toContain(banana);
+		expect(initialTargets).toContain(cherry);
+		expect(initialTargets).toContain(durian);
+
+		// Destroy some of the targets
+		banana.destroy();
+		durian.destroy();
+
+		// Check that targetsFor no longer includes the destroyed targets
+		const remainingTargets = person.targetsFor(Likes);
+		expect(remainingTargets.length).toBe(2);
+		expect(remainingTargets).toContain(apple);
+		expect(remainingTargets).toContain(cherry);
+		expect(remainingTargets).not.toContain(banana);
+		expect(remainingTargets).not.toContain(durian);
+
+		// Verify that the destroyed entities are actually gone
+		expect(world.has(banana)).toBe(false);
+		expect(world.has(durian)).toBe(false);
+		expect(world.has(apple)).toBe(true);
+		expect(world.has(cherry)).toBe(true);
+	});
 });

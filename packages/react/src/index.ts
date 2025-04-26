@@ -5,4 +5,3 @@ export { useActions } from './hooks/use-actions';
 export { useTrait } from './hooks/use-trait';
 export { useQueryFirst } from './hooks/use-query-first';
 export { useTraitEffect } from './hooks/use-trait-effect';
-export { getDefaultWorld } from './world/default-world';

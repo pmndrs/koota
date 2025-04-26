@@ -6,6 +6,7 @@ import { Store, Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import { World } from '../world/world';
 import { ModifierData } from './modifier';
+import { setChanged } from './modifiers/changed';
 import { Query } from './query';
 import {
 	InstancesFromParameters,
@@ -93,7 +94,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 				// Trigger change events for each entity that was modified.
 				for (let i = 0; i < changedPairs.length; i++) {
 					const [entity, trait] = changedPairs[i];
-					entity.changed(trait);
+					setChanged(world, entity, trait);
 				}
 			} else if (options.changeDetection === 'always') {
 				const changedPairs: [Entity, Trait][] = [];
@@ -133,7 +134,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 				// Trigger change events for each entity that was modified.
 				for (let i = 0; i < changedPairs.length; i++) {
 					const [entity, trait] = changedPairs[i];
-					entity.changed(trait);
+					setChanged(world, entity, trait);
 				}
 			} else if (options.changeDetection === 'never') {
 				for (let i = 0; i < entities.length; i++) {
@@ -167,6 +168,13 @@ export function createQueryResult<T extends QueryParameter[]>(
 			stores.length = 0;
 			getQueryStores(params, traits, stores, world);
 			return results as unknown as QueryResult<U>;
+		},
+
+		sort(
+			callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+		): QueryResult<T> {
+			Array.prototype.sort.call(entities, callback);
+			return results;
 		},
 	});
 

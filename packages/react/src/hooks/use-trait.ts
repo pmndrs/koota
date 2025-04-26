@@ -44,11 +44,11 @@ function createSubscriptions<T extends Trait>(target: Entity | World, trait: T, 
 				if (e === entity) setValue(e.get(trait));
 			});
 
-			const onAddUnsub = world.onAdd([trait], (e) => {
+			const onAddUnsub = world.onAdd(trait, (e) => {
 				if (e === entity) setValue(e.get(trait));
 			});
 
-			const onRemoveUnsub = world.onRemove([trait], (e) => {
+			const onRemoveUnsub = world.onRemove(trait, (e) => {
 				if (e === entity) setValue(undefined);
 			});
 

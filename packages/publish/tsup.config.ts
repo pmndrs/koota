@@ -8,5 +8,4 @@ export default defineConfig({
 		resolve: true,
 	},
 	clean: true,
-	esbuildPlugins: [inlineFunctionsPlugin()],
 });

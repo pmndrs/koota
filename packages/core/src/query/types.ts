@@ -5,6 +5,7 @@ import { ModifierData } from './modifier';
 export type QueryModifier = (...components: Trait[]) => ModifierData;
 export type QueryParameter = Trait | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
+export type QueryUnsubscriber = () => void;
 
 export type QueryResultOptions = {
 	changeDetection?: 'always' | 'auto' | 'never';
@@ -19,6 +20,7 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
 		callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
 	) => QueryResult<T>;
 	select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
+	sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
 
 type UnwrapModifierData<T> = T extends ModifierData<infer C> ? C : never;
@@ -59,3 +61,8 @@ export type IsNotModifier<T> = T extends ModifierData<any, infer TType>
 		? true
 		: false
 	: false;
+
+const $parameters = Symbol();
+export type QueryHash<T extends QueryParameter[]> = string & {
+	readonly [$parameters]: T;
+};
