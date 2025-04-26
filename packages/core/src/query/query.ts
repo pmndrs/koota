@@ -13,6 +13,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 export const IsExcluded = trait();
 
 export class Query {
+	version = 0;
 	world: World;
 	parameters: QueryParameter[];
 	hash: string;
@@ -302,6 +303,8 @@ export class Query {
 		for (const sub of this.addSubscriptions) {
 			sub(entity);
 		}
+
+		this.version++;
 	}
 
 	remove(world: World, entity: Entity) {
@@ -316,6 +319,8 @@ export class Query {
 		for (const sub of this.removeSubscriptions) {
 			sub(entity);
 		}
+
+		this.version++;
 	}
 
 	check(

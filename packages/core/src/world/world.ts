@@ -4,11 +4,11 @@ import { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { IsExcluded, Query } from '../query/query';
 import { createQueryResult } from '../query/query-result';
-import { QueryParameter, QueryResult } from '../query/types';
+import { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { RelationTarget } from '../relation/types';
-import { registerTrait } from '../trait/trait';
+import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { TraitData } from '../trait/trait-data';
 import { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -33,6 +33,7 @@ export class World {
 		changedMasks: new Map<number, number[][]>(),
 		worldEntity: null! as Entity,
 		trackedTraits: new Set<Trait>(),
+		resetSubscriptions: new Set<(world: World) => void>(),
 	};
 
 	get id() {
@@ -59,13 +60,16 @@ export class World {
 		if (this.#isInitialized) return;
 
 		this.#isInitialized = true;
-		universe.worlds[this.#id] = this;
+		universe.worlds[this.#id] = new WeakRef(this);
 
 		// Create uninitialized added masks.
 		const cursor = getTrackingCursor();
 		for (let i = 0; i < cursor; i++) {
 			setTrackingMasks(this, i);
 		}
+
+		// Register system traits.
+		if (!ctx.traitData.has(IsExcluded)) registerTrait(this, IsExcluded);
 
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
@@ -86,23 +90,23 @@ export class World {
 	has(target: Entity | Trait): boolean {
 		return typeof target === 'number'
 			? isEntityAlive(this[$internal].entityIndex, target)
-			: this[$internal].worldEntity.has(target);
+			: hasTrait(this, this[$internal].worldEntity, target);
 	}
 
 	add(...traits: ConfigurableTrait[]) {
-		this[$internal].worldEntity.add(...traits);
+		addTrait(this, this[$internal].worldEntity, ...traits);
 	}
 
 	remove(...traits: Trait[]) {
-		this[$internal].worldEntity.remove(...traits);
+		removeTrait(this, this[$internal].worldEntity, ...traits);
 	}
 
 	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> | undefined {
-		return this[$internal].worldEntity.get(trait);
+		return getTrait(this, this[$internal].worldEntity, trait);
 	}
 
 	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>>) {
-		this[$internal].worldEntity.set(trait, value);
+		setTrait(this, this[$internal].worldEntity, trait, value);
 	}
 
 	destroy() {
@@ -114,16 +118,20 @@ export class World {
 		this.entities.forEach((entity) => destroyEntity(this, entity));
 		this.reset();
 		this.#isInitialized = false;
+
+		// Clean up universe side effects.
 		releaseWorldId(universe.worldIndex, this.#id);
-		universe.worlds.splice(universe.worlds.indexOf(this), 1);
+		universe.worlds[this.#id] = null;
 	}
 
 	reset() {
 		const ctx = this[$internal];
 
+		// Destroy all entities so any cleanup is done.
+		this.entities.forEach((entity) => destroyEntity(this, entity));
+
 		ctx.entityIndex = createEntityIndex(this.#id);
 		ctx.entityTraits.clear();
-		ctx.notQueries.clear();
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
 
@@ -133,6 +141,8 @@ export class World {
 		ctx.queries.clear();
 		ctx.queriesHashMap.clear();
 		ctx.dirtyQueries.clear();
+		ctx.notQueries.clear();
+
 		ctx.relationTargetEntities.clear();
 
 		ctx.trackingSnapshots.clear();
@@ -142,17 +152,22 @@ export class World {
 
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);
+
+		for (const sub of ctx.resetSubscriptions) {
+			sub(this);
+		}
 	}
 
-	query<T extends QueryParameter[]>(key: string): QueryResult<T>;
+	query<T extends QueryParameter[]>(key: QueryHash<T>): QueryResult<T>;
 	query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
 	query(...args: [string] | QueryParameter[]) {
 		const ctx = this[$internal];
 
 		if (typeof args[0] === 'string') {
 			const query = ctx.queriesHashMap.get(args[0]);
-			if (!query) return [];
-			return query.run(this);
+			// TODO: Query results need to be refactored so query.run() returns it and we can create emtpy ones
+			if (!query) return createQueryResult(new Query(this, []), this, []);
+			return createQueryResult(query, this, query.parameters);
 		} else {
 			const params = args as QueryParameter[];
 			const hash = createQueryHash(params);
@@ -167,21 +182,52 @@ export class World {
 		}
 	}
 
-	queryFirst(key: string): Entity | undefined;
-	queryFirst(...parameters: QueryParameter[]): Entity | undefined;
+	queryFirst<T extends QueryParameter[]>(key: QueryHash<T>): Entity | undefined;
+	queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
 	queryFirst(...args: [string] | QueryParameter[]) {
 		// @ts-expect-error - Having an issue with the TS overloads.
 		return this.query(...args)[0];
 	}
 
-	onAdd(parameters: QueryParameter[], callback: (entity: Entity) => void) {
+	onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 		const ctx = this[$internal];
-		const hash = createQueryHash(parameters);
-		let query = ctx.queriesHashMap.get(hash);
+		let data = ctx.traitData.get(trait)!;
 
-		if (!query) {
-			query = new Query(this, parameters);
-			ctx.queriesHashMap.set(hash, query);
+		if (!data) {
+			registerTrait(this, trait);
+			data = ctx.traitData.get(trait)!;
+		}
+
+		data.addSubscriptions.add(callback);
+
+		return () => data.addSubscriptions.delete(callback);
+	}
+
+	onQueryAdd<T extends QueryParameter[]>(
+		key: QueryHash<T>,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryAdd<T extends QueryParameter[]>(
+		parameters: T,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryAdd(
+		args: QueryHash<any> | QueryParameter[],
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber {
+		const ctx = this[$internal];
+		let query: Query;
+
+		if (typeof args === 'string') {
+			query = ctx.queriesHashMap.get(args)!;
+		} else {
+			const hash = createQueryHash(args);
+			query = ctx.queriesHashMap.get(hash)!;
+
+			if (!query) {
+				query = new Query(this, args);
+				ctx.queriesHashMap.set(hash, query);
+			}
 		}
 
 		query.addSubscriptions.add(callback);
@@ -189,19 +235,50 @@ export class World {
 		return () => query.addSubscriptions.delete(callback);
 	}
 
-	onRemove(parameters: QueryParameter[], callback: (entity: Entity) => void) {
+	onQueryRemove<T extends QueryParameter[]>(
+		key: QueryHash<T>,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryRemove<T extends QueryParameter[]>(
+		parameters: T,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryRemove(
+		args: QueryHash<any> | QueryParameter[],
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber {
 		const ctx = this[$internal];
-		const hash = createQueryHash(parameters);
-		let query = ctx.queriesHashMap.get(hash);
+		let query: Query;
 
-		if (!query) {
-			query = new Query(this, parameters);
-			ctx.queriesHashMap.set(hash, query);
+		if (typeof args === 'string') {
+			query = ctx.queriesHashMap.get(args)!;
+		} else {
+			const hash = createQueryHash(args);
+			query = ctx.queriesHashMap.get(hash)!;
+
+			if (!query) {
+				query = new Query(this, args);
+				ctx.queriesHashMap.set(hash, query);
+			}
 		}
 
 		query.removeSubscriptions.add(callback);
 
 		return () => query.removeSubscriptions.delete(callback);
+	}
+
+	onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
+		const ctx = this[$internal];
+		let data = ctx.traitData.get(trait)!;
+
+		if (!data) {
+			registerTrait(this, trait);
+			data = ctx.traitData.get(trait)!;
+		}
+
+		data.removeSubscriptions.add(callback);
+
+		return () => data.removeSubscriptions.delete(callback);
 	}
 
 	onChange(trait: Trait, callback: (entity: Entity) => void) {
@@ -211,18 +288,26 @@ export class World {
 		if (!ctx.traitData.has(trait)) registerTrait(this, trait);
 
 		const data = ctx.traitData.get(trait)!;
-		data.changedSubscriptions.add(callback);
+		data.changeSubscriptions.add(callback);
 
 		// Used by auto change detection to know which traits to track.
 		ctx.trackedTraits.add(trait);
 
 		return () => {
-			data.changedSubscriptions.delete(callback);
-			ctx.trackedTraits.delete(trait);
+			data.changeSubscriptions.delete(callback);
+			if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(trait);
 		};
 	}
 }
 
+// Clean up the world ID when it is garbage collected.
+const worldFinalizer = new FinalizationRegistry((worldId: number) => {
+	universe.worlds[worldId] = null;
+	releaseWorldId(universe.worldIndex, worldId);
+});
+
 export function createWorld(...traits: ConfigurableTrait[]) {
-	return new World(...traits);
+	const world = new World(...traits);
+	worldFinalizer.register(world, world.id);
+	return world;
 }

@@ -1,41 +1,50 @@
-import { Entity, QueryParameter, QueryResult } from '@koota/core';
-import { useEffect, useMemo, useReducer } from 'react';
+import { $internal, cacheQuery, QueryParameter, QueryResult } from '@koota/core';
+import { useEffect, useMemo, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
 export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryResult<T> {
-	const memoizedParameters = useMemo(() => parameters, [parameters]);
 	const world = useWorld();
-	const entities = useMemo(() => world.query(...memoizedParameters), [world, memoizedParameters]);
-	const [, forceUpdate] = useReducer((v) => v + 1, 0);
+	const [version, setVersion] = useState(0);
 
-	// Set entities at effect time
-	useEffect(() => {
-		const mutableEntities = entities as unknown as Entity[];
-		mutableEntities.length = 0;
-		mutableEntities.push(...world.query(...memoizedParameters));
+	const [hash, initialQueryVersion] = useMemo(() => {
+		const hash = cacheQuery(...parameters);
+		// Using internals to get the query data
+		const query = world[$internal].queriesHashMap.get(hash)!;
+		return [hash, query.version];
+	}, [parameters, world]);
 
-		forceUpdate();
-	}, [world]);
+	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(hash).sort());
 
 	// Subscribe to changes
 	useEffect(() => {
-		const unsubAdd = world.onAdd(memoizedParameters, (entity) => {
-			const mutableEntities = entities as unknown as Entity[];
-			mutableEntities.push(entity);
-			forceUpdate();
+		const unsubAdd = world.onQueryAdd(parameters, () => {
+			setEntities(world.query(hash).sort());
 		});
 
-		const unsubRemove = world.onRemove(memoizedParameters, (entity) => {
-			const mutableEntities = entities as unknown as Entity[];
-			const index = mutableEntities.indexOf(entity);
-			mutableEntities[index] = mutableEntities[mutableEntities.length - 1];
-			mutableEntities.pop();
-			forceUpdate();
+		const unsubRemove = world.onQueryRemove(parameters, () => {
+			setEntities(world.query(hash).sort());
 		});
+
+		// Compare the initial version to the current version to
+		// see it the query has changed
+		const query = world[$internal].queriesHashMap.get(hash)!;
+		if (query.version !== initialQueryVersion) {
+			setEntities(world.query(hash).sort());
+		}
 
 		return () => {
 			unsubAdd();
 			unsubRemove();
+		};
+	}, [world, hash, version]);
+
+	// Force reattaching event listeners when the world is reset
+	useEffect(() => {
+		const handler = () => setVersion((v) => v + 1);
+		world[$internal].resetSubscriptions.add(handler);
+
+		return () => {
+			world[$internal].resetSubscriptions.delete(handler);
 		};
 	}, [world]);
 

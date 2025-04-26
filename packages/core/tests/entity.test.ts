@@ -165,4 +165,12 @@ describe('Entity', () => {
 		entity.set(Bar, { value: 2 }, false);
 		expect(called).toBe(false);
 	});
+
+	it('can check if an entity is alive', () => {
+		const entity = world.spawn();
+		expect(entity.isAlive()).toBe(true);
+
+		entity.destroy();
+		expect(entity.isAlive()).toBe(false);
+	});
 });

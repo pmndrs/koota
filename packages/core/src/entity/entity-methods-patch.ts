@@ -7,11 +7,12 @@ import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
-import { addTrait, getStore, hasTrait, removeTrait } from '../trait/trait';
+import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
 import { ConfigurableTrait, Trait } from '../trait/types';
 import { destroyEntity, getEntityWorld } from './entity';
 import { Entity } from './types';
 import { getEntityId } from './utils/pack-entity';
+import { isEntityAlive } from './utils/entity-index';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
@@ -40,27 +41,12 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
-	const world = getEntityWorld(this);
-
-	const result = hasTrait(world, this, trait);
-	if (!result) return undefined;
-
-	const traitCtx = trait[$internal];
-	return traitCtx.get(getEntityId(this), getStore(world, trait));
+	return getTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
-	const ctx = trait[$internal];
-	const world = getEntityWorld(this);
-	const store = getStore(world, trait);
-	const index = getEntityId(this);
-
-	// A short circuit is more performance than an if statement which creates a new code statement.
-	value instanceof Function && (value = value(ctx.get(index, store)));
-
-	ctx.set(index, store, value);
-	triggerChanged && setChanged(world, this, trait);
+	setTrait(getEntityWorld(this), this, trait, value, triggerChanged);
 };
 
 //@ts-expect-error
@@ -76,4 +62,9 @@ Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
 //@ts-expect-error
 Number.prototype.id = function (this: Entity) {
 	return getEntityId(this);
+};
+
+//@ts-expect-error
+Number.prototype.isAlive = function (this: Entity) {
+	return isEntityAlive(getEntityWorld(this)[$internal].entityIndex, this);
 };

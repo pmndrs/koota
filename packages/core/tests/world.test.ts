@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { universe } from '../src/universe/universe';
-import { trait } from '../src/trait/trait';
 import { createWorld, TraitInstance } from '../src';
+import { trait } from '../src/trait/trait';
+import { universe } from '../src/universe/universe';
 
 describe('World', () => {
 	beforeEach(() => {
@@ -15,7 +15,8 @@ describe('World', () => {
 
 		expect(world.isInitialized).toBe(true);
 		expect(world.id).toBe(0);
-		expect(universe.worlds).toContain(world);
+		expect(universe.worlds[0]!.deref()!).toBe(world);
+		expect(universe.worldIndex.worldCursor).toBe(1);
 	});
 
 	it('should reset the world', () => {
