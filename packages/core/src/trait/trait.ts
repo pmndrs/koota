@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { Entity } from '../entity/types';
-import { ENTITY_ID_MASK, getEntityId } from '../entity/utils/pack-entity';
+import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
