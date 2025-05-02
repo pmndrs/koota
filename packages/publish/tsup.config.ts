@@ -7,7 +7,7 @@ export default defineConfig({
 	// Not all bundlers and frameworks are capable of correctly transforming esm
 	// to cjs output and koota requires strict mode to be enabled for the code to 
 	// be sound. The "use strict" directive has no ill effect when running in an
-	// esm environment, while bringing the extra guarantee of ensuing strict mode
+	// esm environment, while bringing the extra guarantee of ensuring strict mode
 	// is used in non-conformant environments.
 	// See https://262.ecma-international.org/5.1/#sec-C for more details.
 	esbuildOptions: (options, { format }) => {
