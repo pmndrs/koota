@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { Entity } from '../entity/types';
-import { ENTITY_ID_MASK, getEntityId } from '../entity/utils/pack-entity';
+import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
@@ -224,7 +224,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 	}
 }
 
-export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
+export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
 	const data = ctx.traitData.get(trait);
 	if (!data) return false;
@@ -236,12 +236,13 @@ export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	return (mask & bitflag) === bitflag;
 }
 
-export function getStore<C extends Trait = Trait>(world: World, trait: C): ExtractStore<C> {
+export /* @inline @pure */ function getStore<C extends Trait = Trait>(
+	world: World,
+	trait: C
+): ExtractStore<C> {
 	const ctx = world[$internal];
 	const data = ctx.traitData.get(trait)!;
-	const store = data.store as ExtractStore<C>;
-
-	return store;
+	return data.store as ExtractStore<C>;
 }
 
 export function setTrait(
@@ -252,8 +253,8 @@ export function setTrait(
 	triggerChanged = true
 ) {
 	const ctx = trait[$internal];
-	const index = entity & ENTITY_ID_MASK;
 	const store = getStore(world, trait);
+	const index = getEntityId(entity);
 
 	// A short circuit is more performance than an if statement which creates a new code statement.
 	value instanceof Function && (value = value(ctx.get(index, store)));
@@ -263,21 +264,10 @@ export function setTrait(
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait) {
-	const worldCtx = world[$internal];
-	const data = worldCtx.traitData.get(trait);
+	const result = hasTrait(world, entity, trait);
+	if (!result) return undefined;
 
-	// If the trait does not exist on the world return undefined.
-	if (!data) return undefined;
-
-	// Get entity index/id.
-	const index = getEntityId(entity);
-
-	// If the entity does not have the trait return undefined.
-	const mask = worldCtx.entityMasks[data.generationId][index];
-	if ((mask & data.bitflag) !== data.bitflag) return undefined;
-
-	// Return a snapshot of the trait state.
 	const traitCtx = trait[$internal];
 	const store = getStore(world, trait);
-	return traitCtx.get(index, store);
+	return traitCtx.get(getEntityId(entity), store);
 }
