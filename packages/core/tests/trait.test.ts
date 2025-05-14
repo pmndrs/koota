@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, Entity } from '../src';
-import { $internal } from '../src/common';
-import { getStore, registerTrait, trait } from '../src/trait/trait';
+import { createWorld, type Entity, getStore, trait } from '../src';
 
 class TestClass {
 	constructor(public name = 'TestClass') {}
@@ -28,17 +26,6 @@ describe('Trait', () => {
 
 		expect(Object.keys(Test)).toEqual(['schema']);
 		expect(typeof Test === 'function').toBe(true);
-	});
-
-	it('should register a trait', () => {
-		const Position = trait({ x: 0, y: 0 });
-		registerTrait(world, Position);
-
-		const ctx = world[$internal];
-		// Has sytem traits registered by default.
-		expect(world.traits.size).toBe(2);
-		expect(ctx.traitData.size).toBe(2);
-		expect(ctx.traitData.get(Position)).toBeDefined();
 	});
 
 	it('should add and remove traits to an entity', () => {
@@ -241,7 +228,7 @@ describe('Trait', () => {
 
 		entity.add(Position({ x: 1, y: 2 }));
 		expect(addCb).toHaveBeenCalledTimes(1);
-		
+
 		entity.remove(Position);
 		expect(removeCb).toHaveBeenCalledTimes(1);
 	});

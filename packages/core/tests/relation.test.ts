@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld } from '../src';
-import { relation, Wildcard } from '../src/relation/relation';
+import { createWorld, relation, Wildcard } from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();

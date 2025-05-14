@@ -1,5 +1,5 @@
 export { createWorld } from './world/world';
-export { trait } from './trait/trait';
+export { trait, getStore } from './trait/trait';
 export { createAdded } from './query/modifiers/added';
 export { createRemoved } from './query/modifiers/removed';
 export { createChanged } from './query/modifiers/changed';
@@ -10,6 +10,7 @@ export { cacheQuery } from './query/utils/cache-query';
 export { relation, Pair, Wildcard } from './relation/relation';
 export { $internal } from './common';
 export { createActions } from './actions/create-actions';
+export { IsExcluded } from './query/query';
 
 // Export types
 export * from './trait/types';
