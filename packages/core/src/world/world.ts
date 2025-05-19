@@ -128,7 +128,13 @@ export class World {
 		const ctx = this[$internal];
 
 		// Destroy all entities so any cleanup is done.
-		this.entities.forEach((entity) => destroyEntity(this, entity));
+		this.entities.forEach((entity) => {
+			// Some relations may have caused the entity to be destroyed before
+			// we get to them in the loop.
+			if (this.has(entity)) {
+				destroyEntity(this, entity)
+			}
+		});
 
 		ctx.entityIndex = createEntityIndex(this.#id);
 		ctx.entityTraits.clear();

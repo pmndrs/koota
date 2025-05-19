@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, TraitInstance } from '../src';
+import { createWorld, relation, TraitInstance } from '../src';
 import { trait } from '../src/trait/trait';
 import { universe } from '../src/universe/universe';
 
@@ -22,6 +22,24 @@ describe('World', () => {
 	it('should reset the world', () => {
 		const world = createWorld();
 		world.reset();
+
+		// Always has one entity that is the world itself.
+		expect(world.entities.length).toBe(1);
+	});
+
+	it('reset should remove entities with auto-remove relations', () => {
+		const Node = trait();
+		const ChildOf = relation({ autoRemoveTarget: true, exclusive: true });
+
+		const world = createWorld();
+
+		// Create a parent node and a child node.
+		const parentNode = world.spawn(Node);
+		world.spawn(Node, ChildOf(parentNode));
+
+		// Expect this to not throw, since the ChildOf relation will automatically
+		// remove the child node when the parent node is destroyed first.
+		expect(() => world.reset()).not.toThrow();
 
 		// Always has one entity that is the world itself.
 		expect(world.entities.length).toBe(1);
