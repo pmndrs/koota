@@ -38,6 +38,7 @@
 	"devDependencies": {
 		"@koota/core": "workspace:*",
 		"@koota/react": "workspace:*",
+		"esbuild-plugin-inline-functions": "^0.1.0",
 		"react": ">=18.0.0",
 		"react-dom": ">=18.0.0",
 		"tsconfig": "workspace:*",

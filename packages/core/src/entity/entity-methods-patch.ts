@@ -3,90 +3,68 @@
 // and the convenience of using methods. Type guards are used to ensure
 // that the methods are only called on entities.
 
-import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
-import { ConfigurableTrait, Trait } from '../trait/types';
+import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
-import { universe } from '../universe/universe';
-import { $internal } from '../common';
-import { destroyEntity } from './entity';
+import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
+import { ConfigurableTrait, Trait } from '../trait/types';
+import { destroyEntity, getEntityWorld } from './entity';
 import { Entity } from './types';
-import { ENTITY_ID_MASK, WORLD_ID_SHIFT } from './utils/pack-entity';
+import { getEntityId } from './utils/pack-entity';
 import { isEntityAlive } from './utils/entity-index';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return addTrait(world, this, ...traits);
+	return addTrait(getEntityWorld(this), this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return removeTrait(world, this, ...traits);
+	return removeTrait(getEntityWorld(this), this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return hasTrait(world, this, trait);
+	return hasTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.destroy = function (this: Entity) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return destroyEntity(world, this);
+	return destroyEntity(getEntityWorld(this), this);
 };
 
 // @ts-expect-error
 Number.prototype.changed = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return setChanged(world, this, trait);
+	return setChanged(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return getTrait(world, this, trait);
+	return getTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	setTrait(world, this, trait, value, triggerChanged);
+	setTrait(getEntityWorld(this), this, trait, value, triggerChanged);
 };
 
 //@ts-expect-error
 Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return getRelationTargets(world, relation, this);
+	return getRelationTargets(getEntityWorld(this), relation, this);
 };
 
 //@ts-expect-error
 Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return getRelationTargets(world, relation, this)[0];
+	return getRelationTargets(getEntityWorld(this), relation, this)[0];
 };
 
 //@ts-expect-error
 Number.prototype.id = function (this: Entity) {
-	const id = this & ENTITY_ID_MASK;
-	return id;
+	return getEntityId(this);
 };
 
 //@ts-expect-error
 Number.prototype.isAlive = function (this: Entity) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return isEntityAlive(world[$internal].entityIndex, this);
+	return isEntityAlive(getEntityWorld(this)[$internal].entityIndex, this);
 };

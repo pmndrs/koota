@@ -1,24 +1,20 @@
-export function shallowEqual(obj1: any, obj2: any): boolean {
-	if (obj1 === obj2) {
-		return true;
-	}
+// This shallow equal looks insane because it is optimized to use short circuiting
+// and the least amount of evaluations possible.
 
-	if (typeof obj1 !== 'object' || obj1 === null || typeof obj2 !== 'object' || obj2 === null) {
-		return false;
-	}
-
-	const keys1 = Object.keys(obj1);
-	const keys2 = Object.keys(obj2);
-
-	if (keys1.length !== keys2.length) {
-		return false;
-	}
-
-	for (const key of keys1) {
-		if (!obj2.hasOwnProperty(key) || obj1[key] !== obj2[key]) {
-			return false;
-		}
-	}
-
-	return true;
+export function /* @inline @pure */ shallowEqual(obj1: any, obj2: any): boolean {
+	return (
+		obj1 === obj2 ||
+		(typeof obj1 === 'object' &&
+			obj1 !== null &&
+			typeof obj2 === 'object' &&
+			obj2 !== null &&
+			(() => {
+				const keys1 = Object.keys(obj1);
+				const keys2 = Object.keys(obj2);
+				return (
+					keys1.length === keys2.length &&
+					keys1.every((key) => obj2.hasOwnProperty(key) && obj1[key] === obj2[key])
+				);
+			})())
+	);
 }
