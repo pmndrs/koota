@@ -378,7 +378,7 @@ describe('Query modifiers', () => {
 		entityA.remove(Foo);
 		entityA.add(Foo);
 		entities = world.query(Added(Foo), Removed(Bar));
-		expect(entities[0]).toBe(entityA);
+		expect(entities.length).toBe(0);
 
 		// Add Foo to entityB and remove Bar.
 		// This entity should now match the query.
@@ -460,7 +460,7 @@ describe('Query modifiers', () => {
 		expect(entities2.length).toBe(1);
 	});
 
-	it.fails('should only update a Changed query when the tracked trait is changed', () => {
+	it('should only update a Changed query when the tracked trait is changed', () => {
 		const entity = world.spawn(Foo, Bar);
 
 		const Changed = createChanged();
@@ -476,7 +476,7 @@ describe('Query modifiers', () => {
 	});
 
 	// @see https://github.com/pmndrs/koota/issues/115
-	it.fails('should not trigger Changed query when removing a different trait', () => {
+	it('should not trigger Changed query when removing a different trait', () => {
 		const Changed = createChanged();
 		const entity = world.spawn(Position);
 

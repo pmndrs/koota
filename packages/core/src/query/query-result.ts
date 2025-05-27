@@ -23,8 +23,16 @@ export function createQueryResult<T extends QueryParameter[]>(
 ): QueryResult<T> {
 	query.commitRemovals(world);
 	const entities = query.entities.dense.slice() as Entity[];
+
 	// Clear so it can accumulate again.
-	if (query.isTracking) query.entities.clear();
+	if (query.isTracking) {
+		query.entities.clear();
+
+		// @todo: Need to improve the performance of this loop.
+		for (const eid of entities) {
+			query.resetTrackingBitmasks(eid);
+		}
+	}
 
 	const stores: Store<any>[] = [];
 	const traits: Trait[] = [];
