@@ -1,16 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cacheQuery, createWorld } from '../src';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { createWorld } from '../src';
 import { $internal } from '../src/common';
 import { createAdded } from '../src/query/modifiers/added';
 import { createChanged } from '../src/query/modifiers/changed';
 import { Not } from '../src/query/modifiers/not';
-import { Or } from '../src/query/modifiers/or';
 import { createRemoved } from '../src/query/modifiers/removed';
-import { IsExcluded } from '../src/query/query';
 import { getStore, trait } from '../src/trait/trait';
 
 const Position = trait({ x: 0, y: 0 });
-const Name = trait({ name: 'name' });
 const IsActive = trait();
 const Foo = trait({});
 const Bar = trait({});
@@ -475,5 +472,26 @@ describe('Query modifiers', () => {
 
 		entity.changed(Foo);
 		expect(world.queryFirst(Foo, Changed(Bar))).toBeUndefined();
+	});
+
+	// @see https://github.com/pmndrs/koota/issues/115
+	it.fails('should not trigger Changed query when removing a different trait', () => {
+		const Changed = createChanged();
+		const entity = world.spawn(Position);
+
+		// Initial state - no changes
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
+
+		// Change Position
+		entity.changed(Position);
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBe(entity);
+
+		// Query again - should be empty
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
+
+		// Add and remove Foo - should be empty
+		entity.add(Foo);
+		entity.remove(Foo);
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
 	});
 });
