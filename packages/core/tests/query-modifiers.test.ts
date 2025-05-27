@@ -461,17 +461,18 @@ describe('Query modifiers', () => {
 	});
 
 	it('should only update a Changed query when the tracked trait is changed', () => {
-		const Changed = createChanged();
-
 		const entity = world.spawn(Foo, Bar);
 
-		expect(world.queryFirst(Foo, Changed(Bar))).toBeUndefined();
+		const Changed = createChanged();
 
-		entity.changed(Bar);
-		expect(world.queryFirst(Foo, Changed(Bar))).toBe(entity);
+		expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBeUndefined();
 
 		entity.changed(Foo);
-		expect(world.queryFirst(Foo, Changed(Bar))).toBeUndefined();
+		entity.changed(Bar);
+		expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBe(entity);
+
+		entity.changed(Foo);
+		expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBeUndefined();
 	});
 
 	// @see https://github.com/pmndrs/koota/issues/115
