@@ -463,14 +463,17 @@ describe('Query modifiers', () => {
 		expect(entities2.length).toBe(1);
 	});
 
-	it.fails('should only update a Changed query when the tracked trait is changed', () => {
-		const entity = world.spawn(Foo, Bar);
+	it('should only update a Changed query when the tracked trait is changed', () => {
 		const Changed = createChanged();
+
+		const entity = world.spawn(Foo, Bar);
+
+		expect(world.queryFirst(Foo, Changed(Bar))).toBeUndefined();
 
 		entity.changed(Bar);
 		expect(world.queryFirst(Foo, Changed(Bar))).toBe(entity);
 
 		entity.changed(Foo);
-		expect(world.queryFirst(Foo, Changed(Bar))).toBeUndefined;
+		expect(world.queryFirst(Foo, Changed(Bar))).toBeUndefined();
 	});
 });
