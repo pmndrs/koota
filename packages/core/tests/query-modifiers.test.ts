@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld } from '../src';
-import { $internal } from '../src/common';
-import { createAdded } from '../src/query/modifiers/added';
-import { createChanged } from '../src/query/modifiers/changed';
-import { Not } from '../src/query/modifiers/not';
-import { createRemoved } from '../src/query/modifiers/removed';
-import { getStore, trait } from '../src/trait/trait';
+import {
+	$internal,
+	createAdded,
+	createChanged,
+	createRemoved,
+	createWorld,
+	getStore,
+	Not,
+	trait,
+} from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const IsActive = trait();

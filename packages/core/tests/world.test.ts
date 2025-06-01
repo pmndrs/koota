@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, TraitInstance } from '../src';
-import { trait } from '../src/trait/trait';
-import { universe } from '../src/universe/universe';
+import { createWorld, relation, trait, TraitInstance, universe } from '../src';
 
 describe('World', () => {
 	beforeEach(() => {
@@ -9,9 +7,8 @@ describe('World', () => {
 	});
 
 	it('should create a world', () => {
-		const world = createWorld();
-
 		// World inits on creation.
+		const world = createWorld();
 
 		expect(world.isInitialized).toBe(true);
 		expect(world.id).toBe(0);
