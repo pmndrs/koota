@@ -10,9 +10,8 @@ import { Relation } from '../relation/types';
 import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
 import { ConfigurableTrait, Trait } from '../trait/types';
 import { destroyEntity, getEntityWorld } from './entity';
-import { Entity } from './types';
-import { getEntityId } from './utils/pack-entity';
 import { isEntityAlive } from './utils/entity-index';
+import { getEntityGeneration, getEntityId } from './utils/pack-entity';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
@@ -62,6 +61,11 @@ Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
 //@ts-expect-error
 Number.prototype.id = function (this: Entity) {
 	return getEntityId(this);
+};
+
+// @ts-expect-error
+Number.prototype.generation = function (this: Entity) {
+	return getEntityGeneration(this);
 };
 
 //@ts-expect-error
