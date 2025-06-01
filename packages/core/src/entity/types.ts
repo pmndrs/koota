@@ -18,5 +18,6 @@ export type Entity = number & {
 	targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
 	targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
 	id: () => number;
+	generation: () => number;
 	isAlive: () => boolean;
 };
