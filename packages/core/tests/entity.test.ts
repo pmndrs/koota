@@ -170,4 +170,19 @@ describe('Entity', () => {
 		entity.destroy();
 		expect(entity.isAlive()).toBe(false);
 	});
+
+	it('can get entity id', () => {
+		const entity = world.spawn();
+		// The first entity is always 1 since a world entity is created first.
+		expect(entity.id()).toBe(1);
+	});
+
+	it('can get entity generation', () => {
+		const entity = world.spawn();
+		expect(entity.generation()).toBe(0);
+
+		entity.destroy();
+		const entity2 = world.spawn();
+		expect(entity2.generation()).toBe(1);
+	});
 });
