@@ -447,7 +447,7 @@ These are more like notes for docs. Take a look around, ask questions. Eventuall
 
 This is where all data is stored. We have methods on entities but this is a bit of a trick, entities don't actually store any data and instead it is operating on the connected world. Each world has its own set of entities that do not overlap with another. Typically you only need one world.
 
-Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is no queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
+Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is not queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
 
 ```js
 // Spawns an entity
@@ -533,7 +533,7 @@ entity.remove(Position)
 
 // Checks if the entity has the trait
 // Return boolean
-const result = enttiy.has(Position) 
+const result = entity.has(Position) 
 
 // Gets a snapshot instance of the trait
 // Return TraitInstance
