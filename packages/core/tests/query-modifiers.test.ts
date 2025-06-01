@@ -1,16 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cacheQuery, createWorld } from '../src';
-import { $internal } from '../src/common';
-import { createAdded } from '../src/query/modifiers/added';
-import { createChanged } from '../src/query/modifiers/changed';
-import { Not } from '../src/query/modifiers/not';
-import { Or } from '../src/query/modifiers/or';
-import { createRemoved } from '../src/query/modifiers/removed';
-import { IsExcluded } from '../src/query/query';
-import { getStore, trait } from '../src/trait/trait';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+	$internal,
+	createAdded,
+	createChanged,
+	createRemoved,
+	createWorld,
+	getStore,
+	Not,
+	trait,
+} from '../src';
 
 const Position = trait({ x: 0, y: 0 });
-const Name = trait({ name: 'name' });
 const IsActive = trait();
 const Foo = trait({});
 const Bar = trait({});
@@ -381,7 +381,7 @@ describe('Query modifiers', () => {
 		entityA.remove(Foo);
 		entityA.add(Foo);
 		entities = world.query(Added(Foo), Removed(Bar));
-		expect(entities[0]).toBe(entityA);
+		expect(entities.length).toBe(0);
 
 		// Add Foo to entityB and remove Bar.
 		// This entity should now match the query.
@@ -461,5 +461,41 @@ describe('Query modifiers', () => {
 
 		expect(entities.length).toBe(1);
 		expect(entities2.length).toBe(1);
+	});
+
+	it('should only update a Changed query when the tracked trait is changed', () => {
+		const entity = world.spawn(Foo, Bar);
+
+		const Changed = createChanged();
+
+		expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBeUndefined();
+
+		entity.changed(Foo);
+		entity.changed(Bar);
+		expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBe(entity);
+
+		entity.changed(Foo);
+		expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBeUndefined();
+	});
+
+	// @see https://github.com/pmndrs/koota/issues/115
+	it('should not trigger Changed query when removing a different trait', () => {
+		const Changed = createChanged();
+		const entity = world.spawn(Position);
+
+		// Initial state - no changes
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
+
+		// Change Position
+		entity.changed(Position);
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBe(entity);
+
+		// Query again - should be empty
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
+
+		// Add and remove Foo - should be empty
+		entity.add(Foo);
+		entity.remove(Foo);
+		expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
 	});
 });

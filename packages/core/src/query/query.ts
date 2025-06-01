@@ -290,7 +290,13 @@ export class Query {
 		const result = this.entities.dense.slice();
 
 		// Clear so it can accumulate again.
-		if (this.isTracking) this.entities.clear();
+		if (this.isTracking) {
+			this.entities.clear();
+
+			for (const eid of result) {
+				this.resetTrackingBitmasks(eid);
+			}
+		}
 
 		return result as Entity[];
 	}

@@ -315,10 +315,6 @@ entity.set(Position, { x: 10, y: 20 });
 entity.remove(Position);
 ```
 
-### Query all entities
-
-To get al queryable entities you simply query with not paramerters. Note, that not all entities are queryable. Any entity that has `IsExcluded` will not be able to be queried. This is used in Koota to exclude world entities, for example, but maybe used for other system level entities in the future. To get all entities regardless, use `world.entities`.
-
 ```js
 // Returns all queryable entities
 const allQueryableEntities = world.query()
@@ -365,7 +361,7 @@ world.query(Position, Velocity, Mass)
   });
 ```
 
-### Modifying trait stores direclty
+### Modifying trait stores directly
 
 For performance-critical operations, you can modify trait stores directly using the `useStore` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
 
@@ -381,30 +377,6 @@ world.query(Position, Velocity).useStore(([position, velocity], entities) => {
         position.y[eid] += velocity.y[eid] * delta;
     }
 });
-```
-
-### Caching queries
-
-Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
-
-```js
-// Every time this query runs a hash for the query parameters (Position, Velocity) 
-// is created and then used to get the cached query internally
-function updateMovement(world) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => { })
-}
-```
-
-While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned key. This will have the additional effect of creating the internal query immediately on a worlds, otherwise it will get created the first time it is run.
-
-```js
-// The internal query is created immediately before it is invoked
-const movementQuery = cacheQuery(Position, Velocity)
-
-// They query key is hashed ahead of time and we just use it
-function updateMovement(world) {
-  world.query(movementQuery).updateEach(([pos, vel]) => { })
-}
 ```
 
 ### Query tips for the curious
@@ -447,7 +419,7 @@ These are more like notes for docs. Take a look around, ask questions. Eventuall
 
 This is where all data is stored. We have methods on entities but this is a bit of a trick, entities don't actually store any data and instead it is operating on the connected world. Each world has its own set of entities that do not overlap with another. Typically you only need one world.
 
-Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is no queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
+Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is not queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
 
 ```js
 // Spawns an entity
@@ -533,7 +505,7 @@ entity.remove(Position)
 
 // Checks if the entity has the trait
 // Return boolean
-const result = enttiy.has(Position) 
+const result = entity.has(Position) 
 
 // Gets a snapshot instance of the trait
 // Return TraitInstance
@@ -561,6 +533,12 @@ const id = entity.id()
 
 // Destroys the entity making its number no longer valid
 entity.destroy()
+```
+
+For introspection, `unpackEntity` can be used to get all of the encoded values. This can be useful for debugging.
+
+```js
+const { entityId, generation, worldId } = unpackEntity(entity)
 ```
 
 ### Trait
@@ -622,7 +600,7 @@ const store = {
 
 #### Array of Structures (AoS) - Callback-based traits
 
-When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibiilty with third party libraries like Three, or class instnaces in general.
+When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibility with third party libraries like Three, or class instances in general.
 
 ```js
 const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }));
@@ -677,6 +655,66 @@ const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
   stages: null,
   startedAt: null,
 })
+```
+
+#### Accessing the store directly
+
+The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`useStore` API](#modifying-trait-stores-direclty) instead.
+
+```js
+// Returns SoA or AoS depending on the trait
+const positions = getStore(world, Position) 
+```
+
+### Query
+
+A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
+
+### Caching queries
+
+Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
+
+```js
+// Every time this query runs a hash for the query parameters (Position, Velocity) 
+// is created and then used to get the cached query internally
+function updateMovement(world) {
+  world.query(Position, Velocity).updateEach(([pos, vel]) => { })
+}
+```
+
+While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned key. This will have the additional effect of creating the internal query immediately on a worlds, otherwise it will get created the first time it is run.
+
+```js
+// The internal query is created immediately before it is invoked
+const movementQuery = cacheQuery(Position, Velocity)
+
+// They query key is hashed ahead of time and we just use it
+function updateMovement(world) {
+  world.query(movementQuery).updateEach(([pos, vel]) => { })
+}
+```
+
+### Query all entities
+
+To get all queryable entities you simply query with no parameters. 
+
+```js
+const allEntities = world.query()
+```
+
+This differs from `world.entities` which includes all entities, even system ones. Koota excludes its internal system entities from queries to keep userland queries from being polluted.
+
+#### Excluding entities from queries
+
+Any entity can be excluded from queries by adding the built-in tag `IsExcluded` to it. System entities get this tag added to them so that they do not interfere with the app.
+
+```js
+const entity = world.spawn(Position)
+// This entity can no longer be queried
+entity.add(IsExcluded)
+
+const entities = world.query(Position)
+entities.includes(entity) // This will always be false
 ```
 
 

@@ -1,13 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cacheQuery, createWorld } from '../src';
-import { $internal } from '../src/common';
-import { createAdded } from '../src/query/modifiers/added';
-import { createChanged } from '../src/query/modifiers/changed';
-import { Not } from '../src/query/modifiers/not';
-import { Or } from '../src/query/modifiers/or';
-import { createRemoved } from '../src/query/modifiers/removed';
-import { IsExcluded } from '../src/query/query';
-import { getStore, trait } from '../src/trait/trait';
+import { $internal, cacheQuery, createWorld, IsExcluded, Not, Or, trait } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
