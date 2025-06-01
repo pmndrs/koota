@@ -36,7 +36,7 @@ export const getEntityAndWorldId = /* @pure */ (entity: Entity): [number, number
 	entity >>> WORLD_ID_SHIFT,
 ];
 
-export const getEntityGeneration = (entity: Entity) =>
+export const getEntityGeneration = /* @inline @pure */ (entity: Entity) =>
 	(entity >>> GENERATION_SHIFT) & GENERATION_MASK;
 
 export const incrementGeneration = (entity: Entity): Entity =>
