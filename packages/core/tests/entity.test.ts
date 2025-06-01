@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { createWorld, trait, getStore, type Entity } from '../src';
-import { unpackEntity } from '../src/entity/utils/pack-entity';
+import { createWorld, getStore, trait, unpackEntity, type Entity } from '../src';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
