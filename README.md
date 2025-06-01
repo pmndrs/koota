@@ -531,6 +531,10 @@ const target = entity.targetFor(Contains)
 // Return number
 const id = entity.id()
 
+// Get the entity generation
+// Return number
+const generation = entity.generation()
+
 // Destroys the entity making its number no longer valid
 entity.destroy()
 ```
