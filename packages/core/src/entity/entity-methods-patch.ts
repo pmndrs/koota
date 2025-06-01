@@ -3,17 +3,17 @@
 // and the convenience of using methods. Type guards are used to ensure
 // that the methods are only called on entities.
 
-import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
-import { ConfigurableTrait, Trait } from '../trait/types';
+import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
+import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
+import { ConfigurableTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
-import { $internal } from '../common';
 import { destroyEntity } from './entity';
 import { Entity } from './types';
-import { ENTITY_ID_MASK, WORLD_ID_SHIFT } from './utils/pack-entity';
 import { isEntityAlive } from './utils/entity-index';
+import { getEntityGeneration, getEntityId, WORLD_ID_SHIFT } from './utils/pack-entity';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
@@ -80,8 +80,12 @@ Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
 
 //@ts-expect-error
 Number.prototype.id = function (this: Entity) {
-	const id = this & ENTITY_ID_MASK;
-	return id;
+	return getEntityId(this);
+};
+
+// @ts-expect-error
+Number.prototype.generation = function (this: Entity) {
+	return getEntityGeneration(this);
 };
 
 //@ts-expect-error
