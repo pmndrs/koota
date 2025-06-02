@@ -1,5 +1,5 @@
 import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koota/core';
-import ReactThreeTestRenderer from '@react-three/test-renderer';
+import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTrait, useTraitEffect, WorldProvider } from '../src';
@@ -29,10 +29,8 @@ describe('useTrait', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -67,10 +65,8 @@ describe('useTrait', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -98,10 +94,8 @@ describe('useTrait', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -128,25 +122,19 @@ describe('useTrait', () => {
 			return null;
 		}
 
-		let renderer: any;
-
-		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
+		const { rerender } = render(
+			<StrictMode>
+				<WorldProvider world={world}>
+					<Test />
+				</WorldProvider>
+			</StrictMode>
+		);
 
 		expect(position).toBeUndefined();
 
 		await act(async () => {
 			entity = world.spawn(Position);
-
-			// Force re-render
-			await renderer!.update(
+			rerender(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -167,10 +155,8 @@ describe('useTrait', () => {
 			return null;
 		}
 
-		let renderer: unknown;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -208,10 +194,8 @@ describe('useTraitEffect', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -240,10 +224,8 @@ describe('useTraitEffect', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
@@ -273,10 +255,8 @@ describe('useTraitEffect', () => {
 			return null;
 		}
 
-		let renderer: any;
-
 		await act(async () => {
-			renderer = await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />

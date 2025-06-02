@@ -1,5 +1,5 @@
 import { createWorld, universe, World } from '@koota/core';
-import ReactThreeTestRenderer from '@react-three/test-renderer';
+import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useWorld, WorldProvider } from '../src';
@@ -28,7 +28,7 @@ describe('World', () => {
 		}
 
 		await act(async () => {
-			await ReactThreeTestRenderer.create(
+			render(
 				<StrictMode>
 					<WorldProvider world={world}>
 						<Test />
