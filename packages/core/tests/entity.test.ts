@@ -164,8 +164,19 @@ describe('Entity', () => {
 	});
 
 	it('can check if an entity is alive', () => {
-		const entity = world.spawn();
+		let entity = world.spawn();
 		expect(entity.isAlive()).toBe(true);
+		expect(entity.id()).toBe(1);
+		expect(entity.generation()).toBe(0);
+
+		entity.destroy();
+		expect(entity.isAlive()).toBe(false);
+
+		// Should be resilient to changes in generation with the same entity ID.
+		entity = world.spawn(Bar);
+		expect(entity.isAlive()).toBe(true);
+		expect(entity.id()).toBe(1);
+		expect(entity.generation()).toBe(1);
 
 		entity.destroy();
 		expect(entity.isAlive()).toBe(false);
