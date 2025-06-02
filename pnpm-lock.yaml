@@ -351,9 +351,6 @@ importers:
       '@types/react':
         specifier: '>=18.0.0'
         version: 19.0.8
-      vitest:
-        specifier: ^1.6.1
-        version: 1.6.1(@types/node@22.15.29)(jsdom@26.0.0)
     devDependencies:
       '@koota/core':
         specifier: workspace:*
@@ -376,22 +373,16 @@ importers:
       tsup:
         specifier: ^8.3.0
         version: 8.3.6(@swc/core@1.10.15)(postcss@8.5.2)(tsx@4.19.4)(typescript@5.8.3)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.15.29)(jsdom@26.0.0)
 
   packages/react:
     dependencies:
       '@koota/core':
         specifier: workspace:*
         version: link:../core
-      '@react-three/fiber':
-        specifier: ^9.0.4
-        version: 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
-      three:
-        specifier: '>=0.159'
-        version: 0.162.0
     devDependencies:
-      '@react-three/test-renderer':
-        specifier: ^9.0.1
-        version: 9.0.1(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)
       '@testing-library/react':
         specifier: ^16.2.0
         version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.3(@types/react@19.0.8))(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -1159,13 +1150,6 @@ packages:
         optional: true
       react-native:
         optional: true
-
-  '@react-three/test-renderer@9.0.1':
-    resolution: {integrity: sha512-CbMsjbjzZgRdIXL278bwlcg5hu8M/nrNJ81EKwxFeZCZEkyIsbiDQWQ35W1ed5BZzv+j6vz7toXCl67UIgelAA==}
-    peerDependencies:
-      '@react-three/fiber': '>=9.0.0'
-      react: ^19.0.0
-      three: '>=0.156'
 
   '@rollup/rollup-android-arm-eabi@4.34.6':
     resolution: {integrity: sha512-+GcCXtOQoWuC7hhX1P00LqjjIiS/iOouHXhMdiDSnq/1DGTox4SpUvO52Xm+div6+106r+TcvOeo/cxvyEyTgg==}
@@ -3397,12 +3381,6 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
       - immer
-
-  '@react-three/test-renderer@9.0.1(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)':
-    dependencies:
-      '@react-three/fiber': 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
-      react: 19.0.0
-      three: 0.162.0
 
   '@rollup/rollup-android-arm-eabi@4.34.6':
     optional: true
