@@ -2,9 +2,7 @@ import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koo
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { WorldProvider } from '../src';
-import { useTrait } from '../src/hooks/use-trait';
-import { useTraitEffect } from '../src/hooks/use-trait-effect';
+import { useTrait, useTraitEffect, WorldProvider } from '../src';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;

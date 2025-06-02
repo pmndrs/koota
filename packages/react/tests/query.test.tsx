@@ -1,8 +1,8 @@
 import { createWorld, Entity, QueryResult, trait, universe, World } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
+import { renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { renderHook } from '@testing-library/react';
 import { useQuery, WorldProvider } from '../src';
 
 declare global {

@@ -1,9 +1,8 @@
-import { universe, World } from '@koota/core';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld } from '@koota/core';
-import { useWorld, WorldProvider } from '../src';
+import { createWorld, universe, World } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { useWorld, WorldProvider } from '../src';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
