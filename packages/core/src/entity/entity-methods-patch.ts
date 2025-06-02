@@ -70,5 +70,7 @@ Number.prototype.generation = function (this: Entity) {
 
 //@ts-expect-error
 Number.prototype.isAlive = function (this: Entity) {
-	return isEntityAlive(getEntityWorld(this)[$internal].entityIndex, this);
+	const world = getEntityWorld(this);
+	const entityIndex = world[$internal].entityIndex;
+	return isEntityAlive(entityIndex, this);
 };
