@@ -27,7 +27,7 @@ async function processPackage(pkg: (typeof PACKAGES)[number]) {
 
 	const files = await readdir(sourceDir);
 	const testFiles = files.filter((file) => file.endsWith('.test.ts') || file.endsWith('.test.tsx'));
-	console.log(`> Found ${testFiles.length} ${pkg.name} test files to process\n`);
+	console.log(`\n> Found ${testFiles.length} ${pkg.name} test files to process`);
 
 	for (const file of testFiles) {
 		const sourcePath = join(sourceDir, file);
