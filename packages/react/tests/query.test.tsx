@@ -1,7 +1,7 @@
 import { createWorld, Entity, QueryResult, trait, universe, World } from '@koota/core';
 import { render } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
-import React, { act, StrictMode } from 'react';
+import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useQuery, WorldProvider } from '../src';
 
