@@ -9,8 +9,16 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 const PUBLISH_TESTS_DIR = join(currentDir, '../tests');
 
 const PACKAGES = [
-	{ name: 'core', package: '@koota/core' },
-	// { name: 'react', package: '@koota/react' },
+	{
+		name: 'core',
+		package: '@koota/core',
+		importPath: '../../dist',
+	},
+	{
+		name: 'react',
+		package: '@koota/react',
+		importPath: '../../react',
+	},
 ] as const;
 
 async function processPackage(pkg: (typeof PACKAGES)[number]) {
@@ -18,7 +26,7 @@ async function processPackage(pkg: (typeof PACKAGES)[number]) {
 	const targetDir = join(PUBLISH_TESTS_DIR, pkg.name);
 
 	const files = await readdir(sourceDir);
-	const testFiles = files.filter((file) => file.endsWith('.test.ts'));
+	const testFiles = files.filter((file) => file.endsWith('.test.ts') || file.endsWith('.test.tsx'));
 	console.log(`> Found ${testFiles.length} ${pkg.name} test files to process\n`);
 
 	for (const file of testFiles) {
@@ -26,7 +34,16 @@ async function processPackage(pkg: (typeof PACKAGES)[number]) {
 		const targetPath = join(targetDir, file);
 
 		let content = await readFile(sourcePath, 'utf-8');
-		content = content.replace(/from ['"]\.\.\/src['"]/g, "from '../../dist'");
+
+		// Replace imports from other packages with their import paths
+		content = content.replace(/from ['"]@koota\/([^'"]+)['"]/g, (_, pkgName) => {
+			const targetPkg = PACKAGES.find((p) => p.name === pkgName);
+			return targetPkg ? `from '${targetPkg.importPath}'` : `from '@koota/${pkgName}'`;
+		});
+
+		// Replace local src imports with package's import path
+		content = content.replace(/from ['"]\.\.\/src['"]/g, `from '${pkg.importPath}'`);
+
 		await writeFile(targetPath, content);
 		console.log(`✓ ${pkg.name}/${file}`);
 	}
