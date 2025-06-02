@@ -347,6 +347,10 @@ importers:
         version: link:../tsconfig
 
   packages/publish:
+    dependencies:
+      '@types/react':
+        specifier: '>=18.0.0'
+        version: 19.0.8
     devDependencies:
       '@koota/core':
         specifier: workspace:*
@@ -357,12 +361,6 @@ importers:
       '@testing-library/react':
         specifier: ^16.2.0
         version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.3(@types/react@19.0.8))(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      '@types/react':
-        specifier: '>=18.0.0'
-        version: 19.0.8
-      '@types/react-dom':
-        specifier: '>=18.0.0'
-        version: 19.0.3(@types/react@19.0.8)
       esbuild-plugin-inline-functions:
         specifier: ^0.1.0
         version: 0.1.0(@babel/parser@7.26.8)(@babel/traverse@7.26.8)(@babel/types@7.26.8)
