@@ -20,6 +20,10 @@
 		"enabled": true,
 		"rules": {
 			"recommended": true,
+			"suspicious": {
+				"noExplicitAny": "off",
+				"noAssignInExpressions": "off"
+			},
 			"style": {
 				"noNonNullAssertion": "off"
 			}
