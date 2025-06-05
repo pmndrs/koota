@@ -1,7 +1,10 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.0.0-beta.6/schema.json",
 	"vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": false },
-	"files": { "ignoreUnknown": false },
+	"files": {
+		"ignoreUnknown": false,
+		"includes": ["**", "!**/*.md", "!**/dist/**", "!packages/publish/react/**"]
+	},
 	"formatter": {
 		"enabled": true,
 		"formatWithErrors": false,
@@ -13,8 +16,7 @@
 		"bracketSameLine": false,
 		"bracketSpacing": true,
 		"expand": "auto",
-		"useEditorconfig": true,
-		"includes": ["**", "!**/*.md"]
+		"useEditorconfig": true
 	},
 	"linter": {
 		"enabled": true,
