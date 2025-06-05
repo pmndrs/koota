@@ -50,4 +50,27 @@ describe('Actions', () => {
 		// Should be different functions
 		expect(spawnPlayer1).not.toBe(spawnPlayer2);
 	});
+
+	it('should create actions with context', () => {
+		const actions = createActions((world, context: { count: number }) => ({
+			addToCount: (amount: number) => {
+				context.count += amount;
+			},
+			resetCount: () => {
+				context.count = 0;
+			},
+		}));
+
+		const context = { count: 0 };
+		const { addToCount, resetCount } = actions(world, context);
+
+		addToCount(1);
+		expect(context.count).toBe(1);
+
+		addToCount(2);
+		expect(context.count).toBe(3);
+
+		resetCount();
+		expect(context.count).toBe(0);
+	});
 });
