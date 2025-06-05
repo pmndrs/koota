@@ -11,6 +11,7 @@
 		"test": "pnpm -F core test run && pnpm -F react test run"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.0.0-beta.6",
 		"@types/node": "latest",
 		"tsx": "latest",
 		"typescript": "latest"
