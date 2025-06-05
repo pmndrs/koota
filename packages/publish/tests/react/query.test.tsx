@@ -1,7 +1,8 @@
-import { render, renderHook } from '@testing-library/react';
+import { createWorld, type Entity, type QueryResult, trait, universe, type World } from '../../dist';
+import { render } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, type Entity, type QueryResult, trait, universe, type World } from '../../dist';
 import { useQuery, WorldProvider } from '../../react';
 
 declare global {
@@ -127,11 +128,10 @@ describe('useQuery', () => {
 		const entity = world.spawn(Position);
 		world.spawn(Position);
 
-		let _entities: QueryResult<[typeof Position]> = null!;
 		let renderCount = 0;
 
 		function Test() {
-			_entities = useQuery(Position);
+			useQuery(Position);
 			renderCount++;
 			return null;
 		}

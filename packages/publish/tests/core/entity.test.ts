@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { createWorld, getStore, trait, unpackEntity, type Entity } from '../../dist';
+import { createWorld, type Entity, getStore, trait, unpackEntity } from '../../dist';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
@@ -153,7 +153,11 @@ describe('Entity', () => {
 	it('should trigger change events when trait state is set', () => {
 		const entity = world.spawn(Bar);
 		let called = false;
-		world.onChange(Bar, () => (called = true));
+
+		world.onChange(Bar, () => {
+			called = true;
+		});
+
 		entity.set(Bar, { value: 1 });
 		expect(called).toBe(true);
 
@@ -164,8 +168,19 @@ describe('Entity', () => {
 	});
 
 	it('can check if an entity is alive', () => {
-		const entity = world.spawn();
+		let entity = world.spawn();
 		expect(entity.isAlive()).toBe(true);
+		expect(entity.id()).toBe(1);
+		expect(entity.generation()).toBe(0);
+
+		entity.destroy();
+		expect(entity.isAlive()).toBe(false);
+
+		// Should be resilient to changes in generation with the same entity ID.
+		entity = world.spawn(Bar);
+		expect(entity.isAlive()).toBe(true);
+		expect(entity.id()).toBe(1);
+		expect(entity.generation()).toBe(1);
 
 		entity.destroy();
 		expect(entity.isAlive()).toBe(false);

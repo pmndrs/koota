@@ -221,7 +221,7 @@ describe('Query', () => {
 
 		const query = world.query(Position);
 
-		query.updateEach(([position], _, index) => {
+		query.updateEach(([position], _entity, index) => {
 			if (index === 0) return;
 			position.x = 10;
 		});
@@ -244,7 +244,7 @@ describe('Query', () => {
 
 		const query = world.query(Position);
 
-		query.updateEach(([position], _, index) => {
+		query.updateEach(([position], _entity, index) => {
 			if (index === 0) return;
 			position.x = 10;
 		});
@@ -252,7 +252,7 @@ describe('Query', () => {
 		expect(cb).toHaveBeenCalledTimes(9);
 
 		// If values do not change, no events should be triggered.
-		query.updateEach(([position], _, index) => {
+		query.updateEach(([position], _entity, index) => {
 			if (index === 0) return;
 			position.x = 10;
 		});
