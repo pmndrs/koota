@@ -18,7 +18,7 @@ describe('Actions', () => {
 			},
 		}));
 
-		const { spawnPlayer, destroyPlayers } = actions(world);
+		const { spawnPlayer } = actions(world);
 
 		const player = spawnPlayer();
 		expect(player.has(IsPlayer)).toBe(true);

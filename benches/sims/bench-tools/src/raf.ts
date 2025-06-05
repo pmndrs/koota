@@ -12,7 +12,7 @@ function requestAnimationFrameLoop() {
 		const funcs = callbacks.slice();
 		callbacks.length = 0;
 		for (let i = 0; i < funcs.length; i++) {
-			funcs[i] && funcs[i](now, delta);
+			funcs[i]?.(now, delta);
 		}
 	} else {
 		setImmediate(requestAnimationFrameLoop);
