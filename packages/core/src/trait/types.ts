@@ -1,5 +1,5 @@
-import type { Relation, RelationTarget } from '../relation/types';
 import { $internal } from '../common';
+import type { Relation, RelationTarget } from '../relation/types';
 import type { IsEmpty } from '../utils/types';
 
 export type TraitType = 'aos' | 'soa';
