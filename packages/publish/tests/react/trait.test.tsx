@@ -1,8 +1,8 @@
-import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koota/core';
+import { createWorld, Entity, trait, TraitInstance, universe, World } from '../../dist';
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useTrait, useTraitEffect, WorldProvider } from '../src';
+import { useTrait, useTraitEffect, WorldProvider } from '../../react';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;

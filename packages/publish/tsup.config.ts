@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup';
+import { inlineFunctionsPlugin } from 'esbuild-plugin-inline-functions';
 
 export default defineConfig({
 	entry: ['src/index.ts', 'src/react.ts'],
@@ -19,4 +20,5 @@ export default defineConfig({
 		resolve: true,
 	},
 	clean: true,
+	esbuildPlugins: [inlineFunctionsPlugin()],
 });
