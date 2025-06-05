@@ -1,4 +1,4 @@
-import { createWorld, Entity, QueryResult, trait, universe, World } from '../../dist';
+import { createWorld, type Entity, type QueryResult, trait, universe, type World } from '../../dist';
 import { render } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';

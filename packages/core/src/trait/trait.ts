@@ -1,5 +1,5 @@
 import { $internal } from '../common';
-import { Entity } from '../entity/types';
+import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
