@@ -193,7 +193,7 @@ describe('Query', () => {
 		entityA.add(Position, Name, IsActive);
 		entityB.add(Position, Name);
 
-		let entities = world.query(key);
+		const entities = world.query(key);
 
 		expect(entities).toContain(entityA);
 
@@ -210,7 +210,7 @@ describe('Query', () => {
 
 	it('should exclude entities with IsExcluded', () => {
 		world.spawn(Position, IsExcluded);
-		let entities = world.query(Position);
+		const entities = world.query(Position);
 		expect(entities.length).toBe(0);
 	});
 

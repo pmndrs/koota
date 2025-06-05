@@ -8,7 +8,7 @@ import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
-import { ConfigurableTrait, Trait } from '../trait/types';
+import type { ConfigurableTrait, Trait } from '../trait/types';
 import { destroyEntity, getEntityWorld } from './entity';
 import { isEntityAlive } from './utils/entity-index';
 import { getEntityGeneration, getEntityId } from './utils/pack-entity';
