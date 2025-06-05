@@ -6,6 +6,7 @@ const targetDir = 'react';
 
 async function copyAndRename() {
 	try {
+		console.log('\n> Preparing to copy React files...');
 		// Ensure the target directory exists
 		await fs.mkdir(targetDir, { recursive: true });
 
@@ -18,9 +19,10 @@ async function copyAndRename() {
 
 		for (const file of files) {
 			await fs.copyFile(path.join(sourceDir, file.src), path.join(targetDir, file.dest));
-			console.log(`Copied ${file.src} to ${targetDir}/${file.dest}`);
+			console.log(`✓ ${file.src} → ${targetDir}/${file.dest}`);
 		}
 
+		console.log('\n> Updating imports...');
 		// Update imports in all files
 		for (const file of ['index.js', 'index.cjs', 'index.d.ts', 'index.d.cts']) {
 			const filePath = path.join(targetDir, file);
@@ -33,12 +35,12 @@ async function copyAndRename() {
 			);
 
 			await fs.writeFile(filePath, updatedContent);
-			console.log(`Updated imports in ${file}`);
+			console.log(`✓ ${file}`);
 		}
 
-		console.log('React files copied and renamed successfully.');
+		console.log('\n> React files copied and updated successfully\n');
 	} catch (error) {
-		console.error('Error copying React files:', error);
+		console.error('\n> Error copying React files:', error);
 	}
 }
 

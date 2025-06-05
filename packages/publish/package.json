@@ -33,15 +33,19 @@
 	],
 	"scripts": {
 		"build": "tsup && tsx scripts/copy-readme.ts && tsx scripts/copy-react-files.ts",
-		"test": "vitest --environment=jsdom"
+		"test": "vitest --environment=jsdom",
+		"generate-tests": "tsx scripts/generate-tests.ts"
 	},
 	"devDependencies": {
 		"@koota/core": "workspace:*",
 		"@koota/react": "workspace:*",
+		"@testing-library/react": "^16.2.0",
+		"esbuild-plugin-inline-functions": "^0.1.0",
 		"react": ">=18.0.0",
 		"react-dom": ">=18.0.0",
 		"tsconfig": "workspace:*",
-		"tsup": "^8.3.0"
+		"tsup": "^8.3.0",
+		"vitest": "^1.6.1"
 	},
 	"peerDependencies": {
 		"@types/react": ">=18.0.0",

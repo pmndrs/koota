@@ -29,15 +29,14 @@ export function unpackEntity(entity: Entity) {
 	};
 }
 
-export const getEntityId = (entity: Entity) => entity & ENTITY_ID_MASK;
-export const getEntityWorldId = (entity: Entity) => entity >>> WORLD_ID_SHIFT;
-
-export const getEntityAndWorldId = (entity: Entity): [number, number] => [
+export const getEntityId = /* @inline @pure */ (entity: Entity) => entity & ENTITY_ID_MASK;
+export const getEntityWorldId = /* @inline @pure */ (entity: Entity) => entity >>> WORLD_ID_SHIFT;
+export const getEntityAndWorldId = /* @pure */ (entity: Entity): [number, number] => [
 	entity & ENTITY_ID_MASK,
 	entity >>> WORLD_ID_SHIFT,
 ];
 
-export const getEntityGeneration = (entity: Entity) =>
+export const getEntityGeneration = /* @inline @pure */ (entity: Entity) =>
 	(entity >>> GENERATION_SHIFT) & GENERATION_MASK;
 
 export const incrementGeneration = (entity: Entity): Entity =>

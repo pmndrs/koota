@@ -9,73 +9,53 @@ import { getRelationTargets } from '../relation/relation';
 import { Relation } from '../relation/types';
 import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
 import { ConfigurableTrait, Trait } from '../trait/types';
-import { universe } from '../universe/universe';
-import { destroyEntity } from './entity';
-import { Entity } from './types';
+import { destroyEntity, getEntityWorld } from './entity';
 import { isEntityAlive } from './utils/entity-index';
-import { getEntityGeneration, getEntityId, WORLD_ID_SHIFT } from './utils/pack-entity';
+import { getEntityGeneration, getEntityId } from './utils/pack-entity';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return addTrait(world, this, ...traits);
+	return addTrait(getEntityWorld(this), this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return removeTrait(world, this, ...traits);
+	return removeTrait(getEntityWorld(this), this, ...traits);
 };
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return hasTrait(world, this, trait);
+	return hasTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.destroy = function (this: Entity) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return destroyEntity(world, this);
+	return destroyEntity(getEntityWorld(this), this);
 };
 
 // @ts-expect-error
 Number.prototype.changed = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return setChanged(world, this, trait);
+	return setChanged(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return getTrait(world, this, trait);
+	return getTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
 Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	setTrait(world, this, trait, value, triggerChanged);
+	setTrait(getEntityWorld(this), this, trait, value, triggerChanged);
 };
 
 //@ts-expect-error
 Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return getRelationTargets(world, relation, this);
+	return getRelationTargets(getEntityWorld(this), relation, this);
 };
 
 //@ts-expect-error
 Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return getRelationTargets(world, relation, this)[0];
+	return getRelationTargets(getEntityWorld(this), relation, this)[0];
 };
 
 //@ts-expect-error
@@ -90,7 +70,7 @@ Number.prototype.generation = function (this: Entity) {
 
 //@ts-expect-error
 Number.prototype.isAlive = function (this: Entity) {
-	const worldId = this >>> WORLD_ID_SHIFT;
-	const world = universe.worlds[worldId]!.deref()!;
-	return isEntityAlive(world[$internal].entityIndex, this);
+	const world = getEntityWorld(this);
+	const entityIndex = world[$internal].entityIndex;
+	return isEntityAlive(entityIndex, this);
 };
