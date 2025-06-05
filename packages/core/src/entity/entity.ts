@@ -1,11 +1,12 @@
-import { addTrait, removeTrait } from '../trait/trait';
-import type { ConfigurableTrait } from '../trait/types';
-import { Pair, Wildcard } from '../relation/relation';
 import { $internal } from '../common';
-import type { World } from '../world/world';
-import type { Entity } from './types';
+import { Pair, Wildcard } from '../relation/relation';
+import { addTrait, removeTrait } from '../trait/trait';
+import { ConfigurableTrait } from '../trait/types';
+import { World } from '../world/world';
+import { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
-import { getEntityId } from './utils/pack-entity';
+import { universe } from '../universe/universe';
+import { getEntityId, getEntityWorldId } from './utils/pack-entity';
 
 // Ensure entity methods are patched.
 import './entity-methods-patch';
@@ -105,4 +106,9 @@ export function destroyEntity(world: World, entity: Entity) {
 			ctx.entityMasks[i][eid] = 0;
 		}
 	}
+}
+
+/* @inline @pure */ export function getEntityWorld(entity: Entity) {
+	const worldId = getEntityWorldId(entity);
+	return universe.worlds[worldId]!.deref()!;
 }

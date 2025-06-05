@@ -87,7 +87,7 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
  * @param entity - The packed entity to check.
  * @returns True if the entity is alive, false otherwise.
  */
-export const isEntityAlive = (index: EntityIndex, entity: Entity): boolean => {
+export const isEntityAlive = /* @inline @pure */ (index: EntityIndex, entity: Entity): boolean => {
 	const denseIndex = index.sparse[getEntityId(entity)];
 	if (denseIndex === undefined || denseIndex >= index.aliveCount) return false;
 	const storedEntity = index.dense[denseIndex];
