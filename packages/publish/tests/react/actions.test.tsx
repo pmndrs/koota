@@ -25,7 +25,7 @@ describe('useActions', () => {
 			spawnBody: () => world.spawn(Position),
 		}));
 
-		let spawnedEntity: Entity | undefined ;
+		let spawnedEntity: Entity | undefined;
 
 		function Test() {
 			const { spawnBody } = useActions(actions);
