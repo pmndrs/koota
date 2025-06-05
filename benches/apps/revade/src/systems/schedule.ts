@@ -1,5 +1,5 @@
 import { Schedule } from 'directed';
-import { World } from 'koota';
+import type { World } from 'koota';
 import { updateTime } from './update-time';
 import { pollInput } from './poll-input';
 import { applyInput } from './apply-input';

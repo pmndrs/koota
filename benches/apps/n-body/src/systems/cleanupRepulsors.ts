@@ -1,5 +1,5 @@
 import { Position, Repulse } from '@sim/n-body';
-import { createRemoved, World } from 'koota';
+import { createRemoved, type World } from 'koota';
 import * as THREE from 'three';
 import { InstancedMesh } from '../traits/InstancedMesh';
 

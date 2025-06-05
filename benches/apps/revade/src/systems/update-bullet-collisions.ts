@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Bullet, Explosion, IsEnemy, SpatialHashMap, Transform } from '../traits';
 import { between } from '../utils/between';
 

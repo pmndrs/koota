@@ -1,5 +1,5 @@
 import { CONSTANTS } from '../constants';
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Velocity, Time } from '../trait';
 
 export const updateGravity = ({ world }: { world: World }) => {

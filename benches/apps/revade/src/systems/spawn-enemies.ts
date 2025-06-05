@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { actions } from '../actions';
 import { Time } from '../traits/time';
 

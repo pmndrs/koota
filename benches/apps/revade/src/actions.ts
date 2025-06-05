@@ -1,4 +1,4 @@
-import { createActions, TraitValue } from 'koota';
+import { createActions, type TraitValue } from 'koota';
 import {
 	AutoRotate,
 	Avoidance,

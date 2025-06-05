@@ -1,6 +1,6 @@
 import { Position, Time, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
-import { World } from 'koota';
+import type { World } from 'koota';
 
 export const moveBodies = ({ world }: { world: World }) => {
 	const { delta } = world.get(Time)!;

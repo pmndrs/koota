@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { IsPlayer, Transform, Movement, Input, Time } from '../traits';
 import * as THREE from 'three';
 

@@ -1,5 +1,5 @@
 import { Schedule } from 'directed';
-import { World } from 'koota';
+import type { World } from 'koota';
 import { applyForces } from './apply-forces';
 import { moveBoids } from './move-boids';
 import { syncThreeObjects } from './sync-three-object';

@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Input, IsPlayer } from '../traits';
 
 // Track key states.

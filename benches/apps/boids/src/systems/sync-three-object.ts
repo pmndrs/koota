@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Mesh, Position } from '../traits';
 
 export const syncThreeObjects = ({ world }: { world: World }) => {

@@ -1,5 +1,5 @@
 import { Circle, Color, Position } from '@sim/add-remove';
-import { createRemoved, World } from 'koota';
+import { createRemoved, type World } from 'koota';
 import { Points } from '../trait/Points';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);

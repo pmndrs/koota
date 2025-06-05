@@ -1,4 +1,4 @@
-import { createAdded, World } from 'koota';
+import { createAdded, type World } from 'koota';
 import { Acceleration, Circle, IsCentralMass, Mass, Position, Velocity } from '../traits';
 import { CONSTANTS } from '../constants';
 import { randInRange } from '../utils/randInRange';

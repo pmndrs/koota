@@ -1,6 +1,6 @@
-import { execSync } from 'child_process';
-import { readdirSync, existsSync } from 'fs';
-import { join } from 'path';
+import { execSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 // Parse the command-line arguments
 const args = process.argv.slice(2);
@@ -9,7 +9,7 @@ const args = process.argv.slice(2);
 const suiteName = args[0];
 
 // Function to execute the main.ts file within a directory
-const runDev = (directoryPath: string, engine: string = 'bun') => {
+const runDev = (directoryPath: string) => {
 	process.chdir(directoryPath);
 	execSync(`pnpm run dev`, { stdio: 'inherit' });
 };

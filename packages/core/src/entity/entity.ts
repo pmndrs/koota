@@ -1,9 +1,9 @@
 import { addTrait, removeTrait } from '../trait/trait';
-import { ConfigurableTrait } from '../trait/types';
+import type { ConfigurableTrait } from '../trait/types';
 import { Pair, Wildcard } from '../relation/relation';
 import { $internal } from '../common';
-import { World } from '../world/world';
-import { Entity } from './types';
+import type { World } from '../world/world';
+import type { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
 

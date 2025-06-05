@@ -6,7 +6,7 @@ import { updateColor } from './updateColor';
 import { updateTime } from './updateTime';
 import { init } from './init';
 import { handleRepulse } from './handleRepulse';
-import { World } from 'koota';
+import type { World } from 'koota';
 
 export const schedule = new Schedule<{ world: World }>();
 

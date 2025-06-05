@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { SpatialHashMap, Transform } from '../traits';
 
 export const updateSpatialHashing = ({ world }: { world: World }) => {

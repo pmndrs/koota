@@ -1,4 +1,4 @@
-import { Not, World } from 'koota';
+import { Not, type World } from 'koota';
 import { Repulse, Color, Velocity } from '../traits';
 import { colorFromSpeed } from '../utils/colorFromSpeed';
 

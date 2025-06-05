@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { ShieldVisibility, Time, IsShieldVisible } from '../traits';
 
 export const tickShieldVisibility = ({ world }: { world: World }) => {

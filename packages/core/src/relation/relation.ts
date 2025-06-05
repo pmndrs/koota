@@ -1,8 +1,8 @@
 import { trait } from '../trait/trait';
-import { Trait, Schema } from '../trait/types';
+import type { Trait, Schema } from '../trait/types';
 import { $internal } from '../common';
-import { World } from '../world/world';
-import { Relation, RelationTarget, WildcardRelation } from './types';
+import type { World } from '../world/world';
+import type { Relation, RelationTarget, WildcardRelation } from './types';
 
 function defineRelation<S extends Schema = any>(definition?: {
 	exclusive?: boolean;

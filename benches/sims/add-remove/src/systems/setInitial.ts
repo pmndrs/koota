@@ -1,5 +1,5 @@
 import { CONSTANTS } from '../constants';
-import { createAdded, World } from 'koota';
+import { createAdded, type World } from 'koota';
 import { Position, Velocity, Mass, Circle, Color, DummyComponents } from '../trait';
 import { randInRange } from '../utils/randInRange';
 
