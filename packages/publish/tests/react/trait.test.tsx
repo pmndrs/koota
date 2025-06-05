@@ -1,8 +1,8 @@
-import { createWorld, Entity, trait, TraitInstance, universe, World } from '@koota/core';
+import { createWorld, Entity, trait, TraitInstance, universe, World } from '../../dist';
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useTrait, useTraitEffect, WorldProvider } from '../src';
+import { useTrait, useTraitEffect, WorldProvider } from '../../react';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -22,7 +22,7 @@ describe('useTrait', () => {
 
 	it('reactively returns the trait value for an entity', async () => {
 		const entity = world.spawn(Position);
-		let position: TraitInstance<typeof Position> | undefined;
+		let position: TraitInstance<typeof Position> | undefined = undefined;
 
 		function Test() {
 			position = useTrait(entity, Position);
@@ -49,8 +49,8 @@ describe('useTrait', () => {
 	});
 
 	it('reactively works with an entity at effect time', async () => {
-		let entity: Entity | undefined;
-		let position: TraitInstance<typeof Position> | undefined;
+		let entity: Entity | undefined = undefined;
+		let position: TraitInstance<typeof Position> | undefined = undefined;
 
 		function Test() {
 			const [, set] = useState(0);
@@ -87,7 +87,7 @@ describe('useTrait', () => {
 	it('works with a world', async () => {
 		const TimeOfDay = trait({ hour: 0 });
 		world.add(TimeOfDay);
-		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined;
+		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
 
 		function Test() {
 			timeOfDay = useTrait(world, TimeOfDay);
@@ -114,8 +114,8 @@ describe('useTrait', () => {
 	});
 
 	it('returns undefined when the target is undefined', async () => {
-		let position: TraitInstance<typeof Position> | undefined;
-		let entity: Entity | undefined;
+		let position: TraitInstance<typeof Position> | undefined = undefined;
+		let entity: Entity | undefined = undefined;
 
 		function Test() {
 			position = useTrait(entity, Position);
@@ -148,7 +148,7 @@ describe('useTrait', () => {
 
 	it('reactively updates when the world is reset', async () => {
 		const entity = world.spawn(Position);
-		let position: TraitInstance<typeof Position> | undefined;
+		let position: TraitInstance<typeof Position> | undefined = undefined;
 
 		function Test() {
 			position = useTrait(entity, Position);
@@ -185,7 +185,7 @@ describe('useTraitEffect', () => {
 
 	it('reactively calls callback when trait value changes', async () => {
 		const entity = world.spawn(Position);
-		let position: TraitInstance<typeof Position> | undefined;
+		let position: TraitInstance<typeof Position> | undefined = undefined;
 
 		function Test() {
 			useTraitEffect(entity, Position, (value: TraitInstance<typeof Position> | undefined) => {
@@ -215,7 +215,7 @@ describe('useTraitEffect', () => {
 
 	it('calls callback with undefined when trait is removed', async () => {
 		const entity = world.spawn(Position);
-		let position: TraitInstance<typeof Position> | undefined;
+		let position: TraitInstance<typeof Position> | undefined = undefined;
 
 		function Test() {
 			useTraitEffect(entity, Position, (value: TraitInstance<typeof Position> | undefined) => {
@@ -246,7 +246,7 @@ describe('useTraitEffect', () => {
 	it('works with a world trait', async () => {
 		const TimeOfDay = trait({ hour: 0 });
 		world.add(TimeOfDay);
-		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined;
+		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined = undefined;
 
 		function Test() {
 			useTraitEffect(world, TimeOfDay, (value: TraitInstance<typeof TimeOfDay> | undefined) => {

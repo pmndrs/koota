@@ -361,6 +361,12 @@ importers:
       '@koota/react':
         specifier: workspace:*
         version: link:../react
+      '@testing-library/react':
+        specifier: ^16.2.0
+        version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.3(@types/react@19.0.8))(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      esbuild-plugin-inline-functions:
+        specifier: ^0.1.0
+        version: 0.1.0(@babel/parser@7.26.8)(@babel/traverse@7.26.8)(@babel/types@7.26.8)
       react:
         specifier: '>=18.0.0'
         version: 19.0.0
@@ -373,22 +379,16 @@ importers:
       tsup:
         specifier: ^8.3.0
         version: 8.3.6(@swc/core@1.10.15)(postcss@8.5.2)(tsx@4.19.4)(typescript@5.8.3)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@types/node@22.15.29)(jsdom@26.0.0)
 
   packages/react:
     dependencies:
       '@koota/core':
         specifier: workspace:*
         version: link:../core
-      '@react-three/fiber':
-        specifier: ^9.0.4
-        version: 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
-      three:
-        specifier: '>=0.159'
-        version: 0.162.0
     devDependencies:
-      '@react-three/test-renderer':
-        specifier: ^9.0.1
-        version: 9.0.1(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)
       '@testing-library/react':
         specifier: ^16.2.0
         version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@19.0.3(@types/react@19.0.8))(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -398,9 +398,6 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.3
         version: 19.0.3(@types/react@19.0.8)
-      '@types/three':
-        specifier: ^0.162.0
-        version: 0.162.0
       jsdom:
         specifier: ^26.0.0
         version: 26.0.0
@@ -1210,13 +1207,6 @@ packages:
       react-native:
         optional: true
 
-  '@react-three/test-renderer@9.0.1':
-    resolution: {integrity: sha512-CbMsjbjzZgRdIXL278bwlcg5hu8M/nrNJ81EKwxFeZCZEkyIsbiDQWQ35W1ed5BZzv+j6vz7toXCl67UIgelAA==}
-    peerDependencies:
-      '@react-three/fiber': '>=9.0.0'
-      react: ^19.0.0
-      three: '>=0.156'
-
   '@rollup/rollup-android-arm-eabi@4.34.6':
     resolution: {integrity: sha512-+GcCXtOQoWuC7hhX1P00LqjjIiS/iOouHXhMdiDSnq/1DGTox4SpUvO52Xm+div6+106r+TcvOeo/cxvyEyTgg==}
     cpu: [arm]
@@ -1782,6 +1772,13 @@ packages:
   entities@4.5.0:
     resolution: {integrity: sha512-V0hjH4dGPh9Ao5p0MoRY6BVqtwCjhz6vI5LT8AJ55H+4g9/4vbHx1I54fS0XuclLhDHArPQCiMjDxjaL8fPxhw==}
     engines: {node: '>=0.12'}
+
+  esbuild-plugin-inline-functions@0.1.0:
+    resolution: {integrity: sha512-Kmw+ZWskwWggeCJ5lTdFJcq9/tguYL+qUg3AFXhatsaVNf3Rd+nz+yUSaQdAIAAf/SUL7IzTUdCm97hW4HzUHg==}
+    peerDependencies:
+      '@babel/parser': ^7.26.3
+      '@babel/traverse': ^7.26.4
+      '@babel/types': ^7.26.3
 
   esbuild@0.21.5:
     resolution: {integrity: sha512-mg3OPMV4hXywwpoDxu3Qda5xCKQi+vCTZq8S9J/EpkhB2HzKXq4SNFZE3+NK93JYxc8VMSep+lOUSC/RVKaBqw==}
@@ -3476,12 +3473,6 @@ snapshots:
       - '@types/react'
       - immer
 
-  '@react-three/test-renderer@9.0.1(@react-three/fiber@9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0))(react@19.0.0)(three@0.162.0)':
-    dependencies:
-      '@react-three/fiber': 9.0.4(@types/react@19.0.8)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)(three@0.162.0)
-      react: 19.0.0
-      three: 0.162.0
-
   '@rollup/rollup-android-arm-eabi@4.34.6':
     optional: true
 
@@ -4004,6 +3995,12 @@ snapshots:
   emoji-regex@9.2.2: {}
 
   entities@4.5.0: {}
+
+  esbuild-plugin-inline-functions@0.1.0(@babel/parser@7.26.8)(@babel/traverse@7.26.8)(@babel/types@7.26.8):
+    dependencies:
+      '@babel/parser': 7.26.8
+      '@babel/traverse': 7.26.8
+      '@babel/types': 7.26.8
 
   esbuild@0.21.5:
     optionalDependencies:
