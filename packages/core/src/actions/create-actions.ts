@@ -1,7 +1,7 @@
 import type { World } from '../world/world';
-import type { Actions, ActionInitializer, ActionGetter } from './types';
+import type { ActionGetter, ActionInitializer, Actions } from './types';
 
-const actionCache = new WeakMap<World, Map<Function, Actions>>();
+const actionCache = new WeakMap<World, Map<(...args: any[]) => any, Actions>>();
 
 export function createActions<T extends Actions>(initializer: ActionInitializer<T>): ActionGetter<T> {
 	return (world: World): T => {

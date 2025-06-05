@@ -1,7 +1,7 @@
-import { mkdir, readdir, readFile, rm, writeFile } from 'fs/promises';
-import { createRequire } from 'module';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Use require to resolve the path to installed packages
 const require = createRequire(import.meta.url);
@@ -53,7 +53,7 @@ async function generateTests() {
 	console.log('\n> Preparing to generate tests...');
 	try {
 		await rm(PUBLISH_TESTS_DIR, { recursive: true, force: true });
-	} catch (error) {
+	} catch (_error) {
 		// Ignore if directory doesn't exist
 	}
 
