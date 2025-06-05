@@ -1,4 +1,4 @@
-import { Schema, Store } from '../types';
+import type { Schema, Store } from '../types';
 
 export function createStore<T extends Schema>(schema: T): Store<T> {
 	if (typeof schema === 'function') {

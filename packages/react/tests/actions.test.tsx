@@ -1,4 +1,4 @@
-import { createActions, createWorld, Entity, trait, universe, World } from '@koota/core';
+import { createActions, createWorld, type Entity, trait, universe, type World } from '@koota/core';
 import ReactThreeTestRenderer from '@react-three/test-renderer';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -25,7 +25,7 @@ describe('useActions', () => {
 			spawnBody: () => world.spawn(Position),
 		}));
 
-		let spawnedEntity: Entity | undefined = undefined;
+		let spawnedEntity: Entity | undefined ;
 
 		function Test() {
 			const { spawnBody } = useActions(actions);

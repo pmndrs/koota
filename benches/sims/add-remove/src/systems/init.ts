@@ -4,7 +4,7 @@ import { Mass } from '../trait/Mass';
 import { Position } from '../trait/Position';
 import { Velocity } from '../trait/Velocity';
 import { CONSTANTS } from '../constants';
-import { World } from 'koota';
+import type { World } from 'koota';
 
 let first = false;
 

@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { BoidsConfig, Forces, Neighbors, Position } from '../traits';
 
 export const updateSeparation = ({ world }: { world: World }) => {

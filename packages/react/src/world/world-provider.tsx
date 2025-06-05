@@ -1,4 +1,4 @@
-import { World } from '@koota/core';
+import type { World } from '@koota/core';
 import { WorldContext } from './world-context';
 
 export function WorldProvider({ children, world }: { children: React.ReactNode; world: World }) {

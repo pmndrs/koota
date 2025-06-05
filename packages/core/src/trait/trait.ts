@@ -1,12 +1,12 @@
 import { $internal } from '../common';
-import { Entity } from '../entity/types';
+import type { Entity } from '../entity/types';
 import { ENTITY_ID_MASK, getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
-import { World } from '../world/world';
+import type { World } from '../world/world';
 import { TraitData } from './trait-data';
-import { ConfigurableTrait, ExtractStore, Norm, Schema, Store, Trait, TraitType } from './types';
+import type { ConfigurableTrait, ExtractStore, Norm, Schema, Store, Trait, TraitType } from './types';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
@@ -24,9 +24,7 @@ function defineTrait<S extends Schema>(schema: S = {} as S): Trait<any> {
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
 
 	const Trait = Object.assign(
-		function (params: Partial<Norm<S>>) {
-			return [Trait, params];
-		},
+		(params: Partial<Norm<S>>) => [Trait, params],
 		{
 			schema: schema as Norm<S>,
 			[$internal]: {
@@ -104,7 +102,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			query.toRemove.remove(entity);
 
 			// Check if the entity matches the query.
-			let match = query.check(world, entity, { type: 'add', traitData: data });
+			const match = query.check(world, entity, { type: 'add', traitData: data });
 
 			if (match) query.add(entity);
 			else query.remove(world, entity);
@@ -190,7 +188,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		// Update queries.
 		for (const query of queries) {
 			// Check if the entity matches the query.
-			let match = query.check(world, entity, { type: 'remove', traitData: data });
+			const match = query.check(world, entity, { type: 'remove', traitData: data });
 
 			if (match) query.add(entity);
 			else query.remove(world, entity);

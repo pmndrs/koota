@@ -5,7 +5,7 @@ import { updateTime } from './updateTime';
 import { updateGravity } from './updateGravity';
 import { moveBodies } from './moveBodies';
 import { recycleBodiesSim } from './recycleBodies';
-import { World } from 'koota';
+import type { World } from 'koota';
 
 export const schedule = new Schedule<{ world: World }>();
 

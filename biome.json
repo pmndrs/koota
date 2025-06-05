@@ -16,11 +16,20 @@
 		"useEditorconfig": true,
 		"includes": ["**", "!**/*.md"]
 	},
-	"linter": { "enabled": true, "rules": { "recommended": true } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"noNonNullAssertion": "off"
+			}
+		}
+	},
 	"javascript": {
 		"formatter": {
 			"jsxQuoteStyle": "double",
 			"quoteProperties": "asNeeded",
+			"trailingCommas": "es5",
 			"semicolons": "always",
 			"arrowParentheses": "always",
 			"bracketSameLine": false,

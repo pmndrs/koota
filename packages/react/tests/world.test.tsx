@@ -1,4 +1,4 @@
-import { universe, World } from '@koota/core';
+import { universe, type World } from '@koota/core';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld } from '@koota/core';
 import { useWorld, WorldProvider } from '../src';

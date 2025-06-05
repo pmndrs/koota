@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Input, Movement } from '../traits';
 
 export const dampPlayerMovement = ({ world }: { world: World }) => {

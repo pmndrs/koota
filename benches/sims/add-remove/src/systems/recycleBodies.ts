@@ -1,7 +1,7 @@
 import { CONSTANTS } from '../constants';
 import { Circle, Color, Mass, Position, Velocity } from '../trait';
 import { addBody } from './init';
-import { World } from 'koota';
+import type { World } from 'koota';
 
 let draining = true;
 

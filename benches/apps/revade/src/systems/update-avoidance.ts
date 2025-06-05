@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import * as THREE from 'three';
 import { Avoidance, Movement, SpatialHashMap, Transform } from '../traits';
 

@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { AutoRotate, Time, Transform } from '../traits';
 
 export const updateAutoRotate = ({ world }: { world: World }) => {

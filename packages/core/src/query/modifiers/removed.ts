@@ -1,4 +1,4 @@
-import { Trait } from '../../trait/types';
+import type { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import { ModifierData } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';

@@ -6,12 +6,12 @@
 import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets } from '../relation/relation';
-import { Relation } from '../relation/types';
+import type { Relation } from '../relation/types';
 import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
-import { ConfigurableTrait, Trait } from '../trait/types';
+import type { ConfigurableTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
 import { destroyEntity } from './entity';
-import { Entity } from './types';
+import type { Entity } from './types';
 import { isEntityAlive } from './utils/entity-index';
 import { getEntityGeneration, getEntityId, WORLD_ID_SHIFT } from './utils/pack-entity';
 

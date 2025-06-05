@@ -1,5 +1,5 @@
-import { World } from '../world/world';
-import { Actions, ActionInitializer, ActionGetter } from './types';
+import type { World } from '../world/world';
+import type { Actions, ActionInitializer, ActionGetter } from './types';
 
 const actionCache = new WeakMap<World, Map<Function, Actions>>();
 

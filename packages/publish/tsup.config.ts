@@ -11,9 +11,12 @@ export default defineConfig({
 	// is used in non-conformant environments.
 	// See https://262.ecma-international.org/5.1/#sec-C for more details.
 	esbuildOptions: (options, { format }) => {
-		options.banner = format === 'esm' ? {
-			js: '\"use strict\";',
-		} : undefined;
+		options.banner =
+			format === 'esm'
+				? {
+						js: '\"use strict\";',
+					}
+				: undefined;
 	},
 	dts: {
 		resolve: true,

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { InstancedMesh } from '../traits/InstancedMesh';
 import { camera, renderer } from '../main';
 import { scene } from '../scene';
-import { World } from 'koota';
+import type { World } from 'koota';
 
 let inited = false;
 

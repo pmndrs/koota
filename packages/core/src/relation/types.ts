@@ -1,6 +1,6 @@
 import { $internal } from '../common';
-import { Entity } from '../entity/types';
-import { Trait } from '../trait/types';
+import type { Entity } from '../entity/types';
+import type { Trait } from '../trait/types';
 
 export type RelationTarget = Entity | '*' | WildcardRelation;
 

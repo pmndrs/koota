@@ -1,6 +1,6 @@
 // Originally by Hendrik Mans: https://github.com/hmans/miniplex/blob/main/apps/demo/src/systems/SpatialHashingSystem.tsx
 
-import { Entity } from 'koota';
+import type { Entity } from 'koota';
 
 type Cell = Set<Entity>;
 

@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { BoidsConfig, Position, Time, Velocity } from '../traits';
 
 export const moveBoids = ({ world }: { world: World }) => {

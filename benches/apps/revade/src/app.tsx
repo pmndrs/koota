@@ -2,9 +2,9 @@
 
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Entity } from 'koota';
+import type { Entity } from 'koota';
 import { useTrait, useTraitEffect, useQuery, useQueryFirst, useWorld, useActions } from 'koota/react';
-import { memo, StrictMode, useLayoutEffect, useRef, useState } from 'react';
+import { memo, StrictMode, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { actions } from './actions';
 import { schedule } from './systems/schedule';
@@ -79,7 +79,7 @@ const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
 		if (!meshRef.current) return;
 		const progress = Math.min(scaleRef.current + delta * 2, 1);
 		// Apply easing - this uses cubic easing out
-		const eased = 1 - Math.pow(1 - progress, 3);
+		const eased = 1 - (1 - progress) ** 3;
 		scaleRef.current = progress;
 		meshRef.current.scale.setScalar(eased);
 	});
@@ -201,57 +201,50 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 	const groupRef = useRef<THREE.Group>(null);
 	const particleCount = entity.get(Explosion)!.count;
 
-	useLayoutEffect(() => {
-		if (!groupRef.current) return;
-
-		// Position the explosion group
-		groupRef.current.position.copy(entity.get(Transform)!.position);
-
-		// Set particle velocities with random offset
+	// Create particles once with their initial state
+	const particles = useMemo(() => {
 		const velocities = entity.get(Explosion)!.velocities;
-		const randomOffset = Math.random() * Math.PI * 2; // Random starting angle
+		const randomOffset = Math.random() * Math.PI * 2;
 
-		for (let i = 0; i < particleCount; i++) {
+		return Array.from({ length: particleCount }, (_, i) => {
 			const angle = randomOffset + (i / particleCount) * Math.PI * 2;
 			velocities.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
-		}
 
-		return () => {
-			velocities.length = 0;
-		};
+			return { id: `${entity.id()}-${i}` };
+		});
+	}, []);
+
+	useLayoutEffect(() => {
+		if (!groupRef.current) return;
+		groupRef.current.position.copy(entity.get(Transform)!.position);
 	}, []);
 
 	useFrame((_, delta) => {
 		if (!groupRef.current) return;
-
 		const { duration, current } = entity.get(Explosion)!;
 		const progress = current / duration;
-
 		const velocities = entity.get(Explosion)!.velocities;
-		const particles = groupRef.current.children as THREE.Mesh[];
+		const meshes = groupRef.current.children as THREE.Mesh[];
 
-		for (let i = 0; i < particleCount; i++) {
-			const particle = particles[i];
-			if (!particle) continue;
-			particle.position.add(velocities[i].clone().multiplyScalar(delta * 40));
+		particles.forEach((_, i) => {
+			const mesh = meshes[i];
+			if (!mesh) return;
+			mesh.position.add(velocities[i].clone().multiplyScalar(delta * 40));
 
-			// Update scale and opacity
 			const scale = Math.max(0, 1 - progress);
-			particle.scale.setScalar(scale);
-			(particle.material as THREE.MeshBasicMaterial).opacity = scale;
-		}
+			mesh.scale.setScalar(scale);
+			(mesh.material as THREE.MeshBasicMaterial).opacity = scale;
+		});
 	});
 
 	return (
 		<group ref={groupRef}>
-			{Array.from({ length: particleCount }).map((_, i) => {
-				return (
-					<mesh key={i}>
-						<sphereGeometry args={[0.2, 8, 8]} />
-						<meshBasicMaterial color={[1, 0.5, 0]} transparent />
-					</mesh>
-				);
-			})}
+			{particles.map((particle) => (
+				<mesh key={particle.id}>
+					<sphereGeometry args={[0.2, 8, 8]} />
+					<meshBasicMaterial color={[1, 0.5, 0]} transparent />
+				</mesh>
+			))}
 		</group>
 	);
 }
