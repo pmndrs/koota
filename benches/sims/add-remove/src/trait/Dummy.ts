@@ -1,4 +1,4 @@
-import { Trait, trait } from 'koota';
+import { type Trait, trait } from 'koota';
 import { CONSTANTS } from '../constants';
 
 export const DummyComponents = [] as Trait[];

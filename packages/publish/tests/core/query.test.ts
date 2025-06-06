@@ -193,7 +193,7 @@ describe('Query', () => {
 		entityA.add(Position, Name, IsActive);
 		entityB.add(Position, Name);
 
-		let entities = world.query(key);
+		const entities = world.query(key);
 
 		expect(entities).toContain(entityA);
 
@@ -210,7 +210,7 @@ describe('Query', () => {
 
 	it('should exclude entities with IsExcluded', () => {
 		world.spawn(Position, IsExcluded);
-		let entities = world.query(Position);
+		const entities = world.query(Position);
 		expect(entities.length).toBe(0);
 	});
 
@@ -221,7 +221,7 @@ describe('Query', () => {
 
 		const query = world.query(Position);
 
-		query.updateEach(([position], entity, index) => {
+		query.updateEach(([position], _entity, index) => {
 			if (index === 0) return;
 			position.x = 10;
 		});
@@ -244,7 +244,7 @@ describe('Query', () => {
 
 		const query = world.query(Position);
 
-		query.updateEach(([position], entity, index) => {
+		query.updateEach(([position], _entity, index) => {
 			if (index === 0) return;
 			position.x = 10;
 		});
@@ -252,7 +252,7 @@ describe('Query', () => {
 		expect(cb).toHaveBeenCalledTimes(9);
 
 		// If values do not change, no events should be triggered.
-		query.updateEach(([position], entity, index) => {
+		query.updateEach(([position], _entity, index) => {
 			if (index === 0) return;
 			position.x = 10;
 		});
@@ -262,7 +262,6 @@ describe('Query', () => {
 
 	it('should return the first entity in a query', () => {
 		const entityA = world.spawn(Position);
-		const entityB = world.spawn(Position);
 
 		const entity = world.queryFirst(Position);
 		expect(entity).toBe(entityA);
@@ -339,7 +338,7 @@ describe('Query', () => {
 		// Here we test that mixing tracked and untracked traits works.
 		// We do it would of order to catch misaligned indices internally.
 		world.spawn(Position, Name);
-		world.query(Name, Position).updateEach(([name, position]) => {
+		world.query(Name, Position).updateEach(([_, position]) => {
 			position.x = 1;
 		});
 
@@ -357,7 +356,7 @@ describe('Query', () => {
 	it.fails('updateEach does not overwrite when a trait is set instead of mutated', () => {
 		const entity = world.spawn(Position);
 
-		world.query(Position).updateEach(([position], entity) => {
+		world.query(Position).updateEach((_, entity) => {
 			entity.set(Position, { x: 10 });
 		});
 

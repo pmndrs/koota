@@ -1,7 +1,7 @@
-import { Time } from '../traits/Time';
+import type { World } from 'koota';
 import { CONSTANTS } from '../constants';
+import { Time } from '../traits/Time';
 import { bodyTraits } from './setInitial';
-import { World } from 'koota';
 
 export const updateGravity = ({ world }: { world: World }) => {
 	const bodies = world.query(...bodyTraits);

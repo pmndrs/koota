@@ -1,6 +1,5 @@
-import { createWorld, Entity, QueryResult, trait, universe, World } from '@koota/core';
-import { render } from '@testing-library/react';
-import { renderHook } from '@testing-library/react';
+import { createWorld, type Entity, type QueryResult, trait, universe, type World } from '@koota/core';
+import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useQuery, WorldProvider } from '../src';
@@ -128,11 +127,10 @@ describe('useQuery', () => {
 		const entity = world.spawn(Position);
 		world.spawn(Position);
 
-		let entities: QueryResult<[typeof Position]> = null!;
 		let renderCount = 0;
 
 		function Test() {
-			entities = useQuery(Position);
+			useQuery(Position);
 			renderCount++;
 			return null;
 		}

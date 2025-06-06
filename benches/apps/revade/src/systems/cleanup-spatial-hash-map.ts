@@ -1,4 +1,4 @@
-import { createRemoved, World } from 'koota';
+import { createRemoved, type World } from 'koota';
 import { SpatialHashMap, Transform } from '../traits';
 
 const Removed = createRemoved();

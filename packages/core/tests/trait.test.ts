@@ -138,7 +138,7 @@ describe('Trait', () => {
 	});
 
 	it('should add traits to entities after recycling', () => {
-		let entities: Entity[] = [];
+		const entities: Entity[] = [];
 
 		for (let i = 0; i < 10; i++) {
 			entities.push(world.spawn());
@@ -184,7 +184,7 @@ describe('Trait', () => {
 	});
 
 	it('can create atomic traits', () => {
-		let object = { a: 1, b: 2 };
+		const object = { a: 1, b: 2 };
 		const AtomicObject = trait(() => object);
 		let entity = world.spawn(AtomicObject);
 

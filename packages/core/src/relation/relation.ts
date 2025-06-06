@@ -1,15 +1,15 @@
-import { trait } from '../trait/trait';
-import { Trait, Schema } from '../trait/types';
 import { $internal } from '../common';
-import { World } from '../world/world';
-import { Relation, RelationTarget, WildcardRelation } from './types';
+import { trait } from '../trait/trait';
+import type { Schema, Trait } from '../trait/types';
+import type { World } from '../world/world';
+import type { Relation, RelationTarget, WildcardRelation } from './types';
 
-function defineRelation<S extends Schema = any>(definition?: {
+function defineRelation<S extends Schema = Schema>(definition?: {
 	exclusive?: boolean;
 	autoRemoveTarget?: boolean;
 	store?: S;
 }): Relation<Trait<S>> {
-	const pairsMap = new Map<any, Trait<S>>();
+	const pairsMap = new Map<number | string | RelationTarget, Trait<S>>();
 	const traitFactory = () => trait(definition?.store ?? {}) as unknown as Trait<S>;
 
 	function relationFn(target: RelationTarget) {
@@ -37,7 +37,7 @@ export const relation = defineRelation;
 export function getRelationTrait<T extends Trait>(
 	relation: Relation<T>,
 	traitFactory: () => T,
-	pairsMap: Map<any, T>,
+	pairsMap: Map<number | string | RelationTarget, T>,
 	target: RelationTarget
 ) {
 	if (!pairsMap.has(target)) {
@@ -56,7 +56,7 @@ export function getRelationTrait<T extends Trait>(
 
 export const getRelationTargets = (
 	world: World,
-	relation: Relation<any>,
+	relation: Relation<Trait>,
 	entity: number
 ): readonly RelationTarget[] => {
 	const ctx = world[$internal];

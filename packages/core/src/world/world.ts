@@ -1,16 +1,22 @@
 import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
-import { Entity } from '../entity/types';
+import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { IsExcluded, Query } from '../query/query';
 import { createQueryResult } from '../query/query-result';
-import { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
+import type { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { RelationTarget } from '../relation/types';
+import type { RelationTarget } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
-import { TraitData } from '../trait/trait-data';
-import { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } from '../trait/types';
+import type { TraitData } from '../trait/trait-data';
+import type {
+	ConfigurableTrait,
+	ExtractSchema,
+	Trait,
+	TraitInstance,
+	TraitValue,
+} from '../trait/types';
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
@@ -132,7 +138,7 @@ export class World {
 			// Some relations may have caused the entity to be destroyed before
 			// we get to them in the loop.
 			if (this.has(entity)) {
-				destroyEntity(this, entity)
+				destroyEntity(this, entity);
 			}
 		});
 
@@ -218,7 +224,7 @@ export class World {
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryAdd(
-		args: QueryHash<any> | QueryParameter[],
+		args: QueryHash<QueryParameter[]> | QueryParameter[],
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber {
 		const ctx = this[$internal];
@@ -250,7 +256,7 @@ export class World {
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryRemove(
-		args: QueryHash<any> | QueryParameter[],
+		args: QueryHash<QueryParameter[]> | QueryParameter[],
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber {
 		const ctx = this[$internal];

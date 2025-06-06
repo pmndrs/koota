@@ -1,7 +1,7 @@
-import { universe } from '../../universe/universe';
 import { $internal } from '../../';
+import { universe } from '../../universe/universe';
 import { Query } from '../query';
-import { QueryHash, QueryParameter } from '../types';
+import type { QueryHash, QueryParameter } from '../types';
 import { createQueryHash } from './create-query-hash';
 
 export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryHash<T> {

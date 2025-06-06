@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Explosion, Time } from '../traits';
 
 export const tickExplosion = ({ world }: { world: World }) => {

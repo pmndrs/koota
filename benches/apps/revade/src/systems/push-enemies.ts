@@ -1,6 +1,6 @@
-import { Entity, World } from 'koota';
+import type { Entity, World } from 'koota';
 import * as THREE from 'three';
-import { ShieldVisibility, IsEnemy, IsPlayer, Movement, SpatialHashMap, Transform } from '../traits';
+import { IsEnemy, IsPlayer, Movement, ShieldVisibility, SpatialHashMap, Transform } from '../traits';
 
 const collisionRadius = 2;
 const pushStrength = 0.1;

@@ -1,6 +1,6 @@
-import { Acceleration, Circle, Color, IsCentralMass, Mass, Position, Velocity } from '../traits';
+import type { World } from 'koota';
 import { CONSTANTS } from '../constants';
-import { World } from 'koota';
+import { Acceleration, Circle, Color, IsCentralMass, Mass, Position, Velocity } from '../traits';
 
 let inited = false;
 

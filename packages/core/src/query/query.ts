@@ -1,14 +1,14 @@
-import { trait, registerTrait } from '../trait/trait';
-import { TraitData } from '../trait/trait-data';
-import { Trait } from '../trait/types';
-import { Entity } from '../entity/types';
-import { SparseSet } from '../utils/sparse-set';
 import { $internal } from '../common';
-import { World } from '../world/world';
-import { ModifierData } from './modifier';
-import { QueryParameter, QuerySubscriber } from './types';
-import { createQueryHash } from './utils/create-query-hash';
+import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { registerTrait, trait } from '../trait/trait';
+import type { TraitData } from '../trait/trait-data';
+import type { Trait } from '../trait/types';
+import { SparseSet } from '../utils/sparse-set';
+import type { World } from '../world/world';
+import { ModifierData } from './modifier';
+import type { QueryParameter, QuerySubscriber } from './types';
+import { createQueryHash } from './utils/create-query-hash';
 
 export const IsExcluded = trait();
 

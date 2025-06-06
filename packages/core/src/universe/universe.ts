@@ -1,7 +1,7 @@
 import { WORLD_ID_BITS } from '../entity/utils/pack-entity';
-import { QueryParameter } from '../query/types';
+import type { QueryParameter } from '../query/types';
 import { createWorldIndex } from '../world/utils/world-index';
-import { World } from '../world/world';
+import type { World } from '../world/world';
 
 export const universe = {
 	worlds: new Array<WeakRef<World> | null>(WORLD_ID_BITS ** 2),

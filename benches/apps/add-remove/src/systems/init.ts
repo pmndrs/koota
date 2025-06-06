@@ -1,8 +1,8 @@
 import { CONSTANTS } from '@sim/add-remove';
+import type { World } from 'koota';
 import * as THREE from 'three';
 import { scene } from '../scene';
 import { Points } from '../trait/Points';
-import { World } from 'koota';
 
 let first = false;
 

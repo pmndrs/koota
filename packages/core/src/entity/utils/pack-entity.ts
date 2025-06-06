@@ -1,4 +1,4 @@
-import { Entity } from '../types';
+import type { Entity } from '../types';
 
 // Constants for bit sizes
 export const WORLD_ID_BITS = 4; // 4 bits can represent 0-15

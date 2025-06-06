@@ -1,6 +1,6 @@
 import { createActions } from 'koota';
+import type * as THREE from 'three';
 import { Forces, Neighbors, Position, Velocity } from './traits';
-import * as THREE from 'three';
 
 export const actions = createActions((world) => ({
 	spawnBoid: (position: THREE.Vector3, velocity: THREE.Vector3) => {

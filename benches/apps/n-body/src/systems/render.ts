@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Three } from '../main';
 
 export const render = ({ world }: { world: World }) => {

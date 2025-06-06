@@ -1,14 +1,14 @@
 import { $internal } from '../common';
-import { Entity } from '../entity/types';
+import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { getStore } from '../trait/trait';
-import { Store, Trait } from '../trait/types';
+import type { Store, Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
-import { World } from '../world/world';
+import type { World } from '../world/world';
 import { ModifierData } from './modifier';
 import { setChanged } from './modifiers/changed';
-import { Query } from './query';
-import {
+import type { Query } from './query';
+import type {
 	InstancesFromParameters,
 	QueryParameter,
 	QueryResult,

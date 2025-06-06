@@ -1,6 +1,6 @@
-import { execSync } from 'child_process';
-import { existsSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { execSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { COLORS } from './constants/colors';
 
 // Parse the command-line arguments

@@ -1,10 +1,10 @@
-import { Entity } from '../types';
+import type { Entity } from '../types';
 import {
-	incrementGeneration,
-	getEntityId,
-	packEntity,
 	getEntityGeneration,
+	getEntityId,
 	getEntityWorldId,
+	incrementGeneration,
+	packEntity,
 } from './pack-entity';
 
 export type EntityIndex = {

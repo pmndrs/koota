@@ -1,6 +1,6 @@
 import { $internal } from '../../';
 import { ModifierData } from '../modifier';
-import { QueryParameter } from '../types';
+import type { QueryParameter } from '../types';
 
 const sortedIDs = new Float32Array(1024);
 

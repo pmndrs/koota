@@ -1,7 +1,7 @@
-import { createActions, createWorld, Entity, trait, universe, World } from '../../dist';
 import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { createActions, createWorld, type Entity, trait, universe, type World } from '../../dist';
 import { useActions, WorldProvider } from '../../react';
 
 declare global {
@@ -25,7 +25,7 @@ describe('useActions', () => {
 			spawnBody: () => world.spawn(Position),
 		}));
 
-		let spawnedEntity: Entity | undefined = undefined;
+		let spawnedEntity: Entity | undefined;
 
 		function Test() {
 			const { spawnBody } = useActions(actions);

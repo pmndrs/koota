@@ -1,5 +1,5 @@
 import { $internal } from '../../common';
-import { World } from '../world';
+import type { World } from '../world';
 
 // These should be Float32Arrays since we are using bitwise operations.
 // They are native Arrays to avoid overlow issues due to recycling.
@@ -10,6 +10,6 @@ export const incrementWorldBitflag = (world: World) => {
 
 	if (ctx.bitflag >= 2 ** 31) {
 		ctx.bitflag = 1;
-		ctx.entityMasks.push(new Array());
+		ctx.entityMasks.push([]);
 	}
 };
