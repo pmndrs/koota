@@ -12,11 +12,10 @@
 		"@app/bench-tools": "workspace:*",
 		"@sim/n-body": "workspace:*",
 		"koota": "workspace:@koota/dev@*",
-		"three": "^0.162.0"
+		"three": "catalog:"
 	},
 	"devDependencies": {
-		"@types/three": "^0.162.0",
-		"typescript": "^5.2.2",
+		"@types/three": "catalog:",
 		"vite": "^5.1.6"
 	}
 }
