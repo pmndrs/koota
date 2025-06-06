@@ -1,4 +1,5 @@
 import { createActions, type TraitValue } from 'koota';
+import * as THREE from 'three';
 import {
 	AutoRotate,
 	Avoidance,
@@ -9,7 +10,6 @@ import {
 	Movement,
 	Transform,
 } from './traits';
-import * as THREE from 'three';
 
 type TransformValue = TraitValue<(typeof Transform)['schema']>;
 

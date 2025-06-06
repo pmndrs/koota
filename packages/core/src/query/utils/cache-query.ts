@@ -1,5 +1,5 @@
-import { universe } from '../../universe/universe';
 import { $internal } from '../../';
+import { universe } from '../../universe/universe';
 import { Query } from '../query';
 import type { QueryHash, QueryParameter } from '../types';
 import { createQueryHash } from './create-query-hash';

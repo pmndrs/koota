@@ -1,4 +1,4 @@
-import { describe, beforeEach, it, expect } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { SparseSet } from '../../src/utils/sparse-set';
 
 describe('SparseSet', () => {

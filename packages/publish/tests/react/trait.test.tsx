@@ -1,7 +1,14 @@
-import { createWorld, type Entity, trait, type TraitInstance, universe, type World } from '../../dist';
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import {
+	createWorld,
+	type Entity,
+	type TraitInstance,
+	trait,
+	universe,
+	type World,
+} from '../../dist';
 import { useTrait, useTraitEffect, WorldProvider } from '../../react';
 
 declare global {

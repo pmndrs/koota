@@ -4,6 +4,6 @@ export { Color } from './Color';
 export { IsCentralMass } from './IsCentralMass';
 export { Mass } from './Mass';
 export { Position } from './Position';
-export { Velocity } from './Velocity';
-export { Time } from './Time';
 export { Repulse } from './Repulse';
+export { Time } from './Time';
+export { Velocity } from './Velocity';

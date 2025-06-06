@@ -1,12 +1,12 @@
-import type { Trait } from '../../trait/types';
-import type { Entity } from '../../entity/types';
-import { universe } from '../../universe/universe';
 import { $internal } from '../../common';
+import type { Entity } from '../../entity/types';
+import { getEntityId } from '../../entity/utils/pack-entity';
+import { hasTrait, registerTrait } from '../../trait/trait';
+import type { Trait } from '../../trait/types';
+import { universe } from '../../universe/universe';
 import type { World } from '../../world/world';
 import { ModifierData } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
-import { getEntityId } from '../../entity/utils/pack-entity';
-import { hasTrait, registerTrait } from '../../trait/trait';
 
 export function createChanged() {
 	const id = createTrackingId();

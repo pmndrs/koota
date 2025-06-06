@@ -10,7 +10,13 @@ import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cur
 import type { RelationTarget } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type { TraitData } from '../trait/trait-data';
-import type { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } from '../trait/types';
+import type {
+	ConfigurableTrait,
+	ExtractSchema,
+	Trait,
+	TraitInstance,
+	TraitValue,
+} from '../trait/types';
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 

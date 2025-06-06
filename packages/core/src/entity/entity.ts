@@ -2,10 +2,10 @@ import { $internal } from '../common';
 import { Pair, Wildcard } from '../relation/relation';
 import { addTrait, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
+import { universe } from '../universe/universe';
 import type { World } from '../world/world';
 import type { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
-import { universe } from '../universe/universe';
 import { getEntityId, getEntityWorldId } from './utils/pack-entity';
 
 // Ensure entity methods are patched.

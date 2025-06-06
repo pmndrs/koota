@@ -1,8 +1,8 @@
+import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { Query } from '../query/query';
-import { $internal } from '../common';
 import type { World } from '../world/world';
-import type { Trait, Schema, ExtractSchema, Store } from './types';
+import type { ExtractSchema, Schema, Store, Trait } from './types';
 
 export class TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
 	generationId: number;

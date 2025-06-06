@@ -1,5 +1,5 @@
-import { defineConfig } from 'tsup';
 import { inlineFunctionsPlugin } from 'esbuild-plugin-inline-functions';
+import { defineConfig } from 'tsup';
 
 export default defineConfig({
 	entry: ['src/index.ts', 'src/react.ts'],
