@@ -1,7 +1,7 @@
+import { createWorld, universe, type World } from '../../dist';
 import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, universe, type World } from '../../dist';
 import { useWorld, WorldProvider } from '../../react';
 
 declare global {
