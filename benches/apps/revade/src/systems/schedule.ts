@@ -1,22 +1,22 @@
 import { Schedule } from 'directed';
 import type { World } from 'koota';
-import { updateTime } from './update-time';
-import { pollInput } from './poll-input';
 import { applyInput } from './apply-input';
-import { updateMovement } from './update-movement';
-import { spawnEnemies } from './spawn-enemies';
-import { followPlayer } from './follow-player';
-import { updateAutoRotate } from './update-auto-rotate';
+import { cleanupSpatialHashMap } from './cleanup-spatial-hash-map';
 import { dampPlayerMovement } from './damp-player-movement';
-import { updateAvoidance } from './update-avoidance';
-import { updateSpatialHashing } from './update-spatial-hashing';
-import { pushEnemies } from './push-enemies';
+import { followPlayer } from './follow-player';
 import { handleShooting } from './handle-shooting';
+import { pollInput } from './poll-input';
+import { pushEnemies } from './push-enemies';
+import { spawnEnemies } from './spawn-enemies';
+import { tickExplosion } from './tick-explosion';
+import { tickShieldVisibility } from './tick-shield-visibility';
+import { updateAutoRotate } from './update-auto-rotate';
+import { updateAvoidance } from './update-avoidance';
 import { updateBullets } from './update-bullet';
 import { updateBulletCollisions } from './update-bullet-collisions';
-import { cleanupSpatialHashMap } from './cleanup-spatial-hash-map';
-import { tickShieldVisibility } from './tick-shield-visibility';
-import { tickExplosion } from './tick-explosion';
+import { updateMovement } from './update-movement';
+import { updateSpatialHashing } from './update-spatial-hashing';
+import { updateTime } from './update-time';
 
 export const schedule = new Schedule<{ world: World }>();
 

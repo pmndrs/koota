@@ -1,5 +1,12 @@
 import type { Entity } from '../entity/types';
-import type { AoSFactory, ExtractSchema, ExtractStore, IsTag, Trait, TraitInstance } from '../trait/types';
+import type {
+	AoSFactory,
+	ExtractSchema,
+	ExtractStore,
+	IsTag,
+	Trait,
+	TraitInstance,
+} from '../trait/types';
 import type { ModifierData } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;

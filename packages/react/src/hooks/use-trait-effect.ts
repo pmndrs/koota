@@ -1,7 +1,7 @@
 import { $internal, type Entity, type Trait, type TraitInstance, type World } from '@koota/core';
 import { useEffect, useMemo } from 'react';
-import { useWorld } from '../world/use-world';
 import { isWorld } from '../utils/is-world';
+import { useWorld } from '../world/use-world';
 
 export function useTraitEffect<T extends Trait>(
 	target: Entity | World,

@@ -1,12 +1,12 @@
 import {
-	Position,
-	Circle,
-	Repulse,
-	Velocity,
 	Acceleration,
-	Mass,
+	Circle,
 	Color,
 	IsCentralMass,
+	Mass,
+	Position,
+	Repulse,
+	Velocity,
 } from '@sim/n-body';
 import { createActions } from 'koota';
 

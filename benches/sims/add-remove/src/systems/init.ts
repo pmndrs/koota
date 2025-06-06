@@ -1,10 +1,10 @@
+import type { World } from 'koota';
+import { CONSTANTS } from '../constants';
 import { Circle } from '../trait/Circle';
 import { Color } from '../trait/Color';
 import { Mass } from '../trait/Mass';
 import { Position } from '../trait/Position';
 import { Velocity } from '../trait/Velocity';
-import { CONSTANTS } from '../constants';
-import type { World } from 'koota';
 
 let first = false;
 

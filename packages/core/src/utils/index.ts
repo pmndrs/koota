@@ -1,2 +1,2 @@
-export { SparseSet } from './sparse-set';
 export { Deque } from './deque';
+export { SparseSet } from './sparse-set';

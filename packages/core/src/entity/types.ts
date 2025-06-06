@@ -1,5 +1,11 @@
 import type { Relation } from '../relation/types';
-import type { ConfigurableTrait, ExtractSchema, Trait, TraitInstance, TraitValue } from '../trait/types';
+import type {
+	ConfigurableTrait,
+	ExtractSchema,
+	Trait,
+	TraitInstance,
+	TraitValue,
+} from '../trait/types';
 
 export type Entity = number & {
 	add: (...traits: ConfigurableTrait[]) => void;

@@ -1,5 +1,5 @@
-import type { Trait } from '../trait/types';
 import { $internal } from '../common';
+import type { Trait } from '../trait/types';
 
 export class ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> {
 	traitIds: number[];
