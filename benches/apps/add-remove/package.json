@@ -12,12 +12,11 @@
 		"koota": "workspace:@koota/dev@*",
 		"@app/bench-tools": "workspace:*",
 		"@sim/add-remove": "workspace:*",
-		"three": "^0.162.0",
-		"directed": "^0.1.6"
+		"three": "catalog:",
+		"directed": "catalog:"
 	},
 	"devDependencies": {
-		"@types/three": "^0.162.0",
-		"typescript": "^5.2.2",
+		"@types/three": "catalog:",
 		"vite": "^5.1.6"
 	}
 }

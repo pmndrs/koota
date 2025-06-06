@@ -11,18 +11,18 @@
 	},
 	"dependencies": {
 		"@app/bench-tools": "workspace:*",
-		"@react-three/drei": "^10.0.3",
-		"@react-three/fiber": "^9.0.4",
-		"directed": "^0.1.6",
+		"@react-three/drei": "catalog:",
+		"@react-three/fiber": "catalog:",
+		"directed": "catalog:",
 		"koota": "workspace:@koota/dev@*",
-		"react": "^19.0.0",
-		"react-dom": "^19.0.0",
-		"three": "^0.162.0"
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"three": "catalog:"
 	},
 	"devDependencies": {
-		"@types/react": "^19.0.8",
-		"@types/react-dom": "^19.0.3",
-		"@types/three": "^0.162.0",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@types/three": "catalog:",
 		"@typescript-eslint/eslint-plugin": "^8.9.0",
 		"@typescript-eslint/parser": "^8.9.0",
 		"@vitejs/plugin-react": "^4.2.1",
@@ -30,7 +30,6 @@
 		"eslint": "^9.12.0",
 		"eslint-plugin-react-hooks": "^5.0.0",
 		"eslint-plugin-react-refresh": "^0.4.6",
-		"typescript": "^5.2.2",
 		"vite": "^5.2.0"
 	}
 }
