@@ -1,7 +1,7 @@
+import { createWorld, type Entity, type QueryResult, trait, universe, type World } from '../../dist';
 import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, type Entity, type QueryResult, trait, universe, type World } from '../../dist';
 import { useQuery, WorldProvider } from '../../react';
 
 declare global {
