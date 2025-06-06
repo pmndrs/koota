@@ -8,7 +8,8 @@
 		"sim": "npx tsx ./scripts/sim.ts",
 		"ship": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
 		"prepublish": "pnpm -F koota build && pnpm -F koota generate-tests",
-		"test": "pnpm -F core test run && pnpm -F react test run"
+		"test": "pnpm -F core test run && pnpm -F react test run",
+		"lint": "biome check --write"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.0.0-beta.6",

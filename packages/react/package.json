@@ -14,7 +14,8 @@
 		}
 	},
 	"scripts": {
-		"test": "vitest --environment=jsdom"
+		"test": "vitest --environment=jsdom",
+		"lint": "biome check --write"
 	},
 	"dependencies": {
 		"@koota/core": "workspace:*"
