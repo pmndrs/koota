@@ -13,6 +13,5 @@ export function useRaf(callback: () => void | Promise<void>, deps: readonly unkn
 		return () => {
 			cancelAnimationFrame(rafRef.current);
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [callback, ...deps]);
 }
