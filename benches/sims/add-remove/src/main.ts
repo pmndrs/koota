@@ -3,8 +3,8 @@
 
 import { measure, requestAnimationFrame } from '@sim/bench-tools';
 import { init } from './systems/init';
-import { world } from './world';
 import { schedule } from './systems/schedule';
+import { world } from './world';
 
 // Start the simulation.
 const main = () => {

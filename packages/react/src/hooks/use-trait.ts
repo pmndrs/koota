@@ -1,4 +1,4 @@
-import { $internal, Entity, Trait, TraitInstance, World } from '@koota/core';
+import { $internal, type Entity, type Trait, type TraitInstance, type World } from '@koota/core';
 import { useEffect, useMemo, useState } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';

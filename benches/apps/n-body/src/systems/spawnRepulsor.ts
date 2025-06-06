@@ -1,4 +1,4 @@
-import { Acceleration, Circle, Color, Mass, Position, Velocity, Repulse, world } from '@sim/n-body';
+import { Acceleration, Circle, Color, Mass, Position, Repulse, Velocity, world } from '@sim/n-body';
 
 let lastSpawnTime = 0;
 const spawnInterval = 100; // milliseconds

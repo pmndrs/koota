@@ -1,12 +1,12 @@
 import { Schedule } from 'directed';
-import { setInitial } from './setInitial';
-import { updateGravity } from './updateGravity';
-import { moveBodies } from './moveBodies';
-import { updateColor } from './updateColor';
-import { updateTime } from './updateTime';
-import { init } from './init';
+import type { World } from 'koota';
 import { handleRepulse } from './handleRepulse';
-import { World } from 'koota';
+import { init } from './init';
+import { moveBodies } from './moveBodies';
+import { setInitial } from './setInitial';
+import { updateColor } from './updateColor';
+import { updateGravity } from './updateGravity';
+import { updateTime } from './updateTime';
 
 export const schedule = new Schedule<{ world: World }>();
 

@@ -1,9 +1,9 @@
 import { CONSTANTS } from '@sim/n-body';
+import type { World } from 'koota';
 import * as THREE from 'three';
-import { InstancedMesh } from '../traits/InstancedMesh';
 import { camera, renderer } from '../main';
 import { scene } from '../scene';
-import { World } from 'koota';
+import { InstancedMesh } from '../traits/InstancedMesh';
 
 let inited = false;
 

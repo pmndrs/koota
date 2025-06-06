@@ -1,4 +1,4 @@
-import { Entity, trait } from 'koota';
+import { type Entity, trait } from 'koota';
 
 export const Avoidance = trait({
 	neighbors: [] as Entity[],

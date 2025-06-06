@@ -1,7 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { CONSTANTS, init, schedule } from '@sim/n-body';
 import { useSchedule } from 'directed/react';
-import { Entity, universe } from 'koota';
+import { type Entity, universe } from 'koota';
 import { useActions, useWorld } from 'koota/react';
 import { StrictMode, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';

@@ -4,8 +4,8 @@ export function colorFromSpeed(speed: number) {
 	let f = (speed / 8) * Math.sqrt(CONSTANTS.SPEED);
 	f = Math.min(f, 1.0);
 
-	let fRed = Math.max(0, f - 0.2) / 0.8;
-	let fGreen = Math.max(0, f - 0.7) / 0.3;
+	const fRed = Math.max(0, f - 0.2) / 0.8;
+	const fGreen = Math.max(0, f - 0.7) / 0.3;
 
 	return {
 		r: Math.floor(fRed * 255),

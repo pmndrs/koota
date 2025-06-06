@@ -1,3 +1,3 @@
 import { trait } from 'koota';
 
-export const Time = trait({ then: 0, delta: 0 });
+export const Time = trait({ last: 0, delta: 0 });

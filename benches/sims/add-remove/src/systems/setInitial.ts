@@ -1,6 +1,6 @@
+import { createAdded, type World } from 'koota';
 import { CONSTANTS } from '../constants';
-import { createAdded, World } from 'koota';
-import { Position, Velocity, Mass, Circle, Color, DummyComponents } from '../trait';
+import { Circle, Color, DummyComponents, Mass, Position, Velocity } from '../trait';
 import { randInRange } from '../utils/randInRange';
 
 const body = [Position, Velocity, Mass, Circle, Color] as const;

@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { BoidsConfig, Neighbors, Position, SpatialHashMap } from '../traits';
 
 export const updateNeighbors = ({ world }: { world: World }) => {

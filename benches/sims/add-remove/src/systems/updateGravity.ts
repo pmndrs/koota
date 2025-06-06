@@ -1,6 +1,6 @@
+import type { World } from 'koota';
 import { CONSTANTS } from '../constants';
-import { World } from 'koota';
-import { Velocity, Time } from '../trait';
+import { Time, Velocity } from '../trait';
 
 export const updateGravity = ({ world }: { world: World }) => {
 	const { delta } = world.get(Time)!;

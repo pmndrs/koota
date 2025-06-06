@@ -674,7 +674,7 @@ const positions = getStore(world, Position)
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-### Caching queries
+#### Caching queries
 
 Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
 
@@ -698,7 +698,7 @@ function updateMovement(world) {
 }
 ```
 
-### Query all entities
+#### Query all entities
 
 To get all queryable entities you simply query with no parameters. 
 

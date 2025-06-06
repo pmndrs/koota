@@ -1,12 +1,12 @@
-import { Trait } from '../../trait/types';
-import { Entity } from '../../entity/types';
-import { universe } from '../../universe/universe';
 import { $internal } from '../../common';
-import { World } from '../../world/world';
-import { ModifierData } from '../modifier';
-import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
+import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { hasTrait, registerTrait } from '../../trait/trait';
+import type { Trait } from '../../trait/types';
+import { universe } from '../../universe/universe';
+import type { World } from '../../world/world';
+import { ModifierData } from '../modifier';
+import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createChanged() {
 	const id = createTrackingId();
@@ -34,7 +34,7 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
-		if (!changedMask[eid]) changedMask[eid] = new Array();
+		if (!changedMask[eid]) changedMask[eid] = [];
 		const traitId = trait[$internal].id;
 		changedMask[eid][traitId] = 1;
 	}
@@ -47,7 +47,7 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 		if (!query.changedTraits.has(trait)) continue;
 
 		// Check if the entity matches the query.
-		let match = query.check(world, entity, { type: 'change', traitData: data });
+		const match = query.check(world, entity, { type: 'change', traitData: data });
 
 		if (match) query.add(entity);
 		else query.remove(world, entity);

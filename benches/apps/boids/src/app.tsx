@@ -2,7 +2,7 @@
 
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Entity } from 'koota';
+import type { Entity } from 'koota';
 import { useActions, useQuery, useWorld } from 'koota/react';
 import { memo, StrictMode, useCallback, useLayoutEffect } from 'react';
 import * as THREE from 'three';
@@ -103,6 +103,7 @@ function SpawnButton() {
 	const { spawnBoid } = useActions(actions);
 	return (
 		<button
+			type="button"
 			onClick={() => {
 				const position = new THREE.Vector3().randomDirection().multiplyScalar(between(0, 10));
 				const velocity = new THREE.Vector3().randomDirection();
@@ -116,5 +117,9 @@ function SpawnButton() {
 
 function DestroyButton() {
 	const { destroyRandomBoid } = useActions(actions);
-	return <button onClick={destroyRandomBoid}>Destroy Boid</button>;
+	return (
+		<button type="button" onClick={destroyRandomBoid}>
+			Destroy Boid
+		</button>
+	);
 }

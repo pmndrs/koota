@@ -1,11 +1,11 @@
 import { Schedule } from 'directed';
+import type { World } from 'koota';
 import { init } from './init';
-import { setInitial } from './setInitial';
-import { updateTime } from './updateTime';
-import { updateGravity } from './updateGravity';
 import { moveBodies } from './moveBodies';
 import { recycleBodiesSim } from './recycleBodies';
-import { World } from 'koota';
+import { setInitial } from './setInitial';
+import { updateGravity } from './updateGravity';
+import { updateTime } from './updateTime';
 
 export const schedule = new Schedule<{ world: World }>();
 

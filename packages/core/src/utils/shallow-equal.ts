@@ -13,7 +13,7 @@ export function /* @inline @pure */ shallowEqual(obj1: any, obj2: any): boolean 
 				const keys2 = Object.keys(obj2);
 				return (
 					keys1.length === keys2.length &&
-					keys1.every((key) => obj2.hasOwnProperty(key) && obj1[key] === obj2[key])
+					keys1.every((key) => Object.hasOwn(obj2, key) && obj1[key] === obj2[key])
 				);
 			})())
 	);

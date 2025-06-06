@@ -1,12 +1,12 @@
 import { $internal } from '../common';
-import { Entity } from '../entity/types';
-import { Trait } from '../trait/types';
+import type { Entity } from '../entity/types';
+import type { Trait } from '../trait/types';
 
 export type RelationTarget = Entity | '*' | WildcardRelation;
 
 export type Relation<T extends Trait> = {
 	[$internal]: {
-		pairsMap: Map<number | string, T>;
+		pairsMap: Map<number | string | RelationTarget, T>;
 		createTrait: () => T;
 		exclusive: boolean;
 		autoRemoveTarget: boolean;

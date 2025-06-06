@@ -1,5 +1,5 @@
 import { $internal } from '../../common';
-import { World } from '../../world/world';
+import type { World } from '../../world/world';
 
 // Some values are reserved.
 // 0 - has

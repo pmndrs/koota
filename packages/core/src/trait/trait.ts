@@ -1,12 +1,12 @@
 import { $internal } from '../common';
-import { Entity } from '../entity/types';
+import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
-import { World } from '../world/world';
+import type { World } from '../world/world';
 import { TraitData } from './trait-data';
-import { ConfigurableTrait, ExtractStore, Norm, Schema, Store, Trait, TraitType } from './types';
+import type { ConfigurableTrait, ExtractStore, Norm, Schema, Store, Trait, TraitType } from './types';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
@@ -17,34 +17,29 @@ import { createStore } from './utils/create-store';
 
 let traitId = 0;
 
-function defineTrait(): Trait<{}>;
+function defineTrait(): Trait<Schema>;
 function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
 function defineTrait<S extends Schema>(schema: S = {} as S): Trait<any> {
 	const isAoS = typeof schema === 'function';
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
 
-	const Trait = Object.assign(
-		function (params: Partial<Norm<S>>) {
-			return [Trait, params];
+	const Trait = Object.assign((params: Partial<Norm<S>>) => [Trait, params], {
+		schema: schema as Norm<S>,
+		[$internal]: {
+			set: createSetFunction[traitType](schema),
+			fastSet: createFastSetFunction[traitType](schema),
+			fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
+			get: createGetFunction[traitType](schema),
+			stores: [] as Store<S>[],
+			id: traitId++,
+			createStore: () => createStore(schema as Norm<S>),
+			isPairTrait: false,
+			relation: null,
+			pairTarget: null,
+			isTag: !isAoS && Object.keys(schema).length === 0,
+			type: traitType,
 		},
-		{
-			schema: schema as Norm<S>,
-			[$internal]: {
-				set: createSetFunction[traitType](schema),
-				fastSet: createFastSetFunction[traitType](schema),
-				fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
-				get: createGetFunction[traitType](schema),
-				stores: [] as Store<S>[],
-				id: traitId++,
-				createStore: () => createStore(schema as Norm<S>),
-				isPairTrait: false,
-				relation: null,
-				pairTarget: null,
-				isTag: !isAoS && Object.keys(schema).length === 0,
-				type: traitType,
-			},
-		}
-	) as any;
+	}) as any;
 
 	return Trait;
 }
@@ -104,7 +99,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			query.toRemove.remove(entity);
 
 			// Check if the entity matches the query.
-			let match = query.check(world, entity, { type: 'add', traitData: data });
+			const match = query.check(world, entity, { type: 'add', traitData: data });
 
 			if (match) query.add(entity);
 			else query.remove(world, entity);
@@ -190,7 +185,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		// Update queries.
 		for (const query of queries) {
 			// Check if the entity matches the query.
-			let match = query.check(world, entity, { type: 'remove', traitData: data });
+			const match = query.check(world, entity, { type: 'remove', traitData: data });
 
 			if (match) query.add(entity);
 			else query.remove(world, entity);

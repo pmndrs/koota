@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Forces, Time, Velocity } from '../traits';
 
 export const applyForces = ({ world }: { world: World }) => {

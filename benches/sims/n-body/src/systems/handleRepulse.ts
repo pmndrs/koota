@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import type { World } from 'koota';
 import { Circle, Mass, Position, Repulse, Time, Velocity } from '../traits';
 
 export const handleRepulse = ({ world }: { world: World }) => {

@@ -1,4 +1,4 @@
-import { createWorld, universe, World } from '@koota/core';
+import { createWorld, universe, type World } from '@koota/core';
 import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';

@@ -1,4 +1,4 @@
-import { $internal, cacheQuery, QueryParameter, QueryResult } from '@koota/core';
+import { $internal, cacheQuery, type QueryParameter, type QueryResult } from '@koota/core';
 import { useEffect, useMemo, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
