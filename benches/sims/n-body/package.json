@@ -8,7 +8,7 @@
 	"dependencies": {
 		"@sim/bench-tools": "workspace:*",
 		"koota": "workspace:@koota/dev@*",
-		"directed": "^0.1.6"
+		"directed": "catalog:"
 	},
 	"devDependencies": {
 		"tsconfig": "workspace:*",
