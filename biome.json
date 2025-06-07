@@ -3,7 +3,13 @@
 	"vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": false },
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**", "!**/*.md", "!**/dist/**", "!packages/publish/react/**"]
+		"includes": [
+			"**",
+			"!**/*.md",
+			"!**/dist/**",
+			"!packages/publish/react/**",
+			"!packages/publish/tests/**"
+		]
 	},
 	"formatter": {
 		"enabled": true,
