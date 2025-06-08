@@ -12,7 +12,7 @@
 		"lint": "oxlint"
 	},
 	"devDependencies": {
-		"tsconfig": "workspace:*",
+		"@config/typescript": "workspace:*",
 		"vitest": "catalog:"
 	}
 }

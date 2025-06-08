@@ -11,7 +11,7 @@
 		"directed": "catalog:"
 	},
 	"devDependencies": {
-		"tsconfig": "workspace:*",
+		"@config/typescript": "workspace:*",
 		"tsx": "latest"
 	}
 }

@@ -12,6 +12,6 @@
 	},
 	"devDependencies": {
 		"tsx": "latest",
-		"tsconfig": "workspace:*"
+		"@config/typescript": "workspace:*"
 	}
 }
