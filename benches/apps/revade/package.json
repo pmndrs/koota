@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build",
-		"lint": "biome check --write",
+		"lint": "oxlint",
 		"preview": "vite preview"
 	},
 	"dependencies": {
