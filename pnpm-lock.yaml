@@ -40,14 +40,13 @@ catalogs:
 importers:
 
   .:
-    dependencies:
-      oxlint:
-        specifier: ^0.18.0
-        version: 0.18.0
     devDependencies:
       '@types/node':
         specifier: '>=22.0.0'
         version: 22.15.30
+      oxlint:
+        specifier: ^0.18.0
+        version: 0.18.0
       tsx:
         specifier: latest
         version: 4.19.4
