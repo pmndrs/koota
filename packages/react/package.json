@@ -27,7 +27,7 @@
 		"jsdom": "^26.0.0",
 		"react": "catalog:",
 		"react-dom": "catalog:",
-		"tsconfig": "workspace:*",
+		"@config/typescript": "workspace:*",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
