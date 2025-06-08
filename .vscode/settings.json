@@ -1,4 +1,5 @@
 {
 	"editor.defaultFormatter": "esbenp.prettier-vscode",
-	"oxc.enable": true
+	"oxc.enable": true,
+	"biome.enabled": false
 }
