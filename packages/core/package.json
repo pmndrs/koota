@@ -12,6 +12,7 @@
 		"lint": "oxlint"
 	},
 	"devDependencies": {
+		"@config/oxlint": "workspace:*",
 		"@config/typescript": "workspace:*",
 		"vitest": "catalog:"
 	}

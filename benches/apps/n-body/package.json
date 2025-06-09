@@ -15,6 +15,7 @@
 		"three": "catalog:"
 	},
 	"devDependencies": {
+		"@config/typescript": "workspace:*",
 		"@types/three": "catalog:",
 		"vite": "^5.1.6"
 	}

@@ -11,6 +11,7 @@
 		"directed": "catalog:"
 	},
 	"devDependencies": {
+		"@config/oxlint": "workspace:*",
 		"@config/typescript": "workspace:*",
 		"tsx": "latest"
 	}

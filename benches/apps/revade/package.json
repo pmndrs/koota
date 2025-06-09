@@ -20,6 +20,7 @@
 		"three": "catalog:"
 	},
 	"devDependencies": {
+		"@config/typescript": "workspace:*",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",
 		"@types/three": "catalog:",
