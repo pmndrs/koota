@@ -1,7 +1,4 @@
 {
 	"extends": "@config/typescript/base.json",
-	"compilerOptions": {
-		"lib": ["ESNext", "DOM"]
-	},
-	"include": ["src/**/*"]
+	"include": ["src"]
 }

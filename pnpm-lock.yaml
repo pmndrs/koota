@@ -72,6 +72,12 @@ importers:
         specifier: 'catalog:'
         version: 0.177.0
     devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../../configs/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../../configs/typescript
       '@types/three':
         specifier: 'catalog:'
         version: 0.177.0
@@ -116,6 +122,9 @@ importers:
         specifier: 'catalog:'
         version: 0.177.0
     devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../../configs/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.1.6
@@ -150,6 +159,9 @@ importers:
         specifier: 'catalog:'
         version: 0.177.0
     devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../../configs/typescript
       '@types/three':
         specifier: 'catalog:'
         version: 0.177.0
@@ -184,6 +196,9 @@ importers:
         specifier: 'catalog:'
         version: 0.177.0
     devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../../configs/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.1.6
@@ -230,6 +245,9 @@ importers:
         specifier: 'catalog:'
         version: 0.177.0
     devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../../configs/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.1.6
@@ -261,6 +279,9 @@ importers:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
     devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../../configs/oxlint
       '@config/typescript':
         specifier: workspace:*
         version: link:../../../configs/typescript
@@ -290,6 +311,9 @@ importers:
         specifier: workspace:@koota/dev@*
         version: link:../../../packages/dev
     devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../../configs/oxlint
       '@config/typescript':
         specifier: workspace:*
         version: link:../../../configs/typescript
@@ -305,6 +329,9 @@ importers:
 
   packages/core:
     devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../configs/oxlint
       '@config/typescript':
         specifier: workspace:*
         version: link:../../configs/typescript
@@ -368,6 +395,9 @@ importers:
         specifier: workspace:*
         version: link:../core
     devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../configs/oxlint
       '@config/typescript':
         specifier: workspace:*
         version: link:../../configs/typescript
