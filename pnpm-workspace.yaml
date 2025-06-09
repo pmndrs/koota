@@ -15,3 +15,4 @@ catalog:
     three: ^0.177.0
     directed: ^0.1.6
     vitest: ^3.2.2
+    vite: ^6.3.5
