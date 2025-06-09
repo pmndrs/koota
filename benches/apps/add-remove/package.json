@@ -19,6 +19,6 @@
 		"@config/oxlint": "workspace:*",
 		"@config/typescript": "workspace:*",
 		"@types/three": "catalog:",
-		"vite": "^5.1.6"
+		"vite": "catalog:"
 	}
 }
