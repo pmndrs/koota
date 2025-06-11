@@ -1,0 +1,13 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"compilerOptions": {
+		"lib": ["ESNext"],
+		"composite": true,
+		"skipLibCheck": true,
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"allowSyntheticDefaultImports": true,
+		"strict": true
+	}, 
+	"exclude": ["dist"]
+}

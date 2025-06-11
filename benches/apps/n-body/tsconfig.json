@@ -1,4 +1,5 @@
 {
 	"extends": "@config/typescript/base.json",
-	"include": ["src"]
+	"include": ["src"],
+	"references": [{ "path": "./tsconfig.node.json" }]
 }
