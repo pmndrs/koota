@@ -1,5 +1,5 @@
 {
-	"extends": "@config/typescript/base.json",
+	"extends": "@config/typescript/node.json",
 	"compilerOptions": {
 		"lib": ["DOM", "WebWorker", "ESNext"]
 	},

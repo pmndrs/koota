@@ -4,6 +4,7 @@
 	"private": true,
 	"files": [
 		"base.json",
-		"react.json"
+		"react.json",
+		"node.json"
 	]
 }
