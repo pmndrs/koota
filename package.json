@@ -13,7 +13,7 @@
 	},
 	"devDependencies": {
 		"@types/node": ">=22.0.0",
-		"oxlint": "^0.18.0",
+		"oxlint": "^1.0.0",
 		"tsx": "latest",
 		"typescript": "latest"
 	},
