@@ -75,8 +75,8 @@ importers:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.1.6)(react@19.1.0)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:*
+        version: link:../../../packages/publish
       three:
         specifier: 'catalog:'
         version: 0.177.0
@@ -119,8 +119,8 @@ importers:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.1.6)(react@19.1.0)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:*
+        version: link:../../../packages/publish
       react:
         specifier: 'catalog:'
         version: 19.1.0
@@ -162,8 +162,8 @@ importers:
         specifier: workspace:*
         version: link:../../sims/n-body
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:*
+        version: link:../../../packages/publish
       three:
         specifier: 'catalog:'
         version: 0.177.0
@@ -193,8 +193,8 @@ importers:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.1.6)(react@19.1.0)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:*
+        version: link:../../../packages/publish
       react:
         specifier: 'catalog:'
         version: 19.1.0
@@ -242,8 +242,8 @@ importers:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.1.6)(react@19.1.0)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:*
+        version: link:../../../packages/publish
       react:
         specifier: 'catalog:'
         version: 19.1.0
@@ -285,8 +285,8 @@ importers:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.1.6)(react@19.1.0)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:*
+        version: link:../../../packages/publish
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
@@ -317,8 +317,8 @@ importers:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.1.6)(react@19.1.0)
       koota:
-        specifier: workspace:@koota/dev@*
-        version: link:../../../packages/dev
+        specifier: workspace:*
+        version: link:../../../packages/publish
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
@@ -341,22 +341,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 3.2.2(@types/node@22.15.30)(jsdom@26.0.0)
-
-  packages/dev:
-    dependencies:
-      '@types/react':
-        specifier: '>=18.0.0'
-        version: 19.0.8
-    devDependencies:
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
-      react:
-        specifier: '>=18.0.0'
-        version: 19.0.0
-      react-dom:
-        specifier: '>=18.0.0'
-        version: 19.0.0(react@19.0.0)
 
   packages/publish:
     dependencies:

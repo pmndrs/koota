@@ -14,7 +14,7 @@
 		"@react-three/fiber": "catalog:",
 		"@sim/n-body": "workspace:*",
 		"directed": "catalog:",
-		"koota": "workspace:@koota/dev@*",
+		"koota": "workspace:*",
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"three": "catalog:"
