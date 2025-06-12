@@ -1,5 +1,5 @@
 import { $internal, type Entity, type Trait, type TraitInstance, type World } from '@koota/core';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
@@ -15,25 +15,29 @@ export function useTraitEffect<T extends Trait>(
 		[target]
 	);
 
+	// Memoize the callback so it doesn't cause rerenders if an arrow function is used.
+	const callbackRef = useRef(callback);
+	callbackRef.current = callback;
+
 	useEffect(() => {
 		const onChangeUnsub = world.onChange(trait, (e) => {
-			if (e === entity) callback(e.get(trait));
+			if (e === entity) callbackRef.current(e.get(trait));
 		});
 
 		const onAddUnsub = world.onAdd(trait, (e) => {
-			if (e === entity) callback(e.get(trait));
+			if (e === entity) callbackRef.current(e.get(trait));
 		});
 
 		const onRemoveUnsub = world.onRemove(trait, (e) => {
-			if (e === entity) callback(undefined);
+			if (e === entity) callbackRef.current(undefined);
 		});
 
-		callback(entity.has(trait) ? entity.get(trait) : undefined);
+		callbackRef.current(entity.has(trait) ? entity.get(trait) : undefined);
 
 		return () => {
 			onChangeUnsub();
 			onAddUnsub();
 			onRemoveUnsub();
 		};
-	}, [target, trait]);
+	}, [trait, world, entity]);
 }
