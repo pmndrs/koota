@@ -57,6 +57,12 @@ importers:
         specifier: latest
         version: 5.8.3
 
+  .config/oxlint: {}
+
+  .config/prettier: {}
+
+  .config/typescript: {}
+
   benches/apps/add-remove:
     dependencies:
       '@app/bench-tools':
@@ -77,10 +83,10 @@ importers:
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
-        version: link:../../../configs/oxlint
+        version: link:../../../.config/oxlint
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
       '@types/three':
         specifier: 'catalog:'
         version: 0.177.0
@@ -96,7 +102,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
 
   benches/apps/boids:
     dependencies:
@@ -127,7 +133,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.1.6
@@ -164,7 +170,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
       '@types/three':
         specifier: 'catalog:'
         version: 0.177.0
@@ -201,7 +207,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.1.6
@@ -250,7 +256,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.1.6
@@ -284,10 +290,10 @@ importers:
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
-        version: link:../../../configs/oxlint
+        version: link:../../../.config/oxlint
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
       tsx:
         specifier: latest
         version: 4.19.4
@@ -300,7 +306,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
 
   benches/sims/n-body:
     dependencies:
@@ -316,28 +322,22 @@ importers:
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
-        version: link:../../../configs/oxlint
+        version: link:../../../.config/oxlint
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../configs/typescript
+        version: link:../../../.config/typescript
       tsx:
         specifier: latest
         version: 4.19.4
-
-  configs/oxlint: {}
-
-  configs/prettier: {}
-
-  configs/typescript: {}
 
   packages/core:
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
-        version: link:../../configs/oxlint
+        version: link:../../.config/oxlint
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../configs/typescript
+        version: link:../../.config/typescript
       vitest:
         specifier: 'catalog:'
         version: 3.2.2(@types/node@22.15.30)(jsdom@26.0.0)
@@ -350,7 +350,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../configs/typescript
+        version: link:../../.config/typescript
       react:
         specifier: '>=18.0.0'
         version: 19.0.0
@@ -366,7 +366,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../configs/typescript
+        version: link:../../.config/typescript
       '@koota/core':
         specifier: workspace:*
         version: link:../core
@@ -400,10 +400,10 @@ importers:
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
-        version: link:../../configs/oxlint
+        version: link:../../.config/oxlint
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../configs/typescript
+        version: link:../../.config/typescript
       '@testing-library/react':
         specifier: ^16.2.0
         version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@19.1.6(@types/react@19.1.6))(@types/react@19.1.6)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
