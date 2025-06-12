@@ -9,6 +9,6 @@
 		"@sim/bench-tools": "workspace:*"
 	},
 	"devDependencies": {
-		"tsconfig": "workspace:*"
+		"@config/typescript": "workspace:*"
 	}
 }

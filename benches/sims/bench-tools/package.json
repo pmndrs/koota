@@ -9,6 +9,6 @@
 		"web-worker": "^1.3.0"
 	},
 	"devDependencies": {
-		"tsconfig": "workspace:*"
+		"@config/typescript": "workspace:*"
 	}
 }

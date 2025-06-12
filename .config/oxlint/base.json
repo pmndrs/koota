@@ -1,0 +1,15 @@
+{
+	"plugins": ["unicorn", "typescript", "oxc"],
+	"rules": {
+		"no-unused-vars": [
+			"warn",
+			{
+				"argsIgnorePattern": "^_",
+				"varsIgnorePattern": "^_",
+				"caughtErrorsIgnorePattern": "^_"
+			}
+		],
+		"no-useless-escape": "off"
+	},
+	"ignorePatterns": ["dist"]
+}

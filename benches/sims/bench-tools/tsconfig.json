@@ -1,9 +1,7 @@
 {
-	"extends": "tsconfig/base.json",
+	"extends": "@config/typescript/node.json",
 	"compilerOptions": {
-		"lib": ["DOM", "WebWorker", "ESNext"],
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext"
+		"lib": ["DOM", "WebWorker", "ESNext"]
 	},
-	"include": ["src/**/*"]
+	"include": ["src"]
 }
