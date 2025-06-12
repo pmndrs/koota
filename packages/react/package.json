@@ -15,19 +15,20 @@
 	},
 	"scripts": {
 		"test": "vitest --environment=jsdom",
-		"lint": "biome check --write"
+		"lint": "oxlint"
 	},
 	"dependencies": {
 		"@koota/core": "workspace:*"
 	},
 	"devDependencies": {
+		"@config/oxlint": "workspace:*",
+		"@config/typescript": "workspace:*",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",
 		"@testing-library/react": "^16.2.0",
 		"jsdom": "^26.0.0",
 		"react": "catalog:",
 		"react-dom": "catalog:",
-		"tsconfig": "workspace:*",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {

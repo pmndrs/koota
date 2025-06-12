@@ -9,10 +9,11 @@
 	"types": "./src/index.ts",
 	"scripts": {
 		"test": "vitest",
-		"lint": "biome check --write"
+		"lint": "oxlint"
 	},
 	"devDependencies": {
-		"tsconfig": "workspace:*",
+		"@config/oxlint": "workspace:*",
+		"@config/typescript": "workspace:*",
 		"vitest": "catalog:"
 	}
 }
