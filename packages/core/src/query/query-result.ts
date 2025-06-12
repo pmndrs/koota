@@ -46,7 +46,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 			callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
 			options: QueryResultOptions = { changeDetection: 'auto' }
 		) {
-			const state = new Array(traits.length);
+			const state = Array.from({ length: traits.length });
 
 			// Inline all three permutations of updateEach for performance.
 			if (options.changeDetection === 'auto') {
