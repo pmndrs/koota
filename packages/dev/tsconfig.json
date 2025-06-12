@@ -1,4 +1,0 @@
-{
-	"extends": "@config/typescript/react.json",
-	"include": ["src/**/*"]
-}
