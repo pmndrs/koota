@@ -2,7 +2,7 @@ packages:
     - 'packages/*'
     - 'benches/sims/*'
     - 'benches/apps/*'
-    - 'configs/*'
+    - '.config/*'
 
 catalog:
     '@react-three/drei': ^10.1.2
