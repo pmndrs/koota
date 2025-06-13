@@ -17,7 +17,8 @@
 		}
 	},
 	"files": [
-		"src",
+		"dist",
+		"react",
 		"README.md",
 		"LICENSE"
 	],
@@ -42,13 +43,7 @@
 				"import": "./dist/react.js",
 				"require": "./dist/react.cjs"
 			}
-		},
-		"files": [
-			"dist",
-			"react",
-			"README.md",
-			"LICENSE"
-		]
+		}
 	},
 	"scripts": {
 		"build": "tsup && tsx scripts/copy-readme.ts && tsx scripts/copy-react-files.ts",
