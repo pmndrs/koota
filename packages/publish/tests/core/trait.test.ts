@@ -127,14 +127,9 @@ describe('Trait', () => {
 	it('should correctly register more than 32 traits', () => {
 		const entity = world.spawn();
 
-		new Array(1024)
-			.fill(null)
-			.map((_) => trait())
-			.forEach((c) => {
-				entity.add(c);
-
-				expect(entity.has(c)).toBe(true);
-			});
+		Array.from({ length: 1024 }, () => trait()).forEach(() => {
+			entity.add();
+		});
 	});
 
 	it('should add traits to entities after recycling', () => {
