@@ -4,6 +4,8 @@
 	"compilerOptions": {
 		"lib": ["ESNext"],
 		"composite": true,
-		"allowSyntheticDefaultImports": true
+		"allowSyntheticDefaultImports": true,
+		"rewriteRelativeImportExtensions": true,
+		"erasableSyntaxOnly": true
 	}
 }
