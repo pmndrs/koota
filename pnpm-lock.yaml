@@ -50,9 +50,6 @@ importers:
       oxlint:
         specifier: ^1.0.0
         version: 1.0.0
-      tsx:
-        specifier: latest
-        version: 4.19.4
       typescript:
         specifier: latest
         version: 5.8.3
