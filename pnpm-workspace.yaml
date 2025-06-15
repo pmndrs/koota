@@ -16,3 +16,5 @@ catalog:
     directed: ^0.1.6
     vitest: ^3.2.2
     vite: ^6.3.5
+
+manage-package-manager-versions: true
