@@ -46,9 +46,9 @@
 		}
 	},
 	"scripts": {
-		"build": "tsup && tsx scripts/copy-readme.ts && tsx scripts/copy-react-files.ts",
+		"build": "tsup && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
 		"test": "vitest --environment=jsdom",
-		"generate-tests": "tsx scripts/generate-tests.ts"
+		"generate-tests": "node scripts/generate-tests.ts"
 	},
 	"devDependencies": {
 		"@koota/core": "workspace:*",
