@@ -216,7 +216,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 				removeTrait(world, entity, Pair(relation, Wildcard));
 			}
 
-			// Removing a relation with a wildcard should also remove every target of that relation.
+			// Removing a relation with a wildcard should also remove every target for that relation.
 			if (
 				traitCtx.isPairTrait &&
 				traitCtx.pairTarget === Wildcard &&
