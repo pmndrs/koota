@@ -219,7 +219,7 @@ const relatesToGold = world.query(Wildcard(gold)) // Returns [inventory, chest, 
 
 #### Removing relationships
 
-A relationship is with a specific target entity, so we need to likewise remove relationships for specific entities.
+A relationship targets a specific entity, so we need to likewise remove relationships with specific entities.
 
 ```js
 // Add a specific relation
@@ -233,7 +233,7 @@ player.has(apple) // false
 player.has(banana) // true
 ```
 
-However, a wildcard can be used to remove all relationships of a kind, for all targets.
+However, a wildcard can be used to remove all relationships of a kind — for all targets — from an entity.
 
 ```js
 player.add(Likes(apple))
