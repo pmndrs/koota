@@ -217,6 +217,35 @@ const containsAnything = world.query(Contains('*')) // Returns [inventory, chest
 const relatesToGold = world.query(Wildcard(gold)) // Returns [inventory, chest, dwarf]
 ```
 
+#### Removing relationships
+
+A relationship is with a specific target entity, so we need to likewise remove relationships for specific entities.
+
+```js
+// Add a specific relation
+player.add(Likes(apple))
+player.add(Likes(banana))
+
+// Remove that same relation
+player.remove(Likes(apple))
+
+player.has(apple) // false
+player.has(banana) // true
+```
+
+However, a wildcard can be used to remove all relationships of a kind, for all targets.
+
+```js
+player.add(Likes(apple))
+player.add(Likes(banana))
+
+// Remove all Likes relations
+player.remove(Likes('*'))
+
+player.has(apple) // false
+player.has(banana) // false
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
