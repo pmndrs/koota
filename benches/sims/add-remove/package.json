@@ -12,7 +12,6 @@
 	},
 	"devDependencies": {
 		"@config/oxlint": "workspace:*",
-		"@config/typescript": "workspace:*",
-		"tsx": "latest"
+		"@config/typescript": "workspace:*"
 	}
 }
