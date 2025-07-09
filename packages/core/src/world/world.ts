@@ -13,6 +13,7 @@ import type { TraitData } from '../trait/trait-data';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
+	SetTraitCallback,
 	Trait,
 	TraitInstance,
 	TraitValue,
@@ -111,7 +112,7 @@ export class World {
 		return getTrait(this, this[$internal].worldEntity, trait);
 	}
 
-	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>>) {
+	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
 		setTrait(this, this[$internal].worldEntity, trait, value);
 	}
 
