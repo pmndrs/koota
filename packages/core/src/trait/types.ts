@@ -53,6 +53,10 @@ type TraitInstanceFromTrait<T extends Trait> = T['schema'] extends AoSFactory
 				: T['schema'][P];
 	  };
 
+export type SetTraitCallback<T extends Trait> = (
+	prev: TraitInstance<ExtractSchema<T>>
+) => TraitValue<ExtractSchema<T>>;
+
 type TraitInstanceFromSchema<T extends Schema> = T extends AoSFactory
 	? ReturnType<T>
 	: {
