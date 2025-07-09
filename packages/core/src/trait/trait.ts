@@ -215,6 +215,19 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 			if (otherTargets.length === 0) {
 				removeTrait(world, entity, Pair(relation, Wildcard));
 			}
+
+			// Removing a relation with a wildcard should also remove every target for that relation.
+			if (
+				traitCtx.isPairTrait &&
+				traitCtx.pairTarget === Wildcard &&
+				traitCtx.relation !== Wildcard
+			) {
+				const relation = traitCtx.relation!;
+				const targets = getRelationTargets(world, relation, entity);
+				for (const target of targets) {
+					removeTrait(world, entity, relation(target));
+				}
+			}
 		}
 	}
 }

@@ -20,7 +20,7 @@ const executeMainTs = (directoryPath: string, engine: string = 'bun') => {
 			`Executing ${COLORS.fg.blue}${suiteName}${COLORS.reset} using ${COLORS.fg.yellow}${engine}${COLORS.reset}`
 		);
 		// Execute the main.ts file
-		execSync(`npx tsx ${mainTsPath}`, { stdio: 'inherit' });
+		execSync(`pnpm dlx tsx ${mainTsPath}`, { stdio: 'inherit' });
 		// if (engine === 'bun') execSync(`bun run ${mainTsPath}`, { stdio: 'inherit' });
 	} else {
 		console.error(`main.ts not found in ${directoryPath}`);
