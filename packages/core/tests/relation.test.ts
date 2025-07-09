@@ -57,6 +57,12 @@ describe('Relation', () => {
 		expect(target).toBe(player);
 		expect(goblin.has(Targeting(player))).toBe(true);
 		expect(goblin.has(Targeting(guard))).toBe(false);
+
+		// Remove the target and check if the target is removed
+		goblin.remove(Targeting(player));
+		target = goblin.targetFor(Targeting);
+
+		expect(target).toBe(undefined);
 	});
 
 	it('should auto remove target and its descendants', () => {
@@ -209,5 +215,21 @@ describe('Relation', () => {
 		expect(world.has(durian)).toBe(false);
 		expect(world.has(apple)).toBe(true);
 		expect(world.has(cherry)).toBe(true);
+	});
+
+	it('should remove all relations with a wildcard', () => {
+		const Likes = relation();
+
+		const person = world.spawn();
+		const apple = world.spawn();
+		const banana = world.spawn();
+
+		person.add(Likes(apple));
+		person.add(Likes(banana));
+
+		person.remove(Likes('*'));
+
+		expect(person.has(Likes(apple))).toBe(false);
+		expect(person.has(Likes(banana))).toBe(false);
 	});
 });

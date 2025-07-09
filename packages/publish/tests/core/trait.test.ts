@@ -12,6 +12,7 @@ const Test = trait({
 	bool: true,
 	arr: () => ['a', 'b', 'c'],
 	class: () => new TestClass(),
+	bigInt: 1n,
 });
 
 describe('Trait', () => {
