@@ -92,6 +92,24 @@ describe('World', () => {
 		expect(world.has(Time)).toBe(false);
 	});
 
+	it('should set singletons', () => {
+		const Test = trait({ last: 0, delta: 0 });
+		const world = createWorld(Test);
+
+		world.set(Test, { last: 1, delta: 1 });
+
+		expect(world.get(Test)!.last).toBe(1);
+		expect(world.get(Test)!.delta).toBe(1);
+
+		// Use callbacks to set.
+		world.set(Test, (prev) => {
+			return { last: prev.last + 1, delta: prev.delta + 1 };
+		});
+
+		expect(world.get(Test)!.last).toBe(2);
+		expect(world.get(Test)!.delta).toBe(2);
+	});
+
 	it('should observe traits', () => {
 		const TimeOfDay = trait({ hour: 0 });
 		const world = createWorld(TimeOfDay);
