@@ -1,5 +1,5 @@
 import { createActions, TraitInstance } from 'koota';
-import { Position, Velocity } from './traits';
+import { Forces, Position, Velocity } from './traits';
 import { randomSphericalDirection } from './utils/random-direction';
 import { between } from './utils/between';
 
@@ -8,7 +8,7 @@ export const actions = createActions((world) => ({
 		position: TraitInstance<typeof Position> = randomSphericalDirection(between(0, 100)),
 		velocity: TraitInstance<typeof Velocity> = randomSphericalDirection()
 	) => {
-		world.spawn(Position(position), Velocity(velocity));
+		world.spawn(Position(position), Velocity(velocity), Forces);
 	},
 	destroyRandomBoid: () => {
 		const entities = world.query(Position, Velocity);
