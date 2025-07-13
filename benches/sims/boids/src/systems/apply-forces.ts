@@ -4,7 +4,7 @@ import { Forces, Time, Velocity } from '../traits';
 export const applyForces = ({ world }: { world: World }) => {
 	const { delta } = world.get(Time)!;
 
-	world.query(Forces, Velocity).updateEach(([forces, velocity]) => {
+	world.query(Forces, Velocity).updateEach(([forces, velocity], entity) => {
 		velocity.x += forces.coherence.x * delta;
 		velocity.y += forces.coherence.y * delta;
 		velocity.z += forces.coherence.z * delta;

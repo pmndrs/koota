@@ -3,8 +3,6 @@ import type { World } from 'koota';
 import * as THREE from 'three';
 import { InstancedMesh } from '../traits/InstancedMesh';
 
-const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
-
 const dummy = new THREE.Object3D();
 const dummyColor = new THREE.Color();
 

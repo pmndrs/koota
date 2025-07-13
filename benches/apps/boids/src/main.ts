@@ -1,12 +1,12 @@
 import { initStats } from '@app/bench-tools';
-import { actions, between, CONFIG, randomSphericalDirection, schedule, world } from '@sim/boids';
+import { actions, CONFIG, schedule, world } from '@sim/boids';
 import { trait } from 'koota';
 import * as THREE from 'three';
 import { scene } from './scene';
 import './styles.css';
-import { syncThreeObjects } from './systems/syncThreeObjects';
-import { render } from './systems/render';
 import { init } from './systems/init';
+import { render } from './systems/render';
+import { syncThreeObjects } from './systems/syncThreeObjects';
 
 // Renderer
 export const renderer = new THREE.WebGLRenderer({
@@ -19,13 +19,12 @@ document.body.appendChild(renderer.domElement);
 // Camera
 const aspect = window.innerWidth / window.innerHeight;
 export const camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
-camera.userData.aspect = aspect;
 
 function onWindowResize() {
 	const aspect = window.innerWidth / window.innerHeight;
+	camera.aspect = aspect;
 	camera.updateProjectionMatrix();
 	renderer.setSize(window.innerWidth, window.innerHeight);
-	camera.userData.aspect = aspect;
 }
 
 window.addEventListener('resize', onWindowResize);

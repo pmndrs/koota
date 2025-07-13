@@ -1,6 +1,6 @@
 export const CONFIG = {
 	initialCount: 500,
 	maxVelocity: 6,
-	avoidEdgesFactor: 5,
-	avoidEdgesMaxDistance: 15,
+	avoidEdgesFactor: 10,
+	avoidEdgesMaxDistance: 100,
 };
