@@ -13,6 +13,7 @@ const Test = trait({
 	arr: () => ['a', 'b', 'c'],
 	class: () => new TestClass(),
 	bigInt: 1n,
+	object: { x: 0, y: 0 },
 });
 
 describe('Trait', () => {
@@ -64,14 +65,18 @@ describe('Trait', () => {
 		const entity = world.spawn();
 
 		entity.add(Test);
-		const test = entity.get(Test);
+		const test = entity.get(Test)!;
 
 		expect(test).toMatchObject({
 			current: 1,
 			test: 'hello',
 			bool: true,
 			arr: ['a', 'b', 'c'],
+			object: { x: 0, y: 0 },
 		});
+
+		// Nested schema objects should have their own stores created.
+		expect(Test.schema.object).not.toBe(test.object);
 	});
 
 	it('should override defaults with params', () => {

@@ -1,12 +1,110 @@
+import { isObject } from '../../utils/is';
 import type { Schema } from '../types';
 
-function createSoASetFunction(schema: Schema) {
-	const keys = Object.keys(schema);
+function generateGetObjectLiteral(schema: Schema, storePath: string): string {
+	if (typeof schema === 'function') {
+		throw new Error('Koota: SoA getter generation encountered a function schema');
+	}
 
+	const assignments = Object.keys(schema).map((key) => {
+		const value = schema[key];
+
+		if (isObject(value)) {
+			return `${key}: ${generateGetObjectLiteral(value as Schema, `${storePath}.${key}`)}`;
+		} else {
+			return `${key}: ${storePath}.${key}[index]`;
+		}
+	});
+
+	return `{ ${assignments.join(', ')} }`;
+}
+
+function generateSetStatements(
+	schema: Schema,
+	storePath: string,
+	valuePath: string,
+	checkExists: boolean = true
+): string {
+	if (typeof schema === 'function') {
+		throw new Error('Koota: SoA setter generation encountered a function schema');
+	}
+
+	const statements = Object.keys(schema).map((key) => {
+		const value = schema[key];
+		const currentStorePath = `${storePath}.${key}`;
+		const currentValuePath = `${valuePath}.${key}`;
+
+		if (isObject(value)) {
+			const condition = checkExists ? `'${key}' in ${valuePath} && ` : '';
+			return `if (${condition}${currentValuePath} !== undefined) {\n        ${generateSetStatements(
+				value as Schema,
+				currentStorePath,
+				currentValuePath,
+				false
+			)}\n    }`;
+		} else {
+			const condition = checkExists ? `'${key}' in ${valuePath} && ` : '';
+			return `if (${condition}${currentValuePath} !== undefined) ${currentStorePath}[index] = ${currentValuePath};`;
+		}
+	});
+
+	return statements.join('\n    ');
+}
+
+function generateFastSetStatements(schema: Schema, storePath: string, valuePath: string): string {
+	if (typeof schema === 'function') {
+		throw new Error('Koota: SoA fast setter generation encountered a function schema');
+	}
+
+	const statements = Object.keys(schema).map((key) => {
+		const value = schema[key];
+		const currentStorePath = `${storePath}.${key}`;
+		const currentValuePath = `${valuePath}.${key}`;
+
+		if (isObject(value)) {
+			return generateFastSetStatements(value as Schema, currentStorePath, currentValuePath);
+		} else {
+			return `${currentStorePath}[index] = ${currentValuePath};`;
+		}
+	});
+
+	return statements.join('\n    ');
+}
+
+function generateFastSetChangeStatements(
+	schema: Schema,
+	storePath: string,
+	valuePath: string
+): string {
+	if (typeof schema === 'function') {
+		throw new Error('Koota: SoA fast setter change generation encountered a function schema');
+	}
+
+	const statements = Object.keys(schema).map((key) => {
+		const value = schema[key];
+		const currentStorePath = `${storePath}.${key}`;
+		const currentValuePath = `${valuePath}.${key}`;
+
+		if (isObject(value)) {
+			return generateFastSetChangeStatements(
+				value as Schema,
+				currentStorePath,
+				currentValuePath
+			);
+		} else {
+			return `if (${currentStorePath}[index] !== ${currentValuePath}) {
+            ${currentStorePath}[index] = ${currentValuePath};
+            changed = true;
+        }`;
+		}
+	});
+
+	return statements.join('\n    ');
+}
+
+function createSoASetFunction(schema: Schema) {
 	// Generate a hardcoded set function based on the schema keys
-	const setFunctionBody = keys
-		.map((key) => `if ('${key}' in value) store.${key}[index] = value.${key};`)
-		.join('\n    ');
+	const setFunctionBody = generateSetStatements(schema, 'store', 'value');
 
 	// Use new Function to create a set function with hardcoded keys
 	const set = new Function(
@@ -22,10 +120,8 @@ function createSoASetFunction(schema: Schema) {
 }
 
 function createSoAFastSetFunction(schema: Schema) {
-	const keys = Object.keys(schema);
-
 	// Generate a hardcoded set function based on the schema keys
-	const setFunctionBody = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
+	const setFunctionBody = generateFastSetStatements(schema, 'store', 'value');
 
 	// Use new Function to create a set function with hardcoded keys
 	const set = new Function(
@@ -42,18 +138,8 @@ function createSoAFastSetFunction(schema: Schema) {
 
 // Return true if any trait value were changed.
 function createSoAFastSetChangeFunction(schema: Schema) {
-	const keys = Object.keys(schema);
-
 	// Generate a hardcoded set function based on the schema keys
-	const setFunctionBody = keys
-		.map(
-			(key) =>
-				`if (store.${key}[index] !== value.${key}) {
-            store.${key}[index] = value.${key};
-            changed = true;
-        }`
-		)
-		.join('\n    ');
+	const setFunctionBody = generateFastSetChangeStatements(schema, 'store', 'value');
 
 	// Use new Function to create a set function with hardcoded keys
 	const set = new Function(
@@ -71,10 +157,8 @@ function createSoAFastSetChangeFunction(schema: Schema) {
 }
 
 function createSoAGetFunction(schema: Schema) {
-	const keys = Object.keys(schema);
-
 	// Create an object literal with all keys assigned from the store
-	const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[index]`).join(', ')} }`;
+	const objectLiteral = generateGetObjectLiteral(schema, 'store');
 
 	// Use new Function to create a get function that returns the pre-populated object
 	const get = new Function(

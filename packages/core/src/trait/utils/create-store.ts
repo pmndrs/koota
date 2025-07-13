@@ -1,3 +1,4 @@
+import { isObject } from '../../utils/is';
 import type { Schema, Store } from '../types';
 
 export function createStore<T extends Schema>(schema: T): Store<T> {
@@ -7,7 +8,13 @@ export function createStore<T extends Schema>(schema: T): Store<T> {
 		const store = {} as any;
 
 		for (const key in schema) {
-			store[key] = [];
+			const value = schema[key];
+
+			if (isObject(value)) {
+				store[key] = createStore(value as Schema);
+			} else {
+				store[key] = [];
+			}
 
 			// Legacy code for TypedArray support -- MT in particular.
 			// I will revist this later.
