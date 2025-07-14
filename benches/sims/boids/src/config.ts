@@ -3,4 +3,5 @@ export const CONFIG = {
 	maxVelocity: 6,
 	avoidEdgesFactor: 5,
 	avoidEdgesMaxDistance: 100,
+	coherenceFactor: 0.5,
 };
