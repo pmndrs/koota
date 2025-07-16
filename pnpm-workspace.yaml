@@ -1,21 +1,24 @@
 packages:
-    - 'packages/*'
-    - 'benches/sims/*'
-    - 'benches/apps/*'
-    - '.config/*'
+  - packages/*
+  - benches/sims/*
+  - benches/apps/*
+  - .config/*
 
 catalog:
-    '@react-three/drei': ^10.1.2
-    '@react-three/fiber': ^9.1.2
-    '@types/react': '^19.1.6'
-    '@types/react-dom': '^19.1.6'
-    '@types/three': '^0.177.0'
-    esbuild-plugin-inline-functions: ^0.2.0
-    react: ^19.1.0
-    react-dom: ^19.1.0
-    three: ^0.177.0
-    directed: ^0.1.6
-    vitest: ^3.2.2
-    vite: ^6.3.5
+  '@react-three/drei': ^10.1.2
+  '@react-three/fiber': ^9.1.2
+  '@types/react': ^19.1.6
+  '@types/react-dom': ^19.1.6
+  '@types/three': ^0.177.0
+  esbuild-plugin-inline-functions: ^0.2.0
+  react: ^19.1.0
+  react-dom: ^19.1.0
+  three: ^0.177.0
+  directed: ^0.1.6
+  vitest: ^3.2.2
+  vite: ^6.3.5
 
 manage-package-manager-versions: true
+
+onlyBuiltDependencies:
+  - esbuild
