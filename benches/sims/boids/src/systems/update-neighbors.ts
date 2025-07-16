@@ -30,7 +30,7 @@ export function updateNeighbors({ world }: { world: World }) {
 
 			if (distance < radius) {
 				entityA.add(NeighborOf(entityB));
-				entityB.add(NeighborOf(entityA));
+				// entityB.add(NeighborOf(entityA));
 
 				neighbors++;
 				if (neighbors >= maxNeighbors) break;
