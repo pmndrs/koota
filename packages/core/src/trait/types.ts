@@ -69,11 +69,11 @@ export type TraitInstance<T extends Trait | Schema> = T extends Trait
 
 export type Schema =
 	| {
-			[key: string]: number | bigint | string | boolean | any[] | object | null | undefined;
+			[key: string]: number | bigint | string | boolean | null | undefined | (() => unknown);
 	  }
 	| AoSFactory;
 
-export type AoSFactory = () => Record<string, any>;
+export type AoSFactory = () => unknown;
 
 export type Store<T extends Schema = any> = T extends AoSFactory
 	? ReturnType<T>[]
@@ -83,8 +83,8 @@ export type Store<T extends Schema = any> = T extends AoSFactory
 
 // Type Utils
 
-// This type utility ensures that explicit values like true, false or "string literal" are normalized to their primitive types.
-// Mostly used for schema types.
+// This type utility ensures that explicit values like true, false or "string literal" are
+// normalized to their primitive types. Mostly used for schema types.
 export type Norm<T extends Schema> = T extends AoSFactory
 	? () => ReturnType<T> extends number
 			? number
@@ -93,6 +93,16 @@ export type Norm<T extends Schema> = T extends AoSFactory
 			: ReturnType<T> extends string
 			? string
 			: ReturnType<T>
+	: {
+			[K in keyof T]: T[K] extends object
+				? T[K] extends (...args: any[]) => any
+					? T[K]
+					: never
+				: T[K] extends boolean
+				? boolean
+				: T[K];
+	  }[keyof T] extends never
+	? never
 	: {
 			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
 	  };

@@ -12,8 +12,8 @@ import {
 
 const Position = trait({ x: 0, y: 0 });
 const IsActive = trait();
-const Foo = trait({});
-const Bar = trait({});
+const Foo = trait();
+const Bar = trait();
 
 describe('Query modifiers', () => {
 	const world = createWorld();
