@@ -4,8 +4,8 @@ import { $internal, cacheQuery, createWorld, IsExcluded, Not, Or, trait } from '
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
 const IsActive = trait();
-const Foo = trait({});
-const Bar = trait({});
+const Foo = trait();
+const Bar = trait();
 
 describe('Query', () => {
 	const world = createWorld();
