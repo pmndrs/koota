@@ -14,12 +14,15 @@ import {
 	createSetFunction,
 } from './utils/create-accessors';
 import { createStore } from './utils/create-store';
+import { validateSchema } from './utils/validate-schema';
 
 let traitId = 0;
 
 function defineTrait<S extends Schema>(schema: S = {} as S): Trait<Norm<S>> {
 	const isAoS = typeof schema === 'function';
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
+
+	validateSchema(schema);
 
 	const Trait = Object.assign((params: Partial<Norm<S>>) => [Trait, params], {
 		schema: schema as Norm<S>,
