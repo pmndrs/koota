@@ -29,6 +29,13 @@ describe('Trait', () => {
 		expect(typeof Test === 'function').toBe(true);
 	});
 
+	it('should throw an error if the schema contains an object or array', () => {
+		// @ts-expect-error - we want to test the error case
+		expect(() => trait({ object: { a: 1, b: 2 } })).toThrow();
+		// @ts-expect-error - we want to test the error case
+		expect(() => trait({ array: [1, 2, 3] })).toThrow();
+	});
+
 	it('should add and remove traits to an entity', () => {
 		const entity = world.spawn();
 
