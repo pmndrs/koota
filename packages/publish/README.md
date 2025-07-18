@@ -217,6 +217,35 @@ const containsAnything = world.query(Contains('*')) // Returns [inventory, chest
 const relatesToGold = world.query(Wildcard(gold)) // Returns [inventory, chest, dwarf]
 ```
 
+#### Removing relationships
+
+A relationship targets a specific entity, so we need to likewise remove relationships with specific entities.
+
+```js
+// Add a specific relation
+player.add(Likes(apple))
+player.add(Likes(banana))
+
+// Remove that same relation
+player.remove(Likes(apple))
+
+player.has(apple) // false
+player.has(banana) // true
+```
+
+However, a wildcard can be used to remove all relationships of a kind — for all targets — from an entity.
+
+```js
+player.add(Likes(apple))
+player.add(Likes(banana))
+
+// Remove all Likes relations
+player.remove(Likes('*'))
+
+player.has(apple) // false
+player.has(banana) // false
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -550,7 +579,7 @@ const { entityId, generation, worldId } = unpackEntity(entity)
 
 ### Trait
 
-A trait is a specific block of data. They are added to entities to build up its overall data signature. If you are familiar with ECS, it is our version of a component. It is called a trait instead to not get confused with React or web components.
+Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React or web components.
 
 A trait can be created with a schema that describes the kind of data it will hold.
 
@@ -558,21 +587,26 @@ A trait can be created with a schema that describes the kind of data it will hol
 const Position = trait({ x: 0, y: 0, z: 0 })
 ```
 
-In cases where the data needs to be initialized for each instance of the trait created, a callback can be passed in to be used a as a lazy initializer.
+A schema supports primitive values with **no** nested objects or arrays. In cases where the data needs to initialized for each instance of the trait, or complex structures are required, a callback initializer can be used.
 
 ```js
-// ❌ The items array will be shared between every instance of this trait
+// ❌ Arrays and objects are not allowed in trait schemas
 const Inventory = trait({
   items: [],
+  vec3: { x: 0, y: 0, z: 0}
   max: 10,
 })
 
-// ✅ With a lazy initializer, each instance will now get its own array
+// ✅ Use a callback initializer for arrays and objects
 const Inventory = trait({
   items: () => [],
+  vec3: () => ({ x: 0, y: 0, z: 0})
   max: 10,
 })
 ```
+
+> ℹ️ **Why not support nested schemas?**<br>
+> It looks obvious to support nested stores, but doing so makes algorithms that work with the data exponentially more complex. If all data can be assumed scalar then any operation is guaranteed to be the simplest and fastest algorithm possible. This is called the First Normal Form in relational database theory. [You can read more here](https://www.dataorienteddesign.com/dodbook/node3.html#SECTION00340000000000000000).
 
 Sometimes a trait only has one field that points to an object instance. In cases like this, it is useful to skip the schema and use a callback directly in the trait.
 
