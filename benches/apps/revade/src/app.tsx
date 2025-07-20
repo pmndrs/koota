@@ -221,9 +221,10 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 
 	useFrame((_, delta) => {
 		if (!groupRef.current) return;
-		const { duration, current } = entity.get(Explosion)!;
+		const explosion = entity.get(Explosion);
+		if (!explosion) return;
+		const { duration, current, velocities } = explosion;
 		const progress = current / duration;
-		const velocities = entity.get(Explosion)!.velocities;
 		const meshes = groupRef.current.children as THREE.Mesh[];
 
 		particles.forEach((_, i) => {
