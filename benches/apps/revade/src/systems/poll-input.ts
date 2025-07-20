@@ -82,6 +82,5 @@ export const pollInput = ({ world }: { world: World }) => {
 				input.y = 0;
 			}
 		},
-		{ changeDetection: true }
 	);
 };
