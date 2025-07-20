@@ -781,7 +781,7 @@ return (
 )
 ```
 
-### `usQueryFirst`
+### `useQueryFirst`
 
 Works like `useQuery` but only returns the first result. Can either be an entity of undefined.
 
