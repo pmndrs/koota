@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
-import { IsExcluded, createQuery, runQuery } from '../query/query';
+import { IsExcluded, createQuery } from '../query/query';
 import { createEmptyQueryResult } from '../query/query-result';
 import type {
 	Query,
@@ -185,7 +185,7 @@ export class World {
 		if (typeof args[0] === 'string') {
 			const query = ctx.queriesHashMap.get(args[0]);
 			if (!query) return createEmptyQueryResult();
-			return runQuery(this, query);
+			return query.run(this);
 		} else {
 			const params = args as QueryParameter[];
 			const hash = createQueryHash(params);
@@ -196,7 +196,7 @@ export class World {
 				ctx.queriesHashMap.set(hash, query);
 			}
 
-			return runQuery(this, query);
+			return query.run(this);
 		}
 	}
 

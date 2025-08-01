@@ -7,6 +7,7 @@ import type {
 	Trait,
 	TraitInstance,
 	TraitData,
+	Store,
 } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
@@ -91,6 +92,8 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	parameters: T;
 	hash: string;
 	traits: Trait[];
+	resultStores: Store[];
+	resultTraits: Trait[];
 	traitData: {
 		required: TraitData[];
 		forbidden: TraitData[];
