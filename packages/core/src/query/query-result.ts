@@ -7,7 +7,6 @@ import { shallowEqual } from '../utils/shallow-equal';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
-import { commitQueryRemovals } from './query';
 import type {
 	InstancesFromParameters,
 	Query,
@@ -18,23 +17,11 @@ import type {
 } from './types';
 
 export function createQueryResult<T extends QueryParameter[]>(
-	query: Query,
 	world: World,
-	params: T
+	query: Query,
+	entities: Entity[]
 ): QueryResult<T> {
-	commitQueryRemovals(world);
-	const entities = query.entities.dense.slice() as Entity[];
-
-	// Clear so it can accumulate again.
-	if (query.isTracking) {
-		query.entities.clear();
-
-		// @todo: Need to improve the performance of this loop.
-		for (const eid of entities) {
-			query.resetTrackingBitmasks(eid);
-		}
-	}
-
+	const params = query.parameters as T;
 	const stores: Store<any>[] = [];
 	const traits: Trait[] = [];
 
@@ -262,4 +249,15 @@ export function createQueryResult<T extends QueryParameter[]>(
 			stores.push(getStore(world, param));
 		}
 	}
+}
+
+export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
+	const results = Object.assign([], {
+		updateEach: () => results,
+		useStores: () => results,
+		select: () => results,
+		sort: () => results,
+	}) as QueryResult<QueryParameter[]>;
+
+	return results;
 }
