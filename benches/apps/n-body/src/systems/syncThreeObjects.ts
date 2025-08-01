@@ -12,7 +12,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
 	const instanceEnt = world.queryFirst(InstancedMesh);
 	if (instanceEnt === undefined) return;
 
-	const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
+	const instancedMesh = instanceEnt.get(InstancedMesh)!;
 
 	world.query(Position, Circle, Color).updateEach(([position, circle, color], entity) => {
 		dummy.position.set(position.x, position.y, 0);
