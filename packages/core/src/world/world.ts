@@ -2,19 +2,25 @@ import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
-import { IsExcluded, Query } from '../query/query';
+import { IsExcluded, createQuery } from '../query/query';
 import { createQueryResult } from '../query/query-result';
-import type { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
+import type {
+	Query,
+	QueryHash,
+	QueryParameter,
+	QueryResult,
+	QueryUnsubscriber,
+} from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import type { RelationTarget } from '../relation/types';
-import type { TraitData } from '../trait/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
 	SetTraitCallback,
 	Trait,
+	TraitData,
 	TraitInstance,
 	TraitValue,
 } from '../trait/types';
@@ -80,7 +86,7 @@ export class World {
 
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
-			const query = new Query(this, parameters);
+			const query = createQuery(this, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
 
@@ -179,7 +185,7 @@ export class World {
 		if (typeof args[0] === 'string') {
 			const query = ctx.queriesHashMap.get(args[0]);
 			// TODO: Query results need to be refactored so query.run() returns it and we can create emtpy ones
-			if (!query) return createQueryResult(new Query(this, []), this, []);
+			if (!query) return createQueryResult(createQuery(this, []), this, []);
 			return createQueryResult(query, this, query.parameters);
 		} else {
 			const params = args as QueryParameter[];
@@ -187,7 +193,7 @@ export class World {
 			let query = ctx.queriesHashMap.get(hash);
 
 			if (!query) {
-				query = new Query(this, params);
+				query = createQuery(this, params);
 				ctx.queriesHashMap.set(hash, query);
 			}
 
@@ -238,7 +244,7 @@ export class World {
 			query = ctx.queriesHashMap.get(hash)!;
 
 			if (!query) {
-				query = new Query(this, args);
+				query = createQuery(this, args);
 				ctx.queriesHashMap.set(hash, query);
 			}
 		}
@@ -270,7 +276,7 @@ export class World {
 			query = ctx.queriesHashMap.get(hash)!;
 
 			if (!query) {
-				query = new Query(this, args);
+				query = createQuery(this, args);
 				ctx.queriesHashMap.set(hash, query);
 			}
 		}

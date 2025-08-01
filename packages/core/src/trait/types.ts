@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { Entity } from '../entity/types';
-import { Query } from '../query/query';
+import { Query } from '../query/types';
 import type { Relation, RelationTarget } from '../relation/types';
 import type { IsEmpty } from '../utils/types';
 

@@ -6,7 +6,10 @@ import type {
 	IsTag,
 	Trait,
 	TraitInstance,
+	TraitData,
 } from '../trait/types';
+import type { SparseSet } from '../utils/sparse-set';
+import type { World } from '../world/world';
 import { $modifier } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;
@@ -80,4 +83,50 @@ export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string 
 	id: number;
 	traits: TTrait;
 	traitIds: number[];
+};
+
+export type Query = {
+	version: number;
+	world: World;
+	parameters: QueryParameter[];
+	hash: string;
+	traits: Trait[];
+	traitData: {
+		required: TraitData[];
+		forbidden: TraitData[];
+		or: TraitData[];
+		added: TraitData[];
+		removed: TraitData[];
+		changed: TraitData[];
+		all: TraitData[];
+	};
+	bitmasks: {
+		required: number;
+		forbidden: number;
+		or: number;
+		added: number;
+		removed: number;
+		changed: number;
+		addedTracker: number[];
+		removedTracker: number[];
+		changedTracker: number[];
+	}[];
+	generations: number[];
+	entities: SparseSet;
+	isTracking: boolean;
+	hasChangedModifiers: boolean;
+	changedTraits: Set<Trait>;
+	toRemove: SparseSet;
+	addSubscriptions: Set<QuerySubscriber>;
+	removeSubscriptions: Set<QuerySubscriber>;
+	run: (world: World) => Entity[];
+	add: (entity: Entity) => void;
+	remove: (world: World, entity: Entity) => void;
+	check: (
+		world: World,
+		entity: Entity,
+		event?: { type: 'add' | 'remove' | 'change'; traitData: TraitData }
+	) => boolean;
+	commitRemovals: (world: World) => void;
+	resetTrackingBitmasks: (eid: number) => void;
 };
