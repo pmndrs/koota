@@ -9,7 +9,158 @@ import { isModifier } from './modifier';
 import type { Query, QueryParameter, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
 
+type QueryEvent = { type: 'add' | 'remove' | 'change'; traitData: TraitData };
+
 export const IsExcluded = trait();
+
+export function runQuery(world: World, query: Query): Entity[] {
+	commitQueryRemovals(world);
+	const result = query.entities.dense.slice();
+
+	// Clear so it can accumulate again.
+	if (query.isTracking) {
+		query.entities.clear();
+
+		for (const eid of result) {
+			query.resetTrackingBitmasks(eid);
+		}
+	}
+
+	return result as Entity[];
+}
+
+export function addEntityToQuery(query: Query, entity: Entity) {
+	query.toRemove.remove(entity);
+	query.entities.add(entity);
+
+	// Notify subscriptions.
+	for (const sub of query.addSubscriptions) {
+		sub(entity);
+	}
+
+	query.version++;
+}
+
+export function removeEntityFromQuery(world: World, query: Query, entity: Entity) {
+	if (!query.entities.has(entity) || query.toRemove.has(entity)) return;
+
+	const ctx = world[$internal];
+
+	query.toRemove.add(entity);
+	ctx.dirtyQueries.add(query);
+
+	// Notify subscriptions.
+	for (const sub of query.removeSubscriptions) {
+		sub(entity);
+	}
+
+	query.version++;
+}
+
+export function checkQuery(world: World, query: Query, entity: Entity, event?: QueryEvent): boolean {
+	const { bitmasks, generations } = query;
+	const ctx = world[$internal];
+	const eid = getEntityId(entity);
+
+	// If the query is empty, the check fails.
+	if (query.traitData.all.length === 0) return false;
+
+	for (let i = 0; i < generations.length; i++) {
+		const generationId = generations[i];
+		const bitmask = bitmasks[i];
+		const { required, forbidden, or, added, removed, changed } = bitmask;
+		const entityMask = ctx.entityMasks[generationId][eid];
+
+		// If there are no traits to match, return false.
+		if (!forbidden && !required && !or && !removed && !added && !changed) {
+			return false;
+		}
+
+		// Only process events for the current trait's generation or the masks will not be relevant.
+		const isEventGeneration = event && event.traitData.generationId === generationId;
+
+		// Handle events.
+		if (query.isTracking && isEventGeneration) {
+			const traitMask = event.traitData.bitflag;
+
+			if (event.type === 'add') {
+				if (removed & traitMask) return false;
+				if (added & traitMask) {
+					bitmask.addedTracker[eid] |= traitMask;
+				}
+			} else if (event.type === 'remove') {
+				if (added & traitMask) return false;
+				if (removed & traitMask) {
+					bitmask.removedTracker[eid] |= traitMask;
+				}
+				// Remove from changed tracker when the trait is removed.
+				if (changed & traitMask) return false;
+			} else if (event.type === 'change') {
+				// Check that the trait is on the entity.
+				if (!(entityMask & traitMask)) return false;
+				if (changed & traitMask) {
+					bitmask.changedTracker[eid] |= traitMask;
+				}
+			}
+		}
+
+		// Check forbidden traits.
+		if ((entityMask & forbidden) !== 0) return false;
+
+		// Check required traits.
+		if ((entityMask & required) !== required) return false;
+
+		// Check Or traits.
+		if (or !== 0 && (entityMask & or) === 0) return false;
+
+		// Check if all required added traits have been added.
+		if (added && isEventGeneration) {
+			const entityAddedTracker = bitmask.addedTracker[eid] || 0;
+			if ((entityAddedTracker & added) !== added) return false;
+		}
+
+		// Check if all required removed traits have been removed.
+		if (removed && isEventGeneration) {
+			const entityRemovedTracker = bitmask.removedTracker[eid] || 0;
+			if ((entityRemovedTracker & removed) !== removed) {
+				return false;
+			}
+		}
+
+		// Check if all required changed traits have been changed.
+		if (changed && isEventGeneration) {
+			const entityChangedTracker = bitmask.changedTracker[eid] || 0;
+			if ((entityChangedTracker & changed) !== changed) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+export function commitQueryRemovals(world: World) {
+	const ctx = world[$internal];
+	if (!ctx.dirtyQueries.size) return;
+
+	for (const query of ctx.dirtyQueries) {
+		for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
+			const eid = query.toRemove.dense[i];
+			query.toRemove.remove(eid);
+			query.entities.remove(eid);
+		}
+	}
+
+	ctx.dirtyQueries.clear();
+}
+
+export function resetQueryTrackingBitmasks(query: Query, eid: number) {
+	for (const bitmask of query.bitmasks) {
+		bitmask.addedTracker[eid] = 0;
+		bitmask.removedTracker[eid] = 0;
+		bitmask.changedTracker[eid] = 0;
+	}
+}
 
 export function createQuery(world: World, parameters: QueryParameter[] = []): Query {
 	const query: Query = {
@@ -37,158 +188,12 @@ export function createQuery(world: World, parameters: QueryParameter[] = []): Qu
 		addSubscriptions: new Set<QuerySubscriber>(),
 		removeSubscriptions: new Set<QuerySubscriber>(),
 
-		run(world: World): Entity[] {
-			query.commitRemovals(world);
-			const result = query.entities.dense.slice();
-
-			// Clear so it can accumulate again.
-			if (query.isTracking) {
-				query.entities.clear();
-
-				for (const eid of result) {
-					query.resetTrackingBitmasks(eid);
-				}
-			}
-
-			return result as Entity[];
-		},
-
-		add(entity: Entity) {
-			query.toRemove.remove(entity);
-			query.entities.add(entity);
-
-			// Notify subscriptions.
-			for (const sub of query.addSubscriptions) {
-				sub(entity);
-			}
-
-			query.version++;
-		},
-
-		remove(world: World, entity: Entity) {
-			if (!query.entities.has(entity) || query.toRemove.has(entity)) return;
-
-			const ctx = world[$internal];
-
-			query.toRemove.add(entity);
-			ctx.dirtyQueries.add(query);
-
-			// Notify subscriptions.
-			for (const sub of query.removeSubscriptions) {
-				sub(entity);
-			}
-
-			query.version++;
-		},
-
-		check(
-			world: World,
-			entity: Entity,
-			event?: { type: 'add' | 'remove' | 'change'; traitData: TraitData }
-		) {
-			const { bitmasks, generations } = query;
-			const ctx = world[$internal];
-			const eid = getEntityId(entity);
-
-			// If the query is empty, the check fails.
-			if (query.traitData.all.length === 0) return false;
-
-			for (let i = 0; i < generations.length; i++) {
-				const generationId = generations[i];
-				const bitmask = bitmasks[i];
-				const { required, forbidden, or, added, removed, changed } = bitmask;
-				const entityMask = ctx.entityMasks[generationId][eid];
-
-				// If there are no traits to match, return false.
-				if (!forbidden && !required && !or && !removed && !added && !changed) {
-					return false;
-				}
-
-				// Only process events for the current trait's generation or the masks will not be relevant.
-				const isEventGeneration = event && event.traitData.generationId === generationId;
-
-				// Handle events.
-				if (query.isTracking && isEventGeneration) {
-					const traitMask = event.traitData.bitflag;
-
-					if (event.type === 'add') {
-						if (removed & traitMask) return false;
-						if (added & traitMask) {
-							bitmask.addedTracker[eid] |= traitMask;
-						}
-					} else if (event.type === 'remove') {
-						if (added & traitMask) return false;
-						if (removed & traitMask) {
-							bitmask.removedTracker[eid] |= traitMask;
-						}
-						// Remove from changed tracker when the trait is removed.
-						if (changed & traitMask) return false;
-					} else if (event.type === 'change') {
-						// Check that the trait is on the entity.
-						if (!(entityMask & traitMask)) return false;
-						if (changed & traitMask) {
-							bitmask.changedTracker[eid] |= traitMask;
-						}
-					}
-				}
-
-				// Check forbidden traits.
-				if ((entityMask & forbidden) !== 0) return false;
-
-				// Check required traits.
-				if ((entityMask & required) !== required) return false;
-
-				// Check Or traits.
-				if (or !== 0 && (entityMask & or) === 0) return false;
-
-				// Check if all required added traits have been added.
-				if (added && isEventGeneration) {
-					const entityAddedTracker = bitmask.addedTracker[eid] || 0;
-					if ((entityAddedTracker & added) !== added) return false;
-				}
-
-				// Check if all required removed traits have been removed.
-				if (removed && isEventGeneration) {
-					const entityRemovedTracker = bitmask.removedTracker[eid] || 0;
-					if ((entityRemovedTracker & removed) !== removed) {
-						return false;
-					}
-				}
-
-				// Check if all required changed traits have been changed.
-				if (changed && isEventGeneration) {
-					const entityChangedTracker = bitmask.changedTracker[eid] || 0;
-					if ((entityChangedTracker & changed) !== changed) {
-						return false;
-					}
-				}
-			}
-
-			return true;
-		},
-
-		commitRemovals(world: World) {
-			const ctx = world[$internal];
-			if (!ctx.dirtyQueries.size) return;
-
-			for (const query of ctx.dirtyQueries) {
-				for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
-					const eid = query.toRemove.dense[i];
-					query.toRemove.remove(eid);
-					query.entities.remove(eid);
-				}
-			}
-
-			ctx.dirtyQueries.clear();
-		},
-
-		resetTrackingBitmasks(eid: number) {
-			for (const bitmask of query.bitmasks) {
-				bitmask.addedTracker[eid] = 0;
-				bitmask.removedTracker[eid] = 0;
-				bitmask.changedTracker[eid] = 0;
-			}
-		},
+		run: (world: World) => runQuery(world, query),
+		add: (entity: Entity) => addEntityToQuery(query, entity),
+		remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
+		check: (world: World, entity: Entity, event?: QueryEvent) =>
+			checkQuery(world, query, entity, event),
+		resetTrackingBitmasks: (eid: number) => resetQueryTrackingBitmasks(query, eid),
 	};
 
 	const ctx = world[$internal];

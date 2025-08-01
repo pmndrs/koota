@@ -7,9 +7,10 @@ import { shallowEqual } from '../utils/shallow-equal';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
-import type { Query } from './query';
+import { commitQueryRemovals } from './query';
 import type {
 	InstancesFromParameters,
+	Query,
 	QueryParameter,
 	QueryResult,
 	QueryResultOptions,
@@ -21,7 +22,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 	world: World,
 	params: T
 ): QueryResult<T> {
-	query.commitRemovals(world);
+	commitQueryRemovals(world);
 	const entities = query.entities.dense.slice() as Entity[];
 
 	// Clear so it can accumulate again.
