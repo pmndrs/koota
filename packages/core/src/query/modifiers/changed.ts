@@ -5,7 +5,7 @@ import { hasTrait, registerTrait } from '../../trait/trait';
 import type { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world/world';
-import { ModifierData } from '../modifier';
+import { createModifier } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createChanged() {
@@ -16,8 +16,9 @@ export function createChanged() {
 		setTrackingMasks(world.deref()!, id);
 	}
 
-	return <T extends Trait[] = Trait[]>(...traits: T) =>
-		new ModifierData<T>(`changed-${id}`, id, traits);
+	return <T extends Trait[] = Trait[]>(...traits: T) => {
+		return createModifier(`changed-${id}`, id, traits);
+	};
 }
 
 export function setChanged(world: World, entity: Entity, trait: Trait) {

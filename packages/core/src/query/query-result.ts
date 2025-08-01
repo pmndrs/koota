@@ -5,7 +5,7 @@ import { getStore } from '../trait/trait';
 import type { Store, Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import type { World } from '../world/world';
-import { ModifierData } from './modifier';
+import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
 import type { Query } from './query';
 import type {
@@ -245,7 +245,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 	for (let i = 0; i < params.length; i++) {
 		const param = params[i];
 
-		if (param instanceof ModifierData) {
+		if (isModifier(param)) {
 			// Skip not modifier.
 			if (param.type === 'not') continue;
 
