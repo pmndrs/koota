@@ -6,7 +6,7 @@ import type { Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
-import { createQueryResult } from './query-result';
+import { createQueryResult, getQueryStores } from './query-result';
 import type { Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
 
@@ -14,7 +14,7 @@ type QueryEvent = { type: 'add' | 'remove' | 'change'; traitData: TraitData };
 
 export const IsExcluded = trait();
 
-export function runQuery<T extends QueryParameter[]>(world: World, query: Query): QueryResult<T> {
+export function runQuery<T extends QueryParameter[]>(world: World, query: Query<T>): QueryResult<T> {
 	commitQueryRemovals(world);
 	const entities = query.entities.dense.slice() as Entity[];
 
@@ -27,7 +27,7 @@ export function runQuery<T extends QueryParameter[]>(world: World, query: Query)
 		}
 	}
 
-	return createQueryResult(world, query, entities);
+	return createQueryResult(world, entities, query.resultStores, query.resultTraits, query);
 }
 
 export function addEntityToQuery(query: Query, entity: Entity) {
@@ -170,6 +170,8 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		parameters,
 		hash: '',
 		traits: [],
+		resultStores: [],
+		resultTraits: [],
 		traitData: {
 			required: [],
 			forbidden: [],
@@ -189,7 +191,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		addSubscriptions: new Set<QuerySubscriber>(),
 		removeSubscriptions: new Set<QuerySubscriber>(),
 
-		run: (world: World) => runQuery<T>(world, query),
+		run: (world: World) => runQuery(world, query),
 		add: (entity: Entity) => addEntityToQuery(query, entity),
 		remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
 		check: (world: World, entity: Entity, event?: QueryEvent) =>
@@ -427,6 +429,9 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			}
 		}
 	}
+
+	// Pre-compute result stores and traits.
+	getQueryStores(parameters, query.resultTraits, query.resultStores, world);
 
 	return query;
 }

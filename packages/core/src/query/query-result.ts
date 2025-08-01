@@ -18,17 +18,11 @@ import type {
 
 export function createQueryResult<T extends QueryParameter[]>(
 	world: World,
-	query: Query,
-	entities: Entity[]
+	entities: Entity[],
+	stores: Store<any>[],
+	traits: Trait[],
+	query: Query
 ): QueryResult<T> {
-	const params = query.parameters as T;
-	const stores: Store<any>[] = [];
-	const traits: Trait[] = [];
-
-	// Get the traits for the query parameters in the order they are defined
-	// and not the order they are sorted for the query hash.
-	getQueryStores<T>(params, traits, stores, world);
-
 	const results = Object.assign(entities, {
 		updateEach(
 			callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
@@ -224,7 +218,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 	}
 }
 
-/* @inline */ function getQueryStores<T extends QueryParameter[]>(
+/* @inline */ export function getQueryStores<T extends QueryParameter[]>(
 	params: T,
 	traits: Trait[],
 	stores: Store<any>[],
