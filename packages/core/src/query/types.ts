@@ -127,6 +127,5 @@ export type Query = {
 		entity: Entity,
 		event?: { type: 'add' | 'remove' | 'change'; traitData: TraitData }
 	) => boolean;
-	commitRemovals: (world: World) => void;
 	resetTrackingBitmasks: (eid: number) => void;
 };
