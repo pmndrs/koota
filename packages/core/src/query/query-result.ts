@@ -19,10 +19,12 @@ import type {
 export function createQueryResult<T extends QueryParameter[]>(
 	world: World,
 	entities: Entity[],
-	stores: Store<any>[],
-	traits: Trait[],
 	query: Query
 ): QueryResult<T> {
+	// Use cached traits and stores for default queries.
+	let traits = query.resultTraits;
+	let stores = query.resultStores;
+
 	const results = Object.assign(entities, {
 		updateEach(
 			callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
