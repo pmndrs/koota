@@ -85,10 +85,10 @@ export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string 
 	traitIds: number[];
 };
 
-export type Query = {
+export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	version: number;
 	world: World;
-	parameters: QueryParameter[];
+	parameters: T;
 	hash: string;
 	traits: Trait[];
 	traitData: {
@@ -119,7 +119,7 @@ export type Query = {
 	toRemove: SparseSet;
 	addSubscriptions: Set<QuerySubscriber>;
 	removeSubscriptions: Set<QuerySubscriber>;
-	run: (world: World) => Entity[];
+	run: (world: World) => QueryResult<T>;
 	add: (entity: Entity) => void;
 	remove: (world: World, entity: Entity) => void;
 	check: (

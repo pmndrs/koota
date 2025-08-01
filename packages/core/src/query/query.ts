@@ -6,27 +6,28 @@ import type { Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
-import type { Query, QueryParameter, QuerySubscriber } from './types';
+import { createQueryResult } from './query-result';
+import type { Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
 
 type QueryEvent = { type: 'add' | 'remove' | 'change'; traitData: TraitData };
 
 export const IsExcluded = trait();
 
-export function runQuery(world: World, query: Query): Entity[] {
+export function runQuery<T extends QueryParameter[]>(world: World, query: Query): QueryResult<T> {
 	commitQueryRemovals(world);
-	const result = query.entities.dense.slice();
+	const entities = query.entities.dense.slice() as Entity[];
 
 	// Clear so it can accumulate again.
 	if (query.isTracking) {
 		query.entities.clear();
-
-		for (const eid of result) {
+		// @todo: Need to improve the performance of this loop.
+		for (const eid of entities) {
 			query.resetTrackingBitmasks(eid);
 		}
 	}
 
-	return result as Entity[];
+	return createQueryResult(world, query, entities);
 }
 
 export function addEntityToQuery(query: Query, entity: Entity) {
@@ -162,7 +163,7 @@ export function resetQueryTrackingBitmasks(query: Query, eid: number) {
 	}
 }
 
-export function createQuery(world: World, parameters: QueryParameter[] = []): Query {
+export function createQuery<T extends QueryParameter[]>(world: World, parameters: T): Query {
 	const query: Query = {
 		version: 0,
 		world,
@@ -188,7 +189,7 @@ export function createQuery(world: World, parameters: QueryParameter[] = []): Qu
 		addSubscriptions: new Set<QuerySubscriber>(),
 		removeSubscriptions: new Set<QuerySubscriber>(),
 
-		run: (world: World) => runQuery(world, query),
+		run: (world: World) => runQuery<T>(world, query),
 		add: (entity: Entity) => addEntityToQuery(query, entity),
 		remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
 		check: (world: World, entity: Entity, event?: QueryEvent) =>
