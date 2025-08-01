@@ -7,7 +7,7 @@ import type {
 	Trait,
 	TraitInstance,
 } from '../trait/types';
-import type { ModifierData } from './modifier';
+import { $modifier } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;
 export type QueryParameter = Trait | ReturnType<QueryModifier>;
@@ -37,15 +37,15 @@ export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer 
 			...(First extends Trait
 				? [ExtractStore<First>]
 				: First extends ModifierData
-					? StoresFromParameters<UnwrapModifierData<First>>
-					: []),
-			...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : []),
-		]
+				? StoresFromParameters<UnwrapModifierData<First>>
+				: []),
+			...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : [])
+	  ]
 	: [];
 
 export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 	infer First,
-	...infer Rest,
+	...infer Rest
 ]
 	? [
 			...(First extends Trait
@@ -55,12 +55,12 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 						: [TraitInstance<First>]
 					: []
 				: First extends ModifierData
-					? IsNotModifier<First> extends true
-						? []
-						: InstancesFromParameters<UnwrapModifierData<First>>
-					: []),
-			...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest> : []),
-		]
+				? IsNotModifier<First> extends true
+					? []
+					: InstancesFromParameters<UnwrapModifierData<First>>
+				: []),
+			...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest> : [])
+	  ]
 	: [];
 
 export type IsNotModifier<T> = T extends ModifierData<Trait[], infer TType>
@@ -72,4 +72,12 @@ export type IsNotModifier<T> = T extends ModifierData<Trait[], infer TType>
 const $parameters = Symbol();
 export type QueryHash<T extends QueryParameter[]> = string & {
 	readonly [$parameters]: T;
+};
+
+export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> = {
+	[$modifier]: true;
+	type: TType;
+	id: number;
+	traits: TTrait;
+	traitIds: number[];
 };

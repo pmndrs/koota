@@ -1,6 +1,6 @@
 import { createWorld, universe, type World } from '@koota/core';
 import { render } from '@testing-library/react';
-import { act, StrictMode } from 'react';
+import { act, StrictMode, useEffect, useMemo } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useWorld, WorldProvider } from '../src';
 
@@ -38,5 +38,32 @@ describe('World', () => {
 		});
 
 		expect(worldTest).toBe(world);
+	});
+
+	it('can lazy init to create a world in useMemo', () => {
+		universe.reset();
+
+		let worldTest: World = null!;
+
+		function Test() {
+			worldTest = useMemo(() => createWorld({ lazy: true }), []);
+
+			useEffect(() => {
+				worldTest.init();
+				return () => worldTest.destroy();
+			}, [worldTest]);
+
+			return null;
+		}
+
+		render(
+			<StrictMode>
+				<Test />
+			</StrictMode>
+		);
+
+		expect(worldTest).toBeDefined();
+		expect(worldTest!.isInitialized).toBe(true);
+		expect(universe.worlds.length).toBe(1);
 	});
 });

@@ -1,5 +1,5 @@
 import { $internal } from '../../';
-import { ModifierData } from '../modifier';
+import { isModifier } from '../modifier';
 import type { QueryParameter } from '../types';
 
 const sortedIDs = new Float32Array(1024);
@@ -10,7 +10,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 
 	for (let i = 0; i < parameters.length; i++) {
 		const param = parameters[i];
-		if (param instanceof ModifierData) {
+		if (isModifier(param)) {
 			const modifierId = param.id;
 			const traitIds = param.traitIds;
 
