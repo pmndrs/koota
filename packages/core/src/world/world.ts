@@ -131,8 +131,6 @@ export class World {
 		destroyEntity(this, this[$internal].worldEntity);
 		this[$internal].worldEntity = null!;
 
-		// Destroy itself and all entities.
-		this.entities.forEach((entity) => destroyEntity(this, entity));
 		this.reset();
 		this.#isInitialized = false;
 

@@ -49,6 +49,22 @@ describe('World', () => {
 		expect(world.entities.length).toBe(1);
 	});
 
+	it('destroy should lead to entities with auto-remove relations being removed as well', () => {
+		const Node = trait();
+		const ChildOf = relation({ autoRemoveTarget: true, exclusive: true });
+
+		const world = createWorld();
+
+		// Create a parent node and two child nodes
+		const parentNode = world.spawn(Node);
+		world.spawn(Node, ChildOf(parentNode));
+		world.spawn(Node, ChildOf(parentNode));
+
+		// Expect this to not throw, since the ChildOf relation will automatically
+		// remove the child node when the parent node is destroyed first
+		expect(() => world.destroy()).not.toThrow();
+	});
+
 	it('errors if more than 16 worlds are created', () => {
 		for (let i = 0; i < 16; i++) {
 			createWorld();
