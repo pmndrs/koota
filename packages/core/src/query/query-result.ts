@@ -154,8 +154,9 @@ export function createQueryResult<T extends QueryParameter[]>(
 		},
 
 		select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
-			traits.length = 0;
-			stores.length = 0;
+			// We are no longer using the cached traits and stores.
+			traits = [];
+			stores = [];
 			getQueryStores(params, traits, stores, world);
 			return results as unknown as QueryResult<U>;
 		},
