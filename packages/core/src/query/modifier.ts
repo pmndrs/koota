@@ -1,14 +1,23 @@
 import { $internal } from '../common';
-import type { Trait } from '../trait/types';
+import { Trait } from '../trait/types';
+import { ModifierData, QueryParameter } from './types';
 
-export class ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> {
-	traitIds: number[];
+export const $modifier = Symbol('modifier');
 
-	constructor(
-		public type: TType,
-		public id: number,
-		public traits: TTrait
-	) {
-		this.traitIds = traits.map((trait) => trait[$internal].id);
-	}
+export function createModifier<TTrait extends Trait[] = Trait[], TType extends string = string>(
+	type: TType,
+	id: number,
+	traits: TTrait
+): ModifierData<TTrait, TType> {
+	return {
+		[$modifier]: true,
+		type,
+		id,
+		traits,
+		traitIds: traits.map((trait) => trait[$internal].id),
+	} as const;
+}
+
+export function isModifier(param: QueryParameter): param is ModifierData {
+	return $modifier in param;
 }

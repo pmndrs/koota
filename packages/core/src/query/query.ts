@@ -5,7 +5,7 @@ import { registerTrait, trait } from '../trait/trait';
 import type { Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
-import { ModifierData } from './modifier';
+import { isModifier } from './modifier';
 import type { QueryParameter, QuerySubscriber } from './types';
 import { createQueryHash } from './utils/create-query-hash';
 
@@ -63,7 +63,7 @@ export class Query {
 		for (let i = 0; i < parameters.length; i++) {
 			const parameter = parameters[i];
 
-			if (parameter instanceof ModifierData) {
+			if (isModifier(parameter)) {
 				const traits = parameter.traits;
 
 				// Register traits if they don't exist.
