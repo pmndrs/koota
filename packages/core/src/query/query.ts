@@ -27,7 +27,7 @@ export function runQuery<T extends QueryParameter[]>(world: World, query: Query<
 		}
 	}
 
-	return createQueryResult(world, entities, query.resultStores, query.resultTraits, query);
+	return createQueryResult(world, entities, query);
 }
 
 export function addEntityToQuery(query: Query, entity: Entity) {
