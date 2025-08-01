@@ -10,7 +10,7 @@ export function cleanupBodies({ world }: { world: World }) {
 	const instanceEntity = world.queryFirst(InstancedMesh);
 	if (instanceEntity === undefined) return;
 
-	const instancedMesh = instanceEntity.get(InstancedMesh)!.object;
+	const instancedMesh = instanceEntity.get(InstancedMesh)!;
 
 	world.query(Removed(Repulse, Position)).forEach((e) => {
 		instancedMesh.setMatrixAt(e.id(), zeroScaleMatrix);

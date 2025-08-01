@@ -7,9 +7,9 @@ import { shallowEqual } from '../utils/shallow-equal';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
-import type { Query } from './query';
 import type {
 	InstancesFromParameters,
+	Query,
 	QueryParameter,
 	QueryResult,
 	QueryResultOptions,
@@ -17,29 +17,13 @@ import type {
 } from './types';
 
 export function createQueryResult<T extends QueryParameter[]>(
-	query: Query,
 	world: World,
-	params: T
+	entities: Entity[],
+	query: Query
 ): QueryResult<T> {
-	query.commitRemovals(world);
-	const entities = query.entities.dense.slice() as Entity[];
-
-	// Clear so it can accumulate again.
-	if (query.isTracking) {
-		query.entities.clear();
-
-		// @todo: Need to improve the performance of this loop.
-		for (const eid of entities) {
-			query.resetTrackingBitmasks(eid);
-		}
-	}
-
-	const stores: Store<any>[] = [];
-	const traits: Trait[] = [];
-
-	// Get the traits for the query parameters in the order they are defined
-	// and not the order they are sorted for the query hash.
-	getQueryStores<T>(params, traits, stores, world);
+	// Use cached traits and stores for default queries.
+	let traits = query.resultTraits;
+	let stores = query.resultStores;
 
 	const results = Object.assign(entities, {
 		updateEach(
@@ -172,8 +156,9 @@ export function createQueryResult<T extends QueryParameter[]>(
 		},
 
 		select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
-			traits.length = 0;
-			stores.length = 0;
+			// We are no longer using the cached traits and stores.
+			traits = [];
+			stores = [];
 			getQueryStores(params, traits, stores, world);
 			return results as unknown as QueryResult<U>;
 		},
@@ -236,7 +221,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 	}
 }
 
-/* @inline */ function getQueryStores<T extends QueryParameter[]>(
+/* @inline */ export function getQueryStores<T extends QueryParameter[]>(
 	params: T,
 	traits: Trait[],
 	stores: Store<any>[],
@@ -261,4 +246,15 @@ export function createQueryResult<T extends QueryParameter[]>(
 			stores.push(getStore(world, param));
 		}
 	}
+}
+
+export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
+	const results = Object.assign([], {
+		updateEach: () => results,
+		useStores: () => results,
+		select: () => results,
+		sort: () => results,
+	}) as QueryResult<QueryParameter[]>;
+
+	return results;
 }
