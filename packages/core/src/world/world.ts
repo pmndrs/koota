@@ -21,6 +21,11 @@ import type {
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
+type Options = {
+	traits?: ConfigurableTrait[];
+	lazy?: boolean;
+};
+
 export class World {
 	#id = allocateWorldId(universe.worldIndex);
 
@@ -58,8 +63,13 @@ export class World {
 
 	traits = new Set<Trait>();
 
-	constructor(...traits: ConfigurableTrait[]) {
-		this.init(...traits);
+	constructor(polyArg?: Options | ConfigurableTrait, ...traits: ConfigurableTrait[]) {
+		if (polyArg && typeof polyArg === 'object' && !Array.isArray(polyArg)) {
+			const { traits: optionTraits = [], lazy = false } = polyArg as Options;
+			if (!lazy) this.init(...optionTraits);
+		} else {
+			this.init(...(polyArg ? [polyArg, ...traits] : traits));
+		}
 	}
 
 	init(...traits: ConfigurableTrait[]) {
@@ -67,7 +77,7 @@ export class World {
 		if (this.#isInitialized) return;
 
 		this.#isInitialized = true;
-		universe.worlds[this.#id] = new WeakRef(this);
+		universe.worlds[this.#id] = this;
 
 		// Create uninitialized added masks.
 		const cursor = getTrackingCursor();
@@ -313,14 +323,11 @@ export class World {
 	}
 }
 
-// Clean up the world ID when it is garbage collected.
-const worldFinalizer = new FinalizationRegistry((worldId: number) => {
-	universe.worlds[worldId] = null;
-	releaseWorldId(universe.worldIndex, worldId);
-});
-
-export function createWorld(...traits: ConfigurableTrait[]) {
-	const world = new World(...traits);
-	worldFinalizer.register(world, world.id);
-	return world;
+export function createWorld(options: Options): World;
+export function createWorld(...traits: ConfigurableTrait[]): World;
+export function createWorld(
+	optionsOrFirstTrait?: Options | ConfigurableTrait,
+	...traits: ConfigurableTrait[]
+) {
+	return new World(optionsOrFirstTrait, ...traits);
 }
