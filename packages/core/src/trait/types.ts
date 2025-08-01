@@ -1,4 +1,6 @@
 import { $internal } from '../common';
+import { Entity } from '../entity/types';
+import { Query } from '../query/query';
 import type { Relation, RelationTarget } from '../relation/types';
 import type { IsEmpty } from '../utils/types';
 
@@ -116,3 +118,16 @@ export type ExtractStore<T extends Trait> = T extends Trait<any, infer S> ? S : 
 export type ExtractIsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
 
 export type IsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
+
+export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
+	generationId: number;
+	bitflag: number;
+	trait: Trait;
+	store: Store<S>;
+	queries: Set<Query>;
+	notQueries: Set<Query>;
+	schema: S;
+	changeSubscriptions: Set<(entity: Entity) => void>;
+	addSubscriptions: Set<(entity: Entity) => void>;
+	removeSubscriptions: Set<(entity: Entity) => void>;
+}
