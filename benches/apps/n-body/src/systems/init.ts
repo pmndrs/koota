@@ -21,7 +21,7 @@ export function init({ world }: { world: World }) {
 	for (let i = 0; i < instancedMesh.count; i++) instancedMesh.setMatrixAt(i, zeroScaleMatrix);
 
 	scene.add(instancedMesh);
-	world.spawn(InstancedMesh({ object: instancedMesh }));
+	world.spawn(InstancedMesh(instancedMesh));
 
 	// Compile Three shaders.
 	renderer.compile(scene, camera);
