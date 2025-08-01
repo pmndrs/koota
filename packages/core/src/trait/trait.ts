@@ -5,8 +5,16 @@ import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world/world';
-import { TraitData } from './trait-data';
-import type { ConfigurableTrait, ExtractStore, Norm, Schema, Store, Trait, TraitType } from './types';
+import type {
+	ConfigurableTrait,
+	ExtractStore,
+	Norm,
+	Schema,
+	Store,
+	Trait,
+	TraitData,
+	TraitType,
+} from './types';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
@@ -49,13 +57,29 @@ export const trait = defineTrait;
 
 export function registerTrait(world: World, trait: Trait) {
 	const ctx = world[$internal];
-	const data = new TraitData(world, trait);
+	const traitCtx = trait[$internal];
+
+	const data: TraitData = {
+		generationId: ctx.entityMasks.length - 1,
+		bitflag: ctx.bitflag,
+		trait,
+		store: traitCtx.createStore(),
+		queries: new Set(),
+		notQueries: new Set(),
+		schema: trait.schema,
+		changeSubscriptions: new Set(),
+		addSubscriptions: new Set(),
+		removeSubscriptions: new Set(),
+	};
+
+	// Bind a reference to the store on the trait for direct access in queries.
+	traitCtx.stores[world.id] = data.store;
 
 	// Add trait to the world.
 	ctx.traitData.set(trait, data);
 	world.traits.add(trait);
 
-	// Increment the world bitflag.
+	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
 }
 

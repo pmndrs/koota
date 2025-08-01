@@ -8,8 +8,8 @@ import type { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import type { RelationTarget } from '../relation/types';
+import type { TraitData } from '../trait/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
-import type { TraitData } from '../trait/trait-data';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
