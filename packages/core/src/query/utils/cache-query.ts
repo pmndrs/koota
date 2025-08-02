@@ -1,6 +1,6 @@
 import { $internal } from '../../';
 import { universe } from '../../universe/universe';
-import { Query } from '../query';
+import { createQuery } from '../query';
 import type { QueryHash, QueryParameter } from '../types';
 import { createQueryHash } from './create-query-hash';
 
@@ -13,7 +13,7 @@ export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryH
 		const ctx = world[$internal];
 
 		if (!ctx.queriesHashMap.has(hash)) {
-			const query = new Query(world, parameters);
+			const query = createQuery(world, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
 	}
