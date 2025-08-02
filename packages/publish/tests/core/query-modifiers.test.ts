@@ -498,4 +498,17 @@ describe('Query modifiers', () => {
 		entity.remove(Foo);
 		expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
 	});
+
+	it('should correctly populate Changed query when trait changes happen before query initialization', () => {
+		// Create change modifier and spawn an entity
+		const Changed = createChanged();
+		const entity = world.spawn(Foo, Bar);
+
+		// Mark Bar as changed
+		entity.changed(Bar);
+
+		// Even if the query wasn't executed before,
+		// it should pick up the trait change
+		expect(world.queryFirst(Changed(Bar))).toBe(entity);
+	});
 });
