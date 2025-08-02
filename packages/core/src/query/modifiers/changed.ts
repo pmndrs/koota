@@ -34,9 +34,21 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
-		if (!changedMask[eid]) changedMask[eid] = [];
-		const traitId = trait[$internal].id;
-		changedMask[eid][traitId] = 1;
+		const data = ctx.traitData.get(trait)!;
+		const { generationId, bitflag } = data;
+
+		// Ensure the generation array exists
+		if (!changedMask[generationId]) {
+			changedMask[generationId] = [];
+		}
+
+		// Ensure the entity mask exists
+		if (!changedMask[generationId][eid]) {
+			changedMask[generationId][eid] = 0;
+		}
+
+		// Set the bit for this trait
+		changedMask[generationId][eid] |= bitflag;
 	}
 
 	// Update queries.
