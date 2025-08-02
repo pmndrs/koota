@@ -21,9 +21,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 	entities: Entity[],
 	query: Query
 ): QueryResult<T> {
-	// Use cached traits and stores for default queries.
-	let traits = query.resultTraits;
-	let stores = query.resultStores;
+	const traits = [...query.resultTraits];
+	const stores = [...query.resultStores];
 
 	const results = Object.assign(entities, {
 		updateEach(
@@ -156,9 +155,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 		},
 
 		select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
-			// We are no longer using the cached traits and stores.
-			traits = [];
-			stores = [];
+			traits.length = 0;
+			stores.length = 0;
 			getQueryStores(params, traits, stores, world);
 			return results as unknown as QueryResult<U>;
 		},
