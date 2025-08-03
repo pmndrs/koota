@@ -25,6 +25,7 @@ import type {
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
+import { CommandBuffer } from '../utils/command-buffer';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 type Options = {
@@ -52,6 +53,7 @@ export class World {
 		worldEntity: null! as Entity,
 		trackedTraits: new Set<Trait>(),
 		resetSubscriptions: new Set<(world: World) => void>(),
+		commandBuffer: new CommandBuffer(),
 	};
 
 	get id() {
@@ -176,6 +178,7 @@ export class World {
 		ctx.dirtyMasks.clear();
 		ctx.changedMasks.clear();
 		ctx.trackedTraits.clear();
+		ctx.commandBuffer.clear();
 
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);

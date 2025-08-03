@@ -5,6 +5,7 @@ import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world/world';
+import { command } from './commands';
 import type {
 	ConfigurableTrait,
 	ExtractStore,
@@ -97,87 +98,12 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			trait = traits[i] as Trait;
 		}
 
-		// Exit early if the entity already has the trait.
-		if (hasTrait(world, entity, trait)) return;
-
-		const traitCtx = trait[$internal];
-
-		// Register the trait if it's not already registered.
-		if (!ctx.traitData.has(trait)) registerTrait(world, trait);
-
-		const data = ctx.traitData.get(trait)!;
-		const { generationId, bitflag, queries } = data;
-
-		// Add bitflag to entity bitmask.
-		const eid = getEntityId(entity);
-		ctx.entityMasks[generationId][eid] |= bitflag;
-
-		// Set the entity as dirty.
-		for (const dirtyMask of ctx.dirtyMasks.values()) {
-			if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
-			dirtyMask[generationId][eid] |= bitflag;
-		}
-
-		// Update queries.
-		for (const query of queries) {
-			// Remove this entity from toRemove if it exists in this query.
-			query.toRemove.remove(entity);
-
-			// Check if the entity matches the query.
-			const match = query.check(world, entity, { type: 'add', traitData: data });
-
-			if (match) query.add(entity);
-			else query.remove(world, entity);
-		}
-
-		// Add trait to entity internally.
-		ctx.entityTraits.get(entity)!.add(trait);
-
-		const relation = traitCtx.relation;
-		const target = traitCtx.pairTarget;
-
-		// Add relation target entity.
-		if (traitCtx.isPairTrait && relation !== null && target !== null) {
-			// Mark entity as a relation target.
-			ctx.relationTargetEntities.add(target);
-
-			// Add wildcard relation traits.
-			addTrait(world, entity, Pair(Wildcard, target));
-			addTrait(world, entity, Pair(relation, Wildcard));
-
-			// If it's an exclusive relation, remove the old target.
-			if (relation[$internal].exclusive === true && target !== Wildcard) {
-				const oldTarget = getRelationTargets(world, relation, entity)[0];
-
-				if (oldTarget !== null && oldTarget !== undefined && oldTarget !== target) {
-					removeTrait(world, entity, relation(oldTarget));
-				}
-			}
-		}
-
-		if (traitCtx.type === 'soa') {
-			// Set default values or override with provided params.
-			const defaults: Record<string, any> = {};
-			// Execute any functions in the schema for default values.
-			for (const key in data.schema) {
-				if (typeof data.schema[key] === 'function') {
-					defaults[key] = data.schema[key]();
-				} else {
-					defaults[key] = data.schema[key];
-				}
-			}
-
-			setTrait(world, entity, trait, { ...defaults, ...params }, false);
-		} else {
-			const state = params ?? data.schema();
-			setTrait(world, entity, trait, state, false);
-		}
-
-		// Call add subscriptions.
-		for (const sub of data.addSubscriptions) {
-			sub(entity);
-		}
+		// Enqueue add trait command.
+		ctx.commandBuffer.enqueue(command('add', { world, entity, trait, params }));
 	}
+
+	// Flush commands immediately to maintain synchronous behavior.
+	ctx.commandBuffer.flush();
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
