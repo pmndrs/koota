@@ -1,6 +1,6 @@
 import { $internal } from '../common';
-import { Entity } from '../entity/types';
-import { Query } from '../query/types';
+import type { Entity } from '../entity/types';
+import type { Query } from '../query/types';
 import type { Relation, RelationTarget } from '../relation/types';
 import type { IsEmpty } from '../utils/types';
 
@@ -10,11 +10,7 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
 	? ReturnType<TSchema>
 	: Partial<TraitInstance<TSchema>>;
 
-export type Trait<
-	TSchema extends Schema = any,
-	TStore = Store<TSchema>,
-	TTag extends boolean = IsEmpty<TSchema>
-> = {
+export type Trait<TSchema extends Schema = any> = {
 	schema: TSchema;
 	[$internal]: {
 		set: (index: number, store: any, value: TraitValue<TSchema>) => void;
@@ -25,20 +21,20 @@ export type Trait<
 			value: TraitValue<TSchema>
 		) => boolean;
 		get: (index: number, store: any) => TraitInstance<TSchema>;
-		stores: TStore[];
+		stores: Store<TSchema>[];
 		id: number;
-		createStore: () => TStore;
+		createStore: () => Store<TSchema>;
 		isPairTrait: boolean;
 		relation: Relation<any> | null;
 		pairTarget: RelationTarget | null;
-		isTag: TTag;
+		isTag: IsEmpty<TSchema>;
 		type: TraitType;
 	};
-} & ((params?: TraitValue<TSchema>) => [Trait<TSchema, TStore, TTag>, TraitValue<TSchema>]);
+} & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 
 export type TraitTuple<T extends Trait = Trait> = [
 	T,
-	T extends Trait<infer S, any>
+	T extends Trait<infer S>
 		? S extends AoSFactory
 			? ReturnType<S>
 			: Partial<TraitInstance<S>>
@@ -47,14 +43,6 @@ export type TraitTuple<T extends Trait = Trait> = [
 
 export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T>;
 
-type TraitInstanceFromTrait<T extends Trait> = T['schema'] extends AoSFactory
-	? ReturnType<T['schema']>
-	: {
-			[P in keyof T['schema']]: T['schema'][P] extends (...args: any[]) => any
-				? ReturnType<T['schema'][P]>
-				: T['schema'][P];
-	  };
-
 export type SetTraitCallback<T extends Trait> = (
 	prev: TraitInstance<ExtractSchema<T>>
 ) => TraitValue<ExtractSchema<T>>;
@@ -62,11 +50,11 @@ export type SetTraitCallback<T extends Trait> = (
 type TraitInstanceFromSchema<T extends Schema> = T extends AoSFactory
 	? ReturnType<T>
 	: {
-			[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]> : T[P];
+			[P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];
 	  };
 
 export type TraitInstance<T extends Trait | Schema> = T extends Trait
-	? TraitInstanceFromTrait<T>
+	? TraitInstanceFromSchema<T['schema']>
 	: TraitInstanceFromSchema<T>;
 
 export type Schema =
@@ -80,7 +68,7 @@ export type AoSFactory = () => unknown;
 export type Store<T extends Schema = any> = T extends AoSFactory
 	? ReturnType<T>[]
 	: {
-			[P in keyof T]: T[P] extends (...args: any[]) => any ? ReturnType<T[P]>[] : T[P][];
+			[P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]>[] : T[P][];
 	  };
 
 // Type Utils
@@ -97,7 +85,7 @@ export type Norm<T extends Schema> = T extends AoSFactory
 			: ReturnType<T>
 	: {
 			[K in keyof T]: T[K] extends object
-				? T[K] extends (...args: any[]) => any
+				? T[K] extends (...args: never[]) => unknown
 					? T[K]
 					: never
 				: T[K] extends boolean
@@ -114,10 +102,10 @@ export type ExtractSchema<T extends Trait | Relation<Trait>> = T extends Relatio
 	: T extends Trait<infer S>
 	? S
 	: never;
-export type ExtractStore<T extends Trait> = T extends Trait<any, infer S> ? S : never;
-export type ExtractIsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
+export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } } ? Store : never;
+export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { isTag: true } } ? true : false;
 
-export type IsTag<T extends Trait> = T extends Trait<any, any, infer Tag> ? Tag : false;
+export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
 export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
 	generationId: number;
