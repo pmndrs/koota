@@ -528,6 +528,15 @@ describe('Query modifiers', () => {
 
 		// Changed(Foo) should still return undefined
 		expect(world.queryFirst(Changed(Foo))).toBeUndefined();
+
+		// Add Foo trait to entity2
+		entity2.add(Foo);
+
+		// Mark Bar as changed again
+		entity2.changed(Bar);
+
+		// Changed(Foo) should again return undefined
+		expect(world.queryFirst(Changed(Foo))).toBeUndefined();
 	});
 
 	it.fails(
