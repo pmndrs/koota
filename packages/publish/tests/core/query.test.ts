@@ -282,7 +282,7 @@ describe('Query', () => {
 	it('should select traits', () => {
 		world.spawn(Position, Name);
 
-		const results = world.query(Position, Name);
+		let results = world.query(Position, Name);
 		// Default should be the same as the query.
 		results.updateEach(([position, name]) => {
 			expect(position.x).toBeDefined();
@@ -291,6 +291,13 @@ describe('Query', () => {
 
 		// Select only Name.
 		results.select(Name).updateEach(([name]) => {
+			expect(name.name).toBeDefined();
+		});
+
+		// Running query again should reset the selection.
+		results = world.query(Position, Name);
+		results.updateEach(([position, name]) => {
+			expect(position.x).toBeDefined();
 			expect(name.name).toBeDefined();
 		});
 	});

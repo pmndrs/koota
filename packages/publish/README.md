@@ -364,6 +364,26 @@ world
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
 ```
 
+Changed detection shallowly compares the scalar values just like React. This means objects and arrays will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually flag that a changed has occured.
+
+```js
+// ❌ This change will not be detected since the array is mutated and will pass the comparison
+world.query(Inventory).updateEach(([inventory]) => {
+  inventory.items.push(item)
+})
+
+// ✅ This change will be detected since a new array is created and the comparison will fail
+world.query(Inventory).updateEach(([inventory]) => {
+  inventory.items = [...inventory.items, item]
+})
+
+// ✅ This change is manually flagged and we still get to mutate for performance
+world.query(Inventory).updateEach(([inventory], entity) => {
+  inventory.items.push(item)
+  entity.changed()
+})
+```
+
 ### World traits
 
 For global data like time, these can be traits added to the world. **World traits do not appear in queries.**
@@ -781,7 +801,7 @@ return (
 )
 ```
 
-### `usQueryFirst`
+### `useQueryFirst`
 
 Works like `useQuery` but only returns the first result. Can either be an entity of undefined.
 
