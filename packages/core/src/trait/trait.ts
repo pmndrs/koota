@@ -25,11 +25,13 @@ import {
 import { createStore } from './utils/create-store';
 import { validateSchema } from './utils/validate-schema';
 
+// No reason to create a new object every time a tag trait is created.
+const tagSchema = Object.freeze({});
 let traitId = 0;
 
 function defineTrait(schema?: undefined | Record<string, never>): TagTrait;
 function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function defineTrait<S extends Schema>(schema: S = {} as S): Trait<Norm<S>> {
+function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
 	const isAoS = typeof schema === 'function';
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
 
