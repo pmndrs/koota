@@ -32,6 +32,8 @@ export type Trait<TSchema extends Schema = any> = {
 	};
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 
+export type TagTrait = Trait<Record<string, never>>;
+
 export type TraitTuple<T extends Trait = Trait> = [
 	T,
 	T extends Trait<infer S>
@@ -61,7 +63,8 @@ export type Schema =
 	| {
 			[key: string]: number | bigint | string | boolean | null | undefined | (() => unknown);
 	  }
-	| AoSFactory;
+	| AoSFactory
+	| Record<string, never>;
 
 export type AoSFactory = () => unknown;
 
@@ -75,27 +78,29 @@ export type Store<T extends Schema = any> = T extends AoSFactory
 
 // This type utility ensures that explicit values like true, false or "string literal" are
 // normalized to their primitive types. Mostly used for schema types.
-export type Norm<T extends Schema> = T extends AoSFactory
-	? () => ReturnType<T> extends number
-			? number
-			: ReturnType<T> extends boolean
-			? boolean
-			: ReturnType<T> extends string
-			? string
-			: ReturnType<T>
-	: {
-			[K in keyof T]: T[K] extends object
-				? T[K] extends (...args: never[]) => unknown
-					? T[K]
-					: never
-				: T[K] extends boolean
-				? boolean
-				: T[K];
-	  }[keyof T] extends never
-	? never
-	: {
-			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
-	  };
+export type Norm<T extends Schema> = T extends Record<string, never>
+	? T
+	: T extends AoSFactory
+  	? () => ReturnType<T> extends number
+  			? number
+  			: ReturnType<T> extends boolean
+  			? boolean
+  			: ReturnType<T> extends string
+  			? string
+  			: ReturnType<T>
+  	: {
+  			[K in keyof T]: T[K] extends object
+  				? T[K] extends (...args: never[]) => unknown
+  					? T[K]
+  					: never
+  				: T[K] extends boolean
+  				? boolean
+  				: T[K];
+  	  }[keyof T] extends never
+  	? never
+  	: {
+  			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
+  	  };
 
 export type ExtractSchema<T extends Trait | Relation<Trait>> = T extends Relation<infer R>
 	? ExtractSchema<R>
