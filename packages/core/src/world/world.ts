@@ -26,7 +26,9 @@ import type {
 } from '../trait/types';
 import { universe } from '../universe/universe';
 import { CommandBuffer } from '../utils/command-buffer';
+import { StoreEventEmitter } from './events';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
+import { setupQueryEventListeners } from '../query/event-listeners';
 
 type Options = {
 	traits?: ConfigurableTrait[];
@@ -54,6 +56,7 @@ export class World {
 		trackedTraits: new Set<Trait>(),
 		resetSubscriptions: new Set<(world: World) => void>(),
 		commandBuffer: new CommandBuffer(),
+		storeEventEmitter: new StoreEventEmitter(),
 	};
 
 	get id() {
@@ -104,6 +107,9 @@ export class World {
 
 		// Create world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded, ...traits);
+
+		// Set up query event listeners for store updates
+		setupQueryEventListeners(this);
 	}
 
 	spawn(...traits: ConfigurableTrait[]): Entity {
@@ -179,6 +185,7 @@ export class World {
 		ctx.changedMasks.clear();
 		ctx.trackedTraits.clear();
 		ctx.commandBuffer.clear();
+		ctx.storeEventEmitter.clear();
 
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);

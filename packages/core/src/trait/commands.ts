@@ -71,7 +71,7 @@ function commitAddTrait(world: World, entity: Entity, trait: Trait, params?: Rec
 	if (!ctx.traitData.has(trait)) registerTrait(world, trait);
 
 	const data = ctx.traitData.get(trait)!;
-	const { generationId, bitflag, queries } = data;
+	const { generationId, bitflag } = data;
 
 	// Add bitflag to entity bitmask.
 	const eid = getEntityId(entity);
@@ -83,17 +83,13 @@ function commitAddTrait(world: World, entity: Entity, trait: Trait, params?: Rec
 		dirtyMask[generationId][eid] |= bitflag;
 	}
 
-	// Update queries.
-	for (const query of queries) {
-		// Remove this entity from toRemove if it exists in this query.
-		query.toRemove.remove(entity);
-
-		// Check if the entity matches the query.
-		const match = query.check(world, entity, { type: 'add', traitData: data });
-
-		if (match) query.add(entity);
-		else query.remove(world, entity);
-	}
+	// Emit store update event instead of directly updating queries
+	ctx.storeEventEmitter.emit({
+		type: 'add',
+		entity,
+		trait,
+		traitData: data,
+	});
 
 	// Add trait to entity internally.
 	ctx.entityTraits.get(entity)!.add(trait);
