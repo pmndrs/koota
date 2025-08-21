@@ -23,5 +23,8 @@
 		"pnpm": ">=10.12.1"
 	},
 	"prettier": "./.config/prettier/base.json",
-	"packageManager": "pnpm@10.12.1"
+	"packageManager": "pnpm@10.12.1",
+	"dependencies": {
+		"koota": "^0.5.1"
+	}
 }

@@ -890,7 +890,7 @@ return (
 
 ### `useTraitEffect`
 
-Subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
+Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering.
 
 ```js
 // Subscribe to position changes on an entity and update a ref without causing a rerender
