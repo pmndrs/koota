@@ -503,8 +503,8 @@ world.remove(Time)
 // Return boolean
 const result = world.has(Time)
 
-// Gets a snapshot instance of the trait
-// Return TraitInstance
+// Returns the trait record for the world
+// Return TraitRecord
 const time = world.get(Time)
 
 // Sets the trait and triggers a change event
@@ -559,8 +559,8 @@ entity.remove(Position)
 // Return boolean
 const result = entity.has(Position)
 
-// Gets a snapshot instance of the trait
-// Return TraitInstance
+// Gets the trait record for an entity
+// Return TraitRecord
 const position = entity.get(Position)
 
 // Sets the trait and triggers a change event
@@ -678,38 +678,63 @@ const store = [
 const Mesh = trait(() => new THREE.Mesh())
 ```
 
+#### Trait record
+
+The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state while when it is AoS the record is a ref to the object inserted there.
+
+```js
+// SoA store
+const Position = trait({ x: 0, y: 0, z: 0 })
+entity.add(Position)
+// Returns a snapshot of the arrays
+const position = entity.get(Position)
+// position !== position2
+const position2 = entity.get(Position)
+
+// AoS store
+const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }))
+entity.add(Velocity)
+// Returns a ref to the object inserted
+const velocity = entity.get(Velocity)
+// velocity === velocity2
+const velocity2 = entity.get(Velocity)
+```
+
+Use `TraitRecord` to type this state.
+
+```ts
+const PositionRecord = TraitRecord<typeof Position>
+```
+
 #### Typing traits
 
 Traits can have a schema type passed into its generic. This can be useful if the inferred type is not good enough.
 
-```js
+```ts
 type AttackerSchema = {
-  continueCombo: boolean | null,
-  currentStageIndex: number | null,
-  stages: Array<AttackStage> | null,
-  startedAt: number | null,
+  continueCombo: boolean | null
+  currentStageIndex: number | null
+  stages: Array<AttackStage> | null
+  startedAt: number | null
 }
 
-const Attacker =
-  trait <
-  AttackerSchema >
-  {
-    continueCombo: null,
-    currentStageIndex: null,
-    stages: null,
-    startedAt: null,
-  }
+const Attacker = trait<AttackerSchema>({
+  continueCombo: null,
+  currentStageIndex: null,
+  stages: null,
+  startedAt: null,
+})
 ```
 
 However, this will not work with interfaces without a workaround due to intended behavior in TypeScript: https://github.com/microsoft/TypeScript/issues/15300
 Interfaces can be used with `Pick` to convert the key signatures into something our type code can understand.
 
-```js
+```ts
 interface AttackerSchema {
-  continueCombo: boolean | null,
-  currentStageIndex: number | null,
-  stages: Array<AttackStage> | null,
-  startedAt: number | null,
+  continueCombo: boolean | null
+  currentStageIndex: number | null
+  stages: Array<AttackStage> | null
+  startedAt: number | null
 }
 
 // Pick is required to not get type errors
