@@ -8,7 +8,7 @@ export type TraitType = 'aos' | 'soa';
 
 export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
 	? ReturnType<TSchema>
-	: Partial<TraitInstance<TSchema>>;
+	: Partial<TraitRecord<TSchema>>;
 
 export type Trait<TSchema extends Schema = any> = {
 	schema: TSchema;
@@ -20,7 +20,7 @@ export type Trait<TSchema extends Schema = any> = {
 			store: any,
 			value: TraitValue<TSchema>
 		) => boolean;
-		get: (index: number, store: any) => TraitInstance<TSchema>;
+		get: (index: number, store: any) => TraitRecord<TSchema>;
 		stores: Store<TSchema>[];
 		id: number;
 		createStore: () => Store<TSchema>;
@@ -39,25 +39,30 @@ export type TraitTuple<T extends Trait = Trait> = [
 	T extends Trait<infer S>
 		? S extends AoSFactory
 			? ReturnType<S>
-			: Partial<TraitInstance<S>>
+			: Partial<TraitRecord<S>>
 		: never
 ];
 
 export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T>;
 
 export type SetTraitCallback<T extends Trait> = (
-	prev: TraitInstance<ExtractSchema<T>>
+	prev: TraitRecord<ExtractSchema<T>>
 ) => TraitValue<ExtractSchema<T>>;
 
-type TraitInstanceFromSchema<T extends Schema> = T extends AoSFactory
+type TraitRecordFromSchema<T extends Schema> = T extends AoSFactory
 	? ReturnType<T>
 	: {
 			[P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];
 	  };
 
-export type TraitInstance<T extends Trait | Schema> = T extends Trait
-	? TraitInstanceFromSchema<T['schema']>
-	: TraitInstanceFromSchema<T>;
+/**
+ * The record of a trait.
+ * For SoA it is a snapshot of the state for a single entity.
+ * For AoS it is the state instance for a single entity.
+ */
+export type TraitRecord<T extends Trait | Schema> = T extends Trait
+	? TraitRecordFromSchema<T['schema']>
+	: TraitRecordFromSchema<T>;
 
 export type Schema =
 	| {
@@ -81,33 +86,35 @@ export type Store<T extends Schema = any> = T extends AoSFactory
 export type Norm<T extends Schema> = T extends Record<string, never>
 	? T
 	: T extends AoSFactory
-  	? () => ReturnType<T> extends number
-  			? number
-  			: ReturnType<T> extends boolean
-  			? boolean
-  			: ReturnType<T> extends string
-  			? string
-  			: ReturnType<T>
-  	: {
-  			[K in keyof T]: T[K] extends object
-  				? T[K] extends (...args: never[]) => unknown
-  					? T[K]
-  					: never
-  				: T[K] extends boolean
-  				? boolean
-  				: T[K];
-  	  }[keyof T] extends never
-  	? never
-  	: {
-  			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
-  	  };
+	? () => ReturnType<T> extends number
+			? number
+			: ReturnType<T> extends boolean
+			? boolean
+			: ReturnType<T> extends string
+			? string
+			: ReturnType<T>
+	: {
+			[K in keyof T]: T[K] extends object
+				? T[K] extends (...args: never[]) => unknown
+					? T[K]
+					: never
+				: T[K] extends boolean
+				? boolean
+				: T[K];
+	  }[keyof T] extends never
+	? never
+	: {
+			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
+	  };
 
 export type ExtractSchema<T extends Trait | Relation<Trait>> = T extends Relation<infer R>
 	? ExtractSchema<R>
 	: T extends Trait<infer S>
 	? S
 	: never;
-export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } } ? Store : never;
+export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
+	? Store
+	: never;
 export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { isTag: true } } ? true : false;
 
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
