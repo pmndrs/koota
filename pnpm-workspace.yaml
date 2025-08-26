@@ -10,15 +10,16 @@ catalog:
   '@types/react': ^19.1.8
   '@types/react-dom': ^19.1.6
   '@types/three': ^0.177.0
+  directed: ^0.1.6
   esbuild-plugin-inline-functions: ^0.2.0
   react: ^19.1.1
   react-dom: ^19.1.1
   three: ^0.177.0
-  directed: ^0.1.6
-  vitest: ^3.2.4
   vite: ^6.3.5
+  vitest: ^3.2.4
 
 manage-package-manager-versions: true
 
 onlyBuiltDependencies:
+  - '@swc/core'
   - esbuild

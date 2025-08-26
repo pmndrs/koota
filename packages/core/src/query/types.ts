@@ -5,7 +5,7 @@ import type {
 	ExtractStore,
 	IsTag,
 	Trait,
-	TraitInstance,
+	TraitRecord,
 	TraitData,
 	Store,
 } from '../trait/types';
@@ -56,7 +56,7 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 				? IsTag<First> extends false
 					? ExtractSchema<First> extends AoSFactory
 						? [ReturnType<ExtractSchema<First>>]
-						: [TraitInstance<First>]
+						: [TraitRecord<First>]
 					: []
 				: First extends ModifierData
 				? IsNotModifier<First> extends true
