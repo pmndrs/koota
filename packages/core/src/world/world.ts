@@ -21,7 +21,7 @@ import type {
 	SetTraitCallback,
 	Trait,
 	TraitData,
-	TraitInstance,
+	TraitRecord,
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -124,7 +124,7 @@ export class World {
 		removeTrait(this, this[$internal].worldEntity, ...traits);
 	}
 
-	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> | undefined {
+	get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
 		return getTrait(this, this[$internal].worldEntity, trait);
 	}
 
