@@ -2,20 +2,26 @@ import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
-import { IsExcluded, Query } from '../query/query';
-import { createQueryResult } from '../query/query-result';
-import type { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
+import { IsExcluded, createQuery } from '../query/query';
+import { createEmptyQueryResult } from '../query/query-result';
+import type {
+	Query,
+	QueryHash,
+	QueryParameter,
+	QueryResult,
+	QueryUnsubscriber,
+} from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import type { RelationTarget } from '../relation/types';
-import type { TraitData } from '../trait/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
 	SetTraitCallback,
 	Trait,
-	TraitInstance,
+	TraitData,
+	TraitRecord,
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -90,7 +96,7 @@ export class World {
 
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
-			const query = new Query(this, parameters);
+			const query = createQuery(this, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
 
@@ -118,7 +124,7 @@ export class World {
 		removeTrait(this, this[$internal].worldEntity, ...traits);
 	}
 
-	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> | undefined {
+	get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
 		return getTrait(this, this[$internal].worldEntity, trait);
 	}
 
@@ -131,8 +137,6 @@ export class World {
 		destroyEntity(this, this[$internal].worldEntity);
 		this[$internal].worldEntity = null!;
 
-		// Destroy itself and all entities.
-		this.entities.forEach((entity) => destroyEntity(this, entity));
 		this.reset();
 		this.#isInitialized = false;
 
@@ -188,20 +192,19 @@ export class World {
 
 		if (typeof args[0] === 'string') {
 			const query = ctx.queriesHashMap.get(args[0]);
-			// TODO: Query results need to be refactored so query.run() returns it and we can create emtpy ones
-			if (!query) return createQueryResult(new Query(this, []), this, []);
-			return createQueryResult(query, this, query.parameters);
+			if (!query) return createEmptyQueryResult();
+			return query.run(this);
 		} else {
 			const params = args as QueryParameter[];
 			const hash = createQueryHash(params);
 			let query = ctx.queriesHashMap.get(hash);
 
 			if (!query) {
-				query = new Query(this, params);
+				query = createQuery(this, params);
 				ctx.queriesHashMap.set(hash, query);
 			}
 
-			return createQueryResult(query, this, params);
+			return query.run(this);
 		}
 	}
 
@@ -248,7 +251,7 @@ export class World {
 			query = ctx.queriesHashMap.get(hash)!;
 
 			if (!query) {
-				query = new Query(this, args);
+				query = createQuery(this, args);
 				ctx.queriesHashMap.set(hash, query);
 			}
 		}
@@ -280,7 +283,7 @@ export class World {
 			query = ctx.queriesHashMap.get(hash)!;
 
 			if (!query) {
-				query = new Query(this, args);
+				query = createQuery(this, args);
 				ctx.queriesHashMap.set(hash, query);
 			}
 		}

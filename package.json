@@ -9,6 +9,7 @@
 		"ship": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
 		"prepublish": "pnpm -F koota build && pnpm -F koota generate-tests",
 		"test": "pnpm -F core test run && pnpm -F react test run",
+		"test:build": "pnpm prepublish && pnpm -F koota test run",
 		"lint": "pnpm -r lint"
 	},
 	"devDependencies": {
@@ -22,5 +23,5 @@
 		"pnpm": ">=10.12.1"
 	},
 	"prettier": "./.config/prettier/base.json",
-	"packageManager": "pnpm@10.12.1"
+	"packageManager": "pnpm@10.15.0"
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, type TraitInstance, trait, universe } from '../src';
+import { createWorld, relation, type TraitRecord, trait, universe } from '../src';
 
 describe('World', () => {
 	beforeEach(() => {
@@ -47,6 +47,22 @@ describe('World', () => {
 
 		// Always has one entity that is the world itself.
 		expect(world.entities.length).toBe(1);
+	});
+
+	it('destroy should lead to entities with auto-remove relations being removed as well', () => {
+		const Node = trait();
+		const ChildOf = relation({ autoRemoveTarget: true, exclusive: true });
+
+		const world = createWorld();
+
+		// Create a parent node and two child nodes
+		const parentNode = world.spawn(Node);
+		world.spawn(Node, ChildOf(parentNode));
+		world.spawn(Node, ChildOf(parentNode));
+
+		// Expect this to not throw, since the ChildOf relation will automatically
+		// remove the child node when the parent node is destroyed first
+		expect(() => world.destroy()).not.toThrow();
 	});
 
 	it('errors if more than 16 worlds are created', () => {
@@ -121,7 +137,7 @@ describe('World', () => {
 		const TimeOfDay = trait({ hour: 0 });
 		const world = createWorld(TimeOfDay);
 
-		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined;
+		let timeOfDay: TraitRecord<typeof TimeOfDay> | undefined;
 		world.onChange(TimeOfDay, (e) => {
 			timeOfDay = e.get(TimeOfDay);
 		});

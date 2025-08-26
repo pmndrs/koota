@@ -12,7 +12,15 @@
 	"proseWrap": "preserve",
 	"overrides": [
 		{
-			"files": "*.md",
+			"files": "**/*.md",
+			"options": {
+				"useTabs": false,
+				"tabWidth": 2,
+				"semi": false
+			}
+		},
+		{
+			"files": ["**/*.yml", "**/*.yaml"],
 			"options": {
 				"useTabs": false,
 				"tabWidth": 2,
