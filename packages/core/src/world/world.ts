@@ -28,8 +28,7 @@ import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 type Options = {
-	traits?: ConfigurableTrait[];
-	lazy?: boolean;
+	lazy: true;
 };
 
 export class World {
@@ -71,8 +70,11 @@ export class World {
 
 	constructor(polyArg?: Options | ConfigurableTrait, ...traits: ConfigurableTrait[]) {
 		if (polyArg && typeof polyArg === 'object' && !Array.isArray(polyArg)) {
-			const { traits: optionTraits = [], lazy = false } = polyArg as Options;
-			if (!lazy) this.init(...optionTraits);
+			if (traits.length > 0) {
+				throw new Error(
+					'createWorld({ lazy: true }) does not accept trailing traits. Pass traits to world.init(...traits).'
+				);
+			}
 		} else {
 			this.init(...(polyArg ? [polyArg, ...traits] : traits));
 		}
@@ -80,7 +82,7 @@ export class World {
 
 	init(...traits: ConfigurableTrait[]) {
 		const ctx = this[$internal];
-		if (this.#isInitialized) return;
+		if (this.#isInitialized) return this;
 
 		this.#isInitialized = true;
 		universe.worlds[this.#id] = this;
@@ -102,6 +104,8 @@ export class World {
 
 		// Create world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded, ...traits);
+
+		return this;
 	}
 
 	spawn(...traits: ConfigurableTrait[]): Entity {
@@ -133,6 +137,12 @@ export class World {
 	}
 
 	destroy() {
+		if (!this.#isInitialized) {
+			throw new Error(
+				'Cannot destroy a world that is not initialized. Call world.init() first.'
+			);
+		}
+
 		// Destroy world entity.
 		destroyEntity(this, this[$internal].worldEntity);
 		this[$internal].worldEntity = null!;
@@ -146,6 +156,10 @@ export class World {
 	}
 
 	reset() {
+		if (!this.#isInitialized) {
+			throw new Error('Cannot reset a world that is not initialized. Call world.init() first.');
+		}
+
 		const ctx = this[$internal];
 
 		// Destroy all entities so any cleanup is done.

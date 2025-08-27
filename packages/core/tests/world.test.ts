@@ -17,10 +17,15 @@ describe('World', () => {
 	});
 
 	it('should optionaly init lazily', () => {
+		const Test = trait({ last: 0, delta: 0 });
+
 		const world = createWorld({ lazy: true });
 		expect(world.isInitialized).toBe(false);
-		world.init();
+
+		world.init(Test);
+
 		expect(world.isInitialized).toBe(true);
+		expect(world.get(Test)).toBeDefined();
 	});
 
 	it('should reset the world', () => {
@@ -63,6 +68,24 @@ describe('World', () => {
 		// Expect this to not throw, since the ChildOf relation will automatically
 		// remove the child node when the parent node is destroyed first
 		expect(() => world.destroy()).not.toThrow();
+	});
+
+	it('should be able to init after destroy', () => {
+		const world = createWorld({ lazy: true });
+		expect(world.entities.length).toBe(0);
+
+		world.init();
+		expect(world.entities.length).toBe(1);
+
+		world.destroy();
+		expect(world.entities.length).toBe(0);
+
+		world.init();
+		expect(world.isInitialized).toBe(true);
+
+		// Can add entities
+		world.spawn();
+		expect(world.entities.length).toBe(2);
 	});
 
 	it('errors if more than 16 worlds are created', () => {
