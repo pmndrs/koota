@@ -34,15 +34,15 @@ function defineTrait(name: string, schema?: undefined | Record<string, never>): 
 function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
 function defineTrait<S extends Schema>(name: string, schema: S): Trait<Norm<S>>;
 function defineTrait<S extends Schema>(
-  nameOrSchema: string | S = tagSchema as S,
+  target: string | S = tagSchema as S,
   schema: S = tagSchema as S
 ): Trait<Norm<S>>{
 	let name:string
-	if(typeof nameOrSchema !== 'string'){
+	if(typeof target !== 'string'){
 		name = ''
-		schema = nameOrSchema
+		schema = target
 	} else{
-		name = nameOrSchema
+		name = target
 	}
 	const isAoS = typeof schema === 'function';
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
@@ -71,6 +71,7 @@ function defineTrait<S extends Schema>(
 }
 
 export const trait = defineTrait;
+export const Key = trait('key', ()=>'')
 
 export function registerTrait(world: World, trait: Trait) {
 	const ctx = world[$internal];
@@ -106,10 +107,14 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	for (let i = 0; i < traits.length; i++) {
 		// Get trait and params.
 		let trait: Trait;
+		let initParams: Record<string, any> | undefined | string
 		let params: Record<string, any> | undefined;
 
 		if (Array.isArray(traits[i])) {
-			[trait, params] = traits[i] as [Trait, Record<string, any>];
+			[trait, initParams] = traits[i] as [Trait, Record<string, any> | string];
+			params = typeof initParams ==='string' ?
+			() => initParams : initParams
+			
 		} else {
 			trait = traits[i] as Trait;
 		}

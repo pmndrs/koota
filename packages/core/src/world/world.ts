@@ -14,7 +14,7 @@ import type {
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import type { RelationTarget } from '../relation/types';
-import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
+import { addTrait, getTrait, hasTrait, Key, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
@@ -24,6 +24,7 @@ import type {
 	TraitRecord,
 	TraitValue,
 } from '../trait/types';
+import { registerKeyMap, KeyMap } from '../trait/utils/key-map';
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
@@ -36,6 +37,7 @@ export class World {
 	#id = allocateWorldId(universe.worldIndex);
 
 	[$internal] = {
+		entityKeyMap: null! as KeyMap,
 		entityIndex: createEntityIndex(this.#id),
 		entityMasks: [[]] as number[][],
 		entityTraits: new Map<number, Set<Trait>>(),
@@ -92,26 +94,38 @@ export class World {
 		}
 		// Register IsExcluded trait to keep world traits from queries.
 		if (!ctx.traitData.has(IsExcluded)) registerTrait(this, IsExcluded);
-
+		// Register built-in Key trait
+		if (!ctx.traitData.has(Key)) registerTrait(this, Key);
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
 			const query = createQuery(this, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
-
 		// Create world entity.
-		ctx.worldEntity = createEntity(this, IsExcluded, ...traits);
+		ctx.worldEntity = createEntity(this, IsExcluded, Key("worldEntity"), ...traits);
+		ctx.entityKeyMap = registerKeyMap(this)
 	}
+	// spawn(key: string): Entity 
+	spawn(...traits: ConfigurableTrait[]): Entity{
+	/*spawn(key: string, ...traits: ConfigurableTrait[]): Entity
+	spawn(...args: (string|ConfigurableTrait)[]): Entity {
 
-	spawn(...traits: ConfigurableTrait[]): Entity {
+		let firstArg = args.shift()
+
+		firstArg = (typeof firstArg === 'string') ? Key(firstArg) : firstArg
+
+		const traits = [firstArg, ...args] as (ConfigurableTrait)[]*/
+
 		return createEntity(this, ...traits);
 	}
 
 	has(entity: Entity): boolean;
 	has(trait: Trait): boolean;
-	has(target: Entity | Trait): boolean {
+	has(key: string): boolean;
+	has(target: Entity | Trait | string): boolean {
 		return typeof target === 'number'
-			? isEntityAlive(this[$internal].entityIndex, target)
+			? isEntityAlive(this[$internal].entityIndex, target) :
+			typeof target === 'string' ? this[$internal].entityKeyMap.has(target)
 			: hasTrait(this, this[$internal].worldEntity, target);
 	}
 
@@ -155,7 +169,7 @@ export class World {
 				destroyEntity(this, entity);
 			}
 		});
-
+		ctx.entityKeyMap.clear()
 		ctx.entityIndex = createEntityIndex(this.#id);
 		ctx.entityTraits.clear();
 		ctx.entityMasks = [[]];

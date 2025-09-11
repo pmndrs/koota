@@ -4,8 +4,8 @@ import { createWorld, type Entity, getStore, trait } from '../src';
 class TestClass {
 	constructor(public name = 'TestClass') {}
 }
-
 const Position = trait({ x: 0, y: 0 });
+const NamedPosition = trait("Position", { x: 0, y: 0 })
 const Test = trait({
 	current: 1,
 	test: 'hello',
@@ -40,21 +40,29 @@ describe('Trait', () => {
 		const entity = world.spawn();
 
 		entity.add(Position);
+		entity.add(NamedPosition)
 		entity.add(Test);
 		expect(entity.has(Position)).toBe(true);
+		expect(entity.has(NamedPosition)).toBe(true);
 		expect(entity.has(Test)).toBe(true);
 
 		entity.remove(Position);
 		expect(entity.has(Position)).toBe(false);
+		expect(entity.has(NamedPosition)).toBe(true);
 		expect(entity.has(Test)).toBe(true);
 
 		// Add multiple traits at once.
-		entity.add(Position, Test);
+		entity.add(Position, NamedPosition, Test);
 		expect(entity.has(Position)).toBe(true);
+		expect(entity.has(NamedPosition)).toBe(true);
+		expect(entity.has(Test)).toBe(true);
+
 
 		// Remove multiple traits at once.
 		entity.remove(Position, Test);
 		expect(entity.has(Position)).toBe(false);
+		expect(entity.has(NamedPosition)).toBe(true);
+		expect(entity.has(Test)).toBe(false);
 	});
 
 	it('should create SoA stores when registered by adding', () => {
@@ -63,12 +71,30 @@ describe('Trait', () => {
 		entity.add(Position);
 		const store = getStore(world, Position);
 
+		/// !
+
 		// First entry is the world entity.
 		expect(store).toMatchObject({ x: [undefined, 0], y: [undefined, 0] });
 	});
 
 	it('should set defaults based on the schema', () => {
 		const entity = world.spawn();
+
+		entity.add(Position);
+		const position = entity.get(Position);
+
+		expect(position).toMatchObject({
+			x:0,
+			y:0
+		});
+
+		entity.add(NamedPosition);
+		const namedPosition = entity.get(NamedPosition);
+
+		expect(namedPosition).toMatchObject({
+			x:0,
+			y:0
+		});
 
 		entity.add(Test);
 		const test = entity.get(Test);
@@ -85,6 +111,22 @@ describe('Trait', () => {
 		const entity = world.spawn();
 
 		// Partial
+		entity.add(Position({ x:1 }));
+		let position = entity.get(Position);
+
+		expect(position).toMatchObject({
+			x:1,
+			y:0
+		});
+
+		entity.add(NamedPosition({ x:1 }));
+		let namedPosition = entity.get(NamedPosition);
+
+		expect(namedPosition).toMatchObject({
+			x:1,
+			y:0
+		});
+
 		entity.add(Test({ current: 2, arr: ['d', 'e', 'f'] }));
 		let test = entity.get(Test);
 
@@ -98,8 +140,26 @@ describe('Trait', () => {
 
 		// Reset
 		entity.remove(Test);
+		entity.remove(Position);
+		entity.remove(NamedPosition);
 
 		// Full
+		entity.add(Position({ x:1, y:1 }));
+		position = entity.get(Position);
+
+		expect(position).toMatchObject({
+			x:1,
+			y:1
+		});
+
+		entity.add(NamedPosition({ x:1, y:1 }));
+		namedPosition = entity.get(NamedPosition);
+
+		expect(namedPosition).toMatchObject({
+			x:1,
+			y:1
+		});
+
 		entity.add(
 			Test({
 				current: 3,
