@@ -90,8 +90,7 @@ export class World {
 		for (let i = 0; i < cursor; i++) {
 			setTrackingMasks(this, i);
 		}
-
-		// Register system traits.
+		// Register IsExcluded trait to keep world traits from queries.
 		if (!ctx.traitData.has(IsExcluded)) registerTrait(this, IsExcluded);
 
 		// Create cached queries.

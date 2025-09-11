@@ -30,14 +30,26 @@ const tagSchema = Object.freeze({});
 let traitId = 0;
 
 function defineTrait(schema?: undefined | Record<string, never>): TagTrait;
+function defineTrait(name: string, schema?: undefined | Record<string, never>): TagTrait;
 function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+function defineTrait<S extends Schema>(name: string, schema: S): Trait<Norm<S>>;
+function defineTrait<S extends Schema>(
+  nameOrSchema: string | S = tagSchema as S,
+  schema: S = tagSchema as S
+): Trait<Norm<S>>{
+	let name:string
+	if(typeof nameOrSchema !== 'string'){
+		name = ''
+		schema = nameOrSchema
+	} else{
+		name = nameOrSchema
+	}
 	const isAoS = typeof schema === 'function';
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
 
 	validateSchema(schema);
 
-	const Trait = Object.assign((params: Partial<Norm<S>>) => [Trait, params], {
+	const Trait = Object.assign({[name](params: Partial<Norm<S>>) { return [Trait, params]}}[name], {
 		schema: schema as Norm<S>,
 		[$internal]: {
 			set: createSetFunction[traitType](schema),
