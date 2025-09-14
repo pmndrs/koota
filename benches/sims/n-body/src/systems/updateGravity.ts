@@ -18,8 +18,8 @@ export const updateGravity = ({ world }: { world: World }) => {
 				const targetId = bodies[i].id();
 				if (currentId === targetId) continue; // Skip self
 
-				const dx = +position.x[targetId] - +position.x[currentId];
-				const dy = +position.y[targetId] - +position.y[currentId];
+				const dx = position.x[targetId] - position.x[currentId];
+				const dy = position.y[targetId] - position.y[currentId];
 				let distanceSquared = dx * dx + dy * dy;
 
 				if (distanceSquared < CONSTANTS.STICKY) distanceSquared = CONSTANTS.STICKY; // Apply stickiness
