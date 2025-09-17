@@ -12,7 +12,7 @@ import { createQueryHash } from './utils/create-query-hash';
 
 type QueryEvent = { type: 'add' | 'remove' | 'change'; traitData: TraitData };
 
-export const IsExcluded = trait();
+export const IsExcluded = trait('IsExcluded');
 
 export function runQuery<T extends QueryParameter[]>(world: World, query: Query<T>): QueryResult<T> {
 	commitQueryRemovals(world);
