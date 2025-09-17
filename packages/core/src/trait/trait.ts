@@ -59,6 +59,7 @@ function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 }
 
 export const trait = defineTrait;
+export const Key = trait(()=>'')
 
 export function registerTrait(world: World, trait: Trait) {
 	const ctx = world[$internal];
@@ -94,10 +95,14 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	for (let i = 0; i < traits.length; i++) {
 		// Get trait and params.
 		let trait: Trait;
+		let initParams: Record<string, any> | undefined | string
 		let params: Record<string, any> | undefined;
 
 		if (Array.isArray(traits[i])) {
-			[trait, params] = traits[i] as [Trait, Record<string, any>];
+			[trait, initParams] = traits[i] as [Trait, Record<string, any> | string];
+			params = typeof initParams ==='string' ?
+			() => initParams : initParams
+			
 		} else {
 			trait = traits[i] as Trait;
 		}
