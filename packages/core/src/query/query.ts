@@ -338,7 +338,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			.reduce((a, c) => a | c.bitflag, 0);
 
 		return {
-			required: required | added,
+			required: required | added | changed,
 			forbidden,
 			or,
 			added,
