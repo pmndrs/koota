@@ -55,6 +55,9 @@ function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 		},
 	}) as any;
 
+	// Make name writable for debugging.
+	Object.defineProperty(Trait, 'name', { writable: true });
+
 	return Trait;
 }
 

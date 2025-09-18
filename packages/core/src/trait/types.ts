@@ -12,6 +12,7 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
 
 export type Trait<TSchema extends Schema = any> = {
 	schema: TSchema;
+	name: string;
 	[$internal]: {
 		set: (index: number, store: any, value: TraitValue<TSchema>) => void;
 		fastSet: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
