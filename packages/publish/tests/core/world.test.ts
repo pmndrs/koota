@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, type TraitInstance, trait, universe } from '../../dist';
+import { createWorld, relation, type TraitRecord, trait, universe } from '../../dist';
 
 describe('World', () => {
 	beforeEach(() => {
@@ -137,7 +137,7 @@ describe('World', () => {
 		const TimeOfDay = trait({ hour: 0 });
 		const world = createWorld(TimeOfDay);
 
-		let timeOfDay: TraitInstance<typeof TimeOfDay> | undefined;
+		let timeOfDay: TraitRecord<typeof TimeOfDay> | undefined;
 		world.onChange(TimeOfDay, (e) => {
 			timeOfDay = e.get(TimeOfDay);
 		});
