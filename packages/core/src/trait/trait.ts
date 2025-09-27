@@ -103,7 +103,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		}
 
 		// Exit early if the entity already has the trait.
-		if (hasTrait(world, entity, trait)) return;
+		if (hasTrait(world, entity, trait)) continue;
 
 		const traitCtx = trait[$internal];
 
@@ -193,7 +193,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		const traitCtx = trait[$internal];
 
 		// Exit early if the entity doesn't have the trait.
-		if (!hasTrait(world, entity, trait)) return;
+		if (!hasTrait(world, entity, trait)) continue;
 
 		const data = ctx.traitData.get(trait)!;
 		const { generationId, bitflag, queries } = data;
