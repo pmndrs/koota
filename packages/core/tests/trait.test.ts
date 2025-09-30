@@ -248,4 +248,21 @@ describe('Trait', () => {
 		entity.remove(Position);
 		expect(removeCb).toHaveBeenCalledTimes(1);
 	});
+
+	it('can use primitive AoS stores with updateEach', () => {
+		const Toggle = trait(() => false);
+
+		const entity = world.spawn(Toggle);
+		expect(entity.get(Toggle)).toBe(false);
+
+		entity.set(Toggle, true);
+		expect(entity.get(Toggle)).toBe(true);
+
+		world.query(Toggle).updateEach(([toggle], entity) => {
+			// toggle = false;
+			entity.set(Toggle, false);
+		});
+
+		expect(entity.get(Toggle)).toBe(false);
+	});
 });
