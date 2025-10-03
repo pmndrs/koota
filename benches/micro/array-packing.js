@@ -5,6 +5,7 @@ import { summary, bench, do_not_optimize, run, barplot } from 'mitata';
 // https://chromium-review.googlesource.com/c/v8/v8/+/6285929
 
 // Map enum flags to human-readable labels
+// https://chromium.googlesource.com/v8/v8/+/refs/heads/main/src/runtime/runtime.h#1083
 const OptimizationStatus = {
 	kIsFunction: ['Function', 1 << 0],
 	kNeverOptimize: ['Never optimize', 1 << 1],
@@ -32,7 +33,7 @@ const OptimizationStatus = {
 };
 
 function printOptStatus(fn, name = fn.name || '<anonymous>') {
-	const s = %GetOptimizationStatus(fn); // V8 intrinsic
+	const s = %GetOptimizationStatus(fn); // Requires --allow-natives-syntax
 	const flags = Object.values(OptimizationStatus)
 		.filter(([_, bit]) => s & bit)
 		.map(([label]) => label);
@@ -52,7 +53,7 @@ barplot(() => {
 			 */
 			const array = new Array(size);
 			for (let i = 0; i < size; i++) array[i] = 1.1;
-			// %DebugPrint(array);
+			%DebugPrint(array);
 
 			function sum(array) {
 				let sum = 0;
@@ -60,11 +61,11 @@ barplot(() => {
 				return sum;
 			}
 
-			%PrepareFunctionForOptimization(sum);
+			// %PrepareFunctionForOptimization(sum);
 
 			sum(array);
 
-			%OptimizeFunctionOnNextCall(sum);
+			// %OptimizeFunctionOnNextCall(sum);
 
 			// Precompute values passed into the bench
 			yield {
@@ -78,7 +79,8 @@ barplot(() => {
 				},
 			};
 
-			printOptStatus(sum);
+			// console.log('after:');
+			// printOptStatus(sum);
 		})
 			.range('size', 1, 1024)
 			.gc('inner');
@@ -86,7 +88,9 @@ barplot(() => {
 		bench('packed:sum $size', function* (state) {
 			const size = state.get('size');
 			const array = Array.from({ length: size }, () => 1.1);
-			// %DebugPrint(array);
+			%DebugPrint(array);
+
+			delete array[1];
 
 			function sum(array) {
 				let sum = 0;
@@ -111,7 +115,7 @@ barplot(() => {
 			const size = state.get('size');
 			const array = new Float32Array(size);
 			for (let i = 0; i < size; i++) array[i] = 1.1;
-			// %DebugPrint(array);
+			%DebugPrint(array);
 
 			function sum(array) {
 				let sum = 0;
