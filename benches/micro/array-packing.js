@@ -53,7 +53,6 @@ barplot(() => {
 			 */
 			const array = new Array(size);
 			for (let i = 0; i < size; i++) array[i] = 1.1;
-			%DebugPrint(array);
 
 			function sum(array) {
 				let sum = 0;
@@ -62,22 +61,24 @@ barplot(() => {
 			}
 
 			// %PrepareFunctionForOptimization(sum);
-
-			sum(array);
-
+			// sum(array);
 			// %OptimizeFunctionOnNextCall(sum);
+			// sum(array);
 
 			// Precompute values passed into the bench
 			yield {
 				// Creates arg 0
-				[0]() {
-					return array;
-				},
+				// [0]() {
+				// 	for (let i = 0; i < size; i++) array[i] = 1.1;
+				// 	return array;
+				// },
 				// The actual bench function with arg 0 passed in
-				bench(array) {
-					return sum(array);
+				bench() {
+					return do_not_optimize(sum(array));
 				},
 			};
+
+			// %DebugPrint(sum);
 
 			// console.log('after:');
 			// printOptStatus(sum);
@@ -85,113 +86,115 @@ barplot(() => {
 			.range('size', 1, 1024)
 			.gc('inner');
 
-		bench('packed:sum $size', function* (state) {
-			const size = state.get('size');
-			const array = Array.from({ length: size }, () => 1.1);
-			%DebugPrint(array);
+		// bench('packed:sum $size', function* (state) {
+		// 	const size = state.get('size');
+		// 	const array = Array.from({ length: size }, () => 1.1);
+		// 	// %DebugPrint(array);
 
-			delete array[1];
+		// 	function sum(array) {
+		// 		let sum = 0;
+		// 		for (let i = 0; i < array.length; i++) sum += array[i];
+		// 		return sum;
+		// 	}
 
-			function sum(array) {
-				let sum = 0;
-				for (let i = 0; i < array.length; i++) sum += array[i];
-				return sum;
-			}
+		// 	yield {
+		// 		// [0]() {
+		// 		// 	for (let i = 0; i < size; i++) array[i] = 1.1;
+		// 		// 	return array;
+		// 		// },
 
-			yield {
-				[0]() {
-					return array;
-				},
+		// 		bench() {
+		// 			return do_not_optimize(sum(array));
+		// 		},
+		// 	};
+		// })
+		// 	.range('size', 1, 1024)
+		// 	.gc('inner');
 
-				bench(array) {
-					return sum(array);
-				},
-			};
-		})
-			.range('size', 1, 1024)
-			.gc('inner');
+		// bench('f32:sum $size', function* (state) {
+		// 	const size = state.get('size');
+		// 	const array = new Float32Array(size);
+		// 	for (let i = 0; i < size; i++) array[i] = 1.1;
+		// 	// %DebugPrint(array);
 
-		bench('f32:sum $size', function* (state) {
-			const size = state.get('size');
-			const array = new Float32Array(size);
-			for (let i = 0; i < size; i++) array[i] = 1.1;
-			%DebugPrint(array);
+		// 	function sum(array) {
+		// 		let sum = 0;
+		// 		for (let i = 0; i < array.length; i++) sum += array[i];
+		// 		return sum;
+		// 	}
 
-			function sum(array) {
-				let sum = 0;
-				for (let i = 0; i < array.length; i++) sum += array[i];
-				return sum;
-			}
+		// 	yield {
+		// 		// [0]() {
+		// 		// 	for (let i = 0; i < size; i++) array[i] = 1.1;
+		// 		// 	return array;
+		// 		// },
 
-			yield {
-				[0]() {
-					return array;
-				},
+		// 		bench() {
+		// 			return do_not_optimize(sum(array));
+		// 		},
+		// 	};
+		// })
+		// 	.range('size', 1, 1024)
+		// 	.gc('inner');
 
-				bench(array) {
-					return sum(array);
-				},
-			};
-		})
-			.range('size', 1, 1024)
-			.gc('inner');
+		// bench('f64:sum $size', function* (state) {
+		// 	const size = state.get('size');
+		// 	const array = new Float64Array(size);
+		// 	for (let i = 0; i < size; i++) array[i] = 1.1;
 
-		bench('f64:sum $size', function* (state) {
-			const size = state.get('size');
-			const array = new Float64Array(size);
-			for (let i = 0; i < size; i++) array[i] = 1.1;
+		// 	function sum(array) {
+		// 		let sum = 0;
+		// 		for (let i = 0; i < array.length; i++) sum += array[i];
+		// 		return sum;
+		// 	}
 
-			function sum(array) {
-				let sum = 0;
-				for (let i = 0; i < array.length; i++) sum += array[i];
-				return sum;
-			}
+		// 	yield {
+		// 		// [0]() {
+		// 		// 	for (let i = 0; i < size; i++) array[i] = 1.1;
+		// 		// 	return array;
+		// 		// },
 
-			yield {
-				[0]() {
-					return array;
-				},
+		// 		bench() {
+		// 			return do_not_optimize(sum(array));
+		// 		},
+		// 	};
+		// })
+		// 	.range('size', 1, 1024)
+		// 	.gc('inner');
 
-				bench(array) {
-					return sum(array);
-				},
-			};
-		})
-			.range('size', 1, 1024)
-			.gc('inner');
+		// bench('wasm_memory_f32:sum $size', function* (state) {
+		// 	const size = state.get('size');
+		// 	const bytesNeeded = size * 4;
+		// 	const pages = Math.ceil(bytesNeeded / 65536);
 
-		bench('wasm_memory_f32:sum $size', function* (state) {
-			const size = state.get('size');
-			const bytesNeeded = size * 4;
-			const pages = Math.ceil(bytesNeeded / 65536);
+		// 	// Create linear memory
+		// 	const memory = new WebAssembly.Memory({ initial: pages }); // optional: maximum: pages
 
-			// Create linear memory
-			const memory = new WebAssembly.Memory({ initial: pages }); // optional: maximum: pages
+		// 	// Create a Float32 view at offset 0 with 'size' elements
+		// 	const array = new Float32Array(memory.buffer, 0, size);
 
-			// Create a Float32 view at offset 0 with 'size' elements
-			const array = new Float32Array(memory.buffer, 0, size);
+		// 	// Write into WASM memory
+		// 	for (let i = 0; i < size; i++) array[i] = 1.1;
 
-			// Write into WASM memory
-			for (let i = 0; i < size; i++) array[i] = 1.1;
+		// 	function sum(array) {
+		// 		let sum = 0;
+		// 		for (let i = 0; i < array.length; i++) sum += array[i];
+		// 		return sum;
+		// 	}
 
-			function sum(array) {
-				let sum = 0;
-				for (let i = 0; i < array.length; i++) sum += array[i];
-				return sum;
-			}
+		// 	yield {
+		// 		// [0]() {
+		// 		// 	for (let i = 0; i < size; i++) array[i] = 1.1;
+		// 		// 	return array;
+		// 		// },
 
-			yield {
-				[0]() {
-					return array;
-				},
-
-				bench(array) {
-					return sum(array);
-				},
-			};
-		})
-			.range('size', 1, 1024)
-			.gc('inner');
+		// 		bench() {
+		// 			return do_not_optimize(sum(array));
+		// 		},
+		// 	};
+		// })
+		// 	.range('size', 1, 1024)
+		// 	.gc('inner');
 	});
 });
 

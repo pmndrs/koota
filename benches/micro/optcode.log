@@ -1,0 +1,576 @@
+[90mclk: ~4.41 GHz[0m
+[90mcpu: Apple M4 Pro[0m
+[90mruntime: node 24.8.0 (arm64-darwin)[0m
+
+benchmark                   avg (min … max) p75 / p99    (min … top 1%)
+------------------------------------------- -------------------------------
+--- Raw source ---
+(array) {
+				let sum = 0;
+				for (let i = 0; i < array.length; i++) sum += array[i];
+				return sum;
+			}
+
+
+--- Optimized code ---
+optimization_id = 45
+source_position = 2427
+kind = TURBOFAN_JS
+name = sum
+compiler = turbofan
+address = 0x17e92c5384b9
+
+Instructions (size = 636)
+0x11fa550a0     0  a9bf7bfd       stp fp, lr, [sp, #-16]!
+0x11fa550a4     4  910003fd       mov fp, sp
+0x11fa550a8     8  a9be03ff       stp xzr, x0, [sp, #-32]!
+0x11fa550ac     c  a9016fe1       stp x1, cp, [sp, #16]
+0x11fa550b0    10  d10083ff       sub sp, sp, #0x20 (32)
+0x11fa550b4    14  f8520342       ldur x2, [x26, #-224]
+0x11fa550b8    18  f90013fb       str cp, [sp, #32]
+0x11fa550bc    1c  eb2263ff       cmp sp, x2
+0x11fa550c0    20  54000a09       b.ls #+0x140 (addr 0x11fa55200)
+0x11fa550c4    24  f9402fe2       ldr x2, [sp, #88]
+0x11fa550c8    28  f240005f       tst x2, #0x1
+0x11fa550cc    2c  540011e0       b.eq #+0x23c (addr 0x11fa55308)
+0x11fa550d0    30  f85ff043       ldur x3, [x2, #-1]
+0x11fa550d4    34  58001024       ldr x4, pc+516 (addr 0x000000011fa552d8)    ;; object: 0x1da81f202cc1 <Map[32](HOLEY_DOUBLE_ELEMENTS)>
+0x11fa550d8    38  eb04007f       cmp x3, x4
+0x11fa550dc    3c  54001181       b.ne #+0x230 (addr 0x11fa5530c)
+0x11fa550e0    40  f8417043       ldur x3, [x2, #23]
+0x11fa550e4    44  9360fc63       asr x3, x3, #32
+0x11fa550e8    48  35000183       cbnz w3, #+0x30 (addr 0x11fa55118)
+0x11fa550ec    4c  d2800000       movz x0, #0x0
+0x11fa550f0    50  f85e83a3       ldur x3, [fp, #-24]
+0x11fa550f4    54  910003bf       mov sp, fp
+0x11fa550f8    58  a8c17bfd       ldp fp, lr, [sp], #16
+0x11fa550fc    5c  f100087f       cmp x3, #0x2 (2)
+0x11fa55100    60  5400004a       b.ge #+0x8 (addr 0x11fa55108)
+0x11fa55104    64  d2800043       movz x3, #0x2
+0x11fa55108    68  91000470       add x16, x3, #0x1 (1)
+0x11fa5510c    6c  927ffa10       and x16, x16, #0xfffffffffffffffe
+0x11fa55110    70  8b306fff       add sp, sp, x16, lsl #3
+0x11fa55114    74  d65f03c0       ret
+0x11fa55118    78  f840f044       ldur x4, [x2, #15]
+0x11fa5511c    7c  fc40f080       ldur d0, [x4, #15]
+0x11fa55120    80  2f00e401       movi d1, #0x0
+0x11fa55124    84  1e612800       fadd d0, d0, d1
+0x11fa55128    88  38531345       ldurb w5, [x26, #-207]
+0x11fa5512c    8c  35000825       cbnz w5, #+0x104 (addr 0x11fa55230)
+0x11fa55130    90  d2800025       movz x5, #0x1
+0x11fa55134    94  6b0300bf       cmp w5, w3
+0x11fa55138    98  540003e2       b.hs #+0x7c (addr 0x11fa551b4)
+0x11fa5513c    9c  2a0503e6       mov w6, w5
+0x11fa55140    a0  d37df0c6       lsl x6, x6, #3
+0x11fa55144    a4  91003cc6       add x6, x6, #0xf (15)
+0x11fa55148    a8  fc666881       ldr d1, [x4, x6]
+0x11fa5514c    ac  110004a5       add w5, w5, #0x1 (1)
+0x11fa55150    b0  1e612800       fadd d0, d0, d1
+0x11fa55154    b4  6b0300bf       cmp w5, w3
+0x11fa55158    b8  540002e2       b.hs #+0x5c (addr 0x11fa551b4)
+0x11fa5515c    bc  d37df0a6       lsl x6, x5, #3
+0x11fa55160    c0  91003cc6       add x6, x6, #0xf (15)
+0x11fa55164    c4  fc666881       ldr d1, [x4, x6]
+0x11fa55168    c8  110004a5       add w5, w5, #0x1 (1)
+0x11fa5516c    cc  1e612800       fadd d0, d0, d1
+0x11fa55170    d0  6b0300bf       cmp w5, w3
+0x11fa55174    d4  54000202       b.hs #+0x40 (addr 0x11fa551b4)
+0x11fa55178    d8  d37df0a6       lsl x6, x5, #3
+0x11fa5517c    dc  91003cc6       add x6, x6, #0xf (15)
+0x11fa55180    e0  fc666881       ldr d1, [x4, x6]
+0x11fa55184    e4  110004a5       add w5, w5, #0x1 (1)
+0x11fa55188    e8  1e612800       fadd d0, d0, d1
+0x11fa5518c    ec  6b0300bf       cmp w5, w3
+0x11fa55190    f0  54000122       b.hs #+0x24 (addr 0x11fa551b4)
+0x11fa55194    f4  d37df0a6       lsl x6, x5, #3
+0x11fa55198    f8  91003cc6       add x6, x6, #0xf (15)
+0x11fa5519c    fc  fc666881       ldr d1, [x4, x6]
+0x11fa551a0   100  110004a5       add w5, w5, #0x1 (1)
+0x11fa551a4   104  1e612800       fadd d0, d0, d1
+0x11fa551a8   108  38531346       ldurb w6, [x26, #-207]
+0x11fa551ac   10c  35000606       cbnz w6, #+0xc0 (addr 0x11fa5526c)
+0x11fa551b0   110  17ffffe1       b #-0x7c (addr 0x11fa55134)
+0x11fa551b4   114  1e780002       fcvtzs w2, d0
+0x11fa551b8   118  1e620041       scvtf d1, w2
+0x11fa551bc   11c  1e612000       fcmp d0, d1
+0x11fa551c0   120  540001c0       b.eq #+0x38 (addr 0x11fa551f8)
+0x11fa551c4   124  f85d0342       ldur x2, [x26, #-48]
+0x11fa551c8   128  f85d8343       ldur x3, [x26, #-40]
+0x11fa551cc   12c  91004044       add x4, x2, #0x10 (16)
+0x11fa551d0   130  eb03009f       cmp x4, x3
+0x11fa551d4   134  540006e2       b.hs #+0xdc (addr 0x11fa552b0)
+0x11fa551d8   138  91004043       add x3, x2, #0x10 (16)
+0x11fa551dc   13c  f81d0343       stur x3, [x26, #-48]
+0x11fa551e0   140  91000442       add x2, x2, #0x1 (1)
+0x11fa551e4   144  f9412743       ldr x3, [x26, #584]
+0x11fa551e8   148  f81ff043       stur x3, [x2, #-1]
+0x11fa551ec   14c  fc007040       stur d0, [x2, #7]
+0x11fa551f0   150  aa0203e0       mov x0, x2
+0x11fa551f4   154  17ffffbf       b #-0x104 (addr 0x11fa550f0)
+0x11fa551f8   158  d3607c40       lsl x0, x2, #32
+0x11fa551fc   15c  17ffffbd       b #-0x10c (addr 0x11fa550f0)
+0x11fa55200   160  d2c00402       movz x2, #0x2000000000
+0x11fa55204   164  d10043ff       sub sp, sp, #0x10 (16)
+0x11fa55208   168  f90007ff       str xzr, [sp, #8]
+0x11fa5520c   16c  f90003e2       str x2, [sp]
+0x11fa55210   170  d299dc81       movz x1, #0xcee4
+0x11fa55214   174  f2a01e81       movk x1, #0xf4, lsl #16
+0x11fa55218   178  f2c00021       movk x1, #0x1, lsl #32
+0x11fa5521c   17c  d2800020       movz x0, #0x1
+0x11fa55220   180  5800061b       ldr cp, pc+192 (addr 0x000000011fa552e0)    ;; object: 0x1da81f200109 <NativeContext[302]>
+0x11fa55224   184  58000670       ldr x16, pc+204 (addr 0x000000011fa552f0)
+0x11fa55228   188  d63f0200       blr x16
+0x11fa5522c   18c  17ffffa6       b #-0x168 (addr 0x11fa550c4)
+0x11fa55230   190  d299aa01       movz x1, #0xcd50
+0x11fa55234   194  f2a01e81       movk x1, #0xf4, lsl #16
+0x11fa55238   198  f2c00021       movk x1, #0x1, lsl #32
+0x11fa5523c   19c  d2800000       movz x0, #0x0
+0x11fa55240   1a0  5800051b       ldr cp, pc+160 (addr 0x000000011fa552e0)    ;; object: 0x1da81f200109 <NativeContext[302]>
+0x11fa55244   1a4  f9000be4       str x4, [sp, #16]
+0x11fa55248   1a8  fd0007e0       str d0, [sp, #8]
+0x11fa5524c   1ac  f90003e3       str x3, [sp]
+0x11fa55250   1b0  58000510       ldr x16, pc+160 (addr 0x000000011fa552f0)
+0x11fa55254   1b4  d63f0200       blr x16
+0x11fa55258   1b8  f9402fe2       ldr x2, [sp, #88]
+0x11fa5525c   1bc  f9400be4       ldr x4, [sp, #16]
+0x11fa55260   1c0  fd4007e0       ldr d0, [sp, #8]
+0x11fa55264   1c4  f94003e3       ldr x3, [sp]
+0x11fa55268   1c8  17ffffb2       b #-0x138 (addr 0x11fa55130)
+0x11fa5526c   1cc  fd0007e0       str d0, [sp, #8]
+0x11fa55270   1d0  f9000fe5       str x5, [sp, #24]
+0x11fa55274   1d4  f9000be4       str x4, [sp, #16]
+0x11fa55278   1d8  f90003e3       str x3, [sp]
+0x11fa5527c   1dc  d299aa01       movz x1, #0xcd50
+0x11fa55280   1e0  f2a01e81       movk x1, #0xf4, lsl #16
+0x11fa55284   1e4  f2c00021       movk x1, #0x1, lsl #32
+0x11fa55288   1e8  d2800000       movz x0, #0x0
+0x11fa5528c   1ec  580002bb       ldr cp, pc+84 (addr 0x000000011fa552e0)    ;; object: 0x1da81f200109 <NativeContext[302]>
+0x11fa55290   1f0  58000310       ldr x16, pc+96 (addr 0x000000011fa552f0)
+0x11fa55294   1f4  d63f0200       blr x16
+0x11fa55298   1f8  f9402fe2       ldr x2, [sp, #88]
+0x11fa5529c   1fc  fd4007e0       ldr d0, [sp, #8]
+0x11fa552a0   200  f9400fe5       ldr x5, [sp, #24]
+0x11fa552a4   204  f9400be4       ldr x4, [sp, #16]
+0x11fa552a8   208  f94003e3       ldr x3, [sp]
+0x11fa552ac   20c  17ffffa2       b #-0x178 (addr 0x11fa55134)
+0x11fa552b0   210  d2800201       movz x1, #0x10
+0x11fa552b4   214  fd0007e0       str d0, [sp, #8]
+0x11fa552b8   218  58000190       ldr x16, pc+48 (addr 0x000000011fa552e8)
+0x11fa552bc   21c  d63f0200       blr x16
+0x11fa552c0   220  d1000402       sub x2, x0, #0x1 (1)
+0x11fa552c4   224  fd4007e0       ldr d0, [sp, #8]
+0x11fa552c8   228  17ffffc4       b #-0xf0 (addr 0x11fa551d8)
+0x11fa552cc   22c  d503201f       nop
+0x11fa552d0   230  5800013f       constant pool begin (num_const = 9)    ;; constant pool
+0x11fa552d4   234  d63f03e0       constant
+0x11fa552d8   238  1f202cc1       constant
+0x11fa552dc   23c  00001da8       constant
+0x11fa552e0   240  1f200109       constant
+0x11fa552e4   244  00001da8       constant
+0x11fa552e8   248  01506ce0       constant
+0x11fa552ec   24c  00000001       constant
+0x11fa552f0   250  015a1f20       constant
+0x11fa552f4   254  00000001       constant
+0x11fa552f8   258  f8558350       ldur x16, [x26, #-168]
+0x11fa552fc   25c  d61f0200       br x16
+0x11fa55300   260  f8560350       ldur x16, [x26, #-160]
+0x11fa55304   264  d61f0200       br x16
+0x11fa55308   268  97fffffc       bl #-0x10 (addr 0x11fa552f8)    ;; debug: deopt position, script offset '9b4'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason 'Smi'
+                                                             ;; debug: deopt index 0
+0x11fa5530c   26c  97fffffb       bl #-0x14 (addr 0x11fa552f8)    ;; debug: deopt position, script offset '9b4'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason 'wrong map'
+                                                             ;; debug: deopt index 1
+0x11fa55310   270  97fffffc       bl #-0x10 (addr 0x11fa55300)    ;; debug: deopt position, script offset '97b'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason '(unknown)'
+                                                             ;; debug: deopt index 2
+0x11fa55314   274  97fffffb       bl #-0x14 (addr 0x11fa55300)    ;; debug: deopt position, script offset '99a'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason '(unknown)'
+                                                             ;; debug: deopt index 3
+0x11fa55318   278  97fffffa       bl #-0x18 (addr 0x11fa55300)    ;; debug: deopt position, script offset '99a'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason '(unknown)'
+                                                             ;; debug: deopt index 4
+
+Source positions:
+ pc offset  position
+        14      2427
+        24      2484
+        44      2476
+        4c      2529
+        78      2509
+        88      2458
+        94      2476
+        9c      2509
+        ac      2493
+        b0      2509
+        b4      2458
+        b4      2476
+        bc      2509
+        c8      2493
+        cc      2509
+        d0      2458
+        d0      2476
+        d8      2509
+        e4      2493
+        e8      2509
+        ec      2458
+        ec      2476
+        f4      2509
+       100      2493
+       104      2509
+       108      2458
+       114      2529
+       160      2427
+       190      2458
+       210      2529
+
+Inlined functions (count = 0)
+
+Deoptimization Input Data (deopt points = 5)
+ index  bytecode-offset    pc
+     0                4    NA 
+     1                4    NA 
+     2               -1   18c 
+     3               30   1b8 
+     4               30   1f8 
+
+Safepoints (stack slots = 10, entries = 4, byte size = 36)
+0x11fa5522c    18c  slots (sp->fp): 0000100000  deopt      2 trampoline:    270
+0x11fa55258    1b8  slots (sp->fp): 0010100000  deopt      3 trampoline:    274
+0x11fa55298    1f8  slots (sp->fp): 0010100000  deopt      4 trampoline:    278
+0x11fa552c0    220  slots (sp->fp): 0000000000
+
+RelocInfo (size = 117)
+0x11fa550d4  full embedded object  (0x1da81f202cc1 <Map[32](HOLEY_DOUBLE_ELEMENTS)>)
+0x11fa55220  full embedded object  (0x1da81f200109 <NativeContext[302]>)
+0x11fa552d0  constant pool (size 40)
+0x11fa55308  deopt script offset  (2484)
+0x11fa55308  deopt inlining id  (-1)
+0x11fa55308  deopt reason  (Smi)
+0x11fa55308  deopt index
+0x11fa5530c  deopt script offset  (2484)
+0x11fa5530c  deopt inlining id  (-1)
+0x11fa5530c  deopt reason  (wrong map)
+0x11fa5530c  deopt index
+0x11fa55310  deopt script offset  (2427)
+0x11fa55310  deopt inlining id  (-1)
+0x11fa55310  deopt reason  ((unknown))
+0x11fa55310  deopt index
+0x11fa55314  deopt script offset  (2458)
+0x11fa55314  deopt inlining id  (-1)
+0x11fa55314  deopt reason  ((unknown))
+0x11fa55314  deopt index
+0x11fa55318  deopt script offset  (2458)
+0x11fa55318  deopt inlining id  (-1)
+0x11fa55318  deopt reason  ((unknown))
+0x11fa55318  deopt index
+
+--- End code ---
+--- Raw source ---
+(array) {
+				let sum = 0;
+				for (let i = 0; i < array.length; i++) sum += array[i];
+				return sum;
+			}
+
+
+--- Optimized code ---
+optimization_id = 55
+source_position = 2427
+kind = TURBOFAN_JS
+name = sum
+compiler = turbofan
+address = 0x17e92c53d441
+
+Instructions (size = 644)
+0x11f9d4f80     0  a9bf7bfd       stp fp, lr, [sp, #-16]!
+0x11f9d4f84     4  910003fd       mov fp, sp
+0x11f9d4f88     8  a9be03ff       stp xzr, x0, [sp, #-32]!
+0x11f9d4f8c     c  a9016fe1       stp x1, cp, [sp, #16]
+0x11f9d4f90    10  d100c3ff       sub sp, sp, #0x30 (48)
+0x11f9d4f94    14  f8520342       ldur x2, [x26, #-224]
+0x11f9d4f98    18  f90017fb       str cp, [sp, #40]
+0x11f9d4f9c    1c  f9001be1       str x1, [sp, #48]
+0x11f9d4fa0    20  eb2263ff       cmp sp, x2
+0x11f9d4fa4    24  54000a09       b.ls #+0x140 (addr 0x11f9d50e4)
+0x11f9d4fa8    28  f94037e2       ldr x2, [sp, #104]
+0x11f9d4fac    2c  f240005f       tst x2, #0x1
+0x11f9d4fb0    30  54001200       b.eq #+0x240 (addr 0x11f9d51f0)
+0x11f9d4fb4    34  f85ff043       ldur x3, [x2, #-1]
+0x11f9d4fb8    38  58001044       ldr x4, pc+520 (addr 0x000000011f9d51c0)    ;; object: 0x1da81f202cc1 <Map[32](HOLEY_DOUBLE_ELEMENTS)>
+0x11f9d4fbc    3c  eb04007f       cmp x3, x4
+0x11f9d4fc0    40  540011a1       b.ne #+0x234 (addr 0x11f9d51f4)
+0x11f9d4fc4    44  f8417043       ldur x3, [x2, #23]
+0x11f9d4fc8    48  9360fc63       asr x3, x3, #32
+0x11f9d4fcc    4c  35000183       cbnz w3, #+0x30 (addr 0x11f9d4ffc)
+0x11f9d4fd0    50  d2800000       movz x0, #0x0
+0x11f9d4fd4    54  f85e83a3       ldur x3, [fp, #-24]
+0x11f9d4fd8    58  910003bf       mov sp, fp
+0x11f9d4fdc    5c  a8c17bfd       ldp fp, lr, [sp], #16
+0x11f9d4fe0    60  f100087f       cmp x3, #0x2 (2)
+0x11f9d4fe4    64  5400004a       b.ge #+0x8 (addr 0x11f9d4fec)
+0x11f9d4fe8    68  d2800043       movz x3, #0x2
+0x11f9d4fec    6c  91000470       add x16, x3, #0x1 (1)
+0x11f9d4ff0    70  927ffa10       and x16, x16, #0xfffffffffffffffe
+0x11f9d4ff4    74  8b306fff       add sp, sp, x16, lsl #3
+0x11f9d4ff8    78  d65f03c0       ret
+0x11f9d4ffc    7c  f840f044       ldur x4, [x2, #15]
+0x11f9d5000    80  fc40f080       ldur d0, [x4, #15]
+0x11f9d5004    84  2f00e401       movi d1, #0x0
+0x11f9d5008    88  1e612800       fadd d0, d0, d1
+0x11f9d500c    8c  38531345       ldurb w5, [x26, #-207]
+0x11f9d5010    90  35000825       cbnz w5, #+0x104 (addr 0x11f9d5114)
+0x11f9d5014    94  d2800025       movz x5, #0x1
+0x11f9d5018    98  6b0300bf       cmp w5, w3
+0x11f9d501c    9c  540003e2       b.hs #+0x7c (addr 0x11f9d5098)
+0x11f9d5020    a0  2a0503e6       mov w6, w5
+0x11f9d5024    a4  d37df0c6       lsl x6, x6, #3
+0x11f9d5028    a8  91003cc6       add x6, x6, #0xf (15)
+0x11f9d502c    ac  fc666881       ldr d1, [x4, x6]
+0x11f9d5030    b0  110004a5       add w5, w5, #0x1 (1)
+0x11f9d5034    b4  1e612800       fadd d0, d0, d1
+0x11f9d5038    b8  6b0300bf       cmp w5, w3
+0x11f9d503c    bc  540002e2       b.hs #+0x5c (addr 0x11f9d5098)
+0x11f9d5040    c0  d37df0a6       lsl x6, x5, #3
+0x11f9d5044    c4  91003cc6       add x6, x6, #0xf (15)
+0x11f9d5048    c8  fc666881       ldr d1, [x4, x6]
+0x11f9d504c    cc  110004a5       add w5, w5, #0x1 (1)
+0x11f9d5050    d0  1e612800       fadd d0, d0, d1
+0x11f9d5054    d4  6b0300bf       cmp w5, w3
+0x11f9d5058    d8  54000202       b.hs #+0x40 (addr 0x11f9d5098)
+0x11f9d505c    dc  d37df0a6       lsl x6, x5, #3
+0x11f9d5060    e0  91003cc6       add x6, x6, #0xf (15)
+0x11f9d5064    e4  fc666881       ldr d1, [x4, x6]
+0x11f9d5068    e8  110004a5       add w5, w5, #0x1 (1)
+0x11f9d506c    ec  1e612800       fadd d0, d0, d1
+0x11f9d5070    f0  6b0300bf       cmp w5, w3
+0x11f9d5074    f4  54000122       b.hs #+0x24 (addr 0x11f9d5098)
+0x11f9d5078    f8  d37df0a6       lsl x6, x5, #3
+0x11f9d507c    fc  91003cc6       add x6, x6, #0xf (15)
+0x11f9d5080   100  fc666881       ldr d1, [x4, x6]
+0x11f9d5084   104  110004a5       add w5, w5, #0x1 (1)
+0x11f9d5088   108  1e612800       fadd d0, d0, d1
+0x11f9d508c   10c  38531346       ldurb w6, [x26, #-207]
+0x11f9d5090   110  35000606       cbnz w6, #+0xc0 (addr 0x11f9d5150)
+0x11f9d5094   114  17ffffe1       b #-0x7c (addr 0x11f9d5018)
+0x11f9d5098   118  1e780002       fcvtzs w2, d0
+0x11f9d509c   11c  1e620041       scvtf d1, w2
+0x11f9d50a0   120  1e612000       fcmp d0, d1
+0x11f9d50a4   124  540001c0       b.eq #+0x38 (addr 0x11f9d50dc)
+0x11f9d50a8   128  f85d0342       ldur x2, [x26, #-48]
+0x11f9d50ac   12c  f85d8343       ldur x3, [x26, #-40]
+0x11f9d50b0   130  91004044       add x4, x2, #0x10 (16)
+0x11f9d50b4   134  eb03009f       cmp x4, x3
+0x11f9d50b8   138  540006e2       b.hs #+0xdc (addr 0x11f9d5194)
+0x11f9d50bc   13c  91004043       add x3, x2, #0x10 (16)
+0x11f9d50c0   140  f81d0343       stur x3, [x26, #-48]
+0x11f9d50c4   144  91000442       add x2, x2, #0x1 (1)
+0x11f9d50c8   148  f9412743       ldr x3, [x26, #584]
+0x11f9d50cc   14c  f81ff043       stur x3, [x2, #-1]
+0x11f9d50d0   150  fc007040       stur d0, [x2, #7]
+0x11f9d50d4   154  aa0203e0       mov x0, x2
+0x11f9d50d8   158  17ffffbf       b #-0x104 (addr 0x11f9d4fd4)
+0x11f9d50dc   15c  d3607c40       lsl x0, x2, #32
+0x11f9d50e0   160  17ffffbd       b #-0x10c (addr 0x11f9d4fd4)
+0x11f9d50e4   164  d2c00202       movz x2, #0x1000000000
+0x11f9d50e8   168  d10043ff       sub sp, sp, #0x10 (16)
+0x11f9d50ec   16c  f90007ff       str xzr, [sp, #8]
+0x11f9d50f0   170  f90003e2       str x2, [sp]
+0x11f9d50f4   174  d299dc81       movz x1, #0xcee4
+0x11f9d50f8   178  f2a01e81       movk x1, #0xf4, lsl #16
+0x11f9d50fc   17c  f2c00021       movk x1, #0x1, lsl #32
+0x11f9d5100   180  d2800020       movz x0, #0x1
+0x11f9d5104   184  5800063b       ldr cp, pc+196 (addr 0x000000011f9d51c8)    ;; object: 0x1da81f200109 <NativeContext[302]>
+0x11f9d5108   188  58000690       ldr x16, pc+208 (addr 0x000000011f9d51d8)
+0x11f9d510c   18c  d63f0200       blr x16
+0x11f9d5110   190  17ffffa6       b #-0x168 (addr 0x11f9d4fa8)
+0x11f9d5114   194  d299aa01       movz x1, #0xcd50
+0x11f9d5118   198  f2a01e81       movk x1, #0xf4, lsl #16
+0x11f9d511c   19c  f2c00021       movk x1, #0x1, lsl #32
+0x11f9d5120   1a0  d2800000       movz x0, #0x0
+0x11f9d5124   1a4  5800053b       ldr cp, pc+164 (addr 0x000000011f9d51c8)    ;; object: 0x1da81f200109 <NativeContext[302]>
+0x11f9d5128   1a8  f9000fe4       str x4, [sp, #24]
+0x11f9d512c   1ac  fd000be0       str d0, [sp, #16]
+0x11f9d5130   1b0  f90007e3       str x3, [sp, #8]
+0x11f9d5134   1b4  58000530       ldr x16, pc+164 (addr 0x000000011f9d51d8)
+0x11f9d5138   1b8  d63f0200       blr x16
+0x11f9d513c   1bc  f94037e2       ldr x2, [sp, #104]
+0x11f9d5140   1c0  f9400fe4       ldr x4, [sp, #24]
+0x11f9d5144   1c4  fd400be0       ldr d0, [sp, #16]
+0x11f9d5148   1c8  f94007e3       ldr x3, [sp, #8]
+0x11f9d514c   1cc  17ffffb2       b #-0x138 (addr 0x11f9d5014)
+0x11f9d5150   1d0  fd000be0       str d0, [sp, #16]
+0x11f9d5154   1d4  f90013e5       str x5, [sp, #32]
+0x11f9d5158   1d8  f9000fe4       str x4, [sp, #24]
+0x11f9d515c   1dc  f90007e3       str x3, [sp, #8]
+0x11f9d5160   1e0  d299aa01       movz x1, #0xcd50
+0x11f9d5164   1e4  f2a01e81       movk x1, #0xf4, lsl #16
+0x11f9d5168   1e8  f2c00021       movk x1, #0x1, lsl #32
+0x11f9d516c   1ec  d2800000       movz x0, #0x0
+0x11f9d5170   1f0  580002db       ldr cp, pc+88 (addr 0x000000011f9d51c8)    ;; object: 0x1da81f200109 <NativeContext[302]>
+0x11f9d5174   1f4  58000330       ldr x16, pc+100 (addr 0x000000011f9d51d8)
+0x11f9d5178   1f8  d63f0200       blr x16
+0x11f9d517c   1fc  f94037e2       ldr x2, [sp, #104]
+0x11f9d5180   200  fd400be0       ldr d0, [sp, #16]
+0x11f9d5184   204  f94013e5       ldr x5, [sp, #32]
+0x11f9d5188   208  f9400fe4       ldr x4, [sp, #24]
+0x11f9d518c   20c  f94007e3       ldr x3, [sp, #8]
+0x11f9d5190   210  17ffffa2       b #-0x178 (addr 0x11f9d5018)
+0x11f9d5194   214  d2800201       movz x1, #0x10
+0x11f9d5198   218  fd000be0       str d0, [sp, #16]
+0x11f9d519c   21c  580001b0       ldr x16, pc+52 (addr 0x000000011f9d51d0)
+0x11f9d51a0   220  d63f0200       blr x16
+0x11f9d51a4   224  d1000402       sub x2, x0, #0x1 (1)
+0x11f9d51a8   228  fd400be0       ldr d0, [sp, #16]
+0x11f9d51ac   22c  17ffffc4       b #-0xf0 (addr 0x11f9d50bc)
+0x11f9d51b0   230  d503201f       nop
+0x11f9d51b4   234  5800015f       constant pool begin (num_const = 10)    ;; constant pool
+0x11f9d51b8   238  d63f03e0       constant
+0x11f9d51bc   23c  d503201f       constant
+0x11f9d51c0   240  1f202cc1       constant
+0x11f9d51c4   244  00001da8       constant
+0x11f9d51c8   248  1f200109       constant
+0x11f9d51cc   24c  00001da8       constant
+0x11f9d51d0   250  01506ce0       constant
+0x11f9d51d4   254  00000001       constant
+0x11f9d51d8   258  015a1f20       constant
+0x11f9d51dc   25c  00000001       constant
+0x11f9d51e0   260  f8558350       ldur x16, [x26, #-168]
+0x11f9d51e4   264  d61f0200       br x16
+0x11f9d51e8   268  f8560350       ldur x16, [x26, #-160]
+0x11f9d51ec   26c  d61f0200       br x16
+0x11f9d51f0   270  97fffffc       bl #-0x10 (addr 0x11f9d51e0)    ;; debug: deopt position, script offset '9b4'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason 'Smi'
+                                                             ;; debug: deopt index 0
+0x11f9d51f4   274  97fffffb       bl #-0x14 (addr 0x11f9d51e0)    ;; debug: deopt position, script offset '9b4'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason 'wrong map'
+                                                             ;; debug: deopt index 1
+0x11f9d51f8   278  97fffffc       bl #-0x10 (addr 0x11f9d51e8)    ;; debug: deopt position, script offset '97b'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason '(unknown)'
+                                                             ;; debug: deopt index 2
+0x11f9d51fc   27c  97fffffb       bl #-0x14 (addr 0x11f9d51e8)    ;; debug: deopt position, script offset '99a'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason '(unknown)'
+                                                             ;; debug: deopt index 3
+0x11f9d5200   280  97fffffa       bl #-0x18 (addr 0x11f9d51e8)    ;; debug: deopt position, script offset '99a'
+                                                             ;; debug: deopt position, inlining id 'ffffffff'
+                                                             ;; debug: deopt reason '(unknown)'
+                                                             ;; debug: deopt index 4
+
+Source positions:
+ pc offset  position
+        14      2427
+        28      2484
+        48      2476
+        50      2529
+        7c      2509
+        8c      2458
+        98      2476
+        a0      2509
+        b0      2493
+        b4      2509
+        b8      2458
+        b8      2476
+        c0      2509
+        cc      2493
+        d0      2509
+        d4      2458
+        d4      2476
+        dc      2509
+        e8      2493
+        ec      2509
+        f0      2458
+        f0      2476
+        f8      2509
+       104      2493
+       108      2509
+       10c      2458
+       118      2529
+       164      2427
+       194      2458
+       214      2529
+
+Inlined functions (count = 0)
+
+Deoptimization Input Data (deopt points = 5)
+ index  bytecode-offset    pc
+     0                4    NA 
+     1                4    NA 
+     2               -1   190 
+     3               30   1bc 
+     4               30   1fc 
+
+Safepoints (stack slots = 12, entries = 4, byte size = 36)
+0x11f9d5110    190  slots (sp->fp): 000001100000  deopt      2 trampoline:    278
+0x11f9d513c    1bc  slots (sp->fp): 000101100000  deopt      3 trampoline:    27c
+0x11f9d517c    1fc  slots (sp->fp): 000101100000  deopt      4 trampoline:    280
+0x11f9d51a4    224  slots (sp->fp): 000000000000
+
+RelocInfo (size = 117)
+0x11f9d4fb8  full embedded object  (0x1da81f202cc1 <Map[32](HOLEY_DOUBLE_ELEMENTS)>)
+0x11f9d5104  full embedded object  (0x1da81f200109 <NativeContext[302]>)
+0x11f9d51b4  constant pool (size 44)
+0x11f9d51f0  deopt script offset  (2484)
+0x11f9d51f0  deopt inlining id  (-1)
+0x11f9d51f0  deopt reason  (Smi)
+0x11f9d51f0  deopt index
+0x11f9d51f4  deopt script offset  (2484)
+0x11f9d51f4  deopt inlining id  (-1)
+0x11f9d51f4  deopt reason  (wrong map)
+0x11f9d51f4  deopt index
+0x11f9d51f8  deopt script offset  (2427)
+0x11f9d51f8  deopt inlining id  (-1)
+0x11f9d51f8  deopt reason  ((unknown))
+0x11f9d51f8  deopt index
+0x11f9d51fc  deopt script offset  (2458)
+0x11f9d51fc  deopt inlining id  (-1)
+0x11f9d51fc  deopt reason  ((unknown))
+0x11f9d51fc  deopt index
+0x11f9d5200  deopt script offset  (2458)
+0x11f9d5200  deopt inlining id  (-1)
+0x11f9d5200  deopt reason  ((unknown))
+0x11f9d5200  deopt index
+
+--- End code ---
+holey:sum 1                  [1m[33m  3.98 ns[0m[1m/iter[0m [90m  3.92 ns[0m [36m    [0m[33m█[0m[35m                [0m
+                        [90m([0m[36m2.88 ns[0m[90m … [0m[35m8.98 ns[0m[90m)[0m [90m  8.37 ns[0m [36m▁▁▁▄[0m[33m█[0m[35m▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁[0m
+                  [90mgc([0m[34m597.71 µs[0m[90m … [0m[34m998.00 µs[0m[90m)[0m [33m 16.23  b[0m[90m ([0m[33m  3.41  b[0m[90m…[0m[33m 48.81  b[0m[90m)[0m
+
+holey:sum 8                  [1m[33m  5.67 ns[0m[1m/iter[0m [90m  5.52 ns[0m [36m    █[0m[33m [0m[35m               [0m
+                       [90m([0m[36m4.00 ns[0m[90m … [0m[35m22.05 ns[0m[90m)[0m [90m 10.85 ns[0m [36m▁▁▃▁█[0m[33m▄[0m[35m▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁[0m
+                  [90mgc([0m[34m602.71 µs[0m[90m … [0m[34m  2.58 ms[0m[90m)[0m [33m 16.24  b[0m[90m ([0m[33m  3.35  b[0m[90m…[0m[33m 40.10  b[0m[90m)[0m
+
+holey:sum 64                 [1m[33m 23.16 ns[0m[1m/iter[0m [90m 23.24 ns[0m [36m         [0m[33m█[0m[35m           [0m
+                      [90m([0m[36m19.33 ns[0m[90m … [0m[35m28.11 ns[0m[90m)[0m [90m 27.54 ns[0m [36m▁▁▁▁▁▁▁▂▃[0m[33m█[0m[35m▆▁▁▁▁▁▁▂▁▁▁[0m
+                  [90mgc([0m[34m550.38 µs[0m[90m … [0m[34m  1.62 ms[0m[90m)[0m [33m 16.75  b[0m[90m ([0m[33m  0.85  b[0m[90m…[0m[33m143.22  b[0m[90m)[0m
+
+holey:sum 512                [1m[33m246.69 ns[0m[1m/iter[0m [90m247.38 ns[0m [36m   ▆█[0m[33m▂[0m[35m               [0m
+                    [90m([0m[36m237.13 ns[0m[90m … [0m[35m278.16 ns[0m[90m)[0m [90m275.65 ns[0m [36m▁▁▂██[0m[33m█[0m[35m▆▃▂▂▁▁▁▁▁▁▁▁▁▁▁[0m
+                  [90mgc([0m[34m531.54 µs[0m[90m … [0m[34m934.46 µs[0m[90m)[0m [33m 16.11  b[0m[90m ([0m[33m 16.10  b[0m[90m…[0m[33m 17.81  b[0m[90m)[0m
+
+holey:sum 1024               [1m[33m519.08 ns[0m[1m/iter[0m [90m519.89 ns[0m [36m ▇█[0m[33m▃[0m[35m                 [0m
+                    [90m([0m[36m509.42 ns[0m[90m … [0m[35m584.73 ns[0m[90m)[0m [90m580.33 ns[0m [36m▅██[0m[33m█[0m[35m▆▂▁▂▂▂▁▁▁▁▁▁▁▁▁▁▁[0m
+                  [90mgc([0m[34m508.08 µs[0m[90m … [0m[34m899.96 µs[0m[90m)[0m [33m 16.11  b[0m[90m ([0m[33m 16.10  b[0m[90m…[0m[33m 18.66  b[0m[90m)[0m
+
+                             ┌                                            ┐
+                 holey:sum 1 ┤[90m[0m [33m3.98 ns[0m
+                 holey:sum 8 ┤[90m[0m [33m5.67 ns[0m
+                holey:sum 64 ┤[90m■[0m [33m23.16 ns[0m
+               holey:sum 512 ┤[90m■■■■■■■■■■■■■■■■[0m [33m246.69 ns[0m
+              holey:sum 1024 ┤[90m■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■[0m [33m519.08 ns[0m
+                             └                                            ┘
+
+[1msummary[0m
+  [1m[36mholey:sum 1[0m
+   [32m1.42[0mx faster than [1m[36mholey:sum 8[0m
+   [32m5.82[0mx faster than [1m[36mholey:sum 64[0m
+   [32m61.97[0mx faster than [1m[36mholey:sum 512[0m
+   [32m130.4[0mx faster than [1m[36mholey:sum 1024[0m
