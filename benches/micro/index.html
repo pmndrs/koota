@@ -1,0 +1,120 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmark Log Viewer</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background-color: #111; 
+            color: #eee;
+            padding: 1rem;
+        }
+        #status { 
+            font-size: 1.2em; 
+            margin-bottom: 1rem;
+        }
+        .log-block {
+            border-left: 2px solid #555;
+            padding-left: 1rem;
+            margin-top: 0.5rem;
+            margin-left: 1rem;
+        }
+        .log-header {
+            font-weight: bold;
+            color: #0af;
+        }
+        pre { 
+            background-color: #222;
+            padding: 0.5rem;
+            margin-top: 0.25rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 1em;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Live Benchmark Log Stream</h1>
+    <div id="status">Connecting to log stream...</div>
+
+    <main id="log-container"></main>
+    
+    <script>
+        const logContainer = document.getElementById('log-container');
+        const statusDiv = document.getElementById('status');
+        let isStreaming = false;
+
+        const eventSource = new EventSource('/stream-logs');
+        eventSource.onmessage = (event) => {
+            if (!isStreaming) {
+                statusDiv.textContent = 'Connection established. Streaming logs...';
+                isStreaming = true;
+            }
+            
+            try {
+                const data = JSON.parse(event.data);
+                // console.log({data});
+                if (data.event === 'start') {
+                    // placeholder
+                    const block = document.createElement('details');
+                    block.id = `chunk-${data.id}`;
+                    block.className = 'log-block';
+                    block.dataset.parentId = data.parentId; // Set the data-parentId
+                    
+                    const header = document.createElement('summary');
+                    header.className = 'log-header';
+                    header.textContent = `Block: ${data.key} (Type:${data.type}, ID: ${data.id}, Parent: ${data.parentId})`;
+                    
+                    const content = document.createElement('pre');
+                    
+                    block.appendChild(header);
+                    block.appendChild(content);
+
+                    let parentElement = data.parentId === null 
+                        ? logContainer 
+                        : document.getElementById(`chunk-${data.parentId}`);
+                    
+                    if (!parentElement) {
+                        console.warn(`Could not find parent 'chunk-${data.parentId}'. Appending to root.`);
+                        parentElement = logContainer;
+                    }
+                    
+                    parentElement.appendChild(block);
+
+                } else if (data.event === 'end') {
+                    console.log({data})
+                    const blockElement = document.getElementById(`chunk-${data.id}`);
+
+                    if (blockElement) {
+                        const contentElement = blockElement.querySelector('pre');
+                        contentElement.textContent = JSON.stringify(data.content, undefined, 2);
+                    } else {
+                        console.error(`Received content for a block that was never created (ID: ${data.id})`);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to parse incoming message:', error, event.data);
+            }
+        };
+
+        eventSource.addEventListener('done', (event) => {
+            statusDiv.textContent = `Stream complete.`;
+            statusDiv.style.color = '#0c0';
+            eventSource.close();
+        });
+
+        eventSource.onerror = (err) => {
+            console.log({err})
+            if (isStreaming) {
+                statusDiv.textContent = 'Connection error.';
+                statusDiv.style.color = '#f55';
+            }
+            eventSource.close();
+        };
+
+    </script>
+    
+</body>
+</html>

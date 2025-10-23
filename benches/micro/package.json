@@ -1,0 +1,15 @@
+{
+	"name": "@bench/micro",
+	"private": true,
+	"version": "0.0.1",
+	"description": "Micro benchmarks",
+	"type": "module",
+	"dependencies": {
+		"mitata": "^1.0.34"
+	},
+	"devDependencies": {
+		"@config/oxlint": "workspace:*",
+		"@config/typescript": "workspace:*",
+		"vite": "catalog:"
+	}
+}
