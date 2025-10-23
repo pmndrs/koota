@@ -22,15 +22,21 @@ const checkSteps = (expectedStep) => {
 };
 
 const reset = () => {
+  console.log(`${logDelimiters.runKey.end}`);
   runKey = "";
   steps = [0, 0, 0];
 };
 
-const _recordSetup = (setupResult, title, currentArgs) => {
+const setRunKey = (title, currentArgs) => {
   runKey = `${title}__${JSON.stringify(currentArgs)}`;
   console.log(`${logDelimiters.runKey.start}`);
   console.log(`${logs.runKey}: ${runKey}`)
-  console.log(`${logDelimiters.runKey.end}`);
+}
+
+const _recordSetup = (setupResult) => {
+  if(!runKey){
+    throw new Error ('traceLogger needs a runKey to be set');
+  }
   debugPrint({setupResult});
 };
 
@@ -85,6 +91,7 @@ const log = (stepIndex, delimiter, recordFn) => {
 };
 
 const traceLogger = {
+  setRunKey: setRunKey,
   recordSetup: log(0, logDelimiters.setup, _recordSetup),
   recordFirstBench: log(1, logDelimiters.firstBench, _recordFirstBench),
   recordPostBench: log(2, logDelimiters.postBench, _recordPostBench)

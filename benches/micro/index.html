@@ -67,10 +67,18 @@
                     header.className = 'log-header';
                     header.textContent = `Block: ${data.key} (Type:${data.type}, ID: ${data.id}, Parent: ${data.parentId})`;
                     
-                    const content = document.createElement('pre');
+                    const formatContent = document.createElement('div')
+                    formatContent.className = 'format-content';
+
+                    const rawContentContainer = document.createElement('details');
+                    const rawContentSummary = document.createElement('summary');
+                    const rawContent = document.createElement('pre');
                     
                     block.appendChild(header);
-                    block.appendChild(content);
+                    block.appendChild(formatContent);
+                    block.appendChild(rawContentContainer);
+                    rawContentContainer.appendChild(rawContentSummary);
+                    rawContentContainer.appendChild(rawContent);
 
                     let parentElement = data.parentId === null 
                         ? logContainer 
@@ -88,8 +96,26 @@
                     const blockElement = document.getElementById(`chunk-${data.id}`);
 
                     if (blockElement) {
-                        const contentElement = blockElement.querySelector('pre');
-                        contentElement.textContent = JSON.stringify(data.content, undefined, 2);
+                        if(data.content){
+                            const formatContent = blockElement.querySelector('.format-content');
+                            let formatContentHTML = '';
+                            if(data.content.type === 'label'){
+                                formatContentHTML = `
+                                
+                                `;
+                            }
+                            else if(data.type === 'RunKey'){
+                                formatContentHTML = `
+                                
+                                `;
+                            }
+                            formatContent.innerHTML =  formatContentHTML;
+                            // raw content 
+                            const contentElement = blockElement.querySelector('pre');
+                            contentElement.textContent = JSON.stringify(data.content, undefined, 2);
+                            const rawContentSummary = blockElement.querySelector('summary');
+                            rawContentSummary.textContent = "View All Fields";
+                        }
                     } else {
                         console.error(`Received content for a block that was never created (ID: ${data.id})`);
                     }

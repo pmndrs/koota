@@ -24,8 +24,9 @@ export function microbench(title) {
                 for (const name in _args) {
                     currentArgs[name] = ctx.get(name);
                 }
+                traceLogger.setRunKey(title, currentArgs);
                 const setupResult = setupFn(currentArgs);
-                traceLogger.recordSetup(setupResult, title, currentArgs);
+                traceLogger.recordSetup(setupResult);
                 let i = 0;
                 yield {
                     [0]() {
