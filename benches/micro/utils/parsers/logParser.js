@@ -22,22 +22,27 @@ function parseDelimiter(line) {
 
 export function createLogParser(pushData) {
   const stack = [];
+  const rootNodes = [];
   let blockIdCounter = 0;
 
   const processLine = (line) => {
     const delimiter = parseDelimiter(line);
 
     if (delimiter?.type === 'start') {
-      const parentId = stack.length > 0 ? stack[stack.length - 1].id : null;
-      const newBlock = createNewBlock(blockIdCounter++, delimiter.key, parentId)
+      const parentBlock = stack.length > 0 ? stack[stack.length - 1] : null;
+      const newBlock = createNewBlock(blockIdCounter++, delimiter.key)
       
-      pushData({
-        event: 'start',
-        ...newBlock
-      });
-      
-      stack.push(newBlock);
+      if (parentBlock) {
+        parentBlock.children.push(newBlock);
+      } else {
+        rootNodes.push(newBlock);
+      }
 
+      stack.push(newBlock);
+      pushData({
+          event: 'block_start',
+          blockId: newBlock.id,
+      });
     } else if (delimiter?.type === 'end') {
       if (stack.length === 0) {
         console.warn(`[parser] Found an end delimiter "${line}" with no open block.`);
@@ -48,15 +53,22 @@ export function createLogParser(pushData) {
         console.warn(`[parser] Mismatched delimiter! Expected end for "${currentBlock.key}" but got end for "${delimiter.key}".`);
         return;
       }
-      
       const completedBlock = stack.pop();
       const processedData = processBlock(completedBlock);
-      pushData({
-        event: 'end',
-        ...processedData
-      });
-     
 
+      delete completedBlock.lines;
+      Object.assign(completedBlock, processedData)
+      
+      pushData({
+          event: 'block_end',
+          blockId: processedData.id,
+      });
+      if(stack.length === 0){
+        pushData({
+          event: 'complete',
+          rootNodes,
+        });
+      }
     } else {
       if (stack.length > 0) {
         const currentBlock = stack[stack.length - 1];

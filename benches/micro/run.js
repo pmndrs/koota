@@ -27,6 +27,7 @@ console.log(`[run.js] ${finalNodeCommand}`);
 // koota uses pnpm
 spawn('pnpm', 
     [
+      'exec',
       'vite',
       '--',   // pass-through flag
       finalNodeCommand

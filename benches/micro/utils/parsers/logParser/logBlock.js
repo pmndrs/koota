@@ -1,6 +1,6 @@
 import blocks from "./blocks"
 
-export const createNewBlock = (id, key, parentId) => {
+export const createNewBlock = (id, key) => {
     let type;
     for(const [blockKey] of Object.entries(blocks)){
       if(key.includes(blockKey)){
@@ -12,7 +12,7 @@ export const createNewBlock = (id, key, parentId) => {
         id,
         key,
         type,
-        parentId,
+        children: [],
         lines: []
       };
       return newBlock

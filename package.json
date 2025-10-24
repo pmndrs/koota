@@ -14,8 +14,8 @@
 		"lint": "pnpm -r lint"
 	},
 	"devDependencies": {
-		"@types/node": "^24.1.0",
-		"oxlint": "^1.8.0",
+		"@types/node": "^24.9.1",
+		"oxlint": "^1.24.0",
 		"tsx": "latest",
 		"typescript": "latest"
 	},

@@ -63,7 +63,7 @@ export default function labVitePlugin(options) {
         
         const parser = createLogParser((processedData) => {
           res.write(`data: ${JSON.stringify(processedData)}\n\n`);
-          if(processedData.event === 'end' && processedData.id === 0){
+          if(processedData.event === 'complete'){
             res.write('event: done\ndata: {"message": "Stream complete"}\n\n');
           }
         });

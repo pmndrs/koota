@@ -5,11 +5,18 @@
 	"description": "Micro benchmarks",
 	"type": "module",
 	"dependencies": {
-		"mitata": "^1.0.34"
+		"@tailwindcss/vite": "^4.1.16",
+		"mitata": "^1.0.34",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"tailwindcss": "^4.1.16"
 	},
 	"devDependencies": {
-		"@config/oxlint": "workspace:*",
 		"@config/typescript": "workspace:*",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@vitejs/plugin-react": "^4.7.0",
+		"@vitejs/plugin-react-swc": "^3.11.0",
 		"vite": "catalog:"
 	}
 }
