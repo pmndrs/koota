@@ -2,6 +2,7 @@ packages:
   - packages/*
   - benches/sims/*
   - benches/apps/*
+  - benches/micro
   - .config/*
 
 catalog:
