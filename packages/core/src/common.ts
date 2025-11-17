@@ -1,1 +1,1 @@
-export const $internal = Symbol('internal');
+export const $internal = Symbol.for('koota.internal');
