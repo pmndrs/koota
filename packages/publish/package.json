@@ -56,9 +56,9 @@
 		"@koota/react": "workspace:*",
 		"@testing-library/react": "^16.3.0",
 		"esbuild-plugin-inline-functions": "catalog:",
-		"react": "^19.1.1",
-		"react-dom": "^19.1.1",
-		"tsup": "^8.5.0",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"tsup": "^8.5.1",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
