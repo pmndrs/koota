@@ -1,88 +1,64 @@
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import readline from 'node:readline';
 import path from 'node:path';
 import { createLogParser } from './utils/parsers/logParser.js';
 
 export default function labVitePlugin(options) {
-  const { scriptToRun, logFile } = options;
-  const LOG_FILE_PATH = path.resolve(logFile);
+	const { logFile } = options;
+	const LOG_FILE_PATH = path.resolve(logFile);
 
-  return {
-    name: 'koota-lab-plugin',
+	return {
+		name: 'koota-lab-plugin',
 
-    configureServer(server) {
-      if (!scriptToRun) {
-        console.warn('[plugin] No script to run. Log streamer will only serve existing file.');
-        return;
-      }
+		configureServer(server) {
+			// Check if log file exists
+			if (!fs.existsSync(LOG_FILE_PATH)) {
+				console.warn(`[plugin] Log file not found: ${LOG_FILE_PATH}`);
+				console.warn('[plugin] Run a benchmark first to generate results.');
+			} else {
+				console.log(`[plugin] Ready to serve results from: ${LOG_FILE_PATH}`);
+			}
 
-      console.log(`[plugin] Clearing old log file: ${LOG_FILE_PATH}`);
-      fs.writeFileSync(LOG_FILE_PATH, ''); 
+			server.middlewares.use('/stream-logs', (req, res) => {
+				console.log('[plugin] Client connected to /stream-logs');
 
-      console.log(`[plugin] Spawning: ${scriptToRun}`);
-      
-      const child = spawn(scriptToRun, {
-        shell: true,
-        stdio: 'pipe'
-      });
+				if (!fs.existsSync(LOG_FILE_PATH)) {
+					res.writeHead(404);
+					res.end('No benchmark results found. Run a benchmark first.');
+					return;
+				}
 
-      const logStream = fs.createWriteStream(LOG_FILE_PATH, { flags: 'w' });
+				res.setHeader('Content-Type', 'text/event-stream');
+				res.setHeader('Cache-Control', 'no-cache');
 
-      child.stdout.pipe(logStream);
-      child.stderr.pipe(logStream);
+				const fileStream = fs.createReadStream(LOG_FILE_PATH);
+				const rl = readline.createInterface({
+					input: fileStream,
+					crlfDelay: Infinity,
+				});
 
-      child.on('spawn', () => {
-         console.log(`[plugin] Benchmark process started (PID: ${child.pid}).`);
-      });
-      
-      child.on('error', (err) => {
-        console.error('[plugin] Failed to start benchmark script:', err);
-        logStream.end();
-      });
-      
-      child.on('close', (code) => {
-        if (code !== 0) {
-          console.error(`[plugin] Benchmark process failed with code ${code}.`);
-        } else {
-          console.log(`[plugin] Benchmark script finished successfully.`);
-        }
-        logStream.end();
-      });
-      
-      server.middlewares.use('/stream-logs', (req, res, next) => {
-        console.log('[plugin] Client connected to /stream-logs');
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
+				const parser = createLogParser((processedData) => {
+					res.write(`data: ${JSON.stringify(processedData)}\n\n`);
+					if (processedData.event === 'complete') {
+						res.write('event: done\ndata: {"message": "Stream complete"}\n\n');
+					}
+				});
 
-        const fileStream = fs.createReadStream(LOG_FILE_PATH);
-        const rl = readline.createInterface({
-          input: fileStream,
-          crlfDelay: Infinity
-        });
-        
-        const parser = createLogParser((processedData) => {
-          res.write(`data: ${JSON.stringify(processedData)}\n\n`);
-          if(processedData.event === 'complete'){
-            res.write('event: done\ndata: {"message": "Stream complete"}\n\n');
-          }
-        });
+				rl.on('line', (line) => {
+					parser.processLine(line);
+				});
 
-        rl.on('line', (line) => {
-          parser.processLine(line);
-        });
+				rl.on('close', () => {
+					console.log('[plugin] Log file stream finished.');
+				});
 
-        rl.on('close', () => {
-          console.log('[plugin] Log file stream finished.');
-        });
-
-        req.on('close', () => {
-          console.log('[plugin] Client disconnected.');
-          rl.close();
-          fileStream.destroy();
-          res.end();
-        });
-      });
-    }
-  };
+				req.on('close', () => {
+					console.log('[plugin] Client disconnected.');
+					rl.close();
+					fileStream.destroy();
+					res.end();
+				});
+			});
+		},
+	};
 }
