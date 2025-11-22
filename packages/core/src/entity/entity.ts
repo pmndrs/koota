@@ -3,6 +3,7 @@ import { Pair, Wildcard } from '../relation/relation';
 import { addTrait, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
+import { cmdDestroyEntity, cmdSpawnEntity } from '../world/command-buffer';
 import type { World } from '../world/world';
 import type { Entity } from './types';
 import { allocateEntity, releaseEntity } from './utils/entity-index';
@@ -24,6 +25,11 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
 
 	ctx.entityTraits.set(entity, new Set());
 	addTrait(world, entity, ...traits);
+
+	// Record a spawn command for this entity.
+	if (ctx.commandBuffer) {
+		cmdSpawnEntity(ctx.commandBuffer, entity);
+	}
 
 	return entity;
 }
@@ -92,6 +98,11 @@ export function destroyEntity(world: World, entity: Entity) {
 
 		// Free the entity.
 		releaseEntity(ctx.entityIndex, currentEntity);
+
+		// Record a destroy command for this entity.
+		if (ctx.commandBuffer) {
+			cmdDestroyEntity(ctx.commandBuffer, currentEntity);
+		}
 
 		// Remove the entity from the all query.
 		const allQuery = ctx.queriesHashMap.get('');

@@ -3,6 +3,7 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
+import { cmdAddTrait, cmdMarkTraitChanged, cmdRemoveTrait, cmdSetTrait } from '../world/command-buffer';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world/world';
 import type {
@@ -84,12 +85,16 @@ export function registerTrait(world: World, trait: Trait) {
 	ctx.traitData.set(trait, data);
 	world.traits.add(trait);
 
+	// Map the trait id to the trait instance for command buffer handlers.
+	ctx.traitById[traitCtx.id] = trait;
+
 	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
 }
 
 export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTrait[]) {
 	const ctx = world[$internal];
+	const buf = ctx.commandBuffer;
 
 	for (let i = 0; i < traits.length; i++) {
 		// Get trait and params.
@@ -102,10 +107,10 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			trait = traits[i] as Trait;
 		}
 
+		const traitCtx = trait[$internal];
+
 		// Exit early if the entity already has the trait.
 		if (hasTrait(world, entity, trait)) continue;
-
-		const traitCtx = trait[$internal];
 
 		// Register the trait if it's not already registered.
 		if (!ctx.traitData.has(trait)) registerTrait(world, trait);
@@ -160,6 +165,8 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			}
 		}
 
+		let initialValue: any;
+
 		if (traitCtx.type === 'soa') {
 			// Set default values or override with provided params.
 			const defaults: Record<string, any> = {};
@@ -172,21 +179,30 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 				}
 			}
 
-			setTrait(world, entity, trait, { ...defaults, ...params }, false);
+			initialValue = { ...defaults, ...params };
+			setTrait(world, entity, trait, initialValue, false);
 		} else {
-			const state = params ?? data.schema();
-			setTrait(world, entity, trait, state, false);
+			initialValue = params ?? data.schema();
+			setTrait(world, entity, trait, initialValue, false);
 		}
 
 		// Call add subscriptions.
 		for (const sub of data.addSubscriptions) {
 			sub(entity);
 		}
+
+		// Record primitive commands for this trait addition.
+		if (buf) {
+			const traitId = traitCtx.id;
+			cmdAddTrait(buf, entity, traitId);
+			cmdSetTrait(buf, entity, traitId, initialValue);
+		}
 	}
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 	const ctx = world[$internal];
+	const buf = ctx.commandBuffer;
 
 	for (let i = 0; i < traits.length; i++) {
 		const trait = traits[i];
@@ -198,7 +214,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		const data = ctx.traitData.get(trait)!;
 		const { generationId, bitflag, queries } = data;
 
-		// Call remove subscriptions before removing the trait.
+		// Call remove subscriptions before removing the trait state.
 		for (const sub of data.removeSubscriptions) {
 			sub(entity);
 		}
@@ -259,6 +275,12 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 				}
 			}
 		}
+
+		// Record primitive command for this trait removal.
+		if (buf) {
+			const traitId = traitCtx.id;
+			cmdRemoveTrait(buf, entity, traitId);
+		}
 	}
 }
 
@@ -290,15 +312,28 @@ export function setTrait(
 	value: any,
 	triggerChanged = true
 ) {
-	const ctx = trait[$internal];
+	const worldCtx = world[$internal];
+	const buf = worldCtx.commandBuffer;
+	const traitCtx = trait[$internal];
 	const store = getStore(world, trait);
 	const index = getEntityId(entity);
 
 	// A short circuit is more performance than an if statement which creates a new code statement.
-	value instanceof Function && (value = value(ctx.get(index, store)));
+	value instanceof Function && (value = value(traitCtx.get(index, store)));
 
-	ctx.set(index, store, value);
-	triggerChanged && setChanged(world, entity, trait);
+	traitCtx.set(index, store, value);
+	if (triggerChanged) {
+		setChanged(world, entity, trait);
+	}
+
+	// Record primitive commands for this trait update.
+	if (buf) {
+		const traitId = traitCtx.id;
+		cmdSetTrait(buf, entity, traitId, value);
+		if (triggerChanged) {
+			cmdMarkTraitChanged(buf, entity, traitId);
+		}
+	}
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait) {

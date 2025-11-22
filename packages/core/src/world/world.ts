@@ -14,7 +14,14 @@ import type {
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import type { RelationTarget } from '../relation/types';
-import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
+import {
+	addTrait,
+	getTrait,
+	hasTrait,
+	registerTrait,
+	removeTrait,
+	setTrait,
+} from '../trait/trait';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
@@ -25,6 +32,13 @@ import type {
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
+import {
+	CommandBuffer,
+	CommandHandlers,
+	createCommandBuffer,
+	clearCommandBuffer,
+	playbackCommands,
+} from './command-buffer';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 type Options = {
@@ -50,8 +64,11 @@ export class World {
 		trackingSnapshots: new Map<number, number[][]>(),
 		changedMasks: new Map<number, number[][]>(),
 		worldEntity: null! as Entity,
+		traitById: [] as Trait[],
 		trackedTraits: new Set<Trait>(),
 		resetSubscriptions: new Set<(world: World) => void>(),
+		commandBuffer: null as unknown as CommandBuffer,
+		commandHandlers: null as unknown as CommandHandlers,
 	};
 
 	get id() {
@@ -76,6 +93,11 @@ export class World {
 		} else {
 			this.init(...(polyArg ? [polyArg, ...traits] : traits));
 		}
+
+		// Initialize command buffer and handlers after world is constructed.
+		const ctx = this[$internal];
+		ctx.commandBuffer = createCommandBuffer();
+		ctx.commandHandlers = createWorldCommandHandlers(this);
 	}
 
 	init(...traits: ConfigurableTrait[]) {
@@ -324,6 +346,59 @@ export class World {
 			if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(trait);
 		};
 	}
+}
+
+function createWorldCommandHandlers(world: World): CommandHandlers {
+	const ctx = world[$internal];
+
+	return {
+		spawnEntity(e) {
+			// Entity allocation is currently handled eagerly in createEntity.
+			// This handler is a placeholder for future deferred entity creation.
+			void e;
+		},
+		destroyEntity(e) {
+			// Destruction is currently performed directly via destroyEntity(world, e).
+			// This handler is a placeholder and intentionally left empty for now.
+			void e;
+		},
+		addTrait(entity, traitId) {
+			const trait = ctx.traitById[traitId];
+			if (!trait) return;
+			// Use existing addTrait with a single trait; params (defaults/overrides)
+			// are handled at command recording time via separate set commands.
+			addTrait(world, entity, trait);
+		},
+		setTrait(entity, traitId, value) {
+			const trait = ctx.traitById[traitId];
+			if (!trait) return;
+			setTrait(world, entity, trait, value, false);
+		},
+		removeTrait(entity, traitId) {
+			const trait = ctx.traitById[traitId];
+			if (!trait) return;
+			removeTrait(world, entity, trait);
+		},
+		markTraitChanged(entity, traitId) {
+			const trait = ctx.traitById[traitId];
+			if (!trait) return;
+			const data = ctx.traitData.get(trait);
+			if (!data) return;
+
+			// Reuse existing change detection by marking the entity as changed.
+			for (const sub of data.changeSubscriptions) {
+				sub(entity);
+			}
+		},
+	};
+}
+
+export function flushCommands(world: World): void {
+	const ctx = world[$internal];
+	if (!ctx.commandBuffer) return;
+	if (ctx.commandBuffer.write === 0) return;
+	playbackCommands(ctx.commandBuffer, ctx.commandHandlers);
+	clearCommandBuffer(ctx.commandBuffer);
 }
 
 export function createWorld(options: Options): World;
