@@ -424,4 +424,24 @@ describe('Query', () => {
 			expect(entities[i].id()).toBe(i + 1);
 		}
 	});
+
+	it('cached query should return values after reset', () => {
+		const movementQuery = cacheQuery(Foo);
+
+		const spawnEntities = () => {
+			for (let i = 0; i < 100; i++) {
+				world.spawn(Foo);
+			}
+		};
+
+		spawnEntities();
+		const resultsBefore = world.query(movementQuery);
+
+		world.reset();
+		spawnEntities();
+
+		const resultsAfter = world.query(movementQuery);
+
+		expect(resultsAfter.length).toBe(resultsBefore.length);
+	});
 });

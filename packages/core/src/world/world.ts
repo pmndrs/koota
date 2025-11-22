@@ -180,6 +180,12 @@ export class World {
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);
 
+		// Restore cached queries.
+		for (const [hash, parameters] of universe.cachedQueries) {
+			const query = createQuery(this, parameters);
+			ctx.queriesHashMap.set(hash, query);
+		}
+
 		for (const sub of ctx.resetSubscriptions) {
 			sub(this);
 		}
