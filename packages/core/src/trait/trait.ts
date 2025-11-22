@@ -1,9 +1,13 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { setChanged } from '../query/modifiers/changed';
-import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
-import { cmdAddTrait, cmdMarkTraitChanged, cmdRemoveTrait, cmdSetTrait } from '../world/command-buffer';
+import {
+	cmdAddTrait,
+	cmdMarkTraitChanged,
+	cmdRemoveTrait,
+	cmdSetTrait,
+} from '../world/command-buffer';
+import { flushCommands } from '../world/command-runtime';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world/world';
 import type {
@@ -95,6 +99,7 @@ export function registerTrait(world: World, trait: Trait) {
 export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTrait[]) {
 	const ctx = world[$internal];
 	const buf = ctx.commandBuffer;
+	if (!buf) return;
 
 	for (let i = 0; i < traits.length; i++) {
 		// Get trait and params.
@@ -107,63 +112,14 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			trait = traits[i] as Trait;
 		}
 
-		const traitCtx = trait[$internal];
-
 		// Exit early if the entity already has the trait.
 		if (hasTrait(world, entity, trait)) continue;
 
-		// Register the trait if it's not already registered.
-		if (!ctx.traitData.has(trait)) registerTrait(world, trait);
-
-		const data = ctx.traitData.get(trait)!;
-		const { generationId, bitflag, queries } = data;
-
-		// Add bitflag to entity bitmask.
-		const eid = getEntityId(entity);
-		ctx.entityMasks[generationId][eid] |= bitflag;
-
-		// Set the entity as dirty.
-		for (const dirtyMask of ctx.dirtyMasks.values()) {
-			if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
-			dirtyMask[generationId][eid] |= bitflag;
-		}
-
-		// Update queries.
-		for (const query of queries) {
-			// Remove this entity from toRemove if it exists in this query.
-			query.toRemove.remove(entity);
-
-			// Check if the entity matches the query.
-			const match = query.check(world, entity, { type: 'add', traitData: data });
-
-			if (match) query.add(entity);
-			else query.remove(world, entity);
-		}
-
-		// Add trait to entity internally.
-		ctx.entityTraits.get(entity)!.add(trait);
-
-		const relation = traitCtx.relation;
-		const target = traitCtx.pairTarget;
-
-		// Add relation target entity.
-		if (traitCtx.isPairTrait && relation !== null && target !== null) {
-			// Mark entity as a relation target.
-			ctx.relationTargetEntities.add(target);
-
-			// Add wildcard relation traits.
-			addTrait(world, entity, Pair(Wildcard, target));
-			addTrait(world, entity, Pair(relation, Wildcard));
-
-			// If it's an exclusive relation, remove the old target.
-			if (relation[$internal].exclusive === true && target !== Wildcard) {
-				const oldTarget = getRelationTargets(world, relation, entity)[0];
-
-				if (oldTarget !== null && oldTarget !== undefined && oldTarget !== target) {
-					removeTrait(world, entity, relation(oldTarget));
-				}
-			}
-		}
+		const traitCtx = trait[$internal];
+		const traitId = traitCtx.id;
+		// Ensure the world can resolve this trait ID during command execution.
+		ctx.traitById[traitId] = trait;
+		const schema = trait.schema;
 
 		let initialValue: any;
 
@@ -171,38 +127,33 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 			// Set default values or override with provided params.
 			const defaults: Record<string, any> = {};
 			// Execute any functions in the schema for default values.
-			for (const key in data.schema) {
-				if (typeof data.schema[key] === 'function') {
-					defaults[key] = data.schema[key]();
+			for (const key in schema) {
+				if (typeof (schema as any)[key] === 'function') {
+					defaults[key] = (schema as any)[key]();
 				} else {
-					defaults[key] = data.schema[key];
+					defaults[key] = (schema as any)[key];
 				}
 			}
 
 			initialValue = { ...defaults, ...params };
-			setTrait(world, entity, trait, initialValue, false);
 		} else {
-			initialValue = params ?? data.schema();
-			setTrait(world, entity, trait, initialValue, false);
+			// AoS traits use the factory as the schema.
+			const factory = schema as () => unknown;
+			initialValue = params ?? factory();
 		}
 
-		// Call add subscriptions.
-		for (const sub of data.addSubscriptions) {
-			sub(entity);
-		}
-
-		// Record primitive commands for this trait addition.
-		if (buf) {
-			const traitId = traitCtx.id;
-			cmdAddTrait(buf, entity, traitId);
-			cmdSetTrait(buf, entity, traitId, initialValue);
-		}
+		// Decompose into primitive commands: add then set.
+		cmdAddTrait(buf, entity, traitId);
+		cmdSetTrait(buf, entity, traitId, initialValue);
 	}
+
+	flushCommands(world);
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 	const ctx = world[$internal];
 	const buf = ctx.commandBuffer;
+	if (!buf) return;
 
 	for (let i = 0; i < traits.length; i++) {
 		const trait = traits[i];
@@ -211,77 +162,11 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		// Exit early if the entity doesn't have the trait.
 		if (!hasTrait(world, entity, trait)) continue;
 
-		const data = ctx.traitData.get(trait)!;
-		const { generationId, bitflag, queries } = data;
-
-		// Call remove subscriptions before removing the trait state.
-		for (const sub of data.removeSubscriptions) {
-			sub(entity);
-		}
-
-		// Remove bitflag from entity bitmask.
-		const eid = getEntityId(entity);
-		ctx.entityMasks[generationId][eid] &= ~bitflag;
-
-		// Set the entity as dirty.
-		for (const dirtyMask of ctx.dirtyMasks.values()) {
-			dirtyMask[generationId][eid] |= bitflag;
-		}
-
-		// Update queries.
-		for (const query of queries) {
-			// Check if the entity matches the query.
-			const match = query.check(world, entity, { type: 'remove', traitData: data });
-
-			if (match) query.add(entity);
-			else query.remove(world, entity);
-		}
-
-		// Remove trait from entity internally.
-		ctx.entityTraits.get(entity)!.delete(trait);
-
-		// Remove wildcard relations if it is a Pair trait.
-		if (traitCtx.isPairTrait) {
-			// Check if entity is still a subject of any relation or not.
-			if (world.query(Wildcard(entity)).length === 0) {
-				ctx.relationTargetEntities.delete(entity);
-
-				// TODO: cleanup query by hash
-				// removeQueryByHash(world, [Wildcard(eid)])
-			}
-
-			// Remove wildcard to this target for this entity.
-			const target = traitCtx.pairTarget!;
-			removeTrait(world, entity, Pair(Wildcard, target));
-
-			// Remove wildcard relation if the entity has no other relations.
-			const relation = traitCtx.relation!;
-			const otherTargets = getRelationTargets(world, relation, entity);
-
-			if (otherTargets.length === 0) {
-				removeTrait(world, entity, Pair(relation, Wildcard));
-			}
-
-			// Removing a relation with a wildcard should also remove every target for that relation.
-			if (
-				traitCtx.isPairTrait &&
-				traitCtx.pairTarget === Wildcard &&
-				traitCtx.relation !== Wildcard
-			) {
-				const relation = traitCtx.relation!;
-				const targets = getRelationTargets(world, relation, entity);
-				for (const target of targets) {
-					removeTrait(world, entity, relation(target));
-				}
-			}
-		}
-
-		// Record primitive command for this trait removal.
-		if (buf) {
-			const traitId = traitCtx.id;
-			cmdRemoveTrait(buf, entity, traitId);
-		}
+		const traitId = traitCtx.id;
+		cmdRemoveTrait(buf, entity, traitId);
 	}
+
+	flushCommands(world);
 }
 
 export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
@@ -312,28 +197,21 @@ export function setTrait(
 	value: any,
 	triggerChanged = true
 ) {
-	const worldCtx = world[$internal];
-	const buf = worldCtx.commandBuffer;
+	const ctx = world[$internal];
+	const buf = ctx.commandBuffer;
+	if (!buf) return;
+
 	const traitCtx = trait[$internal];
-	const store = getStore(world, trait);
-	const index = getEntityId(entity);
+	const traitId = traitCtx.id;
+	// Ensure the world can resolve this trait ID during command execution.
+	ctx.traitById[traitId] = trait;
 
-	// A short circuit is more performance than an if statement which creates a new code statement.
-	value instanceof Function && (value = value(traitCtx.get(index, store)));
-
-	traitCtx.set(index, store, value);
+	cmdSetTrait(buf, entity, traitId, value);
 	if (triggerChanged) {
-		setChanged(world, entity, trait);
+		cmdMarkTraitChanged(buf, entity, traitId);
 	}
 
-	// Record primitive commands for this trait update.
-	if (buf) {
-		const traitId = traitCtx.id;
-		cmdSetTrait(buf, entity, traitId, value);
-		if (triggerChanged) {
-			cmdMarkTraitChanged(buf, entity, traitId);
-		}
-	}
+	flushCommands(world);
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait) {

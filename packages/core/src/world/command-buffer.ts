@@ -19,15 +19,6 @@ export interface CommandBuffer {
 	values: unknown[]; // arbitrary payloads for SetTrait
 }
 
-export interface CommandHandlers {
-	spawnEntity(e: Entity): void;
-	destroyEntity(e: Entity): void;
-	addTrait(e: Entity, t: TraitId): void;
-	setTrait(e: Entity, t: TraitId, v: unknown): void;
-	removeTrait(e: Entity, t: TraitId): void;
-	markTraitChanged(e: Entity, t: TraitId): void;
-}
-
 // ---- Buffer creation / reset ----------------------------------------------
 
 export function createCommandBuffer(initialWords = 1024): CommandBuffer {
@@ -128,58 +119,3 @@ export function cmdMarkTraitChanged(buf: CommandBuffer, entity: Entity, traitId:
 	d[w++] = traitId;
 	buf.write = w;
 }
-
-// ---- Playback -------------------------------------------------------------
-
-export function playbackCommands(buf: CommandBuffer, handlers: CommandHandlers): void {
-	const d = buf.data;
-	const limit = buf.write;
-	const vals = buf.values;
-	let i = 0;
-
-	while (i < limit) {
-		const op = d[i++];
-
-		switch (op) {
-			case OP_SPAWN_ENTITY: {
-				const e = d[i++] as Entity;
-				handlers.spawnEntity(e);
-				break;
-			}
-			case OP_DESTROY_ENTITY: {
-				const e = d[i++] as Entity;
-				handlers.destroyEntity(e);
-				break;
-			}
-			case OP_ADD_TRAIT: {
-				const e = d[i++] as Entity;
-				const t = d[i++] as TraitId;
-				handlers.addTrait(e, t);
-				break;
-			}
-			case OP_SET_TRAIT: {
-				const e = d[i++] as Entity;
-				const t = d[i++] as TraitId;
-				const vi = d[i++];
-				handlers.setTrait(e, t, vals[vi]);
-				break;
-			}
-			case OP_REMOVE_TRAIT: {
-				const e = d[i++] as Entity;
-				const t = d[i++] as TraitId;
-				handlers.removeTrait(e, t);
-				break;
-			}
-			case OP_MARK_TRAIT_CHANGE: {
-				const e = d[i++] as Entity;
-				const t = d[i++] as TraitId;
-				handlers.markTraitChanged(e, t);
-				break;
-			}
-			default:
-				throw new Error(`Unknown opcode: ${op}`);
-		}
-	}
-}
-
-
