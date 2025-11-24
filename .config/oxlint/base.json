@@ -1,4 +1,5 @@
 {
+	"$schema": "../../node_modules/oxlint/configuration_schema.json",
 	"plugins": ["unicorn", "typescript", "oxc"],
 	"rules": {
 		"no-unused-vars": [
@@ -9,7 +10,8 @@
 				"caughtErrorsIgnorePattern": "^_"
 			}
 		],
-		"no-useless-escape": "off"
+		"no-useless-escape": "off",
+		"no-unused-expressions": ["warn", { "allowShortCircuit": true }]
 	},
 	"ignorePatterns": ["dist"]
 }
