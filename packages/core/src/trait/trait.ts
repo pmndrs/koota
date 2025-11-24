@@ -1,9 +1,10 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { doAddRelation, doRemoveRelation } from '../ops/relation';
+import { doAddTrait, doRemoveTrait, doSetTrait } from '../ops/trait';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world/world';
-import { doAddAndSetTrait, doAddTrait, doRemoveTrait, doSetTrait } from '../ops/trait';
 import type {
 	ConfigurableTrait,
 	Norm,
@@ -100,6 +101,19 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		}
 
 		const ctx = world[$internal];
+		const traitCtx = trait[$internal];
+
+		// Route to relation op if this is a pair trait.
+		if (traitCtx.isPairTrait) {
+			/* @inline */ doAddRelation(
+				world,
+				entity,
+				traitCtx.relation!,
+				traitCtx.pairTarget!,
+				params
+			);
+			continue;
+		}
 
 		// Register the trait if it's not already registered.
 		if (!ctx.traitData.has(trait)) registerTrait(world, trait);
@@ -107,17 +121,20 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		// Exit early if the entity already has the trait.
 		if (hasTrait(world, entity, trait)) continue;
 
-		if (params) {
-			/* @inline */ doAddAndSetTrait(world, entity, trait, params);
-		} else {
-			/* @inline */ doAddTrait(world, entity, trait);
-		}
+		/* @inline */ doAddTrait(world, entity, trait, params);
 	}
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 	for (let i = 0; i < traits.length; i++) {
 		const trait = traits[i];
+		const traitCtx = trait[$internal];
+
+		// Route to relation op if this is a pair trait.
+		if (traitCtx.isPairTrait) {
+			/* @inline */ doRemoveRelation(world, entity, traitCtx.relation!, traitCtx.pairTarget!);
+			continue;
+		}
 
 		if (!hasTrait(world, entity, trait)) continue;
 		/* @inline */ doRemoveTrait(world, entity, trait);

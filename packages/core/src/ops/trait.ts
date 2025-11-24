@@ -2,18 +2,11 @@ import { $internal } from '../common';
 import { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
-import { Pair, Wildcard, getRelationTargets } from '../relation/relation';
-import { addTrait, removeTrait } from '../trait/trait';
 import { Trait } from '../trait/types';
 import { getStore } from '../trait/utils/get-store';
 import { World } from '../world/world';
 
-export function doAddAndSetTrait(
-	world: World,
-	entity: Entity,
-	trait: Trait,
-	params?: Record<string, any>
-) {
+export function doAddTrait(world: World, entity: Entity, trait: Trait, params?: Record<string, any>) {
 	const ctx = world[$internal];
 	const traitCtx = trait[$internal];
 	const data = ctx.traitData.get(trait)!;
@@ -44,28 +37,7 @@ export function doAddAndSetTrait(
 	// Add trait to entity internally.
 	ctx.entityTraits.get(entity)!.add(trait);
 
-	const relation = traitCtx.relation;
-	const target = traitCtx.pairTarget;
-
-	// Add relation target entity.
-	if (traitCtx.isPairTrait && relation !== null && target !== null) {
-		// Mark entity as a relation target.
-		ctx.relationTargetEntities.add(target);
-
-		// Add wildcard relation traits.
-		addTrait(world, entity, Pair(Wildcard, target));
-		addTrait(world, entity, Pair(relation, Wildcard));
-
-		// If it's an exclusive relation, remove the old target.
-		if (relation[$internal].exclusive === true && target !== Wildcard) {
-			const oldTarget = getRelationTargets(world, relation, entity)[0];
-
-			if (oldTarget !== null && oldTarget !== undefined && oldTarget !== target) {
-				doRemoveTrait(world, entity, relation(oldTarget));
-			}
-		}
-	}
-
+	// Set trait data.
 	if (traitCtx.type === 'soa') {
 		// Set default values or override with provided params.
 		const defaults: Record<string, any> = {};
@@ -90,13 +62,8 @@ export function doAddAndSetTrait(
 	}
 }
 
-export function doAddTrait(world: World, entity: Entity, trait: Trait) {
-	doAddAndSetTrait(world, entity, trait);
-}
-
 export function doRemoveTrait(world: World, entity: Entity, trait: Trait) {
 	const ctx = world[$internal];
-	const traitCtx = trait[$internal];
 	const data = ctx.traitData.get(trait)!;
 	const { generationId, bitflag, queries } = data;
 
@@ -125,39 +92,6 @@ export function doRemoveTrait(world: World, entity: Entity, trait: Trait) {
 
 	// Remove trait from entity internally.
 	ctx.entityTraits.get(entity)!.delete(trait);
-
-	// Remove wildcard relations if it is a Pair trait.
-	if (traitCtx.isPairTrait) {
-		// Check if entity is still a subject of any relation or not.
-		if (world.query(Wildcard(entity)).length === 0) {
-			ctx.relationTargetEntities.delete(entity);
-		}
-
-		// Remove wildcard to this target for this entity.
-		const target = traitCtx.pairTarget!;
-		removeTrait(world, entity, Pair(Wildcard, target));
-
-		// Remove wildcard relation if the entity has no other relations.
-		const relation = traitCtx.relation!;
-		const otherTargets = getRelationTargets(world, relation, entity);
-
-		if (otherTargets.length === 0) {
-			removeTrait(world, entity, Pair(relation, Wildcard));
-		}
-
-		// Removing a relation with a wildcard should also remove every target for that relation.
-		if (
-			traitCtx.isPairTrait &&
-			traitCtx.pairTarget === Wildcard &&
-			traitCtx.relation !== Wildcard
-		) {
-			const relation = traitCtx.relation!;
-			const targets = getRelationTargets(world, relation, entity);
-			for (const target of targets) {
-				removeTrait(world, entity, relation(target));
-			}
-		}
-	}
 }
 
 export function doSetTrait(

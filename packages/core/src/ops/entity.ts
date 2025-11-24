@@ -2,8 +2,9 @@ import { $internal } from '../common';
 import { Entity } from '../entity/types';
 import { allocateEntity, releaseEntity } from '../entity/utils/entity-index';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { Pair, Wildcard } from '../relation/relation';
+import { Wildcard } from '../relation/relation';
 import { World } from '../world/world';
+import { doRemoveRelation } from './relation';
 import { doRemoveTrait } from './trait';
 
 export function doCreateEntity(world: World): Entity {
@@ -52,22 +53,20 @@ export function doDestroyEntity(world: World, entity: Entity) {
 			for (const subject of world.query(Wildcard(currentEntity))) {
 				if (!world.has(subject)) continue;
 
-				for (const trait of ctx.entityTraits.get(subject)!) {
+				// Copy traits to avoid mutation during iteration.
+				const subjectTraits = [...ctx.entityTraits.get(subject)!];
+				for (const trait of subjectTraits) {
 					const traitCtx = trait[$internal];
 					if (!traitCtx.isPairTrait) continue;
+					if (traitCtx.pairTarget !== currentEntity) continue;
 
 					const relationCtx = traitCtx.relation![$internal];
 
-					// Remove wildcard pair trait.
-					doRemoveTrait(world, subject, Pair(Wildcard, currentEntity));
+					// Remove the relation to the current entity.
+					doRemoveRelation(world, subject, traitCtx.relation!, currentEntity);
 
-					if (traitCtx.pairTarget === currentEntity) {
-						// Remove the specific pair trait.
-						doRemoveTrait(world, subject, trait);
-
-						if (relationCtx.autoRemoveTarget) {
-							entityQueue.push(subject);
-						}
+					if (relationCtx.autoRemoveTarget) {
+						entityQueue.push(subject);
 					}
 				}
 			}
@@ -76,8 +75,15 @@ export function doDestroyEntity(world: World, entity: Entity) {
 		// Remove all traits of the current entity.
 		const entityTraits = ctx.entityTraits.get(currentEntity);
 		if (entityTraits) {
-			for (const trait of entityTraits) {
-				doRemoveTrait(world, currentEntity, trait);
+			// Copy traits to avoid mutation during iteration.
+			const traits = [...entityTraits];
+			for (const trait of traits) {
+				const traitCtx = trait[$internal];
+				if (traitCtx.isPairTrait) {
+					doRemoveRelation(world, currentEntity, traitCtx.relation!, traitCtx.pairTarget!);
+				} else {
+					doRemoveTrait(world, currentEntity, trait);
+				}
 			}
 		}
 

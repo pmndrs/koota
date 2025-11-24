@@ -1,3 +1,4 @@
 export { doCreateEntity, doDestroyEntity } from './entity';
-export { doAddAndSetTrait, doAddTrait, doRemoveTrait, doSetTrait } from './trait';
+export { doAddRelation, doRemoveRelation } from './relation';
+export { doAddTrait, doRemoveTrait, doSetTrait } from './trait';
 
