@@ -1,5 +1,5 @@
-import { inlineFunctionsPlugin } from 'esbuild-plugin-inline-functions';
 import { defineConfig } from 'tsup';
+import inlineFunctions from 'unplugin-inline-functions/esbuild';
 
 export default defineConfig({
 	entry: ['src/index.ts', 'src/react.ts'],
@@ -15,13 +15,17 @@ export default defineConfig({
 		options.banner =
 			format === 'esm'
 				? {
-						js: '\"use strict\";',
-					}
+						js: '"use strict";',
+				  }
 				: undefined;
 	},
 	dts: {
 		resolve: true,
 	},
 	clean: true,
-	esbuildPlugins: [inlineFunctionsPlugin()],
+	esbuildPlugins: [
+		inlineFunctions({
+			include: ['src/**/*.{js,ts,jsx,tsx}'],
+		}),
+	],
 });
