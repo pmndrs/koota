@@ -872,6 +872,23 @@ function App() {
 }
 ```
 
+### `useTag`
+
+Observes an entity, or world, for a given tag and reactively updates when it is added or removed. Returns `true` when the tag is present or `false` when absent. Use this instead of `useTrait` for tag traits (traits with no data).
+
+```js
+const IsActive = trait()
+
+function ActiveIndicator({ entity }) {
+  // Returns true if the entity has the tag, false otherwise
+  const isActive = useTag(entity, IsActive)
+
+  if (!isActive) return null
+
+  return <div>🟢 Active</div>
+}
+```
+
 ### `useTrait`
 
 Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value. The returned trait snapshot maybe `undefined` if the trait is no longer on the target. This can be used to conditionally render.
