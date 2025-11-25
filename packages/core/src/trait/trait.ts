@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
-import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
+import { getRelationTargets, hasRelationToTarget, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world/world';
 import type {
@@ -229,14 +229,13 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 			// Check if entity is still a subject of any relation or not.
 			if (world.query(Wildcard(entity)).length === 0) {
 				ctx.relationTargetEntities.delete(entity);
-
-				// TODO: cleanup query by hash
-				// removeQueryByHash(world, [Wildcard(eid)])
 			}
 
-			// Remove wildcard to this target for this entity.
+			// Remove wildcard to this target for this entity if no other relations to this target exist.
 			const target = traitCtx.pairTarget!;
-			removeTrait(world, entity, Pair(Wildcard, target));
+			if (!hasRelationToTarget(world, entity, target)) {
+				removeTrait(world, entity, Pair(Wildcard, target));
+			}
 
 			// Remove wildcard relation if the entity has no other relations.
 			const relation = traitCtx.relation!;

@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import { Entity } from '../entity/types';
 import { trait } from '../trait/trait';
 import type { Schema, Trait } from '../trait/types';
 import type { World } from '../world/world';
@@ -73,6 +74,28 @@ export const getRelationTargets = (
 	}
 
 	return targets;
+};
+
+export const hasRelationToTarget = (
+	world: World,
+	entity: Entity,
+	target: RelationTarget
+): boolean => {
+	const ctx = world[$internal];
+	const traits = ctx.entityTraits.get(entity);
+	if (!traits) return false;
+
+	for (const trait of traits) {
+		const traitCtx = trait[$internal];
+		if (
+			traitCtx.isPairTrait &&
+			traitCtx.pairTarget === target &&
+			traitCtx.relation !== Wildcard
+		) {
+			return true;
+		}
+	}
+	return false;
 };
 
 export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTarget): T => {

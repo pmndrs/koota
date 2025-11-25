@@ -232,4 +232,29 @@ describe('Relation', () => {
 		expect(person.has(Likes(apple))).toBe(false);
 		expect(person.has(Likes(banana))).toBe(false);
 	});
+
+	it.only('should keep wildcard trait when removing one of multiple relations to the same target', () => {
+		const Likes = relation();
+		const Fears = relation();
+
+		const person = world.spawn();
+		const dragon = world.spawn();
+
+		// Person both likes and fears the dragon
+		person.add(Likes(dragon));
+		person.add(Fears(dragon));
+
+		// Wildcard(dragon) query should find person
+		expect(world.query(Wildcard(dragon))).toContain(person);
+
+		// Remove only the Likes relation
+		person.remove(Likes(dragon));
+
+		// Person should still fear the dragon
+		expect(person.has(Fears(dragon))).toBe(true);
+		expect(person.has(Likes(dragon))).toBe(false);
+
+		// Wildcard(dragon) should still find person because Fears(dragon) remains
+		expect(world.query(Wildcard(dragon))).toContain(person);
+	});
 });
