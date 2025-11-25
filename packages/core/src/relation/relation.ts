@@ -80,11 +80,9 @@ export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTar
 	if (target === undefined) throw Error('Relation target is undefined');
 	if (target === '*') target = Wildcard;
 
-	const ctx = relation[$internal];
-	const pairsMap = ctx.pairsMap;
-	const traitFactory = ctx.createTrait;
+	const { pairsMap, createTrait } = relation[$internal];
 
-	return getRelationTrait<T>(relation, traitFactory, pairsMap, target);
+	return getRelationTrait<T>(relation, createTrait, pairsMap, target);
 };
 
 export const Wildcard = defineRelation() as WildcardRelation;

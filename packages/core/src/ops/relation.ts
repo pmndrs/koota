@@ -7,6 +7,31 @@ import { Trait } from '../trait/types';
 import { World } from '../world/world';
 import { doAddTrait, doRemoveTrait } from './trait';
 
+/** Check if an entity has any relation (of any type) to a specific target. */
+function hasAnyRelationToTarget(
+	world: World,
+	entity: Entity,
+	target: Entity | typeof Wildcard
+): boolean {
+	const ctx = world[$internal];
+	const entityTraits = ctx.entityTraits.get(entity);
+	if (!entityTraits) return false;
+
+	for (const trait of entityTraits) {
+		const traitCtx = trait[$internal];
+		// Skip non-pair traits and wildcard bookkeeping traits.
+		if (!traitCtx.isPairTrait) continue;
+		if (traitCtx.relation === Wildcard) continue;
+		if (traitCtx.pairTarget === Wildcard) continue;
+
+		if (traitCtx.pairTarget === target) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 export function doAddRelation(
 	world: World,
 	entity: Entity,
@@ -76,10 +101,13 @@ export function doRemoveRelation(
 		ctx.relationTargetEntities.delete(target);
 	}
 
-	// Remove wildcard to this target for this entity.
-	const wildcardTargetTrait = Pair(Wildcard, target);
-	if (hasTrait(world, entity, wildcardTargetTrait)) {
-		doRemoveTrait(world, entity, wildcardTargetTrait);
+	// Remove wildcard to this target only if the entity has no other relations to this target.
+	const entityHasOtherRelationsToTarget = hasAnyRelationToTarget(world, entity, target);
+	if (!entityHasOtherRelationsToTarget) {
+		const wildcardTargetTrait = Pair(Wildcard, target);
+		if (hasTrait(world, entity, wildcardTargetTrait)) {
+			doRemoveTrait(world, entity, wildcardTargetTrait);
+		}
 	}
 
 	// Remove wildcard relation if the entity has no other relations of this type.
