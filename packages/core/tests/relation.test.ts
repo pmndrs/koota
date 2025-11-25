@@ -233,7 +233,7 @@ describe('Relation', () => {
 		expect(person.has(Likes(banana))).toBe(false);
 	});
 
-	it.only('should keep wildcard trait when removing one of multiple relations to the same target', () => {
+	it('should keep wildcard trait when removing one of multiple relations to the same target', () => {
 		const Likes = relation();
 		const Fears = relation();
 
