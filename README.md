@@ -398,7 +398,7 @@ world.set(Time, { current: performance.now() })
 
 ### Select traits on queries for updates
 
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStore`. This can be useful if your query is wider than the data you want to modify.
+Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStores`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
@@ -414,11 +414,11 @@ world.query(Position, Velocity, Mass)
 
 ### Modifying trait stores directly
 
-For performance-critical operations, you can modify trait stores directly using the `useStore` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
+For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
 
 ```js
 // Returns the SoA stores
-world.query(Position, Velocity).useStore(([position, velocity], entities) => {
+world.query(Position, Velocity).useStores(([position, velocity], entities) => {
   // Write our own loop over the stores
   for (let i = 0; i < entities.length; i++) {
     // Get the entity ID to use as the array index
@@ -748,7 +748,7 @@ const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
 
 #### Accessing the store directly
 
-The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`useStore` API](#modifying-trait-stores-direclty) instead.
+The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`useStores` API](#modifying-trait-stores-direclty) instead.
 
 ```js
 // Returns SoA or AoS depending on the trait

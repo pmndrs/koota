@@ -55,10 +55,10 @@
 		"@koota/core": "workspace:*",
 		"@koota/react": "workspace:*",
 		"@testing-library/react": "^16.3.0",
-		"esbuild-plugin-inline-functions": "catalog:",
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"tsup": "^8.5.1",
+		"unplugin-inline-functions": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
