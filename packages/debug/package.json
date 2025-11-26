@@ -21,6 +21,7 @@
 	},
 	"dependencies": {
 		"@koota/core": "workspace:*",
+		"@tanstack/react-virtual": "^3.11.2",
 		"acorn": "^8.14.0",
 		"estree-walker": "^3.0.3",
 		"magic-string": "^0.30.17",

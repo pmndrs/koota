@@ -1,5 +1,5 @@
 import { $internal, type Trait, type World } from '@koota/core';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
 import { Header } from './components/header';
 import { TraitDetail } from './components/trait-detail';
@@ -39,6 +39,7 @@ export function Devtools({
 		aos: true,
 	});
 	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
+	const scrollRef = useRef<HTMLDivElement>(null);
 	const { position, isDragging, handleMouseDown } = useDraggable(defaultPosition);
 	const traits = useWorldTraits(world);
 	const entityCount = useEntityCount(world);
@@ -65,13 +66,14 @@ export function Devtools({
 					onMouseDown={handleMouseDown}
 				/>
 				{isOpen && (
-					<div className={styles.list}>
+					<div ref={scrollRef} className={styles.list}>
 						{validSelectedTrait ? (
 							<TraitDetail
 								key={validSelectedTrait[$internal].id}
 								world={world}
 								trait={validSelectedTrait}
 								editor={editor}
+								scrollRef={scrollRef}
 								onBack={() => setSelectedTrait(null)}
 							/>
 						) : (

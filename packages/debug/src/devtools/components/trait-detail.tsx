@@ -1,7 +1,8 @@
 import type { Entity, Trait, World } from '@koota/core';
 import { $internal } from '@koota/core';
-import { EntityRow } from './entity-row';
+import type { RefObject } from 'react';
 import { Fragment, useEffect, useState } from 'react';
+import { EntityList } from './entity-list';
 import type { TraitWithDebug } from '../../types';
 import styles from '../styles.module.css';
 
@@ -45,10 +46,11 @@ interface TraitDetailProps {
 	world: World;
 	trait: TraitWithDebug;
 	editor: Editor;
+	scrollRef: RefObject<HTMLDivElement | null>;
 	onBack: () => void;
 }
 
-export function TraitDetail({ world, trait, editor, onBack }: TraitDetailProps) {
+export function TraitDetail({ world, trait, editor, scrollRef, onBack }: TraitDetailProps) {
 	const [entities, setEntities] = useState<Entity[]>([]);
 
 	const ctx = trait[$internal];
@@ -140,18 +142,7 @@ export function TraitDetail({ world, trait, editor, onBack }: TraitDetailProps) 
 				<div className={styles.detailLabel}>
 					Entities <span className={styles.detailCount}>{entities.length}</span>
 				</div>
-				<div className={styles.entityList}>
-					{entities.length === 0 ? (
-						<div className={styles.emptySmall}>No entities</div>
-					) : (
-						entities
-							.slice(0, 50)
-							.map((entity) => <EntityRow key={entity} entity={entity} />)
-					)}
-					{entities.length > 50 && (
-						<span className={styles.moreEntities}>+{entities.length - 50} more</span>
-					)}
-				</div>
+				<EntityList entities={entities} scrollRef={scrollRef} />
 			</div>
 		</div>
 	);
