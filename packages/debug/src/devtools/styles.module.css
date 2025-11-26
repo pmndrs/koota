@@ -1,0 +1,264 @@
+.container {
+	position: fixed;
+	z-index: 99999;
+	font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+	font-size: 12px;
+	user-select: none;
+}
+
+.panel {
+	background: #181818;
+	color: #e0e0e0;
+	border-radius: 6px;
+	border: 1px solid #2a2a2a;
+	overflow: hidden;
+	width: 260px;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.header {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #1e1e1e;
+	cursor: grab;
+	border-bottom: 1px solid #2a2a2a;
+}
+
+.headerDragging {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #1e1e1e;
+	cursor: grabbing;
+	border-bottom: 1px solid #2a2a2a;
+}
+
+.title {
+	font-weight: 600;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: #666;
+}
+
+.headerRight {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stats {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 10px;
+	color: #555;
+}
+
+.stat {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.statIcon {
+	opacity: 0.6;
+}
+
+.toggleButton {
+	background: none;
+	border: none;
+	color: #555;
+	cursor: pointer;
+	padding: 2px 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+	font-size: 12px;
+	line-height: 1;
+	transition: color 0.15s;
+}
+
+.toggleButton:hover {
+	color: #999;
+}
+
+.list {
+	max-height: 280px;
+	overflow-y: auto;
+}
+
+.filterRow {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 8px;
+}
+
+.filterInput {
+	flex: 1;
+	min-width: 0;
+	padding: 5px 8px;
+	border-radius: 4px;
+	border: none;
+	background: #242424;
+	color: #ccc;
+	font-size: 10px;
+	font-family: inherit;
+	outline: none;
+	transition: background 0.15s;
+}
+
+.filterInput::placeholder {
+	color: #555;
+}
+
+.filterInput:focus {
+	background: #2a2a2a;
+}
+
+.filterToggle {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	background: #242424;
+	color: #666;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+
+.filterToggle:hover {
+	background: #2a2a2a;
+	color: #999;
+}
+
+.filterToggleActive {
+	background: #333;
+	color: #aaa;
+}
+
+.filterBadge {
+	position: absolute;
+	top: -2px;
+	right: -2px;
+	min-width: 12px;
+	height: 12px;
+	padding: 0 3px;
+	border-radius: 6px;
+	background: #7c5cff;
+	color: #fff;
+	font-size: 8px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.filterTypes {
+	display: flex;
+	gap: 6px;
+	padding: 2px 8px 8px;
+}
+
+.typeBtn {
+	all: unset;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 9px;
+	font-weight: 500;
+	text-transform: lowercase;
+	cursor: pointer;
+	transition: opacity 0.15s, background 0.15s;
+	opacity: 0.35;
+}
+
+.typeBtn:hover {
+	opacity: 0.6;
+}
+
+.typeBtnActive {
+	opacity: 1 !important;
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.typeBtnTag {
+	color: #4a9eff;
+}
+
+.typeBtnSoa {
+	color: #4ade80;
+}
+
+.typeBtnAos {
+	color: #f59e0b;
+}
+
+.traitRow {
+	padding: 5px 8px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: default;
+	transition: background 0.1s;
+}
+
+.traitRow:hover {
+	background: #222;
+}
+
+.traitName {
+	flex: 1;
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 11px;
+	color: #bbb;
+}
+
+.badge {
+	font-size: 7px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	border-radius: 2px;
+	color: #000;
+}
+
+.badgeTag {
+	background: #4a9eff;
+}
+
+.badgeSoa {
+	background: #4ade80;
+}
+
+.badgeAos {
+	background: #f59e0b;
+}
+
+.count {
+	font-size: 10px;
+	color: #555;
+	min-width: 16px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.empty {
+	padding: 20px;
+	text-align: center;
+	color: #555;
+	font-size: 10px;
+}
