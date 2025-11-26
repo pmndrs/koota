@@ -2,7 +2,7 @@ import { createWorld, trait, universe, type Entity, type TraitRecord, type World
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useTag, useTrait, useTraitEffect, WorldProvider } from '../src';
+import { useHas, useTag, useTrait, useTraitEffect, WorldProvider } from '../src';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -47,34 +47,6 @@ describe('useTrait', () => {
 		});
 
 		expect(position).toEqual({ x: 1, y: 1 });
-	});
-
-	it('reactively returns the trait value for a tag trait', async () => {
-		const entity = world.spawn(IsTagged);
-		let isTagged: boolean | undefined;
-
-		function Test() {
-			isTagged = useTag(entity, IsTagged);
-			return null;
-		}
-
-		await act(async () => {
-			render(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
-
-		expect(isTagged).toBe(true);
-
-		await act(async () => {
-			entity.remove(IsTagged);
-		});
-
-		expect(isTagged).toBe(false);
 	});
 
 	it('reactively works with an entity at effect time', async () => {
@@ -203,6 +175,76 @@ describe('useTrait', () => {
 		});
 
 		expect(position).toBeUndefined();
+	});
+});
+
+describe('useTag', () => {
+	beforeEach(() => {
+		universe.reset();
+		world = createWorld();
+	});
+
+	it('reactively returns a boolean for a trait', async () => {
+		const entity = world.spawn(IsTagged);
+		let isTagged: boolean | undefined;
+
+		function Test() {
+			isTagged = useTag(entity, IsTagged);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(isTagged).toBe(true);
+
+		await act(async () => {
+			entity.remove(IsTagged);
+		});
+
+		expect(isTagged).toBe(false);
+	});
+});
+
+describe('useHas', () => {
+	beforeEach(() => {
+		universe.reset();
+		world = createWorld();
+	});
+
+	it('reactively returns a boolean for any trait', async () => {
+		const entity = world.spawn(Position);
+		let hasPosition: boolean | undefined;
+
+		function Test() {
+			hasPosition = useHas(entity, Position);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(hasPosition).toBe(true);
+
+		await act(async () => {
+			entity.remove(Position);
+		});
+
+		expect(hasPosition).toBe(false);
 	});
 });
 
