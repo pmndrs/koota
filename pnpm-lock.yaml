@@ -235,6 +235,9 @@ importers:
       '@app/bench-tools':
         specifier: workspace:*
         version: link:../app-tools
+      '@koota/debug':
+        specifier: workspace:*
+        version: link:../../../packages/debug
       '@react-three/drei':
         specifier: 'catalog:'
         version: 10.7.7(@react-three/fiber@9.4.0(@types/react@19.2.6)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.181.2))(@types/react@19.2.6)(@types/three@0.181.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.181.2)
@@ -335,6 +338,46 @@ importers:
       '@config/typescript':
         specifier: workspace:*
         version: link:../../.config/typescript
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.20.6)
+
+  packages/debug:
+    dependencies:
+      '@koota/core':
+        specifier: workspace:*
+        version: link:../core
+      acorn:
+        specifier: ^8.14.0
+        version: 8.15.0
+      estree-walker:
+        specifier: ^3.0.3
+        version: 3.0.3
+      magic-string:
+        specifier: ^0.30.17
+        version: 0.30.21
+      unplugin:
+        specifier: ^2.3.11
+        version: 2.3.11
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      '@types/estree':
+        specifier: ^1.0.7
+        version: 1.0.8
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.6
+      react:
+        specifier: 'catalog:'
+        version: 19.2.0
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(@swc/core@1.15.3)(postcss@8.5.6)(tsx@4.20.6)(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.20.6)

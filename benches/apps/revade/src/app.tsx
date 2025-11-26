@@ -20,40 +20,47 @@ import {
 } from './traits';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
+import { Devtools } from '@koota/debug';
 
 export function App() {
+	const world = useWorld();
+
 	return (
-		<Canvas>
-			<StrictMode>
-				<color attach="background" args={['#111']} />
-				<ambientLight intensity={0.2} />
-				<directionalLight position={[10, 10, 10]} intensity={0.4} />
+		<>
+			<Devtools world={world} />
 
-				<PerspectiveCamera position={[0, 0, 50]} makeDefault />
+			<Canvas>
+				<StrictMode>
+					<color attach="background" args={['#111']} />
+					<ambientLight intensity={0.2} />
+					<directionalLight position={[10, 10, 10]} intensity={0.4} />
 
-				<Player />
-				<Enemies />
-				<Bullets />
-				<Explosions />
+					<PerspectiveCamera position={[0, 0, 50]} makeDefault />
 
-				<Simulation />
-			</StrictMode>
-		</Canvas>
+					<Player />
+					<EnemyRenderer />
+					<BulletRenderer />
+					<ExplosionRenderer />
+
+					<Simulation />
+				</StrictMode>
+			</Canvas>
+		</>
 	);
 }
 
-function Enemies() {
+function EnemyRenderer() {
 	const enemies = useQuery(IsEnemy, Transform);
 	return (
 		<>
 			{enemies.map((enemy) => (
-				<EnemyRenderer key={enemy.id()} entity={enemy} />
+				<EnemyView key={enemy.id()} entity={enemy} />
 			))}
 		</>
 	);
 }
 
-const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
+const EnemyView = memo(({ entity }: { entity: Entity }) => {
 	const meshRef = useRef<THREE.Mesh>(null);
 	const scaleRef = useRef(0);
 
@@ -101,12 +108,10 @@ function Player() {
 		return () => entity?.destroy();
 	}, [spawnPlayer]);
 
-	return (
-		<>{player && <PlayerRenderer entity={player} maxSpeed={50} damping={0.99} thrust={2} />}</>
-	);
+	return <>{player && <PlayerView entity={player} maxSpeed={50} damping={0.99} thrust={2} />}</>;
 }
 
-const PlayerRenderer = memo(
+const PlayerView = memo(
 	({
 		entity,
 		maxSpeed = 50,
@@ -149,14 +154,14 @@ const PlayerRenderer = memo(
 					<boxGeometry />
 					<meshBasicMaterial color="orange" wireframe />
 				</mesh>
-				{isThrusting && <ThrusterRenderer />}
-				{isShieldVisible && <ShieldRenderer />}
+				{isThrusting && <ThrusterView />}
+				{isShieldVisible && <ShieldView />}
 			</group>
 		);
 	}
 );
 
-function ShieldRenderer() {
+function ShieldView() {
 	return (
 		<mesh>
 			<sphereGeometry args={[1.1, 8, 8]} />
@@ -165,7 +170,7 @@ function ShieldRenderer() {
 	);
 }
 
-function ThrusterRenderer() {
+function ThrusterView() {
 	const meshRef = useRef<THREE.Mesh>(null);
 
 	useFrame(({ clock }) => {
@@ -186,18 +191,18 @@ function ThrusterRenderer() {
 	);
 }
 
-function Explosions() {
+function ExplosionRenderer() {
 	const explosions = useQuery(Explosion, Transform);
 	return (
 		<>
 			{explosions.map((explosion) => (
-				<ExplosionRenderer key={explosion.id()} entity={explosion} />
+				<ExplosionView key={explosion.id()} entity={explosion} />
 			))}
 		</>
 	);
 }
 
-function ExplosionRenderer({ entity }: { entity: Entity }) {
+function ExplosionView({ entity }: { entity: Entity }) {
 	const groupRef = useRef<THREE.Group>(null);
 	const particleCount = entity.get(Explosion)!.count;
 
@@ -250,18 +255,18 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 	);
 }
 
-function Bullets() {
+function BulletRenderer() {
 	const bullets = useQuery(Bullet, Transform);
 	return (
 		<>
 			{bullets.map((bullet) => (
-				<BulletRenderer key={bullet.id()} entity={bullet} />
+				<BulletView key={bullet.id()} entity={bullet} />
 			))}
 		</>
 	);
 }
 
-const BulletRenderer = memo(({ entity }: { entity: Entity }) => {
+const BulletView = memo(({ entity }: { entity: Entity }) => {
 	const meshRef = useRef<THREE.Mesh>(null);
 
 	// Set initial values and sync with the entity

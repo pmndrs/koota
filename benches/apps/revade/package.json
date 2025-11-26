@@ -13,6 +13,7 @@
 		"@app/bench-tools": "workspace:*",
 		"@react-three/drei": "catalog:",
 		"@react-three/fiber": "catalog:",
+		"@koota/debug": "workspace:*",
 		"directed": "catalog:",
 		"koota": "workspace:*",
 		"react": "catalog:",

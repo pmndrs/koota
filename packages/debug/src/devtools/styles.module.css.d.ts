@@ -1,0 +1,34 @@
+declare const styles: {
+	readonly container: string;
+	readonly panel: string;
+	readonly header: string;
+	readonly headerDragging: string;
+	readonly title: string;
+	readonly headerRight: string;
+	readonly stats: string;
+	readonly stat: string;
+	readonly statIcon: string;
+	readonly toggleButton: string;
+	readonly list: string;
+	readonly filterRow: string;
+	readonly filterInput: string;
+	readonly filterToggle: string;
+	readonly filterToggleActive: string;
+	readonly filterBadge: string;
+	readonly filterTypes: string;
+	readonly typeBtn: string;
+	readonly typeBtnActive: string;
+	readonly typeBtnTag: string;
+	readonly typeBtnSoa: string;
+	readonly typeBtnAos: string;
+	readonly traitRow: string;
+	readonly traitName: string;
+	readonly badge: string;
+	readonly badgeTag: string;
+	readonly badgeSoa: string;
+	readonly badgeAos: string;
+	readonly count: string;
+	readonly empty: string;
+};
+
+export default styles;

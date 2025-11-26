@@ -52,6 +52,9 @@ export class World {
 		worldEntity: null! as Entity,
 		trackedTraits: new Set<Trait>(),
 		resetSubscriptions: new Set<(world: World) => void>(),
+		traitRegisteredSubscriptions: new Set<(trait: Trait) => void>(),
+		entitySpawnedSubscriptions: new Set<(entity: Entity) => void>(),
+		entityDestroyedSubscriptions: new Set<(entity: Entity) => void>(),
 	};
 
 	get id() {
