@@ -913,6 +913,40 @@ return (
 )
 ```
 
+### `useTag`
+
+Observes an entity, or world, for a tag and reactively updates when it is added or removed. Returns `true` when the tag is present or `false` when absent. Use this instead of `useTrait` for tags. For tracking the presence of non-tag traits, use `useHas`.
+
+```js
+const IsActive = trait()
+
+function ActiveIndicator({ entity }) {
+  // Returns true if the entity has the tag, false otherwise
+  const isActive = useTag(entity, IsActive)
+
+  if (!isActive) return null
+
+  return <div>🟢 Active</div>
+}
+```
+
+### `useHas`
+
+Observes an entity, or world, for any trait and reactively updates when it is added or removed. Returns `true` when the trait is present or `false` when absent. Unlike `useTrait`, this only tracks presence and not the trait's value.
+
+```js
+const Health = trait({ amount: 100 })
+
+function HealthIndicator({ entity }) {
+  // Returns true if the entity has the trait, false otherwise
+  const hasHealth = useHas(entity, Health)
+
+  if (!hasHealth) return null
+
+  return <div>❤️ Has Health</div>
+}
+```
+
 ### `useTraitEffect`
 
 Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering.

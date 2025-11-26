@@ -2,7 +2,7 @@ import { createWorld, trait, universe, type Entity, type TraitRecord, type World
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useTrait, useTraitEffect, WorldProvider } from '../../react';
+import { useHas, useTag, useTrait, useTraitEffect, WorldProvider } from '../../react';
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -13,6 +13,7 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 let world: World;
 const Position = trait({ x: 0, y: 0 });
+const IsTagged = trait();
 
 describe('useTrait', () => {
 	beforeEach(() => {
@@ -174,6 +175,76 @@ describe('useTrait', () => {
 		});
 
 		expect(position).toBeUndefined();
+	});
+});
+
+describe('useTag', () => {
+	beforeEach(() => {
+		universe.reset();
+		world = createWorld();
+	});
+
+	it('reactively returns a boolean for a trait', async () => {
+		const entity = world.spawn(IsTagged);
+		let isTagged: boolean | undefined;
+
+		function Test() {
+			isTagged = useTag(entity, IsTagged);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(isTagged).toBe(true);
+
+		await act(async () => {
+			entity.remove(IsTagged);
+		});
+
+		expect(isTagged).toBe(false);
+	});
+});
+
+describe('useHas', () => {
+	beforeEach(() => {
+		universe.reset();
+		world = createWorld();
+	});
+
+	it('reactively returns a boolean for any trait', async () => {
+		const entity = world.spawn(Position);
+		let hasPosition: boolean | undefined;
+
+		function Test() {
+			hasPosition = useHas(entity, Position);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(hasPosition).toBe(true);
+
+		await act(async () => {
+			entity.remove(Position);
+		});
+
+		expect(hasPosition).toBe(false);
 	});
 });
 
