@@ -23,9 +23,10 @@ const badgeClasses = {
 interface TraitRowProps {
 	world: World;
 	trait: TraitWithDebug;
+	onSelect: () => void;
 }
 
-export function TraitRow({ world, trait }: TraitRowProps) {
+export function TraitRow({ world, trait, onSelect }: TraitRowProps) {
 	const entityCount = useTraitEntityCount(world, trait);
 
 	const name = getTraitName(trait);
@@ -33,10 +34,11 @@ export function TraitRow({ world, trait }: TraitRowProps) {
 
 	return (
 		<div
-			className={styles.traitRow}
+			className={`${styles.traitRow} ${styles.traitRowClickable}`}
 			title={
 				trait.debugSource ? `${trait.debugSource.file}:${trait.debugSource.line}` : undefined
 			}
+			onClick={onSelect}
 		>
 			<span className={badgeClasses[type]}>{type}</span>
 			<span className={styles.traitName}>{name}</span>

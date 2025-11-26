@@ -13,9 +13,10 @@ interface TraitListProps {
 	traits: Trait[];
 	filter: string;
 	typeFilters: Record<'tag' | 'soa' | 'aos', boolean>;
+	onSelect: (trait: TraitWithDebug) => void;
 }
 
-export function TraitList({ world, traits, filter, typeFilters }: TraitListProps) {
+export function TraitList({ world, traits, filter, typeFilters, onSelect }: TraitListProps) {
 	const normalizedFilter = filter.trim().toLowerCase();
 	const filtered = traits.filter((trait) => {
 		const type = (trait as TraitWithDebug)[$internal].isTag
@@ -27,7 +28,7 @@ export function TraitList({ world, traits, filter, typeFilters }: TraitListProps
 		return name.includes(normalizedFilter);
 	});
 
-	const sortedTraits = filtered.sort((a, b) => {
+	const sortedTraits = [...filtered].sort((a, b) => {
 		const nameA = getTraitName(a as TraitWithDebug);
 		const nameB = getTraitName(b as TraitWithDebug);
 		return nameA.localeCompare(nameB);
@@ -44,6 +45,7 @@ export function TraitList({ world, traits, filter, typeFilters }: TraitListProps
 					key={(trait as TraitWithDebug)[$internal].id}
 					world={world}
 					trait={trait as TraitWithDebug}
+					onSelect={() => onSelect(trait as TraitWithDebug)}
 				/>
 			))}
 		</>
