@@ -22,6 +22,7 @@ declare const styles: {
 	readonly typeBtnSoa: string;
 	readonly typeBtnAos: string;
 	readonly traitRow: string;
+	readonly traitRowClickable: string;
 	readonly traitName: string;
 	readonly badge: string;
 	readonly badgeTag: string;
@@ -29,6 +30,29 @@ declare const styles: {
 	readonly badgeAos: string;
 	readonly count: string;
 	readonly empty: string;
+	readonly detailView: string;
+	readonly backButton: string;
+	readonly detailHeader: string;
+	readonly detailTitle: string;
+	readonly detailName: string;
+	readonly detailBadge: string;
+	readonly detailBadgeTag: string;
+	readonly detailBadgeSoa: string;
+	readonly detailBadgeAos: string;
+	readonly detailSection: string;
+	readonly detailLabel: string;
+	readonly detailCount: string;
+	readonly detailGrid: string;
+	readonly detailKey: string;
+	readonly detailValue: string;
+	readonly detailSource: string;
+	readonly entityList: string;
+	readonly entityRow: string;
+	readonly entityId: string;
+	readonly entityMeta: string;
+	readonly entityRaw: string;
+	readonly moreEntities: string;
+	readonly emptySmall: string;
 };
 
 export default styles;

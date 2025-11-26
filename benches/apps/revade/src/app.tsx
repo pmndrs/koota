@@ -4,7 +4,7 @@ import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Entity } from 'koota';
 import { useActions, useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
-import { memo, StrictMode, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, StrictMode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { actions } from './actions';
 import { schedule } from './systems/schedule';
@@ -267,28 +267,19 @@ function BulletRenderer() {
 }
 
 const BulletView = memo(({ entity }: { entity: Entity }) => {
-	const meshRef = useRef<THREE.Mesh>(null);
-
 	// Set initial values and sync with the entity
-	useLayoutEffect(() => {
-		if (!meshRef.current) return;
+	const handleInit = useCallback((mesh: THREE.Mesh | null) => {
+		if (!mesh || !entity.isAlive()) return;
 
-		// Copy current values
-		const { position, rotation, quaternion } = entity.get(Transform)!;
-		meshRef.current.position.copy(position);
-		meshRef.current.rotation.copy(rotation);
-		meshRef.current.quaternion.copy(quaternion);
-
-		// Sync transform with the trait
-		entity.set(Transform, {
-			position: meshRef.current.position,
-			rotation: meshRef.current.rotation,
-			quaternion: meshRef.current.quaternion,
-		});
+		entity.set(Transform, (prev) => ({
+			position: mesh.position.copy(prev.position),
+			quaternion: mesh.quaternion.copy(prev.quaternion),
+			rotation: mesh.rotation.copy(prev.rotation),
+		}));
 	}, []);
 
 	return (
-		<mesh ref={meshRef} scale={0.2}>
+		<mesh ref={handleInit} scale={0.2}>
 			<sphereGeometry />
 			<meshBasicMaterial color="red" wireframe />
 		</mesh>
