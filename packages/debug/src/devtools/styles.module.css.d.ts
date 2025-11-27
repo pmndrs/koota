@@ -26,6 +26,7 @@ declare const styles: {
 	readonly typeBtnSoa: string;
 	readonly typeBtnAos: string;
 	readonly typeBtnRel: string;
+	readonly typeBtnEmpty: string;
 	readonly row: string;
 	readonly rowClickable: string;
 	readonly rowName: string;

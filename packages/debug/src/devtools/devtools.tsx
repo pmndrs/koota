@@ -43,6 +43,7 @@ export function Devtools({
 		aos: true,
 		rel: true,
 	});
+	const [showEmpty, setShowEmpty] = useState(false);
 	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
 	const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -178,6 +179,15 @@ export function Devtools({
 												{type}
 											</button>
 										))}
+										<button
+											className={`${styles.typeBtn} ${styles.typeBtnEmpty} ${
+												showEmpty ? styles.typeBtnActive : ''
+											}`}
+											onClick={() => setShowEmpty(!showEmpty)}
+											title="Show traits with 0 entities"
+										>
+											empty
+										</button>
 									</div>
 								)}
 								<TraitList
@@ -185,6 +195,7 @@ export function Devtools({
 									traits={traits}
 									filter={filter}
 									typeFilters={typeFilters}
+									showEmpty={showEmpty}
 									onSelect={(trait) => {
 										setSelectedTrait(() => trait);
 										scrollToTop();
