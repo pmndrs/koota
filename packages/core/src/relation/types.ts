@@ -4,24 +4,41 @@ import type { Trait } from '../trait/types';
 
 export type RelationTarget = Entity | '*' | WildcardRelation;
 
-export type Relation<T extends Trait> = {
+/** Internal store structure for relation targets */
+export interface RelationStore {
+	/** For exclusive: targets[entityId] = targetEntityId (0 = no target) */
+	/** For non-exclusive: targets[entityId] = array of targetEntityIds */
+	targets: number[] | number[][];
+	/** For data-bearing relations: data[entityId][targetIdx] = user data */
+	data: unknown[][] | null;
+}
+
+/** A pair represents a relation + target combination */
+export interface RelationPair<T extends Trait = Trait> {
 	[$internal]: {
-		pairsMap: Map<number | string | RelationTarget, T>;
-		createTrait: () => T;
+		relation: Relation<T>;
+		target: RelationTarget;
+		isWildcard: boolean;
+		params?: Record<string, unknown>;
+	};
+}
+
+export type Relation<T extends Trait = Trait> = {
+	[$internal]: {
+		trait: T;
 		exclusive: boolean;
 		autoRemoveTarget: boolean;
+		/** Reverse index: targetEntityId -> Set of subject entityIds */
+		targetIndex: Set<number>[];
 	};
-} & ((target: RelationTarget) => T);
+} & ((target: RelationTarget, params?: Record<string, unknown>) => RelationPair<T>);
 
 declare const WILDCARD_RELATION_BRAND: unique symbol;
 
 export type WildcardRelation = {
 	[$internal]: {
-		/** Used to differentiate between wildcard and normal relations on the type level */
 		readonly [WILDCARD_RELATION_BRAND]: typeof WILDCARD_RELATION_BRAND;
-		pairsMap: Map<number | string, Trait>;
-		createTrait: () => Trait;
-		exclusive: boolean;
-		autoRemoveTarget: boolean;
+		/** Reverse index: targetEntityId -> Set of subject entityIds */
+		targetIndex: Set<number>[];
 	};
-} & ((target: RelationTarget) => Trait);
+} & ((target: RelationTarget) => RelationPair<Trait>);

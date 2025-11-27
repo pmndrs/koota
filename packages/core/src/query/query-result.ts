@@ -1,6 +1,8 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { isRelationPair } from '../relation/relation';
+import type { Relation } from '../relation/types';
 import { getStore } from '../trait/trait';
 import type { Store, Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
@@ -228,6 +230,21 @@ export function createQueryResult<T extends QueryParameter[]>(
 	for (let i = 0; i < params.length; i++) {
 		const param = params[i];
 
+		// Handle relation pairs
+		if (isRelationPair(param)) {
+			const pairCtx = param[$internal];
+			const relation = pairCtx.relation as Relation<Trait>;
+			// Check if this is a Wildcard relation (no trait property)
+			if ('trait' in relation[$internal]) {
+				const baseTrait = relation[$internal].trait;
+				if (!baseTrait[$internal].isTag) {
+					traits.push(baseTrait);
+					stores.push(getStore(world, baseTrait));
+				}
+			}
+			continue;
+		}
+
 		if (isModifier(param)) {
 			// Skip not modifier.
 			if (param.type === 'not') continue;
@@ -239,9 +256,10 @@ export function createQueryResult<T extends QueryParameter[]>(
 				stores.push(getStore(world, trait));
 			}
 		} else {
-			if (param[$internal].isTag) continue; // Skip tags
-			traits.push(param);
-			stores.push(getStore(world, param));
+			const trait = param as Trait;
+			if (trait[$internal].isTag) continue; // Skip tags
+			traits.push(trait);
+			stores.push(getStore(world, trait));
 		}
 	}
 }

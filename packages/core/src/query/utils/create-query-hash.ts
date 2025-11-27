@@ -1,8 +1,11 @@
 import { $internal } from '../../';
+import { isRelationPair } from '../../relation/relation';
+import type { Relation } from '../../relation/types';
+import type { Trait } from '../../trait/types';
 import { isModifier } from '../modifier';
 import type { QueryParameter } from '../types';
 
-const sortedIDs = new Float32Array(1024);
+const sortedIDs = new Float64Array(1024); // Use Float64 for larger IDs with relation encoding
 
 export const createQueryHash = (parameters: QueryParameter[]) => {
 	sortedIDs.fill(0);
@@ -10,7 +13,22 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 
 	for (let i = 0; i < parameters.length; i++) {
 		const param = parameters[i];
-		if (isModifier(param)) {
+
+		if (isRelationPair(param)) {
+			// Encode relation pair as: (relationTraitId * 1000000) + targetId
+			// This ensures unique hashes for different relation/target combinations
+			const pairCtx = param[$internal];
+			const relation = pairCtx.relation;
+			const target = pairCtx.target;
+
+			// Check if it's a Wildcard relation
+			const isWildcard = !('trait' in relation[$internal]);
+			const relationId = isWildcard ? -1 : (relation as Relation<Trait>)[$internal].trait[$internal].id;
+			const targetId = typeof target === 'number' ? target : -1;
+
+			// Combine into a unique hash number
+			sortedIDs[cursor++] = relationId * 10000000 + targetId + 5000000;
+		} else if (isModifier(param)) {
 			const modifierId = param.id;
 			const traitIds = param.traitIds;
 
@@ -19,7 +37,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 				sortedIDs[cursor++] = modifierId * 100000 + traitId;
 			}
 		} else {
-			const traitId = param[$internal].id;
+			const traitId = (param as Trait)[$internal].id;
 			sortedIDs[cursor++] = traitId;
 		}
 	}

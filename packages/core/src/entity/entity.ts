@@ -1,5 +1,10 @@
 import { $internal } from '../common';
-import { Pair, Wildcard } from '../relation/relation';
+import {
+	getRelationTargets,
+	isRelationTarget,
+	removeRelationTarget,
+	Wildcard,
+} from '../relation/relation';
 import { addTrait, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -56,26 +61,50 @@ export function destroyEntity(world: World, entity: Entity) {
 
 		processedEntities.add(currentEntity);
 
-		// Process all related entities and traits.
-		if (ctx.relationTargetEntities.has(currentEntity)) {
-			for (const subject of world.query(Wildcard(currentEntity))) {
-				if (!world.has(subject)) continue;
+		// Process all entities that have relations to this entity using reverse index
+		if (isRelationTarget(world, currentEntity)) {
+			const wildcardIndex = Wildcard[$internal].targetIndex[currentEntity];
 
-				for (const trait of ctx.entityTraits.get(subject)!) {
-					const traitCtx = trait[$internal];
-					if (!traitCtx.isPairTrait) continue;
+			if (wildcardIndex && wildcardIndex.size > 0) {
+				// Get all subjects that target this entity
+				const subjects = Array.from(wildcardIndex);
 
-					const relationCtx = traitCtx.relation![$internal];
+				for (const subjectEid of subjects) {
+					// Find the full entity from the subject eid
+					let subject: Entity | null = null;
+					for (const e of ctx.entityIndex.dense) {
+						if (getEntityId(e) === subjectEid) {
+							subject = e;
+							break;
+						}
+					}
 
-					// Remove wildcard pair trait.
-					removeTrait(world, subject, Pair(Wildcard, currentEntity));
+					if (!subject || !world.has(subject)) continue;
 
-					if (traitCtx.pairTarget === currentEntity) {
-						// Remove the specific pair trait.
-						removeTrait(world, subject, trait);
+					// Find which relations this subject has to currentEntity
+					const subjectTraits = ctx.entityTraits.get(subject);
+					if (!subjectTraits) continue;
 
-						if (relationCtx.autoRemoveTarget) {
-							entityQueue.push(subject);
+					// Iterate through traits to find relations pointing to currentEntity
+					for (const trait of subjectTraits) {
+						const traitCtx = trait[$internal];
+						const relation = traitCtx.relation;
+
+						if (!relation) continue;
+
+						// Check if this relation has currentEntity as a target
+						const targets = getRelationTargets(world, relation, subject);
+						if (targets.includes(currentEntity)) {
+							// Check if this relation has autoRemoveTarget
+							const relationCtx = relation[$internal];
+
+							// Remove the target from this relation
+							removeRelationTarget(world, relation, subject, currentEntity);
+
+							// If autoRemoveTarget, queue the subject for destruction
+							if (relationCtx.autoRemoveTarget) {
+								entityQueue.push(subject);
+							}
 						}
 					}
 				}
@@ -98,7 +127,7 @@ export function destroyEntity(world: World, entity: Entity) {
 		if (allQuery) allQuery.remove(world, currentEntity);
 
 		// Remove all entity state from world.
-		ctx.entityTraits.delete(entity);
+		ctx.entityTraits.delete(currentEntity);
 
 		// Clear entity bitmasks.
 		const eid = getEntityId(currentEntity);

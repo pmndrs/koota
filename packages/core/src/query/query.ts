@@ -1,6 +1,15 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import {
+	getEntitiesTargeting,
+	getRelationTargets,
+	hasRelationToTarget,
+	isRelationPair,
+	isWildcard,
+	Wildcard,
+} from '../relation/relation';
+import type { Relation, RelationTarget } from '../relation/types';
 import { registerTrait, trait } from '../trait/trait';
 import type { Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
@@ -12,11 +21,44 @@ import { createQueryHash } from './utils/create-query-hash';
 
 type QueryEvent = { type: 'add' | 'remove' | 'change'; traitData: TraitData };
 
+/** Filter for checking relation targets */
+interface RelationFilter {
+	relation: Relation<Trait>;
+	target: RelationTarget;
+	isWildcardRelation: boolean;
+}
+
 export const IsExcluded = trait();
 
 export function runQuery<T extends QueryParameter[]>(world: World, query: Query<T>): QueryResult<T> {
 	commitQueryRemovals(world);
-	const entities = query.entities.dense.slice() as Entity[];
+
+	let entities: Entity[];
+
+	// Handle Wildcard(target) queries specially - use reverse index
+	if (query.relationFilters && query.relationFilters.length > 0) {
+		const filter = query.relationFilters[0];
+		if (filter.isWildcardRelation && typeof filter.target === 'number') {
+			// Use reverse index for Wildcard(target) queries
+			entities = getEntitiesTargeting(world, filter.target as Entity).slice() as Entity[];
+		} else {
+			entities = query.entities.dense.slice() as Entity[];
+		}
+	} else {
+		entities = query.entities.dense.slice() as Entity[];
+	}
+
+	// Apply relation filters
+	if (query.relationFilters && query.relationFilters.length > 0) {
+		entities = entities.filter((entity) => {
+			for (const filter of query.relationFilters!) {
+				if (!checkRelationFilter(world, entity, filter)) {
+					return false;
+				}
+			}
+			return true;
+		});
+	}
 
 	// Clear so it can accumulate again.
 	if (query.isTracking) {
@@ -28,6 +70,33 @@ export function runQuery<T extends QueryParameter[]>(world: World, query: Query<
 	}
 
 	return createQueryResult(world, entities, query);
+}
+
+function checkRelationFilter(world: World, entity: Entity, filter: RelationFilter): boolean {
+	const { relation, target, isWildcardRelation } = filter;
+
+	// Wildcard relation - check if entity has any relation to target
+	if (isWildcardRelation) {
+		if (typeof target === 'number') {
+			const eid = getEntityId(entity);
+			const index = Wildcard[$internal].targetIndex[target];
+			return index !== undefined && index.has(eid);
+		}
+		return false;
+	}
+
+	// Wildcard target - check if entity has any target for this relation
+	if (target === Wildcard || target === '*') {
+		const targets = getRelationTargets(world, relation, entity);
+		return targets.length > 0;
+	}
+
+	// Specific target
+	if (typeof target === 'number') {
+		return hasRelationToTarget(world, relation, entity, target);
+	}
+
+	return false;
 }
 
 export function addEntityToQuery(query: Query, entity: Entity) {
@@ -190,6 +259,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		toRemove: new SparseSet(),
 		addSubscriptions: new Set<QuerySubscriber>(),
 		removeSubscriptions: new Set<QuerySubscriber>(),
+		relationFilters: [],
 
 		run: (world: World) => runQuery(world, query),
 		add: (entity: Entity) => addEntityToQuery(query, entity),
@@ -212,6 +282,31 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 	// Sort into traits and not-traits.
 	for (let i = 0; i < parameters.length; i++) {
 		const parameter = parameters[i];
+
+		// Handle relation pairs
+		if (isRelationPair(parameter)) {
+			const pairCtx = parameter[$internal];
+			const relation = pairCtx.relation;
+			const target = pairCtx.target;
+			const wildcardRelation = isWildcard(relation);
+
+			// Add relation filter
+			query.relationFilters!.push({
+				relation: relation as Relation<Trait>,
+				target,
+				isWildcardRelation: wildcardRelation,
+			});
+
+			// For non-wildcard relations, add the base trait as required
+			if (!wildcardRelation) {
+				const baseTrait = (relation as Relation<Trait>)[$internal].trait;
+				if (!ctx.traitData.has(baseTrait)) registerTrait(world, baseTrait);
+				query.traitData.required.push(ctx.traitData.get(baseTrait)!);
+				query.traits.push(baseTrait);
+			}
+
+			continue;
+		}
 
 		if (isModifier(parameter)) {
 			const traits = parameter.traits;
@@ -416,10 +511,14 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		}
 	} else {
 		// Populate the query immediately.
+		// Skip for Wildcard(target) queries - they use the reverse index at runtime
+		const hasWildcardRelationFilter = query.relationFilters?.some((f) => f.isWildcardRelation);
+
 		if (
-			query.traitData.required.length > 0 ||
-			query.traitData.forbidden.length > 0 ||
-			query.traitData.or.length > 0
+			!hasWildcardRelationFilter &&
+			(query.traitData.required.length > 0 ||
+				query.traitData.forbidden.length > 0 ||
+				query.traitData.or.length > 0)
 		) {
 			const entities = ctx.entityIndex.dense;
 			for (let i = 0; i < entities.length; i++) {
