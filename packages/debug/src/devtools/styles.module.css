@@ -247,6 +247,10 @@
 	color: #a855f7;
 }
 
+.typeBtnEmpty {
+	color: #666;
+}
+
 /* Shared Row styles */
 
 .row {
