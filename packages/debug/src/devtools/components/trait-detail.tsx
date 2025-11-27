@@ -1,25 +1,18 @@
-import type { Entity, Trait, World } from '@koota/core';
+import type { Entity, World } from '@koota/core';
 import { $internal } from '@koota/core';
 import type { RefObject } from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { EntityList } from './entity-list';
 import type { TraitWithDebug } from '../../types';
 import styles from '../styles.module.css';
+import { DetailGrid, DetailLayout, DetailSection } from './detail-layout';
+import { getTraitName, getTraitType } from './trait-utils';
 
-function getTraitType(trait: Trait): 'tag' | 'soa' | 'aos' {
-	const ctx = trait[$internal];
-	if (ctx.isTag) return 'tag';
-	return ctx.type;
-}
-
-function getTraitName(trait: TraitWithDebug): string {
-	return trait.debugName ?? `Trait#${trait[$internal].id}`;
-}
-
-const badgeClasses = {
+const badgeClasses: Record<string, string> = {
 	tag: styles.detailBadgeTag,
 	soa: styles.detailBadgeSoa,
 	aos: styles.detailBadgeAos,
+	rel: styles.detailBadgeRel,
 };
 
 type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
@@ -75,40 +68,28 @@ export function TraitDetail({ world, trait, editor, scrollRef, onBack }: TraitDe
 	const schemaKeys = ctx.isTag ? [] : Object.keys(trait.schema || {});
 
 	return (
-		<div className={styles.detailView}>
-			<button className={styles.backButton} onClick={onBack}>
-				<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-					<path
-						fillRule="evenodd"
-						d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"
-					/>
-				</svg>
-				Back
-			</button>
-
-			<div className={styles.detailHeader}>
-				<div className={styles.detailTitle}>
-					<span className={styles.detailName}>{name}</span>
-					{trait.debugSource && (
-						<a
-							href={getEditorUrl(
-								editor,
-								trait.debugSource.file,
-								trait.debugSource.line,
-								trait.debugSource.column
-							)}
-							className={styles.detailSource}
-						>
-							{getShortPath(trait.debugSource.file)}:{trait.debugSource.line}
-						</a>
-					)}
-				</div>
-				<span className={`${styles.detailBadge} ${badgeClasses[type]}`}>{type}</span>
-			</div>
-
-			<div className={styles.detailSection}>
-				<div className={styles.detailLabel}>Info</div>
-				<div className={styles.detailGrid}>
+		<DetailLayout
+			title={name}
+			subtitle={
+				trait.debugSource ? (
+					<a
+						href={getEditorUrl(
+							editor,
+							trait.debugSource.file,
+							trait.debugSource.line,
+							trait.debugSource.column
+						)}
+						className={styles.detailSource}
+					>
+						{getShortPath(trait.debugSource.file)}:{trait.debugSource.line}
+					</a>
+				) : undefined
+			}
+			badge={<span className={`${styles.detailBadge} ${badgeClasses[type]}`}>{type}</span>}
+			onBack={onBack}
+		>
+			<DetailSection label="Info">
+				<DetailGrid>
 					<span className={styles.detailKey}>ID</span>
 					<span className={styles.detailValue}>{ctx.id}</span>
 					<span className={styles.detailKey}>Type</span>
@@ -117,13 +98,12 @@ export function TraitDetail({ world, trait, editor, scrollRef, onBack }: TraitDe
 					<span className={styles.detailValue}>{ctx.isTag ? 'yes' : 'no'}</span>
 					<span className={styles.detailKey}>Is Pair</span>
 					<span className={styles.detailValue}>{ctx.isPairTrait ? 'yes' : 'no'}</span>
-				</div>
-			</div>
+				</DetailGrid>
+			</DetailSection>
 
 			{schemaKeys.length > 0 && (
-				<div className={styles.detailSection}>
-					<div className={styles.detailLabel}>Schema</div>
-					<div className={styles.detailGrid}>
+				<DetailSection label="Schema">
+					<DetailGrid>
 						{schemaKeys.map((key) => (
 							<Fragment key={key}>
 								<span className={styles.detailKey}>{key}</span>
@@ -134,16 +114,13 @@ export function TraitDetail({ world, trait, editor, scrollRef, onBack }: TraitDe
 								</span>
 							</Fragment>
 						))}
-					</div>
-				</div>
+					</DetailGrid>
+				</DetailSection>
 			)}
 
-			<div className={styles.detailSection}>
-				<div className={styles.detailLabel}>
-					Entities <span className={styles.detailCount}>{entities.length}</span>
-				</div>
+			<DetailSection label="Entities" count={entities.length}>
 				<EntityList entities={entities} scrollRef={scrollRef} />
-			</div>
-		</div>
+			</DetailSection>
+		</DetailLayout>
 	);
 }

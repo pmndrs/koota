@@ -1,24 +1,15 @@
 import type { Trait, World } from '@koota/core';
-import { $internal } from '@koota/core';
 import type { TraitWithDebug } from '../../types';
 import { useTraitEntityCount } from '../hooks/use-trait-entity-count';
 import styles from '../styles.module.css';
 import { Row, RowCount, RowName } from './row';
+import { getTraitName, getTraitType } from './trait-utils';
 
-function getTraitType(trait: Trait): 'tag' | 'soa' | 'aos' {
-	const ctx = trait[$internal];
-	if (ctx.isTag) return 'tag';
-	return ctx.type;
-}
-
-function getTraitName(trait: TraitWithDebug): string {
-	return trait.debugName ?? `Trait#${trait[$internal].id}`;
-}
-
-const badgeClasses = {
+const badgeClasses: Record<string, string> = {
 	tag: `${styles.badge} ${styles.badgeTag}`,
 	soa: `${styles.badge} ${styles.badgeSoa}`,
 	aos: `${styles.badge} ${styles.badgeAos}`,
+	rel: `${styles.badge} ${styles.badgeRel}`,
 };
 
 interface TraitRowProps {

@@ -239,6 +239,14 @@
 	color: #f59e0b;
 }
 
+.typeBtnRel {
+	color: #a78bfa;
+}
+
+.typeBtnRel {
+	color: #a855f7;
+}
+
 /* Shared Row styles */
 
 .row {
@@ -304,6 +312,13 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.entityMetaInline {
+	display: flex;
+	gap: 6px;
+	font-size: 10px;
+	color: #555;
+}
+
 /* Legacy trait row styles (keeping for compatibility) */
 
 .traitRow {
@@ -352,6 +367,14 @@
 
 .badgeAos {
 	background: #f59e0b;
+}
+
+.badgeRel {
+	background: #a78bfa;
+}
+
+.badgeRel {
+	background: #a855f7;
 }
 
 .count {
@@ -431,6 +454,14 @@
 
 .detailBadgeAos {
 	background: #f59e0b;
+}
+
+.detailBadgeRel {
+	background: #a78bfa;
+}
+
+.detailBadgeRel {
+	background: #a855f7;
 }
 
 .detailSection {

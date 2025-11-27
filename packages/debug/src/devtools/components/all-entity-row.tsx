@@ -6,14 +6,15 @@ import { Row, RowCount, RowName } from './row';
 interface AllEntityRowProps {
 	world: World;
 	entity: Entity;
+	onSelect: () => void;
 }
 
-export function AllEntityRow({ world, entity }: AllEntityRowProps) {
+export function AllEntityRow({ world, entity, onSelect }: AllEntityRowProps) {
 	const { entityId, generation } = unpackEntity(entity);
 	const traitCount = world[$internal].entityTraits.get(entity)?.size ?? 0;
 
 	return (
-		<Row>
+		<Row onClick={onSelect}>
 			<span className={styles.entityIdGroup}>
 				<RowName>{entityId}</RowName>
 				<span className={styles.genBadge}>gen:{generation}</span>
