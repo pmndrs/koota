@@ -38,12 +38,47 @@
 	border-bottom: 1px solid #2a2a2a;
 }
 
+.headerLeft {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
 .title {
 	font-weight: 600;
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
 	color: #666;
+}
+
+.tabs {
+	display: flex;
+	gap: 2px;
+}
+
+.tab {
+	all: unset;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	color: #555;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	font-variant-numeric: tabular-nums;
+}
+
+.tab:hover {
+	background: rgba(255, 255, 255, 0.05);
+	color: #888;
+}
+
+.tabActive {
+	background: rgba(255, 255, 255, 0.08);
+	color: #aaa;
 }
 
 .headerRight {
@@ -203,6 +238,73 @@
 .typeBtnAos {
 	color: #f59e0b;
 }
+
+/* Shared Row styles */
+
+.row {
+	padding: 5px 8px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: default;
+	transition: background 0.1s;
+}
+
+.row:hover {
+	background: #222;
+}
+
+.rowClickable {
+	cursor: pointer;
+}
+
+.rowName {
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 11px;
+	color: #bbb;
+}
+
+.rowMeta {
+	font-size: 9px;
+	color: #555;
+	font-variant-numeric: tabular-nums;
+}
+
+.rowCount {
+	font-size: 10px;
+	color: #555;
+	min-width: 16px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+.entityIdGroup {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	min-width: 0;
+}
+
+.genBadge {
+	font-size: 8px;
+	padding: 1px 4px;
+	border-radius: 3px;
+	background: #2a2a2a;
+	color: #666;
+	font-variant-numeric: tabular-nums;
+}
+
+.entityRawSmall {
+	font-size: 9px;
+	color: #444;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Legacy trait row styles (keeping for compatibility) */
 
 .traitRow {
 	padding: 5px 8px;

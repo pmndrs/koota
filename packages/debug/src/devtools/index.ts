@@ -1,1 +1,1 @@
-export { Devtools, type DevtoolsProps } from './devtools';
+export { Devtools, type DevtoolsProps, type Editor } from './devtools';

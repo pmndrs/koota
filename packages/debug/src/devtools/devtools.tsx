@@ -1,7 +1,8 @@
 import { $internal, type Trait, type World } from '@koota/core';
 import { useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
-import { Header } from './components/header';
+import { AllEntitiesList } from './components/all-entities-list';
+import { Header, type Tab } from './components/header';
 import { TraitDetail } from './components/trait-detail';
 import { TraitList } from './components/trait-list';
 import { useDraggable } from './hooks/use-draggable';
@@ -31,6 +32,7 @@ export function Devtools({
 	editor = 'cursor',
 }: DevtoolsProps) {
 	const [isOpen, setIsOpen] = useState(defaultOpen);
+	const [activeTab, setActiveTab] = useState<Tab>('traits');
 	const [filter, setFilter] = useState('');
 	const [showFilters, setShowFilters] = useState(false);
 	const [typeFilters, setTypeFilters] = useState({
@@ -48,6 +50,13 @@ export function Devtools({
 		setTypeFilters((prev) => ({ ...prev, [type]: !prev[type] }));
 	};
 
+	const handleTabChange = (tab: Tab) => {
+		setActiveTab(tab);
+		setSelectedTrait(null);
+		setFilter('');
+		setShowFilters(false);
+	};
+
 	const activeFilterCount = Object.values(typeFilters).filter((v) => !v).length;
 
 	// Check if selected trait still exists
@@ -62,12 +71,16 @@ export function Devtools({
 					entityCount={entityCount}
 					isOpen={isOpen}
 					isDragging={isDragging}
+					activeTab={activeTab}
+					onTabChange={handleTabChange}
 					onToggle={() => setIsOpen(!isOpen)}
 					onMouseDown={handleMouseDown}
 				/>
 				{isOpen && (
 					<div ref={scrollRef} className={styles.list}>
-						{validSelectedTrait ? (
+						{activeTab === 'entities' ? (
+							<AllEntitiesList world={world} />
+						) : validSelectedTrait ? (
 							<TraitDetail
 								key={validSelectedTrait[$internal].id}
 								world={world}

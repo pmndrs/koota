@@ -19,4 +19,3 @@ export function EntityRow({ entity }: EntityRowProps) {
 		</div>
 	);
 }
-
