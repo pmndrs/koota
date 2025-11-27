@@ -48,7 +48,7 @@ export type ConfigurableTrait<T extends Trait = Trait> =
 	| RelationPair<T>
 	| [RelationPair<T>, Record<string, unknown>];
 
-export type SetTraitCallback<T extends Trait> = (
+export type SetTraitCallback<T extends Trait | RelationPair> = (
 	prev: TraitRecord<ExtractSchema<T>>
 ) => TraitValue<ExtractSchema<T>>;
 
@@ -115,10 +115,10 @@ export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> = T 
 >
 	? ExtractSchema<R>
 	: T extends Relation<infer R>
-		? ExtractSchema<R>
-		: T extends Trait<infer S>
-			? S
-			: never;
+	? ExtractSchema<R>
+	: T extends Trait<infer S>
+	? S
+	: never;
 export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
 	? Store
 	: never;
