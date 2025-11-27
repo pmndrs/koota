@@ -1,7 +1,8 @@
-import { $internal, type Trait, type World } from '@koota/core';
+import { $internal, type Entity, type Trait, type World } from '@koota/core';
 import { useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
 import { AllEntitiesList } from './components/all-entities-list';
+import { EntityDetail } from './components/entity-detail';
 import { Header, type Tab } from './components/header';
 import { TraitDetail } from './components/trait-detail';
 import { TraitList } from './components/trait-list';
@@ -19,10 +20,11 @@ export interface DevtoolsProps {
 	editor?: Editor;
 }
 
-const typeClasses = {
+const typeClasses: Record<string, string> = {
 	tag: styles.typeBtnTag,
 	soa: styles.typeBtnSoa,
 	aos: styles.typeBtnAos,
+	rel: styles.typeBtnRel,
 };
 
 export function Devtools({
@@ -39,20 +41,23 @@ export function Devtools({
 		tag: true,
 		soa: true,
 		aos: true,
+		rel: true,
 	});
 	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
+	const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const { position, isDragging, handleMouseDown } = useDraggable(defaultPosition);
 	const traits = useWorldTraits(world);
 	const entityCount = useEntityCount(world);
 
-	const toggleType = (type: 'tag' | 'soa' | 'aos') => {
+	const toggleType = (type: 'tag' | 'soa' | 'aos' | 'rel') => {
 		setTypeFilters((prev) => ({ ...prev, [type]: !prev[type] }));
 	};
 
 	const handleTabChange = (tab: Tab) => {
 		setActiveTab(tab);
 		setSelectedTrait(null);
+		setSelectedEntity(null);
 		setFilter('');
 		setShowFilters(false);
 	};
@@ -62,6 +67,10 @@ export function Devtools({
 	// Check if selected trait still exists
 	const validSelectedTrait =
 		selectedTrait && traits.includes(selectedTrait as Trait) ? selectedTrait : null;
+
+	// Check if selected entity still exists
+	const validSelectedEntity =
+		selectedEntity && world.entities.includes(selectedEntity) ? selectedEntity : null;
 
 	return (
 		<div className={styles.container} style={{ top: position.y, left: position.x }}>
@@ -79,7 +88,23 @@ export function Devtools({
 				{isOpen && (
 					<div ref={scrollRef} className={styles.list}>
 						{activeTab === 'entities' ? (
-							<AllEntitiesList world={world} />
+							validSelectedEntity ? (
+								<EntityDetail
+									key={validSelectedEntity}
+									world={world}
+									entity={validSelectedEntity}
+									onBack={() => setSelectedEntity(null)}
+									onSelectTrait={(trait) => {
+										setSelectedTrait(() => trait);
+										setActiveTab('traits');
+									}}
+								/>
+							) : (
+								<AllEntitiesList
+									world={world}
+									onSelect={(entity) => setSelectedEntity(entity)}
+								/>
+							)
 						) : validSelectedTrait ? (
 							<TraitDetail
 								key={validSelectedTrait[$internal].id}
@@ -123,7 +148,7 @@ export function Devtools({
 								</div>
 								{showFilters && (
 									<div className={styles.filterTypes}>
-										{(['tag', 'soa', 'aos'] as const).map((type) => (
+										{(['tag', 'soa', 'aos', 'rel'] as const).map((type) => (
 											<button
 												key={type}
 												className={`${styles.typeBtn} ${typeClasses[type]} ${

@@ -6,9 +6,10 @@ import { AllEntityRow } from './all-entity-row';
 
 interface AllEntitiesListProps {
 	world: World;
+	onSelect: (entity: Entity) => void;
 }
 
-export function AllEntitiesList({ world }: AllEntitiesListProps) {
+export function AllEntitiesList({ world, onSelect }: AllEntitiesListProps) {
 	const [entities, setEntities] = useState<Entity[]>(() => [...world.entities]);
 
 	useEffect(() => {
@@ -30,7 +31,12 @@ export function AllEntitiesList({ world }: AllEntitiesListProps) {
 	return (
 		<>
 			{entities.map((entity) => (
-				<AllEntityRow key={entity} world={world} entity={entity} />
+				<AllEntityRow
+					key={entity}
+					world={world}
+					entity={entity}
+					onSelect={() => onSelect(entity)}
+				/>
 			))}
 		</>
 	);

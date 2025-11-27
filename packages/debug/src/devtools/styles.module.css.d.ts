@@ -25,6 +25,7 @@ declare const styles: {
 	readonly typeBtnTag: string;
 	readonly typeBtnSoa: string;
 	readonly typeBtnAos: string;
+	readonly typeBtnRel: string;
 	readonly row: string;
 	readonly rowClickable: string;
 	readonly rowName: string;
@@ -33,6 +34,7 @@ declare const styles: {
 	readonly entityIdGroup: string;
 	readonly genBadge: string;
 	readonly entityRawSmall: string;
+	readonly entityMetaInline: string;
 	readonly traitRow: string;
 	readonly traitRowClickable: string;
 	readonly traitName: string;
@@ -40,6 +42,7 @@ declare const styles: {
 	readonly badgeTag: string;
 	readonly badgeSoa: string;
 	readonly badgeAos: string;
+	readonly badgeRel: string;
 	readonly count: string;
 	readonly empty: string;
 	readonly detailView: string;
@@ -51,6 +54,7 @@ declare const styles: {
 	readonly detailBadgeTag: string;
 	readonly detailBadgeSoa: string;
 	readonly detailBadgeAos: string;
+	readonly detailBadgeRel: string;
 	readonly detailSection: string;
 	readonly detailLabel: string;
 	readonly detailCount: string;
