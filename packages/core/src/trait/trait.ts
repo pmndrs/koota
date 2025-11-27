@@ -193,7 +193,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		}
 	}
 
-	// Add the base trait (handles registration, bitmask, queries)
+	// Add the relation trait
 	const data = addTraitToEntity(world, entity, relationTrait);
 
 	// Add the target to the relation store

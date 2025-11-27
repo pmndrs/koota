@@ -77,7 +77,7 @@ export function isRelationPair(value: unknown): value is RelationPair {
  * Get the targets for a relation on an entity.
  * Returns an array of target entity IDs.
  */
-export function getRelationTargets(
+/* @inline */ export function getRelationTargets(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity
@@ -131,7 +131,7 @@ export function getTargetIndex(
 /**
  * Check if an entity has a relation to a specific target.
  */
-export function hasRelationToTarget(
+/* @inline */ export function hasRelationToTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
@@ -159,7 +159,7 @@ export function hasRelationToTarget(
  * Add a relation target to an entity.
  * Returns the index of the target in the targets array.
  */
-export function addRelationTarget(
+/* @inline */ export function addRelationTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
@@ -231,7 +231,7 @@ export function addRelationTarget(
  * Remove a relation target from an entity.
  * Returns the index that was removed, or -1 if not found.
  */
-export function removeRelationTarget(
+/* @inline */ export function removeRelationTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
@@ -466,7 +466,7 @@ export function hasAnyRelationToTarget(
 /**
  * Get default values from schema
  */
-export function getSchemaDefaults(
+/* @inline */ export function getSchemaDefaults(
 	schema: Record<string, any> | (() => unknown),
 	type: TraitType
 ): Record<string, any> | null {
@@ -492,7 +492,7 @@ export function getSchemaDefaults(
  * For exclusive relations, index is always 0.
  * For non-exclusive, index corresponds to position in targets array.
  */
-export function setRelationDataAtIndex(
+/* @inline */ export function setRelationDataAtIndex(
 	world: World,
 	entity: Entity,
 	relation: Relation<Trait>,
@@ -554,7 +554,7 @@ export function setRelationData(
 /**
  * Clear data for a relation at a specific index.
  */
-export function clearRelationData(
+/* @inline */ export function clearRelationData(
 	world: World,
 	entity: Entity,
 	relation: Relation<Trait>,
