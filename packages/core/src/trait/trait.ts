@@ -170,22 +170,19 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	const pairCtx = pair[$internal];
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;
-	// Use params from pair if not provided as argument
+
+	// Wildcard pairs are for querying only, not adding
+	if (isWildcard(relation) || typeof target !== 'number') return;
+
 	const resolvedParams = params ?? pairCtx.params;
-
-	// Wildcard pairs are not added as actual traits
-	if (isWildcard(relation)) return;
-
-	const relationTrait = relation[$internal].trait;
 	const relationCtx = relation[$internal];
+	const relationTrait = relationCtx.trait;
 
 	// Ignore if entity already relates to this target
-	if (typeof target === 'number' && hasRelationToTarget(world, relation, entity, target)) {
-		return;
-	}
+	if (hasRelationToTarget(world, relation, entity, target)) return;
 
 	// For exclusive relations, remove the old target first
-	if (relationCtx.exclusive && typeof target === 'number') {
+	if (relationCtx.exclusive) {
 		const oldTargets = getRelationTargets(world, relation, entity);
 		if (oldTargets.length > 0 && oldTargets[0] !== target) {
 			removeRelationTarget(world, relation, entity, oldTargets[0]);
@@ -196,22 +193,19 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	// Add the relation trait
 	const data = addTraitToEntity(world, entity, relationTrait);
 
-	// Add the target to the relation store
-	if (typeof target === 'number') {
-		const targetIndex = addRelationTarget(world, relation, entity, target);
+	// Add the target and initialize data
+	const targetIndex = addRelationTarget(world, relation, entity, target);
+	const traitCtx = relationTrait[$internal];
+	const schema = data?.schema ?? world[$internal].traitData.get(relationTrait)!.schema;
+	const defaults = getSchemaDefaults(schema, traitCtx.type);
 
-		// Initialize default values for this target
-		const traitCtx = relationTrait[$internal];
-		const schema = data?.schema ?? world[$internal].traitData.get(relationTrait)!.schema;
-		const defaults = getSchemaDefaults(schema, traitCtx.type);
-		if (defaults) {
-			setRelationDataAtIndex(world, entity, relation, targetIndex, {
-				...defaults,
-				...resolvedParams,
-			});
-		} else if (resolvedParams) {
-			setRelationDataAtIndex(world, entity, relation, targetIndex, resolvedParams);
-		}
+	if (defaults) {
+		setRelationDataAtIndex(world, entity, relation, targetIndex, {
+			...defaults,
+			...resolvedParams,
+		});
+	} else if (resolvedParams) {
+		setRelationDataAtIndex(world, entity, relation, targetIndex, resolvedParams);
 	}
 
 	// Call add subscriptions after values are set (only if trait was newly added)
@@ -390,28 +384,28 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	entity: Entity,
 	trait: Trait
 ): TraitData | undefined {
-	// Exit early if the entity already has the trait.
+	// Exit early if the entity already has the trait
 	if (hasTrait(world, entity, trait)) return undefined;
 
 	const ctx = world[$internal];
 
-	// Register the trait if it's not already registered.
+	// Register the trait if it's not already registered
 	if (!ctx.traitData.has(trait)) registerTrait(world, trait);
 
 	const data = ctx.traitData.get(trait)!;
 	const { generationId, bitflag, queries } = data;
 
-	// Add bitflag to entity bitmask.
+	// Add bitflag to entity bitmask
 	const eid = getEntityId(entity);
 	ctx.entityMasks[generationId][eid] |= bitflag;
 
-	// Set the entity as dirty.
+	// Set the entity as dirty
 	for (const dirtyMask of ctx.dirtyMasks.values()) {
 		if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
 		dirtyMask[generationId][eid] |= bitflag;
 	}
 
-	// Update queries.
+	// Update queries
 	for (const query of queries) {
 		query.toRemove.remove(entity);
 		const match = query.check(world, entity, { type: 'add', traitData: data });
@@ -419,7 +413,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 		else query.remove(world, entity);
 	}
 
-	// Add trait to entity internally.
+	// Add trait to entity internally
 	ctx.entityTraits.get(entity)!.add(trait);
 
 	return data;
