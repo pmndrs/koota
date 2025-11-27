@@ -2,23 +2,35 @@ import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
-import { IsExcluded, Query } from '../query/query';
-import { createQueryResult } from '../query/query-result';
-import type { QueryHash, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
+import { IsExcluded, createQuery } from '../query/query';
+import { createEmptyQueryResult } from '../query/query-result';
+import type {
+	Query,
+	QueryHash,
+	QueryParameter,
+	QueryResult,
+	QueryUnsubscriber,
+} from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import type { RelationTarget } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
-import type { TraitData } from '../trait/trait-data';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
+	SetTraitCallback,
 	Trait,
-	TraitInstance,
+	TraitData,
+	TraitRecord,
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
+
+type Options = {
+	traits?: ConfigurableTrait[];
+	lazy?: boolean;
+};
 
 export class World {
 	#id = allocateWorldId(universe.worldIndex);
@@ -57,8 +69,13 @@ export class World {
 
 	traits = new Set<Trait>();
 
-	constructor(...traits: ConfigurableTrait[]) {
-		this.init(...traits);
+	constructor(polyArg?: Options | ConfigurableTrait, ...traits: ConfigurableTrait[]) {
+		if (polyArg && typeof polyArg === 'object' && !Array.isArray(polyArg)) {
+			const { traits: optionTraits = [], lazy = false } = polyArg as Options;
+			if (!lazy) this.init(...optionTraits);
+		} else {
+			this.init(...(polyArg ? [polyArg, ...traits] : traits));
+		}
 	}
 
 	init(...traits: ConfigurableTrait[]) {
@@ -66,7 +83,7 @@ export class World {
 		if (this.#isInitialized) return;
 
 		this.#isInitialized = true;
-		universe.worlds[this.#id] = new WeakRef(this);
+		universe.worlds[this.#id] = this;
 
 		// Create uninitialized added masks.
 		const cursor = getTrackingCursor();
@@ -79,7 +96,7 @@ export class World {
 
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
-			const query = new Query(this, parameters);
+			const query = createQuery(this, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
 
@@ -107,11 +124,11 @@ export class World {
 		removeTrait(this, this[$internal].worldEntity, ...traits);
 	}
 
-	get<T extends Trait>(trait: T): TraitInstance<ExtractSchema<T>> | undefined {
+	get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
 		return getTrait(this, this[$internal].worldEntity, trait);
 	}
 
-	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>>) {
+	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
 		setTrait(this, this[$internal].worldEntity, trait, value);
 	}
 
@@ -120,8 +137,6 @@ export class World {
 		destroyEntity(this, this[$internal].worldEntity);
 		this[$internal].worldEntity = null!;
 
-		// Destroy itself and all entities.
-		this.entities.forEach((entity) => destroyEntity(this, entity));
 		this.reset();
 		this.#isInitialized = false;
 
@@ -165,6 +180,12 @@ export class World {
 		// Create new world entity.
 		ctx.worldEntity = createEntity(this, IsExcluded);
 
+		// Restore cached queries.
+		for (const [hash, parameters] of universe.cachedQueries) {
+			const query = createQuery(this, parameters);
+			ctx.queriesHashMap.set(hash, query);
+		}
+
 		for (const sub of ctx.resetSubscriptions) {
 			sub(this);
 		}
@@ -177,20 +198,19 @@ export class World {
 
 		if (typeof args[0] === 'string') {
 			const query = ctx.queriesHashMap.get(args[0]);
-			// TODO: Query results need to be refactored so query.run() returns it and we can create emtpy ones
-			if (!query) return createQueryResult(new Query(this, []), this, []);
-			return createQueryResult(query, this, query.parameters);
+			if (!query) return createEmptyQueryResult();
+			return query.run(this);
 		} else {
 			const params = args as QueryParameter[];
 			const hash = createQueryHash(params);
 			let query = ctx.queriesHashMap.get(hash);
 
 			if (!query) {
-				query = new Query(this, params);
+				query = createQuery(this, params);
 				ctx.queriesHashMap.set(hash, query);
 			}
 
-			return createQueryResult(query, this, params);
+			return query.run(this);
 		}
 	}
 
@@ -237,7 +257,7 @@ export class World {
 			query = ctx.queriesHashMap.get(hash)!;
 
 			if (!query) {
-				query = new Query(this, args);
+				query = createQuery(this, args);
 				ctx.queriesHashMap.set(hash, query);
 			}
 		}
@@ -269,7 +289,7 @@ export class World {
 			query = ctx.queriesHashMap.get(hash)!;
 
 			if (!query) {
-				query = new Query(this, args);
+				query = createQuery(this, args);
 				ctx.queriesHashMap.set(hash, query);
 			}
 		}
@@ -312,14 +332,11 @@ export class World {
 	}
 }
 
-// Clean up the world ID when it is garbage collected.
-const worldFinalizer = new FinalizationRegistry((worldId: number) => {
-	universe.worlds[worldId] = null;
-	releaseWorldId(universe.worldIndex, worldId);
-});
-
-export function createWorld(...traits: ConfigurableTrait[]) {
-	const world = new World(...traits);
-	worldFinalizer.register(world, world.id);
-	return world;
+export function createWorld(options: Options): World;
+export function createWorld(...traits: ConfigurableTrait[]): World;
+export function createWorld(
+	optionsOrFirstTrait?: Options | ConfigurableTrait,
+	...traits: ConfigurableTrait[]
+) {
+	return new World(optionsOrFirstTrait, ...traits);
 }

@@ -4,7 +4,7 @@ import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Entity } from 'koota';
 import { useActions, useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
-import { memo, StrictMode, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, StrictMode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { actions } from './actions';
 import { schedule } from './systems/schedule';
@@ -32,9 +32,9 @@ export function App() {
 				<PerspectiveCamera position={[0, 0, 50]} makeDefault />
 
 				<Player />
-				<Enemies />
-				<Bullets />
-				<Explosions />
+				<EnemyRenderer />
+				<BulletRenderer />
+				<ExplosionRenderer />
 
 				<Simulation />
 			</StrictMode>
@@ -42,18 +42,18 @@ export function App() {
 	);
 }
 
-function Enemies() {
+function EnemyRenderer() {
 	const enemies = useQuery(IsEnemy, Transform);
 	return (
 		<>
 			{enemies.map((enemy) => (
-				<EnemyRenderer key={enemy.id()} entity={enemy} />
+				<EnemyView key={enemy.id()} entity={enemy} />
 			))}
 		</>
 	);
 }
 
-const EnemyRenderer = memo(({ entity }: { entity: Entity }) => {
+const EnemyView = memo(({ entity }: { entity: Entity }) => {
 	const meshRef = useRef<THREE.Mesh>(null);
 	const scaleRef = useRef(0);
 
@@ -101,12 +101,10 @@ function Player() {
 		return () => entity?.destroy();
 	}, [spawnPlayer]);
 
-	return (
-		<>{player && <PlayerRenderer entity={player} maxSpeed={50} damping={0.99} thrust={2} />}</>
-	);
+	return <>{player && <PlayerView entity={player} maxSpeed={50} damping={0.99} thrust={2} />}</>;
 }
 
-const PlayerRenderer = memo(
+const PlayerView = memo(
 	({
 		entity,
 		maxSpeed = 50,
@@ -149,14 +147,14 @@ const PlayerRenderer = memo(
 					<boxGeometry />
 					<meshBasicMaterial color="orange" wireframe />
 				</mesh>
-				{isThrusting && <ThrusterRenderer />}
-				{isShieldVisible && <ShieldRenderer />}
+				{isThrusting && <ThrusterView />}
+				{isShieldVisible && <ShieldView />}
 			</group>
 		);
 	}
 );
 
-function ShieldRenderer() {
+function ShieldView() {
 	return (
 		<mesh>
 			<sphereGeometry args={[1.1, 8, 8]} />
@@ -165,7 +163,7 @@ function ShieldRenderer() {
 	);
 }
 
-function ThrusterRenderer() {
+function ThrusterView() {
 	const meshRef = useRef<THREE.Mesh>(null);
 
 	useFrame(({ clock }) => {
@@ -186,18 +184,18 @@ function ThrusterRenderer() {
 	);
 }
 
-function Explosions() {
+function ExplosionRenderer() {
 	const explosions = useQuery(Explosion, Transform);
 	return (
 		<>
 			{explosions.map((explosion) => (
-				<ExplosionRenderer key={explosion.id()} entity={explosion} />
+				<ExplosionView key={explosion.id()} entity={explosion} />
 			))}
 		</>
 	);
 }
 
-function ExplosionRenderer({ entity }: { entity: Entity }) {
+function ExplosionView({ entity }: { entity: Entity }) {
 	const groupRef = useRef<THREE.Group>(null);
 	const particleCount = entity.get(Explosion)!.count;
 
@@ -221,9 +219,10 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 
 	useFrame((_, delta) => {
 		if (!groupRef.current) return;
-		const { duration, current } = entity.get(Explosion)!;
+		const explosion = entity.get(Explosion);
+		if (!explosion) return;
+		const { duration, current, velocities } = explosion;
 		const progress = current / duration;
-		const velocities = entity.get(Explosion)!.velocities;
 		const meshes = groupRef.current.children as THREE.Mesh[];
 
 		particles.forEach((_, i) => {
@@ -249,40 +248,31 @@ function ExplosionRenderer({ entity }: { entity: Entity }) {
 	);
 }
 
-function Bullets() {
+function BulletRenderer() {
 	const bullets = useQuery(Bullet, Transform);
 	return (
 		<>
 			{bullets.map((bullet) => (
-				<BulletRenderer key={bullet.id()} entity={bullet} />
+				<BulletView key={bullet.id()} entity={bullet} />
 			))}
 		</>
 	);
 }
 
-const BulletRenderer = memo(({ entity }: { entity: Entity }) => {
-	const meshRef = useRef<THREE.Mesh>(null);
-
+const BulletView = memo(({ entity }: { entity: Entity }) => {
 	// Set initial values and sync with the entity
-	useLayoutEffect(() => {
-		if (!meshRef.current) return;
+	const handleInit = useCallback((mesh: THREE.Mesh | null) => {
+		if (!mesh || !entity.isAlive()) return;
 
-		// Copy current values
-		const { position, rotation, quaternion } = entity.get(Transform)!;
-		meshRef.current.position.copy(position);
-		meshRef.current.rotation.copy(rotation);
-		meshRef.current.quaternion.copy(quaternion);
-
-		// Sync transform with the trait
-		entity.set(Transform, {
-			position: meshRef.current.position,
-			rotation: meshRef.current.rotation,
-			quaternion: meshRef.current.quaternion,
-		});
+		entity.set(Transform, (prev) => ({
+			position: mesh.position.copy(prev.position),
+			quaternion: mesh.quaternion.copy(prev.quaternion),
+			rotation: mesh.rotation.copy(prev.rotation),
+		}));
 	}, []);
 
 	return (
-		<mesh ref={meshRef} scale={0.2}>
+		<mesh ref={handleInit} scale={0.2}>
 			<sphereGeometry />
 			<meshBasicMaterial color="red" wireframe />
 		</mesh>

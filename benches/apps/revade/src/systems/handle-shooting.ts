@@ -41,7 +41,7 @@ export const handleShooting = ({ world }: { world: World }) => {
 		const player = world.queryFirst(IsPlayer, Transform);
 		if (player) {
 			const playerTransform = player.get(Transform)!;
-			spawnBullet(playerTransform.position, playerTransform.quaternion);
+			spawnBullet(playerTransform.position, playerTransform.quaternion, player);
 			canShoot = false;
 		}
 	}

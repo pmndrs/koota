@@ -6,6 +6,7 @@ class TestClass {
 }
 
 const Position = trait({ x: 0, y: 0 });
+
 const Test = trait({
 	current: 1,
 	test: 'hello',
@@ -14,6 +15,8 @@ const Test = trait({
 	class: () => new TestClass(),
 	bigInt: 1n,
 });
+
+const Tag = trait();
 
 describe('Trait', () => {
 	const world = createWorld();
@@ -27,6 +30,13 @@ describe('Trait', () => {
 
 		expect(Object.keys(Test)).toEqual(['schema']);
 		expect(typeof Test === 'function').toBe(true);
+	});
+
+	it('should throw an error if the schema contains an object or array', () => {
+		// @ts-expect-error - we want to test the error case
+		expect(() => trait({ object: { a: 1, b: 2 } })).toThrow();
+		// @ts-expect-error - we want to test the error case
+		expect(() => trait({ array: [1, 2, 3] })).toThrow();
 	});
 
 	it('should add and remove traits to an entity', () => {
@@ -44,10 +54,20 @@ describe('Trait', () => {
 		// Add multiple traits at once.
 		entity.add(Position, Test);
 		expect(entity.has(Position)).toBe(true);
+		expect(entity.has(Test)).toBe(true);
 
 		// Remove multiple traits at once.
 		entity.remove(Position, Test);
 		expect(entity.has(Position)).toBe(false);
+		expect(entity.has(Test)).toBe(false);
+
+		// Can still remove multiple traits when one is missing.
+		entity.add(Position, Test);
+		entity.remove(Tag, Position, Test);
+
+		expect(entity.has(Position)).toBe(false);
+		expect(entity.has(Test)).toBe(false);
+		expect(entity.has(Tag)).toBe(false);
 	});
 
 	it('should create SoA stores when registered by adding', () => {

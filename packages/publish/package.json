@@ -1,6 +1,6 @@
 {
 	"name": "koota",
-	"version": "0.4.4",
+	"version": "0.5.3",
 	"description": "🌎 Performant real-time state management for React and TypeScript",
 	"license": "ISC",
 	"type": "module",
@@ -51,14 +51,14 @@
 		"generate-tests": "node scripts/generate-tests.ts"
 	},
 	"devDependencies": {
+		"@config/typescript": "workspace:*",
 		"@koota/core": "workspace:*",
 		"@koota/react": "workspace:*",
-		"@testing-library/react": "^16.2.0",
-		"esbuild-plugin-inline-functions": "catalog:",
-		"react": ">=18.0.0",
-		"react-dom": ">=18.0.0",
-		"@config/typescript": "workspace:*",
-		"tsup": "^8.3.0",
+		"@testing-library/react": "^16.3.0",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"tsup": "^8.5.1",
+		"unplugin-inline-functions": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {

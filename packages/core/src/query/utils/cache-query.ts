@@ -1,20 +1,19 @@
 import { $internal } from '../../';
 import { universe } from '../../universe/universe';
-import { Query } from '../query';
+import { createQuery } from '../query';
 import type { QueryHash, QueryParameter } from '../types';
 import { createQueryHash } from './create-query-hash';
 
 export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryHash<T> {
 	const hash = createQueryHash(parameters);
 
-	for (const worldRef of universe.worlds) {
-		if (!worldRef) continue;
+	for (const world of universe.worlds) {
+		if (!world) continue;
 
-		const world = worldRef.deref()!;
 		const ctx = world[$internal];
 
 		if (!ctx.queriesHashMap.has(hash)) {
-			const query = new Query(world, parameters);
+			const query = createQuery(world, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
 	}

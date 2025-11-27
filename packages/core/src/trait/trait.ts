@@ -2,11 +2,20 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
-import { getRelationTargets, Pair, Wildcard } from '../relation/relation';
+import { getRelationTargets, hasRelationToTarget, Pair, Wildcard } from '../relation/relation';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world/world';
-import { TraitData } from './trait-data';
-import type { ConfigurableTrait, ExtractStore, Norm, Schema, Store, Trait, TraitType } from './types';
+import type {
+	ConfigurableTrait,
+	ExtractStore,
+	Norm,
+	Schema,
+	Store,
+	TagTrait,
+	Trait,
+	TraitData,
+	TraitType,
+} from './types';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
@@ -14,14 +23,19 @@ import {
 	createSetFunction,
 } from './utils/create-accessors';
 import { createStore } from './utils/create-store';
+import { validateSchema } from './utils/validate-schema';
 
+// No reason to create a new object every time a tag trait is created.
+const tagSchema = Object.freeze({});
 let traitId = 0;
 
-function defineTrait(): Trait<Schema>;
+function defineTrait(schema?: undefined | Record<string, never>): TagTrait;
 function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function defineTrait<S extends Schema>(schema: S = {} as S): Trait<any> {
+function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
 	const isAoS = typeof schema === 'function';
 	const traitType: TraitType = isAoS ? 'aos' : 'soa';
+
+	validateSchema(schema);
 
 	const Trait = Object.assign((params: Partial<Norm<S>>) => [Trait, params], {
 		schema: schema as Norm<S>,
@@ -48,13 +62,29 @@ export const trait = defineTrait;
 
 export function registerTrait(world: World, trait: Trait) {
 	const ctx = world[$internal];
-	const data = new TraitData(world, trait);
+	const traitCtx = trait[$internal];
+
+	const data: TraitData = {
+		generationId: ctx.entityMasks.length - 1,
+		bitflag: ctx.bitflag,
+		trait,
+		store: traitCtx.createStore(),
+		queries: new Set(),
+		notQueries: new Set(),
+		schema: trait.schema,
+		changeSubscriptions: new Set(),
+		addSubscriptions: new Set(),
+		removeSubscriptions: new Set(),
+	};
+
+	// Bind a reference to the store on the trait for direct access in queries.
+	traitCtx.stores[world.id] = data.store;
 
 	// Add trait to the world.
 	ctx.traitData.set(trait, data);
 	world.traits.add(trait);
 
-	// Increment the world bitflag.
+	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
 }
 
@@ -73,7 +103,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		}
 
 		// Exit early if the entity already has the trait.
-		if (hasTrait(world, entity, trait)) return;
+		if (hasTrait(world, entity, trait)) continue;
 
 		const traitCtx = trait[$internal];
 
@@ -163,7 +193,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 		const traitCtx = trait[$internal];
 
 		// Exit early if the entity doesn't have the trait.
-		if (!hasTrait(world, entity, trait)) return;
+		if (!hasTrait(world, entity, trait)) continue;
 
 		const data = ctx.traitData.get(trait)!;
 		const { generationId, bitflag, queries } = data;
@@ -199,14 +229,13 @@ export function removeTrait(world: World, entity: Entity, ...traits: Trait[]) {
 			// Check if entity is still a subject of any relation or not.
 			if (world.query(Wildcard(entity)).length === 0) {
 				ctx.relationTargetEntities.delete(entity);
-
-				// TODO: cleanup query by hash
-				// removeQueryByHash(world, [Wildcard(eid)])
 			}
 
-			// Remove wildcard to this target for this entity.
+			// Remove wildcard to this target for this entity if no other relations to this target exist.
 			const target = traitCtx.pairTarget!;
-			removeTrait(world, entity, Pair(Wildcard, target));
+			if (!hasRelationToTarget(world, entity, target)) {
+				removeTrait(world, entity, Pair(Wildcard, target));
+			}
 
 			// Remove wildcard relation if the entity has no other relations.
 			const relation = traitCtx.relation!;

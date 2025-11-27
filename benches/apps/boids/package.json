@@ -17,6 +17,8 @@
 	"devDependencies": {
 		"@config/typescript": "workspace:*",
 		"@types/three": "catalog:",
+		"@vitejs/plugin-react": "^5.1.1",
+		"@vitejs/plugin-react-swc": "^4.2.2",
 		"vite": "catalog:"
 	}
 }

@@ -57,6 +57,12 @@ describe('Relation', () => {
 		expect(target).toBe(player);
 		expect(goblin.has(Targeting(player))).toBe(true);
 		expect(goblin.has(Targeting(guard))).toBe(false);
+
+		// Remove the target and check if the target is removed
+		goblin.remove(Targeting(player));
+		target = goblin.targetFor(Targeting);
+
+		expect(target).toBe(undefined);
 	});
 
 	it('should auto remove target and its descendants', () => {
@@ -209,5 +215,46 @@ describe('Relation', () => {
 		expect(world.has(durian)).toBe(false);
 		expect(world.has(apple)).toBe(true);
 		expect(world.has(cherry)).toBe(true);
+	});
+
+	it('should remove all relations with a wildcard', () => {
+		const Likes = relation();
+
+		const person = world.spawn();
+		const apple = world.spawn();
+		const banana = world.spawn();
+
+		person.add(Likes(apple));
+		person.add(Likes(banana));
+
+		person.remove(Likes('*'));
+
+		expect(person.has(Likes(apple))).toBe(false);
+		expect(person.has(Likes(banana))).toBe(false);
+	});
+
+	it('should keep wildcard trait when removing one of multiple relations to the same target', () => {
+		const Likes = relation();
+		const Fears = relation();
+
+		const person = world.spawn();
+		const dragon = world.spawn();
+
+		// Person both likes and fears the dragon
+		person.add(Likes(dragon));
+		person.add(Fears(dragon));
+
+		// Wildcard(dragon) query should find person
+		expect(world.query(Wildcard(dragon))).toContain(person);
+
+		// Remove only the Likes relation
+		person.remove(Likes(dragon));
+
+		// Person should still fear the dragon
+		expect(person.has(Fears(dragon))).toBe(true);
+		expect(person.has(Likes(dragon))).toBe(false);
+
+		// Wildcard(dragon) should still find person because Fears(dragon) remains
+		expect(world.query(Wildcard(dragon))).toContain(person);
 	});
 });

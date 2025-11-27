@@ -4,8 +4,8 @@ import { $internal, cacheQuery, createWorld, IsExcluded, Not, Or, trait } from '
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
 const IsActive = trait();
-const Foo = trait({});
-const Bar = trait({});
+const Foo = trait();
+const Bar = trait();
 
 describe('Query', () => {
 	const world = createWorld();
@@ -282,7 +282,7 @@ describe('Query', () => {
 	it('should select traits', () => {
 		world.spawn(Position, Name);
 
-		const results = world.query(Position, Name);
+		let results = world.query(Position, Name);
 		// Default should be the same as the query.
 		results.updateEach(([position, name]) => {
 			expect(position.x).toBeDefined();
@@ -291,6 +291,13 @@ describe('Query', () => {
 
 		// Select only Name.
 		results.select(Name).updateEach(([name]) => {
+			expect(name.name).toBeDefined();
+		});
+
+		// Running query again should reset the selection.
+		results = world.query(Position, Name);
+		results.updateEach(([position, name]) => {
+			expect(position.x).toBeDefined();
 			expect(name.name).toBeDefined();
 		});
 	});
@@ -416,5 +423,25 @@ describe('Query', () => {
 		for (let i = 0; i < entities.length; i++) {
 			expect(entities[i].id()).toBe(i + 1);
 		}
+	});
+
+	it('cached query should return values after reset', () => {
+		const movementQuery = cacheQuery(Foo);
+
+		const spawnEntities = () => {
+			for (let i = 0; i < 100; i++) {
+				world.spawn(Foo);
+			}
+		};
+
+		spawnEntities();
+		const resultsBefore = world.query(movementQuery);
+
+		world.reset();
+		spawnEntities();
+
+		const resultsAfter = world.query(movementQuery);
+
+		expect(resultsAfter.length).toBe(resultsBefore.length);
 	});
 });

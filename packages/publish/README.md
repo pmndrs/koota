@@ -217,6 +217,35 @@ const containsAnything = world.query(Contains('*')) // Returns [inventory, chest
 const relatesToGold = world.query(Wildcard(gold)) // Returns [inventory, chest, dwarf]
 ```
 
+#### Removing relationships
+
+A relationship targets a specific entity, so we need to likewise remove relationships with specific entities.
+
+```js
+// Add a specific relation
+player.add(Likes(apple))
+player.add(Likes(banana))
+
+// Remove that same relation
+player.remove(Likes(apple))
+
+player.has(apple) // false
+player.has(banana) // true
+```
+
+However, a wildcard can be used to remove all relationships of a kind — for all targets — from an entity.
+
+```js
+player.add(Likes(apple))
+player.add(Likes(banana))
+
+// Remove all Likes relations
+player.remove(Likes('*'))
+
+player.has(apple) // false
+player.has(banana) // false
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -335,6 +364,26 @@ world
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
 ```
 
+Changed detection shallowly compares the scalar values just like React. This means objects and arrays will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually flag that a changed has occured.
+
+```js
+// ❌ This change will not be detected since the array is mutated and will pass the comparison
+world.query(Inventory).updateEach(([inventory]) => {
+  inventory.items.push(item)
+})
+
+// ✅ This change will be detected since a new array is created and the comparison will fail
+world.query(Inventory).updateEach(([inventory]) => {
+  inventory.items = [...inventory.items, item]
+})
+
+// ✅ This change is manually flagged and we still get to mutate for performance
+world.query(Inventory).updateEach(([inventory], entity) => {
+  inventory.items.push(item)
+  entity.changed()
+})
+```
+
 ### World traits
 
 For global data like time, these can be traits added to the world. **World traits do not appear in queries.**
@@ -349,7 +398,7 @@ world.set(Time, { current: performance.now() })
 
 ### Select traits on queries for updates
 
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStore`. This can be useful if your query is wider than the data you want to modify.
+Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStores`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
@@ -365,11 +414,11 @@ world.query(Position, Velocity, Mass)
 
 ### Modifying trait stores directly
 
-For performance-critical operations, you can modify trait stores directly using the `useStore` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
+For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
 
 ```js
 // Returns the SoA stores
-world.query(Position, Velocity).useStore(([position, velocity], entities) => {
+world.query(Position, Velocity).useStores(([position, velocity], entities) => {
   // Write our own loop over the stores
   for (let i = 0; i < entities.length; i++) {
     // Get the entity ID to use as the array index
@@ -454,8 +503,8 @@ world.remove(Time)
 // Return boolean
 const result = world.has(Time)
 
-// Gets a snapshot instance of the trait
-// Return TraitInstance
+// Returns the trait record for the world
+// Return TraitRecord
 const time = world.get(Time)
 
 // Sets the trait and triggers a change event
@@ -510,8 +559,8 @@ entity.remove(Position)
 // Return boolean
 const result = entity.has(Position)
 
-// Gets a snapshot instance of the trait
-// Return TraitInstance
+// Gets the trait record for an entity
+// Return TraitRecord
 const position = entity.get(Position)
 
 // Sets the trait and triggers a change event
@@ -550,7 +599,7 @@ const { entityId, generation, worldId } = unpackEntity(entity)
 
 ### Trait
 
-A trait is a specific block of data. They are added to entities to build up its overall data signature. If you are familiar with ECS, it is our version of a component. It is called a trait instead to not get confused with React or web components.
+Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React or web components.
 
 A trait can be created with a schema that describes the kind of data it will hold.
 
@@ -558,21 +607,26 @@ A trait can be created with a schema that describes the kind of data it will hol
 const Position = trait({ x: 0, y: 0, z: 0 })
 ```
 
-In cases where the data needs to be initialized for each instance of the trait created, a callback can be passed in to be used a as a lazy initializer.
+A schema supports primitive values with **no** nested objects or arrays. In cases where the data needs to initialized for each instance of the trait, or complex structures are required, a callback initializer can be used.
 
 ```js
-// ❌ The items array will be shared between every instance of this trait
+// ❌ Arrays and objects are not allowed in trait schemas
 const Inventory = trait({
   items: [],
+  vec3: { x: 0, y: 0, z: 0}
   max: 10,
 })
 
-// ✅ With a lazy initializer, each instance will now get its own array
+// ✅ Use a callback initializer for arrays and objects
 const Inventory = trait({
   items: () => [],
+  vec3: () => ({ x: 0, y: 0, z: 0})
   max: 10,
 })
 ```
+
+> ℹ️ **Why not support nested schemas?**<br>
+> It looks obvious to support nested stores, but doing so makes algorithms that work with the data exponentially more complex. If all data can be assumed scalar then any operation is guaranteed to be the simplest and fastest algorithm possible. This is called the First Normal Form in relational database theory. [You can read more here](https://www.dataorienteddesign.com/dodbook/node3.html#SECTION00340000000000000000).
 
 Sometimes a trait only has one field that points to an object instance. In cases like this, it is useful to skip the schema and use a callback directly in the trait.
 
@@ -624,38 +678,63 @@ const store = [
 const Mesh = trait(() => new THREE.Mesh())
 ```
 
+#### Trait record
+
+The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state while when it is AoS the record is a ref to the object inserted there.
+
+```js
+// SoA store
+const Position = trait({ x: 0, y: 0, z: 0 })
+entity.add(Position)
+// Returns a snapshot of the arrays
+const position = entity.get(Position)
+// position !== position2
+const position2 = entity.get(Position)
+
+// AoS store
+const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }))
+entity.add(Velocity)
+// Returns a ref to the object inserted
+const velocity = entity.get(Velocity)
+// velocity === velocity2
+const velocity2 = entity.get(Velocity)
+```
+
+Use `TraitRecord` to type this state.
+
+```ts
+const PositionRecord = TraitRecord<typeof Position>
+```
+
 #### Typing traits
 
 Traits can have a schema type passed into its generic. This can be useful if the inferred type is not good enough.
 
-```js
+```ts
 type AttackerSchema = {
-  continueCombo: boolean | null,
-  currentStageIndex: number | null,
-  stages: Array<AttackStage> | null,
-  startedAt: number | null,
+  continueCombo: boolean | null
+  currentStageIndex: number | null
+  stages: Array<AttackStage> | null
+  startedAt: number | null
 }
 
-const Attacker =
-  trait <
-  AttackerSchema >
-  {
-    continueCombo: null,
-    currentStageIndex: null,
-    stages: null,
-    startedAt: null,
-  }
+const Attacker = trait<AttackerSchema>({
+  continueCombo: null,
+  currentStageIndex: null,
+  stages: null,
+  startedAt: null,
+})
 ```
 
 However, this will not work with interfaces without a workaround due to intended behavior in TypeScript: https://github.com/microsoft/TypeScript/issues/15300
 Interfaces can be used with `Pick` to convert the key signatures into something our type code can understand.
 
-```js
+```ts
 interface AttackerSchema {
-  continueCombo: boolean | null,
-  currentStageIndex: number | null,
-  stages: Array<AttackStage> | null,
-  startedAt: number | null,
+  continueCombo: boolean | null
+  currentStageIndex: number | null
+  stages: Array<AttackStage> | null
+  startedAt: number | null
 }
 
 // Pick is required to not get type errors
@@ -669,7 +748,7 @@ const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
 
 #### Accessing the store directly
 
-The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`useStore` API](#modifying-trait-stores-direclty) instead.
+The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`useStores` API](#modifying-trait-stores-direclty) instead.
 
 ```js
 // Returns SoA or AoS depending on the trait
@@ -747,7 +826,7 @@ return (
 )
 ```
 
-### `usQueryFirst`
+### `useQueryFirst`
 
 Works like `useQuery` but only returns the first result. Can either be an entity of undefined.
 
@@ -834,9 +913,43 @@ return (
 )
 ```
 
+### `useTag`
+
+Observes an entity, or world, for a tag and reactively updates when it is added or removed. Returns `true` when the tag is present or `false` when absent. Use this instead of `useTrait` for tags. For tracking the presence of non-tag traits, use `useHas`.
+
+```js
+const IsActive = trait()
+
+function ActiveIndicator({ entity }) {
+  // Returns true if the entity has the tag, false otherwise
+  const isActive = useTag(entity, IsActive)
+
+  if (!isActive) return null
+
+  return <div>🟢 Active</div>
+}
+```
+
+### `useHas`
+
+Observes an entity, or world, for any trait and reactively updates when it is added or removed. Returns `true` when the trait is present or `false` when absent. Unlike `useTrait`, this only tracks presence and not the trait's value.
+
+```js
+const Health = trait({ amount: 100 })
+
+function HealthIndicator({ entity }) {
+  // Returns true if the entity has the trait, false otherwise
+  const hasHealth = useHas(entity, Health)
+
+  if (!hasHealth) return null
+
+  return <div>❤️ Has Health</div>
+}
+```
+
 ### `useTraitEffect`
 
-Subscribes a callback to a trait on an entity. This callback fires as an effect whenenver it is added, removed or changes value without rerendering.
+Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering.
 
 ```js
 // Subscribe to position changes on an entity and update a ref without causing a rerender

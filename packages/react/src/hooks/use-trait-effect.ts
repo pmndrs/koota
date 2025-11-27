@@ -1,4 +1,4 @@
-import { $internal, type Entity, type Trait, type TraitInstance, type World } from '@koota/core';
+import { $internal, type Entity, type Trait, type TraitRecord, type World } from '@koota/core';
 import { useEffect, useMemo, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
@@ -6,7 +6,7 @@ import { useWorld } from '../world/use-world';
 export function useTraitEffect<T extends Trait>(
 	target: Entity | World,
 	trait: T,
-	callback: (value: TraitInstance<T> | undefined) => void
+	callback: (value: TraitRecord<T> | undefined) => void
 ) {
 	const contextWorld = useWorld();
 	const world = useMemo(() => (isWorld(target) ? target : contextWorld), [target, contextWorld]);

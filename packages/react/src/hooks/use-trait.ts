@@ -1,4 +1,4 @@
-import { $internal, type Entity, type Trait, type TraitInstance, type World } from '@koota/core';
+import { $internal, type Entity, type Trait, type TraitRecord, type World } from '@koota/core';
 import { useEffect, useMemo, useState } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
@@ -6,7 +6,7 @@ import { useWorld } from '../world/use-world';
 export function useTrait<T extends Trait>(
 	target: Entity | World | undefined | null,
 	trait: T
-): TraitInstance<T> | undefined {
+): TraitRecord<T> | undefined {
 	// Get the world from context -- it may be used.
 	// Note: With React 19 we can get it with use conditionally.
 	const contextWorld = useWorld();
@@ -19,7 +19,7 @@ export function useTrait<T extends Trait>(
 	);
 
 	// Initialize the state with the current value of the trait.
-	const [value, setValue] = useState<TraitInstance<T> | undefined>(() => {
+	const [value, setValue] = useState<TraitRecord<T> | undefined>(() => {
 		return memo?.entity.has(trait) ? memo?.entity.get(trait) : undefined;
 	});
 
@@ -39,7 +39,7 @@ function createSubscriptions<T extends Trait>(target: Entity | World, trait: T, 
 
 	return {
 		entity,
-		subscribe: (setValue: (value: TraitInstance<T> | undefined) => void) => {
+		subscribe: (setValue: (value: TraitRecord<T> | undefined) => void) => {
 			const onChangeUnsub = world.onChange(trait, (e) => {
 				if (e === entity) setValue(e.get(trait));
 			});

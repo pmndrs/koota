@@ -5,7 +5,7 @@ import { hasTrait, registerTrait } from '../../trait/trait';
 import type { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world/world';
-import { ModifierData } from '../modifier';
+import { createModifier } from '../modifier';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createChanged() {
@@ -13,11 +13,12 @@ export function createChanged() {
 
 	for (const world of universe.worlds) {
 		if (!world) continue;
-		setTrackingMasks(world.deref()!, id);
+		setTrackingMasks(world, id);
 	}
 
-	return <T extends Trait[] = Trait[]>(...traits: T) =>
-		new ModifierData<T>(`changed-${id}`, id, traits);
+	return <T extends Trait[] = Trait[]>(...traits: T) => {
+		return createModifier(`changed-${id}`, id, traits);
+	};
 }
 
 export function setChanged(world: World, entity: Entity, trait: Trait) {
@@ -34,9 +35,21 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
-		if (!changedMask[eid]) changedMask[eid] = [];
-		const traitId = trait[$internal].id;
-		changedMask[eid][traitId] = 1;
+		const data = ctx.traitData.get(trait)!;
+		const { generationId, bitflag } = data;
+
+		// Ensure the generation array exists
+		if (!changedMask[generationId]) {
+			changedMask[generationId] = [];
+		}
+
+		// Ensure the entity mask exists
+		if (!changedMask[generationId][eid]) {
+			changedMask[generationId][eid] = 0;
+		}
+
+		// Set the bit for this trait
+		changedMask[generationId][eid] |= bitflag;
 	}
 
 	// Update queries.
