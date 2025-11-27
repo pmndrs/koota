@@ -1,28 +1,30 @@
-import type { World } from 'koota';
+import { type World } from 'koota';
 import * as THREE from 'three';
-import { IsEnemy, IsPlayer, Movement, Transform } from '../traits';
+import { IsEnemy, Movement, Targeting, Transform } from '../traits';
 
 const acceleration = new THREE.Vector3();
 
 export const followPlayer = ({ world }: { world: World }) => {
-	const player = world.queryFirst(IsPlayer, Transform);
-	if (!player) return;
+	world.query(IsEnemy, Transform, Movement, Targeting('*')).updateEach(
+		([transform, { velocity, thrust, damping }], entity) => {
+			// Get the target from the Targeting relation
+			const targets = entity.targetsFor(Targeting);
+			const target = targets[0];
+			if (!target || typeof target === 'string' || !target.has(Transform)) return;
 
-	const playerTransform = player.get(Transform)!;
+			const targetTransform = target.get(Transform)!;
 
-	world
-		.query(IsEnemy, Transform, Movement)
-		.updateEach(([transform, { velocity, thrust, damping }]) => {
 			// Apply damping to current velocity
 			velocity.multiplyScalar(damping);
 
-			// Calculate and apply acceleration towards player
+			// Calculate and apply acceleration towards target
 			acceleration
-				.copy(playerTransform.position)
+				.copy(targetTransform.position)
 				.sub(transform.position)
 				.normalize()
 				.multiplyScalar(thrust);
 
 			velocity.add(acceleration);
-		});
+		}
+	);
 };
