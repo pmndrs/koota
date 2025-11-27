@@ -7,11 +7,12 @@ import { EntityRow } from './entity-row';
 interface EntityListProps {
 	entities: Entity[];
 	scrollRef: RefObject<HTMLDivElement | null>;
+	onSelect?: (entity: Entity) => void;
 }
 
 const ROW_HEIGHT = 26;
 
-export function EntityList({ entities, scrollRef }: EntityListProps) {
+export function EntityList({ entities, scrollRef, onSelect }: EntityListProps) {
 	const virtualizer = useVirtualizer({
 		count: entities.length,
 		getScrollElement: () => scrollRef.current,
@@ -28,21 +29,27 @@ export function EntityList({ entities, scrollRef }: EntityListProps) {
 			className={styles.entityList}
 			style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
 		>
-			{virtualizer.getVirtualItems().map((virtualItem) => (
-				<div
-					key={entities[virtualItem.index]}
-					style={{
-						position: 'absolute',
-						top: 0,
-						left: 0,
-						width: '100%',
-						height: ROW_HEIGHT,
-						transform: `translateY(${virtualItem.start}px)`,
-					}}
-				>
-					<EntityRow entity={entities[virtualItem.index]} />
-				</div>
-			))}
+			{virtualizer.getVirtualItems().map((virtualItem) => {
+				const entity = entities[virtualItem.index];
+				return (
+					<div
+						key={entity}
+						style={{
+							position: 'absolute',
+							top: 0,
+							left: 0,
+							width: '100%',
+							height: ROW_HEIGHT,
+							transform: `translateY(${virtualItem.start}px)`,
+						}}
+					>
+						<EntityRow
+							entity={entity}
+							onSelect={onSelect ? () => onSelect(entity) : undefined}
+						/>
+					</div>
+				);
+			})}
 		</div>
 	);
 }
