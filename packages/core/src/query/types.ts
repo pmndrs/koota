@@ -135,10 +135,13 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	run: (world: World) => QueryResult<T>;
 	add: (entity: Entity) => void;
 	remove: (world: World, entity: Entity) => void;
-	check: (
+	check: (world: World, entity: Entity) => boolean;
+	checkTracking: (
 		world: World,
 		entity: Entity,
-		event?: { type: 'add' | 'remove' | 'change'; traitData: TraitData }
+		eventType: 'add' | 'remove' | 'change',
+		generationId: number,
+		bitflag: number
 	) => boolean;
 	resetTrackingBitmasks: (eid: number) => void;
 };

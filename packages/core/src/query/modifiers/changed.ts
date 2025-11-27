@@ -52,16 +52,15 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 		changedMask[generationId][eid] |= bitflag;
 	}
 
-	// Update queries.
-	for (const query of data.queries) {
-		// If the query has no changed modifiers, continue.
+	// Update tracking queries with change event
+	const { generationId, bitflag } = data;
+	for (const query of data.trackingQueries) {
+		// If the query has no changed modifiers, continue
 		if (!query.hasChangedModifiers) continue;
-		// If the trait is not part of a Changed modifier in this query, continue.
+		// If the trait is not part of a Changed modifier in this query, continue
 		if (!query.changedTraits.has(trait)) continue;
 
-		// Check if the entity matches the query.
-		const match = query.check(world, entity, { type: 'change', traitData: data });
-
+		const match = query.checkTracking(world, entity, 'change', generationId, bitflag);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}

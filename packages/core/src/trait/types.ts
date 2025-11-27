@@ -131,7 +131,10 @@ export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSc
 	bitflag: number;
 	trait: Trait;
 	store: Store<S>;
+	/** Non-tracking queries that include this trait */
 	queries: Set<Query>;
+	/** Tracking queries (Added/Removed/Changed) that include this trait */
+	trackingQueries: Set<Query>;
 	notQueries: Set<Query>;
 	schema: S;
 	changeSubscriptions: Set<(entity: Entity) => void>;

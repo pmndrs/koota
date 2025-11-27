@@ -86,6 +86,7 @@ export function registerTrait(world: World, trait: Trait) {
 		trait,
 		store: traitCtx.createStore(),
 		queries: new Set(),
+		trackingQueries: new Set(),
 		notQueries: new Set(),
 		schema: trait.schema,
 		changeSubscriptions: new Set(),
@@ -393,7 +394,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	if (!ctx.traitData.has(trait)) registerTrait(world, trait);
 
 	const data = ctx.traitData.get(trait)!;
-	const { generationId, bitflag, queries } = data;
+	const { generationId, bitflag, queries, trackingQueries } = data;
 
 	// Add bitflag to entity bitmask
 	const eid = getEntityId(entity);
@@ -405,10 +406,18 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 		dirtyMask[generationId][eid] |= bitflag;
 	}
 
-	// Update queries
+	// Update non-tracking queries (no event data needed)
 	for (const query of queries) {
 		query.toRemove.remove(entity);
-		const match = query.check(world, entity, { type: 'add', traitData: data });
+		const match = query.check(world, entity);
+		if (match) query.add(entity);
+		else query.remove(world, entity);
+	}
+
+	// Update tracking queries (with event data)
+	for (const query of trackingQueries) {
+		query.toRemove.remove(entity);
+		const match = query.checkTracking(world, entity, 'add', generationId, bitflag);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}
@@ -427,29 +436,36 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 /* @inline */ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void {
 	const ctx = world[$internal];
 	const data = ctx.traitData.get(trait)!;
-	const { generationId, bitflag, queries } = data;
+	const { generationId, bitflag, queries, trackingQueries } = data;
 
-	// Call remove subscriptions before removing the trait.
+	// Call remove subscriptions before removing the trait
 	for (const sub of data.removeSubscriptions) {
 		sub(entity);
 	}
 
-	// Remove bitflag from entity bitmask.
+	// Remove bitflag from entity bitmask
 	const eid = getEntityId(entity);
 	ctx.entityMasks[generationId][eid] &= ~bitflag;
 
-	// Set the entity as dirty.
+	// Set the entity as dirty
 	for (const dirtyMask of ctx.dirtyMasks.values()) {
 		dirtyMask[generationId][eid] |= bitflag;
 	}
 
-	// Update queries.
+	// Update non-tracking queries (no event data needed)
 	for (const query of queries) {
-		const match = query.check(world, entity, { type: 'remove', traitData: data });
+		const match = query.check(world, entity);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}
 
-	// Remove trait from entity internally.
+	// Update tracking queries (with event data)
+	for (const query of trackingQueries) {
+		const match = query.checkTracking(world, entity, 'remove', generationId, bitflag);
+		if (match) query.add(entity);
+		else query.remove(world, entity);
+	}
+
+	// Remove trait from entity internally
 	ctx.entityTraits.get(entity)!.delete(trait);
 }
