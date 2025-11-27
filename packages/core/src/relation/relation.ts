@@ -110,4 +110,4 @@ export const Pair = <T extends Trait>(relation: Relation<T>, target: RelationTar
 	return getRelationTrait<T>(relation, traitFactory, pairsMap, target);
 };
 
-export const Wildcard = defineRelation() as WildcardRelation;
+export const Wildcard = relation() as WildcardRelation;
