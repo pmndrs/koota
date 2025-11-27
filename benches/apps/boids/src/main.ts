@@ -38,7 +38,7 @@ schedule.add(syncThreeObjects, { after: 'update' });
 schedule.build();
 
 // Add Three resources to the world
-export const Three = trait({ renderer, camera, scene });
+export const Three = trait(() => ({ renderer, camera, scene }));
 world.add(Three);
 
 // Init stats
