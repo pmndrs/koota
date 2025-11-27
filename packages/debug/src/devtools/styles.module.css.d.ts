@@ -64,6 +64,7 @@ declare const styles: {
 	readonly detailSource: string;
 	readonly entityList: string;
 	readonly entityRow: string;
+	readonly entityRowClickable: string;
 	readonly entityId: string;
 	readonly entityMeta: string;
 	readonly entityRaw: string;

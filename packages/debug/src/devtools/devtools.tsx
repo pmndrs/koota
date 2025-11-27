@@ -54,6 +54,10 @@ export function Devtools({
 		setTypeFilters((prev) => ({ ...prev, [type]: !prev[type] }));
 	};
 
+	const scrollToTop = () => {
+		scrollRef.current?.scrollTo({ top: 0 });
+	};
+
 	const handleTabChange = (tab: Tab) => {
 		setActiveTab(tab);
 		setSelectedTrait(null);
@@ -93,16 +97,23 @@ export function Devtools({
 									key={validSelectedEntity}
 									world={world}
 									entity={validSelectedEntity}
-									onBack={() => setSelectedEntity(null)}
+									onBack={() => {
+										setSelectedEntity(null);
+										scrollToTop();
+									}}
 									onSelectTrait={(trait) => {
 										setSelectedTrait(() => trait);
 										setActiveTab('traits');
+										scrollToTop();
 									}}
 								/>
 							) : (
 								<AllEntitiesList
 									world={world}
-									onSelect={(entity) => setSelectedEntity(entity)}
+									onSelect={(entity) => {
+										setSelectedEntity(entity);
+										scrollToTop();
+									}}
 								/>
 							)
 						) : validSelectedTrait ? (
@@ -112,7 +123,15 @@ export function Devtools({
 								trait={validSelectedTrait}
 								editor={editor}
 								scrollRef={scrollRef}
-								onBack={() => setSelectedTrait(null)}
+								onBack={() => {
+									setSelectedTrait(null);
+									scrollToTop();
+								}}
+								onSelectEntity={(entity) => {
+									setSelectedEntity(entity);
+									setActiveTab('entities');
+									scrollToTop();
+								}}
 							/>
 						) : (
 							<>
@@ -166,7 +185,10 @@ export function Devtools({
 									traits={traits}
 									filter={filter}
 									typeFilters={typeFilters}
-									onSelect={(trait) => setSelectedTrait(() => trait)}
+									onSelect={(trait) => {
+										setSelectedTrait(() => trait);
+										scrollToTop();
+									}}
 								/>
 							</>
 						)}

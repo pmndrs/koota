@@ -41,9 +41,17 @@ interface TraitDetailProps {
 	editor: Editor;
 	scrollRef: RefObject<HTMLDivElement | null>;
 	onBack: () => void;
+	onSelectEntity: (entity: Entity) => void;
 }
 
-export function TraitDetail({ world, trait, editor, scrollRef, onBack }: TraitDetailProps) {
+export function TraitDetail({
+	world,
+	trait,
+	editor,
+	scrollRef,
+	onBack,
+	onSelectEntity,
+}: TraitDetailProps) {
 	const [entities, setEntities] = useState<Entity[]>([]);
 
 	const ctx = trait[$internal];
@@ -119,7 +127,7 @@ export function TraitDetail({ world, trait, editor, scrollRef, onBack }: TraitDe
 			)}
 
 			<DetailSection label="Entities" count={entities.length}>
-				<EntityList entities={entities} scrollRef={scrollRef} />
+				<EntityList entities={entities} scrollRef={scrollRef} onSelect={onSelectEntity} />
 			</DetailSection>
 		</DetailLayout>
 	);

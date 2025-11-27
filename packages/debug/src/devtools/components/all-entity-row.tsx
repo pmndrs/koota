@@ -16,7 +16,7 @@ export function AllEntityRow({ world, entity, onSelect }: AllEntityRowProps) {
 	return (
 		<Row onClick={onSelect}>
 			<span className={styles.entityIdGroup}>
-				<RowName>{entityId}</RowName>
+				<RowName>Entity {entityId}</RowName>
 				<span className={styles.genBadge}>gen:{generation}</span>
 			</span>
 			<RowCount>{traitCount}</RowCount>
