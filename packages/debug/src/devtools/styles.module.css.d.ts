@@ -3,7 +3,11 @@ declare const styles: {
 	readonly panel: string;
 	readonly header: string;
 	readonly headerDragging: string;
+	readonly headerLeft: string;
 	readonly title: string;
+	readonly tabs: string;
+	readonly tab: string;
+	readonly tabActive: string;
 	readonly headerRight: string;
 	readonly stats: string;
 	readonly stat: string;
@@ -21,6 +25,14 @@ declare const styles: {
 	readonly typeBtnTag: string;
 	readonly typeBtnSoa: string;
 	readonly typeBtnAos: string;
+	readonly row: string;
+	readonly rowClickable: string;
+	readonly rowName: string;
+	readonly rowMeta: string;
+	readonly rowCount: string;
+	readonly entityIdGroup: string;
+	readonly genBadge: string;
+	readonly entityRawSmall: string;
 	readonly traitRow: string;
 	readonly traitRowClickable: string;
 	readonly traitName: string;

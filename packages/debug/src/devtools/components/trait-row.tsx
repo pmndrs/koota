@@ -3,6 +3,7 @@ import { $internal } from '@koota/core';
 import type { TraitWithDebug } from '../../types';
 import { useTraitEntityCount } from '../hooks/use-trait-entity-count';
 import styles from '../styles.module.css';
+import { Row, RowCount, RowName } from './row';
 
 function getTraitType(trait: Trait): 'tag' | 'soa' | 'aos' {
 	const ctx = trait[$internal];
@@ -33,16 +34,15 @@ export function TraitRow({ world, trait, onSelect }: TraitRowProps) {
 	const type = getTraitType(trait);
 
 	return (
-		<div
-			className={`${styles.traitRow} ${styles.traitRowClickable}`}
+		<Row
+			onClick={onSelect}
 			title={
 				trait.debugSource ? `${trait.debugSource.file}:${trait.debugSource.line}` : undefined
 			}
-			onClick={onSelect}
 		>
 			<span className={badgeClasses[type]}>{type}</span>
-			<span className={styles.traitName}>{name}</span>
-			<span className={styles.count}>{entityCount}</span>
-		</div>
+			<RowName>{name}</RowName>
+			<RowCount>{entityCount}</RowCount>
+		</Row>
 	);
 }

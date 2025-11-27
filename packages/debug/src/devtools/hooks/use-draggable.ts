@@ -11,7 +11,8 @@ export function useDraggable(defaultPosition: Position) {
 	const dragOffset = useRef({ x: 0, y: 0 });
 
 	const handleMouseDown = (e: React.MouseEvent) => {
-		if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+		// Check if click is inside a button (including icon/span children)
+		if ((e.target as HTMLElement).closest('button')) return;
 		setIsDragging(true);
 		dragOffset.current = {
 			x: e.clientX - position.x,
