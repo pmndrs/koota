@@ -11,3 +11,4 @@ export * from './shield-visibility';
 export * from './spatial-hash-map';
 export * from './time';
 export * from './transform';
+export * from './relations';
