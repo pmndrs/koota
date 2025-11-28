@@ -6,7 +6,7 @@ import { randomSphericalDirection } from './utils/random-direction';
 export const actions = createActions((world) => ({
 	spawnBoid: (
 		position: TraitRecord<typeof Position> = randomSphericalDirection(between(0, 100)),
-		velocity: TraitRecord<typeof Velocity> = randomSphericalDirection()
+		velocity: TraitRecord<typeof Velocity> = randomSphericalDirection(5)
 	) => {
 		world.spawn(Position(position), Velocity(velocity), Forces);
 	},
