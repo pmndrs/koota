@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, Wildcard } from '../src';
+import { $internal, createChanged, createWorld, Not, relation, trait, Wildcard } from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -294,5 +294,68 @@ describe('Relation', () => {
 		expect(visited).toContain(child1);
 		expect(visited).toContain(child2);
 		expect(visited).toContain(child3);
+	});
+
+	it('queries should support relations with modifiers and traits', () => {
+		const ChildOf = relation();
+		const Weapon = trait();
+
+		const parent = world.spawn();
+		const child1 = world.spawn(ChildOf(parent), Weapon); // Has weapon
+		const child2 = world.spawn(ChildOf(parent)); // No weapon
+
+		// Query for children WITHOUT weapon
+		let result = world.query(ChildOf(parent), Not(Weapon));
+
+		expect(result.length).toBe(1);
+		expect(result).toContain(child2);
+		expect(result).not.toContain(child1);
+
+		result = world.query(ChildOf(parent), Weapon);
+		expect(result.length).toBe(1);
+		expect(result).toContain(child1);
+		expect(result).not.toContain(child2);
+	});
+
+	it('should track Changed modifier for relation stores', () => {
+		const Changed = createChanged();
+		const ChildOf = relation({ store: { order: 0 } });
+		// Get the base trait from the relation
+		const ChildOfTrait = ChildOf[$internal].trait;
+
+		const parent = world.spawn();
+		const child1 = world.spawn(ChildOf(parent));
+		const child2 = world.spawn(ChildOf(parent));
+
+		// This tracks changes to ChildOf relation store for entities related to parent
+		let changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(0);
+
+		// Update relation store for child1
+		child1.set(ChildOf(parent), { order: 1 });
+
+		// Query should now include child1
+		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(1);
+		expect(changedEntities).toContain(child1);
+		expect(changedEntities).not.toContain(child2);
+
+		// Verify the order was updated
+		expect(child1.get(ChildOf(parent))?.order).toBe(1);
+		expect(child2.get(ChildOf(parent))?.order).toBe(0);
+
+		// After query, changes are reset
+		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(0);
+
+		// Update both children
+		child1.set(ChildOf(parent), { order: 2 });
+		child2.set(ChildOf(parent), { order: 3 });
+
+		// Both should be in the query
+		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(2);
+		expect(changedEntities).toContain(child1);
+		expect(changedEntities).toContain(child2);
 	});
 });

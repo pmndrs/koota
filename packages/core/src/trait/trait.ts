@@ -2,6 +2,8 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
+import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
+import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import {
 	addRelationTarget,
 	getRelationData,
@@ -375,7 +377,11 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	// Update non-tracking queries (no event data needed)
 	for (const query of queries) {
 		query.toRemove.remove(entity);
-		const match = query.check(world, entity);
+		// Use checkQueryWithRelations if query has relation filters, otherwise use checkQuery
+		const match =
+			query.relationFilters && query.relationFilters.length > 0
+				? checkQueryWithRelations(world, query, entity)
+				: query.check(world, entity);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}
@@ -383,7 +389,11 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	// Update tracking queries (with event data)
 	for (const query of trackingQueries) {
 		query.toRemove.remove(entity);
-		const match = query.checkTracking(world, entity, 'add', generationId, bitflag);
+		// Use checkQueryTrackingWithRelations if query has relation filters, otherwise use checkQueryTracking
+		const match =
+			query.relationFilters && query.relationFilters.length > 0
+				? checkQueryTrackingWithRelations(world, query, entity, 'add', generationId, bitflag)
+				: query.checkTracking(world, entity, 'add', generationId, bitflag);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}
@@ -418,16 +428,31 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 		dirtyMask[generationId][eid] |= bitflag;
 	}
 
-	// Update non-tracking queries (no event data needed)
+	// Update non-tracking queries
 	for (const query of queries) {
-		const match = query.check(world, entity);
+		// Use checkQueryWithRelations if query has relation filters, otherwise use checkQuery
+		const match =
+			query.relationFilters && query.relationFilters.length > 0
+				? checkQueryWithRelations(world, query, entity)
+				: query.check(world, entity);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}
 
 	// Update tracking queries (with event data)
 	for (const query of trackingQueries) {
-		const match = query.checkTracking(world, entity, 'remove', generationId, bitflag);
+		// Use checkQueryTrackingWithRelations if query has relation filters, otherwise use checkQueryTracking
+		const match =
+			query.relationFilters && query.relationFilters.length > 0
+				? checkQueryTrackingWithRelations(
+						world,
+						query,
+						entity,
+						'remove',
+						generationId,
+						bitflag
+				  )
+				: query.checkTracking(world, entity, 'remove', generationId, bitflag);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}

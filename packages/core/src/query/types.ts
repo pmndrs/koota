@@ -145,3 +145,5 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	) => boolean;
 	resetTrackingBitmasks: (eid: number) => void;
 };
+
+export type EventType = 'add' | 'remove' | 'change';

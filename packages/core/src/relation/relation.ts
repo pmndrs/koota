@@ -1,6 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { trait } from '../trait/trait';
 import type { ConfigurableTrait, Schema, Trait } from '../trait/types';
 import type { World } from '../world/world';
@@ -221,6 +222,9 @@ export function getTargetIndex(
 		incrementWildcardRefcount(eid, targetId);
 	}
 
+	// Update queries that filter by this relation
+	updateQueriesForRelationChange(world, relation, entity);
+
 	return targetIndex;
 }
 
@@ -287,7 +291,46 @@ export function getTargetIndex(
 		decrementWildcardRefcount(eid, targetId);
 	}
 
+	// Update queries that filter by this relation
+	if (removedIndex !== -1) {
+		updateQueriesForRelationChange(world, relation, entity);
+	}
+
 	return removedIndex;
+}
+
+/**
+ * Update queries when relation targets change.
+ * Called after addRelationTarget or removeRelationTarget to keep queries in sync.
+ */
+function updateQueriesForRelationChange(
+	world: World,
+	relation: Relation<Trait>,
+	entity: Entity
+): void {
+	const ctx = world[$internal];
+	const baseTrait = relation[$internal].trait;
+	const traitData = ctx.traitData.get(baseTrait);
+	if (!traitData) return;
+
+	// Update all queries that have filters for this relation
+	for (const query of ctx.queries) {
+		if (!query.relationFilters || query.relationFilters.length === 0) continue;
+
+		// Check if this query filters by this relation
+		const hasRelationFilter = query.relationFilters.some(
+			(filter) => filter.relation === relation || filter.isWildcardRelation
+		);
+		if (!hasRelationFilter) continue;
+
+		// Re-check entity against query
+		const match = checkQueryWithRelations(world, query, entity);
+		if (match) {
+			query.add(entity);
+		} else {
+			query.remove(world, entity);
+		}
+	}
 }
 
 /** Swap-and-pop data arrays for non-exclusive relations */

@@ -6,6 +6,7 @@ import type { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world/world';
 import { createModifier } from '../modifier';
+import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createChanged() {
@@ -60,7 +61,11 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 		// If the trait is not part of a Changed modifier in this query, continue
 		if (!query.changedTraits.has(trait)) continue;
 
-		const match = query.checkTracking(world, entity, 'change', generationId, bitflag);
+		// Use checkQueryTrackingWithRelations if query has relation filters, otherwise use checkQueryTracking
+		const match =
+			query.relationFilters && query.relationFilters.length > 0
+				? checkQueryTrackingWithRelations(world, query, entity, 'change', generationId, bitflag)
+				: query.checkTracking(world, entity, 'change', generationId, bitflag);
 		if (match) query.add(entity);
 		else query.remove(world, entity);
 	}

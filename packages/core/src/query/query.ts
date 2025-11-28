@@ -1,83 +1,28 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import {
-	getEntitiesTargeting,
-	getEntitiesWithRelationTo,
-	getRelationTargets,
-	hasRelationToTarget,
-	isRelationPair,
-	isRelationTarget,
-	isWildcard,
-	Wildcard,
-} from '../relation/relation';
-import type { Relation, RelationTarget } from '../relation/types';
+import { getEntitiesTargeting, isRelationPair, isWildcard } from '../relation/relation';
+import type { Relation } from '../relation/types';
 import { registerTrait, trait } from '../trait/trait';
 import type { Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
 import { createQueryResult, getQueryStores } from './query-result';
-import type { Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
+import type { EventType, Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
+import { checkQuery } from './utils/check-query';
+import { checkQueryTracking } from './utils/check-query-tracking';
+import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
-
-type EventType = 'add' | 'remove' | 'change';
-
-/** Filter for checking relation targets */
-interface RelationFilter {
-	relation: Relation<Trait>;
-	target: RelationTarget;
-	isWildcardRelation: boolean;
-}
 
 export const IsExcluded = trait();
 
 export function runQuery<T extends QueryParameter[]>(world: World, query: Query<T>): QueryResult<T> {
 	commitQueryRemovals(world);
 
-	let entities: Entity[];
-	let usedTargetIndex = false;
-
-	// Handle relation queries specially
-	if (query.relationFilters && query.relationFilters.length > 0) {
-		const filter = query.relationFilters[0];
-		if (typeof filter.target === 'number') {
-			if (filter.isWildcardRelation) {
-				// Use reverse index for Wildcard(target) queries
-				entities = getEntitiesTargeting(world, filter.target as Entity).slice() as Entity[];
-			} else {
-				// Use reverse index for Relation(specificTarget) queries
-				entities = getEntitiesWithRelationTo(
-					world,
-					filter.relation,
-					filter.target as Entity
-				).slice() as Entity[];
-			}
-			usedTargetIndex = true;
-		} else {
-			entities = query.entities.dense.slice() as Entity[];
-		}
-	} else {
-		entities = query.entities.dense.slice() as Entity[];
-	}
-
-	// Apply remaining relation filters
-	if (query.relationFilters && query.relationFilters.length > (usedTargetIndex ? 1 : 0)) {
-		const filtersToApply = usedTargetIndex
-			? query.relationFilters.slice(1)
-			: query.relationFilters;
-
-		if (filtersToApply.length > 0) {
-			entities = entities.filter((entity) => {
-				for (const filter of filtersToApply) {
-					if (!checkRelationFilter(world, entity, filter)) {
-						return false;
-					}
-				}
-				return true;
-			});
-		}
-	}
+	// With hybrid bitmask strategy, query.entities is already incrementally maintained
+	// with both trait and relation filters applied. Just return the pre-filtered entities.
+	const entities = query.entities.dense.slice() as Entity[];
 
 	// Clear so it can accumulate again.
 	if (query.isTracking) {
@@ -89,35 +34,6 @@ export function runQuery<T extends QueryParameter[]>(world: World, query: Query<
 	}
 
 	return createQueryResult(world, entities, query);
-}
-
-function checkRelationFilter(world: World, entity: Entity, filter: RelationFilter): boolean {
-	const { relation, target, isWildcardRelation } = filter;
-
-	// Wildcard relation - check if entity has any relation to target
-	if (isWildcardRelation) {
-		if (typeof target === 'number') {
-			// Trigger lazy initialization if needed
-			if (!isRelationTarget(world, target as Entity)) return false;
-			const eid = getEntityId(entity);
-			const index = Wildcard[$internal].targetIndex[target];
-			return index !== undefined && index.has(eid);
-		}
-		return false;
-	}
-
-	// Wildcard target - check if entity has any target for this relation
-	if (target === Wildcard || target === '*') {
-		const targets = getRelationTargets(world, relation, entity);
-		return targets.length > 0;
-	}
-
-	// Specific target
-	if (typeof target === 'number') {
-		return hasRelationToTarget(world, relation, entity, target);
-	}
-
-	return false;
 }
 
 export function addEntityToQuery(query: Query, entity: Entity) {
@@ -146,109 +62,6 @@ export function removeEntityFromQuery(world: World, query: Query, entity: Entity
 	}
 
 	query.version++;
-}
-
-/**
- * Check if an entity matches a non-tracking query.
- * For tracking queries, use checkQueryTracking instead.
- */
-export function checkQuery(world: World, query: Query, entity: Entity): boolean {
-	const { bitmasks, generations } = query;
-	const ctx = world[$internal];
-	const eid = getEntityId(entity);
-
-	if (query.traitData.all.length === 0) return false;
-
-	for (let i = 0; i < generations.length; i++) {
-		const generationId = generations[i];
-		const bitmask = bitmasks[i];
-		const { required, forbidden, or } = bitmask;
-		const entityMask = ctx.entityMasks[generationId][eid];
-
-		if (!forbidden && !required && !or) return false;
-		if ((entityMask & forbidden) !== 0) return false;
-		if ((entityMask & required) !== required) return false;
-		if (or !== 0 && (entityMask & or) === 0) return false;
-	}
-
-	return true;
-}
-
-/**
- * Check if an entity matches a tracking query with event handling.
- */
-export function checkQueryTracking(
-	world: World,
-	query: Query,
-	entity: Entity,
-	eventType: EventType,
-	eventGenerationId: number,
-	eventBitflag: number
-): boolean {
-	const { bitmasks, generations } = query;
-	const ctx = world[$internal];
-	const eid = getEntityId(entity);
-
-	if (query.traitData.all.length === 0) return false;
-
-	for (let i = 0; i < generations.length; i++) {
-		const generationId = generations[i];
-		const bitmask = bitmasks[i];
-		const { required, forbidden, or, added, removed, changed } = bitmask;
-		const entityMask = ctx.entityMasks[generationId][eid];
-
-		if (!forbidden && !required && !or && !removed && !added && !changed) {
-			return false;
-		}
-
-		// Handle events only for matching generation
-		if (eventGenerationId === generationId) {
-			if (eventType === 'add') {
-				if (removed & eventBitflag) return false;
-				if (added & eventBitflag) {
-					bitmask.addedTracker[eid] |= eventBitflag;
-				}
-			} else if (eventType === 'remove') {
-				if (added & eventBitflag) return false;
-				if (removed & eventBitflag) {
-					bitmask.removedTracker[eid] |= eventBitflag;
-				}
-				if (changed & eventBitflag) return false;
-			} else if (eventType === 'change') {
-				if (!(entityMask & eventBitflag)) return false;
-				if (changed & eventBitflag) {
-					bitmask.changedTracker[eid] |= eventBitflag;
-				}
-			}
-		}
-
-		// Check forbidden traits
-		if ((entityMask & forbidden) !== 0) return false;
-
-		// Check required traits
-		if ((entityMask & required) !== required) return false;
-
-		// Check Or traits
-		if (or !== 0 && (entityMask & or) === 0) return false;
-
-		// Check tracking masks only for matching generation
-		if (eventGenerationId === generationId) {
-			if (added) {
-				const entityAddedTracker = bitmask.addedTracker[eid] || 0;
-				if ((entityAddedTracker & added) !== added) return false;
-			}
-			if (removed) {
-				const entityRemovedTracker = bitmask.removedTracker[eid] || 0;
-				if ((entityRemovedTracker & removed) !== removed) return false;
-			}
-			if (changed) {
-				const entityChangedTracker = bitmask.changedTracker[eid] || 0;
-				if ((entityChangedTracker & changed) !== changed) return false;
-			}
-		}
-	}
-
-	return true;
 }
 
 export function commitQueryRemovals(world: World) {
@@ -565,19 +378,33 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		}
 	} else {
 		// Populate the query immediately.
-		// Skip for Wildcard(target) queries - they use the reverse index at runtime
 		const hasWildcardRelationFilter = query.relationFilters?.some((f) => f.isWildcardRelation);
 
-		if (
-			!hasWildcardRelationFilter &&
-			(query.traitData.required.length > 0 ||
-				query.traitData.forbidden.length > 0 ||
-				query.traitData.or.length > 0)
-		) {
+		if (hasWildcardRelationFilter) {
+			// For Wildcard(target) queries, use getEntitiesTargeting to populate
+			const wildcardFilter = query.relationFilters!.find((f) => f.isWildcardRelation);
+			if (wildcardFilter && typeof wildcardFilter.target === 'number') {
+				const entities = getEntitiesTargeting(world, wildcardFilter.target as Entity);
+				for (const entity of entities) {
+					// Check if entity matches any other filters (traits, etc.)
+					const match =
+						query.traitData.required.length > 0 ||
+						query.traitData.forbidden.length > 0 ||
+						query.traitData.or.length > 0
+							? checkQueryWithRelations(world, query, entity)
+							: true; // Pure wildcard query, all entities match
+					if (match) query.add(entity);
+				}
+			}
+		} else {
 			const entities = ctx.entityIndex.dense;
 			for (let i = 0; i < entities.length; i++) {
 				const entity = entities[i];
-				const match = query.check(world, entity);
+				// Use checkQueryWithRelations if query has relation filters, otherwise use checkQuery
+				const match =
+					query.relationFilters && query.relationFilters.length > 0
+						? checkQueryWithRelations(world, query, entity)
+						: query.check(world, entity);
 				if (match) query.add(entity);
 			}
 		}
