@@ -2,9 +2,9 @@ import type { World } from 'koota';
 import { Forces, NeighborOf, Position } from '../traits';
 import { CONFIG } from '../config';
 
-const { coherenceFactor } = CONFIG;
-
 export const updateCoherence = ({ world }: { world: World }) => {
+	const { coherenceFactor } = CONFIG;
+
 	world.query(Forces, Position).updateEach(([{ coherence }, position], entity) => {
 		const neighbors = entity.targetsFor(NeighborOf);
 

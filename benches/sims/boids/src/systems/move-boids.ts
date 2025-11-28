@@ -4,12 +4,17 @@ import { CONFIG } from '../config';
 
 export const moveBoids = ({ world }: { world: World }) => {
 	const { delta } = world.get(Time)!;
+	const { maxVelocity } = CONFIG;
 
 	world.query(Position, Velocity).updateEach(([position, velocity]) => {
-		// Constrain the max velocity
-		velocity.x = Math.min(velocity.x, CONFIG.maxVelocity);
-		velocity.y = Math.min(velocity.y, CONFIG.maxVelocity);
-		velocity.z = Math.min(velocity.z, CONFIG.maxVelocity);
+		// Clamp velocity magnitude
+		const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2);
+		if (speed > maxVelocity) {
+			const scale = maxVelocity / speed;
+			velocity.x *= scale;
+			velocity.y *= scale;
+			velocity.z *= scale;
+		}
 
 		// Add velocity to position
 		position.x += velocity.x * delta;

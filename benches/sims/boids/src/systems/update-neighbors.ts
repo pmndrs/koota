@@ -4,6 +4,8 @@ import { NeighborOf, Position } from '../traits';
 const radius = 40;
 const maxNeighbors = 20;
 
+// This is very inefficient and you shouldn't create relations like
+// a machine gun but it is good for testing relation performance.
 export function updateNeighbors({ world }: { world: World }) {
 	const entities = world.query(Position);
 
