@@ -309,6 +309,25 @@ importers:
         specifier: workspace:*
         version: link:../../../.config/typescript
 
+  benches/sims/graph-traversal:
+    dependencies:
+      '@sim/bench-tools':
+        specifier: workspace:*
+        version: link:../bench-tools
+      directed:
+        specifier: 'catalog:'
+        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
+      koota:
+        specifier: workspace:*
+        version: link:../../../packages/publish
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../../.config/typescript
+
   benches/sims/n-body:
     dependencies:
       '@sim/bench-tools':
