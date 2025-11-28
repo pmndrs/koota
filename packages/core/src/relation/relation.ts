@@ -728,10 +728,10 @@ export function hasRelationPair(
 	// Check if entity has the base trait
 	if (!hasTrait(world, entity, baseTrait)) return false;
 
-	// Wildcard target - just check if has any target
+	// Wildcard target - if entity has the base trait, it MUST have at least one target
+	// (base trait is only added when first target is added, removed when last target is removed)
 	if (target === Wildcard || target === '*') {
-		const targets = getRelationTargets(world, relation, entity);
-		return targets.length > 0;
+		return true; // Already checked hasTrait above
 	}
 
 	// Specific target
