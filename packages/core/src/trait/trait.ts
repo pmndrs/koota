@@ -7,7 +7,6 @@ import {
 	clearRelationData,
 	getRelationData,
 	getRelationTargets,
-	getSchemaDefaults,
 	hasRelationPair as hasRelationPairInternal,
 	hasRelationToTarget,
 	isPairConfig,
@@ -41,6 +40,7 @@ import {
 	createSetFunction,
 } from './utils/create-accessors';
 import { createStore } from './utils/create-store';
+import { getSchemaDefaults } from './utils/get-schema-defaults';
 import { validateSchema } from './utils/validate-schema';
 
 // No reason to create a new object every time a tag trait is created.
@@ -137,25 +137,19 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 		// Initialize values
 		const traitCtx = trait[$internal];
-		if (traitCtx.type === 'soa') {
-			const defaults: Record<string, any> = {};
-			for (const key in data.schema) {
-				if (typeof data.schema[key] === 'function') {
-					defaults[key] = data.schema[key]();
-				} else {
-					defaults[key] = data.schema[key];
-				}
-			}
+		const defaults = getSchemaDefaults(data.schema, traitCtx.type);
+
+		if (traitCtx.type === 'aos') {
+			// AoS: use params or defaults directly (no spreading to preserve reference)
+			setTrait(world, entity, trait, params ?? defaults, false);
+		} else if (defaults) {
 			setTrait(world, entity, trait, { ...defaults, ...params }, false);
-		} else {
-			const state = params ?? data.schema();
-			setTrait(world, entity, trait, state, false);
+		} else if (params) {
+			setTrait(world, entity, trait, params, false);
 		}
 
 		// Call add subscriptions after values are set
-		for (const sub of data.addSubscriptions) {
-			sub(entity);
-		}
+		for (const sub of data.addSubscriptions) sub(entity);
 	}
 }
 
@@ -180,6 +174,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	const relationTrait = relationCtx.trait;
 
 	// Ignore if entity already relates to this target
+	// For example, adding Likes(alice) when this pair is already on the entity.
 	if (hasRelationToTarget(world, relation, entity, target)) return;
 
 	// For exclusive relations, remove the old target first
@@ -191,14 +186,14 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		}
 	}
 
-	// Add the relation trait
+	// Add the relation trait (ie. Likes)
+	// Returns undefined if the trait was already added, such as multiple targets
 	const data = addTraitToEntity(world, entity, relationTrait);
 
 	// Add the target and initialize data
 	const targetIndex = addRelationTarget(world, relation, entity, target);
-	const traitCtx = relationTrait[$internal];
 	const schema = data?.schema ?? world[$internal].traitData.get(relationTrait)!.schema;
-	const defaults = getSchemaDefaults(schema, traitCtx.type);
+	const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
 	if (defaults) {
 		setRelationDataAtIndex(world, entity, relation, targetIndex, {
@@ -209,25 +204,19 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		setRelationDataAtIndex(world, entity, relation, targetIndex, resolvedParams);
 	}
 
-	// Call add subscriptions after values are set (only if trait was newly added)
-	if (data) {
-		for (const sub of data.addSubscriptions) {
-			sub(entity);
-		}
-	}
+	// Call add subscriptions after values are set
+	if (data) for (const sub of data.addSubscriptions) sub(entity);
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: (Trait | RelationPair)[]) {
 	for (let i = 0; i < traits.length; i++) {
-		const traitOrPair = traits[i];
+		const trait = traits[i];
 
 		// Handle relation pairs
-		if (isRelationPair(traitOrPair)) {
-			removeRelationPair(world, entity, traitOrPair);
+		if (isRelationPair(trait)) {
+			removeRelationPair(world, entity, trait);
 			continue;
 		}
-
-		const trait = traitOrPair;
 
 		// Exit early if the entity doesn't have the trait.
 		if (!hasTrait(world, entity, trait)) continue;

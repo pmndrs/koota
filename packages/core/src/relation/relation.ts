@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { trait } from '../trait/trait';
-import type { ConfigurableTrait, Schema, Trait, TraitType } from '../trait/types';
+import type { ConfigurableTrait, Schema, Trait } from '../trait/types';
 import type { World } from '../world/world';
 import type { Relation, RelationPair, RelationTarget, WildcardRelation } from './types';
 
@@ -466,26 +466,6 @@ export function hasAnyRelationToTarget(
 /**
  * Get default values from schema
  */
-/* @inline */ export function getSchemaDefaults(
-	schema: Record<string, any> | (() => unknown),
-	type: TraitType
-): Record<string, any> | null {
-	if (type === 'aos') {
-		return typeof schema === 'function' ? (schema() as Record<string, any>) : null;
-	}
-
-	if (!schema || typeof schema === 'function' || Object.keys(schema).length === 0) return null;
-
-	const defaults: Record<string, any> = {};
-	for (const key in schema) {
-		if (typeof schema[key] === 'function') {
-			defaults[key] = schema[key]();
-		} else {
-			defaults[key] = schema[key];
-		}
-	}
-	return defaults;
-}
 
 /**
  * Set data for a specific relation target using target index.
@@ -499,39 +479,31 @@ export function hasAnyRelationToTarget(
 	targetIndex: number,
 	value: Record<string, unknown>
 ): void {
-	const ctx = world[$internal];
-	const baseTrait = relation[$internal].trait;
-	const traitData = ctx.traitData.get(baseTrait);
+	const relationCtx = relation[$internal];
+	const baseTrait = relationCtx.trait;
+	const traitData = world[$internal].traitData.get(baseTrait);
 	if (!traitData) return;
 
-	const traitCtx = baseTrait[$internal];
 	const store = traitData.store;
 	const eid = getEntityId(entity);
-	const relationCtx = relation[$internal];
 
-	if (traitCtx.type === 'aos') {
-		// AoS: store is an array of objects
+	if (baseTrait[$internal].type === 'aos') {
 		if (relationCtx.exclusive) {
 			(store as any[])[eid] = value;
 		} else {
-			if (!(store as any[])[eid]) {
-				(store as any[])[eid] = [];
-			}
-			(store as any[][])[eid][targetIndex] = value;
+			((store as any[])[eid] ??= [])[targetIndex] = value;
+		}
+		return;
+	}
+
+	// SoA
+	if (relationCtx.exclusive) {
+		for (const key in value) {
+			(store as any)[key][eid] = (value as any)[key];
 		}
 	} else {
-		// SoA: store has arrays for each property
 		for (const key in value) {
-			if (key in store) {
-				if (relationCtx.exclusive) {
-					(store as any)[key][eid] = (value as any)[key];
-				} else {
-					if (!(store as any)[key][eid]) {
-						(store as any)[key][eid] = [];
-					}
-					(store as any)[key][eid][targetIndex] = (value as any)[key];
-				}
-			}
+			((store as any)[key][eid] ??= [])[targetIndex] = (value as any)[key];
 		}
 	}
 }
