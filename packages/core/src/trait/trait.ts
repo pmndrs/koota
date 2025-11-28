@@ -4,7 +4,6 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
 import {
 	addRelationTarget,
-	clearRelationData,
 	getRelationData,
 	getRelationTargets,
 	hasRelationPair as hasRelationPairInternal,
@@ -170,7 +169,6 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		const oldTargets = getRelationTargets(world, relation, entity);
 		if (oldTargets.length > 0 && oldTargets[0] !== target) {
 			removeRelationTarget(world, relation, entity, oldTargets[0]);
-			clearRelationData(world, entity, relation, 0);
 		}
 	}
 
@@ -237,12 +235,6 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 
 	// Handle wildcard target - remove all targets
 	if (target === Wildcard || target === '*') {
-		// Clear all data first
-		const targets = getRelationTargets(world, relation, entity);
-		for (let i = targets.length - 1; i >= 0; i--) {
-			clearRelationData(world, entity, relation, i);
-		}
-
 		removeAllRelationTargets(world, relation, entity);
 		removeTraitFromEntity(world, entity, baseTrait);
 		return;
@@ -252,9 +244,6 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 	if (typeof target === 'number') {
 		const removedIndex = removeRelationTarget(world, relation, entity, target);
 		if (removedIndex === -1) return;
-
-		// Clear the data at that index
-		clearRelationData(world, entity, relation, removedIndex);
 
 		// If no targets remain, remove the base trait
 		const remainingTargets = getRelationTargets(world, relation, entity);

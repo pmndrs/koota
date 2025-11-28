@@ -254,6 +254,8 @@ export function getTargetIndex(
 		if (targets[eid] === targetId) {
 			targets[eid] = 0;
 			removedIndex = 0;
+			// Clear exclusive data
+			clearRelationDataInternal(traitData.store, baseTrait[$internal].type, eid, 0, true);
 		}
 	} else {
 		const targetsArray = traitData.relationTargets as number[][];
@@ -261,7 +263,14 @@ export function getTargetIndex(
 		if (entityTargets) {
 			const idx = entityTargets.indexOf(targetId);
 			if (idx !== -1) {
-				entityTargets.splice(idx, 1);
+				const lastIdx = entityTargets.length - 1;
+				// Swap-and-pop targets
+				if (idx !== lastIdx) {
+					entityTargets[idx] = entityTargets[lastIdx];
+				}
+				entityTargets.pop();
+				// Swap-and-pop data to match
+				swapAndPopRelationData(traitData.store, baseTrait[$internal].type, eid, idx, lastIdx);
 				removedIndex = idx;
 			}
 		}
@@ -282,6 +291,49 @@ export function getTargetIndex(
 	}
 
 	return removedIndex;
+}
+
+/** Swap-and-pop data arrays for non-exclusive relations */
+/* @inline */ function swapAndPopRelationData(
+	store: any,
+	type: string,
+	eid: number,
+	idx: number,
+	lastIdx: number
+): void {
+	if (type === 'aos') {
+		const arr = store[eid];
+		if (arr) {
+			if (idx !== lastIdx) arr[idx] = arr[lastIdx];
+			arr.pop();
+		}
+	} else {
+		for (const key in store) {
+			const arr = store[key][eid];
+			if (arr) {
+				if (idx !== lastIdx) arr[idx] = arr[lastIdx];
+				arr.pop();
+			}
+		}
+	}
+}
+
+/** Clear data for exclusive relations */
+/* @inline */ function clearRelationDataInternal(
+	store: any,
+	type: string,
+	eid: number,
+	_idx: number,
+	exclusive: boolean
+): void {
+	if (!exclusive) return;
+	if (type === 'aos') {
+		store[eid] = undefined;
+	} else {
+		for (const key in store) {
+			store[key][eid] = undefined;
+		}
+	}
 }
 
 /** Wildcard refcount: tracks how many relations an entity has to each target */
@@ -521,46 +573,6 @@ export function setRelationData(
 	const targetIndex = getTargetIndex(world, relation, entity, target);
 	if (targetIndex === -1) return;
 	setRelationDataAtIndex(world, entity, relation, targetIndex, value);
-}
-
-/**
- * Clear data for a relation at a specific index.
- */
-/* @inline */ export function clearRelationData(
-	world: World,
-	entity: Entity,
-	relation: Relation<Trait>,
-	targetIndex: number
-): void {
-	const ctx = world[$internal];
-	const baseTrait = relation[$internal].trait;
-	const traitData = ctx.traitData.get(baseTrait);
-	if (!traitData) return;
-
-	const traitCtx = baseTrait[$internal];
-	const store = traitData.store;
-	const eid = getEntityId(entity);
-	const relationCtx = relation[$internal];
-
-	if (traitCtx.type === 'aos') {
-		if (relationCtx.exclusive) {
-			(store as any[])[eid] = undefined;
-		} else {
-			if ((store as any[])[eid]) {
-				(store as any[][])[eid].splice(targetIndex, 1);
-			}
-		}
-	} else {
-		for (const key in store) {
-			if (relationCtx.exclusive) {
-				(store as any)[key][eid] = undefined;
-			} else {
-				if ((store as any)[key][eid]) {
-					(store as any)[key][eid].splice(targetIndex, 1);
-				}
-			}
-		}
-	}
 }
 
 /**
