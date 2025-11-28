@@ -10,7 +10,6 @@ import {
 	hasRelationPair as hasRelationPairInternal,
 	hasRelationToTarget,
 	isPairConfig,
-	isPairTupleConfig,
 	isRelationPair,
 	isWildcard,
 	removeAllRelationTargets,
@@ -111,13 +110,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 		// Handle relation pairs
 		if (isPairConfig(config)) {
-			addRelationPair(world, entity, config, undefined);
-			continue;
-		}
-
-		// Handle relation pair tuples with data
-		if (isPairTupleConfig(config)) {
-			addRelationPair(world, entity, config[0], config[1]);
+			addRelationPair(world, entity, config);
 			continue;
 		}
 
@@ -156,12 +149,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 /**
  * Add a relation pair to an entity.
  */
-/* @inline */ function addRelationPair(
-	world: World,
-	entity: Entity,
-	pair: RelationPair,
-	params?: Record<string, unknown>
-) {
+/* @inline */ function addRelationPair(world: World, entity: Entity, pair: RelationPair) {
 	const pairCtx = pair[$internal];
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;
@@ -169,7 +157,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	// Wildcard pairs are for querying only, not adding
 	if (isWildcard(relation) || typeof target !== 'number') return;
 
-	const resolvedParams = params ?? pairCtx.params;
+	const params = pairCtx.params;
 	const relationCtx = relation[$internal];
 	const relationTrait = relationCtx.trait;
 
@@ -196,12 +184,9 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
 	if (defaults) {
-		setRelationDataAtIndex(world, entity, relation, targetIndex, {
-			...defaults,
-			...resolvedParams,
-		});
-	} else if (resolvedParams) {
-		setRelationDataAtIndex(world, entity, relation, targetIndex, resolvedParams);
+		setRelationDataAtIndex(world, entity, relation, targetIndex, { ...defaults, ...params });
+	} else if (params) {
+		setRelationDataAtIndex(world, entity, relation, targetIndex, params);
 	}
 
 	// Call add subscriptions after values are set

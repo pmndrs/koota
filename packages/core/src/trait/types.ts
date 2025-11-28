@@ -42,11 +42,7 @@ export type TraitTuple<T extends Trait = Trait> = [
 		: never
 ];
 
-export type ConfigurableTrait<T extends Trait = Trait> =
-	| T
-	| TraitTuple<T>
-	| RelationPair<T>
-	| [RelationPair<T>, Record<string, unknown>];
+export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair<T>;
 
 export type SetTraitCallback<T extends Trait | RelationPair> = (
 	prev: TraitRecord<ExtractSchema<T>>

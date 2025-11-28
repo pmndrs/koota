@@ -654,12 +654,3 @@ export function hasRelationPair(
 export /* @inline @pure */ function isPairConfig(config: ConfigurableTrait): config is RelationPair {
 	return isRelationPair(config);
 }
-
-/**
- * Type guard to check if a configurable trait is a tuple with a relation pair
- */
-export /* @inline @pure */ function isPairTupleConfig(
-	config: ConfigurableTrait
-): config is [RelationPair, Record<string, unknown>] {
-	return Array.isArray(config) && isRelationPair(config[0]);
-}
