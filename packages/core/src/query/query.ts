@@ -7,6 +7,7 @@ import {
 	getRelationTargets,
 	hasRelationToTarget,
 	isRelationPair,
+	isRelationTarget,
 	isWildcard,
 	Wildcard,
 } from '../relation/relation';
@@ -96,6 +97,8 @@ function checkRelationFilter(world: World, entity: Entity, filter: RelationFilte
 	// Wildcard relation - check if entity has any relation to target
 	if (isWildcardRelation) {
 		if (typeof target === 'number') {
+			// Trigger lazy initialization if needed
+			if (!isRelationTarget(world, target as Entity)) return false;
 			const eid = getEntityId(entity);
 			const index = Wildcard[$internal].targetIndex[target];
 			return index !== undefined && index.has(eid);

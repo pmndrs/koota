@@ -99,6 +99,9 @@ export function registerTrait(world: World, trait: Trait) {
 	ctx.traitData.set(trait, data);
 	world.traits.add(trait);
 
+	// Track relations for fast wildcard index rebuilding
+	if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
+
 	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
 }

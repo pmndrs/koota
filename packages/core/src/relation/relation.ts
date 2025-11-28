@@ -335,8 +335,12 @@ export function getTargetIndex(
 
 /** Wildcard refcount: tracks how many relations an entity has to each target */
 const wildcardRefcount: number[][] = [];
+/** Flag to track if wildcard indexing is enabled for lazy initialization */
+let wildcardIndexEnabled = false;
 
-function incrementWildcardRefcount(eid: number, targetId: number): void {
+/* @inline */ function incrementWildcardRefcount(eid: number, targetId: number): void {
+	if (!wildcardIndexEnabled) return;
+
 	if (!wildcardRefcount[targetId]) {
 		wildcardRefcount[targetId] = [];
 	}
@@ -352,8 +356,8 @@ function incrementWildcardRefcount(eid: number, targetId: number): void {
 	}
 }
 
-function decrementWildcardRefcount(eid: number, targetId: number): void {
-	if (!wildcardRefcount[targetId]) return;
+/* @inline */ function decrementWildcardRefcount(eid: number, targetId: number): void {
+	if (!wildcardIndexEnabled || !wildcardRefcount[targetId]) return;
 
 	const current = wildcardRefcount[targetId][eid] || 0;
 	if (current <= 1) {
@@ -370,6 +374,46 @@ function decrementWildcardRefcount(eid: number, targetId: number): void {
 	} else {
 		wildcardRefcount[targetId][eid] = current - 1;
 	}
+}
+
+/**
+ * Rebuild wildcard index from all existing relations.
+ * Called lazily on first Wildcard(target) query.
+ * Uses cached targetIndex arrays and world's relations Set for fast iteration.
+ */
+function rebuildWildcardIndex(world: World): void {
+	const ctx = world[$internal];
+
+	// Use cached relations Set - much faster than iterating all traitData
+	for (const relation of ctx.relations) {
+		const relationCtx = relation[$internal];
+		const targetIndex = relationCtx.targetIndex;
+
+		for (let targetId = 0; targetId < targetIndex.length; targetId++) {
+			const eidSet = targetIndex[targetId];
+			if (!eidSet || eidSet.size === 0) continue;
+
+			// Initialize wildcard index for this target if needed
+			if (!Wildcard[$internal].targetIndex[targetId]) {
+				Wildcard[$internal].targetIndex[targetId] = new Set();
+			}
+			const wildcardSet = Wildcard[$internal].targetIndex[targetId];
+
+			// Initialize refcount array for this target if needed
+			if (!wildcardRefcount[targetId]) {
+				wildcardRefcount[targetId] = [];
+			}
+
+			// Add all entities from this relation's targetIndex to wildcard index
+			for (const eid of eidSet) {
+				wildcardSet.add(eid);
+				// Increment refcount (multiple relations can point same entity->target)
+				wildcardRefcount[targetId][eid] = (wildcardRefcount[targetId][eid] || 0) + 1;
+			}
+		}
+	}
+
+	wildcardIndexEnabled = true;
 }
 
 /**
@@ -391,6 +435,11 @@ export function removeAllRelationTargets(
  * This is used for Wildcard(target) queries.
  */
 export function getEntitiesTargeting(world: World, target: Entity): readonly Entity[] {
+	// Lazy initialization: rebuild index on first use
+	if (!wildcardIndexEnabled) {
+		rebuildWildcardIndex(world);
+	}
+
 	const targetId = typeof target === 'number' ? target : 0;
 	const index = Wildcard[$internal].targetIndex[targetId];
 	if (!index || index.size === 0) return [];
@@ -446,6 +495,11 @@ export function getEntitiesWithRelationTo(
  * Check if any entity has a relation to this target.
  */
 export function isRelationTarget(world: World, target: Entity): boolean {
+	// Lazy initialization: rebuild index on first use
+	if (!wildcardIndexEnabled) {
+		rebuildWildcardIndex(world);
+	}
+
 	const targetId = typeof target === 'number' ? target : 0;
 	const index = Wildcard[$internal].targetIndex[targetId];
 	return index !== undefined && index.size > 0;
@@ -617,6 +671,7 @@ export function hasRelationPair(
 	// Wildcard relation check
 	if (isWildcard(relation)) {
 		if (typeof target === 'number') {
+			// Lazy initialization handled in getEntitiesTargeting
 			// Check if entity has any relation to this target
 			const eid = getEntityId(entity);
 			const index = Wildcard[$internal].targetIndex[target];

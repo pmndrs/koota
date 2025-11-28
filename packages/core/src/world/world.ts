@@ -42,6 +42,7 @@ export class World {
 		entityTraits: new Map<number, Set<Trait>>(),
 		bitflag: 1,
 		traitData: new Map<Trait, TraitData>(),
+		relations: new Set<Relation<Trait>>(),
 		queries: new Set<Query>(),
 		queriesHashMap: new Map<string, Query>(),
 		notQueries: new Set<Query>(),
@@ -164,6 +165,7 @@ export class World {
 
 		ctx.traitData.clear();
 		this.traits.clear();
+		ctx.relations.clear();
 
 		ctx.queries.clear();
 		ctx.queriesHashMap.clear();
