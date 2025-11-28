@@ -5,6 +5,7 @@ import { checkQueryWithRelations } from '../query/utils/check-query-with-relatio
 import { trait } from '../trait/trait';
 import type { ConfigurableTrait, Schema, Trait } from '../trait/types';
 import type { World } from '../world/world';
+import { getTraitData } from '../trait/utils/trait-data';
 import type { Relation, RelationPair, RelationTarget, WildcardRelation } from './types';
 
 /**
@@ -87,7 +88,7 @@ export function isRelationPair(value: unknown): value is RelationPair {
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData || !traitData.relationTargets) return [];
 
 	const eid = entity & 0xfffff; // ENTITY_ID_MASK
@@ -115,7 +116,7 @@ export function getTargetIndex(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData || !traitData.relationTargets) return -1;
 
 	const eid = entity & 0xfffff;
@@ -142,7 +143,7 @@ export function getTargetIndex(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData || !traitData.relationTargets) return false;
 
 	const eid = entity & 0xfffff; // ENTITY_ID_MASK
@@ -170,7 +171,7 @@ export function getTargetIndex(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData) return -1;
 
 	if (!traitData.relationTargets) {
@@ -242,7 +243,7 @@ export function getTargetIndex(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData || !traitData.relationTargets) return -1;
 
 	const eid = entity & 0xfffff; // ENTITY_ID_MASK
@@ -310,7 +311,7 @@ function updateQueriesForRelationChange(
 ): void {
 	const ctx = world[$internal];
 	const baseTrait = relation[$internal].trait;
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData) return;
 
 	// Update all queries that have filters for this relation
@@ -614,7 +615,7 @@ export const Pair = <T extends Trait>(
 ): void {
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
-	const traitData = world[$internal].traitData.get(baseTrait);
+	const traitData = getTraitData(world[$internal].traitData, baseTrait);
 	if (!traitData) return;
 
 	const store = traitData.store;
@@ -667,7 +668,7 @@ export function getRelationData(
 ): unknown {
 	const ctx = world[$internal];
 	const baseTrait = relation[$internal].trait;
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData) return undefined;
 
 	const targetIndex = getTargetIndex(world, relation, entity, target);

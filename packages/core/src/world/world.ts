@@ -26,6 +26,7 @@ import type {
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
+import { clearTraitData, getTraitData, hasTraitData } from '../trait/utils/trait-data';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 type Options = {
@@ -41,7 +42,7 @@ export class World {
 		entityMasks: [[]] as number[][],
 		entityTraits: new Map<number, Set<Trait>>(),
 		bitflag: 1,
-		traitData: new Map<Trait, TraitData>(),
+		traitData: [] as (TraitData | undefined)[],
 		relations: new Set<Relation<Trait>>(),
 		queries: new Set<Query>(),
 		queriesHashMap: new Map<string, Query>(),
@@ -93,7 +94,7 @@ export class World {
 		}
 
 		// Register system traits.
-		if (!ctx.traitData.has(IsExcluded)) registerTrait(this, IsExcluded);
+		if (!hasTraitData(ctx.traitData, IsExcluded)) registerTrait(this, IsExcluded);
 
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
@@ -163,7 +164,7 @@ export class World {
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
 
-		ctx.traitData.clear();
+		clearTraitData(ctx.traitData);
 		this.traits.clear();
 		ctx.relations.clear();
 
@@ -241,11 +242,11 @@ export class World {
 
 	onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 		const ctx = this[$internal];
-		let data = ctx.traitData.get(trait)!;
+		let data = getTraitData(ctx.traitData, trait);
 
 		if (!data) {
 			registerTrait(this, trait);
-			data = ctx.traitData.get(trait)!;
+			data = getTraitData(ctx.traitData, trait)!;
 		}
 
 		data.addSubscriptions.add(callback);
@@ -319,11 +320,11 @@ export class World {
 
 	onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 		const ctx = this[$internal];
-		let data = ctx.traitData.get(trait)!;
+		let data = getTraitData(ctx.traitData, trait);
 
 		if (!data) {
 			registerTrait(this, trait);
-			data = ctx.traitData.get(trait)!;
+			data = getTraitData(ctx.traitData, trait)!;
 		}
 
 		data.removeSubscriptions.add(callback);
@@ -335,9 +336,9 @@ export class World {
 		const ctx = this[$internal];
 
 		// Register the trait if it's not already registered.
-		if (!ctx.traitData.has(trait)) registerTrait(this, trait);
+		if (!hasTraitData(ctx.traitData, trait)) registerTrait(this, trait);
 
-		const data = ctx.traitData.get(trait)!;
+		const data = getTraitData(ctx.traitData, trait)!;
 		data.changeSubscriptions.add(callback);
 
 		// Used by auto change detection to know which traits to track.

@@ -1,13 +1,9 @@
 import type { Entity } from '../../entity/types';
-import {
-	getRelationTargets,
-	hasRelationToTarget,
-	isRelationTarget,
-	Wildcard,
-} from '../../relation/relation';
+import { hasRelationToTarget, isRelationTarget, Wildcard } from '../../relation/relation';
 import type { Relation, RelationTarget } from '../../relation/types';
 import { $internal } from '../../common';
 import type { World } from '../../world/world';
+import { getTraitData } from '../../trait/utils/trait-data';
 
 /** Filter for checking relation targets */
 export interface RelationFilter {
@@ -44,7 +40,7 @@ export interface RelationFilter {
 	// For non-wildcard relations, first check if entity has the base trait bitflag
 	// This is the hybrid bitmask optimization - fast bitwise check before target lookup
 	const baseTrait = relation[$internal].trait;
-	const traitData = ctx.traitData.get(baseTrait);
+	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData) return false;
 
 	const { generationId, bitflag } = traitData;
@@ -53,10 +49,11 @@ export interface RelationFilter {
 	// Fast bitmask check: does entity have this relation type at all?
 	if ((entityMask & bitflag) !== bitflag) return false;
 
-	// Wildcard target - entity has the relation type, just check if it has any targets
+	// Wildcard target - if entity has the base trait bitflag, it MUST have at least one target
+	// (base trait is only added when first target is added, removed when last target is removed)
+	// So we can skip the expensive getRelationTargets() call and just return true
 	if (target === Wildcard || target === '*') {
-		const targets = getRelationTargets(world, relation, entity);
-		return targets.length > 0;
+		return true;
 	}
 
 	// Specific target - use O(1) index lookup

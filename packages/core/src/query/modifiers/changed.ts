@@ -5,6 +5,7 @@ import { hasTrait, registerTrait } from '../../trait/trait';
 import type { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world/world';
+import { getTraitData, hasTraitData } from '../../trait/utils/trait-data';
 import { createModifier } from '../modifier';
 import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
@@ -29,14 +30,14 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	if (!hasTrait(world, entity, trait)) return;
 
 	// Register the trait if it's not already registered.
-	if (!ctx.traitData.has(trait)) registerTrait(world, trait);
-	const data = ctx.traitData.get(trait)!;
+	if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
+	const data = getTraitData(ctx.traitData, trait)!;
 
 	// Mark the trait as changed for the entity.
 	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
-		const data = ctx.traitData.get(trait)!;
+		const data = getTraitData(ctx.traitData, trait)!;
 		const { generationId, bitflag } = data;
 
 		// Ensure the generation array exists
@@ -64,7 +65,14 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 		// Use checkQueryTrackingWithRelations if query has relation filters, otherwise use checkQueryTracking
 		const match =
 			query.relationFilters && query.relationFilters.length > 0
-				? checkQueryTrackingWithRelations(world, query, entity, 'change', generationId, bitflag)
+				? checkQueryTrackingWithRelations(
+						world,
+						query,
+						entity,
+						'change',
+						generationId,
+						bitflag
+				  )
 				: query.checkTracking(world, entity, 'change', generationId, bitflag);
 		if (match) query.add(entity);
 		else query.remove(world, entity);

@@ -21,6 +21,7 @@ import {
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+import { getTraitData, hasTraitData, setTraitData } from './utils/trait-data';
 import type { World } from '../world/world';
 import type {
 	ConfigurableTrait,
@@ -98,7 +99,7 @@ export function registerTrait(world: World, trait: Trait) {
 	traitCtx.stores[world.id] = data.store;
 
 	// Add trait to the world.
-	ctx.traitData.set(trait, data);
+	setTraitData(ctx.traitData, trait, data);
 	world.traits.add(trait);
 
 	// Track relations for fast wildcard index rebuilding
@@ -183,7 +184,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 	// Add the target and initialize data
 	const targetIndex = addRelationTarget(world, relation, entity, target);
-	const schema = data?.schema ?? world[$internal].traitData.get(relationTrait)!.schema;
+	const schema = data?.schema ?? getTraitData(world[$internal].traitData, relationTrait)!.schema;
 	const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
 	if (defaults) {
@@ -260,7 +261,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 
 export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
-	const data = ctx.traitData.get(trait);
+	const data = getTraitData(ctx.traitData, trait);
 	if (!data) return false;
 
 	const { generationId, bitflag } = data;
@@ -282,7 +283,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 	trait: C
 ): ExtractStore<C> {
 	const ctx = world[$internal];
-	const data = ctx.traitData.get(trait)!;
+	const data = getTraitData(ctx.traitData, trait)!;
 	return data.store as ExtractStore<C>;
 }
 
@@ -359,9 +360,9 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	const ctx = world[$internal];
 
 	// Register the trait if it's not already registered
-	if (!ctx.traitData.has(trait)) registerTrait(world, trait);
+	if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
 
-	const data = ctx.traitData.get(trait)!;
+	const data = getTraitData(ctx.traitData, trait)!;
 	const { generationId, bitflag, queries, trackingQueries } = data;
 
 	// Add bitflag to entity bitmask
@@ -411,7 +412,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
  */
 /* @inline */ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void {
 	const ctx = world[$internal];
-	const data = ctx.traitData.get(trait)!;
+	const data = getTraitData(ctx.traitData, trait)!;
 	const { generationId, bitflag, queries, trackingQueries } = data;
 
 	// Call remove subscriptions before removing the trait

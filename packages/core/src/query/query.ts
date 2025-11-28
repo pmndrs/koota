@@ -14,6 +14,7 @@ import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
+import { getTraitData, hasTraitData } from '../trait/utils/trait-data';
 
 export const IsExcluded = trait();
 
@@ -161,8 +162,8 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			// For non-wildcard relations, add the base trait as required
 			if (!wildcardRelation) {
 				const baseTrait = (relation as Relation<Trait>)[$internal].trait;
-				if (!ctx.traitData.has(baseTrait)) registerTrait(world, baseTrait);
-				query.traitData.required.push(ctx.traitData.get(baseTrait)!);
+				if (!hasTraitData(ctx.traitData, baseTrait)) registerTrait(world, baseTrait);
+				query.traitData.required.push(getTraitData(ctx.traitData, baseTrait)!);
 				query.traits.push(baseTrait);
 			}
 
@@ -175,20 +176,24 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			// Register traits if they don't exist.
 			for (let j = 0; j < traits.length; j++) {
 				const trait = traits[j];
-				if (!ctx.traitData.has(trait)) registerTrait(world, trait);
+				if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
 			}
 
 			if (parameter.type === 'not') {
-				query.traitData.forbidden.push(...traits.map((trait) => ctx.traitData.get(trait)!));
+				query.traitData.forbidden.push(
+					...traits.map((trait) => getTraitData(ctx.traitData, trait)!)
+				);
 			}
 
 			if (parameter.type === 'or') {
-				query.traitData.or.push(...traits.map((trait) => ctx.traitData.get(trait)!));
+				query.traitData.or.push(
+					...traits.map((trait) => getTraitData(ctx.traitData, trait)!)
+				);
 			}
 
 			if (parameter.type.includes('added')) {
 				for (const trait of traits) {
-					const data = ctx.traitData.get(trait)!;
+					const data = getTraitData(ctx.traitData, trait)!;
 					query.traitData.added.push(data);
 					query.traits.push(trait);
 				}
@@ -205,7 +210,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 
 			if (parameter.type.includes('removed')) {
 				for (const trait of traits) {
-					const data = ctx.traitData.get(trait)!;
+					const data = getTraitData(ctx.traitData, trait)!;
 					query.traitData.removed.push(data);
 					query.traits.push(trait);
 				}
@@ -223,7 +228,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			if (parameter.type.includes('changed')) {
 				for (const trait of traits) {
 					query.changedTraits.add(trait);
-					const data = ctx.traitData.get(trait)!;
+					const data = getTraitData(ctx.traitData, trait)!;
 					query.traitData.changed.push(data);
 					query.traits.push(trait);
 					query.hasChangedModifiers = true;
@@ -240,14 +245,14 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			}
 		} else {
 			const trait = parameter as Trait;
-			if (!ctx.traitData.has(trait)) registerTrait(world, trait);
-			query.traitData.required.push(ctx.traitData.get(trait)!);
+			if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
+			query.traitData.required.push(getTraitData(ctx.traitData, trait)!);
 			query.traits.push(trait);
 		}
 	}
 
 	// Add IsExcluded to the forbidden list.
-	query.traitData.forbidden.push(ctx.traitData.get(IsExcluded)!);
+	query.traitData.forbidden.push(getTraitData(ctx.traitData, IsExcluded)!);
 
 	query.traitData.all = [
 		...query.traitData.required,
