@@ -219,9 +219,6 @@ export function getTargetIndex(
 
 		// Increment wildcard refcount (handles Wildcard index automatically)
 		incrementWildcardRefcount(eid, targetId);
-
-		// Mark entity as a relation target
-		ctx.relationTargetEntities.add(target);
 	}
 
 	return targetIndex;
@@ -497,20 +494,6 @@ export const Pair = <T extends Trait>(
 
 	return relation(target) as RelationPair<T>;
 };
-
-/**
- * Check if entity has any relation to the given target (for cleanup)
- */
-export function hasAnyRelationToTarget(
-	world: World,
-	entity: Entity,
-	target: RelationTarget
-): boolean {
-	const targetId = typeof target === 'number' ? target : 0;
-	const eid = entity & 0xfffff;
-	const index = Wildcard[$internal].targetIndex[targetId];
-	return index !== undefined && index.has(eid);
-}
 
 // ============================================================================
 // Relation Data Operations

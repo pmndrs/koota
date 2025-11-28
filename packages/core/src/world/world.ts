@@ -14,7 +14,7 @@ import type {
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { getEntitiesWithRelationTo, isRelationPair, isWildcard } from '../relation/relation';
-import type { Relation, RelationTarget } from '../relation/types';
+import type { Relation } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type {
 	ConfigurableTrait,
@@ -46,7 +46,6 @@ export class World {
 		queriesHashMap: new Map<string, Query>(),
 		notQueries: new Set<Query>(),
 		dirtyQueries: new Set<Query>(),
-		relationTargetEntities: new Set<RelationTarget>(),
 		dirtyMasks: new Map<number, number[][]>(),
 		trackingSnapshots: new Map<number, number[][]>(),
 		changedMasks: new Map<number, number[][]>(),
@@ -170,8 +169,6 @@ export class World {
 		ctx.queriesHashMap.clear();
 		ctx.dirtyQueries.clear();
 		ctx.notQueries.clear();
-
-		ctx.relationTargetEntities.clear();
 
 		ctx.trackingSnapshots.clear();
 		ctx.dirtyMasks.clear();
