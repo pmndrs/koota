@@ -271,4 +271,28 @@ describe('Relation', () => {
 		container.add(Contains(item, { amount: 10 }));
 		expect(container.get(Contains(item))?.amount).toBe(5);
 	});
+
+	// There is a hotpath for relation-only queries so this is a sanity check
+	it('should support relation-only query with updateEach', () => {
+		const ChildOf = relation();
+
+		const parent = world.spawn();
+		const child1 = world.spawn(ChildOf(parent));
+		const child2 = world.spawn(ChildOf(parent));
+		const child3 = world.spawn(ChildOf(parent));
+
+		const visited: number[] = [];
+
+		// updateEach should work but with empty state array
+		world.query(ChildOf(parent)).updateEach((state, entity, index) => {
+			expect(state).toEqual([]);
+			visited.push(entity);
+			expect(index).toBe(visited.length - 1);
+		});
+
+		expect(visited.length).toBe(3);
+		expect(visited).toContain(child1);
+		expect(visited).toContain(child2);
+		expect(visited).toContain(child3);
+	});
 });

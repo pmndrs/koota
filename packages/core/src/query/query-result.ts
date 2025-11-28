@@ -274,3 +274,45 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
 
 	return results;
 }
+
+// Cached no-op result methods for relation-only queries
+const relationOnlyMethods = {
+	updateEach(this: QueryResult<any>, callback: any) {
+		// No traits to update, just iterate entities
+		for (let i = 0; i < this.length; i++) {
+			callback([], this[i], i);
+		}
+		return this;
+	},
+	useStores(this: QueryResult<any>, callback: any) {
+		// No stores, call with empty array
+		callback([], this);
+		return this;
+	},
+	select(this: QueryResult<any>) {
+		// No-op, nothing to select
+		return this;
+	},
+};
+
+/**
+ * Lightweight query result for relation-only queries.
+ * Skips store/trait setup since we only need to iterate entities.
+ */
+export function createRelationOnlyQueryResult<T extends QueryParameter[]>(
+	entities: Entity[]
+): QueryResult<T> {
+	const results = Object.assign(entities, {
+		updateEach: relationOnlyMethods.updateEach,
+		useStores: relationOnlyMethods.useStores,
+		select: relationOnlyMethods.select,
+		sort(
+			callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+		): QueryResult<T> {
+			Array.prototype.sort.call(entities, callback);
+			return results;
+		},
+	}) as unknown as QueryResult<T>;
+
+	return results;
+}

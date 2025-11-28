@@ -3,7 +3,7 @@ import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { IsExcluded, createQuery } from '../query/query';
-import { createEmptyQueryResult } from '../query/query-result';
+import { createEmptyQueryResult, createRelationOnlyQueryResult } from '../query/query-result';
 import type {
 	Query,
 	QueryHash,
@@ -13,7 +13,8 @@ import type {
 } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import type { RelationTarget } from '../relation/types';
+import { getEntitiesWithRelationTo, isRelationPair, isWildcard } from '../relation/relation';
+import type { Relation, RelationTarget } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type {
 	ConfigurableTrait,
@@ -202,6 +203,24 @@ export class World {
 			return query.run(this);
 		} else {
 			const params = args as QueryParameter[];
+
+			// Fast path: single relation pair with specific target that is not wildcard
+			if (params.length === 1 && isRelationPair(params[0])) {
+				const pairCtx = params[0][$internal];
+				const relation = pairCtx.relation;
+				const target = pairCtx.target;
+
+				// Only use fast path for specific targets that are not wildcard
+				if (!isWildcard(relation) && typeof target === 'number') {
+					const entities = getEntitiesWithRelationTo(
+						this,
+						relation as Relation<Trait>,
+						target as Entity
+					);
+					return createRelationOnlyQueryResult(entities.slice() as Entity[]);
+				}
+			}
+
 			const hash = createQueryHash(params);
 			let query = ctx.queriesHashMap.get(hash);
 
