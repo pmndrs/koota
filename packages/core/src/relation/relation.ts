@@ -337,14 +337,14 @@ export function getTargetIndex(
 }
 
 /** Wildcard refcount: tracks how many relations an entity has to each target */
-const wildcardRefcount: Map<number, number>[] = [];
+const wildcardRefcount: number[][] = [];
 
 function incrementWildcardRefcount(eid: number, targetId: number): void {
 	if (!wildcardRefcount[targetId]) {
-		wildcardRefcount[targetId] = new Map();
+		wildcardRefcount[targetId] = [];
 	}
-	const current = wildcardRefcount[targetId].get(eid) || 0;
-	wildcardRefcount[targetId].set(eid, current + 1);
+	const current = wildcardRefcount[targetId][eid] || 0;
+	wildcardRefcount[targetId][eid] = current + 1;
 
 	// Add to Wildcard index if this is the first relation to this target
 	if (current === 0) {
@@ -358,9 +358,9 @@ function incrementWildcardRefcount(eid: number, targetId: number): void {
 function decrementWildcardRefcount(eid: number, targetId: number): void {
 	if (!wildcardRefcount[targetId]) return;
 
-	const current = wildcardRefcount[targetId].get(eid) || 0;
+	const current = wildcardRefcount[targetId][eid] || 0;
 	if (current <= 1) {
-		wildcardRefcount[targetId].delete(eid);
+		wildcardRefcount[targetId][eid] = 0;
 
 		// Remove from Wildcard index since no more relations to this target
 		const wildcardIndex = Wildcard[$internal].targetIndex[targetId];
@@ -371,7 +371,7 @@ function decrementWildcardRefcount(eid: number, targetId: number): void {
 			}
 		}
 	} else {
-		wildcardRefcount[targetId].set(eid, current - 1);
+		wildcardRefcount[targetId][eid] = current - 1;
 	}
 }
 
