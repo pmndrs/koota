@@ -3,6 +3,7 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import {
 	getEntitiesTargeting,
+	getEntitiesWithRelationTo,
 	getRelationTargets,
 	hasRelationToTarget,
 	isRelationPair,
@@ -34,13 +35,24 @@ export function runQuery<T extends QueryParameter[]>(world: World, query: Query<
 	commitQueryRemovals(world);
 
 	let entities: Entity[];
+	let usedTargetIndex = false;
 
-	// Handle Wildcard(target) queries specially - use reverse index
+	// Handle relation queries specially
 	if (query.relationFilters && query.relationFilters.length > 0) {
 		const filter = query.relationFilters[0];
-		if (filter.isWildcardRelation && typeof filter.target === 'number') {
-			// Use reverse index for Wildcard(target) queries
-			entities = getEntitiesTargeting(world, filter.target as Entity).slice() as Entity[];
+		if (typeof filter.target === 'number') {
+			if (filter.isWildcardRelation) {
+				// Use reverse index for Wildcard(target) queries
+				entities = getEntitiesTargeting(world, filter.target as Entity).slice() as Entity[];
+			} else {
+				// Use reverse index for Relation(specificTarget) queries
+				entities = getEntitiesWithRelationTo(
+					world,
+					filter.relation,
+					filter.target as Entity
+				).slice() as Entity[];
+			}
+			usedTargetIndex = true;
 		} else {
 			entities = query.entities.dense.slice() as Entity[];
 		}
@@ -48,16 +60,22 @@ export function runQuery<T extends QueryParameter[]>(world: World, query: Query<
 		entities = query.entities.dense.slice() as Entity[];
 	}
 
-	// Apply relation filters
-	if (query.relationFilters && query.relationFilters.length > 0) {
-		entities = entities.filter((entity) => {
-			for (const filter of query.relationFilters!) {
-				if (!checkRelationFilter(world, entity, filter)) {
-					return false;
+	// Apply remaining relation filters
+	if (query.relationFilters && query.relationFilters.length > (usedTargetIndex ? 1 : 0)) {
+		const filtersToApply = usedTargetIndex
+			? query.relationFilters.slice(1)
+			: query.relationFilters;
+
+		if (filtersToApply.length > 0) {
+			entities = entities.filter((entity) => {
+				for (const filter of filtersToApply) {
+					if (!checkRelationFilter(world, entity, filter)) {
+						return false;
+					}
 				}
-			}
-			return true;
-		});
+				return true;
+			});
+		}
 	}
 
 	// Clear so it can accumulate again.

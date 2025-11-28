@@ -399,16 +399,16 @@ export function getEntitiesTargeting(world: World, target: Entity): readonly Ent
 	if (!index || index.size === 0) return [];
 
 	const ctx = world[$internal];
+	const entityIndex = ctx.entityIndex;
+	const sparse = entityIndex.sparse;
+	const dense = entityIndex.dense;
 	const result: Entity[] = [];
 
 	for (const eid of index) {
-		// Find the full entity with world/generation bits
-		const entities = ctx.entityIndex.dense;
-		for (let i = 0; i < entities.length; i++) {
-			if ((entities[i] & 0xfffff) === eid) {
-				result.push(entities[i]);
-				break;
-			}
+		// O(1) lookup via sparse array
+		const denseIdx = sparse[eid];
+		if (denseIdx !== undefined && (dense[denseIdx] & 0xfffff) === eid) {
+			result.push(dense[denseIdx]);
 		}
 	}
 
@@ -429,15 +429,16 @@ export function getEntitiesWithRelationTo(
 	if (!index || index.size === 0) return [];
 
 	const ctx = world[$internal];
+	const entityIndex = ctx.entityIndex;
+	const sparse = entityIndex.sparse;
+	const dense = entityIndex.dense;
 	const result: Entity[] = [];
 
 	for (const eid of index) {
-		const entities = ctx.entityIndex.dense;
-		for (let i = 0; i < entities.length; i++) {
-			if ((entities[i] & 0xfffff) === eid) {
-				result.push(entities[i]);
-				break;
-			}
+		// O(1) lookup via sparse array
+		const denseIdx = sparse[eid];
+		if (denseIdx !== undefined && (dense[denseIdx] & 0xfffff) === eid) {
+			result.push(dense[denseIdx]);
 		}
 	}
 
