@@ -332,6 +332,33 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 	// Add query instance to the world's not-query store.
 	if (query.traitData.forbidden.length > 0) ctx.notQueries.add(query);
 
+	// Index queries with relation filters by their relations
+	const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
+	let hasWildcardRelationFilter = false;
+
+	if (hasRelationFilters) {
+		for (const filter of query.relationFilters!) {
+			if (filter.isWildcardRelation) {
+				hasWildcardRelationFilter = true;
+				// Wildcard queries affect all relations - add to all relation traits' relationQueries
+				for (const relation of ctx.relations) {
+					const relationTrait = relation[$internal].trait;
+					const relationTraitData = getTraitData(ctx.traitData, relationTrait);
+					if (relationTraitData) {
+						relationTraitData.relationQueries.add(query);
+					}
+				}
+			} else {
+				// Non-wildcard queries - add to this specific relation's relationQueries
+				const relationTrait = filter.relation[$internal].trait;
+				const relationTraitData = getTraitData(ctx.traitData, relationTrait);
+				if (relationTraitData) {
+					relationTraitData.relationQueries.add(query);
+				}
+			}
+		}
+	}
+
 	// Populate the query with tracking parameters.
 	if (trackingParams.length > 0) {
 		for (let i = 0; i < trackingParams.length; i++) {
@@ -383,21 +410,20 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		}
 	} else {
 		// Populate the query immediately.
-		const hasWildcardRelationFilter = query.relationFilters?.some((f) => f.isWildcardRelation);
-
 		if (hasWildcardRelationFilter) {
 			// For Wildcard(target) queries, use getEntitiesTargeting to populate
 			const wildcardFilter = query.relationFilters!.find((f) => f.isWildcardRelation);
 			if (wildcardFilter && typeof wildcardFilter.target === 'number') {
 				const entities = getEntitiesTargeting(world, wildcardFilter.target as Entity);
+				const hasTraitFilters =
+					query.traitData.required.length > 0 ||
+					query.traitData.forbidden.length > 0 ||
+					query.traitData.or.length > 0;
 				for (const entity of entities) {
 					// Check if entity matches any other filters (traits, etc.)
-					const match =
-						query.traitData.required.length > 0 ||
-						query.traitData.forbidden.length > 0 ||
-						query.traitData.or.length > 0
-							? checkQueryWithRelations(world, query, entity)
-							: true; // Pure wildcard query, all entities match
+					const match = hasTraitFilters
+						? checkQueryWithRelations(world, query, entity)
+						: true; // Pure wildcard query, all entities match
 					if (match) query.add(entity);
 				}
 			}
@@ -406,10 +432,9 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			for (let i = 0; i < entities.length; i++) {
 				const entity = entities[i];
 				// Use checkQueryWithRelations if query has relation filters, otherwise use checkQuery
-				const match =
-					query.relationFilters && query.relationFilters.length > 0
-						? checkQueryWithRelations(world, query, entity)
-						: query.check(world, entity);
+				const match = hasRelationFilters
+					? checkQueryWithRelations(world, query, entity)
+					: query.check(world, entity);
 				if (match) query.add(entity);
 			}
 		}

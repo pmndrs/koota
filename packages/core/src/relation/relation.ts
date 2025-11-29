@@ -304,7 +304,7 @@ export function getTargetIndex(
  * Update queries when relation targets change.
  * Called after addRelationTarget or removeRelationTarget to keep queries in sync.
  */
-function updateQueriesForRelationChange(
+/* @inline */ function updateQueriesForRelationChange(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity
@@ -314,12 +314,10 @@ function updateQueriesForRelationChange(
 	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData) return;
 
-	// Update all queries that have filters for this relation
-	for (const query of ctx.queries) {
-		if (!query.relationFilters || query.relationFilters.length === 0) continue;
-
-		// Check if this query filters by this relation
-		const hasRelationFilter = query.relationFilters.some(
+	// Update queries indexed by this relation (much faster than iterating all queries)
+	for (const query of traitData.relationQueries) {
+		// Check if this query filters by this relation (handles wildcard queries too)
+		const hasRelationFilter = query.relationFilters!.some(
 			(filter) => filter.relation === relation || filter.isWildcardRelation
 		);
 		if (!hasRelationFilter) continue;

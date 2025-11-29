@@ -132,6 +132,8 @@ export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSc
 	/** Tracking queries (Added/Removed/Changed) that include this trait */
 	trackingQueries: Set<Query>;
 	notQueries: Set<Query>;
+	/** Queries that filter by this relation (only for relation traits) */
+	relationQueries: Set<Query>;
 	schema: S;
 	changeSubscriptions: Set<(entity: Entity) => void>;
 	addSubscriptions: Set<(entity: Entity) => void>;
