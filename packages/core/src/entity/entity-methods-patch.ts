@@ -5,11 +5,19 @@
 
 import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
-import { getRelationTargets } from '../relation/relation';
-import type { Relation } from '../relation/types';
-import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
+import { getRelationTargets, isRelationPair } from '../relation/relation';
+import type { Relation, RelationPair } from '../relation/types';
+import {
+	addTrait,
+	getTrait,
+	hasRelationPair,
+	hasTrait,
+	removeTrait,
+	setTrait,
+} from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import { destroyEntity, getEntityWorld } from './entity';
+import type { Entity } from './types';
 import { isEntityAlive } from './utils/entity-index';
 import { getEntityGeneration, getEntityId } from './utils/pack-entity';
 
@@ -19,12 +27,15 @@ Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
 };
 
 // @ts-expect-error
-Number.prototype.remove = function (this: Entity, ...traits: Trait[]) {
+Number.prototype.remove = function (this: Entity, ...traits: (Trait | RelationPair)[]) {
 	return removeTrait(getEntityWorld(this), this, ...traits);
 };
 
 // @ts-expect-error
-Number.prototype.has = function (this: Entity, trait: Trait) {
+Number.prototype.has = function (this: Entity, trait: Trait | RelationPair) {
+	if (isRelationPair(trait)) {
+		return hasRelationPair(getEntityWorld(this), this, trait);
+	}
 	return hasTrait(getEntityWorld(this), this, trait);
 };
 
@@ -39,12 +50,17 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 };
 
 // @ts-expect-error
-Number.prototype.get = function (this: Entity, trait: Trait) {
+Number.prototype.get = function (this: Entity, trait: Trait | RelationPair) {
 	return getTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error
-Number.prototype.set = function (this: Entity, trait: Trait, value: any, triggerChanged = true) {
+Number.prototype.set = function (
+	this: Entity,
+	trait: Trait | RelationPair,
+	value: any,
+	triggerChanged = true
+) {
 	setTrait(getEntityWorld(this), this, trait, value, triggerChanged);
 };
 

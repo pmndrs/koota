@@ -138,9 +138,9 @@ useEffect(() => {
 
 ## Advanced
 
-### Relationships
+### Relations
 
-Koota supports relationships between entities using the `relation` function. Relationships allow you to create connections between entities and query them efficiently.
+Koota supports relations between entities using the `relation` function. Relations allow you to create connections between entities and query them efficiently.
 
 ```js
 const ChildOf = relation()
@@ -153,15 +153,22 @@ const entity = world.queryFirst(ChildOf(parent)) // Returns child
 
 #### With data
 
-Relationships can contain data like any trait.
+Relations can contain data like any trait.
 
 ```js
 const Contains = relation({ store: { amount: 0 } })
 
 const inventory = world.spawn()
 const gold = world.spawn()
-inventory.add(Contains(gold))
-inventory.set(Contains(gold), { amount: 10 })
+
+// Pass initial data when adding
+inventory.add(Contains(gold, { amount: 10 }))
+
+// Update data with set
+inventory.set(Contains(gold), { amount: 20 })
+
+// Read data with get
+const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
 #### Auto remove target
@@ -180,9 +187,9 @@ parent.destroy()
 world.has(child) // False, the child and grandchild are destroyed too
 ```
 
-#### Exclusive Relationships
+#### Exclusive relations
 
-Exclusive relationships ensure each entity can only have one target.
+Exclusive relations ensure each entity can only have one target.
 
 ```js
 const Targeting = relation({ exclusive: true })
@@ -198,9 +205,9 @@ hero.has(Targeting(rat)) // False
 hero.has(Targeting(goblin)) // True
 ```
 
-#### Querying relationships
+#### Querying relations
 
-Relationships can be queried with specific targets, wildcard targets using `*` and even inverted wildcard searches with `Wildcard` to get all entities with a relationship targeting another entity.
+Relations can be queried with specific targets, wildcard targets using `*` and even inverted wildcard searches with `Wildcard` to get all entities with a relation targeting another entity.
 
 ```js
 const gold = world.spawn()
@@ -217,9 +224,9 @@ const containsAnything = world.query(Contains('*')) // Returns [inventory, chest
 const relatesToGold = world.query(Wildcard(gold)) // Returns [inventory, chest, dwarf]
 ```
 
-#### Removing relationships
+#### Removing relations
 
-A relationship targets a specific entity, so we need to likewise remove relationships with specific entities.
+A relation targets a specific entity, so we need to likewise remove relations with specific entities.
 
 ```js
 // Add a specific relation
@@ -233,7 +240,7 @@ player.has(apple) // false
 player.has(banana) // true
 ```
 
-However, a wildcard can be used to remove all relationships of a kind — for all targets — from an entity.
+However, a wildcard can be used to remove all relations of a kind — for all targets — from an entity.
 
 ```js
 player.add(Likes(apple))
@@ -571,11 +578,11 @@ entity.set(Position, (prev) => ({
   y: prev + 1,
 }))
 
-// Get the targets for a relationship
+// Get the targets for a relation
 // Return Entity[]
 const targets = entity.targetsFor(Contains)
 
-// Get the first target for a relationship
+// Get the first target for a relation
 // Return Entity
 const target = entity.targetFor(Contains)
 

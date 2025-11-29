@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { Query } from '../query/types';
-import type { Relation, RelationTarget } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import type { IsEmpty } from '../utils/types';
 
 export type TraitType = 'aos' | 'soa';
@@ -24,9 +24,8 @@ export type Trait<TSchema extends Schema = any> = {
 		stores: Store<TSchema>[];
 		id: number;
 		createStore: () => Store<TSchema>;
-		isPairTrait: boolean;
+		/** Reference to parent relation if this trait is owned by a relation */
 		relation: Relation<any> | null;
-		pairTarget: RelationTarget | null;
 		isTag: IsEmpty<TSchema>;
 		type: TraitType;
 	};
@@ -43,9 +42,9 @@ export type TraitTuple<T extends Trait = Trait> = [
 		: never
 ];
 
-export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T>;
+export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair<T>;
 
-export type SetTraitCallback<T extends Trait> = (
+export type SetTraitCallback<T extends Trait | RelationPair> = (
 	prev: TraitRecord<ExtractSchema<T>>
 ) => TraitValue<ExtractSchema<T>>;
 
@@ -107,7 +106,11 @@ export type Norm<T extends Schema> = T extends Record<string, never>
 			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
 	  };
 
-export type ExtractSchema<T extends Trait | Relation<Trait>> = T extends Relation<infer R>
+export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> = T extends RelationPair<
+	infer R
+>
+	? ExtractSchema<R>
+	: T extends Relation<infer R>
 	? ExtractSchema<R>
 	: T extends Trait<infer S>
 	? S
@@ -124,10 +127,21 @@ export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSc
 	bitflag: number;
 	trait: Trait;
 	store: Store<S>;
+	/** Non-tracking queries that include this trait */
 	queries: Set<Query>;
+	/** Tracking queries (Added/Removed/Changed) that include this trait */
+	trackingQueries: Set<Query>;
 	notQueries: Set<Query>;
+	/** Queries that filter by this relation (only for relation traits) */
+	relationQueries: Set<Query>;
 	schema: S;
 	changeSubscriptions: Set<(entity: Entity) => void>;
 	addSubscriptions: Set<(entity: Entity) => void>;
 	removeSubscriptions: Set<(entity: Entity) => void>;
+	/**
+	 * Only for relation traits.
+	 * For exclusive: relationTargets[eid] = targetId (number)
+	 * For non-exclusive: relationTargets[eid] = [targetId1, targetId2, ...] (number[])
+	 */
+	relationTargets?: number[] | number[][];
 }

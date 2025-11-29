@@ -1,4 +1,5 @@
 import type { Entity } from '../entity/types';
+import type { Relation, RelationPair, RelationTarget } from '../relation/types';
 import type {
 	AoSFactory,
 	ExtractSchema,
@@ -14,7 +15,7 @@ import type { World } from '../world/world';
 import { $modifier } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;
-export type QueryParameter = Trait | ReturnType<QueryModifier>;
+export type QueryParameter = Trait | RelationPair | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryUnsubscriber = () => void;
 
@@ -86,6 +87,12 @@ export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string 
 	traitIds: number[];
 };
 
+/** Filter for checking relation targets in queries */
+export interface RelationFilter {
+	relation: Relation<Trait>;
+	target: RelationTarget;
+}
+
 export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	version: number;
 	world: World;
@@ -122,13 +129,20 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	toRemove: SparseSet;
 	addSubscriptions: Set<QuerySubscriber>;
 	removeSubscriptions: Set<QuerySubscriber>;
+	/** Relation filters for target-specific queries */
+	relationFilters?: RelationFilter[];
 	run: (world: World) => QueryResult<T>;
 	add: (entity: Entity) => void;
 	remove: (world: World, entity: Entity) => void;
-	check: (
+	check: (world: World, entity: Entity) => boolean;
+	checkTracking: (
 		world: World,
 		entity: Entity,
-		event?: { type: 'add' | 'remove' | 'change'; traitData: TraitData }
+		eventType: 'add' | 'remove' | 'change',
+		generationId: number,
+		bitflag: number
 	) => boolean;
 	resetTrackingBitmasks: (eid: number) => void;
 };
+
+export type EventType = 'add' | 'remove' | 'change';

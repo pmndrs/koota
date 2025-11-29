@@ -5,7 +5,7 @@ import { CONFIG } from '../config';
 export const updateCoherence = ({ world }: { world: World }) => {
 	const { coherenceFactor } = CONFIG;
 
-	world.query(Forces, Position).updateEach(([{ coherence }, position], entity) => {
+	world.query(Forces, Position, NeighborOf('*')).updateEach(([{ coherence }, position], entity) => {
 		const neighbors = entity.targetsFor(NeighborOf);
 
 		coherence.x = 0;
