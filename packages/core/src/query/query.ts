@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { getEntitiesTargeting, isRelationPair, isWildcard } from '../relation/relation';
+import { isRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { registerTrait, trait } from '../trait/trait';
 import type { Trait, TraitData } from '../trait/types';
@@ -150,22 +150,18 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			const pairCtx = parameter[$internal];
 			const relation = pairCtx.relation;
 			const target = pairCtx.target;
-			const wildcardRelation = isWildcard(relation);
 
 			// Add relation filter
 			query.relationFilters!.push({
 				relation: relation as Relation<Trait>,
 				target,
-				isWildcardRelation: wildcardRelation,
 			});
 
-			// For non-wildcard relations, add the base trait as required
-			if (!wildcardRelation) {
-				const baseTrait = (relation as Relation<Trait>)[$internal].trait;
-				if (!hasTraitData(ctx.traitData, baseTrait)) registerTrait(world, baseTrait);
-				query.traitData.required.push(getTraitData(ctx.traitData, baseTrait)!);
-				query.traits.push(baseTrait);
-			}
+			// Add the base trait as required
+			const baseTrait = (relation as Relation<Trait>)[$internal].trait;
+			if (!hasTraitData(ctx.traitData, baseTrait)) registerTrait(world, baseTrait);
+			query.traitData.required.push(getTraitData(ctx.traitData, baseTrait)!);
+			query.traits.push(baseTrait);
 
 			continue;
 		}
@@ -334,27 +330,14 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 
 	// Index queries with relation filters by their relations
 	const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
-	let hasWildcardRelationFilter = false;
 
 	if (hasRelationFilters) {
 		for (const filter of query.relationFilters!) {
-			if (filter.isWildcardRelation) {
-				hasWildcardRelationFilter = true;
-				// Wildcard queries affect all relations - add to all relation traits' relationQueries
-				for (const relation of ctx.relations) {
-					const relationTrait = relation[$internal].trait;
-					const relationTraitData = getTraitData(ctx.traitData, relationTrait);
-					if (relationTraitData) {
-						relationTraitData.relationQueries.add(query);
-					}
-				}
-			} else {
-				// Non-wildcard queries - add to this specific relation's relationQueries
-				const relationTrait = filter.relation[$internal].trait;
-				const relationTraitData = getTraitData(ctx.traitData, relationTrait);
-				if (relationTraitData) {
-					relationTraitData.relationQueries.add(query);
-				}
+			// Add to this specific relation's relationQueries
+			const relationTrait = filter.relation[$internal].trait;
+			const relationTraitData = getTraitData(ctx.traitData, relationTrait);
+			if (relationTraitData) {
+				relationTraitData.relationQueries.add(query);
 			}
 		}
 	}
@@ -410,33 +393,14 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		}
 	} else {
 		// Populate the query immediately.
-		if (hasWildcardRelationFilter) {
-			// For Wildcard(target) queries, use getEntitiesTargeting to populate
-			const wildcardFilter = query.relationFilters!.find((f) => f.isWildcardRelation);
-			if (wildcardFilter && typeof wildcardFilter.target === 'number') {
-				const entities = getEntitiesTargeting(world, wildcardFilter.target as Entity);
-				const hasTraitFilters =
-					query.traitData.required.length > 0 ||
-					query.traitData.forbidden.length > 0 ||
-					query.traitData.or.length > 0;
-				for (const entity of entities) {
-					// Check if entity matches any other filters (traits, etc.)
-					const match = hasTraitFilters
-						? checkQueryWithRelations(world, query, entity)
-						: true; // Pure wildcard query, all entities match
-					if (match) query.add(entity);
-				}
-			}
-		} else {
-			const entities = ctx.entityIndex.dense;
-			for (let i = 0; i < entities.length; i++) {
-				const entity = entities[i];
-				// Use checkQueryWithRelations if query has relation filters, otherwise use checkQuery
-				const match = hasRelationFilters
-					? checkQueryWithRelations(world, query, entity)
-					: query.check(world, entity);
-				if (match) query.add(entity);
-			}
+		const entities = ctx.entityIndex.dense;
+		for (let i = 0; i < entities.length; i++) {
+			const entity = entities[i];
+			// Use checkQueryWithRelations if query has relation filters, otherwise use checkQuery
+			const match = hasRelationFilters
+				? checkQueryWithRelations(world, query, entity)
+				: query.check(world, entity);
+			if (match) query.add(entity);
 		}
 	}
 

@@ -6,7 +6,7 @@ import { trait } from '../trait/trait';
 import type { ConfigurableTrait, Schema, Trait } from '../trait/types';
 import type { World } from '../world/world';
 import { getTraitData } from '../trait/utils/trait-data';
-import type { Relation, RelationPair, RelationTarget, WildcardRelation } from './types';
+import type { Relation, RelationPair, RelationTarget } from './types';
 
 /**
  * Creates a relation definition.
@@ -29,7 +29,6 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 		trait: baseTrait,
 		exclusive: definition?.exclusive ?? false,
 		autoRemoveTarget: definition?.autoRemoveTarget ?? false,
-		targetIndex: [] as Set<number>[],
 	};
 
 	// The relation function creates a pair when called with a target
@@ -39,13 +38,10 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 	): RelationPair<Trait<S>> {
 		if (target === undefined) throw Error('Relation target is undefined');
 
-		const resolvedTarget = target === '*' ? Wildcard : target;
-
 		return {
 			[$internal]: {
 				relation: relationFn as Relation<Trait<S>>,
-				target: resolvedTarget,
-				isWildcard: resolvedTarget === Wildcard || target === '*',
+				target,
 				params,
 			},
 		} as RelationPair<Trait<S>>;
@@ -185,15 +181,6 @@ export function getTargetIndex(
 
 	if (relationCtx.exclusive) {
 		const targets = traitData.relationTargets as number[];
-		const oldTarget = targets[eid];
-
-		// Remove from old target's reverse index
-		if (oldTarget && oldTarget !== targetId) {
-			const oldIndex = relationCtx.targetIndex[oldTarget];
-			if (oldIndex) oldIndex.delete(eid);
-			decrementWildcardRefcount(eid, oldTarget);
-		}
-
 		targets[eid] = targetId;
 		targetIndex = 0; // Exclusive always has index 0
 	} else {
@@ -210,17 +197,6 @@ export function getTargetIndex(
 
 		targetIndex = targetsArray[eid].length;
 		targetsArray[eid].push(targetId);
-	}
-
-	// Add to target's reverse index
-	if (targetId) {
-		if (!relationCtx.targetIndex[targetId]) {
-			relationCtx.targetIndex[targetId] = new Set();
-		}
-		relationCtx.targetIndex[targetId].add(eid);
-
-		// Increment wildcard refcount (handles Wildcard index automatically)
-		incrementWildcardRefcount(eid, targetId);
 	}
 
 	// Update queries that filter by this relation
@@ -278,19 +254,7 @@ export function getTargetIndex(
 		}
 	}
 
-	// Remove from this relation's target reverse index
-	if (removedIndex !== -1 && targetId) {
-		const index = relationCtx.targetIndex[targetId];
-		if (index) {
-			index.delete(eid);
-			if (index.size === 0) {
-				relationCtx.targetIndex[targetId] = undefined!;
-			}
-		}
-
-		// Decrement wildcard refcount and remove if zero
-		decrementWildcardRefcount(eid, targetId);
-	}
+	// No reverse index cleanup needed - getEntitiesWithRelationTo builds on-demand
 
 	// Update queries that filter by this relation
 	if (removedIndex !== -1) {
@@ -315,13 +279,8 @@ export function getTargetIndex(
 	if (!traitData) return;
 
 	// Update queries indexed by this relation (much faster than iterating all queries)
+	// All queries in relationQueries already filter by this relation
 	for (const query of traitData.relationQueries) {
-		// Check if this query filters by this relation (handles wildcard queries too)
-		const hasRelationFilter = query.relationFilters!.some(
-			(filter) => filter.relation === relation || filter.isWildcardRelation
-		);
-		if (!hasRelationFilter) continue;
-
 		// Re-check entity against query
 		const match = checkQueryWithRelations(world, query, entity);
 		if (match) {
@@ -375,89 +334,6 @@ export function getTargetIndex(
 	}
 }
 
-/** Wildcard refcount: tracks how many relations an entity has to each target */
-const wildcardRefcount: number[][] = [];
-/** Flag to track if wildcard indexing is enabled for lazy initialization */
-let wildcardIndexEnabled = false;
-
-/* @inline */ function incrementWildcardRefcount(eid: number, targetId: number): void {
-	if (!wildcardIndexEnabled) return;
-
-	if (!wildcardRefcount[targetId]) {
-		wildcardRefcount[targetId] = [];
-	}
-	const current = wildcardRefcount[targetId][eid] || 0;
-	wildcardRefcount[targetId][eid] = current + 1;
-
-	// Add to Wildcard index if this is the first relation to this target
-	if (current === 0) {
-		if (!Wildcard[$internal].targetIndex[targetId]) {
-			Wildcard[$internal].targetIndex[targetId] = new Set();
-		}
-		Wildcard[$internal].targetIndex[targetId].add(eid);
-	}
-}
-
-/* @inline */ function decrementWildcardRefcount(eid: number, targetId: number): void {
-	if (!wildcardIndexEnabled || !wildcardRefcount[targetId]) return;
-
-	const current = wildcardRefcount[targetId][eid] || 0;
-	if (current <= 1) {
-		wildcardRefcount[targetId][eid] = 0;
-
-		// Remove from Wildcard index since no more relations to this target
-		const wildcardIndex = Wildcard[$internal].targetIndex[targetId];
-		if (wildcardIndex) {
-			wildcardIndex.delete(eid);
-			if (wildcardIndex.size === 0) {
-				Wildcard[$internal].targetIndex[targetId] = undefined!;
-			}
-		}
-	} else {
-		wildcardRefcount[targetId][eid] = current - 1;
-	}
-}
-
-/**
- * Rebuild wildcard index from all existing relations.
- * Called lazily on first Wildcard(target) query.
- * Uses cached targetIndex arrays and world's relations Set for fast iteration.
- */
-function rebuildWildcardIndex(world: World): void {
-	const ctx = world[$internal];
-
-	// Use cached relations Set - much faster than iterating all traitData
-	for (const relation of ctx.relations) {
-		const relationCtx = relation[$internal];
-		const targetIndex = relationCtx.targetIndex;
-
-		for (let targetId = 0; targetId < targetIndex.length; targetId++) {
-			const eidSet = targetIndex[targetId];
-			if (!eidSet || eidSet.size === 0) continue;
-
-			// Initialize wildcard index for this target if needed
-			if (!Wildcard[$internal].targetIndex[targetId]) {
-				Wildcard[$internal].targetIndex[targetId] = new Set();
-			}
-			const wildcardSet = Wildcard[$internal].targetIndex[targetId];
-
-			// Initialize refcount array for this target if needed
-			if (!wildcardRefcount[targetId]) {
-				wildcardRefcount[targetId] = [];
-			}
-
-			// Add all entities from this relation's targetIndex to wildcard index
-			for (const eid of eidSet) {
-				wildcardSet.add(eid);
-				// Increment refcount (multiple relations can point same entity->target)
-				wildcardRefcount[targetId][eid] = (wildcardRefcount[targetId][eid] || 0) + 1;
-			}
-		}
-	}
-
-	wildcardIndexEnabled = true;
-}
-
 /**
  * Remove all relation targets from an entity.
  */
@@ -473,109 +349,48 @@ export function removeAllRelationTargets(
 }
 
 /**
- * Get all entities that have a relation targeting a specific entity.
- * This is used for Wildcard(target) queries.
- */
-export function getEntitiesTargeting(world: World, target: Entity): readonly Entity[] {
-	// Lazy initialization: rebuild index on first use
-	if (!wildcardIndexEnabled) {
-		rebuildWildcardIndex(world);
-	}
-
-	const targetId = typeof target === 'number' ? target : 0;
-	const index = Wildcard[$internal].targetIndex[targetId];
-	if (!index || index.size === 0) return [];
-
-	const ctx = world[$internal];
-	const entityIndex = ctx.entityIndex;
-	const sparse = entityIndex.sparse;
-	const dense = entityIndex.dense;
-	const result: Entity[] = [];
-
-	for (const eid of index) {
-		// O(1) lookup via sparse array
-		const denseIdx = sparse[eid];
-		if (denseIdx !== undefined && (dense[denseIdx] & 0xfffff) === eid) {
-			result.push(dense[denseIdx]);
-		}
-	}
-
-	return result;
-}
-
-/**
  * Get all entities that have a specific relation targeting a specific entity.
+ * Builds result on-demand by scanning relationTargets (not maintained in reverse index).
  */
 export function getEntitiesWithRelationTo(
 	world: World,
 	relation: Relation<Trait>,
 	target: Entity
 ): readonly Entity[] {
-	const targetId = typeof target === 'number' ? target : 0;
-	const relationCtx = relation[$internal];
-	const index = relationCtx.targetIndex[targetId];
-	if (!index || index.size === 0) return [];
-
 	const ctx = world[$internal];
+	const relationCtx = relation[$internal];
+	const baseTrait = relationCtx.trait;
+	const traitData = getTraitData(ctx.traitData, baseTrait);
+	if (!traitData || !traitData.relationTargets) return [];
+
+	const targetId = typeof target === 'number' ? target : 0;
 	const entityIndex = ctx.entityIndex;
 	const sparse = entityIndex.sparse;
 	const dense = entityIndex.dense;
 	const result: Entity[] = [];
+	const relationTargets = traitData.relationTargets;
 
-	for (const eid of index) {
-		// O(1) lookup via sparse array
-		const denseIdx = sparse[eid];
-		if (denseIdx !== undefined && (dense[denseIdx] & 0xfffff) === eid) {
-			result.push(dense[denseIdx]);
+	// Scan all entities to find those with relation to this target
+	for (let eid = 0; eid < relationTargets.length; eid++) {
+		let hasTarget = false;
+
+		if (relationCtx.exclusive) {
+			hasTarget = (relationTargets as number[])[eid] === targetId;
+		} else {
+			const targets = (relationTargets as number[][])[eid];
+			hasTarget = targets ? targets.includes(targetId) : false;
+		}
+
+		if (hasTarget) {
+			// O(1) lookup via sparse array
+			const denseIdx = sparse[eid];
+			if (denseIdx !== undefined && (dense[denseIdx] & 0xfffff) === eid) {
+				result.push(dense[denseIdx]);
+			}
 		}
 	}
 
 	return result;
-}
-
-/**
- * Check if any entity has a relation to this target.
- */
-export function isRelationTarget(world: World, target: Entity): boolean {
-	// Lazy initialization: rebuild index on first use
-	if (!wildcardIndexEnabled) {
-		rebuildWildcardIndex(world);
-	}
-
-	const targetId = typeof target === 'number' ? target : 0;
-	const index = Wildcard[$internal].targetIndex[targetId];
-	return index !== undefined && index.size > 0;
-}
-
-/**
- * The Wildcard relation is used for querying all relations targeting an entity.
- */
-export const Wildcard: WildcardRelation = Object.assign(
-	function wildcardFn(target: RelationTarget): RelationPair<Trait> {
-		if (target === undefined) throw Error('Wildcard target is undefined');
-
-		return {
-			[$internal]: {
-				relation: Wildcard as unknown as Relation<Trait>,
-				target: target === '*' ? Wildcard : target,
-				isWildcard: true,
-			},
-		} as RelationPair<Trait>;
-	},
-	{
-		[$internal]: {
-			targetIndex: [] as Set<number>[],
-		},
-	}
-) as WildcardRelation;
-
-/**
- * Type guard to check if a relation is the Wildcard.
- */
-/* @inline */ export function isWildcard(
-	relation: Relation<Trait> | WildcardRelation
-): relation is WildcardRelation {
-	return relation === (Wildcard as unknown);
 }
 
 /**
@@ -590,14 +405,6 @@ export const Pair = <T extends Trait>(
 
 	return relation(target) as RelationPair<T>;
 };
-
-// ============================================================================
-// Relation Data Operations
-// ============================================================================
-
-/**
- * Get default values from schema
- */
 
 /**
  * Set data for a specific relation target using target index.
@@ -709,29 +516,13 @@ export function hasRelationPair(
 	const pairCtx = pair[$internal];
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;
-
-	// Wildcard relation check
-	if (isWildcard(relation)) {
-		if (typeof target === 'number') {
-			// Lazy initialization handled in getEntitiesTargeting
-			// Check if entity has any relation to this target
-			const eid = getEntityId(entity);
-			const index = Wildcard[$internal].targetIndex[target];
-			return index !== undefined && index.has(eid);
-		}
-		return false;
-	}
-
 	const baseTrait = relation[$internal].trait;
 
 	// Check if entity has the base trait
 	if (!hasTrait(world, entity, baseTrait)) return false;
 
-	// Wildcard target - if entity has the base trait, it MUST have at least one target
-	// (base trait is only added when first target is added, removed when last target is removed)
-	if (target === Wildcard || target === '*') {
-		return true; // Already checked hasTrait above
-	}
+	// Wildcard target
+	if (target === '*') return true;
 
 	// Specific target
 	if (typeof target === 'number') {

@@ -1,9 +1,7 @@
 import { $internal } from '../common';
 import {
-	getRelationTargets,
-	isRelationTarget,
+	getEntitiesWithRelationTo,
 	removeRelationTarget,
-	Wildcard,
 } from '../relation/relation';
 import { addTrait, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
@@ -61,52 +59,24 @@ export function destroyEntity(world: World, entity: Entity) {
 
 		processedEntities.add(currentEntity);
 
-		// Process all entities that have relations to this entity using reverse index
-		if (isRelationTarget(world, currentEntity)) {
-			const wildcardIndex = Wildcard[$internal].targetIndex[currentEntity];
+		// Process all entities that have relations to this entity
+		// Scan all relations to find entities targeting currentEntity
+		for (const relation of ctx.relations) {
+			// Get all entities with this relation targeting currentEntity
+			const subjects = getEntitiesWithRelationTo(world, relation, currentEntity);
 
-			if (wildcardIndex && wildcardIndex.size > 0) {
-				// Get all subjects that target this entity
-				const subjects = Array.from(wildcardIndex);
+			for (const subject of subjects) {
+				if (!world.has(subject)) continue;
 
-				for (const subjectEid of subjects) {
-					// Find the full entity from the subject eid
-					let subject: Entity | null = null;
-					for (const e of ctx.entityIndex.dense) {
-						if (getEntityId(e) === subjectEid) {
-							subject = e;
-							break;
-						}
-					}
+				// Check if this relation has autoRemoveTarget
+				const relationCtx = relation[$internal];
 
-					if (!subject || !world.has(subject)) continue;
+				// Remove the target from this relation
+				removeRelationTarget(world, relation, subject, currentEntity);
 
-					// Find which relations this subject has to currentEntity
-					const subjectTraits = ctx.entityTraits.get(subject);
-					if (!subjectTraits) continue;
-
-					// Iterate through traits to find relations pointing to currentEntity
-					for (const trait of subjectTraits) {
-						const traitCtx = trait[$internal];
-						const relation = traitCtx.relation;
-
-						if (!relation) continue;
-
-						// Check if this relation has currentEntity as a target
-						const targets = getRelationTargets(world, relation, subject);
-						if (targets.includes(currentEntity)) {
-							// Check if this relation has autoRemoveTarget
-							const relationCtx = relation[$internal];
-
-							// Remove the target from this relation
-							removeRelationTarget(world, relation, subject, currentEntity);
-
-							// If autoRemoveTarget, queue the subject for destruction
-							if (relationCtx.autoRemoveTarget) {
-								entityQueue.push(subject);
-							}
-						}
-					}
+				// If autoRemoveTarget, queue the subject for destruction
+				if (relationCtx.autoRemoveTarget) {
+					entityQueue.push(subject);
 				}
 			}
 		}

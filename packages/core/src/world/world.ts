@@ -13,7 +13,7 @@ import type {
 } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { getEntitiesWithRelationTo, isRelationPair, isWildcard } from '../relation/relation';
+import { getEntitiesWithRelationTo, isRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type {
@@ -204,14 +204,14 @@ export class World {
 		} else {
 			const params = args as QueryParameter[];
 
-			// Fast path: single relation pair with specific target that is not wildcard
+			// Fast path: single relation pair with specific target
 			if (params.length === 1 && isRelationPair(params[0])) {
 				const pairCtx = params[0][$internal];
 				const relation = pairCtx.relation;
 				const target = pairCtx.target;
 
-				// Only use fast path for specific targets that are not wildcard
-				if (!isWildcard(relation) && typeof target === 'number') {
+				// Only use fast path for specific targets
+				if (typeof target === 'number') {
 					const entities = getEntitiesWithRelationTo(
 						this,
 						relation as Relation<Trait>,

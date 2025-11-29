@@ -1,5 +1,5 @@
 import type { Entity } from '../../entity/types';
-import { hasRelationToTarget, isRelationTarget, Wildcard } from '../../relation/relation';
+import { hasRelationToTarget } from '../../relation/relation';
 import type { Relation, RelationTarget } from '../../relation/types';
 import { $internal } from '../../common';
 import type { World } from '../../world/world';
@@ -9,7 +9,6 @@ import { getTraitData } from '../../trait/utils/trait-data';
 export interface RelationFilter {
 	relation: Relation<any>;
 	target: RelationTarget;
-	isWildcardRelation: boolean;
 }
 
 /**
@@ -22,28 +21,17 @@ export interface RelationFilter {
 	entity: Entity,
 	filter: RelationFilter
 ): boolean {
-	const { relation, target, isWildcardRelation } = filter;
+	const { relation, target } = filter;
 	const ctx = world[$internal];
-	const eid = entity & 0xfffff; // ENTITY_ID_MASK
 
-	// Wildcard relation - check if entity has any relation to target
-	if (isWildcardRelation) {
-		if (typeof target === 'number') {
-			// Trigger lazy initialization if needed
-			if (!isRelationTarget(world, target as Entity)) return false;
-			const index = Wildcard[$internal].targetIndex[target];
-			return index !== undefined && index.has(eid);
-		}
-		return false;
-	}
-
-	// For non-wildcard relations, first check if entity has the base trait bitflag
+	// First check if entity has the base trait bitflag
 	// This is the hybrid bitmask optimization - fast bitwise check before target lookup
 	const baseTrait = relation[$internal].trait;
 	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData) return false;
 
 	const { generationId, bitflag } = traitData;
+	const eid = entity & 0xfffff; // ENTITY_ID_MASK
 	const entityMask = ctx.entityMasks[generationId][eid];
 
 	// Fast bitmask check: does entity have this relation type at all?
@@ -52,11 +40,11 @@ export interface RelationFilter {
 	// Wildcard target - if entity has the base trait bitflag, it MUST have at least one target
 	// (base trait is only added when first target is added, removed when last target is removed)
 	// So we can skip the expensive getRelationTargets() call and just return true
-	if (target === Wildcard || target === '*') {
+	if (target === '*') {
 		return true;
 	}
 
-	// Specific target - use O(1) index lookup
+	// Specific target - use O(1) lookup from relationTargets array
 	if (typeof target === 'number') {
 		return hasRelationToTarget(world, relation, entity, target);
 	}

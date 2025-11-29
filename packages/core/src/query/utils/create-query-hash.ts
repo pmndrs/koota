@@ -21,9 +21,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 			const relation = pairCtx.relation;
 			const target = pairCtx.target;
 
-			// Check if it's a Wildcard relation
-			const isWildcard = !('trait' in relation[$internal]);
-			const relationId = isWildcard ? -1 : (relation as Relation<Trait>)[$internal].trait[$internal].id;
+			const relationId = (relation as Relation<Trait>)[$internal].trait[$internal].id;
 			const targetId = typeof target === 'number' ? target : -1;
 
 			// Combine into a unique hash number

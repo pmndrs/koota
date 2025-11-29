@@ -234,13 +234,10 @@ export function createQueryResult<T extends QueryParameter[]>(
 		if (isRelationPair(param)) {
 			const pairCtx = param[$internal];
 			const relation = pairCtx.relation as Relation<Trait>;
-			// Check if this is a Wildcard relation (no trait property)
-			if ('trait' in relation[$internal]) {
-				const baseTrait = relation[$internal].trait;
-				if (!baseTrait[$internal].isTag) {
-					traits.push(baseTrait);
-					stores.push(getStore(world, baseTrait));
-				}
+			const baseTrait = relation[$internal].trait;
+			if (!baseTrait[$internal].isTag) {
+				traits.push(baseTrait);
+				stores.push(getStore(world, baseTrait));
 			}
 			continue;
 		}

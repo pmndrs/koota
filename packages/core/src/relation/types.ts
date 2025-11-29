@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { Trait } from '../trait/types';
 
-export type RelationTarget = Entity | '*' | WildcardRelation;
+export type RelationTarget = Entity | '*';
 
 /** Internal store structure for relation targets */
 export interface RelationStore {
@@ -18,7 +18,6 @@ export interface RelationPair<T extends Trait = Trait> {
 	[$internal]: {
 		relation: Relation<T>;
 		target: RelationTarget;
-		isWildcard: boolean;
 		params?: Record<string, unknown>;
 	};
 }
@@ -28,17 +27,5 @@ export type Relation<T extends Trait = Trait> = {
 		trait: T;
 		exclusive: boolean;
 		autoRemoveTarget: boolean;
-		/** Reverse index: targetEntityId -> Set of subject entityIds */
-		targetIndex: Set<number>[];
 	};
 } & ((target: RelationTarget, params?: Record<string, unknown>) => RelationPair<T>);
-
-declare const WILDCARD_RELATION_BRAND: unique symbol;
-
-export type WildcardRelation = {
-	[$internal]: {
-		readonly [WILDCARD_RELATION_BRAND]: typeof WILDCARD_RELATION_BRAND;
-		/** Reverse index: targetEntityId -> Set of subject entityIds */
-		targetIndex: Set<number>[];
-	};
-} & ((target: RelationTarget) => RelationPair<Trait>);

@@ -91,7 +91,6 @@ export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string 
 export interface RelationFilter {
 	relation: Relation<Trait>;
 	target: RelationTarget;
-	isWildcardRelation: boolean;
 }
 
 export type Query<T extends QueryParameter[] = QueryParameter[]> = {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { $internal, createChanged, createWorld, Not, relation, trait, Wildcard } from '../src';
+import { $internal, createChanged, createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -131,30 +131,11 @@ describe('Relation', () => {
 		expect(relations).toContain(inventory);
 		expect(relations).toContain(shop);
 
-		// Wildcard should be return the same as '*'.
-		relations = world.query(Contains(Wildcard));
+		// Wildcard '*' should return all entities with Contains relation
+		relations = world.query(Contains('*'));
 		expect(relations.length).toBe(2);
 		expect(relations).toContain(inventory);
 		expect(relations).toContain(shop);
-	});
-
-	it('should query all relations targeting an entity using Wildcard', () => {
-		const Contains = relation();
-		const Desires = relation();
-		const Fears = relation();
-
-		const gold = world.spawn();
-		const inventory = world.spawn(Contains(gold));
-		const chest = world.spawn(Contains(gold));
-		const dwarf = world.spawn(Desires(gold));
-		const dragon = world.spawn(Fears(gold));
-
-		const relatesToGold = world.query(Wildcard(gold));
-		expect(relatesToGold.length).toBe(4);
-		expect(relatesToGold).toContain(inventory);
-		expect(relatesToGold).toContain(chest);
-		expect(relatesToGold).toContain(dwarf);
-		expect(relatesToGold).toContain(dragon);
 	});
 
 	it('should query a specific relation targeting an entity', () => {
@@ -245,8 +226,9 @@ describe('Relation', () => {
 		person.add(Likes(dragon));
 		person.add(Fears(dragon));
 
-		// Wildcard(dragon) query should find person
-		expect(world.query(Wildcard(dragon))).toContain(person);
+		// Person should have both relations
+		expect(person.has(Fears(dragon))).toBe(true);
+		expect(person.has(Likes(dragon))).toBe(true);
 
 		// Remove only the Likes relation
 		person.remove(Likes(dragon));
@@ -254,9 +236,6 @@ describe('Relation', () => {
 		// Person should still fear the dragon
 		expect(person.has(Fears(dragon))).toBe(true);
 		expect(person.has(Likes(dragon))).toBe(false);
-
-		// Wildcard(dragon) should still find person because Fears(dragon) remains
-		expect(world.query(Wildcard(dragon))).toContain(person);
 	});
 
 	it('should ignore data on re-add', () => {

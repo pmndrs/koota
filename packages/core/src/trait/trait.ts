@@ -12,12 +12,10 @@ import {
 	hasRelationToTarget,
 	isPairConfig,
 	isRelationPair,
-	isWildcard,
 	removeAllRelationTargets,
 	removeRelationTarget,
 	setRelationData,
 	setRelationDataAtIndex,
-	Wildcard,
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
@@ -103,7 +101,7 @@ export function registerTrait(world: World, trait: Trait) {
 	setTraitData(ctx.traitData, trait, data);
 	world.traits.add(trait);
 
-	// Track relations for fast wildcard index rebuilding
+	// Track relations
 	if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
 
 	// Increment the bitflag used for the trait.
@@ -160,8 +158,8 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;
 
-	// Wildcard pairs are for querying only, not adding
-	if (isWildcard(relation) || typeof target !== 'number') return;
+	// Only specific targets can be added (not wildcard '*')
+	if (typeof target !== 'number') return;
 
 	const params = pairCtx.params;
 	const relationCtx = relation[$internal];
@@ -230,18 +228,13 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;
 
-	// Handle Wildcard relation removal
-	if (isWildcard(relation)) {
-		return;
-	}
-
 	const baseTrait = relation[$internal].trait;
 
 	// Check if entity has this relation
 	if (!hasTrait(world, entity, baseTrait)) return;
 
 	// Handle wildcard target - remove all targets
-	if (target === Wildcard || target === '*') {
+	if (target === '*') {
 		removeAllRelationTargets(world, relation, entity);
 		removeTraitFromEntity(world, entity, baseTrait);
 		return;
