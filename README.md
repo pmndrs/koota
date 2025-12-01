@@ -117,7 +117,7 @@ function DoomButton() {
     spawnShip({ x: 1, y: 1 })
 
     // Destroy all ships during cleanup
-    return () => drestroyAllShips()
+    return () => destroyAllShips()
   }, [])
 
   // And destroy all ships on click!
