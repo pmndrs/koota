@@ -23,9 +23,5 @@ export default defineConfig({
 		resolve: true,
 	},
 	clean: true,
-	esbuildPlugins: [
-		inlineFunctions({
-			include: ['src/**/*.{js,ts,jsx,tsx}'],
-		}),
-	],
+	esbuildPlugins: [inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'] })],
 });
