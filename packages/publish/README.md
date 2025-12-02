@@ -100,7 +100,7 @@ import { useActions } from 'koota/react'
 
 const actions = createActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
-  destroyAllShips: (world) => {
+  destroyAllShips: () => {
     world.query(Position, Velocity).forEach((entity) => {
       entity.destroy()
     })
@@ -117,7 +117,7 @@ function DoomButton() {
     spawnShip({ x: 1, y: 1 })
 
     // Destroy all ships during cleanup
-    return () => drestroyAllShips()
+    return () => destroyAllShips()
   }, [])
 
   // And destroy all ships on click!
