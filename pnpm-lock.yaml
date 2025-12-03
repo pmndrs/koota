@@ -34,8 +34,8 @@ catalogs:
       specifier: ^0.181.2
       version: 0.181.2
     unplugin-inline-functions:
-      specifier: ^0.3.3
-      version: 0.3.3
+      specifier: ^0.3.4
+      version: 0.3.4
     vite:
       specifier: ^7.2.4
       version: 7.2.4
@@ -388,7 +388,7 @@ importers:
         version: 8.5.1(@swc/core@1.15.3)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
       unplugin-inline-functions:
         specifier: 'catalog:'
-        version: 0.3.3(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
+        version: 0.3.4(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
@@ -2025,8 +2025,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  unplugin-inline-functions@0.3.3:
-    resolution: {integrity: sha512-G/q6LmGLxJqmp9Yg/aeIDk6sRQ0Qzd8UuCQu5pBS6gnbnNwJ72aSVsYPGjuLHn3aFjd/twy/bO7CkE/Ts0zRSQ==}
+  unplugin-inline-functions@0.3.4:
+    resolution: {integrity: sha512-EP/1bs5nLlYbHQgkhWxwwk7QJ4aSRqm7yREbpR3MVdn92vNiZncXTXRGK8LYhjs10IY+hY5zIOeI0KaA3WWZQA==}
     peerDependencies:
       '@babel/parser': ^7.26.3
       '@babel/traverse': ^7.26.4
@@ -3642,7 +3642,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  unplugin-inline-functions@0.3.3(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
+  unplugin-inline-functions@0.3.4(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
     dependencies:
       '@babel/parser': 7.28.5
       '@babel/traverse': 7.28.5
