@@ -16,6 +16,7 @@
 	display: flex;
 	flex-direction: column;
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	position: relative;
 }
 
 .list {
@@ -147,4 +148,3 @@
 	color: #555;
 	font-size: 10px;
 }
-

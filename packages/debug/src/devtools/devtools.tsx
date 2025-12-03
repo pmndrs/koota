@@ -1,5 +1,5 @@
 import { $internal, type Entity, type Trait, type World } from '@koota/core';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
 import { AllEntitiesList } from './components/all-entities-list';
 import { EntityDetail } from './components/entity-detail';
@@ -44,6 +44,7 @@ export function Devtools({
 		rel: true,
 	});
 	const [showEmpty, setShowEmpty] = useState(true);
+	const [zoom, setZoom] = useState(1);
 	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
 	const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -69,6 +70,42 @@ export function Devtools({
 
 	const activeFilterCount = Object.values(typeFilters).filter((v) => !v).length;
 
+	const handleZoomIn = useCallback(() => {
+		setZoom((prev) => Math.min(prev + 0.1, 2));
+	}, []);
+
+	const handleZoomOut = useCallback(() => {
+		setZoom((prev) => Math.max(prev - 0.1, 0.5));
+	}, []);
+
+	const handleZoomReset = useCallback(() => {
+		setZoom(1);
+	}, []);
+
+	// Keyboard shortcuts for zoom
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Cmd/Ctrl + Plus or Equals
+			if ((e.metaKey || e.ctrlKey) && (e.key === '+' || e.key === '=')) {
+				e.preventDefault();
+				handleZoomIn();
+			}
+			// Cmd/Ctrl + Minus
+			if ((e.metaKey || e.ctrlKey) && e.key === '-') {
+				e.preventDefault();
+				handleZoomOut();
+			}
+			// Cmd/Ctrl + 0 (reset)
+			if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+				e.preventDefault();
+				handleZoomReset();
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [handleZoomIn, handleZoomOut, handleZoomReset]);
+
 	// Check if selected trait still exists
 	const validSelectedTrait =
 		selectedTrait && traits.includes(selectedTrait as Trait) ? selectedTrait : null;
@@ -79,7 +116,13 @@ export function Devtools({
 
 	return (
 		<div className={styles.container} style={{ top: position.y, left: position.x }}>
-			<div className={styles.panel}>
+			<div
+				className={styles.panel}
+				style={{
+					transform: `scale(${zoom})`,
+					transformOrigin: 'top left',
+				}}
+			>
 				<Header
 					traitCount={traits.length}
 					entityCount={entityCount}
