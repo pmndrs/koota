@@ -8,7 +8,7 @@ import {
 	addRelationTarget,
 	getRelationData,
 	getRelationTargets,
-	hasRelationPair as hasRelationPairInternal,
+	hasRelationPair,
 	hasRelationToTarget,
 	isPairConfig,
 	isRelationPair,
@@ -263,13 +263,6 @@ export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const mask = ctx.entityMasks[generationId][eid];
 
 	return (mask & bitflag) === bitflag;
-}
-
-/**
- * Check if entity has a relation pair.
- */
-export function hasRelationPair(world: World, entity: Entity, pair: RelationPair): boolean {
-	return hasRelationPairInternal(world, entity, pair, hasTrait);
 }
 
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(

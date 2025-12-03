@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { trait } from '../trait/trait';
+import { hasTrait, trait } from '../trait/trait';
 import type { ConfigurableTrait, Schema, Trait } from '../trait/types';
 import type { World } from '../world/world';
 import { getTraitData } from '../trait/utils/trait-data';
@@ -533,12 +533,7 @@ export function getRelationData(
 /**
  * Check if entity has a relation pair.
  */
-export function hasRelationPair(
-	world: World,
-	entity: Entity,
-	pair: RelationPair,
-	hasTrait: (world: World, entity: Entity, trait: Trait) => boolean
-): boolean {
+export function hasRelationPair(world: World, entity: Entity, pair: RelationPair): boolean {
 	const pairCtx = pair[$internal];
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;

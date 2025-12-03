@@ -149,13 +149,9 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		if (isRelationPair(parameter)) {
 			const pairCtx = parameter[$internal];
 			const relation = pairCtx.relation;
-			const target = pairCtx.target;
 
-			// Add relation filter
-			query.relationFilters!.push({
-				relation: relation as Relation<Trait>,
-				target,
-			});
+			// Cache relation pairs for queries
+			query.relationFilters!.push(parameter);
 
 			// Add the base trait as required
 			const baseTrait = (relation as Relation<Trait>)[$internal].trait;
@@ -332,9 +328,9 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 	const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
 
 	if (hasRelationFilters) {
-		for (const filter of query.relationFilters!) {
+		for (const pair of query.relationFilters!) {
 			// Add to this specific relation's relationQueries
-			const relationTrait = filter.relation[$internal].trait;
+			const relationTrait = pair[$internal].relation[$internal].trait;
 			const relationTraitData = getTraitData(ctx.traitData, relationTrait);
 			if (relationTraitData) {
 				relationTraitData.relationQueries.add(query);

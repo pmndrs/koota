@@ -1,7 +1,7 @@
 import type { Entity } from '../../entity/types';
+import { hasRelationPair } from '../../relation/relation';
 import type { World } from '../../world/world';
 import { checkQueryTracking } from './check-query-tracking';
-import { checkRelationFilter } from './check-relation-filter';
 import type { EventType, Query } from '../types';
 
 /**
@@ -21,10 +21,10 @@ export function checkQueryTrackingWithRelations(
 		return false;
 	}
 
-	// Then check relation filters if any
+	// Then check relation pairs if any
 	if (query.relationFilters && query.relationFilters.length > 0) {
-		for (const filter of query.relationFilters) {
-			if (!checkRelationFilter(world, entity, filter)) {
+		for (const pair of query.relationFilters) {
+			if (!hasRelationPair(world, entity, pair)) {
 				return false;
 			}
 		}

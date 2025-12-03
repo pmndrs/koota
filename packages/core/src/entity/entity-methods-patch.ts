@@ -5,9 +5,14 @@
 
 import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
-import { getFirstRelationTarget, getRelationTargets, isRelationPair } from '../relation/relation';
+import {
+	getFirstRelationTarget,
+	getRelationTargets,
+	hasRelationPair,
+	isRelationPair,
+} from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
-import { addTrait, getTrait, hasRelationPair, hasTrait, removeTrait, setTrait } from '../trait/trait';
+import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import { destroyEntity, getEntityWorld } from './entity';
 import type { Entity } from './types';

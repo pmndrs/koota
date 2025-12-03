@@ -87,12 +87,6 @@ export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string 
 	traitIds: number[];
 };
 
-/** Filter for checking relation targets in queries */
-export interface RelationFilter {
-	relation: Relation<Trait>;
-	target: RelationTarget;
-}
-
 export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	version: number;
 	world: World;
@@ -129,8 +123,8 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	toRemove: SparseSet;
 	addSubscriptions: Set<QuerySubscriber>;
 	removeSubscriptions: Set<QuerySubscriber>;
-	/** Relation filters for target-specific queries */
-	relationFilters?: RelationFilter[];
+	/** Relation pairs for target-specific queries */
+	relationFilters?: RelationPair[];
 	run: (world: World) => QueryResult<T>;
 	add: (entity: Entity) => void;
 	remove: (world: World, entity: Entity) => void;
