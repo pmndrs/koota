@@ -7,14 +7,7 @@ import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
 import { getRelationTargets, isRelationPair } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
-import {
-	addTrait,
-	getTrait,
-	hasRelationPair,
-	hasTrait,
-	removeTrait,
-	setTrait,
-} from '../trait/trait';
+import { addTrait, getTrait, hasRelationPair, hasTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import { destroyEntity, getEntityWorld } from './entity';
 import type { Entity } from './types';
@@ -36,7 +29,7 @@ Number.prototype.has = function (this: Entity, trait: Trait | RelationPair) {
 	if (isRelationPair(trait)) {
 		return hasRelationPair(getEntityWorld(this), this, trait);
 	}
-	return hasTrait(getEntityWorld(this), this, trait);
+	return /* @inline @pure */ hasTrait(getEntityWorld(this), this, trait);
 };
 
 // @ts-expect-error

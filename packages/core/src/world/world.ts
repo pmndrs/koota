@@ -131,7 +131,7 @@ export class World {
 	}
 
 	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
-		setTrait(this, this[$internal].worldEntity, trait, value);
+		setTrait(this, this[$internal].worldEntity, trait, value, true);
 	}
 
 	destroy() {

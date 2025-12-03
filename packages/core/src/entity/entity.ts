@@ -1,8 +1,5 @@
 import { $internal } from '../common';
-import {
-	getEntitiesWithRelationTo,
-	removeRelationTarget,
-} from '../relation/relation';
+import { getEntitiesWithRelationTo, removeRelationTarget } from '../relation/relation';
 import { addTrait, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';

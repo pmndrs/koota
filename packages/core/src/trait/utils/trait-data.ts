@@ -5,20 +5,19 @@ import { $internal } from '../../common';
 export type TraitDataArray = (TraitData | undefined)[];
 
 /**
- * Get TraitData by trait ID (O(1) array access).
+ * Get TraitData by trait ID
  */
-/* @inline @pure */ export function getTraitData(
+export /* @inline @pure */ function getTraitData(
 	traitData: TraitDataArray,
 	trait: Trait
 ): TraitData | undefined {
-	const traitId = trait[$internal].id;
-	return traitData[traitId];
+	return traitData[trait[$internal].id];
 }
 
 /**
- * Set TraitData by trait ID, ensuring array is large enough.
+ * Set TraitData by trait ID
  */
-/* @inline @pure */ export function setTraitData(
+export /* @inline */ function setTraitData(
 	traitData: TraitDataArray,
 	trait: Trait,
 	data: TraitData
@@ -32,16 +31,16 @@ export type TraitDataArray = (TraitData | undefined)[];
 }
 
 /**
- * Check if trait is registered (has TraitData).
+ * Check if trait is registered
  */
-/* @inline @pure */ export function hasTraitData(traitData: TraitDataArray, trait: Trait): boolean {
+export /* @inline @pure */ function hasTraitData(traitData: TraitDataArray, trait: Trait): boolean {
 	const traitId = trait[$internal].id;
 	return traitId < traitData.length && traitData[traitId] !== undefined;
 }
 
 /**
- * Clear all trait data (reset array length to 0).
+ * Clear all trait data
  */
-export function clearTraitData(traitData: TraitDataArray): void {
+export /* @inline */ function clearTraitData(traitData: TraitDataArray): void {
 	traitData.length = 0;
 }

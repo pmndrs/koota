@@ -223,7 +223,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 /**
  * Remove a relation pair from an entity.
  */
-/* @inline */ function removeRelationPair(world: World, entity: Entity, pair: RelationPair) {
+function removeRelationPair(world: World, entity: Entity, pair: RelationPair) {
 	const pairCtx = pair[$internal];
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;
@@ -253,7 +253,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 	}
 }
 
-export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
+export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
 	const data = getTraitData(ctx.traitData, trait);
 	if (!data) return false;
@@ -339,9 +339,6 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 
 /**
  * Core logic for adding a trait to an entity.
- * Handles: registration, bitmask, dirty flags, queries, entityTraits.
- * Does NOT handle: value initialization or subscriptions (caller's responsibility).
- * Returns the TraitData if trait was added, undefined if already existed.
  */
 /* @inline */ function addTraitToEntity(
 	world: World,
@@ -401,8 +398,6 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 
 /**
  * Core logic for removing a trait from an entity.
- * Handles: subscriptions, bitmask, dirty flags, queries, entityTraits.
- * Does NOT handle: relation target cleanup (caller's responsibility).
  */
 /* @inline */ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void {
 	const ctx = world[$internal];

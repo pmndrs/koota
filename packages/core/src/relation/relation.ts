@@ -75,19 +75,18 @@ export function isRelationPair(value: unknown): value is RelationPair {
  * Get the targets for a relation on an entity.
  * Returns an array of target entity IDs.
  */
-/* @inline */ export function getRelationTargets(
+export /* @inline */ function getRelationTargets(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity
 ): readonly RelationTarget[] {
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
-	const baseTrait = relationCtx.trait;
 
-	const traitData = getTraitData(ctx.traitData, baseTrait);
+	const traitData = getTraitData(ctx.traitData, relationCtx.trait);
 	if (!traitData || !traitData.relationTargets) return [];
 
-	const eid = entity & 0xfffff; // ENTITY_ID_MASK
+	const eid = getEntityId(entity);
 
 	if (relationCtx.exclusive) {
 		const target = (traitData.relationTargets as number[])[eid];
@@ -129,7 +128,7 @@ export function getTargetIndex(
 /**
  * Check if an entity has a relation to a specific target.
  */
-/* @inline */ export function hasRelationToTarget(
+export function hasRelationToTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
@@ -142,7 +141,7 @@ export function getTargetIndex(
 	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData || !traitData.relationTargets) return false;
 
-	const eid = entity & 0xfffff; // ENTITY_ID_MASK
+	const eid = getEntityId(entity);
 	const targetId = typeof target === 'number' ? target : 0;
 
 	if (relationCtx.exclusive) {
@@ -157,7 +156,7 @@ export function getTargetIndex(
  * Add a relation target to an entity.
  * Returns the index of the target in the targets array.
  */
-/* @inline */ export function addRelationTarget(
+export function addRelationTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
@@ -174,7 +173,7 @@ export function getTargetIndex(
 		traitData.relationTargets = [];
 	}
 
-	const eid = entity & 0xfffff; // ENTITY_ID_MASK
+	const eid = getEntityId(entity);
 	const targetId = typeof target === 'number' ? target : 0;
 
 	let targetIndex: number;
@@ -209,7 +208,7 @@ export function getTargetIndex(
  * Remove a relation target from an entity.
  * Returns the index that was removed, or -1 if not found.
  */
-/* @inline */ export function removeRelationTarget(
+export function removeRelationTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
@@ -222,7 +221,7 @@ export function getTargetIndex(
 	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData || !traitData.relationTargets) return -1;
 
-	const eid = entity & 0xfffff; // ENTITY_ID_MASK
+	const eid = getEntityId(entity);
 	const targetId = typeof target === 'number' ? target : 0;
 
 	let removedIndex = -1;
@@ -268,7 +267,7 @@ export function getTargetIndex(
  * Update queries when relation targets change.
  * Called after addRelationTarget or removeRelationTarget to keep queries in sync.
  */
-/* @inline */ function updateQueriesForRelationChange(
+function updateQueriesForRelationChange(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity
@@ -292,7 +291,7 @@ export function getTargetIndex(
 }
 
 /** Swap-and-pop data arrays for non-exclusive relations */
-/* @inline */ function swapAndPopRelationData(
+function swapAndPopRelationData(
 	store: any,
 	type: string,
 	eid: number,
@@ -317,7 +316,7 @@ export function getTargetIndex(
 }
 
 /** Clear data for exclusive relations */
-/* @inline */ function clearRelationDataInternal(
+function clearRelationDataInternal(
 	store: any,
 	type: string,
 	eid: number,
@@ -411,7 +410,7 @@ export const Pair = <T extends Trait>(
  * For exclusive relations, index is always 0.
  * For non-exclusive, index corresponds to position in targets array.
  */
-/* @inline */ export function setRelationDataAtIndex(
+export function setRelationDataAtIndex(
 	world: World,
 	entity: Entity,
 	relation: Relation<Trait>,
@@ -516,18 +515,15 @@ export function hasRelationPair(
 	const pairCtx = pair[$internal];
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;
-	const baseTrait = relation[$internal].trait;
 
 	// Check if entity has the base trait
-	if (!hasTrait(world, entity, baseTrait)) return false;
+	if (!hasTrait(world, entity, relation[$internal].trait)) return false;
 
 	// Wildcard target
 	if (target === '*') return true;
 
 	// Specific target
-	if (typeof target === 'number') {
-		return hasRelationToTarget(world, relation, entity, target);
-	}
+	if (typeof target === 'number') return hasRelationToTarget(world, relation, entity, target);
 
 	return false;
 }
