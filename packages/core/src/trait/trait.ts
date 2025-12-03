@@ -224,7 +224,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 /**
  * Remove a relation pair from an entity.
  */
-function removeRelationPair(world: World, entity: Entity, pair: RelationPair) {
+/* @inline */ function removeRelationPair(world: World, entity: Entity, pair: RelationPair) {
 	const pairCtx = pair[$internal];
 	const relation = pairCtx.relation;
 	const target = pairCtx.target;

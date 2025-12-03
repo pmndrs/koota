@@ -62,7 +62,7 @@ export const relation = defineRelation;
 /**
  * Check if a value is a RelationPair
  */
-export function isRelationPair(value: unknown): value is RelationPair {
+export /* @inline @pure */ function isRelationPair(value: unknown): value is RelationPair {
 	return (
 		value !== null &&
 		typeof value === 'object' &&
@@ -410,7 +410,7 @@ export function getEntitiesWithRelationTo(
 		if (hasTarget) {
 			// O(1) lookup via sparse array
 			const denseIdx = sparse[eid];
-			if (denseIdx !== undefined && (getEntityId(dense[denseIdx])) === eid) {
+			if (denseIdx !== undefined && getEntityId(dense[denseIdx]) === eid) {
 				result.push(dense[denseIdx]);
 			}
 		}

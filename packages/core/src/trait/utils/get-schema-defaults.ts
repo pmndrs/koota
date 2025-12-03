@@ -4,7 +4,7 @@ import type { TraitType } from '../types';
  * Get default values from a schema.
  * Returns null for tags (empty schemas) or if no defaults exist.
  */
-/* @inline */ export function getSchemaDefaults(
+/* @inline @pure */ export function getSchemaDefaults(
 	schema: Record<string, any> | (() => unknown),
 	type: TraitType
 ): Record<string, any> | null {
