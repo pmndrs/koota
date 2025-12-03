@@ -31,10 +31,9 @@ Number.prototype.remove = function (this: Entity, ...traits: (Trait | RelationPa
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait | RelationPair) {
-	if (isRelationPair(trait)) {
-		return hasRelationPair(getEntityWorld(this), this, trait);
-	}
-	return /* @inline @pure */ hasTrait(getEntityWorld(this), this, trait);
+	const world = getEntityWorld(this);
+	if (isRelationPair(trait)) return hasRelationPair(world, this, trait);
+	return /* @inline @pure */ hasTrait(world, this, trait);
 };
 
 // @ts-expect-error

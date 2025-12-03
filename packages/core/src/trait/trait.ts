@@ -281,21 +281,72 @@ export function setTrait(
 	value: any,
 	triggerChanged = true
 ) {
-	// Handle relation pairs
-	if (isRelationPair(trait)) {
-		const pairCtx = trait[$internal];
-		const relation = pairCtx.relation as Relation<Trait>;
-		const target = pairCtx.target;
+	if (isRelationPair(trait)) return setTraitForPair(world, entity, trait, value, triggerChanged);
+	return setTraitForTrait(world, entity, trait, value, triggerChanged);
+}
 
-		if (typeof target === 'number') {
-			setRelationData(world, entity, relation, target, value);
-			if (triggerChanged) {
-				setChanged(world, entity, relation[$internal].trait);
-			}
-		}
-		return;
+export function getTrait(world: World, entity: Entity, trait: Trait | RelationPair) {
+	if (isRelationPair(trait)) return getTraitForPair(world, entity, trait);
+	return getTraitForTrait(world, entity, trait);
+}
+
+/**
+ * Get trait data for a relation pair.
+ */
+/* @inline @pure */ function getTraitForPair(world: World, entity: Entity, pair: RelationPair) {
+	const pairCtx = pair[$internal];
+	const relation = pairCtx.relation as Relation<Trait>;
+	const target = pairCtx.target;
+
+	if (!hasRelationPair(world, entity, pair)) return undefined;
+	if (typeof target !== 'number') return undefined;
+
+	return getRelationData(world, entity, relation, target);
+}
+
+/**
+ * Get trait data for a regular trait.
+ */
+/* @inline @pure */ function getTraitForTrait(world: World, entity: Entity, trait: Trait) {
+	if (!hasTrait(world, entity, trait)) return undefined;
+
+	const traitCtx = trait[$internal];
+	const store = getStore(world, trait);
+	return traitCtx.get(getEntityId(entity), store);
+}
+
+/**
+ * Set trait data for a relation pair.
+ */
+/* @inline */ function setTraitForPair(
+	world: World,
+	entity: Entity,
+	pair: RelationPair,
+	value: any,
+	triggerChanged: boolean
+) {
+	const pairCtx = pair[$internal];
+	const relation = pairCtx.relation as Relation<Trait>;
+	const target = pairCtx.target;
+
+	if (typeof target !== 'number') return;
+
+	setRelationData(world, entity, relation, target, value);
+	if (triggerChanged) {
+		setChanged(world, entity, relation[$internal].trait);
 	}
+}
 
+/**
+ * Set trait data for a regular trait.
+ */
+/* @inline */ function setTraitForTrait(
+	world: World,
+	entity: Entity,
+	trait: Trait,
+	value: any,
+	triggerChanged: boolean
+) {
 	const ctx = trait[$internal];
 	const store = getStore(world, trait);
 	const index = getEntityId(entity);
@@ -305,29 +356,6 @@ export function setTrait(
 
 	ctx.set(index, store, value);
 	triggerChanged && setChanged(world, entity, trait);
-}
-
-export function getTrait(world: World, entity: Entity, trait: Trait | RelationPair) {
-	// Handle relation pairs
-	if (isRelationPair(trait)) {
-		const pairCtx = trait[$internal];
-		const relation = pairCtx.relation as Relation<Trait>;
-		const target = pairCtx.target;
-
-		if (!hasRelationPair(world, entity, trait)) return undefined;
-
-		if (typeof target === 'number') {
-			return getRelationData(world, entity, relation, target);
-		}
-		return undefined;
-	}
-
-	const result = hasTrait(world, entity, trait);
-	if (!result) return undefined;
-
-	const traitCtx = trait[$internal];
-	const store = getStore(world, trait);
-	return traitCtx.get(getEntityId(entity), store);
 }
 
 /**
