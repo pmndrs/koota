@@ -14,7 +14,7 @@ catalog:
   react: ^19.2.0
   react-dom: ^19.2.0
   three: ^0.181.2
-  unplugin-inline-functions: ^0.3.5
+  unplugin-inline-functions: ^0.3.6
   vite: ^7.2.4
   vitest: ^4.0.13
 
