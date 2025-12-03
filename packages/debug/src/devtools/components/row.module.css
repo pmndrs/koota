@@ -1,0 +1,40 @@
+.row {
+	padding: 5px 8px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: default;
+	transition: background 0.1s;
+}
+
+.row:hover {
+	background: #222;
+}
+
+.rowClickable {
+	cursor: pointer;
+}
+
+.rowName {
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 11px;
+	color: #bbb;
+}
+
+.rowMeta {
+	font-size: 9px;
+	color: #555;
+	font-variant-numeric: tabular-nums;
+}
+
+.rowCount {
+	font-size: 10px;
+	color: #555;
+	min-width: 16px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+

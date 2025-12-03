@@ -2,7 +2,12 @@ import type { Entity, Trait, World } from '@koota/core';
 import { $internal, unpackEntity } from '@koota/core';
 import { useEffect, useMemo, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
-import styles from '../styles.module.css';
+import badgeStyles from './badge.module.css';
+import detailStyles from './detail-layout.module.css';
+import entityDetailStyles from './entity-detail.module.css';
+import rowStyles from './row.module.css';
+import { formatDebugSourceTitle } from '../utils/debug-source';
+import { hasDebugSource } from '../utils/type-guards';
 import { DetailGrid, DetailLayout, DetailSection } from './detail-layout';
 import { Row, RowName } from './row';
 import { getTraitName, getTraitType } from './trait-utils';
@@ -14,17 +19,10 @@ interface EntityDetailProps {
 	onSelectTrait: (trait: TraitWithDebug) => void;
 }
 
-export function EntityDetail({
-	world,
-	entity,
-	onBack,
-	onSelectTrait,
-}: EntityDetailProps) {
+export function EntityDetail({ world, entity, onBack, onSelectTrait }: EntityDetailProps) {
 	const { entityId, generation, worldId } = unpackEntity(entity);
 	const ctx = world[$internal];
-	const [traits, setTraits] = useState<Trait[]>(() => [
-		...(ctx.entityTraits.get(entity) ?? []),
-	]);
+	const [traits, setTraits] = useState<Trait[]>(() => [...(ctx.entityTraits.get(entity) ?? [])]);
 
 	useEffect(() => {
 		const ctx = world[$internal];
@@ -49,8 +47,10 @@ export function EntityDetail({
 			);
 		};
 
-		for (const trait of ctx.traitData.keys()) {
-			subscribeTrait(trait);
+		for (const data of ctx.traitData) {
+			if (data) {
+				subscribeTrait(data.trait);
+			}
 		}
 
 		const handleRegistered = (trait: Trait) => {
@@ -73,10 +73,7 @@ export function EntityDetail({
 	}, [entity, world]);
 
 	const sortedTraits = useMemo(
-		() =>
-			[...traits]
-				.map((trait) => trait as TraitWithDebug)
-				.sort((a, b) => getTraitName(a).localeCompare(getTraitName(b))),
+		() => [...traits].sort((a, b) => getTraitName(a).localeCompare(getTraitName(b))),
 		[traits]
 	);
 
@@ -84,7 +81,7 @@ export function EntityDetail({
 		<DetailLayout
 			title={`Entity ${entityId}`}
 			subtitle={
-				<div className={styles.entityMetaInline}>
+				<div className={entityDetailStyles.entityMetaInline}>
 					<span>gen:{generation}</span>
 					<span>world:{worldId}</span>
 					<span>{entity}</span>
@@ -94,36 +91,75 @@ export function EntityDetail({
 		>
 			<DetailSection label="Info">
 				<DetailGrid>
-					<span className={styles.detailKey}>ID</span>
-					<span className={styles.detailValue}>{entityId}</span>
-					<span className={styles.detailKey}>Generation</span>
-					<span className={styles.detailValue}>{generation}</span>
-					<span className={styles.detailKey}>World</span>
-					<span className={styles.detailValue}>{worldId}</span>
-					<span className={styles.detailKey}>Raw</span>
-					<span className={styles.detailValue}>{entity}</span>
+					<span className={detailStyles.detailKey}>ID</span>
+					<span className={detailStyles.detailValue}>{entityId}</span>
+					<span className={detailStyles.detailKey}>Generation</span>
+					<span className={detailStyles.detailValue}>{generation}</span>
+					<span className={detailStyles.detailKey}>World</span>
+					<span className={detailStyles.detailValue}>{worldId}</span>
+					<span className={detailStyles.detailKey}>Raw</span>
+					<span className={detailStyles.detailValue}>{entity}</span>
 				</DetailGrid>
 			</DetailSection>
 
 			<DetailSection label="Traits" count={sortedTraits.length}>
 				{sortedTraits.length === 0 ? (
-					<div className={styles.emptySmall}>No traits on entity</div>
+					<div className={entityDetailStyles.emptySmall}>No traits on entity</div>
 				) : (
 					sortedTraits.map((trait) => {
 						const type = getTraitType(trait);
+						const traitCtx = trait[$internal];
+						const relation = traitCtx.relation;
+						const isRelation = relation !== null;
+						const targets = isRelation ? entity.targetsFor(relation) : [];
+
 						return (
-							<Row
-								key={trait[$internal].id}
-								onClick={() => onSelectTrait(trait)}
-								title={
-									trait.debugSource
-										? `${trait.debugSource.file}:${trait.debugSource.line}`
-										: undefined
-								}
-							>
-								<span className={`${styles.badge} ${badgeClasses[type]}`}>{type}</span>
-								<RowName>{getTraitName(trait)}</RowName>
-							</Row>
+							<div key={trait[$internal].id}>
+								<Row
+									onClick={() => onSelectTrait(trait)}
+									title={
+										hasDebugSource(trait)
+											? formatDebugSourceTitle(trait.debugSource)
+											: undefined
+									}
+								>
+									<span className={`${badgeStyles.badge} ${badgeClasses[type]}`}>
+										{type}
+									</span>
+									<RowName>
+										{getTraitName(trait)}
+										{isRelation && targets.length > 0 && (
+											<span className={entityDetailStyles.relationTargetCount}>
+												{' '}
+												({targets.length} target
+												{targets.length !== 1 ? 's' : ''})
+											</span>
+										)}
+									</RowName>
+								</Row>
+								{isRelation && targets.length > 0 && (
+									<div className={entityDetailStyles.relationTargetsList}>
+										{targets.map((target) => {
+											const { entityId } = unpackEntity(target);
+											return (
+												<div
+													key={target}
+													className={`${rowStyles.row} ${entityDetailStyles.relationTargetRow}`}
+												>
+													<span
+														className={
+															entityDetailStyles.relationTargetArrow
+														}
+													>
+														→
+													</span>
+													<RowName>Entity {entityId}</RowName>
+												</div>
+											);
+										})}
+									</div>
+								)}
+							</div>
 						);
 					})
 				)}
@@ -133,10 +169,8 @@ export function EntityDetail({
 }
 
 const badgeClasses: Record<string, string> = {
-	tag: styles.badgeTag,
-	soa: styles.badgeSoa,
-	aos: styles.badgeAos,
-	rel: styles.badgeRel,
+	tag: badgeStyles.badgeTag,
+	soa: badgeStyles.badgeSoa,
+	aos: badgeStyles.badgeAos,
+	rel: badgeStyles.badgeRel,
 };
-
-

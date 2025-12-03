@@ -1,6 +1,6 @@
 import type { Entity, World } from '@koota/core';
 import { $internal, unpackEntity } from '@koota/core';
-import styles from '../styles.module.css';
+import styles from './all-entity-row.module.css';
 import { Row, RowCount, RowName } from './row';
 
 interface AllEntityRowProps {

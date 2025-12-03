@@ -1,7 +1,7 @@
 import type { Trait, World } from '@koota/core';
 import { $internal } from '@koota/core';
 import type { TraitWithDebug } from '../../types';
-import styles from '../styles.module.css';
+import styles from './trait-list.module.css';
 import { TraitRow } from './trait-row';
 import { getTraitName, getTraitType, type TraitType } from './trait-utils';
 

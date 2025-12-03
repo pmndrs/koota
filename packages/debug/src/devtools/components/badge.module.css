@@ -1,0 +1,50 @@
+.badge {
+	font-size: 7px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	border-radius: 2px;
+	color: #000;
+}
+
+.badgeTag {
+	background: #4a9eff;
+}
+
+.badgeSoa {
+	background: #4ade80;
+}
+
+.badgeAos {
+	background: #f59e0b;
+}
+
+.badgeRel {
+	background: #a855f7;
+}
+
+.detailBadge {
+	font-size: 8px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 5px;
+	border-radius: 3px;
+	color: #000;
+}
+
+.detailBadgeTag {
+	background: #4a9eff;
+}
+
+.detailBadgeSoa {
+	background: #4ade80;
+}
+
+.detailBadgeAos {
+	background: #f59e0b;
+}
+
+.detailBadgeRel {
+	background: #a855f7;
+}
+

@@ -1,0 +1,34 @@
+.entityMetaInline {
+	display: flex;
+	gap: 6px;
+	font-size: 10px;
+	color: #555;
+}
+
+.emptySmall {
+	font-size: 10px;
+	color: #444;
+}
+
+.relationTargetCount {
+	font-size: 9px;
+	color: #666;
+	font-weight: 400;
+}
+
+.relationTargetsList {
+	margin-left: 8px;
+	border-left: 1px solid #2a2a2a;
+}
+
+.relationTargetRow {
+	padding: 3px 8px 3px 12px;
+	font-size: 10px;
+}
+
+.relationTargetArrow {
+	font-size: 10px;
+	color: #666;
+	opacity: 0.6;
+}
+

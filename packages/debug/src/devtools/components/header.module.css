@@ -1,0 +1,106 @@
+.header {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #1e1e1e;
+	cursor: grab;
+	border-bottom: 1px solid #2a2a2a;
+}
+
+.headerDragging {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #1e1e1e;
+	cursor: grabbing;
+	border-bottom: 1px solid #2a2a2a;
+}
+
+.headerLeft {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.title {
+	font-weight: 600;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: #666;
+}
+
+.tabs {
+	display: flex;
+	gap: 2px;
+}
+
+.tab {
+	all: unset;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	color: #555;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	font-variant-numeric: tabular-nums;
+}
+
+.tab:hover {
+	background: rgba(255, 255, 255, 0.05);
+	color: #888;
+}
+
+.tabActive {
+	background: rgba(255, 255, 255, 0.08);
+	color: #aaa;
+}
+
+.headerRight {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stats {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 10px;
+	color: #555;
+}
+
+.stat {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.statIcon {
+	opacity: 0.6;
+}
+
+.toggleButton {
+	background: none;
+	border: none;
+	color: #555;
+	cursor: pointer;
+	padding: 2px 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+	font-size: 12px;
+	line-height: 1;
+	transition: color 0.15s;
+}
+
+.toggleButton:hover {
+	color: #999;
+}
+

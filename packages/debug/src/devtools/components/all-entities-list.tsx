@@ -1,7 +1,7 @@
 import type { Entity, World } from '@koota/core';
 import { $internal } from '@koota/core';
 import { useEffect, useState } from 'react';
-import styles from '../styles.module.css';
+import styles from './trait-list.module.css';
 import { AllEntityRow } from './all-entity-row';
 
 interface AllEntitiesListProps {

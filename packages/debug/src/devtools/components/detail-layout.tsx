@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import styles from '../styles.module.css';
+import styles from './detail-layout.module.css';
 
 interface DetailLayoutProps {
 	title: ReactNode;

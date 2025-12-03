@@ -1,7 +1,7 @@
 import type { Entity } from '@koota/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { RefObject } from 'react';
-import styles from '../styles.module.css';
+import styles from './entity-list.module.css';
 import { EntityRow } from './entity-row';
 
 interface EntityListProps {
