@@ -141,7 +141,7 @@ export function getTargetIndex(
 	const traitData = getTraitData(ctx.traitData, baseTrait);
 	if (!traitData || !traitData.relationTargets) return -1;
 
-	const eid = entity & 0xfffff;
+	const eid = getEntityId(entity);
 	const targetId = typeof target === 'number' ? target : 0;
 
 	if (relationCtx.exclusive) {
@@ -410,7 +410,7 @@ export function getEntitiesWithRelationTo(
 		if (hasTarget) {
 			// O(1) lookup via sparse array
 			const denseIdx = sparse[eid];
-			if (denseIdx !== undefined && (dense[denseIdx] & 0xfffff) === eid) {
+			if (denseIdx !== undefined && (getEntityId(dense[denseIdx])) === eid) {
 				result.push(dense[denseIdx]);
 			}
 		}

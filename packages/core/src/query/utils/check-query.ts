@@ -2,6 +2,7 @@ import type { Entity } from '../../entity/types';
 import { $internal } from '../../common';
 import type { World } from '../../world/world';
 import type { Query } from '../types';
+import { getEntityId } from '../../entity/utils/pack-entity';
 
 /**
  * Check if an entity matches a non-tracking query.
@@ -10,7 +11,7 @@ import type { Query } from '../types';
 export function checkQuery(world: World, query: Query, entity: Entity): boolean {
 	const { bitmasks, generations } = query;
 	const ctx = world[$internal];
-	const eid = entity & 0xfffff; // ENTITY_ID_MASK
+	const eid = getEntityId(entity);
 
 	if (query.traitData.all.length === 0) return false;
 
