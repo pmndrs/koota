@@ -1,28 +1,21 @@
 {
 	"name": "@app/boids",
 	"private": true,
-	"version": "0.0.0",
+	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc && vite build",
-		"lint": "oxlint",
 		"preview": "vite preview"
 	},
 	"dependencies": {
 		"@app/bench-tools": "workspace:*",
-		"@react-three/drei": "catalog:",
-		"@react-three/fiber": "catalog:",
-		"directed": "catalog:",
+		"@sim/boids": "workspace:*",
 		"koota": "workspace:*",
-		"react": "catalog:",
-		"react-dom": "catalog:",
 		"three": "catalog:"
 	},
 	"devDependencies": {
 		"@config/typescript": "workspace:*",
-		"@types/react": "catalog:",
-		"@types/react-dom": "catalog:",
 		"@types/three": "catalog:",
 		"@vitejs/plugin-react": "^5.1.1",
 		"@vitejs/plugin-react-swc": "^4.2.2",

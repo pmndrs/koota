@@ -12,7 +12,7 @@ export { createRemoved } from './query/modifiers/removed';
 export { IsExcluded } from './query/query';
 export * from './query/types';
 export { cacheQuery } from './query/utils/cache-query';
-export { Pair, relation, Wildcard } from './relation/relation';
+export { Pair, relation } from './relation/relation';
 export * from './relation/types';
 export { getStore, trait } from './trait/trait';
 export * from './trait/types';

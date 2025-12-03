@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
-export function useHas(target: Entity | World | undefined | null, trait: Trait): boolean | undefined {
+export function useHas(target: Entity | World | undefined | null, trait: Trait): boolean {
 	// Get the world from context.
 	const contextWorld = useWorld();
 
@@ -25,7 +25,7 @@ export function useHas(target: Entity | World | undefined | null, trait: Trait):
 		return () => unsubscribe();
 	}, [memo]);
 
-	return value;
+	return value ?? false;
 }
 
 function createSubscriptions(target: Entity | World, trait: Trait, contextWorld: World) {

@@ -3,10 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
-export function useTag(
-	target: Entity | World | undefined | null,
-	tag: TagTrait
-): boolean | undefined {
+export function useTag(target: Entity | World | undefined | null, tag: TagTrait): boolean {
 	// Get the world from context.
 	const contextWorld = useWorld();
 
@@ -28,7 +25,7 @@ export function useTag(
 		return () => unsubscribe();
 	}, [memo]);
 
-	return value;
+	return value ?? false;
 }
 
 function createSubscriptions(target: Entity | World, tag: TagTrait, contextWorld: World) {

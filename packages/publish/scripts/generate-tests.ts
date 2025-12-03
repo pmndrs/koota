@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const PUBLISH_TESTS_DIR = join(currentDir, '../tests');
+const verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
 
 const PACKAGES = [
 	{
@@ -21,13 +22,13 @@ const PACKAGES = [
 	},
 ] as const;
 
-async function processPackage(pkg: (typeof PACKAGES)[number]) {
+async function processPackage(pkg: (typeof PACKAGES)[number]): Promise<number> {
 	const sourceDir = join(dirname(require.resolve(pkg.package)), '../tests');
 	const targetDir = join(PUBLISH_TESTS_DIR, pkg.name);
 
 	const files = await readdir(sourceDir);
 	const testFiles = files.filter((file) => file.endsWith('.test.ts') || file.endsWith('.test.tsx'));
-	console.log(`\n> Found ${testFiles.length} ${pkg.name} test files to process`);
+	if (verbose) console.log(`\n> Found ${testFiles.length} ${pkg.name} test files to process`);
 
 	for (const file of testFiles) {
 		const sourcePath = join(sourceDir, file);
@@ -45,12 +46,14 @@ async function processPackage(pkg: (typeof PACKAGES)[number]) {
 		content = content.replace(/from ['"]\.\.\/src['"]/g, `from '${pkg.importPath}'`);
 
 		await writeFile(targetPath, content);
-		console.log(`✓ ${pkg.name}/${file}`);
+		if (verbose) console.log(`  ✓ ${pkg.name}/${file}`);
 	}
+
+	return testFiles.length;
 }
 
 async function generateTests() {
-	console.log('\n> Preparing to generate tests...');
+	if (verbose) console.log('\n> Preparing to generate tests...');
 	try {
 		await rm(PUBLISH_TESTS_DIR, { recursive: true, force: true });
 	} catch (_error) {
@@ -63,11 +66,19 @@ async function generateTests() {
 	);
 
 	// Process each package's tests
+	const counts: Record<string, number> = {};
 	for (const pkg of PACKAGES) {
-		await processPackage(pkg);
+		counts[pkg.name] = await processPackage(pkg);
 	}
 
-	console.log('\n> Test generation complete!\n');
+	if (verbose) {
+		console.log('\n> Test generation complete!\n');
+	} else {
+		const summary = Object.entries(counts)
+			.map(([name, count]) => `${count} ${name}`)
+			.join(', ');
+		console.log(`✓ Generated ${summary} tests`);
+	}
 }
 
 generateTests();

@@ -1,6 +1,8 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { isRelationPair } from '../relation/relation';
+import type { Relation } from '../relation/types';
 import { getStore } from '../trait/trait';
 import type { Store, Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
@@ -228,6 +230,18 @@ export function createQueryResult<T extends QueryParameter[]>(
 	for (let i = 0; i < params.length; i++) {
 		const param = params[i];
 
+		// Handle relation pairs
+		if (isRelationPair(param)) {
+			const pairCtx = param[$internal];
+			const relation = pairCtx.relation as Relation<Trait>;
+			const baseTrait = relation[$internal].trait;
+			if (!baseTrait[$internal].isTag) {
+				traits.push(baseTrait);
+				stores.push(getStore(world, baseTrait));
+			}
+			continue;
+		}
+
 		if (isModifier(param)) {
 			// Skip not modifier.
 			if (param.type === 'not') continue;
@@ -239,9 +253,10 @@ export function createQueryResult<T extends QueryParameter[]>(
 				stores.push(getStore(world, trait));
 			}
 		} else {
-			if (param[$internal].isTag) continue; // Skip tags
-			traits.push(param);
-			stores.push(getStore(world, param));
+			const trait = param as Trait;
+			if (trait[$internal].isTag) continue; // Skip tags
+			traits.push(trait);
+			stores.push(getStore(world, trait));
 		}
 	}
 }
@@ -253,6 +268,48 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
 		select: () => results,
 		sort: () => results,
 	}) as QueryResult<QueryParameter[]>;
+
+	return results;
+}
+
+// Cached no-op result methods for relation-only queries
+const relationOnlyMethods = {
+	updateEach(this: QueryResult<any>, callback: any) {
+		// No traits to update, just iterate entities
+		for (let i = 0; i < this.length; i++) {
+			callback([], this[i], i);
+		}
+		return this;
+	},
+	useStores(this: QueryResult<any>, callback: any) {
+		// No stores, call with empty array
+		callback([], this);
+		return this;
+	},
+	select(this: QueryResult<any>) {
+		// No-op, nothing to select
+		return this;
+	},
+};
+
+/**
+ * Lightweight query result for relation-only queries.
+ * Skips store/trait setup since we only need to iterate entities.
+ */
+export function createRelationOnlyQueryResult<T extends QueryParameter[]>(
+	entities: Entity[]
+): QueryResult<T> {
+	const results = Object.assign(entities, {
+		updateEach: relationOnlyMethods.updateEach,
+		useStores: relationOnlyMethods.useStores,
+		select: relationOnlyMethods.select,
+		sort(
+			callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+		): QueryResult<T> {
+			Array.prototype.sort.call(entities, callback);
+			return results;
+		},
+	}) as unknown as QueryResult<T>;
 
 	return results;
 }
