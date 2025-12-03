@@ -1,15 +1,17 @@
-import type { Trait, World } from '@koota/core';
+import type { World } from '@koota/core';
 import type { TraitWithDebug } from '../../types';
 import { useTraitEntityCount } from '../hooks/use-trait-entity-count';
-import styles from '../styles.module.css';
+import { formatDebugSourceTitle } from '../utils/debug-source';
+import { hasDebugSource } from '../utils/type-guards';
+import badgeStyles from './badge.module.css';
 import { Row, RowCount, RowName } from './row';
 import { getTraitName, getTraitType } from './trait-utils';
 
 const badgeClasses: Record<string, string> = {
-	tag: `${styles.badge} ${styles.badgeTag}`,
-	soa: `${styles.badge} ${styles.badgeSoa}`,
-	aos: `${styles.badge} ${styles.badgeAos}`,
-	rel: `${styles.badge} ${styles.badgeRel}`,
+	tag: `${badgeStyles.badge} ${badgeStyles.badgeTag}`,
+	soa: `${badgeStyles.badge} ${badgeStyles.badgeSoa}`,
+	aos: `${badgeStyles.badge} ${badgeStyles.badgeAos}`,
+	rel: `${badgeStyles.badge} ${badgeStyles.badgeRel}`,
 };
 
 interface TraitRowProps {
@@ -27,9 +29,7 @@ export function TraitRow({ world, trait, onSelect }: TraitRowProps) {
 	return (
 		<Row
 			onClick={onSelect}
-			title={
-				trait.debugSource ? `${trait.debugSource.file}:${trait.debugSource.line}` : undefined
-			}
+			title={hasDebugSource(trait) ? formatDebugSourceTitle(trait.debugSource) : undefined}
 		>
 			<span className={badgeClasses[type]}>{type}</span>
 			<RowName>{name}</RowName>

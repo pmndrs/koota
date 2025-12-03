@@ -1,0 +1,12 @@
+.detailSource {
+	font-size: 9px;
+	color: #888;
+	word-break: break-all;
+	text-decoration: none;
+	transition: color 0.15s;
+}
+
+.detailSource:hover {
+	color: #4a9eff;
+}
+

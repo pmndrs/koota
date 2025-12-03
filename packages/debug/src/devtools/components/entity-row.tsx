@@ -1,6 +1,6 @@
 import type { Entity } from '@koota/core';
 import { unpackEntity } from '@koota/core';
-import styles from '../styles.module.css';
+import styles from './entity-list.module.css';
 
 interface EntityRowProps {
 	entity: Entity;

@@ -9,7 +9,7 @@ import { TraitList } from './components/trait-list';
 import { useDraggable } from './hooks/use-draggable';
 import { useEntityCount } from './hooks/use-entity-count';
 import { useWorldTraits } from './hooks/use-world-traits';
-import styles from './styles.module.css';
+import styles from './devtools.module.css';
 
 export type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
 
@@ -43,7 +43,7 @@ export function Devtools({
 		aos: true,
 		rel: true,
 	});
-	const [showEmpty, setShowEmpty] = useState(false);
+	const [showEmpty, setShowEmpty] = useState(true);
 	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
 	const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);

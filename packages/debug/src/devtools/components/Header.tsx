@@ -1,4 +1,4 @@
-import styles from '../styles.module.css';
+import styles from './header.module.css';
 import { EntityIcon, TraitIcon } from './icons';
 
 export type Tab = 'traits' | 'entities';

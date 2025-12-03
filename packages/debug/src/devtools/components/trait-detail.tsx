@@ -1,39 +1,25 @@
 import type { Entity, World } from '@koota/core';
 import { $internal } from '@koota/core';
+import type { Relation } from '@koota/core';
 import type { RefObject } from 'react';
-import { Fragment, useEffect, useState } from 'react';
-import { EntityList } from './entity-list';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
-import styles from '../styles.module.css';
+import badgeStyles from './badge.module.css';
+import detailStyles from './detail-layout.module.css';
+import traitDetailStyles from './trait-detail.module.css';
+import { formatDebugSource, getEditorUrl } from '../utils/debug-source';
 import { DetailGrid, DetailLayout, DetailSection } from './detail-layout';
 import { getTraitName, getTraitType } from './trait-utils';
+import { EntityList } from './entity-list';
 
 const badgeClasses: Record<string, string> = {
-	tag: styles.detailBadgeTag,
-	soa: styles.detailBadgeSoa,
-	aos: styles.detailBadgeAos,
-	rel: styles.detailBadgeRel,
+	tag: badgeStyles.detailBadgeTag,
+	soa: badgeStyles.detailBadgeSoa,
+	aos: badgeStyles.detailBadgeAos,
+	rel: badgeStyles.detailBadgeRel,
 };
 
 type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
-
-function getEditorUrl(editor: Editor, file: string, line: number, column: number): string {
-	switch (editor) {
-		case 'cursor':
-			return `cursor://file/${file}:${line}:${column}`;
-		case 'vscode':
-			return `vscode://file/${file}:${line}:${column}`;
-		case 'webstorm':
-		case 'idea':
-			return `jetbrains://${editor}/navigate/reference?file=${file}&line=${line}&column=${column}`;
-	}
-}
-
-function getShortPath(file: string): string {
-	const srcIndex = file.indexOf('/src/');
-	if (srcIndex !== -1) return file.slice(srcIndex + 1);
-	return file.split('/').pop() ?? file;
-}
 
 interface TraitDetailProps {
 	world: World;
@@ -57,6 +43,8 @@ export function TraitDetail({
 	const ctx = trait[$internal];
 	const name = getTraitName(trait);
 	const type = getTraitType(trait);
+	const isRelation = ctx.relation !== null;
+	const relation = ctx.relation as Relation<any> | null;
 
 	// Subscribe to entity changes for this trait
 	useEffect(() => {
@@ -71,6 +59,19 @@ export function TraitDetail({
 			unsubRemove();
 		};
 	}, [world, trait]);
+
+	// Get all unique targets for relation traits
+	const targets = useMemo(() => {
+		if (!isRelation || !relation) return [];
+		const targetSet = new Set<Entity>();
+		for (const entity of entities) {
+			const entityTargets = entity.targetsFor(relation);
+			for (const target of entityTargets) {
+				targetSet.add(target);
+			}
+		}
+		return Array.from(targetSet);
+	}, [relation, entities, isRelation]);
 
 	// Get schema keys
 	const schemaKeys = ctx.isTag ? [] : Object.keys(trait.schema || {});
@@ -87,25 +88,27 @@ export function TraitDetail({
 							trait.debugSource.line,
 							trait.debugSource.column
 						)}
-						className={styles.detailSource}
+						className={traitDetailStyles.detailSource}
 					>
-						{getShortPath(trait.debugSource.file)}:{trait.debugSource.line}
+						{formatDebugSource(trait.debugSource)}
 					</a>
 				) : undefined
 			}
-			badge={<span className={`${styles.detailBadge} ${badgeClasses[type]}`}>{type}</span>}
+			badge={<span className={`${badgeStyles.detailBadge} ${badgeClasses[type]}`}>{type}</span>}
 			onBack={onBack}
 		>
 			<DetailSection label="Info">
 				<DetailGrid>
-					<span className={styles.detailKey}>ID</span>
-					<span className={styles.detailValue}>{ctx.id}</span>
-					<span className={styles.detailKey}>Type</span>
-					<span className={styles.detailValue}>{ctx.type}</span>
-					<span className={styles.detailKey}>Is Tag</span>
-					<span className={styles.detailValue}>{ctx.isTag ? 'yes' : 'no'}</span>
-					<span className={styles.detailKey}>Is Pair</span>
-					<span className={styles.detailValue}>{ctx.isPairTrait ? 'yes' : 'no'}</span>
+					<span className={detailStyles.detailKey}>ID</span>
+					<span className={detailStyles.detailValue}>{ctx.id}</span>
+					<span className={detailStyles.detailKey}>Type</span>
+					<span className={detailStyles.detailValue}>{ctx.type}</span>
+					<span className={detailStyles.detailKey}>Is Tag</span>
+					<span className={detailStyles.detailValue}>{ctx.isTag ? 'yes' : 'no'}</span>
+					<span className={detailStyles.detailKey}>Is Relation</span>
+					<span className={detailStyles.detailValue}>
+						{ctx.relation !== null ? 'yes' : 'no'}
+					</span>
 				</DetailGrid>
 			</DetailSection>
 
@@ -114,8 +117,8 @@ export function TraitDetail({
 					<DetailGrid>
 						{schemaKeys.map((key) => (
 							<Fragment key={key}>
-								<span className={styles.detailKey}>{key}</span>
-								<span className={styles.detailValue}>
+								<span className={detailStyles.detailKey}>{key}</span>
+								<span className={detailStyles.detailValue}>
 									{typeof trait.schema[key] === 'function'
 										? 'fn()'
 										: String(trait.schema[key])}
@@ -123,6 +126,20 @@ export function TraitDetail({
 							</Fragment>
 						))}
 					</DetailGrid>
+				</DetailSection>
+			)}
+
+			{isRelation && (
+				<DetailSection label="Targets" count={targets.length}>
+					{targets.length === 0 ? (
+						<div className={traitDetailStyles.emptySmall}>No targets</div>
+					) : (
+						<EntityList
+							entities={targets}
+							scrollRef={scrollRef}
+							onSelect={onSelectEntity}
+						/>
+					)}
 				</DetailSection>
 			)}
 
