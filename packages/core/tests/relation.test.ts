@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, Wildcard } from '../src';
+import { $internal, createChanged, createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -97,9 +97,10 @@ describe('Relation', () => {
 		const gold = world.spawn();
 		const silver = world.spawn();
 
-		inventory.add(Contains(gold));
-		inventory.set(Contains(gold), { amount: 5 });
+		// Can add with initial values
+		inventory.add(Contains(gold, { amount: 5 }));
 
+		// Or add and set later
 		inventory.add(Contains(silver));
 		inventory.set(Contains(silver), { amount: 12 });
 
@@ -130,30 +131,11 @@ describe('Relation', () => {
 		expect(relations).toContain(inventory);
 		expect(relations).toContain(shop);
 
-		// Wildcard should be return the same as '*'.
-		relations = world.query(Contains(Wildcard));
+		// Wildcard '*' should return all entities with Contains relation
+		relations = world.query(Contains('*'));
 		expect(relations.length).toBe(2);
 		expect(relations).toContain(inventory);
 		expect(relations).toContain(shop);
-	});
-
-	it('should query all relations targeting an entity using Wildcard', () => {
-		const Contains = relation();
-		const Desires = relation();
-		const Fears = relation();
-
-		const gold = world.spawn();
-		const inventory = world.spawn(Contains(gold));
-		const chest = world.spawn(Contains(gold));
-		const dwarf = world.spawn(Desires(gold));
-		const dragon = world.spawn(Fears(gold));
-
-		const relatesToGold = world.query(Wildcard(gold));
-		expect(relatesToGold.length).toBe(4);
-		expect(relatesToGold).toContain(inventory);
-		expect(relatesToGold).toContain(chest);
-		expect(relatesToGold).toContain(dwarf);
-		expect(relatesToGold).toContain(dragon);
 	});
 
 	it('should query a specific relation targeting an entity', () => {
@@ -244,8 +226,9 @@ describe('Relation', () => {
 		person.add(Likes(dragon));
 		person.add(Fears(dragon));
 
-		// Wildcard(dragon) query should find person
-		expect(world.query(Wildcard(dragon))).toContain(person);
+		// Person should have both relations
+		expect(person.has(Fears(dragon))).toBe(true);
+		expect(person.has(Likes(dragon))).toBe(true);
 
 		// Remove only the Likes relation
 		person.remove(Likes(dragon));
@@ -253,8 +236,105 @@ describe('Relation', () => {
 		// Person should still fear the dragon
 		expect(person.has(Fears(dragon))).toBe(true);
 		expect(person.has(Likes(dragon))).toBe(false);
+	});
 
-		// Wildcard(dragon) should still find person because Fears(dragon) remains
-		expect(world.query(Wildcard(dragon))).toContain(person);
+	it('should ignore data on re-add', () => {
+		const Contains = relation({ store: { amount: 0 } });
+		const container = world.spawn();
+		const item = world.spawn();
+
+		container.add(Contains(item, { amount: 5 }));
+		expect(container.get(Contains(item))?.amount).toBe(5);
+
+		// Re-adding with different data should be ignored
+		container.add(Contains(item, { amount: 10 }));
+		expect(container.get(Contains(item))?.amount).toBe(5);
+	});
+
+	// There is a hotpath for relation-only queries so this is a sanity check
+	it('should support relation-only query with updateEach', () => {
+		const ChildOf = relation();
+
+		const parent = world.spawn();
+		const child1 = world.spawn(ChildOf(parent));
+		const child2 = world.spawn(ChildOf(parent));
+		const child3 = world.spawn(ChildOf(parent));
+
+		const visited: number[] = [];
+
+		// updateEach should work but with empty state array
+		world.query(ChildOf(parent)).updateEach((state, entity, index) => {
+			expect(state).toEqual([]);
+			visited.push(entity);
+			expect(index).toBe(visited.length - 1);
+		});
+
+		expect(visited.length).toBe(3);
+		expect(visited).toContain(child1);
+		expect(visited).toContain(child2);
+		expect(visited).toContain(child3);
+	});
+
+	it('queries should support relations with modifiers and traits', () => {
+		const ChildOf = relation();
+		const Weapon = trait();
+
+		const parent = world.spawn();
+		const child1 = world.spawn(ChildOf(parent), Weapon); // Has weapon
+		const child2 = world.spawn(ChildOf(parent)); // No weapon
+
+		// Query for children WITHOUT weapon
+		let result = world.query(ChildOf(parent), Not(Weapon));
+
+		expect(result.length).toBe(1);
+		expect(result).toContain(child2);
+		expect(result).not.toContain(child1);
+
+		result = world.query(ChildOf(parent), Weapon);
+		expect(result.length).toBe(1);
+		expect(result).toContain(child1);
+		expect(result).not.toContain(child2);
+	});
+
+	it('should track Changed modifier for relation stores', () => {
+		const Changed = createChanged();
+		const ChildOf = relation({ store: { order: 0 } });
+		// Get the base trait from the relation
+		const ChildOfTrait = ChildOf[$internal].trait;
+
+		const parent = world.spawn();
+		const child1 = world.spawn(ChildOf(parent));
+		const child2 = world.spawn(ChildOf(parent));
+
+		// This tracks changes to ChildOf relation store for entities related to parent
+		let changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(0);
+
+		// Update relation store for child1
+		child1.set(ChildOf(parent), { order: 1 });
+
+		// Query should now include child1
+		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(1);
+		expect(changedEntities).toContain(child1);
+		expect(changedEntities).not.toContain(child2);
+
+		// Verify the order was updated
+		expect(child1.get(ChildOf(parent))?.order).toBe(1);
+		expect(child2.get(ChildOf(parent))?.order).toBe(0);
+
+		// After query, changes are reset
+		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(0);
+
+		// Update both children
+		child1.set(ChildOf(parent), { order: 2 });
+		child2.set(ChildOf(parent), { order: 3 });
+
+		// Both should be in the query
+		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		expect(changedEntities.length).toBe(2);
+		expect(changedEntities).toContain(child1);
+		expect(changedEntities).toContain(child2);
 	});
 });

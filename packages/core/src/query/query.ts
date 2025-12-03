@@ -1,21 +1,28 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { isRelationPair } from '../relation/relation';
+import type { Relation } from '../relation/types';
 import { registerTrait, trait } from '../trait/trait';
 import type { Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
 import { createQueryResult, getQueryStores } from './query-result';
-import type { Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
+import type { EventType, Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
+import { checkQuery } from './utils/check-query';
+import { checkQueryTracking } from './utils/check-query-tracking';
+import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
-
-type QueryEvent = { type: 'add' | 'remove' | 'change'; traitData: TraitData };
+import { getTraitData, hasTraitData } from '../trait/utils/trait-data';
 
 export const IsExcluded = trait();
 
 export function runQuery<T extends QueryParameter[]>(world: World, query: Query<T>): QueryResult<T> {
 	commitQueryRemovals(world);
+
+	// With hybrid bitmask strategy, query.entities is already incrementally maintained
+	// with both trait and relation filters applied. Just return the pre-filtered entities.
 	const entities = query.entities.dense.slice() as Entity[];
 
 	// Clear so it can accumulate again.
@@ -56,88 +63,6 @@ export function removeEntityFromQuery(world: World, query: Query, entity: Entity
 	}
 
 	query.version++;
-}
-
-export function checkQuery(world: World, query: Query, entity: Entity, event?: QueryEvent): boolean {
-	const { bitmasks, generations } = query;
-	const ctx = world[$internal];
-	const eid = getEntityId(entity);
-
-	// If the query is empty, the check fails.
-	if (query.traitData.all.length === 0) return false;
-
-	for (let i = 0; i < generations.length; i++) {
-		const generationId = generations[i];
-		const bitmask = bitmasks[i];
-		const { required, forbidden, or, added, removed, changed } = bitmask;
-		const entityMask = ctx.entityMasks[generationId][eid];
-
-		// If there are no traits to match, return false.
-		if (!forbidden && !required && !or && !removed && !added && !changed) {
-			return false;
-		}
-
-		// Only process events for the current trait's generation or the masks will not be relevant.
-		const isEventGeneration = event && event.traitData.generationId === generationId;
-
-		// Handle events.
-		if (query.isTracking && isEventGeneration) {
-			const traitMask = event.traitData.bitflag;
-
-			if (event.type === 'add') {
-				if (removed & traitMask) return false;
-				if (added & traitMask) {
-					bitmask.addedTracker[eid] |= traitMask;
-				}
-			} else if (event.type === 'remove') {
-				if (added & traitMask) return false;
-				if (removed & traitMask) {
-					bitmask.removedTracker[eid] |= traitMask;
-				}
-				// Remove from changed tracker when the trait is removed.
-				if (changed & traitMask) return false;
-			} else if (event.type === 'change') {
-				// Check that the trait is on the entity.
-				if (!(entityMask & traitMask)) return false;
-				if (changed & traitMask) {
-					bitmask.changedTracker[eid] |= traitMask;
-				}
-			}
-		}
-
-		// Check forbidden traits.
-		if ((entityMask & forbidden) !== 0) return false;
-
-		// Check required traits.
-		if ((entityMask & required) !== required) return false;
-
-		// Check Or traits.
-		if (or !== 0 && (entityMask & or) === 0) return false;
-
-		// Check if all required added traits have been added.
-		if (added && isEventGeneration) {
-			const entityAddedTracker = bitmask.addedTracker[eid] || 0;
-			if ((entityAddedTracker & added) !== added) return false;
-		}
-
-		// Check if all required removed traits have been removed.
-		if (removed && isEventGeneration) {
-			const entityRemovedTracker = bitmask.removedTracker[eid] || 0;
-			if ((entityRemovedTracker & removed) !== removed) {
-				return false;
-			}
-		}
-
-		// Check if all required changed traits have been changed.
-		if (changed && isEventGeneration) {
-			const entityChangedTracker = bitmask.changedTracker[eid] || 0;
-			if ((entityChangedTracker & changed) !== changed) {
-				return false;
-			}
-		}
-	}
-
-	return true;
 }
 
 export function commitQueryRemovals(world: World) {
@@ -190,12 +115,19 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		toRemove: new SparseSet(),
 		addSubscriptions: new Set<QuerySubscriber>(),
 		removeSubscriptions: new Set<QuerySubscriber>(),
+		relationFilters: [],
 
 		run: (world: World) => runQuery(world, query),
 		add: (entity: Entity) => addEntityToQuery(query, entity),
 		remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
-		check: (world: World, entity: Entity, event?: QueryEvent) =>
-			checkQuery(world, query, entity, event),
+		check: (world: World, entity: Entity) => checkQuery(world, query, entity),
+		checkTracking: (
+			world: World,
+			entity: Entity,
+			eventType: EventType,
+			generationId: number,
+			bitflag: number
+		) => checkQueryTracking(world, query, entity, eventType, generationId, bitflag),
 		resetTrackingBitmasks: (eid: number) => resetQueryTrackingBitmasks(query, eid),
 	};
 
@@ -213,26 +145,47 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 	for (let i = 0; i < parameters.length; i++) {
 		const parameter = parameters[i];
 
+		// Handle relation pairs
+		if (isRelationPair(parameter)) {
+			const pairCtx = parameter[$internal];
+			const relation = pairCtx.relation;
+
+			// Cache relation pairs for queries
+			query.relationFilters!.push(parameter);
+
+			// Add the base trait as required
+			const baseTrait = (relation as Relation<Trait>)[$internal].trait;
+			if (!hasTraitData(ctx.traitData, baseTrait)) registerTrait(world, baseTrait);
+			query.traitData.required.push(getTraitData(ctx.traitData, baseTrait)!);
+			query.traits.push(baseTrait);
+
+			continue;
+		}
+
 		if (isModifier(parameter)) {
 			const traits = parameter.traits;
 
 			// Register traits if they don't exist.
 			for (let j = 0; j < traits.length; j++) {
 				const trait = traits[j];
-				if (!ctx.traitData.has(trait)) registerTrait(world, trait);
+				if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
 			}
 
 			if (parameter.type === 'not') {
-				query.traitData.forbidden.push(...traits.map((trait) => ctx.traitData.get(trait)!));
+				query.traitData.forbidden.push(
+					...traits.map((trait) => getTraitData(ctx.traitData, trait)!)
+				);
 			}
 
 			if (parameter.type === 'or') {
-				query.traitData.or.push(...traits.map((trait) => ctx.traitData.get(trait)!));
+				query.traitData.or.push(
+					...traits.map((trait) => getTraitData(ctx.traitData, trait)!)
+				);
 			}
 
 			if (parameter.type.includes('added')) {
 				for (const trait of traits) {
-					const data = ctx.traitData.get(trait)!;
+					const data = getTraitData(ctx.traitData, trait)!;
 					query.traitData.added.push(data);
 					query.traits.push(trait);
 				}
@@ -249,7 +202,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 
 			if (parameter.type.includes('removed')) {
 				for (const trait of traits) {
-					const data = ctx.traitData.get(trait)!;
+					const data = getTraitData(ctx.traitData, trait)!;
 					query.traitData.removed.push(data);
 					query.traits.push(trait);
 				}
@@ -267,7 +220,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			if (parameter.type.includes('changed')) {
 				for (const trait of traits) {
 					query.changedTraits.add(trait);
-					const data = ctx.traitData.get(trait)!;
+					const data = getTraitData(ctx.traitData, trait)!;
 					query.traitData.changed.push(data);
 					query.traits.push(trait);
 					query.hasChangedModifiers = true;
@@ -284,14 +237,14 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			}
 		} else {
 			const trait = parameter as Trait;
-			if (!ctx.traitData.has(trait)) registerTrait(world, trait);
-			query.traitData.required.push(ctx.traitData.get(trait)!);
+			if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
+			query.traitData.required.push(getTraitData(ctx.traitData, trait)!);
 			query.traits.push(trait);
 		}
 	}
 
 	// Add IsExcluded to the forbidden list.
-	query.traitData.forbidden.push(ctx.traitData.get(IsExcluded)!);
+	query.traitData.forbidden.push(getTraitData(ctx.traitData, IsExcluded)!);
 
 	query.traitData.all = [
 		...query.traitData.required,
@@ -357,13 +310,33 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 	ctx.queries.add(query);
 	ctx.queriesHashMap.set(query.hash, query);
 
-	// Add query to each trait instance.
-	query.traitData.all.forEach((instance) => {
-		instance.queries.add(query);
-	});
+	// Add query to each trait instance, sorted by tracking status
+	if (query.isTracking) {
+		query.traitData.all.forEach((instance) => {
+			instance.trackingQueries.add(query);
+		});
+	} else {
+		query.traitData.all.forEach((instance) => {
+			instance.queries.add(query);
+		});
+	}
 
 	// Add query instance to the world's not-query store.
 	if (query.traitData.forbidden.length > 0) ctx.notQueries.add(query);
+
+	// Index queries with relation filters by their relations
+	const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
+
+	if (hasRelationFilters) {
+		for (const pair of query.relationFilters!) {
+			// Add to this specific relation's relationQueries
+			const relationTrait = pair[$internal].relation[$internal].trait;
+			const relationTraitData = getTraitData(ctx.traitData, relationTrait);
+			if (relationTraitData) {
+				relationTraitData.relationQueries.add(query);
+			}
+		}
+	}
 
 	// Populate the query with tracking parameters.
 	if (trackingParams.length > 0) {
@@ -416,17 +389,14 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		}
 	} else {
 		// Populate the query immediately.
-		if (
-			query.traitData.required.length > 0 ||
-			query.traitData.forbidden.length > 0 ||
-			query.traitData.or.length > 0
-		) {
-			const entities = ctx.entityIndex.dense;
-			for (let i = 0; i < entities.length; i++) {
-				const entity = entities[i];
-				const match = query.check(world, entity);
-				if (match) query.add(entity);
-			}
+		const entities = ctx.entityIndex.dense;
+		for (let i = 0; i < entities.length; i++) {
+			const entity = entities[i];
+			// Use checkQueryWithRelations if query has relation filters, otherwise use checkQuery
+			const match = hasRelationFilters
+				? checkQueryWithRelations(world, query, entity)
+				: query.check(world, entity);
+			if (match) query.add(entity);
 		}
 	}
 

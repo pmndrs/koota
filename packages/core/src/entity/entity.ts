@@ -1,5 +1,5 @@
 import { $internal } from '../common';
-import { Pair, Wildcard } from '../relation/relation';
+import { getEntitiesWithRelationTo, removeRelationTarget } from '../relation/relation';
 import { addTrait, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -56,28 +56,24 @@ export function destroyEntity(world: World, entity: Entity) {
 
 		processedEntities.add(currentEntity);
 
-		// Process all related entities and traits.
-		if (ctx.relationTargetEntities.has(currentEntity)) {
-			for (const subject of world.query(Wildcard(currentEntity))) {
+		// Process all entities that have relations to this entity
+		// Scan all relations to find entities targeting currentEntity
+		for (const relation of ctx.relations) {
+			// Get all entities with this relation targeting currentEntity
+			const subjects = getEntitiesWithRelationTo(world, relation, currentEntity);
+
+			for (const subject of subjects) {
 				if (!world.has(subject)) continue;
 
-				for (const trait of ctx.entityTraits.get(subject)!) {
-					const traitCtx = trait[$internal];
-					if (!traitCtx.isPairTrait) continue;
+				// Check if this relation has autoRemoveTarget
+				const relationCtx = relation[$internal];
 
-					const relationCtx = traitCtx.relation![$internal];
+				// Remove the target from this relation
+				removeRelationTarget(world, relation, subject, currentEntity);
 
-					// Remove wildcard pair trait.
-					removeTrait(world, subject, Pair(Wildcard, currentEntity));
-
-					if (traitCtx.pairTarget === currentEntity) {
-						// Remove the specific pair trait.
-						removeTrait(world, subject, trait);
-
-						if (relationCtx.autoRemoveTarget) {
-							entityQueue.push(subject);
-						}
-					}
+				// If autoRemoveTarget, queue the subject for destruction
+				if (relationCtx.autoRemoveTarget) {
+					entityQueue.push(subject);
 				}
 			}
 		}
@@ -98,7 +94,7 @@ export function destroyEntity(world: World, entity: Entity) {
 		if (allQuery) allQuery.remove(world, currentEntity);
 
 		// Remove all entity state from world.
-		ctx.entityTraits.delete(entity);
+		ctx.entityTraits.delete(currentEntity);
 
 		// Clear entity bitmasks.
 		const eid = getEntityId(currentEntity);

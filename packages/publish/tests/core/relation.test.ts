@@ -97,9 +97,10 @@ describe('Relation', () => {
 		const gold = world.spawn();
 		const silver = world.spawn();
 
-		inventory.add(Contains(gold));
-		inventory.set(Contains(gold), { amount: 5 });
+		// Can add with initial values
+		inventory.add(Contains(gold, { amount: 5 }));
 
+		// Or add and set later
 		inventory.add(Contains(silver));
 		inventory.set(Contains(silver), { amount: 12 });
 
@@ -256,5 +257,18 @@ describe('Relation', () => {
 
 		// Wildcard(dragon) should still find person because Fears(dragon) remains
 		expect(world.query(Wildcard(dragon))).toContain(person);
+	});
+
+	it('should ignore data on re-add', () => {
+		const Contains = relation({ store: { amount: 0 } });
+		const container = world.spawn();
+		const item = world.spawn();
+
+		container.add(Contains(item, { amount: 5 }));
+		expect(container.get(Contains(item))?.amount).toBe(5);
+
+		// Re-adding with different data should be ignored
+		container.add(Contains(item, { amount: 10 }));
+		expect(container.get(Contains(item))?.amount).toBe(5);
 	});
 });
