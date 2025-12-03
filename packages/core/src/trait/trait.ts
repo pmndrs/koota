@@ -31,6 +31,7 @@ import type {
 	Trait,
 	TraitData,
 	TraitType,
+	TraitValue,
 } from './types';
 import {
 	createFastSetChangeFunction,
@@ -54,7 +55,7 @@ function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 
 	validateSchema(schema);
 
-	const Trait = Object.assign((params: Partial<Norm<S>>) => [Trait, params], {
+	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
 		schema: schema as Norm<S>,
 		[$internal]: {
 			set: createSetFunction[traitType](schema),
@@ -68,7 +69,7 @@ function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 			isTag: !isAoS && Object.keys(schema).length === 0,
 			type: traitType,
 		},
-	}) as any;
+	}) as Trait<Norm<S>>;
 
 	return Trait;
 }
