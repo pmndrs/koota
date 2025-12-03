@@ -98,6 +98,33 @@ export /* @inline */ function getRelationTargets(
 }
 
 /**
+ * Get the first target for a relation on an entity.
+ * Returns the first target entity ID, or undefined if none exists.
+ * Optimized version that avoids array allocation.
+ */
+export /* @inline */ function getFirstRelationTarget(
+	world: World,
+	relation: Relation<Trait>,
+	entity: Entity
+): RelationTarget | undefined {
+	const ctx = world[$internal];
+	const relationCtx = relation[$internal];
+
+	const traitData = getTraitData(ctx.traitData, relationCtx.trait);
+	if (!traitData || !traitData.relationTargets) return undefined;
+
+	const eid = getEntityId(entity);
+
+	if (relationCtx.exclusive) {
+		const target = (traitData.relationTargets as number[])[eid];
+		return target ? (target as Entity) : undefined;
+	} else {
+		const targets = (traitData.relationTargets as number[][])[eid];
+		return targets?.[0] as Entity | undefined;
+	}
+}
+
+/**
  * Get the index of a target in the relation's target array.
  * Returns -1 if not found. Used for accessing per-target store data.
  */

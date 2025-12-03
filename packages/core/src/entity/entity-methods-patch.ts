@@ -5,7 +5,7 @@
 
 import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
-import { getRelationTargets, isRelationPair } from '../relation/relation';
+import { getFirstRelationTarget, getRelationTargets, isRelationPair } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { addTrait, getTrait, hasRelationPair, hasTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
@@ -64,7 +64,7 @@ Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
 
 //@ts-expect-error
 Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
-	return getRelationTargets(getEntityWorld(this), relation, this)[0];
+	return getFirstRelationTarget(getEntityWorld(this), relation, this);
 };
 
 //@ts-expect-error
