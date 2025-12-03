@@ -1,0 +1,25 @@
+import type { Entity } from '../../entity/types';
+import { hasRelationPair } from '../../relation/relation';
+import type { World } from '../../world/world';
+import { checkQuery } from './check-query';
+import type { Query } from '../types';
+
+/**
+ * Check if an entity matches a query with relation filters.
+ * Uses hybrid bitmask strategy: trait bitmasks first (fast), then relation checks.
+ */
+export function checkQueryWithRelations(world: World, query: Query, entity: Entity): boolean {
+	// First check trait bitmasks (fast)
+	if (!checkQuery(world, query, entity)) return false;
+
+	// Then check relation pairs if any
+	if (query.relationFilters && query.relationFilters.length > 0) {
+		for (const pair of query.relationFilters) {
+			if (!hasRelationPair(world, entity, pair)) {
+				return false;
+			}
+		}
+	}
+
+	return true;
+}

@@ -3,7 +3,7 @@ import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
 import { IsExcluded, createQuery } from '../query/query';
-import { createEmptyQueryResult } from '../query/query-result';
+import { createEmptyQueryResult, createRelationOnlyQueryResult } from '../query/query-result';
 import type {
 	Query,
 	QueryHash,
@@ -13,7 +13,8 @@ import type {
 } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import type { RelationTarget } from '../relation/types';
+import { getEntitiesWithRelationTo, isRelationPair } from '../relation/relation';
+import type { Relation } from '../relation/types';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import type {
 	ConfigurableTrait,
@@ -25,6 +26,7 @@ import type {
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
+import { clearTraitData, getTraitData, hasTraitData } from '../trait/utils/trait-data';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 type Options = {
@@ -40,12 +42,12 @@ export class World {
 		entityMasks: [[]] as number[][],
 		entityTraits: new Map<number, Set<Trait>>(),
 		bitflag: 1,
-		traitData: new Map<Trait, TraitData>(),
+		traitData: [] as (TraitData | undefined)[],
+		relations: new Set<Relation<Trait>>(),
 		queries: new Set<Query>(),
 		queriesHashMap: new Map<string, Query>(),
 		notQueries: new Set<Query>(),
 		dirtyQueries: new Set<Query>(),
-		relationTargetEntities: new Set<RelationTarget>(),
 		dirtyMasks: new Map<number, number[][]>(),
 		trackingSnapshots: new Map<number, number[][]>(),
 		changedMasks: new Map<number, number[][]>(),
@@ -92,7 +94,7 @@ export class World {
 		}
 
 		// Register system traits.
-		if (!ctx.traitData.has(IsExcluded)) registerTrait(this, IsExcluded);
+		if (!hasTraitData(ctx.traitData, IsExcluded)) registerTrait(this, IsExcluded);
 
 		// Create cached queries.
 		for (const [hash, parameters] of universe.cachedQueries) {
@@ -129,7 +131,7 @@ export class World {
 	}
 
 	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
-		setTrait(this, this[$internal].worldEntity, trait, value);
+		setTrait(this, this[$internal].worldEntity, trait, value, true);
 	}
 
 	destroy() {
@@ -162,15 +164,14 @@ export class World {
 		ctx.entityMasks = [[]];
 		ctx.bitflag = 1;
 
-		ctx.traitData.clear();
+		clearTraitData(ctx.traitData);
 		this.traits.clear();
+		ctx.relations.clear();
 
 		ctx.queries.clear();
 		ctx.queriesHashMap.clear();
 		ctx.dirtyQueries.clear();
 		ctx.notQueries.clear();
-
-		ctx.relationTargetEntities.clear();
 
 		ctx.trackingSnapshots.clear();
 		ctx.dirtyMasks.clear();
@@ -202,6 +203,24 @@ export class World {
 			return query.run(this);
 		} else {
 			const params = args as QueryParameter[];
+
+			// Fast path: single relation pair with specific target
+			if (params.length === 1 && isRelationPair(params[0])) {
+				const pairCtx = params[0][$internal];
+				const relation = pairCtx.relation;
+				const target = pairCtx.target;
+
+				// Only use fast path for specific targets
+				if (typeof target === 'number') {
+					const entities = getEntitiesWithRelationTo(
+						this,
+						relation as Relation<Trait>,
+						target as Entity
+					);
+					return createRelationOnlyQueryResult(entities.slice() as Entity[]);
+				}
+			}
+
 			const hash = createQueryHash(params);
 			let query = ctx.queriesHashMap.get(hash);
 
@@ -223,11 +242,11 @@ export class World {
 
 	onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 		const ctx = this[$internal];
-		let data = ctx.traitData.get(trait)!;
+		let data = getTraitData(ctx.traitData, trait);
 
 		if (!data) {
 			registerTrait(this, trait);
-			data = ctx.traitData.get(trait)!;
+			data = getTraitData(ctx.traitData, trait)!;
 		}
 
 		data.addSubscriptions.add(callback);
@@ -301,11 +320,11 @@ export class World {
 
 	onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 		const ctx = this[$internal];
-		let data = ctx.traitData.get(trait)!;
+		let data = getTraitData(ctx.traitData, trait);
 
 		if (!data) {
 			registerTrait(this, trait);
-			data = ctx.traitData.get(trait)!;
+			data = getTraitData(ctx.traitData, trait)!;
 		}
 
 		data.removeSubscriptions.add(callback);
@@ -317,9 +336,9 @@ export class World {
 		const ctx = this[$internal];
 
 		// Register the trait if it's not already registered.
-		if (!ctx.traitData.has(trait)) registerTrait(this, trait);
+		if (!hasTraitData(ctx.traitData, trait)) registerTrait(this, trait);
 
-		const data = ctx.traitData.get(trait)!;
+		const data = getTraitData(ctx.traitData, trait)!;
 		data.changeSubscriptions.add(callback);
 
 		// Used by auto change detection to know which traits to track.
