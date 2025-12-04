@@ -24,5 +24,8 @@ export default defineConfig({
 		resolve: true,
 	},
 	clean: true,
-	esbuildPlugins: [inlineFunctions({ include: ['src/index.ts', 'src/react.ts'] })],
+	esbuildPlugins: [
+		// A quick hack until I figure out the path issue
+		inlineFunctions({ include: ['src/**/*.ts', '../core/src/**/*.ts', '../react/src/**/*.ts'] }),
+	],
 });

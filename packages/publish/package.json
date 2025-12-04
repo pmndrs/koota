@@ -96,7 +96,10 @@
 	"peerDependencies": {
 		"@types/react": ">=18.0.0",
 		"react": ">=18.0.0",
-		"rollup": ">=3.0.0"
+		"vite": ">=4.0.0",
+		"rollup": ">=3.0.0",
+		"webpack": ">=5.0.0",
+		"esbuild": ">=0.17.0"
 	},
 	"peerDependenciesMeta": {
 		"@types/react": {
@@ -105,7 +108,16 @@
 		"react": {
 			"optional": true
 		},
+		"vite": {
+			"optional": true
+		},
 		"rollup": {
+			"optional": true
+		},
+		"webpack": {
+			"optional": true
+		},
+		"esbuild": {
 			"optional": true
 		}
 	}
