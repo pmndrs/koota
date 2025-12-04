@@ -156,17 +156,19 @@ export function RelationGraph({ world, relationTraits, onSelectEntity }: Relatio
 		};
 	}, [world, relationTraits, updateGraph]);
 
-
 	return (
 		<div className={`${styles.container} relation-graph`}>
 			<div className={styles.controls}>
 				<div className={styles.controlsContent}>
 					<div className={styles.stats}>
-						{graphData?.nodes.length ?? 0} entities · {graphData?.links.length ?? 0} relations
+						{graphData?.nodes.length ?? 0} entities · {graphData?.links.length ?? 0}{' '}
+						relations
 					</div>
 					{relationNames.length > 0 && (
 						<button
-							className={`${styles.filterToggle} ${showFilter ? styles.filterToggleActive : ''}`}
+							className={`${styles.filterToggle} ${
+								showFilter ? styles.filterToggleActive : ''
+							}`}
 							onClick={() => setShowFilter(!showFilter)}
 							title="Filter relations"
 						>
@@ -201,10 +203,15 @@ export function RelationGraph({ world, relationTraits, onSelectEntity }: Relatio
 					<div className={styles.empty}>
 						<div className={styles.emptyMessage}>Generating graph...</div>
 					</div>
-				) : !graphData || !graphData.nodes || !graphData.links || graphData.nodes.length === 0 ? (
+				) : !graphData ||
+				  !graphData.nodes ||
+				  !graphData.links ||
+				  graphData.nodes.length === 0 ? (
 					<div className={styles.empty}>
 						<div className={styles.emptyMessage}>No relations found</div>
-						<div className={styles.emptySubtext}>Create some relations to visualize them</div>
+						<div className={styles.emptySubtext}>
+							Create some relations to visualize them
+						</div>
 					</div>
 				) : (
 					<ForceGraph2D
@@ -274,4 +281,3 @@ export function RelationGraph({ world, relationTraits, onSelectEntity }: Relatio
 		</div>
 	);
 }
-
