@@ -1,4 +1,5 @@
 {
 	"extends": "@config/typescript/react.json",
-	"include": ["src/**/*", "tests"]
+	"include": ["src/**/*", "tests", "css-modules.d.ts"],
+	"references": [{ "path": "tsconfig.node.json" }]
 }

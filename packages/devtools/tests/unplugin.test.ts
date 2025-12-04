@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { unplugin } from '../src/plugin';
+import { unplugin } from '../plugin';
 import type { UnpluginOptions, HookFnMap } from 'unplugin';
 
 const plugin = unplugin.raw({}, { framework: 'vite' }) as UnpluginOptions;

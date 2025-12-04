@@ -11,7 +11,7 @@
 		".": "./src/index.ts",
 		"./plugin": {
 			"types": "./src/plugin.ts",
-			"default": "./dist/plugin.js"
+			"default": "./src/plugin.ts"
 		}
 	},
 	"scripts": {

@@ -1,1 +1,1 @@
-export * from '../../devtools/src/plugin';
+export * from '../../devtools/plugin';
