@@ -421,6 +421,9 @@ importers:
       '@koota/core':
         specifier: workspace:*
         version: link:../core
+      '@koota/devtools':
+        specifier: workspace:*
+        version: link:../devtools
       '@koota/react':
         specifier: workspace:*
         version: link:../react
