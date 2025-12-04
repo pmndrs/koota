@@ -8,7 +8,7 @@
 }
 
 .row:hover {
-	background: #383838;
+	background: var(--k-bg-hover);
 }
 
 .rowClickable {
@@ -21,20 +21,19 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: 11px;
-	color: #ddd;
+	color: var(--k-text-secondary);
 }
 
 .rowMeta {
 	font-size: 9px;
-	color: #888;
+	color: var(--k-text-muted);
 	font-variant-numeric: tabular-nums;
 }
 
 .rowCount {
 	font-size: 10px;
-	color: #888;
+	color: var(--k-text-muted);
 	min-width: 16px;
 	text-align: right;
 	font-variant-numeric: tabular-nums;
 }
-

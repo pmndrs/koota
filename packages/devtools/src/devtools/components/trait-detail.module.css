@@ -1,12 +1,12 @@
 .detailSource {
 	font-size: 9px;
-	color: #bbb;
+	color: var(--k-text-muted);
 	word-break: break-all;
 	text-decoration: none;
 	transition: color 0.15s;
 }
 
 .detailSource:hover {
-	color: #4a9eff;
+	color: var(--k-accent-tag);
 }
 
