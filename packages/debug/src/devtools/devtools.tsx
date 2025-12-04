@@ -1,11 +1,13 @@
 import { $internal, type Entity, type Trait, type World } from '@koota/core';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
 import { AllEntitiesList } from './components/all-entities-list';
 import { EntityDetail } from './components/entity-detail';
 import { Header, type Tab } from './components/header';
+import { RelationGraph } from './components/relation-graph';
 import { TraitDetail } from './components/trait-detail';
 import { TraitList } from './components/trait-list';
+import { getTraitType } from './components/trait-utils';
 import { useDraggable } from './hooks/use-draggable';
 import { useEntityCount } from './hooks/use-entity-count';
 import { useWorldTraits } from './hooks/use-world-traits';
@@ -51,6 +53,24 @@ export function Devtools({
 	const { position, isDragging, handleMouseDown } = useDraggable(defaultPosition);
 	const traits = useWorldTraits(world);
 	const entityCount = useEntityCount(world);
+
+	// Get relation traits for graph
+	// Memoize to prevent unnecessary graph rerenders
+	const relationTraits = useMemo(() => {
+		return traits.filter((trait) => getTraitType(trait) === 'rel') as TraitWithDebug[];
+	}, [
+		// Create a stable key from relation trait IDs
+		// This string will change when relation traits are added/removed
+		traits
+			.filter((trait) => getTraitType(trait) === 'rel')
+			.map((t) => t[$internal].id)
+			.sort()
+			.join(','),
+		// Include traits to ensure we always use the latest traits array
+		// The key comparison prevents unnecessary updates when relation traits haven't changed
+		traits,
+	]);
+	const relationCount = relationTraits.length;
 
 	const toggleType = (type: 'tag' | 'soa' | 'aos' | 'rel') => {
 		setTypeFilters((prev) => ({ ...prev, [type]: !prev[type] }));
@@ -111,8 +131,7 @@ export function Devtools({
 		selectedTrait && traits.includes(selectedTrait as Trait) ? selectedTrait : null;
 
 	// Check if selected entity still exists
-	const validSelectedEntity =
-		selectedEntity && world.entities.includes(selectedEntity) ? selectedEntity : null;
+	const validSelectedEntity = selectedEntity && world.has(selectedEntity) ? selectedEntity : null;
 
 	return (
 		<div className={styles.container} style={{ top: position.y, left: position.x }}>
@@ -126,6 +145,7 @@ export function Devtools({
 				<Header
 					traitCount={traits.length}
 					entityCount={entityCount}
+					relationCount={relationCount}
 					isOpen={isOpen}
 					isDragging={isDragging}
 					activeTab={activeTab}
@@ -135,7 +155,17 @@ export function Devtools({
 				/>
 				{isOpen && (
 					<div ref={scrollRef} className={styles.list}>
-						{activeTab === 'entities' ? (
+						{activeTab === 'graph' ? (
+							<RelationGraph
+								world={world}
+								relationTraits={relationTraits}
+								onSelectEntity={(entity) => {
+									setSelectedEntity(entity);
+									setActiveTab('entities');
+									scrollToTop();
+								}}
+							/>
+						) : activeTab === 'entities' ? (
 							validSelectedEntity ? (
 								<EntityDetail
 									key={validSelectedEntity}
