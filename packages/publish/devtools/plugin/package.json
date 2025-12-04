@@ -1,5 +1,5 @@
 {
-  "main": "../../dist/devtools-plugin.cjs",
-  "module": "../../dist/devtools-plugin.js",
-  "types": "../../dist/devtools-plugin.d.ts"
+  "main": "../../dist/devtools/plugin/devtools-plugin.cjs",
+  "module": "../../dist/devtools/plugin/devtools-plugin.js",
+  "types": "../../dist/devtools/plugin/devtools-plugin.d.ts"
 }

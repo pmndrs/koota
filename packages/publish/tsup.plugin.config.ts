@@ -6,7 +6,7 @@ export default defineConfig({
 	sourcemap: true,
 	// Bundle all plugin dependencies
 	noExternal: ['unplugin', 'acorn', 'estree-walker', 'magic-string'],
-	dts: true, // Don't resolve, just emit types
+	dts: { compilerOptions: { allowImportingTsExtensions: true } },
 	clean: false, // Don't delete previous output
 	esbuildOptions: (options, { format }) => {
 		options.banner = format === 'esm' ? { js: '"use strict";' } : undefined;
