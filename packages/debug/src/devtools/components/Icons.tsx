@@ -18,3 +18,11 @@ export function EntityIcon({ size = 12, className }: IconProps) {
 		</svg>
 	);
 }
+
+export function GraphIcon({ size = 12, className }: IconProps) {
+	return (
+		<svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+			<path d="M2 2h2v12H2V2zm4 4h2v8H6V6zm4 2h2v6h-2V8zm4-4h2v10h-2V4z" />
+		</svg>
+	);
+}

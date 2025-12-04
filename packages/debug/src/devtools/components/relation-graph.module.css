@@ -1,0 +1,174 @@
+.container {
+	position: relative;
+	width: 100%;
+	height: 280px;
+	background: #181818;
+	display: flex;
+	flex-direction: column;
+}
+
+.controls {
+	position: relative;
+	padding: 6px 8px;
+	border-bottom: 1px solid #2a2a2a;
+	background: #1e1e1e;
+}
+
+.controlsContent {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4px;
+}
+
+.refreshButton {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 3px;
+	color: #666;
+	cursor: pointer;
+	transition: color 0.15s, background 0.15s;
+	font-size: 14px;
+	line-height: 1;
+}
+
+.refreshButton:hover {
+	color: #999;
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.stats {
+	font-size: 9px;
+	color: #666;
+	font-variant-numeric: tabular-nums;
+}
+
+.filterToggle {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	background: #242424;
+	color: #666;
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+
+.filterToggle:hover {
+	background: #2a2a2a;
+	color: #999;
+}
+
+.filterToggleActive {
+	background: #333;
+	color: #aaa;
+}
+
+.filterBadge {
+	position: absolute;
+	top: -2px;
+	right: -2px;
+	min-width: 12px;
+	height: 12px;
+	padding: 0 3px;
+	border-radius: 6px;
+	background: #7c5cff;
+	color: #fff;
+	font-size: 8px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.filterMenu {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	z-index: 10;
+	display: flex;
+	gap: 6px;
+	padding: 2px 8px 8px;
+	background: #1e1e1e;
+	border-bottom: 1px solid #2a2a2a;
+	overflow-x: auto;
+	white-space: nowrap;
+	/* Firefox - thin overlay scrollbar */
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Overlay scrollbars - WebKit browsers */
+.filterMenu::-webkit-scrollbar {
+	height: 6px;
+}
+
+.filterMenu::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.filterMenu::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 3px;
+}
+
+.filterMenu::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.filterButton {
+	all: unset;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 9px;
+	font-weight: 500;
+	text-transform: lowercase;
+	cursor: pointer;
+	transition: opacity 0.15s, background 0.15s;
+	opacity: 0.35;
+}
+
+.filterButton:hover {
+	opacity: 0.6;
+}
+
+.filterButtonActive {
+	opacity: 1 !important;
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.graphWrapper {
+	flex: 1;
+	overflow: hidden;
+}
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 280px;
+	padding: 20px;
+	text-align: center;
+}
+
+.emptyMessage {
+	color: #888;
+	font-size: 11px;
+	margin-bottom: 4px;
+}
+
+.emptySubtext {
+	color: #555;
+	font-size: 9px;
+}
+

@@ -22,6 +22,32 @@
 .list {
 	max-height: 280px;
 	overflow-y: auto;
+	overflow-x: hidden;
+	/* Firefox - thin overlay scrollbar */
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Overlay scrollbars - WebKit browsers */
+.list::-webkit-scrollbar {
+	width: 8px;
+}
+
+.list::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.list::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+}
+
+.list::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.list:has(> div[class*='relation-graph']) {
+	overflow: hidden;
 }
 
 .filterRow {

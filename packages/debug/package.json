@@ -25,6 +25,7 @@
 		"acorn": "^8.14.0",
 		"estree-walker": "^3.0.3",
 		"magic-string": "^0.30.17",
+		"react-force-graph-2d": "^1.29.0",
 		"unplugin": "^2.3.11"
 	},
 	"devDependencies": {

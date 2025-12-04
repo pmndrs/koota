@@ -1,11 +1,12 @@
 import styles from './header.module.css';
-import { EntityIcon, TraitIcon } from './icons';
+import { EntityIcon, GraphIcon, TraitIcon } from './icons';
 
-export type Tab = 'traits' | 'entities';
+export type Tab = 'traits' | 'entities' | 'graph';
 
 interface HeaderProps {
 	traitCount: number;
 	entityCount: number;
+	relationCount: number;
 	isOpen: boolean;
 	isDragging: boolean;
 	activeTab: Tab;
@@ -17,6 +18,7 @@ interface HeaderProps {
 export function Header({
 	traitCount,
 	entityCount,
+	relationCount,
 	isOpen,
 	isDragging,
 	activeTab,
@@ -48,6 +50,15 @@ export function Header({
 					>
 						<TraitIcon size={12} />
 						<span>{traitCount}</span>
+					</button>
+					<button
+						className={`${styles.tab} ${activeTab === 'graph' ? styles.tabActive : ''}`}
+						onClick={() => onTabChange('graph')}
+						onMouseDown={(e) => e.stopPropagation()}
+						title="Relation Graph"
+					>
+						<GraphIcon size={12} />
+						<span>{relationCount}</span>
 					</button>
 				</div>
 			</div>
