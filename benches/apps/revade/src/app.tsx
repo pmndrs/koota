@@ -20,7 +20,7 @@ import {
 } from './traits';
 import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
-import { Devtools } from '@koota/debug';
+import { Devtools } from '@koota/devtools';
 
 export function App() {
 	const world = useWorld();
