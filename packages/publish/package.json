@@ -78,6 +78,9 @@
 		"test": "vitest --environment=jsdom",
 		"generate-tests": "node scripts/generate-tests.ts"
 	},
+	"dependencies": {
+		"unplugin": "^2.3.11"
+	},
 	"devDependencies": {
 		"@config/typescript": "workspace:*",
 		"@koota/core": "workspace:*",
@@ -92,13 +95,17 @@
 	},
 	"peerDependencies": {
 		"@types/react": ">=18.0.0",
-		"react": ">=18.0.0"
+		"react": ">=18.0.0",
+		"rollup": ">=3.0.0"
 	},
 	"peerDependenciesMeta": {
 		"@types/react": {
 			"optional": true
 		},
 		"react": {
+			"optional": true
+		},
+		"rollup": {
 			"optional": true
 		}
 	}
