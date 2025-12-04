@@ -1,5 +1,5 @@
 {
-	"name": "@koota/debug",
+	"name": "@koota/devtools",
 	"version": "0.0.1",
 	"description": "Debug tools for Koota",
 	"private": true,
