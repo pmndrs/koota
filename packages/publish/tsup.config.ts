@@ -2,8 +2,14 @@ import { defineConfig } from 'tsup';
 import inlineFunctions from 'unplugin-inline-functions/esbuild';
 
 export default defineConfig({
-	entry: ['src/index.ts', 'src/react.ts'],
+	entry: ['src/index.ts', 'src/react.ts', 'src/devtools-plugin.ts'],
 	format: ['esm', 'cjs'],
+	sourcemap: true,
+	loader: {
+		'.css': 'css',
+		'.module.css': 'local-css',
+	},
+	external: ['postcss', 'vite'],
 	// Force emitting "use strict" for ESM output
 	// Not all bundlers and frameworks are capable of correctly transforming esm
 	// to cjs output and koota requires strict mode to be enabled for the code to
@@ -12,16 +18,11 @@ export default defineConfig({
 	// is used in non-conformant environments.
 	// See https://262.ecma-international.org/5.1/#sec-C for more details.
 	esbuildOptions: (options, { format }) => {
-		options.banner =
-			format === 'esm'
-				? {
-						js: '"use strict";',
-				  }
-				: undefined;
+		options.banner = format === 'esm' ? { js: '"use strict";' } : undefined;
 	},
 	dts: {
 		resolve: true,
 	},
 	clean: true,
-	esbuildPlugins: [inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'] })],
+	esbuildPlugins: [inlineFunctions({ include: ['src/index.ts', 'src/react.ts'] })],
 });

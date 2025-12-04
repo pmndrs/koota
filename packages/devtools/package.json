@@ -16,8 +16,7 @@
 	},
 	"scripts": {
 		"test": "vitest",
-		"lint": "oxlint",
-		"build:plugin": "tsup src/plugin.ts src/unplugin.ts --format esm --out-dir dist --clean"
+		"lint": "oxlint"
 	},
 	"dependencies": {
 		"@koota/core": "workspace:*",
@@ -34,7 +33,6 @@
 		"@types/estree": "^1.0.7",
 		"@types/react": "catalog:",
 		"react": "catalog:",
-		"tsup": "^8.3.0",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
