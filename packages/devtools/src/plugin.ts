@@ -1,4 +1,3 @@
-export type { SourceInfo } from './types';
 export {
 	unplugin,
 	vitePlugin,
