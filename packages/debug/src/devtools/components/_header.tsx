@@ -1,5 +1,5 @@
 import styles from './header.module.css';
-import { EntityIcon, GraphIcon, TraitIcon } from './icons';
+import { EntityIcon, GraphIcon, TraitIcon } from './_icons';
 
 export type Tab = 'traits' | 'entities' | 'graph';
 
