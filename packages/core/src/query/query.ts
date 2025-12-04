@@ -4,7 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { isRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { registerTrait, trait } from '../trait/trait';
-import type { Trait, TraitData } from '../trait/types';
+import type { TagTrait, Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
 import { isModifier } from './modifier';
@@ -16,7 +16,7 @@ import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 import { getTraitData, hasTraitData } from '../trait/utils/trait-data';
 
-export const IsExcluded = trait();
+export const IsExcluded: TagTrait = trait();
 
 export function runQuery<T extends QueryParameter[]>(world: World, query: Query<T>): QueryResult<T> {
 	commitQueryRemovals(world);
