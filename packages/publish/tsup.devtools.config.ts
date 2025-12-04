@@ -4,8 +4,10 @@ export default defineConfig({
 	entry: ['src/devtools.ts'],
 	format: ['esm', 'cjs'],
 	sourcemap: true,
-	// Bundle EVERYTHING - no externals for self-contained devtools
-	noExternal: [/.*/],
+	// Koota is in the bundle!
+	external: ['@koota/core', '@koota/react'],
+	// Bundle React and everything else
+	noExternal: ['react', 'react-dom', '@tanstack/react-virtual', 'react-force-graph-2d'],
 	loader: {
 		'.css': 'css',
 		'.module.css': 'local-css',
