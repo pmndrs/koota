@@ -10,7 +10,7 @@
 	gap: 6px;
 	padding: 3px 6px;
 	border-radius: 3px;
-	background: #222;
+	background: #282828;
 	font-size: 10px;
 	transition: background 0.1s;
 }
@@ -20,36 +20,36 @@
 }
 
 .entityRowClickable:hover {
-	background: #2a2a2a;
+	background: #333;
 }
 
 .entityId {
-	color: #ccc;
+	color: #eee;
 	font-weight: 500;
 	font-variant-numeric: tabular-nums;
 }
 
 .entityMeta {
-	color: #555;
+	color: #888;
 	font-size: 9px;
 	font-variant-numeric: tabular-nums;
 }
 
 .entityRaw {
 	margin-left: auto;
-	color: #444;
+	color: #777;
 	font-size: 9px;
 	font-variant-numeric: tabular-nums;
 }
 
 .moreEntities {
 	font-size: 9px;
-	color: #555;
+	color: #888;
 	padding: 2px 4px;
 }
 
 .emptySmall {
 	font-size: 10px;
-	color: #444;
+	color: #777;
 }
 

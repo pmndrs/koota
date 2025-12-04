@@ -10,14 +10,14 @@
 	font-size: 8px;
 	padding: 1px 4px;
 	border-radius: 3px;
-	background: #2a2a2a;
-	color: #666;
+	background: #333;
+	color: #999;
 	font-variant-numeric: tabular-nums;
 }
 
 .entityRawSmall {
 	font-size: 9px;
-	color: #444;
+	color: #777;
 	font-variant-numeric: tabular-nums;
 }
 
