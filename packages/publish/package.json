@@ -14,14 +14,16 @@
 		"./react": {
 			"types": "./src/react.ts",
 			"import": "./src/react.ts"
+		},
+		"./devtools": {
+			"types": "./src/devtools.ts",
+			"import": "./src/devtools.ts"
+		},
+		"./devtools/plugin": {
+			"types": "./src/devtools-plugin.ts",
+			"import": "./src/devtools-plugin.ts"
 		}
 	},
-	"files": [
-		"dist",
-		"react",
-		"README.md",
-		"LICENSE"
-	],
 	"publishConfig": {
 		"main": "./dist/index.cjs",
 		"module": "./dist/index.js",
@@ -37,22 +39,48 @@
 			},
 			"./react": {
 				"types": {
-					"import": "./dist/react.d.ts",
-					"require": "./dist/react.d.cts"
+					"import": "./dist/react/index.d.ts",
+					"require": "./dist/react/index.d.cts"
 				},
-				"import": "./dist/react.js",
-				"require": "./dist/react.cjs"
+				"import": "./dist/react/index.js",
+				"require": "./dist/react/index.cjs"
+			},
+			"./devtools": {
+				"types": {
+					"import": "./dist/devtools/devtools.d.ts",
+					"require": "./dist/devtools/devtools.d.cts"
+				},
+				"import": "./dist/devtools/devtools.js",
+				"require": "./dist/devtools/devtools.cjs"
+			},
+			"./devtools/plugin": {
+				"types": {
+					"import": "./dist/devtools/plugin/devtools-plugin.d.ts",
+					"require": "./dist/devtools/plugin/devtools-plugin.d.cts"
+				},
+				"import": "./dist/devtools/plugin/devtools-plugin.js",
+				"require": "./dist/devtools/plugin/devtools-plugin.cjs"
 			}
 		}
 	},
+	"files": [
+		"dist",
+		"react",
+		"README.md",
+		"LICENSE"
+	],
 	"scripts": {
-		"build": "tsup && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
+		"build": "pnpm build:core && pnpm build:devtools && pnpm build:plugin && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
+		"build:core": "tsup",
+		"build:devtools": "tsup --config tsup.devtools.config.ts",
+		"build:plugin": "tsup --config tsup.plugin.config.ts",
 		"test": "vitest --environment=jsdom",
 		"generate-tests": "node scripts/generate-tests.ts"
 	},
 	"devDependencies": {
 		"@config/typescript": "workspace:*",
 		"@koota/core": "workspace:*",
+		"@koota/devtools": "workspace:*",
 		"@koota/react": "workspace:*",
 		"@testing-library/react": "^16.3.0",
 		"react": "catalog:",

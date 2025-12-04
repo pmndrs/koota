@@ -1,1 +1,1 @@
-export * from '../../devtools/plugin/index.ts';
+export * from '@koota/devtools/plugin';

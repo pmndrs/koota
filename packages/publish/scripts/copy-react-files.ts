@@ -12,10 +12,10 @@ async function copyAndRename() {
 		await fs.mkdir(targetDir, { recursive: true });
 
 		const files = [
-			{ src: 'react.cjs', dest: 'index.cjs' },
-			{ src: 'react.js', dest: 'index.js' },
-			{ src: 'react.d.ts', dest: 'index.d.ts' },
-			{ src: 'react.d.cts', dest: 'index.d.cts' },
+			{ src: 'react/index.cjs', dest: 'index.cjs' },
+			{ src: 'react/index.js', dest: 'index.js' },
+			{ src: 'react/index.d.ts', dest: 'index.d.ts' },
+			{ src: 'react/index.d.cts', dest: 'index.d.cts' },
 		];
 
 		for (const file of files) {

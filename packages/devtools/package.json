@@ -10,8 +10,8 @@
 	"exports": {
 		".": "./src/index.ts",
 		"./plugin": {
-			"types": "./src/plugin.ts",
-			"default": "./src/plugin.ts"
+			"types": "./plugin/index.ts",
+			"default": "./plugin/index.ts"
 		}
 	},
 	"scripts": {

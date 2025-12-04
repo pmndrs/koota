@@ -1,4 +1,4 @@
 {
 	"extends": "@config/typescript/node.json",
-	"include": ["scripts", "src/devtools-plugin.ts"]
+	"include": ["scripts"]
 }
