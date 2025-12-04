@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup';
 import inlineFunctions from 'unplugin-inline-functions/esbuild';
 
 export default defineConfig({
-	entry: ['src/index.ts', 'src/react.ts', 'src/devtools-plugin.ts'],
+	entry: ['src/index.ts', 'src/react.ts'],
 	format: ['esm', 'cjs'],
 	sourcemap: true,
 	loader: {
