@@ -6,4 +6,4 @@ export {
 	webpackPlugin,
 	esbuildPlugin,
 	type DebugPluginOptions,
-} from './unplugin';
+} from './unplugin/unplugin';
