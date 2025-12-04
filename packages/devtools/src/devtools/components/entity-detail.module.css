@@ -2,23 +2,23 @@
 	display: flex;
 	gap: 6px;
 	font-size: 10px;
-	color: #888;
+	color: var(--k-text-muted);
 }
 
 .emptySmall {
 	font-size: 10px;
-	color: #777;
+	color: var(--k-text-dim);
 }
 
 .relationTargetCount {
 	font-size: 9px;
-	color: #999;
+	color: var(--k-text-muted);
 	font-weight: 400;
 }
 
 .relationTargetsList {
 	margin-left: 8px;
-	border-left: 1px solid #333;
+	border-left: 1px solid var(--k-border);
 }
 
 .relationTargetRow {
@@ -28,7 +28,7 @@
 
 .relationTargetArrow {
 	font-size: 10px;
-	color: #999;
+	color: var(--k-text-muted);
 	opacity: 0.6;
 }
 

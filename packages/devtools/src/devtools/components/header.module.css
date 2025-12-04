@@ -3,9 +3,9 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	background: #222;
+	background: var(--k-bg-header);
 	cursor: grab;
-	border-bottom: 1px solid #333;
+	border-bottom: 1px solid var(--k-border);
 }
 
 .headerDragging {
@@ -13,9 +13,9 @@
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	background: #222;
+	background: var(--k-bg-header);
 	cursor: grabbing;
-	border-bottom: 1px solid #333;
+	border-bottom: 1px solid var(--k-border);
 }
 
 .headerLeft {
@@ -29,7 +29,7 @@
 	font-size: 10px;
 	text-transform: uppercase;
 	letter-spacing: 0.5px;
-	color: #999;
+	color: var(--k-text-muted);
 }
 
 .tabs {
@@ -45,7 +45,7 @@
 	padding: 3px 6px;
 	border-radius: 3px;
 	font-size: 10px;
-	color: #888;
+	color: var(--k-text-muted);
 	cursor: pointer;
 	transition: background 0.15s, color 0.15s;
 	font-variant-numeric: tabular-nums;
@@ -53,12 +53,12 @@
 
 .tab:hover {
 	background: rgba(255, 255, 255, 0.05);
-	color: #bbb;
+	color: var(--k-text-secondary);
 }
 
 .tabActive {
 	background: rgba(255, 255, 255, 0.1);
-	color: #fff;
+	color: var(--k-text-primary);
 }
 
 .headerRight {
@@ -72,7 +72,7 @@
 	align-items: center;
 	gap: 8px;
 	font-size: 10px;
-	color: #999;
+	color: var(--k-text-muted);
 }
 
 .stat {
@@ -88,7 +88,7 @@
 .toggleButton {
 	background: none;
 	border: none;
-	color: #999;
+	color: var(--k-text-muted);
 	cursor: pointer;
 	padding: 2px 4px;
 	display: flex;
@@ -101,5 +101,5 @@
 }
 
 .toggleButton:hover {
-	color: #ccc;
+	color: var(--k-text-secondary);
 }
