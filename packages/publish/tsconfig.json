@@ -1,9 +1,13 @@
 {
 	"extends": "@config/typescript/react.json",
 	"include": ["src", "tests"],
-	"exclude": ["dist"],
+	"exclude": ["dist", "src/devtools-plugin.ts"],
 	"compilerOptions": {
-		"noEmit": true
+		"noEmit": true,
+		"paths": {
+			"@koota/core": ["../core/src"],
+			"@koota/react": ["../react/src"]
+		}
 	},
 	"references": [{ "path": "tsconfig.node.json" }]
 }

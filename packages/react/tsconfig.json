@@ -1,4 +1,9 @@
 {
 	"extends": "@config/typescript/react.json",
-	"include": ["src/**/*", "tests"]
+	"include": ["src/**/*", "tests"],
+	"compilerOptions": {
+		"composite": true,
+		"declaration": true
+	},
+	"references": [{ "path": "../core" }]
 }

@@ -1,1 +1,1 @@
-export * from '../../devtools/plugin';
+export * from '../../devtools/plugin/index.ts';
