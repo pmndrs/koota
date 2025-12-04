@@ -21,18 +21,18 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: 11px;
-	color: #bbb;
+	color: #ddd;
 }
 
 .rowMeta {
 	font-size: 9px;
-	color: #555;
+	color: #888;
 	font-variant-numeric: tabular-nums;
 }
 
 .rowCount {
 	font-size: 10px;
-	color: #555;
+	color: #888;
 	min-width: 16px;
 	text-align: right;
 	font-variant-numeric: tabular-nums;
