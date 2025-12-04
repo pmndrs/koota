@@ -1,7 +1,7 @@
 import { $internal } from '@koota/core';
 import type { Trait } from '@koota/core';
-import type { TraitWithDebug } from '../../types';
-import { hasDebugName } from '../utils/type-guards';
+import type { SourceInfo, TraitWithDebug } from '../../types';
+import { hasDebugName, hasDebugSource, isSourceInfo } from '../utils/type-guards';
 
 export type TraitType = 'tag' | 'soa' | 'aos' | 'rel';
 
@@ -22,8 +22,8 @@ export function getTraitName(trait: Trait | TraitWithDebug): string {
 		// Try to get debug name from the relation function itself
 		// The relation function may have debugName attached by the unplugin
 		const relation = ctx.relation;
-		if ('debugName' in relation && typeof relation.debugName === 'string') {
-			return relation.debugName;
+		if ('debugName' in relation && typeof (relation as any).debugName === 'string') {
+			return (relation as any).debugName;
 		}
 		return `Relation#${ctx.id}`;
 	}
@@ -34,4 +34,22 @@ export function getTraitName(trait: Trait | TraitWithDebug): string {
 	}
 
 	return `Trait#${ctx.id}`;
+}
+
+export function getTraitSource(trait: Trait | TraitWithDebug): SourceInfo | undefined {
+	const ctx = trait[$internal];
+
+	// For relation traits, try to get debug source from the relation function
+	if (ctx.relation !== null) {
+		const relation = ctx.relation;
+		if ('debugSource' in relation && isSourceInfo((relation as any).debugSource)) {
+			return (relation as any).debugSource;
+		}
+	}
+
+	if (hasDebugSource(trait)) {
+		return trait.debugSource;
+	}
+
+	return undefined;
 }

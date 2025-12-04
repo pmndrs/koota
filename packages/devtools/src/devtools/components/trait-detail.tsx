@@ -9,7 +9,7 @@ import detailStyles from './detail-layout.module.css';
 import traitDetailStyles from './trait-detail.module.css';
 import { formatDebugSource, getEditorUrl } from '../utils/debug-source';
 import { DetailGrid, DetailLayout, DetailSection } from './detail-layout';
-import { getTraitName, getTraitType } from './trait-utils';
+import { getTraitName, getTraitSource, getTraitType } from './trait-utils';
 import { EntityList } from './entity-list';
 
 const badgeClasses: Record<string, string> = {
@@ -43,6 +43,7 @@ export function TraitDetail({
 	const ctx = trait[$internal];
 	const name = getTraitName(trait);
 	const type = getTraitType(trait);
+	const source = getTraitSource(trait);
 	const isRelation = ctx.relation !== null;
 	const relation = ctx.relation as Relation<any> | null;
 
@@ -80,17 +81,17 @@ export function TraitDetail({
 		<DetailLayout
 			title={name}
 			subtitle={
-				trait.debugSource ? (
+				source ? (
 					<a
 						href={getEditorUrl(
 							editor,
-							trait.debugSource.file,
-							trait.debugSource.line,
-							trait.debugSource.column
+							source.file,
+							source.line,
+							source.column
 						)}
 						className={traitDetailStyles.detailSource}
 					>
-						{formatDebugSource(trait.debugSource)}
+						{formatDebugSource(source)}
 					</a>
 				) : undefined
 			}
