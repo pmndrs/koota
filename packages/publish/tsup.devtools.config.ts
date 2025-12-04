@@ -2,7 +2,6 @@ import { defineConfig } from 'tsup';
 
 export default defineConfig({
 	entry: ['src/devtools.ts'],
-	outDir: 'dist/devtools',
 	format: ['esm', 'cjs'],
 	sourcemap: true,
 	// Bundle EVERYTHING - no externals for self-contained devtools
