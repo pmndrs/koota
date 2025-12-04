@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react';
-import { vitePlugin } from '@koota/devtools/plugin';
+import { vitePlugin } from 'koota/devtools/plugin';
 import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
