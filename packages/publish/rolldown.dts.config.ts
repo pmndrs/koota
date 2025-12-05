@@ -19,12 +19,26 @@ export default defineConfig([
 	},
 	{
 		input: 'src/react.ts',
-		output: { file: 'dist/react.d.ts', format: 'es' },
+		output: {
+			file: 'dist/react.d.ts',
+			format: 'es',
+			paths: {
+				'@koota/core': './index',
+			},
+		},
+		external: ['@koota/core'],
 		plugins: [dts(dtsConfig)],
 	},
 	{
 		input: '../devtools/src/index.ts',
-		output: { file: 'dist/devtools.d.ts', format: 'es' },
+		output: {
+			file: 'dist/devtools.d.ts',
+			format: 'es',
+			paths: {
+				'@koota/core': './index',
+			},
+		},
+		external: ['@koota/core'],
 		plugins: [dts(dtsConfig)],
 	},
 	{
