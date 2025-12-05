@@ -4,24 +4,41 @@
 	"description": "🌎 Performant real-time state management for React and TypeScript",
 	"license": "ISC",
 	"type": "module",
-	"main": "./src/index.ts",
-	"types": "./src/index.ts",
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
-			"types": "./src/index.ts",
-			"import": "./src/index.ts"
+			"types": {
+				"import": "./dist/index.d.ts",
+				"require": "./dist/index.d.cts"
+			},
+			"import": "./dist/index.js",
+			"require": "./dist/index.cjs"
 		},
 		"./react": {
-			"types": "./src/react.ts",
-			"import": "./src/react.ts"
+			"types": {
+				"import": "./dist/react.d.ts",
+				"require": "./dist/react.d.cts"
+			},
+			"import": "./dist/react.js",
+			"require": "./dist/react.cjs"
 		},
 		"./devtools": {
-			"types": "./src/devtools.ts",
-			"import": "./src/devtools.ts"
+			"types": {
+				"import": "./dist/devtools.d.ts",
+				"require": "./dist/devtools.d.cts"
+			},
+			"import": "./dist/devtools.js",
+			"require": "./dist/devtools.cjs"
 		},
 		"./devtools/plugin": {
-			"types": "./src/devtools-plugin.ts",
-			"import": "./src/devtools-plugin.ts"
+			"types": {
+				"import": "./dist/devtools-plugin.d.ts",
+				"require": "./dist/devtools-plugin.d.cts"
+			},
+			"import": "./dist/devtools-plugin.js",
+			"require": "./dist/devtools-plugin.cjs"
 		}
 	},
 	"files": [
@@ -71,10 +88,11 @@
 		}
 	},
 	"scripts": {
-		"build": "pnpm build:core && pnpm build:devtools && pnpm build:plugin && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
-		"build:core": "tsup",
-		"build:devtools": "tsup --config tsup.devtools.config.ts",
-		"build:plugin": "tsup --config tsup.plugin.config.ts",
+		"build": "pnpm build:core && pnpm build:devtools && pnpm build:plugin && pnpm build:types && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
+		"build:core": "rolldown -c rolldown.config.ts",
+		"build:devtools": "rolldown -c rolldown.devtools.config.ts",
+		"build:plugin": "rolldown -c rolldown.plugin.config.ts",
+		"build:types": "rollup -c rolldown.dts.config.ts",
 		"test": "vitest --environment=jsdom",
 		"generate-tests": "node scripts/generate-tests.ts"
 	},
@@ -87,21 +105,33 @@
 		"@koota/devtools": "workspace:*",
 		"@koota/react": "workspace:*",
 		"@testing-library/react": "^16.3.0",
+		"postcss": "^8.5.6",
 		"react": "catalog:",
 		"react-dom": "catalog:",
-		"tsup": "^8.5.1",
+		"rolldown": "1.0.0-beta.53",
+		"rollup": "^4.53.3",
+		"rollup-plugin-dts": "^6.3.0",
+		"rollup-plugin-postcss": "^4.0.2",
 		"unplugin-inline-functions": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
 		"@types/react": ">=18.0.0",
-		"react": ">=18.0.0"
+		"@types/react-dom": ">=18.0.0",
+		"react": ">=18.0.0",
+		"react-dom": ">=18.0.0"
 	},
 	"peerDependenciesMeta": {
 		"@types/react": {
 			"optional": true
 		},
+		"@types/react-dom": {
+			"optional": true
+		},
 		"react": {
+			"optional": true
+		},
+		"react-dom": {
 			"optional": true
 		}
 	}

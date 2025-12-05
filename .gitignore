@@ -34,3 +34,6 @@ yarn-error.log*
 
 # dist
 dist
+
+packages/publish/react/
+packages/publish/devtools/
