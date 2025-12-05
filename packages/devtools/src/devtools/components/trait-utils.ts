@@ -30,7 +30,7 @@ export function getTraitName(trait: Trait | TraitWithDebug): string {
 
 	// Check if trait has debugName (TraitWithDebug)
 	if (hasDebugName(trait)) {
-		return trait.debugName;
+		return trait.debugName ?? `Trait#${ctx.id}`;
 	}
 
 	return `Trait#${ctx.id}`;

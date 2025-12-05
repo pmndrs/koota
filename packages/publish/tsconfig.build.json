@@ -1,0 +1,21 @@
+{
+	"extends": "./tsconfig.json",
+	"include": ["src", "css-modules.d.ts"],
+	"exclude": ["dist", "tests"],
+	"compilerOptions": {
+		"noEmit": false,
+		"emitDeclarationOnly": true,
+		"declaration": true,
+		"declarationMap": false,
+		"outDir": "dist",
+		"skipLibCheck": true,
+		"allowImportingTsExtensions": true,
+		"paths": {
+			"@koota/core": ["../core/src"],
+			"@koota/react": ["../react/src"],
+			"@koota/devtools": ["../devtools/src"],
+			"@koota/devtools/plugin": ["../devtools/plugin"],
+			"koota": ["./src"]
+		}
+	}
+}
