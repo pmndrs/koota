@@ -8,11 +8,7 @@
 	"main": "./src/index.ts",
 	"types": "./src/index.ts",
 	"exports": {
-		".": "./src/index.ts",
-		"./plugin": {
-			"types": "./plugin/index.ts",
-			"default": "./plugin/index.ts"
-		}
+		".": "./src/index.ts"
 	},
 	"scripts": {
 		"test": "vitest",
