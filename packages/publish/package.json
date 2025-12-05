@@ -23,10 +23,30 @@
 			"import": "./src/devtools.ts",
 			"require": "./src/devtools.ts"
 		},
-		"./devtools/plugin": {
-			"types": "./src/devtools-plugin.ts",
-			"import": "./src/devtools-plugin.ts",
-			"require": "./src/devtools-plugin.ts"
+		"./devtools/vite": {
+			"types": "./src/devtools-vite.ts",
+			"import": "./src/devtools-vite.ts",
+			"require": "./src/devtools-vite.ts"
+		},
+		"./devtools/rollup": {
+			"types": "./src/devtools-rollup.ts",
+			"import": "./src/devtools-rollup.ts",
+			"require": "./src/devtools-rollup.ts"
+		},
+		"./devtools/rolldown": {
+			"types": "./src/devtools-rolldown.ts",
+			"import": "./src/devtools-rolldown.ts",
+			"require": "./src/devtools-rolldown.ts"
+		},
+		"./devtools/webpack": {
+			"types": "./src/devtools-webpack.ts",
+			"import": "./src/devtools-webpack.ts",
+			"require": "./src/devtools-webpack.ts"
+		},
+		"./devtools/esbuild": {
+			"types": "./src/devtools-esbuild.ts",
+			"import": "./src/devtools-esbuild.ts",
+			"require": "./src/devtools-esbuild.ts"
 		}
 	},
 	"files": [
@@ -47,14 +67,30 @@
 				"types": "./dist/react.d.ts",
 				"default": "./dist/react.js"
 			},
-			"./devtools": {
-				"types": "./dist/devtools.d.ts",
-				"default": "./dist/devtools.js"
-			},
-			"./devtools/plugin": {
-				"types": "./dist/devtools-plugin.d.ts",
-				"default": "./dist/devtools-plugin.js"
-			}
+		"./devtools": {
+			"types": "./dist/devtools.d.ts",
+			"default": "./dist/devtools.js"
+		},
+		"./devtools/vite": {
+			"types": "./dist/devtools-vite.d.ts",
+			"default": "./dist/devtools-vite.js"
+		},
+		"./devtools/rollup": {
+			"types": "./dist/devtools-rollup.d.ts",
+			"default": "./dist/devtools-rollup.js"
+		},
+		"./devtools/rolldown": {
+			"types": "./dist/devtools-rolldown.d.ts",
+			"default": "./dist/devtools-rolldown.js"
+		},
+		"./devtools/webpack": {
+			"types": "./dist/devtools-webpack.d.ts",
+			"default": "./dist/devtools-webpack.js"
+		},
+		"./devtools/esbuild": {
+			"types": "./dist/devtools-esbuild.d.ts",
+			"default": "./dist/devtools-esbuild.js"
+		}
 		}
 	},
 	"scripts": {

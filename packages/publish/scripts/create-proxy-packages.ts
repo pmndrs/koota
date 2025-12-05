@@ -21,11 +21,43 @@ const proxyPackages = [
 		},
 	},
 	{
-		folder: 'devtools/plugin',
+		folder: 'devtools/vite',
 		config: {
 			type: 'module',
-			main: '../../dist/devtools-plugin.js',
-			types: '../../dist/devtools-plugin.d.ts',
+			main: '../../dist/devtools-vite.js',
+			types: '../../dist/devtools-vite.d.ts',
+		},
+	},
+	{
+		folder: 'devtools/rollup',
+		config: {
+			type: 'module',
+			main: '../../dist/devtools-rollup.js',
+			types: '../../dist/devtools-rollup.d.ts',
+		},
+	},
+	{
+		folder: 'devtools/rolldown',
+		config: {
+			type: 'module',
+			main: '../../dist/devtools-rolldown.js',
+			types: '../../dist/devtools-rolldown.d.ts',
+		},
+	},
+	{
+		folder: 'devtools/webpack',
+		config: {
+			type: 'module',
+			main: '../../dist/devtools-webpack.js',
+			types: '../../dist/devtools-webpack.d.ts',
+		},
+	},
+	{
+		folder: 'devtools/esbuild',
+		config: {
+			type: 'module',
+			main: '../../dist/devtools-esbuild.js',
+			types: '../../dist/devtools-esbuild.d.ts',
 		},
 	},
 ];

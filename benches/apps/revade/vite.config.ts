@@ -1,10 +1,10 @@
 import react from '@vitejs/plugin-react';
-import { vitePlugin } from 'koota/devtools/plugin';
+import kootaDevtools from 'koota/devtools/vite';
 import { defineConfig } from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-	plugins: [react(), vitePlugin()],
+	plugins: [react(), kootaDevtools()],
 	server: {
 		headers: {
 			'Cross-Origin-Embedder-Policy': 'require-corp',

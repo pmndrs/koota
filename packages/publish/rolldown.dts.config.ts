@@ -32,8 +32,28 @@ export default defineConfig([
 		plugins: [dts()],
 	},
 	{
-		input: 'src/devtools-plugin.ts',
-		output: { file: 'dist/devtools-plugin.d.ts', format: 'es' },
+		input: 'src/devtools-vite.ts',
+		output: { file: 'dist/devtools-vite.d.ts', format: 'es' },
+		plugins: [dts()],
+	},
+	{
+		input: 'src/devtools-rollup.ts',
+		output: { file: 'dist/devtools-rollup.d.ts', format: 'es' },
+		plugins: [dts()],
+	},
+	{
+		input: 'src/devtools-rolldown.ts',
+		output: { file: 'dist/devtools-rolldown.d.ts', format: 'es' },
+		plugins: [dts()],
+	},
+	{
+		input: 'src/devtools-webpack.ts',
+		output: { file: 'dist/devtools-webpack.d.ts', format: 'es' },
+		plugins: [dts()],
+	},
+	{
+		input: 'src/devtools-esbuild.ts',
+		output: { file: 'dist/devtools-esbuild.d.ts', format: 'es' },
 		plugins: [dts()],
 	},
 ]);
