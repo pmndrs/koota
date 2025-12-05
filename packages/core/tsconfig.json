@@ -1,8 +1,4 @@
 {
 	"extends": "@config/typescript/base.json",
-	"include": ["src/**/*", "tests"],
-	"compilerOptions": {
-		"composite": true,
-		"declaration": true
-	}
+	"include": ["src/**/*", "tests"]
 }
