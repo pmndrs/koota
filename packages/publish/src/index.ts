@@ -1,1 +1,1 @@
-export * from '@koota/core';
+export * from '../../core/src';

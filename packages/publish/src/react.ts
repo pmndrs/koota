@@ -1,1 +1,1 @@
-export * from '@koota/react';
+export * from '../../react/src';

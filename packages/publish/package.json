@@ -76,11 +76,11 @@
 		}
 	},
 	"scripts": {
-		"build": "pnpm build:core && pnpm build:devtools && pnpm build:plugin && pnpm build:types && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
+		"build": "pnpm clean && pnpm build:core && pnpm build:plugin && pnpm build:types && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
 		"build:core": "rolldown -c rolldown.config.ts",
-		"build:devtools": "rolldown -c rolldown.devtools.config.ts",
 		"build:plugin": "rolldown -c rolldown.plugin.config.ts",
 		"build:types": "rollup -c rolldown.dts.config.ts",
+		"clean": "rm -rf dist",
 		"test": "vitest --environment=jsdom",
 		"generate-tests": "node scripts/generate-tests.ts"
 	},
@@ -97,7 +97,6 @@
 		"react": "catalog:",
 		"react-dom": "catalog:",
 		"rolldown": "1.0.0-beta.53",
-		"rollup": "^4.53.3",
 		"rollup-plugin-dts": "^6.3.0",
 		"rollup-plugin-postcss": "^4.0.2",
 		"unplugin-inline-functions": "catalog:",

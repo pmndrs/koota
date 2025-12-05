@@ -3,13 +3,7 @@
 	"include": ["src", "tests", "css-modules.d.ts"],
 	"exclude": ["dist"],
 	"compilerOptions": {
-		"noEmit": true,
-		"paths": {
-			"@koota/core": ["../core/src"],
-			"@koota/react": ["../react/src"],
-			"@koota/devtools": ["../devtools/src"],
-			"@koota/devtools/plugin": ["../devtools/plugin"]
-		}
+		"noEmit": true
 	},
 	"references": [{ "path": "tsconfig.node.json" }]
 }

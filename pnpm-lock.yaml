@@ -34,8 +34,8 @@ catalogs:
       specifier: ^0.181.2
       version: 0.181.2
     unplugin-inline-functions:
-      specifier: ^0.3.7
-      version: 0.3.7
+      specifier: ^0.3.8
+      version: 0.3.8
     vite:
       specifier: ^7.2.4
       version: 7.2.4
@@ -441,9 +441,6 @@ importers:
       rolldown:
         specifier: 1.0.0-beta.53
         version: 1.0.0-beta.53
-      rollup:
-        specifier: ^4.53.3
-        version: 4.53.3
       rollup-plugin-dts:
         specifier: ^6.3.0
         version: 6.3.0(rollup@4.53.3)(typescript@5.9.3)
@@ -452,7 +449,7 @@ importers:
         version: 4.0.2(postcss@8.5.6)
       unplugin-inline-functions:
         specifier: 'catalog:'
-        version: 0.3.7(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
+        version: 0.3.8(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)
@@ -2744,8 +2741,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  unplugin-inline-functions@0.3.7:
-    resolution: {integrity: sha512-V8DbYLB7byB6pMFeDfF3QjsIW4BiLvZsudq/7kbSQXP/vUY6Ed1Ijq7Ydh0uJRNNtjUz03+Edo2nb/5Vq5+5FA==}
+  unplugin-inline-functions@0.3.8:
+    resolution: {integrity: sha512-CHs0EECNgmtO8fQVViQZUIKWpDjYuYPyYCv0YVmU6XR98ORMdRDc+m74GqVQHj8sBGsTGzqg/YK1y7M3lfeqHQ==}
     peerDependencies:
       '@babel/parser': ^7.26.3
       '@babel/traverse': ^7.26.4
@@ -5021,7 +5018,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  unplugin-inline-functions@0.3.7(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
+  unplugin-inline-functions@0.3.8(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
     dependencies:
       '@babel/parser': 7.28.5
       '@babel/traverse': 7.28.5

@@ -1,8 +1,5 @@
 import { defineConfig } from 'rolldown';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const banner = '"use strict";';
 
 export default defineConfig({
@@ -13,9 +10,4 @@ export default defineConfig({
 	],
 	external: ['unplugin'],
 	platform: 'node',
-	resolve: {
-		alias: {
-			'@koota/devtools/plugin': path.resolve(__dirname, '../devtools/plugin/index.ts'),
-		},
-	},
 });
