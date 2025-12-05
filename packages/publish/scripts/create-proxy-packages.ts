@@ -7,25 +7,25 @@ const proxyPackages = [
 	{
 		folder: 'react',
 		config: {
-			main: '../dist/react/index.cjs',
-			module: '../dist/react/index.js',
-			types: '../dist/react/index.d.ts',
+			main: '../dist/react.cjs',
+			module: '../dist/react.js',
+			types: '../dist/react.d.ts',
 		},
 	},
 	{
 		folder: 'devtools',
 		config: {
-			main: '../dist/devtools/devtools.cjs',
-			module: '../dist/devtools/devtools.js',
-			types: '../dist/devtools/devtools.d.ts',
+			main: '../dist/devtools.cjs',
+			module: '../dist/devtools.js',
+			types: '../dist/devtools.d.ts',
 		},
 	},
 	{
 		folder: 'devtools/plugin',
 		config: {
-			main: '../../dist/devtools/plugin/devtools-plugin.cjs',
-			module: '../../dist/devtools/plugin/devtools-plugin.js',
-			types: '../../dist/devtools/plugin/devtools-plugin.d.ts',
+			main: '../../dist/devtools-plugin.cjs',
+			module: '../../dist/devtools-plugin.js',
+			types: '../../dist/devtools-plugin.d.ts',
 		},
 	},
 ];
@@ -59,4 +59,5 @@ async function createProxyPackages() {
 }
 
 createProxyPackages();
+
 
