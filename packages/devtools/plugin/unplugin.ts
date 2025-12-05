@@ -11,8 +11,8 @@ export interface DebugPluginOptions {
 	exclude?: RegExp | ((id: string) => boolean);
 }
 
-function shouldTransform(id: string, options: DebugPluginOptions): boolean {
-	if (options.exclude) {
+function shouldTransform(id: string, options?: DebugPluginOptions): boolean {
+	if (options?.exclude) {
 		if (typeof options.exclude === 'function') {
 			if (options.exclude(id)) return false;
 		} else if (options.exclude.test(id)) {
@@ -20,7 +20,7 @@ function shouldTransform(id: string, options: DebugPluginOptions): boolean {
 		}
 	}
 
-	if (options.include) {
+	if (options?.include) {
 		if (typeof options.include === 'function') {
 			return options.include(id);
 		}
@@ -30,7 +30,7 @@ function shouldTransform(id: string, options: DebugPluginOptions): boolean {
 	return /\.[jt]sx?$/.test(id);
 }
 
-export const unplugin = createUnplugin((options: DebugPluginOptions = {}) => ({
+export const unplugin = createUnplugin((options?: DebugPluginOptions) => ({
 	name: 'koota-debug',
 
 	transformInclude(id) {
