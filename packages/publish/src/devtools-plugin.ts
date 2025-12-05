@@ -1,1 +1,1 @@
-export * from '@koota/devtools/plugin';
+export * from '../../devtools/plugin';

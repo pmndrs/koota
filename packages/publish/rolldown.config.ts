@@ -1,18 +1,33 @@
 import { defineConfig } from 'rolldown';
 import inlineFunctions from 'unplugin-inline-functions/rolldown';
+import postcss from 'rollup-plugin-postcss';
 
 const banner = '"use strict";';
 
 export default defineConfig({
-	input: { index: 'src/index.ts', react: 'src/react.ts' },
+	input: { index: 'src/index.ts', react: 'src/react.ts', devtools: 'src/devtools.ts' },
 	output: [
 		{ format: 'esm', dir: 'dist', entryFileNames: '[name].js', banner },
 		{ format: 'cjs', dir: 'dist', entryFileNames: '[name].cjs' },
 	],
-	external: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client', 'postcss', 'vite'],
+	external: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
+	platform: 'browser',
+	moduleTypes: {
+		'.css': 'js',
+		'.module.css': 'js',
+	},
 	plugins: [
+		postcss({
+			modules: {
+				generateScopedName: '[name]__[local]___[hash:base64:5]',
+				localsConvention: 'camelCaseOnly',
+			},
+			inject: true,
+			extract: false,
+			autoModules: true,
+		}),
 		inlineFunctions({
-			include: ['src/**/*.ts', '../core/src/**/*.ts', '../react/src/**/*.ts'],
+			include: ['src/index.ts', 'src/react.ts'],
 		}),
 	],
 });

@@ -1,21 +1,11 @@
-import { defineConfig } from 'rollup';
+import { defineConfig } from 'rolldown';
 import dts from 'rollup-plugin-dts';
-
-const dtsConfig = {
-	compilerOptions: {
-		paths: {
-			'@koota/core': ['../core/src'],
-			'@koota/react': ['../react/src'],
-			'@koota/devtools': ['../devtools/src'],
-		},
-	},
-};
 
 export default defineConfig([
 	{
 		input: 'src/index.ts',
 		output: { file: 'dist/index.d.ts', format: 'es' },
-		plugins: [dts(dtsConfig)],
+		plugins: [dts()],
 	},
 	{
 		input: 'src/react.ts',
@@ -27,10 +17,10 @@ export default defineConfig([
 			},
 		},
 		external: ['@koota/core'],
-		plugins: [dts(dtsConfig)],
+		plugins: [dts()],
 	},
 	{
-		input: '../devtools/src/index.ts',
+		input: 'src/devtools.ts',
 		output: {
 			file: 'dist/devtools.d.ts',
 			format: 'es',
@@ -39,11 +29,11 @@ export default defineConfig([
 			},
 		},
 		external: ['@koota/core'],
-		plugins: [dts(dtsConfig)],
+		plugins: [dts()],
 	},
 	{
-		input: '../devtools/plugin/index.ts',
+		input: 'src/devtools-plugin.ts',
 		output: { file: 'dist/devtools-plugin.d.ts', format: 'es' },
-		plugins: [dts(dtsConfig)],
+		plugins: [dts()],
 	},
 ]);
