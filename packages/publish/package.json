@@ -23,6 +23,11 @@
 			"import": "./src/devtools.ts",
 			"require": "./src/devtools.ts"
 		},
+		"./devtools/react": {
+			"types": "./src/devtools-react.ts",
+			"import": "./src/devtools-react.ts",
+			"require": "./src/devtools-react.ts"
+		},
 		"./devtools/vite": {
 			"types": "./src/devtools-vite.ts",
 			"import": "./src/devtools-vite.ts",
@@ -67,35 +72,40 @@
 				"types": "./dist/react.d.ts",
 				"default": "./dist/react.js"
 			},
-		"./devtools": {
-			"types": "./dist/devtools.d.ts",
-			"default": "./dist/devtools.js"
-		},
-		"./devtools/vite": {
-			"types": "./dist/devtools-vite.d.ts",
-			"default": "./dist/devtools-vite.js"
-		},
-		"./devtools/rollup": {
-			"types": "./dist/devtools-rollup.d.ts",
-			"default": "./dist/devtools-rollup.js"
-		},
-		"./devtools/rolldown": {
-			"types": "./dist/devtools-rolldown.d.ts",
-			"default": "./dist/devtools-rolldown.js"
-		},
-		"./devtools/webpack": {
-			"types": "./dist/devtools-webpack.d.ts",
-			"default": "./dist/devtools-webpack.js"
-		},
-		"./devtools/esbuild": {
-			"types": "./dist/devtools-esbuild.d.ts",
-			"default": "./dist/devtools-esbuild.js"
-		}
+			"./devtools": {
+				"types": "./dist/devtools.d.ts",
+				"default": "./dist/devtools.js"
+			},
+			"./devtools/react": {
+				"types": "./dist/devtools-react.d.ts",
+				"default": "./dist/devtools-react.js"
+			},
+			"./devtools/vite": {
+				"types": "./dist/devtools-vite.d.ts",
+				"default": "./dist/devtools-vite.js"
+			},
+			"./devtools/rollup": {
+				"types": "./dist/devtools-rollup.d.ts",
+				"default": "./dist/devtools-rollup.js"
+			},
+			"./devtools/rolldown": {
+				"types": "./dist/devtools-rolldown.d.ts",
+				"default": "./dist/devtools-rolldown.js"
+			},
+			"./devtools/webpack": {
+				"types": "./dist/devtools-webpack.d.ts",
+				"default": "./dist/devtools-webpack.js"
+			},
+			"./devtools/esbuild": {
+				"types": "./dist/devtools-esbuild.d.ts",
+				"default": "./dist/devtools-esbuild.js"
+			}
 		}
 	},
 	"scripts": {
-		"build": "pnpm clean && pnpm build:core && pnpm build:plugin && pnpm build:types && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
+		"build": "pnpm clean && pnpm build:core && pnpm build:devtools && pnpm build:plugin && pnpm build:types && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
 		"build:core": "rolldown -c rolldown.config.ts",
+		"build:devtools": "rolldown -c rolldown.devtools.config.ts",
 		"build:plugin": "rolldown -c rolldown.plugin.config.ts",
 		"build:types": "rollup -c rolldown.dts.config.ts",
 		"clean": "rm -rf dist",
@@ -112,8 +122,8 @@
 		"@koota/react": "workspace:*",
 		"@testing-library/react": "^16.3.0",
 		"postcss": "^8.5.6",
+		"preact": "^10.28.0",
 		"react": "catalog:",
-		"react-dom": "catalog:",
 		"rolldown": "1.0.0-beta.53",
 		"rollup-plugin-dts": "^6.3.0",
 		"rollup-plugin-postcss": "^4.0.2",
@@ -122,21 +132,13 @@
 	},
 	"peerDependencies": {
 		"@types/react": ">=18.0.0",
-		"@types/react-dom": ">=18.0.0",
-		"react": ">=18.0.0",
-		"react-dom": ">=18.0.0"
+		"react": ">=18.0.0"
 	},
 	"peerDependenciesMeta": {
 		"@types/react": {
 			"optional": true
 		},
-		"@types/react-dom": {
-			"optional": true
-		},
 		"react": {
-			"optional": true
-		},
-		"react-dom": {
 			"optional": true
 		}
 	}

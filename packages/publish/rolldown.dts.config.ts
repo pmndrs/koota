@@ -32,6 +32,18 @@ export default defineConfig([
 		plugins: [dts()],
 	},
 	{
+		input: 'src/devtools-react.ts',
+		output: {
+			file: 'dist/devtools-react.d.ts',
+			format: 'es',
+			paths: {
+				'@koota/core': './index',
+			},
+		},
+		external: ['@koota/core', 'react'],
+		plugins: [dts()],
+	},
+	{
 		input: 'src/devtools-vite.ts',
 		output: { file: 'dist/devtools-vite.d.ts', format: 'es' },
 		plugins: [dts()],

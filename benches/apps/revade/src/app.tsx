@@ -3,7 +3,7 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Entity } from 'koota';
-import { Devtools } from 'koota/devtools';
+import { Devtools } from 'koota/devtools/react';
 import { useActions, useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
 import { memo, StrictMode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
