@@ -1,0 +1,23 @@
+.entityIdGroup {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	min-width: 0;
+}
+
+.genBadge {
+	font-size: 8px;
+	padding: 1px 4px;
+	border-radius: 3px;
+	background: var(--k-bg-active);
+	color: var(--k-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.entityRawSmall {
+	font-size: 9px;
+	color: var(--k-text-dim);
+	font-variant-numeric: tabular-nums;
+}
+

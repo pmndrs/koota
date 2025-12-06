@@ -3,6 +3,7 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Entity } from 'koota';
+import { Devtools } from 'koota/devtools/react';
 import { useActions, useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
 import { memo, StrictMode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
@@ -22,23 +23,29 @@ import { between } from './utils/between';
 import { useStats } from './utils/use-stats';
 
 export function App() {
+	const world = useWorld();
+
 	return (
-		<Canvas>
-			<StrictMode>
-				<color attach="background" args={['#111']} />
-				<ambientLight intensity={0.2} />
-				<directionalLight position={[10, 10, 10]} intensity={0.4} />
+		<>
+			<Devtools world={world} />
 
-				<PerspectiveCamera position={[0, 0, 50]} makeDefault />
+			<Canvas>
+				<StrictMode>
+					<color attach="background" args={['#111']} />
+					<ambientLight intensity={0.2} />
+					<directionalLight position={[10, 10, 10]} intensity={0.4} />
 
-				<Player />
-				<EnemyRenderer />
-				<BulletRenderer />
-				<ExplosionRenderer />
+					<PerspectiveCamera position={[0, 0, 50]} makeDefault />
 
-				<Simulation />
-			</StrictMode>
-		</Canvas>
+					<Player />
+					<EnemyRenderer />
+					<BulletRenderer />
+					<ExplosionRenderer />
+
+					<Simulation />
+				</StrictMode>
+			</Canvas>
+		</>
 	);
 }
 

@@ -1,0 +1,26 @@
+import type { Entity, World } from '@koota/core';
+import { $internal, unpackEntity } from '@koota/core';
+import styles from './all-entity-row.module.css';
+import { Row, RowCount, RowName } from './row';
+
+interface AllEntityRowProps {
+	world: World;
+	entity: Entity;
+	onSelect: () => void;
+}
+
+export function AllEntityRow({ world, entity, onSelect }: AllEntityRowProps) {
+	const { entityId, generation } = unpackEntity(entity);
+	const traitCount = world[$internal].entityTraits.get(entity)?.size ?? 0;
+
+	return (
+		<Row onClick={onSelect}>
+			<span className={styles.entityIdGroup}>
+				<RowName>Entity {entityId}</RowName>
+				<span className={styles.genBadge}>gen:{generation}</span>
+			</span>
+			<RowCount>{traitCount}</RowCount>
+			<span className={styles.entityRawSmall}>{entity}</span>
+		</Row>
+	);
+}

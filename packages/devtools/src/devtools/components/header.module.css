@@ -1,0 +1,105 @@
+.header {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: var(--k-bg-header);
+	cursor: grab;
+	border-bottom: 1px solid var(--k-border);
+}
+
+.headerDragging {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: var(--k-bg-header);
+	cursor: grabbing;
+	border-bottom: 1px solid var(--k-border);
+}
+
+.headerLeft {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.title {
+	font-weight: 600;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--k-text-muted);
+}
+
+.tabs {
+	display: flex;
+	gap: 2px;
+}
+
+.tab {
+	all: unset;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	font-variant-numeric: tabular-nums;
+}
+
+.tab:hover {
+	background: rgba(255, 255, 255, 0.05);
+	color: var(--k-text-secondary);
+}
+
+.tabActive {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--k-text-primary);
+}
+
+.headerRight {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stats {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+}
+
+.stat {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.statIcon {
+	opacity: 0.6;
+}
+
+.toggleButton {
+	background: none;
+	border: none;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	padding: 2px 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 3px;
+	font-size: 12px;
+	line-height: 1;
+	transition: color 0.15s;
+}
+
+.toggleButton:hover {
+	color: var(--k-text-secondary);
+}
