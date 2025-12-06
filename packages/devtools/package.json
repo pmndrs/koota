@@ -28,10 +28,13 @@
 		"@config/typescript": "workspace:*",
 		"@types/estree": "^1.0.7",
 		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
 		"react": "catalog:",
+		"react-dom": "catalog:",
 		"vitest": "catalog:"
 	},
 	"peerDependencies": {
-		"react": ">=18"
+		"react": ">=18",
+		"react-dom": ">=18"
 	}
 }

@@ -3,14 +3,15 @@ import inlineFunctions from 'unplugin-inline-functions/rolldown';
 import postcss from 'rollup-plugin-postcss';
 
 export default defineConfig({
-	input: { index: 'src/index.ts', react: 'src/react.ts', devtools: 'src/devtools.ts' },
+	input: {
+		index: 'src/index.ts',
+		react: 'src/react.ts',
+		'devtools-react': 'src/devtools-react.ts',
+	},
 	output: { format: 'esm', dir: 'dist', entryFileNames: '[name].js' },
 	external: ['react', 'react-dom', 'react/jsx-runtime', 'react-dom/client'],
 	platform: 'browser',
-	moduleTypes: {
-		'.css': 'js',
-		'.module.css': 'js',
-	},
+	moduleTypes: { '.css': 'js', '.module.css': 'js' },
 	plugins: [
 		postcss({
 			modules: {
@@ -21,8 +22,6 @@ export default defineConfig({
 			extract: false,
 			autoModules: true,
 		}),
-		inlineFunctions({
-			include: ['src/index.ts', 'src/react.ts'],
-		}),
+		inlineFunctions({ include: ['src/index.ts', 'src/react.ts'] }),
 	],
 });

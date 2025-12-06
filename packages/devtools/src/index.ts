@@ -1,2 +1,3 @@
 export type { SourceInfo, TraitWithDebug } from './types';
-export { Devtools, type DevtoolsProps, type Editor } from './devtools/devtools';
+export type { DevtoolsProps, Editor } from './devtools/devtools';
+export { createDevtools, type CreateDevtoolsOptions } from './create-devtools';
