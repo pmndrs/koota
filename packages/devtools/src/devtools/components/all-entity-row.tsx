@@ -20,7 +20,6 @@ export function AllEntityRow({ world, entity, onSelect }: AllEntityRowProps) {
 				<span className={styles.genBadge}>gen:{generation}</span>
 			</span>
 			<RowCount>{traitCount}</RowCount>
-			<span className={styles.entityRawSmall}>{entity}</span>
 		</Row>
 	);
 }
