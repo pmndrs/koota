@@ -1,3 +1,19 @@
+.entityTitle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.worldBadge {
+	font-size: 8px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 5px;
+	border-radius: 3px;
+	background: var(--k-accent-rel);
+	color: var(--k-bg-panel);
+}
+
 .entityMetaInline {
 	display: flex;
 	gap: 6px;

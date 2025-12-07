@@ -23,6 +23,7 @@ export function EntityDetail({ world, entity, onBack, onSelectTrait }: EntityDet
 	const { entityId, generation, worldId } = unpackEntity(entity);
 	const ctx = world[$internal];
 	const [traits, setTraits] = useState<Trait[]>(() => [...(ctx.entityTraits.get(entity) ?? [])]);
+	const isWorldEntity = entity === ctx.worldEntity;
 
 	useEffect(() => {
 		const ctx = world[$internal];
@@ -79,7 +80,12 @@ export function EntityDetail({ world, entity, onBack, onSelectTrait }: EntityDet
 
 	return (
 		<DetailLayout
-			title={`Entity ${entityId}`}
+			title={
+				<div className={entityDetailStyles.entityTitle}>
+					{isWorldEntity ? `World ${worldId}` : `Entity ${entityId}`}
+					{isWorldEntity && <span className={entityDetailStyles.worldBadge}>world</span>}
+				</div>
+			}
 			subtitle={
 				<div className={entityDetailStyles.entityMetaInline}>
 					<span>gen:{generation}</span>
