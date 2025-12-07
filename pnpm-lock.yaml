@@ -441,9 +441,6 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.0
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.0(react@19.2.0)
       rolldown:
         specifier: 1.0.0-beta.53
         version: 1.0.0-beta.53
