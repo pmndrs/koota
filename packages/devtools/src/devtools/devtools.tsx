@@ -130,8 +130,9 @@ export function Devtools({
 	const validSelectedTrait =
 		selectedTrait && traits.includes(selectedTrait as Trait) ? selectedTrait : null;
 
-	// Check if selected entity still exists
-	const validSelectedEntity = selectedEntity && world.has(selectedEntity) ? selectedEntity : null;
+	// Check if selected entity still exists (explicit null check for entity 0)
+	const validSelectedEntity =
+		selectedEntity !== null && world.has(selectedEntity) ? selectedEntity : null;
 
 	return (
 		<div className={styles.container} style={{ top: position.y, left: position.x }}>
@@ -155,7 +156,8 @@ export function Devtools({
 				/>
 				{isOpen && (
 					<div ref={scrollRef} className={styles.list}>
-						{activeTab === 'graph' ? (
+						{/* Graph view */}
+						{activeTab === 'graph' && (
 							<RelationGraph
 								world={world}
 								relationTraits={relationTraits}
@@ -165,115 +167,133 @@ export function Devtools({
 									scrollToTop();
 								}}
 							/>
-						) : activeTab === 'entities' ? (
-							validSelectedEntity ? (
-								<EntityDetail
-									key={validSelectedEntity}
-									world={world}
-									entity={validSelectedEntity}
-									onBack={() => {
-										setSelectedEntity(null);
-										scrollToTop();
-									}}
-									onSelectTrait={(trait) => {
-										setSelectedTrait(() => trait);
-										setActiveTab('traits');
-										scrollToTop();
-									}}
-								/>
-							) : (
-								<AllEntitiesList
-									world={world}
-									onSelect={(entity) => {
-										setSelectedEntity(entity);
-										scrollToTop();
-									}}
-								/>
-							)
-						) : validSelectedTrait ? (
-							<TraitDetail
-								key={validSelectedTrait[$internal].id}
-								world={world}
-								trait={validSelectedTrait}
-								editor={editor}
-								scrollRef={scrollRef}
-								onBack={() => {
-									setSelectedTrait(null);
-									scrollToTop();
-								}}
-								onSelectEntity={(entity) => {
-									setSelectedEntity(entity);
-									setActiveTab('entities');
-									scrollToTop();
-								}}
-							/>
-						) : (
+						)}
+
+						{/* Entities view */}
+						{activeTab === 'entities' && (
 							<>
-								<div className={styles.filterRow}>
-									<input
-										type="text"
-										placeholder="Filter…"
-										value={filter}
-										onChange={(e) => setFilter(e.target.value)}
-										className={styles.filterInput}
+								{validSelectedEntity !== null ? (
+									<EntityDetail
+										key={validSelectedEntity}
+										world={world}
+										entity={validSelectedEntity}
+										onBack={() => {
+											setSelectedEntity(null);
+											scrollToTop();
+										}}
+										onSelectTrait={(trait) => {
+											setSelectedTrait(() => trait);
+											setActiveTab('traits');
+											scrollToTop();
+										}}
 									/>
-									<button
-										className={`${styles.filterToggle} ${
-											showFilters ? styles.filterToggleActive : ''
-										}`}
-										onClick={() => setShowFilters(!showFilters)}
-										title="Filter by type"
-									>
-										<svg
-											width="12"
-											height="12"
-											viewBox="0 0 16 16"
-											fill="currentColor"
-										>
-											<path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z" />
-										</svg>
-										{activeFilterCount > 0 && (
-											<span className={styles.filterBadge}>
-												{activeFilterCount}
-											</span>
-										)}
-									</button>
-								</div>
-								{showFilters && (
-									<div className={styles.filterTypes}>
-										{(['tag', 'soa', 'aos', 'rel'] as const).map((type) => (
-											<button
-												key={type}
-												className={`${styles.typeBtn} ${typeClasses[type]} ${
-													typeFilters[type] ? styles.typeBtnActive : ''
-												}`}
-												onClick={() => toggleType(type)}
-											>
-												{type}
-											</button>
-										))}
-										<button
-											className={`${styles.typeBtn} ${styles.typeBtnEmpty} ${
-												showEmpty ? styles.typeBtnActive : ''
-											}`}
-											onClick={() => setShowEmpty(!showEmpty)}
-											title="Show traits with 0 entities"
-										>
-											empty
-										</button>
-									</div>
+								) : (
+									<AllEntitiesList
+										world={world}
+										onSelect={(entity) => {
+											setSelectedEntity(entity);
+											scrollToTop();
+										}}
+									/>
 								)}
-								<TraitList
-									world={world}
-									traits={traits}
-									filter={filter}
-									typeFilters={typeFilters}
-									showEmpty={showEmpty}
-									onSelect={(trait) => {
-										setSelectedTrait(() => trait);
-										scrollToTop();
-									}}
-								/>
+							</>
+						)}
+
+						{/* Traits view */}
+						{activeTab === 'traits' && (
+							<>
+								{validSelectedTrait !== null ? (
+									<TraitDetail
+										key={validSelectedTrait[$internal].id}
+										world={world}
+										trait={validSelectedTrait}
+										editor={editor}
+										scrollRef={scrollRef}
+										onBack={() => {
+											setSelectedTrait(null);
+											scrollToTop();
+										}}
+										onSelectEntity={(entity) => {
+											setSelectedEntity(entity);
+											setActiveTab('entities');
+											scrollToTop();
+										}}
+									/>
+								) : (
+									<>
+										<div className={styles.filterRow}>
+											<input
+												type="text"
+												placeholder="Filter…"
+												value={filter}
+												onChange={(e) => setFilter(e.target.value)}
+												className={styles.filterInput}
+											/>
+											<button
+												className={`${styles.filterToggle} ${
+													showFilters ? styles.filterToggleActive : ''
+												}`}
+												onClick={() => setShowFilters(!showFilters)}
+												title="Filter by type"
+											>
+												<svg
+													width="12"
+													height="12"
+													viewBox="0 0 16 16"
+													fill="currentColor"
+												>
+													<path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z" />
+												</svg>
+												{activeFilterCount > 0 && (
+													<span className={styles.filterBadge}>
+														{activeFilterCount}
+													</span>
+												)}
+											</button>
+										</div>
+										{showFilters && (
+											<div className={styles.filterTypes}>
+												{(['tag', 'soa', 'aos', 'rel'] as const).map(
+													(type) => (
+														<button
+															key={type}
+															className={`${styles.typeBtn} ${
+																typeClasses[type]
+															} ${
+																typeFilters[type]
+																	? styles.typeBtnActive
+																	: ''
+															}`}
+															onClick={() => toggleType(type)}
+														>
+															{type}
+														</button>
+													)
+												)}
+												<button
+													className={`${styles.typeBtn} ${
+														styles.typeBtnEmpty
+													} ${showEmpty ? styles.typeBtnActive : ''}`}
+													onClick={() => setShowEmpty(!showEmpty)}
+													title="Show traits with 0 entities"
+												>
+													empty
+												</button>
+											</div>
+										)}
+										<TraitList
+											world={world}
+											traits={traits}
+											filter={filter}
+											typeFilters={typeFilters}
+											showEmpty={showEmpty}
+											onSelect={(trait) => {
+												setSelectedTrait(() => trait);
+												scrollToTop();
+											}}
+										/>
+									</>
+								)}
 							</>
 						)}
 					</div>
