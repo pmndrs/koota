@@ -6,6 +6,16 @@
 	min-width: 0;
 }
 
+.worldBadge {
+	font-size: 7px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	border-radius: 2px;
+	background: var(--k-accent-rel);
+	color: var(--k-bg-panel);
+}
+
 .genBadge {
 	font-size: 8px;
 	padding: 1px 4px;

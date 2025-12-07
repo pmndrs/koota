@@ -10,13 +10,15 @@ interface AllEntityRowProps {
 }
 
 export function AllEntityRow({ world, entity, onSelect }: AllEntityRowProps) {
-	const { entityId, generation } = unpackEntity(entity);
+	const { entityId, generation, worldId } = unpackEntity(entity);
 	const traitCount = world[$internal].entityTraits.get(entity)?.size ?? 0;
+	const isWorldEntity = entity === world[$internal].worldEntity;
 
 	return (
 		<Row onClick={onSelect}>
 			<span className={styles.entityIdGroup}>
-				<RowName>Entity {entityId}</RowName>
+				<RowName>{isWorldEntity ? `World ${worldId}` : `Entity ${entityId}`}</RowName>
+				{isWorldEntity && <span className={styles.worldBadge}>world</span>}
 				<span className={styles.genBadge}>gen:{generation}</span>
 			</span>
 			<RowCount>{traitCount}</RowCount>
