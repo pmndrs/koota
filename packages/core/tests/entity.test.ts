@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { createWorld, type Entity, getStore, trait, unpackEntity } from '../src';
+import { $internal, createWorld, type Entity, getStore, trait, unpackEntity } from '../src';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
@@ -199,5 +199,17 @@ describe('Entity', () => {
 		entity.destroy();
 		const entity2 = world.spawn();
 		expect(entity2.generation()).toBe(1);
+	});
+
+	it('can check if entity exists in world', () => {
+		const entity = world.spawn();
+		expect(world.has(entity)).toBe(true);
+
+		entity.destroy();
+		expect(world.has(entity)).toBe(false);
+
+		// Should work with world entities as well
+		const worldEntity = world[$internal].worldEntity;
+		expect(world.has(worldEntity)).toBe(true);
 	});
 });
