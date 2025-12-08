@@ -1,6 +1,6 @@
 import type { Entity, Trait } from '@koota/core';
 import { $internal, unpackEntity } from '@koota/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
 import { useWorld } from '../hooks/use-world';
 import badgeStyles from './badge.module.css';
@@ -13,40 +13,46 @@ import { DetailGrid, DetailLayout, DetailSection } from './detail-layout';
 import { Row, RowName } from './row';
 import { getTraitName, getTraitType } from './trait-utils';
 import { TraitValueEditor } from './trait-value-editor';
+import { TraitPicker } from './trait-picker';
 
 interface EntityDetailProps {
 	entity: Entity;
+	zoom: number;
 	onBack: () => void;
 	onSelectTrait: (trait: TraitWithDebug) => void;
 }
 
-export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProps) {
+export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDetailProps) {
 	const world = useWorld();
 	const { entityId, generation, worldId } = unpackEntity(entity);
 	const ctx = world[$internal];
 	const [traits, setTraits] = useState<Trait[]>(() => [...(ctx.entityTraits.get(entity) ?? [])]);
 	const [expandedTraitId, setExpandedTraitId] = useState<number | null>(null);
+	const [showTraitPicker, setShowTraitPicker] = useState(false);
+	const addButtonRef = useRef<HTMLButtonElement>(null);
 	const isWorldEntity = entity === ctx.worldEntity;
 
 	useEffect(() => {
 		const ctx = world[$internal];
-		const update = () => {
-			setTraits([...(ctx.entityTraits.get(entity) ?? [])]);
-		};
 
-		update();
+		// Initial sync in case entity changed
+		setTraits([...(ctx.entityTraits.get(entity) ?? [])]);
 
 		const unsubscribes: (() => void)[] = [];
 
 		const subscribeTrait = (trait: Trait) => {
 			unsubscribes.push(
 				world.onAdd(trait, (ent) => {
-					if (ent === entity) update();
+					if (ent === entity) {
+						setTraits((prev) => (prev.includes(trait) ? prev : [...prev, trait]));
+					}
 				})
 			);
 			unsubscribes.push(
 				world.onRemove(trait, (ent) => {
-					if (ent === entity) update();
+					if (ent === entity) {
+						setTraits((prev) => prev.filter((t) => t !== trait));
+					}
 				})
 			);
 		};
@@ -64,7 +70,9 @@ export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProp
 		ctx.traitRegisteredSubscriptions.add(handleRegistered);
 
 		const handleDestroyed = (ent: Entity) => {
-			if (ent === entity) update();
+			if (ent === entity) {
+				setTraits([]);
+			}
 		};
 
 		ctx.entityDestroyedSubscriptions.add(handleDestroyed);
@@ -80,6 +88,14 @@ export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProp
 		() => [...traits].sort((a, b) => getTraitName(a).localeCompare(getTraitName(b))),
 		[traits]
 	);
+
+	const handleAddTrait = (trait: Trait) => {
+		entity.add(trait);
+	};
+
+	const handleRemoveTrait = (trait: Trait) => {
+		entity.remove(trait);
+	};
 
 	return (
 		<DetailLayout
@@ -98,7 +114,7 @@ export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProp
 			}
 			onBack={onBack}
 		>
-			<DetailSection label="Info">
+			<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
 				<DetailGrid>
 					<span className={detailStyles.detailKey}>ID</span>
 					<span className={detailStyles.detailValue}>{entityId}</span>
@@ -111,7 +127,34 @@ export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProp
 				</DetailGrid>
 			</DetailSection>
 
-			<DetailSection label="Traits" count={sortedTraits.length}>
+			<DetailSection
+				label={
+					<div className={entityDetailStyles.sectionHeader}>
+						<span>
+							Traits{' '}
+							<span className={detailStyles.detailCount}>{sortedTraits.length}</span>
+						</span>
+						<button
+							ref={addButtonRef}
+							className={entityDetailStyles.addButton}
+							onClick={() => setShowTraitPicker((prev) => !prev)}
+							title="Add trait"
+						>
+							+ Add
+						</button>
+						{showTraitPicker && addButtonRef.current && (
+							<TraitPicker
+								entity={entity}
+								currentTraits={traits}
+								zoom={zoom}
+								onSelect={handleAddTrait}
+								onClose={() => setShowTraitPicker(false)}
+								anchorRef={addButtonRef as React.RefObject<HTMLElement>}
+							/>
+						)}
+					</div>
+				}
+			>
 				{sortedTraits.length === 0 ? (
 					<div className={entityDetailStyles.emptySmall}>No traits on entity</div>
 				) : (
@@ -174,6 +217,16 @@ export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProp
 											</span>
 										)}
 									</Row>
+									<button
+										className={entityDetailStyles.removeButton}
+										onClick={(e) => {
+											e.stopPropagation();
+											handleRemoveTrait(trait);
+										}}
+										title="Remove trait"
+									>
+										×
+									</button>
 									<button
 										className={entityDetailStyles.infoButton}
 										onClick={(e) => {

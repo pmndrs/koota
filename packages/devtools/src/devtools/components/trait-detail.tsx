@@ -98,7 +98,7 @@ export function TraitDetail({
 			badge={<span className={`${badgeStyles.detailBadge} ${badgeClasses[type]}`}>{type}</span>}
 			onBack={onBack}
 		>
-			<DetailSection label="Info">
+			<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
 				<DetailGrid>
 					<span className={detailStyles.detailKey}>ID</span>
 					<span className={detailStyles.detailValue}>{ctx.id}</span>
@@ -114,7 +114,7 @@ export function TraitDetail({
 			</DetailSection>
 
 			{schemaKeys.length > 0 && (
-				<DetailSection label="Schema">
+				<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Schema</span>}>
 					<DetailGrid>
 						{schemaKeys.map((key) => (
 							<Fragment key={key}>
@@ -131,7 +131,7 @@ export function TraitDetail({
 			)}
 
 			{isRelation && (
-				<DetailSection label="Targets" count={targets.length}>
+				<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Targets</span>} count={targets.length}>
 					{targets.length === 0 ? (
 						<div className={traitDetailStyles.emptySmall}>No targets</div>
 					) : (
@@ -144,7 +144,7 @@ export function TraitDetail({
 				</DetailSection>
 			)}
 
-			<DetailSection label="Entities" count={entities.length}>
+			<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Entities</span>} count={entities.length}>
 				<EntityList entities={entities} scrollRef={scrollRef} onSelect={onSelectEntity} />
 			</DetailSection>
 		</DetailLayout>

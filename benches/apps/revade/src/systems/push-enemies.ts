@@ -28,8 +28,10 @@ export const pushEnemies = ({ world }: { world: World }) => {
 
 		// Apply push force to colliding enemies
 		for (const enemy of collidingEnemies) {
-			const enemyTransform = enemy.get(Transform)!;
-			const enemyMovement = enemy.get(Movement)!;
+			const enemyTransform = enemy.get(Transform);
+			const enemyMovement = enemy.get(Movement);
+
+			if (!enemyTransform || !enemyMovement) continue;
 
 			// Calculate push direction (away from player)
 			pushForce
