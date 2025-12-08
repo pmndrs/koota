@@ -1,86 +1,120 @@
 .editorGrid {
-	padding: 8px 12px;
-	background: rgba(0, 0, 0, 0.2);
-	border-radius: 3px;
-	margin-top: 4px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: 100%;
+	font-family: var(--k-font-mono, 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace);
+	font-size: 10px;
+	margin: 4px 0 8px 0;
 }
 
 .aosData {
-	padding: 8px 12px;
-	background: rgba(0, 0, 0, 0.2);
-	border-radius: 3px;
-	margin-top: 4px;
+	margin: 4px 0 8px 12px;
 }
 
 .editorRow {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 10px;
-	align-items: center;
-	margin-bottom: 6px;
+	display: flex;
+	align-items: stretch;
+	min-height: 24px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 2px;
+	overflow: hidden;
+	transition: background 0.1s ease;
 }
 
-.editorRow:last-child {
-	margin-bottom: 0;
+.editorRow:hover {
+	background: rgba(0, 0, 0, 0.25);
 }
 
 .editorKey {
-	font-size: 10px;
+	display: flex;
+	align-items: center;
 	color: var(--k-text-muted);
 	font-weight: 500;
+	font-size: 10px;
+	white-space: nowrap;
+	flex-shrink: 0;
+	user-select: none;
+	cursor: default;
+	padding: 0 8px;
+	min-width: 80px;
+	background: rgba(0, 0, 0, 0.1);
 }
 
 .editorValue {
 	display: flex;
 	align-items: center;
+	flex: 1;
+	min-width: 0;
+	padding: 0 8px;
+	position: relative;
 }
 
 .input {
-	all: unset;
 	flex: 1;
-	padding: 3px 6px;
-	font-size: 10px;
-	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New',
-		monospace;
-	color: var(--k-text-secondary);
-	background: rgba(255, 255, 255, 0.05);
-	border: 1px solid rgba(255, 255, 255, 0.1);
+	min-width: 0;
+	height: auto;
+	background: transparent;
+	border: none;
+	color: var(--k-text-primary);
+	font-family: inherit;
+	font-size: inherit;
+	padding: 2px 4px;
+	margin: -2px -4px;
+	outline: none;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
 	border-radius: 2px;
-	transition: all 0.15s;
 }
 
-.input:hover {
-	background: rgba(255, 255, 255, 0.08);
-	border-color: rgba(255, 255, 255, 0.15);
+.input[type='text'] {
+	text-align: left;
 }
 
 .input:focus {
-	background: rgba(255, 255, 255, 0.1);
-	border-color: var(--k-accent);
-	outline: none;
+	color: var(--k-accent);
+}
+
+.input::selection {
+	background: rgba(100, 108, 255, 0.6);
+	color: #ffffff;
+	border-radius: 2px;
+}
+
+/* Hide number spinners */
+.input::-webkit-outer-spin-button,
+.input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.input[type='number'] {
+	appearance: textfield;
+	-moz-appearance: textfield;
 }
 
 .checkbox {
 	width: 14px;
 	height: 14px;
-	cursor: pointer;
+	margin: 0;
 	accent-color: var(--k-accent);
+	cursor: pointer;
+	flex-shrink: 0;
 }
 
 .readonly {
-	font-size: 10px;
-	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New',
-		monospace;
+	font-size: 11px;
 	color: var(--k-text-muted);
 	font-style: italic;
-	white-space: pre-wrap;
-	word-break: break-all;
+	padding: 0 4px;
 }
 
 .emptyMessage {
-	padding: 8px 12px;
+	padding: 6px 8px;
 	font-size: 10px;
 	color: var(--k-text-muted);
 	font-style: italic;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 2px;
+	margin: 4px 0 8px 0;
 }
-

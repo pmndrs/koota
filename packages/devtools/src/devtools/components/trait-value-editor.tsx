@@ -93,6 +93,7 @@ function renderInput(
 					type="number"
 					value={value ?? 0}
 					onChange={(e) => onChange(key, parseFloat(e.target.value) || 0)}
+					onClick={(e) => e.currentTarget.select()}
 					className={styles.input}
 				/>
 			);
@@ -103,6 +104,7 @@ function renderInput(
 					type="text"
 					value={value ?? ''}
 					onChange={(e) => onChange(key, e.target.value)}
+					onClick={(e) => e.currentTarget.select()}
 					className={styles.input}
 				/>
 			);

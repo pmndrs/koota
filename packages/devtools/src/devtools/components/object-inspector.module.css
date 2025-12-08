@@ -1,8 +1,17 @@
 .inspector {
-	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-	font-size: 11px;
-	line-height: 1.5;
+	font-family: var(--k-font-mono, 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace);
+	font-size: 10px;
+	line-height: 1.4;
 	user-select: text;
+	color: var(--k-text-secondary);
+	width: 100%;
+}
+
+.inspector ::selection {
+	background: rgba(100, 108, 255, 0.6);
+	color: #ffffff;
+	border-radius: 2px;
+	padding: 1px 2px;
 }
 
 .row {
@@ -10,17 +19,20 @@
 	align-items: baseline;
 	gap: 4px;
 	cursor: default;
-	padding: 1px 0;
+	padding: 0;
+	border-radius: 2px;
 }
 
 .row:hover {
-	background-color: rgba(255, 255, 255, 0.05);
+	background-color: var(--k-bg-hover);
 }
 
 .arrow {
 	display: inline-block;
-	width: 10px;
+	width: 12px;
 	font-size: 9px;
+	text-align: center;
+	color: var(--k-text-muted);
 	cursor: pointer;
 	user-select: none;
 	flex-shrink: 0;
@@ -28,57 +40,53 @@
 
 .arrowPlaceholder {
 	display: inline-block;
-	width: 10px;
+	width: 12px;
 	flex-shrink: 0;
 }
 
 .name {
-	color: #a371f7;
+	color: var(--k-accent-tag, var(--k-accent));
 	flex-shrink: 0;
 }
 
-.children {
-	/* Padding is handled by child inspector depth */
-}
-
-/* Value type colors */
+/* Value type colors - inspired by Chrome DevTools / One Dark */
 .valueString {
-	color: #e05050;
+	color: var(--k-accent-tag, var(--k-accent));
 }
 
 .valueNumber {
-	color: #5fb3f6;
+	color: var(--k-accent-soa, var(--k-accent));
 }
 
 .valueBoolean {
-	color: #5fb3f6;
+	color: var(--k-accent-aos, var(--k-accent));
 }
 
 .valueNull,
 .valueUndefined {
-	color: #808080;
+	color: var(--k-text-muted);
 	font-style: italic;
 }
 
 .valueFunction {
-	color: #888;
+	color: var(--k-text-secondary);
 	font-style: italic;
 }
 
 .valueArray {
-	color: #888;
+	color: var(--k-text-secondary);
 }
 
 .valueObject {
-	color: #888;
+	color: var(--k-text-secondary);
 }
 
 .valueDefault {
-	color: #ccc;
+	color: var(--k-text-secondary);
 }
 
 .preview {
-	color: #666;
+	color: var(--k-text-muted);
 	font-style: italic;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -86,4 +94,5 @@
 	max-width: 400px;
 	display: inline-block;
 	vertical-align: bottom;
+	opacity: 0.7;
 }
