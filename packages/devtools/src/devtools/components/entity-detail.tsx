@@ -142,16 +142,6 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 						>
 							+ Add
 						</button>
-						{showTraitPicker && addButtonRef.current && (
-							<TraitPicker
-								entity={entity}
-								currentTraits={traits}
-								zoom={zoom}
-								onSelect={handleAddTrait}
-								onClose={() => setShowTraitPicker(false)}
-								anchorRef={addButtonRef as React.RefObject<HTMLElement>}
-							/>
-						)}
 					</div>
 				}
 			>
@@ -268,6 +258,16 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 					})
 				)}
 			</DetailSection>
+			{showTraitPicker && (
+				<TraitPicker
+					entity={entity}
+					currentTraits={traits}
+					zoom={zoom}
+					onSelect={handleAddTrait}
+					onClose={() => setShowTraitPicker(false)}
+					anchorRef={addButtonRef as React.RefObject<HTMLElement>}
+				/>
+			)}
 		</DetailLayout>
 	);
 }

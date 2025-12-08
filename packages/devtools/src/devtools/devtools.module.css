@@ -4,6 +4,7 @@
 	font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
 	font-size: 12px;
 	user-select: none;
+	overflow: hidden;
 
 	/* --- Color System --- */
 
@@ -38,7 +39,7 @@
 	color: var(--k-text-primary);
 	border-radius: 6px;
 	border: 1px solid var(--k-border);
-	overflow: hidden;
+	overflow: visible;
 	width: 260px;
 	display: flex;
 	flex-direction: column;
@@ -50,6 +51,7 @@
 	max-height: 280px;
 	overflow-y: auto;
 	overflow-x: hidden;
+	position: relative;
 	/* Firefox - thin overlay scrollbar */
 	scrollbar-width: thin;
 	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
