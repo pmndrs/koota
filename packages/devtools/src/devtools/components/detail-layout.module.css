@@ -1,5 +1,6 @@
 .detailView {
 	padding: 8px;
+	overflow: visible;
 }
 
 .backButton {
@@ -41,15 +42,16 @@
 
 .detailSection {
 	margin-bottom: 10px;
+	overflow: visible;
 }
 
 .detailLabel {
 	font-size: 9px;
 	font-weight: 600;
-	text-transform: uppercase;
 	letter-spacing: 0.5px;
 	color: var(--k-text-muted);
 	margin-bottom: 4px;
+	position: relative;
 }
 
 .detailCount {

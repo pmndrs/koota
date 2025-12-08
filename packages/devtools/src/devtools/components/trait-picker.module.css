@@ -1,0 +1,77 @@
+.picker {
+	background: var(--k-bg-panel);
+	border: 1px solid var(--k-border);
+	border-radius: 4px;
+	overflow: hidden;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	z-index: 100000;
+}
+
+.input {
+	width: 100%;
+	padding: 6px 8px;
+	border: none;
+	border-bottom: 1px solid var(--k-border);
+	background: var(--k-bg-input);
+	color: var(--k-text-secondary);
+	font-size: 10px;
+	font-family: inherit;
+	outline: none;
+}
+
+.input::placeholder {
+	color: var(--k-text-muted);
+}
+
+.list {
+	max-height: 200px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.list::-webkit-scrollbar {
+	width: 6px;
+}
+
+.list::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.list::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 3px;
+}
+
+.list::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.item {
+	all: unset;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	padding: 6px 8px;
+	font-size: 10px;
+	cursor: pointer;
+	transition: background 0.15s;
+}
+
+.item:hover {
+	background: var(--k-bg-hover);
+}
+
+.itemName {
+	color: var(--k-text-secondary);
+}
+
+.empty {
+	padding: 12px 8px;
+	text-align: center;
+	font-size: 10px;
+	color: var(--k-text-muted);
+}
+

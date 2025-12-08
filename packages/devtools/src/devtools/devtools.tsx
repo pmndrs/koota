@@ -182,7 +182,11 @@ export function Devtools({
 
 	return (
 		<WorldProvider value={world}>
-			<div className={styles.container} style={{ top: position.y, left: position.x }}>
+			<div
+				className={styles.container}
+				style={{ top: position.y, left: position.x }}
+				data-koota-devtools-root
+			>
 				<div
 					className={styles.panel}
 					style={{
@@ -221,6 +225,7 @@ export function Devtools({
 										<EntityDetail
 											key={validSelectedEntity}
 											entity={validSelectedEntity}
+											zoom={zoom}
 											onBack={handleDeselectEntity}
 											onSelectTrait={(trait) => {
 												setSelectedTrait(() => trait);
