@@ -184,16 +184,15 @@ export function Devtools({
 		<WorldProvider value={world}>
 			<div
 				className={styles.container}
-				style={{ top: position.y, left: position.x }}
+				style={{
+					top: position.y,
+					left: position.x,
+					transform: `scale(${zoom})`,
+					transformOrigin: 'top left',
+				}}
 				data-koota-devtools-root
 			>
-				<div
-					className={`${styles.panel} panel`}
-					style={{
-						transform: `scale(${zoom})`,
-						transformOrigin: 'top left',
-					}}
-				>
+				<div className={`${styles.panel} panel`}>
 					<Header
 						traitCount={traits.length}
 						entityCount={entityCount}
