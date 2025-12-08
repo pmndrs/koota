@@ -3,20 +3,12 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import type { Entity } from 'koota';
-import { IsDevtoolsHovered, IsDevtoolsSelected, IsDevtoolsHighlighting } from 'koota/devtools';
 import { Devtools } from 'koota/devtools/react';
-import {
-	useActions,
-	useQuery,
-	useQueryFirst,
-	useTag,
-	useTrait,
-	useTraitEffect,
-	useWorld,
-} from 'koota/react';
+import { useActions, useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
 import { memo, StrictMode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { actions } from './actions';
+import { useDevtoolsHighlight } from './hooks/use-devtools-highlight';
 import { schedule } from './systems/schedule';
 
 import {
@@ -71,15 +63,10 @@ function EnemyRenderer() {
 }
 
 const EnemyView = memo(({ entity }: { entity: Entity }) => {
-	const world = useWorld();
 	const groupRef = useRef<THREE.Group>(null);
 	const meshRef = useRef<THREE.Mesh>(null);
 	const scaleRef = useRef(0);
-	const isHovered = useTag(entity, IsDevtoolsHovered);
-	const isSelected = useTag(entity, IsDevtoolsSelected);
-	const isAnythingHighlighted = useTag(world, IsDevtoolsHighlighting);
-	const isThisHighlighted = isHovered || isSelected;
-	const shouldFade = isAnythingHighlighted && !isThisHighlighted;
+	const highlight = useDevtoolsHighlight(entity);
 
 	// Set initial values and sync with the entity
 	useLayoutEffect(() => {
@@ -103,32 +90,23 @@ const EnemyView = memo(({ entity }: { entity: Entity }) => {
 	useFrame((_, delta) => {
 		if (!groupRef.current) return;
 		const progress = Math.min(scaleRef.current + delta * 2, 1);
-		// Apply easing - this uses cubic easing out
 		const eased = 1 - (1 - progress) ** 3;
 		scaleRef.current = progress;
-
-		// Apply devtools feedback scale to the GROUP
-		const devtoolsScale = isThisHighlighted ? 1.05 : 1;
-		groupRef.current.scale.setScalar(eased * devtoolsScale);
+		groupRef.current.scale.setScalar(eased * highlight.scale);
 	});
-
-	// Determine color based on devtools state
-	const color = isSelected ? '#ffff00' : isHovered ? '#00ffff' : 'white';
 
 	return (
 		<group ref={groupRef}>
-			<mesh ref={meshRef} renderOrder={isThisHighlighted ? 100 : 0}>
+			<mesh ref={meshRef}>
 				<dodecahedronGeometry />
 				<meshBasicMaterial
-					color={color}
+					color={highlight.color ?? 'white'}
 					wireframe
 					transparent
-					opacity={shouldFade ? 0.15 : 1}
-					depthTest={isThisHighlighted ? false : true}
+					opacity={highlight.opacity}
 				/>
 			</mesh>
-			{isHovered && !isSelected && <DevtoolsHighlight color="#00ffff" />}
-			{isSelected && <DevtoolsHighlight color="#ffff00" />}
+			{highlight.color && <DevtoolsHighlight color={highlight.color} />}
 		</group>
 	);
 });
@@ -157,30 +135,17 @@ const PlayerView = memo(
 		damping?: number;
 		thrust?: number;
 	}) => {
-		const world = useWorld();
 		const ref = useRef<THREE.Group>(null);
-
-		// Thrusting state
 		const [isThrusting, setIsThrusting] = useState(false);
-
-		// Devtools feedback
-		const isHovered = useTag(entity, IsDevtoolsHovered);
-		const isSelected = useTag(entity, IsDevtoolsSelected);
-		const isAnythingHighlighted = useTag(world, IsDevtoolsHighlighting);
-		const isThisHighlighted = isHovered || isSelected;
-		const shouldFade = isAnythingHighlighted && !isThisHighlighted;
-
-		console.log('isAnythingHighlighted', isAnythingHighlighted);
+		const highlight = useDevtoolsHighlight(entity);
 
 		useTraitEffect(entity, Input, (input) => {
 			if (input && input.length() > 0) setIsThrusting(true);
 			else setIsThrusting(false);
 		});
 
-		// Shield visibility state
 		const isShieldVisible = useTrait(entity, IsShieldVisible);
 
-		// Set initial values and sync with the entity
 		useLayoutEffect(() => {
 			if (!ref.current) return;
 
@@ -192,26 +157,20 @@ const PlayerView = memo(
 			entity.set(Movement, { maxSpeed, damping, thrust });
 		}, [entity]);
 
-		// Determine color and scale based on devtools state
-		const color = isSelected ? '#ffff00' : isHovered ? '#00ffff' : 'orange';
-		const scale = isThisHighlighted ? 1.05 : 1;
-
 		return (
 			<group ref={ref}>
-				<mesh scale={scale} renderOrder={isThisHighlighted ? 100 : 0}>
+				<mesh scale={highlight.scale}>
 					<boxGeometry />
 					<meshBasicMaterial
-						color={color}
+						color={highlight.color ?? 'orange'}
 						wireframe
 						transparent
-						opacity={shouldFade ? 0.15 : 1}
-						depthTest={isThisHighlighted ? false : true}
+						opacity={highlight.opacity}
 					/>
 				</mesh>
 				{isThrusting && <ThrusterView />}
 				{isShieldVisible && <ShieldView />}
-				{isHovered && !isSelected && <DevtoolsHighlight color="#00ffff" />}
-				{isSelected && <DevtoolsHighlight color="#ffff00" />}
+				{highlight.color && <DevtoolsHighlight color={highlight.color} />}
 			</group>
 		);
 	}
@@ -228,15 +187,9 @@ function ShieldView() {
 
 function DevtoolsHighlight({ color }: { color: string }) {
 	return (
-		<mesh position={[0, 0, -0.5]} renderOrder={999}>
+		<mesh position={[0, 0, -0.5]}>
 			<circleGeometry args={[1.3, 32]} />
-			<meshBasicMaterial
-				color={color}
-				transparent
-				opacity={0.3}
-				depthTest={false}
-				depthWrite={false}
-			/>
+			<meshBasicMaterial color={color} transparent opacity={0.3} />
 		</mesh>
 	);
 }
@@ -338,16 +291,10 @@ function BulletRenderer() {
 }
 
 const BulletView = memo(({ entity }: { entity: Entity }) => {
-	const world = useWorld();
 	const groupRef = useRef<THREE.Group>(null);
 	const meshRef = useRef<THREE.Mesh>(null);
-	const isHovered = useTag(entity, IsDevtoolsHovered);
-	const isSelected = useTag(entity, IsDevtoolsSelected);
-	const isAnythingHighlighted = useTag(world, IsDevtoolsHighlighting);
-	const isThisHighlighted = isHovered || isSelected;
-	const shouldFade = isAnythingHighlighted && !isThisHighlighted;
+	const highlight = useDevtoolsHighlight(entity);
 
-	// Set initial values and sync with the entity
 	const handleInit = useCallback(() => {
 		if (!groupRef.current || !meshRef.current || !entity.isAlive()) return;
 
@@ -358,28 +305,20 @@ const BulletView = memo(({ entity }: { entity: Entity }) => {
 		}));
 	}, []);
 
-	// Run init when refs are ready
 	useLayoutEffect(handleInit, [handleInit]);
 
-	const color = isSelected ? '#ffff00' : isHovered ? '#00ffff' : 'red';
-	const devtoolsScale = isThisHighlighted ? 1.05 : 1;
-	// Move base scale (0.2) to the group
-	const scale = 0.2 * devtoolsScale;
-
 	return (
-		<group ref={groupRef} scale={scale}>
-			<mesh ref={meshRef} renderOrder={isThisHighlighted ? 100 : 0}>
+		<group ref={groupRef} scale={0.2 * highlight.scale}>
+			<mesh ref={meshRef}>
 				<sphereGeometry />
 				<meshBasicMaterial
-					color={color}
+					color={highlight.color ?? 'red'}
 					wireframe
 					transparent
-					opacity={shouldFade ? 0.15 : 1}
-					depthTest={isThisHighlighted ? false : true}
+					opacity={highlight.opacity}
 				/>
 			</mesh>
-			{isHovered && !isSelected && <DevtoolsHighlight color="#00ffff" />}
-			{isSelected && <DevtoolsHighlight color="#ffff00" />}
+			{highlight.color && <DevtoolsHighlight color={highlight.color} />}
 		</group>
 	);
 });

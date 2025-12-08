@@ -1,8 +1,7 @@
 import type { Entity } from '@koota/core';
 import { unpackEntity } from '@koota/core';
-import { IsDevtoolsHovered, IsDevtoolsHovering, IsDevtoolsHighlighting } from '../../traits';
+import { IsDevtoolsHovered } from '../../traits';
 import { useWorld } from '../hooks/use-world';
-import { syncHighlightTags } from '../utils/sync-highlight-tags';
 import styles from './entity-list.module.css';
 
 interface EntityRowProps {
@@ -17,16 +16,12 @@ export function EntityRow({ entity, onSelect }: EntityRowProps) {
 	const handleMouseEnter = () => {
 		if (world.has(entity)) {
 			entity.add(IsDevtoolsHovered);
-			world.add(IsDevtoolsHovering);
-			world.add(IsDevtoolsHighlighting);
-			syncHighlightTags(world);
 		}
 	};
 
 	const handleMouseLeave = () => {
 		if (world.has(entity)) {
 			entity.remove(IsDevtoolsHovered);
-			syncHighlightTags(world);
 		}
 	};
 

@@ -1,12 +1,7 @@
 import { $internal, type Entity, type Trait, type World } from '@koota/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
-import {
-	IsDevtoolsHovered,
-	IsDevtoolsHighlighting,
-	IsDevtoolsSelected,
-	IsDevtoolsSelecting,
-} from '../traits';
+import { IsDevtoolsSelected } from '../traits';
 import { AllEntitiesList } from './components/all-entities-list';
 import { EntityDetail } from './components/entity-detail';
 import { Header, type Tab } from './components/header';
@@ -14,11 +9,12 @@ import { RelationGraph } from './components/relation-graph';
 import { TraitDetail } from './components/trait-detail';
 import { TraitList } from './components/trait-list';
 import { getTraitType } from './components/trait-utils';
+import { useAnimationFrame } from './hooks/use-animation-frame';
 import { useDraggable } from './hooks/use-draggable';
 import { useEntityCount } from './hooks/use-entity-count';
 import { useWorldTraits } from './hooks/use-world-traits';
 import { WorldProvider } from './hooks/use-world';
-import { syncHighlightTags } from './utils/sync-highlight-tags';
+import { runDevtoolsHighlightSystem } from './utils/devtools-highlight-system';
 import styles from './devtools.module.css';
 
 export type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
@@ -101,9 +97,6 @@ export function Devtools({
 		// Add trait to new entity
 		if (world.has(entity)) {
 			entity.add(IsDevtoolsSelected);
-			world.add(IsDevtoolsSelecting);
-			world.add(IsDevtoolsHighlighting);
-			syncHighlightTags(world);
 		}
 
 		previousSelectedEntityRef.current = entity;
@@ -120,34 +113,15 @@ export function Devtools({
 			previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
 		}
 
-		// Sync world highlight tags
-		syncHighlightTags(world);
-
 		previousSelectedEntityRef.current = null;
 		setSelectedEntity(null);
 		scrollToTop();
 	};
 
-	// Listen for trait removals (including when entities are destroyed)
-	useEffect(() => {
-		const unsubSelected = world.onRemove(IsDevtoolsSelected, (ent) => {
-			// Clear selection state if this was our selected entity
-			if (previousSelectedEntityRef.current === ent) {
-				previousSelectedEntityRef.current = null;
-				setSelectedEntity(null);
-			}
-			syncHighlightTags(world);
-		});
-
-		const unsubHovered = world.onRemove(IsDevtoolsHovered, () => {
-			syncHighlightTags(world);
-		});
-
-		return () => {
-			unsubSelected();
-			unsubHovered();
-		};
-	}, [world]);
+	// Per-frame system to sync world highlight tags based on entity trait state
+	useAnimationFrame(() => {
+		runDevtoolsHighlightSystem(world, previousSelectedEntityRef, setSelectedEntity);
+	});
 
 	const handleTabChange = (tab: Tab) => {
 		setActiveTab(tab);
