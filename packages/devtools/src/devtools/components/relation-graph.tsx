@@ -3,14 +3,8 @@ import { $internal } from '@koota/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import type { TraitWithDebug } from '../../types';
-import {
-	IsDevtoolsHovered,
-	IsDevtoolsHovering,
-	IsDevtoolsHighlighting,
-	IsDevtoolsSelected,
-} from '../../traits';
+import { IsDevtoolsHovered } from '../../traits';
 import { useWorld } from '../hooks/use-world';
-import { syncHighlightTags } from '../utils/sync-highlight-tags';
 import { getTraitName } from './trait-utils';
 import { buildGraphData, type GraphData } from '../utils/build-graph-data';
 import styles from './relation-graph.module.css';
@@ -248,13 +242,9 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 						// Add hover to new entity
 						if (node?.entity && world.has(node.entity)) {
 							node.entity.add(IsDevtoolsHovered);
-							world.add(IsDevtoolsHovering);
-							world.add(IsDevtoolsHighlighting);
-								syncHighlightTags(world);
 							hoveredEntityRef.current = node.entity;
 						} else {
 							hoveredEntityRef.current = null;
-								syncHighlightTags(world);
 						}
 					}}
 						// @ts-expect-error - d3Force prop exists but types may be incomplete
