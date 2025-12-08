@@ -1,6 +1,12 @@
 import { $internal, type Entity, type Trait, type World } from '@koota/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
+import {
+	IsDevtoolsHovered,
+	IsDevtoolsHighlighting,
+	IsDevtoolsSelected,
+	IsDevtoolsSelecting,
+} from '../traits';
 import { AllEntitiesList } from './components/all-entities-list';
 import { EntityDetail } from './components/entity-detail';
 import { Header, type Tab } from './components/header';
@@ -11,6 +17,8 @@ import { getTraitType } from './components/trait-utils';
 import { useDraggable } from './hooks/use-draggable';
 import { useEntityCount } from './hooks/use-entity-count';
 import { useWorldTraits } from './hooks/use-world-traits';
+import { WorldProvider } from './hooks/use-world';
+import { syncHighlightTags } from './utils/sync-highlight-tags';
 import styles from './devtools.module.css';
 
 export type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
@@ -49,6 +57,7 @@ export function Devtools({
 	const [zoom, setZoom] = useState(1);
 	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
 	const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+	const previousSelectedEntityRef = useRef<Entity | null>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const { position, isDragging, handleMouseDown } = useDraggable(defaultPosition);
 	const traits = useWorldTraits(world);
@@ -80,10 +89,70 @@ export function Devtools({
 		scrollRef.current?.scrollTo({ top: 0 });
 	};
 
+	const handleSelectEntity = (entity: Entity) => {
+		// Remove trait from previous entity
+		if (
+			previousSelectedEntityRef.current !== null &&
+			world.has(previousSelectedEntityRef.current)
+		) {
+			previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
+		}
+
+		// Add trait to new entity
+		if (world.has(entity)) {
+			entity.add(IsDevtoolsSelected);
+			world.add(IsDevtoolsSelecting);
+			world.add(IsDevtoolsHighlighting);
+			syncHighlightTags(world);
+		}
+
+		previousSelectedEntityRef.current = entity;
+		setSelectedEntity(entity);
+		scrollToTop();
+	};
+
+	const handleDeselectEntity = () => {
+		// Remove trait from previous entity
+		if (
+			previousSelectedEntityRef.current !== null &&
+			world.has(previousSelectedEntityRef.current)
+		) {
+			previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
+		}
+
+		// Sync world highlight tags
+		syncHighlightTags(world);
+
+		previousSelectedEntityRef.current = null;
+		setSelectedEntity(null);
+		scrollToTop();
+	};
+
+	// Listen for trait removals (including when entities are destroyed)
+	useEffect(() => {
+		const unsubSelected = world.onRemove(IsDevtoolsSelected, (ent) => {
+			// Clear selection state if this was our selected entity
+			if (previousSelectedEntityRef.current === ent) {
+				previousSelectedEntityRef.current = null;
+				setSelectedEntity(null);
+			}
+			syncHighlightTags(world);
+		});
+
+		const unsubHovered = world.onRemove(IsDevtoolsHovered, () => {
+			syncHighlightTags(world);
+		});
+
+		return () => {
+			unsubSelected();
+			unsubHovered();
+		};
+	}, [world]);
+
 	const handleTabChange = (tab: Tab) => {
 		setActiveTab(tab);
 		setSelectedTrait(null);
-		setSelectedEntity(null);
+		handleDeselectEntity();
 		setFilter('');
 		setShowFilters(false);
 	};
@@ -135,170 +204,157 @@ export function Devtools({
 		selectedEntity !== null && world.has(selectedEntity) ? selectedEntity : null;
 
 	return (
-		<div className={styles.container} style={{ top: position.y, left: position.x }}>
-			<div
-				className={styles.panel}
-				style={{
-					transform: `scale(${zoom})`,
-					transformOrigin: 'top left',
-				}}
-			>
-				<Header
-					traitCount={traits.length}
-					entityCount={entityCount}
-					relationCount={relationCount}
-					isOpen={isOpen}
-					isDragging={isDragging}
-					activeTab={activeTab}
-					onTabChange={handleTabChange}
-					onToggle={() => setIsOpen(!isOpen)}
-					onMouseDown={handleMouseDown}
-				/>
-				{isOpen && (
-					<div ref={scrollRef} className={styles.list}>
-						{/* Graph view */}
-						{activeTab === 'graph' && (
-							<RelationGraph
-								world={world}
-								relationTraits={relationTraits}
-								onSelectEntity={(entity) => {
-									setSelectedEntity(entity);
-									setActiveTab('entities');
-									scrollToTop();
-								}}
-							/>
-						)}
+		<WorldProvider value={world}>
+			<div className={styles.container} style={{ top: position.y, left: position.x }}>
+				<div
+					className={styles.panel}
+					style={{
+						transform: `scale(${zoom})`,
+						transformOrigin: 'top left',
+					}}
+				>
+					<Header
+						traitCount={traits.length}
+						entityCount={entityCount}
+						relationCount={relationCount}
+						isOpen={isOpen}
+						isDragging={isDragging}
+						activeTab={activeTab}
+						onTabChange={handleTabChange}
+						onToggle={() => setIsOpen(!isOpen)}
+						onMouseDown={handleMouseDown}
+					/>
+					{isOpen && (
+						<div ref={scrollRef} className={styles.list}>
+							{/* Graph view */}
+							{activeTab === 'graph' && (
+								<RelationGraph
+									relationTraits={relationTraits}
+									onSelectEntity={(entity) => {
+										handleSelectEntity(entity);
+										setActiveTab('entities');
+									}}
+								/>
+							)}
 
-						{/* Entities view */}
-						{activeTab === 'entities' && (
-							<>
-								{validSelectedEntity !== null ? (
-									<EntityDetail
-										key={validSelectedEntity}
-										world={world}
-										entity={validSelectedEntity}
-										onBack={() => {
-											setSelectedEntity(null);
-											scrollToTop();
-										}}
-										onSelectTrait={(trait) => {
-											setSelectedTrait(() => trait);
-											setActiveTab('traits');
-											scrollToTop();
-										}}
-									/>
-								) : (
-									<AllEntitiesList
-										world={world}
-										onSelect={(entity) => {
-											setSelectedEntity(entity);
-											scrollToTop();
-										}}
-									/>
-								)}
-							</>
-						)}
-
-						{/* Traits view */}
-						{activeTab === 'traits' && (
-							<>
-								{validSelectedTrait !== null ? (
-									<TraitDetail
-										key={validSelectedTrait[$internal].id}
-										world={world}
-										trait={validSelectedTrait}
-										editor={editor}
-										scrollRef={scrollRef}
-										onBack={() => {
-											setSelectedTrait(null);
-											scrollToTop();
-										}}
-										onSelectEntity={(entity) => {
-											setSelectedEntity(entity);
-											setActiveTab('entities');
-											scrollToTop();
-										}}
-									/>
-								) : (
-									<>
-										<div className={styles.filterRow}>
-											<input
-												type="text"
-												placeholder="Filter…"
-												value={filter}
-												onChange={(e) => setFilter(e.target.value)}
-												className={styles.filterInput}
-											/>
-											<button
-												className={`${styles.filterToggle} ${
-													showFilters ? styles.filterToggleActive : ''
-												}`}
-												onClick={() => setShowFilters(!showFilters)}
-												title="Filter by type"
-											>
-												<svg
-													width="12"
-													height="12"
-													viewBox="0 0 16 16"
-													fill="currentColor"
-												>
-													<path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z" />
-												</svg>
-												{activeFilterCount > 0 && (
-													<span className={styles.filterBadge}>
-														{activeFilterCount}
-													</span>
-												)}
-											</button>
-										</div>
-										{showFilters && (
-											<div className={styles.filterTypes}>
-												{(['tag', 'soa', 'aos', 'rel'] as const).map(
-													(type) => (
-														<button
-															key={type}
-															className={`${styles.typeBtn} ${
-																typeClasses[type]
-															} ${
-																typeFilters[type]
-																	? styles.typeBtnActive
-																	: ''
-															}`}
-															onClick={() => toggleType(type)}
-														>
-															{type}
-														</button>
-													)
-												)}
-												<button
-													className={`${styles.typeBtn} ${
-														styles.typeBtnEmpty
-													} ${showEmpty ? styles.typeBtnActive : ''}`}
-													onClick={() => setShowEmpty(!showEmpty)}
-													title="Show traits with 0 entities"
-												>
-													empty
-												</button>
-											</div>
-										)}
-										<TraitList
-											world={world}
-											traits={traits}
-											filter={filter}
-											typeFilters={typeFilters}
-											showEmpty={showEmpty}
-											onSelect={(trait) => {
+							{/* Entities view */}
+							{activeTab === 'entities' && (
+								<>
+									{validSelectedEntity !== null ? (
+										<EntityDetail
+											key={validSelectedEntity}
+											entity={validSelectedEntity}
+											onBack={handleDeselectEntity}
+											onSelectTrait={(trait) => {
 												setSelectedTrait(() => trait);
+												setActiveTab('traits');
 												scrollToTop();
 											}}
 										/>
-									</>
-								)}
-							</>
-						)}
-					</div>
-				)}
+									) : (
+										<AllEntitiesList onSelect={handleSelectEntity} />
+									)}
+								</>
+							)}
+
+							{/* Traits view */}
+							{activeTab === 'traits' && (
+								<>
+									{validSelectedTrait !== null ? (
+										<TraitDetail
+											key={validSelectedTrait[$internal].id}
+											trait={validSelectedTrait}
+											editor={editor}
+											scrollRef={scrollRef}
+											onBack={() => {
+												setSelectedTrait(null);
+												scrollToTop();
+											}}
+											onSelectEntity={(entity) => {
+												handleSelectEntity(entity);
+												setActiveTab('entities');
+											}}
+										/>
+									) : (
+										<>
+											<div className={styles.filterRow}>
+												<input
+													type="text"
+													placeholder="Filter…"
+													value={filter}
+													onChange={(e) => setFilter(e.target.value)}
+													className={styles.filterInput}
+												/>
+												<button
+													className={`${styles.filterToggle} ${
+														showFilters ? styles.filterToggleActive : ''
+													}`}
+													onClick={() => setShowFilters(!showFilters)}
+													title="Filter by type"
+												>
+													<svg
+														width="12"
+														height="12"
+														viewBox="0 0 16 16"
+														fill="currentColor"
+													>
+														<path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z" />
+													</svg>
+													{activeFilterCount > 0 && (
+														<span className={styles.filterBadge}>
+															{activeFilterCount}
+														</span>
+													)}
+												</button>
+											</div>
+											{showFilters && (
+												<div className={styles.filterTypes}>
+													{(['tag', 'soa', 'aos', 'rel'] as const).map(
+														(type) => (
+															<button
+																key={type}
+																className={`${styles.typeBtn} ${
+																	typeClasses[type]
+																} ${
+																	typeFilters[type]
+																		? styles.typeBtnActive
+																		: ''
+																}`}
+																onClick={() => toggleType(type)}
+															>
+																{type}
+															</button>
+														)
+													)}
+													<button
+														className={`${styles.typeBtn} ${
+															styles.typeBtnEmpty
+														} ${showEmpty ? styles.typeBtnActive : ''}`}
+														onClick={() => setShowEmpty(!showEmpty)}
+														title="Show traits with 0 entities"
+													>
+														empty
+													</button>
+												</div>
+											)}
+											<TraitList
+												traits={traits}
+												filter={filter}
+												typeFilters={typeFilters}
+												showEmpty={showEmpty}
+												onSelect={(trait) => {
+													setSelectedTrait(() => trait);
+													scrollToTop();
+												}}
+											/>
+										</>
+									)}
+								</>
+							)}
+						</div>
+					)}
+				</div>
 			</div>
-		</div>
+		</WorldProvider>
 	);
 }

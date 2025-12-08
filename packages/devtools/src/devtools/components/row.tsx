@@ -4,14 +4,18 @@ import styles from './row.module.css';
 interface RowProps {
 	children: ReactNode;
 	onClick?: () => void;
+	onMouseEnter?: () => void;
+	onMouseLeave?: () => void;
 	title?: string;
 }
 
-export function Row({ children, onClick, title }: RowProps) {
+export function Row({ children, onClick, onMouseEnter, onMouseLeave, title }: RowProps) {
 	return (
 		<div
 			className={`${styles.row} ${onClick ? styles.rowClickable : ''}`}
 			onClick={onClick}
+			onMouseEnter={onMouseEnter}
+			onMouseLeave={onMouseLeave}
 			title={title}
 		>
 			{children}

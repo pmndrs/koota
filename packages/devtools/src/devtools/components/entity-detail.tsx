@@ -1,7 +1,8 @@
-import type { Entity, Trait, World } from '@koota/core';
+import type { Entity, Trait } from '@koota/core';
 import { $internal, unpackEntity } from '@koota/core';
 import { useEffect, useMemo, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
+import { useWorld } from '../hooks/use-world';
 import badgeStyles from './badge.module.css';
 import detailStyles from './detail-layout.module.css';
 import entityDetailStyles from './entity-detail.module.css';
@@ -13,13 +14,13 @@ import { Row, RowName } from './row';
 import { getTraitName, getTraitType } from './trait-utils';
 
 interface EntityDetailProps {
-	world: World;
 	entity: Entity;
 	onBack: () => void;
 	onSelectTrait: (trait: TraitWithDebug) => void;
 }
 
-export function EntityDetail({ world, entity, onBack, onSelectTrait }: EntityDetailProps) {
+export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProps) {
+	const world = useWorld();
 	const { entityId, generation, worldId } = unpackEntity(entity);
 	const ctx = world[$internal];
 	const [traits, setTraits] = useState<Trait[]>(() => [...(ctx.entityTraits.get(entity) ?? [])]);
