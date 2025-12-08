@@ -120,19 +120,6 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 			}
 			onBack={onBack}
 		>
-			{/* <DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
-				<DetailGrid>
-					<span className={detailStyles.detailKey}>ID</span>
-					<span className={detailStyles.detailValue}>{entityId}</span>
-					<span className={detailStyles.detailKey}>Generation</span>
-					<span className={detailStyles.detailValue}>{generation}</span>
-					<span className={detailStyles.detailKey}>World</span>
-					<span className={detailStyles.detailValue}>{worldId}</span>
-					<span className={detailStyles.detailKey}>Int</span>
-					<span className={detailStyles.detailValue}>{entity}</span>
-				</DetailGrid>
-			</DetailSection> */}
-
 			<DetailSection
 				label={
 					<div className={entityDetailStyles.sectionHeader}>
