@@ -1,5 +1,5 @@
-import type { World } from '@koota/core';
 import type { TraitWithDebug } from '../../types';
+import { useWorld } from '../hooks/use-world';
 import { useTraitEntityCount } from '../hooks/use-trait-entity-count';
 import { formatDebugSourceTitle } from '../utils/debug-source';
 import badgeStyles from './badge.module.css';
@@ -14,12 +14,12 @@ const badgeClasses: Record<string, string> = {
 };
 
 interface TraitRowProps {
-	world: World;
 	trait: TraitWithDebug;
 	onSelect: () => void;
 }
 
-export function TraitRow({ world, trait, onSelect }: TraitRowProps) {
+export function TraitRow({ trait, onSelect }: TraitRowProps) {
+	const world = useWorld();
 	const entityCount = useTraitEntityCount(world, trait);
 
 	const name = getTraitName(trait);

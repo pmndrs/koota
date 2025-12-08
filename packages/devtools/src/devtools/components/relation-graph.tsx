@@ -1,19 +1,27 @@
-import type { Entity, World } from '@koota/core';
+import type { Entity } from '@koota/core';
 import { $internal } from '@koota/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import type { TraitWithDebug } from '../../types';
+import {
+	IsDevtoolsHovered,
+	IsDevtoolsHovering,
+	IsDevtoolsHighlighting,
+	IsDevtoolsSelected,
+} from '../../traits';
+import { useWorld } from '../hooks/use-world';
+import { syncHighlightTags } from '../utils/sync-highlight-tags';
 import { getTraitName } from './trait-utils';
 import { buildGraphData, type GraphData } from '../utils/build-graph-data';
 import styles from './relation-graph.module.css';
 
 interface RelationGraphProps {
-	world: World;
 	relationTraits: TraitWithDebug[];
 	onSelectEntity: (entity: Entity) => void;
 }
 
-export function RelationGraph({ world, relationTraits, onSelectEntity }: RelationGraphProps) {
+export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphProps) {
+	const world = useWorld();
 	const [graphData, setGraphData] = useState<GraphData | null>(null);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [selectedRelations, setSelectedRelations] = useState<Set<string>>(new Set());
@@ -23,6 +31,7 @@ export function RelationGraph({ world, relationTraits, onSelectEntity }: Relatio
 		new Map()
 	);
 	const isDraggingRef = useRef(false);
+	const hoveredEntityRef = useRef<Entity | null>(null);
 
 	const updateGraph = useCallback(() => {
 		if (isDraggingRef.current) return;
@@ -230,6 +239,24 @@ export function RelationGraph({ world, relationTraits, onSelectEntity }: Relatio
 								onSelectEntity(node.entity);
 							}
 						}}
+					onNodeHover={(node: any) => {
+						// Remove hover from previous entity
+						if (hoveredEntityRef.current !== null && world.has(hoveredEntityRef.current)) {
+							hoveredEntityRef.current.remove(IsDevtoolsHovered);
+						}
+						
+						// Add hover to new entity
+						if (node?.entity && world.has(node.entity)) {
+							node.entity.add(IsDevtoolsHovered);
+							world.add(IsDevtoolsHovering);
+							world.add(IsDevtoolsHighlighting);
+								syncHighlightTags(world);
+							hoveredEntityRef.current = node.entity;
+						} else {
+							hoveredEntityRef.current = null;
+								syncHighlightTags(world);
+						}
+					}}
 						// @ts-expect-error - d3Force prop exists but types may be incomplete
 						d3Force={(d3: any) => {
 							// Reduce forces to prevent sudden movements

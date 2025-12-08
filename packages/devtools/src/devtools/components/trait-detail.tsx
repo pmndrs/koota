@@ -1,9 +1,10 @@
-import type { Entity, World } from '@koota/core';
+import type { Entity } from '@koota/core';
 import { $internal } from '@koota/core';
 import type { Relation } from '@koota/core';
 import type { RefObject } from 'react';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
+import { useWorld } from '../hooks/use-world';
 import badgeStyles from './badge.module.css';
 import detailStyles from './detail-layout.module.css';
 import traitDetailStyles from './trait-detail.module.css';
@@ -22,7 +23,6 @@ const badgeClasses: Record<string, string> = {
 type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
 
 interface TraitDetailProps {
-	world: World;
 	trait: TraitWithDebug;
 	editor: Editor;
 	scrollRef: RefObject<HTMLDivElement | null>;
@@ -31,13 +31,13 @@ interface TraitDetailProps {
 }
 
 export function TraitDetail({
-	world,
 	trait,
 	editor,
 	scrollRef,
 	onBack,
 	onSelectEntity,
 }: TraitDetailProps) {
+	const world = useWorld();
 	const [entities, setEntities] = useState<Entity[]>([]);
 
 	const ctx = trait[$internal];

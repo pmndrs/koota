@@ -1,15 +1,16 @@
-import type { Entity, World } from '@koota/core';
+import type { Entity } from '@koota/core';
 import { $internal } from '@koota/core';
 import { useEffect, useState } from 'react';
+import { useWorld } from '../hooks/use-world';
 import styles from './trait-list.module.css';
 import { AllEntityRow } from './all-entity-row';
 
 interface AllEntitiesListProps {
-	world: World;
 	onSelect: (entity: Entity) => void;
 }
 
-export function AllEntitiesList({ world, onSelect }: AllEntitiesListProps) {
+export function AllEntitiesList({ onSelect }: AllEntitiesListProps) {
+	const world = useWorld();
 	const [entities, setEntities] = useState<Entity[]>(() => [...world.entities]);
 
 	useEffect(() => {
@@ -33,7 +34,6 @@ export function AllEntitiesList({ world, onSelect }: AllEntitiesListProps) {
 			{entities.map((entity) => (
 				<AllEntityRow
 					key={entity}
-					world={world}
 					entity={entity}
 					onSelect={() => onSelect(entity)}
 				/>

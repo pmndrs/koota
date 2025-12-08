@@ -1,16 +1,16 @@
-import type { Trait, World } from '@koota/core';
+import type { Trait } from '@koota/core';
 import { $internal } from '@koota/core';
 import type { TraitWithDebug } from '../../types';
+import { useWorld } from '../hooks/use-world';
 import styles from './trait-list.module.css';
 import { TraitRow } from './trait-row';
 import { getTraitName, getTraitType, type TraitType } from './trait-utils';
 
-function getTraitEntityCount(world: World, trait: Trait): number {
+function getTraitEntityCount(world: any, trait: Trait): number {
 	return world.query(trait).length;
 }
 
 interface TraitListProps {
-	world: World;
 	traits: Trait[];
 	filter: string;
 	typeFilters: Record<TraitType, boolean>;
@@ -19,13 +19,13 @@ interface TraitListProps {
 }
 
 export function TraitList({
-	world,
 	traits,
 	filter,
 	typeFilters,
 	showEmpty,
 	onSelect,
 }: TraitListProps) {
+	const world = useWorld();
 	const normalizedFilter = filter.trim().toLowerCase();
 	const filtered = traits.filter((trait) => {
 		const type = getTraitType(trait);
@@ -54,7 +54,6 @@ export function TraitList({
 			{sortedTraits.map((trait) => (
 				<TraitRow
 					key={(trait as TraitWithDebug)[$internal].id}
-					world={world}
 					trait={trait as TraitWithDebug}
 					onSelect={() => onSelect(trait as TraitWithDebug)}
 				/>
