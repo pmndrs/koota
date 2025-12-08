@@ -107,14 +107,20 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 			}
 			subtitle={
 				<div className={entityDetailStyles.entityMetaInline}>
+					<span>id:{entityId}</span>
 					<span>gen:{generation}</span>
 					<span>world:{worldId}</span>
-					<span>{entity}</span>
+
+					<span
+						style={{ position: 'absolute', right: 0, top: 0, color: 'var(--k-text-dim)' }}
+					>
+						{entity}
+					</span>
 				</div>
 			}
 			onBack={onBack}
 		>
-			<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
+			{/* <DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
 				<DetailGrid>
 					<span className={detailStyles.detailKey}>ID</span>
 					<span className={detailStyles.detailValue}>{entityId}</span>
@@ -122,10 +128,10 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 					<span className={detailStyles.detailValue}>{generation}</span>
 					<span className={detailStyles.detailKey}>World</span>
 					<span className={detailStyles.detailValue}>{worldId}</span>
-					<span className={detailStyles.detailKey}>Raw</span>
+					<span className={detailStyles.detailKey}>Int</span>
 					<span className={detailStyles.detailValue}>{entity}</span>
 				</DetailGrid>
-			</DetailSection>
+			</DetailSection> */}
 
 			<DetailSection
 				label={
