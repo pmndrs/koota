@@ -156,6 +156,15 @@
 	border-bottom: none;
 }
 
+.itemDisabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.itemDisabled:hover {
+	background: transparent;
+}
+
 .itemName {
 	color: var(--k-text-secondary);
 	flex: 1;
