@@ -34,20 +34,15 @@ export function TraitPicker({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const backdropRef = useRef<HTMLDivElement>(null);
 
-	// Filter out traits already on the entity
-	const availableTraits = useMemo(() => {
-		const currentTraitSet = new Set(currentTraits);
-		return allTraits.filter((trait) => !currentTraitSet.has(trait));
-	}, [allTraits, currentTraits]);
+	// Track which traits are already on the entity
+	const currentTraitSet = useMemo(() => new Set(currentTraits), [currentTraits]);
 
-	// Filter by search term
+	// Filter by search term (but keep all traits, including those already added)
 	const filteredTraits = useMemo(() => {
-		if (!filter) return availableTraits;
+		if (!filter) return allTraits;
 		const lowerFilter = filter.toLowerCase();
-		return availableTraits.filter((trait) =>
-			getTraitName(trait).toLowerCase().includes(lowerFilter)
-		);
-	}, [availableTraits, filter]);
+		return allTraits.filter((trait) => getTraitName(trait).toLowerCase().includes(lowerFilter));
+	}, [allTraits, filter]);
 
 	// Sort by name
 	const sortedTraits = useMemo(
@@ -115,19 +110,19 @@ export function TraitPicker({
 				/>
 				<div className={styles.list}>
 					{sortedTraits.length === 0 ? (
-						<div className={styles.empty}>
-							{availableTraits.length === 0
-								? 'All traits already added'
-								: 'No traits match filter'}
-						</div>
+						<div className={styles.empty}>No traits match filter</div>
 					) : (
 						sortedTraits.map((trait) => {
 							const type = getTraitType(trait);
+							const isDisabled = currentTraitSet.has(trait);
 							return (
 								<button
 									key={(trait as TraitWithDebug)[$internal]?.id}
-									className={styles.item}
-									onClick={() => handleSelect(trait)}
+									className={`${styles.item} ${
+										isDisabled ? styles.itemDisabled : ''
+									}`}
+									onClick={() => !isDisabled && handleSelect(trait)}
+									disabled={isDisabled}
 								>
 									<span className={`${badgeStyles.badge} ${badgeClasses[type]}`}>
 										{type}
