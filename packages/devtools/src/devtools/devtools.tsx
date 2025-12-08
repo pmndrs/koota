@@ -1,7 +1,7 @@
 import { $internal, type Entity, type Trait, type World } from '@koota/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TraitWithDebug } from '../types';
-import { IsDevtoolsSelected } from '../traits';
+import { IsDevtoolsHovered, IsDevtoolsSelected } from '../traits';
 import { AllEntitiesList } from './components/all-entities-list';
 import { EntityDetail } from './components/entity-detail';
 import { Header, type Tab } from './components/header';
@@ -105,12 +105,13 @@ export function Devtools({
 	};
 
 	const handleDeselectEntity = () => {
-		// Remove trait from previous entity
+		// Remove traits from previous entity
 		if (
 			previousSelectedEntityRef.current !== null &&
 			world.has(previousSelectedEntityRef.current)
 		) {
 			previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
+			previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
 		}
 
 		previousSelectedEntityRef.current = null;

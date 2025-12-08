@@ -48,3 +48,47 @@
 	opacity: 0.6;
 }
 
+.traitRowContainer {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.expandIcon {
+	font-size: 8px;
+	color: var(--k-text-muted);
+	margin-left: auto;
+	opacity: 0.6;
+	transition: opacity 0.15s;
+}
+
+.traitRowContainer:hover .expandIcon {
+	opacity: 1;
+}
+
+.infoButton {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	font-size: 11px;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	border-radius: 3px;
+	transition: all 0.15s;
+	opacity: 0;
+}
+
+.traitRowContainer:hover .infoButton {
+	opacity: 0.6;
+}
+
+.infoButton:hover {
+	opacity: 1 !important;
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--k-text-secondary);
+}
+
