@@ -1,0 +1,86 @@
+.editorGrid {
+	padding: 8px 12px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 3px;
+	margin-top: 4px;
+}
+
+.aosData {
+	padding: 8px 12px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 3px;
+	margin-top: 4px;
+}
+
+.editorRow {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 10px;
+	align-items: center;
+	margin-bottom: 6px;
+}
+
+.editorRow:last-child {
+	margin-bottom: 0;
+}
+
+.editorKey {
+	font-size: 10px;
+	color: var(--k-text-muted);
+	font-weight: 500;
+}
+
+.editorValue {
+	display: flex;
+	align-items: center;
+}
+
+.input {
+	all: unset;
+	flex: 1;
+	padding: 3px 6px;
+	font-size: 10px;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New',
+		monospace;
+	color: var(--k-text-secondary);
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 2px;
+	transition: all 0.15s;
+}
+
+.input:hover {
+	background: rgba(255, 255, 255, 0.08);
+	border-color: rgba(255, 255, 255, 0.15);
+}
+
+.input:focus {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: var(--k-accent);
+	outline: none;
+}
+
+.checkbox {
+	width: 14px;
+	height: 14px;
+	cursor: pointer;
+	accent-color: var(--k-accent);
+}
+
+.readonly {
+	font-size: 10px;
+	font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New',
+		monospace;
+	color: var(--k-text-muted);
+	font-style: italic;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.emptyMessage {
+	padding: 8px 12px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+	font-style: italic;
+}
+
