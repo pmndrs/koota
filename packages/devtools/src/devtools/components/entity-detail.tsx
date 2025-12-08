@@ -228,6 +228,7 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 										onClick={(e) => {
 											e.stopPropagation();
 											onSelectTrait(trait);
+											onBack();
 										}}
 										title="View trait details"
 									>
