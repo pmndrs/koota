@@ -211,6 +211,35 @@ describe('useTag', () => {
 
 		expect(isTagged).toBe(false);
 	});
+
+	it('works with a world', async () => {
+		const IsPaused = trait();
+		world.add(IsPaused);
+		let isPaused: boolean | undefined;
+
+		function Test() {
+			isPaused = useTag(world, IsPaused);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(isPaused).toBe(true);
+
+		await act(async () => {
+			world.remove(IsPaused);
+		});
+
+		expect(isPaused).toBe(false);
+	});
 });
 
 describe('useHas', () => {
@@ -245,6 +274,35 @@ describe('useHas', () => {
 		});
 
 		expect(hasPosition).toBe(false);
+	});
+
+	it('works with a world', async () => {
+		const TimeOfDay = trait({ hour: 0 });
+		world.add(TimeOfDay);
+		let hasTimeOfDay: boolean | undefined;
+
+		function Test() {
+			hasTimeOfDay = useHas(world, TimeOfDay);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(hasTimeOfDay).toBe(true);
+
+		await act(async () => {
+			world.remove(TimeOfDay);
+		});
+
+		expect(hasTimeOfDay).toBe(false);
 	});
 });
 
