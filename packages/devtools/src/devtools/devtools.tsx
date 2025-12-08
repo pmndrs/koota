@@ -188,7 +188,7 @@ export function Devtools({
 				data-koota-devtools-root
 			>
 				<div
-					className={styles.panel}
+					className={`${styles.panel} panel`}
 					style={{
 						transform: `scale(${zoom})`,
 						transformOrigin: 'top left',

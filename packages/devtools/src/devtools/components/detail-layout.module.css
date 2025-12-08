@@ -1,6 +1,9 @@
 .detailView {
 	padding: 8px;
 	overflow: visible;
+	position: relative;
+	flex: 1;
+	min-height: 0;
 }
 
 .backButton {
