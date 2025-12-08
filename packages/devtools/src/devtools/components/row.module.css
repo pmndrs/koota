@@ -11,6 +11,10 @@
 	background: var(--k-bg-hover);
 }
 
+.rowNoHover:hover {
+	background: transparent;
+}
+
 .rowClickable {
 	cursor: pointer;
 }

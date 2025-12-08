@@ -7,12 +7,15 @@ interface RowProps {
 	onMouseEnter?: () => void;
 	onMouseLeave?: () => void;
 	title?: string;
+	noHover?: boolean;
 }
 
-export function Row({ children, onClick, onMouseEnter, onMouseLeave, title }: RowProps) {
+export function Row({ children, onClick, onMouseEnter, onMouseLeave, title, noHover }: RowProps) {
 	return (
 		<div
-			className={`${styles.row} ${onClick ? styles.rowClickable : ''}`}
+			className={`${styles.row} ${onClick ? styles.rowClickable : ''} ${
+				noHover ? styles.rowNoHover : ''
+			}`}
 			onClick={onClick}
 			onMouseEnter={onMouseEnter}
 			onMouseLeave={onMouseLeave}
@@ -34,4 +37,3 @@ export function RowMeta({ children }: { children: ReactNode }) {
 export function RowCount({ children }: { children: ReactNode }) {
 	return <span className={styles.rowCount}>{children}</span>;
 }
-

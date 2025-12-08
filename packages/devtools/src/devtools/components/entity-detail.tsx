@@ -136,6 +136,7 @@ export function EntityDetail({ entity, onBack, onSelectTrait }: EntityDetailProp
 							<div key={traitId}>
 								<div className={entityDetailStyles.traitRowContainer}>
 									<Row
+										noHover
 										onClick={
 											canExpand
 												? () =>
