@@ -1,0 +1,90 @@
+.inspector {
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+	font-size: 11px;
+	line-height: 1.5;
+	user-select: text;
+}
+
+.row {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	cursor: default;
+	padding: 1px 0;
+}
+
+.row:hover {
+	background-color: rgba(255, 255, 255, 0.05);
+}
+
+.arrow {
+	display: inline-block;
+	width: 10px;
+	font-size: 9px;
+	cursor: pointer;
+	user-select: none;
+	flex-shrink: 0;
+}
+
+.arrowPlaceholder {
+	display: inline-block;
+	width: 10px;
+	flex-shrink: 0;
+}
+
+.name {
+	color: #a371f7;
+	flex-shrink: 0;
+}
+
+.children {
+	/* Padding is handled by child inspector depth */
+}
+
+/* Value type colors */
+.valueString {
+	color: #e05050;
+}
+
+.valueNumber {
+	color: #5fb3f6;
+}
+
+.valueBoolean {
+	color: #5fb3f6;
+}
+
+.valueNull,
+.valueUndefined {
+	color: #808080;
+	font-style: italic;
+}
+
+.valueFunction {
+	color: #888;
+	font-style: italic;
+}
+
+.valueArray {
+	color: #888;
+}
+
+.valueObject {
+	color: #888;
+}
+
+.valueDefault {
+	color: #ccc;
+}
+
+.preview {
+	color: #666;
+	font-style: italic;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 400px;
+	display: inline-block;
+	vertical-align: bottom;
+}
+

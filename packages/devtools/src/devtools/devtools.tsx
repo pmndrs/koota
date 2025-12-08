@@ -40,7 +40,7 @@ export function Devtools({
 	editor = 'cursor',
 }: DevtoolsProps) {
 	const [isOpen, setIsOpen] = useState(defaultOpen);
-	const [activeTab, setActiveTab] = useState<Tab>('traits');
+	const [activeTab, setActiveTab] = useState<Tab>('entities');
 	const [filter, setFilter] = useState('');
 	const [showFilters, setShowFilters] = useState(false);
 	const [typeFilters, setTypeFilters] = useState({
@@ -92,10 +92,12 @@ export function Devtools({
 			world.has(previousSelectedEntityRef.current)
 		) {
 			previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
+			previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
 		}
 
 		// Add trait to new entity
 		if (world.has(entity)) {
+			entity.remove(IsDevtoolsHovered);
 			entity.add(IsDevtoolsSelected);
 		}
 

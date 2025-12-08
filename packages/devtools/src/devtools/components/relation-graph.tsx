@@ -233,20 +233,23 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 								onSelectEntity(node.entity);
 							}
 						}}
-					onNodeHover={(node: any) => {
-						// Remove hover from previous entity
-						if (hoveredEntityRef.current !== null && world.has(hoveredEntityRef.current)) {
-							hoveredEntityRef.current.remove(IsDevtoolsHovered);
-						}
-						
-						// Add hover to new entity
-						if (node?.entity && world.has(node.entity)) {
-							node.entity.add(IsDevtoolsHovered);
-							hoveredEntityRef.current = node.entity;
-						} else {
-							hoveredEntityRef.current = null;
-						}
-					}}
+						onNodeHover={(node: any) => {
+							// Remove hover from previous entity
+							if (
+								hoveredEntityRef.current !== null &&
+								world.has(hoveredEntityRef.current)
+							) {
+								hoveredEntityRef.current.remove(IsDevtoolsHovered);
+							}
+
+							// Add hover to new entity
+							if (node?.entity && world.has(node.entity)) {
+								node.entity.add(IsDevtoolsHovered);
+								hoveredEntityRef.current = node.entity;
+							} else {
+								hoveredEntityRef.current = null;
+							}
+						}}
 						// @ts-expect-error - d3Force prop exists but types may be incomplete
 						d3Force={(d3: any) => {
 							// Reduce forces to prevent sudden movements
