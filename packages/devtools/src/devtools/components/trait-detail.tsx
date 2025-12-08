@@ -30,13 +30,7 @@ interface TraitDetailProps {
 	onSelectEntity: (entity: Entity) => void;
 }
 
-export function TraitDetail({
-	trait,
-	editor,
-	scrollRef,
-	onBack,
-	onSelectEntity,
-}: TraitDetailProps) {
+export function TraitDetail({ trait, editor, scrollRef, onBack, onSelectEntity }: TraitDetailProps) {
 	const world = useWorld();
 	const [entities, setEntities] = useState<Entity[]>([]);
 
@@ -82,23 +76,26 @@ export function TraitDetail({
 			title={name}
 			subtitle={
 				source ? (
-					<a
-						href={getEditorUrl(
-							editor,
-							source.file,
-							source.line,
-							source.column
-						)}
-						className={traitDetailStyles.detailSource}
-					>
-						{formatDebugSource(source)}
-					</a>
-				) : undefined
+					<div className={traitDetailStyles.traitMetaInline}>
+						<span>id:{ctx.id}</span>
+						<span>•</span>
+						<a
+							href={getEditorUrl(editor, source.file, source.line, source.column)}
+							className={traitDetailStyles.detailSource}
+						>
+							{formatDebugSource(source)}
+						</a>
+					</div>
+				) : (
+					<div className={traitDetailStyles.traitMetaInline}>
+						<span>id:{ctx.id}</span>
+					</div>
+				)
 			}
 			badge={<span className={`${badgeStyles.detailBadge} ${badgeClasses[type]}`}>{type}</span>}
 			onBack={onBack}
 		>
-			<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
+			{/* <DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
 				<DetailGrid>
 					<span className={detailStyles.detailKey}>ID</span>
 					<span className={detailStyles.detailValue}>{ctx.id}</span>
@@ -111,7 +108,7 @@ export function TraitDetail({
 						{ctx.relation !== null ? 'yes' : 'no'}
 					</span>
 				</DetailGrid>
-			</DetailSection>
+			</DetailSection> */}
 
 			{schemaKeys.length > 0 && (
 				<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Schema</span>}>
@@ -131,7 +128,10 @@ export function TraitDetail({
 			)}
 
 			{isRelation && (
-				<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Targets</span>} count={targets.length}>
+				<DetailSection
+					label={<span style={{ textTransform: 'uppercase' }}>Targets</span>}
+					count={targets.length}
+				>
 					{targets.length === 0 ? (
 						<div className={traitDetailStyles.emptySmall}>No targets</div>
 					) : (
@@ -144,7 +144,10 @@ export function TraitDetail({
 				</DetailSection>
 			)}
 
-			<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Entities</span>} count={entities.length}>
+			<DetailSection
+				label={<span style={{ textTransform: 'uppercase' }}>Entities</span>}
+				count={entities.length}
+			>
 				<EntityList entities={entities} scrollRef={scrollRef} onSelect={onSelectEntity} />
 			</DetailSection>
 		</DetailLayout>

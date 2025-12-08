@@ -10,3 +10,11 @@
 	color: var(--k-accent-tag);
 }
 
+.traitMetaInline {
+	display: flex;
+	gap: 6px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+	align-items: center;
+}
+
