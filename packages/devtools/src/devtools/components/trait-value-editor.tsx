@@ -2,6 +2,7 @@ import type { Entity, Trait } from '@koota/core';
 import { $internal } from '@koota/core';
 import { useEffect, useState } from 'react';
 import { useWorld } from '../hooks/use-world';
+import { ObjectInspector } from './object-inspector';
 import styles from './trait-value-editor.module.css';
 
 interface TraitValueEditorProps {
@@ -39,11 +40,11 @@ export function TraitValueEditor({ entity, trait }: TraitValueEditorProps) {
 
 	const isAoS = traitCtx.type === 'aos';
 
-	// AoS returns non-primitive structures, display as readonly JSON
+	// AoS returns non-primitive structures, display as expandable object
 	if (isAoS) {
 		return (
 			<div className={styles.aosData}>
-				<span className={styles.readonly}>{JSON.stringify(values, null, 2)}</span>
+				<ObjectInspector data={values} />
 			</div>
 		);
 	}
@@ -117,7 +118,7 @@ function renderInput(
 			);
 
 		default:
-			// For complex types, show readonly JSON
-			return <span className={styles.readonly}>{JSON.stringify(value)}</span>;
+			// For complex types, show expandable inspector
+			return <ObjectInspector data={value} />;
 	}
 }
