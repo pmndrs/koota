@@ -69,9 +69,7 @@ export function ObjectInspector({
 	return (
 		<div className={styles.inspector} style={{ paddingLeft: depth > 0 ? '12px' : '0' }}>
 			<div className={styles.row} onClick={handleToggle}>
-				{hasChildren && (
-					<span className={styles.arrow}>{isExpanded ? '▼' : '▶'}</span>
-				)}
+				{hasChildren && <span className={styles.arrow}>{isExpanded ? '▼' : '▶'}</span>}
 				{!hasChildren && isExpandable && <span className={styles.arrowPlaceholder} />}
 				{name && <span className={styles.name}>{name}: </span>}
 				{renderValue()}
@@ -87,7 +85,7 @@ export function ObjectInspector({
 									name={String(index)}
 									depth={depth + 1}
 								/>
-							))
+						  ))
 						: Object.entries(data).map(([key, value]) => (
 								<ObjectInspector
 									key={key}
@@ -95,7 +93,7 @@ export function ObjectInspector({
 									name={key}
 									depth={depth + 1}
 								/>
-							))}
+						  ))}
 				</div>
 			)}
 		</div>
@@ -144,8 +142,7 @@ function getObjectPreview(obj: any): string {
 		else if (typeof value === 'string') {
 			const truncated = value.length > 15 ? value.slice(0, 15) + '…' : value;
 			valueStr = `"${truncated}"`;
-		}
-		else if (typeof value === 'object') valueStr = Array.isArray(value) ? '[…]' : '{…}';
+		} else if (typeof value === 'object') valueStr = Array.isArray(value) ? '[…]' : '{…}';
 		else {
 			const str = String(value);
 			valueStr = str.length > 15 ? str.slice(0, 15) + '…' : str;
@@ -163,4 +160,3 @@ function getObjectConstructorName(obj: any): string {
 	}
 	return 'Object';
 }
-
