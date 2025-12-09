@@ -9,7 +9,7 @@ import entityDetailStyles from './entity-detail.module.css';
 import rowStyles from './row.module.css';
 import { formatDebugSourceTitle } from '../utils/debug-source';
 import { hasDebugSource } from '../utils/type-guards';
-import { DetailGrid, DetailLayout, DetailSection } from './detail-layout';
+import { DetailLayout, DetailSection } from './detail-layout';
 import { Row, RowName } from './row';
 import { getTraitName, getTraitType } from './trait-utils';
 import { TraitValueEditor } from './trait-value-editor';
@@ -18,11 +18,10 @@ import { TraitPicker } from './trait-picker';
 interface EntityDetailProps {
 	entity: Entity;
 	zoom: number;
-	onBack: () => void;
 	onSelectTrait: (trait: TraitWithDebug) => void;
 }
 
-export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDetailProps) {
+export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps) {
 	const world = useWorld();
 	const { entityId, generation, worldId } = unpackEntity(entity);
 	const ctx = world[$internal];
@@ -118,7 +117,6 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 					</span>
 				</div>
 			}
-			onBack={onBack}
 		>
 			<DetailSection
 				label={
@@ -215,7 +213,6 @@ export function EntityDetail({ entity, zoom, onBack, onSelectTrait }: EntityDeta
 										onClick={(e) => {
 											e.stopPropagation();
 											onSelectTrait(trait);
-											onBack();
 										}}
 										title="View trait details"
 									>

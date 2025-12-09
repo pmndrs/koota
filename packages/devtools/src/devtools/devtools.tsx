@@ -26,6 +26,8 @@ export interface DevtoolsProps {
 	editor?: Editor;
 }
 
+type NavEntry = { tab: Tab; entity?: Entity; trait?: TraitWithDebug };
+
 const typeClasses: Record<string, string> = {
 	tag: styles.typeBtnTag,
 	soa: styles.typeBtnSoa,
@@ -53,6 +55,7 @@ export function Devtools({
 	const [zoom, setZoom] = useState(1);
 	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
 	const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
+	const [navHistory, setNavHistory] = useState<NavEntry[]>([]);
 	const previousSelectedEntityRef = useRef<Entity | null>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const { position, isDragging, handleMouseDown } = useDraggable(defaultPosition);
@@ -85,7 +88,56 @@ export function Devtools({
 		scrollRef.current?.scrollTo({ top: 0 });
 	};
 
-	const handleSelectEntity = (entity: Entity) => {
+	const handleBack = () => {
+		if (navHistory.length === 0) return;
+
+		const previous = navHistory[navHistory.length - 1];
+		setNavHistory((prev) => prev.slice(0, -1));
+
+		// Restore previous state
+		setActiveTab(previous.tab);
+		setSelectedEntity(previous.entity ?? null);
+		setSelectedTrait(previous.trait ?? null);
+
+		// Sync entity selection highlight
+		if (previous.entity) {
+			if (
+				previousSelectedEntityRef.current !== null &&
+				world.has(previousSelectedEntityRef.current)
+			) {
+				previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
+				previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
+			}
+			if (world.has(previous.entity)) {
+				previous.entity.remove(IsDevtoolsHovered);
+				previous.entity.add(IsDevtoolsSelected);
+			}
+			previousSelectedEntityRef.current = previous.entity;
+		} else {
+			if (
+				previousSelectedEntityRef.current !== null &&
+				world.has(previousSelectedEntityRef.current)
+			) {
+				previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
+				previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
+			}
+			previousSelectedEntityRef.current = null;
+		}
+
+		scrollToTop();
+	};
+
+	const handleSelectEntity = (entity: Entity, fromTab?: Tab) => {
+		// Push current state to history
+		setNavHistory((prev) => [
+			...prev,
+			{
+				tab: fromTab ?? activeTab,
+				entity: selectedEntity ?? undefined,
+				trait: selectedTrait ?? undefined,
+			},
+		]);
+
 		// Remove trait from previous entity
 		if (
 			previousSelectedEntityRef.current !== null &&
@@ -132,6 +184,7 @@ export function Devtools({
 		handleDeselectEntity();
 		setFilter('');
 		setShowFilters(false);
+		setNavHistory([]); // Clear history on explicit tab switch
 	};
 
 	const activeFilterCount = Object.values(typeFilters).filter((v) => !v).length;
@@ -200,9 +253,11 @@ export function Devtools({
 						isOpen={isOpen}
 						isDragging={isDragging}
 						activeTab={activeTab}
+						canGoBack={navHistory.length > 0}
 						onTabChange={handleTabChange}
 						onToggle={() => setIsOpen(!isOpen)}
 						onMouseDown={handleMouseDown}
+						onBack={handleBack}
 					/>
 					{isOpen && (
 						<div ref={scrollRef} className={styles.list}>
@@ -211,7 +266,7 @@ export function Devtools({
 								<RelationGraph
 									relationTraits={relationTraits}
 									onSelectEntity={(entity) => {
-										handleSelectEntity(entity);
+										handleSelectEntity(entity, 'graph');
 										setActiveTab('entities');
 									}}
 								/>
@@ -225,8 +280,16 @@ export function Devtools({
 											key={validSelectedEntity}
 											entity={validSelectedEntity}
 											zoom={zoom}
-											onBack={handleDeselectEntity}
 											onSelectTrait={(trait) => {
+												// Push current state to history
+												setNavHistory((prev) => [
+													...prev,
+													{
+														tab: activeTab,
+														entity: selectedEntity ?? undefined,
+														trait: selectedTrait ?? undefined,
+													},
+												]);
 												setSelectedTrait(() => trait);
 												setActiveTab('traits');
 												scrollToTop();
@@ -247,12 +310,8 @@ export function Devtools({
 											trait={validSelectedTrait}
 											editor={editor}
 											scrollRef={scrollRef}
-											onBack={() => {
-												setSelectedTrait(null);
-												scrollToTop();
-											}}
 											onSelectEntity={(entity) => {
-												handleSelectEntity(entity);
+												handleSelectEntity(entity, 'traits');
 												setActiveTab('entities');
 											}}
 										/>
@@ -324,6 +383,15 @@ export function Devtools({
 												typeFilters={typeFilters}
 												showEmpty={showEmpty}
 												onSelect={(trait) => {
+													// Push current state to history
+													setNavHistory((prev) => [
+														...prev,
+														{
+															tab: activeTab,
+															entity: selectedEntity ?? undefined,
+															trait: selectedTrait ?? undefined,
+														},
+													]);
 													setSelectedTrait(() => trait);
 													scrollToTop();
 												}}

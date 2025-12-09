@@ -5,23 +5,12 @@ interface DetailLayoutProps {
 	title: ReactNode;
 	subtitle?: ReactNode;
 	badge?: ReactNode;
-	onBack: () => void;
 	children: ReactNode;
 }
 
-export function DetailLayout({ title, subtitle, badge, onBack, children }: DetailLayoutProps) {
+export function DetailLayout({ title, subtitle, badge, children }: DetailLayoutProps) {
 	return (
 		<div className={styles.detailView}>
-			<button className={styles.backButton} onClick={onBack}>
-				<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-					<path
-						fillRule="evenodd"
-						d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"
-					/>
-				</svg>
-				Back
-			</button>
-
 			<div className={styles.detailHeader}>
 				<div className={styles.detailTitle}>
 					<span className={styles.detailName}>{title}</span>
@@ -46,9 +35,7 @@ export function DetailSection({ label, count, children }: DetailSectionProps) {
 		<div className={styles.detailSection}>
 			<div className={styles.detailLabel}>
 				{label}
-				{typeof count === 'number' && (
-					<span className={styles.detailCount}>{count}</span>
-				)}
+				{typeof count === 'number' && <span className={styles.detailCount}>{count}</span>}
 			</div>
 			{children}
 		</div>
@@ -62,5 +49,3 @@ interface DetailGridProps {
 export function DetailGrid({ children }: DetailGridProps) {
 	return <div className={styles.detailGrid}>{children}</div>;
 }
-
-
