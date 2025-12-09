@@ -6,23 +6,6 @@
 	min-height: 0;
 }
 
-.backButton {
-	all: unset;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	font-size: 10px;
-	color: var(--k-text-muted);
-	cursor: pointer;
-	padding: 2px 0;
-	margin-bottom: 8px;
-	transition: color 0.15s;
-}
-
-.backButton:hover {
-	color: var(--k-text-secondary);
-}
-
 .detailHeader {
 	display: flex;
 	align-items: flex-start;

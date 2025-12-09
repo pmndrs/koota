@@ -26,11 +26,10 @@ interface TraitDetailProps {
 	trait: TraitWithDebug;
 	editor: Editor;
 	scrollRef: RefObject<HTMLDivElement | null>;
-	onBack: () => void;
 	onSelectEntity: (entity: Entity) => void;
 }
 
-export function TraitDetail({ trait, editor, scrollRef, onBack, onSelectEntity }: TraitDetailProps) {
+export function TraitDetail({ trait, editor, scrollRef, onSelectEntity }: TraitDetailProps) {
 	const world = useWorld();
 	const [entities, setEntities] = useState<Entity[]>([]);
 
@@ -93,7 +92,6 @@ export function TraitDetail({ trait, editor, scrollRef, onBack, onSelectEntity }
 				)
 			}
 			badge={<span className={`${badgeStyles.detailBadge} ${badgeClasses[type]}`}>{type}</span>}
-			onBack={onBack}
 		>
 			{schemaKeys.length > 0 && (
 				<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Schema</span>}>
