@@ -95,21 +95,6 @@ export function TraitDetail({ trait, editor, scrollRef, onBack, onSelectEntity }
 			badge={<span className={`${badgeStyles.detailBadge} ${badgeClasses[type]}`}>{type}</span>}
 			onBack={onBack}
 		>
-			{/* <DetailSection label={<span style={{ textTransform: 'uppercase' }}>Info</span>}>
-				<DetailGrid>
-					<span className={detailStyles.detailKey}>ID</span>
-					<span className={detailStyles.detailValue}>{ctx.id}</span>
-					<span className={detailStyles.detailKey}>Type</span>
-					<span className={detailStyles.detailValue}>{ctx.type}</span>
-					<span className={detailStyles.detailKey}>Is Tag</span>
-					<span className={detailStyles.detailValue}>{ctx.isTag ? 'yes' : 'no'}</span>
-					<span className={detailStyles.detailKey}>Is Relation</span>
-					<span className={detailStyles.detailValue}>
-						{ctx.relation !== null ? 'yes' : 'no'}
-					</span>
-				</DetailGrid>
-			</DetailSection> */}
-
 			{schemaKeys.length > 0 && (
 				<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Schema</span>}>
 					<DetailGrid>
