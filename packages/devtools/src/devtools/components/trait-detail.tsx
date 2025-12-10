@@ -2,14 +2,14 @@ import type { Entity } from '@koota/core';
 import { $internal } from '@koota/core';
 import type { Relation } from '@koota/core';
 import type { RefObject } from 'react';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
 import { useWorld } from '../hooks/use-world';
 import badgeStyles from './badge.module.css';
 import detailStyles from './detail-layout.module.css';
 import traitDetailStyles from './trait-detail.module.css';
 import { formatDebugSource, getEditorUrl } from '../utils/debug-source';
-import { DetailGrid, DetailLayout, DetailSection } from './detail-layout';
+import { DetailLayout, DetailSection } from './detail-layout';
 import { getTraitName, getTraitSource, getTraitType } from './trait-utils';
 import { EntityList } from './entity-list';
 
@@ -95,18 +95,18 @@ export function TraitDetail({ trait, editor, scrollRef, onSelectEntity }: TraitD
 		>
 			{schemaKeys.length > 0 && (
 				<DetailSection label={<span style={{ textTransform: 'uppercase' }}>Schema</span>}>
-					<DetailGrid>
+					<div className={traitDetailStyles.schemaList}>
 						{schemaKeys.map((key) => (
-							<Fragment key={key}>
-								<span className={detailStyles.detailKey}>{key}</span>
-								<span className={detailStyles.detailValue}>
+							<div key={key} className={traitDetailStyles.schemaRow}>
+								<span className={traitDetailStyles.schemaKey}>{key}</span>
+								<span className={traitDetailStyles.schemaValue}>
 									{typeof trait.schema[key] === 'function'
 										? 'fn()'
 										: String(trait.schema[key])}
 								</span>
-							</Fragment>
+							</div>
 						))}
-					</DetailGrid>
+					</div>
 				</DetailSection>
 			)}
 

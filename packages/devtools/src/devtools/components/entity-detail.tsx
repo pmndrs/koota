@@ -1,6 +1,6 @@
 import type { Entity, Trait } from '@koota/core';
 import { $internal, unpackEntity } from '@koota/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
 import { useWorld } from '../hooks/use-world';
 import badgeStyles from './badge.module.css';
@@ -21,6 +21,60 @@ interface EntityDetailProps {
 	onSelectTrait: (trait: TraitWithDebug) => void;
 }
 
+function MetadataRow({ label, value }: { label: string; value: React.ReactNode }) {
+	return (
+		<div className={entityDetailStyles.metadataRow}>
+			<span className={entityDetailStyles.metadataLabel}>{label}</span>
+			<span className={entityDetailStyles.metadataValue}>{value}</span>
+		</div>
+	);
+}
+
+function EntityMetadata({
+	entityId,
+	generation,
+	worldId,
+	rawEntity,
+}: {
+	entityId: number;
+	generation: number;
+	worldId: number;
+	rawEntity: Entity;
+}) {
+	const [expanded, setExpanded] = useState(false);
+
+	return (
+		<div className={detailStyles.detailSection}>
+			<div
+				className={detailStyles.detailLabel}
+				style={{
+					cursor: 'pointer',
+					display: 'flex',
+					alignItems: 'center',
+					userSelect: 'none',
+				}}
+				onClick={() => setExpanded(!expanded)}
+			>
+				<span>METADATA</span>
+				<span className={entityDetailStyles.metadataToggle}>{expanded ? '▼' : '▶'}</span>
+				{!expanded && (
+					<div className={entityDetailStyles.metadataSummary}>
+						id:{entityId} gen:{generation}
+					</div>
+				)}
+			</div>
+			{expanded && (
+				<div className={entityDetailStyles.metadataContent}>
+					<MetadataRow label="ID" value={entityId} />
+					<MetadataRow label="Generation" value={generation} />
+					<MetadataRow label="World" value={worldId} />
+					<MetadataRow label="Raw" value={String(rawEntity)} />
+				</div>
+			)}
+		</div>
+	);
+}
+
 export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps) {
 	const world = useWorld();
 	const { entityId, generation, worldId } = unpackEntity(entity);
@@ -28,7 +82,6 @@ export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps)
 	const [traits, setTraits] = useState<Trait[]>(() => [...(ctx.entityTraits.get(entity) ?? [])]);
 	const [expandedTraitId, setExpandedTraitId] = useState<number | null>(null);
 	const [showTraitPicker, setShowTraitPicker] = useState(false);
-	const addButtonRef = useRef<HTMLButtonElement>(null);
 	const isWorldEntity = entity === ctx.worldEntity;
 
 	useEffect(() => {
@@ -104,37 +157,26 @@ export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps)
 					{isWorldEntity && <span className={entityDetailStyles.worldBadge}>world</span>}
 				</div>
 			}
-			subtitle={
-				<div className={entityDetailStyles.entityMetaInline}>
-					<span>id:{entityId}</span>
-					<span>gen:{generation}</span>
-					<span>world:{worldId}</span>
-
-					<span
-						style={{ position: 'absolute', right: 0, top: 0, color: 'var(--k-text-dim)' }}
-					>
-						{entity}
-					</span>
-				</div>
+			badge={
+				<button
+					className={entityDetailStyles.addTraitButton}
+					onClick={() => setShowTraitPicker((prev) => !prev)}
+					title="Add trait to entity"
+				>
+					+ Add
+				</button>
 			}
 		>
+			<EntityMetadata
+				entityId={entityId}
+				generation={generation}
+				worldId={worldId}
+				rawEntity={entity}
+			/>
+
 			<DetailSection
-				label={
-					<div className={entityDetailStyles.sectionHeader}>
-						<span>
-							Traits{' '}
-							<span className={detailStyles.detailCount}>{sortedTraits.length}</span>
-						</span>
-						<button
-							ref={addButtonRef}
-							className={entityDetailStyles.addButton}
-							onClick={() => setShowTraitPicker((prev) => !prev)}
-							title="Add trait"
-						>
-							+ Add
-						</button>
-					</div>
-				}
+				label={<span style={{ textTransform: 'uppercase' }}>Traits</span>}
+				count={sortedTraits.length}
 			>
 				{sortedTraits.length === 0 ? (
 					<div className={entityDetailStyles.emptySmall}>No traits on entity</div>
@@ -256,7 +298,6 @@ export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps)
 					zoom={zoom}
 					onSelect={handleAddTrait}
 					onClose={() => setShowTraitPicker(false)}
-					anchorRef={addButtonRef as React.RefObject<HTMLElement>}
 				/>
 			)}
 		</DetailLayout>

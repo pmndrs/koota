@@ -58,22 +58,30 @@
 	width: 100%;
 }
 
-.addButton {
+.addTraitButton {
 	all: unset;
-	font-size: 9px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2px 6px;
+	font-size: 10px;
 	font-weight: 500;
 	color: var(--k-text-muted);
 	cursor: pointer;
-	padding: 2px 5px;
 	border-radius: 3px;
 	transition: all 0.15s;
-	text-transform: none;
-	letter-spacing: normal;
+	white-space: nowrap;
+	flex-shrink: 0;
 }
 
-.addButton:hover {
+.addTraitButton:hover {
 	color: var(--k-text-secondary);
-	background: rgba(255, 255, 255, 0.1);
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.addTraitButton:active {
+	color: var(--k-text-secondary);
+	background: rgba(255, 255, 255, 0.12);
 }
 
 .traitRowContainer {
@@ -145,4 +153,47 @@
 	opacity: 1 !important;
 	background: rgba(255, 255, 255, 0.1);
 	color: var(--k-text-secondary);
+}
+
+/* Metadata Section */
+
+.metadataContent {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.metadataRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 6px;
+	font-size: 10px;
+	font-family: var(--k-font-mono);
+	background: var(--k-bg-sub);
+	border-radius: 3px;
+}
+
+.metadataLabel {
+	color: var(--k-text-muted);
+}
+
+.metadataValue {
+	color: var(--k-text-secondary);
+	font-weight: 500;
+}
+
+.metadataToggle {
+	font-size: 8px;
+	opacity: 0.6;
+	margin-left: 5px;
+	transition: transform 0.15s;
+}
+
+.metadataSummary {
+	margin-left: 8px;
+	font-size: 9px;
+	font-weight: 400;
+	color: var(--k-text-dim);
+	font-family: var(--k-font-mono);
 }
