@@ -8,12 +8,10 @@ export function useDevtoolsHighlight(entity: Entity) {
 	const isSelected = useTag(entity, IsDevtoolsSelected);
 	const isAnythingHovered = useTag(world, IsDevtoolsHovering);
 
-	const isHighlighted = isHovered || isSelected;
 	const shouldFade = isAnythingHovered && !isSelected && !isHovered;
 
 	return {
-		color: isSelected ? '#ffff00' : isHovered ? '#00ffff' : null,
-		scale: isHighlighted ? 1.05 : 1,
+		color: isSelected ? 'red' : isHovered ? '#00ffff' : null,
 		opacity: shouldFade ? 0.15 : 1,
 	};
 }
