@@ -1,6 +1,4 @@
 import { createWorld } from 'koota';
-import { Time } from './traits';
-import { SpatialHashMap } from './traits/spatial-hash-map';
-import { SpatialHashMap as SpatialHashMapImpl } from './utils/spatial-hash';
+import { Keyboard, SpatialHashMap, Time } from './traits';
 
-export const world = createWorld(Time, SpatialHashMap(new SpatialHashMapImpl(50)));
+export const world = createWorld(Time, Keyboard, SpatialHashMap);

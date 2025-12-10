@@ -6,7 +6,7 @@ const collisionRadius = 2;
 const pushStrength = 0.1;
 const pushForce = new THREE.Vector3();
 
-export const pushEnemies = ({ world }: { world: World }) => {
+export function pushEnemies(world: World) {
 	const spatialHashMap = world.get(SpatialHashMap)!;
 
 	world.query(IsPlayer, Transform, Movement).updateEach(([{ position }, { velocity }], player) => {
@@ -49,4 +49,4 @@ export const pushEnemies = ({ world }: { world: World }) => {
 			else player.set(ShieldVisibility, { current: 0 });
 		}
 	});
-};
+}

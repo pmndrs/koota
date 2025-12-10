@@ -2,27 +2,15 @@
 
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import type { Entity } from 'koota';
+import { Not, type Entity } from 'koota';
 import { Devtools } from 'koota/devtools/react';
-import { useActions, useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
-import { memo, StrictMode, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { actions } from './actions';
-import { useDevtoolsHighlight } from './hooks/use-devtools-highlight';
-import { schedule } from './systems/schedule';
-
-import {
-	Bullet,
-	Explosion,
-	Input,
-	IsEnemy,
-	IsPlayer,
-	IsShieldVisible,
-	Movement,
-	Transform,
-} from './traits';
-import { between } from './utils/between';
-import { useStats } from './utils/use-stats';
+import { Frameloop } from './frameloop';
+import { Startup } from './startup';
+import { Bullet, Explosion, Input, IsEnemy, IsPlayer, IsShieldVisible, Transform } from './traits';
+import { useDevtoolsHighlight } from './utils/use-devtools-highlight';
 
 export function App() {
 	const world = useWorld();
@@ -32,72 +20,60 @@ export function App() {
 			<Devtools world={world} />
 
 			<Canvas>
-				<StrictMode>
-					<color attach="background" args={['#111']} />
-					<ambientLight intensity={0.2} />
-					<directionalLight position={[10, 10, 10]} intensity={0.4} />
+				<color attach="background" args={['#111']} />
+				<ambientLight intensity={0.2} />
+				<directionalLight position={[10, 10, 10]} intensity={0.4} />
 
-					<PerspectiveCamera position={[0, 0, 50]} makeDefault />
+				<PerspectiveCamera position={[0, 0, 50]} makeDefault />
 
-					<Player />
-					<EnemyRenderer />
-					<BulletRenderer />
-					<ExplosionRenderer />
-
-					<Simulation />
-				</StrictMode>
+				<PlayerRenderer />
+				<EnemyRenderer />
+				<BulletRenderer />
+				<ExplosionRenderer />
 			</Canvas>
+
+			<Frameloop />
+			<Startup />
 		</>
 	);
 }
 
 function EnemyRenderer() {
-	const enemies = useQuery(IsEnemy, Transform);
-	return (
-		<>
-			{enemies.map((enemy) => (
-				<EnemyView key={enemy.id()} entity={enemy} />
-			))}
-		</>
-	);
+	const enemies = useQuery(IsEnemy, Transform, Not(Explosion));
+	return enemies.map((enemy) => <EnemyView key={enemy.id()} entity={enemy} />);
 }
 
-const EnemyView = memo(({ entity }: { entity: Entity }) => {
+const EnemyView = ({ entity }: { entity: Entity }) => {
 	const groupRef = useRef<THREE.Group>(null);
-	const meshRef = useRef<THREE.Mesh>(null);
 	const scaleRef = useRef(0);
 	const highlight = useDevtoolsHighlight(entity);
 
-	// Set initial values and sync with the entity
-	useLayoutEffect(() => {
-		if (!groupRef.current || !meshRef.current) return;
+	const handleInit = useCallback(
+		(group: THREE.Group | null) => {
+			if (!entity.isAlive() || !group) return;
 
-		// Set initial position and orientation
-		groupRef.current.position.set(between(-50, 50), between(-50, 50), 0);
-		meshRef.current.quaternion.random();
+			groupRef.current = group;
 
-		// Sync transform with the trait
-		// NOTE: We map position to the GROUP, but rotation to the MESH
-		entity.set(Transform, {
-			position: groupRef.current.position,
-			rotation: meshRef.current.rotation,
-			quaternion: meshRef.current.quaternion,
-		});
-
-		entity.set(Movement, { maxSpeed: between(5, 10) });
-	}, []);
+			entity.set(Transform, (prev) => ({
+				position: group.position.copy(prev.position),
+				rotation: group.rotation.copy(prev.rotation),
+				quaternion: group.quaternion.copy(prev.quaternion),
+			}));
+		},
+		[entity]
+	);
 
 	useFrame((_, delta) => {
 		if (!groupRef.current) return;
 		const progress = Math.min(scaleRef.current + delta * 2, 1);
 		const eased = 1 - (1 - progress) ** 3;
 		scaleRef.current = progress;
-		groupRef.current.scale.setScalar(eased * highlight.scale);
+		groupRef.current.scale.setScalar(eased);
 	});
 
 	return (
-		<group ref={groupRef}>
-			<mesh ref={meshRef}>
+		<group ref={handleInit}>
+			<mesh>
 				<dodecahedronGeometry />
 				<meshBasicMaterial
 					color={highlight.color ?? 'white'}
@@ -106,90 +82,61 @@ const EnemyView = memo(({ entity }: { entity: Entity }) => {
 					opacity={highlight.opacity}
 				/>
 			</mesh>
-			{highlight.color && <DevtoolsHighlight color={highlight.color} />}
 		</group>
 	);
-});
+};
 
-function Player() {
-	const player = useQueryFirst(IsPlayer, Transform);
-	const { spawnPlayer } = useActions(actions);
-
-	useLayoutEffect(() => {
-		const entity = spawnPlayer();
-		return () => entity?.destroy();
-	}, [spawnPlayer]);
-
-	return <>{player && <PlayerView entity={player} maxSpeed={50} damping={0.99} thrust={2} />}</>;
+function PlayerRenderer() {
+	const player = useQueryFirst(IsPlayer, Transform, Not(Explosion));
+	return player && <PlayerView entity={player} />;
 }
 
-const PlayerView = memo(
-	({
-		entity,
-		maxSpeed = 50,
-		damping = 0.99,
-		thrust = 2,
-	}: {
-		entity: Entity;
-		maxSpeed?: number;
-		damping?: number;
-		thrust?: number;
-	}) => {
-		const ref = useRef<THREE.Group>(null);
-		const [isThrusting, setIsThrusting] = useState(false);
-		const highlight = useDevtoolsHighlight(entity);
+const PlayerView = ({ entity }: { entity: Entity }) => {
+	const [isThrusting, setIsThrusting] = useState(false);
+	const highlight = useDevtoolsHighlight(entity);
 
-		useTraitEffect(entity, Input, (input) => {
-			if (input && input.length() > 0) setIsThrusting(true);
-			else setIsThrusting(false);
-		});
+	useTraitEffect(entity, Input, (input) => {
+		if (input && input.length() > 0) setIsThrusting(true);
+		else setIsThrusting(false);
+	});
 
-		const isShieldVisible = useTrait(entity, IsShieldVisible);
+	const isShieldVisible = useTrait(entity, IsShieldVisible);
 
-		useLayoutEffect(() => {
-			if (!ref.current) return;
+	const handleInit = useCallback(
+		(group: THREE.Group | null) => {
+			if (!entity.isAlive() || !group) return;
 
 			entity.set(Transform, {
-				position: ref.current.position,
-				rotation: ref.current.rotation,
-				quaternion: ref.current.quaternion,
+				position: group.position,
+				rotation: group.rotation,
+				quaternion: group.quaternion,
 			});
-			entity.set(Movement, { maxSpeed, damping, thrust });
-		}, [entity]);
+		},
+		[entity]
+	);
 
-		return (
-			<group ref={ref}>
-				<mesh scale={highlight.scale}>
-					<boxGeometry />
-					<meshBasicMaterial
-						color={highlight.color ?? 'orange'}
-						wireframe
-						transparent
-						opacity={highlight.opacity}
-					/>
-				</mesh>
-				{isThrusting && <ThrusterView />}
-				{isShieldVisible && <ShieldView />}
-				{highlight.color && <DevtoolsHighlight color={highlight.color} />}
-			</group>
-		);
-	}
-);
+	return (
+		<group ref={handleInit}>
+			<mesh>
+				<boxGeometry />
+				<meshBasicMaterial
+					color={highlight.color ?? 'orange'}
+					wireframe
+					transparent
+					opacity={highlight.opacity}
+				/>
+			</mesh>
+			{isThrusting && <ThrusterView />}
+			{isShieldVisible && <ShieldView />}
+		</group>
+	);
+};
 
 function ShieldView() {
 	return (
 		<mesh>
 			<sphereGeometry args={[1.1, 8, 8]} />
 			<meshBasicMaterial color="blue" wireframe />
-		</mesh>
-	);
-}
-
-function DevtoolsHighlight({ color }: { color: string }) {
-	return (
-		<mesh position={[0, 0, -0.5]}>
-			<circleGeometry args={[1.3, 32]} />
-			<meshBasicMaterial color={color} transparent opacity={0.3} />
 		</mesh>
 	);
 }
@@ -217,18 +164,21 @@ function ThrusterView() {
 
 function ExplosionRenderer() {
 	const explosions = useQuery(Explosion, Transform);
-	return (
-		<>
-			{explosions.map((explosion) => (
-				<ExplosionView key={explosion.id()} entity={explosion} />
-			))}
-		</>
-	);
+	return explosions.map((explosion) => <ExplosionView key={explosion.id()} entity={explosion} />);
 }
 
 function ExplosionView({ entity }: { entity: Entity }) {
 	const groupRef = useRef<THREE.Group>(null);
 	const particleCount = entity.get(Explosion)!.count;
+
+	const handleInit = useCallback(
+		(group: THREE.Group | null) => {
+			if (!entity.isAlive() || !group) return;
+			groupRef.current = group;
+			group.position.copy(entity.get(Transform)!.position);
+		},
+		[entity]
+	);
 
 	// Create particles once with their initial state
 	const particles = useMemo(() => {
@@ -241,11 +191,6 @@ function ExplosionView({ entity }: { entity: Entity }) {
 
 			return { id: `${entity.id()}-${i}` };
 		});
-	}, []);
-
-	useLayoutEffect(() => {
-		if (!groupRef.current) return;
-		groupRef.current.position.copy(entity.get(Transform)!.position);
 	}, []);
 
 	useFrame((_, delta) => {
@@ -268,7 +213,7 @@ function ExplosionView({ entity }: { entity: Entity }) {
 	});
 
 	return (
-		<group ref={groupRef}>
+		<group ref={handleInit}>
 			{particles.map((particle) => (
 				<mesh key={particle.id}>
 					<sphereGeometry args={[0.2, 8, 8]} />
@@ -280,36 +225,29 @@ function ExplosionView({ entity }: { entity: Entity }) {
 }
 
 function BulletRenderer() {
-	const bullets = useQuery(Bullet, Transform);
-	return (
-		<>
-			{bullets.map((bullet) => (
-				<BulletView key={bullet.id()} entity={bullet} />
-			))}
-		</>
-	);
+	const bullets = useQuery(Bullet, Transform, Not(Explosion));
+	return bullets.map((bullet) => <BulletView key={bullet.id()} entity={bullet} />);
 }
 
 const BulletView = memo(({ entity }: { entity: Entity }) => {
-	const groupRef = useRef<THREE.Group>(null);
-	const meshRef = useRef<THREE.Mesh>(null);
 	const highlight = useDevtoolsHighlight(entity);
 
-	const handleInit = useCallback(() => {
-		if (!groupRef.current || !meshRef.current || !entity.isAlive()) return;
+	const handleInit = useCallback(
+		(group: THREE.Group | null) => {
+			if (!entity.isAlive() || !group) return;
 
-		entity.set(Transform, (prev) => ({
-			position: groupRef.current!.position.copy(prev.position),
-			quaternion: meshRef.current!.quaternion.copy(prev.quaternion),
-			rotation: meshRef.current!.rotation.copy(prev.rotation),
-		}));
-	}, []);
-
-	useLayoutEffect(handleInit, [handleInit]);
+			entity.set(Transform, (prev) => ({
+				position: group.position.copy(prev.position),
+				quaternion: group.quaternion.copy(prev.quaternion),
+				rotation: group.rotation.copy(prev.rotation),
+			}));
+		},
+		[entity]
+	);
 
 	return (
-		<group ref={groupRef} scale={0.2 * highlight.scale}>
-			<mesh ref={meshRef}>
+		<group ref={handleInit}>
+			<mesh scale={0.2}>
 				<sphereGeometry />
 				<meshBasicMaterial
 					color={highlight.color ?? 'red'}
@@ -318,24 +256,6 @@ const BulletView = memo(({ entity }: { entity: Entity }) => {
 					opacity={highlight.opacity}
 				/>
 			</mesh>
-			{highlight.color && <DevtoolsHighlight color={highlight.color} />}
 		</group>
 	);
 });
-
-// Simulation runs a schedule.
-function Simulation() {
-	const world = useWorld();
-	const statsApi = useStats({
-		enemies: () => world.query(IsEnemy).length,
-	});
-
-	useFrame(() => {
-		statsApi.measure(() => {
-			schedule.run({ world });
-		});
-		statsApi.updateStats();
-	});
-
-	return null;
-}
