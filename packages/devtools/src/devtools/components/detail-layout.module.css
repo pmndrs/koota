@@ -12,13 +12,15 @@
 	justify-content: space-between;
 	gap: 8px;
 	margin-bottom: 12px;
+	width: 100%;
 }
 
 .detailTitle {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
-	width: 100%;
+	flex: 1;
+	min-width: 0;
 	position: relative;
 }
 

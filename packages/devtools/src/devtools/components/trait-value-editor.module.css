@@ -14,21 +14,20 @@
 
 .editorRow {
 	display: flex;
-	align-items: stretch;
+	align-items: flex-start;
+	justify-content: space-between;
 	min-height: 24px;
-	background: rgba(0, 0, 0, 0.2);
-	border-radius: 2px;
-	overflow: hidden;
+	padding: 4px 6px;
+	background: var(--k-bg-sub);
+	border-radius: 3px;
 	transition: background 0.1s ease;
 }
 
 .editorRow:hover {
-	background: rgba(0, 0, 0, 0.25);
+	background: var(--k-bg-hover);
 }
 
 .editorKey {
-	display: flex;
-	align-items: center;
 	color: var(--k-text-muted);
 	font-weight: 500;
 	font-size: 10px;
@@ -36,22 +35,19 @@
 	flex-shrink: 0;
 	user-select: none;
 	cursor: default;
-	padding: 0 8px;
-	min-width: 80px;
-	background: rgba(0, 0, 0, 0.1);
+	padding-right: 8px;
+	padding-top: 1px;
 }
 
 .editorValue {
 	display: flex;
-	align-items: center;
 	flex: 1;
 	min-width: 0;
-	padding: 0 8px;
-	position: relative;
+	justify-content: flex-end;
 }
 
 .input {
-	flex: 1;
+	width: 100%;
 	min-width: 0;
 	height: auto;
 	background: transparent;
@@ -59,16 +55,16 @@
 	color: var(--k-text-primary);
 	font-family: inherit;
 	font-size: inherit;
-	padding: 2px 4px;
-	margin: -2px -4px;
+	padding: 0;
+	margin: 0;
 	outline: none;
 	text-align: right;
 	font-variant-numeric: tabular-nums;
-	border-radius: 2px;
+	line-height: 1.4;
 }
 
 .input[type='text'] {
-	text-align: left;
+	text-align: right;
 }
 
 .input:focus {
@@ -94,19 +90,18 @@
 }
 
 .checkbox {
-	width: 14px;
-	height: 14px;
-	margin: 0;
+	width: 12px;
+	height: 12px;
+	margin: 1px 0 0 0;
 	accent-color: var(--k-accent);
 	cursor: pointer;
 	flex-shrink: 0;
 }
 
 .readonly {
-	font-size: 11px;
+	font-size: 10px;
 	color: var(--k-text-muted);
 	font-style: italic;
-	padding: 0 4px;
 }
 
 .emptyMessage {
@@ -114,7 +109,7 @@
 	font-size: 10px;
 	color: var(--k-text-muted);
 	font-style: italic;
-	background: rgba(0, 0, 0, 0.2);
-	border-radius: 2px;
+	background: var(--k-bg-sub);
+	border-radius: 3px;
 	margin: 4px 0 8px 0;
 }
