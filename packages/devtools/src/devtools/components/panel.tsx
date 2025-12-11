@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useCustomScrollbar } from '../hooks/use-custom-scrollbar';
 import { useDraggable } from '../hooks/use-draggable';
 import styles from './panel.module.css';
 
@@ -138,9 +139,31 @@ function PanelContent({ children }: PanelContentProps) {
 	const { isOpen, scrollRef } = usePanel();
 	if (!isOpen) return null;
 
+	const { contentRef, isScrollable, isScrollbarVisible, rootProps, thumbStyle, thumbProps } =
+		useCustomScrollbar(scrollRef);
+
 	return (
-		<div ref={scrollRef} className={styles.scroll} data-koota-devtools-scroll>
-			{children}
+		<div className={styles.scrollRoot} {...rootProps}>
+			<div ref={scrollRef} className={styles.scroll} data-koota-devtools-scroll>
+				<div ref={contentRef} className={styles.scrollContent}>
+					{children}
+				</div>
+			</div>
+			{isScrollable ? (
+				<div
+					className={`${styles.scrollbar} ${
+						isScrollbarVisible ? styles.scrollbarVisible : ''
+					}`}
+					aria-hidden="true"
+				>
+					<div
+						className={styles.scrollThumb}
+						style={thumbStyle}
+						{...thumbProps}
+						aria-hidden="true"
+					/>
+				</div>
+			) : null}
 		</div>
 	);
 }
