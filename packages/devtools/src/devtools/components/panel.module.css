@@ -58,29 +58,54 @@
 	overflow-y: auto;
 	overflow-x: hidden;
 	position: relative;
-	/* Firefox - thin overlay scrollbar */
-	scrollbar-width: thin;
-	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+	scrollbar-width: none; /* Firefox */
 }
 
-/* Overlay scrollbars - WebKit browsers */
+/* Hide native scrollbar - WebKit browsers */
 .scroll::-webkit-scrollbar {
-	width: 8px;
+	width: 0;
+	height: 0;
 }
 
-.scroll::-webkit-scrollbar-track {
-	background: transparent;
-}
-
-.scroll::-webkit-scrollbar-thumb {
-	background: rgba(255, 255, 255, 0.1);
-	border-radius: 4px;
-}
-
-.scroll::-webkit-scrollbar-thumb:hover {
-	background: rgba(255, 255, 255, 0.15);
-}
-
-.scroll:has(> div[class*='relation-graph']) {
+.scroll:has(div[class*='relation-graph']) {
 	overflow: hidden;
+}
+
+.scrollRoot {
+	position: relative;
+}
+
+.scrollContent {
+	/* Keeps a stable node to observe content size changes */
+	display: block;
+}
+
+.scrollbar {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	right: 0;
+	width: 8px;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 150ms ease;
+}
+
+.scrollbarVisible {
+	opacity: 1;
+}
+
+.scrollThumb {
+	position: absolute;
+	left: 1px;
+	right: 1px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.1);
+	pointer-events: auto;
+	touch-action: none;
+	cursor: default;
+}
+
+.scrollThumb:hover {
+	background: rgba(255, 255, 255, 0.15);
 }
