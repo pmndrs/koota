@@ -1,18 +1,18 @@
 import type { Entity } from '@koota/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { RefObject } from 'react';
+import { usePanel } from './panel';
 import styles from './entity-list.module.css';
 import { EntityRow } from './entity-row';
 
 interface EntityListProps {
 	entities: Entity[];
-	scrollRef: RefObject<HTMLDivElement | null>;
 	onSelect?: (entity: Entity) => void;
 }
 
 const ROW_HEIGHT = 26;
 
-export function EntityList({ entities, scrollRef, onSelect }: EntityListProps) {
+export function EntityList({ entities, onSelect }: EntityListProps) {
+	const { scrollRef } = usePanel();
 	const virtualizer = useVirtualizer({
 		count: entities.length,
 		getScrollElement: () => scrollRef.current,

@@ -14,10 +14,10 @@ import { Row, RowName } from './row';
 import { getTraitName, getTraitType } from './trait-utils';
 import { TraitValueEditor } from './trait-value-editor';
 import { TraitPicker } from './trait-picker';
+import { EntityIcon, WorldIcon } from './icons';
 
 interface EntityDetailProps {
 	entity: Entity;
-	zoom: number;
 	onSelectTrait: (trait: TraitWithDebug) => void;
 }
 
@@ -75,7 +75,7 @@ function EntityMetadata({
 	);
 }
 
-export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps) {
+export function EntityDetail({ entity, onSelectTrait }: EntityDetailProps) {
 	const world = useWorld();
 	const { entityId, generation, worldId } = unpackEntity(entity);
 	const ctx = world[$internal];
@@ -153,8 +153,12 @@ export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps)
 		<DetailLayout
 			title={
 				<div className={entityDetailStyles.entityTitle}>
+					{isWorldEntity ? (
+						<WorldIcon size={14} className={entityDetailStyles.icon} />
+					) : (
+						<EntityIcon size={14} className={entityDetailStyles.icon} />
+					)}
 					{isWorldEntity ? `World ${worldId}` : `Entity ${entityId}`}
-					{isWorldEntity && <span className={entityDetailStyles.worldBadge}>world</span>}
 				</div>
 			}
 			badge={
@@ -295,7 +299,6 @@ export function EntityDetail({ entity, zoom, onSelectTrait }: EntityDetailProps)
 				<TraitPicker
 					entity={entity}
 					currentTraits={traits}
-					zoom={zoom}
 					onSelect={handleAddTrait}
 					onClose={() => setShowTraitPicker(false)}
 				/>

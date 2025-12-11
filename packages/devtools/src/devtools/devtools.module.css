@@ -79,14 +79,14 @@
 	overflow: hidden;
 }
 
-.filterRow {
+.row {
 	display: flex;
 	align-items: center;
 	gap: 4px;
 	padding: 6px 8px;
 }
 
-.filterInput {
+.input {
 	flex: 1;
 	min-width: 0;
 	padding: 5px 8px;
@@ -100,15 +100,15 @@
 	transition: background 0.15s;
 }
 
-.filterInput::placeholder {
+.input::placeholder {
 	color: var(--k-text-muted);
 }
 
-.filterInput:focus {
+.input:focus {
 	background: var(--k-bg-active);
 }
 
-.filterToggle {
+.toggle {
 	all: unset;
 	display: flex;
 	align-items: center;
@@ -123,17 +123,17 @@
 	transition: background 0.15s, color 0.15s;
 }
 
-.filterToggle:hover {
+.toggle:hover {
 	background: var(--k-bg-active);
 	color: var(--k-text-secondary);
 }
 
-.filterToggleActive {
+.toggleActive {
 	background: var(--k-bg-hover);
 	color: var(--k-text-primary);
 }
 
-.filterBadge {
+.badge {
 	position: absolute;
 	top: -2px;
 	right: -2px;
@@ -150,13 +150,13 @@
 	justify-content: center;
 }
 
-.filterTypes {
+.types {
 	display: flex;
 	gap: 6px;
 	padding: 2px 8px 8px;
 }
 
-.typeBtn {
+.type {
 	all: unset;
 	padding: 2px 6px;
 	border-radius: 3px;
@@ -168,32 +168,32 @@
 	opacity: 0.5;
 }
 
-.typeBtn:hover {
+.type:hover {
 	opacity: 0.8;
 }
 
-.typeBtnActive {
+.typeActive {
 	opacity: 1 !important;
 	background: rgba(255, 255, 255, 0.1);
 }
 
-.typeBtnTag {
+.typeTag {
 	color: var(--k-accent-tag);
 }
 
-.typeBtnSoa {
+.typeSoa {
 	color: var(--k-accent-soa);
 }
 
-.typeBtnAos {
+.typeAos {
 	color: var(--k-accent-aos);
 }
 
-.typeBtnRel {
+.typeRel {
 	color: var(--k-accent-rel);
 }
 
-.typeBtnEmpty {
+.typeEmpty {
 	color: var(--k-text-muted);
 }
 

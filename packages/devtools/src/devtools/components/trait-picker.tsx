@@ -1,10 +1,10 @@
 import type { Entity, Trait } from '@koota/core';
 import { $internal } from '@koota/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { TraitWithDebug } from '../../types';
 import { useWorldTraits } from '../hooks/use-world-traits';
 import { useWorld } from '../hooks/use-world';
+import { Panel } from './panel';
 import badgeStyles from './badge.module.css';
 import styles from './trait-picker.module.css';
 import { getTraitName, getTraitType } from './trait-utils';
@@ -12,7 +12,6 @@ import { getTraitName, getTraitType } from './trait-utils';
 interface TraitPickerProps {
 	entity: Entity;
 	currentTraits: Trait[];
-	zoom?: number;
 	onSelect: (trait: Trait) => void;
 	onClose: () => void;
 	anchorRef?: React.RefObject<HTMLElement>;
@@ -21,7 +20,6 @@ interface TraitPickerProps {
 export function TraitPicker({
 	entity: _entity,
 	currentTraits,
-	zoom: _zoom,
 	onSelect,
 	onClose,
 	anchorRef: _anchorRef,
@@ -86,56 +84,55 @@ export function TraitPicker({
 		handleClose();
 	};
 
-	// Portal to the panel level to be on top of scrollable content
-	const panel = document.querySelector('[data-koota-devtools-root] .panel');
-	if (!panel) return null;
-
-	return createPortal(
-		<div
-			ref={backdropRef}
-			className={`${styles.backdrop} ${isAnimatingOut ? styles.backdropExit : ''}`}
-			onClick={handleBackdropClick}
-		>
+	return (
+		<Panel.Portal>
 			<div
-				ref={containerRef}
-				className={`${styles.sheet} ${isAnimatingOut ? styles.sheetExit : ''}`}
+				ref={backdropRef}
+				className={`${styles.backdrop} ${isAnimatingOut ? styles.backdropExit : ''}`}
+				onClick={handleBackdropClick}
 			>
-				<input
-					ref={inputRef}
-					type="text"
-					className={styles.input}
-					placeholder="Search traits..."
-					value={filter}
-					onChange={(e) => setFilter(e.target.value)}
-				/>
-				<div className={styles.list}>
-					{sortedTraits.length === 0 ? (
-						<div className={styles.empty}>No traits match filter</div>
-					) : (
-						sortedTraits.map((trait) => {
-							const type = getTraitType(trait);
-							const isDisabled = currentTraitSet.has(trait);
-							return (
-								<button
-									key={(trait as TraitWithDebug)[$internal]?.id}
-									className={`${styles.item} ${
-										isDisabled ? styles.itemDisabled : ''
-									}`}
-									onClick={() => !isDisabled && handleSelect(trait)}
-									disabled={isDisabled}
-								>
-									<span className={`${badgeStyles.badge} ${badgeClasses[type]}`}>
-										{type}
-									</span>
-									<span className={styles.itemName}>{getTraitName(trait)}</span>
-								</button>
-							);
-						})
-					)}
+				<div
+					ref={containerRef}
+					className={`${styles.sheet} ${isAnimatingOut ? styles.sheetExit : ''}`}
+				>
+					<input
+						ref={inputRef}
+						type="text"
+						className={styles.input}
+						placeholder="Search traits..."
+						value={filter}
+						onChange={(e) => setFilter(e.target.value)}
+					/>
+					<div className={styles.list}>
+						{sortedTraits.length === 0 ? (
+							<div className={styles.empty}>No traits match filter</div>
+						) : (
+							sortedTraits.map((trait) => {
+								const type = getTraitType(trait);
+								const isDisabled = currentTraitSet.has(trait);
+								return (
+									<button
+										key={(trait as TraitWithDebug)[$internal]?.id}
+										className={`${styles.item} ${
+											isDisabled ? styles.itemDisabled : ''
+										}`}
+										onClick={() => !isDisabled && handleSelect(trait)}
+										disabled={isDisabled}
+									>
+										<span
+											className={`${badgeStyles.badge} ${badgeClasses[type]}`}
+										>
+											{type}
+										</span>
+										<span className={styles.itemName}>{getTraitName(trait)}</span>
+									</button>
+								);
+							})
+						)}
+					</div>
 				</div>
 			</div>
-		</div>,
-		panel
+		</Panel.Portal>
 	);
 }
 

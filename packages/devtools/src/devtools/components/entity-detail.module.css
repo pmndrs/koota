@@ -4,6 +4,12 @@
 	gap: 6px;
 }
 
+.icon {
+	color: var(--k-text-muted);
+	opacity: 0.8;
+	flex-shrink: 0;
+}
+
 .worldBadge {
 	font-size: 8px;
 	font-weight: 600;

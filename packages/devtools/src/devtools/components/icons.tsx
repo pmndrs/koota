@@ -14,7 +14,24 @@ export function TraitIcon({ size = 12, className }: IconProps) {
 export function EntityIcon({ size = 12, className }: IconProps) {
 	return (
 		<svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
-			<circle cx="8" cy="8" r="6" />
+			<path
+				fillRule="evenodd"
+				d="M8 2l5.196 3v6L8 14l-5.196-3V5L8 2zm0 2.5l-3.464 2v4l3.464 2 3.464-2v-4l-3.464-2z"
+			/>
+		</svg>
+	);
+}
+
+export function WorldIcon({ size = 12, className }: IconProps) {
+	return (
+		<svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" className={className}>
+			<circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1" />
+			<path
+				d="M8 2.5 Q10.5 8 8 13.5 M8 2.5 Q5.5 8 8 13.5 M2.5 8 h11"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1"
+			/>
 		</svg>
 	);
 }

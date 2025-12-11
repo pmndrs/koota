@@ -1,0 +1,86 @@
+.root {
+	position: fixed;
+	z-index: 99999;
+	font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+	font-size: 12px;
+	user-select: none;
+
+	/* --- Color System --- */
+
+	/* Backgrounds */
+	--bg-panel: #181818;
+	--bg-active: rgba(255, 255, 255, 0.1);
+	--bg-hover: rgba(255, 255, 255, 0.05);
+	--bg-muted: rgba(255, 255, 255, 0.05);
+
+	/* Text */
+	--text-primary: #d6d6dd;
+	--text-secondary: #868686;
+	--text-muted: #4a4a4a;
+
+	/* Borders */
+	/* --border: #333333; */
+
+	/* Accents */
+	--accent-blue: #519aba;
+	--accent-gold: #f1b367;
+
+	/* --accent-tag: #4a9eff;
+	--accent-soa: #4ade80;
+	--accent-aos: #f59e0b;
+	--accent-rel: #a855f7;
+	--accent-purple: #7c5cff; */
+}
+
+.panel {
+	background: var(--bg-panel);
+	color: var(--text-primary);
+	border-radius: 6px;
+	border: 1px solid var(--border);
+	overflow: visible;
+	width: 260px;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	position: relative;
+}
+
+.header {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	height: 32px;
+}
+
+.scroll {
+	max-height: 280px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	position: relative;
+	/* Firefox - thin overlay scrollbar */
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Overlay scrollbars - WebKit browsers */
+.scroll::-webkit-scrollbar {
+	width: 8px;
+}
+
+.scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.scroll::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+}
+
+.scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.scroll:has(> div[class*='relation-graph']) {
+	overflow: hidden;
+}

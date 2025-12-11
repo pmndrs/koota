@@ -1,2 +1,1 @@
-export { Devtools, type DevtoolsProps } from './react-wrapper';
-
+export { Devtools, type DevtoolsProps } from './react/react-entry';
