@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { World } from '@koota/core';
-import type { Editor } from './devtools/devtools';
+import { Editor } from '../devtools/devtools';
 
 export interface DevtoolsProps {
 	world: World;
@@ -16,7 +16,7 @@ export function Devtools(props: DevtoolsProps) {
 		let isMounted = true;
 
 		// Dynamically import the Preact-bundled createDevtools from koota/devtools
-		import('./create-devtools').then(({ createDevtools }) => {
+		import('../create-devtools').then(({ createDevtools }) => {
 			// Only create if still mounted
 			if (!isMounted) return;
 

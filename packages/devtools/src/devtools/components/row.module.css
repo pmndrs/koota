@@ -8,7 +8,7 @@
 }
 
 .row:hover {
-	background: var(--k-bg-hover);
+	background: var(--bg-hover);
 }
 
 .rowNoHover:hover {
@@ -36,9 +36,15 @@
 
 .rowCount {
 	font-size: 10px;
-	color: var(--k-text-muted);
-	min-width: 16px;
-	text-align: right;
+	color: var(--text-secondary);
 	font-variant-numeric: tabular-nums;
 	margin-left: auto;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: var(--bg-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	margin: -2px 0;
 }

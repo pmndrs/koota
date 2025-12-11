@@ -1,12 +1,10 @@
 import type { Entity } from '@koota/core';
 import { $internal } from '@koota/core';
 import type { Relation } from '@koota/core';
-import type { RefObject } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
 import { useWorld } from '../hooks/use-world';
 import badgeStyles from './badge.module.css';
-import detailStyles from './detail-layout.module.css';
 import traitDetailStyles from './trait-detail.module.css';
 import { formatDebugSource, getEditorUrl } from '../utils/debug-source';
 import { DetailLayout, DetailSection } from './detail-layout';
@@ -25,11 +23,10 @@ type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
 interface TraitDetailProps {
 	trait: TraitWithDebug;
 	editor: Editor;
-	scrollRef: RefObject<HTMLDivElement | null>;
 	onSelectEntity: (entity: Entity) => void;
 }
 
-export function TraitDetail({ trait, editor, scrollRef, onSelectEntity }: TraitDetailProps) {
+export function TraitDetail({ trait, editor, onSelectEntity }: TraitDetailProps) {
 	const world = useWorld();
 	const [entities, setEntities] = useState<Entity[]>([]);
 
@@ -118,11 +115,7 @@ export function TraitDetail({ trait, editor, scrollRef, onSelectEntity }: TraitD
 					{targets.length === 0 ? (
 						<div className={traitDetailStyles.emptySmall}>No targets</div>
 					) : (
-						<EntityList
-							entities={targets}
-							scrollRef={scrollRef}
-							onSelect={onSelectEntity}
-						/>
+						<EntityList entities={targets} onSelect={onSelectEntity} />
 					)}
 				</DetailSection>
 			)}
@@ -131,7 +124,7 @@ export function TraitDetail({ trait, editor, scrollRef, onSelectEntity }: TraitD
 				label={<span style={{ textTransform: 'uppercase' }}>Entities</span>}
 				count={entities.length}
 			>
-				<EntityList entities={entities} scrollRef={scrollRef} onSelect={onSelectEntity} />
+				<EntityList entities={entities} onSelect={onSelectEntity} />
 			</DetailSection>
 		</DetailLayout>
 	);
