@@ -14,18 +14,28 @@ export function useTag(target: Entity | World | undefined | null, tag: TagTrait)
 	);
 
 	// Initialize the state with whether the entity has the tag.
-	const [value, setValue] = useState<boolean | undefined>(() => {
+	const [value, setValue] = useState<boolean>(() => {
 		return memo?.entity.has(tag) ?? false;
 	});
 
 	// Subscribe to add/remove events for the tag.
 	useEffect(() => {
-		if (!memo) return;
-		const unsubscribe = memo.subscribe(setValue);
-		return () => unsubscribe();
+		if (!memo) {
+			setValue(false);
+			return;
+		}
+
+		const unsubscribe = memo.subscribe((value) => {
+			setValue(value ?? false);
+		});
+
+		return () => {
+			unsubscribe();
+			setValue(false);
+		};
 	}, [memo]);
 
-	return value ?? false;
+	return value;
 }
 
 function createSubscriptions(target: Entity | World, tag: TagTrait, contextWorld: World) {
