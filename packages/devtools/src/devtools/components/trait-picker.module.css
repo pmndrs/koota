@@ -40,7 +40,7 @@
 	bottom: 0;
 	left: 0;
 	right: 0;
-	background: var(--k-bg-panel);
+	background: var(--bg-panel);
 	border: 1px solid var(--k-border);
 	border-bottom: none;
 	border-radius: 8px 8px 0 0;
@@ -157,8 +157,11 @@
 }
 
 .itemDisabled {
-	opacity: 0.4;
 	cursor: default;
+}
+
+.itemDisabled > * {
+	opacity: 0.4;
 }
 
 .itemDisabled:hover {

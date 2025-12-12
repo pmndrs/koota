@@ -9,6 +9,7 @@
 
 	/* Backgrounds */
 	--bg-panel: #181818;
+	--bg-dark: #141414;
 	--bg-active: rgba(255, 255, 255, 0.1);
 	--bg-hover: rgba(255, 255, 255, 0.05);
 	--bg-muted: rgba(255, 255, 255, 0.05);
