@@ -25,7 +25,10 @@ export function useTrait<T extends Trait>(
 
 	// Subscribe to changes in the trait.
 	useEffect(() => {
-		if (!memo) return;
+		if (!memo) {
+			setValue(undefined);
+			return;
+		}
 		const unsubscribe = memo.subscribe(setValue);
 		return () => unsubscribe();
 	}, [memo]);

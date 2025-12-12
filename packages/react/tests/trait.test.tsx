@@ -147,6 +147,40 @@ describe('useTrait', () => {
 		expect(position).toEqual({ x: 0, y: 0 });
 	});
 
+	it('returns undefined when the target becomes undefined', async () => {
+		let entity: Entity | undefined = world.spawn(Position);
+
+		let position: TraitRecord<typeof Position> | undefined;
+
+		function Test() {
+			position = useTrait(entity, Position);
+			return null;
+		}
+
+		const { rerender } = render(
+			<StrictMode>
+				<WorldProvider world={world}>
+					<Test />
+				</WorldProvider>
+			</StrictMode>
+		);
+
+		expect(position).toEqual({ x: 0, y: 0 });
+
+		await act(async () => {
+			entity = undefined;
+			rerender(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(position).toEqual(undefined);
+	});
+
 	it('reactively updates when the world is reset', async () => {
 		const entity = world.spawn(Position);
 		let position: TraitRecord<typeof Position> | undefined;
@@ -212,6 +246,40 @@ describe('useTag', () => {
 		expect(isTagged).toBe(false);
 	});
 
+	it('returns false when the target becomes undefined', async () => {
+		let entity: Entity | undefined = world.spawn(IsTagged);
+
+		let isTagged: boolean | undefined;
+
+		function Test() {
+			isTagged = useTag(entity, IsTagged);
+			return null;
+		}
+
+		const { rerender } = render(
+			<StrictMode>
+				<WorldProvider world={world}>
+					<Test />
+				</WorldProvider>
+			</StrictMode>
+		);
+
+		expect(isTagged).toBe(true);
+
+		await act(async () => {
+			entity = undefined;
+			rerender(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(isTagged).toBe(false);
+	});
+
 	it('works with a world', async () => {
 		const IsPaused = trait();
 		world.add(IsPaused);
@@ -271,6 +339,40 @@ describe('useHas', () => {
 
 		await act(async () => {
 			entity.remove(Position);
+		});
+
+		expect(hasPosition).toBe(false);
+	});
+
+	it('returns false when the target becomes undefined', async () => {
+		let entity: Entity | undefined = world.spawn(Position);
+
+		let hasPosition: boolean | undefined;
+
+		function Test() {
+			hasPosition = useHas(entity, Position);
+			return null;
+		}
+
+		const { rerender } = render(
+			<StrictMode>
+				<WorldProvider world={world}>
+					<Test />
+				</WorldProvider>
+			</StrictMode>
+		);
+
+		expect(hasPosition).toBe(true);
+
+		await act(async () => {
+			entity = undefined;
+			rerender(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
 		});
 
 		expect(hasPosition).toBe(false);
