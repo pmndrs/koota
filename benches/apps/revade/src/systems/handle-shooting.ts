@@ -23,7 +23,7 @@ window.addEventListener('keyup', (e) => {
 	}
 });
 
-export const handleShooting = ({ world }: { world: World }) => {
+export function handleShooting(world: World) {
 	const { delta } = world.get(Time)!;
 	const { spawnBullet } = actions(world);
 
@@ -45,4 +45,4 @@ export const handleShooting = ({ world }: { world: World }) => {
 			canShoot = false;
 		}
 	}
-};
+}

@@ -207,7 +207,7 @@ hero.has(Targeting(goblin)) // True
 
 #### Querying relations
 
-Relations can be queried with specific targets, wildcard targets using `*` and even inverted wildcard searches with `Wildcard` to get all entities with a relation targeting another entity.
+Relations can be queried with specific targets and wildcard targets using `*`.
 
 ```js
 const gold = world.spawn()

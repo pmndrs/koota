@@ -1,0 +1,112 @@
+.root {
+	position: fixed;
+	z-index: 99999;
+	font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+	font-size: 12px;
+	user-select: none;
+
+	/* --- Color System --- */
+
+	/* Backgrounds */
+	--bg-panel: #181818;
+	--bg-dark: #141414;
+	--bg-active: rgba(255, 255, 255, 0.1);
+	--bg-hover: rgba(255, 255, 255, 0.05);
+	--bg-muted: rgba(255, 255, 255, 0.05);
+
+	/* Text */
+	--text-primary: #d6d6dd;
+	--text-secondary: #868686;
+	--text-muted: #4a4a4a;
+
+	/* Borders */
+	--border: #262626;
+
+	/* Accents */
+	--accent-blue: #519aba;
+	--accent-gold: #f1b367;
+
+	/* --accent-tag: #4a9eff;
+	--accent-soa: #4ade80;
+	--accent-aos: #f59e0b;
+	--accent-rel: #a855f7;
+	--accent-purple: #7c5cff; */
+}
+
+.panel {
+	background: var(--bg-panel);
+	color: var(--text-primary);
+	border-radius: 6px;
+	border: 1px solid var(--border);
+	overflow: visible;
+	width: 260px;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+	position: relative;
+}
+
+.header {
+	padding: 6px 8px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	height: 32px;
+}
+
+.scroll {
+	max-height: 280px;
+	overflow-y: auto;
+	overflow-x: hidden;
+	position: relative;
+	scrollbar-width: none; /* Firefox */
+}
+
+/* Hide native scrollbar - WebKit browsers */
+.scroll::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+}
+
+.scroll:has(div[class*='relation-graph']) {
+	overflow: hidden;
+}
+
+.scrollRoot {
+	position: relative;
+}
+
+.scrollContent {
+	/* Keeps a stable node to observe content size changes */
+	display: block;
+}
+
+.scrollbar {
+	position: absolute;
+	top: 2px;
+	bottom: 2px;
+	right: 0;
+	width: 8px;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 150ms ease;
+}
+
+.scrollbarVisible {
+	opacity: 1;
+}
+
+.scrollThumb {
+	position: absolute;
+	left: 1px;
+	right: 1px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.1);
+	pointer-events: auto;
+	touch-action: none;
+	cursor: default;
+}
+
+.scrollThumb:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
