@@ -1,5 +1,5 @@
 import { $internal, type Entity, type Trait, type World } from '@koota/core';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { IsDevtoolsHovered, IsDevtoolsSelected } from '../traits';
 import type { TraitWithDebug } from '../types';
 import { AllEntitiesList } from './components/all-entities-list';
@@ -11,6 +11,7 @@ import { TraitDetail } from './components/trait-detail';
 import { TraitList } from './components/trait-list';
 import { getTraitType } from './components/trait-utils';
 import { useAnimationFrame } from './hooks/use-animation-frame';
+import { useNav } from './hooks/use-nav';
 import { useEntityCount } from './hooks/use-entity-count';
 import { WorldProvider } from './hooks/use-world';
 import { useWorldTraits } from './hooks/use-world-traits';
@@ -25,19 +26,14 @@ export interface DevtoolsProps {
 	editor?: Editor;
 }
 
-type NavEntry = { tab: Tab; entity?: Entity; trait?: TraitWithDebug };
-
 export function Devtools({
 	world,
 	defaultPosition = { x: 16, y: 16 },
 	defaultOpen = true,
 	editor = 'cursor',
 }: DevtoolsProps) {
-	const [activeTab, setActiveTab] = useState<Tab>('entities');
-	const [selectedTrait, setSelectedTrait] = useState<TraitWithDebug | null>(null);
-	const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
-	const [navHistory, setNavHistory] = useState<NavEntry[]>([]);
 	const previousSelectedEntityRef = useRef<Entity | null>(null);
+	const nav = useNav({ initialTab: 'entities' });
 	const traits = useWorldTraits(world);
 	const entityCount = useEntityCount(world);
 
@@ -67,109 +63,52 @@ export function Devtools({
 	};
 
 	const handleBack = () => {
-		if (navHistory.length === 0) return;
-
-		const previous = navHistory[navHistory.length - 1];
-		setNavHistory((prev) => prev.slice(0, -1));
-
-		// Restore previous state
-		setActiveTab(previous.tab);
-		setSelectedEntity(previous.entity ?? null);
-		setSelectedTrait(previous.trait ?? null);
-
-		// Sync entity selection highlight
-		if (previous.entity) {
-			if (
-				previousSelectedEntityRef.current !== null &&
-				world.has(previousSelectedEntityRef.current)
-			) {
-				previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
-				previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
-			}
-			if (world.has(previous.entity)) {
-				previous.entity.remove(IsDevtoolsHovered);
-				previous.entity.add(IsDevtoolsSelected);
-			}
-			previousSelectedEntityRef.current = previous.entity;
-		} else {
-			if (
-				previousSelectedEntityRef.current !== null &&
-				world.has(previousSelectedEntityRef.current)
-			) {
-				previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
-				previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
-			}
-			previousSelectedEntityRef.current = null;
-		}
-
+		if (!nav.canGoBack) return;
+		nav.actions.goBack();
 		scrollToTop();
 	};
 
 	const handleSelectEntity = (entity: Entity, fromTab?: Tab) => {
-		// Push current state to history
-		setNavHistory((prev) => [
-			...prev,
-			{
-				tab: fromTab ?? activeTab,
-				entity: selectedEntity ?? undefined,
-				trait: selectedTrait ?? undefined,
-			},
-		]);
-
-		// Remove trait from previous entity
-		if (
-			previousSelectedEntityRef.current !== null &&
-			world.has(previousSelectedEntityRef.current)
-		) {
-			previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
-			previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
-		}
-
-		// Add trait to new entity
-		if (world.has(entity)) {
-			entity.remove(IsDevtoolsHovered);
-			entity.add(IsDevtoolsSelected);
-		}
-
-		previousSelectedEntityRef.current = entity;
-		setSelectedEntity(entity);
-		scrollToTop();
-	};
-
-	const handleDeselectEntity = () => {
-		// Remove traits from previous entity
-		if (
-			previousSelectedEntityRef.current !== null &&
-			world.has(previousSelectedEntityRef.current)
-		) {
-			previousSelectedEntityRef.current.remove(IsDevtoolsSelected);
-			previousSelectedEntityRef.current.remove(IsDevtoolsHovered);
-		}
-
-		previousSelectedEntityRef.current = null;
-		setSelectedEntity(null);
+		nav.actions.selectEntity(entity, fromTab);
 		scrollToTop();
 	};
 
 	// Per-frame system to sync world highlight tags based on entity trait state
 	useAnimationFrame(() => {
-		runDevtoolsHighlightSystem(world, previousSelectedEntityRef, setSelectedEntity);
+		runDevtoolsHighlightSystem(world, previousSelectedEntityRef, nav.actions.setSelectedEntity);
 	});
 
 	const handleTabChange = (tab: Tab) => {
-		setActiveTab(tab);
-		setSelectedTrait(null);
-		handleDeselectEntity();
-		setNavHistory([]); // Clear history on explicit tab switch
+		nav.actions.setTab(tab);
+		scrollToTop();
 	};
+
+	// Sync entity selection highlight based on nav-only selection state
+	useEffect(() => {
+		const prev = previousSelectedEntityRef.current;
+		const next = nav.selectedEntity;
+		if (prev === next) return;
+
+		if (prev !== null && world.has(prev)) {
+			prev.remove(IsDevtoolsSelected);
+			prev.remove(IsDevtoolsHovered);
+		}
+
+		if (next !== null && world.has(next)) {
+			next.remove(IsDevtoolsHovered);
+			next.add(IsDevtoolsSelected);
+		}
+
+		previousSelectedEntityRef.current = next;
+	}, [nav.selectedEntity, world]);
 
 	// Check if selected trait still exists
 	const validSelectedTrait =
-		selectedTrait && traits.includes(selectedTrait as Trait) ? selectedTrait : null;
+		nav.selectedTrait && traits.includes(nav.selectedTrait as Trait) ? nav.selectedTrait : null;
 
 	// Check if selected entity still exists (explicit null check for entity 0)
 	const validSelectedEntity =
-		selectedEntity !== null && world.has(selectedEntity) ? selectedEntity : null;
+		nav.selectedEntity !== null && world.has(nav.selectedEntity) ? nav.selectedEntity : null;
 
 	return (
 		<WorldProvider value={world}>
@@ -179,43 +118,33 @@ export function Devtools({
 						traitCount={traits.length}
 						entityCount={entityCount}
 						relationCount={relationCount}
-						activeTab={activeTab}
-						canGoBack={navHistory.length > 0}
+						activeTab={nav.activeTab}
+						canGoBack={nav.canGoBack}
 						onTabChange={handleTabChange}
 						onBack={handleBack}
 					/>
 				</Panel.Header>
 				<Panel.Content>
 					{/* Graph view */}
-					{activeTab === 'graph' && (
+					{nav.activeTab === 'graph' && (
 						<RelationGraph
 							relationTraits={relationTraits}
 							onSelectEntity={(entity) => {
 								handleSelectEntity(entity, 'graph');
-								setActiveTab('entities');
+								nav.actions.setActiveTab('entities');
 							}}
 						/>
 					)}
 
 					{/* Entities view */}
-					{activeTab === 'entities' && (
+					{nav.activeTab === 'entities' && (
 						<>
 							{validSelectedEntity !== null ? (
 								<EntityDetail
 									key={validSelectedEntity}
 									entity={validSelectedEntity}
 									onSelectTrait={(trait) => {
-										// Push current state to history
-										setNavHistory((prev) => [
-											...prev,
-											{
-												tab: activeTab,
-												entity: selectedEntity ?? undefined,
-												trait: selectedTrait ?? undefined,
-											},
-										]);
-										setSelectedTrait(() => trait);
-										setActiveTab('traits');
+										nav.actions.selectTrait(trait, 'traits');
 										scrollToTop();
 									}}
 								/>
@@ -226,7 +155,7 @@ export function Devtools({
 					)}
 
 					{/* Traits view */}
-					{activeTab === 'traits' && (
+					{nav.activeTab === 'traits' && (
 						<>
 							{validSelectedTrait !== null ? (
 								<TraitDetail
@@ -235,23 +164,14 @@ export function Devtools({
 									editor={editor}
 									onSelectEntity={(entity) => {
 										handleSelectEntity(entity, 'traits');
-										setActiveTab('entities');
+										nav.actions.setActiveTab('entities');
 									}}
 								/>
 							) : (
 								<TraitList
 									traits={traits}
 									onSelect={(trait) => {
-										// Push current state to history
-										setNavHistory((prev) => [
-											...prev,
-											{
-												tab: activeTab,
-												entity: selectedEntity ?? undefined,
-												trait: selectedTrait ?? undefined,
-											},
-										]);
-										setSelectedTrait(() => trait);
+										nav.actions.selectTrait(trait);
 										scrollToTop();
 									}}
 								/>
