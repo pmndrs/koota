@@ -254,6 +254,27 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 	}
 }
 
+/**
+ * Remove a relation target and clean up the base trait if it was the last target.
+ * This is used by entity destruction to ensure proper cleanup.
+ */
+export function cleanupRelationTarget(
+	world: World,
+	relation: Relation<Trait>,
+	entity: Entity,
+	target: Entity
+): void {
+	const removedIndex = removeRelationTarget(world, relation, entity, target);
+	if (removedIndex === -1) return;
+
+	// Check if this was the last target and remove the base trait
+	const remainingTargets = getRelationTargets(world, relation, entity);
+	if (remainingTargets.length === 0) {
+		const baseTrait = relation[$internal].trait;
+		removeTraitFromEntity(world, entity, baseTrait);
+	}
+}
+
 export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
 	const data = getTraitData(ctx.traitData, trait);
@@ -421,7 +442,10 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 /**
  * Core logic for removing a trait from an entity.
  */
-/* @inline */ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void {
+function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void {
+	// Exit early if the entity doesn't have the trait
+	if (!hasTrait(world, entity, trait)) return;
+
 	const ctx = world[$internal];
 	const data = getTraitData(ctx.traitData, trait)!;
 	const { generationId, bitflag, queries, trackingQueries } = data;
