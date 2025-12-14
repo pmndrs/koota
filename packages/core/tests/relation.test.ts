@@ -65,6 +65,18 @@ describe('Relation', () => {
 		expect(target).toBe(undefined);
 	});
 
+	it('exclusive relations should allow targeting entity 0', () => {
+		const Targeting = relation({ exclusive: true });
+		const worldEntity = world.entities[0]!;
+		const goblin = world.spawn(Targeting(worldEntity));
+
+		expect(goblin.targetFor(Targeting)).toBe(worldEntity);
+		expect(goblin.has(Targeting(worldEntity))).toBe(true);
+
+		goblin.remove(Targeting(worldEntity));
+		expect(goblin.targetFor(Targeting)).toBe(undefined);
+	});
+
 	it('should auto remove target and its descendants', () => {
 		const ChildOf = relation({ autoRemoveTarget: true });
 
@@ -197,6 +209,41 @@ describe('Relation', () => {
 		expect(world.has(durian)).toBe(false);
 		expect(world.has(apple)).toBe(true);
 		expect(world.has(cherry)).toBe(true);
+	});
+
+	it('removes the relation trait when its last target is destroyed', () => {
+		const Targets = relation();
+
+		const subject = world.spawn();
+		const target = world.spawn();
+		const otherTarget = world.spawn();
+
+		subject.add(Targets(target));
+		subject.add(Targets(otherTarget));
+
+		// Sanity check: relation pair exists and base trait is present
+		expect(subject.has(Targets(target))).toBe(true);
+		expect(subject.has(Targets(otherTarget))).toBe(true);
+		expect(subject.has(Targets('*'))).toBe(true);
+
+		// Destroy the target entity
+		target.destroy();
+
+		// Should still have the other target
+		expect(subject.has(Targets(target))).toBe(false);
+		expect(subject.has(Targets(otherTarget))).toBe(true);
+		expect(subject.targetsFor(Targets)).toEqual([otherTarget]);
+		expect(subject.has(Targets('*'))).toBe(true);
+
+		otherTarget.destroy();
+
+		// The specific relation to that target should be removed...
+		expect(subject.has(Targets(target))).toBe(false);
+		expect(subject.has(Targets(otherTarget))).toBe(false);
+		expect(subject.targetsFor(Targets)).toEqual([]);
+
+		// ...and the underlying relation trait itself should be removed
+		expect(subject.has(Targets('*'))).toBe(false);
 	});
 
 	it('should remove all relations with a wildcard', () => {
