@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { $internal, createChanged, createWorld, Not, relation, trait } from '../src';
+import {
+	$internal,
+	createAdded,
+	createChanged,
+	createRemoved,
+	createWorld,
+	Not,
+	relation,
+	trait,
+} from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -346,22 +355,20 @@ describe('Relation', () => {
 	it('should track Changed modifier for relation stores', () => {
 		const Changed = createChanged();
 		const ChildOf = relation({ store: { order: 0 } });
-		// Get the base trait from the relation
-		const ChildOfTrait = ChildOf[$internal].trait;
 
 		const parent = world.spawn();
 		const child1 = world.spawn(ChildOf(parent));
 		const child2 = world.spawn(ChildOf(parent));
 
 		// This tracks changes to ChildOf relation store for entities related to parent
-		let changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		let changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
 		expect(changedEntities.length).toBe(0);
 
 		// Update relation store for child1
 		child1.set(ChildOf(parent), { order: 1 });
 
 		// Query should now include child1
-		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
 		expect(changedEntities.length).toBe(1);
 		expect(changedEntities).toContain(child1);
 		expect(changedEntities).not.toContain(child2);
@@ -371,7 +378,7 @@ describe('Relation', () => {
 		expect(child2.get(ChildOf(parent))?.order).toBe(0);
 
 		// After query, changes are reset
-		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
 		expect(changedEntities.length).toBe(0);
 
 		// Update both children
@@ -379,9 +386,79 @@ describe('Relation', () => {
 		child2.set(ChildOf(parent), { order: 3 });
 
 		// Both should be in the query
-		changedEntities = world.query(Changed(ChildOfTrait), ChildOf(parent));
+		changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
 		expect(changedEntities.length).toBe(2);
 		expect(changedEntities).toContain(child1);
 		expect(changedEntities).toContain(child2);
+	});
+
+	it('should track Added modifier for relations', () => {
+		const Added = createAdded();
+		const ChildOf = relation();
+
+		const parent = world.spawn();
+		const entity1 = world.spawn();
+		const entity2 = world.spawn();
+
+		// No entities have the ChildOf relation yet
+		let addedEntities = world.query(Added(ChildOf));
+		expect(addedEntities.length).toBe(0);
+
+		// Add relation to entity1
+		entity1.add(ChildOf(parent));
+
+		// Query should now include entity1
+		addedEntities = world.query(Added(ChildOf));
+		expect(addedEntities.length).toBe(1);
+		expect(addedEntities).toContain(entity1);
+		expect(addedEntities).not.toContain(entity2);
+
+		// After query, tracking is reset
+		addedEntities = world.query(Added(ChildOf));
+		expect(addedEntities.length).toBe(0);
+
+		// Add relation to entity2
+		entity2.add(ChildOf(parent));
+
+		// Query should now include entity2
+		addedEntities = world.query(Added(ChildOf));
+		expect(addedEntities.length).toBe(1);
+		expect(addedEntities).toContain(entity2);
+		expect(addedEntities).not.toContain(entity1);
+	});
+
+	it('should track Removed modifier for relations', () => {
+		const Removed = createRemoved();
+		const ChildOf = relation();
+
+		const parent = world.spawn();
+		const entity1 = world.spawn(ChildOf(parent));
+		const entity2 = world.spawn(ChildOf(parent));
+
+		// No entities have had the relation removed yet
+		let removedEntities = world.query(Removed(ChildOf));
+		expect(removedEntities.length).toBe(0);
+
+		// Remove relation from entity1
+		entity1.remove(ChildOf(parent));
+
+		// Query should now include entity1
+		removedEntities = world.query(Removed(ChildOf));
+		expect(removedEntities.length).toBe(1);
+		expect(removedEntities).toContain(entity1);
+		expect(removedEntities).not.toContain(entity2);
+
+		// After query, tracking is reset
+		removedEntities = world.query(Removed(ChildOf));
+		expect(removedEntities.length).toBe(0);
+
+		// Remove relation from entity2
+		entity2.remove(ChildOf(parent));
+
+		// Query should now include entity2
+		removedEntities = world.query(Removed(ChildOf));
+		expect(removedEntities.length).toBe(1);
+		expect(removedEntities).toContain(entity2);
+		expect(removedEntities).not.toContain(entity1);
 	});
 });
