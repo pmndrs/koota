@@ -65,6 +65,18 @@ describe('Relation', () => {
 		expect(target).toBe(undefined);
 	});
 
+	it('exclusive relations should allow targeting entity 0', () => {
+		const Targeting = relation({ exclusive: true });
+		const worldEntity = world.entities[0]!;
+		const goblin = world.spawn(Targeting(worldEntity));
+
+		expect(goblin.targetFor(Targeting)).toBe(worldEntity);
+		expect(goblin.has(Targeting(worldEntity))).toBe(true);
+
+		goblin.remove(Targeting(worldEntity));
+		expect(goblin.targetFor(Targeting)).toBe(undefined);
+	});
+
 	it('should auto remove target and its descendants', () => {
 		const ChildOf = relation({ autoRemoveTarget: true });
 
