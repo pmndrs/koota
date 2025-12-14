@@ -1,13 +1,14 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
+import { isRelation } from '../../relation/relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
-import type { Trait } from '../../trait/types';
+import type { Trait, TraitOrRelation } from '../../trait/types';
+import { getTraitData, hasTraitData } from '../../trait/utils/trait-data';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world/world';
-import { getTraitData, hasTraitData } from '../../trait/utils/trait-data';
-import type { ModifierData } from '../types';
 import { createModifier } from '../modifier';
+import type { ModifierData } from '../types';
 import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
@@ -19,7 +20,10 @@ export function createChanged() {
 		setTrackingMasks(world, id);
 	}
 
-	return <T extends Trait[] = Trait[]>(...traits: T): ModifierData<T, `changed-${number}`> => {
+	return <T extends TraitOrRelation[] = TraitOrRelation[]>(
+		...inputs: T
+	): ModifierData<Trait[], `changed-${number}`> => {
+		const traits = inputs.map((input) => (isRelation(input) ? input[$internal].trait : input));
 		return createModifier(`changed-${id}`, id, traits);
 	};
 }

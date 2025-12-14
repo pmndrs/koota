@@ -145,3 +145,5 @@ export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSc
 	 */
 	relationTargets?: number[] | number[][];
 }
+
+export type TraitOrRelation = Trait | Relation<Trait>;

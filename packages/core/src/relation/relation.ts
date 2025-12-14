@@ -60,6 +60,13 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 export const relation = defineRelation;
 
 /**
+ * Check if a value is a Relation
+ */
+export /* @inline @pure */ function isRelation(value: unknown): value is Relation<Trait> {
+	return typeof value === 'function' && $internal in value && 'trait' in (value as any)[$internal];
+}
+
+/**
  * Check if a value is a RelationPair
  */
 export /* @inline @pure */ function isRelationPair(value: unknown): value is RelationPair {
