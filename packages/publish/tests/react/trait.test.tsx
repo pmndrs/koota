@@ -147,6 +147,40 @@ describe('useTrait', () => {
 		expect(position).toEqual({ x: 0, y: 0 });
 	});
 
+	it('returns undefined when the target becomes undefined', async () => {
+		let entity: Entity | undefined = world.spawn(Position);
+
+		let position: TraitRecord<typeof Position> | undefined;
+
+		function Test() {
+			position = useTrait(entity, Position);
+			return null;
+		}
+
+		const { rerender } = render(
+			<StrictMode>
+				<WorldProvider world={world}>
+					<Test />
+				</WorldProvider>
+			</StrictMode>
+		);
+
+		expect(position).toEqual({ x: 0, y: 0 });
+
+		await act(async () => {
+			entity = undefined;
+			rerender(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(position).toEqual(undefined);
+	});
+
 	it('reactively updates when the world is reset', async () => {
 		const entity = world.spawn(Position);
 		let position: TraitRecord<typeof Position> | undefined;
@@ -211,6 +245,69 @@ describe('useTag', () => {
 
 		expect(isTagged).toBe(false);
 	});
+
+	it('returns false when the target becomes undefined', async () => {
+		let entity: Entity | undefined = world.spawn(IsTagged);
+
+		let isTagged: boolean | undefined;
+
+		function Test() {
+			isTagged = useTag(entity, IsTagged);
+			return null;
+		}
+
+		const { rerender } = render(
+			<StrictMode>
+				<WorldProvider world={world}>
+					<Test />
+				</WorldProvider>
+			</StrictMode>
+		);
+
+		expect(isTagged).toBe(true);
+
+		await act(async () => {
+			entity = undefined;
+			rerender(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(isTagged).toBe(false);
+	});
+
+	it('works with a world', async () => {
+		const IsPaused = trait();
+		world.add(IsPaused);
+		let isPaused: boolean | undefined;
+
+		function Test() {
+			isPaused = useTag(world, IsPaused);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(isPaused).toBe(true);
+
+		await act(async () => {
+			world.remove(IsPaused);
+		});
+
+		expect(isPaused).toBe(false);
+	});
 });
 
 describe('useHas', () => {
@@ -245,6 +342,69 @@ describe('useHas', () => {
 		});
 
 		expect(hasPosition).toBe(false);
+	});
+
+	it('returns false when the target becomes undefined', async () => {
+		let entity: Entity | undefined = world.spawn(Position);
+
+		let hasPosition: boolean | undefined;
+
+		function Test() {
+			hasPosition = useHas(entity, Position);
+			return null;
+		}
+
+		const { rerender } = render(
+			<StrictMode>
+				<WorldProvider world={world}>
+					<Test />
+				</WorldProvider>
+			</StrictMode>
+		);
+
+		expect(hasPosition).toBe(true);
+
+		await act(async () => {
+			entity = undefined;
+			rerender(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(hasPosition).toBe(false);
+	});
+
+	it('works with a world', async () => {
+		const TimeOfDay = trait({ hour: 0 });
+		world.add(TimeOfDay);
+		let hasTimeOfDay: boolean | undefined;
+
+		function Test() {
+			hasTimeOfDay = useHas(world, TimeOfDay);
+			return null;
+		}
+
+		await act(async () => {
+			render(
+				<StrictMode>
+					<WorldProvider world={world}>
+						<Test />
+					</WorldProvider>
+				</StrictMode>
+			);
+		});
+
+		expect(hasTimeOfDay).toBe(true);
+
+		await act(async () => {
+			world.remove(TimeOfDay);
+		});
+
+		expect(hasTimeOfDay).toBe(false);
 	});
 });
 
