@@ -1,6 +1,6 @@
 import { $internal } from '../common';
-import { getEntitiesWithRelationTo, removeRelationTarget } from '../relation/relation';
-import { addTrait, removeTrait } from '../trait/trait';
+import { getEntitiesWithRelationTo } from '../relation/relation';
+import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { World } from '../world/world';
@@ -70,13 +70,11 @@ export function destroyEntity(world: World, entity: Entity) {
 				// Check if this relation has autoRemoveTarget
 				const relationCtx = relation[$internal];
 
-				// Remove the target from this relation
-				removeRelationTarget(world, relation, subject, currentEntity);
+				// Remove the target from this relation and clean up base trait if needed
+				cleanupRelationTarget(world, relation, subject, currentEntity);
 
 				// If autoRemoveTarget, queue the subject for destruction
-				if (relationCtx.autoRemoveTarget) {
-					entityQueue.push(subject);
-				}
+				if (relationCtx.autoRemoveTarget) entityQueue.push(subject);
 			}
 		}
 
