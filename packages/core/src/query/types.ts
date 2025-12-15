@@ -1,11 +1,10 @@
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
+import { AoSFactory, Store } from '../storage';
 import type {
-	AoSFactory,
 	ExtractSchema,
 	ExtractStore,
 	IsTag,
-	Store,
 	Trait,
 	TraitData,
 	TraitRecord,

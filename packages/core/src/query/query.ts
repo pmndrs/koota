@@ -14,7 +14,7 @@ import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
-import { getTraitData, hasTraitData } from '../trait/utils/trait-data';
+import { getTraitData, hasTraitData } from '../trait/trait-data';
 
 export const IsExcluded: TagTrait = trait();
 

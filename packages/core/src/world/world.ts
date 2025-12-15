@@ -26,7 +26,7 @@ import type {
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
-import { clearTraitData, getTraitData, hasTraitData } from '../trait/utils/trait-data';
+import { clearTraitData, getTraitData, hasTraitData } from '../trait/trait-data';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 type Options = {

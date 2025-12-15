@@ -2,8 +2,8 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
-import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
+import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import {
 	addRelationTarget,
 	getRelationData,
@@ -18,30 +18,29 @@ import {
 	setRelationDataAtIndex,
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
-import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
-import { getTraitData, hasTraitData, setTraitData } from './utils/trait-data';
-import type { World } from '../world/world';
-import type {
-	ConfigurableTrait,
-	ExtractStore,
-	Norm,
-	Schema,
-	Store,
-	TagTrait,
-	Trait,
-	TraitData,
-	TraitType,
-	TraitValue,
-} from './types';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
 	createGetFunction,
 	createSetFunction,
-} from './utils/create-accessors';
-import { createStore } from './utils/create-store';
-import { getSchemaDefaults } from './utils/get-schema-defaults';
-import { validateSchema } from './utils/validate-schema';
+	createStore,
+	getSchemaDefaults,
+	Norm,
+	Schema,
+	StoreType,
+	validateSchema,
+} from '../storage';
+import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+import type { World } from '../world/world';
+import type {
+	ConfigurableTrait,
+	ExtractStore,
+	TagTrait,
+	Trait,
+	TraitData,
+	TraitValue,
+} from './types';
+import { getTraitData, hasTraitData, setTraitData } from './trait-data';
 
 // No reason to create a new object every time a tag trait is created.
 const tagSchema = Object.freeze({});
@@ -51,22 +50,21 @@ function defineTrait(schema?: undefined | Record<string, never>): TagTrait;
 function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
 function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
 	const isAoS = typeof schema === 'function';
-	const traitType: TraitType = isAoS ? 'aos' : 'soa';
+	const isTag = !isAoS && Object.keys(schema).length === 0;
+	const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
 	validateSchema(schema);
 
 	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
-		schema: schema as Norm<S>,
+		schema: schema,
 		[$internal]: {
+			id: traitId++,
 			set: createSetFunction[traitType](schema),
 			fastSet: createFastSetFunction[traitType](schema),
 			fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
 			get: createGetFunction[traitType](schema),
-			stores: [] as Store<S>[],
-			id: traitId++,
-			createStore: () => createStore(schema as Norm<S>),
+			createStore: () => createStore<S>(schema),
 			relation: null,
-			isTag: !isAoS && Object.keys(schema).length === 0,
 			type: traitType,
 		},
 	}) as Trait<Norm<S>>;
@@ -94,9 +92,6 @@ export function registerTrait(world: World, trait: Trait) {
 		addSubscriptions: new Set(),
 		removeSubscriptions: new Set(),
 	};
-
-	// Bind a reference to the store on the trait for direct access in queries.
-	traitCtx.stores[world.id] = data.store;
 
 	// Add trait to the world.
 	setTraitData(ctx.traitData, trait, data);
