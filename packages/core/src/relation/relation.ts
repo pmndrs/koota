@@ -5,7 +5,7 @@ import { checkQueryWithRelations } from '../query/utils/check-query-with-relatio
 import { hasTrait, trait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { World } from '../world/world';
-import { getTraitData } from '../trait/utils/trait-data';
+import { getTraitData } from '../trait/trait-data';
 import type { Relation, RelationPair, RelationTarget } from './types';
 import { Schema } from '../storage';
 

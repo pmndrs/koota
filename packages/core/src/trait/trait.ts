@@ -40,7 +40,7 @@ import type {
 	TraitData,
 	TraitValue,
 } from './types';
-import { getTraitData, hasTraitData, setTraitData } from './utils/trait-data';
+import { getTraitData, hasTraitData, setTraitData } from './trait-data';
 
 // No reason to create a new object every time a tag trait is created.
 const tagSchema = Object.freeze({});
