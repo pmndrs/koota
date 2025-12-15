@@ -1,14 +1,14 @@
 import type { Entity } from '../entity/types';
-import type { Relation, RelationPair, RelationTarget } from '../relation/types';
+import type { RelationPair } from '../relation/types';
 import type {
 	AoSFactory,
 	ExtractSchema,
 	ExtractStore,
 	IsTag,
-	Trait,
-	TraitRecord,
-	TraitData,
 	Store,
+	Trait,
+	TraitData,
+	TraitRecord,
 } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world/world';
