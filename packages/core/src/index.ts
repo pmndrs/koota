@@ -25,7 +25,7 @@ export type {
 	StoresFromParameters,
 } from './query/types';
 export { cacheQuery } from './query/utils/cache-query';
-export { Pair, relation } from './relation/relation';
+export { isRelation, Pair, relation } from './relation/relation';
 export type { Relation, RelationPair, RelationTarget } from './relation/types';
 export { getStore, trait } from './trait/trait';
 export type {
