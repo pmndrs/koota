@@ -1,14 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-	$internal,
-	createAdded,
-	createChanged,
-	createRemoved,
-	createWorld,
-	Not,
-	relation,
-	trait,
-} from '../src';
+import { createAdded, createChanged, createRemoved, createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();
