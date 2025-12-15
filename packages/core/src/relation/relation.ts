@@ -4,7 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { hasTrait, trait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
-import type { World } from '../world/world';
+import type { World } from '../world';
 import { getTraitData } from '../trait/trait-data';
 import type { Relation, RelationPair, RelationTarget } from './types';
 import { Schema } from '../storage';

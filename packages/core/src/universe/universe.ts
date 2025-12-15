@@ -1,6 +1,6 @@
 import type { QueryParameter } from '../query/types';
+import type { World } from '../world';
 import { createWorldIndex } from '../world/utils/world-index';
-import type { World } from '../world/world';
 
 export const universe = {
 	worlds: [] as (World | null)[],

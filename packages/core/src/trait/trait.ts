@@ -31,7 +31,7 @@ import {
 	validateSchema,
 } from '../storage';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
-import type { World } from '../world/world';
+import type { World } from '../world';
 import type {
 	ConfigurableTrait,
 	ExtractStore,

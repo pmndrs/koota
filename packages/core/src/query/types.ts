@@ -10,7 +10,7 @@ import type {
 	TraitRecord,
 } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
-import type { World } from '../world/world';
+import type { World } from '../world';
 import { $modifier } from './modifier';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;

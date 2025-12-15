@@ -1,4 +1,4 @@
-import type { World } from '../world/world';
+import type { World } from '../world';
 import type { ActionGetter, ActionInitializer, Actions } from './types';
 
 const actionCache = new WeakMap<World, Map<(...args: any[]) => any, Actions>>();
