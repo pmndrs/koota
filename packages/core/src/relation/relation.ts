@@ -3,10 +3,11 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { hasTrait, trait } from '../trait/trait';
-import type { ConfigurableTrait, Schema, Trait } from '../trait/types';
+import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { World } from '../world/world';
 import { getTraitData } from '../trait/utils/trait-data';
 import type { Relation, RelationPair, RelationTarget } from './types';
+import { Schema } from '../storage';
 
 /**
  * Creates a relation definition.
