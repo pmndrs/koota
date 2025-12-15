@@ -217,11 +217,9 @@ const inventory = world.spawn(Contains(gold), Contains(silver))
 const targets = inventory.targetsFor(Contains) // Returns [gold, silver]
 
 const chest = world.spawn(Contains(gold))
-const dwarf = world.spawn(Desires(gold))
 
-const constainsSilver = world.query(Contains(silver)) // Returns [inventory]
+const containsSilver = world.query(Contains(silver)) // Returns [inventory]
 const containsAnything = world.query(Contains('*')) // Returns [inventory, chest]
-const relatesToGold = world.query(Wildcard(gold)) // Returns [inventory, chest, dwarf]
 ```
 
 #### Removing relations
@@ -253,6 +251,41 @@ player.has(apple) // false
 player.has(banana) // false
 ```
 
+#### Tracking relation changes
+
+Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Changes can only be tracked on relations that have a store.
+
+> 👉 **Note**<br>
+> You can currently only track changes to all relations of a given type, such as `ChildOf`, but not specific relation pairs, such as `ChildOf(parent)`.
+
+```js
+import { createAdded, createRemoved, createChanged } from 'koota'
+
+const Added = createAdded()
+const Removed = createRemoved()
+const Changed = createChanged()
+
+const ChildOf = relation({ store: { priority: 0 } })
+
+// Track when any entity adds the ChildOf relation
+const newChildren = world.query(Added(ChildOf))
+
+// Track when any entity removes the ChildOf relation
+const orphaned = world.query(Removed(ChildOf))
+
+// Track when relation data changes for any target
+const updated = world.query(Changed(ChildOf))
+```
+
+Combine with relation filters to track changes for specific targets.
+
+```js
+const parent = world.spawn()
+
+// Track changes only for entities related to parent
+const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -279,45 +312,54 @@ const movingOrVisible = world.query(Or(Velocity, Renderable))
 
 #### Added
 
-The `Added` modifier tracks all entities that have added the specified traits since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
+The `Added` modifier tracks all entities that have added the specified traits or relations since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
 
 ```js
 import { createAdded } from 'koota'
 
 const Added = createAdded()
 
-// This query will return entities that have just added the Position trait
+// Track entities that added the Position trait
 const newPositions = world.query(Added(Position))
+
+// Track entities that added a ChildOf relation
+const newChildren = world.query(Added(ChildOf))
 
 // After running the query, the Added modifier is reset
 ```
 
 #### Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits since the last time the query was run. This includes entities that have been destroyed. A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed. A new instance of the modifier must be created for tracking to be unique.
 
 ```js
 import { createRemoved } from 'koota'
 
 const Removed = createRemoved()
 
-// This query will return entities that have just removed the Velocity trait
+// Track entities that removed the Velocity trait
 const stoppedEntities = world.query(Removed(Velocity))
+
+// Track entities that removed a ChildOf relation
+const orphaned = world.query(Removed(ChildOf))
 
 // After running the query, the Removed modifier is reset
 ```
 
 #### Changed
 
-The `Changed` modifier tracks all entities that have had the specified traits values change since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
+The `Changed` modifier tracks all entities that have had the specified traits or relation stores change since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
 
 ```js
 import { createChanged } from 'koota'
 
 const Changed = createChanged()
 
-// This query will return entities whose Position has changed
+// Track entities whose Position has changed
 const movedEntities = world.query(Changed(Position))
+
+// Track entities whose ChildOf relation data has changed
+const updatedChildren = world.query(Changed(ChildOf))
 
 // After running the query, the Changed modifier is reset
 ```
