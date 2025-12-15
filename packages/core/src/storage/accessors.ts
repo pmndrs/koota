@@ -1,4 +1,4 @@
-import type { Schema } from '../types';
+import type { Schema } from './types';
 
 function createSoASetFunction(schema: Schema) {
 	const keys = Object.keys(schema);
