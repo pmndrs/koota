@@ -29,24 +29,21 @@ export { isRelation, Pair, relation } from './relation/relation';
 export type { Relation, RelationPair, RelationTarget } from './relation/types';
 export { getStore, trait } from './trait/trait';
 export type {
-	AoSFactory,
 	ConfigurableTrait,
 	ExtractIsTag,
 	ExtractSchema,
 	ExtractStore,
 	IsTag,
-	Norm,
-	Schema,
 	SetTraitCallback,
-	Store,
 	TagTrait,
 	Trait,
 	TraitData,
 	TraitRecord,
 	TraitTuple,
-	TraitType,
 	TraitValue,
 } from './trait/types';
+export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
+export type { TraitType } from './trait/types';
 export { universe } from './universe/universe';
 export type { World } from './world/world';
 export { createWorld } from './world/world';

@@ -235,10 +235,10 @@ export function createQueryResult<T extends QueryParameter[]>(
 			const pairCtx = param[$internal];
 			const relation = pairCtx.relation as Relation<Trait>;
 			const baseTrait = relation[$internal].trait;
-			if (!baseTrait[$internal].isTag) {
-				traits.push(baseTrait);
-				stores.push(getStore(world, baseTrait));
-			}
+		if (baseTrait[$internal].type !== 'tag') {
+			traits.push(baseTrait);
+			stores.push(getStore(world, baseTrait));
+		}
 			continue;
 		}
 
@@ -248,13 +248,13 @@ export function createQueryResult<T extends QueryParameter[]>(
 
 			const modifierTraits = param.traits;
 			for (const trait of modifierTraits) {
-				if (trait[$internal].isTag) continue; // Skip tags
+				if (trait[$internal].type === 'tag') continue; // Skip tags
 				traits.push(trait);
 				stores.push(getStore(world, trait));
 			}
 		} else {
 			const trait = param as Trait;
-			if (trait[$internal].isTag) continue; // Skip tags
+			if (trait[$internal].type === 'tag') continue; // Skip tags
 			traits.push(trait);
 			stores.push(getStore(world, trait));
 		}

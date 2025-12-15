@@ -3,10 +3,11 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { hasTrait, trait } from '../trait/trait';
-import type { ConfigurableTrait, Schema, Trait } from '../trait/types';
+import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { World } from '../world/world';
-import { getTraitData } from '../trait/utils/trait-data';
+import { getTraitData } from '../trait/trait-data';
 import type { Relation, RelationPair, RelationTarget } from './types';
+import { Schema } from '../storage';
 
 /**
  * Creates a relation definition.
@@ -19,14 +20,14 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 	store?: S;
 }): Relation<Trait<S>> {
 	// Create the underlying trait for this relation
-	const baseTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
-	const traitCtx = baseTrait[$internal];
+	const relationTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
+	const traitCtx = relationTrait[$internal];
 
 	// Mark the trait as a relation trait
 	traitCtx.relation = null!; // Will be set below after relation is created
 
 	const relationCtx = {
-		trait: baseTrait,
+		trait: relationTrait,
 		exclusive: definition?.exclusive ?? false,
 		autoRemoveTarget: definition?.autoRemoveTarget ?? false,
 	};

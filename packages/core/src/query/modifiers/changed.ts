@@ -4,7 +4,7 @@ import { getEntityId } from '../../entity/utils/pack-entity';
 import { isRelation } from '../../relation/relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import type { Trait, TraitOrRelation } from '../../trait/types';
-import { getTraitData, hasTraitData } from '../../trait/utils/trait-data';
+import { getTraitData, hasTraitData } from '../../trait/trait-data';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world/world';
 import { createModifier } from '../modifier';
