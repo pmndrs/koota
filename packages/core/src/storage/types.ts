@@ -13,8 +13,9 @@ export type Store<T extends Schema = any> = T extends AoSFactory
  * Storage layout type.
  * - 'soa': Struct of Arrays - properties stored in separate arrays
  * - 'aos': Array of Structs - instances stored directly
+ * - 'tag': No data storage - empty schema marker
  */
-export type StoreType = 'aos' | 'soa';
+export type StoreType = 'aos' | 'soa' | 'tag';
 
 /**
  * Schema definition for traits.

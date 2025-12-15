@@ -20,14 +20,14 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 	store?: S;
 }): Relation<Trait<S>> {
 	// Create the underlying trait for this relation
-	const baseTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
-	const traitCtx = baseTrait[$internal];
+	const relationTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
+	const traitCtx = relationTrait[$internal];
 
 	// Mark the trait as a relation trait
 	traitCtx.relation = null!; // Will be set below after relation is created
 
 	const relationCtx = {
-		trait: baseTrait,
+		trait: relationTrait,
 		exclusive: definition?.exclusive ?? false,
 		autoRemoveTarget: definition?.autoRemoveTarget ?? false,
 	};

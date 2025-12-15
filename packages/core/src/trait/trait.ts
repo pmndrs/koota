@@ -27,7 +27,6 @@ import {
 	getSchemaDefaults,
 	Norm,
 	Schema,
-	Store,
 	StoreType,
 	validateSchema,
 } from '../storage';
@@ -51,21 +50,21 @@ function defineTrait(schema?: undefined | Record<string, never>): TagTrait;
 function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
 function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
 	const isAoS = typeof schema === 'function';
-	const traitType: StoreType = isAoS ? 'aos' : 'soa';
+	const isTag = !isAoS && Object.keys(schema).length === 0;
+	const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
 	validateSchema(schema);
 
 	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
 		schema: schema,
 		[$internal]: {
+			id: traitId++,
 			set: createSetFunction[traitType](schema),
 			fastSet: createFastSetFunction[traitType](schema),
 			fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
 			get: createGetFunction[traitType](schema),
-			id: traitId++,
 			createStore: () => createStore<S>(schema),
 			relation: null,
-			isTag: !isAoS && Object.keys(schema).length === 0,
 			type: traitType,
 		},
 	}) as Trait<Norm<S>>;

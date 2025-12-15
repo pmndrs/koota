@@ -3,7 +3,6 @@ import type { Entity } from '../entity/types';
 import type { Query } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type { AoSFactory, Schema, Store, StoreType } from '../storage';
-import type { IsEmpty } from '../utils/types';
 
 // Backwards-compatible alias (the trait "type" is the storage layout).
 export type TraitType = StoreType;
@@ -27,7 +26,6 @@ export type Trait<TSchema extends Schema = any> = {
 		createStore: () => Store<TSchema>;
 		/** Reference to parent relation if this trait is owned by a relation */
 		relation: Relation<any> | null;
-		isTag: IsEmpty<TSchema>;
 		type: StoreType;
 	};
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
@@ -78,7 +76,7 @@ export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> = T 
 export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
 	? Store
 	: never;
-export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { isTag: true } } ? true : false;
+export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'tag' } } ? true : false;
 
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
