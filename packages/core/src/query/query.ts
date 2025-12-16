@@ -4,9 +4,10 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { isRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { registerTrait, trait } from '../trait/trait';
+import { getTraitData, hasTraitData } from '../trait/trait-data';
 import type { TagTrait, Trait, TraitData } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
-import type { World } from '../world/world';
+import type { World } from '../world';
 import { isModifier } from './modifier';
 import { createQueryResult, getQueryStores } from './query-result';
 import type { EventType, Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
@@ -14,7 +15,6 @@ import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
-import { getTraitData, hasTraitData } from '../trait/trait-data';
 
 export const IsExcluded: TagTrait = trait();
 
