@@ -1,3 +1,4 @@
+import { ActionInstance, ActionRecord } from '../actions/types';
 import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
@@ -33,7 +34,7 @@ export type WorldInternal = {
 	relations: Set<Relation<Trait>>;
 	queriesHashMap: Map<string, QueryInstance>;
 	queryInstances: (QueryInstance | undefined)[];
-	actionInstances: (any | undefined)[];
+	actionInstances: (ActionInstance | undefined)[];
 	notQueries: Set<QueryInstance>;
 	dirtyQueries: Set<QueryInstance>;
 	dirtyMasks: Map<number, number[][]>;

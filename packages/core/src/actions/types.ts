@@ -8,3 +8,5 @@ export type Actions<T extends ActionRecord> = {
 	/** Initializer function */
 	readonly initializer: ActionsInitializer<T>;
 } & ((world: World) => T);
+
+export type ActionInstance = ActionRecord;

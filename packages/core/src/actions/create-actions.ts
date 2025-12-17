@@ -9,25 +9,25 @@ export function createActions<T extends ActionRecord>(
 ): Actions<T> {
 	const id = actionsId++;
 
-	const getter = Object.assign(
+	const actions = Object.assign(
 		(world: World): T => {
 			const ctx = world[$internal];
 
 			// Try array lookup first (faster)
-			let actions = ctx.actionInstances[id];
+			let instance = ctx.actionInstances[id];
 
-			if (!actions) {
+			if (!instance) {
 				// Create and cache actions instance
-				actions = initializer(world);
+				instance = initializer(world);
 
 				// Ensure array is large enough
 				if (id >= ctx.actionInstances.length) {
 					ctx.actionInstances.length = id + 1;
 				}
-				ctx.actionInstances[id] = actions;
+				ctx.actionInstances[id] = instance;
 			}
 
-			return actions as T;
+			return instance as T;
 		},
 		{
 			initializer,
@@ -35,12 +35,12 @@ export function createActions<T extends ActionRecord>(
 	) as Actions<T>;
 
 	// Add public read-only id property
-	Object.defineProperty(getter, 'id', {
+	Object.defineProperty(actions, 'id', {
 		value: id,
 		writable: false,
 		enumerable: true,
 		configurable: false,
 	});
 
-	return getter;
+	return actions;
 }

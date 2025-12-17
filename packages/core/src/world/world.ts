@@ -18,12 +18,11 @@ import type {
 	ExtractSchema,
 	SetTraitCallback,
 	Trait,
-	TraitInstance,
 	TraitRecord,
 	TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
-import type { World, WorldOptions } from './types';
+import type { World, WorldInternal, WorldOptions } from './types';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 export function createWorld(options: WorldOptions): World;
@@ -38,23 +37,23 @@ export function createWorld(
 	const world = {
 		[$internal]: {
 			entityIndex: createEntityIndex(id),
-			entityMasks: [[]] as number[][],
-			entityTraits: new Map<number, Set<Trait>>(),
+			entityMasks: [[]],
+			entityTraits: new Map(),
 			bitflag: 1,
-			traitInstances: [] as (TraitInstance | undefined)[],
-			relations: new Set<Relation<Trait>>(),
-			queriesHashMap: new Map<string, QueryInstance>(),
-			queryInstances: [] as (QueryInstance | undefined)[],
-			actionInstances: [] as (any | undefined)[],
-			notQueries: new Set<QueryInstance>(),
-			dirtyQueries: new Set<QueryInstance>(),
-			dirtyMasks: new Map<number, number[][]>(),
-			trackingSnapshots: new Map<number, number[][]>(),
-			changedMasks: new Map<number, number[][]>(),
-			worldEntity: null! as Entity,
-			trackedTraits: new Set<Trait>(),
-			resetSubscriptions: new Set<(world: World) => void>(),
-		},
+			traitInstances: [],
+			relations: new Set(),
+			queriesHashMap: new Map(),
+			queryInstances: [],
+			actionInstances: [],
+			notQueries: new Set(),
+			dirtyQueries: new Set(),
+			dirtyMasks: new Map(),
+			trackingSnapshots: new Map(),
+			changedMasks: new Map(),
+			worldEntity: null!,
+			trackedTraits: new Set(),
+			resetSubscriptions: new Set(),
+		} as WorldInternal,
 
 		traits: new Set<Trait>(),
 

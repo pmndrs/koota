@@ -1,2 +1,2 @@
 export { createWorld } from './world';
-export type { World, WorldOptions } from './types';
+export type { World, WorldOptions, WorldInternal } from './types';

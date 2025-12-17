@@ -1,5 +1,5 @@
 export { createActions } from './actions/create-actions';
-export type { Actions, ActionsInitializer } from './actions/types';
+export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
 export { $internal } from './common';
 export type { Brand } from './common';
 export type { Entity } from './entity/types';
