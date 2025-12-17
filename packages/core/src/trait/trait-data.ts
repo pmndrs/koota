@@ -1,6 +1,4 @@
-import type { Trait } from './types';
-import type { TraitInstance } from './types';
-import { $internal } from '../common';
+import type { Trait, TraitInstance } from './types';
 
 export type TraitInstanceArray = (TraitInstance | undefined)[];
 

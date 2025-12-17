@@ -1,13 +1,13 @@
 import { $internal } from '../../';
 import { universe } from '../../universe/universe';
-import { createQuery } from '../query';
+import { createQuery as createQueryInstance } from '../query';
 import type { QueryRef, QueryParameter } from '../types';
 import { $queryRef } from '../types';
 import { createQueryHash } from './create-query-hash';
 
 let queryId = 0;
 
-export function defineQuery<T extends QueryParameter[]>(...parameters: T): QueryRef<T> {
+export function createQuery<T extends QueryParameter[]>(...parameters: T): QueryRef<T> {
 	const hash = createQueryHash(parameters);
 
 	// Check if this query was already cached
@@ -31,7 +31,7 @@ export function defineQuery<T extends QueryParameter[]>(...parameters: T): Query
 		const ctx = world[$internal];
 
 		if (!ctx.queriesHashMap.has(hash)) {
-			const query = createQuery(world, parameters);
+			const query = createQueryInstance(world, parameters);
 			ctx.queriesHashMap.set(hash, query);
 		}
 	}
@@ -41,5 +41,5 @@ export function defineQuery<T extends QueryParameter[]>(...parameters: T): Query
 	return queryRef;
 }
 
-/** @deprecated Use defineQuery instead */
-export const cacheQuery = defineQuery;
+/** @deprecated Use createQuery instead */
+export const cacheQuery = createQuery;

@@ -109,7 +109,7 @@ export function registerTrait(world: World, trait: Trait) {
 	};
 
 	// Add trait to the world.
-	setTraitData(ctx.traitData, trait, data);
+	setTraitData(ctx.traitInstances, trait, data);
 	world.traits.add(trait);
 
 	// Track relations
@@ -194,7 +194,8 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 	// Add the target and initialize data
 	const targetIndex = addRelationTarget(world, relation, entity, target);
-	const schema = data?.schema ?? getTraitData(world[$internal].traitData, relationTrait)!.schema;
+	const schema =
+		data?.schema ?? getTraitData(world[$internal].traitInstances, relationTrait)!.schema;
 	const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
 	if (defaults) {
@@ -284,7 +285,7 @@ export function cleanupRelationTarget(
 
 export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
-	const data = getTraitData(ctx.traitData, trait);
+	const data = getTraitData(ctx.traitInstances, trait);
 	if (!data) return false;
 
 	const { generationId, bitflag } = data;
@@ -299,7 +300,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 	trait: C
 ): ExtractStore<C> {
 	const ctx = world[$internal];
-	const data = getTraitData(ctx.traitData, trait)!;
+	const data = getTraitData(ctx.traitInstances, trait)!;
 	return data.store as ExtractStore<C>;
 }
 
@@ -401,9 +402,9 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	const ctx = world[$internal];
 
 	// Register the trait if it's not already registered
-	if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
+	if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
 
-	const data = getTraitData(ctx.traitData, trait)!;
+	const data = getTraitData(ctx.traitInstances, trait)!;
 	const { generationId, bitflag, queries, trackingQueries } = data;
 
 	// Add bitflag to entity bitmask
@@ -454,7 +455,7 @@ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void
 	if (!hasTrait(world, entity, trait)) return;
 
 	const ctx = world[$internal];
-	const data = getTraitData(ctx.traitData, trait)!;
+	const data = getTraitData(ctx.traitInstances, trait)!;
 	const { generationId, bitflag, queries, trackingQueries } = data;
 
 	// Call remove subscriptions before removing the trait

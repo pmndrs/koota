@@ -4,7 +4,7 @@ import type { ActionsRef, ActionsDefinition, ActionsInstance } from './types';
 
 let actionsId = 0;
 
-export function defineActions<T extends ActionsInstance>(
+export function createActions<T extends ActionsInstance>(
 	initializer: ActionsDefinition<T>
 ): ActionsRef<T> {
 	const id = actionsId++;
@@ -44,6 +44,3 @@ export function defineActions<T extends ActionsInstance>(
 
 	return getter;
 }
-
-/** @deprecated Use defineActions instead */
-export const createActions = defineActions;

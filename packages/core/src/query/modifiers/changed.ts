@@ -35,14 +35,14 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	if (!hasTrait(world, entity, trait)) return;
 
 	// Register the trait if it's not already registered.
-	if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
-	const data = getTraitData(ctx.traitData, trait)!;
+	if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
+	const data = getTraitData(ctx.traitInstances, trait)!;
 
 	// Mark the trait as changed for the entity.
 	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
-		const data = getTraitData(ctx.traitData, trait)!;
+		const data = getTraitData(ctx.traitInstances, trait)!;
 		const { generationId, bitflag } = data;
 
 		// Ensure the generation array exists

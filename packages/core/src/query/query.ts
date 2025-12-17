@@ -158,8 +158,8 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 
 			// Add the base trait as required
 			const baseTrait = (relation as Relation<Trait>)[$internal].trait;
-			if (!hasTraitData(ctx.traitData, baseTrait)) registerTrait(world, baseTrait);
-			query.traitData.required.push(getTraitData(ctx.traitData, baseTrait)!);
+			if (!hasTraitData(ctx.traitInstances, baseTrait)) registerTrait(world, baseTrait);
+			query.traitData.required.push(getTraitData(ctx.traitInstances, baseTrait)!);
 			query.traits.push(baseTrait);
 
 			continue;
@@ -171,24 +171,24 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			// Register traits if they don't exist.
 			for (let j = 0; j < traits.length; j++) {
 				const trait = traits[j];
-				if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
+				if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
 			}
 
 			if (parameter.type === 'not') {
 				query.traitData.forbidden.push(
-					...traits.map((trait) => getTraitData(ctx.traitData, trait)!)
+					...traits.map((trait) => getTraitData(ctx.traitInstances, trait)!)
 				);
 			}
 
 			if (parameter.type === 'or') {
 				query.traitData.or.push(
-					...traits.map((trait) => getTraitData(ctx.traitData, trait)!)
+					...traits.map((trait) => getTraitData(ctx.traitInstances, trait)!)
 				);
 			}
 
 			if (parameter.type.includes('added')) {
 				for (const trait of traits) {
-					const data = getTraitData(ctx.traitData, trait)!;
+					const data = getTraitData(ctx.traitInstances, trait)!;
 					query.traitData.added.push(data);
 					query.traits.push(trait);
 				}
@@ -205,7 +205,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 
 			if (parameter.type.includes('removed')) {
 				for (const trait of traits) {
-					const data = getTraitData(ctx.traitData, trait)!;
+					const data = getTraitData(ctx.traitInstances, trait)!;
 					query.traitData.removed.push(data);
 					query.traits.push(trait);
 				}
@@ -223,7 +223,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			if (parameter.type.includes('changed')) {
 				for (const trait of traits) {
 					query.changedTraits.add(trait);
-					const data = getTraitData(ctx.traitData, trait)!;
+					const data = getTraitData(ctx.traitInstances, trait)!;
 					query.traitData.changed.push(data);
 					query.traits.push(trait);
 					query.hasChangedModifiers = true;
@@ -240,14 +240,14 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			}
 		} else {
 			const trait = parameter as Trait;
-			if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
-			query.traitData.required.push(getTraitData(ctx.traitData, trait)!);
+			if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
+			query.traitData.required.push(getTraitData(ctx.traitInstances, trait)!);
 			query.traits.push(trait);
 		}
 	}
 
 	// Add IsExcluded to the forbidden list.
-	query.traitData.forbidden.push(getTraitData(ctx.traitData, IsExcluded)!);
+	query.traitData.forbidden.push(getTraitData(ctx.traitInstances, IsExcluded)!);
 
 	query.traitData.all = [
 		...query.traitData.required,
@@ -333,7 +333,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		for (const pair of query.relationFilters!) {
 			// Add to this specific relation's relationQueries
 			const relationTrait = pair[$internal].relation[$internal].trait;
-			const relationTraitInstance = getTraitData(ctx.traitData, relationTrait);
+			const relationTraitInstance = getTraitData(ctx.traitInstances, relationTrait);
 			if (relationTraitInstance) {
 				relationTraitInstance.relationQueries.add(query);
 			}

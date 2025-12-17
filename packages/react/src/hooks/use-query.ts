@@ -1,4 +1,4 @@
-import { $internal, defineQuery, type QueryParameter, type QueryResult } from '@koota/core';
+import { $internal, createQuery, type QueryParameter, type QueryResult } from '@koota/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
@@ -10,7 +10,7 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 
 	// This will rerun every render since parameters will always be a fresh
 	// array, but the return value will be stable.
-	const queryRef = useMemo(() => defineQuery(...parameters), [parameters]);
+	const queryRef = useMemo(() => createQuery(...parameters), [parameters]);
 
 	useMemo(() => {
 		// Using internals to get the query data.

@@ -29,7 +29,7 @@ export type WorldInternal = {
 	entityMasks: number[][];
 	entityTraits: Map<number, Set<Trait>>;
 	bitflag: number;
-	traitData: (TraitInstance | undefined)[];
+	traitInstances: (TraitInstance | undefined)[];
 	relations: Set<Relation<Trait>>;
 	queriesHashMap: Map<string, QueryInstance>;
 	queryInstances: (QueryInstance | undefined)[]; // Array indexed by query ref id for fast lookup

@@ -1,4 +1,4 @@
-export { defineActions, createActions } from './actions/create-actions';
+export { createActions } from './actions/create-actions';
 export type {
 	ActionsRef,
 	ActionsDefinition,
@@ -36,7 +36,7 @@ export type {
 	QueryUnsubscriber,
 	StoresFromParameters,
 } from './query/types';
-export { defineQuery, cacheQuery } from './query/utils/cache-query';
+export { createQuery, cacheQuery } from './query/utils/cache-query';
 export { $queryRef, isQueryRef } from './query/types';
 export { isRelation, Pair, relation } from './relation/relation';
 export { $relationPair, $relation } from './relation/types';
