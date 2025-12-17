@@ -30,7 +30,6 @@ export type {
 } from './query/types';
 export { $queryRef } from './query/symbols';
 export { relation } from './relation/relation';
-export { isRelation } from './relation/utils/is-relation';
 export { $relationPair, $relation } from './relation/symbols';
 export type { Relation, RelationPair, RelationTarget } from './relation/types';
 export { getStore, trait } from './trait/trait';
