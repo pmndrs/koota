@@ -29,7 +29,7 @@ export type {
 	StoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
-export { Pair, relation } from './relation/relation';
+export { relation } from './relation/relation';
 export { isRelation } from './relation/utils/is-relation';
 export { $relationPair, $relation } from './relation/symbols';
 export type { Relation, RelationPair, RelationTarget } from './relation/types';

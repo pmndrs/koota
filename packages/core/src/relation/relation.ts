@@ -411,19 +411,6 @@ export function getEntitiesWithRelationTo(
 }
 
 /**
- * Helper to create a pair - kept for backward compatibility
- */
-export const Pair = <T extends Trait>(
-	relation: Relation<T>,
-	target: RelationTarget
-): RelationPair<T> => {
-	if (relation === undefined) throw Error('Relation is undefined');
-	if (target === undefined) throw Error('Relation target is undefined');
-
-	return relation(target) as RelationPair<T>;
-};
-
-/**
  * Set data for a specific relation target using target index.
  * For exclusive relations, index is always 0.
  * For non-exclusive, index corresponds to position in targets array.
