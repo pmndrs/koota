@@ -1,21 +1,21 @@
-import { $internal, Brand } from '../common';
+import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { hasTrait, trait } from '../trait/trait';
-import type { ConfigurableTrait, Trait } from '../trait/types';
-import type { World } from '../world';
-import { getTraitData } from '../trait/trait-data';
-import type { Relation, RelationPair, RelationTarget } from './types';
-import { $relationPair, $relation } from './types';
 import { Schema } from '../storage';
+import { hasTrait, trait } from '../trait/trait';
+import { getTraitData } from '../trait/trait-data';
+import type { Trait } from '../trait/types';
+import type { World } from '../world';
+import type { Relation, RelationPair, RelationTarget } from './types';
+import { $relation, $relationPair } from './symbols';
 
 /**
  * Creates a relation definition.
  * Relations are stored efficiently - one trait per relation type, not per target.
  * Targets are stored in TraitInstance.relationTargets.
  */
-function defineRelation<S extends Schema = Record<string, never>>(definition?: {
+function createRelation<S extends Schema = Record<string, never>>(definition?: {
 	exclusive?: boolean;
 	autoRemoveTarget?: boolean;
 	store?: S;
@@ -68,23 +68,7 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 	return relation;
 }
 
-export const relation = defineRelation;
-
-/**
- * Check if a value is a Relation
- */
-export /* @inline @pure */ function isRelation(value: unknown): value is Relation<Trait> {
-	return (value as Brand<typeof $relation> | null | undefined)?.[$relation] as unknown as boolean;
-}
-
-/**
- * Check if a value is a RelationPair
- */
-export /* @inline @pure */ function isRelationPair(value: unknown): value is RelationPair {
-	return (value as Brand<typeof $relationPair> | null | undefined)?.[
-		$relationPair
-	] as unknown as boolean;
-}
+export const relation = createRelation;
 
 /**
  * Get the targets for a relation on an entity.
@@ -558,11 +542,4 @@ export function hasRelationPair(world: World, entity: Entity, pair: RelationPair
 	if (typeof target === 'number') return hasRelationToTarget(world, relation, entity, target);
 
 	return false;
-}
-
-/**
- * Type guard to check if a configurable trait is a relation pair
- */
-export /* @inline @pure */ function isPairConfig(config: ConfigurableTrait): config is RelationPair {
-	return isRelationPair(config);
 }

@@ -1,15 +1,15 @@
 import { $internal } from '../../common';
 import { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { World } from '../../world/world';
-import { EventType, Query } from '../types';
+import { World } from '../../world';
+import { EventType, QueryInstance } from '../types';
 
 /**
  * Check if an entity matches a tracking query with event handling.
  */
 export function checkQueryTracking(
 	world: World,
-	query: Query,
+	query: QueryInstance,
 	entity: Entity,
 	eventType: EventType,
 	eventGenerationId: number,

@@ -1,8 +1,8 @@
 import type { Entity } from '../../entity/types';
 import { hasRelationPair } from '../../relation/relation';
 import type { World } from '../../world';
-import { checkQuery } from './check-query';
 import type { QueryInstance } from '../types';
+import { checkQuery } from './check-query';
 
 /**
  * Check if an entity matches a query with relation filters.

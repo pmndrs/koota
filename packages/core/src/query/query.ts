@@ -1,16 +1,25 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
+import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitData, hasTraitData } from '../trait/trait-data';
 import type { TagTrait, Trait, TraitInstance } from '../trait/types';
+import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
 import { isModifier } from './modifier';
 import { createQueryResult, getQueryStores } from './query-result';
-import type { EventType, QueryInstance, QueryParameter, QueryResult, QuerySubscriber } from './types';
+import { $queryRef } from './symbols';
+import {
+	type EventType,
+	type Query,
+	type QueryInstance,
+	type QueryParameter,
+	type QueryResult,
+	type QuerySubscriber,
+} from './types';
 import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
@@ -91,7 +100,10 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
 	}
 }
 
-export function createQuery<T extends QueryParameter[]>(world: World, parameters: T): QueryInstance {
+export function createQueryInstance<T extends QueryParameter[]>(
+	world: World,
+	parameters: T
+): QueryInstance {
 	const query: QueryInstance = {
 		version: 0,
 		world,
@@ -153,7 +165,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 			const pairCtx = parameter[$internal];
 			const relation = pairCtx.relation;
 
-			// Cache relation pairs for queries
+			// Cache relation pairs for queriess
 			query.relationFilters!.push(parameter);
 
 			// Add the base trait as required
@@ -407,3 +419,42 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 
 	return query;
 }
+
+let queryId = 0;
+
+export function createQuery<T extends QueryParameter[]>(...parameters: T): Query<T> {
+	const hash = createQueryHash(parameters);
+
+	// Check if this query was already cached
+	const existing = universe.cachedQueries.get(hash);
+	if (existing) {
+		return existing as Query<T>;
+	}
+
+	// Create new query ref with ID
+	const id = queryId++;
+	const queryRef = Object.freeze({
+		[$queryRef]: true,
+		id,
+		hash,
+		parameters,
+	}) as Query<T>;
+
+	for (const world of universe.worlds) {
+		if (!world) continue;
+
+		const ctx = world[$internal];
+
+		if (!ctx.queriesHashMap.has(hash)) {
+			const query = createQueryInstance(world, parameters);
+			ctx.queriesHashMap.set(hash, query);
+		}
+	}
+
+	universe.cachedQueries.set(hash, queryRef);
+
+	return queryRef;
+}
+
+/** @deprecated Use createQuery instead */
+export const cacheQuery = createQuery;

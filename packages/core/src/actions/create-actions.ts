@@ -1,12 +1,12 @@
 import { $internal } from '../common';
 import type { World } from '../world';
-import type { ActionsRef, ActionsDefinition, ActionsInstance } from './types';
+import type { Actions, ActionsInitializer, ActionRecord } from './types';
 
 let actionsId = 0;
 
-export function createActions<T extends ActionsInstance>(
-	initializer: ActionsDefinition<T>
-): ActionsRef<T> {
+export function createActions<T extends ActionRecord>(
+	initializer: ActionsInitializer<T>
+): Actions<T> {
 	const id = actionsId++;
 
 	const getter = Object.assign(
@@ -32,7 +32,7 @@ export function createActions<T extends ActionsInstance>(
 		{
 			initializer,
 		}
-	) as ActionsRef<T>;
+	) as Actions<T>;
 
 	// Add public read-only id property
 	Object.defineProperty(getter, 'id', {

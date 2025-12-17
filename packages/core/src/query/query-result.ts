@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isRelationPair } from '../relation/relation';
+import { isRelationPair } from '../relation/utils/is-relation';
 import type { Relation } from '../relation/types';
 import { Store } from '../storage';
 import { getStore } from '../trait/trait';

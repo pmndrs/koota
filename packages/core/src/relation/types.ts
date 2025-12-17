@@ -1,11 +1,9 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { Trait } from '../trait/types';
+import { $relation, $relationPair } from './symbols';
 
 export type RelationTarget = Entity | '*';
-
-export const $relationPair = Symbol('relationPair');
-export const $relation = Symbol('relation');
 
 /** A pair represents a relation + target combination */
 export interface RelationPair<T extends Trait = Trait> {

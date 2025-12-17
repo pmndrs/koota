@@ -10,8 +10,6 @@ import {
 	getRelationTargets,
 	hasRelationPair,
 	hasRelationToTarget,
-	isPairConfig,
-	isRelationPair,
 	removeAllRelationTargets,
 	removeRelationTarget,
 	setRelationData,
@@ -41,14 +39,15 @@ import type {
 	TraitValue,
 } from './types';
 import { getTraitData, hasTraitData, setTraitData } from './trait-data';
+import { isRelationPair } from '../relation/utils/is-relation';
 
 // No reason to create a new object every time a tag trait is created.
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-function defineTrait(schema?: undefined | Record<string, never>): TagTrait;
-function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+function createTrait(schema?: undefined | Record<string, never>): TagTrait;
+function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
+function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
 	const isAoS = typeof schema === 'function';
 	const isTag = !isAoS && Object.keys(schema).length === 0;
 	const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
@@ -87,7 +86,7 @@ function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 	return Trait;
 }
 
-export const trait = defineTrait;
+export const trait = createTrait;
 
 export function registerTrait(world: World, trait: Trait) {
 	const ctx = world[$internal];
@@ -124,7 +123,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		const config = traits[i];
 
 		// Handle relation pairs
-		if (isPairConfig(config)) {
+		if (isRelationPair(config)) {
 			addRelationPair(world, entity, config);
 			continue;
 		}

@@ -3,7 +3,7 @@ import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
 	QueryInstance,
-	QueryRef,
+	Query,
 	QueryParameter,
 	QueryResult,
 	QueryUnsubscriber,
@@ -61,13 +61,13 @@ export type World = {
 	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
 	destroy(): void;
 	reset(): void;
-	query<T extends QueryParameter[]>(key: QueryRef<T>): QueryResult<T>;
+	query<T extends QueryParameter[]>(key: Query<T>): QueryResult<T>;
 	query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
-	queryFirst<T extends QueryParameter[]>(key: QueryRef<T>): Entity | undefined;
+	queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
 	queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
 	onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
 	onQueryAdd<T extends QueryParameter[]>(
-		key: QueryRef<T>,
+		key: Query<T>,
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryAdd<T extends QueryParameter[]>(
@@ -75,7 +75,7 @@ export type World = {
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryRemove<T extends QueryParameter[]>(
-		key: QueryRef<T>,
+		key: Query<T>,
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryRemove<T extends QueryParameter[]>(

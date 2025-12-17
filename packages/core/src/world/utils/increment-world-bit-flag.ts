@@ -1,5 +1,5 @@
 import { $internal } from '../../common';
-import type { World } from '../world';
+import type { World } from '../types';
 
 // These should be Float32Arrays since we are using bitwise operations.
 // They are native Arrays to avoid overlow issues due to recycling.

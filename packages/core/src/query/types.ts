@@ -13,6 +13,7 @@ import type {
 import type { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
 import { $modifier } from './modifier';
+import { $parameters, $queryRef } from './symbols';
 
 export type QueryModifier = (...components: Trait[]) => ModifierData;
 export type QueryParameter = Trait | RelationPair | ReturnType<QueryModifier>;
@@ -74,10 +75,7 @@ export type IsNotModifier<T> = T extends ModifierData<Trait[], infer TType>
 		: false
 	: false;
 
-const $parameters = Symbol();
-export const $queryRef = Symbol('queryRef');
-
-export type QueryRef<T extends QueryParameter[]> = {
+export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	readonly [$queryRef]: true;
 	/** Public read-only ID for fast array lookups */
 	readonly id: number;
@@ -87,13 +85,6 @@ export type QueryRef<T extends QueryParameter[]> = {
 	readonly parameters: T;
 	readonly [$parameters]: T;
 };
-
-/**
- * Check if a value is a QueryRef
- */
-export /* @inline @pure */ function isQueryRef(value: unknown): value is QueryRef<any> {
-	return (value as Brand<typeof $queryRef> | null | undefined)?.[$queryRef] as unknown as boolean;
-}
 
 export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> = {
 	[$modifier]: true;
@@ -157,8 +148,5 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 
 export type EventType = 'add' | 'remove' | 'change';
 
-/** @deprecated Use QueryInstance instead */
-export type Query<T extends QueryParameter[] = QueryParameter[]> = QueryInstance<T>;
-
-/** @deprecated Use QueryRef instead */
-export type QueryHash<T extends QueryParameter[]> = QueryRef<T>;
+/** @deprecated Use Query instead */
+export type QueryHash<T extends QueryParameter[]> = Query<T>;

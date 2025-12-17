@@ -1,5 +1,5 @@
 import { $internal } from '../../common';
-import { isRelation } from '../../relation/relation';
+import { isRelation } from '../../relation/utils/is-relation';
 import type { Trait, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import { createModifier } from '../modifier';

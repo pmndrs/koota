@@ -1,7 +1,7 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { isRelation } from '../../relation/relation';
+import { isRelation } from '../../relation/utils/is-relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitData, hasTraitData } from '../../trait/trait-data';
 import type { Trait, TraitOrRelation } from '../../trait/types';

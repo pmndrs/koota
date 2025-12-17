@@ -1,13 +1,5 @@
 export { createActions } from './actions/create-actions';
-export type {
-	ActionsRef,
-	ActionsDefinition,
-	ActionsInstance,
-	// deprecated aliases
-	ActionGetter,
-	ActionInitializer,
-	Actions,
-} from './actions/types';
+export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
 export { $internal } from './common';
 export type { Brand } from './common';
 export type { Entity } from './entity/types';
@@ -18,16 +10,16 @@ export { Not } from './query/modifiers/not';
 export { Or } from './query/modifiers/or';
 export { createRemoved } from './query/modifiers/removed';
 export { $modifier } from './query/modifier';
-export { IsExcluded } from './query/query';
+export { createQuery, IsExcluded, cacheQuery } from './query/query';
+//                                ^^^deprecated alias
 export type {
 	EventType,
 	InstancesFromParameters,
 	IsNotModifier,
 	ModifierData,
 	QueryInstance,
-	QueryRef,
-	Query, // deprecated alias
-	QueryHash, // deprecated alias
+	Query,
+	QueryHash, // deprecated
 	QueryModifier,
 	QueryParameter,
 	QueryResult,
@@ -36,10 +28,10 @@ export type {
 	QueryUnsubscriber,
 	StoresFromParameters,
 } from './query/types';
-export { createQuery, cacheQuery } from './query/utils/cache-query';
-export { $queryRef, isQueryRef } from './query/types';
-export { isRelation, Pair, relation } from './relation/relation';
-export { $relationPair, $relation } from './relation/types';
+export { $queryRef } from './query/symbols';
+export { Pair, relation } from './relation/relation';
+export { isRelation } from './relation/utils/is-relation';
+export { $relationPair, $relation } from './relation/symbols';
 export type { Relation, RelationPair, RelationTarget } from './relation/types';
 export { getStore, trait } from './trait/trait';
 export type {

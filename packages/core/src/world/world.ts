@@ -2,14 +2,15 @@ import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { createEntityIndex, getAliveEntities, isEntityAlive } from '../entity/utils/entity-index';
-import { IsExcluded, createQuery } from '../query/query';
+import { IsExcluded, createQueryInstance } from '../query/query';
 import { createRelationOnlyQueryResult } from '../query/query-result';
-import type { QueryInstance, QueryParameter, QueryRef, QueryUnsubscriber } from '../query/types';
-import { isQueryRef } from '../query/types';
+import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
+import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { getEntitiesWithRelationTo, isRelationPair } from '../relation/relation';
+import { getEntitiesWithRelationTo } from '../relation/relation';
 import type { Relation } from '../relation/types';
+import { isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitData, getTraitData, hasTraitData } from '../trait/trait-data';
 import type {
@@ -75,7 +76,7 @@ export function createWorld(
 
 			// Create cached queries.
 			for (const [hash, queryRef] of universe.cachedQueries) {
-				const query = createQuery(world, queryRef.parameters);
+				const query = createQueryInstance(world, queryRef.parameters);
 				ctx.queriesHashMap.set(hash, query);
 			}
 
@@ -159,7 +160,7 @@ export function createWorld(
 
 			// Restore cached queries.
 			for (const [hash, queryRef] of universe.cachedQueries) {
-				const query = createQuery(world, queryRef.parameters);
+				const query = createQueryInstance(world, queryRef.parameters);
 				ctx.queriesHashMap.set(hash, query);
 			}
 
@@ -172,7 +173,7 @@ export function createWorld(
 			const ctx = world[$internal];
 
 			// Check if first arg is a QueryRef (has symbol brand)
-			if (args.length === 1 && isQueryRef(args[0])) {
+			if (args.length === 1 && isQuery(args[0])) {
 				const queryRef = args[0];
 				// Try array lookup first (faster)
 				let query = ctx.queryInstances[queryRef.id];
@@ -181,7 +182,7 @@ export function createWorld(
 				// Fallback to hash map
 				query = ctx.queriesHashMap.get(queryRef.hash);
 				if (!query) {
-					query = createQuery(world, queryRef.parameters);
+					query = createQueryInstance(world, queryRef.parameters);
 					ctx.queriesHashMap.set(queryRef.hash, query);
 					// Store in array for fast future lookups
 					if (queryRef.id >= ctx.queryInstances.length) {
@@ -214,7 +215,7 @@ export function createWorld(
 				let query = ctx.queriesHashMap.get(hash);
 
 				if (!query) {
-					query = createQuery(world, params);
+					query = createQueryInstance(world, params);
 					ctx.queriesHashMap.set(hash, query);
 				}
 
@@ -242,19 +243,19 @@ export function createWorld(
 		},
 
 		onQueryAdd(
-			args: QueryRef<QueryParameter[]> | QueryParameter[],
+			args: Query<QueryParameter[]> | QueryParameter[],
 			callback: (entity: Entity) => void
 		): QueryUnsubscriber {
 			const ctx = world[$internal];
 			let query: QueryInstance;
 
 			// Check if args is a QueryRef object
-			if (isQueryRef(args)) {
+			if (isQuery(args)) {
 				const queryRef = args;
 				query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
 
 				if (!query) {
-					query = createQuery(world, queryRef.parameters);
+					query = createQueryInstance(world, queryRef.parameters);
 					ctx.queriesHashMap.set(queryRef.hash, query);
 					if (queryRef.id >= ctx.queryInstances.length) {
 						ctx.queryInstances.length = queryRef.id + 1;
@@ -266,7 +267,7 @@ export function createWorld(
 				query = ctx.queriesHashMap.get(hash)!;
 
 				if (!query) {
-					query = createQuery(world, args as QueryParameter[]);
+					query = createQueryInstance(world, args as QueryParameter[]);
 					ctx.queriesHashMap.set(hash, query);
 				}
 			}
@@ -277,19 +278,19 @@ export function createWorld(
 		},
 
 		onQueryRemove(
-			args: QueryRef<QueryParameter[]> | QueryParameter[],
+			args: Query<QueryParameter[]> | QueryParameter[],
 			callback: (entity: Entity) => void
 		): QueryUnsubscriber {
 			const ctx = world[$internal];
 			let query: QueryInstance;
 
 			// Check if args is a QueryRef object
-			if (isQueryRef(args)) {
+			if (isQuery(args)) {
 				const queryRef = args;
 				query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
 
 				if (!query) {
-					query = createQuery(world, queryRef.parameters);
+					query = createQueryInstance(world, queryRef.parameters);
 					ctx.queriesHashMap.set(queryRef.hash, query);
 					if (queryRef.id >= ctx.queryInstances.length) {
 						ctx.queryInstances.length = queryRef.id + 1;
@@ -301,7 +302,7 @@ export function createWorld(
 				query = ctx.queriesHashMap.get(hash)!;
 
 				if (!query) {
-					query = createQuery(world, args as QueryParameter[]);
+					query = createQueryInstance(world, args as QueryParameter[]);
 					ctx.queriesHashMap.set(hash, query);
 				}
 			}

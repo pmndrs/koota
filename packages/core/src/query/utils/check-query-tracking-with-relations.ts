@@ -1,8 +1,8 @@
 import type { Entity } from '../../entity/types';
 import { hasRelationPair } from '../../relation/relation';
-import type { World } from '../../world/world';
-import { checkQueryTracking } from './check-query-tracking';
+import type { World } from '../../world';
 import type { EventType, QueryInstance } from '../types';
+import { checkQueryTracking } from './check-query-tracking';
 
 /**
  * Check if an entity matches a tracking query with relation filters.
@@ -10,7 +10,7 @@ import type { EventType, QueryInstance } from '../types';
  */
 export function checkQueryTrackingWithRelations(
 	world: World,
-	query: Query,
+	query: QueryInstance,
 	entity: Entity,
 	eventType: EventType,
 	eventGenerationId: number,
