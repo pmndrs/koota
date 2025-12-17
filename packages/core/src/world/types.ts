@@ -32,8 +32,8 @@ export type WorldInternal = {
 	traitInstances: (TraitInstance | undefined)[];
 	relations: Set<Relation<Trait>>;
 	queriesHashMap: Map<string, QueryInstance>;
-	queryInstances: (QueryInstance | undefined)[]; // Array indexed by query ref id for fast lookup
-	actionInstances: (any | undefined)[]; // Array indexed by actions ref id for fast lookup
+	queryInstances: (QueryInstance | undefined)[];
+	actionInstances: (any | undefined)[];
 	notQueries: Set<QueryInstance>;
 	dirtyQueries: Set<QueryInstance>;
 	dirtyMasks: Map<number, number[][]>;

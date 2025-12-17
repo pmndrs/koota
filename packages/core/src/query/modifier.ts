@@ -1,6 +1,6 @@
 import { Brand } from '../common';
 import { Trait } from '../trait/types';
-import { ModifierData, QueryParameter } from './types';
+import { Modifier, QueryParameter } from './types';
 
 export const $modifier = Symbol('modifier');
 
@@ -8,7 +8,7 @@ export function createModifier<TTrait extends Trait[] = Trait[], TType extends s
 	type: TType,
 	id: number,
 	traits: TTrait
-): ModifierData<TTrait, TType> {
+): Modifier<TTrait, TType> {
 	return {
 		[$modifier]: true,
 		type,
@@ -18,6 +18,6 @@ export function createModifier<TTrait extends Trait[] = Trait[], TType extends s
 	} as const;
 }
 
-export /* @inline @pure */ function isModifier(param: QueryParameter): param is ModifierData {
+export /* @inline @pure */ function isModifier(param: QueryParameter): param is Modifier {
 	return (param as Brand<typeof $modifier> | null | undefined)?.[$modifier] as unknown as boolean;
 }

@@ -1,5 +1,5 @@
 export { createActions } from './actions/create-actions';
-export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
+export type { Actions, ActionsInitializer } from './actions/types';
 export { $internal } from './common';
 export type { Brand } from './common';
 export type { Entity } from './entity/types';
@@ -16,10 +16,9 @@ export type {
 	EventType,
 	InstancesFromParameters,
 	IsNotModifier,
-	ModifierData,
+	Modifier,
 	QueryInstance,
 	Query,
-	QueryHash, // deprecated
 	QueryModifier,
 	QueryParameter,
 	QueryResult,
@@ -50,5 +49,5 @@ export type {
 export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';
 export { universe } from './universe/universe';
-export type { World, WorldInternal, WorldOptions } from './world';
+export type { World, WorldOptions } from './world';
 export { createWorld } from './world';

@@ -15,7 +15,7 @@ import type { World } from '../world';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
-export type QueryModifier = (...components: Trait[]) => ModifierData;
+export type QueryModifier = (...components: Trait[]) => Modifier;
 export type QueryParameter = Trait | RelationPair | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryUnsubscriber = () => void;
@@ -36,13 +36,13 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
 	sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
 
-type UnwrapModifierData<T> = T extends ModifierData<infer C> ? C : never;
+type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
 
 export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
 	? [
 			...(First extends Trait
 				? [ExtractStore<First>]
-				: First extends ModifierData
+				: First extends Modifier
 				? StoresFromParameters<UnwrapModifierData<First>>
 				: []),
 			...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : [])
@@ -60,7 +60,7 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 						? [ReturnType<ExtractSchema<First>>]
 						: [TraitRecord<First>]
 					: []
-				: First extends ModifierData
+				: First extends Modifier
 				? IsNotModifier<First> extends true
 					? []
 					: InstancesFromParameters<UnwrapModifierData<First>>
@@ -69,7 +69,7 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 	  ]
 	: [];
 
-export type IsNotModifier<T> = T extends ModifierData<Trait[], infer TType>
+export type IsNotModifier<T> = T extends Modifier<Trait[], infer TType>
 	? TType extends 'not'
 		? true
 		: false
@@ -86,7 +86,7 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	readonly [$parameters]: T;
 };
 
-export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> = {
+export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = string> = {
 	[$modifier]: true;
 	type: TType;
 	id: number;
@@ -147,6 +147,3 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 };
 
 export type EventType = 'add' | 'remove' | 'change';
-
-/** @deprecated Use Query instead */
-export type QueryHash<T extends QueryParameter[]> = Query<T>;

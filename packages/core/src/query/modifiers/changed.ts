@@ -8,7 +8,7 @@ import type { Trait, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world';
 import { createModifier } from '../modifier';
-import type { ModifierData } from '../types';
+import type { Modifier } from '../types';
 import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
@@ -22,7 +22,7 @@ export function createChanged() {
 
 	return <T extends TraitOrRelation[] = TraitOrRelation[]>(
 		...inputs: T
-	): ModifierData<Trait[], `changed-${number}`> => {
+	): Modifier<Trait[], `changed-${number}`> => {
 		const traits = inputs.map((input) => (isRelation(input) ? input[$internal].trait : input));
 		return createModifier(`changed-${id}`, id, traits);
 	};
