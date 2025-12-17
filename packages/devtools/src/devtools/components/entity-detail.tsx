@@ -13,7 +13,7 @@ import { DetailLayout, DetailSection } from './detail-layout';
 import { Row, RowName } from './row';
 import { getTraitName, getTraitType } from './trait-utils';
 import { TraitValueEditor } from './trait-value-editor';
-import { TraitPicker } from './trait-picker';
+import { TraitPicker, type TraitPickerResult } from './trait-picker';
 import { EntityIcon, WorldIcon } from './icons';
 
 interface EntityDetailProps {
@@ -141,8 +141,13 @@ export function EntityDetail({ entity, onSelectTrait }: EntityDetailProps) {
 		[traits]
 	);
 
-	const handleAddTrait = (trait: Trait) => {
-		entity.add(trait);
+	const handleAddTrait = (result: TraitPickerResult) => {
+		if (result.type === 'trait') {
+			entity.add(result.trait);
+		} else {
+			// Add relation with target
+			entity.add(result.relation(result.target));
+		}
 	};
 
 	const handleRemoveTrait = (trait: Trait) => {
