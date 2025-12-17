@@ -19,7 +19,7 @@ export function checkQueryTracking(
 	const ctx = world[$internal];
 	const eid = getEntityId(entity);
 
-	if (query.traitData.all.length === 0) return false;
+	if (query.traitInstances.all.length === 0) return false;
 
 	for (let i = 0; i < generations.length; i++) {
 		const generationId = generations[i];

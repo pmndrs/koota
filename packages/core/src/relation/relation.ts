@@ -4,7 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
-import { getTraitData } from '../trait/trait-data';
+import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
 import type { World } from '../world';
 import type { Relation, RelationPair, RelationTarget } from './types';
@@ -82,7 +82,7 @@ export /* @inline */ function getRelationTargets(
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 
-	const traitData = getTraitData(ctx.traitInstances, relationCtx.trait);
+	const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
 	if (!traitData || !traitData.relationTargets) return [];
 
 	const eid = getEntityId(entity);
@@ -109,7 +109,7 @@ export /* @inline */ function getFirstRelationTarget(
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 
-	const traitData = getTraitData(ctx.traitInstances, relationCtx.trait);
+	const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
 	if (!traitData || !traitData.relationTargets) return undefined;
 
 	const eid = getEntityId(entity);
@@ -137,7 +137,7 @@ export /* @inline */ function getTargetIndex(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = getTraitData(ctx.traitInstances, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData || !traitData.relationTargets) return -1;
 
 	const eid = getEntityId(entity);
@@ -163,7 +163,7 @@ export /* @inline */ function hasRelationToTarget(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = getTraitData(ctx.traitInstances, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData || !traitData.relationTargets) return false;
 
 	const eid = getEntityId(entity);
@@ -190,7 +190,7 @@ export function addRelationTarget(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = getTraitData(ctx.traitInstances, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData) return -1;
 
 	if (!traitData.relationTargets) {
@@ -241,7 +241,7 @@ export function removeRelationTarget(
 	const relationCtx = relation[$internal];
 	const relationTrait = relationCtx.trait;
 
-	const data = getTraitData(ctx.traitInstances, relationTrait);
+	const data = getTraitInstance(ctx.traitInstances, relationTrait);
 	if (!data || !data.relationTargets) return -1;
 
 	const eid = getEntityId(entity);
@@ -292,7 +292,7 @@ function updateQueriesForRelationChange(
 ): void {
 	const ctx = world[$internal];
 	const baseTrait = relation[$internal].trait;
-	const traitData = getTraitData(ctx.traitInstances, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData) return;
 
 	// Update queries indexed by this relation (much faster than iterating all queries)
@@ -377,7 +377,7 @@ export function getEntitiesWithRelationTo(
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
-	const traitData = getTraitData(ctx.traitInstances, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData || !traitData.relationTargets) return [];
 
 	const targetId = target;
@@ -424,7 +424,7 @@ export function setRelationDataAtIndex(
 ): void {
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
-	const traitData = getTraitData(world[$internal].traitInstances, baseTrait);
+	const traitData = getTraitInstance(world[$internal].traitInstances, baseTrait);
 	if (!traitData) return;
 
 	const store = traitData.store;
@@ -479,7 +479,7 @@ export function getRelationData(
 ): unknown {
 	const ctx = world[$internal];
 	const baseTrait = relation[$internal].trait;
-	const traitData = getTraitData(ctx.traitInstances, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData) return undefined;
 
 	const targetIndex = getTargetIndex(world, relation, entity, target);

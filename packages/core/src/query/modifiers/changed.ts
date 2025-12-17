@@ -3,7 +3,7 @@ import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { isRelation } from '../../relation/utils/is-relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
-import { getTraitData, hasTraitData } from '../../trait/trait-data';
+import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
 import type { Trait, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world';
@@ -35,14 +35,14 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	if (!hasTrait(world, entity, trait)) return;
 
 	// Register the trait if it's not already registered.
-	if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
-	const data = getTraitData(ctx.traitInstances, trait)!;
+	if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
+	const data = getTraitInstance(ctx.traitInstances, trait)!;
 
 	// Mark the trait as changed for the entity.
 	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
-		const data = getTraitData(ctx.traitInstances, trait)!;
+		const data = getTraitInstance(ctx.traitInstances, trait)!;
 		const { generationId, bitflag } = data;
 
 		// Ensure the generation array exists

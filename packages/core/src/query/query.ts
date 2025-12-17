@@ -4,7 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
-import { getTraitData, hasTraitData } from '../trait/trait-data';
+import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait, TraitInstance } from '../trait/types';
 import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
@@ -112,7 +112,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 		traits: [],
 		resultStores: [],
 		resultTraits: [],
-		traitData: {
+		traitInstances: {
 			required: [],
 			forbidden: [],
 			or: [],
@@ -170,8 +170,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
 			// Add the base trait as required
 			const baseTrait = (relation as Relation<Trait>)[$internal].trait;
-			if (!hasTraitData(ctx.traitInstances, baseTrait)) registerTrait(world, baseTrait);
-			query.traitData.required.push(getTraitData(ctx.traitInstances, baseTrait)!);
+			if (!hasTraitInstance(ctx.traitInstances, baseTrait)) registerTrait(world, baseTrait);
+			query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, baseTrait)!);
 			query.traits.push(baseTrait);
 
 			continue;
@@ -183,25 +183,25 @@ export function createQueryInstance<T extends QueryParameter[]>(
 			// Register traits if they don't exist.
 			for (let j = 0; j < traits.length; j++) {
 				const trait = traits[j];
-				if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
+				if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
 			}
 
 			if (parameter.type === 'not') {
-				query.traitData.forbidden.push(
-					...traits.map((trait) => getTraitData(ctx.traitInstances, trait)!)
+				query.traitInstances.forbidden.push(
+					...traits.map((trait) => getTraitInstance(ctx.traitInstances, trait)!)
 				);
 			}
 
 			if (parameter.type === 'or') {
-				query.traitData.or.push(
-					...traits.map((trait) => getTraitData(ctx.traitInstances, trait)!)
+				query.traitInstances.or.push(
+					...traits.map((trait) => getTraitInstance(ctx.traitInstances, trait)!)
 				);
 			}
 
 			if (parameter.type.includes('added')) {
 				for (const trait of traits) {
-					const data = getTraitData(ctx.traitInstances, trait)!;
-					query.traitData.added.push(data);
+					const data = getTraitInstance(ctx.traitInstances, trait)!;
+					query.traitInstances.added.push(data);
 					query.traits.push(trait);
 				}
 
@@ -211,14 +211,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
 				trackingParams.push({
 					type: 'add',
 					id: parseInt(id),
-					traits: query.traitData.added,
+					traits: query.traitInstances.added,
 				});
 			}
 
 			if (parameter.type.includes('removed')) {
 				for (const trait of traits) {
-					const data = getTraitData(ctx.traitInstances, trait)!;
-					query.traitData.removed.push(data);
+					const data = getTraitInstance(ctx.traitInstances, trait)!;
+					query.traitInstances.removed.push(data);
 					query.traits.push(trait);
 				}
 
@@ -228,15 +228,15 @@ export function createQueryInstance<T extends QueryParameter[]>(
 				trackingParams.push({
 					type: 'remove',
 					id: parseInt(id),
-					traits: query.traitData.removed,
+					traits: query.traitInstances.removed,
 				});
 			}
 
 			if (parameter.type.includes('changed')) {
 				for (const trait of traits) {
 					query.changedTraits.add(trait);
-					const data = getTraitData(ctx.traitInstances, trait)!;
-					query.traitData.changed.push(data);
+					const data = getTraitInstance(ctx.traitInstances, trait)!;
+					query.traitInstances.changed.push(data);
 					query.traits.push(trait);
 					query.hasChangedModifiers = true;
 				}
@@ -247,31 +247,31 @@ export function createQueryInstance<T extends QueryParameter[]>(
 				trackingParams.push({
 					type: 'change',
 					id: parseInt(id),
-					traits: query.traitData.changed,
+					traits: query.traitInstances.changed,
 				});
 			}
 		} else {
 			const trait = parameter as Trait;
-			if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
-			query.traitData.required.push(getTraitData(ctx.traitInstances, trait)!);
+			if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
+			query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, trait)!);
 			query.traits.push(trait);
 		}
 	}
 
 	// Add IsExcluded to the forbidden list.
-	query.traitData.forbidden.push(getTraitData(ctx.traitInstances, IsExcluded)!);
+	query.traitInstances.forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
 
-	query.traitData.all = [
-		...query.traitData.required,
-		...query.traitData.forbidden,
-		...query.traitData.or,
-		...query.traitData.added,
-		...query.traitData.removed,
-		...query.traitData.changed,
+	query.traitInstances.all = [
+		...query.traitInstances.required,
+		...query.traitInstances.forbidden,
+		...query.traitInstances.or,
+		...query.traitInstances.added,
+		...query.traitInstances.removed,
+		...query.traitInstances.changed,
 	];
 
 	// Create an array of all trait generations.
-	query.generations = query.traitData.all
+	query.generations = query.traitInstances.all
 		.map((c) => c.generationId)
 		.reduce((a: number[], v) => {
 			if (a.includes(v)) return a;
@@ -281,27 +281,27 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
 	// Create bitmasks.
 	query.bitmasks = query.generations.map((generationId) => {
-		const required = query.traitData.required
+		const required = query.traitInstances.required
 			.filter((c) => c.generationId === generationId)
 			.reduce((a, c) => a | c.bitflag, 0);
 
-		const forbidden = query.traitData.forbidden
+		const forbidden = query.traitInstances.forbidden
 			.filter((c) => c.generationId === generationId)
 			.reduce((a, c) => a | c.bitflag, 0);
 
-		const or = query.traitData.or
+		const or = query.traitInstances.or
 			.filter((c) => c.generationId === generationId)
 			.reduce((a, c) => a | c.bitflag, 0);
 
-		const added = query.traitData.added
+		const added = query.traitInstances.added
 			.filter((c) => c.generationId === generationId)
 			.reduce((a, c) => a | c.bitflag, 0);
 
-		const removed = query.traitData.removed
+		const removed = query.traitInstances.removed
 			.filter((c) => c.generationId === generationId)
 			.reduce((a, c) => a | c.bitflag, 0);
 
-		const changed = query.traitData.changed
+		const changed = query.traitInstances.changed
 			.filter((c) => c.generationId === generationId)
 			.reduce((a, c) => a | c.bitflag, 0);
 
@@ -326,17 +326,17 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
 	// Add query to each trait instance, sorted by tracking status
 	if (query.isTracking) {
-		query.traitData.all.forEach((instance) => {
+		query.traitInstances.all.forEach((instance) => {
 			instance.trackingQueries.add(query);
 		});
 	} else {
-		query.traitData.all.forEach((instance) => {
+		query.traitInstances.all.forEach((instance) => {
 			instance.queries.add(query);
 		});
 	}
 
 	// Add query instance to the world's not-query store.
-	if (query.traitData.forbidden.length > 0) ctx.notQueries.add(query);
+	if (query.traitInstances.forbidden.length > 0) ctx.notQueries.add(query);
 
 	// Index queries with relation filters by their relations
 	const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
@@ -345,7 +345,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 		for (const pair of query.relationFilters!) {
 			// Add to this specific relation's relationQueries
 			const relationTrait = pair[$internal].relation[$internal].trait;
-			const relationTraitInstance = getTraitData(ctx.traitInstances, relationTrait);
+			const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
 			if (relationTraitInstance) {
 				relationTraitInstance.relationQueries.add(query);
 			}

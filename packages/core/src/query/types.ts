@@ -1,4 +1,3 @@
-import { Brand } from '../common';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory, Store } from '../storage';
@@ -102,7 +101,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 	traits: Trait[];
 	resultStores: Store[];
 	resultTraits: Trait[];
-	traitData: {
+	traitInstances: {
 		required: TraitInstance[];
 		forbidden: TraitInstance[];
 		or: TraitInstance[];

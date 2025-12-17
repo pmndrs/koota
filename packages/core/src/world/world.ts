@@ -12,7 +12,7 @@ import { getEntitiesWithRelationTo } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
-import { clearTraitData, getTraitData, hasTraitData } from '../trait/trait-data';
+import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
 	ConfigurableTrait,
 	ExtractSchema,
@@ -71,7 +71,7 @@ export function createWorld(
 			}
 
 			// Register system traits.
-			if (!hasTraitData(ctx.traitInstances, IsExcluded)) registerTrait(world, IsExcluded);
+			if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(world, IsExcluded);
 
 			// Create cached queries.
 			for (const [hash, queryRef] of universe.cachedQueries) {
@@ -139,7 +139,7 @@ export function createWorld(
 			ctx.entityMasks = [[]];
 			ctx.bitflag = 1;
 
-			clearTraitData(ctx.traitInstances);
+			clearTraitInstance(ctx.traitInstances);
 			world.traits.clear();
 			ctx.relations.clear();
 
@@ -229,11 +229,11 @@ export function createWorld(
 
 		onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 			const ctx = world[$internal];
-			let data = getTraitData(ctx.traitInstances, trait);
+			let data = getTraitInstance(ctx.traitInstances, trait);
 
 			if (!data) {
 				registerTrait(world, trait);
-				data = getTraitData(ctx.traitInstances, trait)!;
+				data = getTraitInstance(ctx.traitInstances, trait)!;
 			}
 
 			data.addSubscriptions.add(callback);
@@ -313,11 +313,11 @@ export function createWorld(
 
 		onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
 			const ctx = world[$internal];
-			let data = getTraitData(ctx.traitInstances, trait);
+			let data = getTraitInstance(ctx.traitInstances, trait);
 
 			if (!data) {
 				registerTrait(world, trait);
-				data = getTraitData(ctx.traitInstances, trait)!;
+				data = getTraitInstance(ctx.traitInstances, trait)!;
 			}
 
 			data.removeSubscriptions.add(callback);
@@ -329,9 +329,9 @@ export function createWorld(
 			const ctx = world[$internal];
 
 			// Register the trait if it's not already registered.
-			if (!hasTraitData(ctx.traitInstances, trait)) registerTrait(world, trait);
+			if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
 
-			const data = getTraitData(ctx.traitInstances, trait)!;
+			const data = getTraitInstance(ctx.traitInstances, trait)!;
 			data.changeSubscriptions.add(callback);
 
 			// Used by auto change detection to know which traits to track.

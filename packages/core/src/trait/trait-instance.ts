@@ -5,7 +5,7 @@ export type TraitInstanceArray = (TraitInstance | undefined)[];
 /**
  * Get TraitInstance by trait ID
  */
-export /* @inline @pure */ function getTraitData(
+export /* @inline @pure */ function getTraitInstance(
 	traitData: TraitInstanceArray,
 	trait: Trait
 ): TraitInstance | undefined {
@@ -15,7 +15,7 @@ export /* @inline @pure */ function getTraitData(
 /**
  * Set TraitInstance by trait ID
  */
-export /* @inline */ function setTraitData(
+export /* @inline */ function setTraitInstance(
 	traitData: TraitInstanceArray,
 	trait: Trait,
 	data: TraitInstance
@@ -31,7 +31,7 @@ export /* @inline */ function setTraitData(
 /**
  * Check if trait is registered
  */
-export /* @inline @pure */ function hasTraitData(
+export /* @inline @pure */ function hasTraitInstance(
 	traitData: TraitInstanceArray,
 	trait: Trait
 ): boolean {
@@ -42,6 +42,6 @@ export /* @inline @pure */ function hasTraitData(
 /**
  * Clear all trait data
  */
-export /* @inline */ function clearTraitData(traitData: TraitInstanceArray): void {
+export /* @inline */ function clearTraitInstance(traitData: TraitInstanceArray): void {
 	traitData.length = 0;
 }
