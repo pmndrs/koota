@@ -5,12 +5,12 @@ import { isRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitData, hasTraitData } from '../trait/trait-data';
-import type { TagTrait, Trait, TraitData } from '../trait/types';
+import type { TagTrait, Trait, TraitInstance } from '../trait/types';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
 import { isModifier } from './modifier';
 import { createQueryResult, getQueryStores } from './query-result';
-import type { EventType, Query, QueryParameter, QueryResult, QuerySubscriber } from './types';
+import type { EventType, QueryInstance, QueryParameter, QueryResult, QuerySubscriber } from './types';
 import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
@@ -18,7 +18,10 @@ import { createQueryHash } from './utils/create-query-hash';
 
 export const IsExcluded: TagTrait = trait();
 
-export function runQuery<T extends QueryParameter[]>(world: World, query: Query<T>): QueryResult<T> {
+export function runQuery<T extends QueryParameter[]>(
+	world: World,
+	query: QueryInstance<T>
+): QueryResult<T> {
 	commitQueryRemovals(world);
 
 	// With hybrid bitmask strategy, query.entities is already incrementally maintained
@@ -37,7 +40,7 @@ export function runQuery<T extends QueryParameter[]>(world: World, query: Query<
 	return createQueryResult(world, entities, query);
 }
 
-export function addEntityToQuery(query: Query, entity: Entity) {
+export function addEntityToQuery(query: QueryInstance, entity: Entity) {
 	query.toRemove.remove(entity);
 	query.entities.add(entity);
 
@@ -49,7 +52,7 @@ export function addEntityToQuery(query: Query, entity: Entity) {
 	query.version++;
 }
 
-export function removeEntityFromQuery(world: World, query: Query, entity: Entity) {
+export function removeEntityFromQuery(world: World, query: QueryInstance, entity: Entity) {
 	if (!query.entities.has(entity) || query.toRemove.has(entity)) return;
 
 	const ctx = world[$internal];
@@ -80,7 +83,7 @@ export function commitQueryRemovals(world: World) {
 	ctx.dirtyQueries.clear();
 }
 
-export function resetQueryTrackingBitmasks(query: Query, eid: number) {
+export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
 	for (const bitmask of query.bitmasks) {
 		bitmask.addedTracker[eid] = 0;
 		bitmask.removedTracker[eid] = 0;
@@ -88,8 +91,8 @@ export function resetQueryTrackingBitmasks(query: Query, eid: number) {
 	}
 }
 
-export function createQuery<T extends QueryParameter[]>(world: World, parameters: T): Query {
-	const query: Query = {
+export function createQuery<T extends QueryParameter[]>(world: World, parameters: T): QueryInstance {
+	const query: QueryInstance = {
 		version: 0,
 		world,
 		parameters,
@@ -137,7 +140,7 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 	const trackingParams: {
 		type: 'add' | 'remove' | 'change';
 		id: number;
-		traits: TraitData[];
+		traits: TraitInstance[];
 	}[] = [];
 
 	// Iterate over the parameters and run any modifiers.
@@ -307,7 +310,6 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 	query.hash = createQueryHash(parameters);
 
 	// Add it to world.
-	ctx.queries.add(query);
 	ctx.queriesHashMap.set(query.hash, query);
 
 	// Add query to each trait instance, sorted by tracking status
@@ -331,9 +333,9 @@ export function createQuery<T extends QueryParameter[]>(world: World, parameters
 		for (const pair of query.relationFilters!) {
 			// Add to this specific relation's relationQueries
 			const relationTrait = pair[$internal].relation[$internal].trait;
-			const relationTraitData = getTraitData(ctx.traitData, relationTrait);
-			if (relationTraitData) {
-				relationTraitData.relationQueries.add(query);
+			const relationTraitInstance = getTraitData(ctx.traitData, relationTrait);
+			if (relationTraitInstance) {
+				relationTraitInstance.relationQueries.add(query);
 			}
 		}
 	}

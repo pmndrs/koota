@@ -1,6 +1,15 @@
-export { createActions } from './actions/create-actions';
-export type { ActionGetter, ActionInitializer, Actions } from './actions/types';
+export { defineActions, createActions } from './actions/create-actions';
+export type {
+	ActionsRef,
+	ActionsDefinition,
+	ActionsInstance,
+	// deprecated aliases
+	ActionGetter,
+	ActionInitializer,
+	Actions,
+} from './actions/types';
 export { $internal } from './common';
+export type { Brand } from './common';
 export type { Entity } from './entity/types';
 export { unpackEntity } from './entity/utils/pack-entity';
 export { createAdded } from './query/modifiers/added';
@@ -8,14 +17,17 @@ export { createChanged } from './query/modifiers/changed';
 export { Not } from './query/modifiers/not';
 export { Or } from './query/modifiers/or';
 export { createRemoved } from './query/modifiers/removed';
+export { $modifier } from './query/modifier';
 export { IsExcluded } from './query/query';
 export type {
 	EventType,
 	InstancesFromParameters,
 	IsNotModifier,
 	ModifierData,
-	Query,
-	QueryHash,
+	QueryInstance,
+	QueryRef,
+	Query, // deprecated alias
+	QueryHash, // deprecated alias
 	QueryModifier,
 	QueryParameter,
 	QueryResult,
@@ -24,8 +36,10 @@ export type {
 	QueryUnsubscriber,
 	StoresFromParameters,
 } from './query/types';
-export { cacheQuery } from './query/utils/cache-query';
+export { defineQuery, cacheQuery } from './query/utils/cache-query';
+export { $queryRef, isQueryRef } from './query/types';
 export { isRelation, Pair, relation } from './relation/relation';
+export { $relationPair, $relation } from './relation/types';
 export type { Relation, RelationPair, RelationTarget } from './relation/types';
 export { getStore, trait } from './trait/trait';
 export type {
@@ -37,7 +51,7 @@ export type {
 	SetTraitCallback,
 	TagTrait,
 	Trait,
-	TraitData,
+	TraitInstance,
 	TraitRecord,
 	TraitTuple,
 	TraitValue,

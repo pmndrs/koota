@@ -4,8 +4,12 @@ import type { Trait } from '../trait/types';
 
 export type RelationTarget = Entity | '*';
 
+export const $relationPair = Symbol('relationPair');
+export const $relation = Symbol('relation');
+
 /** A pair represents a relation + target combination */
 export interface RelationPair<T extends Trait = Trait> {
+	readonly [$relationPair]: true;
 	[$internal]: {
 		relation: Relation<T>;
 		target: RelationTarget;
@@ -14,6 +18,7 @@ export interface RelationPair<T extends Trait = Trait> {
 }
 
 export type Relation<T extends Trait = Trait> = {
+	readonly [$relation]: true;
 	[$internal]: {
 		trait: T;
 		exclusive: boolean;

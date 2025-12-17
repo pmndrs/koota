@@ -1,4 +1,4 @@
-import { $internal } from '../common';
+import { $internal, Brand } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
@@ -7,12 +7,13 @@ import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { World } from '../world';
 import { getTraitData } from '../trait/trait-data';
 import type { Relation, RelationPair, RelationTarget } from './types';
+import { $relationPair, $relation } from './types';
 import { Schema } from '../storage';
 
 /**
  * Creates a relation definition.
  * Relations are stored efficiently - one trait per relation type, not per target.
- * Targets are stored in TraitData.relationTargets.
+ * Targets are stored in TraitInstance.relationTargets.
  */
 function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 	exclusive?: boolean;
@@ -40,6 +41,7 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 		if (target === undefined) throw Error('Relation target is undefined');
 
 		return {
+			[$relationPair]: true,
 			[$internal]: {
 				relation: relationFn as Relation<Trait<S>>,
 				target,
@@ -51,6 +53,14 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 	const relation = Object.assign(relationFn, {
 		[$internal]: relationCtx,
 	}) as Relation<Trait<S>>;
+
+	// Add symbol brand for fast type checking
+	Object.defineProperty(relation, $relation, {
+		value: true,
+		writable: false,
+		enumerable: false,
+		configurable: false,
+	});
 
 	// Set the back-reference from trait to relation
 	traitCtx.relation = relation;
@@ -64,19 +74,16 @@ export const relation = defineRelation;
  * Check if a value is a Relation
  */
 export /* @inline @pure */ function isRelation(value: unknown): value is Relation<Trait> {
-	return typeof value === 'function' && $internal in value && 'trait' in (value as any)[$internal];
+	return (value as Brand<typeof $relation> | null | undefined)?.[$relation] as unknown as boolean;
 }
 
 /**
  * Check if a value is a RelationPair
  */
 export /* @inline @pure */ function isRelationPair(value: unknown): value is RelationPair {
-	return (
-		value !== null &&
-		typeof value === 'object' &&
-		$internal in value &&
-		'relation' in (value as RelationPair)[$internal]
-	);
+	return (value as Brand<typeof $relationPair> | null | undefined)?.[
+		$relationPair
+	] as unknown as boolean;
 }
 
 /**
@@ -454,9 +461,9 @@ export function setRelationDataAtIndex(
 
 	if (baseTrait[$internal].type === 'aos') {
 		if (relationCtx.exclusive) {
-			(store as any[])[eid] = value;
+			(store as unknown[])[eid] = value;
 		} else {
-			((store as any[])[eid] ??= [])[targetIndex] = value;
+			((store as unknown[][])[eid] ??= [])[targetIndex] = value;
 		}
 		return;
 	}
@@ -464,11 +471,13 @@ export function setRelationDataAtIndex(
 	// SoA
 	if (relationCtx.exclusive) {
 		for (const key in value) {
-			(store as any)[key][eid] = (value as any)[key];
+			(store as Record<string, unknown[]>)[key][eid] = (value as Record<string, unknown>)[key];
 		}
 	} else {
 		for (const key in value) {
-			((store as any)[key][eid] ??= [])[targetIndex] = (value as any)[key];
+			(((store as Record<string, Array<unknown | unknown[]>>)[key][eid] ??= []) as unknown[])[
+				targetIndex
+			] = (value as Record<string, unknown>)[key];
 		}
 	}
 }
@@ -512,18 +521,19 @@ export function getRelationData(
 
 	if (traitCtx.type === 'aos') {
 		if (relationCtx.exclusive) {
-			return (store as any[])[eid];
+			return (store as unknown[])[eid];
 		} else {
-			return (store as any[][])[eid]?.[targetIndex];
+			return (store as unknown[][])[eid]?.[targetIndex];
 		}
 	} else {
 		// SoA: reconstruct object from store arrays
 		const result: Record<string, unknown> = {};
+		const storeRecord = store as Record<string, Array<unknown | unknown[]>>;
 		for (const key in store) {
 			if (relationCtx.exclusive) {
-				result[key] = (store as any)[key][eid];
+				result[key] = storeRecord[key][eid];
 			} else {
-				result[key] = (store as any)[key][eid]?.[targetIndex];
+				result[key] = (storeRecord[key][eid] as unknown[] | undefined)?.[targetIndex];
 			}
 		}
 		return result;

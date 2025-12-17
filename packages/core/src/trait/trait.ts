@@ -37,7 +37,7 @@ import type {
 	ExtractStore,
 	TagTrait,
 	Trait,
-	TraitData,
+	TraitInstance,
 	TraitValue,
 } from './types';
 import { getTraitData, hasTraitData, setTraitData } from './trait-data';
@@ -55,10 +55,10 @@ function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 
 	validateSchema(schema);
 
+	const id = traitId++;
 	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
-		schema: schema,
 		[$internal]: {
-			id: traitId++,
+			id: id,
 			set: createSetFunction[traitType](schema),
 			fastSet: createFastSetFunction[traitType](schema),
 			fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
@@ -69,6 +69,21 @@ function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 		},
 	}) as Trait<Norm<S>>;
 
+	// Add public read-only properties
+	Object.defineProperty(Trait, 'id', {
+		value: id,
+		writable: false,
+		enumerable: true,
+		configurable: false,
+	});
+
+	Object.defineProperty(Trait, 'schema', {
+		value: schema,
+		writable: false,
+		enumerable: true,
+		configurable: false,
+	});
+
 	return Trait;
 }
 
@@ -78,7 +93,7 @@ export function registerTrait(world: World, trait: Trait) {
 	const ctx = world[$internal];
 	const traitCtx = trait[$internal];
 
-	const data: TraitData = {
+	const data: TraitInstance = {
 		generationId: ctx.entityMasks.length - 1,
 		bitflag: ctx.bitflag,
 		trait,
@@ -379,7 +394,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	world: World,
 	entity: Entity,
 	trait: Trait
-): TraitData | undefined {
+): TraitInstance | undefined {
 	// Exit early if the entity already has the trait
 	if (hasTrait(world, entity, trait)) return undefined;
 

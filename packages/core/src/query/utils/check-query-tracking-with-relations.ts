@@ -2,7 +2,7 @@ import type { Entity } from '../../entity/types';
 import { hasRelationPair } from '../../relation/relation';
 import type { World } from '../../world/world';
 import { checkQueryTracking } from './check-query-tracking';
-import type { EventType, Query } from '../types';
+import type { EventType, QueryInstance } from '../types';
 
 /**
  * Check if an entity matches a tracking query with relation filters.

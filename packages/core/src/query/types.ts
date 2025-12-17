@@ -1,3 +1,4 @@
+import { Brand } from '../common';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory, Store } from '../storage';
@@ -6,7 +7,7 @@ import type {
 	ExtractStore,
 	IsTag,
 	Trait,
-	TraitData,
+	TraitInstance,
 	TraitRecord,
 } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
@@ -74,9 +75,25 @@ export type IsNotModifier<T> = T extends ModifierData<Trait[], infer TType>
 	: false;
 
 const $parameters = Symbol();
-export type QueryHash<T extends QueryParameter[]> = string & {
+export const $queryRef = Symbol('queryRef');
+
+export type QueryRef<T extends QueryParameter[]> = {
+	readonly [$queryRef]: true;
+	/** Public read-only ID for fast array lookups */
+	readonly id: number;
+	/** Hash string for deduplication */
+	readonly hash: string;
+	/** Query parameters for creating instances */
+	readonly parameters: T;
 	readonly [$parameters]: T;
 };
+
+/**
+ * Check if a value is a QueryRef
+ */
+export /* @inline @pure */ function isQueryRef(value: unknown): value is QueryRef<any> {
+	return (value as Brand<typeof $queryRef> | null | undefined)?.[$queryRef] as unknown as boolean;
+}
 
 export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> = {
 	[$modifier]: true;
@@ -86,7 +103,7 @@ export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string 
 	traitIds: number[];
 };
 
-export type Query<T extends QueryParameter[] = QueryParameter[]> = {
+export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 	version: number;
 	world: World;
 	parameters: T;
@@ -95,13 +112,13 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	resultStores: Store[];
 	resultTraits: Trait[];
 	traitData: {
-		required: TraitData[];
-		forbidden: TraitData[];
-		or: TraitData[];
-		added: TraitData[];
-		removed: TraitData[];
-		changed: TraitData[];
-		all: TraitData[];
+		required: TraitInstance[];
+		forbidden: TraitInstance[];
+		or: TraitInstance[];
+		added: TraitInstance[];
+		removed: TraitInstance[];
+		changed: TraitInstance[];
+		all: TraitInstance[];
 	};
 	bitmasks: {
 		required: number;
@@ -139,3 +156,9 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 };
 
 export type EventType = 'add' | 'remove' | 'change';
+
+/** @deprecated Use QueryInstance instead */
+export type Query<T extends QueryParameter[] = QueryParameter[]> = QueryInstance<T>;
+
+/** @deprecated Use QueryRef instead */
+export type QueryHash<T extends QueryParameter[]> = QueryRef<T>;

@@ -1,11 +1,29 @@
 import { $internal } from '../../';
 import { universe } from '../../universe/universe';
 import { createQuery } from '../query';
-import type { QueryHash, QueryParameter } from '../types';
+import type { QueryRef, QueryParameter } from '../types';
+import { $queryRef } from '../types';
 import { createQueryHash } from './create-query-hash';
 
-export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryHash<T> {
+let queryId = 0;
+
+export function defineQuery<T extends QueryParameter[]>(...parameters: T): QueryRef<T> {
 	const hash = createQueryHash(parameters);
+
+	// Check if this query was already cached
+	const existing = universe.cachedQueries.get(hash);
+	if (existing) {
+		return existing as QueryRef<T>;
+	}
+
+	// Create new query ref with ID
+	const id = queryId++;
+	const queryRef = Object.freeze({
+		[$queryRef]: true,
+		id,
+		hash,
+		parameters,
+	}) as QueryRef<T>;
 
 	for (const world of universe.worlds) {
 		if (!world) continue;
@@ -18,7 +36,10 @@ export function cacheQuery<T extends QueryParameter[]>(...parameters: T): QueryH
 		}
 	}
 
-	universe.cachedQueries.set(hash, parameters);
+	universe.cachedQueries.set(hash, queryRef);
 
-	return hash as QueryHash<T>;
+	return queryRef;
 }
+
+/** @deprecated Use defineQuery instead */
+export const cacheQuery = defineQuery;

@@ -1,28 +1,28 @@
 import type { Trait } from './types';
-import type { TraitData } from './types';
+import type { TraitInstance } from './types';
 import { $internal } from '../common';
 
-export type TraitDataArray = (TraitData | undefined)[];
+export type TraitInstanceArray = (TraitInstance | undefined)[];
 
 /**
- * Get TraitData by trait ID
+ * Get TraitInstance by trait ID
  */
 export /* @inline @pure */ function getTraitData(
-	traitData: TraitDataArray,
+	traitData: TraitInstanceArray,
 	trait: Trait
-): TraitData | undefined {
-	return traitData[trait[$internal].id];
+): TraitInstance | undefined {
+	return traitData[trait.id];
 }
 
 /**
- * Set TraitData by trait ID
+ * Set TraitInstance by trait ID
  */
 export /* @inline */ function setTraitData(
-	traitData: TraitDataArray,
+	traitData: TraitInstanceArray,
 	trait: Trait,
-	data: TraitData
+	data: TraitInstance
 ): void {
-	const traitId = trait[$internal].id;
+	const traitId = trait.id;
 	// Ensure array is large enough
 	if (traitId >= traitData.length) {
 		traitData.length = traitId + 1;
@@ -33,14 +33,17 @@ export /* @inline */ function setTraitData(
 /**
  * Check if trait is registered
  */
-export /* @inline @pure */ function hasTraitData(traitData: TraitDataArray, trait: Trait): boolean {
-	const traitId = trait[$internal].id;
+export /* @inline @pure */ function hasTraitData(
+	traitData: TraitInstanceArray,
+	trait: Trait
+): boolean {
+	const traitId = trait.id;
 	return traitId < traitData.length && traitData[traitId] !== undefined;
 }
 
 /**
  * Clear all trait data
  */
-export /* @inline */ function clearTraitData(traitData: TraitDataArray): void {
+export /* @inline */ function clearTraitData(traitData: TraitInstanceArray): void {
 	traitData.length = 0;
 }

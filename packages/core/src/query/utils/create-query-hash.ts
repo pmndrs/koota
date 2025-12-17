@@ -21,7 +21,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 			const relation = pairCtx.relation;
 			const target = pairCtx.target;
 
-			const relationId = (relation as Relation<Trait>)[$internal].trait[$internal].id;
+			const relationId = (relation as Relation<Trait>)[$internal].trait.id;
 			const targetId = typeof target === 'number' ? target : -1;
 
 			// Combine into a unique hash number
@@ -35,7 +35,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 				sortedIDs[cursor++] = modifierId * 100000 + traitId;
 			}
 		} else {
-			const traitId = (param as Trait)[$internal].id;
+			const traitId = (param as Trait).id;
 			sortedIDs[cursor++] = traitId;
 		}
 	}
