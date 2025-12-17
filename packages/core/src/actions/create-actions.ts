@@ -3,8 +3,11 @@ import type { ActionGetter, ActionInitializer, Actions } from './types';
 
 const actionCache = new WeakMap<World, Map<(...args: any[]) => any, Actions>>();
 
-export function createActions<T extends Actions>(initializer: ActionInitializer<T>): ActionGetter<T> {
-	return (world: World): T => {
+export function createActions<
+	T extends Actions,
+	C extends Record<string, unknown> | undefined = undefined
+>(initializer: ActionInitializer<T, C>): ActionGetter<T, C> {
+	return ((world: World, context?: C): T => {
 		let worldCache = actionCache.get(world);
 
 		if (!worldCache) {
@@ -15,10 +18,10 @@ export function createActions<T extends Actions>(initializer: ActionInitializer<
 		let actions = worldCache.get(initializer);
 
 		if (!actions) {
-			actions = initializer(world);
+			actions = initializer(world, context ?? ({} as C));
 			worldCache.set(initializer, actions);
 		}
 
 		return actions as T;
-	};
+	}) as ActionGetter<T, C>;
 }
