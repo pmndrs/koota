@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createAdded, createChanged, createRemoved, createWorld, Not, relation, trait } from '../src';
+import {
+	$internal,
+	createAdded,
+	createChanged,
+	createRemoved,
+	createWorld,
+	Not,
+	relation,
+	trait,
+} from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -75,6 +84,61 @@ describe('Relation', () => {
 
 		goblin.remove(Targeting(worldEntity));
 		expect(goblin.targetFor(Targeting)).toBe(undefined);
+	});
+
+	it('should emit change events when adding/removing additional targets', () => {
+		const Likes = relation();
+		const LikesTrait = Likes[$internal].trait;
+
+		const subject = world.spawn();
+		const a = world.spawn();
+		const b = world.spawn();
+
+		const changes: number[] = [];
+		const unsub = world.onChange(LikesTrait, (e) => changes.push(e));
+
+		// First add: trait is added + targets initialized (change may fire here too; not what we care about)
+		subject.add(Likes(a));
+		changes.length = 0;
+
+		// Add a second target: base relation trait is already present, so we should still get a change event
+		subject.add(Likes(b));
+		expect(changes).toEqual([subject]);
+		expect(subject.targetsFor(Likes).sort()).toEqual([a, b].sort());
+		expect(subject.has(Likes('*'))).toBe(true);
+
+		// Remove one target but keep the relation trait (because one target remains)
+		changes.length = 0;
+		subject.remove(Likes(a));
+		expect(changes).toEqual([subject]);
+		expect(subject.targetsFor(Likes)).toEqual([b]);
+		expect(subject.has(Likes('*'))).toBe(true);
+
+		unsub();
+	});
+
+	it('should emit change events when switching an exclusive relation target', () => {
+		const Parent = relation({ exclusive: true });
+		const ParentTrait = Parent[$internal].trait;
+
+		const subject = world.spawn();
+		const a = world.spawn();
+		const b = world.spawn();
+
+		let changeCount = 0;
+		const unsub = world.onChange(ParentTrait, (e) => {
+			if (e === subject) changeCount++;
+		});
+
+		subject.add(Parent(a));
+		const before = changeCount;
+
+		// Switching targets should notify watchers (even though the base trait stays present)
+		subject.add(Parent(b));
+		expect(changeCount).toBeGreaterThan(before);
+		expect(subject.targetFor(Parent)).toBe(b);
+
+		unsub();
 	});
 
 	it('should auto remove target and its descendants', () => {
@@ -331,16 +395,16 @@ describe('Relation', () => {
 		const child2 = world.spawn(ChildOf(parent)); // No weapon
 
 		// Query for children WITHOUT weapon
-		let result = world.query(ChildOf(parent), Not(Weapon));
+		const notResult = world.query(ChildOf(parent), Not(Weapon));
 
-		expect(result.length).toBe(1);
-		expect(result).toContain(child2);
-		expect(result).not.toContain(child1);
+		expect(notResult.length).toBe(1);
+		expect(notResult).toContain(child2);
+		expect(notResult).not.toContain(child1);
 
-		result = world.query(ChildOf(parent), Weapon);
-		expect(result.length).toBe(1);
-		expect(result).toContain(child1);
-		expect(result).not.toContain(child2);
+		const weaponResult = world.query(ChildOf(parent), Weapon);
+		expect(weaponResult.length).toBe(1);
+		expect(weaponResult).toContain(child1);
+		expect(weaponResult).not.toContain(child2);
 	});
 
 	it('should track Changed modifier for relation stores', () => {

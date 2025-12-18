@@ -1,6 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { setChanged } from '../query/modifiers/changed';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
@@ -179,12 +180,14 @@ export /* @inline */ function hasRelationToTarget(
 /**
  * Add a relation target to an entity.
  * Returns the index of the target in the targets array.
+ 
  */
 export function addRelationTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
-	target: Entity
+	target: Entity,
+	isFirstTarget = false
 ): number {
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
@@ -203,6 +206,8 @@ export function addRelationTarget(
 
 	if (relationCtx.exclusive) {
 		const targets = traitData.relationTargets as Array<Entity | undefined>;
+		// No-op if unchanged
+		if (targets[eid] === target) return 0;
 		targets[eid] = target;
 		targetIndex = 0; // Exclusive always has index 0
 	} else {
@@ -221,39 +226,46 @@ export function addRelationTarget(
 		targetsArray[eid].push(target);
 	}
 
-	// Update queries that filter by this relation
 	updateQueriesForRelationChange(world, relation, entity);
+
+	// Fire change event only if the entity already had the relation (not the initial add).
+	if (!isFirstTarget) setChanged(world, entity, baseTrait);
 
 	return targetIndex;
 }
 
 /**
  * Remove a relation target from an entity.
- * Returns the index that was removed, or -1 if not found.
+ * Auto-detects whether this was the last target and skips the change event accordingly.
+ *
+ * @param skipChange - Set true for bulk removal to skip all change events.
+ * @returns The removed index and whether this was the last target (caller should remove base trait if true).
  */
 export function removeRelationTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
-	target: Entity
-): number {
+	target: Entity,
+	skipChange = false
+): { removedIndex: number; wasLastTarget: boolean } {
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 	const relationTrait = relationCtx.trait;
 
 	const data = getTraitInstance(ctx.traitInstances, relationTrait);
-	if (!data || !data.relationTargets) return -1;
+	if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
 
 	const eid = getEntityId(entity);
 
 	let removedIndex = -1;
+	let hasRemainingTargets = false;
 
 	if (relationCtx.exclusive) {
 		const targets = data.relationTargets as Array<Entity | undefined>;
 		if (targets[eid] === target) {
 			targets[eid] = undefined;
 			removedIndex = 0;
-			// Clear exclusive data
+			hasRemainingTargets = false; // Exclusive: removing means none left
 			clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
 		}
 	} else {
@@ -263,22 +275,28 @@ export function removeRelationTarget(
 			const idx = entityTargets.indexOf(target);
 			if (idx !== -1) {
 				const lastIdx = entityTargets.length - 1;
-				// Swap-and-pop targets
 				if (idx !== lastIdx) {
 					entityTargets[idx] = entityTargets[lastIdx];
 				}
 				entityTargets.pop();
-				// Swap-and-pop data to match
 				swapAndPopRelationData(data.store, relationTrait[$internal].type, eid, idx, lastIdx);
 				removedIndex = idx;
+				hasRemainingTargets = entityTargets.length > 0;
 			}
 		}
 	}
 
-	// Update queries that filter by this relation
-	if (removedIndex !== -1) updateQueriesForRelationChange(world, relation, entity);
+	if (removedIndex !== -1) {
+		updateQueriesForRelationChange(world, relation, entity);
 
-	return removedIndex;
+		// Fire change only if not skipped and there are remaining targets.
+		if (!skipChange && hasRemainingTargets) {
+			setChanged(world, entity, relationTrait);
+		}
+	}
+
+	const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
+	return { removedIndex, wasLastTarget };
 }
 
 /**
@@ -353,6 +371,8 @@ function clearRelationDataInternal(
 
 /**
  * Remove all relation targets from an entity.
+ * Used for bulk removal when the base trait is also being removed.
+ * No change events are fired (only a "remove" event for the base trait).
  */
 export function removeAllRelationTargets(
 	world: World,
@@ -361,7 +381,7 @@ export function removeAllRelationTargets(
 ): void {
 	const targets = getRelationTargets(world, relation, entity);
 	for (const target of targets) {
-		removeRelationTarget(world, relation, entity, target);
+		removeRelationTarget(world, relation, entity, target, true); // skipChange for bulk
 	}
 }
 
