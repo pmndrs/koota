@@ -110,27 +110,28 @@ function createAoSGetFunction(_schema: Schema) {
 }
 
 const noop = () => {};
+const createTagNoop = () => noop;
 
 export const createSetFunction = {
 	soa: createSoASetFunction,
 	aos: createAoSSetFunction,
-	tag: noop,
+	tag: createTagNoop,
 };
 
 export const createFastSetFunction = {
 	soa: createSoAFastSetFunction,
 	aos: createAoSSetFunction,
-	tag: noop,
+	tag: createTagNoop,
 };
 
 export const createFastSetChangeFunction = {
 	soa: createSoAFastSetChangeFunction,
 	aos: createAoSFastSetChangeFunction,
-	tag: noop,
+	tag: createTagNoop,
 };
 
 export const createGetFunction = {
 	soa: createSoAGetFunction,
 	aos: createAoSGetFunction,
-	tag: noop,
+	tag: createTagNoop,
 };

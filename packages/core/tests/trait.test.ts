@@ -248,4 +248,15 @@ describe('Trait', () => {
 		entity.remove(Position);
 		expect(removeCb).toHaveBeenCalledTimes(1);
 	});
+
+	it('should return undefined for tag traits', () => {
+		const IsTag = trait();
+		const entity = world.spawn();
+
+		entity.add(IsTag);
+		expect(entity.has(IsTag)).toBe(true);
+
+		// Getting a tag trait should not throw
+		expect(entity.get(IsTag)).toBeUndefined();
+	});
 });
