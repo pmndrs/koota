@@ -1,10 +1,10 @@
-import { ActionInstance, ActionRecord } from '../actions/types';
+import { ActionInstance } from '../actions/types';
 import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
-	QueryInstance,
 	Query,
+	QueryInstance,
 	QueryParameter,
 	QueryResult,
 	QueryUnsubscriber,

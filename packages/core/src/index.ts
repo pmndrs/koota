@@ -1,7 +1,6 @@
 export { createActions } from './actions/create-actions';
 export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
 export { $internal } from './common';
-export type { Brand } from './common';
 export type { Entity } from './entity/types';
 export { unpackEntity } from './entity/utils/pack-entity';
 export { createAdded } from './query/modifiers/added';
@@ -10,14 +9,12 @@ export { Not } from './query/modifiers/not';
 export { Or } from './query/modifiers/or';
 export { createRemoved } from './query/modifiers/removed';
 export { $modifier } from './query/modifier';
-export { createQuery, IsExcluded, cacheQuery } from './query/query';
-//                                ^^^deprecated alias
+export { createQuery, IsExcluded } from './query/query';
 export type {
 	EventType,
 	InstancesFromParameters,
 	IsNotModifier,
 	Modifier,
-	QueryInstance,
 	Query,
 	QueryModifier,
 	QueryParameter,
@@ -41,7 +38,6 @@ export type {
 	SetTraitCallback,
 	TagTrait,
 	Trait,
-	TraitInstance,
 	TraitRecord,
 	TraitTuple,
 	TraitValue,
@@ -51,3 +47,23 @@ export type { TraitType } from './trait/types';
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';
+
+/**
+ * Deprecations. To be removed in v0.7.0.
+ */
+
+import { createQuery } from './query/query';
+/** @deprecated Use createQuery instead */
+export const cacheQuery = createQuery;
+
+/** @deprecated Use string instead */
+export type QueryHash = string;
+
+// Note: We will remove this internal type entirely
+import type { TraitInstance } from './trait/types';
+/** @deprecated Use TraitInstance instead */
+export type TraitData = TraitInstance;
+export type { TraitInstance } from './trait/types';
+
+// Note: We will remove this internal type entirely
+export type { QueryInstance } from './query/types';

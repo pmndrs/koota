@@ -455,6 +455,3 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
 
 	return queryRef;
 }
-
-/** @deprecated Use createQuery instead */
-export const cacheQuery = createQuery;
