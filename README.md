@@ -60,7 +60,7 @@ world.query(Position, Velocity).updateEach(([position, velocity]) => {
 Traits can be used reactively inside of React components.
 
 ```js
-import { WorldProvider, useQuery, useTrait } from 'koota/react'
+import { WorldProvider, useQuery, useTrait, useTarget, useTargets } from 'koota/react'
 
 // Wrap your app in WorldProvider
 createRoot(document.getElementById('root')!).render(
@@ -370,7 +370,7 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
-- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
+- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`. For relations this triggers for targets changing or the store value being set.
 
 ```js
 // Subscribe to Position changes
@@ -1012,6 +1012,44 @@ useTraitEffect(world, GameState, (state) => {
   if (!state) return
   console.log('Game state changed:', state)
 })
+```
+
+### `useTarget`
+
+Reactively returns the first target of a relation on an entity. Updates when relation targets change.
+
+```js
+const Targeting = relation({ exclusive: true })
+
+function TargetIndicator({ entity }) {
+  // Returns the target entity, or undefined if none
+  const target = useTarget(entity, Targeting)
+
+  if (!target) return <div>No target</div>
+
+  return <div>Targeting: {target.id()}</div>
+}
+```
+
+### `useTargets`
+
+Reactively returns all targets of a relation on an entity. Updates when relation targets change.
+
+```js
+const Contains = relation()
+
+function InventoryView({ entity }) {
+  // Returns an array of target entities
+  const items = useTargets(entity, Contains)
+
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.id()}>Item {item.id()}</li>
+      ))}
+    </ul>
+  )
+}
 ```
 
 ### `useActions`
