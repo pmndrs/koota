@@ -1,17 +1,18 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isRelationPair } from '../relation/relation';
+import { isRelationPair } from '../relation/utils/is-relation';
 import type { Relation } from '../relation/types';
+import { Store } from '../storage';
 import { getStore } from '../trait/trait';
-import type { Store, Trait } from '../trait/types';
+import type { Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
-import type { World } from '../world/world';
+import type { World } from '../world';
 import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
 import type {
 	InstancesFromParameters,
-	Query,
+	QueryInstance,
 	QueryParameter,
 	QueryResult,
 	QueryResultOptions,
@@ -21,7 +22,7 @@ import type {
 export function createQueryResult<T extends QueryParameter[]>(
 	world: World,
 	entities: Entity[],
-	query: Query
+	query: QueryInstance
 ): QueryResult<T> {
 	const traits = [...query.resultTraits];
 	const stores = [...query.resultStores];
@@ -47,7 +48,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 					const eid = getEntityId(entity);
 
 					createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
-					callback(state as any, entity, i);
+					callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
 					// Skip if the entity has been destroyed.
 					if (!world.has(entity)) continue;
@@ -98,7 +99,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 					const eid = getEntityId(entity);
 
 					createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
-					callback(state as any, entity, i);
+					callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
 					// Skip if the entity has been destroyed.
 					if (!world.has(entity)) continue;
@@ -134,7 +135,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 					const entity = entities[i];
 					const eid = getEntityId(entity);
 					createSnapshots(eid, traits, stores, state);
-					callback(state as any, entity, i);
+					callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
 					// Skip if the entity has been destroyed.
 					if (!world.has(entity)) continue;
@@ -152,7 +153,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 		},
 
 		useStores(callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void) {
-			callback(stores as any, entities);
+			callback(stores as unknown as StoresFromParameters<T>, entities);
 			return results;
 		},
 
@@ -177,7 +178,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 /* @inline */ function getTrackedTraits(
 	traits: Trait[],
 	world: World,
-	query: Query,
+	query: QueryInstance,
 	trackedIndices: number[],
 	untrackedIndices: number[]
 ) {
@@ -235,10 +236,10 @@ export function createQueryResult<T extends QueryParameter[]>(
 			const pairCtx = param[$internal];
 			const relation = pairCtx.relation as Relation<Trait>;
 			const baseTrait = relation[$internal].trait;
-		if (baseTrait[$internal].type !== 'tag') {
-			traits.push(baseTrait);
-			stores.push(getStore(world, baseTrait));
-		}
+			if (baseTrait[$internal].type !== 'tag') {
+				traits.push(baseTrait);
+				stores.push(getStore(world, baseTrait));
+			}
 			continue;
 		}
 

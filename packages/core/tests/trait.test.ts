@@ -28,7 +28,7 @@ describe('Trait', () => {
 	it('should create a trait', () => {
 		const Test = trait({ x: 0, y: 0 });
 
-		expect(Object.keys(Test)).toEqual(['schema']);
+		expect(Object.keys(Test)).toContain('schema');
 		expect(typeof Test === 'function').toBe(true);
 	});
 

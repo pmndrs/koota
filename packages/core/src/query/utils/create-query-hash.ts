@@ -1,13 +1,13 @@
-import { $internal } from '../../';
-import { isRelationPair } from '../../relation/relation';
+import { $internal } from '../../common';
+import { isRelationPair } from '../../relation/utils/is-relation';
 import type { Relation } from '../../relation/types';
 import type { Trait } from '../../trait/types';
 import { isModifier } from '../modifier';
-import type { QueryParameter } from '../types';
+import type { QueryHash, QueryParameter } from '../types';
 
 const sortedIDs = new Float64Array(1024); // Use Float64 for larger IDs with relation encoding
 
-export const createQueryHash = (parameters: QueryParameter[]) => {
+export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
 	sortedIDs.fill(0);
 	let cursor = 0;
 
@@ -21,7 +21,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 			const relation = pairCtx.relation;
 			const target = pairCtx.target;
 
-			const relationId = (relation as Relation<Trait>)[$internal].trait[$internal].id;
+			const relationId = (relation as Relation<Trait>)[$internal].trait.id;
 			const targetId = typeof target === 'number' ? target : -1;
 
 			// Combine into a unique hash number
@@ -35,7 +35,7 @@ export const createQueryHash = (parameters: QueryParameter[]) => {
 				sortedIDs[cursor++] = modifierId * 100000 + traitId;
 			}
 		} else {
-			const traitId = (param as Trait)[$internal].id;
+			const traitId = (param as Trait).id;
 			sortedIDs[cursor++] = traitId;
 		}
 	}

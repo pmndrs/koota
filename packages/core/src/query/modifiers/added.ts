@@ -1,9 +1,9 @@
 import { $internal } from '../../common';
-import { isRelation } from '../../relation/relation';
+import { isRelation } from '../../relation/utils/is-relation';
 import type { Trait, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import { createModifier } from '../modifier';
-import type { ModifierData } from '../types';
+import type { Modifier } from '../types';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createAdded() {
@@ -16,7 +16,7 @@ export function createAdded() {
 
 	return <T extends TraitOrRelation[] = TraitOrRelation[]>(
 		...inputs: T
-	): ModifierData<Trait[], `added-${number}`> => {
+	): Modifier<Trait[], `added-${number}`> => {
 		const traits = inputs.map((input) => (isRelation(input) ? input[$internal].trait : input));
 		return createModifier(`added-${id}`, id, traits);
 	};

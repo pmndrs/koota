@@ -1,9 +1,10 @@
+import { ActionInstance } from '../actions/types';
 import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
 	Query,
-	QueryHash,
+	QueryInstance,
 	QueryParameter,
 	QueryResult,
 	QueryUnsubscriber,
@@ -14,7 +15,7 @@ import type {
 	ExtractSchema,
 	SetTraitCallback,
 	Trait,
-	TraitData,
+	TraitInstance,
 	TraitRecord,
 	TraitValue,
 } from '../trait/types';
@@ -29,12 +30,13 @@ export type WorldInternal = {
 	entityMasks: number[][];
 	entityTraits: Map<number, Set<Trait>>;
 	bitflag: number;
-	traitData: (TraitData | undefined)[];
+	traitInstances: (TraitInstance | undefined)[];
 	relations: Set<Relation<Trait>>;
-	queries: Set<Query>;
-	queriesHashMap: Map<string, Query>;
-	notQueries: Set<Query>;
-	dirtyQueries: Set<Query>;
+	queriesHashMap: Map<string, QueryInstance>;
+	queryInstances: (QueryInstance | undefined)[];
+	actionInstances: (ActionInstance | undefined)[];
+	notQueries: Set<QueryInstance>;
+	dirtyQueries: Set<QueryInstance>;
 	dirtyMasks: Map<number, number[][]>;
 	trackingSnapshots: Map<number, number[][]>;
 	changedMasks: Map<number, number[][]>;
@@ -60,13 +62,13 @@ export type World = {
 	set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
 	destroy(): void;
 	reset(): void;
-	query<T extends QueryParameter[]>(key: QueryHash<T>): QueryResult<T>;
+	query<T extends QueryParameter[]>(key: Query<T>): QueryResult<T>;
 	query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
-	queryFirst<T extends QueryParameter[]>(key: QueryHash<T>): Entity | undefined;
+	queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
 	queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
 	onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
 	onQueryAdd<T extends QueryParameter[]>(
-		key: QueryHash<T>,
+		key: Query<T>,
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryAdd<T extends QueryParameter[]>(
@@ -74,7 +76,7 @@ export type World = {
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryRemove<T extends QueryParameter[]>(
-		key: QueryHash<T>,
+		key: Query<T>,
 		callback: (entity: Entity) => void
 	): QueryUnsubscriber;
 	onQueryRemove<T extends QueryParameter[]>(
