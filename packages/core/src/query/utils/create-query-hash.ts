@@ -3,11 +3,11 @@ import { isRelationPair } from '../../relation/utils/is-relation';
 import type { Relation } from '../../relation/types';
 import type { Trait } from '../../trait/types';
 import { isModifier } from '../modifier';
-import type { QueryParameter } from '../types';
+import type { QueryHash, QueryParameter } from '../types';
 
 const sortedIDs = new Float64Array(1024); // Use Float64 for larger IDs with relation encoding
 
-export const createQueryHash = (parameters: QueryParameter[]) => {
+export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
 	sortedIDs.fill(0);
 	let cursor = 0;
 

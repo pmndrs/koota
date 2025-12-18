@@ -22,6 +22,7 @@ export type {
 	QueryResultOptions,
 	QuerySubscriber,
 	QueryUnsubscriber,
+	QueryHash,
 	StoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
@@ -55,9 +56,6 @@ export { createWorld } from './world';
 import { createQuery } from './query/query';
 /** @deprecated Use createQuery instead */
 export const cacheQuery = createQuery;
-
-/** @deprecated Use string instead */
-export type QueryHash = string;
 
 import type { TraitInstance } from './trait/types';
 /** @deprecated Use TraitInstance instead */

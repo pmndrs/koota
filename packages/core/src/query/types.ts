@@ -74,12 +74,14 @@ export type IsNotModifier<T> = T extends Modifier<Trait[], infer TType>
 		: false
 	: false;
 
+export type QueryHash = string;
+
 export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 	readonly [$queryRef]: true;
 	/** Public read-only ID for fast array lookups */
 	readonly id: number;
 	/** Hash string for deduplication */
-	readonly hash: string;
+	readonly hash: QueryHash;
 	/** Query parameters for creating instances */
 	readonly parameters: T;
 	readonly [$parameters]: T;
@@ -97,7 +99,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 	version: number;
 	world: World;
 	parameters: T;
-	hash: string;
+	hash: QueryHash;
 	traits: Trait[];
 	resultStores: Store[];
 	resultTraits: Trait[];
