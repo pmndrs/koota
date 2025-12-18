@@ -6,8 +6,8 @@ import { checkQueryTrackingWithRelations } from '../query/utils/check-query-trac
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import {
 	addRelationTarget,
+	getFirstRelationTarget,
 	getRelationData,
-	getRelationTargets,
 	hasRelationPair,
 	hasRelationToTarget,
 	removeAllRelationTargets,
@@ -181,18 +181,17 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 	// For exclusive relations, remove the old target first
 	if (relationCtx.exclusive) {
-		const oldTargets = getRelationTargets(world, relation, entity);
-		if (oldTargets.length > 0 && oldTargets[0] !== target) {
-			removeRelationTarget(world, relation, entity, oldTargets[0]);
+		const oldTarget = getFirstRelationTarget(world, relation, entity);
+		if (oldTarget !== undefined && oldTarget !== target) {
+			removeRelationTarget(world, relation, entity, oldTarget, true);
 		}
 	}
 
-	// Add the relation trait (ie. Likes)
-	// Returns undefined if the trait was already added, such as multiple targets
+	// Add the relation trait. Returns the trait data if it was just added.
 	const data = addTraitToEntity(world, entity, relationTrait);
+	const isFirstTarget = !!data;
 
-	// Add the target and initialize data
-	const targetIndex = addRelationTarget(world, relation, entity, target);
+	const targetIndex = addRelationTarget(world, relation, entity, target, isFirstTarget);
 	const schema =
 		data?.schema ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!.schema;
 	const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
@@ -220,7 +219,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 		// Exit early if the entity doesn't have the trait.
 		if (!hasTrait(world, entity, trait)) continue;
 
-		// If this trait belongs to a relation, clean up all targets first
+		// If this trait belongs to a relation, clean up all targets first.
 		const traitCtx = trait[$internal];
 		if (traitCtx.relation) removeAllRelationTargets(world, traitCtx.relation, entity);
 
@@ -242,21 +241,19 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 	// Check if entity has this relation
 	if (!hasTrait(world, entity, relationTrait)) return;
 
-	// Handle wildcard target - remove all targets
+	// Handle wildcard target -- remove all targets and the base trait.
 	if (target === '*') {
 		removeAllRelationTargets(world, relation, entity);
 		removeTraitFromEntity(world, entity, relationTrait);
 		return;
 	}
 
-	// Remove specific target
+	// Remove specific target.
 	if (typeof target === 'number') {
-		const removedIndex = removeRelationTarget(world, relation, entity, target);
+		const { removedIndex, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
 		if (removedIndex === -1) return;
 
-		// If no targets remain, remove the base trait
-		const remainingTargets = getRelationTargets(world, relation, entity);
-		if (remainingTargets.length === 0) {
+		if (wasLastTarget) {
 			removeTraitFromEntity(world, entity, relationTrait);
 		}
 	}
@@ -272,12 +269,10 @@ export function cleanupRelationTarget(
 	entity: Entity,
 	target: Entity
 ): void {
-	const removedIndex = removeRelationTarget(world, relation, entity, target);
+	const { removedIndex, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
 	if (removedIndex === -1) return;
 
-	// Check if this was the last target and remove the base trait
-	const remainingTargets = getRelationTargets(world, relation, entity);
-	if (remainingTargets.length === 0) {
+	if (wasLastTarget) {
 		removeTraitFromEntity(world, entity, relation[$internal].trait);
 	}
 }
