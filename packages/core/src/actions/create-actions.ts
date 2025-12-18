@@ -1,24 +1,46 @@
+import { $internal } from '../common';
 import type { World } from '../world';
-import type { ActionGetter, ActionInitializer, Actions } from './types';
+import type { Actions, ActionsInitializer, ActionRecord } from './types';
 
-const actionCache = new WeakMap<World, Map<(...args: any[]) => any, Actions>>();
+let actionsId = 0;
 
-export function createActions<T extends Actions>(initializer: ActionInitializer<T>): ActionGetter<T> {
-	return (world: World): T => {
-		let worldCache = actionCache.get(world);
+export function createActions<T extends ActionRecord>(
+	initializer: ActionsInitializer<T>
+): Actions<T> {
+	const id = actionsId++;
 
-		if (!worldCache) {
-			worldCache = new Map();
-			actionCache.set(world, worldCache);
+	const actions = Object.assign(
+		(world: World): T => {
+			const ctx = world[$internal];
+
+			// Try array lookup first (faster)
+			let instance = ctx.actionInstances[id];
+
+			if (!instance) {
+				// Create and cache actions instance
+				instance = initializer(world);
+
+				// Ensure array is large enough
+				if (id >= ctx.actionInstances.length) {
+					ctx.actionInstances.length = id + 1;
+				}
+				ctx.actionInstances[id] = instance;
+			}
+
+			return instance as T;
+		},
+		{
+			initializer,
 		}
+	) as Actions<T>;
 
-		let actions = worldCache.get(initializer);
+	// Add public read-only id property
+	Object.defineProperty(actions, 'id', {
+		value: id,
+		writable: false,
+		enumerable: true,
+		configurable: false,
+	});
 
-		if (!actions) {
-			actions = initializer(world);
-			worldCache.set(initializer, actions);
-		}
-
-		return actions as T;
-	};
+	return actions;
 }

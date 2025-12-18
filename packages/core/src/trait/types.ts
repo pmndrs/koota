@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
-import type { Query } from '../query/types';
+import type { QueryInstance } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type { AoSFactory, Schema, Store, StoreType } from '../storage';
 
@@ -12,7 +12,9 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
 	: Partial<TraitRecord<TSchema>>;
 
 export type Trait<TSchema extends Schema = any> = {
-	schema: TSchema;
+	/** Public read-only ID for fast array lookups */
+	readonly id: number;
+	readonly schema: TSchema;
 	[$internal]: {
 		set: (index: number, store: any, value: TraitValue<TSchema>) => void;
 		fastSet: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
@@ -80,18 +82,18 @@ export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'ta
 
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
-export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
+export interface TraitInstance<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
 	generationId: number;
 	bitflag: number;
 	trait: Trait;
 	store: Store<S>;
 	/** Non-tracking queries that include this trait */
-	queries: Set<Query>;
+	queries: Set<QueryInstance>;
 	/** Tracking queries (Added/Removed/Changed) that include this trait */
-	trackingQueries: Set<Query>;
-	notQueries: Set<Query>;
+	trackingQueries: Set<QueryInstance>;
+	notQueries: Set<QueryInstance>;
 	/** Queries that filter by this relation (only for relation traits) */
-	relationQueries: Set<Query>;
+	relationQueries: Set<QueryInstance>;
 	schema: S;
 	changeSubscriptions: Set<(entity: Entity) => void>;
 	addSubscriptions: Set<(entity: Entity) => void>;

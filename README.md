@@ -95,10 +95,10 @@ function RocketView({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { createActions } from 'koota'
+import { defineActions } from 'koota'
 import { useActions } from 'koota/react'
 
-const actions = createActions((world) => ({
+const actions = defineActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
   destroyAllShips: () => {
     world.query(Position, Velocity).forEach((entity) => {
@@ -808,7 +808,7 @@ const positions = getStore(world, Position)
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-#### Caching queries
+#### Defining queries
 
 Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
 
@@ -820,13 +820,13 @@ function updateMovement(world) {
 }
 ```
 
-While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned key. This will have the additional effect of creating the internal query immediately on a worlds, otherwise it will get created the first time it is run.
+While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned ref. This will have the additional effect of creating the internal query immediately on all worlds, otherwise it will get created the first time it is run.
 
 ```js
 // The internal query is created immediately before it is invoked
-const movementQuery = cacheQuery(Position, Velocity)
+const movementQuery = defineQuery(Position, Velocity)
 
-// They query key is hashed ahead of time and we just use it
+// The query ref is used for fast array-based lookup
 function updateMovement(world) {
   world.query(movementQuery).updateEach(([pos, vel]) => {})
 }
@@ -1016,11 +1016,11 @@ useTraitEffect(world, GameState, (state) => {
 
 ### `useActions`
 
-Returns actions bound to the world that is context. Use actions created by `createActions`.
+Returns actions bound to the world that is in context. Use actions created by `defineActions`.
 
 ```js
 // Create actions
-const actions = createActions((world) => ({
+const actions = defineActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer).
     destroyAllPlayers: () => {
         world.query(IsPlayer).forEach((player) => {

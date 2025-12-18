@@ -1,14 +1,14 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { isRelation } from '../../relation/relation';
+import { isRelation } from '../../relation/utils/is-relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
-import { getTraitData, hasTraitData } from '../../trait/trait-data';
+import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
 import type { Trait, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world';
 import { createModifier } from '../modifier';
-import type { ModifierData } from '../types';
+import type { Modifier } from '../types';
 import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
@@ -22,7 +22,7 @@ export function createChanged() {
 
 	return <T extends TraitOrRelation[] = TraitOrRelation[]>(
 		...inputs: T
-	): ModifierData<Trait[], `changed-${number}`> => {
+	): Modifier<Trait[], `changed-${number}`> => {
 		const traits = inputs.map((input) => (isRelation(input) ? input[$internal].trait : input));
 		return createModifier(`changed-${id}`, id, traits);
 	};
@@ -35,14 +35,14 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	if (!hasTrait(world, entity, trait)) return;
 
 	// Register the trait if it's not already registered.
-	if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
-	const data = getTraitData(ctx.traitData, trait)!;
+	if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
+	const data = getTraitInstance(ctx.traitInstances, trait)!;
 
 	// Mark the trait as changed for the entity.
 	// This is used for filling initial values for Changed modifiers.
 	for (const changedMask of ctx.changedMasks.values()) {
 		const eid = getEntityId(entity);
-		const data = getTraitData(ctx.traitData, trait)!;
+		const data = getTraitInstance(ctx.traitInstances, trait)!;
 		const { generationId, bitflag } = data;
 
 		// Ensure the generation array exists

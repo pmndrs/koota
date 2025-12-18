@@ -1,4 +1,4 @@
-import { $internal, cacheQuery, type QueryParameter, type QueryResult } from '@koota/core';
+import { $internal, createQuery, type QueryParameter, type QueryResult } from '@koota/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWorld } from '../world/use-world';
 
@@ -10,38 +10,38 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 
 	// This will rerun every render since parameters will always be a fresh
 	// array, but the return value will be stable.
-	const hash = useMemo(() => cacheQuery(...parameters), [parameters]);
+	const queryRef = useMemo(() => createQuery(...parameters), [parameters]);
 
 	useMemo(() => {
 		// Using internals to get the query data.
-		const query = world[$internal].queriesHashMap.get(hash)!;
+		const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
 		initialQueryVersionRef.current = query.version;
-	}, [world, hash]);
+	}, [world, queryRef]);
 
-	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(hash).sort());
+	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(queryRef).sort());
 
 	// Subscribe to changes.
 	useEffect(() => {
-		const unsubAdd = world.onQueryAdd(hash, () => {
-			setEntities(world.query(hash).sort());
+		const unsubAdd = world.onQueryAdd(queryRef, () => {
+			setEntities(world.query(queryRef).sort());
 		});
 
-		const unsubRemove = world.onQueryRemove(hash, () => {
-			setEntities(world.query(hash).sort());
+		const unsubRemove = world.onQueryRemove(queryRef, () => {
+			setEntities(world.query(queryRef).sort());
 		});
 
 		// Compare the initial version to the current version to
 		// see it the query has changed.
-		const query = world[$internal].queriesHashMap.get(hash)!;
+		const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
 		if (query.version !== initialQueryVersionRef.current) {
-			setEntities(world.query(hash).sort());
+			setEntities(world.query(queryRef).sort());
 		}
 
 		return () => {
 			unsubAdd();
 			unsubRemove();
 		};
-	}, [world, hash, version]);
+	}, [world, queryRef, version]);
 
 	// Force reattaching event listeners when the world is reset.
 	useEffect(() => {

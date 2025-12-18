@@ -2,19 +2,20 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { hasTrait, trait } from '../trait/trait';
-import type { ConfigurableTrait, Trait } from '../trait/types';
-import type { World } from '../world';
-import { getTraitData } from '../trait/trait-data';
-import type { Relation, RelationPair, RelationTarget } from './types';
 import { Schema } from '../storage';
+import { hasTrait, trait } from '../trait/trait';
+import { getTraitInstance } from '../trait/trait-instance';
+import type { Trait } from '../trait/types';
+import type { World } from '../world';
+import type { Relation, RelationPair, RelationTarget } from './types';
+import { $relation, $relationPair } from './symbols';
 
 /**
  * Creates a relation definition.
  * Relations are stored efficiently - one trait per relation type, not per target.
- * Targets are stored in TraitData.relationTargets.
+ * Targets are stored in TraitInstance.relationTargets.
  */
-function defineRelation<S extends Schema = Record<string, never>>(definition?: {
+function createRelation<S extends Schema = Record<string, never>>(definition?: {
 	exclusive?: boolean;
 	autoRemoveTarget?: boolean;
 	store?: S;
@@ -40,6 +41,7 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 		if (target === undefined) throw Error('Relation target is undefined');
 
 		return {
+			[$relationPair]: true,
 			[$internal]: {
 				relation: relationFn as Relation<Trait<S>>,
 				target,
@@ -52,32 +54,21 @@ function defineRelation<S extends Schema = Record<string, never>>(definition?: {
 		[$internal]: relationCtx,
 	}) as Relation<Trait<S>>;
 
+	// Add symbol brand for fast type checking
+	Object.defineProperty(relation, $relation, {
+		value: true,
+		writable: false,
+		enumerable: false,
+		configurable: false,
+	});
+
 	// Set the back-reference from trait to relation
 	traitCtx.relation = relation;
 
 	return relation;
 }
 
-export const relation = defineRelation;
-
-/**
- * Check if a value is a Relation
- */
-export /* @inline @pure */ function isRelation(value: unknown): value is Relation<Trait> {
-	return typeof value === 'function' && $internal in value && 'trait' in (value as any)[$internal];
-}
-
-/**
- * Check if a value is a RelationPair
- */
-export /* @inline @pure */ function isRelationPair(value: unknown): value is RelationPair {
-	return (
-		value !== null &&
-		typeof value === 'object' &&
-		$internal in value &&
-		'relation' in (value as RelationPair)[$internal]
-	);
-}
+export const relation = createRelation;
 
 /**
  * Get the targets for a relation on an entity.
@@ -91,7 +82,7 @@ export /* @inline */ function getRelationTargets(
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 
-	const traitData = getTraitData(ctx.traitData, relationCtx.trait);
+	const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
 	if (!traitData || !traitData.relationTargets) return [];
 
 	const eid = getEntityId(entity);
@@ -118,7 +109,7 @@ export /* @inline */ function getFirstRelationTarget(
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 
-	const traitData = getTraitData(ctx.traitData, relationCtx.trait);
+	const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
 	if (!traitData || !traitData.relationTargets) return undefined;
 
 	const eid = getEntityId(entity);
@@ -146,7 +137,7 @@ export /* @inline */ function getTargetIndex(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = getTraitData(ctx.traitData, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData || !traitData.relationTargets) return -1;
 
 	const eid = getEntityId(entity);
@@ -172,7 +163,7 @@ export /* @inline */ function hasRelationToTarget(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = getTraitData(ctx.traitData, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData || !traitData.relationTargets) return false;
 
 	const eid = getEntityId(entity);
@@ -199,7 +190,7 @@ export function addRelationTarget(
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
 
-	const traitData = getTraitData(ctx.traitData, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData) return -1;
 
 	if (!traitData.relationTargets) {
@@ -250,7 +241,7 @@ export function removeRelationTarget(
 	const relationCtx = relation[$internal];
 	const relationTrait = relationCtx.trait;
 
-	const data = getTraitData(ctx.traitData, relationTrait);
+	const data = getTraitInstance(ctx.traitInstances, relationTrait);
 	if (!data || !data.relationTargets) return -1;
 
 	const eid = getEntityId(entity);
@@ -301,7 +292,7 @@ function updateQueriesForRelationChange(
 ): void {
 	const ctx = world[$internal];
 	const baseTrait = relation[$internal].trait;
-	const traitData = getTraitData(ctx.traitData, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData) return;
 
 	// Update queries indexed by this relation (much faster than iterating all queries)
@@ -386,7 +377,7 @@ export function getEntitiesWithRelationTo(
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
-	const traitData = getTraitData(ctx.traitData, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData || !traitData.relationTargets) return [];
 
 	const targetId = target;
@@ -420,19 +411,6 @@ export function getEntitiesWithRelationTo(
 }
 
 /**
- * Helper to create a pair - kept for backward compatibility
- */
-export const Pair = <T extends Trait>(
-	relation: Relation<T>,
-	target: RelationTarget
-): RelationPair<T> => {
-	if (relation === undefined) throw Error('Relation is undefined');
-	if (target === undefined) throw Error('Relation target is undefined');
-
-	return relation(target) as RelationPair<T>;
-};
-
-/**
  * Set data for a specific relation target using target index.
  * For exclusive relations, index is always 0.
  * For non-exclusive, index corresponds to position in targets array.
@@ -446,7 +424,7 @@ export function setRelationDataAtIndex(
 ): void {
 	const relationCtx = relation[$internal];
 	const baseTrait = relationCtx.trait;
-	const traitData = getTraitData(world[$internal].traitData, baseTrait);
+	const traitData = getTraitInstance(world[$internal].traitInstances, baseTrait);
 	if (!traitData) return;
 
 	const store = traitData.store;
@@ -454,9 +432,9 @@ export function setRelationDataAtIndex(
 
 	if (baseTrait[$internal].type === 'aos') {
 		if (relationCtx.exclusive) {
-			(store as any[])[eid] = value;
+			(store as unknown[])[eid] = value;
 		} else {
-			((store as any[])[eid] ??= [])[targetIndex] = value;
+			((store as unknown[][])[eid] ??= [])[targetIndex] = value;
 		}
 		return;
 	}
@@ -464,11 +442,13 @@ export function setRelationDataAtIndex(
 	// SoA
 	if (relationCtx.exclusive) {
 		for (const key in value) {
-			(store as any)[key][eid] = (value as any)[key];
+			(store as Record<string, unknown[]>)[key][eid] = (value as Record<string, unknown>)[key];
 		}
 	} else {
 		for (const key in value) {
-			((store as any)[key][eid] ??= [])[targetIndex] = (value as any)[key];
+			(((store as Record<string, Array<unknown | unknown[]>>)[key][eid] ??= []) as unknown[])[
+				targetIndex
+			] = (value as Record<string, unknown>)[key];
 		}
 	}
 }
@@ -499,7 +479,7 @@ export function getRelationData(
 ): unknown {
 	const ctx = world[$internal];
 	const baseTrait = relation[$internal].trait;
-	const traitData = getTraitData(ctx.traitData, baseTrait);
+	const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
 	if (!traitData) return undefined;
 
 	const targetIndex = getTargetIndex(world, relation, entity, target);
@@ -512,18 +492,19 @@ export function getRelationData(
 
 	if (traitCtx.type === 'aos') {
 		if (relationCtx.exclusive) {
-			return (store as any[])[eid];
+			return (store as unknown[])[eid];
 		} else {
-			return (store as any[][])[eid]?.[targetIndex];
+			return (store as unknown[][])[eid]?.[targetIndex];
 		}
 	} else {
 		// SoA: reconstruct object from store arrays
 		const result: Record<string, unknown> = {};
+		const storeRecord = store as Record<string, Array<unknown | unknown[]>>;
 		for (const key in store) {
 			if (relationCtx.exclusive) {
-				result[key] = (store as any)[key][eid];
+				result[key] = storeRecord[key][eid];
 			} else {
-				result[key] = (store as any)[key][eid]?.[targetIndex];
+				result[key] = (storeRecord[key][eid] as unknown[] | undefined)?.[targetIndex];
 			}
 		}
 		return result;
@@ -548,11 +529,4 @@ export function hasRelationPair(world: World, entity: Entity, pair: RelationPair
 	if (typeof target === 'number') return hasRelationToTarget(world, relation, entity, target);
 
 	return false;
-}
-
-/**
- * Type guard to check if a configurable trait is a relation pair
- */
-export /* @inline @pure */ function isPairConfig(config: ConfigurableTrait): config is RelationPair {
-	return isRelationPair(config);
 }
