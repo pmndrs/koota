@@ -1,20 +1,20 @@
 import type { Entity } from '../entity/types';
-import type { Relation, RelationPair, RelationTarget } from '../relation/types';
+import type { RelationPair } from '../relation/types';
+import { AoSFactory, Store } from '../storage';
 import type {
-	AoSFactory,
 	ExtractSchema,
 	ExtractStore,
 	IsTag,
 	Trait,
+	TraitInstance,
 	TraitRecord,
-	TraitData,
-	Store,
 } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
-import type { World } from '../world/world';
+import type { World } from '../world';
 import { $modifier } from './modifier';
+import { $parameters, $queryRef } from './symbols';
 
-export type QueryModifier = (...components: Trait[]) => ModifierData;
+export type QueryModifier = (...components: Trait[]) => Modifier;
 export type QueryParameter = Trait | RelationPair | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryUnsubscriber = () => void;
@@ -35,13 +35,13 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
 	sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
 
-type UnwrapModifierData<T> = T extends ModifierData<infer C> ? C : never;
+type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
 
 export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
 	? [
 			...(First extends Trait
 				? [ExtractStore<First>]
-				: First extends ModifierData
+				: First extends Modifier
 				? StoresFromParameters<UnwrapModifierData<First>>
 				: []),
 			...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : [])
@@ -59,7 +59,7 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 						? [ReturnType<ExtractSchema<First>>]
 						: [TraitRecord<First>]
 					: []
-				: First extends ModifierData
+				: First extends Modifier
 				? IsNotModifier<First> extends true
 					? []
 					: InstancesFromParameters<UnwrapModifierData<First>>
@@ -68,18 +68,26 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
 	  ]
 	: [];
 
-export type IsNotModifier<T> = T extends ModifierData<Trait[], infer TType>
+export type IsNotModifier<T> = T extends Modifier<Trait[], infer TType>
 	? TType extends 'not'
 		? true
 		: false
 	: false;
 
-const $parameters = Symbol();
-export type QueryHash<T extends QueryParameter[]> = string & {
+export type QueryHash = string;
+
+export type Query<T extends QueryParameter[] = QueryParameter[]> = {
+	readonly [$queryRef]: true;
+	/** Public read-only ID for fast array lookups */
+	readonly id: number;
+	/** Hash string for deduplication */
+	readonly hash: QueryHash;
+	/** Query parameters for creating instances */
+	readonly parameters: T;
 	readonly [$parameters]: T;
 };
 
-export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string = string> = {
+export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = string> = {
 	[$modifier]: true;
 	type: TType;
 	id: number;
@@ -87,22 +95,22 @@ export type ModifierData<TTrait extends Trait[] = Trait[], TType extends string 
 	traitIds: number[];
 };
 
-export type Query<T extends QueryParameter[] = QueryParameter[]> = {
+export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 	version: number;
 	world: World;
 	parameters: T;
-	hash: string;
+	hash: QueryHash;
 	traits: Trait[];
 	resultStores: Store[];
 	resultTraits: Trait[];
-	traitData: {
-		required: TraitData[];
-		forbidden: TraitData[];
-		or: TraitData[];
-		added: TraitData[];
-		removed: TraitData[];
-		changed: TraitData[];
-		all: TraitData[];
+	traitInstances: {
+		required: TraitInstance[];
+		forbidden: TraitInstance[];
+		or: TraitInstance[];
+		added: TraitInstance[];
+		removed: TraitInstance[];
+		changed: TraitInstance[];
+		all: TraitInstance[];
 	};
 	bitmasks: {
 		required: number;

@@ -1,4 +1,4 @@
-import type { Schema } from '../types';
+import type { Schema } from './types';
 
 function createSoASetFunction(schema: Schema) {
 	const keys = Object.keys(schema);
@@ -109,22 +109,28 @@ function createAoSGetFunction(_schema: Schema) {
 	return (index: number, store: any) => store[index];
 }
 
+const noop = () => {};
+
 export const createSetFunction = {
 	soa: createSoASetFunction,
 	aos: createAoSSetFunction,
+	tag: noop,
 };
 
 export const createFastSetFunction = {
 	soa: createSoAFastSetFunction,
 	aos: createAoSSetFunction,
+	tag: noop,
 };
 
 export const createFastSetChangeFunction = {
 	soa: createSoAFastSetChangeFunction,
 	aos: createAoSFastSetChangeFunction,
+	tag: noop,
 };
 
 export const createGetFunction = {
 	soa: createSoAGetFunction,
 	aos: createAoSGetFunction,
+	tag: noop,
 };

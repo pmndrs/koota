@@ -1,17 +1,20 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
-import type { Query } from '../query/types';
+import type { QueryInstance } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
-import type { IsEmpty } from '../utils/types';
+import type { AoSFactory, Schema, Store, StoreType } from '../storage';
 
-export type TraitType = 'aos' | 'soa';
+// Backwards-compatible alias (the trait "type" is the storage layout).
+export type TraitType = StoreType;
 
 export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
 	? ReturnType<TSchema>
 	: Partial<TraitRecord<TSchema>>;
 
 export type Trait<TSchema extends Schema = any> = {
-	schema: TSchema;
+	/** Public read-only ID for fast array lookups */
+	readonly id: number;
+	readonly schema: TSchema;
 	[$internal]: {
 		set: (index: number, store: any, value: TraitValue<TSchema>) => void;
 		fastSet: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
@@ -21,13 +24,11 @@ export type Trait<TSchema extends Schema = any> = {
 			value: TraitValue<TSchema>
 		) => boolean;
 		get: (index: number, store: any) => TraitRecord<TSchema>;
-		stores: Store<TSchema>[];
 		id: number;
 		createStore: () => Store<TSchema>;
 		/** Reference to parent relation if this trait is owned by a relation */
 		relation: Relation<any> | null;
-		isTag: IsEmpty<TSchema>;
-		type: TraitType;
+		type: StoreType;
 	};
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 
@@ -63,48 +64,7 @@ export type TraitRecord<T extends Trait | Schema> = T extends Trait
 	? TraitRecordFromSchema<T['schema']>
 	: TraitRecordFromSchema<T>;
 
-export type Schema =
-	| {
-			[key: string]: number | bigint | string | boolean | null | undefined | (() => unknown);
-	  }
-	| AoSFactory
-	| Record<string, never>;
-
-export type AoSFactory = () => unknown;
-
-export type Store<T extends Schema = any> = T extends AoSFactory
-	? ReturnType<T>[]
-	: {
-			[P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]>[] : T[P][];
-	  };
-
 // Type Utils
-
-// This type utility ensures that explicit values like true, false or "string literal" are
-// normalized to their primitive types. Mostly used for schema types.
-export type Norm<T extends Schema> = T extends Record<string, never>
-	? T
-	: T extends AoSFactory
-	? () => ReturnType<T> extends number
-			? number
-			: ReturnType<T> extends boolean
-			? boolean
-			: ReturnType<T> extends string
-			? string
-			: ReturnType<T>
-	: {
-			[K in keyof T]: T[K] extends object
-				? T[K] extends (...args: never[]) => unknown
-					? T[K]
-					: never
-				: T[K] extends boolean
-				? boolean
-				: T[K];
-	  }[keyof T] extends never
-	? never
-	: {
-			[K in keyof T]: T[K] extends boolean ? boolean : T[K];
-	  };
 
 export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> = T extends RelationPair<
 	infer R
@@ -118,22 +78,22 @@ export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> = T 
 export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
 	? Store
 	: never;
-export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { isTag: true } } ? true : false;
+export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'tag' } } ? true : false;
 
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
-export interface TraitData<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
+export interface TraitInstance<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
 	generationId: number;
 	bitflag: number;
 	trait: Trait;
 	store: Store<S>;
 	/** Non-tracking queries that include this trait */
-	queries: Set<Query>;
+	queries: Set<QueryInstance>;
 	/** Tracking queries (Added/Removed/Changed) that include this trait */
-	trackingQueries: Set<Query>;
-	notQueries: Set<Query>;
+	trackingQueries: Set<QueryInstance>;
+	notQueries: Set<QueryInstance>;
 	/** Queries that filter by this relation (only for relation traits) */
-	relationQueries: Set<Query>;
+	relationQueries: Set<QueryInstance>;
 	schema: S;
 	changeSubscriptions: Set<(entity: Entity) => void>;
 	addSubscriptions: Set<(entity: Entity) => void>;

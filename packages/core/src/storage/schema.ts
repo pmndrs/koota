@@ -1,4 +1,4 @@
-import type { TraitType } from '../types';
+import type { Schema, StoreType } from './types';
 
 /**
  * Get default values from a schema.
@@ -6,7 +6,7 @@ import type { TraitType } from '../types';
  */
 /* @inline @pure */ export function getSchemaDefaults(
 	schema: Record<string, any> | (() => unknown),
-	type: TraitType
+	type: StoreType
 ): Record<string, any> | null {
 	if (type === 'aos') {
 		return typeof schema === 'function' ? (schema() as Record<string, any>) : null;
@@ -23,4 +23,14 @@ import type { TraitType } from '../types';
 		}
 	}
 	return defaults;
+}
+
+export /* @inline @pure */ function validateSchema(schema: Schema) {
+	for (const key in schema) {
+		const value = schema[key as keyof Schema];
+		if (value !== null && typeof value === 'object') {
+			const kind = Array.isArray(value) ? 'array' : 'object';
+			throw new Error(`Koota: ${key} is an ${kind}, which is not supported in traits.`);
+		}
+	}
 }

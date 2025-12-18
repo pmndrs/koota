@@ -1,19 +1,19 @@
-import type { Entity } from '../../entity/types';
 import { $internal } from '../../common';
-import type { World } from '../../world/world';
-import type { Query } from '../types';
+import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
+import type { World } from '../../world';
+import type { QueryInstance } from '../types';
 
 /**
  * Check if an entity matches a non-tracking query.
  * For tracking queries, use checkQueryTracking instead.
  */
-export function checkQuery(world: World, query: Query, entity: Entity): boolean {
+export function checkQuery(world: World, query: QueryInstance, entity: Entity): boolean {
 	const { bitmasks, generations } = query;
 	const ctx = world[$internal];
 	const eid = getEntityId(entity);
 
-	if (query.traitData.all.length === 0) return false;
+	if (query.traitInstances.all.length === 0) return false;
 
 	for (let i = 0; i < generations.length; i++) {
 		const generationId = generations[i];
@@ -29,4 +29,3 @@ export function checkQuery(world: World, query: Query, entity: Entity): boolean 
 
 	return true;
 }
-

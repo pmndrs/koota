@@ -1,15 +1,15 @@
 import { $internal } from '../../common';
 import { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { World } from '../../world/world';
-import { EventType, Query } from '../types';
+import { World } from '../../world';
+import { EventType, QueryInstance } from '../types';
 
 /**
  * Check if an entity matches a tracking query with event handling.
  */
 export function checkQueryTracking(
 	world: World,
-	query: Query,
+	query: QueryInstance,
 	entity: Entity,
 	eventType: EventType,
 	eventGenerationId: number,
@@ -19,7 +19,7 @@ export function checkQueryTracking(
 	const ctx = world[$internal];
 	const eid = getEntityId(entity);
 
-	if (query.traitData.all.length === 0) return false;
+	if (query.traitInstances.all.length === 0) return false;
 
 	for (let i = 0; i < generations.length; i++) {
 		const generationId = generations[i];

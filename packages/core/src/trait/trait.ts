@@ -2,85 +2,97 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
-import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
+import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import {
 	addRelationTarget,
 	getRelationData,
 	getRelationTargets,
 	hasRelationPair,
 	hasRelationToTarget,
-	isPairConfig,
-	isRelationPair,
 	removeAllRelationTargets,
 	removeRelationTarget,
 	setRelationData,
 	setRelationDataAtIndex,
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
-import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
-import { getTraitData, hasTraitData, setTraitData } from './utils/trait-data';
-import type { World } from '../world/world';
-import type {
-	ConfigurableTrait,
-	ExtractStore,
-	Norm,
-	Schema,
-	Store,
-	TagTrait,
-	Trait,
-	TraitData,
-	TraitType,
-	TraitValue,
-} from './types';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
 	createGetFunction,
 	createSetFunction,
-} from './utils/create-accessors';
-import { createStore } from './utils/create-store';
-import { getSchemaDefaults } from './utils/get-schema-defaults';
-import { validateSchema } from './utils/validate-schema';
+	createStore,
+	getSchemaDefaults,
+	Norm,
+	Schema,
+	StoreType,
+	validateSchema,
+} from '../storage';
+import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+import type { World } from '../world';
+import type {
+	ConfigurableTrait,
+	ExtractStore,
+	TagTrait,
+	Trait,
+	TraitInstance,
+	TraitValue,
+} from './types';
+import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
+import { isRelationPair } from '../relation/utils/is-relation';
 
 // No reason to create a new object every time a tag trait is created.
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-function defineTrait(schema?: undefined | Record<string, never>): TagTrait;
-function defineTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function defineTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+function createTrait(schema?: undefined | Record<string, never>): TagTrait;
+function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
+function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
 	const isAoS = typeof schema === 'function';
-	const traitType: TraitType = isAoS ? 'aos' : 'soa';
+	const isTag = !isAoS && Object.keys(schema).length === 0;
+	const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
 	validateSchema(schema);
 
+	const id = traitId++;
 	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
-		schema: schema as Norm<S>,
 		[$internal]: {
+			id: id,
 			set: createSetFunction[traitType](schema),
 			fastSet: createFastSetFunction[traitType](schema),
 			fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
 			get: createGetFunction[traitType](schema),
-			stores: [] as Store<S>[],
-			id: traitId++,
-			createStore: () => createStore(schema as Norm<S>),
+			createStore: () => createStore<S>(schema),
 			relation: null,
-			isTag: !isAoS && Object.keys(schema).length === 0,
 			type: traitType,
 		},
 	}) as Trait<Norm<S>>;
 
+	// Add public read-only properties
+	Object.defineProperty(Trait, 'id', {
+		value: id,
+		writable: false,
+		enumerable: true,
+		configurable: false,
+	});
+
+	Object.defineProperty(Trait, 'schema', {
+		value: schema,
+		writable: false,
+		enumerable: true,
+		configurable: false,
+	});
+
 	return Trait;
 }
 
-export const trait = defineTrait;
+export const trait = createTrait;
 
 export function registerTrait(world: World, trait: Trait) {
 	const ctx = world[$internal];
 	const traitCtx = trait[$internal];
 
-	const data: TraitData = {
+	const data: TraitInstance = {
 		generationId: ctx.entityMasks.length - 1,
 		bitflag: ctx.bitflag,
 		trait,
@@ -95,11 +107,8 @@ export function registerTrait(world: World, trait: Trait) {
 		removeSubscriptions: new Set(),
 	};
 
-	// Bind a reference to the store on the trait for direct access in queries.
-	traitCtx.stores[world.id] = data.store;
-
 	// Add trait to the world.
-	setTraitData(ctx.traitData, trait, data);
+	setTraitInstance(ctx.traitInstances, trait, data);
 	world.traits.add(trait);
 
 	// Track relations
@@ -117,7 +126,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		const config = traits[i];
 
 		// Handle relation pairs
-		if (isPairConfig(config)) {
+		if (isRelationPair(config)) {
 			addRelationPair(world, entity, config);
 			continue;
 		}
@@ -187,7 +196,8 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 	// Add the target and initialize data
 	const targetIndex = addRelationTarget(world, relation, entity, target);
-	const schema = data?.schema ?? getTraitData(world[$internal].traitData, relationTrait)!.schema;
+	const schema =
+		data?.schema ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!.schema;
 	const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
 	if (defaults) {
@@ -277,7 +287,7 @@ export function cleanupRelationTarget(
 
 export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
-	const data = getTraitData(ctx.traitData, trait);
+	const data = getTraitInstance(ctx.traitInstances, trait);
 	if (!data) return false;
 
 	const { generationId, bitflag } = data;
@@ -292,7 +302,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 	trait: C
 ): ExtractStore<C> {
 	const ctx = world[$internal];
-	const data = getTraitData(ctx.traitData, trait)!;
+	const data = getTraitInstance(ctx.traitInstances, trait)!;
 	return data.store as ExtractStore<C>;
 }
 
@@ -387,16 +397,16 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	world: World,
 	entity: Entity,
 	trait: Trait
-): TraitData | undefined {
+): TraitInstance | undefined {
 	// Exit early if the entity already has the trait
 	if (hasTrait(world, entity, trait)) return undefined;
 
 	const ctx = world[$internal];
 
 	// Register the trait if it's not already registered
-	if (!hasTraitData(ctx.traitData, trait)) registerTrait(world, trait);
+	if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
 
-	const data = getTraitData(ctx.traitData, trait)!;
+	const data = getTraitInstance(ctx.traitInstances, trait)!;
 	const { generationId, bitflag, queries, trackingQueries } = data;
 
 	// Add bitflag to entity bitmask
@@ -447,7 +457,7 @@ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void
 	if (!hasTrait(world, entity, trait)) return;
 
 	const ctx = world[$internal];
-	const data = getTraitData(ctx.traitData, trait)!;
+	const data = getTraitInstance(ctx.traitInstances, trait)!;
 	const { generationId, bitflag, queries, trackingQueries } = data;
 
 	// Call remove subscriptions before removing the trait
