@@ -92,6 +92,42 @@
 	}
 }
 
+/* Header for target picker */
+.header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 16px;
+	border-bottom: 1px solid var(--k-border);
+	background: var(--k-bg-input);
+	flex-shrink: 0;
+}
+
+.backButton {
+	all: unset;
+	cursor: pointer;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 14px;
+	color: var(--k-text-muted);
+	transition: background 0.15s, color 0.15s;
+}
+
+.backButton:hover {
+	background: var(--k-bg-hover);
+	color: var(--k-text-secondary);
+}
+
+.headerTitle {
+	font-size: 11px;
+	color: var(--k-text-muted);
+}
+
+.headerRelation {
+	color: var(--k-text-secondary);
+	font-weight: 500;
+}
+
 .input {
 	width: 100%;
 	padding: 12px 16px;
@@ -171,6 +207,31 @@
 .itemName {
 	color: var(--k-text-secondary);
 	flex: 1;
+}
+
+.itemSelf {
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.relationArrow {
+	color: var(--k-text-muted);
+	font-size: 12px;
+	margin-left: auto;
+}
+
+.entityIcon {
+	color: var(--k-text-muted);
+	flex-shrink: 0;
+}
+
+.selfBadge {
+	font-size: 9px;
+	color: var(--k-text-muted);
+	background: rgba(255, 255, 255, 0.1);
+	padding: 2px 6px;
+	border-radius: 3px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
 }
 
 .empty {

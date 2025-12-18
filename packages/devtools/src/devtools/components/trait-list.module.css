@@ -11,8 +11,8 @@
 	padding: 5px 8px;
 	border-radius: 4px;
 	border: none;
-	background: var(--k-bg-input);
-	color: var(--k-text-secondary);
+	background: var(--bg-input);
+	color: var(--text-secondary);
 	font-size: 10px;
 	font-family: inherit;
 	outline: none;
@@ -20,11 +20,11 @@
 }
 
 .input::placeholder {
-	color: var(--k-text-muted);
+	color: var(--text-muted);
 }
 
 .input:focus {
-	background: var(--k-bg-active);
+	background: var(--bg-active);
 }
 
 .toggle {
@@ -122,4 +122,3 @@
 	color: var(--k-text-muted);
 	font-size: 10px;
 }
-
