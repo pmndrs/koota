@@ -59,11 +59,12 @@ export const cacheQuery = createQuery;
 /** @deprecated Use string instead */
 export type QueryHash = string;
 
-// Note: We will remove this internal type entirely
 import type { TraitInstance } from './trait/types';
 /** @deprecated Use TraitInstance instead */
 export type TraitData = TraitInstance;
+
+/** @deprecated Will remove this internal type entirely */
 export type { TraitInstance } from './trait/types';
 
-// Note: We will remove this internal type entirely
+/** @deprecated Will remove this internal type entirely */
 export type { QueryInstance } from './query/types';
