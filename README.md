@@ -286,6 +286,29 @@ const parent = world.spawn()
 const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 ```
 
+#### Relation events
+
+Relations emit events per **relation pair**. This makes it easy to know exactly which target was involved.
+
+- `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
+- `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
+- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+
+```js
+const ChildOf = relation({ store: { priority: 0 } })
+
+const unsubAdd = world.onAdd(ChildOf, (entity, target) => {})
+const unsubRemove = world.onRemove(ChildOf, (entity, target) => {})
+const unsubChange = world.onChange(ChildOf, (entity, target) => {})
+
+const parent = world.spawn()
+const child = world.spawn()
+
+child.add(ChildOf(parent)) // onAdd(child, parent)
+child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
+child.remove(ChildOf(parent)) // onRemove(child, parent)
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -371,6 +394,8 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
 - `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
+
+When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
 
 ```js
 // Subscribe to Position changes
