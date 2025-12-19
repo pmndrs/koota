@@ -1,13 +1,14 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { setChanged } from '../query/modifiers/changed';
+import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import {
 	addRelationTarget,
 	getFirstRelationTarget,
 	getRelationData,
+	getRelationTargets,
 	hasRelationPair,
 	hasRelationToTarget,
 	removeAllRelationTargets,
@@ -16,6 +17,7 @@ import {
 	setRelationDataAtIndex,
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
+import { isRelationPair } from '../relation/utils/is-relation';
 import {
 	createFastSetChangeFunction,
 	createFastSetFunction,
@@ -28,8 +30,9 @@ import {
 	StoreType,
 	validateSchema,
 } from '../storage';
-import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import type { World } from '../world';
+import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
 import type {
 	ConfigurableTrait,
 	ExtractStore,
@@ -38,8 +41,6 @@ import type {
 	TraitInstance,
 	TraitValue,
 } from './types';
-import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
-import { isRelationPair } from '../relation/utils/is-relation';
 
 // No reason to create a new object every time a tag trait is created.
 const tagSchema = Object.freeze({});
@@ -183,17 +184,21 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 	if (relationCtx.exclusive) {
 		const oldTarget = getFirstRelationTarget(world, relation, entity);
 		if (oldTarget !== undefined && oldTarget !== target) {
-			removeRelationTarget(world, relation, entity, oldTarget, true);
+			const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
+			if (instance) {
+				for (const sub of instance.removeSubscriptions) sub(entity, oldTarget);
+			}
+			removeRelationTarget(world, relation, entity, oldTarget);
 		}
 	}
 
-	// Add the relation trait. Returns the trait data if it was just added.
-	const data = addTraitToEntity(world, entity, relationTrait);
-	const isFirstTarget = !!data;
+	let instance = addTraitToEntity(world, entity, relationTrait);
 
-	const targetIndex = addRelationTarget(world, relation, entity, target, isFirstTarget);
+	const targetIndex = addRelationTarget(world, relation, entity, target);
+	if (targetIndex === -1) return; // No-op
+
 	const schema =
-		data?.schema ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!.schema;
+		instance?.schema ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!.schema;
 	const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
 	if (defaults) {
@@ -202,8 +207,9 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 		setRelationDataAtIndex(world, entity, relation, targetIndex, params);
 	}
 
-	// Call add subscriptions after values are set
-	if (data) for (const sub of data.addSubscriptions) sub(entity);
+	// Fire add subscription for this pair
+	instance = instance ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!;
+	for (const sub of instance.addSubscriptions) sub(entity, target);
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: (Trait | RelationPair)[]) {
@@ -219,9 +225,18 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 		// Exit early if the entity doesn't have the trait.
 		if (!hasTrait(world, entity, trait)) continue;
 
-		// If this trait belongs to a relation, clean up all targets first.
+		// If this trait belongs to a relation, fire remove subscriptions for each pair
 		const traitCtx = trait[$internal];
-		if (traitCtx.relation) removeAllRelationTargets(world, traitCtx.relation, entity);
+		if (traitCtx.relation) {
+			const instance = getTraitInstance(world[$internal].traitInstances, trait);
+			if (instance) {
+				const targets = getRelationTargets(world, traitCtx.relation, entity);
+				for (const t of targets) {
+					for (const sub of instance.removeSubscriptions) sub(entity, t);
+				}
+			}
+			removeAllRelationTargets(world, traitCtx.relation, entity);
+		}
 
 		// Remove the trait from the entity
 		removeTraitFromEntity(world, entity, trait);
@@ -241,8 +256,18 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 	// Check if entity has this relation
 	if (!hasTrait(world, entity, relationTrait)) return;
 
+	const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
+
 	// Handle wildcard target -- remove all targets and the base trait.
 	if (target === '*') {
+		// Fire remove subscription for each pair
+		if (instance) {
+			const targets = getRelationTargets(world, relation, entity);
+			for (const t of targets) {
+				for (const sub of instance.removeSubscriptions) sub(entity, t);
+			}
+		}
+
 		removeAllRelationTargets(world, relation, entity);
 		removeTraitFromEntity(world, entity, relationTrait);
 		return;
@@ -250,6 +275,11 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 
 	// Remove specific target.
 	if (typeof target === 'number') {
+		// Fire remove subscription for this pair
+		if (instance) {
+			for (const sub of instance.removeSubscriptions) sub(entity, target);
+		}
+
 		const { removedIndex, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
 		if (removedIndex === -1) return;
 
@@ -269,20 +299,28 @@ export function cleanupRelationTarget(
 	entity: Entity,
 	target: Entity
 ): void {
+	const relationTrait = relation[$internal].trait;
+
+	// Fire remove subscription for this pair
+	const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
+	if (instance) {
+		for (const sub of instance.removeSubscriptions) sub(entity, target);
+	}
+
 	const { removedIndex, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
 	if (removedIndex === -1) return;
 
 	if (wasLastTarget) {
-		removeTraitFromEntity(world, entity, relation[$internal].trait);
+		removeTraitFromEntity(world, entity, relationTrait);
 	}
 }
 
 export function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
 	const ctx = world[$internal];
-	const data = getTraitInstance(ctx.traitInstances, trait);
-	if (!data) return false;
+	const instance = getTraitInstance(ctx.traitInstances, trait);
+	if (!instance) return false;
 
-	const { generationId, bitflag } = data;
+	const { generationId, bitflag } = instance;
 	const eid = getEntityId(entity);
 	const mask = ctx.entityMasks[generationId][eid];
 
@@ -294,8 +332,8 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 	trait: C
 ): ExtractStore<C> {
 	const ctx = world[$internal];
-	const data = getTraitInstance(ctx.traitInstances, trait)!;
-	return data.store as ExtractStore<C>;
+	const instance = getTraitInstance(ctx.traitInstances, trait)!;
+	return instance.store as ExtractStore<C>;
 }
 
 export function setTrait(
@@ -356,9 +394,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	if (typeof target !== 'number') return;
 
 	setRelationData(world, entity, relation, target, value);
-	if (triggerChanged) {
-		setChanged(world, entity, relation[$internal].trait);
-	}
+	if (triggerChanged) setPairChanged(world, entity, relation[$internal].trait, target);
 }
 
 /**
@@ -398,8 +434,8 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	// Register the trait if it's not already registered
 	if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
 
-	const data = getTraitInstance(ctx.traitInstances, trait)!;
-	const { generationId, bitflag, queries, trackingQueries } = data;
+	const instance = getTraitInstance(ctx.traitInstances, trait)!;
+	const { generationId, bitflag, queries, trackingQueries } = instance;
 
 	// Add bitflag to entity bitmask
 	const eid = getEntityId(entity);
@@ -438,7 +474,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	// Add trait to entity internally
 	ctx.entityTraits.get(entity)!.add(trait);
 
-	return data;
+	return instance;
 }
 
 /**
@@ -449,11 +485,11 @@ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void
 	if (!hasTrait(world, entity, trait)) return;
 
 	const ctx = world[$internal];
-	const data = getTraitInstance(ctx.traitInstances, trait)!;
-	const { generationId, bitflag, queries, trackingQueries } = data;
+	const instance = getTraitInstance(ctx.traitInstances, trait)!;
+	const { generationId, bitflag, queries, trackingQueries } = instance;
 
 	// Call remove subscriptions before removing the trait
-	for (const sub of data.removeSubscriptions) {
+	for (const sub of instance.removeSubscriptions) {
 		sub(entity);
 	}
 
