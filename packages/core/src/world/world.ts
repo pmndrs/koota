@@ -10,7 +10,7 @@ import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { getEntitiesWithRelationTo } from '../relation/relation';
 import type { Relation } from '../relation/types';
-import { isRelationPair } from '../relation/utils/is-relation';
+import { isRelation, isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
@@ -227,20 +227,6 @@ export function createWorld(
 			return world.query(...args)[0];
 		},
 
-		onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
-			const ctx = world[$internal];
-			let data = getTraitInstance(ctx.traitInstances, trait);
-
-			if (!data) {
-				registerTrait(world, trait);
-				data = getTraitInstance(ctx.traitInstances, trait)!;
-			}
-
-			data.addSubscriptions.add(callback);
-
-			return () => data.addSubscriptions.delete(callback);
-		},
-
 		onQueryAdd(
 			args: Query<QueryParameter[]> | QueryParameter[],
 			callback: (entity: Entity) => void
@@ -311,13 +297,37 @@ export function createWorld(
 			return () => query.removeSubscriptions.delete(callback);
 		},
 
-		onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber {
+		onAdd<T extends Trait>(
+			trait: T | Relation<T>,
+			callback: (entity: Entity, target?: Entity) => void
+		): QueryUnsubscriber {
 			const ctx = world[$internal];
-			let data = getTraitInstance(ctx.traitInstances, trait);
+			const target = isRelation(trait) ? trait[$internal].trait : trait;
+
+			let data = getTraitInstance(ctx.traitInstances, target);
 
 			if (!data) {
-				registerTrait(world, trait);
-				data = getTraitInstance(ctx.traitInstances, trait)!;
+				registerTrait(world, target);
+				data = getTraitInstance(ctx.traitInstances, target)!;
+			}
+
+			data.addSubscriptions.add(callback);
+
+			return () => data.addSubscriptions.delete(callback);
+		},
+
+		onRemove<T extends Trait>(
+			trait: T | Relation<T>,
+			callback: (entity: Entity, target?: Entity) => void
+		): QueryUnsubscriber {
+			const ctx = world[$internal];
+			const target = isRelation(trait) ? trait[$internal].trait : trait;
+
+			let data = getTraitInstance(ctx.traitInstances, target);
+
+			if (!data) {
+				registerTrait(world, target);
+				data = getTraitInstance(ctx.traitInstances, target)!;
 			}
 
 			data.removeSubscriptions.add(callback);
@@ -325,21 +335,25 @@ export function createWorld(
 			return () => data.removeSubscriptions.delete(callback);
 		},
 
-		onChange(trait: Trait, callback: (entity: Entity) => void) {
+		onChange(
+			trait: Trait | Relation<Trait>,
+			callback: (entity: Entity, target?: Entity) => void
+		) {
 			const ctx = world[$internal];
+			const target = isRelation(trait) ? trait[$internal].trait : trait;
 
 			// Register the trait if it's not already registered.
-			if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
+			if (!hasTraitInstance(ctx.traitInstances, target)) registerTrait(world, target);
 
-			const data = getTraitInstance(ctx.traitInstances, trait)!;
+			const data = getTraitInstance(ctx.traitInstances, target)!;
 			data.changeSubscriptions.add(callback);
 
 			// Used by auto change detection to know which traits to track.
-			ctx.trackedTraits.add(trait);
+			ctx.trackedTraits.add(target);
 
 			return () => {
 				data.changeSubscriptions.delete(callback);
-				if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(trait);
+				if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(target);
 			};
 		},
 	} as World;
