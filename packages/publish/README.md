@@ -95,10 +95,10 @@ function RocketView({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { createActions } from 'koota'
+import { defineActions } from 'koota'
 import { useActions } from 'koota/react'
 
-const actions = createActions((world) => ({
+const actions = defineActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
   destroyAllShips: () => {
     world.query(Position, Velocity).forEach((entity) => {
@@ -286,6 +286,29 @@ const parent = world.spawn()
 const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 ```
 
+#### Relation events
+
+Relations emit events per **relation pair**. This makes it easy to know exactly which target was involved.
+
+- `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
+- `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
+- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+
+```js
+const ChildOf = relation({ store: { priority: 0 } })
+
+const unsubAdd = world.onAdd(ChildOf, (entity, target) => {})
+const unsubRemove = world.onRemove(ChildOf, (entity, target) => {})
+const unsubChange = world.onChange(ChildOf, (entity, target) => {})
+
+const parent = world.spawn()
+const child = world.spawn()
+
+child.add(ChildOf(parent)) // onAdd(child, parent)
+child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
+child.remove(ChildOf(parent)) // onRemove(child, parent)
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -394,9 +417,14 @@ entity.set(Position, { x: 10, y: 20 })
 entity.remove(Position)
 ```
 
+When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
+
 ```js
-// Returns all queryable entities
-const allQueryableEntities = world.query()
+const Likes = relation()
+
+const unsub = world.onAdd(Likes, (entity, target) => {
+  console.log(`Entity ${entity} likes ${target}`)
+})
 ```
 
 ### Change detection with `updateEach`
@@ -808,7 +836,7 @@ const positions = getStore(world, Position)
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-#### Caching queries
+#### Defining queries
 
 Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
 
@@ -820,13 +848,13 @@ function updateMovement(world) {
 }
 ```
 
-While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned key. This will have the additional effect of creating the internal query immediately on a worlds, otherwise it will get created the first time it is run.
+While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned ref. This will have the additional effect of creating the internal query immediately on all worlds, otherwise it will get created the first time it is run.
 
 ```js
 // The internal query is created immediately before it is invoked
-const movementQuery = cacheQuery(Position, Velocity)
+const movementQuery = defineQuery(Position, Velocity)
 
-// They query key is hashed ahead of time and we just use it
+// The query ref is used for fast array-based lookup
 function updateMovement(world) {
   world.query(movementQuery).updateEach(([pos, vel]) => {})
 }
@@ -834,7 +862,7 @@ function updateMovement(world) {
 
 #### Query all entities
 
-To get all queryable entities you simply query with no parameters.
+To get all queryable entities you simply query the world with no parameters.
 
 ```js
 const allEntities = world.query()
@@ -1016,11 +1044,11 @@ useTraitEffect(world, GameState, (state) => {
 
 ### `useActions`
 
-Returns actions bound to the world that is context. Use actions created by `createActions`.
+Returns actions bound to the world that is in context. Use actions created by `defineActions`.
 
 ```js
 // Create actions
-const actions = createActions((world) => ({
+const actions = defineActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer).
     destroyAllPlayers: () => {
         world.query(IsPlayer).forEach((player) => {
