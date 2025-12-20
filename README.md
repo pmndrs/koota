@@ -72,11 +72,7 @@ createRoot(document.getElementById('root')!).render(
 function RocketRenderer() {
     // Reactively update whenever the query updates with new entities
     const rockets = useQuery(Position, Velocity)
-    return (
-        <>
-            {rockets.map((entity) => <RocketView key={entity} entity={entity} />)}
-        </>
-    )
+    return rockets.map((entity) => <RocketView key={entity} entity={entity} />)
 }
 
 function RocketView({ entity }) {
@@ -84,7 +80,7 @@ function RocketView({ entity }) {
     const position = useTrait(entity, Position)
     return (
         <div style={{ position: 'absolute', left: position.x ?? 0, top: position.y ?? 0 }}>
-        🚀
+          🚀
         </div>
     )
 }
