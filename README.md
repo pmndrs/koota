@@ -395,8 +395,6 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
 - `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
 
-When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
-
 ```js
 // Subscribe to Position changes
 const unsub = world.onChange(Position, (entity) => {
@@ -419,9 +417,14 @@ entity.set(Position, { x: 10, y: 20 })
 entity.remove(Position)
 ```
 
+When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
+
 ```js
-// Returns all queryable entities
-const allQueryableEntities = world.query()
+const Likes = relation()
+
+const unsub = world.onAdd(Likes, (entity, target) => {
+  console.log(`Entity ${entity} likes ${target}`)
+})
 ```
 
 ### Change detection with `updateEach`
@@ -859,7 +862,7 @@ function updateMovement(world) {
 
 #### Query all entities
 
-To get all queryable entities you simply query with no parameters.
+To get all queryable entities you simply query the world with no parameters.
 
 ```js
 const allEntities = world.query()
