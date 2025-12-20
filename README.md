@@ -286,6 +286,29 @@ const parent = world.spawn()
 const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 ```
 
+#### Relation events
+
+Relations emit events per **relation pair**. This makes it easy to know exactly which target was involved.
+
+- `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
+- `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
+- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+
+```js
+const ChildOf = relation({ store: { priority: 0 } })
+
+const unsubAdd = world.onAdd(ChildOf, (entity, target) => {})
+const unsubRemove = world.onRemove(ChildOf, (entity, target) => {})
+const unsubChange = world.onChange(ChildOf, (entity, target) => {})
+
+const parent = world.spawn()
+const child = world.spawn()
+
+child.add(ChildOf(parent)) // onAdd(child, parent)
+child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
+child.remove(ChildOf(parent)) // onRemove(child, parent)
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -394,9 +417,14 @@ entity.set(Position, { x: 10, y: 20 })
 entity.remove(Position)
 ```
 
+When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
+
 ```js
-// Returns all queryable entities
-const allQueryableEntities = world.query()
+const Likes = relation()
+
+const unsub = world.onAdd(Likes, (entity, target) => {
+  console.log(`Entity ${entity} likes ${target}`)
+})
 ```
 
 ### Change detection with `updateEach`
@@ -834,7 +862,7 @@ function updateMovement(world) {
 
 #### Query all entities
 
-To get all queryable entities you simply query with no parameters.
+To get all queryable entities you simply query the world with no parameters.
 
 ```js
 const allEntities = world.query()
