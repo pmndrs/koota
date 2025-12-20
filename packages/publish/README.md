@@ -72,11 +72,7 @@ createRoot(document.getElementById('root')!).render(
 function RocketRenderer() {
     // Reactively update whenever the query updates with new entities
     const rockets = useQuery(Position, Velocity)
-    return (
-        <>
-            {rockets.map((entity) => <RocketView key={entity} entity={entity} />)}
-        </>
-    )
+    return rockets.map((entity) => <RocketView key={entity} entity={entity} />)
 }
 
 function RocketView({ entity }) {
@@ -84,7 +80,7 @@ function RocketView({ entity }) {
     const position = useTrait(entity, Position)
     return (
         <div style={{ position: 'absolute', left: position.x ?? 0, top: position.y ?? 0 }}>
-        🚀
+          🚀
         </div>
     )
 }
@@ -1040,6 +1036,44 @@ useTraitEffect(world, GameState, (state) => {
   if (!state) return
   console.log('Game state changed:', state)
 })
+```
+
+### `useTarget`
+
+Observes an entity, or world, for a relation and reactively returns the first target entity. Returns `undefined` if no target exists.
+
+```js
+const ChildOf = relation()
+
+function ParentDisplay({ entity }) {
+  // Returns the first target of the ChildOf relation
+  const parent = useTarget(entity, ChildOf)
+
+  if (!parent) return <div>No parent</div>
+
+  return <div>Parent: {parent.id()}</div>
+}
+```
+
+### `useTargets`
+
+Observes an entity, or world, for a relation and reactively returns all target entities as an array. Returns an empty array if no targets exist.
+
+```js
+const Contains = relation()
+
+function InventoryDisplay({ entity }) {
+  // Returns all targets of the Contains relation
+  const items = useTargets(entity, Contains)
+
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.id()}>Item {item.id()}</li>
+      ))}
+    </ul>
+  )
+}
 ```
 
 ### `useActions`

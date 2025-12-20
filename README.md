@@ -1038,6 +1038,44 @@ useTraitEffect(world, GameState, (state) => {
 })
 ```
 
+### `useTarget`
+
+Observes an entity, or world, for a relation and reactively returns the first target entity. Returns `undefined` if no target exists.
+
+```js
+const ChildOf = relation()
+
+function ParentDisplay({ entity }) {
+  // Returns the first target of the ChildOf relation
+  const parent = useTarget(entity, ChildOf)
+
+  if (!parent) return <div>No parent</div>
+
+  return <div>Parent: {parent.id()}</div>
+}
+```
+
+### `useTargets`
+
+Observes an entity, or world, for a relation and reactively returns all target entities as an array. Returns an empty array if no targets exist.
+
+```js
+const Contains = relation()
+
+function InventoryDisplay({ entity }) {
+  // Returns all targets of the Contains relation
+  const items = useTargets(entity, Contains)
+
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.id()}>Item {item.id()}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
 ### `useActions`
 
 Returns actions bound to the world that is in context. Use actions created by `defineActions`.
