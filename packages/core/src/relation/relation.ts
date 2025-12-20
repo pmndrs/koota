@@ -179,6 +179,7 @@ export /* @inline */ function hasRelationToTarget(
 /**
  * Add a relation target to an entity.
  * Returns the index of the target in the targets array.
+ * If the target already exists, returns -1.
  */
 export function addRelationTarget(
 	world: World,
@@ -203,8 +204,10 @@ export function addRelationTarget(
 
 	if (relationCtx.exclusive) {
 		const targets = traitData.relationTargets as Array<Entity | undefined>;
+		// No-op if unchanged
+		if (targets[eid] === target) return -1;
 		targets[eid] = target;
-		targetIndex = 0; // Exclusive always has index 0
+		targetIndex = 0;
 	} else {
 		const targetsArray = traitData.relationTargets as number[][];
 		if (!targetsArray[eid]) {
@@ -214,14 +217,13 @@ export function addRelationTarget(
 		// Check if already exists
 		const existingIndex = targetsArray[eid].indexOf(target);
 		if (existingIndex !== -1) {
-			return existingIndex;
+			return -1;
 		}
 
 		targetIndex = targetsArray[eid].length;
 		targetsArray[eid].push(target);
 	}
 
-	// Update queries that filter by this relation
 	updateQueriesForRelationChange(world, relation, entity);
 
 	return targetIndex;
@@ -229,31 +231,32 @@ export function addRelationTarget(
 
 /**
  * Remove a relation target from an entity.
- * Returns the index that was removed, or -1 if not found.
+ * Returns the removed index and whether this was the last target.
  */
 export function removeRelationTarget(
 	world: World,
 	relation: Relation<Trait>,
 	entity: Entity,
 	target: Entity
-): number {
+): { removedIndex: number; wasLastTarget: boolean } {
 	const ctx = world[$internal];
 	const relationCtx = relation[$internal];
 	const relationTrait = relationCtx.trait;
 
 	const data = getTraitInstance(ctx.traitInstances, relationTrait);
-	if (!data || !data.relationTargets) return -1;
+	if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
 
 	const eid = getEntityId(entity);
 
 	let removedIndex = -1;
+	let hasRemainingTargets = false;
 
 	if (relationCtx.exclusive) {
 		const targets = data.relationTargets as Array<Entity | undefined>;
 		if (targets[eid] === target) {
 			targets[eid] = undefined;
 			removedIndex = 0;
-			// Clear exclusive data
+			hasRemainingTargets = false;
 			clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
 		}
 	} else {
@@ -263,22 +266,23 @@ export function removeRelationTarget(
 			const idx = entityTargets.indexOf(target);
 			if (idx !== -1) {
 				const lastIdx = entityTargets.length - 1;
-				// Swap-and-pop targets
 				if (idx !== lastIdx) {
 					entityTargets[idx] = entityTargets[lastIdx];
 				}
 				entityTargets.pop();
-				// Swap-and-pop data to match
 				swapAndPopRelationData(data.store, relationTrait[$internal].type, eid, idx, lastIdx);
 				removedIndex = idx;
+				hasRemainingTargets = entityTargets.length > 0;
 			}
 		}
 	}
 
-	// Update queries that filter by this relation
-	if (removedIndex !== -1) updateQueriesForRelationChange(world, relation, entity);
+	if (removedIndex !== -1) {
+		updateQueriesForRelationChange(world, relation, entity);
+	}
 
-	return removedIndex;
+	const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
+	return { removedIndex, wasLastTarget };
 }
 
 /**
@@ -353,6 +357,7 @@ function clearRelationDataInternal(
 
 /**
  * Remove all relation targets from an entity.
+ * Used for bulk removal when the base trait is also being removed.
  */
 export function removeAllRelationTargets(
 	world: World,

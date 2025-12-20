@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createAdded, createChanged, createRemoved, createWorld, Not, relation, trait } from '../src';
+import { $internal, createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
 	const world = createWorld();
@@ -331,125 +331,105 @@ describe('Relation', () => {
 		const child2 = world.spawn(ChildOf(parent)); // No weapon
 
 		// Query for children WITHOUT weapon
-		let result = world.query(ChildOf(parent), Not(Weapon));
+		const notResult = world.query(ChildOf(parent), Not(Weapon));
 
-		expect(result.length).toBe(1);
-		expect(result).toContain(child2);
-		expect(result).not.toContain(child1);
+		expect(notResult.length).toBe(1);
+		expect(notResult).toContain(child2);
+		expect(notResult).not.toContain(child1);
 
-		result = world.query(ChildOf(parent), Weapon);
-		expect(result.length).toBe(1);
-		expect(result).toContain(child1);
-		expect(result).not.toContain(child2);
+		const weaponResult = world.query(ChildOf(parent), Weapon);
+		expect(weaponResult.length).toBe(1);
+		expect(weaponResult).toContain(child1);
+		expect(weaponResult).not.toContain(child2);
 	});
 
-	it('should track Changed modifier for relation stores', () => {
-		const Changed = createChanged();
+	it('should emit add/remove events for each pair', () => {
+		const Likes = relation();
+
+		const subject = world.spawn();
+		const targetA = world.spawn();
+		const targetB = world.spawn();
+
+		const adds: Array<{ entity: number; target?: number }> = [];
+		const removes: Array<{ entity: number; target?: number }> = [];
+
+		const unsubAdd = world.onAdd(Likes, (e, t) => adds.push({ entity: e, target: t }));
+		const unsubRemove = world.onRemove(Likes, (e, t) => removes.push({ entity: e, target: t }));
+
+		// First add: fires add event for pair (subject, a)
+		subject.add(Likes(targetA));
+		expect(adds).toEqual([{ entity: subject, target: targetA }]);
+		expect(removes).toEqual([]);
+
+		// Second add: fires add event for pair (subject, b)
+		subject.add(Likes(targetB));
+		expect(adds).toEqual([
+			{ entity: subject, target: targetA },
+			{ entity: subject, target: targetB },
+		]);
+		expect(subject.targetsFor(Likes).sort()).toEqual([targetA, targetB].sort());
+
+		// Remove one target: fires remove event for pair (subject, a)
+		subject.remove(Likes(targetA));
+		expect(removes).toEqual([{ entity: subject, target: targetA }]);
+		expect(subject.targetsFor(Likes)).toEqual([targetB]);
+
+		unsubAdd();
+		unsubRemove();
+	});
+
+	it('should emit add/remove events when switching an exclusive relation target', () => {
+		const Parent = relation({ exclusive: true });
+
+		const subject = world.spawn();
+		const targetA = world.spawn();
+		const targetB = world.spawn();
+
+		const adds: Array<{ entity: number; target?: number }> = [];
+		const removes: Array<{ entity: number; target?: number }> = [];
+
+		const unsubAdd = world.onAdd(Parent, (e, t) => adds.push({ entity: e, target: t }));
+		const unsubRemove = world.onRemove(Parent, (e, t) => removes.push({ entity: e, target: t }));
+
+		// First add
+		subject.add(Parent(targetA));
+		expect(adds).toEqual([{ entity: subject, target: targetA }]);
+
+		// Switch targets: should fire remove for old, add for new
+		subject.add(Parent(targetB));
+		expect(removes).toEqual([{ entity: subject, target: targetA }]);
+		expect(adds).toEqual([
+			{ entity: subject, target: targetA },
+			{ entity: subject, target: targetB },
+		]);
+		expect(subject.targetFor(Parent)).toBe(targetB);
+
+		unsubAdd();
+		unsubRemove();
+	});
+
+	it('should emit change events when relation store is updated', () => {
 		const ChildOf = relation({ store: { order: 0 } });
 
-		const parent = world.spawn();
-		const child1 = world.spawn(ChildOf(parent));
-		const child2 = world.spawn(ChildOf(parent));
-
-		// This tracks changes to ChildOf relation store for entities related to parent
-		let changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
-		expect(changedEntities.length).toBe(0);
-
-		// Update relation store for child1
-		child1.set(ChildOf(parent), { order: 1 });
-
-		// Query should now include child1
-		changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
-		expect(changedEntities.length).toBe(1);
-		expect(changedEntities).toContain(child1);
-		expect(changedEntities).not.toContain(child2);
-
-		// Verify the order was updated
-		expect(child1.get(ChildOf(parent))?.order).toBe(1);
-		expect(child2.get(ChildOf(parent))?.order).toBe(0);
-
-		// After query, changes are reset
-		changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
-		expect(changedEntities.length).toBe(0);
-
-		// Update both children
-		child1.set(ChildOf(parent), { order: 2 });
-		child2.set(ChildOf(parent), { order: 3 });
-
-		// Both should be in the query
-		changedEntities = world.query(Changed(ChildOf), ChildOf(parent));
-		expect(changedEntities.length).toBe(2);
-		expect(changedEntities).toContain(child1);
-		expect(changedEntities).toContain(child2);
-	});
-
-	it('should track Added modifier for relations', () => {
-		const Added = createAdded();
-		const ChildOf = relation();
+		const changes: Array<{ entity: number; target?: number }> = [];
+		const unsub = world.onChange(ChildOf, (e, t) => changes.push({ entity: e, target: t }));
 
 		const parent = world.spawn();
-		const entity1 = world.spawn();
-		const entity2 = world.spawn();
+		const child = world.spawn(ChildOf(parent));
 
-		// No entities have the ChildOf relation yet
-		let addedEntities = world.query(Added(ChildOf));
-		expect(addedEntities.length).toBe(0);
+		expect(changes).toEqual([]);
 
-		// Add relation to entity1
-		entity1.add(ChildOf(parent));
+		// Update relation store
+		child.set(ChildOf(parent), { order: 1 });
+		expect(changes).toEqual([{ entity: child, target: parent }]);
 
-		// Query should now include entity1
-		addedEntities = world.query(Added(ChildOf));
-		expect(addedEntities.length).toBe(1);
-		expect(addedEntities).toContain(entity1);
-		expect(addedEntities).not.toContain(entity2);
+		// Update again
+		child.set(ChildOf(parent), { order: 2 });
+		expect(changes).toEqual([
+			{ entity: child, target: parent },
+			{ entity: child, target: parent },
+		]);
 
-		// After query, tracking is reset
-		addedEntities = world.query(Added(ChildOf));
-		expect(addedEntities.length).toBe(0);
-
-		// Add relation to entity2
-		entity2.add(ChildOf(parent));
-
-		// Query should now include entity2
-		addedEntities = world.query(Added(ChildOf));
-		expect(addedEntities.length).toBe(1);
-		expect(addedEntities).toContain(entity2);
-		expect(addedEntities).not.toContain(entity1);
-	});
-
-	it('should track Removed modifier for relations', () => {
-		const Removed = createRemoved();
-		const ChildOf = relation();
-
-		const parent = world.spawn();
-		const entity1 = world.spawn(ChildOf(parent));
-		const entity2 = world.spawn(ChildOf(parent));
-
-		// No entities have had the relation removed yet
-		let removedEntities = world.query(Removed(ChildOf));
-		expect(removedEntities.length).toBe(0);
-
-		// Remove relation from entity1
-		entity1.remove(ChildOf(parent));
-
-		// Query should now include entity1
-		removedEntities = world.query(Removed(ChildOf));
-		expect(removedEntities.length).toBe(1);
-		expect(removedEntities).toContain(entity1);
-		expect(removedEntities).not.toContain(entity2);
-
-		// After query, tracking is reset
-		removedEntities = world.query(Removed(ChildOf));
-		expect(removedEntities.length).toBe(0);
-
-		// Remove relation from entity2
-		entity2.remove(ChildOf(parent));
-
-		// Query should now include entity2
-		removedEntities = world.query(Removed(ChildOf));
-		expect(removedEntities.length).toBe(1);
-		expect(removedEntities).toContain(entity2);
-		expect(removedEntities).not.toContain(entity1);
+		unsub();
 	});
 });

@@ -95,9 +95,9 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
 	/** Queries that filter by this relation (only for relation traits) */
 	relationQueries: Set<QueryInstance>;
 	schema: S;
-	changeSubscriptions: Set<(entity: Entity) => void>;
-	addSubscriptions: Set<(entity: Entity) => void>;
-	removeSubscriptions: Set<(entity: Entity) => void>;
+	changeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
+	addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
+	removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
 	/**
 	 * Only for relation traits.
 	 * For exclusive: relationTargets[eid] = targetId (number)

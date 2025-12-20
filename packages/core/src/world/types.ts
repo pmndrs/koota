@@ -66,23 +66,35 @@ export type World = {
 	query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
 	queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
 	queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
+	onQueryAdd<T extends QueryParameter[]>(
+		key: Query<T>,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryAdd<T extends QueryParameter[]>(
+		parameters: T,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryRemove<T extends QueryParameter[]>(
+		key: Query<T>,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
+	onQueryRemove<T extends QueryParameter[]>(
+		parameters: T,
+		callback: (entity: Entity) => void
+	): QueryUnsubscriber;
 	onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-	onQueryAdd<T extends QueryParameter[]>(
-		key: Query<T>,
-		callback: (entity: Entity) => void
-	): QueryUnsubscriber;
-	onQueryAdd<T extends QueryParameter[]>(
-		parameters: T,
-		callback: (entity: Entity) => void
-	): QueryUnsubscriber;
-	onQueryRemove<T extends QueryParameter[]>(
-		key: Query<T>,
-		callback: (entity: Entity) => void
-	): QueryUnsubscriber;
-	onQueryRemove<T extends QueryParameter[]>(
-		parameters: T,
-		callback: (entity: Entity) => void
+	onAdd<T extends Trait>(
+		relation: Relation<T>,
+		callback: (entity: Entity, target: Entity) => void
 	): QueryUnsubscriber;
 	onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-	onChange(trait: Trait, callback: (entity: Entity) => void): QueryUnsubscriber;
+	onRemove<T extends Trait>(
+		relation: Relation<T>,
+		callback: (entity: Entity, target: Entity) => void
+	): QueryUnsubscriber;
+	onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
+	onChange<T extends Trait>(
+		relation: Relation<T>,
+		callback: (entity: Entity, target: Entity) => void
+	): QueryUnsubscriber;
 };
