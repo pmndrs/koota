@@ -22,8 +22,8 @@ describe('useTarget', () => {
 	it('reactively returns the target for an entity relation', async () => {
 		const Parent = relation({ exclusive: true });
 		const subject = world.spawn(Marker);
-		const a = world.spawn(Marker);
-		const b = world.spawn(Marker);
+		const targetA = world.spawn(Marker);
+		const targetB = world.spawn(Marker);
 
 		let target: Entity | undefined;
 		function Test() {
@@ -44,17 +44,17 @@ describe('useTarget', () => {
 		expect(target).toBeUndefined();
 
 		await act(async () => {
-			subject.add(Parent(a));
+			subject.add(Parent(targetA));
 		});
-		expect(target).toBe(a);
+		expect(target).toBe(targetA);
 
 		await act(async () => {
-			subject.add(Parent(b));
+			subject.add(Parent(targetB));
 		});
-		expect(target).toBe(b);
+		expect(target).toBe(targetB);
 
 		await act(async () => {
-			subject.remove(Parent(b));
+			subject.remove(Parent(targetB));
 		});
 		expect(target).toBeUndefined();
 	});
@@ -69,8 +69,8 @@ describe('useTargets', () => {
 	it('reactively returns targets for an entity relation', async () => {
 		const Likes = relation();
 		const subject = world.spawn(Marker);
-		const a = world.spawn(Marker);
-		const b = world.spawn(Marker);
+		const targetA = world.spawn(Marker);
+		const targetB = world.spawn(Marker);
 
 		let targets: Entity[] = null!;
 		function Test() {
@@ -91,16 +91,16 @@ describe('useTargets', () => {
 		expect(targets).toEqual([]);
 
 		await act(async () => {
-			subject.add(Likes(a));
-			subject.add(Likes(b));
+			subject.add(Likes(targetA));
+			subject.add(Likes(targetB));
 		});
 
-		expect([...targets].sort()).toEqual([a, b].sort());
+		expect([...targets].sort()).toEqual([targetA, targetB].sort());
 
 		await act(async () => {
-			subject.remove(Likes(a));
+			subject.remove(Likes(targetA));
 		});
 
-		expect(targets).toEqual([b]);
+		expect(targets).toEqual([targetB]);
 	});
 });

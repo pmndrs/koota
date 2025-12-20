@@ -1,5 +1,5 @@
 import { $internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
-import { useEffect, useMemo, useState } from 'react';
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
@@ -30,35 +30,36 @@ export function useTarget<T extends Trait>(
 	return value;
 }
 
-function createSubscriptions<T extends Trait>(target: Entity | World, relation: Relation<T>, contextWorld: World) {
+function createSubscriptions<T extends Trait>(
+	target: Entity | World,
+	relation: Relation<T>,
+	contextWorld: World
+) {
 	const world = isWorld(target) ? target : contextWorld;
 	const entity = isWorld(target) ? target[$internal].worldEntity : target;
-	const relationTrait = relation[$internal].trait;
 
 	return {
 		entity,
-		subscribe: (setValue: (value: Entity | undefined) => void) => {
-			const onChangeUnsub = world.onChange(relationTrait, (e) => {
+		subscribe: (setValue: Dispatch<SetStateAction<Entity | undefined>>) => {
+			const onAddUnsub = world.onAdd(relation, (e, t) => {
 				if (e === entity) setValue(entity.targetFor(relation));
 			});
 
-			const onAddUnsub = world.onAdd(relationTrait, (e) => {
+			const onRemoveUnsub = world.onRemove(relation, (e, t) => {
 				if (e === entity) setValue(entity.targetFor(relation));
 			});
 
-			const onRemoveUnsub = world.onRemove(relationTrait, (e) => {
-				if (e === entity) setValue(undefined);
+			const onChangeUnsub = world.onChange(relation, (e, t) => {
+				if (e === entity) setValue(entity.targetFor(relation));
 			});
 
 			setValue(entity.targetFor(relation));
 
 			return () => {
-				onChangeUnsub();
 				onAddUnsub();
 				onRemoveUnsub();
+				onChangeUnsub();
 			};
 		},
 	};
 }
-
-
