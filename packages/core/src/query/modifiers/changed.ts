@@ -28,7 +28,8 @@ export function createChanged() {
 	};
 }
 
-export function setChanged(world: World, entity: Entity, trait: Trait) {
+/** @inline */
+function markChanged(world: World, entity: Entity, trait: Trait) {
 	const ctx = world[$internal];
 
 	// Early exit if the trait is not on the entity.
@@ -38,36 +39,21 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 	if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
 	const data = getTraitInstance(ctx.traitInstances, trait)!;
 
-	// Mark the trait as changed for the entity.
-	// This is used for filling initial values for Changed modifiers.
+	// Mark the trait as changed in bitmasks for Changed modifiers.
+	const eid = getEntityId(entity);
+	const { generationId, bitflag } = data;
+
 	for (const changedMask of ctx.changedMasks.values()) {
-		const eid = getEntityId(entity);
-		const data = getTraitInstance(ctx.traitInstances, trait)!;
-		const { generationId, bitflag } = data;
-
-		// Ensure the generation array exists
-		if (!changedMask[generationId]) {
-			changedMask[generationId] = [];
-		}
-
-		// Ensure the entity mask exists
-		if (!changedMask[generationId][eid]) {
-			changedMask[generationId][eid] = 0;
-		}
-
-		// Set the bit for this trait
+		if (!changedMask[generationId]) changedMask[generationId] = [];
+		if (!changedMask[generationId][eid]) changedMask[generationId][eid] = 0;
 		changedMask[generationId][eid] |= bitflag;
 	}
 
 	// Update tracking queries with change event
-	const { generationId, bitflag } = data;
 	for (const query of data.trackingQueries) {
-		// If the query has no changed modifiers, continue
 		if (!query.hasChangedModifiers) continue;
-		// If the trait is not part of a Changed modifier in this query, continue
 		if (!query.changedTraits.has(trait)) continue;
 
-		// Use checkQueryTrackingWithRelations if query has relation filters, otherwise use checkQueryTracking
 		const match =
 			query.relationFilters && query.relationFilters.length > 0
 				? checkQueryTrackingWithRelations(
@@ -83,7 +69,17 @@ export function setChanged(world: World, entity: Entity, trait: Trait) {
 		else query.remove(world, entity);
 	}
 
-	for (const sub of data.changeSubscriptions) {
-		sub(entity);
-	}
+	return data;
+}
+
+export function setChanged(world: World, entity: Entity, trait: Trait) {
+	const data = markChanged(world, entity, trait);
+	if (!data) return;
+	for (const sub of data.changeSubscriptions) sub(entity);
+}
+
+export function setPairChanged(world: World, entity: Entity, trait: Trait, target: Entity) {
+	const data = markChanged(world, entity, trait);
+	if (!data) return;
+	for (const sub of data.changeSubscriptions) sub(entity, target);
 }
