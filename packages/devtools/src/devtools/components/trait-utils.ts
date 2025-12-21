@@ -9,7 +9,7 @@ export function getTraitType(trait: Trait): TraitType {
 	const ctx = trait[$internal];
 	// Check if this trait belongs to a relation
 	if (ctx.relation !== null) return 'rel';
-	if (ctx.isTag) return 'tag';
+	if (ctx.type === 'tag') return 'tag';
 	return ctx.type;
 }
 

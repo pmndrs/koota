@@ -34,7 +34,7 @@ export function TraitValueEditor({ entity, trait }: TraitValueEditorProps) {
 	}, [world, trait, entity]);
 
 	// Tag traits have no data
-	if (traitCtx.isTag) {
+	if (traitCtx.type === 'tag') {
 		return <div className={styles.emptyMessage}>Tag trait (no data)</div>;
 	}
 
