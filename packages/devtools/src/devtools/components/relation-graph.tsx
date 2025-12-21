@@ -1,12 +1,12 @@
-import type { Entity } from '@koota/core';
-import { $internal } from '@koota/core';
+import type { Entity, Relation, Trait, World } from '@koota/core';
+import { $internal, unpackEntity } from '@koota/core';
+import dagre from '@dagrejs/dagre';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ForceGraph2D from 'react-force-graph-2d';
 import type { TraitWithDebug } from '../../types';
 import { IsDevtoolsHovered } from '../../traits';
 import { useWorld } from '../hooks/use-world';
 import { getTraitName } from './trait-utils';
-import { buildGraphData, type GraphData } from '../utils/build-graph-data';
+import { EntityListSheet } from './entity-list-sheet';
 import styles from './relation-graph.module.css';
 
 interface RelationGraphProps {
@@ -14,100 +14,231 @@ interface RelationGraphProps {
 	onSelectEntity: (entity: Entity) => void;
 }
 
+// Aggregate node: represents multiple entities with the same relation to a target
+interface AggregateNode {
+	type: 'aggregate';
+	id: string;
+	relationName: string;
+	relation: Relation<Trait>;
+	target: Entity;
+	entities: Entity[];
+	count: number;
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+// Entity node: represents a single target entity
+interface EntityNode {
+	type: 'entity';
+	id: string;
+	entity: Entity;
+	label: string;
+	x: number;
+	y: number;
+	radius: number;
+}
+
+type GraphNode = AggregateNode | EntityNode;
+
+interface GraphEdge {
+	id: string;
+	source: string;
+	target: string;
+	sourceX: number;
+	sourceY: number;
+	targetX: number;
+	targetY: number;
+}
+
+interface GraphData {
+	nodes: GraphNode[];
+	edges: GraphEdge[];
+	width: number;
+	height: number;
+}
+
+const GRAPH_WIDTH = 260;
+const GRAPH_HEIGHT = 250;
+const ENTITY_RADIUS = 14;
+const AGGREGATE_WIDTH = 70;
+const AGGREGATE_HEIGHT = 24;
+const PADDING = 20;
+const MIN_SCALE = 0.4;
+
+function computeAggregatedLayout(
+	world: World,
+	relationTraits: TraitWithDebug[],
+	selectedRelations: Set<string>
+): GraphData {
+	const g = new dagre.graphlib.Graph();
+	g.setGraph({ rankdir: 'LR', nodesep: 25, ranksep: 50, marginx: PADDING, marginy: PADDING });
+	g.setDefaultEdgeLabel(() => ({}));
+
+	// Group by (relationName, targetEntity) → list of source entities
+	const aggregates = new Map<string, {
+		relationName: string;
+		relation: Relation<Trait>;
+		target: Entity;
+		entities: Entity[];
+	}>();
+
+	// Track all target entities
+	const targetEntities = new Map<string, Entity>();
+
+	// Filter traits based on selection
+	const filteredTraits =
+		selectedRelations.size === 0
+			? relationTraits
+			: relationTraits.filter((trait) => {
+					const relationName = getTraitName(trait);
+					return selectedRelations.has(relationName);
+			  });
+
+	// Collect aggregates
+	for (const trait of filteredTraits) {
+		const traitCtx = trait[$internal];
+		const relation = traitCtx.relation as Relation<Trait> | null;
+		if (!relation) continue;
+
+		const relationName = getTraitName(trait);
+		const queryResult = world.query(trait);
+
+		for (const entity of queryResult) {
+			const targets = entity.targetsFor(relation);
+			for (const target of targets) {
+				const targetKey = String(target);
+				targetEntities.set(targetKey, target);
+
+				const aggregateKey = `${relationName}-${targetKey}`;
+				let agg = aggregates.get(aggregateKey);
+				if (!agg) {
+					agg = { relationName, relation, target, entities: [] };
+					aggregates.set(aggregateKey, agg);
+				}
+				agg.entities.push(entity);
+			}
+		}
+	}
+
+	// If no aggregates, return empty
+	if (aggregates.size === 0) {
+		return { nodes: [], edges: [], width: GRAPH_WIDTH, height: GRAPH_HEIGHT };
+	}
+
+	// Add aggregate nodes to dagre
+	for (const [key, agg] of aggregates) {
+		g.setNode(`agg-${key}`, { width: AGGREGATE_WIDTH, height: AGGREGATE_HEIGHT });
+	}
+
+	// Add target entity nodes to dagre
+	for (const [key] of targetEntities) {
+		g.setNode(`ent-${key}`, { width: ENTITY_RADIUS * 2, height: ENTITY_RADIUS * 2 });
+	}
+
+	// Add edges from aggregates to targets
+	for (const [key, agg] of aggregates) {
+		g.setEdge(`agg-${key}`, `ent-${String(agg.target)}`);
+	}
+
+	// Run layout
+	dagre.layout(g);
+
+	// Get graph dimensions
+	const graphInfo = g.graph();
+	const graphWidth = graphInfo.width ?? GRAPH_WIDTH;
+	const graphHeight = graphInfo.height ?? GRAPH_HEIGHT;
+
+	// Calculate scale to fit viewport
+	const scaleX = (GRAPH_WIDTH - PADDING * 2) / graphWidth;
+	const scaleY = (GRAPH_HEIGHT - PADDING * 2) / graphHeight;
+	const scale = Math.max(Math.min(scaleX, scaleY, 1), MIN_SCALE);
+
+	// Calculate offset to center
+	const offsetX = (GRAPH_WIDTH - graphWidth * scale) / 2;
+	const offsetY = (GRAPH_HEIGHT - graphHeight * scale) / 2;
+
+	const nodes: GraphNode[] = [];
+	const edges: GraphEdge[] = [];
+
+	// Extract aggregate nodes
+	for (const [key, agg] of aggregates) {
+		const nodeId = `agg-${key}`;
+		const node = g.node(nodeId);
+		nodes.push({
+			type: 'aggregate',
+			id: nodeId,
+			relationName: agg.relationName,
+			relation: agg.relation,
+			target: agg.target,
+			entities: agg.entities,
+			count: agg.entities.length,
+			x: node.x * scale + offsetX,
+			y: node.y * scale + offsetY,
+			width: AGGREGATE_WIDTH * scale,
+			height: AGGREGATE_HEIGHT * scale,
+		});
+	}
+
+	// Extract entity nodes
+	for (const [key, entity] of targetEntities) {
+		const nodeId = `ent-${key}`;
+		const node = g.node(nodeId);
+		const { entityId } = unpackEntity(entity);
+		nodes.push({
+			type: 'entity',
+			id: nodeId,
+			entity,
+			label: `${entityId}`,
+			x: node.x * scale + offsetX,
+			y: node.y * scale + offsetY,
+			radius: ENTITY_RADIUS * scale,
+		});
+	}
+
+	// Extract edges
+	for (const [key, agg] of aggregates) {
+		const sourceId = `agg-${key}`;
+		const targetId = `ent-${String(agg.target)}`;
+		const sourceNode = g.node(sourceId);
+		const targetNode = g.node(targetId);
+
+		const sx = sourceNode.x * scale + offsetX;
+		const sy = sourceNode.y * scale + offsetY;
+		const tx = targetNode.x * scale + offsetX;
+		const ty = targetNode.y * scale + offsetY;
+
+		// Calculate edge endpoints
+		const angle = Math.atan2(ty - sy, tx - sx);
+		const scaledRadius = ENTITY_RADIUS * scale;
+		const scaledWidth = AGGREGATE_WIDTH * scale;
+
+		edges.push({
+			id: `edge-${key}`,
+			source: sourceId,
+			target: targetId,
+			sourceX: sx + (scaledWidth / 2) * Math.cos(angle),
+			sourceY: sy + (AGGREGATE_HEIGHT * scale / 2) * Math.sin(angle),
+			targetX: tx - Math.cos(angle) * (scaledRadius + 6),
+			targetY: ty - Math.sin(angle) * (scaledRadius + 6),
+		});
+	}
+
+	return { nodes, edges, width: GRAPH_WIDTH, height: GRAPH_HEIGHT };
+}
+
 export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphProps) {
 	const world = useWorld();
 	const [graphData, setGraphData] = useState<GraphData | null>(null);
-	const [isGenerating, setIsGenerating] = useState(false);
 	const [selectedRelations, setSelectedRelations] = useState<Set<string>>(new Set());
 	const [showFilter, setShowFilter] = useState(false);
-	const graphRef = useRef<any>(null);
-	const previousNodesRef = useRef<Map<string, { x: number; y: number; vx: number; vy: number }>>(
-		new Map()
-	);
-	const isDraggingRef = useRef(false);
+	const [selectedAggregate, setSelectedAggregate] = useState<AggregateNode | null>(null);
 	const hoveredEntityRef = useRef<Entity | null>(null);
 
 	const updateGraph = useCallback(() => {
-		if (isDraggingRef.current) return;
-
-		setIsGenerating(true);
-		setTimeout(() => {
-			// Filter relation traits based on selection
-			const filteredTraits =
-				selectedRelations.size === 0
-					? relationTraits
-					: relationTraits.filter((trait) => {
-							const traitCtx = trait[$internal];
-							const relation = traitCtx.relation;
-							if (!relation) return false;
-							const relationName = getTraitName(trait);
-							return selectedRelations.has(relationName);
-					  });
-
-			const newData = buildGraphData(world, filteredTraits);
-
-			// Preserve positions from previous graph to prevent sudden jumps
-			const nodesWithPreservedPositions = newData.nodes.map((node) => {
-				const previous = previousNodesRef.current.get(node.id);
-				if (previous) {
-					// Preserve position and reset velocity for smoother transitions
-					return {
-						...node,
-						x: previous.x,
-						y: previous.y,
-						vx: 0,
-						vy: 0,
-					};
-				}
-
-				// New node: try to find a neighbor to spawn near
-				const neighborLink = newData.links.find(
-					(l) => l.source === node.id || l.target === node.id
-				);
-				if (neighborLink) {
-					const neighborId =
-						neighborLink.source === node.id ? neighborLink.target : neighborLink.source;
-					const neighbor = previousNodesRef.current.get(neighborId as string);
-					if (neighbor) {
-						return {
-							...node,
-							x: neighbor.x + (Math.random() - 0.5) * 10,
-							y: neighbor.y + (Math.random() - 0.5) * 10,
-							vx: 0,
-							vy: 0,
-						};
-					}
-				}
-
-				// Fallback: start at center with zero velocity
-				return {
-					...node,
-					x: 130,
-					y: 125,
-					vx: 0,
-					vy: 0,
-				};
-			});
-
-			// Update previous positions cache
-			previousNodesRef.current.clear();
-			nodesWithPreservedPositions.forEach((node) => {
-				if (node.x !== undefined && node.y !== undefined) {
-					previousNodesRef.current.set(node.id, {
-						x: node.x,
-						y: node.y,
-						vx: node.vx || 0,
-						vy: node.vy || 0,
-					});
-				}
-			});
-
-			setGraphData({
-				...newData,
-				nodes: nodesWithPreservedPositions,
-			});
-			setIsGenerating(false);
-		}, 0);
+		const data = computeAggregatedLayout(world, relationTraits, selectedRelations);
+		setGraphData(data);
 	}, [world, relationTraits, selectedRelations]);
 
 	// Get unique relation names for filter
@@ -127,17 +258,31 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 		});
 	}, []);
 
+	// Handle node hover
+	const handleEntityHover = useCallback(
+		(entity: Entity | null) => {
+			if (hoveredEntityRef.current !== null && world.has(hoveredEntityRef.current)) {
+				hoveredEntityRef.current.remove(IsDevtoolsHovered);
+			}
+			if (entity && world.has(entity)) {
+				entity.add(IsDevtoolsHovered);
+				hoveredEntityRef.current = entity;
+			} else {
+				hoveredEntityRef.current = null;
+			}
+		},
+		[world]
+	);
+
 	// Generate graph data when component mounts or when relations change
 	useEffect(() => {
 		if (relationTraits.length === 0) {
-			setGraphData({ nodes: [], links: [] });
+			setGraphData({ nodes: [], edges: [], width: GRAPH_WIDTH, height: GRAPH_HEIGHT });
 			return;
 		}
 
-		// Initial update
 		updateGraph();
 
-		// Subscribe to changes for each relation trait
 		const unsubs: (() => void)[] = [];
 		let timeout: ReturnType<typeof setTimeout>;
 
@@ -149,7 +294,6 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 		for (const trait of relationTraits) {
 			unsubs.push(world.onAdd(trait, scheduleUpdate));
 			unsubs.push(world.onRemove(trait, scheduleUpdate));
-			// Subscribe to changes in case targets change
 			unsubs.push(world.onChange(trait, scheduleUpdate));
 		}
 
@@ -159,13 +303,27 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 		};
 	}, [world, relationTraits, updateGraph]);
 
+	// Clean up hover on unmount
+	useEffect(() => {
+		return () => {
+			if (hoveredEntityRef.current !== null && world.has(hoveredEntityRef.current)) {
+				hoveredEntityRef.current.remove(IsDevtoolsHovered);
+			}
+		};
+	}, [world]);
+
+	const aggregateCount = graphData?.nodes.filter((n) => n.type === 'aggregate').length ?? 0;
+	const entityCount = graphData?.nodes.filter((n) => n.type === 'entity').length ?? 0;
+	const totalRelations = graphData?.nodes
+		.filter((n): n is AggregateNode => n.type === 'aggregate')
+		.reduce((sum, n) => sum + n.count, 0) ?? 0;
+
 	return (
 		<div className={`${styles.container} relation-graph`}>
 			<div className={styles.controls}>
 				<div className={styles.controlsContent}>
 					<div className={styles.stats}>
-						{graphData?.nodes.length ?? 0} entities · {graphData?.links.length ?? 0}{' '}
-						relations
+						{entityCount} targets · {totalRelations} relations
 					</div>
 					{relationNames.length > 0 && (
 						<button
@@ -202,14 +360,7 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 				)}
 			</div>
 			<div className={styles.graphWrapper}>
-				{isGenerating ? (
-					<div className={styles.empty}>
-						<div className={styles.emptyMessage}>Generating graph...</div>
-					</div>
-				) : !graphData ||
-				  !graphData.nodes ||
-				  !graphData.links ||
-				  graphData.nodes.length === 0 ? (
+				{!graphData || graphData.nodes.length === 0 ? (
 					<div className={styles.empty}>
 						<div className={styles.emptyMessage}>No relations found</div>
 						<div className={styles.emptySubtext}>
@@ -217,87 +368,118 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 						</div>
 					</div>
 				) : (
-					<ForceGraph2D
-						ref={graphRef}
-						graphData={graphData}
-						nodeLabel={(_node: any) => _node?.label || `Node ${_node?.id || '?'}`}
-						nodeColor={() => '#4a9eff'}
-						nodeVal={() => 2}
-						linkLabel={(link: any) => link?.relationName || 'Relation'}
-						linkColor={() => '#666'}
-						linkWidth={1}
-						linkDirectionalArrowLength={6}
-						linkDirectionalArrowRelPos={1}
-						onNodeClick={(node: any) => {
-							if (node?.entity) {
-								onSelectEntity(node.entity);
-							}
-						}}
-						onNodeHover={(node: any) => {
-							// Remove hover from previous entity
-							if (
-								hoveredEntityRef.current !== null &&
-								world.has(hoveredEntityRef.current)
-							) {
-								hoveredEntityRef.current.remove(IsDevtoolsHovered);
-							}
+					<svg
+						width={GRAPH_WIDTH}
+						height={GRAPH_HEIGHT}
+						className={styles.svg}
+						viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`}
+					>
+						<defs>
+							<marker
+								id="arrow"
+								viewBox="0 0 10 10"
+								refX="9"
+								refY="5"
+								markerWidth="5"
+								markerHeight="5"
+								orient="auto-start-reverse"
+							>
+								<path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(200, 200, 200, 0.7)" />
+							</marker>
+						</defs>
 
-							// Add hover to new entity
-							if (node?.entity && world.has(node.entity)) {
-								node.entity.add(IsDevtoolsHovered);
-								hoveredEntityRef.current = node.entity;
-							} else {
-								hoveredEntityRef.current = null;
-							}
-						}}
-						// @ts-expect-error - d3Force prop exists but types may be incomplete
-						d3Force={(d3: any) => {
-							// Reduce forces to prevent sudden movements
-							d3.force('charge')?.strength(-15); // Much weaker repulsion
-							d3.force('link')?.distance(20).strength(0.3); // Shorter links, weaker pull
-							d3.force('center')?.strength(0.01); // Very weak center force
-							// Add alpha decay to slow down simulation
-							d3.alphaDecay(0.05); // Faster decay = less movement
-						}}
-						onNodeDragStart={(_node: any) => {
-							isDraggingRef.current = true;
-						}}
-						onNodeDragEnd={(_node: any) => {
-							isDraggingRef.current = false;
-							// Update position cache when node is dragged
-							if (_node.x !== undefined && _node.y !== undefined) {
-								previousNodesRef.current.set(_node.id, {
-									x: _node.x,
-									y: _node.y,
-									vx: 0,
-									vy: 0,
-								});
-							}
-						}}
-						onEngineTick={() => {
-							// Update position cache during simulation
-							if (graphData?.nodes) {
-								graphData.nodes.forEach((_node: any) => {
-									if (_node.x !== undefined && _node.y !== undefined) {
-										previousNodesRef.current.set(_node.id, {
-											x: _node.x,
-											y: _node.y,
-											vx: _node.vx || 0,
-											vy: _node.vy || 0,
-										});
-									}
-								});
-							}
-						}}
-						cooldownTicks={100}
-						onEngineStop={() => {
-							// Simulation stopped - graph is now static
-						}}
-						width={260}
-						height={250}
-					/>
+						{/* Edges */}
+						<g className={styles.edges}>
+							{graphData.edges.map((edge) => (
+								<line
+									key={edge.id}
+									x1={edge.sourceX}
+									y1={edge.sourceY}
+									x2={edge.targetX}
+									y2={edge.targetY}
+									className={styles.edge}
+									markerEnd="url(#arrow)"
+								/>
+							))}
+						</g>
+
+						{/* Nodes */}
+						<g className={styles.nodes}>
+							{graphData.nodes.map((node) => {
+								if (node.type === 'aggregate') {
+									return (
+										<g
+											key={node.id}
+											className={styles.aggregateNode}
+											onClick={() => setSelectedAggregate(node)}
+											style={{ cursor: 'pointer' }}
+										>
+											<rect
+												x={node.x - node.width / 2}
+												y={node.y - node.height / 2}
+												width={node.width}
+												height={node.height}
+												rx={4}
+												className={styles.aggregateRect}
+											/>
+											<text
+												x={node.x}
+												y={node.y}
+												className={styles.aggregateLabel}
+												textAnchor="middle"
+												dominantBaseline="central"
+											>
+												{node.relationName} {node.count}
+											</text>
+										</g>
+									);
+								} else {
+									return (
+										<g
+											key={node.id}
+											className={styles.entityNode}
+											onClick={() => onSelectEntity(node.entity)}
+											onMouseEnter={() => handleEntityHover(node.entity)}
+											onMouseLeave={() => handleEntityHover(null)}
+											style={{ cursor: 'pointer' }}
+										>
+											<circle
+												cx={node.x}
+												cy={node.y}
+												r={node.radius}
+												className={styles.entityCircle}
+											/>
+											<text
+												x={node.x}
+												y={node.y}
+												className={styles.entityLabel}
+												textAnchor="middle"
+												dominantBaseline="central"
+											>
+												{node.label}
+											</text>
+										</g>
+									);
+								}
+							})}
+						</g>
+					</svg>
 				)}
 			</div>
+
+			{/* Entity list sheet for aggregate drill-down */}
+			{selectedAggregate && (
+				<EntityListSheet
+					title={`${selectedAggregate.relationName} → ${unpackEntity(selectedAggregate.target).entityId}`}
+					relation={selectedAggregate.relation}
+					target={selectedAggregate.target}
+					onSelect={(entity) => {
+						setSelectedAggregate(null);
+						onSelectEntity(entity);
+					}}
+					onClose={() => setSelectedAggregate(null)}
+				/>
+			)}
 		</div>
 	);
 }

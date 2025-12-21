@@ -65,7 +65,7 @@ export function TraitDetail({ trait, editor, onSelectEntity }: TraitDetailProps)
 	}, [relation, entities, isRelation]);
 
 	// Get schema keys
-	const schemaKeys = ctx.isTag ? [] : Object.keys(trait.schema || {});
+	const schemaKeys = ctx.type === 'tag' ? [] : Object.keys(trait.schema || {});
 
 	return (
 		<DetailLayout

@@ -151,6 +151,86 @@
 	overflow: hidden;
 }
 
+.svg {
+	display: block;
+}
+
+.edges {
+	pointer-events: stroke;
+}
+
+.edge {
+	stroke: rgba(200, 200, 200, 0.5);
+	stroke-width: 1.5;
+	fill: none;
+}
+
+.edge:hover {
+	stroke: rgba(220, 220, 220, 0.7);
+	stroke-width: 2;
+}
+
+.edgeLabel {
+	font-size: 8px;
+	fill: var(--k-text-secondary);
+	pointer-events: none;
+}
+
+.nodes {
+	pointer-events: all;
+}
+
+/* Aggregate nodes (rectangular, clickable) */
+.aggregateNode {
+	cursor: pointer;
+}
+
+.aggregateRect {
+	fill: rgba(138, 99, 210, 0.25);
+	stroke: rgba(138, 99, 210, 0.6);
+	stroke-width: 1.5;
+	transition: fill 0.15s, stroke 0.15s;
+}
+
+.aggregateNode:hover .aggregateRect {
+	fill: rgba(138, 99, 210, 0.4);
+	stroke: rgba(168, 139, 220, 0.9);
+}
+
+.aggregateLabel {
+	font-size: 8px;
+	font-weight: 600;
+	fill: rgba(255, 255, 255, 0.9);
+	pointer-events: none;
+	user-select: none;
+}
+
+/* Entity nodes (circular, target entities) */
+.entityNode {
+	cursor: pointer;
+}
+
+.entityCircle {
+	fill: #4a9eff;
+	stroke: #6bb3ff;
+	stroke-width: 1.5;
+	transition: fill 0.15s, stroke 0.15s;
+}
+
+.entityNode:hover .entityCircle {
+	fill: #6bb3ff;
+	stroke: #8ecaff;
+	stroke-width: 2;
+}
+
+.entityLabel {
+	font-size: 9px;
+	font-weight: 600;
+	fill: #fff;
+	pointer-events: none;
+	user-select: none;
+}
+
 .empty {
 	display: flex;
 	flex-direction: column;

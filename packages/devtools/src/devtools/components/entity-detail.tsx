@@ -109,7 +109,7 @@ export function EntityDetail({ entity, onSelectTrait }: EntityDetailProps) {
 			);
 		};
 
-		for (const data of ctx.traitData) {
+		for (const data of ctx.traitInstances) {
 			if (data) {
 				subscribeTrait(data.trait);
 			}
@@ -200,7 +200,7 @@ export function EntityDetail({ entity, onSelectTrait }: EntityDetailProps) {
 						const isExpanded = expandedTraitId === traitId;
 
 						// Determine if trait can be expanded (has editable data)
-						const isTag = traitCtx.isTag;
+						const isTag = traitCtx.type === 'tag';
 						const isAoS = traitCtx.type === 'aos';
 						// For AoS, schema is a function, so check if there's actual data
 						// For SoA, check if schema has keys

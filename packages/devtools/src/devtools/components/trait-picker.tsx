@@ -5,12 +5,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TraitWithDebug } from '../../types';
 import { useWorldTraits } from '../hooks/use-world-traits';
 import { useWorld } from '../hooks/use-world';
-import { Panel } from './panel';
 import badgeStyles from './badge.module.css';
 import styles from './trait-picker.module.css';
 import { getTraitName, getTraitType } from './trait-utils';
 import { EntityIcon, WorldIcon } from './icons';
 import { IsDevtoolsHovered } from '../../traits';
+import { Sheet } from './sheet';
 
 // Result can be either a regular trait or a relation pair
 export type TraitPickerResult =
@@ -22,23 +22,12 @@ interface TraitPickerProps {
 	currentTraits: Trait[];
 	onSelect: (result: TraitPickerResult) => void;
 	onClose: () => void;
-	anchorRef?: React.RefObject<HTMLElement>;
 }
 
-export function TraitPicker({
-	entity,
-	currentTraits,
-	onSelect,
-	onClose,
-	anchorRef: _anchorRef,
-}: TraitPickerProps) {
+export function TraitPicker({ entity, currentTraits, onSelect, onClose }: TraitPickerProps) {
 	const world = useWorld();
 	const allTraits = useWorldTraits(world);
 	const [filter, setFilter] = useState('');
-	const [isAnimatingOut, setIsAnimatingOut] = useState(false);
-	const inputRef = useRef<HTMLInputElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
-	const backdropRef = useRef<HTMLDivElement>(null);
 
 	// Track selected relation for second step (target picking)
 	const [pendingRelation, setPendingRelation] = useState<{
@@ -81,39 +70,9 @@ export function TraitPicker({
 		});
 	}, [allEntities, filter, pendingRelation, world]);
 
-	// Focus input on mount and when switching modes
-	useEffect(() => {
-		inputRef.current?.focus();
-	}, [pendingRelation]);
-
 	// Clear filter when switching to target picker
 	useEffect(() => {
 		if (pendingRelation) setFilter('');
-	}, [pendingRelation]);
-
-	// Handle backdrop click
-	const handleBackdropClick = (e: React.MouseEvent) => {
-		if (e.target === backdropRef.current) {
-			handleClose();
-		}
-	};
-
-	// Handle escape key - go back if picking target, otherwise close
-	useEffect(() => {
-		const handleEscape = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				if (pendingRelation) {
-					clearHoveredEntity();
-					setPendingRelation(null);
-					setFilter('');
-				} else {
-					handleClose();
-				}
-			}
-		};
-
-		document.addEventListener('keydown', handleEscape);
-		return () => document.removeEventListener('keydown', handleEscape);
 	}, [pendingRelation]);
 
 	const clearHoveredEntity = () => {
@@ -124,13 +83,8 @@ export function TraitPicker({
 	};
 
 	const handleClose = () => {
-		if (isAnimatingOut) return; // Prevent double-close
 		clearHoveredEntity();
-		setIsAnimatingOut(true);
-		// Wait for animation to complete before actually closing
-		setTimeout(() => {
-			onClose();
-		}, 450); // Match exit animation duration
+		onClose();
 	};
 
 	const handleTraitSelect = (trait: Trait) => {
@@ -159,146 +113,110 @@ export function TraitPicker({
 		setFilter('');
 	};
 
+	// Handle escape to go back when picking target
+	useEffect(() => {
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === 'Escape' && pendingRelation) {
+				e.stopPropagation();
+				handleBack();
+			}
+		};
+
+		document.addEventListener('keydown', handleEscape, true);
+		return () => document.removeEventListener('keydown', handleEscape, true);
+	}, [pendingRelation]);
+
 	return (
-		<Panel.Portal>
-			<div
-				ref={backdropRef}
-				className={`${styles.backdrop} ${isAnimatingOut ? styles.backdropExit : ''}`}
-				onClick={handleBackdropClick}
-			>
-				<div
-					ref={containerRef}
-					className={`${styles.sheet} ${isAnimatingOut ? styles.sheetExit : ''}`}
-				>
-					{pendingRelation ? (
-						// Target picker for relation
-						<>
-							<div className={styles.header}>
-								<button className={styles.backButton} onClick={handleBack}>
-									←
-								</button>
-								<span className={styles.headerTitle}>
-									Select target for{' '}
-									<span className={styles.headerRelation}>
-										{getTraitName(pendingRelation.trait)}
+		<Sheet open={true} onClose={handleClose}>
+			{pendingRelation ? (
+				<>
+					<Sheet.Header onBack={handleBack}>
+						Select target for{' '}
+						<span className={styles.headerRelation}>
+							{getTraitName(pendingRelation.trait)}
+						</span>
+					</Sheet.Header>
+					<Sheet.Search
+						value={filter}
+						onChange={setFilter}
+						placeholder="Search entities..."
+					/>
+					<Sheet.List
+						isEmpty={filteredEntities.length === 0}
+						emptyMessage="No entities match filter"
+					>
+						{filteredEntities.map((ent) => {
+							const { entityId, worldId } = unpackEntity(ent);
+							const isWorldEntity = ent === world[$internal].worldEntity;
+							const isSelf = ent === entity;
+							return (
+								<Sheet.Item
+									key={ent}
+									className={isSelf ? styles.itemSelf : ''}
+									onClick={() => handleTargetSelect(ent)}
+									onMouseEnter={() => {
+										clearHoveredEntity();
+										if (world.has(ent)) {
+											ent.add(IsDevtoolsHovered);
+											hoveredEntityRef.current = ent;
+										}
+									}}
+									onMouseLeave={() => {
+										if (world.has(ent)) ent.remove(IsDevtoolsHovered);
+										if (hoveredEntityRef.current === ent) {
+											hoveredEntityRef.current = null;
+										}
+									}}
+								>
+									{isWorldEntity ? (
+										<WorldIcon size={12} className={styles.entityIcon} />
+									) : (
+										<EntityIcon size={12} className={styles.entityIcon} />
+									)}
+									<span className={styles.itemName}>
+										{isWorldEntity ? `World ${worldId}` : `Entity ${entityId}`}
 									</span>
-								</span>
-							</div>
-							<input
-								ref={inputRef}
-								type="text"
-								className={styles.input}
-								placeholder="Search entities..."
-								value={filter}
-								onChange={(e) => setFilter(e.target.value)}
-							/>
-							<div className={styles.list}>
-								{filteredEntities.length === 0 ? (
-									<div className={styles.empty}>No entities match filter</div>
-								) : (
-									filteredEntities.map((ent) => {
-										const { entityId, worldId } = unpackEntity(ent);
-										const isWorldEntity = ent === world[$internal].worldEntity;
-										const isSelf = ent === entity;
-										return (
-											<button
-												key={ent}
-												className={`${styles.item} ${
-													isSelf ? styles.itemSelf : ''
-												}`}
-												onClick={() => handleTargetSelect(ent)}
-												onMouseEnter={() => {
-													clearHoveredEntity();
-													if (world.has(ent)) {
-														ent.add(IsDevtoolsHovered);
-														hoveredEntityRef.current = ent;
-													}
-												}}
-												onMouseLeave={() => {
-													if (world.has(ent)) ent.remove(IsDevtoolsHovered);
-													if (hoveredEntityRef.current === ent) {
-														hoveredEntityRef.current = null;
-													}
-												}}
-											>
-												{isWorldEntity ? (
-													<WorldIcon
-														size={12}
-														className={styles.entityIcon}
-													/>
-												) : (
-													<EntityIcon
-														size={12}
-														className={styles.entityIcon}
-													/>
-												)}
-												<span className={styles.itemName}>
-													{isWorldEntity
-														? `World ${worldId}`
-														: `Entity ${entityId}`}
-												</span>
-												{isSelf && (
-													<span className={styles.selfBadge}>self</span>
-												)}
-											</button>
-										);
-									})
-								)}
-							</div>
-						</>
-					) : (
-						// Trait picker
-						<>
-							<input
-								ref={inputRef}
-								type="text"
-								className={styles.input}
-								placeholder="Search traits..."
-								value={filter}
-								onChange={(e) => setFilter(e.target.value)}
-							/>
-							<div className={styles.list}>
-								{sortedTraits.length === 0 ? (
-									<div className={styles.empty}>No traits match filter</div>
-								) : (
-									sortedTraits.map((trait) => {
-										const type = getTraitType(trait);
-										const isRelation = type === 'rel';
-										// For relations, disable if trait already on entity
-										// (they can still add with different targets)
-										const isDisabled = !isRelation && currentTraitSet.has(trait);
-										return (
-											<button
-												key={(trait as TraitWithDebug)[$internal]?.id}
-												className={`${styles.item} ${
-													isDisabled ? styles.itemDisabled : ''
-												}`}
-												onClick={() =>
-													!isDisabled && handleTraitSelect(trait)
-												}
-												disabled={isDisabled}
-											>
-												<span
-													className={`${badgeStyles.badge} ${badgeClasses[type]}`}
-												>
-													{type}
-												</span>
-												<span className={styles.itemName}>
-													{getTraitName(trait)}
-												</span>
-												{isRelation && (
-													<span className={styles.relationArrow}>→</span>
-												)}
-											</button>
-										);
-									})
-								)}
-							</div>
-						</>
-					)}
-				</div>
-			</div>
-		</Panel.Portal>
+									{isSelf && <span className={styles.selfBadge}>self</span>}
+								</Sheet.Item>
+							);
+						})}
+					</Sheet.List>
+				</>
+			) : (
+				<>
+					<Sheet.Search
+						value={filter}
+						onChange={setFilter}
+						placeholder="Search traits..."
+					/>
+					<Sheet.List
+						isEmpty={sortedTraits.length === 0}
+						emptyMessage="No traits match filter"
+					>
+						{sortedTraits.map((trait) => {
+							const type = getTraitType(trait);
+							const isRelation = type === 'rel';
+							const isDisabled = !isRelation && currentTraitSet.has(trait);
+							return (
+								<Sheet.Item
+									key={(trait as TraitWithDebug)[$internal]?.id}
+									onClick={() => !isDisabled && handleTraitSelect(trait)}
+									disabled={isDisabled}
+								>
+									<span className={`${badgeStyles.badge} ${badgeClasses[type]}`}>
+										{type}
+									</span>
+									<span className={styles.itemName}>{getTraitName(trait)}</span>
+									{isRelation && (
+										<span className={styles.relationArrow}>→</span>
+									)}
+								</Sheet.Item>
+							);
+						})}
+					</Sheet.List>
+				</>
+			)}
+		</Sheet>
 	);
 }
 
