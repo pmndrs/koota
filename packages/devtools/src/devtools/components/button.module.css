@@ -1,0 +1,24 @@
+.button {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 3px 6px;
+	border-radius: 4px;
+	font-size: 10px;
+	color: var(--text-secondary);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	font-variant-numeric: tabular-nums;
+}
+
+.button:hover {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--k-text-secondary);
+}
+
+.active {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--k-text-primary);
+}

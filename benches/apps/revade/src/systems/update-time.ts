@@ -1,7 +1,7 @@
 import type { World } from 'koota';
-import { Time } from '../traits/time';
+import { Time } from '../traits';
 
-export const updateTime = ({ world }: { world: World }) => {
+export function updateTime(world: World) {
 	const time = world.get(Time)!;
 
 	if (time.last === 0) time.last = performance.now();
@@ -13,4 +13,4 @@ export const updateTime = ({ world }: { world: World }) => {
 	time.last = now;
 
 	world.set(Time, time);
-};
+}

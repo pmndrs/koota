@@ -25,6 +25,8 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
 	ctx.entityTraits.set(entity, new Set());
 	addTrait(world, entity, ...traits);
 
+	for (const sub of ctx.entitySpawnedSubscriptions) sub(entity);
+
 	return entity;
 }
 
@@ -99,6 +101,8 @@ export function destroyEntity(world: World, entity: Entity) {
 		for (let i = 0; i < ctx.entityMasks.length; i++) {
 			ctx.entityMasks[i][eid] = 0;
 		}
+
+		for (const sub of ctx.entityDestroyedSubscriptions) sub(currentEntity);
 	}
 }
 

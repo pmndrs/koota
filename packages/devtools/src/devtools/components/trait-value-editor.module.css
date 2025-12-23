@@ -1,0 +1,115 @@
+.editorGrid {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	width: 100%;
+	font-family: var(--k-font-mono, 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace);
+	font-size: 10px;
+	margin: 4px 0 8px 0;
+}
+
+.aosData {
+	margin: 4px 0 8px 12px;
+}
+
+.editorRow {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	min-height: 24px;
+	padding: 4px 6px;
+	background: var(--k-bg-sub);
+	border-radius: 3px;
+	transition: background 0.1s ease;
+}
+
+.editorRow:hover {
+	background: var(--k-bg-hover);
+}
+
+.editorKey {
+	color: var(--k-text-muted);
+	font-weight: 500;
+	font-size: 10px;
+	white-space: nowrap;
+	flex-shrink: 0;
+	user-select: none;
+	cursor: default;
+	padding-right: 8px;
+	padding-top: 1px;
+}
+
+.editorValue {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	justify-content: flex-end;
+}
+
+.input {
+	width: 100%;
+	min-width: 0;
+	height: auto;
+	background: transparent;
+	border: none;
+	color: var(--k-text-primary);
+	font-family: inherit;
+	font-size: inherit;
+	padding: 0;
+	margin: 0;
+	outline: none;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	line-height: 1.4;
+}
+
+.input[type='text'] {
+	text-align: right;
+}
+
+.input:focus {
+	color: var(--k-accent);
+}
+
+.input::selection {
+	background: rgba(100, 108, 255, 0.6);
+	color: #ffffff;
+	border-radius: 2px;
+}
+
+/* Hide number spinners */
+.input::-webkit-outer-spin-button,
+.input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.input[type='number'] {
+	appearance: textfield;
+	-moz-appearance: textfield;
+}
+
+.checkbox {
+	width: 12px;
+	height: 12px;
+	margin: 1px 0 0 0;
+	accent-color: var(--k-accent);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.readonly {
+	font-size: 10px;
+	color: var(--k-text-muted);
+	font-style: italic;
+}
+
+.emptyMessage {
+	padding: 6px 8px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+	font-style: italic;
+	background: var(--k-bg-sub);
+	border-radius: 3px;
+	margin: 4px 0 8px 0;
+}

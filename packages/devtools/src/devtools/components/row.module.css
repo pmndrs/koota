@@ -1,0 +1,50 @@
+.row {
+	padding: 5px 8px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	cursor: default;
+	transition: background 0.1s;
+}
+
+.row:hover {
+	background: var(--bg-hover);
+}
+
+.rowNoHover:hover {
+	background: transparent;
+}
+
+.rowClickable {
+	cursor: pointer;
+}
+
+.rowName {
+	font-weight: 400;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 11px;
+	color: var(--k-text-secondary);
+}
+
+.rowMeta {
+	font-size: 9px;
+	color: var(--k-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.rowCount {
+	font-size: 10px;
+	color: var(--text-secondary);
+	font-variant-numeric: tabular-nums;
+	margin-left: auto;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: var(--bg-muted);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 16px;
+	margin: -2px 0;
+}

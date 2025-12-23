@@ -1,0 +1,67 @@
+.detailView {
+	padding: 8px;
+	overflow: visible;
+	position: relative;
+	flex: 1;
+	min-height: 0;
+}
+
+.detailHeader {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 12px;
+	width: 100%;
+}
+
+.detailTitle {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+	position: relative;
+}
+
+.detailName {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--k-text-primary);
+}
+
+.detailSection {
+	margin-bottom: 14px;
+	overflow: visible;
+}
+
+.detailLabel {
+	font-size: 9px;
+	font-weight: 600;
+	letter-spacing: 0.5px;
+	color: var(--k-text-muted);
+	margin-bottom: 4px;
+	position: relative;
+}
+
+.detailCount {
+	margin-left: 5px;
+	font-weight: 400;
+	color: var(--k-text-muted);
+}
+
+.detailGrid {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 2px 10px;
+	font-size: 10px;
+}
+
+.detailKey {
+	color: var(--k-text-muted);
+}
+
+.detailValue {
+	color: var(--k-text-secondary);
+	font-variant-numeric: tabular-nums;
+}
