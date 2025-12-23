@@ -4,6 +4,8 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
+import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
+import { OrderedList } from '../relation/ordered-list';
 import {
 	addRelationTarget,
 	getFirstRelationTarget,
@@ -16,6 +18,7 @@ import {
 	setRelationData,
 	setRelationDataAtIndex,
 } from '../relation/relation';
+import { $orderedTrait } from '../relation/symbols';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import {
@@ -114,6 +117,11 @@ export function registerTrait(world: World, trait: Trait) {
 
 	// Track relations
 	if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
+
+	// Setup ordered trait sync if this is an ordered trait
+	if (isOrderedTrait(trait)) {
+		setupOrderedTraitSync(world, trait);
+	}
 
 	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
@@ -374,7 +382,24 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 
 	const traitCtx = trait[$internal];
 	const store = getStore(world, trait);
-	return traitCtx.get(getEntityId(entity), store);
+	const data = traitCtx.get(getEntityId(entity), store);
+
+	// If this is an ordered trait, wrap the array in OrderedList
+	if (isOrderedTrait(trait)) {
+		const orderedStore = store as Entity[][];
+		const relation = trait[$orderedTrait].relation;
+		// Check if already an OrderedList
+		if (data instanceof OrderedList) {
+			return data;
+		}
+		// Wrap the plain array in OrderedList
+		const orderedList = new OrderedList(world, entity, relation, data);
+		// Update the store with the bound instance
+		orderedStore[getEntityId(entity)] = orderedList;
+		return orderedList;
+	}
+
+	return data;
 }
 
 /**

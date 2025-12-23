@@ -27,6 +27,9 @@ export type {
 } from './query/types';
 export { $queryRef } from './query/symbols';
 export { relation } from './relation/relation';
+export { ordered } from './relation/ordered';
+export type { OrderedTrait } from './relation/ordered';
+export { OrderedList } from './relation/ordered-list';
 export { $relationPair, $relation } from './relation/symbols';
 export type { Relation, RelationPair, RelationTarget } from './relation/types';
 export { getStore, trait } from './trait/trait';
