@@ -29,7 +29,7 @@ interface AggregateNode {
 	height: number;
 }
 
-// Entity node: represents a single target entity
+// Entity node: represents a single entity
 interface EntityNode {
 	type: 'entity';
 	id: string;
@@ -50,6 +50,7 @@ interface GraphEdge {
 	sourceY: number;
 	targetX: number;
 	targetY: number;
+	relationName?: string; // For labeling individual edges
 }
 
 interface GraphData {
@@ -66,6 +67,7 @@ const AGGREGATE_WIDTH = 70;
 const AGGREGATE_HEIGHT = 24;
 const PADDING = 20;
 const MIN_SCALE = 0.4;
+const AGGREGATION_THRESHOLD = 5; // Show individual nodes up to this count
 
 function computeAggregatedLayout(
 	world: World,
@@ -127,19 +129,33 @@ function computeAggregatedLayout(
 		return { nodes: [], edges: [], width: GRAPH_WIDTH, height: GRAPH_HEIGHT };
 	}
 
-	// Add aggregate nodes to dagre
+	// Track source entities that will be shown individually
+	const sourceEntities = new Map<string, { entity: Entity; relationName: string; target: Entity }>();
+
+	// Add nodes to dagre based on threshold
 	for (const [key, agg] of aggregates) {
-		g.setNode(`agg-${key}`, { width: AGGREGATE_WIDTH, height: AGGREGATE_HEIGHT });
+		if (agg.entities.length <= AGGREGATION_THRESHOLD) {
+			// Show individual source entity nodes
+			for (const entity of agg.entities) {
+				const sourceKey = `src-${entity}-${key}`;
+				sourceEntities.set(sourceKey, {
+					entity,
+					relationName: agg.relationName,
+					target: agg.target,
+				});
+				g.setNode(sourceKey, { width: ENTITY_RADIUS * 2, height: ENTITY_RADIUS * 2 });
+				g.setEdge(sourceKey, `ent-${String(agg.target)}`);
+			}
+		} else {
+			// Show aggregate node
+			g.setNode(`agg-${key}`, { width: AGGREGATE_WIDTH, height: AGGREGATE_HEIGHT });
+			g.setEdge(`agg-${key}`, `ent-${String(agg.target)}`);
+		}
 	}
 
 	// Add target entity nodes to dagre
 	for (const [key] of targetEntities) {
 		g.setNode(`ent-${key}`, { width: ENTITY_RADIUS * 2, height: ENTITY_RADIUS * 2 });
-	}
-
-	// Add edges from aggregates to targets
-	for (const [key, agg] of aggregates) {
-		g.setEdge(`agg-${key}`, `ent-${String(agg.target)}`);
 	}
 
 	// Run layout
@@ -162,26 +178,85 @@ function computeAggregatedLayout(
 	const nodes: GraphNode[] = [];
 	const edges: GraphEdge[] = [];
 
-	// Extract aggregate nodes
+	// Extract aggregate nodes (only for groups > threshold)
 	for (const [key, agg] of aggregates) {
-		const nodeId = `agg-${key}`;
-		const node = g.node(nodeId);
+		if (agg.entities.length > AGGREGATION_THRESHOLD) {
+			const nodeId = `agg-${key}`;
+			const node = g.node(nodeId);
+			nodes.push({
+				type: 'aggregate',
+				id: nodeId,
+				relationName: agg.relationName,
+				relation: agg.relation,
+				target: agg.target,
+				entities: agg.entities,
+				count: agg.entities.length,
+				x: node.x * scale + offsetX,
+				y: node.y * scale + offsetY,
+				width: AGGREGATE_WIDTH * scale,
+				height: AGGREGATE_HEIGHT * scale,
+			});
+
+			// Add edge for aggregate
+			const targetId = `ent-${String(agg.target)}`;
+			const targetNode = g.node(targetId);
+			const sx = node.x * scale + offsetX;
+			const sy = node.y * scale + offsetY;
+			const tx = targetNode.x * scale + offsetX;
+			const ty = targetNode.y * scale + offsetY;
+			const angle = Math.atan2(ty - sy, tx - sx);
+			const scaledRadius = ENTITY_RADIUS * scale;
+			const scaledWidth = AGGREGATE_WIDTH * scale;
+
+			edges.push({
+				id: `edge-${key}`,
+				source: nodeId,
+				target: targetId,
+				sourceX: sx + (scaledWidth / 2) * Math.cos(angle),
+				sourceY: sy + (AGGREGATE_HEIGHT * scale / 2) * Math.sin(angle),
+				targetX: tx - Math.cos(angle) * (scaledRadius + 6),
+				targetY: ty - Math.sin(angle) * (scaledRadius + 6),
+			});
+		}
+	}
+
+	// Extract source entity nodes (for groups <= threshold)
+	for (const [sourceKey, info] of sourceEntities) {
+		const node = g.node(sourceKey);
+		const { entityId } = unpackEntity(info.entity);
 		nodes.push({
-			type: 'aggregate',
-			id: nodeId,
-			relationName: agg.relationName,
-			relation: agg.relation,
-			target: agg.target,
-			entities: agg.entities,
-			count: agg.entities.length,
+			type: 'entity',
+			id: sourceKey,
+			entity: info.entity,
+			label: `${entityId}`,
 			x: node.x * scale + offsetX,
 			y: node.y * scale + offsetY,
-			width: AGGREGATE_WIDTH * scale,
-			height: AGGREGATE_HEIGHT * scale,
+			radius: ENTITY_RADIUS * scale,
+		});
+
+		// Add edge from source to target
+		const targetId = `ent-${String(info.target)}`;
+		const targetNode = g.node(targetId);
+		const sx = node.x * scale + offsetX;
+		const sy = node.y * scale + offsetY;
+		const tx = targetNode.x * scale + offsetX;
+		const ty = targetNode.y * scale + offsetY;
+		const angle = Math.atan2(ty - sy, tx - sx);
+		const scaledRadius = ENTITY_RADIUS * scale;
+
+		edges.push({
+			id: `edge-${sourceKey}`,
+			source: sourceKey,
+			target: targetId,
+			sourceX: sx + Math.cos(angle) * scaledRadius,
+			sourceY: sy + Math.sin(angle) * scaledRadius,
+			targetX: tx - Math.cos(angle) * (scaledRadius + 6),
+			targetY: ty - Math.sin(angle) * (scaledRadius + 6),
+			relationName: info.relationName,
 		});
 	}
 
-	// Extract entity nodes
+	// Extract target entity nodes
 	for (const [key, entity] of targetEntities) {
 		const nodeId = `ent-${key}`;
 		const node = g.node(nodeId);
@@ -197,34 +272,6 @@ function computeAggregatedLayout(
 		});
 	}
 
-	// Extract edges
-	for (const [key, agg] of aggregates) {
-		const sourceId = `agg-${key}`;
-		const targetId = `ent-${String(agg.target)}`;
-		const sourceNode = g.node(sourceId);
-		const targetNode = g.node(targetId);
-
-		const sx = sourceNode.x * scale + offsetX;
-		const sy = sourceNode.y * scale + offsetY;
-		const tx = targetNode.x * scale + offsetX;
-		const ty = targetNode.y * scale + offsetY;
-
-		// Calculate edge endpoints
-		const angle = Math.atan2(ty - sy, tx - sx);
-		const scaledRadius = ENTITY_RADIUS * scale;
-		const scaledWidth = AGGREGATE_WIDTH * scale;
-
-		edges.push({
-			id: `edge-${key}`,
-			source: sourceId,
-			target: targetId,
-			sourceX: sx + (scaledWidth / 2) * Math.cos(angle),
-			sourceY: sy + (AGGREGATE_HEIGHT * scale / 2) * Math.sin(angle),
-			targetX: tx - Math.cos(angle) * (scaledRadius + 6),
-			targetY: ty - Math.sin(angle) * (scaledRadius + 6),
-		});
-	}
-
 	return { nodes, edges, width: GRAPH_WIDTH, height: GRAPH_HEIGHT };
 }
 
@@ -235,6 +282,76 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 	const [showFilter, setShowFilter] = useState(false);
 	const [selectedAggregate, setSelectedAggregate] = useState<AggregateNode | null>(null);
 	const hoveredEntityRef = useRef<Entity | null>(null);
+
+	// Zoom and pan state
+	const [scale, setScale] = useState(1);
+	const [translate, setTranslate] = useState({ x: 0, y: 0 });
+	const [isDragging, setIsDragging] = useState(false);
+	const dragStartRef = useRef({ x: 0, y: 0, translateX: 0, translateY: 0 });
+	const svgRef = useRef<SVGSVGElement>(null);
+
+	// Hover highlighting state
+	const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+
+	// Zoom with mouse wheel (native listener to properly prevent browser zoom)
+	useEffect(() => {
+		const svg = svgRef.current;
+		if (!svg) return;
+
+		const handleWheelNative = (e: WheelEvent) => {
+			e.preventDefault();
+			e.stopPropagation();
+
+			const rect = svg.getBoundingClientRect();
+			const mouseX = e.clientX - rect.left;
+			const mouseY = e.clientY - rect.top;
+
+			const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+			const newScale = Math.min(Math.max(scale * zoomFactor, 0.1), 4);
+
+			const scaleChange = newScale / scale;
+			const newTranslateX = mouseX - (mouseX - translate.x) * scaleChange;
+			const newTranslateY = mouseY - (mouseY - translate.y) * scaleChange;
+
+			setScale(newScale);
+			setTranslate({ x: newTranslateX, y: newTranslateY });
+		};
+
+		svg.addEventListener('wheel', handleWheelNative, { passive: false });
+		return () => svg.removeEventListener('wheel', handleWheelNative);
+	}, [scale, translate]);
+
+	// Pan with mouse drag
+	const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+		if (e.button !== 0) return; // Only left click
+		setIsDragging(true);
+		dragStartRef.current = {
+			x: e.clientX,
+			y: e.clientY,
+			translateX: translate.x,
+			translateY: translate.y,
+		};
+	}, [translate]);
+
+	const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+		if (!isDragging) return;
+		const dx = e.clientX - dragStartRef.current.x;
+		const dy = e.clientY - dragStartRef.current.y;
+		setTranslate({
+			x: dragStartRef.current.translateX + dx,
+			y: dragStartRef.current.translateY + dy,
+		});
+	}, [isDragging]);
+
+	const handleMouseUp = useCallback(() => {
+		setIsDragging(false);
+	}, []);
+
+	// Fit to view
+	const fitToView = useCallback(() => {
+		setScale(1);
+		setTranslate({ x: 0, y: 0 });
+	}, []);
 
 	const updateGraph = useCallback(() => {
 		const data = computeAggregatedLayout(world, relationTraits, selectedRelations);
@@ -318,6 +435,38 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 		.filter((n): n is AggregateNode => n.type === 'aggregate')
 		.reduce((sum, n) => sum + n.count, 0) ?? 0;
 
+	// Compute connected node IDs for hover highlighting
+	const connectedIds = useMemo(() => {
+		if (!hoveredNodeId || !graphData) return new Set<string>();
+		const connected = new Set<string>([hoveredNodeId]);
+		for (const edge of graphData.edges) {
+			if (edge.source === hoveredNodeId) {
+				connected.add(edge.target);
+			} else if (edge.target === hoveredNodeId) {
+				connected.add(edge.source);
+			}
+		}
+		return connected;
+	}, [hoveredNodeId, graphData]);
+
+	// Check if an element should be dimmed
+	const isDimmed = useCallback(
+		(nodeId: string) => {
+			if (!hoveredNodeId) return false;
+			return !connectedIds.has(nodeId);
+		},
+		[hoveredNodeId, connectedIds]
+	);
+
+	// Check if an edge should be dimmed
+	const isEdgeDimmed = useCallback(
+		(edge: GraphEdge) => {
+			if (!hoveredNodeId) return false;
+			return !connectedIds.has(edge.source) || !connectedIds.has(edge.target);
+		},
+		[hoveredNodeId, connectedIds]
+	);
+
 	return (
 		<div className={`${styles.container} relation-graph`}>
 			<div className={styles.controls}>
@@ -325,22 +474,35 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 					<div className={styles.stats}>
 						{entityCount} targets · {totalRelations} relations
 					</div>
-					{relationNames.length > 0 && (
+					<div className={styles.toolbar}>
+						{/* Fit to view button */}
 						<button
-							className={`${styles.filterToggle} ${
-								showFilter ? styles.filterToggleActive : ''
-							}`}
-							onClick={() => setShowFilter(!showFilter)}
-							title="Filter relations"
+							className={styles.toolbarButton}
+							onClick={fitToView}
+							title="Fit to view"
 						>
 							<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-								<path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z" />
+								<path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4A1.5 1.5 0 0 1 1.5 0h4a.5.5 0 0 1 0 1h-4zM10 .5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 16 1.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5zM.5 10a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 0 14.5v-4a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v4a1.5 1.5 0 0 1-1.5 1.5h-4a.5.5 0 0 1 0-1h4a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 1 .5-.5z"/>
 							</svg>
-							{selectedRelations.size > 0 && (
-								<span className={styles.filterBadge}>{selectedRelations.size}</span>
-							)}
 						</button>
-					)}
+						{/* Filter toggle */}
+						{relationNames.length > 0 && (
+							<button
+								className={`${styles.toolbarButton} ${
+									showFilter ? styles.toolbarButtonActive : ''
+								}`}
+								onClick={() => setShowFilter(!showFilter)}
+								title="Filter relations"
+							>
+								<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+									<path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z" />
+								</svg>
+								{selectedRelations.size > 0 && (
+									<span className={styles.filterBadge}>{selectedRelations.size}</span>
+								)}
+							</button>
+						)}
+					</div>
 				</div>
 				{showFilter && relationNames.length > 0 && (
 					<div className={styles.filterMenu}>
@@ -369,10 +531,15 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 					</div>
 				) : (
 					<svg
+						ref={svgRef}
 						width={GRAPH_WIDTH}
 						height={GRAPH_HEIGHT}
-						className={styles.svg}
+						className={`${styles.svg} ${isDragging ? styles.dragging : ''}`}
 						viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`}
+						onMouseDown={handleMouseDown}
+						onMouseMove={handleMouseMove}
+						onMouseUp={handleMouseUp}
+						onMouseLeave={handleMouseUp}
 					>
 						<defs>
 							<marker
@@ -388,80 +555,106 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 							</marker>
 						</defs>
 
-						{/* Edges */}
-						<g className={styles.edges}>
-							{graphData.edges.map((edge) => (
-								<line
-									key={edge.id}
-									x1={edge.sourceX}
-									y1={edge.sourceY}
-									x2={edge.targetX}
-									y2={edge.targetY}
-									className={styles.edge}
-									markerEnd="url(#arrow)"
-								/>
-							))}
-						</g>
+						{/* Transform group for zoom and pan */}
+						<g transform={`translate(${translate.x}, ${translate.y}) scale(${scale})`}>
+							{/* Edges */}
+							<g className={styles.edges}>
+								{graphData.edges.map((edge) => {
+									const midX = (edge.sourceX + edge.targetX) / 2;
+									const midY = (edge.sourceY + edge.targetY) / 2;
+									return (
+										<g key={edge.id} className={isEdgeDimmed(edge) ? styles.dimmed : ''}>
+											<line
+												x1={edge.sourceX}
+												y1={edge.sourceY}
+												x2={edge.targetX}
+												y2={edge.targetY}
+												className={styles.edge}
+												markerEnd="url(#arrow)"
+											/>
+											{edge.relationName && (
+												<text
+													x={midX}
+													y={midY - 4}
+													className={styles.edgeLabel}
+													textAnchor="middle"
+												>
+													{edge.relationName}
+												</text>
+											)}
+										</g>
+									);
+								})}
+							</g>
 
-						{/* Nodes */}
-						<g className={styles.nodes}>
-							{graphData.nodes.map((node) => {
-								if (node.type === 'aggregate') {
-									return (
-										<g
-											key={node.id}
-											className={styles.aggregateNode}
-											onClick={() => setSelectedAggregate(node)}
-											style={{ cursor: 'pointer' }}
-										>
-											<rect
-												x={node.x - node.width / 2}
-												y={node.y - node.height / 2}
-												width={node.width}
-												height={node.height}
-												rx={4}
-												className={styles.aggregateRect}
-											/>
-											<text
-												x={node.x}
-												y={node.y}
-												className={styles.aggregateLabel}
-												textAnchor="middle"
-												dominantBaseline="central"
+							{/* Nodes */}
+							<g className={styles.nodes}>
+								{graphData.nodes.map((node) => {
+									if (node.type === 'aggregate') {
+										return (
+											<g
+												key={node.id}
+												className={`${styles.aggregateNode} ${isDimmed(node.id) ? styles.dimmed : ''}`}
+												onClick={() => setSelectedAggregate(node)}
+												onMouseEnter={() => setHoveredNodeId(node.id)}
+												onMouseLeave={() => setHoveredNodeId(null)}
+												style={{ cursor: 'pointer' }}
 											>
-												{node.relationName} {node.count}
-											</text>
-										</g>
-									);
-								} else {
-									return (
-										<g
-											key={node.id}
-											className={styles.entityNode}
-											onClick={() => onSelectEntity(node.entity)}
-											onMouseEnter={() => handleEntityHover(node.entity)}
-											onMouseLeave={() => handleEntityHover(null)}
-											style={{ cursor: 'pointer' }}
-										>
-											<circle
-												cx={node.x}
-												cy={node.y}
-												r={node.radius}
-												className={styles.entityCircle}
-											/>
-											<text
-												x={node.x}
-												y={node.y}
-												className={styles.entityLabel}
-												textAnchor="middle"
-												dominantBaseline="central"
+												<rect
+													x={node.x - node.width / 2}
+													y={node.y - node.height / 2}
+													width={node.width}
+													height={node.height}
+													rx={4}
+													className={styles.aggregateRect}
+												/>
+												<text
+													x={node.x}
+													y={node.y}
+													className={styles.aggregateLabel}
+													textAnchor="middle"
+													dominantBaseline="central"
+												>
+													{node.relationName} {node.count}
+												</text>
+											</g>
+										);
+									} else {
+										return (
+											<g
+												key={node.id}
+												className={`${styles.entityNode} ${isDimmed(node.id) ? styles.dimmed : ''}`}
+												onClick={() => onSelectEntity(node.entity)}
+												onMouseEnter={() => {
+													handleEntityHover(node.entity);
+													setHoveredNodeId(node.id);
+												}}
+												onMouseLeave={() => {
+													handleEntityHover(null);
+													setHoveredNodeId(null);
+												}}
+												style={{ cursor: 'pointer' }}
 											>
-												{node.label}
-											</text>
-										</g>
-									);
-								}
-							})}
+												<circle
+													cx={node.x}
+													cy={node.y}
+													r={node.radius}
+													className={styles.entityCircle}
+												/>
+												<text
+													x={node.x}
+													y={node.y}
+													className={styles.entityLabel}
+													textAnchor="middle"
+													dominantBaseline="central"
+												>
+													{node.label}
+												</text>
+											</g>
+										);
+									}
+								})}
+							</g>
 						</g>
 					</svg>
 				)}
