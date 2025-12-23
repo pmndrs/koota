@@ -47,7 +47,13 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.filterToggle {
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.toolbarButton {
 	all: unset;
 	display: flex;
 	align-items: center;
@@ -62,12 +68,12 @@
 	transition: background 0.15s, color 0.15s;
 }
 
-.filterToggle:hover {
+.toolbarButton:hover {
 	background: var(--k-bg-active);
 	color: var(--k-text-secondary);
 }
 
-.filterToggleActive {
+.toolbarButtonActive {
 	background: var(--k-bg-hover);
 	color: var(--k-text-primary);
 }
@@ -153,6 +159,11 @@
 
 .svg {
 	display: block;
+	cursor: grab;
+}
+
+.svg.dragging {
+	cursor: grabbing;
 }
 
 .edges {
@@ -171,9 +182,10 @@
 }
 
 .edgeLabel {
-	font-size: 8px;
-	fill: var(--k-text-secondary);
+	font-size: 7px;
+	fill: rgba(255, 255, 255, 0.7);
 	pointer-events: none;
+	font-weight: 500;
 }
 
 .nodes {
@@ -250,5 +262,11 @@
 .emptySubtext {
 	color: var(--k-text-dim);
 	font-size: 9px;
+}
+
+/* Dimmed state for hover highlighting */
+.dimmed {
+	opacity: 0.2;
+	transition: opacity 0.15s;
 }
 
