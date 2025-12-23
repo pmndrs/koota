@@ -1,7 +1,7 @@
 import type { World } from 'koota';
 import { IsShieldVisible, ShieldVisibility, Time } from '../traits';
 
-export const tickShieldVisibility = ({ world }: { world: World }) => {
+export function tickShieldVisibility(world: World) {
 	const { delta } = world.get(Time)!;
 	world.query(ShieldVisibility).updateEach(([shield], entity) => {
 		shield.current += delta * 1000;
@@ -25,4 +25,4 @@ export const tickShieldVisibility = ({ world }: { world: World }) => {
 			}
 		}
 	});
-};
+}
