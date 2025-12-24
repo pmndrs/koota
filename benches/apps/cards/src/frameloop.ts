@@ -1,10 +1,12 @@
 import { useWorld } from 'koota/react';
 import { useEffect } from 'react';
+import { dampVelocity } from './systems/damp-velocity';
 import { syncToDOM } from './systems/sync-to-dom';
 import { updateCardOrder } from './systems/update-card-order';
 import { updateDragging } from './systems/update-dragging';
 import { updateHandLayout } from './systems/update-hand-layout';
 import { updateTime } from './systems/update-time';
+import { updateTransform } from './systems/update-transform';
 import { Pointer, Viewport } from './traits';
 import { useAnimationFrame } from './utils/use-animation-frame';
 
@@ -15,6 +17,8 @@ export function Frameloop() {
 	useAnimationFrame(() => {
 		updateTime(world);
 		updateDragging(world);
+		dampVelocity(world);
+		updateTransform(world);
 		updateCardOrder(world);
 		updateHandLayout(world);
 		syncToDOM(world);

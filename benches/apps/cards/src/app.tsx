@@ -3,7 +3,7 @@ import { useHas, useQuery, useQueryFirst, useTrait } from 'koota/react';
 import { useCallback } from 'react';
 import { Frameloop } from './frameloop';
 import { Startup } from './startup';
-import { Card, Dragging, IsHand, OrderedCards, Position, Ref, Velocity } from './traits';
+import { Card, Dragging, Hand, OrderedCards, Position, Ref, Velocity } from './traits';
 
 export function App() {
 	return (
@@ -20,7 +20,7 @@ export function App() {
  */
 function HandRenderer() {
 	// We only want to render a single hand, so we query the first
-	const hand = useQueryFirst(IsHand, OrderedCards);
+	const hand = useQueryFirst(Hand, OrderedCards);
 	// Get the ordered cards, with is a special ordered list view of the HeldBy relation
 	const cards = useTrait(hand, OrderedCards);
 

@@ -23,8 +23,13 @@ body {
 }
 
 .card {
+	position: fixed;
+	left: 0;
+	top: 0;
 	width: 180px;
 	height: 250px;
+	margin-left: -90px;
+	margin-top: -125px;
 	background: linear-gradient(145deg, #2c3e50, #34495e);
 	border: 3px solid #f39c12;
 	border-radius: 12px;
@@ -37,7 +42,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	color: white;
-	will-change: transform, left, top;
+	will-change: transform;
 }
 
 .card:hover {
