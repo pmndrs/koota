@@ -4,7 +4,7 @@ import { Avoidance, Movement, SpatialHashMap, Transform } from '../traits';
 
 const acceleration = new THREE.Vector3();
 
-export const updateAvoidance = ({ world }: { world: World }) => {
+export function updateAvoidance(world: World) {
 	const spatialHashMap = world.get(SpatialHashMap)!;
 
 	world
@@ -37,4 +37,4 @@ export const updateAvoidance = ({ world }: { world: World }) => {
 				velocity.add(acceleration);
 			}
 		});
-};
+}

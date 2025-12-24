@@ -3,9 +3,9 @@ import { SpatialHashMap, Transform } from '../traits';
 
 const Removed = createRemoved();
 
-export const cleanupSpatialHashMap = ({ world }: { world: World }) => {
+export function cleanupSpatialHashMap(world: World) {
 	const spatialHashMap = world.get(SpatialHashMap)!;
 	world.query(Removed(Transform)).forEach((entity) => {
 		spatialHashMap.removeEntity(entity);
 	});
-};
+}

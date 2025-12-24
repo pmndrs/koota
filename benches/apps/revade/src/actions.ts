@@ -1,4 +1,4 @@
-import { createActions, type Entity, type TraitValue } from 'koota';
+import { createActions, type TraitRecord, type Entity } from 'koota';
 import * as THREE from 'three';
 import {
 	AutoRotate,
@@ -12,21 +12,29 @@ import {
 	Targeting,
 	Transform,
 } from './traits';
+import { between } from './utils/between';
 
-type TransformValue = TraitValue<(typeof Transform)['schema']>;
+type TransformValue = TraitRecord<typeof Transform>;
 
 export const actions = createActions((world) => ({
 	spawnPlayer: (transform?: TransformValue) => {
 		return world.spawn(IsPlayer, Movement, Input, Transform(transform));
 	},
-	spawnEnemy: (options: { transform?: TransformValue; target?: Entity }) => {
+	spawnEnemy: (options: { position?: [number, number, number]; target?: Entity } = {}) => {
 		const enemy = world.spawn(
 			IsEnemy,
-			Movement({ thrust: 0.5, damping: 0.98 }),
-			Transform(options.transform),
+			Movement({ thrust: 0.5, damping: 0.98, maxSpeed: between(5, 10) }),
+			Transform,
 			AutoRotate,
 			Avoidance
 		);
+
+		if (options.position) {
+			enemy.set(Transform, (prev) => ({
+				position: prev.position.set(...options.position!),
+			}));
+		}
+
 		if (options.target) enemy.add(Targeting(options.target));
 
 		return enemy;
@@ -42,5 +50,10 @@ export const actions = createActions((world) => ({
 		if (firedBy) bullet.add(FiredBy(firedBy));
 
 		return bullet;
+	},
+	destroyAllEnemies: () => {
+		world.query(IsEnemy).forEach((enemy) => {
+			enemy.destroy();
+		});
 	},
 }));

@@ -4,9 +4,10 @@ import { IsEnemy, Movement, Targeting, Transform } from '../traits';
 
 const acceleration = new THREE.Vector3();
 
-export const followPlayer = ({ world }: { world: World }) => {
-	world.query(IsEnemy, Transform, Movement, Targeting('*')).updateEach(
-		([transform, { velocity, thrust, damping }], entity) => {
+export function followPlayer(world: World) {
+	world
+		.query(IsEnemy, Transform, Movement, Targeting('*'))
+		.updateEach(([transform, { velocity, thrust, damping }], entity) => {
 			// Get the target from the Targeting relation
 			const targets = entity.targetsFor(Targeting);
 			const target = targets[0];
@@ -25,6 +26,5 @@ export const followPlayer = ({ world }: { world: World }) => {
 				.multiplyScalar(thrust);
 
 			velocity.add(acceleration);
-		}
-	);
-};
+		});
+}
