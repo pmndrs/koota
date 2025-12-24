@@ -32,7 +32,7 @@ export type Trait<TSchema extends Schema = any> = {
 	};
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 
-export type TagTrait = Trait<Record<string, never>>;
+export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
 
 export type TraitTuple<T extends Trait = Trait> = [
 	T,

@@ -4,7 +4,7 @@ import { Bullet, Time, Transform } from '../traits';
 
 const tmpVec3 = new THREE.Vector3();
 
-export const updateBullets = ({ world }: { world: World }) => {
+export function updateBullets(world: World) {
 	const { delta } = world.get(Time)!;
 
 	world.query(Bullet, Transform).updateEach(([bullet, transform], entity) => {
@@ -18,4 +18,4 @@ export const updateBullets = ({ world }: { world: World }) => {
 			return;
 		}
 	});
-};
+}

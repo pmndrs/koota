@@ -2,7 +2,7 @@ import type { World } from 'koota';
 import { Bullet, Explosion, IsEnemy, SpatialHashMap, Transform } from '../traits';
 import { between } from '../utils/between';
 
-export const updateBulletCollisions = ({ world }: { world: World }) => {
+export function updateBulletCollisions(world: World) {
 	const spatialHashMap = world.get(SpatialHashMap)!;
 
 	world
@@ -33,4 +33,4 @@ export const updateBulletCollisions = ({ world }: { world: World }) => {
 				entity.destroy();
 			}
 		});
-};
+}
