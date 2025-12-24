@@ -356,7 +356,7 @@ importers:
         specifier: workspace:*
         version: link:../../.config/typescript
       valibot:
-        specifier: ^1.2.0
+        specifier: 1.2.0
         version: 1.2.0(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
