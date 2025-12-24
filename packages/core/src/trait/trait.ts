@@ -60,8 +60,6 @@ function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 		validateSchema(schema);
 	}
 
-	console.log('validator', schema)
-
 	const id = traitId++;
 	const validator = isUsingStandardSchema ? (schema as any) : undefined;
 	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
