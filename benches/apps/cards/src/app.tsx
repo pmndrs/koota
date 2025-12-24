@@ -1,5 +1,5 @@
 import type { Entity } from 'koota';
-import { useHas, useQuery, useTrait } from 'koota/react';
+import { useHas, useQuery, useQueryFirst, useTrait } from 'koota/react';
 import { useCallback } from 'react';
 import { Frameloop } from './frameloop';
 import { Startup } from './startup';
@@ -8,37 +8,40 @@ import { Card, Dragging, IsHand, OrderedCards, Position, Ref, Velocity } from '.
 export function App() {
 	return (
 		<>
-			<HandView />
+			<HandRenderer />
 			<Frameloop />
 			<Startup />
 		</>
 	);
 }
 
-function HandView() {
-	const hands = useQuery(IsHand, OrderedCards);
-	const hand = hands[0] ?? null;
+/**
+ * Renders the hand of cards.
+ */
+function HandRenderer() {
+	// We only want to render a single hand, so we query the first
+	const hand = useQueryFirst(IsHand, OrderedCards);
+	// Get the ordered cards, with is a special ordered list view of the HeldBy relation
 	const cards = useTrait(hand, OrderedCards);
 
-	if (!hand || !cards) return null;
+	if (!cards) return null;
 
 	return (
 		<div className="hand-container">
-			{[...cards].map((card) => (
+			{/* Map each card to a view */}
+			{cards.map((card) => (
 				<CardView key={card.id()} entity={card} />
 			))}
 		</div>
 	);
 }
 
-interface CardViewProps {
-	entity: Entity;
-}
-
-function CardView({ entity }: CardViewProps) {
+function CardView({ entity }: { entity: Entity }) {
 	const card = useTrait(entity, Card);
 	const isDragging = useHas(entity, Dragging);
 
+	// When the element is created, attach it to the entity with the Ref trait.
+	// This is used to sync the position and rotation of the card to the DOM.
 	const handleInit = useCallback(
 		(div: HTMLDivElement | null) => {
 			if (!div) return;

@@ -5,6 +5,7 @@ import { lerp } from '../utils/lerp';
 export function updateHandLayout(world: World) {
 	const { delta } = world.get(Time)!;
 	const viewport = world.get(Viewport)!;
+
 	const lerpAlpha = 1 - Math.pow(0.001, delta); // Smooth transition for position
 	const velocityDamping = 1 - Math.pow(0.0001, delta); // Faster damping for velocity
 
@@ -51,4 +52,3 @@ export function updateHandLayout(world: World) {
 		});
 	});
 }
-

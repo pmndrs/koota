@@ -42,4 +42,3 @@ export function syncToDOM(world: World) {
 		});
 	});
 }
-

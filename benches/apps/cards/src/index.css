@@ -14,7 +14,8 @@ body,
 
 body {
 	background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+		sans-serif;
 }
 
 .hand-container {
@@ -90,4 +91,3 @@ body {
 	background: rgba(0, 0, 0, 0.2);
 	border-radius: 6px;
 }
-
