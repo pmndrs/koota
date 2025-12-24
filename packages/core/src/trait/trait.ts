@@ -29,6 +29,7 @@ import {
 	Schema,
 	StoreType,
 	validateSchema,
+	validateStandardSchemaOutput,
 } from '../storage';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
@@ -41,6 +42,7 @@ import type {
 	TraitInstance,
 	TraitValue,
 } from './types';
+import {isStandardSchema} from "../storage/schema";
 
 // No reason to create a new object every time a tag trait is created.
 const tagSchema = Object.freeze({});
@@ -49,11 +51,14 @@ let traitId = 0;
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
 function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
 function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
-	const isAoS = typeof schema === 'function';
-	const isTag = !isAoS && Object.keys(schema).length === 0;
+	const isUsingStandardSchema = isStandardSchema(schema);
+	const isAoS = isUsingStandardSchema || (!isUsingStandardSchema && typeof schema === 'function');
+	const isTag = !isUsingStandardSchema && !isAoS && Object.keys(schema).length === 0;
 	const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
-	validateSchema(schema);
+	if (!isUsingStandardSchema) {
+		validateSchema(schema);
+	}
 
 	const id = traitId++;
 	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
@@ -66,6 +71,7 @@ function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 			createStore: () => createStore<S>(schema),
 			relation: null,
 			type: traitType,
+			validator: isUsingStandardSchema ? schema : undefined,
 		},
 	}) as Trait<Norm<S>>;
 
@@ -413,6 +419,24 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 
 	// A short circuit is more performance than an if statement which creates a new code statement.
 	value instanceof Function && (value = value(ctx.get(index, store)));
+
+	// Validate with Standard Schema if present (synchronous validation only)
+	if (ctx.validator) {
+		const result = ctx.validator['~standard'].validate(value);
+		// Check if result is a Promise (async validation not supported)
+		if (result instanceof Promise) {
+			throw new Error('Koota: Async validation is not supported for traits that use a standard schema');
+		}
+		if ('issues' in result && result.issues) {
+			const message = result.issues.map((issue: any) => issue.message).join(', ');
+			throw new Error(`Koota: Trait validation failed: ${message}`);
+		}
+		if ('value' in result) {
+			value = result.value;
+
+			validateStandardSchemaOutput(value);
+		}
+	}
 
 	ctx.set(index, store, value);
 	triggerChanged && setChanged(world, entity, trait);
