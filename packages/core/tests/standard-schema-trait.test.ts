@@ -250,7 +250,7 @@ describe('Standard Schema Traits', () => {
 		}).toThrow(/is an array, which is not supported in traits/);
 	});
 
-	it('should validate string constraints with direct updates', () => {
+	it('should validate schema constraints with direct updates', () => {
 		const schema = v.object({
 			name: v.pipe(v.string(), v.minLength(3)),
 		});
