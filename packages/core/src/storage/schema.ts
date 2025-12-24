@@ -51,8 +51,10 @@ export /* @inline @pure */ function validateStandardSchemaOutput(value: any): vo
 	if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
 		for (const key in value) {
 			const prop = value[key];
+
 			if (prop !== null && typeof prop === 'object') {
 				const kind = Array.isArray(prop) ? 'array' : 'object';
+
 				throw new Error(`Koota: ${key} is an ${kind}, which is not supported in traits.`);
 			}
 		}
