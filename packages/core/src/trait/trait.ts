@@ -61,17 +61,18 @@ function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 	}
 
 	const id = traitId++;
+	const validator = isUsingStandardSchema ? (schema as any) : undefined;
 	const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
 		[$internal]: {
 			id: id,
-			set: createSetFunction[traitType](schema),
-			fastSet: createFastSetFunction[traitType](schema),
-			fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
-			get: createGetFunction[traitType](schema),
+			set: createSetFunction[traitType](schema, validator),
+			fastSet: createFastSetFunction[traitType](schema, validator),
+			fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema, validator),
+			get: createGetFunction[traitType](schema, validator),
 			createStore: () => createStore<S>(schema),
 			relation: null,
 			type: traitType,
-			validator: isUsingStandardSchema ? schema : undefined,
+			validator: validator,
 		},
 	}) as Trait<Norm<S>>;
 

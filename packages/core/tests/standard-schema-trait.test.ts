@@ -45,30 +45,50 @@ describe('Standard Schema Traits', () => {
 		const Counter = trait(schema);
 		const entity = world.spawn(Counter({ value: 5 }));
 
-		// Valid set
 		entity.set(Counter, { value: 10 });
 		expect(entity.get(Counter)).toEqual({ value: 10 });
 
-		// Invalid set should throw
 		expect(() => {
 			entity.set(Counter, { value: -1 });
 		}).toThrow(/validation failed/i);
 	});
 
-	it('should handle schema transformations', () => {
-		// Schema with transformation: double the input value
-		const schema = v.pipe(
-			v.object({
-				value: v.number(),
-			}),
-			v.transform((input) => ({ doubled: input.value * 2 }))
-		);
+	it('should validate values when setting fields directly', () => {
+		const schema = v.object({
+			value: v.pipe(v.number(), v.minValue(0)),
+		});
 
-		const Doubler = trait(schema);
-		const entity = world.spawn(Doubler({ value: 5 }));
+		const Counter = trait(schema);
+		const entity = world.spawn(Counter({ value: 5 }));
 
-		const result = entity.get(Doubler);
-		expect(result).toEqual({ doubled: 10 });
+		// Direct field mutation should trigger validation
+		expect(() => {
+			world.query(Counter).updateEach(([counter]: [{ value: number }]) => {
+				counter.value = -1;
+			});
+		}).toThrow(/validation failed/i);
+
+		// Value should remain unchanged after failed validation
+		expect(entity.get(Counter)).toEqual({ value: 5 });
+
+		// Valid mutation should work
+		world.query(Counter).updateEach(([counter]: [{ value: number }]) => {
+			counter.value = 10;
+		});
+		expect(entity.get(Counter)).toEqual({ value: 10 });
+	});
+
+	it('should handle schema with default values', () => {
+		const schema = v.object({
+			value: v.optional(v.number(), 10),
+			name: v.string(),
+		});
+
+		const Config = trait(schema);
+		const entity = world.spawn(Config({ name: 'test' }));
+
+		const result = entity.get(Config);
+		expect(result).toEqual({ value: 10, name: 'test' });
 	});
 
 	it('should work with multiple entities', () => {
@@ -101,8 +121,6 @@ describe('Standard Schema Traits', () => {
 	});
 
 	it('should reject async validation', () => {
-		// Valibot doesn't have async validation in the same way, but we can test
-		// with a custom Standard Schema that returns a Promise
 		const asyncSchema = {
 			'~standard': {
 				version: 1,
@@ -122,8 +140,7 @@ describe('Standard Schema Traits', () => {
 	});
 
 	it('should work with complex valibot schemas', () => {
-		// Complex real-world example with validation rules (but no nesting)
-		const PlayerSchema = v.object({
+		const schema = v.object({
 			name: v.pipe(v.string(), v.minLength(2), v.maxLength(20)),
 			health: v.pipe(v.number(), v.minValue(0), v.maxValue(100)),
 			level: v.pipe(v.number(), v.integer(), v.minValue(1)),
@@ -131,7 +148,7 @@ describe('Standard Schema Traits', () => {
 			y: v.number(),
 		});
 
-		const Player = trait(PlayerSchema);
+		const Player = trait(schema);
 
 		const entity = world.spawn(
 			Player({
@@ -169,7 +186,7 @@ describe('Standard Schema Traits', () => {
 			y: 25,
 		});
 
-		// Should reject invalid name (too short)
+		// Should reject too short name
 		expect(() => {
 			entity.set(Player, {
 				name: 'A',
@@ -180,7 +197,7 @@ describe('Standard Schema Traits', () => {
 			});
 		}).toThrow(/validation failed/i);
 
-		// Should reject invalid health (out of range)
+		// Should reject out-of-range health
 		expect(() => {
 			entity.set(Player, {
 				name: 'Alice',
@@ -193,8 +210,7 @@ describe('Standard Schema Traits', () => {
 	});
 
 	it('should reject nested objects in standard schemas', () => {
-		// Schema with nested object - should be rejected
-		const NestedSchema = v.object({
+		const schema = v.object({
 			name: v.string(),
 			position: v.object({
 				x: v.number(),
@@ -202,10 +218,9 @@ describe('Standard Schema Traits', () => {
 			}),
 		});
 
-		const NestedTrait = trait(NestedSchema);
+		const NestedTrait = trait(schema);
 		const entity = world.spawn();
 
-		// Should throw when trying to add a trait with nested object
 		expect(() => {
 			entity.add(
 				NestedTrait({
@@ -217,16 +232,14 @@ describe('Standard Schema Traits', () => {
 	});
 
 	it('should reject nested arrays in standard schemas', () => {
-		// Schema with array - should be rejected
-		const ArraySchema = v.object({
+		const schema = v.object({
 			name: v.string(),
 			items: v.array(v.number()),
 		});
 
-		const ArrayTrait = trait(ArraySchema);
+		const ArrayTrait = trait(schema);
 		const entity = world.spawn();
 
-		// Should throw when trying to add a trait with array
 		expect(() => {
 			entity.add(
 				ArrayTrait({
@@ -237,28 +250,75 @@ describe('Standard Schema Traits', () => {
 		}).toThrow(/is an array, which is not supported in traits/);
 	});
 
-	it('should reject nested objects in standard schemas', () => {
-		// Schema with array - should be rejected
-		const NestedObjectSchema = v.object({
-			name: v.string(),
-			items: v.object({
-				key: v.number()
-			}),
+	it('should validate string constraints with direct updates', () => {
+		const schema = v.object({
+			name: v.pipe(v.string(), v.minLength(3)),
 		});
 
-		const NestedObjectTrait = trait(NestedObjectSchema);
-		const entity = world.spawn();
+		const Name = trait(schema);
+		const entity = world.spawn(Name({ name: 'Alice' }));
 
-		// Should throw when trying to add a trait with array
 		expect(() => {
-			entity.add(
-				NestedObjectTrait({
-					name: 'Test',
-					items: {
-						key: 3,
-					},
-				})
-			);
-		}).toThrow(/is an object, which is not supported in traits/);
+			world.query(Name).updateEach(([data]: [{ name: string }]) => {
+				data.name = 'AB';
+			});
+		}).toThrow(/validation failed/i);
+
+		expect(entity.get(Name)).toEqual({ name: 'Alice' });
+
+		world.query(Name).updateEach(([data]: [{ name: string }]) => {
+			data.name = 'Bob';
+		});
+		expect(entity.get(Name)).toEqual({ name: 'Bob' });
+	});
+
+	it('should validate multiple fields with direct updates', () => {
+		const schema = v.object({
+			x: v.pipe(v.number(), v.minValue(0), v.maxValue(100)),
+			y: v.pipe(v.number(), v.minValue(0), v.maxValue(100)),
+		});
+
+		const Position = trait(schema);
+		const entity = world.spawn(Position({ x: 50, y: 50 }));
+
+		expect(() => {
+			world.query(Position).updateEach(([pos]: [{ x: number; y: number }]) => {
+				pos.x = 150;
+			});
+		}).toThrow(/validation failed/i);
+
+		expect(entity.get(Position)).toEqual({ x: 50, y: 50 });
+
+		world.query(Position).updateEach(([pos]: [{ x: number; y: number }]) => {
+			pos.x = 75;
+			pos.y = 25;
+		});
+		expect(entity.get(Position)).toEqual({ x: 75, y: 25 });
+	});
+
+	it('should validate across multiple entities with direct updates', () => {
+		const schema = v.object({
+			health: v.pipe(v.number(), v.minValue(0), v.maxValue(100)),
+		});
+
+		const Health = trait(schema);
+		const entity1 = world.spawn(Health({ health: 100 }));
+		const entity2 = world.spawn(Health({ health: 50 }));
+
+		expect(() => {
+			world.query(Health).updateEach(([health]: [{ health: number }]) => {
+				health.health = -10;
+			});
+		}).toThrow(/validation failed/i);
+
+		expect(entity1.get(Health)).toEqual({ health: 100 });
+		expect(entity2.get(Health)).toEqual({ health: 50 });
+
+		world.query(Health).updateEach(([health]: [{ health: number }]) => {
+			health.health = Math.max(0, health.health - 10);
+		});
+
+		expect(entity1.get(Health)).toEqual({ health: 90 });
+		expect(entity2.get(Health)).toEqual({ health: 40 });
 	});
 });
