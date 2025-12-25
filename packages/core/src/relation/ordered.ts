@@ -6,14 +6,8 @@ import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
 import type { World } from '../world';
 import { OrderedList } from './ordered-list';
-import { $orderedTrait } from './symbols';
-import type { Relation } from './types';
-
-export interface OrderedTrait<T extends Trait = Trait> extends Trait<() => OrderedList> {
-	[$orderedTrait]: {
-		relation: Relation<T>;
-	};
-}
+import { $orderedTargetsTrait } from './symbols';
+import type { OrderedTargetsTrait, Relation } from './types';
 
 /**
  * Creates a trait that maintains an ordered list of entities related by a relation.
@@ -31,38 +25,38 @@ export interface OrderedTrait<T extends Trait = Trait> extends Trait<() => Order
  * children.splice(0, 1); // removes ChildOf(parent) from child1
  * ```
  */
-export function ordered<T extends Trait>(relation: Relation<T>): OrderedTrait<T> {
+export function ordered<T extends Trait>(relation: Relation<T>): OrderedTargetsTrait<T> {
 	const orderedTrait = trait(() => [] as Entity[]);
 
-	Object.defineProperty(orderedTrait, $orderedTrait, {
+	Object.defineProperty(orderedTrait, $orderedTargetsTrait, {
 		value: { relation },
 		writable: false,
 		enumerable: false,
 		configurable: false,
 	});
 
-	return orderedTrait as unknown as OrderedTrait<T>;
+	return orderedTrait as unknown as OrderedTargetsTrait<T>;
 }
 
 /**
  * Check if a trait is an ordered trait.
  */
-export /* @inline @pure */ function isOrderedTrait(trait: Trait): trait is OrderedTrait {
-	return $orderedTrait in trait;
+export /* @inline @pure */ function isOrderedTrait(trait: Trait): trait is OrderedTargetsTrait {
+	return $orderedTargetsTrait in trait;
 }
 
 /**
  * Get the relation linked to an ordered trait.
  */
-export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedTrait): Relation {
-	return trait[$orderedTrait].relation;
+export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedTargetsTrait): Relation {
+	return trait[$orderedTargetsTrait].relation;
 }
 
 /**
  * Setup sync subscriptions for an ordered trait.
  * Called during trait registration to wire up bidirectional sync.
  */
-export function setupOrderedTraitSync(world: World, orderedTrait: OrderedTrait): void {
+export function setupOrderedTraitSync(world: World, orderedTrait: OrderedTargetsTrait): void {
 	const ctx = world[$internal];
 	const relation = getOrderedTraitRelation(orderedTrait);
 	const relationTrait = relation[$internal].trait;

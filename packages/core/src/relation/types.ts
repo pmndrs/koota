@@ -1,7 +1,8 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { Trait } from '../trait/types';
-import { $relation, $relationPair } from './symbols';
+import type { OrderedList } from './ordered-list';
+import { $orderedTargetsTrait, $relation, $relationPair } from './symbols';
 
 export type RelationTarget = Entity | '*';
 
@@ -23,3 +24,9 @@ export type Relation<T extends Trait = Trait> = {
 		autoRemoveTarget: boolean;
 	};
 } & ((target: RelationTarget, params?: Record<string, unknown>) => RelationPair<T>);
+
+export interface OrderedTargetsTrait<T extends Trait = Trait> extends Trait<() => OrderedList> {
+	[$orderedTargetsTrait]: {
+		relation: Relation<T>;
+	};
+}

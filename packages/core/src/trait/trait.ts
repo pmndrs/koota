@@ -4,12 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import {
-	isOrderedTrait,
-	getOrderedTraitRelation,
-	setupOrderedTraitSync,
-	OrderedTrait,
-} from '../relation/ordered';
+import { isOrderedTrait, getOrderedTraitRelation, setupOrderedTraitSync } from '../relation/ordered';
 import { OrderedList } from '../relation/ordered-list';
 import {
 	addRelationTarget,
@@ -23,8 +18,8 @@ import {
 	setRelationData,
 	setRelationDataAtIndex,
 } from '../relation/relation';
-import { $orderedTrait } from '../relation/symbols';
-import type { Relation, RelationPair } from '../relation/types';
+import { $orderedTargetsTrait } from '../relation/symbols';
+import type { OrderedTargetsTrait, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import {
 	createFastSetChangeFunction,
@@ -130,7 +125,7 @@ export function registerTrait(world: World, trait: Trait) {
 	incrementWorldBitflag(world);
 }
 
-function getOrderedTrait(world: World, entity: Entity, trait: OrderedTrait): OrderedList {
+function getOrderedTrait(world: World, entity: Entity, trait: OrderedTargetsTrait): OrderedList {
 	const relation = getOrderedTraitRelation(trait);
 	return new OrderedList(world, entity, relation);
 }
