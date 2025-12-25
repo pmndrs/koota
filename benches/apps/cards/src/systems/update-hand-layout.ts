@@ -18,11 +18,13 @@ export function updateHandLayout(world: World) {
 		const centerX = viewport.width / 2;
 		const centerY = viewport.height + fanRadius - cardHeight / 2;
 
-		cards.forEach((card, index) => {
+		// cards.forEach((card, index) => {
+		for (let i = 0; i < cards.length; i++) {
+			const card = cards[i];
 			// Skip cards being dragged - they're positioned by updateDragging
-			if (card.has(Dragging)) return;
+			if (card.has(Dragging)) continue;
 
-			const angle = (index - centerIndex) * angleStep;
+			const angle = (i - centerIndex) * angleStep;
 			const angleRad = (angle * Math.PI) / 180;
 
 			const targetX = centerX + Math.sin(angleRad) * fanRadius;
@@ -40,6 +42,6 @@ export function updateHandLayout(world: World) {
 					z: pos.z,
 				});
 			}
-		});
+		}
 	});
 }
