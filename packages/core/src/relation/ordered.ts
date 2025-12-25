@@ -67,45 +67,37 @@ export function setupOrderedTraitSync(world: World, orderedTrait: OrderedTrait):
 	const relation = getOrderedTraitRelation(orderedTrait);
 	const relationTrait = relation[$internal].trait;
 
-	const orderedTraitInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
-	if (!orderedTraitInstance) return;
+	const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
+	if (!orderedInstance) return;
 
-	let relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-	if (!relationTraitInstance) {
+	let relationInstance = getTraitInstance(ctx.traitInstances, relationTrait);
+	if (!relationInstance) {
 		registerTrait(world, relationTrait);
-		relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-		if (!relationTraitInstance) return;
+		relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
 	}
 
+	const { generationId, bitflag, store } = orderedInstance;
+	const { entityMasks, entityIndex } = ctx;
 	const traitCtx = orderedTrait[$internal];
-	const { generationId, bitflag, store } = orderedTraitInstance;
-	const entityMasks = ctx.entityMasks;
-	const entityIndex = ctx.entityIndex;
 
 	const getList = (parent: Entity): OrderedList | undefined => {
 		const eid = getEntityId(parent);
-		if (!entityMasks[generationId] || !(entityMasks[generationId][eid] & bitflag)) {
-			return undefined;
-		}
-		let list = traitCtx.get(eid, store);
-		if (list && !(list instanceof OrderedList)) {
-			list = new OrderedList(world, parent, relation, list);
-			(store as any)[eid] = list;
-		}
-		return list instanceof OrderedList ? list : undefined;
+		return entityMasks[generationId]?.[eid] & bitflag
+			? (traitCtx.get(eid, store) as OrderedList)
+			: undefined;
 	};
 
-	relationTraitInstance.addSubscriptions.add(((child: Entity, parent: Entity) => {
-		const list = getList(parent);
-		if (list) list._appendWithoutSync(child);
-	}) as any);
+	type RelationSub = (entity: Entity, target: Entity) => void;
 
-	relationTraitInstance.removeSubscriptions.add(((child: Entity, parent: Entity) => {
+	(relationInstance.addSubscriptions as Set<RelationSub>).add((child, parent) => {
+		getList(parent)?._appendWithoutSync(child);
+	});
+
+	(relationInstance.removeSubscriptions as Set<RelationSub>).add((child, parent) => {
 		const eid = getEntityId(parent);
 		const denseIdx = entityIndex.sparse[eid];
-		if (denseIdx === undefined || getEntityId(entityIndex.dense[denseIdx]) !== eid) return;
-
-		const list = getList(parent);
-		if (list) list._removeWithoutSync(child);
-	}) as any);
+		if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
+			getList(parent)?._removeWithoutSync(child);
+		}
+	});
 }
