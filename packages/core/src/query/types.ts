@@ -101,8 +101,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 	parameters: T;
 	hash: QueryHash;
 	traits: Trait[];
-	resultStores: Store[];
-	resultTraits: Trait[];
 	traitInstances: {
 		required: TraitInstance[];
 		forbidden: TraitInstance[];
@@ -133,7 +131,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
 	removeSubscriptions: Set<QuerySubscriber>;
 	/** Relation pairs for target-specific queries */
 	relationFilters?: RelationPair[];
-	run: (world: World) => QueryResult<T>;
+	run: (world: World, params: QueryParameter[]) => QueryResult<T>;
 	add: (entity: Entity) => void;
 	remove: (world: World, entity: Entity) => void;
 	check: (world: World, entity: Entity) => boolean;
