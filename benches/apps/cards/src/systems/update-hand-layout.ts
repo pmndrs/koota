@@ -1,5 +1,5 @@
 import type { World } from 'koota';
-import { Dragging, Hand, OrderedCards, Position, Time, Viewport } from '../traits';
+import { Dragging, Hand, OrderedCards, Position, Time, Viewport, ZIndex } from '../traits';
 import { dampedLerp } from '../utils/lerp';
 
 const POSITION_DAMPING = 1 - Math.pow(0.001, 1 / 60); // smooth transition
@@ -18,9 +18,12 @@ export function updateHandLayout(world: World) {
 		const centerX = viewport.width / 2;
 		const centerY = viewport.height + fanRadius - cardHeight / 2;
 
-		// cards.forEach((card, index) => {
 		for (let i = 0; i < cards.length; i++) {
 			const card = cards[i];
+
+			// Assign z-index based on card order
+			card.set(ZIndex, { value: i });
+
 			// Skip cards being dragged - they're positioned by updateDragging
 			if (card.has(Dragging)) continue;
 

@@ -1,12 +1,12 @@
 import { createActions, type Entity, type TraitRecord } from 'koota';
-import { Card, Hand, OrderedCards, Position, Rotation, Scale, Velocity } from './traits';
+import { Card, Hand, OrderedCards, Position, Rotation, Scale, Velocity, ZIndex } from './traits';
 
 export const actions = createActions((world) => ({
 	spawnHand: () => {
 		return world.spawn(Hand, OrderedCards);
 	},
 	spawnCard: (hand: Entity, config: TraitRecord<typeof Card>) => {
-		const card = world.spawn(Card(config), Position, Rotation, Scale, Velocity);
+		const card = world.spawn(Card(config), Position, Rotation, Scale, Velocity, ZIndex);
 
 		// Add card to hand's ordered list
 		const cards = hand.get(OrderedCards);

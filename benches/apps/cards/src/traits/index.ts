@@ -30,6 +30,8 @@ export const Dragging = trait({
 	offset: () => ({ x: 0, y: 0 }),
 });
 
+export const ZIndex = trait({ value: 0 });
+
 export const Ref = trait(() => null! as HTMLDivElement);
 
 export const HeldBy = relation();
