@@ -4,7 +4,12 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
+import {
+	isOrderedTrait,
+	getOrderedTraitRelation,
+	setupOrderedTraitSync,
+	OrderedTrait,
+} from '../relation/ordered';
 import { OrderedList } from '../relation/ordered-list';
 import {
 	addRelationTarget,
@@ -119,12 +124,15 @@ export function registerTrait(world: World, trait: Trait) {
 	if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
 
 	// Setup ordered trait sync if this is an ordered trait
-	if (isOrderedTrait(trait)) {
-		setupOrderedTraitSync(world, trait);
-	}
+	if (isOrderedTrait(trait)) setupOrderedTraitSync(world, trait);
 
 	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
+}
+
+function getOrderedTrait(world: World, entity: Entity, trait: OrderedTrait): OrderedList {
+	const relation = getOrderedTraitRelation(trait);
+	return new OrderedList(world, entity, relation);
 }
 
 export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTrait[]) {
@@ -153,10 +161,12 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 		// Initialize values
 		const traitCtx = trait[$internal];
-		const defaults = getSchemaDefaults(data.schema, traitCtx.type);
+
+		const defaults = isOrderedTrait(trait)
+			? getOrderedTrait(world, entity, trait)
+			: getSchemaDefaults(data.schema, traitCtx.type);
 
 		if (traitCtx.type === 'aos') {
-			// AoS: use params or defaults directly (no spreading to preserve reference)
 			setTrait(world, entity, trait, params ?? defaults, false);
 		} else if (defaults) {
 			setTrait(world, entity, trait, { ...defaults, ...params }, false);
@@ -383,21 +393,6 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 	const traitCtx = trait[$internal];
 	const store = getStore(world, trait);
 	const data = traitCtx.get(getEntityId(entity), store);
-
-	// If this is an ordered trait, wrap the array in OrderedList
-	if (isOrderedTrait(trait)) {
-		const orderedStore = store as Entity[][];
-		const relation = trait[$orderedTrait].relation;
-		// Check if already an OrderedList
-		if (data instanceof OrderedList) {
-			return data;
-		}
-		// Wrap the plain array in OrderedList
-		const orderedList = new OrderedList(world, entity, relation, data);
-		// Update the store with the bound instance
-		orderedStore[getEntityId(entity)] = orderedList;
-		return orderedList;
-	}
 
 	return data;
 }

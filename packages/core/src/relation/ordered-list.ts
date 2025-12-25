@@ -18,9 +18,6 @@ export class OrderedList extends Array<Entity> {
 		this.world = world;
 		this.parent = parent;
 		this.relation = relation;
-
-		// Set the prototype explicitly for proper Array subclassing
-		Object.setPrototypeOf(this, OrderedList.prototype);
 	}
 
 	get [Symbol.toStringTag]() {
@@ -206,4 +203,3 @@ export class OrderedList extends Array<Entity> {
 		}
 	}
 }
-
