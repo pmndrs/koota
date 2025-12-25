@@ -29,7 +29,8 @@ export const IsExcluded: TagTrait = trait();
 
 export function runQuery<T extends QueryParameter[]>(
 	world: World,
-	query: QueryInstance<T>
+	query: QueryInstance<T>,
+	params: QueryParameter[]
 ): QueryResult<T> {
 	commitQueryRemovals(world);
 
@@ -46,7 +47,7 @@ export function runQuery<T extends QueryParameter[]>(
 		}
 	}
 
-	return createQueryResult(world, entities, query);
+	return createQueryResult(world, entities, query, params);
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
@@ -110,8 +111,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
 		parameters,
 		hash: '',
 		traits: [],
-		resultStores: [],
-		resultTraits: [],
 		traitInstances: {
 			required: [],
 			forbidden: [],
@@ -132,7 +131,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 		removeSubscriptions: new Set<QuerySubscriber>(),
 		relationFilters: [],
 
-		run: (world: World) => runQuery(world, query),
+		run: (world: World, params: QueryParameter[]) => runQuery(world, query, params),
 		add: (entity: Entity) => addEntityToQuery(query, entity),
 		remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
 		check: (world: World, entity: Entity) => checkQuery(world, query, entity),
@@ -413,9 +412,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
 			if (match) query.add(entity);
 		}
 	}
-
-	// Pre-compute result stores and traits.
-	getQueryStores(parameters, query.resultTraits, query.resultStores, world);
 
 	return query;
 }

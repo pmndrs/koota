@@ -22,10 +22,13 @@ import type {
 export function createQueryResult<T extends QueryParameter[]>(
 	world: World,
 	entities: Entity[],
-	query: QueryInstance
+	query: QueryInstance,
+	params: QueryParameter[]
 ): QueryResult<T> {
-	const traits = [...query.resultTraits];
-	const stores = [...query.resultStores];
+	const traits: Trait[] = [];
+	const stores: Store<any>[] = [];
+
+	getQueryStores(params, traits, stores, world);
 
 	const results = Object.assign(entities, {
 		updateEach(
