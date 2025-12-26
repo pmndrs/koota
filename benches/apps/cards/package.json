@@ -1,0 +1,25 @@
+{
+	"name": "@app/cards",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc && vite build",
+		"lint": "oxlint",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"koota": "workspace:*",
+		"react": "catalog:",
+		"react-dom": "catalog:"
+	},
+	"devDependencies": {
+		"@config/typescript": "workspace:*",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@vitejs/plugin-react": "^5.1.1",
+		"vite": "catalog:"
+	}
+}
+

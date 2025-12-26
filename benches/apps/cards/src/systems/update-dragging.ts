@@ -1,0 +1,27 @@
+import type { World } from 'koota';
+import { Dragging, Pointer, Position, Time, Velocity } from '../traits';
+import { dampedLerp } from '../utils/lerp';
+
+const VELOCITY_DAMPING = 0.5;
+
+export function updateDragging(world: World) {
+	const pointer = world.get(Pointer);
+	if (!pointer) return;
+
+	const { delta } = world.get(Time)!;
+
+	world.query(Position, Velocity, Dragging).updateEach(([position, velocity, dragging]) => {
+		const oldX = position.x;
+		const oldY = position.y;
+
+		position.x = pointer.x - dragging.offset.x;
+		position.y = pointer.y - dragging.offset.y;
+
+		// Lerp velocity with position delta for smooth momentum
+		const invDelta = delta > 0 ? 1 / delta : 0;
+		const targetVX = (position.x - oldX) * invDelta;
+		const targetVY = (position.y - oldY) * invDelta;
+		velocity.x = dampedLerp(velocity.x, targetVX, VELOCITY_DAMPING, delta);
+		velocity.y = dampedLerp(velocity.y, targetVY, VELOCITY_DAMPING, delta);
+	});
+}

@@ -138,6 +138,34 @@ importers:
         specifier: 'catalog:'
         version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
 
+  benches/apps/cards:
+    dependencies:
+      koota:
+        specifier: workspace:*
+        version: link:../../../packages/publish
+      react:
+        specifier: 'catalog:'
+        version: 19.2.0
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../../.config/typescript
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.6)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.1(vite@7.2.4(@types/node@24.10.1)(tsx@4.21.0))
+      vite:
+        specifier: 'catalog:'
+        version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
+
   benches/apps/n-body:
     dependencies:
       '@app/bench-tools':
