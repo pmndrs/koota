@@ -1,0 +1,98 @@
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+}
+
+body {
+	background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+		sans-serif;
+}
+
+.hand-container {
+	pointer-events: none;
+}
+
+.card {
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 180px;
+	height: 250px;
+	margin-left: -90px;
+	margin-top: -125px;
+	background: linear-gradient(145deg, #2c3e50, #34495e);
+	border: 3px solid #f39c12;
+	border-radius: 12px;
+	padding: 16px;
+	cursor: grab;
+	pointer-events: auto;
+	transform-origin: center center;
+	user-select: none;
+	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+	display: flex;
+	flex-direction: column;
+	color: white;
+	will-change: transform;
+}
+
+.card:hover {
+	box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6);
+}
+
+.card.dragging {
+	cursor: grabbing;
+	box-shadow: 0 16px 32px rgba(0, 0, 0, 0.8);
+	opacity: 0.9;
+}
+
+.card-cost {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	width: 36px;
+	height: 36px;
+	background: linear-gradient(145deg, #3498db, #2980b9);
+	border: 2px solid #f39c12;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 20px;
+	font-weight: bold;
+	color: white;
+	text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.card-name {
+	margin-top: 50px;
+	font-size: 18px;
+	font-weight: bold;
+	text-align: center;
+	color: #f39c12;
+	text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+	margin-bottom: 12px;
+}
+
+.card-description {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	font-size: 14px;
+	line-height: 1.4;
+	color: #ecf0f1;
+	padding: 8px;
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 6px;
+}
