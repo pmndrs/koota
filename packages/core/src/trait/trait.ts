@@ -19,7 +19,7 @@ import {
 	setRelationDataAtIndex,
 } from '../relation/relation';
 import { $orderedTargetsTrait } from '../relation/symbols';
-import type { OrderedTargetsTrait, Relation, RelationPair } from '../relation/types';
+import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import {
 	createFastSetChangeFunction,
@@ -125,7 +125,7 @@ export function registerTrait(world: World, trait: Trait) {
 	incrementWorldBitflag(world);
 }
 
-function getOrderedTrait(world: World, entity: Entity, trait: OrderedTargetsTrait): OrderedList {
+function getOrderedTrait(world: World, entity: Entity, trait: OrderedRelation): OrderedList {
 	const relation = getOrderedTraitRelation(trait);
 	return new OrderedList(world, entity, relation);
 }

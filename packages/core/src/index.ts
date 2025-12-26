@@ -31,7 +31,7 @@ export { ordered } from './relation/ordered';
 export { OrderedList } from './relation/ordered-list';
 export { $relationPair, $relation } from './relation/symbols';
 export type {
-	OrderedTargetsTrait as OrderedTrait,
+	OrderedRelation as OrderedTrait,
 	Relation,
 	RelationPair,
 	RelationTarget,

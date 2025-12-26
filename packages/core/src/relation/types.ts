@@ -25,7 +25,7 @@ export type Relation<T extends Trait = Trait> = {
 	};
 } & ((target: RelationTarget, params?: Record<string, unknown>) => RelationPair<T>);
 
-export interface OrderedTargetsTrait<T extends Trait = Trait> extends Trait<() => OrderedList> {
+export interface OrderedRelation<T extends Trait = Trait> extends Trait<() => OrderedList> {
 	[$orderedTargetsTrait]: {
 		relation: Relation<T>;
 	};

@@ -27,3 +27,7 @@ Traits are a user-facing handle for storage. The user never interacts with store
 **Schema.** The shape definition for trait data. Can be SoA (struct of arrays), AoS (array of structs via factory function), or empty (tag trait).
 
 **Store.** The actual per-world storage for trait data, created from a schema. SoA stores have one array per property; AoS stores have one array of objects.
+
+**Relation.** A directional connection between entities. The relation is the **predicate** and the target is the **subject**.
+
+**OrderedRelation.** A trait bound to a relation that stores an ordered list of entities. For a given entity, the list contains all entities that have the relation pointing to it. The list and relation stay in sync bidirectionally -- modifying the list updates the relation pairs, and modifying the relation updates the list.
