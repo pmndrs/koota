@@ -18,6 +18,12 @@ Traits are a user-facing handle for storage. The user never interacts with store
 
 **Instance.** Per-world state created from a ref. Contains world-specific data like stores, subscriptions, query results, and bitmasks. Examples: `TraitInstance`, `QueryInstance`. Instances are internal — users don't interact with them directly.
 
+**Record.** The per-entity result of reading a trait. It differs by storage type
+
+- SoA: A snapshot of the entity state.
+- AoS: The value stored for the entity, likely an object ref.
+- Tag: `undefined`, since there is no store.
+
 **Register.** The process of creating an instance for a ref on a world. Happens lazily on first use. Allocates storage, sets up bitmasks, and integrates with the world's query system.
 
 **Create.** The verb used for all factory functions. `create*` functions return refs (`createQuery`, `createActions`, `createAdded`) or instances (`createWorld`). The primitives `trait()` and `relation()` omit the verb for brevity. We used to use `define*` to differentiate creating a ref and creating an instance, but we now juse use `create*` in all cases and try to make this process hidden from the user.
@@ -30,4 +36,4 @@ Traits are a user-facing handle for storage. The user never interacts with store
 
 **Relation.** A directional connection between entities. The relation is the **predicate** and the target is the **subject**.
 
-**OrderedRelation.** A trait bound to a relation that stores an ordered list of entities. For a given entity, the list contains all entities that have the relation pointing to it. The list and relation stay in sync bidirectionally -- modifying the list updates the relation pairs, and modifying the relation updates the list.
+**OrderedRelation.** A trait bound to a relation that stores an ordered list of entities as its record. For a given entity, the list contains all entities that have the relation pointing to it. The list and relation stay in sync bidirectionally -- modifying the list updates the relation pairs, and modifying the relation updates the list.
