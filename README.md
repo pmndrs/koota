@@ -203,6 +203,9 @@ hero.has(Targeting(goblin)) // True
 
 #### Ordered relations
 
+> ⚠️ **Experimental**<br>
+> This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
+
 Ordered relations maintain a list of related entities with bidirectional sync.
 
 ```js

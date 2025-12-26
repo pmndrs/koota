@@ -27,10 +27,13 @@ export type {
 } from './query/types';
 export { $queryRef } from './query/symbols';
 export { relation } from './relation/relation';
+/** @experimental This API is experimental and may change or be removed in future versions. */
 export { ordered } from './relation/ordered';
+/** @experimental This API is experimental and may change or be removed in future versions. */
 export { OrderedList } from './relation/ordered-list';
 export { $relationPair, $relation } from './relation/symbols';
 export type {
+	/** @experimental This type is experimental and may change or be removed in future versions. */
 	OrderedRelation as OrderedTrait,
 	Relation,
 	RelationPair,

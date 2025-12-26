@@ -6,6 +6,9 @@ import { addTrait, removeTrait } from '../trait/trait';
 /**
  * An ordered list of entities that syncs with a relation.
  * Extends Array to provide native array methods while keeping relation pairs in sync.
+ *
+ * @experimental This API is experimental and may change in future versions.
+ * Please provide feedback on GitHub or Discord.
  */
 export class OrderedList extends Array<Entity> {
 	private world: World;

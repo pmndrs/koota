@@ -14,6 +14,9 @@ import type { OrderedRelation, Relation } from './types';
  * The list automatically syncs with the relation - adding/removing from the list
  * adds/removes the relation pair, and vice versa.
  *
+ * @experimental This API is experimental and may change in future versions.
+ * Please provide feedback on GitHub or Discord.
+ *
  * @example
  * ```ts
  * const ChildOf = relation();
