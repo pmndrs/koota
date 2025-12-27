@@ -206,6 +206,34 @@ hero.has(Targeting(rat)) // False
 hero.has(Targeting(goblin)) // True
 ```
 
+#### Ordered relations
+
+> ⚠️ **Experimental**<br>
+> This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
+
+Ordered relations maintain a list of related entities with bidirectional sync.
+
+```js
+import { relation, ordered } from 'koota'
+
+const ChildOf = relation()
+const OrderedChildren = ordered(ChildOf)
+
+const parent = world.spawn(OrderedChildren)
+const children = parent.get(OrderedChildren)
+
+children.push(child1) // adds ChildOf(parent) to child1
+children.splice(0, 1) // removes ChildOf(parent) from child1
+
+// Bidirectional sync works both ways
+child2.add(ChildOf(parent)) // child2 automatically added to list
+```
+
+Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa.
+
+> ⚠️ **Performance note**<br>
+> Ordered relations are more expensive to update than regular relations but enable faster traversal when order matters. Use them only when entity order is essential.
+
 #### Querying relations
 
 Relations can be queried with specific targets and wildcard targets using `*`.

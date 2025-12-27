@@ -73,12 +73,6 @@ export function createWorld(
 			// Register system traits.
 			if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(world, IsExcluded);
 
-			// Create cached queries.
-			for (const [hash, queryRef] of universe.cachedQueries) {
-				const query = createQueryInstance(world, queryRef.parameters);
-				ctx.queriesHashMap.set(hash, query);
-			}
-
 			// Create world entity.
 			ctx.worldEntity = createEntity(world, IsExcluded, ...initTraits);
 		},
@@ -157,12 +151,6 @@ export function createWorld(
 			// Create new world entity.
 			ctx.worldEntity = createEntity(world, IsExcluded);
 
-			// Restore cached queries.
-			for (const [hash, queryRef] of universe.cachedQueries) {
-				const query = createQueryInstance(world, queryRef.parameters);
-				ctx.queriesHashMap.set(hash, query);
-			}
-
 			for (const sub of ctx.resetSubscriptions) {
 				sub(world);
 			}
@@ -171,12 +159,12 @@ export function createWorld(
 		query(...args: any[]) {
 			const ctx = world[$internal];
 
-			// Check if first arg is a QueryRef (has symbol brand)
+			// Check if first arg is a QueryRef
 			if (args.length === 1 && isQuery(args[0])) {
 				const queryRef = args[0];
-				// Try array lookup first (faster)
+				// Try array lookup first
 				let query = ctx.queryInstances[queryRef.id];
-				if (query) return query.run(world);
+				if (query) return query.run(world, queryRef.parameters);
 
 				// Fallback to hash map
 				query = ctx.queriesHashMap.get(queryRef.hash);
@@ -189,7 +177,7 @@ export function createWorld(
 					}
 					ctx.queryInstances[queryRef.id] = query;
 				}
-				return query.run(world);
+				return query.run(world, queryRef.parameters);
 			} else {
 				const params = args as QueryParameter[];
 
@@ -218,7 +206,7 @@ export function createWorld(
 					ctx.queriesHashMap.set(hash, query);
 				}
 
-				return query.run(world);
+				return query.run(world, params);
 			}
 		},
 

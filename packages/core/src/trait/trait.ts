@@ -4,6 +4,8 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
+import { isOrderedTrait, getOrderedTraitRelation, setupOrderedTraitSync } from '../relation/ordered';
+import { OrderedList } from '../relation/ordered-list';
 import {
 	addRelationTarget,
 	getFirstRelationTarget,
@@ -16,7 +18,8 @@ import {
 	setRelationData,
 	setRelationDataAtIndex,
 } from '../relation/relation';
-import type { Relation, RelationPair } from '../relation/types';
+import { $orderedTargetsTrait } from '../relation/symbols';
+import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import {
 	createFastSetChangeFunction,
@@ -122,8 +125,16 @@ export function registerTrait(world: World, trait: Trait) {
 	// Track relations
 	if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
 
+	// Setup ordered trait sync if this is an ordered trait
+	if (isOrderedTrait(trait)) setupOrderedTraitSync(world, trait);
+
 	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
+}
+
+function getOrderedTrait(world: World, entity: Entity, trait: OrderedRelation): OrderedList {
+	const relation = getOrderedTraitRelation(trait);
+	return new OrderedList(world, entity, relation);
 }
 
 export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTrait[]) {
@@ -152,10 +163,12 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
 		// Initialize values
 		const traitCtx = trait[$internal];
-		const defaults = getSchemaDefaults(data.schema, traitCtx.type);
+
+		const defaults = isOrderedTrait(trait)
+			? getOrderedTrait(world, entity, trait)
+			: getSchemaDefaults(data.schema, traitCtx.type);
 
 		if (traitCtx.type === 'aos') {
-			// AoS: use params or defaults directly (no spreading to preserve reference)
 			setTrait(world, entity, trait, params ?? defaults, false);
 		} else if (defaults) {
 			setTrait(world, entity, trait, { ...defaults, ...params }, false);
@@ -381,7 +394,9 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 
 	const traitCtx = trait[$internal];
 	const store = getStore(world, trait);
-	return traitCtx.get(getEntityId(entity), store);
+	const data = traitCtx.get(getEntityId(entity), store);
+
+	return data;
 }
 
 /**
