@@ -260,6 +260,27 @@ describe('Query', () => {
 		expect(cb).toHaveBeenCalledTimes(9);
 	});
 
+	it('updateEach should return values in caller parameter order regardless of cache', () => {
+		// Create entity with both traits
+		const entity = world.spawn(Position({ x: 10, y: 20 }), Name({ name: 'test' }));
+
+		// First query with order: Position, Name
+		world.query(Position, Name).updateEach(([position, name]) => {
+			expect(position).toHaveProperty('x');
+			expect(position).toHaveProperty('y');
+			expect(name).toHaveProperty('name');
+			expect(name.name).toBe('test');
+		});
+
+		// Second query with REVERSED order: Name, Position
+		// This should return values in the order specified (Name first, Position second)
+		world.query(Name, Position).updateEach(([name, position]) => {
+			expect(name).toHaveProperty('name', 'test');
+			expect(position).toHaveProperty('x');
+			expect(position).toHaveProperty('y');
+		});
+	});
+
 	it('should return the first entity in a query', () => {
 		const entityA = world.spawn(Position);
 
