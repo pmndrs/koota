@@ -3,11 +3,14 @@ import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type { AoSFactory, Schema, Store, StoreType } from '../storage';
+import {StandardSchemaV1} from "./standard-schema";
 
 // Backwards-compatible alias (the trait "type" is the storage layout).
 export type TraitType = StoreType;
 
-export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
+export type TraitValue<TSchema extends Schema> = TSchema extends StandardSchemaV1
+	? StandardSchemaV1.InferInput<TSchema>
+	: TSchema extends AoSFactory
 	? ReturnType<TSchema>
 	: Partial<TraitRecord<TSchema>>;
 
@@ -29,6 +32,7 @@ export type Trait<TSchema extends Schema = any> = {
 		/** Reference to parent relation if this trait is owned by a relation */
 		relation: Relation<any> | null;
 		type: StoreType;
+		validator?: StandardSchemaV1
 	};
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 
@@ -49,7 +53,9 @@ export type SetTraitCallback<T extends Trait | RelationPair> = (
 	prev: TraitRecord<ExtractSchema<T>>
 ) => TraitValue<ExtractSchema<T>>;
 
-type TraitRecordFromSchema<T extends Schema> = T extends AoSFactory
+type TraitRecordFromSchema<T extends Schema> = T extends StandardSchemaV1
+	? StandardSchemaV1.InferOutput<T>
+	: T extends AoSFactory
 	? ReturnType<T>
 	: {
 			[P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];

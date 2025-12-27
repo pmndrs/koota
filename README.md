@@ -21,6 +21,11 @@ import { trait } from 'koota'
 const Position = trait({ x: 0, y: 0 })
 const Velocity = trait({ x: 0, y: 0 })
 
+// Trait with a Standard Schema, validates values on creation and update
+const Killable = trait(z.object({
+  health: z.number().min(0).max(100)
+}))
+
 // Trait with a callback for initial value
 // ⚠️ Must be an object
 const Mesh = trait(() => new THREE.Mesh())
