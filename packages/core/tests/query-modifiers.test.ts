@@ -511,4 +511,52 @@ describe('Query modifiers', () => {
 		// it should pick up the trait change
 		expect(world.queryFirst(Changed(Bar))).toBe(entity);
 	});
+
+	it('should not inlcude non-tracked traits in queries contaning only Changed modifier', () => {
+		// Create change modifier and spawn an entity with Foo and Bar traits
+		const Changed = createChanged();
+		world.spawn(Foo, Bar);
+
+		// Changed(Foo) should return undefined as Foo hasn't been changed
+		expect(world.queryFirst(Changed(Foo))).toBeUndefined();
+
+		// Spawn a second entity with Bar trait only
+		const entity2 = world.spawn(Bar);
+
+		// Mark Bar as changed
+		entity2.changed(Bar);
+
+		// Changed(Foo) should still return undefined
+		expect(world.queryFirst(Changed(Foo))).toBeUndefined();
+
+		// Add Foo trait to entity2
+		entity2.add(Foo);
+
+		// Mark Bar as changed again
+		entity2.changed(Bar);
+
+		// Changed(Foo) should again return undefined
+		expect(world.queryFirst(Changed(Foo))).toBeUndefined();
+	});
+
+	it.fails(
+		'should not inlcude non-tracked traits in queries contaning only Removed modifier',
+		() => {
+			// Create remove modifier and spawn an entity with Foo and Bar traits
+			const Removed = createRemoved();
+			world.spawn(Foo, Bar);
+
+			// Removed(Foo) should return undefined as Foo hasn't been removed
+			expect(world.queryFirst(Removed(Foo))).toBeUndefined();
+
+			// Spawn a second entity with Bar trait only
+			const entity2 = world.spawn(Bar);
+
+			// Remove Bar trait
+			entity2.remove(Bar);
+
+			// Removed(Foo) should still return undefined
+			expect(world.queryFirst(Removed(Foo))).toBeUndefined();
+		}
+	);
 });
