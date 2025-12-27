@@ -11,14 +11,14 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 	// This will rerun every render since parameters will always be a fresh
 	// array, but the return value will be stable.
 	const queryRef = useMemo(() => createQuery(...parameters), [parameters]);
+	// Registers the query with the world.
+	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(queryRef).sort());
 
-	useMemo(() => {
+	initialQueryVersionRef.current = useMemo(() => {
 		// Using internals to get the query data.
 		const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
-		initialQueryVersionRef.current = query.version;
+		return query.version;
 	}, [world, queryRef]);
-
-	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(queryRef).sort());
 
 	// Subscribe to changes.
 	useEffect(() => {

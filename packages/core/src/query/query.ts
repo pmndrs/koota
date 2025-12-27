@@ -436,17 +436,7 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
 		parameters,
 	}) as Query<T>;
 
-	for (const world of universe.worlds) {
-		if (!world) continue;
-
-		const ctx = world[$internal];
-
-		if (!ctx.queriesHashMap.has(hash)) {
-			const query = createQueryInstance(world, parameters);
-			ctx.queriesHashMap.set(hash, query);
-		}
-	}
-
+	// Cache the ref for deduplication and stable IDs
 	universe.cachedQueries.set(hash, queryRef);
 
 	return queryRef;
