@@ -73,12 +73,6 @@ export function createWorld(
 			// Register system traits.
 			if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(world, IsExcluded);
 
-			// Create cached queries.
-			for (const [hash, queryRef] of universe.cachedQueries) {
-				const query = createQueryInstance(world, queryRef.parameters);
-				ctx.queriesHashMap.set(hash, query);
-			}
-
 			// Create world entity.
 			ctx.worldEntity = createEntity(world, IsExcluded, ...initTraits);
 		},
@@ -156,12 +150,6 @@ export function createWorld(
 
 			// Create new world entity.
 			ctx.worldEntity = createEntity(world, IsExcluded);
-
-			// Restore cached queries.
-			for (const [hash, queryRef] of universe.cachedQueries) {
-				const query = createQueryInstance(world, queryRef.parameters);
-				ctx.queriesHashMap.set(hash, query);
-			}
 
 			for (const sub of ctx.resetSubscriptions) {
 				sub(world);
