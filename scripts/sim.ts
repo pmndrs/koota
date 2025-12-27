@@ -30,7 +30,7 @@ const executeMainTs = (directoryPath: string, engine: string = 'bun') => {
 // Function to find and run main.ts files for the specified suite
 const runSuites = async (sim: string) => {
 	const rootPath = process.cwd();
-	const baseDir = join(rootPath, 'benches', 'sims');
+	const baseDir = join(rootPath, 'examples', 'sims');
 	const simDir = join(baseDir, sim);
 
 	// Check if the specified suite directory exists

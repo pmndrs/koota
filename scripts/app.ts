@@ -17,7 +17,7 @@ const runDev = (directoryPath: string) => {
 // Function to find and run main.ts files for the specified suite
 const runSuites = async (app: string) => {
 	const rootPath = process.cwd();
-	const baseDir = join(rootPath, 'benches', 'apps');
+	const baseDir = join(rootPath, 'examples', 'apps');
 	const appDir = join(baseDir, app);
 
 	// Check if the specified suite directory exists
