@@ -33,6 +33,7 @@ export function createWorld(
 ): World {
 	const id = allocateWorldId(universe.worldIndex);
 	let isInitialized = false;
+	let lazyTraits:ConfigurableTrait[] | undefined
 
 	const world = {
 		[$internal]: {
@@ -73,6 +74,12 @@ export function createWorld(
 			// Register system traits.
 			if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(world, IsExcluded);
 
+			// Check for traits passed into lazy init
+			if(lazyTraits){
+				initTraits = lazyTraits
+				// clear lazyTraits
+				lazyTraits = undefined
+			}
 			// Create world entity.
 			ctx.worldEntity = createEntity(world, IsExcluded, ...initTraits);
 		},
@@ -110,13 +117,13 @@ export function createWorld(
 
 			world.reset();
 			isInitialized = false;
-
 			// Clean up universe side effects.
 			releaseWorldId(universe.worldIndex, id);
 			universe.worlds[id] = null;
 		},
 
 		reset() {
+			lazyTraits = undefined
 			const ctx = world[$internal];
 
 			// Destroy all entities so any cleanup is done.
@@ -367,7 +374,12 @@ export function createWorld(
 		!Array.isArray(optionsOrFirstTrait)
 	) {
 		const { traits: optionTraits = [], lazy = false } = optionsOrFirstTrait as WorldOptions;
-		if (!lazy) world.init(...optionTraits);
+		if (!lazy) {
+			world.init(...optionTraits);
+		}
+		else{
+			lazyTraits = optionTraits
+		}
 	} else {
 		world.init(...(optionsOrFirstTrait ? [optionsOrFirstTrait, ...traits] : traits));
 	}
