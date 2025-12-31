@@ -2,19 +2,15 @@
 	"$schema": "https://json.schemastore.org/prettierrc",
 	"printWidth": 102,
 	"tabWidth": 4,
-	"useTabs": true,
 	"semi": true,
 	"singleQuote": true,
 	"trailingComma": "es5",
 	"bracketSpacing": true,
-	"jsxBracketSameLine": false,
 	"arrowParens": "always",
-	"proseWrap": "preserve",
 	"overrides": [
 		{
 			"files": "**/*.md",
 			"options": {
-				"useTabs": false,
 				"tabWidth": 2,
 				"semi": false
 			}
@@ -22,7 +18,6 @@
 		{
 			"files": ["**/*.yml", "**/*.yaml"],
 			"options": {
-				"useTabs": false,
 				"tabWidth": 2,
 				"semi": false
 			}
