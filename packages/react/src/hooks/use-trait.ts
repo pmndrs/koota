@@ -1,67 +1,70 @@
 import { $internal, type Entity, type Trait, type TraitRecord, type World } from '@koota/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
 export function useTrait<T extends Trait>(
-	target: Entity | World | undefined | null,
-	trait: T
+    target: Entity | World | undefined | null,
+    trait: T
 ): TraitRecord<T> | undefined {
-	// Get the world from context -- it may be used.
-	// Note: With React 19 we can get it with use conditionally.
-	const contextWorld = useWorld();
+    const contextWorld = useWorld();
+    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+    const valueRef = useRef<TraitRecord<T> | undefined>(undefined);
+    const memoRef = useRef<ReturnType<typeof createSubscriptions<T>> | undefined>(undefined);
 
-	// Memoize the target entity and a subscriber function.
-	// If the target is undefined or null, undefined is returned here so the hook can exit early.
-	const memo = useMemo(
-		() => (target ? createSubscriptions(target, trait, contextWorld) : undefined),
-		[target, trait, contextWorld]
-	);
+    const memo = useMemo(
+        () => (target ? createSubscriptions(target, trait, contextWorld) : undefined),
+        [target, trait, contextWorld]
+    );
 
-	// Initialize the state with the current value of the trait.
-	const [value, setValue] = useState<TraitRecord<T> | undefined>(() => {
-		return memo?.entity.has(trait) ? memo?.entity.get(trait) : undefined;
-	});
+    // Update cached value when the target or trait changes
+    if (memoRef.current !== memo) {
+        memoRef.current = memo;
+        valueRef.current = memo?.entity.has(trait) ? memo.entity.get(trait) : undefined;
+    }
 
-	// Subscribe to changes in the trait.
-	useEffect(() => {
-		if (!memo) {
-			setValue(undefined);
-			return;
-		}
-		const unsubscribe = memo.subscribe(setValue);
-		return () => unsubscribe();
-	}, [memo]);
+    useEffect(() => {
+        if (!memo) return;
 
-	return value;
+        const unsub = memo.subscribe((value) => {
+            valueRef.current = value;
+            forceUpdate();
+        });
+
+        return () => unsub();
+    }, [memo]);
+
+    return valueRef.current;
 }
 
 function createSubscriptions<T extends Trait>(target: Entity | World, trait: T, contextWorld: World) {
-	const world = isWorld(target) ? target : contextWorld;
-	const entity = isWorld(target) ? target[$internal].worldEntity : target;
+    // Use the context world unless the target is a world itself
+    const world = isWorld(target) ? target : contextWorld;
+    const entity = isWorld(target) ? target[$internal].worldEntity : target;
 
-	return {
-		entity,
-		subscribe: (setValue: (value: TraitRecord<T> | undefined) => void) => {
-			const onChangeUnsub = world.onChange(trait, (e) => {
-				if (e === entity) setValue(e.get(trait));
-			});
+    return {
+        entity,
+        subscribe: (setValue: (value: TraitRecord<T> | undefined) => void) => {
+            const onChangeUnsub = world.onChange(trait, (e) => {
+                if (e === entity) setValue(e.get(trait));
+            });
 
-			const onAddUnsub = world.onAdd(trait, (e) => {
-				if (e === entity) setValue(e.get(trait));
-			});
+            const onAddUnsub = world.onAdd(trait, (e) => {
+                if (e === entity) setValue(e.get(trait));
+            });
 
-			const onRemoveUnsub = world.onRemove(trait, (e) => {
-				if (e === entity) setValue(undefined);
-			});
+            const onRemoveUnsub = world.onRemove(trait, (e) => {
+                if (e === entity) setValue(undefined);
+            });
 
-			setValue(entity.has(trait) ? entity.get(trait) : undefined);
+            // Set initial value
+            setValue(entity.has(trait) ? entity.get(trait) : undefined);
 
-			return () => {
-				onChangeUnsub();
-				onAddUnsub();
-				onRemoveUnsub();
-			};
-		},
-	};
+            return () => {
+                onChangeUnsub();
+                onAddUnsub();
+                onRemoveUnsub();
+            };
+        },
+    };
 }
