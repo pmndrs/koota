@@ -377,16 +377,17 @@ export function createQueryInstance<T extends QueryParameter[]>(
 							traitMatches =
 								(oldMask & bitflag) === 0 && (currentMask & bitflag) === bitflag;
 							break;
-						case 'remove':
-							traitMatches =
-								((oldMask & bitflag) === bitflag && (currentMask & bitflag) === 0) ||
-								((oldMask & bitflag) === 0 &&
-									(currentMask & bitflag) === 0 &&
-									(dirtyMask[generationId][eid] & bitflag) === bitflag);
-							break;
-						case 'change':
-							traitMatches = (changedMask[generationId][eid] & bitflag) === bitflag;
-							break;
+					case 'remove':
+						traitMatches =
+							((oldMask & bitflag) === bitflag && (currentMask & bitflag) === 0) ||
+							((oldMask & bitflag) === 0 &&
+								(currentMask & bitflag) === 0 &&
+								((dirtyMask[generationId]?.[eid] ?? 0) & bitflag) === bitflag);
+						break;
+					case 'change':
+						traitMatches =
+							((changedMask[generationId]?.[eid] ?? 0) & bitflag) === bitflag;
+						break;
 					}
 
 					if (!traitMatches) {
