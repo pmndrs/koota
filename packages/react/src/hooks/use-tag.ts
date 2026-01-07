@@ -1,64 +1,64 @@
 import { $internal, type Entity, type TagTrait, type World } from '@koota/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
 export function useTag(target: Entity | World | undefined | null, tag: TagTrait): boolean {
-	// Get the world from context.
-	const contextWorld = useWorld();
+    const contextWorld = useWorld();
 
-	// Memoize the target entity and a subscriber function.
-	const memo = useMemo(
-		() => (target ? createSubscriptions(target, tag, contextWorld) : undefined),
-		[target, tag, contextWorld]
-	);
+    const memo = useMemo(
+        () => (target ? createSubscriptions(target, tag, contextWorld) : undefined),
+        [target, tag, contextWorld]
+    );
 
-	// Initialize the state with whether the entity has the tag.
-	const [value, setValue] = useState<boolean>(() => {
-		return memo?.entity.has(tag) ?? false;
-	});
+    const [value, setValue] = useState<boolean>(() => {
+        return memo?.entity.has(tag) ?? false;
+    });
 
-	// Subscribe to add/remove events for the tag.
-	useEffect(() => {
-		if (!memo) {
-			setValue(false);
-			return;
-		}
+    // Track memo changes and compute correct value for this render
+    const memoRef = useRef(memo);
 
-		const unsubscribe = memo.subscribe((value) => {
-			setValue(value ?? false);
-		});
+    let currentValue = value;
+    if (memoRef.current !== memo) {
+        memoRef.current = memo;
+        currentValue = memo?.entity.has(tag) ?? false;
+        if (currentValue !== value) setValue(currentValue);
+    }
 
-		return () => {
-			unsubscribe();
-			setValue(false);
-		};
-	}, [memo]);
+    useEffect(() => {
+        if (!memo) {
+            setValue(false);
+            return;
+        }
 
-	return value;
+        const unsubscribe = memo.subscribe(setValue);
+        return () => unsubscribe();
+    }, [memo]);
+
+    return currentValue;
 }
 
 function createSubscriptions(target: Entity | World, tag: TagTrait, contextWorld: World) {
-	const world = isWorld(target) ? target : contextWorld;
-	const entity = isWorld(target) ? target[$internal].worldEntity : target;
+    const world = isWorld(target) ? target : contextWorld;
+    const entity = isWorld(target) ? target[$internal].worldEntity : target;
 
-	return {
-		entity,
-		subscribe: (setValue: (value: boolean | undefined) => void) => {
-			const onAddUnsub = world.onAdd(tag, (e) => {
-				if (e === entity) setValue(true);
-			});
+    return {
+        entity,
+        subscribe: (setValue: (value: boolean) => void) => {
+            const onAddUnsub = world.onAdd(tag, (e) => {
+                if (e === entity) setValue(true);
+            });
 
-			const onRemoveUnsub = world.onRemove(tag, (e) => {
-				if (e === entity) setValue(false);
-			});
+            const onRemoveUnsub = world.onRemove(tag, (e) => {
+                if (e === entity) setValue(false);
+            });
 
-			setValue(entity.has(tag));
+            setValue(entity.has(tag));
 
-			return () => {
-				onAddUnsub();
-				onRemoveUnsub();
-			};
-		},
-	};
+            return () => {
+                onAddUnsub();
+                onRemoveUnsub();
+            };
+        },
+    };
 }
