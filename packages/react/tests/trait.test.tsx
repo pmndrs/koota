@@ -395,6 +395,44 @@ describe('useTag', () => {
 
         expect(isPaused).toBe(false);
     });
+
+    it('immediately reflects the correct value when switching entities', async () => {
+        const entityA = world.spawn(IsTagged);
+        const entityB = world.spawn(); // No tag
+
+        let isTagged: boolean | undefined;
+        const values: boolean[] = [];
+
+        function Test({ entity }: { entity: Entity }) {
+            isTagged = useTag(entity, IsTagged);
+            values.push(isTagged);
+            return null;
+        }
+
+        const { rerender } = render(
+            <StrictMode>
+                <WorldProvider world={world}>
+                    <Test entity={entityA} />
+                </WorldProvider>
+            </StrictMode>
+        );
+
+        expect(isTagged).toBe(true);
+        values.length = 0;
+
+        await act(async () => {
+            rerender(
+                <StrictMode>
+                    <WorldProvider world={world}>
+                        <Test entity={entityB} />
+                    </WorldProvider>
+                </StrictMode>
+            );
+        });
+
+        expect(isTagged).toBe(false);
+        expect(values.every((v) => v === false)).toBe(true);
+    });
 });
 
 describe('useHas', () => {
@@ -492,6 +530,44 @@ describe('useHas', () => {
         });
 
         expect(hasTimeOfDay).toBe(false);
+    });
+
+    it('immediately reflects the correct value when switching entities', async () => {
+        const entityA = world.spawn(Position);
+        const entityB = world.spawn(); // No Position
+
+        let hasPosition: boolean | undefined;
+        const values: boolean[] = [];
+
+        function Test({ entity }: { entity: Entity }) {
+            hasPosition = useHas(entity, Position);
+            values.push(hasPosition);
+            return null;
+        }
+
+        const { rerender } = render(
+            <StrictMode>
+                <WorldProvider world={world}>
+                    <Test entity={entityA} />
+                </WorldProvider>
+            </StrictMode>
+        );
+
+        expect(hasPosition).toBe(true);
+        values.length = 0;
+
+        await act(async () => {
+            rerender(
+                <StrictMode>
+                    <WorldProvider world={world}>
+                        <Test entity={entityB} />
+                    </WorldProvider>
+                </StrictMode>
+            );
+        });
+
+        expect(hasPosition).toBe(false);
+        expect(values.every((v) => v === false)).toBe(true);
     });
 });
 
