@@ -574,4 +574,38 @@ describe('Query modifiers', () => {
 
         expect(entity.get(Name)!.name).toBe('modified');
     });
+
+    // @internal Tests internal implementation edge case with generation overflow
+    it('[internal] should handle Changed modifier when trait registration causes generation overflow', () => {
+        // Create a fresh world to control trait registration count
+        const testWorld = createWorld();
+        testWorld.init();
+
+        // IsExcluded is already registered (bitflag=2 after), register 29 more to get bitflag=2^30
+        const fillerTraits = Array.from({ length: 29 }, () => trait());
+        for (const t of fillerTraits) {
+            testWorld.spawn(t);
+        }
+
+        // Create Changed modifier - snapshots entityMasks with 1 generation
+        const Changed = createChanged();
+
+        // Spawn an entity so entityIndex.dense is not empty (required to trigger the bug)
+        const entity = testWorld.spawn();
+
+        // Register the 31st trait to trigger overflow (bitflag 2^30 -> 2^31 -> overflow)
+        const Trait31 = trait();
+        entity.add(Trait31);
+
+        // Now entityMasks has 2 generations, but changedMask only has 1
+
+        // Create the 32nd trait - will be in generation 1
+        const NewTrait = trait();
+
+        // This should not throw "cannot read properties of undefined (reading '0')"
+        // when accessing changedMask[generationId][eid] where generationId is 1 but changedMask only has index 0
+        expect(() => {
+            testWorld.query(Changed(NewTrait));
+        }).not.toThrow();
+    });
 });
