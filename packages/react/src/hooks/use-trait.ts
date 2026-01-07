@@ -10,19 +10,17 @@ export function useTrait<T extends Trait>(
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
     const valueRef = useRef<TraitRecord<T> | undefined>(undefined);
+    const memoRef = useRef<ReturnType<typeof createSubscriptions<T>> | undefined>(undefined);
 
     const memo = useMemo(
         () => (target ? createSubscriptions(target, trait, contextWorld) : undefined),
         [target, trait, contextWorld]
     );
 
-    // Initialize the cached value when memo changes
-    if (memo) {
-        if (valueRef.current === undefined && memo.entity.has(trait)) {
-            valueRef.current = memo.entity.get(trait);
-        }
-    } else {
-        valueRef.current = undefined;
+    // Update cached value when the target or trait changes
+    if (memoRef.current !== memo) {
+        memoRef.current = memo;
+        valueRef.current = memo?.entity.has(trait) ? memo.entity.get(trait) : undefined;
     }
 
     useEffect(() => {

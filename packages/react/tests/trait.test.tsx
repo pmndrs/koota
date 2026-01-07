@@ -255,6 +255,48 @@ describe('useTrait', () => {
         expect(counter?.value).toBe(1);
         expect(renderCount).toBeGreaterThan(initialRenderCount);
     });
+
+    it('immediately reflects the new entity value when switching entities', async () => {
+        const entityA = world.spawn(Position({ x: 1, y: 1 }));
+        const entityB = world.spawn(Position({ x: 99, y: 99 }));
+
+        let position: TraitRecord<typeof Position> | undefined;
+        const positions: { x: number; y: number }[] = [];
+
+        function Test({ entity }: { entity: Entity }) {
+            position = useTrait(entity, Position);
+            // Track all position values seen during render
+            if (position) positions.push({ x: position.x, y: position.y });
+            return null;
+        }
+
+        const { rerender } = render(
+            <StrictMode>
+                <WorldProvider world={world}>
+                    <Test entity={entityA} />
+                </WorldProvider>
+            </StrictMode>
+        );
+
+        expect(position).toEqual({ x: 1, y: 1 });
+        positions.length = 0; // Clear initial renders
+
+        // Switch to entity B
+        await act(async () => {
+            rerender(
+                <StrictMode>
+                    <WorldProvider world={world}>
+                        <Test entity={entityB} />
+                    </WorldProvider>
+                </StrictMode>
+            );
+        });
+
+        // Should immediately have entity B's value, never see entity A's stale value
+        expect(position).toEqual({ x: 99, y: 99 });
+        // Every render after the switch should show entity B's value
+        expect(positions.every((p) => p.x === 99 && p.y === 99)).toBe(true);
+    });
 });
 
 describe('useTag', () => {
