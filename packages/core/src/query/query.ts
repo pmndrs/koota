@@ -29,7 +29,8 @@ export const IsExcluded: TagTrait = trait();
 
 export function runQuery<T extends QueryParameter[]>(
 	world: World,
-	query: QueryInstance<T>
+	query: QueryInstance<T>,
+	params: QueryParameter[]
 ): QueryResult<T> {
 	commitQueryRemovals(world);
 
@@ -46,7 +47,7 @@ export function runQuery<T extends QueryParameter[]>(
 		}
 	}
 
-	return createQueryResult(world, entities, query);
+	return createQueryResult(world, entities, query, params);
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
@@ -110,8 +111,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
 		parameters,
 		hash: '',
 		traits: [],
-		resultStores: [],
-		resultTraits: [],
 		traitInstances: {
 			required: [],
 			forbidden: [],
@@ -132,7 +131,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 		removeSubscriptions: new Set<QuerySubscriber>(),
 		relationFilters: [],
 
-		run: (world: World) => runQuery(world, query),
+		run: (world: World, params: QueryParameter[]) => runQuery(world, query, params),
 		add: (entity: Entity) => addEntityToQuery(query, entity),
 		remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
 		check: (world: World, entity: Entity) => checkQuery(world, query, entity),
@@ -378,16 +377,17 @@ export function createQueryInstance<T extends QueryParameter[]>(
 							traitMatches =
 								(oldMask & bitflag) === 0 && (currentMask & bitflag) === bitflag;
 							break;
-						case 'remove':
-							traitMatches =
-								((oldMask & bitflag) === bitflag && (currentMask & bitflag) === 0) ||
-								((oldMask & bitflag) === 0 &&
-									(currentMask & bitflag) === 0 &&
-									(dirtyMask[generationId][eid] & bitflag) === bitflag);
-							break;
-						case 'change':
-							traitMatches = (changedMask[generationId][eid] & bitflag) === bitflag;
-							break;
+					case 'remove':
+						traitMatches =
+							((oldMask & bitflag) === bitflag && (currentMask & bitflag) === 0) ||
+							((oldMask & bitflag) === 0 &&
+								(currentMask & bitflag) === 0 &&
+								((dirtyMask[generationId]?.[eid] ?? 0) & bitflag) === bitflag);
+						break;
+					case 'change':
+						traitMatches =
+							((changedMask[generationId]?.[eid] ?? 0) & bitflag) === bitflag;
+						break;
 					}
 
 					if (!traitMatches) {
@@ -414,9 +414,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
 		}
 	}
 
-	// Pre-compute result stores and traits.
-	getQueryStores(parameters, query.resultTraits, query.resultStores, world);
-
 	return query;
 }
 
@@ -440,17 +437,7 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
 		parameters,
 	}) as Query<T>;
 
-	for (const world of universe.worlds) {
-		if (!world) continue;
-
-		const ctx = world[$internal];
-
-		if (!ctx.queriesHashMap.has(hash)) {
-			const query = createQueryInstance(world, parameters);
-			ctx.queriesHashMap.set(hash, query);
-		}
-	}
-
+	// Cache the ref for deduplication and stable IDs
 	universe.cachedQueries.set(hash, queryRef);
 
 	return queryRef;

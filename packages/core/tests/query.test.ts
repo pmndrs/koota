@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { $internal, cacheQuery, createWorld, IsExcluded, Not, Or, trait } from '../src';
+import { $internal, createQuery, createWorld, IsExcluded, Not, Or, trait } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -8,440 +8,461 @@ const Foo = trait();
 const Bar = trait();
 
 describe('Query', () => {
-	const world = createWorld();
-	world.init();
+    const world = createWorld();
+    world.init();
 
-	beforeEach(() => {
-		world.reset();
-	});
+    beforeEach(() => {
+        world.reset();
+    });
 
-	it('should query entities that match the parameters', () => {
-		const entityA = world.spawn();
-		const entityB = world.spawn();
-		const entityC = world.spawn();
+    it('should query entities that match the parameters', () => {
+        const entityA = world.spawn();
+        const entityB = world.spawn();
+        const entityC = world.spawn();
 
-		entityA.add(Position, Name, IsActive);
-		entityB.add(Position, Name);
-		entityC.add(Position);
+        entityA.add(Position, Name, IsActive);
+        entityB.add(Position, Name);
+        entityC.add(Position);
 
-		let entities: any = world.query(Position, Name, IsActive);
-		expect(entities[0]).toBe(entityA);
+        let entities: any = world.query(Position, Name, IsActive);
+        expect(entities[0]).toBe(entityA);
 
-		entities = world.query(Position, Name);
-		expect(entities[0]).toBe(entityA);
-		expect(entities[1]).toBe(entityB);
+        entities = world.query(Position, Name);
+        expect(entities[0]).toBe(entityA);
+        expect(entities[1]).toBe(entityB);
 
-		entities = world.query(Position);
-		expect(entities[0]).toBe(entityA);
-		expect(entities[1]).toBe(entityB);
-		expect(entities[2]).toBe(entityC);
+        entities = world.query(Position);
+        expect(entities[0]).toBe(entityA);
+        expect(entities[1]).toBe(entityB);
+        expect(entities[2]).toBe(entityC);
 
-		entityA.remove(IsActive);
-		entities = world.query(Position, Name, IsActive);
-		expect(entities.length).toBe(0);
-	});
+        entityA.remove(IsActive);
+        entities = world.query(Position, Name, IsActive);
+        expect(entities.length).toBe(0);
+    });
 
-	it('should only create one hash indpendent of the order of the parameters', () => {
-		const ctx = world[$internal];
-		let entities: any = world.query(Position, Name, Not(IsActive));
-		expect(entities.length).toBe(0);
+    it('should only create one hash indpendent of the order of the parameters', () => {
+        const ctx = world[$internal];
+        let entities: any = world.query(Position, Name, Not(IsActive));
+        expect(entities.length).toBe(0);
 
-		const entA = world.spawn();
-		entA.add(Position, Name);
+        const entA = world.spawn();
+        entA.add(Position, Name);
 
-		entities = world.query(Position, Name, Not(IsActive));
-		expect(entities.length).toBe(1);
+        entities = world.query(Position, Name, Not(IsActive));
+        expect(entities.length).toBe(1);
 
-		entities = world.query(Name, Not(IsActive), Position);
-		expect(entities.length).toBe(1);
+        entities = world.query(Name, Not(IsActive), Position);
+        expect(entities.length).toBe(1);
 
-		expect(ctx.queriesHashMap.size).toBe(1);
+        expect(ctx.queriesHashMap.size).toBe(1);
 
-		// Test various permutations of modifiers.
-		entities = world.query(IsActive, Not(Position, Name));
-		expect(entities.length).toBe(0);
+        // Test various permutations of modifiers.
+        entities = world.query(IsActive, Not(Position, Name));
+        expect(entities.length).toBe(0);
 
-		expect(ctx.queriesHashMap.size).toBe(2);
+        expect(ctx.queriesHashMap.size).toBe(2);
 
-		entities = world.query(Not(Name, Position), IsActive);
-		expect(entities.length).toBe(0);
+        entities = world.query(Not(Name, Position), IsActive);
+        expect(entities.length).toBe(0);
 
-		entities = world.query(Not(Position), IsActive, Not(Name));
-		expect(entities.length).toBe(0);
+        entities = world.query(Not(Position), IsActive, Not(Name));
+        expect(entities.length).toBe(0);
 
-		expect(ctx.queriesHashMap.size).toBe(2);
-	});
+        expect(ctx.queriesHashMap.size).toBe(2);
+    });
 
-	it('should return all queryable entities when parameters are empty', () => {
-		world.spawn();
-		// IsExcluded marks the entity is non-queryable.
-		world.spawn(IsExcluded);
-		world.spawn(Position);
-		world.spawn(Name, Bar);
-		const entities = world.query();
+    it('should return all queryable entities when parameters are empty', () => {
+        world.spawn();
+        // IsExcluded marks the entity is non-queryable.
+        world.spawn(IsExcluded);
+        world.spawn(Position);
+        world.spawn(Name, Bar);
+        const entities = world.query();
 
-		expect(entities.length).toBe(3);
-	});
+        expect(entities.length).toBe(3);
+    });
 
-	it('can be subscribed to for a stream of updates', () => {
-		const event = { entity: 0 };
-		const staticCb = vi.fn((entity) => {
-			event.entity = entity;
-		});
+    it('can be subscribed to for a stream of updates', () => {
+        const event = { entity: 0 };
+        const staticCb = vi.fn((entity) => {
+            event.entity = entity;
+        });
 
-		// Static query subscriptions.
-		const entity = world.spawn();
+        // Static query subscriptions.
+        const entity = world.spawn();
 
-		// With a cache key.
-		const queryKey = cacheQuery(Position, Foo);
-		world.onQueryAdd(queryKey, staticCb);
-		world.onQueryRemove(queryKey, staticCb);
+        // With a cache key.
+        const queryKey = createQuery(Position, Foo);
+        world.onQueryAdd(queryKey, staticCb);
+        world.onQueryRemove(queryKey, staticCb);
 
-		entity.add(Position);
-		expect(staticCb).toHaveBeenCalledTimes(0);
+        entity.add(Position);
+        expect(staticCb).toHaveBeenCalledTimes(0);
 
-		entity.add(Foo);
-		expect(staticCb).toHaveBeenCalledTimes(1);
-		expect(event.entity).toBe(entity);
+        entity.add(Foo);
+        expect(staticCb).toHaveBeenCalledTimes(1);
+        expect(event.entity).toBe(entity);
 
-		entity.remove(Foo);
-		expect(staticCb).toHaveBeenCalledTimes(2);
-		expect(event.entity).toBe(entity);
+        entity.remove(Foo);
+        expect(staticCb).toHaveBeenCalledTimes(2);
+        expect(event.entity).toBe(entity);
 
-		// With parameters.
-		world.onQueryAdd([Position, Bar], staticCb);
-		world.onQueryRemove([Position, Bar], staticCb);
+        // With parameters.
+        world.onQueryAdd([Position, Bar], staticCb);
+        world.onQueryRemove([Position, Bar], staticCb);
 
-		entity.add(Position);
-		expect(staticCb).toHaveBeenCalledTimes(2);
+        entity.add(Position);
+        expect(staticCb).toHaveBeenCalledTimes(2);
 
-		entity.add(Bar);
-		expect(staticCb).toHaveBeenCalledTimes(3);
-		expect(event.entity).toBe(entity);
+        entity.add(Bar);
+        expect(staticCb).toHaveBeenCalledTimes(3);
+        expect(event.entity).toBe(entity);
 
-		entity.remove(Bar);
-		expect(staticCb).toHaveBeenCalledTimes(4);
-		expect(event.entity).toBe(entity);
+        entity.remove(Bar);
+        expect(staticCb).toHaveBeenCalledTimes(4);
+        expect(event.entity).toBe(entity);
 
-		entity.remove(Position);
-		expect(staticCb).toHaveBeenCalledTimes(4);
-	});
+        entity.remove(Position);
+        expect(staticCb).toHaveBeenCalledTimes(4);
+    });
 
-	it('calls onAdd after the trait is added with data', () => {
-		const entity = world.spawn();
+    it('calls onAdd after the trait is added with data', () => {
+        const entity = world.spawn();
 
-		world.onAdd(Position, (entity) => {
-			expect(entity.get(Position)!.x).toBe(10);
-		});
+        world.onAdd(Position, (entity) => {
+            expect(entity.get(Position)!.x).toBe(10);
+        });
 
-		entity.add(Position({ x: 10, y: 20 }));
-	});
+        entity.add(Position({ x: 10, y: 20 }));
+    });
 
-	it('can subscribe to changes on a specific trait', () => {
-		const entityA = world.spawn(Position);
-		const entityB = world.spawn(Position);
+    it('can subscribe to changes on a specific trait', () => {
+        const entityA = world.spawn(Position);
+        const entityB = world.spawn(Position);
 
-		const cb = vi.fn();
-		let unsub = world.onChange(Position, cb);
+        const cb = vi.fn();
+        let unsub = world.onChange(Position, cb);
 
-		entityA.set(Position, { x: 10, y: 20 });
+        entityA.set(Position, { x: 10, y: 20 });
 
-		expect(cb).toHaveBeenCalledTimes(1);
-		expect(cb).toHaveBeenCalledWith(entityA);
+        expect(cb).toHaveBeenCalledTimes(1);
+        expect(cb).toHaveBeenCalledWith(entityA);
 
-		unsub();
+        unsub();
 
-		entityA.set(Position, { x: 20, y: 30 });
+        entityA.set(Position, { x: 20, y: 30 });
 
-		expect(cb).toHaveBeenCalledTimes(1);
+        expect(cb).toHaveBeenCalledTimes(1);
 
-		entityA.changed(Name);
+        entityA.changed(Name);
 
-		expect(cb).toHaveBeenCalledTimes(1);
+        expect(cb).toHaveBeenCalledTimes(1);
 
-		// Test that subscribing to multiple entities with the same trait works.
-		unsub = world.onChange(Position, cb);
+        // Test that subscribing to multiple entities with the same trait works.
+        unsub = world.onChange(Position, cb);
 
-		const cb2 = vi.fn();
-		world.onChange(Position, cb2);
+        const cb2 = vi.fn();
+        world.onChange(Position, cb2);
 
-		entityB.set(Position, { x: 10, y: 20 });
+        entityB.set(Position, { x: 10, y: 20 });
 
-		expect(cb).toHaveBeenCalledTimes(2);
-		expect(cb2).toHaveBeenCalledTimes(1);
-		expect(cb2).toHaveBeenCalledWith(entityB);
+        expect(cb).toHaveBeenCalledTimes(2);
+        expect(cb2).toHaveBeenCalledTimes(1);
+        expect(cb2).toHaveBeenCalledWith(entityB);
 
-		// Remove one unsub to test that we don't accidentally remove trait tracking
-		// for all callbacks associated with the trait.
-		unsub();
+        // Remove one unsub to test that we don't accidentally remove trait tracking
+        // for all callbacks associated with the trait.
+        unsub();
 
-		// Test changed detection with updateEach.
-		world.query(Position).updateEach(([position]) => {
-			position.x = 100;
-		});
+        // Test changed detection with updateEach.
+        world.query(Position).updateEach(([position]) => {
+            position.x = 100;
+        });
 
-		// Increments by 2 because we are updating two entities.
-		expect(cb2).toHaveBeenCalledTimes(3);
-	});
+        // Increments by 2 because we are updating two entities.
+        expect(cb2).toHaveBeenCalledTimes(3);
+    });
 
-	it('can cache and use the query key', () => {
-		const key = cacheQuery(Position, Name, IsActive);
+    it('can cache and use the query key', () => {
+        const key = createQuery(Position, Name, IsActive);
 
-		const entityA = world.spawn();
-		const entityB = world.spawn();
+        const entityA = world.spawn();
+        const entityB = world.spawn();
 
-		entityA.add(Position, Name, IsActive);
-		entityB.add(Position, Name);
+        entityA.add(Position, Name, IsActive);
+        entityB.add(Position, Name);
 
-		const entities = world.query(key);
+        const entities = world.query(key);
 
-		expect(entities).toContain(entityA);
+        expect(entities).toContain(entityA);
 
-		// Check that a query result is returned.
-		expect(entities.updateEach).toBeDefined();
+        // Check that a query result is returned.
+        expect(entities.updateEach).toBeDefined();
 
-		// Test caching before a world is created.
-		const world2 = createWorld();
-		const entityC = world2.spawn(Position, Name, IsActive);
-		const query2 = world2.query(key);
+        // Test caching before a world is created.
+        const world2 = createWorld();
+        const entityC = world2.spawn(Position, Name, IsActive);
+        const query2 = world2.query(key);
 
-		expect(query2).toContain(entityC);
-	});
+        expect(query2).toContain(entityC);
+    });
 
-	it('should exclude entities with IsExcluded', () => {
-		world.spawn(Position, IsExcluded);
-		const entities = world.query(Position);
-		expect(entities.length).toBe(0);
-	});
+    it('should exclude entities with IsExcluded', () => {
+        world.spawn(Position, IsExcluded);
+        const entities = world.query(Position);
+        expect(entities.length).toBe(0);
+    });
 
-	it('should update stores with updateEach', () => {
-		for (let i = 0; i < 10; i++) {
-			world.spawn(Position);
-		}
+    it('should update stores with updateEach', () => {
+        for (let i = 0; i < 10; i++) {
+            world.spawn(Position);
+        }
 
-		const query = world.query(Position);
+        const query = world.query(Position);
 
-		query.updateEach(([position], _entity, index) => {
-			if (index === 0) return;
-			position.x = 10;
-		});
+        query.updateEach(([position], _entity, index) => {
+            if (index === 0) return;
+            position.x = 10;
+        });
 
-		expect(query.length).toBe(10);
-		expect(query[0].get(Position)!.x).toBe(0);
+        expect(query.length).toBe(10);
+        expect(query[0].get(Position)!.x).toBe(0);
 
-		for (let i = 1; i < 10; i++) {
-			expect(query[i].get(Position)!.x).toBe(10);
-		}
-	});
+        for (let i = 1; i < 10; i++) {
+            expect(query[i].get(Position)!.x).toBe(10);
+        }
+    });
 
-	it('updateEach can be run with change detection', () => {
-		const cb = vi.fn();
-		world.onChange(Position, cb);
+    it('updateEach can be run with change detection', () => {
+        const cb = vi.fn();
+        world.onChange(Position, cb);
 
-		for (let i = 0; i < 10; i++) {
-			world.spawn(Position);
-		}
+        for (let i = 0; i < 10; i++) {
+            world.spawn(Position);
+        }
 
-		const query = world.query(Position);
+        const query = world.query(Position);
 
-		query.updateEach(([position], _entity, index) => {
-			if (index === 0) return;
-			position.x = 10;
-		});
+        query.updateEach(([position], _entity, index) => {
+            if (index === 0) return;
+            position.x = 10;
+        });
 
-		expect(cb).toHaveBeenCalledTimes(9);
+        expect(cb).toHaveBeenCalledTimes(9);
 
-		// If values do not change, no events should be triggered.
-		query.updateEach(([position], _entity, index) => {
-			if (index === 0) return;
-			position.x = 10;
-		});
+        // If values do not change, no events should be triggered.
+        query.updateEach(([position], _entity, index) => {
+            if (index === 0) return;
+            position.x = 10;
+        });
 
-		expect(cb).toHaveBeenCalledTimes(9);
-	});
+        expect(cb).toHaveBeenCalledTimes(9);
+    });
 
-	it('should return the first entity in a query', () => {
-		const entityA = world.spawn(Position);
+    it('updateEach should return values in caller parameter order regardless of cache', () => {
+        // Create entity with both traits
+        world.spawn(Position({ x: 10, y: 20 }), Name({ name: 'test' }));
 
-		const entity = world.queryFirst(Position);
-		expect(entity).toBe(entityA);
-	});
+        // First query with order: Position, Name
+        world.query(Position, Name).updateEach(([position, name]) => {
+            expect(position).toHaveProperty('x');
+            expect(position).toHaveProperty('y');
+            expect(name).toHaveProperty('name');
+            expect(name.name).toBe('test');
+        });
 
-	it('should implement Or', () => {
-		const entityA = world.spawn(Position);
-		const entityB = world.spawn(Foo);
-		const entityC = world.spawn(Bar);
+        // Second query with REVERSED order: Name, Position
+        // This should return values in the order specified (Name first, Position second)
+        world.query(Name, Position).updateEach(([name, position]) => {
+            expect(name).toHaveProperty('name', 'test');
+            expect(position).toHaveProperty('x');
+            expect(position).toHaveProperty('y');
+        });
+    });
 
-		const entities = world.query(Or(Position, Foo));
+    it('should return the first entity in a query', () => {
+        const entityA = world.spawn(Position);
 
-		expect(entities).toContain(entityA);
-		expect(entities).toContain(entityB);
-		expect(entities).not.toContain(entityC);
-	});
+        const entity = world.queryFirst(Position);
+        expect(entity).toBe(entityA);
+    });
 
-	it('should select traits', () => {
-		world.spawn(Position, Name);
+    it('should implement Or', () => {
+        const entityA = world.spawn(Position);
+        const entityB = world.spawn(Foo);
+        const entityC = world.spawn(Bar);
 
-		let results = world.query(Position, Name);
-		// Default should be the same as the query.
-		results.updateEach(([position, name]) => {
-			expect(position.x).toBeDefined();
-			expect(name.name).toBeDefined();
-		});
+        const entities = world.query(Or(Position, Foo));
 
-		// Select only Name.
-		results.select(Name).updateEach(([name]) => {
-			expect(name.name).toBeDefined();
-		});
+        expect(entities).toContain(entityA);
+        expect(entities).toContain(entityB);
+        expect(entities).not.toContain(entityC);
+    });
 
-		// Running query again should reset the selection.
-		results = world.query(Position, Name);
-		results.updateEach(([position, name]) => {
-			expect(position.x).toBeDefined();
-			expect(name.name).toBeDefined();
-		});
-	});
+    it('should select traits', () => {
+        world.spawn(Position, Name);
 
-	it('updateEach works with atomic traits', () => {
-		const Position = trait(() => ({ x: 0, y: 0 }));
-		const Mass = trait(() => ({ value: 0 }));
+        let results = world.query(Position, Name);
+        // Default should be the same as the query.
+        results.updateEach(([position, name]) => {
+            expect(position.x).toBeDefined();
+            expect(name.name).toBeDefined();
+        });
 
-		const entity = world.spawn(Position, Mass);
-		world.query(Position, Mass).updateEach(([position, mass]) => {
-			position.x = 1;
-			mass.value = 10;
-		});
+        // Select only Name.
+        results.select(Name).updateEach(([name]) => {
+            expect(name.name).toBeDefined();
+        });
 
-		expect(entity.get(Position)!.x).toBe(1);
-		expect(entity.get(Mass)!.value).toBe(10);
-	});
+        // Running query again should reset the selection.
+        results = world.query(Position, Name);
+        results.updateEach(([position, name]) => {
+            expect(position.x).toBeDefined();
+            expect(name.name).toBeDefined();
+        });
+    });
 
-	it('updateEach works with atomic traits and change detection', () => {
-		const Position = trait(() => ({ x: 0, y: 0 }));
-		const cb = vi.fn();
-		world.onChange(Position, cb);
-		world.spawn(Position);
+    it('updateEach works with atomic traits', () => {
+        const Position = trait(() => ({ x: 0, y: 0 }));
+        const Mass = trait(() => ({ value: 0 }));
 
-		expect(cb).toHaveBeenCalledTimes(0);
+        const entity = world.spawn(Position, Mass);
+        world.query(Position, Mass).updateEach(([position, mass]) => {
+            position.x = 1;
+            mass.value = 10;
+        });
 
-		world.query(Position).updateEach(([position]) => {
-			position.x = 0;
-		});
+        expect(entity.get(Position)!.x).toBe(1);
+        expect(entity.get(Mass)!.value).toBe(10);
+    });
 
-		expect(cb).toHaveBeenCalledTimes(0);
+    it('updateEach works with atomic traits and change detection', () => {
+        const Position = trait(() => ({ x: 0, y: 0 }));
+        const cb = vi.fn();
+        world.onChange(Position, cb);
+        world.spawn(Position);
 
-		world.query(Position).updateEach(([position]) => {
-			position.x = 1;
-		});
+        expect(cb).toHaveBeenCalledTimes(0);
 
-		expect(cb).toHaveBeenCalledTimes(1);
-	});
+        world.query(Position).updateEach(([position]) => {
+            position.x = 0;
+        });
 
-	it('updateEach automatically tracks changes for traits observed with onChange', () => {
-		const cb = vi.fn();
-		world.onChange(Position, cb);
+        expect(cb).toHaveBeenCalledTimes(0);
 
-		// This has changes tracked automatically.
-		// Here we test that mixing tracked and untracked traits works.
-		// We do it would of order to catch misaligned indices internally.
-		world.spawn(Position, Name);
-		world.query(Name, Position).updateEach(([_, position]) => {
-			position.x = 1;
-		});
+        world.query(Position).updateEach(([position]) => {
+            position.x = 1;
+        });
 
-		expect(cb).toHaveBeenCalledTimes(1);
+        expect(cb).toHaveBeenCalledTimes(1);
+    });
 
-		// This does not have changes tracked automatically.
-		world.spawn(Name);
-		world.query(Name).updateEach(([name]) => {
-			name.name = 'name';
-		});
+    it('updateEach automatically tracks changes for traits observed with onChange', () => {
+        const cb = vi.fn();
+        world.onChange(Position, cb);
 
-		expect(cb).toHaveBeenCalledTimes(1);
-	});
+        // This has changes tracked automatically.
+        // Here we test that mixing tracked and untracked traits works.
+        // We do it would of order to catch misaligned indices internally.
+        world.spawn(Position, Name);
+        world.query(Name, Position).updateEach(([_, position]) => {
+            position.x = 1;
+        });
 
-	it.fails('updateEach does not overwrite when a trait is set instead of mutated', () => {
-		const entity = world.spawn(Position);
+        expect(cb).toHaveBeenCalledTimes(1);
 
-		world.query(Position).updateEach((_, entity) => {
-			entity.set(Position, { x: 10 });
-		});
+        // This does not have changes tracked automatically.
+        world.spawn(Name);
+        world.query(Name).updateEach(([name]) => {
+            name.name = 'name';
+        });
 
-		const position = entity.get(Position);
-		expect(position!.x).toBe(10);
-	});
+        expect(cb).toHaveBeenCalledTimes(1);
+    });
 
-	it('should get all queryable entities from an emtpy query', () => {
-		let entities = world.query();
-		expect(entities.length).toBe(0);
+    it.fails('updateEach does not overwrite when a trait is set instead of mutated', () => {
+        const entity = world.spawn(Position);
 
-		world.spawn(Position);
-		world.spawn(Name);
-		world.spawn(IsExcluded);
+        world.query(Position).updateEach((_, entity) => {
+            entity.set(Position, { x: 10 });
+        });
 
-		entities = world.query();
-		expect(entities.length).toBe(2);
+        const position = entity.get(Position);
+        expect(position!.x).toBe(10);
+    });
 
-		entities.forEach((entity) => entity.destroy());
+    it('should get all queryable entities from an emtpy query', () => {
+        let entities = world.query();
+        expect(entities.length).toBe(0);
 
-		entities = world.query();
-		expect(entities.length).toBe(0);
-	});
+        world.spawn(Position);
+        world.spawn(Name);
+        world.spawn(IsExcluded);
 
-	it('can sort query results', () => {
-		const entityA = world.spawn(Position);
-		const entityB = world.spawn(Position);
-		const entityC = world.spawn(Position);
-		const entityD = world.spawn(Position);
+        entities = world.query();
+        expect(entities.length).toBe(2);
 
-		let entities = world.query(Position);
-		expect(entities[0]).toBe(entityA);
-		expect(entities[1]).toBe(entityB);
-		expect(entities[2]).toBe(entityC);
-		expect(entities[3]).toBe(entityD);
+        entities.forEach((entity) => entity.destroy());
 
-		entityC.destroy();
+        entities = world.query();
+        expect(entities.length).toBe(0);
+    });
 
-		entities = world.query(Position);
-		expect(entities[0]).toBe(entityA);
-		expect(entities[1]).toBe(entityB);
-		expect(entities[2]).toBe(entityD);
+    it('can sort query results', () => {
+        const entityA = world.spawn(Position);
+        const entityB = world.spawn(Position);
+        const entityC = world.spawn(Position);
+        const entityD = world.spawn(Position);
 
-		// Recycles the entity id from entityC (3).
-		const entityE = world.spawn(Position);
+        let entities = world.query(Position);
+        expect(entities[0]).toBe(entityA);
+        expect(entities[1]).toBe(entityB);
+        expect(entities[2]).toBe(entityC);
+        expect(entities[3]).toBe(entityD);
 
-		entities = world.query(Position);
-		expect(entities[0]).toBe(entityA);
-		expect(entities[1]).toBe(entityB);
-		expect(entities[2]).toBe(entityD);
-		expect(entities[3]).toBe(entityE);
+        entityC.destroy();
 
-		entities.sort();
+        entities = world.query(Position);
+        expect(entities[0]).toBe(entityA);
+        expect(entities[1]).toBe(entityB);
+        expect(entities[2]).toBe(entityD);
 
-		// Test the entity.id() are in ascending order.
-		// [1, 2, 3, 4]
-		for (let i = 0; i < entities.length; i++) {
-			expect(entities[i].id()).toBe(i + 1);
-		}
-	});
+        // Recycles the entity id from entityC (3).
+        const entityE = world.spawn(Position);
 
-	it('cached query should return values after reset', () => {
-		const movementQuery = cacheQuery(Foo);
+        entities = world.query(Position);
+        expect(entities[0]).toBe(entityA);
+        expect(entities[1]).toBe(entityB);
+        expect(entities[2]).toBe(entityD);
+        expect(entities[3]).toBe(entityE);
 
-		const spawnEntities = () => {
-			for (let i = 0; i < 100; i++) {
-				world.spawn(Foo);
-			}
-		};
+        entities.sort();
 
-		spawnEntities();
-		const resultsBefore = world.query(movementQuery);
+        // Test the entity.id() are in ascending order.
+        // [1, 2, 3, 4]
+        for (let i = 0; i < entities.length; i++) {
+            expect(entities[i].id()).toBe(i + 1);
+        }
+    });
 
-		world.reset();
-		spawnEntities();
+    it('cached query should return values after reset', () => {
+        const movementQuery = createQuery(Foo);
 
-		const resultsAfter = world.query(movementQuery);
+        const spawnEntities = () => {
+            for (let i = 0; i < 100; i++) {
+                world.spawn(Foo);
+            }
+        };
 
-		expect(resultsAfter.length).toBe(resultsBefore.length);
-	});
+        spawnEntities();
+        const resultsBefore = world.query(movementQuery);
+
+        world.reset();
+        spawnEntities();
+
+        const resultsAfter = world.query(movementQuery);
+
+        expect(resultsAfter.length).toBe(resultsBefore.length);
+    });
 });

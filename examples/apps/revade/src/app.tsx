@@ -3,22 +3,18 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Not, type Entity } from 'koota';
-import { Devtools } from 'koota/devtools/react';
 import { useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Frameloop } from './frameloop';
 import { Startup } from './startup';
 import { Bullet, Explosion, Input, IsEnemy, IsPlayer, IsShieldVisible, Transform } from './traits';
-import { useDevtoolsHighlight } from './utils/use-devtools-highlight';
 
 export function App() {
 	const world = useWorld();
 
 	return (
 		<>
-			<Devtools world={world} />
-
 			<Canvas>
 				<color attach="background" args={['#111']} />
 				<ambientLight intensity={0.2} />
@@ -46,7 +42,6 @@ function EnemyRenderer() {
 const EnemyView = ({ entity }: { entity: Entity }) => {
 	const groupRef = useRef<THREE.Group>(null);
 	const scaleRef = useRef(0);
-	const highlight = useDevtoolsHighlight(entity);
 
 	const handleInit = useCallback(
 		(group: THREE.Group | null) => {
@@ -75,12 +70,7 @@ const EnemyView = ({ entity }: { entity: Entity }) => {
 		<group ref={handleInit}>
 			<mesh>
 				<dodecahedronGeometry />
-				<meshBasicMaterial
-					color={highlight.color ?? 'white'}
-					wireframe
-					transparent
-					opacity={highlight.opacity}
-				/>
+				<meshBasicMaterial color="white" wireframe />
 			</mesh>
 		</group>
 	);
@@ -93,7 +83,6 @@ function PlayerRenderer() {
 
 const PlayerView = ({ entity }: { entity: Entity }) => {
 	const [isThrusting, setIsThrusting] = useState(false);
-	const highlight = useDevtoolsHighlight(entity);
 
 	useTraitEffect(entity, Input, (input) => {
 		if (input && input.length() > 0) setIsThrusting(true);
@@ -119,12 +108,7 @@ const PlayerView = ({ entity }: { entity: Entity }) => {
 		<group ref={handleInit}>
 			<mesh>
 				<boxGeometry />
-				<meshBasicMaterial
-					color={highlight.color ?? 'orange'}
-					wireframe
-					transparent
-					opacity={highlight.opacity}
-				/>
+				<meshBasicMaterial color="orange" wireframe />
 			</mesh>
 			{isThrusting && <ThrusterView />}
 			{isShieldVisible && <ShieldView />}
@@ -230,8 +214,6 @@ function BulletRenderer() {
 }
 
 const BulletView = memo(({ entity }: { entity: Entity }) => {
-	const highlight = useDevtoolsHighlight(entity);
-
 	const handleInit = useCallback(
 		(group: THREE.Group | null) => {
 			if (!entity.isAlive() || !group) return;
@@ -249,12 +231,7 @@ const BulletView = memo(({ entity }: { entity: Entity }) => {
 		<group ref={handleInit}>
 			<mesh scale={0.2}>
 				<sphereGeometry />
-				<meshBasicMaterial
-					color={highlight.color ?? 'red'}
-					wireframe
-					transparent
-					opacity={highlight.opacity}
-				/>
+				<meshBasicMaterial color="red" wireframe />
 			</mesh>
 		</group>
 	);
