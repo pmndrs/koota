@@ -136,7 +136,7 @@ useEffect(() => {
 
 ### Relations
 
-Koota supports relations between entities using the `relation` function. Relations allow you to create connections between entities and query them efficiently.
+Koota supports relations between entities using the `relation` function. Relations allow you to build graphs by creating connections between entities with efficient queries.
 
 ```js
 const ChildOf = relation()
@@ -146,6 +146,24 @@ const child = world.spawn(ChildOf(parent))
 
 const entity = world.queryFirst(ChildOf(parent)) // Returns child
 ```
+
+A relation is typically owned by the entity that needs to express it. The **source** is the entity that has the relation added, and the **target** is the entity it points to.
+
+```mermaid
+flowchart BT
+    subgraph Parent
+    end
+    subgraph childA["Child"]
+        COA["ChildOf(Parent)"]
+    end
+    subgraph childB["Child"]
+        COB["ChildOf(Parent)"]
+    end
+    COA --> Parent
+    COB --> Parent
+```
+
+In `child.add(ChildOf(parent))`, child is the source and parent is the target. This design means the parent doesn't need to know about its children, instead children care about their parent, optimzing batch queries.
 
 #### With data
 
@@ -206,7 +224,27 @@ hero.has(Targeting(goblin)) // True
 > ⚠️ **Experimental**<br>
 > This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
 
-Ordered relations maintain a list of related entities with bidirectional sync.
+Ordered relations maintain a list of related entities with
+bidirectional sync.
+
+A query like `world.query(ChildOf(parent))` returns a flat list of children without any ordering. If you need an ordered list, you'd have to store an order field and sort every time you query.
+
+An ordered relation solves this by caching the order on the target. It's a trait added to the parent that maintains a view of all entities targeting it.
+
+```mermaid
+flowchart BT
+    subgraph Parent
+        OC["OrderedChildren → [Child B, Child A]"]
+    end
+    subgraph childA["Child A"]
+        COA["ChildOf(Parent)"]
+    end
+    subgraph childB["Child B"]
+        COB["ChildOf(Parent)"]
+    end
+    COA --> Parent
+    COB --> Parent
+```
 
 ```js
 import { relation, ordered } from 'koota'
@@ -227,7 +265,7 @@ child2.add(ChildOf(parent)) // child2 automatically added to list
 Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa.
 
 > ⚠️ **Performance note**<br>
-> Ordered relations are more expensive to update than regular relations but enable faster traversal when order matters. Use them only when entity order is essential.
+> Ordered relations requires additional bookkeeping where the cost of ordering is paid during structural changes (add, remove, move) instead of at query time. Use ordered relations only when entity order is essential or when hierarchical search (looping over children) is necessary.
 
 #### Querying relations
 

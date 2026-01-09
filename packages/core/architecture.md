@@ -34,6 +34,6 @@ Traits are a user-facing handle for storage. The user never interacts with store
 
 **Store.** The actual per-world storage for trait data, created from a schema. SoA stores have one array per property; AoS stores have one array of objects.
 
-**Relation.** A directional connection between entities. The relation is the **predicate** and the target is the **subject**.
+**Relation.** A directional connection between entities. The **source** is the entity that owns the relation, the **target** is the entity it points to. In `child.add(ChildOf(parent))`, child is the source and parent is the target.
 
-**OrderedRelation.** A trait bound to a relation that stores an ordered list of entities as its record. For a given entity, the list contains all entities that have the relation pointing to it. The list and relation stay in sync bidirectionally -- modifying the list updates the relation pairs, and modifying the relation updates the list.
+**OrderedRelation.** A trait added to the **target** entity that stores an ordered list of all entities with a relation pointing to it. The list and relation stay in sync bidirectionally—modifying the list updates the relation pairs, and modifying the relation updates the list.
