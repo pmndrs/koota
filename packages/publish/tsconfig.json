@@ -1,5 +1,9 @@
 {
 	"extends": "@config/typescript/react.json",
-	"include": ["src", "tests"],
+	"include": ["src", "tests", "css-modules.d.ts"],
+	"exclude": ["dist"],
+	"compilerOptions": {
+		"noEmit": true
+	},
 	"references": [{ "path": "tsconfig.node.json" }]
 }

@@ -123,6 +123,9 @@ export function registerTrait(world: World, trait: Trait) {
 
 	// Increment the bitflag used for the trait.
 	incrementWorldBitflag(world);
+
+	// Run internal callback for dev tools.
+	for (const sub of ctx.traitRegisteredSubscriptions) sub(trait);
 }
 
 function getOrderedTrait(world: World, entity: Entity, trait: OrderedRelation): OrderedList {

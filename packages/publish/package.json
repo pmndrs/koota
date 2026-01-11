@@ -5,59 +5,128 @@
     "license": "ISC",
     "type": "module",
     "main": "./src/index.ts",
+    "module": "./src/index.ts",
     "types": "./src/index.ts",
     "exports": {
         ".": {
             "types": "./src/index.ts",
-            "import": "./src/index.ts"
+            "import": "./src/index.ts",
+            "require": "./src/index.ts"
         },
         "./react": {
             "types": "./src/react.ts",
-            "import": "./src/react.ts"
+            "import": "./src/react.ts",
+            "require": "./src/react.ts"
+        },
+        "./devtools": {
+            "types": "./src/devtools.ts",
+            "import": "./src/devtools.ts",
+            "require": "./src/devtools.ts"
+        },
+        "./devtools/react": {
+            "types": "./src/devtools-react.ts",
+            "import": "./src/devtools-react.ts",
+            "require": "./src/devtools-react.ts"
+        },
+        "./devtools/vite": {
+            "types": "./src/devtools-vite.ts",
+            "import": "./src/devtools-vite.ts",
+            "require": "./src/devtools-vite.ts"
+        },
+        "./devtools/rollup": {
+            "types": "./src/devtools-rollup.ts",
+            "import": "./src/devtools-rollup.ts",
+            "require": "./src/devtools-rollup.ts"
+        },
+        "./devtools/rolldown": {
+            "types": "./src/devtools-rolldown.ts",
+            "import": "./src/devtools-rolldown.ts",
+            "require": "./src/devtools-rolldown.ts"
+        },
+        "./devtools/webpack": {
+            "types": "./src/devtools-webpack.ts",
+            "import": "./src/devtools-webpack.ts",
+            "require": "./src/devtools-webpack.ts"
+        },
+        "./devtools/esbuild": {
+            "types": "./src/devtools-esbuild.ts",
+            "import": "./src/devtools-esbuild.ts",
+            "require": "./src/devtools-esbuild.ts"
         }
     },
     "files": [
         "dist",
         "react",
+        "devtools",
         "README.md",
         "LICENSE"
     ],
     "publishConfig": {
-        "main": "./dist/index.cjs",
-        "module": "./dist/index.js",
-        "types": "./dist/index.d.ts",
+        "type": "module",
         "exports": {
             ".": {
-                "types": {
-                    "import": "./dist/index.d.ts",
-                    "require": "./dist/index.d.cts"
-                },
-                "import": "./dist/index.js",
-                "require": "./dist/index.cjs"
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
             },
             "./react": {
-                "types": {
-                    "import": "./dist/react.d.ts",
-                    "require": "./dist/react.d.cts"
-                },
-                "import": "./dist/react.js",
-                "require": "./dist/react.cjs"
+                "types": "./dist/react.d.ts",
+                "default": "./dist/react.js"
+            },
+            "./devtools": {
+                "types": "./dist/devtools.d.ts",
+                "default": "./dist/devtools.js"
+            },
+            "./devtools/react": {
+                "types": "./dist/devtools-react.d.ts",
+                "default": "./dist/devtools-react.js"
+            },
+            "./devtools/vite": {
+                "types": "./dist/devtools-vite.d.ts",
+                "default": "./dist/devtools-vite.js"
+            },
+            "./devtools/rollup": {
+                "types": "./dist/devtools-rollup.d.ts",
+                "default": "./dist/devtools-rollup.js"
+            },
+            "./devtools/rolldown": {
+                "types": "./dist/devtools-rolldown.d.ts",
+                "default": "./dist/devtools-rolldown.js"
+            },
+            "./devtools/webpack": {
+                "types": "./dist/devtools-webpack.d.ts",
+                "default": "./dist/devtools-webpack.js"
+            },
+            "./devtools/esbuild": {
+                "types": "./dist/devtools-esbuild.d.ts",
+                "default": "./dist/devtools-esbuild.js"
             }
         }
     },
     "scripts": {
-        "build": "tsup && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
+        "build": "pnpm clean && pnpm build:core && pnpm build:devtools && pnpm build:plugin && pnpm build:types && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
+        "build:core": "rolldown -c rolldown.config.ts",
+        "build:devtools": "rolldown -c rolldown.devtools.config.ts",
+        "build:plugin": "rolldown -c rolldown.plugin.config.ts",
+        "build:types": "rollup -c rolldown.dts.config.ts",
+        "clean": "node --input-type=module -e \"import {rmSync} from 'fs'; rmSync('dist', {recursive: true, force: true})\"",
         "test": "vitest --environment=jsdom",
         "generate-tests": "node scripts/generate-tests.ts"
+    },
+    "dependencies": {
+        "unplugin": "^2.3.11"
     },
     "devDependencies": {
         "@config/typescript": "workspace:*",
         "@koota/core": "workspace:*",
+        "@koota/devtools": "workspace:*",
         "@koota/react": "workspace:*",
         "@testing-library/react": "^16.3.0",
+        "postcss": "^8.5.6",
+        "preact": "^10.28.0",
         "react": "catalog:",
-        "react-dom": "catalog:",
-        "tsup": "^8.5.1",
+        "rolldown": "1.0.0-beta.53",
+        "rollup-plugin-dts": "^6.3.0",
+        "rollup-plugin-postcss": "^4.0.2",
         "unplugin-inline-functions": "catalog:",
         "vitest": "catalog:"
     },

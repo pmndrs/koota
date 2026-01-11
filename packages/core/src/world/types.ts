@@ -43,6 +43,9 @@ export type WorldInternal = {
 	worldEntity: Entity;
 	trackedTraits: Set<Trait>;
 	resetSubscriptions: Set<(world: World) => void>;
+	traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
+	entitySpawnedSubscriptions: Set<(entity: Entity) => void>;
+	entityDestroyedSubscriptions: Set<(entity: Entity) => void>;
 };
 
 export type World = {

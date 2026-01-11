@@ -1,0 +1,117 @@
+.headerLeft {
+	display: flex;
+	align-items: center;
+	position: relative;
+	overflow: hidden;
+}
+
+.headerContent {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	transform: translateX(0);
+	transition: transform 600ms cubic-bezier(0.4, 0, 0.2, 1);
+	will-change: transform;
+}
+
+.backButton {
+	all: unset;
+	position: absolute;
+	left: -3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	cursor: pointer;
+	color: var(--k-text-primary);
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 4px;
+	transition: opacity 600ms cubic-bezier(0.4, 0, 0.2, 1),
+		transform 300ms cubic-bezier(0.4, 0, 0.2, 1), background 150ms ease;
+	opacity: 0;
+	transform: translateX(-8px);
+	pointer-events: none;
+}
+
+.backButton[data-visible='true'] {
+	opacity: 1;
+	transform: translateX(0);
+	pointer-events: auto;
+}
+
+.backButton:hover {
+	background: rgba(255, 255, 255, 0.15);
+	color: var(--k-text-primary);
+}
+
+/* Spring animation using linear() */
+@supports (animation-timing-function: linear(0, 1)) {
+	.backButton {
+		/* prettier-ignore */
+		transition: opacity 300ms linear(0, 0.012 0.9%, 0.05 2%, 0.411 9.2%, 0.517 11.8%, 0.611 14.6%, 0.694 17.7%, 0.765 21.1%, 0.824 24.8%, 0.872 28.9%, 0.91 33.4%, 0.939 38.4%, 0.977 50.9%, 0.994 68.4%, 1),
+			transform 300ms linear(0, 0.012 0.9%, 0.05 2%, 0.411 9.2%, 0.517 11.8%, 0.611 14.6%, 0.694 17.7%, 0.765 21.1%, 0.824 24.8%, 0.872 28.9%, 0.91 33.4%, 0.939 38.4%, 0.977 50.9%, 0.994 68.4%, 1),
+			background 150ms ease;
+	}
+}
+
+.title {
+	font-weight: 600;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--text-muted);
+}
+
+.tabs {
+	display: flex;
+	gap: 2px;
+}
+
+.tab {
+	all: unset;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 3px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	color: var(--text-secondary);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+	font-variant-numeric: tabular-nums;
+}
+
+.tab:hover {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--k-text-secondary);
+}
+
+.tabActive {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--k-text-primary);
+}
+
+.headerRight {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.stats {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+}
+
+.stat {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.statIcon {
+	opacity: 0.6;
+}

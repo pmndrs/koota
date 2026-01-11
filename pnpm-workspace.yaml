@@ -11,8 +11,8 @@ catalog:
   '@types/react-dom': ^19.2.3
   '@types/three': ^0.181.0
   directed: ^0.1.6
-  react: ^19.2.0
-  react-dom: ^19.2.0
+  react: ^19.2.1
+  react-dom: ^19.2.1
   three: ^0.181.2
   unplugin-inline-functions: ^0.3.10
   vite: ^7.2.4

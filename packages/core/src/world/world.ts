@@ -54,6 +54,9 @@ export function createWorld(
 			worldEntity: null!,
 			trackedTraits: new Set(),
 			resetSubscriptions: new Set(),
+			traitRegisteredSubscriptions: new Set<(trait: Trait) => void>(),
+			entitySpawnedSubscriptions: new Set<(entity: Entity) => void>(),
+			entityDestroyedSubscriptions: new Set<(entity: Entity) => void>(),
 		} as WorldInternal,
 
 		traits: new Set<Trait>(),

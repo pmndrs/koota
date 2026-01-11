@@ -1,0 +1,98 @@
+.inspector {
+	font-family: var(--k-font-mono, 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace);
+	font-size: 10px;
+	line-height: 1.4;
+	user-select: text;
+	color: var(--k-text-secondary);
+	width: 100%;
+}
+
+.inspector ::selection {
+	background: rgba(100, 108, 255, 0.6);
+	color: #ffffff;
+	border-radius: 2px;
+	padding: 1px 2px;
+}
+
+.row {
+	display: flex;
+	align-items: baseline;
+	gap: 4px;
+	cursor: default;
+	padding: 0;
+	border-radius: 2px;
+}
+
+.row:hover {
+	background-color: var(--k-bg-hover);
+}
+
+.arrow {
+	display: inline-block;
+	width: 12px;
+	font-size: 9px;
+	text-align: center;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	user-select: none;
+	flex-shrink: 0;
+}
+
+.arrowPlaceholder {
+	display: inline-block;
+	width: 12px;
+	flex-shrink: 0;
+}
+
+.name {
+	color: var(--k-accent-tag, var(--k-accent));
+	flex-shrink: 0;
+}
+
+/* Value type colors - inspired by Chrome DevTools / One Dark */
+.valueString {
+	color: var(--k-accent-tag, var(--k-accent));
+}
+
+.valueNumber {
+	color: var(--k-accent-soa, var(--k-accent));
+}
+
+.valueBoolean {
+	color: var(--k-accent-aos, var(--k-accent));
+}
+
+.valueNull,
+.valueUndefined {
+	color: var(--k-text-muted);
+	font-style: italic;
+}
+
+.valueFunction {
+	color: var(--k-text-secondary);
+	font-style: italic;
+}
+
+.valueArray {
+	color: var(--k-text-secondary);
+}
+
+.valueObject {
+	color: var(--k-text-secondary);
+}
+
+.valueDefault {
+	color: var(--k-text-secondary);
+}
+
+.preview {
+	color: var(--k-text-muted);
+	font-style: italic;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 400px;
+	display: inline-block;
+	vertical-align: bottom;
+	opacity: 0.7;
+}

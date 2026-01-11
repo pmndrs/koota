@@ -1,0 +1,272 @@
+.container {
+	position: relative;
+	width: 100%;
+	height: 280px;
+	background: var(--k-bg-panel);
+	display: flex;
+	flex-direction: column;
+}
+
+.controls {
+	position: relative;
+	padding: 6px 8px;
+	border-bottom: 1px solid var(--k-border);
+	background: var(--k-bg-header);
+}
+
+.controlsContent {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4px;
+}
+
+.refreshButton {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 3px;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	transition: color 0.15s, background 0.15s;
+	font-size: 14px;
+	line-height: 1;
+}
+
+.refreshButton:hover {
+	color: var(--k-text-secondary);
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.stats {
+	font-size: 9px;
+	color: var(--k-text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.toolbar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.toolbarButton {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	position: relative;
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	background: var(--k-bg-input);
+	color: var(--k-text-muted);
+	cursor: pointer;
+	transition: background 0.15s, color 0.15s;
+}
+
+.toolbarButton:hover {
+	background: var(--k-bg-active);
+	color: var(--k-text-secondary);
+}
+
+.toolbarButtonActive {
+	background: var(--k-bg-hover);
+	color: var(--k-text-primary);
+}
+
+.filterBadge {
+	position: absolute;
+	top: -2px;
+	right: -2px;
+	min-width: 12px;
+	height: 12px;
+	padding: 0 3px;
+	border-radius: 6px;
+	background: var(--k-accent-purple);
+	color: var(--k-text-primary);
+	font-size: 8px;
+	font-weight: 600;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.filterMenu {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	z-index: 10;
+	display: flex;
+	gap: 6px;
+	padding: 2px 8px 8px;
+	background: var(--k-bg-header);
+	border-bottom: 1px solid var(--k-border);
+	overflow-x: auto;
+	white-space: nowrap;
+	/* Firefox - thin overlay scrollbar */
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Overlay scrollbars - WebKit browsers */
+.filterMenu::-webkit-scrollbar {
+	height: 6px;
+}
+
+.filterMenu::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.filterMenu::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 3px;
+}
+
+.filterMenu::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.filterButton {
+	all: unset;
+	padding: 2px 6px;
+	border-radius: 3px;
+	font-size: 9px;
+	font-weight: 500;
+	text-transform: lowercase;
+	cursor: pointer;
+	transition: opacity 0.15s, background 0.15s;
+	opacity: 0.5;
+}
+
+.filterButton:hover {
+	opacity: 0.8;
+}
+
+.filterButtonActive {
+	opacity: 1 !important;
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.graphWrapper {
+	flex: 1;
+	overflow: hidden;
+}
+
+.svg {
+	display: block;
+	cursor: grab;
+}
+
+.svg.dragging {
+	cursor: grabbing;
+}
+
+.edges {
+	pointer-events: stroke;
+}
+
+.edge {
+	stroke: rgba(200, 200, 200, 0.5);
+	stroke-width: 1.5;
+	fill: none;
+}
+
+.edge:hover {
+	stroke: rgba(220, 220, 220, 0.7);
+	stroke-width: 2;
+}
+
+.edgeLabel {
+	font-size: 7px;
+	fill: rgba(255, 255, 255, 0.7);
+	pointer-events: none;
+	font-weight: 500;
+}
+
+.nodes {
+	pointer-events: all;
+}
+
+/* Aggregate nodes (rectangular, clickable) */
+.aggregateNode {
+	cursor: pointer;
+}
+
+.aggregateRect {
+	fill: rgba(138, 99, 210, 0.25);
+	stroke: rgba(138, 99, 210, 0.6);
+	stroke-width: 1.5;
+	transition: fill 0.15s, stroke 0.15s;
+}
+
+.aggregateNode:hover .aggregateRect {
+	fill: rgba(138, 99, 210, 0.4);
+	stroke: rgba(168, 139, 220, 0.9);
+}
+
+.aggregateLabel {
+	font-size: 8px;
+	font-weight: 600;
+	fill: rgba(255, 255, 255, 0.9);
+	pointer-events: none;
+	user-select: none;
+}
+
+/* Entity nodes (circular, target entities) */
+.entityNode {
+	cursor: pointer;
+}
+
+.entityCircle {
+	fill: #4a9eff;
+	stroke: #6bb3ff;
+	stroke-width: 1.5;
+	transition: fill 0.15s, stroke 0.15s;
+}
+
+.entityNode:hover .entityCircle {
+	fill: #6bb3ff;
+	stroke: #8ecaff;
+	stroke-width: 2;
+}
+
+.entityLabel {
+	font-size: 9px;
+	font-weight: 600;
+	fill: #fff;
+	pointer-events: none;
+	user-select: none;
+}
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	height: 280px;
+	padding: 20px;
+	text-align: center;
+}
+
+.emptyMessage {
+	color: var(--k-text-muted);
+	font-size: 11px;
+	margin-bottom: 4px;
+}
+
+.emptySubtext {
+	color: var(--k-text-dim);
+	font-size: 9px;
+}
+
+/* Dimmed state for hover highlighting */
+.dimmed {
+	opacity: 0.2;
+	transition: opacity 0.15s;
+}
+

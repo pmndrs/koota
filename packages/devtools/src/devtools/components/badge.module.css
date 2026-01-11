@@ -1,0 +1,50 @@
+.badge {
+	font-size: 7px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	border-radius: 2px;
+	color: var(--k-bg-panel);
+}
+
+.badgeTag {
+	background: var(--k-accent-tag);
+}
+
+.badgeSoa {
+	background: var(--k-accent-soa);
+}
+
+.badgeAos {
+	background: var(--k-accent-aos);
+}
+
+.badgeRel {
+	background: var(--k-accent-rel);
+}
+
+.detailBadge {
+	font-size: 8px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 5px;
+	border-radius: 3px;
+	color: var(--k-bg-panel);
+}
+
+.detailBadgeTag {
+	background: var(--k-accent-tag);
+}
+
+.detailBadgeSoa {
+	background: var(--k-accent-soa);
+}
+
+.detailBadgeAos {
+	background: var(--k-accent-aos);
+}
+
+.detailBadgeRel {
+	background: var(--k-accent-rel);
+}
+

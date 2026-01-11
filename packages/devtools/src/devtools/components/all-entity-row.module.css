@@ -1,0 +1,31 @@
+.icon {
+	color: var(--accent-blue);
+	flex-shrink: 0;
+}
+
+.entityIdGroup {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	flex: 1;
+	min-width: 0;
+}
+
+.worldBadge {
+	font-size: 7px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	border-radius: 2px;
+	background: var(--k-accent-rel);
+	color: var(--text-secondary);
+}
+
+.genBadge {
+	font-size: 8px;
+	padding: 1px 4px;
+	border-radius: 3px;
+	background: var(--k-bg-active);
+	color: var(--text-secondary);
+	font-variant-numeric: tabular-nums;
+}
