@@ -1,0 +1,31 @@
+{
+	"name": "@app/collab-editor",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"dev:server": "npx y-websocket",
+		"build": "tsc && vite build",
+		"lint": "oxlint",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@react-three/drei": "catalog:",
+		"@react-three/fiber": "catalog:",
+		"koota": "workspace:*",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"three": "catalog:",
+		"yjs": "^13.6.18",
+		"y-websocket": "^2.1.0"
+	},
+	"devDependencies": {
+		"@config/typescript": "workspace:*",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@types/three": "catalog:",
+		"@vitejs/plugin-react": "^5.1.1",
+		"vite": "catalog:"
+	}
+}
