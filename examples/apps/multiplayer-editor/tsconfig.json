@@ -1,0 +1,7 @@
+{
+	"extends": "@config/typescript/react.json",
+	"include": ["src", "server"],
+	"compilerOptions": {
+		"types": ["node"]
+	}
+}

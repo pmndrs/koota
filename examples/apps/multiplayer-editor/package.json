@@ -1,0 +1,34 @@
+{
+    "name": "@app/multiplayer-editor",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "concurrently \"pnpm dev:client\" \"pnpm dev:server\"",
+        "dev:client": "vite",
+        "dev:server": "tsx watch server/index.ts",
+        "build": "tsc && vite build",
+        "lint": "oxlint",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@react-three/drei": "catalog:",
+        "@react-three/fiber": "catalog:",
+        "koota": "workspace:*",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "three": "catalog:",
+        "ws": "^8.18.0"
+    },
+    "devDependencies": {
+        "@config/typescript": "workspace:*",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@types/three": "catalog:",
+        "@types/ws": "^8.5.13",
+        "@vitejs/plugin-react": "^5.1.1",
+        "concurrently": "^9.1.2",
+        "tsx": "^4.19.2",
+        "vite": "catalog:"
+    }
+}
