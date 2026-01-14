@@ -127,7 +127,7 @@ export function registerTrait(world: World, trait: Trait) {
 
 function getOrderedTrait(world: World, entity: Entity, trait: OrderedRelation): OrderedList {
     const relation = getOrderedTraitRelation(trait);
-    return new OrderedList(world, entity, relation);
+    return new OrderedList(world, entity, relation, trait);
 }
 
 export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTrait[]) {
