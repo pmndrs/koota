@@ -31,9 +31,9 @@ describe('World', () => {
         expect(world.entities.length).toBe(1);
     });
 
-    it('reset should remove entities with auto-remove relations', () => {
+    it('reset should remove entities with auto-destroy relations', () => {
         const Node = trait();
-        const ChildOf = relation({ autoRemoveTarget: true, exclusive: true });
+        const ChildOf = relation({ autoDestroy: 'orphan', exclusive: true });
 
         const world = createWorld();
 
@@ -49,9 +49,9 @@ describe('World', () => {
         expect(world.entities.length).toBe(1);
     });
 
-    it('destroy should lead to entities with auto-remove relations being removed as well', () => {
+    it('destroy should lead to entities with auto-destroy relations being removed as well', () => {
         const Node = trait();
-        const ChildOf = relation({ autoRemoveTarget: true, exclusive: true });
+        const ChildOf = relation({ autoDestroy: 'orphan', exclusive: true });
 
         const world = createWorld();
 

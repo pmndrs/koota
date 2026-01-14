@@ -21,7 +21,7 @@ export type Relation<T extends Trait = Trait> = {
     [$internal]: {
         trait: T;
         exclusive: boolean;
-        autoRemoveTarget: boolean;
+        autoDestroy: 'source' | 'target' | false;
     };
 } & ((target: RelationTarget, params?: Record<string, unknown>) => RelationPair<T>);
 

@@ -1,5 +1,5 @@
 import { $internal } from '../common';
-import { getEntitiesWithRelationTo } from '../relation/relation';
+import { getEntitiesWithRelationTo, getRelationTargets } from '../relation/relation';
 import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -46,33 +46,41 @@ export function destroyEntity(world: World, entity: Entity) {
     entityQueue.push(entity);
     processedEntities.clear();
 
-    // Destroyed entities may be the target of relations.
+    // Destroyed entities may be the target or source of relations.
     // To avoid stale references, all these relations must be removed.
-    // In addition, if the relation has the autoRemoveTarget flag set,
-    // the target entity should also be destroyed, for example children relations.
+    // autoDestroy controls cascade behavior:
+    // - 'source' (or 'orphan'): when target dies, destroy sources (e.g., parent dies → children die)
+    // - 'target': when source dies, destroy targets (e.g., container dies → items die)
     while (entityQueue.length > 0) {
         const currentEntity = entityQueue.pop()!;
         if (processedEntities.has(currentEntity)) continue;
 
         processedEntities.add(currentEntity);
 
-        // Process all entities that have relations to this entity
-        // Scan all relations to find entities targeting currentEntity
         for (const relation of ctx.relations) {
-            // Get all entities with this relation targeting currentEntity
-            const subjects = getEntitiesWithRelationTo(world, relation, currentEntity);
+            const relationCtx = relation[$internal];
 
-            for (const subject of subjects) {
-                if (!world.has(subject)) continue;
+            // Handle entities that have relations pointing TO currentEntity (currentEntity is target)
+            // If autoDestroy is 'orphan', destroy those sources
+            const sources = getEntitiesWithRelationTo(world, relation, currentEntity);
+            for (const source of sources) {
+                if (!world.has(source)) continue;
 
-                // Check if this relation has autoRemoveTarget
-                const relationCtx = relation[$internal];
+                // Remove the relation from source to currentEntity
+                cleanupRelationTarget(world, relation, source, currentEntity);
 
-                // Remove the target from this relation and clean up base trait if needed
-                cleanupRelationTarget(world, relation, subject, currentEntity);
+                // If autoDestroy: 'source', queue the source for destruction
+                if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
+            }
 
-                // If autoRemoveTarget, queue the subject for destruction
-                if (relationCtx.autoRemoveTarget) entityQueue.push(subject);
+            // Handle relations where currentEntity is the source pointing to targets
+            // If autoDestroy is 'target', destroy those targets
+            if (relationCtx.autoDestroy === 'target') {
+                const targets = getRelationTargets(world, relation, currentEntity);
+                for (const target of targets) {
+                    if (!world.has(target)) continue;
+                    if (!processedEntities.has(target)) entityQueue.push(target);
+                }
             }
         }
 

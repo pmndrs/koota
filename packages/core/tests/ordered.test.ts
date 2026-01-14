@@ -276,8 +276,8 @@ describe('Ordered relations', () => {
         expect(childrenB[0]).toBe(child2);
     });
 
-    it('should clean up relations when destroying entity with ordered trait and autoRemoveTarget', () => {
-        const ChildOf = relation({ autoRemoveTarget: true });
+    it('should clean up relations when destroying entity with ordered trait and autoDestroy orphan', () => {
+        const ChildOf = relation({ autoDestroy: 'orphan' });
         const OrderedChildren = ordered(ChildOf);
 
         // Setup hierarchy: grandparent -> parent -> child
@@ -289,7 +289,7 @@ describe('Ordered relations', () => {
         expect(world.query(ChildOf(grandparent))).toContain(parent);
         expect(world.query(ChildOf(grandparent))).toHaveLength(1);
 
-        // Destroy parent - cascades to child via autoRemoveTarget
+        // Destroy parent - cascades to child via autoDestroy: 'orphan'
         parent.destroy();
 
         // Parent and child should be destroyed

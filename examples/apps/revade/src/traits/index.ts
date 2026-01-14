@@ -54,7 +54,7 @@ export const IsPlayer = trait();
 export const IsShieldVisible = trait();
 export const ShieldVisibility = trait({ duration: 1400, current: 0 });
 
-export const FiredBy = relation({ autoRemoveTarget: true });
+export const FiredBy = relation({ autoDestroy: 'orphan' });
 export const Targeting = relation({ exclusive: true });
 
 export const SpatialHashMap = trait(() => new SpatialHashMapImpl(50));
