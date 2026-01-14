@@ -6,6 +6,9 @@ nav: 5
 
 Performance, safety and readability are all tradeoffs. The standard patterns are plenty fast, but if you are interested in diving deeper here are some quick tips and patterns.
 
+- [Modifying trait stores directly](#modifying-trait-stores-directly)
+- [Query optimization](#query-optimization)
+
 ## Modifying trait stores directly
 
 For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.

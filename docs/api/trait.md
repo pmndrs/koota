@@ -6,12 +6,12 @@ nav: 9
 
 Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React or web components.
 
-- [Basic Usage](#Basic%20Usage)
-- [Structure of Arrays](#Structure%20of%20Arrays)
-- [Array of Structures](#Array%20of%20Structures)
-- [Trait record](#Trait%20record)
-- [Typing traits](#Typing%20traits)
-- [Direct Access](#Accessing%20the%20store%20directly)
+- [Basic Usage](#Basic-Usage)
+- [Structure of Arrays](#Structure-of-Arrays)
+- [Array of Structures](#Array-of-Structures)
+- [Trait record](#Trait-record)
+- [Typing traits](#Typing-traits)
+- [Direct Access](#Accessing-the-store-directly)
 
 ## Basic Usage
 

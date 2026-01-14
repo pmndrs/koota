@@ -6,6 +6,18 @@ nav: 2
 
 Koota supports relations between entities using the `relation` function. Relations allow you to build graphs by creating connections between entities with efficient queries.
 
+- [Relations basics](#relations-basics)
+- [Relations with data](#relations-with-data)
+- [Auto remove target](#auto-remove-target)
+- [Exclusive relations](#exclusive-relations)
+- [Ordered relations](#ordered-relations)
+- [Querying relations](#querying-relations)
+- [Removing relations](#removing-relations)
+- [Tracking relation changes](#tracking-relation-changes)
+- [Relation events](#relation-events)
+
+## Relations basics
+
 ```js
 const ChildOf = relation()
 

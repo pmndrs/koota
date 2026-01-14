@@ -6,10 +6,10 @@ nav: 10
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-- [Defining queries](#Defining%20queries)
-- [Getting all entities](#Query%20all%20entities)
-- [Excluding entities from queries](#Excluding%20entities%20from%20queries)
-- [Selecting for updates](#Select%20traits%20on%20queries%20for%20updates)
+- [Defining queries](#Defining-queries)
+- [Getting all entities](#Query-all-entities)
+- [Excluding entities from queries](#Excluding-entities-from-queries)
+- [Selecting for updates](#Select-traits-on-queries-for-updates)
 
 ## Defining queries
 

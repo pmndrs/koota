@@ -8,8 +8,8 @@ The `World` is where all data is stored. We have methods on entities but this is
 
 World's can also have their own traits, which function as singletons. 
 
-- [World API](#World%20API)
-- [World Traits](#World%20Traits)
+- [World API](#World-API)
+- [World Traits](#World-Traits)
 
 ## World API
 
