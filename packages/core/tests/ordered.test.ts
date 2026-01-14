@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, ordered, relation } from '../src';
+import { createChanged, createWorld, ordered, relation } from '../src';
 
 describe('Ordered relations', () => {
     const world = createWorld();
@@ -300,5 +300,32 @@ describe('Ordered relations', () => {
         // Query should return no children since parent was destroyed
         const childrenOfGrandparent = world.query(ChildOf(grandparent));
         expect(childrenOfGrandparent).toHaveLength(0);
+    });
+
+    it('should flag ordered trait as changed when structural changes occur', () => {
+        const Changed = createChanged();
+        const OrderedChildren = ordered(relation());
+
+        const parent = world.spawn(OrderedChildren);
+        const child1 = world.spawn();
+        const child2 = world.spawn();
+
+        const children = parent.get(OrderedChildren)!;
+
+        // Initially no changes
+        expect(world.query(Changed(OrderedChildren))).toHaveLength(0);
+
+        // Push should flag as changed
+        children.push(child1);
+        expect(world.query(Changed(OrderedChildren))).toContain(parent);
+
+        // Query consumed the change, should be empty now
+        expect(world.query(Changed(OrderedChildren))).toHaveLength(0);
+
+        // Pop should flag as changed
+        children.push(child2);
+        world.query(Changed(OrderedChildren));
+        children.pop();
+        expect(world.query(Changed(OrderedChildren))).toContain(parent);
     });
 });
