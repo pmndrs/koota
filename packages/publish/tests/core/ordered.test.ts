@@ -2,277 +2,277 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createWorld, ordered, relation } from '../../dist';
 
 describe('Ordered relations', () => {
-	const world = createWorld();
-	world.init();
+    const world = createWorld();
+    world.init();
 
-	beforeEach(() => {
-		world.reset();
-	});
+    beforeEach(() => {
+        world.reset();
+    });
 
-	it('should maintain ordered list when adding children via relation', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should maintain ordered list when adding children via relation', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn();
-		const childB = world.spawn();
-		const childC = world.spawn();
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn();
+        const childB = world.spawn();
+        const childC = world.spawn();
 
-		// Add children via relation
-		childA.add(ChildOf(parent));
-		childB.add(ChildOf(parent));
-		childC.add(ChildOf(parent));
+        // Add children via relation
+        childA.add(ChildOf(parent));
+        childB.add(ChildOf(parent));
+        childC.add(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
+        const children = parent.get(OrderedChildren)!;
 
-		expect(children).toHaveLength(3);
-		expect(children[0]).toBe(childA);
-		expect(children[1]).toBe(childB);
-		expect(children[2]).toBe(childC);
-	});
+        expect(children).toHaveLength(3);
+        expect(children[0]).toBe(childA);
+        expect(children[1]).toBe(childB);
+        expect(children[2]).toBe(childC);
+    });
 
-	it('should sync relation when pushing to ordered list', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should sync relation when pushing to ordered list', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const child = world.spawn();
+        const parent = world.spawn(OrderedChildren);
+        const child = world.spawn();
 
-		const children = parent.get(OrderedChildren)!;
-		children.push(child);
+        const children = parent.get(OrderedChildren)!;
+        children.push(child);
 
-		expect(children).toHaveLength(1);
-		expect(children[0]).toBe(child);
-		expect(child.has(ChildOf(parent))).toBe(true);
-	});
+        expect(children).toHaveLength(1);
+        expect(children[0]).toBe(child);
+        expect(child.has(ChildOf(parent))).toBe(true);
+    });
 
-	it('should sync relation when splicing from ordered list', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should sync relation when splicing from ordered list', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
-		const childC = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
+        const childC = world.spawn(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
-		const removed = children.splice(1, 1);
+        const children = parent.get(OrderedChildren)!;
+        const removed = children.splice(1, 1);
 
-		expect(children).toHaveLength(2);
-		expect(children[0]).toBe(childA);
-		expect(children[1]).toBe(childC);
-		expect(removed[0]).toBe(childB);
-		expect(childB.has(ChildOf(parent))).toBe(false);
-	});
+        expect(children).toHaveLength(2);
+        expect(children[0]).toBe(childA);
+        expect(children[1]).toBe(childC);
+        expect(removed[0]).toBe(childB);
+        expect(childB.has(ChildOf(parent))).toBe(false);
+    });
 
-	it('should remove from list when relation is removed', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should remove from list when relation is removed', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
-		const childC = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
+        const childC = world.spawn(ChildOf(parent));
 
-		childB.remove(ChildOf(parent));
+        childB.remove(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
-		expect(children).toHaveLength(2);
-		expect(children[0]).toBe(childA);
-		expect(children[1]).toBe(childC);
-	});
+        const children = parent.get(OrderedChildren)!;
+        expect(children).toHaveLength(2);
+        expect(children[0]).toBe(childA);
+        expect(children[1]).toBe(childC);
+    });
 
-	it('should support moveTo for reordering without relation changes', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should support moveTo for reordering without relation changes', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
-		const childC = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
+        const childC = world.spawn(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
-		children.moveTo(childA, 2);
+        const children = parent.get(OrderedChildren)!;
+        children.moveTo(childA, 2);
 
-		expect(children).toHaveLength(3);
-		expect(children[0]).toBe(childB);
-		expect(children[1]).toBe(childC);
-		expect(children[2]).toBe(childA);
+        expect(children).toHaveLength(3);
+        expect(children[0]).toBe(childB);
+        expect(children[1]).toBe(childC);
+        expect(children[2]).toBe(childA);
 
-		// Relations should still exist
-		expect(childA.has(ChildOf(parent))).toBe(true);
-		expect(childB.has(ChildOf(parent))).toBe(true);
-		expect(childC.has(ChildOf(parent))).toBe(true);
-	});
+        // Relations should still exist
+        expect(childA.has(ChildOf(parent))).toBe(true);
+        expect(childB.has(ChildOf(parent))).toBe(true);
+        expect(childC.has(ChildOf(parent))).toBe(true);
+    });
 
-	it('should support insert at specific index', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should support insert at specific index', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
-		const childC = world.spawn();
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
+        const childC = world.spawn();
 
-		const children = parent.get(OrderedChildren)!;
-		children.insert(childC, 1);
+        const children = parent.get(OrderedChildren)!;
+        children.insert(childC, 1);
 
-		expect(children).toHaveLength(3);
-		expect(children[0]).toBe(childA);
-		expect(children[1]).toBe(childC);
-		expect(children[2]).toBe(childB);
-		expect(childC.has(ChildOf(parent))).toBe(true);
-	});
+        expect(children).toHaveLength(3);
+        expect(children[0]).toBe(childA);
+        expect(children[1]).toBe(childC);
+        expect(children[2]).toBe(childB);
+        expect(childC.has(ChildOf(parent))).toBe(true);
+    });
 
-	it('should support pop operation', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should support pop operation', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
-		const popped = children.pop();
+        const children = parent.get(OrderedChildren)!;
+        const popped = children.pop();
 
-		expect(popped).toBe(childB);
-		expect(children).toHaveLength(1);
-		expect(children[0]).toBe(childA);
-		expect(childB.has(ChildOf(parent))).toBe(false);
-	});
+        expect(popped).toBe(childB);
+        expect(children).toHaveLength(1);
+        expect(children[0]).toBe(childA);
+        expect(childB.has(ChildOf(parent))).toBe(false);
+    });
 
-	it('should support shift operation', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should support shift operation', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
-		const shifted = children.shift();
+        const children = parent.get(OrderedChildren)!;
+        const shifted = children.shift();
 
-		expect(shifted).toBe(childA);
-		expect(children).toHaveLength(1);
-		expect(children[0]).toBe(childB);
-		expect(childA.has(ChildOf(parent))).toBe(false);
-	});
+        expect(shifted).toBe(childA);
+        expect(children).toHaveLength(1);
+        expect(children[0]).toBe(childB);
+        expect(childA.has(ChildOf(parent))).toBe(false);
+    });
 
-	it('should support unshift operation', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should support unshift operation', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn();
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn();
 
-		const children = parent.get(OrderedChildren)!;
-		children.unshift(childB);
+        const children = parent.get(OrderedChildren)!;
+        children.unshift(childB);
 
-		expect(children).toHaveLength(2);
-		expect(children[0]).toBe(childB);
-		expect(children[1]).toBe(childA);
-		expect(childB.has(ChildOf(parent))).toBe(true);
-	});
+        expect(children).toHaveLength(2);
+        expect(children[0]).toBe(childB);
+        expect(children[1]).toBe(childA);
+        expect(childB.has(ChildOf(parent))).toBe(true);
+    });
 
-	it('should support sort operation', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should support sort operation', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const child1 = world.spawn(ChildOf(parent));
-		const child2 = world.spawn(ChildOf(parent));
-		const child3 = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const child1 = world.spawn(ChildOf(parent));
+        const child2 = world.spawn(ChildOf(parent));
+        const child3 = world.spawn(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
-		children.sort((a, b) => b - a); // Reverse sort
+        const children = parent.get(OrderedChildren)!;
+        children.sort((a, b) => b - a); // Reverse sort
 
-		expect(children).toHaveLength(3);
-		expect(children[0]).toBe(child3);
-		expect(children[1]).toBe(child2);
-		expect(children[2]).toBe(child1);
+        expect(children).toHaveLength(3);
+        expect(children[0]).toBe(child3);
+        expect(children[1]).toBe(child2);
+        expect(children[2]).toBe(child1);
 
-		// Relations should still exist
-		expect(child1.has(ChildOf(parent))).toBe(true);
-		expect(child2.has(ChildOf(parent))).toBe(true);
-		expect(child3.has(ChildOf(parent))).toBe(true);
-	});
+        // Relations should still exist
+        expect(child1.has(ChildOf(parent))).toBe(true);
+        expect(child2.has(ChildOf(parent))).toBe(true);
+        expect(child3.has(ChildOf(parent))).toBe(true);
+    });
 
-	it('should support reverse operation', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should support reverse operation', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
-		const childC = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
+        const childC = world.spawn(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
-		children.reverse();
+        const children = parent.get(OrderedChildren)!;
+        children.reverse();
 
-		expect(children).toHaveLength(3);
-		expect(children[0]).toBe(childC);
-		expect(children[1]).toBe(childB);
-		expect(children[2]).toBe(childA);
+        expect(children).toHaveLength(3);
+        expect(children[0]).toBe(childC);
+        expect(children[1]).toBe(childB);
+        expect(children[2]).toBe(childA);
 
-		// Relations should still exist
-		expect(childA.has(ChildOf(parent))).toBe(true);
-		expect(childB.has(ChildOf(parent))).toBe(true);
-		expect(childC.has(ChildOf(parent))).toBe(true);
-	});
+        // Relations should still exist
+        expect(childA.has(ChildOf(parent))).toBe(true);
+        expect(childB.has(ChildOf(parent))).toBe(true);
+        expect(childC.has(ChildOf(parent))).toBe(true);
+    });
 
-	it('should work with native array methods', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should work with native array methods', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parent = world.spawn(OrderedChildren);
-		const childA = world.spawn(ChildOf(parent));
-		const childB = world.spawn(ChildOf(parent));
-		const childC = world.spawn(ChildOf(parent));
+        const parent = world.spawn(OrderedChildren);
+        const childA = world.spawn(ChildOf(parent));
+        const childB = world.spawn(ChildOf(parent));
+        const childC = world.spawn(ChildOf(parent));
 
-		const children = parent.get(OrderedChildren)!;
+        const children = parent.get(OrderedChildren)!;
 
-		// Test map
-		const mapped = children.map((c) => c);
-		expect(Array.isArray(mapped)).toBe(true);
-		expect(mapped).toHaveLength(3);
-		expect(mapped[0]).toBe(childA);
-		expect(mapped[1]).toBe(childB);
-		expect(mapped[2]).toBe(childC);
+        // Test map
+        const mapped = children.map((c) => c);
+        expect(Array.isArray(mapped)).toBe(true);
+        expect(mapped).toHaveLength(3);
+        expect(mapped[0]).toBe(childA);
+        expect(mapped[1]).toBe(childB);
+        expect(mapped[2]).toBe(childC);
 
-		// Test filter
-		const filtered = children.filter((c) => c !== childB);
-		expect(Array.isArray(filtered)).toBe(true);
-		expect(filtered).toHaveLength(2);
-		expect(filtered[0]).toBe(childA);
-		expect(filtered[1]).toBe(childC);
+        // Test filter
+        const filtered = children.filter((c) => c !== childB);
+        expect(Array.isArray(filtered)).toBe(true);
+        expect(filtered).toHaveLength(2);
+        expect(filtered[0]).toBe(childA);
+        expect(filtered[1]).toBe(childC);
 
-		// Test indexOf
-		expect(children.indexOf(childB)).toBe(1);
+        // Test indexOf
+        expect(children.indexOf(childB)).toBe(1);
 
-		// Test includes
-		expect(children.includes(childA)).toBe(true);
-	});
+        // Test includes
+        expect(children.includes(childA)).toBe(true);
+    });
 
-	it('should maintain separate lists for different parents', () => {
-		const ChildOf = relation();
-		const OrderedChildren = ordered(ChildOf);
+    it('should maintain separate lists for different parents', () => {
+        const ChildOf = relation();
+        const OrderedChildren = ordered(ChildOf);
 
-		const parentA = world.spawn(OrderedChildren);
-		const parentB = world.spawn(OrderedChildren);
+        const parentA = world.spawn(OrderedChildren);
+        const parentB = world.spawn(OrderedChildren);
 
-		const child1 = world.spawn(ChildOf(parentA));
-		const child2 = world.spawn(ChildOf(parentB));
-		const child3 = world.spawn(ChildOf(parentA));
+        const child1 = world.spawn(ChildOf(parentA));
+        const child2 = world.spawn(ChildOf(parentB));
+        const child3 = world.spawn(ChildOf(parentA));
 
-		const childrenA = parentA.get(OrderedChildren)!;
-		const childrenB = parentB.get(OrderedChildren)!;
+        const childrenA = parentA.get(OrderedChildren)!;
+        const childrenB = parentB.get(OrderedChildren)!;
 
-		expect(childrenA).toHaveLength(2);
-		expect(childrenA[0]).toBe(child1);
-		expect(childrenA[1]).toBe(child3);
+        expect(childrenA).toHaveLength(2);
+        expect(childrenA[0]).toBe(child1);
+        expect(childrenA[1]).toBe(child3);
 
-		expect(childrenB).toHaveLength(1);
-		expect(childrenB[0]).toBe(child2);
-	});
+        expect(childrenB).toHaveLength(1);
+        expect(childrenB[0]).toBe(child2);
+    });
 });

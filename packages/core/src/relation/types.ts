@@ -8,25 +8,25 @@ export type RelationTarget = Entity | '*';
 
 /** A pair represents a relation + target combination */
 export interface RelationPair<T extends Trait = Trait> {
-	readonly [$relationPair]: true;
-	[$internal]: {
-		relation: Relation<T>;
-		target: RelationTarget;
-		params?: Record<string, unknown>;
-	};
+    readonly [$relationPair]: true;
+    [$internal]: {
+        relation: Relation<T>;
+        target: RelationTarget;
+        params?: Record<string, unknown>;
+    };
 }
 
 export type Relation<T extends Trait = Trait> = {
-	readonly [$relation]: true;
-	[$internal]: {
-		trait: T;
-		exclusive: boolean;
-		autoRemoveTarget: boolean;
-	};
+    readonly [$relation]: true;
+    [$internal]: {
+        trait: T;
+        exclusive: boolean;
+        autoRemoveTarget: boolean;
+    };
 } & ((target: RelationTarget, params?: Record<string, unknown>) => RelationPair<T>);
 
 export interface OrderedRelation<T extends Trait = Trait> extends Trait<() => OrderedList> {
-	[$orderedTargetsTrait]: {
-		relation: Relation<T>;
-	};
+    [$orderedTargetsTrait]: {
+        relation: Relation<T>;
+    };
 }

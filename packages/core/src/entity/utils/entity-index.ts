@@ -1,23 +1,23 @@
 import type { Entity } from '../types';
 import {
-	getEntityGeneration,
-	getEntityId,
-	getEntityWorldId,
-	incrementGeneration,
-	packEntity,
+    getEntityGeneration,
+    getEntityId,
+    getEntityWorldId,
+    incrementGeneration,
+    packEntity,
 } from './pack-entity';
 
 export type EntityIndex = {
-	/** The number of currently alive entities. */
-	aliveCount: number;
-	/** Array of packed entities, densely packed. */
-	dense: Entity[];
-	/** Sparse array mapping entity IDs to their index in the dense array. */
-	sparse: number[];
-	/** The highest entity ID that has been assigned. */
-	maxId: number;
-	/** The current world ID. */
-	worldId: number;
+    /** The number of currently alive entities. */
+    aliveCount: number;
+    /** Array of packed entities, densely packed. */
+    dense: Entity[];
+    /** Sparse array mapping entity IDs to their index in the dense array. */
+    sparse: number[];
+    /** The highest entity ID that has been assigned. */
+    maxId: number;
+    /** The current world ID. */
+    worldId: number;
 };
 
 /**
@@ -26,11 +26,11 @@ export type EntityIndex = {
  * @returns A new EntityIndex object.
  */
 export const createEntityIndex = (worldId: number): EntityIndex => ({
-	aliveCount: 0,
-	dense: [],
-	sparse: [],
-	maxId: 0,
-	worldId,
+    aliveCount: 0,
+    dense: [],
+    sparse: [],
+    maxId: 0,
+    worldId,
 });
 
 /**
@@ -39,23 +39,23 @@ export const createEntityIndex = (worldId: number): EntityIndex => ({
  * @returns The new or recycled packed entity.
  */
 export const allocateEntity = (index: EntityIndex): Entity => {
-	if (index.aliveCount < index.dense.length) {
-		// Recycle entity
-		const recycledEntity = incrementGeneration(index.dense[index.aliveCount]);
-		index.dense[index.aliveCount] = recycledEntity;
-		index.sparse[getEntityId(recycledEntity)] = index.aliveCount;
-		index.aliveCount++;
+    if (index.aliveCount < index.dense.length) {
+        // Recycle entity
+        const recycledEntity = incrementGeneration(index.dense[index.aliveCount]);
+        index.dense[index.aliveCount] = recycledEntity;
+        index.sparse[getEntityId(recycledEntity)] = index.aliveCount;
+        index.aliveCount++;
 
-		return recycledEntity;
-	}
-	// Create new entity
-	const id = index.maxId++;
-	const entity = packEntity(index.worldId, 0, id);
-	index.dense.push(entity);
-	index.sparse[id] = index.aliveCount;
-	index.aliveCount++;
+        return recycledEntity;
+    }
+    // Create new entity
+    const id = index.maxId++;
+    const entity = packEntity(index.worldId, 0, id);
+    index.dense.push(entity);
+    index.sparse[id] = index.aliveCount;
+    index.aliveCount++;
 
-	return entity;
+    return entity;
 };
 
 /**
@@ -64,21 +64,21 @@ export const allocateEntity = (index: EntityIndex): Entity => {
  * @param entity - The packed entity to remove.
  */
 export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
-	const id = getEntityId(entity);
-	const denseIndex = index.sparse[id];
-	if (denseIndex === undefined || denseIndex >= index.aliveCount) return;
+    const id = getEntityId(entity);
+    const denseIndex = index.sparse[id];
+    if (denseIndex === undefined || denseIndex >= index.aliveCount) return;
 
-	const lastIndex = index.aliveCount - 1;
-	const lastEntity = index.dense[lastIndex];
-	const lastId = getEntityId(lastEntity);
+    const lastIndex = index.aliveCount - 1;
+    const lastEntity = index.dense[lastIndex];
+    const lastId = getEntityId(lastEntity);
 
-	// Swap with the last element
-	index.sparse[lastId] = denseIndex;
-	index.dense[denseIndex] = lastEntity;
-	// Update the removed entity's record
-	index.sparse[id] = lastIndex;
-	index.dense[lastIndex] = entity;
-	index.aliveCount--;
+    // Swap with the last element
+    index.sparse[lastId] = denseIndex;
+    index.dense[denseIndex] = lastEntity;
+    // Update the removed entity's record
+    index.sparse[id] = lastIndex;
+    index.dense[lastIndex] = entity;
+    index.aliveCount--;
 };
 
 /**
@@ -88,13 +88,13 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
  * @returns True if the entity is alive, false otherwise.
  */
 export const isEntityAlive = /* @inline @pure */ (index: EntityIndex, entity: Entity): boolean => {
-	const denseIndex = index.sparse[getEntityId(entity)];
-	if (denseIndex === undefined || denseIndex >= index.aliveCount) return false;
-	const storedEntity = index.dense[denseIndex];
-	return (
-		getEntityGeneration(entity) === getEntityGeneration(storedEntity) &&
-		getEntityWorldId(entity) === index.worldId
-	);
+    const denseIndex = index.sparse[getEntityId(entity)];
+    if (denseIndex === undefined || denseIndex >= index.aliveCount) return false;
+    const storedEntity = index.dense[denseIndex];
+    return (
+        getEntityGeneration(entity) === getEntityGeneration(storedEntity) &&
+        getEntityWorldId(entity) === index.worldId
+    );
 };
 
 /**
@@ -103,5 +103,5 @@ export const isEntityAlive = /* @inline @pure */ (index: EntityIndex, entity: En
  * @returns An array of alive entities.
  */
 export const getAliveEntities = (index: EntityIndex): Entity[] => {
-	return index.dense.slice(0, index.aliveCount);
+    return index.dense.slice(0, index.aliveCount);
 };

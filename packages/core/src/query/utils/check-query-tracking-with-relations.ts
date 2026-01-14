@@ -9,26 +9,26 @@ import { checkQueryTracking } from './check-query-tracking';
  * Combines checkQueryTracking (trait bitmasks + tracking state) with relation checks.
  */
 export function checkQueryTrackingWithRelations(
-	world: World,
-	query: QueryInstance,
-	entity: Entity,
-	eventType: EventType,
-	eventGenerationId: number,
-	eventBitflag: number
+    world: World,
+    query: QueryInstance,
+    entity: Entity,
+    eventType: EventType,
+    eventGenerationId: number,
+    eventBitflag: number
 ): boolean {
-	// First check trait bitmasks and tracking state (fast)
-	if (!checkQueryTracking(world, query, entity, eventType, eventGenerationId, eventBitflag)) {
-		return false;
-	}
+    // First check trait bitmasks and tracking state (fast)
+    if (!checkQueryTracking(world, query, entity, eventType, eventGenerationId, eventBitflag)) {
+        return false;
+    }
 
-	// Then check relation pairs if any
-	if (query.relationFilters && query.relationFilters.length > 0) {
-		for (const pair of query.relationFilters) {
-			if (!hasRelationPair(world, entity, pair)) {
-				return false;
-			}
-		}
-	}
+    // Then check relation pairs if any
+    if (query.relationFilters && query.relationFilters.length > 0) {
+        for (const pair of query.relationFilters) {
+            if (!hasRelationPair(world, entity, pair)) {
+                return false;
+            }
+        }
+    }
 
-	return true;
+    return true;
 }

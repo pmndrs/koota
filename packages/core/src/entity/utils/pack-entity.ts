@@ -16,30 +16,30 @@ export const GENERATION_SHIFT = ENTITY_ID_BITS;
 export const WORLD_ID_SHIFT = GENERATION_SHIFT + GENERATION_BITS;
 
 export function packEntity(worldId: number, generation: number, entityId: number): Entity {
-	return (((worldId & WORLD_ID_MASK) << WORLD_ID_SHIFT) |
-		((generation & GENERATION_MASK) << GENERATION_SHIFT) |
-		(entityId & ENTITY_ID_MASK)) as Entity;
+    return (((worldId & WORLD_ID_MASK) << WORLD_ID_SHIFT) |
+        ((generation & GENERATION_MASK) << GENERATION_SHIFT) |
+        (entityId & ENTITY_ID_MASK)) as Entity;
 }
 
 export function unpackEntity(entity: Entity) {
-	return {
-		worldId: entity >>> WORLD_ID_SHIFT,
-		generation: (entity >>> GENERATION_SHIFT) & GENERATION_MASK,
-		entityId: entity & ENTITY_ID_MASK,
-	};
+    return {
+        worldId: entity >>> WORLD_ID_SHIFT,
+        generation: (entity >>> GENERATION_SHIFT) & GENERATION_MASK,
+        entityId: entity & ENTITY_ID_MASK,
+    };
 }
 
 export const getEntityId = /* @inline @pure */ (entity: Entity) => entity & ENTITY_ID_MASK;
 export const getEntityWorldId = /* @inline @pure */ (entity: Entity) => entity >>> WORLD_ID_SHIFT;
 export const getEntityAndWorldId = /* @pure */ (entity: Entity): [number, number] => [
-	entity & ENTITY_ID_MASK,
-	entity >>> WORLD_ID_SHIFT,
+    entity & ENTITY_ID_MASK,
+    entity >>> WORLD_ID_SHIFT,
 ];
 
 export const getEntityGeneration = /* @inline @pure */ (entity: Entity) =>
-	(entity >>> GENERATION_SHIFT) & GENERATION_MASK;
+    (entity >>> GENERATION_SHIFT) & GENERATION_MASK;
 
 export const incrementGeneration = (entity: Entity): Entity =>
-	((entity & ~(GENERATION_MASK << GENERATION_SHIFT)) | // Clear current generation bits
-		(((((entity >>> GENERATION_SHIFT) & GENERATION_MASK) + 1) & GENERATION_MASK) <<
-			GENERATION_SHIFT)) as unknown as Entity; // Extract generation, increment, wrap around, shift back, and combine
+    ((entity & ~(GENERATION_MASK << GENERATION_SHIFT)) | // Clear current generation bits
+        (((((entity >>> GENERATION_SHIFT) & GENERATION_MASK) + 1) & GENERATION_MASK) <<
+            GENERATION_SHIFT)) as unknown as Entity; // Extract generation, increment, wrap around, shift back, and combine

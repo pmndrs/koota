@@ -12,8 +12,8 @@ import { syncThreeObjects } from './systems/syncThreeObjects';
 
 // Renderer
 export const renderer = new THREE.WebGLRenderer({
-	antialias: true,
-	powerPreference: 'high-performance',
+    antialias: true,
+    powerPreference: 'high-performance',
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -22,29 +22,29 @@ document.body.appendChild(renderer.domElement);
 const frustumSize = 8000;
 const aspect = window.innerWidth / window.innerHeight;
 export const camera = new THREE.OrthographicCamera(
-	(-frustumSize * aspect) / 2,
-	(frustumSize * aspect) / 2,
-	frustumSize / 2,
-	-frustumSize / 2,
-	0.1,
-	500
+    (-frustumSize * aspect) / 2,
+    (frustumSize * aspect) / 2,
+    frustumSize / 2,
+    -frustumSize / 2,
+    0.1,
+    500
 );
 camera.userData.frustumSize = frustumSize;
 camera.userData.aspect = aspect;
 
 function onWindowResize() {
-	const aspect = window.innerWidth / window.innerHeight;
-	const frustumSize = camera.userData.frustumSize;
+    const aspect = window.innerWidth / window.innerHeight;
+    const frustumSize = camera.userData.frustumSize;
 
-	camera.left = (-frustumSize * aspect) / 2;
-	camera.right = (frustumSize * aspect) / 2;
-	camera.top = frustumSize / 2;
-	camera.bottom = -frustumSize / 2;
-	camera.updateProjectionMatrix();
+    camera.left = (-frustumSize * aspect) / 2;
+    camera.right = (frustumSize * aspect) / 2;
+    camera.top = frustumSize / 2;
+    camera.bottom = -frustumSize / 2;
+    camera.updateProjectionMatrix();
 
-	renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-	camera.userData.aspect = aspect;
+    camera.userData.aspect = aspect;
 }
 
 window.addEventListener('resize', onWindowResize);
@@ -70,12 +70,12 @@ create();
 
 // Run the simulation
 const main = async () => {
-	measure(async () => {
-		schedule.run({ world });
-		render({ world });
-		updateStats();
-	});
-	requestAnimationFrame(main);
+    measure(async () => {
+        schedule.run({ world });
+        render({ world });
+        updateStats();
+    });
+    requestAnimationFrame(main);
 };
 
 requestAnimationFrame(main);
@@ -84,20 +84,20 @@ requestAnimationFrame(main);
 let isPointerDown = false;
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
-	isPointerDown = true;
-	spawnRepulsor(e, frustumSize);
+    isPointerDown = true;
+    spawnRepulsor(e, frustumSize);
 });
 
 renderer.domElement.addEventListener('pointermove', (e) => {
-	if (isPointerDown) {
-		spawnRepulsor(e, frustumSize);
-	}
+    if (isPointerDown) {
+        spawnRepulsor(e, frustumSize);
+    }
 });
 
 renderer.domElement.addEventListener('pointerup', () => {
-	isPointerDown = false;
+    isPointerDown = false;
 });
 
 renderer.domElement.addEventListener('pointerout', () => {
-	isPointerDown = false;
+    isPointerDown = false;
 });

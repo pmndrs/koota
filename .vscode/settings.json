@@ -1,6 +1,7 @@
 {
-	"editor.defaultFormatter": "esbenp.prettier-vscode",
-	"oxc.enable": true,
-	"biome.enabled": false,
-	"eslint.enable": false
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "oxc.enable": true,
+  "biome.enabled": false,
+  "eslint.enable": false,
+  "prettier.configPath": ".config/prettier/base.json"
 }

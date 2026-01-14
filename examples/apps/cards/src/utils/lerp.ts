@@ -1,5 +1,5 @@
 export function lerp(a: number, b: number, t: number): number {
-	return a + (b - a) * t;
+    return a + (b - a) * t;
 }
 
 /**
@@ -10,7 +10,6 @@ export function lerp(a: number, b: number, t: number): number {
  * @param delta - Time delta in seconds
  */
 export function dampedLerp(current: number, target: number, damping: number, delta: number): number {
-	const alpha = 1 - Math.pow(1 - damping, delta * 60);
-	return current + (target - current) * alpha;
+    const alpha = 1 - Math.pow(1 - damping, delta * 60);
+    return current + (target - current) * alpha;
 }
-

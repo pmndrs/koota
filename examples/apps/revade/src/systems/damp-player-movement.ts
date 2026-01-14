@@ -2,9 +2,9 @@ import type { World } from 'koota';
 import { Input, Movement } from '../traits';
 
 export function dampPlayerMovement(world: World) {
-	world.query(Movement, Input).updateEach(([{ velocity, damping }, input]) => {
-		if (input.lengthSq() === 0) {
-			velocity.multiplyScalar(damping);
-		}
-	});
+    world.query(Movement, Input).updateEach(([{ velocity, damping }, input]) => {
+        if (input.lengthSq() === 0) {
+            velocity.multiplyScalar(damping);
+        }
+    });
 }

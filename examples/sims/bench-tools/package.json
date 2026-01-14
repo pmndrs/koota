@@ -1,15 +1,15 @@
 {
-	"name": "@sim/bench-tools",
-	"private": true,
-	"version": "0.0.1",
-	"description": "Benchmark tools",
-	"type": "module",
-	"main": "./src/index.ts",
-	"dependencies": {
-		"web-worker": "^1.5.0"
-	},
-	"devDependencies": {
-		"@config/typescript": "workspace:*",
-		"@config/oxlint": "workspace:*"
-	}
+  "name": "@sim/bench-tools",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Benchmark tools",
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "web-worker": "^1.5.0"
+  },
+  "devDependencies": {
+    "@config/typescript": "workspace:*",
+    "@config/oxlint": "workspace:*"
+  }
 }

@@ -2,45 +2,45 @@ import type { World } from 'koota';
 import { Circle, Mass, Position, Repulse, Time, Velocity } from '../traits';
 
 export const handleRepulse = ({ world }: { world: World }) => {
-	const repulsors = world.query(Repulse, Position, Circle);
-	if (repulsors.length === 0) return;
+    const repulsors = world.query(Repulse, Position, Circle);
+    if (repulsors.length === 0) return;
 
-	const bodies = world.query(Position, Velocity, Mass);
-	const { delta } = world.get(Time)!;
+    const bodies = world.query(Position, Velocity, Mass);
+    const { delta } = world.get(Time)!;
 
-	repulsors.updateEach(([repulse, position, circle], entity) => {
-		// Count down the delay
-		if (repulse.delay > 0) repulse.delay -= delta;
+    repulsors.updateEach(([repulse, position, circle], entity) => {
+        // Count down the delay
+        if (repulse.delay > 0) repulse.delay -= delta;
 
-		// Decay the circle radius by the explosion decay
-		if (repulse.delay <= 0) {
-			circle.radius -= circle.radius * repulse.decay * delta;
-			repulse.force -= repulse.force * repulse.decay * delta;
-		}
+        // Decay the circle radius by the explosion decay
+        if (repulse.delay <= 0) {
+            circle.radius -= circle.radius * repulse.decay * delta;
+            repulse.force -= repulse.force * repulse.decay * delta;
+        }
 
-		if (circle.radius <= 5) {
-			entity.destroy();
-			return;
-		}
+        if (circle.radius <= 5) {
+            entity.destroy();
+            return;
+        }
 
-		bodies.updateEach(([bodyPostion, bodyVelocity, bodyMass], bodyEntity) => {
-			if (entity === bodyEntity) return;
+        bodies.updateEach(([bodyPostion, bodyVelocity, bodyMass], bodyEntity) => {
+            if (entity === bodyEntity) return;
 
-			const dx = bodyPostion.x - position.x;
-			const dy = bodyPostion.y - position.y;
-			const distanceSquared = dx * dx + dy * dy;
+            const dx = bodyPostion.x - position.x;
+            const dy = bodyPostion.y - position.y;
+            const distanceSquared = dx * dx + dy * dy;
 
-			if (distanceSquared < circle.radius * circle.radius) {
-				const distance = Math.sqrt(distanceSquared);
-				const forceMagnitude = (repulse.force * (circle.radius - distance)) / circle.radius; // prettier-ignore
-				const forceX = (dx / distance) * forceMagnitude;
-				const forceY = (dy / distance) * forceMagnitude;
+            if (distanceSquared < circle.radius * circle.radius) {
+                const distance = Math.sqrt(distanceSquared);
+                const forceMagnitude = (repulse.force * (circle.radius - distance)) / circle.radius; // prettier-ignore
+                const forceX = (dx / distance) * forceMagnitude;
+                const forceY = (dy / distance) * forceMagnitude;
 
-				bodyVelocity.x += (forceX * delta) / bodyMass.value;
-				bodyVelocity.y += (forceY * delta) / bodyMass.value;
-			}
-		});
-	});
+                bodyVelocity.x += (forceX * delta) / bodyMass.value;
+                bodyVelocity.y += (forceY * delta) / bodyMass.value;
+            }
+        });
+    });
 };
 
 // export const handleRepulse = ({ world }: { world: Koota.World }) => {
