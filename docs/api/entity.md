@@ -1,7 +1,7 @@
 ---
 title: Entity
 description: Entity API
-nav: 8
+nav: 9
 ---
 
 An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instead be decoded with `entity.id()`.
