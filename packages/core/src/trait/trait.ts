@@ -118,11 +118,11 @@ export function registerTrait(world: World, trait: Trait) {
     // Track relations
     if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
 
+    // This ensures nested trait registrations get different bitflags.
+    incrementWorldBitflag(world);
+
     // Setup ordered trait sync if this is an ordered trait
     if (isOrderedTrait(trait)) setupOrderedTraitSync(world, trait);
-
-    // Increment the bitflag used for the trait.
-    incrementWorldBitflag(world);
 }
 
 function getOrderedTrait(world: World, entity: Entity, trait: OrderedRelation): OrderedList {
