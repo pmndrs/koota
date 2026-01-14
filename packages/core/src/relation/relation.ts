@@ -17,6 +17,8 @@ import { $relation, $relationPair } from './symbols';
  */
 function createRelation<S extends Schema = Record<string, never>>(definition?: {
     exclusive?: boolean;
+    autoDestroy?: 'orphan' | 'source' | 'target';
+    /** @deprecated Use `autoDestroy: 'orphan'` instead */
     autoRemoveTarget?: boolean;
     store?: S;
 }): Relation<Trait<S>> {
@@ -27,10 +29,26 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
     // Mark the trait as a relation trait
     traitCtx.relation = null!; // Will be set below after relation is created
 
+    // Handle autoDestroy option - 'orphan' is an alias for 'source'
+    let autoDestroy: 'source' | 'target' | false = false;
+    if (definition?.autoDestroy === 'orphan' || definition?.autoDestroy === 'source') {
+        autoDestroy = 'source';
+    } else if (definition?.autoDestroy === 'target') {
+        autoDestroy = 'target';
+    }
+
+    // Handle deprecated autoRemoveTarget option
+    if (definition?.autoRemoveTarget) {
+        console.warn(
+            "Koota: 'autoRemoveTarget' is deprecated. Use 'autoDestroy: \"orphan\"' instead."
+        );
+        autoDestroy = 'source';
+    }
+
     const relationCtx = {
         trait: relationTrait,
         exclusive: definition?.exclusive ?? false,
-        autoRemoveTarget: definition?.autoRemoveTarget ?? false,
+        autoDestroy,
     };
 
     // The relation function creates a pair when called with a target
