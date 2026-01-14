@@ -101,7 +101,7 @@ hero.has(Targeting(goblin)) // True
 
 ## Ordered relations
 
-> ⚠️ **Experimental**<br>
+> [!CAUTION]
 > This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
 
 Ordered relations maintain a list of related entities with
@@ -144,7 +144,7 @@ child2.add(ChildOf(parent)) // child2 automatically added to list
 
 Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa.
 
-> ⚠️ **Performance note**<br>
+> [!CAUTION]
 > Ordered relations requires additional bookkeeping where the cost of ordering is paid during structural changes (add, remove, move) instead of at query time. Use ordered relations only when entity order is essential or when hierarchical search (looping over children) is necessary.
 
 ## Querying relations
@@ -197,7 +197,7 @@ player.has(banana) // false
 
 Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Changes can only be tracked on relations that have a store.
 
-> 👉 **Note**<br>
+> [!IMPORTANT]  
 > You can currently only track changes to all relations of a given type, such as `ChildOf`, but not specific relation pairs, such as `ChildOf(parent)`.
 
 ```js

@@ -14,7 +14,7 @@ Welcome to Koota, an ECS-based state management library optimized for real-time 
 npm i koota
 ```
 
-## First, define traits
+## Define traits
 
 Traits are the building blocks of your state. They represent slices of data with specific meanings.
 
