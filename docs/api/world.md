@@ -67,7 +67,7 @@ Worlds can have traits, which is our version of a singleton. Use these for globa
 
 Under the hood, each world gets its own entity tied to these world traits. **This world entity is not queryable but will show up in the list of active entities**. 
 
-To access a world trait instead of using queries you must access the world directly. Note these methods mirror the Entity API. 
+To access a world trait instead of using queries you must access the world directly. Note these methods mirror the [Entity API](/api/entity). 
 
 
 ```js

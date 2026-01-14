@@ -23,6 +23,10 @@ const Position = trait({ x: 0, y: 0, z: 0 })
 
 A schema supports primitive values with **no** nested objects or arrays. In cases where the data needs to initialized for each instance of the trait, or complex structures are required, a callback initializer can be used.
 
+> [!TIP]
+> Take note of the difference between schema-based and 
+callback-based traits as shown below
+
 ```js
 // ❌ Arrays and objects are not allowed in trait schemas
 const Inventory = trait({
