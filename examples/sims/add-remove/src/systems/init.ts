@@ -9,15 +9,15 @@ import { Velocity } from '../trait/Velocity';
 let first = false;
 
 export const init = ({ world }: { world: World }) => {
-	if (first) return;
+    if (first) return;
 
-	for (let i = 0; i < CONSTANTS.BODIES; i++) {
-		addBody(world);
-	}
+    for (let i = 0; i < CONSTANTS.BODIES; i++) {
+        addBody(world);
+    }
 
-	first = true;
+    first = true;
 };
 
 export const addBody = (world: World) => {
-	world.spawn(Position, Velocity, Mass, Circle, Color);
+    world.spawn(Position, Velocity, Mass, Circle, Color);
 };

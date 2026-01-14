@@ -8,26 +8,26 @@ import type { World } from '../../world';
 let cursor = 3;
 
 export function createTrackingId() {
-	return cursor++;
+    return cursor++;
 }
 
 export function getTrackingCursor() {
-	return cursor;
+    return cursor;
 }
 
 export function setTrackingMasks(world: World, id: number) {
-	const ctx = world[$internal];
-	const snapshot = structuredClone(ctx.entityMasks);
-	ctx.trackingSnapshots.set(id, snapshot);
+    const ctx = world[$internal];
+    const snapshot = structuredClone(ctx.entityMasks);
+    ctx.trackingSnapshots.set(id, snapshot);
 
-	// For dirty and changed masks, make clone of entity masks and set all bits to 0.
-	ctx.dirtyMasks.set(
-		id,
-		snapshot.map((mask) => mask.map(() => 0))
-	);
+    // For dirty and changed masks, make clone of entity masks and set all bits to 0.
+    ctx.dirtyMasks.set(
+        id,
+        snapshot.map((mask) => mask.map(() => 0))
+    );
 
-	ctx.changedMasks.set(
-		id,
-		snapshot.map((mask) => mask.map(() => 0))
-	);
+    ctx.changedMasks.set(
+        id,
+        snapshot.map((mask) => mask.map(() => 0))
+    );
 }

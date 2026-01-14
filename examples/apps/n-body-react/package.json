@@ -1,31 +1,31 @@
 {
-	"name": "@app/n-body-react",
-	"private": true,
-	"version": "0.0.0",
-	"type": "module",
-	"scripts": {
-		"dev": "vite",
-		"build": "tsc && vite build",
-		"lint": "oxlint",
-		"preview": "vite preview"
-	},
-	"dependencies": {
-		"@app/bench-tools": "workspace:*",
-		"@react-three/fiber": "catalog:",
-		"@sim/n-body": "workspace:*",
-		"directed": "catalog:",
-		"koota": "workspace:*",
-		"react": "catalog:",
-		"react-dom": "catalog:",
-		"three": "catalog:"
-	},
-	"devDependencies": {
-		"@config/typescript": "workspace:*",
-		"@types/react": "catalog:",
-		"@types/react-dom": "catalog:",
-		"@types/three": "catalog:",
-		"@vitejs/plugin-react": "^5.1.1",
-		"@vitejs/plugin-react-swc": "^4.2.2",
-		"vite": "catalog:"
-	}
+  "name": "@app/n-body-react",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@app/bench-tools": "workspace:*",
+    "@react-three/fiber": "catalog:",
+    "@sim/n-body": "workspace:*",
+    "directed": "catalog:",
+    "koota": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@config/typescript": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react-swc": "^4.2.2",
+    "vite": "catalog:"
+  }
 }

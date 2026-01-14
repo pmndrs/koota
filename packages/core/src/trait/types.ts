@@ -40,7 +40,7 @@ export type TraitTuple<T extends Trait = Trait> = [
         ? S extends AoSFactory
             ? ReturnType<S>
             : Partial<TraitRecord<S>>
-        : never
+        : never,
 ];
 
 export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair<T>;
@@ -66,15 +66,14 @@ export type TraitRecord<T extends Trait | Schema> = T extends Trait
 
 // Type Utils
 
-export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> = T extends RelationPair<
-    infer R
->
-    ? ExtractSchema<R>
-    : T extends Relation<infer R>
-    ? ExtractSchema<R>
-    : T extends Trait<infer S>
-    ? S
-    : never;
+export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> =
+    T extends RelationPair<infer R>
+        ? ExtractSchema<R>
+        : T extends Relation<infer R>
+          ? ExtractSchema<R>
+          : T extends Trait<infer S>
+            ? S
+            : never;
 export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
     ? Store
     : never;

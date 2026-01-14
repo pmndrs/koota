@@ -6,9 +6,9 @@ import { WorldProvider } from 'koota/react';
 import { world } from './world';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-	<React.StrictMode>
-		<WorldProvider world={world}>
-			<App />
-		</WorldProvider>
-	</React.StrictMode>
+    <React.StrictMode>
+        <WorldProvider world={world}>
+            <App />
+        </WorldProvider>
+    </React.StrictMode>
 );

@@ -1,17 +1,17 @@
 {
-	"name": "@sim/n-body",
-	"private": true,
-	"version": "0.0.1",
-	"description": "N-Body simulation using Koota",
-	"type": "module",
-	"main": "./src/index.ts",
-	"dependencies": {
-		"@sim/bench-tools": "workspace:*",
-		"koota": "workspace:*",
-		"directed": "catalog:"
-	},
-	"devDependencies": {
-		"@config/oxlint": "workspace:*",
-		"@config/typescript": "workspace:*"
-	}
+  "name": "@sim/n-body",
+  "private": true,
+  "version": "0.0.1",
+  "description": "N-Body simulation using Koota",
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@sim/bench-tools": "workspace:*",
+    "koota": "workspace:*",
+    "directed": "catalog:"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*"
+  }
 }

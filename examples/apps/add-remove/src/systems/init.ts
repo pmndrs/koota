@@ -7,36 +7,36 @@ import { Points } from '../trait/Points';
 let first = false;
 
 export function init({ world }: { world: World }) {
-	if (first) return;
+    if (first) return;
 
-	const particleCount = CONSTANTS.BODIES;
+    const particleCount = CONSTANTS.BODIES;
 
-	// Create BufferGeometry for particles
-	const geometry = new THREE.BufferGeometry();
-	const positions = new Float32Array(particleCount * 3); // x, y, z for each particle
-	const colors = new Float32Array(particleCount * 4); // r, g, b, a for each particle
-	const sizes = new Float32Array(particleCount); // size for each particle
+    // Create BufferGeometry for particles
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3); // x, y, z for each particle
+    const colors = new Float32Array(particleCount * 4); // r, g, b, a for each particle
+    const sizes = new Float32Array(particleCount); // size for each particle
 
-	geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-	geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4));
-	geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
-	const material = new THREE.ShaderMaterial({
-		vertexShader: vertexShader(),
-		fragmentShader: fragmentShader(),
-		transparent: true,
-	});
+    const material = new THREE.ShaderMaterial({
+        vertexShader: vertexShader(),
+        fragmentShader: fragmentShader(),
+        transparent: true,
+    });
 
-	const particles = new THREE.Points(geometry, material);
+    const particles = new THREE.Points(geometry, material);
 
-	scene.add(particles);
-	world.spawn(Points({ object: particles }));
+    scene.add(particles);
+    world.spawn(Points({ object: particles }));
 
-	first = true;
+    first = true;
 }
 
 function vertexShader() {
-	return `
+    return `
 		attribute float size;
 		attribute vec4 color;
 		varying vec4 vColor;
@@ -50,7 +50,7 @@ function vertexShader() {
 }
 
 function fragmentShader() {
-	return `
+    return `
 		varying vec4 vColor;
 		void main() {
 			float distanceFromCenter = length(gl_PointCoord - vec2(0.5, 0.5));

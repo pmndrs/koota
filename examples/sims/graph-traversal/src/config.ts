@@ -1,4 +1,4 @@
 export const CONFIG = {
-	depth: 7,
-	childrenPerNode: 3,
+    depth: 7,
+    childrenPerNode: 3,
 };

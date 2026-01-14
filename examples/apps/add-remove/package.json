@@ -1,24 +1,24 @@
 {
-	"name": "@app/add-remove",
-	"private": true,
-	"version": "0.0.1",
-	"type": "module",
-	"scripts": {
-		"dev": "vite",
-		"build": "tsc && vite build",
-		"preview": "vite preview"
-	},
-	"dependencies": {
-		"koota": "workspace:*",
-		"@app/bench-tools": "workspace:*",
-		"@sim/add-remove": "workspace:*",
-		"three": "catalog:",
-		"directed": "catalog:"
-	},
-	"devDependencies": {
-		"@config/oxlint": "workspace:*",
-		"@config/typescript": "workspace:*",
-		"@types/three": "catalog:",
-		"vite": "catalog:"
-	}
+  "name": "@app/add-remove",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "koota": "workspace:*",
+    "@app/bench-tools": "workspace:*",
+    "@sim/add-remove": "workspace:*",
+    "three": "catalog:",
+    "directed": "catalog:"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*",
+    "@types/three": "catalog:",
+    "vite": "catalog:"
+  }
 }

@@ -9,23 +9,23 @@ import type { QueryInstance } from '../types';
  * For tracking queries, use checkQueryTracking instead.
  */
 export function checkQuery(world: World, query: QueryInstance, entity: Entity): boolean {
-	const { bitmasks, generations } = query;
-	const ctx = world[$internal];
-	const eid = getEntityId(entity);
+    const { bitmasks, generations } = query;
+    const ctx = world[$internal];
+    const eid = getEntityId(entity);
 
-	if (query.traitInstances.all.length === 0) return false;
+    if (query.traitInstances.all.length === 0) return false;
 
-	for (let i = 0; i < generations.length; i++) {
-		const generationId = generations[i];
-		const bitmask = bitmasks[i];
-		const { required, forbidden, or } = bitmask;
-		const entityMask = ctx.entityMasks[generationId][eid];
+    for (let i = 0; i < generations.length; i++) {
+        const generationId = generations[i];
+        const bitmask = bitmasks[i];
+        const { required, forbidden, or } = bitmask;
+        const entityMask = ctx.entityMasks[generationId][eid];
 
-		if (!forbidden && !required && !or) return false;
-		if ((entityMask & forbidden) !== 0) return false;
-		if ((entityMask & required) !== required) return false;
-		if (or !== 0 && (entityMask & or) === 0) return false;
-	}
+        if (!forbidden && !required && !or) return false;
+        if ((entityMask & forbidden) !== 0) return false;
+        if ((entityMask & required) !== required) return false;
+        if (or !== 0 && (entityMask & or) === 0) return false;
+    }
 
-	return true;
+    return true;
 }

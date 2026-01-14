@@ -14,12 +14,12 @@ import { isRelation, isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
-	ConfigurableTrait,
-	ExtractSchema,
-	SetTraitCallback,
-	Trait,
-	TraitRecord,
-	TraitValue,
+    ConfigurableTrait,
+    ExtractSchema,
+    SetTraitCallback,
+    Trait,
+    TraitRecord,
+    TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { World, WorldInternal, WorldOptions } from './types';
@@ -28,361 +28,360 @@ import { allocateWorldId, releaseWorldId } from './utils/world-index';
 export function createWorld(options: WorldOptions): World;
 export function createWorld(...traits: ConfigurableTrait[]): World;
 export function createWorld(
-	optionsOrFirstTrait?: WorldOptions | ConfigurableTrait,
-	...traits: ConfigurableTrait[]
+    optionsOrFirstTrait?: WorldOptions | ConfigurableTrait,
+    ...traits: ConfigurableTrait[]
 ): World {
-	const id = allocateWorldId(universe.worldIndex);
-	let isInitialized = false;
-	let lazyTraits:ConfigurableTrait[] | undefined
+    const id = allocateWorldId(universe.worldIndex);
+    let isInitialized = false;
+    let lazyTraits: ConfigurableTrait[] | undefined;
 
-	const world = {
-		[$internal]: {
-			entityIndex: createEntityIndex(id),
-			entityMasks: [[]],
-			entityTraits: new Map(),
-			bitflag: 1,
-			traitInstances: [],
-			relations: new Set(),
-			queriesHashMap: new Map(),
-			queryInstances: [],
-			actionInstances: [],
-			notQueries: new Set(),
-			dirtyQueries: new Set(),
-			dirtyMasks: new Map(),
-			trackingSnapshots: new Map(),
-			changedMasks: new Map(),
-			worldEntity: null!,
-			trackedTraits: new Set(),
-			resetSubscriptions: new Set(),
-		} as WorldInternal,
+    const world = {
+        [$internal]: {
+            entityIndex: createEntityIndex(id),
+            entityMasks: [[]],
+            entityTraits: new Map(),
+            bitflag: 1,
+            traitInstances: [],
+            relations: new Set(),
+            queriesHashMap: new Map(),
+            queryInstances: [],
+            actionInstances: [],
+            notQueries: new Set(),
+            dirtyQueries: new Set(),
+            dirtyMasks: new Map(),
+            trackingSnapshots: new Map(),
+            changedMasks: new Map(),
+            worldEntity: null!,
+            trackedTraits: new Set(),
+            resetSubscriptions: new Set(),
+        } as WorldInternal,
 
-		traits: new Set<Trait>(),
+        traits: new Set<Trait>(),
 
-		init(...initTraits: ConfigurableTrait[]) {
-			const ctx = world[$internal];
-			if (isInitialized) return;
+        init(...initTraits: ConfigurableTrait[]) {
+            const ctx = world[$internal];
+            if (isInitialized) return;
 
-			isInitialized = true;
-			universe.worlds[id] = world;
+            isInitialized = true;
+            universe.worlds[id] = world;
 
-			// Create uninitialized added masks.
-			const cursor = getTrackingCursor();
-			for (let i = 0; i < cursor; i++) {
-				setTrackingMasks(world, i);
-			}
+            // Create uninitialized added masks.
+            const cursor = getTrackingCursor();
+            for (let i = 0; i < cursor; i++) {
+                setTrackingMasks(world, i);
+            }
 
-			// Register system traits.
-			if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(world, IsExcluded);
+            // Register system traits.
+            if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(world, IsExcluded);
 
-			// Check for traits passed into lazy init
-			if(lazyTraits){
-				initTraits = lazyTraits
-				// clear lazyTraits
-				lazyTraits = undefined
-			}
-			// Create world entity.
-			ctx.worldEntity = createEntity(world, IsExcluded, ...initTraits);
-		},
+            // Check for traits passed into lazy init
+            if (lazyTraits) {
+                initTraits = lazyTraits;
+                // clear lazyTraits
+                lazyTraits = undefined;
+            }
+            // Create world entity.
+            ctx.worldEntity = createEntity(world, IsExcluded, ...initTraits);
+        },
 
-		spawn(...spawnTraits: ConfigurableTrait[]): Entity {
-			return createEntity(world, ...spawnTraits);
-		},
+        spawn(...spawnTraits: ConfigurableTrait[]): Entity {
+            return createEntity(world, ...spawnTraits);
+        },
 
-		has(target: Entity | Trait): boolean {
-			return typeof target === 'number'
-				? isEntityAlive(world[$internal].entityIndex, target)
-				: hasTrait(world, world[$internal].worldEntity, target);
-		},
+        has(target: Entity | Trait): boolean {
+            return typeof target === 'number'
+                ? isEntityAlive(world[$internal].entityIndex, target)
+                : hasTrait(world, world[$internal].worldEntity, target);
+        },
 
-		add(...addTraits: ConfigurableTrait[]) {
-			addTrait(world, world[$internal].worldEntity, ...addTraits);
-		},
+        add(...addTraits: ConfigurableTrait[]) {
+            addTrait(world, world[$internal].worldEntity, ...addTraits);
+        },
 
-		remove(...removeTraits: Trait[]) {
-			removeTrait(world, world[$internal].worldEntity, ...removeTraits);
-		},
+        remove(...removeTraits: Trait[]) {
+            removeTrait(world, world[$internal].worldEntity, ...removeTraits);
+        },
 
-		get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
-			return getTrait(world, world[$internal].worldEntity, trait);
-		},
+        get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
+            return getTrait(world, world[$internal].worldEntity, trait);
+        },
 
-		set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
-			setTrait(world, world[$internal].worldEntity, trait, value, true);
-		},
+        set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
+            setTrait(world, world[$internal].worldEntity, trait, value, true);
+        },
 
-		destroy() {
-			// Destroy world entity.
-			destroyEntity(world, world[$internal].worldEntity);
-			world[$internal].worldEntity = null!;
+        destroy() {
+            // Destroy world entity.
+            destroyEntity(world, world[$internal].worldEntity);
+            world[$internal].worldEntity = null!;
 
-			world.reset();
-			isInitialized = false;
-			// Clean up universe side effects.
-			releaseWorldId(universe.worldIndex, id);
-			universe.worlds[id] = null;
-		},
+            world.reset();
+            isInitialized = false;
+            // Clean up universe side effects.
+            releaseWorldId(universe.worldIndex, id);
+            universe.worlds[id] = null;
+        },
 
-		reset() {
-			lazyTraits = undefined
-			const ctx = world[$internal];
+        reset() {
+            lazyTraits = undefined;
+            const ctx = world[$internal];
 
-			// Destroy all entities so any cleanup is done.
-			world.entities.forEach((entity) => {
-				// Some relations may have caused the entity to be destroyed before
-				// we get to them in the loop.
-				if (world.has(entity)) {
-					destroyEntity(world, entity);
-				}
-			});
+            // Destroy all entities so any cleanup is done.
+            world.entities.forEach((entity) => {
+                // Some relations may have caused the entity to be destroyed before
+                // we get to them in the loop.
+                if (world.has(entity)) {
+                    destroyEntity(world, entity);
+                }
+            });
 
-			ctx.entityIndex = createEntityIndex(id);
-			ctx.entityTraits.clear();
-			ctx.entityMasks = [[]];
-			ctx.bitflag = 1;
+            ctx.entityIndex = createEntityIndex(id);
+            ctx.entityTraits.clear();
+            ctx.entityMasks = [[]];
+            ctx.bitflag = 1;
 
-			clearTraitInstance(ctx.traitInstances);
-			world.traits.clear();
-			ctx.relations.clear();
+            clearTraitInstance(ctx.traitInstances);
+            world.traits.clear();
+            ctx.relations.clear();
 
-			ctx.queriesHashMap.clear();
-			ctx.queryInstances.length = 0;
-			ctx.actionInstances.length = 0;
-			ctx.dirtyQueries.clear();
-			ctx.notQueries.clear();
+            ctx.queriesHashMap.clear();
+            ctx.queryInstances.length = 0;
+            ctx.actionInstances.length = 0;
+            ctx.dirtyQueries.clear();
+            ctx.notQueries.clear();
 
-			ctx.trackingSnapshots.clear();
-			ctx.dirtyMasks.clear();
-			ctx.changedMasks.clear();
-			ctx.trackedTraits.clear();
+            ctx.trackingSnapshots.clear();
+            ctx.dirtyMasks.clear();
+            ctx.changedMasks.clear();
+            ctx.trackedTraits.clear();
 
-			// Create new world entity.
-			ctx.worldEntity = createEntity(world, IsExcluded);
+            // Create new world entity.
+            ctx.worldEntity = createEntity(world, IsExcluded);
 
-			for (const sub of ctx.resetSubscriptions) {
-				sub(world);
-			}
-		},
+            for (const sub of ctx.resetSubscriptions) {
+                sub(world);
+            }
+        },
 
-		query(...args: any[]) {
-			const ctx = world[$internal];
+        query(...args: any[]) {
+            const ctx = world[$internal];
 
-			// Check if first arg is a QueryRef
-			if (args.length === 1 && isQuery(args[0])) {
-				const queryRef = args[0];
-				// Try array lookup first
-				let query = ctx.queryInstances[queryRef.id];
-				if (query) return query.run(world, queryRef.parameters);
+            // Check if first arg is a QueryRef
+            if (args.length === 1 && isQuery(args[0])) {
+                const queryRef = args[0];
+                // Try array lookup first
+                let query = ctx.queryInstances[queryRef.id];
+                if (query) return query.run(world, queryRef.parameters);
 
-				// Fallback to hash map
-				query = ctx.queriesHashMap.get(queryRef.hash);
-				if (!query) {
-					query = createQueryInstance(world, queryRef.parameters);
-					ctx.queriesHashMap.set(queryRef.hash, query);
-					// Store in array for fast future lookups
-					if (queryRef.id >= ctx.queryInstances.length) {
-						ctx.queryInstances.length = queryRef.id + 1;
-					}
-					ctx.queryInstances[queryRef.id] = query;
-				}
-				return query.run(world, queryRef.parameters);
-			} else {
-				const params = args as QueryParameter[];
+                // Fallback to hash map
+                query = ctx.queriesHashMap.get(queryRef.hash);
+                if (!query) {
+                    query = createQueryInstance(world, queryRef.parameters);
+                    ctx.queriesHashMap.set(queryRef.hash, query);
+                    // Store in array for fast future lookups
+                    if (queryRef.id >= ctx.queryInstances.length) {
+                        ctx.queryInstances.length = queryRef.id + 1;
+                    }
+                    ctx.queryInstances[queryRef.id] = query;
+                }
+                return query.run(world, queryRef.parameters);
+            } else {
+                const params = args as QueryParameter[];
 
-				// Fast path: single relation pair with specific target
-				if (params.length === 1 && isRelationPair(params[0])) {
-					const pairCtx = params[0][$internal];
-					const relation = pairCtx.relation;
-					const target = pairCtx.target;
+                // Fast path: single relation pair with specific target
+                if (params.length === 1 && isRelationPair(params[0])) {
+                    const pairCtx = params[0][$internal];
+                    const relation = pairCtx.relation;
+                    const target = pairCtx.target;
 
-					// Only use fast path for specific targets
-					if (typeof target === 'number') {
-						const entities = getEntitiesWithRelationTo(
-							world,
-							relation as Relation<Trait>,
-							target as Entity
-						);
-						return createRelationOnlyQueryResult(entities.slice() as Entity[]);
-					}
-				}
+                    // Only use fast path for specific targets
+                    if (typeof target === 'number') {
+                        const entities = getEntitiesWithRelationTo(
+                            world,
+                            relation as Relation<Trait>,
+                            target as Entity
+                        );
+                        return createRelationOnlyQueryResult(entities.slice() as Entity[]);
+                    }
+                }
 
-				const hash = createQueryHash(params);
-				let query = ctx.queriesHashMap.get(hash);
+                const hash = createQueryHash(params);
+                let query = ctx.queriesHashMap.get(hash);
 
-				if (!query) {
-					query = createQueryInstance(world, params);
-					ctx.queriesHashMap.set(hash, query);
-				}
+                if (!query) {
+                    query = createQueryInstance(world, params);
+                    ctx.queriesHashMap.set(hash, query);
+                }
 
-				return query.run(world, params);
-			}
-		},
+                return query.run(world, params);
+            }
+        },
 
-		queryFirst(...args: [string] | QueryParameter[]) {
-			// @ts-expect-error - Having an issue with the TS overloads.
-			return world.query(...args)[0];
-		},
+        queryFirst(...args: [string] | QueryParameter[]) {
+            // @ts-expect-error - Having an issue with the TS overloads.
+            return world.query(...args)[0];
+        },
 
-		onQueryAdd(
-			args: Query<QueryParameter[]> | QueryParameter[],
-			callback: (entity: Entity) => void
-		): QueryUnsubscriber {
-			const ctx = world[$internal];
-			let query: QueryInstance;
+        onQueryAdd(
+            args: Query<QueryParameter[]> | QueryParameter[],
+            callback: (entity: Entity) => void
+        ): QueryUnsubscriber {
+            const ctx = world[$internal];
+            let query: QueryInstance;
 
-			// Check if args is a QueryRef object
-			if (isQuery(args)) {
-				const queryRef = args;
-				query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
+            // Check if args is a QueryRef object
+            if (isQuery(args)) {
+                const queryRef = args;
+                query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
 
-				if (!query) {
-					query = createQueryInstance(world, queryRef.parameters);
-					ctx.queriesHashMap.set(queryRef.hash, query);
-					if (queryRef.id >= ctx.queryInstances.length) {
-						ctx.queryInstances.length = queryRef.id + 1;
-					}
-					ctx.queryInstances[queryRef.id] = query;
-				}
-			} else {
-				const hash = createQueryHash(args as QueryParameter[]);
-				query = ctx.queriesHashMap.get(hash)!;
+                if (!query) {
+                    query = createQueryInstance(world, queryRef.parameters);
+                    ctx.queriesHashMap.set(queryRef.hash, query);
+                    if (queryRef.id >= ctx.queryInstances.length) {
+                        ctx.queryInstances.length = queryRef.id + 1;
+                    }
+                    ctx.queryInstances[queryRef.id] = query;
+                }
+            } else {
+                const hash = createQueryHash(args as QueryParameter[]);
+                query = ctx.queriesHashMap.get(hash)!;
 
-				if (!query) {
-					query = createQueryInstance(world, args as QueryParameter[]);
-					ctx.queriesHashMap.set(hash, query);
-				}
-			}
+                if (!query) {
+                    query = createQueryInstance(world, args as QueryParameter[]);
+                    ctx.queriesHashMap.set(hash, query);
+                }
+            }
 
-			query.addSubscriptions.add(callback);
+            query.addSubscriptions.add(callback);
 
-			return () => query.addSubscriptions.delete(callback);
-		},
+            return () => query.addSubscriptions.delete(callback);
+        },
 
-		onQueryRemove(
-			args: Query<QueryParameter[]> | QueryParameter[],
-			callback: (entity: Entity) => void
-		): QueryUnsubscriber {
-			const ctx = world[$internal];
-			let query: QueryInstance;
+        onQueryRemove(
+            args: Query<QueryParameter[]> | QueryParameter[],
+            callback: (entity: Entity) => void
+        ): QueryUnsubscriber {
+            const ctx = world[$internal];
+            let query: QueryInstance;
 
-			// Check if args is a QueryRef object
-			if (isQuery(args)) {
-				const queryRef = args;
-				query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
+            // Check if args is a QueryRef object
+            if (isQuery(args)) {
+                const queryRef = args;
+                query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
 
-				if (!query) {
-					query = createQueryInstance(world, queryRef.parameters);
-					ctx.queriesHashMap.set(queryRef.hash, query);
-					if (queryRef.id >= ctx.queryInstances.length) {
-						ctx.queryInstances.length = queryRef.id + 1;
-					}
-					ctx.queryInstances[queryRef.id] = query;
-				}
-			} else {
-				const hash = createQueryHash(args as QueryParameter[]);
-				query = ctx.queriesHashMap.get(hash)!;
+                if (!query) {
+                    query = createQueryInstance(world, queryRef.parameters);
+                    ctx.queriesHashMap.set(queryRef.hash, query);
+                    if (queryRef.id >= ctx.queryInstances.length) {
+                        ctx.queryInstances.length = queryRef.id + 1;
+                    }
+                    ctx.queryInstances[queryRef.id] = query;
+                }
+            } else {
+                const hash = createQueryHash(args as QueryParameter[]);
+                query = ctx.queriesHashMap.get(hash)!;
 
-				if (!query) {
-					query = createQueryInstance(world, args as QueryParameter[]);
-					ctx.queriesHashMap.set(hash, query);
-				}
-			}
+                if (!query) {
+                    query = createQueryInstance(world, args as QueryParameter[]);
+                    ctx.queriesHashMap.set(hash, query);
+                }
+            }
 
-			query.removeSubscriptions.add(callback);
+            query.removeSubscriptions.add(callback);
 
-			return () => query.removeSubscriptions.delete(callback);
-		},
+            return () => query.removeSubscriptions.delete(callback);
+        },
 
-		onAdd<T extends Trait>(
-			trait: T | Relation<T>,
-			callback: (entity: Entity, target?: Entity) => void
-		): QueryUnsubscriber {
-			const ctx = world[$internal];
-			const target = isRelation(trait) ? trait[$internal].trait : trait;
+        onAdd<T extends Trait>(
+            trait: T | Relation<T>,
+            callback: (entity: Entity, target?: Entity) => void
+        ): QueryUnsubscriber {
+            const ctx = world[$internal];
+            const target = isRelation(trait) ? trait[$internal].trait : trait;
 
-			let data = getTraitInstance(ctx.traitInstances, target);
+            let data = getTraitInstance(ctx.traitInstances, target);
 
-			if (!data) {
-				registerTrait(world, target);
-				data = getTraitInstance(ctx.traitInstances, target)!;
-			}
+            if (!data) {
+                registerTrait(world, target);
+                data = getTraitInstance(ctx.traitInstances, target)!;
+            }
 
-			data.addSubscriptions.add(callback);
+            data.addSubscriptions.add(callback);
 
-			return () => data.addSubscriptions.delete(callback);
-		},
+            return () => data.addSubscriptions.delete(callback);
+        },
 
-		onRemove<T extends Trait>(
-			trait: T | Relation<T>,
-			callback: (entity: Entity, target?: Entity) => void
-		): QueryUnsubscriber {
-			const ctx = world[$internal];
-			const target = isRelation(trait) ? trait[$internal].trait : trait;
+        onRemove<T extends Trait>(
+            trait: T | Relation<T>,
+            callback: (entity: Entity, target?: Entity) => void
+        ): QueryUnsubscriber {
+            const ctx = world[$internal];
+            const target = isRelation(trait) ? trait[$internal].trait : trait;
 
-			let data = getTraitInstance(ctx.traitInstances, target);
+            let data = getTraitInstance(ctx.traitInstances, target);
 
-			if (!data) {
-				registerTrait(world, target);
-				data = getTraitInstance(ctx.traitInstances, target)!;
-			}
+            if (!data) {
+                registerTrait(world, target);
+                data = getTraitInstance(ctx.traitInstances, target)!;
+            }
 
-			data.removeSubscriptions.add(callback);
+            data.removeSubscriptions.add(callback);
 
-			return () => data.removeSubscriptions.delete(callback);
-		},
+            return () => data.removeSubscriptions.delete(callback);
+        },
 
-		onChange(
-			trait: Trait | Relation<Trait>,
-			callback: (entity: Entity, target?: Entity) => void
-		) {
-			const ctx = world[$internal];
-			const target = isRelation(trait) ? trait[$internal].trait : trait;
+        onChange(
+            trait: Trait | Relation<Trait>,
+            callback: (entity: Entity, target?: Entity) => void
+        ) {
+            const ctx = world[$internal];
+            const target = isRelation(trait) ? trait[$internal].trait : trait;
 
-			// Register the trait if it's not already registered.
-			if (!hasTraitInstance(ctx.traitInstances, target)) registerTrait(world, target);
+            // Register the trait if it's not already registered.
+            if (!hasTraitInstance(ctx.traitInstances, target)) registerTrait(world, target);
 
-			const data = getTraitInstance(ctx.traitInstances, target)!;
-			data.changeSubscriptions.add(callback);
+            const data = getTraitInstance(ctx.traitInstances, target)!;
+            data.changeSubscriptions.add(callback);
 
-			// Used by auto change detection to know which traits to track.
-			ctx.trackedTraits.add(target);
+            // Used by auto change detection to know which traits to track.
+            ctx.trackedTraits.add(target);
 
-			return () => {
-				data.changeSubscriptions.delete(callback);
-				if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(target);
-			};
-		},
-	} as World;
+            return () => {
+                data.changeSubscriptions.delete(callback);
+                if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(target);
+            };
+        },
+    } as World;
 
-	// Read-only properties via getters
-	Object.defineProperty(world, 'id', {
-		get: () => id,
-		enumerable: true,
-	});
-	Object.defineProperty(world, 'isInitialized', {
-		get: () => isInitialized,
-		enumerable: true,
-	});
-	Object.defineProperty(world, 'entities', {
-		get: () => getAliveEntities(world[$internal].entityIndex),
-		enumerable: true,
-	});
+    // Read-only properties via getters
+    Object.defineProperty(world, 'id', {
+        get: () => id,
+        enumerable: true,
+    });
+    Object.defineProperty(world, 'isInitialized', {
+        get: () => isInitialized,
+        enumerable: true,
+    });
+    Object.defineProperty(world, 'entities', {
+        get: () => getAliveEntities(world[$internal].entityIndex),
+        enumerable: true,
+    });
 
-	// Handle initialization based on arguments
-	if (
-		optionsOrFirstTrait &&
-		typeof optionsOrFirstTrait === 'object' &&
-		!Array.isArray(optionsOrFirstTrait)
-	) {
-		const { traits: optionTraits = [], lazy = false } = optionsOrFirstTrait as WorldOptions;
-		if (!lazy) {
-			world.init(...optionTraits);
-		}
-		else{
-			lazyTraits = optionTraits
-		}
-	} else {
-		world.init(...(optionsOrFirstTrait ? [optionsOrFirstTrait, ...traits] : traits));
-	}
+    // Handle initialization based on arguments
+    if (
+        optionsOrFirstTrait &&
+        typeof optionsOrFirstTrait === 'object' &&
+        !Array.isArray(optionsOrFirstTrait)
+    ) {
+        const { traits: optionTraits = [], lazy = false } = optionsOrFirstTrait as WorldOptions;
+        if (!lazy) {
+            world.init(...optionTraits);
+        } else {
+            lazyTraits = optionTraits;
+        }
+    } else {
+        world.init(...(optionsOrFirstTrait ? [optionsOrFirstTrait, ...traits] : traits));
+    }
 
-	return world;
+    return world;
 }

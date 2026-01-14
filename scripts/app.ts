@@ -10,28 +10,28 @@ const suiteName = args[0];
 
 // Function to execute the main.ts file within a directory
 const runDev = (directoryPath: string) => {
-	process.chdir(directoryPath);
-	execSync(`pnpm run dev`, { stdio: 'inherit' });
+    process.chdir(directoryPath);
+    execSync(`pnpm run dev`, { stdio: 'inherit' });
 };
 
 // Function to find and run main.ts files for the specified suite
 const runSuites = async (app: string) => {
-	const rootPath = process.cwd();
-	const baseDir = join(rootPath, 'examples', 'apps');
-	const appDir = join(baseDir, app);
+    const rootPath = process.cwd();
+    const baseDir = join(rootPath, 'examples', 'apps');
+    const appDir = join(baseDir, app);
 
-	// Check if the specified suite directory exists
-	if (existsSync(appDir) && readdirSync(baseDir).includes(app)) {
-		runDev(appDir);
-	} else {
-		console.error(`Suite not found: ${app}`);
-	}
+    // Check if the specified suite directory exists
+    if (existsSync(appDir) && readdirSync(baseDir).includes(app)) {
+        runDev(appDir);
+    } else {
+        console.error(`Suite not found: ${app}`);
+    }
 };
 
 // Check if a suite name was provided
 if (!suiteName) {
-	console.error('Please provide a suite name as an argument.');
-	process.exit(1);
+    console.error('Please provide a suite name as an argument.');
+    process.exit(1);
 }
 
 // Run the suites

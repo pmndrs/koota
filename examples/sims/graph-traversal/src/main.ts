@@ -8,8 +8,8 @@ init({ world });
 
 // Start the simulation.
 const main = () => {
-	measure(() => schedule.run({ world }));
-	requestAnimationFrame(main);
+    measure(() => schedule.run({ world }));
+    requestAnimationFrame(main);
 };
 
 requestAnimationFrame(main);

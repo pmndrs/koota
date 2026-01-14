@@ -7,8 +7,8 @@ import { world } from './world';
 
 // Start the simulation.
 const main = async () => {
-	await measure(() => schedule.run({ world }));
-	requestAnimationFrame(main);
+    await measure(() => schedule.run({ world }));
+    requestAnimationFrame(main);
 };
 
 requestAnimationFrame(main);

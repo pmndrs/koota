@@ -21,44 +21,44 @@ import { updateTime } from './systems/update-time';
 import { Keyboard } from './traits';
 
 export function Frameloop() {
-	const world = useWorld();
+    const world = useWorld();
 
-	// Run our frameloop!
-	useAnimationFrame(() => {
-		updateTime(world);
-		pollKeyboard(world);
-		spawnEnemies(world);
-		followPlayer(world);
-		updateAvoidance(world);
-		applyInput(world);
-		dampPlayerMovement(world);
-		pushEnemies(world);
-		handleShooting(world);
-		updateMovement(world);
-		updateBullets(world);
-		updateBulletCollisions(world);
-		updateAutoRotate(world);
-		updateSpatialHashing(world);
-		cleanupSpatialHashMap(world);
-		tickShieldVisibility(world);
-		tickExplosion(world);
-	});
+    // Run our frameloop!
+    useAnimationFrame(() => {
+        updateTime(world);
+        pollKeyboard(world);
+        spawnEnemies(world);
+        followPlayer(world);
+        updateAvoidance(world);
+        applyInput(world);
+        dampPlayerMovement(world);
+        pushEnemies(world);
+        handleShooting(world);
+        updateMovement(world);
+        updateBullets(world);
+        updateBulletCollisions(world);
+        updateAutoRotate(world);
+        updateSpatialHashing(world);
+        cleanupSpatialHashMap(world);
+        tickShieldVisibility(world);
+        tickExplosion(world);
+    });
 
-	// Sync keyboard input to the world
-	useEffect(() => {
-		const keys = world.get(Keyboard)!;
+    // Sync keyboard input to the world
+    useEffect(() => {
+        const keys = world.get(Keyboard)!;
 
-		const downHandler = (e: KeyboardEvent) => keys.add(e.key.toLowerCase());
-		const upHandler = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
+        const downHandler = (e: KeyboardEvent) => keys.add(e.key.toLowerCase());
+        const upHandler = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
 
-		window.addEventListener('keydown', downHandler);
-		window.addEventListener('keyup', upHandler);
+        window.addEventListener('keydown', downHandler);
+        window.addEventListener('keyup', upHandler);
 
-		return () => {
-			window.removeEventListener('keydown', downHandler);
-			window.removeEventListener('keyup', upHandler);
-		};
-	}, []);
+        return () => {
+            window.removeEventListener('keydown', downHandler);
+            window.removeEventListener('keyup', upHandler);
+        };
+    }, []);
 
-	return null;
+    return null;
 }
