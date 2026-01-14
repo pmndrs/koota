@@ -1,7 +1,7 @@
 ---
 title: Performance
 description: Tips and options for added performance. 
-nav: 5
+nav: 6
 ---
 
 Performance, safety and readability are all tradeoffs. The standard patterns are plenty fast, but if you are interested in diving deeper here are some quick tips and patterns.

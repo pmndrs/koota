@@ -1,7 +1,7 @@
 ---
 title: Relations
 description: Using relational data
-nav: 2
+nav: 3
 ---
 
 Koota supports relations between entities using the `relation` function. Relations allow you to build graphs by creating connections between entities with efficient queries.

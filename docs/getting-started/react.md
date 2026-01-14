@@ -1,7 +1,7 @@
 ---
 title: React
 description: Integrating With React
-nav: 1
+nav: 2
 ---
 
 ## Use Koota in your React components
