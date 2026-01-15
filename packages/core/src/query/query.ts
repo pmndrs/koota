@@ -424,9 +424,7 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
 
     // Check if this query was already cached
     const existing = universe.cachedQueries.get(hash);
-    if (existing) {
-        return existing as Query<T>;
-    }
+    if (existing) return existing as Query<T>;
 
     // Create new query ref with ID
     const id = queryId++;
