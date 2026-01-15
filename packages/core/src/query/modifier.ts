@@ -5,19 +5,19 @@ import { Modifier, QueryParameter } from './types';
 export const $modifier = Symbol('modifier');
 
 export function createModifier<TTrait extends Trait[] = Trait[], TType extends string = string>(
-	type: TType,
-	id: number,
-	traits: TTrait
+    type: TType,
+    id: number,
+    traits: TTrait
 ): Modifier<TTrait, TType> {
-	return {
-		[$modifier]: true,
-		type,
-		id,
-		traits,
-		traitIds: traits.map((trait) => trait.id),
-	} as const;
+    return {
+        [$modifier]: true,
+        type,
+        id,
+        traits,
+        traitIds: traits.map((trait) => trait.id),
+    } as const;
 }
 
 export /* @inline @pure */ function isModifier(param: QueryParameter): param is Modifier {
-	return (param as Brand<typeof $modifier> | null | undefined)?.[$modifier] as unknown as boolean;
+    return (param as Brand<typeof $modifier> | null | undefined)?.[$modifier] as unknown as boolean;
 }

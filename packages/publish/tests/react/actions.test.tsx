@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useActions, WorldProvider } from '../../react';
 
 declare global {
-	var IS_REACT_ACT_ENVIRONMENT: boolean;
+    var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 
 // Let React know that we'll be testing effectful components
@@ -15,34 +15,34 @@ let world: World;
 const Position = trait({ x: 0, y: 0 });
 
 describe('useActions', () => {
-	beforeEach(() => {
-		universe.reset();
-		world = createWorld();
-	});
+    beforeEach(() => {
+        universe.reset();
+        world = createWorld();
+    });
 
-	it('returns actions bound to the world in context', async () => {
-		const actions = createActions((world) => ({
-			spawnBody: () => world.spawn(Position),
-		}));
+    it('returns actions bound to the world in context', async () => {
+        const actions = createActions((world) => ({
+            spawnBody: () => world.spawn(Position),
+        }));
 
-		let spawnedEntity: Entity | undefined;
+        let spawnedEntity: Entity | undefined;
 
-		function Test() {
-			const { spawnBody } = useActions(actions);
-			spawnedEntity = spawnBody();
-			return null;
-		}
+        function Test() {
+            const { spawnBody } = useActions(actions);
+            spawnedEntity = spawnBody();
+            return null;
+        }
 
-		await act(async () => {
-			render(
-				<StrictMode>
-					<WorldProvider world={world}>
-						<Test />
-					</WorldProvider>
-				</StrictMode>
-			);
-		});
+        await act(async () => {
+            render(
+                <StrictMode>
+                    <WorldProvider world={world}>
+                        <Test />
+                    </WorldProvider>
+                </StrictMode>
+            );
+        });
 
-		expect(spawnedEntity).toBeDefined();
-	});
+        expect(spawnedEntity).toBeDefined();
+    });
 });

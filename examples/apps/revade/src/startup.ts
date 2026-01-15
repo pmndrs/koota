@@ -4,17 +4,17 @@ import { actions } from './actions';
 import { Movement } from './traits';
 
 export function Startup() {
-	const { spawnPlayer, destroyAllEnemies } = useActions(actions);
+    const { spawnPlayer, destroyAllEnemies } = useActions(actions);
 
-	useEffect(() => {
-		const player = spawnPlayer();
-		player.set(Movement, { maxSpeed: 50, damping: 0.99, thrust: 2 });
+    useEffect(() => {
+        const player = spawnPlayer();
+        player.set(Movement, { maxSpeed: 50, damping: 0.99, thrust: 2 });
 
-		return () => {
-			player?.destroy();
-			destroyAllEnemies();
-		};
-	}, [spawnPlayer, destroyAllEnemies]);
+        return () => {
+            player?.destroy();
+            destroyAllEnemies();
+        };
+    }, [spawnPlayer, destroyAllEnemies]);
 
-	return null;
+    return null;
 }

@@ -10,13 +10,11 @@ const DEG2RAD = Math.PI / 180;
  * Used by `update-card-order` to select which slot a dragged card should snap to.
  */
 export function arcXForIndex(
-	i: number,
-	centerIndex: number,
-	angleStepDeg: number,
-	radius: number
+    i: number,
+    centerIndex: number,
+    angleStepDeg: number,
+    radius: number
 ): number {
-	const angleRad = (i - centerIndex) * angleStepDeg * DEG2RAD;
-	return Math.sin(angleRad) * radius;
+    const angleRad = (i - centerIndex) * angleStepDeg * DEG2RAD;
+    return Math.sin(angleRad) * radius;
 }
-
-
