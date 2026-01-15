@@ -1,5 +1,5 @@
 import { $internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
@@ -8,26 +8,38 @@ export function useTargets<T extends Trait>(
     relation: Relation<T>
 ): Entity[] {
     const contextWorld = useWorld();
+    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
     const memo = useMemo(
         () => (target ? createSubscriptions(target, relation, contextWorld) : undefined),
         [target, relation, contextWorld]
     );
 
-    const [value, setValue] = useState<Entity[]>(() => {
-        return memo?.entity.targetsFor(relation) ?? [];
-    });
+    const valueRef = useRef<Entity[]>([]);
+    const memoRef = useRef(memo);
+
+    // Update cached value when memo changes
+    if (memoRef.current !== memo) {
+        memoRef.current = memo;
+        valueRef.current = memo?.entity.targetsFor(relation) ?? [];
+    }
 
     useEffect(() => {
         if (!memo) {
-            setValue([]);
+            valueRef.current = [];
+            forceUpdate();
             return;
         }
-        const unsubscribe = memo.subscribe(setValue);
+
+        const unsubscribe = memo.subscribe((value) => {
+            valueRef.current = value;
+            forceUpdate();
+        });
+
         return () => unsubscribe();
     }, [memo]);
 
-    return value;
+    return valueRef.current;
 }
 
 function createSubscriptions<T extends Trait>(
@@ -40,21 +52,29 @@ function createSubscriptions<T extends Trait>(
 
     return {
         entity,
-        subscribe: (setValue: Dispatch<SetStateAction<Entity[]>>) => {
-            const onAddUnsub = world.onAdd(relation, (e, t) => {
-                if (e === entity) setValue(entity.targetsFor(relation));
+        subscribe: (setValue: (value: Entity[]) => void) => {
+            // Track current value for onRemove filter
+            let currentValue: Entity[] = [];
+
+            const update = (value: Entity[]) => {
+                currentValue = value;
+                setValue(value);
+            };
+
+            const onAddUnsub = world.onAdd(relation, (e) => {
+                if (e === entity) update(entity.targetsFor(relation));
             });
 
             // onRemove fires before data is removed, so filter out the target
             const onRemoveUnsub = world.onRemove(relation, (e, t) => {
-                if (e === entity) setValue((prev) => prev.filter((p) => p !== t));
+                if (e === entity) update(currentValue.filter((p) => p !== t));
             });
 
-            const onChangeUnsub = world.onChange(relation, (e, t) => {
-                if (e === entity) setValue(entity.targetsFor(relation));
+            const onChangeUnsub = world.onChange(relation, (e) => {
+                if (e === entity) update(entity.targetsFor(relation));
             });
 
-            setValue(entity.targetsFor(relation));
+            update(entity.targetsFor(relation));
 
             return () => {
                 onAddUnsub();
