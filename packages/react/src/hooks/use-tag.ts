@@ -1,41 +1,42 @@
 import { $internal, type Entity, type TagTrait, type World } from '@koota/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
 export function useTag(target: Entity | World | undefined | null, tag: TagTrait): boolean {
     const contextWorld = useWorld();
+    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
     const memo = useMemo(
         () => (target ? createSubscriptions(target, tag, contextWorld) : undefined),
         [target, tag, contextWorld]
     );
 
-    const [value, setValue] = useState<boolean>(() => {
-        return memo?.entity.has(tag) ?? false;
-    });
-
-    // Track memo changes and compute correct value for this render
+    const valueRef = useRef<boolean>(false);
     const memoRef = useRef(memo);
 
-    let currentValue = value;
+    // Update cached value when memo changes
     if (memoRef.current !== memo) {
         memoRef.current = memo;
-        currentValue = memo?.entity.has(tag) ?? false;
-        if (currentValue !== value) setValue(currentValue);
+        valueRef.current = memo?.entity.has(tag) ?? false;
     }
 
     useEffect(() => {
         if (!memo) {
-            setValue(false);
+            valueRef.current = false;
+            forceUpdate();
             return;
         }
 
-        const unsubscribe = memo.subscribe(setValue);
+        const unsubscribe = memo.subscribe((value) => {
+            valueRef.current = value;
+            forceUpdate();
+        });
+
         return () => unsubscribe();
     }, [memo]);
 
-    return currentValue;
+    return valueRef.current;
 }
 
 function createSubscriptions(target: Entity | World, tag: TagTrait, contextWorld: World) {
