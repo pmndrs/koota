@@ -91,10 +91,10 @@ function RocketView({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { defineActions } from 'koota'
+import { createActions } from 'koota'
 import { useActions } from 'koota/react'
 
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
   destroyAllShips: () => {
     world.query(Position, Velocity).forEach((entity) => {
@@ -1161,11 +1161,11 @@ function InventoryDisplay({ entity }) {
 
 ### `useActions`
 
-Returns actions bound to the world that is in context. Use actions created by `defineActions`.
+Returns actions bound to the world that is in context. Use actions created by `createActions`.
 
 ```js
 // Create actions
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer).
     destroyAllPlayers: () => {
         world.query(IsPlayer).forEach((player) => {
