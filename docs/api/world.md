@@ -1,7 +1,7 @@
 ---
 title: World
 description: World API
-nav: 8
+nav: 2
 ---
 
 The `World` is where all data is stored. We have methods on entities but this is a bit of a trick, entities don't actually store any data and instead it is operating on the connected world. Each world has its own set of entities that do not overlap with another. Typically you only need one world.

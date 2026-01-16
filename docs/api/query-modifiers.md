@@ -1,7 +1,7 @@
 ---
-title: Query modifiers
+title: Query Modifiers
 description: Using modifiers with queries
-nav: 4
+nav: 6
 ---
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.

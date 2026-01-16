@@ -1,7 +1,7 @@
 ---
-title: React
+title: Integration
 description: Integrating With React
-nav: 2
+nav: 8
 ---
 
 ## Use Koota in your React components
@@ -40,10 +40,10 @@ function RocketView({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { defineActions } from 'koota'
+import { createActions } from 'koota'
 import { useActions } from 'koota/react'
 
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
   destroyAllShips: () => {
     world.query(Position, Velocity).forEach((entity) => {

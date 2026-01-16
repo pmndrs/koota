@@ -1,15 +1,10 @@
 ---
 title: Query
 description: Query API
-nav: 11
+nav: 5
 ---
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
-
-- [Defining queries](#Defining-queries)
-- [Getting all entities](#Query-all-entities)
-- [Excluding entities from queries](#Excluding-entities-from-queries)
-- [Selecting for updates](#Select-traits-on-queries-for-updates)
 
 ## Defining queries
 

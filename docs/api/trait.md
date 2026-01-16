@@ -1,7 +1,7 @@
 ---
 title: Trait
 description: Trait API
-nav: 10
+nav: 4
 ---
 
 Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React or web components.

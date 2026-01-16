@@ -1,20 +1,10 @@
 ---
 title: Relations
 description: Using relational data
-nav: 3
+nav: 7
 ---
 
 Koota supports relations between entities using the `relation` function. Relations allow you to build graphs by creating connections between entities with efficient queries.
-
-- [Relations basics](#relations-basics)
-- [Relations with data](#relations-with-data)
-- [Auto remove target](#auto-remove-target)
-- [Exclusive relations](#exclusive-relations)
-- [Ordered relations](#ordered-relations)
-- [Querying relations](#querying-relations)
-- [Removing relations](#removing-relations)
-- [Tracking relation changes](#tracking-relation-changes)
-- [Relation events](#relation-events)
 
 ## Relations basics
 
@@ -29,7 +19,21 @@ const entity = world.queryFirst(ChildOf(parent)) // Returns child
 
 A relation is typically owned by the entity that needs to express it. The **source** is the entity that has the relation added, and the **target** is the entity it points to.
 
-In `child.add(ChildOf(parent))`, child is the source and parent is the target. This design means the parent doesn't need to know about its children, instead children care about their parent, optimzing batch queries.
+```mermaid
+flowchart BT
+    subgraph Parent
+    end
+    subgraph childA["Child"]
+        COA["ChildOf(Parent)"]
+    end
+    subgraph childB["Child"]
+        COB["ChildOf(Parent)"]
+    end
+    COA ==> Parent
+    COB ==> Parent
+```
+
+In `child.add(ChildOf(parent))`, child is the source and parent is the target. This design means the parent doesn't need to know about its children, instead children care about their parent, optimizing batch queries.
 
 ## Relations with data
 
@@ -51,12 +55,16 @@ inventory.set(Contains(gold), { amount: 20 })
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
-## Auto remove target
+## Auto destroy
 
-Relations can automatically remove target entities and their descendants.
+Relations can automatically destroy related entities when their counterpart is destroyed using the `autoDestroy` option.
+
+### Destroy orphans
+
+When a target is destroyed, destroy all sources pointing to it. This is commonly used for hierarchies when you want to clean up any detached graphs. It can be enabled with the `'orphan'` option.
 
 ```js
-const ChildOf = relation({ autoRemoveTarget: true })
+const ChildOf = relation({ autoDestroy: 'orphan' })
 
 const parent = world.spawn()
 const child = world.spawn(ChildOf(parent))
@@ -65,6 +73,23 @@ const grandchild = world.spawn(ChildOf(child))
 parent.destroy()
 
 world.has(child) // False, the child and grandchild are destroyed too
+```
+
+### Destroy targets
+
+When a source is destroyed, destroy all its targets.
+
+```js
+const Contains = relation({ autoDestroy: 'target' })
+
+const container = world.spawn()
+const itemA = world.spawn()
+const itemB = world.spawn()
+
+container.add(Contains(itemA), Contains(itemB))
+container.destroy()
+
+world.has(itemA) // False, items are destroyed with container
 ```
 
 ## Exclusive relations
@@ -96,6 +121,21 @@ bidirectional sync.
 A query like `world.query(ChildOf(parent))` returns a flat list of children without any ordering. If you need an ordered list, you'd have to store an order field and sort every time you query.
 
 An ordered relation solves this by caching the order on the target. It's a trait added to the parent that maintains a view of all entities targeting it.
+
+```mermaid
+flowchart BT
+    subgraph Parent
+        OC["OrderedChildren → [Child B, Child A]"]
+    end
+    subgraph childA["Child A"]
+        COA["ChildOf(Parent)"]
+    end
+    subgraph childB["Child B"]
+        COB["ChildOf(Parent)"]
+    end
+    COA ==> Parent
+    COB ==> Parent
+```
 
 ```js
 import { relation, ordered } from 'koota'

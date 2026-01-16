@@ -1,22 +1,10 @@
 ---
-title: React
-description: React API
-nav: 12
+title: Hooks
+description: React Hooks API
+nav: 9
 ---
 
-React hooks and components.
-
-- [useQuery](#useQuery)
-- [useQueryFirst](#useQueryFirst)
-- [useWorld](#useWorld)
-- [WorldProvider](#WorldProvider)
-- [useTrait](#useTrait)
-- [useTag](#useTag)
-- [useHas](#useHas)
-- [useTraitEffect](#useTraitEffect)
-- [useTarget](#useTarget)
-- [useTargets](#useTargets)
-- [useActions](#useActions)
+Use the provided hooks for reactive updates.
 
 ## `useQuery`
 
@@ -215,11 +203,11 @@ function InventoryDisplay({ entity }) {
 
 ## `useActions`
 
-Returns actions bound to the world that is in context. Use actions created by `defineActions`.
+Returns actions bound to the world that is in context. Use actions created by `createActions`.
 
 ```js
 // Create actions
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer).
     destroyAllPlayers: () => {
         world.query(IsPlayer).forEach((player) => {

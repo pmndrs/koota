@@ -1,7 +1,7 @@
 ---
 title: Change detection
 description: Propagating and detecting changes
-nav: 5
+nav: 11
 ---
 
 ## `updateEach`
