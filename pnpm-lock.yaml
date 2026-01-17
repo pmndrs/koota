@@ -140,9 +140,6 @@ importers:
       '@vitejs/plugin-react-swc':
         specifier: ^4.2.2
         version: 4.2.2(vite@7.3.1(@types/node@24.10.9)(tsx@4.21.0))
-      '@webgpu/types':
-        specifier: ^0.1.66
-        version: 0.1.69
       vite:
         specifier: 'catalog:'
         version: 7.3.1(@types/node@24.10.9)(tsx@4.21.0)

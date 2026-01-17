@@ -21,7 +21,6 @@
 		"@types/react-dom": "catalog:",
 		"@vitejs/plugin-react": "^5.1.1",
 		"@vitejs/plugin-react-swc": "^4.2.2",
-		"@webgpu/types": "^0.1.66",
 		"vite": "catalog:"
 	}
 }
