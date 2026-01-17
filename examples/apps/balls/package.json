@@ -1,0 +1,27 @@
+{
+	"name": "@app/balls",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "vite",
+		"build": "tsc && vite build",
+		"lint": "oxlint",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@sim/balls": "workspace:*",
+		"koota": "workspace:*",
+		"react": "catalog:",
+		"react-dom": "catalog:"
+	},
+	"devDependencies": {
+		"@config/typescript": "workspace:*",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@vitejs/plugin-react": "^5.1.1",
+		"@vitejs/plugin-react-swc": "^4.2.2",
+		"@webgpu/types": "^0.1.66",
+		"vite": "catalog:"
+	}
+}
