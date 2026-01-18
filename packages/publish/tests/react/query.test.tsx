@@ -1,4 +1,12 @@
-import { createWorld, type Entity, type QueryResult, trait, universe, type World } from '../../dist';
+import {
+    createWorld,
+    type Entity,
+    type QueryResult,
+    relation,
+    trait,
+    universe,
+    type World,
+} from '../../dist';
 import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -212,5 +220,45 @@ describe('useQuery', () => {
         );
 
         expect(result.current.updateEach).toBeDefined();
+    });
+
+    it('should handle relation query when target entity changes', async () => {
+        const ChildOf = relation();
+        const Tag = trait();
+
+        const parent1 = world.spawn(Tag);
+        const parent2 = world.spawn(Tag);
+
+        // Two children of parent1
+        world.spawn(Tag, ChildOf(parent1));
+        world.spawn(Tag, ChildOf(parent1));
+        // One child of parent2
+        world.spawn(Tag, ChildOf(parent2));
+
+        let entities: QueryResult<[typeof Tag, ReturnType<typeof ChildOf>]> = null!;
+
+        function Test({ parent }: { parent: Entity }) {
+            entities = useQuery(Tag, ChildOf(parent));
+            return null;
+        }
+
+        const { rerender } = render(
+            <WorldProvider world={world}>
+                <Test parent={parent1} />
+            </WorldProvider>
+        );
+
+        expect(entities.length).toBe(2);
+
+        // Change parent - the query should update to reflect children of parent2
+        await act(async () => {
+            rerender(
+                <WorldProvider world={world}>
+                    <Test parent={parent2} />
+                </WorldProvider>
+            );
+        });
+
+        expect(entities.length).toBe(1);
     });
 });
