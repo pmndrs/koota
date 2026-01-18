@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { $internal, createWorld, Not, relation, trait } from '../../dist';
+import { createWorld, Not, relation, trait } from '../../dist';
 
 describe('Relation', () => {
     const world = createWorld();
@@ -77,8 +77,8 @@ describe('Relation', () => {
         expect(goblin.targetFor(Targeting)).toBe(undefined);
     });
 
-    it('should auto remove target and its descendants', () => {
-        const ChildOf = relation({ autoRemoveTarget: true });
+    it('should destroy orphaned sources when autoDestroy is orphan', () => {
+        const ChildOf = relation({ autoDestroy: 'orphan' });
 
         const parent = world.spawn();
         const child = world.spawn(ChildOf(parent));
@@ -100,6 +100,26 @@ describe('Relation', () => {
         expect(world.has(childChildA)).toBe(false);
         expect(world.has(childChildB)).toBe(false);
         expect(world.has(childChildC)).toBe(false);
+    });
+
+    it('should destroy targets when autoDestroy is target', () => {
+        const Contains = relation({ autoDestroy: 'target' });
+
+        const container = world.spawn();
+        const itemA = world.spawn();
+        const itemB = world.spawn();
+
+        container.add(Contains(itemA), Contains(itemB));
+
+        expect(world.has(container)).toBe(true);
+        expect(world.has(itemA)).toBe(true);
+        expect(world.has(itemB)).toBe(true);
+
+        container.destroy();
+
+        expect(world.has(container)).toBe(false);
+        expect(world.has(itemA)).toBe(false);
+        expect(world.has(itemB)).toBe(false);
     });
 
     it('should create stores for relations', () => {

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, ordered, relation } from '../../dist';
+import { createChanged, createWorld, ordered, relation } from '../../dist';
 
 describe('Ordered relations', () => {
     const world = createWorld();
@@ -274,5 +274,58 @@ describe('Ordered relations', () => {
 
         expect(childrenB).toHaveLength(1);
         expect(childrenB[0]).toBe(child2);
+    });
+
+    it('should clean up relations when destroying entity with ordered trait and autoDestroy orphan', () => {
+        const ChildOf = relation({ autoDestroy: 'orphan' });
+        const OrderedChildren = ordered(ChildOf);
+
+        // Setup hierarchy: grandparent -> parent -> child
+        const grandparent = world.spawn(OrderedChildren);
+        const parent = world.spawn(OrderedChildren, ChildOf(grandparent));
+        const child = world.spawn(OrderedChildren, ChildOf(parent));
+
+        // Verify initial state
+        expect(world.query(ChildOf(grandparent))).toContain(parent);
+        expect(world.query(ChildOf(grandparent))).toHaveLength(1);
+
+        // Destroy parent - cascades to child via autoDestroy: 'orphan'
+        parent.destroy();
+
+        // Parent and child should be destroyed
+        expect(world.has(parent)).toBe(false);
+        expect(world.has(child)).toBe(false);
+        expect(world.has(grandparent)).toBe(true);
+
+        // Query should return no children since parent was destroyed
+        const childrenOfGrandparent = world.query(ChildOf(grandparent));
+        expect(childrenOfGrandparent).toHaveLength(0);
+    });
+
+    it('should flag ordered trait as changed when structural changes occur', () => {
+        const Changed = createChanged();
+        const OrderedChildren = ordered(relation());
+
+        const parent = world.spawn(OrderedChildren);
+        const child1 = world.spawn();
+        const child2 = world.spawn();
+
+        const children = parent.get(OrderedChildren)!;
+
+        // Initially no changes
+        expect(world.query(Changed(OrderedChildren))).toHaveLength(0);
+
+        // Push should flag as changed
+        children.push(child1);
+        expect(world.query(Changed(OrderedChildren))).toContain(parent);
+
+        // Query consumed the change, should be empty now
+        expect(world.query(Changed(OrderedChildren))).toHaveLength(0);
+
+        // Pop should flag as changed
+        children.push(child2);
+        world.query(Changed(OrderedChildren));
+        children.pop();
+        expect(world.query(Changed(OrderedChildren))).toContain(parent);
     });
 });
