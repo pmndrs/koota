@@ -44,19 +44,10 @@ export function ShapeView({ entity }: ShapeViewProps) {
 			const netId = entity.get(NetID)?.id;
 			if (!netId) return;
 
-			// Select this shape
+			// Select this shape (only if not already selected)
 			const currentSelection = syncClient.getSelection();
 			if (currentSelection !== netId) {
-				// Deselect previous
-				if (currentSelection) {
-					const prevEntity = syncClient.getEntity(currentSelection);
-					if (prevEntity?.isAlive()) {
-						prevEntity.remove(IsSelected);
-					}
-				}
-				// Select new
-				entity.add(IsSelected);
-				syncClient.setSelection(netId);
+				syncClient.selectEntity(netId);
 			}
 
 			// Start dragging

@@ -29,7 +29,7 @@ export function Toolbar() {
 		const selectedNetId = syncClient.getSelection();
 		if (!selectedNetId) return;
 		syncClient.dispatch('deleteShape', {}, selectedNetId);
-		syncClient.setSelection(null);
+		syncClient.clearSelection();
 	};
 
 	const changeColor = (color: string) => {

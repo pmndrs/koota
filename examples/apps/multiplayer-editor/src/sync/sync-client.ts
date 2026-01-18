@@ -12,7 +12,7 @@ import type {
 } from '../shared/protocol';
 import { opDefs, getConflictKey, captureEntityState } from '../shared/ops';
 import { createNetIdMap, registerNetIdMapping, type NetIdMap } from '../shared/net-id-map';
-import { EditorStatus, Presence } from '../traits';
+import { EditorStatus, Presence, IsSelected } from '../traits';
 import { createUndoManager, type UndoManager } from './undo-manager';
 
 // Coalescing throttle interval (ms)
@@ -312,6 +312,37 @@ export function createSyncClient(world: World, clientId: string) {
         });
     }
 
+    function applySelection(netId: string | null): void {
+        // Remove IsSelected from previous entity
+        if (localSelectedNetId) {
+            const prev = netIds.toEntity.get(localSelectedNetId);
+            if (prev?.isAlive()) {
+                prev.remove(IsSelected);
+            }
+        }
+        
+        // Update selection state
+        localSelectedNetId = netId;
+        
+        // Add IsSelected to new entity
+        if (netId) {
+            const next = netIds.toEntity.get(netId);
+            if (next?.isAlive()) {
+                next.add(IsSelected);
+            }
+        }
+        
+        broadcastPresence();
+    }
+
+    function selectEntity(netId: string): void {
+        applySelection(netId);
+    }
+
+    function clearSelection(): void {
+        applySelection(null);
+    }
+
     function setSelection(netId: string | null): void {
         localSelectedNetId = netId;
         broadcastPresence();
@@ -380,6 +411,8 @@ export function createSyncClient(world: World, clientId: string) {
         dispatch,
         receive,
 
+        selectEntity,
+        clearSelection,
         setSelection,
         getSelection: () => localSelectedNetId,
 
