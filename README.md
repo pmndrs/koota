@@ -91,10 +91,10 @@ function RocketView({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { defineActions } from 'koota'
+import { createActions } from 'koota'
 import { useActions } from 'koota/react'
 
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
   destroyAllShips: () => {
     world.query(Position, Velocity).forEach((entity) => {
@@ -185,12 +185,14 @@ inventory.set(Contains(gold), { amount: 20 })
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
-#### Auto remove target
+#### Auto destroy
 
-Relations can automatically remove target entities and their descendants.
+Relations can automatically destroy related entities when their counterpart is destroyed using the `autoDestroy` option.
+
+**Destroy orphans.** When a target is destroyed, destroy all sources pointing to it. This is commonly used for hierarchies when you want to clean up any detached graphs. It can be enabled with the `'orphan'` or `'source'` option.
 
 ```js
-const ChildOf = relation({ autoRemoveTarget: true })
+const ChildOf = relation({ autoDestroy: 'orphan' }) // Or 'source'
 
 const parent = world.spawn()
 const child = world.spawn(ChildOf(parent))
@@ -199,6 +201,21 @@ const grandchild = world.spawn(ChildOf(child))
 parent.destroy()
 
 world.has(child) // False, the child and grandchild are destroyed too
+```
+
+**Destroy targets.** When a source is destroyed, destroy all its targets.
+
+```js
+const Contains = relation({ autoDestroy: 'target' })
+
+const container = world.spawn()
+const itemA = world.spawn()
+const itemB = world.spawn()
+
+container.add(Contains(itemA), Contains(itemB))
+container.destroy()
+
+world.has(itemA) // False, items are destroyed with container
 ```
 
 #### Exclusive relations
@@ -1144,11 +1161,11 @@ function InventoryDisplay({ entity }) {
 
 ### `useActions`
 
-Returns actions bound to the world that is in context. Use actions created by `defineActions`.
+Returns actions bound to the world that is in context. Use actions created by `createActions`.
 
 ```js
 // Create actions
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer).
     destroyAllPlayers: () => {
         world.query(IsPlayer).forEach((player) => {

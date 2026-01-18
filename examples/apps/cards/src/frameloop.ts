@@ -11,45 +11,45 @@ import { Pointer, Viewport } from './traits';
 import { useAnimationFrame } from './utils/use-animation-frame';
 
 export function Frameloop() {
-	const world = useWorld();
+    const world = useWorld();
 
-	// Run our frameloop!
-	useAnimationFrame(() => {
-		updateTime(world);
-		updateDragging(world);
-		dampVelocity(world);
-		updateTransform(world);
-		updateCardOrder(world);
-		updateHandLayout(world);
-		syncToDOM(world);
-	});
+    // Run our frameloop!
+    useAnimationFrame(() => {
+        updateTime(world);
+        updateDragging(world);
+        dampVelocity(world);
+        updateTransform(world);
+        updateCardOrder(world);
+        updateHandLayout(world);
+        syncToDOM(world);
+    });
 
-	// Sync viewport size to the world
-	useEffect(() => {
-		const updateViewport = () => {
-			world.set(Viewport, { width: window.innerWidth, height: window.innerHeight });
-		};
+    // Sync viewport size to the world
+    useEffect(() => {
+        const updateViewport = () => {
+            world.set(Viewport, { width: window.innerWidth, height: window.innerHeight });
+        };
 
-		updateViewport();
-		window.addEventListener('resize', updateViewport);
+        updateViewport();
+        window.addEventListener('resize', updateViewport);
 
-		return () => {
-			window.removeEventListener('resize', updateViewport);
-		};
-	}, [world]);
+        return () => {
+            window.removeEventListener('resize', updateViewport);
+        };
+    }, [world]);
 
-	// Sync pointer input to the world
-	useEffect(() => {
-		const handlePointerMove = (e: PointerEvent) => {
-			world.set(Pointer, { x: e.clientX, y: e.clientY });
-		};
+    // Sync pointer input to the world
+    useEffect(() => {
+        const handlePointerMove = (e: PointerEvent) => {
+            world.set(Pointer, { x: e.clientX, y: e.clientY });
+        };
 
-		window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointermove', handlePointerMove);
 
-		return () => {
-			window.removeEventListener('pointermove', handlePointerMove);
-		};
-	}, [world]);
+        return () => {
+            window.removeEventListener('pointermove', handlePointerMove);
+        };
+    }, [world]);
 
-	return null;
+    return null;
 }

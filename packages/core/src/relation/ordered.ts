@@ -29,30 +29,30 @@ import type { OrderedRelation, Relation } from './types';
  * ```
  */
 export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation<T> {
-	const orderedTrait = trait(() => [] as Entity[]);
+    const orderedTrait = trait(() => [] as Entity[]);
 
-	Object.defineProperty(orderedTrait, $orderedTargetsTrait, {
-		value: { relation },
-		writable: false,
-		enumerable: false,
-		configurable: false,
-	});
+    Object.defineProperty(orderedTrait, $orderedTargetsTrait, {
+        value: { relation },
+        writable: false,
+        enumerable: false,
+        configurable: false,
+    });
 
-	return orderedTrait as unknown as OrderedRelation<T>;
+    return orderedTrait as unknown as OrderedRelation<T>;
 }
 
 /**
  * Check if a trait is an ordered trait.
  */
 export /* @inline @pure */ function isOrderedTrait(trait: Trait): trait is OrderedRelation {
-	return $orderedTargetsTrait in trait;
+    return $orderedTargetsTrait in trait;
 }
 
 /**
  * Get the relation linked to an ordered trait.
  */
 export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedRelation): Relation {
-	return trait[$orderedTargetsTrait].relation;
+    return trait[$orderedTargetsTrait].relation;
 }
 
 /**
@@ -60,41 +60,41 @@ export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedRelati
  * Called during trait registration to wire up bidirectional sync.
  */
 export function setupOrderedTraitSync(world: World, orderedTrait: OrderedRelation): void {
-	const ctx = world[$internal];
-	const relation = getOrderedTraitRelation(orderedTrait);
-	const relationTrait = relation[$internal].trait;
+    const ctx = world[$internal];
+    const relation = getOrderedTraitRelation(orderedTrait);
+    const relationTrait = relation[$internal].trait;
 
-	const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
-	if (!orderedInstance) return;
+    const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
+    if (!orderedInstance) return;
 
-	let relationInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-	if (!relationInstance) {
-		registerTrait(world, relationTrait);
-		relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
-	}
+    let relationInstance = getTraitInstance(ctx.traitInstances, relationTrait);
+    if (!relationInstance) {
+        registerTrait(world, relationTrait);
+        relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
+    }
 
-	const { generationId, bitflag, store } = orderedInstance;
-	const { entityMasks, entityIndex } = ctx;
-	const traitCtx = orderedTrait[$internal];
+    const { generationId, bitflag, store } = orderedInstance;
+    const { entityMasks, entityIndex } = ctx;
+    const traitCtx = orderedTrait[$internal];
 
-	const getList = (parent: Entity): OrderedList | undefined => {
-		const eid = getEntityId(parent);
-		return entityMasks[generationId]?.[eid] & bitflag
-			? (traitCtx.get(eid, store) as OrderedList)
-			: undefined;
-	};
+    const getList = (parent: Entity): OrderedList | undefined => {
+        const eid = getEntityId(parent);
+        return entityMasks[generationId]?.[eid] & bitflag
+            ? (traitCtx.get(eid, store) as OrderedList)
+            : undefined;
+    };
 
-	type RelationSub = (entity: Entity, target: Entity) => void;
+    type RelationSub = (entity: Entity, target: Entity) => void;
 
-	(relationInstance.addSubscriptions as Set<RelationSub>).add((child, parent) => {
-		getList(parent)?._appendWithoutSync(child);
-	});
+    (relationInstance.addSubscriptions as Set<RelationSub>).add((child, parent) => {
+        getList(parent)?._appendWithoutSync(child);
+    });
 
-	(relationInstance.removeSubscriptions as Set<RelationSub>).add((child, parent) => {
-		const eid = getEntityId(parent);
-		const denseIdx = entityIndex.sparse[eid];
-		if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
-			getList(parent)?._removeWithoutSync(child);
-		}
-	});
+    (relationInstance.removeSubscriptions as Set<RelationSub>).add((child, parent) => {
+        const eid = getEntityId(parent);
+        const denseIdx = entityIndex.sparse[eid];
+        if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
+            getList(parent)?._removeWithoutSync(child);
+        }
+    });
 }

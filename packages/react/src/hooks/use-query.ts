@@ -1,57 +1,69 @@
 import { $internal, createQuery, type QueryParameter, type QueryResult } from '@koota/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useWorld } from '../world/use-world';
 
 export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryResult<T> {
-	const world = useWorld();
-	const initialQueryVersionRef = useRef(0);
-	// Used to track if we need to rerun effects internally.
-	const [version, setVersion] = useState(0);
+    const world = useWorld();
+    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
-	// This will rerun every render since parameters will always be a fresh
-	// array, but the return value will be stable.
-	const queryRef = useMemo(() => createQuery(...parameters), [parameters]);
-	// Registers the query with the world.
-	const [entities, setEntities] = useState<QueryResult<T>>(() => world.query(queryRef).sort());
+    const queryRef = useMemo(() => createQuery(...parameters), parameters);
+    const cacheRef = useRef<{ hash: string; version: number; result: QueryResult<T> } | null>(null);
 
-	initialQueryVersionRef.current = useMemo(() => {
-		// Using internals to get the query data.
-		const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
-		return query.version;
-	}, [world, queryRef]);
+    // Compute result: uses cache if valid, otherwise recomputes
+    const getResult = (): QueryResult<T> => {
+        const query = world[$internal].queriesHashMap.get(queryRef.hash);
 
-	// Subscribe to changes.
-	useEffect(() => {
-		const unsubAdd = world.onQueryAdd(queryRef, () => {
-			setEntities(world.query(queryRef).sort());
-		});
+        if (
+            query &&
+            cacheRef.current?.hash === queryRef.hash &&
+            cacheRef.current.version === query.version
+        ) {
+            return cacheRef.current.result;
+        }
 
-		const unsubRemove = world.onQueryRemove(queryRef, () => {
-			setEntities(world.query(queryRef).sort());
-		});
+        const result = world.query(queryRef).sort();
+        const registeredQuery = world[$internal].queriesHashMap.get(queryRef.hash)!;
+        cacheRef.current = { hash: queryRef.hash, version: registeredQuery.version, result };
 
-		// Compare the initial version to the current version to
-		// see it the query has changed.
-		const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
-		if (query.version !== initialQueryVersionRef.current) {
-			setEntities(world.query(queryRef).sort());
-		}
+        return result;
+    };
 
-		return () => {
-			unsubAdd();
-			unsubRemove();
-		};
-	}, [world, queryRef, version]);
+    const result = getResult();
 
-	// Force reattaching event listeners when the world is reset.
-	useEffect(() => {
-		const handler = () => setVersion((v) => v + 1);
-		world[$internal].resetSubscriptions.add(handler);
+    useEffect(() => {
+        const update = () => forceUpdate();
 
-		return () => {
-			world[$internal].resetSubscriptions.delete(handler);
-		};
-	}, [world]);
+        let unsubAdd = () => {};
+        let unsubRemove = () => {};
 
-	return entities;
+        const subscribe = () => {
+            unsubAdd = world.onQueryAdd(queryRef, update);
+            unsubRemove = world.onQueryRemove(queryRef, update);
+
+            // Check if query changed between render and effect
+            const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
+            if (cacheRef.current && query.version !== cacheRef.current.version) {
+                update();
+            }
+        };
+
+        const handleReset = () => {
+            cacheRef.current = null;
+            unsubAdd();
+            unsubRemove();
+            subscribe();
+            update();
+        };
+
+        subscribe();
+        world[$internal].resetSubscriptions.add(handleReset);
+
+        return () => {
+            world[$internal].resetSubscriptions.delete(handleReset);
+            unsubAdd();
+            unsubRemove();
+        };
+    }, [world, queryRef]);
+
+    return result;
 }

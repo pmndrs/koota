@@ -8,8 +8,8 @@ import { world } from './world';
 
 // Start the simulation.
 const main = () => {
-	measure(() => schedule.run({ world }));
-	requestAnimationFrame(main);
+    measure(() => schedule.run({ world }));
+    requestAnimationFrame(main);
 };
 
 // Initialize all entities.

@@ -1,11 +1,11 @@
 {
-	"$schema": "https://json.schemastore.org/tsconfig",
-	"extends": "./base.json",
-	"compilerOptions": {
-		"lib": ["ESNext"],
-		"composite": true,
-		"allowSyntheticDefaultImports": true,
-		"rewriteRelativeImportExtensions": true,
-		"erasableSyntaxOnly": true
-	}
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "composite": true,
+    "allowSyntheticDefaultImports": true,
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true
+  }
 }

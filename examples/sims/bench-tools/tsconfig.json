@@ -1,7 +1,7 @@
 {
-	"extends": "@config/typescript/node.json",
-	"compilerOptions": {
-		"lib": ["DOM", "WebWorker", "ESNext"]
-	},
-	"include": ["src"]
+  "extends": "@config/typescript/node.json",
+  "compilerOptions": {
+    "lib": ["DOM", "WebWorker", "ESNext"]
+  },
+  "include": ["src"]
 }

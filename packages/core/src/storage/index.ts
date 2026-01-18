@@ -1,9 +1,9 @@
 export { createStore } from './stores';
 export {
-	createSetFunction,
-	createFastSetFunction,
-	createFastSetChangeFunction,
-	createGetFunction,
+    createSetFunction,
+    createFastSetFunction,
+    createFastSetChangeFunction,
+    createGetFunction,
 } from './accessors';
 
 export { validateSchema, getSchemaDefaults } from './schema';

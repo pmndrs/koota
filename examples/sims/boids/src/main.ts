@@ -6,16 +6,16 @@ import { world } from './world';
 
 // Start the simulation.
 const main = async () => {
-	const { initialCount } = CONFIG;
-	const { spawnBoid } = actions(world);
+    const { initialCount } = CONFIG;
+    const { spawnBoid } = actions(world);
 
-	// Spawn the initial boids.
-	for (let i = 0; i < initialCount; i++) {
-		spawnBoid();
-	}
+    // Spawn the initial boids.
+    for (let i = 0; i < initialCount; i++) {
+        spawnBoid();
+    }
 
-	await measure(() => schedule.run({ world }));
-	requestAnimationFrame(main);
+    await measure(() => schedule.run({ world }));
+    requestAnimationFrame(main);
 };
 
 requestAnimationFrame(main);

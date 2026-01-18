@@ -7,4 +7,3 @@ export const schedule = new Schedule<{ world: typeof world }>();
 schedule.add(traverse);
 
 schedule.build();
-

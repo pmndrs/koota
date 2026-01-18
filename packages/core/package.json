@@ -1,19 +1,19 @@
 {
-	"name": "@koota/core",
-	"version": "0.0.1",
-	"description": "Core vanilla library for Koota",
-	"private": true,
-	"license": "ISC",
-	"type": "module",
-	"main": "./src/index.ts",
-	"types": "./src/index.ts",
-	"scripts": {
-		"test": "vitest",
-		"lint": "oxlint"
-	},
-	"devDependencies": {
-		"@config/oxlint": "workspace:*",
-		"@config/typescript": "workspace:*",
-		"vitest": "catalog:"
-	}
+  "name": "@koota/core",
+  "version": "0.0.1",
+  "description": "Core vanilla library for Koota",
+  "private": true,
+  "license": "ISC",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "vitest",
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*",
+    "vitest": "catalog:"
+  }
 }

@@ -1,34 +1,34 @@
 name: PR Checks
 
 on:
-    pull_request:
-        branches: [main]
-    push:
-        branches: [main]
-    workflow_dispatch:
-        inputs:
-            test:
-                description: 'Run tests'
-                required: true
-                default: 'false'
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Run tests'
+        required: true
+        default: 'false'
 
 jobs:
-    test:
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v4
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: '24'
-                  cache: 'pnpm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-            - name: Run tests
-              run: pnpm test
+      - name: Run tests
+        run: pnpm test
