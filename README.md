@@ -189,10 +189,10 @@ const data = inventory.get(Contains(gold)) // { amount: 20 }
 
 Relations can automatically destroy related entities when their counterpart is destroyed using the `autoDestroy` option.
 
-**Destroy orphans.** When a target is destroyed, destroy all sources pointing to it. This is commonly used for hierarchies when you want to clean up any detached graphs. It can be enabled with the `'orphan'` or `'target'` option.
+**Destroy orphans.** When a target is destroyed, destroy all sources pointing to it. This is commonly used for hierarchies when you want to clean up any detached graphs. It can be enabled with the `'orphan'` or `'source'` option.
 
 ```js
-const ChildOf = relation({ autoDestroy: 'orphan' }) // Or 'target'
+const ChildOf = relation({ autoDestroy: 'orphan' }) // Or 'source'
 
 const parent = world.spawn()
 const child = world.spawn(ChildOf(parent))
