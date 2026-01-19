@@ -1,6 +1,6 @@
 import type { World } from 'koota';
 import { Dragging, Pointer, Position, Time, Velocity } from '../traits';
-import { lerp } from '../utils/lerp';
+import { lerp } from '../../utils/lerp';
 
 const BASE_ALPHA_60 = 0.5;
 

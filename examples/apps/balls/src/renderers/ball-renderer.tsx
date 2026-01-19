@@ -1,7 +1,7 @@
 import { $internal, createQuery, type Entity, type QueryParameter, type QueryResult } from 'koota';
 import { useActions, useTrait, useWorld, useQuery } from 'koota/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { actions, traits } from '@sim/balls';
+import { actions, traits } from '../sim';
 
 const { Ball, Dragging, Position, Ref, WobblesOnHover } = traits
 

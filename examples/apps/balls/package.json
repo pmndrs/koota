@@ -10,7 +10,6 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@sim/balls": "workspace:*",
 		"koota": "workspace:*",
 		"react": "catalog:",
 		"react-dom": "catalog:"

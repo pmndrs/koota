@@ -112,9 +112,6 @@ importers:
 
   examples/apps/balls:
     dependencies:
-      '@sim/balls':
-        specifier: workspace:*
-        version: link:../../sims/balls
       koota:
         specifier: workspace:*
         version: link:../../../packages/publish
@@ -334,22 +331,6 @@ importers:
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../../.config/typescript
-
-  examples/sims/balls:
-    dependencies:
-      '@sim/bench-tools':
-        specifier: workspace:*
-        version: link:../bench-tools
       koota:
         specifier: workspace:*
         version: link:../../../packages/publish
