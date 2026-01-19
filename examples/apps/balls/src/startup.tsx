@@ -1,6 +1,6 @@
 import { useActions } from 'koota/react';
 import { useEffect } from 'react';
-import { actions, traits } from '@sim/balls';
+import { actions, traits } from './sim';
 
 const { Ball, Position, ScaleSpring, WobblesOnHover, WobblesOnIdle } = traits
 

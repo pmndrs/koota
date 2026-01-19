@@ -1,7 +1,7 @@
 import { useAnimationFrame } from './utils/use-animation-frame';
 import { useWorld } from 'koota/react';
 import { useEffect } from 'react';
-import { systems , traits } from '@sim/balls'
+import { systems , traits } from './sim'
 
 const {Pointer, Wall} = traits
 
