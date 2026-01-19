@@ -1,7 +1,7 @@
 import './app.css';
-import { FrameLoop } from './frameloop';
-import { Renderers } from './renderers';
-import { Startup } from './startup';
+import { FrameLoop } from './view/frameloop';
+import { Renderers } from './view/renderers';
+import { Startup } from './view/startup';
 
 export function App() {
 	return (
