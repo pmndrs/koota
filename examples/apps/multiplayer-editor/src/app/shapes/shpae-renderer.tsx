@@ -1,13 +1,19 @@
-import { useActions, useHas, useTrait } from 'koota/react';
+import { useActions, useHas, useQuery, useTrait } from 'koota/react';
+import { Dragging, IsSelected, Position, Ref, Shape, StableId } from '../../core/traits';
 import { type Entity } from 'koota';
-import { useCallback, useRef } from 'react';
+import { useRef, useCallback } from 'react';
 import { actions } from '../../core/actions';
 import { historyActions } from '../../core/ops/history-actions';
 import { OpCode, SEQ_UNASSIGNED } from '../../core/ops/types';
-import { Dragging, IsSelected, Position, Ref, Shape, StableId } from '../../core/traits';
 
 interface ShapeViewProps {
     entity: Entity;
+}
+
+export function ShapeRenderer() {
+    const shapes = useQuery(Shape);
+
+    return shapes.map((entity) => <ShapeView key={entity.id()} entity={entity} />);
 }
 
 export function ShapeView({ entity }: ShapeViewProps) {

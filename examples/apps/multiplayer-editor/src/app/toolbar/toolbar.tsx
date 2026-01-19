@@ -1,6 +1,6 @@
 import { useActions, useQuery, useTrait, useWorld } from 'koota/react';
 import type { Entity } from 'koota';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef } from 'react';
 import { actions } from '../../core/actions';
 import { historyActions } from '../../core/ops/history-actions';
 import { OpCode, SEQ_UNASSIGNED } from '../../core/ops/types';
@@ -21,9 +21,7 @@ export function Toolbar() {
     const canUndoValue = history ? history.undoStack.length > 0 : false;
     const canRedoValue = history ? history.redoStack.length > 0 : false;
 
-    const [showColorPicker, setShowColorPicker] = useState(false);
     const initialColor = useRef<string | null>(null);
-    const colorButtonRef = useRef<HTMLButtonElement | null>(null);
 
     const hasSelection = selected.length > 0;
 
@@ -39,24 +37,18 @@ export function Toolbar() {
         addShape('ellipse', window.innerWidth / 2, window.innerHeight / 2);
     }, [addShape]);
 
-    const handleOpenColorPicker = useCallback(() => {
-        if (selectedEntity) {
-            const entityColor = selectedEntity.get(Color);
-            const fill = entityColor?.fill ?? displayColor;
-            initialColor.current = fill;
-        }
-        setShowColorPicker(true);
-    }, [selectedEntity, displayColor]);
-
     const handlePreviewColor = useCallback(
         (hex: string) => {
+            if (initialColor.current === null) {
+                initialColor.current = displayColor;
+            }
             for (const entity of selected) {
                 if (entity.has(Color)) {
                     entity.set(Color, { fill: hex });
                 }
             }
         },
-        [selected]
+        [selected, displayColor]
     );
 
     const handleCommitColor = useCallback(
@@ -77,7 +69,6 @@ export function Toolbar() {
                 commit();
             }
             initialColor.current = null;
-            setShowColorPicker(false);
         },
         [selected, push, commit]
     );
@@ -91,7 +82,6 @@ export function Toolbar() {
             }
         }
         initialColor.current = null;
-        setShowColorPicker(false);
     }, [selected]);
 
     return (
@@ -102,12 +92,9 @@ export function Toolbar() {
                 <>
                     <ColorPicker
                         displayColor={displayColor}
-                        onOpenPicker={handleOpenColorPicker}
-                        showPicker={showColorPicker}
                         onPreview={handlePreviewColor}
                         onCommit={handleCommitColor}
                         onCancel={handleCancelColor}
-                        colorButtonRef={colorButtonRef}
                     />
 
                     <Transforms selected={selected as readonly Entity[]} />

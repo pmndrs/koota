@@ -70,14 +70,13 @@ function ColorPickerPopover({
         if (!isOpen) return;
         const handleOutside = (event: PointerEvent) => {
             const target = event.target as Node | null;
-            console.log('target', target);
             if (!target) return;
             if (popoverRef.current?.contains(target)) return;
             if (anchorRef.current?.contains(target)) return;
             onCommit(colorRef.current.hex);
         };
-        document.addEventListener('pointerdown', handleOutside);
-        return () => document.removeEventListener('pointerdown', handleOutside);
+        document.addEventListener('pointerdown', handleOutside, { capture: true });
+        return () => document.removeEventListener('pointerdown', handleOutside, { capture: true });
     }, [isOpen, onCommit, anchorRef]);
 
     useEffect(() => {
@@ -136,28 +135,42 @@ function ColorPickerPopover({
 
 export function ColorPicker({
     displayColor,
-    onOpenPicker,
-    showPicker,
     onPreview,
     onCommit,
     onCancel,
-    colorButtonRef,
 }: {
     displayColor: string;
-    onOpenPicker: () => void;
-    showPicker: boolean;
     onPreview: (hex: string) => void;
     onCommit: (hex: string) => void;
     onCancel: () => void;
-    colorButtonRef: RefObject<HTMLButtonElement | null>;
 }) {
-    const [draftColor, setDraftColor] = useState(displayColor);
+    const [isOpen, setIsOpen] = useState(false);
+    const [initialColor, setInitialColor] = useState(displayColor);
+    const colorButtonRef = useRef<HTMLButtonElement | null>(null);
 
-    useEffect(() => {
-        if (showPicker) {
-            setDraftColor(displayColor);
+    const handleToggle = useCallback(() => {
+        if (isOpen) {
+            // Clicking button while open commits current color
+            onCommit(displayColor);
+            setIsOpen(false);
+        } else {
+            setInitialColor(displayColor);
+            setIsOpen(true);
         }
-    }, [showPicker, displayColor]);
+    }, [isOpen, displayColor, onCommit]);
+
+    const handleCommit = useCallback(
+        (hex: string) => {
+            setIsOpen(false);
+            onCommit(hex);
+        },
+        [onCommit]
+    );
+
+    const handleCancel = useCallback(() => {
+        setIsOpen(false);
+        onCancel();
+    }, [onCancel]);
 
     return (
         <>
@@ -166,20 +179,20 @@ export function ColorPicker({
                 <button
                     ref={colorButtonRef}
                     className="color-swatch"
-                    onClick={onOpenPicker}
+                    onClick={handleToggle}
                     style={{ backgroundColor: displayColor }}
                     aria-label="Open color picker"
                 />
             </Section>
 
-            {showPicker && (
+            {isOpen && (
                 <ColorPickerPopover
                     isOpen
                     anchorRef={colorButtonRef}
-                    initialColor={draftColor}
+                    initialColor={initialColor}
                     onPreview={onPreview}
-                    onCommit={onCommit}
-                    onCancel={onCancel}
+                    onCommit={handleCommit}
+                    onCancel={handleCancel}
                 />
             )}
         </>
