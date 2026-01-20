@@ -18,7 +18,7 @@ Koota manages state using entities with composable traits.
 
 ### Data-oriented design
 
-Behavior is separated from data. Data is defined as traits, entities compose traits, and behavior operates on data via queries.
+Behavior is separated from data. Data is defined as traits, entities compose traits, and behavior operates on data via queries as functions called systems.
 
 ```typescript
 // Data defined as traits
@@ -28,7 +28,7 @@ const Velocity = trait({ x: 0, y: 0 })
 // Entities compose data
 const entity = world.spawn(Position, Velocity)
 
-// Behavior operates on data
+// Systems batch update data
 world.query(Position, Velocity).updateEach(([pos, vel]) => {
   pos.x += vel.x
   pos.y += vel.y
