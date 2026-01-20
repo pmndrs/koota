@@ -1,5 +1,5 @@
 import type { Entity } from 'koota';
-import { useHas, useQuery, useQueryFirst, useTrait } from 'koota/react';
+import { useHas, useQueryFirst, useTrait } from 'koota/react';
 import { useCallback } from 'react';
 import { Frameloop } from './frameloop';
 import { Startup } from './startup';
@@ -22,6 +22,7 @@ function HandRenderer() {
     // We only want to render a single hand, so we query the first
     const hand = useQueryFirst(Hand, OrderedCards);
     // Get the ordered cards, with is a special ordered list view of the HeldBy relation
+    // Note: This hook rerenders when the order of the cards changes and the actual indices of the cards change.
     const cards = useTrait(hand, OrderedCards);
 
     if (!cards) return null;
@@ -83,8 +84,13 @@ function CardView({ entity }: { entity: Entity }) {
         entity.remove(Dragging);
     }, [entity]);
 
-    const handleLostPointerCapture = useCallback(() => {
-        entity.remove(Dragging);
+    /**
+     * We only remove dragging when the mouse buttons are released.
+     * When React reorders, the captured element can be unmounted/remounted, and the browser fires
+     * a lostpointercapture event because the element holding capture disappears.
+     */
+    const handleLostPointerCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+        if (event.buttons === 0) entity.remove(Dragging);
     }, [entity]);
 
     if (!card) return null;
