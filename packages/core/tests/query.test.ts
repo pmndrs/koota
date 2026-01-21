@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { $internal, createQuery, createWorld, IsExcluded, Not, Or, trait } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
-const Name = trait({ name: 'name' });
+const Name = trait({ value: 'name' });
 const IsActive = trait();
 const Foo = trait();
 const Bar = trait();
@@ -260,16 +260,35 @@ describe('Query', () => {
         expect(cb).toHaveBeenCalledTimes(9);
     });
 
+    it('should read trait data with readEach without modifying stores', () => {
+        for (let i = 0; i < 5; i++) {
+            world.spawn(Position({ x: i, y: i * 2 }), Name({ value: `Entity${i}` }));
+        }
+
+        const results: any[] = [];
+        world.query(Position, Name).readEach(([position, name], entity, index) => {
+            results.push({
+                x: position.x,
+                name: name.value,
+                index,
+            });
+        });
+
+        expect(results).toHaveLength(5);
+        expect(results[0]).toEqual({ x: 0, name: 'Entity0', index: 0 });
+        expect(results[2]).toEqual({ x: 2, name: 'Entity2', index: 2 });
+    });
+
     it('updateEach should return values in caller parameter order regardless of cache', () => {
         // Create entity with both traits
-        world.spawn(Position({ x: 10, y: 20 }), Name({ name: 'test' }));
+        world.spawn(Position({ x: 10, y: 20 }), Name({ value: 'test' }));
 
         // First query with order: Position, Name
         world.query(Position, Name).updateEach(([position, name]) => {
             expect(position).toHaveProperty('x');
             expect(position).toHaveProperty('y');
             expect(name).toHaveProperty('name');
-            expect(name.name).toBe('test');
+            expect(name.value).toBe('test');
         });
 
         // Second query with REVERSED order: Name, Position
@@ -307,19 +326,19 @@ describe('Query', () => {
         // Default should be the same as the query.
         results.updateEach(([position, name]) => {
             expect(position.x).toBeDefined();
-            expect(name.name).toBeDefined();
+            expect(name.value).toBeDefined();
         });
 
         // Select only Name.
         results.select(Name).updateEach(([name]) => {
-            expect(name.name).toBeDefined();
+            expect(name.value).toBeDefined();
         });
 
         // Running query again should reset the selection.
         results = world.query(Position, Name);
         results.updateEach(([position, name]) => {
             expect(position.x).toBeDefined();
-            expect(name.name).toBeDefined();
+            expect(name.value).toBeDefined();
         });
     });
 
@@ -375,7 +394,7 @@ describe('Query', () => {
         // This does not have changes tracked automatically.
         world.spawn(Name);
         world.query(Name).updateEach(([name]) => {
-            name.name = 'name';
+            name.value = 'name';
         });
 
         expect(cb).toHaveBeenCalledTimes(1);
