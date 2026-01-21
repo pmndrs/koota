@@ -1,5 +1,5 @@
 ---
-name: koota
+name: koota-ts
 description: Real-time ECS state management for TypeScript and React. Use when the user mentions koota, ECS, entities, traits, queries, or building data-oriented applications.
 ---
 
@@ -11,14 +11,15 @@ Koota manages state using entities with composable traits.
 
 - **Entity** - A unique identifier pointing to data defined by traits. Spawned from a world.
 - **Trait** - A reusable data definition. Can be schema-based (SoA), callback-based (AoS), or a tag.
+- **Relation** - A directional connection between entities to build graphs.
 - **World** - The context for all entities and their data (traits).
 - **Query** - Query a world for data (specific traits) and get back entities.
 
 ## Design Principles
 
-### Data-oriented design
+### Data-oriented
 
-Behavior is separated from data. Data is defined as traits, entities compose traits, and behavior operates on data via queries as functions called systems.
+Behavior is separated from data. Data is defined as traits, entities compose traits, and systems mutate data on traits via queries.
 
 ```typescript
 // Data defined as traits
@@ -45,30 +46,28 @@ Separate core state and logic (the "core") from the view ("app"):
 
 ### Prefer traits + actions over classes
 
-Don't use classes to encapsulate data and behavior. Use traits for data and actions for behavior. Only use classes when required by external libraries (e.g., THREE.js objects).
+Prefer not to use classes to encapsulate data and behavior. Use traits for data and actions for behavior. Only use classes when required by external libraries (e.g., THREE.js objects) or the user prefers it.
 
 ## Directory structure
 
+If the user has a preferred structure, follow it. Otherwise, use this guidance: the directory structure should mirror how the app's data model is organized. Separate core state/logic from the view layer:
+
+- **Core** - Pure TypeScript. Traits, systems, actions, world. No view imports.
+- **View** - Reads from world, mutates via actions. Organized by domain/feature.
+
 ```
 src/
-├── main.tsx           # Entry point, wraps App in WorldProvider
-├── core/              # Core ECS layer (no React)
-│   ├── world.ts       # createWorld() export
-│   ├── traits/        # Trait definitions
-│   ├── systems/       # Functions that query and update entities
-│   └── actions.ts     # Actions for spawning/modifying entities
-└── app/               # React view layer
-    ├── app.tsx        # Root component
-    ├── startup.ts     # Spawns initial entities
-    └── frameloop.ts   # Runs systems in requestAnimationFrame
+├── core/              # Pure TypeScript, no view imports
+│   ├── traits/
+│   ├── systems/
+│   ├── actions/
+│   └── world.ts
+└── features/          # View layer, organized by domain
 ```
 
-**Key principles:**
+Files are organized by role, not by feature slice. Traits and systems are composable and don't map cleanly to features.
 
-- `core/` has no React import, it is pure TypeScript
-- `app/` React apps that reads from world, mutates with actions
-- Systems run in frameloop, not in React renders
-- Startup component spawns initial entities
+For detailed patterns and monorepo structures, see [reference/architecture.md](reference/architecture.md).
 
 ## Trait types
 
