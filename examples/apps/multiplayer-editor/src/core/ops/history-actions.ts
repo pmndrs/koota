@@ -1,5 +1,5 @@
 import { createActions } from 'koota';
-import type { Op } from './types';
+import { type Op } from './types';
 import { History } from '../traits';
 import { applyOp } from './apply';
 import { invertOp } from './invert';
@@ -36,9 +36,11 @@ export const historyActions = createActions((world) => ({
         const batch = history.undoStack.pop();
         if (!batch) return;
 
-        // Apply inverted ops in reverse order
+        // Create inverted ops with new sequence numbers
+        const invertedBatch: Op[] = [];
         for (let i = batch.length - 1; i >= 0; i--) {
-            const invertedOp = invertOp(batch[i]);
+            const invertedOp = { ...invertOp(batch[i]), seq: history.nextSeq++ };
+            invertedBatch.push(invertedOp);
             applyOp(world, invertedOp);
         }
 
@@ -46,6 +48,9 @@ export const historyActions = createActions((world) => ({
 
         // Signal change to trigger reactive updates
         world.set(History, history);
+
+        // Sync undo to server
+        emitCommit(invertedBatch);
     },
 
     redo: () => {
@@ -53,14 +58,21 @@ export const historyActions = createActions((world) => ({
         const batch = history.redoStack.pop();
         if (!batch) return;
 
+        // Create new ops with new sequence numbers for redo
+        const redoBatch: Op[] = [];
         for (const op of batch) {
-            applyOp(world, op);
+            const redoOp = { ...op, seq: history.nextSeq++ };
+            redoBatch.push(redoOp);
+            applyOp(world, redoOp);
         }
 
         history.undoStack.push(batch);
 
         // Signal change to trigger reactive updates
         world.set(History, history);
+
+        // Sync redo to server
+        emitCommit(redoBatch);
     },
 
     canUndo: () => {

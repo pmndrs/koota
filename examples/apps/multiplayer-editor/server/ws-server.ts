@@ -77,6 +77,7 @@ function handleClientOps(socket: WebSocket, message: ClientOpsMessage) {
             ops: state.journal.map((op) => ({ op })),
             reason: 'Client behind checkpoint',
         });
+        return;
     }
 
     for (const clientOp of message.ops) {
