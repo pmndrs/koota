@@ -3,6 +3,7 @@ import type { Op } from './types';
 import { History } from '../traits';
 import { applyOp } from './apply';
 import { invertOp } from './invert';
+import { emitCommit } from '../multiplayer/commit-sink';
 
 export const historyActions = createActions((world) => ({
     push: (op: Op) => {
@@ -26,6 +27,8 @@ export const historyActions = createActions((world) => ({
 
         // Signal change to trigger reactive updates
         world.set(History, history);
+
+        emitCommit(batch);
     },
 
     undo: () => {

@@ -15,7 +15,7 @@ export const actions = createActions((world) => {
             const scaleY = 1;
 
             // Assign stable ID
-            const id = history.nextId++;
+            const id = history.idBase + history.nextId++;
 
             const entity = world.spawn(
                 StableId({ id }),

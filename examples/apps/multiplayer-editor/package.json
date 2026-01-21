@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "tsx server/ws-server.ts",
     "build": "tsc && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
@@ -14,7 +15,8 @@
     "react": "catalog:",
     "react-color-palette": "^7.3.1",
     "react-colorful": "^5.6.1",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@config/oxlint": "workspace:*",
@@ -22,6 +24,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^5.1.1",
+    "tsx": "^4.21.0",
     "vite": "catalog:"
   }
 }

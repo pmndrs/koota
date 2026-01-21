@@ -11,6 +11,7 @@ export const History = trait(() => ({
     pending: [] as Op[],
     nextSeq: 1, // Sequence number counter
     nextId: 1, // Stable entity ID counter
+    idBase: 0, // Assigned by server for uniqueness
     entities: new Map<number, Entity>(), // Map from stable ID to current Entity handle
 }));
 

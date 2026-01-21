@@ -1,0 +1,134 @@
+import { WebSocketServer, type WebSocket } from 'ws';
+import type {
+    ClientMessage,
+    ClientOpsMessage,
+    ServerMessage,
+    ServerOp,
+} from '../src/core/multiplayer/protocol';
+import { createServerState, applyOpToState, recordCheckpoint } from './state';
+import { appendToJournal } from './journal';
+import { SEQ_UNASSIGNED } from '../src/core/ops/types';
+
+type ClientInfo = {
+    id: string;
+    idBase: number;
+};
+
+const PORT = Number(process.env.MP_PORT ?? 8787);
+const CHECKPOINT_INTERVAL_MS = 30_000;
+const ID_BLOCK_SIZE = 1_000_000;
+
+const state = createServerState();
+const wss = new WebSocketServer({ port: PORT });
+const clients = new Map<WebSocket, ClientInfo>();
+
+let nextClientIndex = 1;
+
+setInterval(() => {
+    recordCheckpoint(state);
+}, CHECKPOINT_INTERVAL_MS);
+
+wss.on('connection', (socket) => {
+    const clientIndex = nextClientIndex++;
+    const clientId = `client-${clientIndex}`;
+    const idBase = clientIndex * ID_BLOCK_SIZE;
+
+    clients.set(socket, { id: clientId, idBase });
+
+    socket.on('message', (data) => {
+        const message = parseMessage(data.toString());
+        if (!message) return;
+        handleMessage(socket, message);
+    });
+
+    socket.on('close', () => {
+        clients.delete(socket);
+    });
+
+    send(socket, {
+        type: 'welcome',
+        clientId,
+        idBase,
+        checkpoint: state.checkpoint,
+        ops: state.journal.map((op) => ({ op })),
+    });
+});
+
+function handleMessage(socket: WebSocket, message: ClientMessage) {
+    switch (message.type) {
+        case 'hello': {
+            return;
+        }
+
+        case 'client-ops': {
+            handleClientOps(socket, message);
+            return;
+        }
+    }
+}
+
+function handleClientOps(socket: WebSocket, message: ClientOpsMessage) {
+    const accepted: ServerOp[] = [];
+
+    if (message.baseSeq < state.checkpoint.seq) {
+        send(socket, {
+            type: 'correction',
+            checkpoint: state.checkpoint,
+            ops: state.journal.map((op) => ({ op })),
+            reason: 'Client behind checkpoint',
+        });
+    }
+
+    for (const clientOp of message.ops) {
+        const op = { ...clientOp.op, seq: SEQ_UNASSIGNED };
+        const assignedSeq = state.seq + 1;
+        const opWithSeq = { ...op, seq: assignedSeq };
+        const error = applyOpToState(state, opWithSeq);
+
+        if (error) {
+            send(socket, {
+                type: 'reject',
+                clientOpId: clientOp.clientOpId,
+                reason: error,
+            });
+            continue;
+        }
+
+        state.seq = assignedSeq;
+        appendToJournal(state, opWithSeq);
+        accepted.push({
+            op: opWithSeq,
+            clientId: message.clientId,
+            clientOpId: clientOp.clientOpId,
+        });
+    }
+
+    if (accepted.length > 0) {
+        broadcast({ type: 'server-ops', ops: accepted });
+    }
+}
+
+function broadcast(message: ServerMessage) {
+    const payload = JSON.stringify(message);
+    for (const socket of clients.keys()) {
+        if (socket.readyState === socket.OPEN) {
+            socket.send(payload);
+        }
+    }
+}
+
+function send(socket: WebSocket, message: ServerMessage) {
+    if (socket.readyState !== socket.OPEN) return;
+    socket.send(JSON.stringify(message));
+}
+
+function parseMessage(raw: string): ClientMessage | null {
+    try {
+        return JSON.parse(raw) as ClientMessage;
+    } catch {
+        return null;
+    }
+}
+
+// eslint-disable-next-line no-console
+console.log(`Multiplayer server listening on ws://localhost:${PORT}`);
