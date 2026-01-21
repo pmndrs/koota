@@ -174,6 +174,12 @@ world.query(Position, Velocity).updateEach(([pos, vel]) => {
   pos.y += vel.y
 })
 
+// Read-only iteration (no write-back)
+const data: Array<{ x: number; y: number }> = []
+world.query(Position, Velocity).readEach(([pos, vel]) => {
+  data.push({ x: pos.x, y: pos.y })
+})
+
 // Get first match
 const player = world.queryFirst(IsPlayer, Position)
 
