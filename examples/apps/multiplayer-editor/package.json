@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mp": "concurrently -k -n server,app \"pnpm run dev:server\" \"pnpm run dev\"",
     "dev:server": "tsx server/ws-server.ts",
     "build": "tsc && vite build",
     "lint": "oxlint",
@@ -24,6 +25,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
     "tsx": "^4.21.0",
     "vite": "catalog:"
   }

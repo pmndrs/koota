@@ -3,29 +3,32 @@ import { Color, History, Position, Rotation, Scale, Shape, StableId, IsSelected 
 import type { Checkpoint } from './protocol';
 
 export function createCheckpoint(world: World, seq: number): Checkpoint {
-    const shapes = world
-        .query(StableId, Shape, Position, Rotation, Scale, Color)
-        .map(([id, shape, pos, rot, scale, color]) => ({
-            id: id.id,
-            type: shape.type,
-            x: pos.x,
-            y: pos.y,
-            rotation: rot.angle,
-            scaleX: scale.x,
-            scaleY: scale.y,
-            color: color.fill,
-        }))
-        .sort((a, b) => a.id - b.id);
+    const shapes: Checkpoint['shapes'] = [];
+    world.query(StableId, Shape, Position, Rotation, Scale, Color).readEach(
+        ([id, shape, pos, rot, scale, color]) => {
+            shapes.push({
+                id: id.id,
+                type: shape.type,
+                x: pos.x,
+                y: pos.y,
+                rotation: rot.angle,
+                scaleX: scale.x,
+                scaleY: scale.y,
+                color: color.fill,
+            });
+        }
+    );
 
-    return { seq, shapes };
+    return { seq, shapes: shapes.sort((a, b) => a.id - b.id) };
 }
 
 export function applyCheckpoint(world: World, checkpoint: Checkpoint) {
     const history = world.get(History)!;
 
-    const selectedIds = world
-        .query(IsSelected, StableId)
-        .map(([, id]) => id.id);
+    const selectedIds: number[] = [];
+    world.query(IsSelected, StableId).readEach(([id]) => {
+        selectedIds.push(id.id);
+    });
 
     for (const entity of history.entities.values()) {
         if (entity.isAlive()) {
