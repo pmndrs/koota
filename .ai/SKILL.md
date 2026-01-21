@@ -13,7 +13,8 @@ Koota manages state using entities with composable traits.
 - **Trait** - A reusable data definition. Can be schema-based (SoA), callback-based (AoS), or a tag.
 - **Relation** - A directional connection between entities to build graphs.
 - **World** - The context for all entities and their data (traits).
-- **Query** - Query a world for data (specific traits) and get back entities.
+- **Archetype** - A unique combination of traits that entities share.
+- **Query** - Fetches entities matching an archetype. The primary way to batch update state.
 
 ## Design Principles
 
@@ -115,65 +116,73 @@ For detailed patterns, traversal, ordered relations, and anti-patterns, see [ref
 
 ## Basic usage
 
-**Define traits:**
-
 ```typescript
 import { trait, createWorld } from 'koota'
 
+// 1. Define traits
 const Position = trait({ x: 0, y: 0 })
 const Velocity = trait({ x: 0, y: 0 })
 const IsPlayer = trait()
-```
 
-**Create world and spawn entities:**
-
-```typescript
+// 2. Create world and spawn entities
 const world = createWorld()
 const player = world.spawn(Position({ x: 100, y: 50 }), Velocity, IsPlayer)
-```
 
-**Query and update:**
-
-```typescript
+// 3. Query and update
 world.query(Position, Velocity).updateEach(([pos, vel]) => {
   pos.x += vel.x
   pos.y += vel.y
 })
 ```
 
-**Entity operations:**
+## Entities
+
+Entities are unique identifiers that compose traits. Spawned from a world.
 
 ```typescript
-const pos = entity.get(Position)
-entity.set(Position, { x: 10, y: 20 })
-entity.add(IsPlayer)
-entity.remove(Velocity)
+// Spawn
+const entity = world.spawn(Position, Velocity)
+
+// Read/write traits
+entity.get(Position)              // Read trait data
+entity.set(Position, { x: 10 })   // Write (triggers change events)
+entity.add(IsPlayer)              // Add trait
+entity.remove(Velocity)           // Remove trait
+entity.has(Position)              // Check if has trait
+
+// Destroy
 entity.destroy()
 ```
 
 **Entity IDs:**
 
-An entity is internally just a number packed with three components:
-
-- **Entity ID** - The unique identifier within the world
-- **Generation ID** - Increments when entity is recycled (detects stale references)
-- **World ID** - Which world the entity belongs to
-
-Entities can be stored directly as numbers for persistence or networking. The packed value stays unique even when entity IDs are recycled.
+An entity is internally a number packed with entity ID, generation ID (for recycling), and world ID. Safe to store directly for persistence or networking.
 
 ```typescript
 entity.id() // Just the entity ID (reused after destroy)
-entity // Full packed number (unique forever, safe to store)
+entity      // Full packed number (unique forever)
 ```
 
-**Filter queries:**
+## Queries
+
+Queries fetch entities matching an archetype and are the primary way to batch update state.
 
 ```typescript
-import { Not, Or } from 'koota'
+// Query and update
+world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  pos.x += vel.x
+  pos.y += vel.y
+})
 
-world.query(Position, Not(Velocity)) // static entities
-world.query(Or(IsPlayer, IsEnemy)) // players or enemies
+// Get first match
+const player = world.queryFirst(IsPlayer, Position)
+
+// Filter with modifiers
+world.query(Position, Not(Velocity)) // Has Position but not Velocity
+world.query(Or(IsPlayer, IsEnemy))   // Has either trait
 ```
+
+For tracking changes, caching queries, and advanced patterns, see [reference/queries.md](reference/queries.md).
 
 ## React integration
 
@@ -183,6 +192,7 @@ world.query(Or(IsPlayer, IsEnemy)) // players or enemies
 
 For complete React patterns, see [reference/react-patterns.md](reference/react-patterns.md):
 
+- Query hooks (`useQuery`, `useQueryFirst`, `useTrait`)
 - WorldProvider setup
 - Actions with `createActions`
 - Systems (always take `world: World`)

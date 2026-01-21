@@ -5,6 +5,7 @@ Complete guide to integrating Koota with React applications.
 ## Contents
 
 - [WorldProvider setup](#worldprovider-setup)
+- [Hooks](#query-hooks) - useQuery, useQueryFirst, useTrait
 - [Actions](#actions) - Creating and using actions
 - [Systems](#systems) - Query and update patterns
 - [App component](#app-component)
@@ -45,6 +46,131 @@ import { Time, Pointer, Viewport } from './traits'
 
 // Pass singleton traits to createWorld for global data
 export const world = createWorld(Time, Pointer, Viewport)
+```
+
+## Hooks
+
+React hooks for querying entities and observing traits.
+
+### useQuery
+
+Reactively updates when entities matching the query change (added/removed).
+
+```typescript
+import { useQuery } from 'koota/react'
+
+function RocketList() {
+  const rockets = useQuery(Position, Velocity)
+  return rockets.map((entity) => <RocketView key={entity} entity={entity} />)
+}
+```
+
+Supports all query modifiers:
+
+```typescript
+const staticEntities = useQuery(Position, Not(Velocity))
+const characters = useQuery(Or(IsPlayer, IsEnemy))
+```
+
+### useQueryFirst
+
+Returns the first matching entity or `undefined`. Reactively updates.
+
+```typescript
+import { useQueryFirst } from 'koota/react'
+
+function PlayerHUD() {
+  const player = useQueryFirst(IsPlayer, Position)
+  if (!player) return null
+  return <PlayerStats entity={player} />
+}
+```
+
+### useTrait
+
+Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed.
+
+```typescript
+import { useTrait } from 'koota/react'
+
+function RocketView({ entity }: { entity: Entity }) {
+  const position = useTrait(entity, Position)
+  if (!position) return null
+  return <div style={{ left: position.x, top: position.y }}>🚀</div>
+}
+```
+
+Works with world traits too:
+
+```typescript
+function GameStatus() {
+  const world = useWorld()
+  const gameState = useTrait(world, GameState)
+  return <div>{gameState?.paused ? 'Paused' : 'Running'}</div>
+}
+```
+
+### useTag
+
+Observes a tag trait. Returns `true` if present, `false` if absent.
+
+```typescript
+import { useTag } from 'koota/react'
+
+function ActiveIndicator({ entity }: { entity: Entity }) {
+  const isActive = useTag(entity, IsActive)
+  if (!isActive) return null
+  return <span>🟢</span>
+}
+```
+
+### useHas
+
+Like `useTag` but for any trait. Returns `true`/`false` based on presence.
+
+```typescript
+import { useHas } from 'koota/react'
+
+function HealthIndicator({ entity }: { entity: Entity }) {
+  const hasHealth = useHas(entity, Health)
+  return hasHealth ? <span>❤️</span> : null
+}
+```
+
+### useTarget / useTargets
+
+Observe relation targets on an entity.
+
+```typescript
+import { useTarget, useTargets } from 'koota/react'
+
+// Single target (exclusive relations)
+function TargetDisplay({ entity }: { entity: Entity }) {
+  const target = useTarget(entity, Targeting)
+  return target ? <span>Targeting: {target.id()}</span> : null
+}
+
+// Multiple targets
+function InventoryDisplay({ entity }: { entity: Entity }) {
+  const items = useTargets(entity, Contains)
+  return <ul>{items.map((item) => <li key={item}>{item.id()}</li>)}</ul>
+}
+```
+
+### useTraitEffect
+
+Subscribe to trait changes without causing rerenders. Runs as an effect.
+
+```typescript
+import { useTraitEffect } from 'koota/react'
+
+function SyncMesh({ entity, meshRef }: Props) {
+  useTraitEffect(entity, Position, (position) => {
+    if (!position) return
+    meshRef.current.position.set(position.x, position.y, 0)
+  })
+  return null
+}
 ```
 
 ## Actions
