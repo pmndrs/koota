@@ -24,6 +24,9 @@ export type QueryResultOptions = {
 };
 
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
+    readEach: (
+        callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
+    ) => QueryResult<T>;
     updateEach: (
         callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
         options?: QueryResultOptions

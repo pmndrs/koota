@@ -260,6 +260,25 @@ describe('Query', () => {
         expect(cb).toHaveBeenCalledTimes(9);
     });
 
+    it('should read trait data with readEach without modifying stores', () => {
+        for (let i = 0; i < 5; i++) {
+            world.spawn(Position({ x: i, y: i * 2 }), Name({ name: `Entity${i}` }));
+        }
+
+        const results: any[] = [];
+        world.query(Position, Name).readEach(([position, name], entity, index) => {
+            results.push({
+                x: position.x,
+                name: name.name,
+                index,
+            });
+        });
+
+        expect(results).toHaveLength(5);
+        expect(results[0]).toEqual({ x: 0, name: 'Entity0', index: 0 });
+        expect(results[2]).toEqual({ x: 2, name: 'Entity2', index: 2 });
+    });
+
     it('updateEach should return values in caller parameter order regardless of cache', () => {
         // Create entity with both traits
         world.spawn(Position({ x: 10, y: 20 }), Name({ name: 'test' }));
