@@ -4,7 +4,7 @@ import { updateTime } from '../core/systems/update-time';
 import { updateDragging } from '../core/systems/update-dragging';
 import { syncToDOM } from '../core/systems/sync-to-dom';
 import { Pointer } from '../core/traits';
-import { useAnimationFrame } from './utils/use-animation-frame';
+import { useAnimationFrame } from '../utils/use-animation-frame';
 
 export function Frameloop() {
     const world = useWorld();

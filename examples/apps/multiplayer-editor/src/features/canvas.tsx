@@ -1,7 +1,7 @@
 import { useActions } from 'koota/react';
 import { useCallback, useEffect } from 'react';
 import { actions } from '../core/actions';
-import { ShapeRenderer } from './shapes/renderer';
+import { ShapeRenderer } from './shapes/shape-renderer';
 
 export function Canvas() {
     const { clearSelection, deleteSelected, undo, redo } = useActions(actions);

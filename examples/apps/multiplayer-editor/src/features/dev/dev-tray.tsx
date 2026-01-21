@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useWorld, useTrait } from 'koota/react';
-import { History } from '../core/traits';
-import { formatOp } from './utils/format-ops';
+import { History } from '../../core/traits';
+import { formatOp } from '../../utils/format-ops';
 
 export function DevTray() {
     const [isOpen, setIsOpen] = useState(false);
