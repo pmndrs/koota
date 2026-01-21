@@ -188,6 +188,14 @@ world.query(Position, Not(Velocity)) // Has Position but not Velocity
 world.query(Or(IsPlayer, IsEnemy))   // Has either trait
 ```
 
+**Note:** `updateEach`/`readEach` only return data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
+
+```typescript
+world.query(IsPlayer, Position, Velocity).updateEach(([pos, vel]) => {
+  // Array has 2 elements - IsPlayer (tag) excluded
+})
+```
+
 For tracking changes, caching queries, and advanced patterns, see [reference/queries.md](reference/queries.md).
 
 ## React integration
