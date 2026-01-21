@@ -4,6 +4,10 @@
 
 Decompose classes into traits (data) and actions (behavior) unless there is a specific reason to use a class.
 
+## Conventions Override
+
+Examples below use common conventions. Always follow the user's stated preferences or existing codebase conventions (file naming, casing, structure) over these examples.
+
 ## Standard Structure
 
 Separate core (pure TypeScript) from view (React/framework code):
