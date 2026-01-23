@@ -25,6 +25,8 @@ export const Color = trait({ fill: '#4a90d9' });
 
 // Interaction
 export const IsSelected = trait(); // Tag
+export const IsCanvas = trait(); // Tag
+export const IsCanvasHovering = trait(); // Tag
 export const Dragging = trait({ offsetX: 0, offsetY: 0 });
 export const Ref = trait(() => null! as HTMLDivElement);
 
