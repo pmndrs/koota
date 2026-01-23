@@ -14,7 +14,6 @@ import { type Entity } from 'koota';
 import { useRef, useCallback } from 'react';
 import { selectionActions } from '../../core/actions';
 import { historyActions } from '../../core/actions';
-import { OpCode, SEQ_UNASSIGNED } from '../../core/ops/types';
 
 // Generate a consistent color from client ID (matches cursor color)
 function getClientColor(clientId: string): string {
@@ -41,7 +40,7 @@ export function ShapeView({ entity }: ShapeViewProps) {
     const position = useTrait(entity, Position);
     const isSelected = useHas(entity, IsSelected);
     const { selectShape } = useActions(selectionActions);
-    const { push, commit } = useActions(historyActions);
+    const { recordPositionChange } = useActions(historyActions);
 
     // Track position at drag start for undo
     const dragStartPos = useRef<{ x: number; y: number } | null>(null);
@@ -90,28 +89,13 @@ export function ShapeView({ entity }: ShapeViewProps) {
             // If we were dragging, record the position change for undo
             if (wasDragging && dragStartPos.current) {
                 const pos = entity.get(Position);
-                const stableId = entity.get(StableId);
-
-                if (
-                    stableId &&
-                    pos &&
-                    (pos.x !== dragStartPos.current.x || pos.y !== dragStartPos.current.y)
-                ) {
-                    push({
-                        op: OpCode.UpdatePosition,
-                        id: stableId.id,
-                        seq: SEQ_UNASSIGNED,
-                        x: pos.x,
-                        y: pos.y,
-                        prevX: dragStartPos.current.x,
-                        prevY: dragStartPos.current.y,
-                    });
-                    commit();
+                if (pos) {
+                    recordPositionChange(entity, dragStartPos.current, { x: pos.x, y: pos.y });
                 }
                 dragStartPos.current = null;
             }
         },
-        [entity, push, commit]
+        [entity, recordPositionChange]
     );
 
     const handlePointerCancel = useCallback(() => {

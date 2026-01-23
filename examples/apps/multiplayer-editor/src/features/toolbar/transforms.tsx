@@ -2,13 +2,12 @@ import { useActions } from 'koota/react';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { Entity } from 'koota';
 import { historyActions } from '../../core/actions';
-import { OpCode, SEQ_UNASSIGNED } from '../../core/ops/types';
 import { Rotation, Scale, StableId } from '../../core/traits';
 import { Section } from '../ui/section';
 import { RangeControl } from '../ui/range-control';
 
 export function Transforms({ selected }: { selected: readonly Entity[] }) {
-    const { push, commit } = useActions(historyActions);
+    const { recordRotationChange, recordScaleXChange, recordScaleYChange } = useActions(historyActions);
 
     const [rotation, setRotation] = useState(0);
     const [scaleX, setScaleX] = useState(1);
@@ -56,22 +55,10 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
 
     const handleRotationEnd = useCallback(() => {
         if (initialRotation.current !== null && initialRotation.current !== rotation) {
-            for (const entity of selected) {
-                const stableId = entity.get(StableId);
-                if (stableId && entity.has(Rotation)) {
-                    push({
-                        op: OpCode.UpdateRotation,
-                        id: stableId.id,
-                        seq: SEQ_UNASSIGNED,
-                        angle: rotation,
-                        prevAngle: initialRotation.current,
-                    });
-                }
-            }
-            commit();
+            recordRotationChange(selected, initialRotation.current, rotation);
         }
         initialRotation.current = null;
-    }, [rotation, selected, push, commit]);
+    }, [rotation, selected, recordRotationChange]);
 
     // Scale X handlers
     const handleScaleXStart = useCallback(() => {
@@ -97,25 +84,10 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
 
     const handleScaleXEnd = useCallback(() => {
         if (initialScaleX.current !== null && initialScaleX.current !== scaleX) {
-            for (const entity of selected) {
-                const stableId = entity.get(StableId);
-                const scale = entity.get(Scale);
-                if (stableId && scale) {
-                    push({
-                        op: OpCode.UpdateScale,
-                        id: stableId.id,
-                        seq: SEQ_UNASSIGNED,
-                        x: scaleX,
-                        y: scale.y,
-                        prevX: initialScaleX.current,
-                        prevY: scale.y,
-                    });
-                }
-            }
-            commit();
+            recordScaleXChange(selected, initialScaleX.current, scaleX);
         }
         initialScaleX.current = null;
-    }, [scaleX, selected, push, commit]);
+    }, [scaleX, selected, recordScaleXChange]);
 
     // Scale Y handlers
     const handleScaleYStart = useCallback(() => {
@@ -141,25 +113,10 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
 
     const handleScaleYEnd = useCallback(() => {
         if (initialScaleY.current !== null && initialScaleY.current !== scaleY) {
-            for (const entity of selected) {
-                const stableId = entity.get(StableId);
-                const scale = entity.get(Scale);
-                if (stableId && scale) {
-                    push({
-                        op: OpCode.UpdateScale,
-                        id: stableId.id,
-                        seq: SEQ_UNASSIGNED,
-                        x: scale.x,
-                        y: scaleY,
-                        prevX: scale.x,
-                        prevY: initialScaleY.current,
-                    });
-                }
-            }
-            commit();
+            recordScaleYChange(selected, initialScaleY.current, scaleY);
         }
         initialScaleY.current = null;
-    }, [scaleY, selected, push, commit]);
+    }, [scaleY, selected, recordScaleYChange]);
 
     return (
         <>

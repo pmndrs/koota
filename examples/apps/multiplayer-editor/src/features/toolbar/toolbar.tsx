@@ -2,8 +2,7 @@ import { useActions, useQuery, useTrait, useWorld } from 'koota/react';
 import type { Entity } from 'koota';
 import { useCallback, useRef } from 'react';
 import { historyActions, selectionActions, shapeActions } from '../../core/actions';
-import { OpCode, SEQ_UNASSIGNED } from '../../core/ops/types';
-import { Color, History, IsSelected, StableId } from '../../core/traits';
+import { Color, History, IsSelected } from '../../core/traits';
 import { AddShapes } from './add-shapes';
 import { ColorPicker } from './color-picker';
 import { History as HistoryControls } from './history';
@@ -15,7 +14,7 @@ export function Toolbar() {
     const history = useTrait(world, History);
     const { addShape } = useActions(shapeActions);
     const { deleteSelected } = useActions(selectionActions);
-    const { undo, redo, push, commit } = useActions(historyActions);
+    const { undo, redo, recordColorChange } = useActions(historyActions);
     const selected = useQuery(IsSelected);
 
     const canUndoValue = history ? history.undoStack.length > 0 : false;
@@ -54,23 +53,11 @@ export function Toolbar() {
     const handleCommitColor = useCallback(
         (hex: string) => {
             if (initialColor.current !== null && hex !== initialColor.current) {
-                for (const entity of selected) {
-                    const stableId = entity.get(StableId);
-                    if (stableId) {
-                        push({
-                            op: OpCode.UpdateColor,
-                            id: stableId.id,
-                            seq: SEQ_UNASSIGNED,
-                            fill: hex,
-                            prevFill: initialColor.current,
-                        });
-                    }
-                }
-                commit();
+                recordColorChange(selected, initialColor.current, hex);
             }
             initialColor.current = null;
         },
-        [selected, push, commit]
+        [selected, recordColorChange]
     );
 
     const handleCancelColor = useCallback(() => {
