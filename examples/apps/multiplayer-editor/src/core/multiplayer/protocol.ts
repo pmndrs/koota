@@ -40,12 +40,18 @@ export type ClientOpsMessage = {
     ops: ClientOp[];
 };
 
+export type EphemeralSnapshot = {
+    clientId: string;
+    presence?: EphemeralPresence;
+};
+
 export type ServerWelcomeMessage = {
     type: 'welcome';
     clientId: string;
     idBase: number;
     checkpoint: Checkpoint;
     ops: ServerOp[];
+    ephemeral: EphemeralSnapshot[];
 };
 
 export type ServerOpsMessage = {
@@ -66,9 +72,38 @@ export type ServerCorrectionMessage = {
     reason?: string;
 };
 
-export type ClientMessage = ClientHelloMessage | ClientOpsMessage;
+// Ephemeral collaboration signals (not persisted, broadcast only)
+export type EphemeralPresence = {
+    type: 'presence';
+    name?: string;
+    cursor: { x: number; y: number } | null;
+    selection: number[];
+};
+
+export type EphemeralData = EphemeralPresence;
+
+export type ClientEphemeralMessage = {
+    type: 'client-ephemeral';
+    clientId: string;
+    data: EphemeralData;
+};
+
+export type ServerEphemeralMessage = {
+    type: 'server-ephemeral';
+    clientId: string;
+    data: EphemeralData;
+};
+
+export type ServerUserLeftMessage = {
+    type: 'user-left';
+    clientId: string;
+};
+
+export type ClientMessage = ClientHelloMessage | ClientOpsMessage | ClientEphemeralMessage;
 export type ServerMessage =
     | ServerWelcomeMessage
     | ServerOpsMessage
     | ServerRejectMessage
-    | ServerCorrectionMessage;
+    | ServerCorrectionMessage
+    | ServerEphemeralMessage
+    | ServerUserLeftMessage;

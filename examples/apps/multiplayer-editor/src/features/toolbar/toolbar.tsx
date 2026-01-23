@@ -1,8 +1,7 @@
 import { useActions, useQuery, useTrait, useWorld } from 'koota/react';
 import type { Entity } from 'koota';
 import { useCallback, useRef } from 'react';
-import { actions } from '../../core/actions';
-import { historyActions } from '../../core/ops/history-actions';
+import { historyActions, selectionActions, shapeActions } from '../../core/actions';
 import { OpCode, SEQ_UNASSIGNED } from '../../core/ops/types';
 import { Color, History, IsSelected, StableId } from '../../core/traits';
 import { AddShapes } from './add-shapes';
@@ -14,8 +13,9 @@ import { Section } from '../ui/section';
 export function Toolbar() {
     const world = useWorld();
     const history = useTrait(world, History);
-    const { addShape, deleteSelected, undo, redo } = useActions(actions);
-    const { push, commit } = useActions(historyActions);
+    const { addShape } = useActions(shapeActions);
+    const { deleteSelected } = useActions(selectionActions);
+    const { undo, redo, push, commit } = useActions(historyActions);
     const selected = useQuery(IsSelected);
 
     const canUndoValue = history ? history.undoStack.length > 0 : false;

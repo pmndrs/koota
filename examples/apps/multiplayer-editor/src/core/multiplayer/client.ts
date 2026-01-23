@@ -1,17 +1,19 @@
-import type { World } from 'koota';
+import type { World, Entity } from 'koota';
 import { addCommitListener } from './commit-sink';
 import type {
     ClientMessage,
-    ClientOpsMessage,
     ServerMessage,
     ServerOp,
     Checkpoint,
+    EphemeralSnapshot,
 } from './protocol';
 import { SEQ_UNASSIGNED, type Op } from '../ops/types';
 import { rebaseWorld } from './rebase';
-import { History } from '../traits';
+import { History, User } from '../traits';
 import { applyCheckpoint } from './checkpoint';
 import { applyOp } from '../ops/apply';
+import { sendEphemeralPresence, setEphemeralSender } from './ephemeral';
+import { presenceActions } from '../actions';
 
 type PendingOp = {
     clientOpId: string;
@@ -32,6 +34,29 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
     let pendingOps: PendingOp[] = [];
     const sentOpIds = new Set<string>();
     let nextLocalOpId = 1;
+
+    // Track user entities by their clientId
+    const userEntities = new Map<string, Entity>();
+
+    // Scoped presence actions
+    const presence = presenceActions(world);
+
+    function getOrCreateRemoteUserEntity(remoteClientId: string): Entity {
+        let entity = userEntities.get(remoteClientId);
+        if (!entity) {
+            entity = presence.createUser(remoteClientId, { kind: 'remote' });
+            userEntities.set(remoteClientId, entity);
+        }
+        return entity;
+    }
+
+    function removeUserEntity(remoteClientId: string) {
+        const entity = userEntities.get(remoteClientId);
+        if (entity) {
+            presence.removeUser(entity);
+            userEntities.delete(remoteClientId);
+        }
+    }
 
     const history = world.get(History);
     if (history && history.idBase === 0) {
@@ -68,6 +93,7 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
     }
 
     function disconnect() {
+        setEphemeralSender('', null);
         socket?.close();
         socket = null;
     }
@@ -88,13 +114,32 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
                     });
                 }
 
+                // Create local user entity
+                const localUserEntity = presence.createUser(clientId, { kind: 'local' });
+                userEntities.set(clientId, localUserEntity);
+
+                // Set up ephemeral sender now that we have clientId
+                setEphemeralSender(clientId, send);
+                // Broadcast our display name immediately (cursor/selection can follow later)
+                sendEphemeralPresence(null, [], localUserEntity.get(User)?.name);
+
                 applyCheckpoint(world, message.checkpoint);
                 for (const op of authoritativeOps) {
                     applyOp(world, op);
                 }
 
+                // Apply ephemeral snapshot from other users
+                if (message.ephemeral) {
+                    applyEphemeralSnapshot(message.ephemeral);
+                }
+
                 if (pendingOps.length > 0) {
-                    rebaseWorld(world, message.checkpoint, authoritativeOps, pendingOps.map((p) => p.op));
+                    rebaseWorld(
+                        world,
+                        message.checkpoint,
+                        authoritativeOps,
+                        pendingOps.map((p) => p.op)
+                    );
                 }
                 flushPendingOps();
                 return;
@@ -109,7 +154,12 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
                 checkpoint = message.checkpoint;
                 authoritativeOps = message.ops.map((entry) => entry.op);
                 confirmedSeq = checkpoint.seq;
-                rebaseWorld(world, checkpoint, authoritativeOps, pendingOps.map((p) => p.op));
+                rebaseWorld(
+                    world,
+                    checkpoint,
+                    authoritativeOps,
+                    pendingOps.map((p) => p.op)
+                );
                 return;
             }
 
@@ -117,9 +167,60 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
                 pendingOps = pendingOps.filter((op) => op.clientOpId !== message.clientOpId);
                 sentOpIds.delete(message.clientOpId);
                 if (checkpoint) {
-                    rebaseWorld(world, checkpoint, authoritativeOps, pendingOps.map((p) => p.op));
+                    rebaseWorld(
+                        world,
+                        checkpoint,
+                        authoritativeOps,
+                        pendingOps.map((p) => p.op)
+                    );
                 }
                 return;
+            }
+
+            case 'server-ephemeral': {
+                handleServerEphemeral(message.clientId, message.data);
+                return;
+            }
+
+            case 'user-left': {
+                handleUserLeft(message.clientId);
+                return;
+            }
+        }
+    }
+
+    function handleServerEphemeral(
+        remoteClientId: string,
+        data: {
+            type: 'presence';
+            name?: string;
+            cursor: { x: number; y: number } | null;
+            selection: number[];
+        }
+    ) {
+        const userEntity = getOrCreateRemoteUserEntity(remoteClientId);
+
+        if (data.name) {
+            userEntity.set(User, { name: data.name });
+        }
+        presence.updateRemoteCursor(userEntity, data.cursor);
+        presence.updateRemoteSelection(userEntity, data.selection);
+    }
+
+    function handleUserLeft(remoteClientId: string) {
+        removeUserEntity(remoteClientId);
+    }
+
+    function applyEphemeralSnapshot(snapshot: EphemeralSnapshot[]) {
+        for (const entry of snapshot) {
+            const userEntity = getOrCreateRemoteUserEntity(entry.clientId);
+
+            if (entry.presence) {
+                if (entry.presence.name) {
+                    userEntity.set(User, { name: entry.presence.name });
+                }
+                presence.updateRemoteCursor(userEntity, entry.presence.cursor);
+                presence.updateRemoteSelection(userEntity, entry.presence.selection);
             }
         }
     }
@@ -140,7 +241,12 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
 
         const hasRemoteOps = ops.some((entry) => entry.clientId && entry.clientId !== clientId);
         if (hasRemoteOps && checkpoint) {
-            rebaseWorld(world, checkpoint, authoritativeOps, pendingOps.map((p) => p.op));
+            rebaseWorld(
+                world,
+                checkpoint,
+                authoritativeOps,
+                pendingOps.map((p) => p.op)
+            );
         }
     }
 

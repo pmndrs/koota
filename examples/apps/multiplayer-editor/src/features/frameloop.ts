@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { updateTime } from '../core/systems/update-time';
 import { updateDragging } from '../core/systems/update-dragging';
 import { syncToDOM } from '../core/systems/sync-to-dom';
+import { interpolateRemote } from '../core/systems/interpolate-remote';
 import { Pointer } from '../core/traits';
 import { useAnimationFrame } from '../utils/use-animation-frame';
 
@@ -13,6 +14,7 @@ export function Frameloop() {
     useAnimationFrame(() => {
         updateTime(world);
         updateDragging(world);
+        interpolateRemote(world);
         syncToDOM(world);
     });
 

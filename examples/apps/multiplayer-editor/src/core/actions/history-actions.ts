@@ -1,8 +1,8 @@
 import { createActions } from 'koota';
-import { type Op } from './types';
+import { type Op } from '../ops/types';
 import { History } from '../traits';
-import { applyOp } from './apply';
-import { invertOp } from './invert';
+import { applyOp } from '../ops/apply';
+import { invertOp } from '../ops/invert';
 import { emitCommit } from '../multiplayer/commit-sink';
 
 export const historyActions = createActions((world) => ({

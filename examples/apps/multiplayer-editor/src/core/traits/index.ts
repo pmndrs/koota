@@ -27,3 +27,20 @@ export const Color = trait({ fill: '#4a90d9' });
 export const IsSelected = trait(); // Tag
 export const Dragging = trait({ offsetX: 0, offsetY: 0 });
 export const Ref = trait(() => null! as HTMLDivElement);
+
+// User entity traits
+export const User = trait({ name: '' });
+export const ClientId = trait({ id: '' });
+export const IsLocal = trait(); // Tag - local user
+export const IsRemote = trait(); // Tag - remote users
+
+// Remote cursor (only on remote users, interpolated)
+export const RemoteCursor = trait({
+    x: 0,
+    y: 0,
+    targetX: 0,
+    targetY: 0,
+});
+
+// Remote selection (array of stable IDs selected by remote user)
+export const RemoteSelection = trait(() => [] as number[]);

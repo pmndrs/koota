@@ -2,8 +2,11 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import type {
     ClientMessage,
     ClientOpsMessage,
+    ClientEphemeralMessage,
     ServerMessage,
     ServerOp,
+    EphemeralPresence,
+    EphemeralSnapshot,
 } from '../src/core/multiplayer/protocol';
 import { createServerState, applyOpToState, recordCheckpoint } from './state';
 import { appendToJournal } from './journal';
@@ -13,6 +16,12 @@ type ClientInfo = {
     id: string;
     idBase: number;
 };
+
+type ClientEphemeralState = {
+    presence?: EphemeralPresence;
+};
+
+const ephemeralState = new Map<string, ClientEphemeralState>();
 
 const PORT = Number(process.env.MP_PORT ?? 8787);
 const CHECKPOINT_INTERVAL_MS = 30_000;
@@ -42,8 +51,23 @@ wss.on('connection', (socket) => {
     });
 
     socket.on('close', () => {
+        const clientInfo = clients.get(socket);
         clients.delete(socket);
+
+        if (clientInfo) {
+            ephemeralState.delete(clientInfo.id);
+            broadcastExcept(socket, { type: 'user-left', clientId: clientInfo.id });
+        }
     });
+
+    // Build ephemeral snapshot for late joiner
+    const ephemeralSnapshot: EphemeralSnapshot[] = [];
+    for (const [cid, ephState] of ephemeralState.entries()) {
+        ephemeralSnapshot.push({
+            clientId: cid,
+            presence: ephState.presence,
+        });
+    }
 
     send(socket, {
         type: 'welcome',
@@ -51,6 +75,7 @@ wss.on('connection', (socket) => {
         idBase,
         checkpoint: state.checkpoint,
         ops: state.journal.map((op) => ({ op })),
+        ephemeral: ephemeralSnapshot,
     });
 });
 
@@ -64,7 +89,33 @@ function handleMessage(socket: WebSocket, message: ClientMessage) {
             handleClientOps(socket, message);
             return;
         }
+
+        case 'client-ephemeral': {
+            handleClientEphemeral(socket, message);
+            return;
+        }
     }
+}
+
+function handleClientEphemeral(socket: WebSocket, message: ClientEphemeralMessage) {
+    const clientInfo = clients.get(socket);
+    if (!clientInfo) return;
+
+    // Update ephemeral state for this client (presence only - cursor + selection)
+    let clientState = ephemeralState.get(message.clientId);
+    if (!clientState) {
+        clientState = {};
+        ephemeralState.set(message.clientId, clientState);
+    }
+
+    clientState.presence = message.data;
+
+    // Broadcast to all OTHER clients (not the sender)
+    broadcastExcept(socket, {
+        type: 'server-ephemeral',
+        clientId: message.clientId,
+        data: message.data,
+    });
 }
 
 function handleClientOps(socket: WebSocket, message: ClientOpsMessage) {
@@ -113,6 +164,15 @@ function broadcast(message: ServerMessage) {
     const payload = JSON.stringify(message);
     for (const socket of clients.keys()) {
         if (socket.readyState === socket.OPEN) {
+            socket.send(payload);
+        }
+    }
+}
+
+function broadcastExcept(excludeSocket: WebSocket, message: ServerMessage) {
+    const payload = JSON.stringify(message);
+    for (const socket of clients.keys()) {
+        if (socket !== excludeSocket && socket.readyState === socket.OPEN) {
             socket.send(payload);
         }
     }

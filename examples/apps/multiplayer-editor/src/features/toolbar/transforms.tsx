@@ -1,7 +1,7 @@
 import { useActions } from 'koota/react';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { Entity } from 'koota';
-import { historyActions } from '../../core/ops/history-actions';
+import { historyActions } from '../../core/actions';
 import { OpCode, SEQ_UNASSIGNED } from '../../core/ops/types';
 import { Rotation, Scale, StableId } from '../../core/traits';
 import { Section } from '../ui/section';
@@ -87,7 +87,9 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
             setScaleX(x);
             for (const entity of selected) {
                 const scale = entity.get(Scale);
-                if (scale) entity.set(Scale, { x, y: scale.y });
+                if (scale) {
+                    entity.set(Scale, { x, y: scale.y });
+                }
             }
         },
         [selected]
@@ -129,7 +131,9 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
             setScaleY(y);
             for (const entity of selected) {
                 const scale = entity.get(Scale);
-                if (scale) entity.set(Scale, { x: scale.x, y });
+                if (scale) {
+                    entity.set(Scale, { x: scale.x, y });
+                }
             }
         },
         [selected]
