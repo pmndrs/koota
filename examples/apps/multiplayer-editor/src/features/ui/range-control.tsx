@@ -23,9 +23,12 @@ export function RangeControl({
     onChange,
     onPointerUp,
 }: RangeControlProps) {
+    const percent = ((value - min) / (max - min)) * 100;
+
     return (
-        <label>
-            {label} {valueLabel}
+        <label className="range-control" style={{ '--fill': `${percent}%` } as React.CSSProperties}>
+            <span className="range-label">{label}</span>
+            <span className="range-value">{valueLabel}</span>
             <input
                 type="range"
                 min={min}
