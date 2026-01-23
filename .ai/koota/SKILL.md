@@ -144,11 +144,11 @@ Entities are unique identifiers that compose traits. Spawned from a world.
 const entity = world.spawn(Position, Velocity)
 
 // Read/write traits
-entity.get(Position)              // Read trait data
-entity.set(Position, { x: 10 })   // Write (triggers change events)
-entity.add(IsPlayer)              // Add trait
-entity.remove(Velocity)           // Remove trait
-entity.has(Position)              // Check if has trait
+entity.get(Position) // Read trait data
+entity.set(Position, { x: 10 }) // Write (triggers change events)
+entity.add(IsPlayer) // Add trait
+entity.remove(Velocity) // Remove trait
+entity.has(Position) // Check if has trait
 
 // Destroy
 entity.destroy()
@@ -160,7 +160,15 @@ An entity is internally a number packed with entity ID, generation ID (for recyc
 
 ```typescript
 entity.id() // Just the entity ID (reused after destroy)
-entity      // Full packed number (unique forever)
+entity // Full packed number (unique forever)
+```
+
+## Typing
+
+Use `TraitRecord` to get the type that `entity.get()` returns:
+
+```typescript
+type PositionRecord = TraitRecord<typeof Position>
 ```
 
 ## Queries
@@ -185,7 +193,7 @@ const player = world.queryFirst(IsPlayer, Position)
 
 // Filter with modifiers
 world.query(Position, Not(Velocity)) // Has Position but not Velocity
-world.query(Or(IsPlayer, IsEnemy))   // Has either trait
+world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 ```
 
 **Note:** `updateEach`/`readEach` only return data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
@@ -204,25 +212,15 @@ For tracking changes, caching queries, and advanced patterns, see [reference/que
 
 **Change detection:** `entity.set()` and `world.set()` trigger change events that cause hooks like `useTrait` to rerender. For AoS traits where you mutate objects directly, manually signal with `entity.changed(Trait)`.
 
-For complete React patterns, see [reference/react-patterns.md](reference/react-patterns.md):
+For React hooks and actions, see [reference/react-hooks.md](reference/react-hooks.md).
 
-- Query hooks (`useQuery`, `useQueryFirst`, `useTrait`)
-- WorldProvider setup
-- Actions with `createActions`
-- Systems (always take `world: World`)
-- Frameloop component
-- Startup component
-- Renderer pattern
-- Time management
+For component patterns (App, Startup, Renderer, view sync, input), see [reference/react-patterns.md](reference/react-patterns.md).
 
-## Interaction patterns
+## Runtime
 
-For advanced interaction patterns, see [reference/interaction-patterns.md](reference/interaction-patterns.md):
+Systems query the world and update entities. Run them via frameloop (continuous) or event handlers (discrete).
 
-- Dragging pattern
-- Ref pattern for view syncing (DOM and R3F)
-- Pointer capture
-- Event handling
+For systems, frameloop, event-driven patterns, and time management, see [reference/runtime.md](reference/runtime.md).
 
 ## Quick reference
 

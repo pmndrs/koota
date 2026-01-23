@@ -1,278 +1,16 @@
 # React Patterns
 
-Complete guide to integrating Koota with React applications.
+Component patterns for Koota + React applications.
 
 ## Contents
 
-- [WorldProvider setup](#worldprovider-setup)
-- [Hooks](#query-hooks) - useQuery, useQueryFirst, useTrait
-- [Actions](#actions) - Creating and using actions
-- [Systems](#systems) - Query and update patterns
 - [App component](#app-component)
 - [Startup component](#startup-component)
 - [Frameloop component](#frameloop-component)
-- [Time management](#time-management)
-- [Change detection](#change-detection) - Triggering React updates
 - [Renderer pattern](#renderer-pattern)
-
-## WorldProvider setup
-
-Wrap your app to make the world available to all React hooks.
-
-**`main.tsx`:**
-
-```typescript
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { WorldProvider } from 'koota/react'
-import { App } from './app/app'
-import { world } from './sim/world'
-import './index.css'
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <WorldProvider world={world}>
-      <App />
-    </WorldProvider>
-  </React.StrictMode>
-)
-```
-
-**`sim/world.ts`:**
-
-```typescript
-import { createWorld } from 'koota'
-import { Time, Pointer, Viewport } from './traits'
-
-// Pass singleton traits to createWorld for global data
-export const world = createWorld(Time, Pointer, Viewport)
-```
-
-## Hooks
-
-React hooks for querying entities and observing traits.
-
-### useQuery
-
-Reactively updates when entities matching the query change (added/removed).
-
-```typescript
-import { useQuery } from 'koota/react'
-
-function RocketList() {
-  const rockets = useQuery(Position, Velocity)
-  return rockets.map((entity) => <RocketView key={entity} entity={entity} />)
-}
-```
-
-Supports all query modifiers:
-
-```typescript
-const staticEntities = useQuery(Position, Not(Velocity))
-const characters = useQuery(Or(IsPlayer, IsEnemy))
-```
-
-### useQueryFirst
-
-Returns the first matching entity or `undefined`. Reactively updates.
-
-```typescript
-import { useQueryFirst } from 'koota/react'
-
-function PlayerHUD() {
-  const player = useQueryFirst(IsPlayer, Position)
-  if (!player) return null
-  return <PlayerStats entity={player} />
-}
-```
-
-### useTrait
-
-Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed.
-
-```typescript
-import { useTrait } from 'koota/react'
-
-function RocketView({ entity }: { entity: Entity }) {
-  const position = useTrait(entity, Position)
-  if (!position) return null
-  return <div style={{ left: position.x, top: position.y }}>🚀</div>
-}
-```
-
-Works with world traits too:
-
-```typescript
-function GameStatus() {
-  const world = useWorld()
-  const gameState = useTrait(world, GameState)
-  return <div>{gameState?.paused ? 'Paused' : 'Running'}</div>
-}
-```
-
-### useTag
-
-Observes a tag trait. Returns `true` if present, `false` if absent.
-
-```typescript
-import { useTag } from 'koota/react'
-
-function ActiveIndicator({ entity }: { entity: Entity }) {
-  const isActive = useTag(entity, IsActive)
-  if (!isActive) return null
-  return <span>🟢</span>
-}
-```
-
-### useHas
-
-Like `useTag` but for any trait. Returns `true`/`false` based on presence.
-
-```typescript
-import { useHas } from 'koota/react'
-
-function HealthIndicator({ entity }: { entity: Entity }) {
-  const hasHealth = useHas(entity, Health)
-  return hasHealth ? <span>❤️</span> : null
-}
-```
-
-### useTarget / useTargets
-
-Observe relation targets on an entity.
-
-```typescript
-import { useTarget, useTargets } from 'koota/react'
-
-// Single target (exclusive relations)
-function TargetDisplay({ entity }: { entity: Entity }) {
-  const target = useTarget(entity, Targeting)
-  return target ? <span>Targeting: {target.id()}</span> : null
-}
-
-// Multiple targets
-function InventoryDisplay({ entity }: { entity: Entity }) {
-  const items = useTargets(entity, Contains)
-  return <ul>{items.map((item) => <li key={item}>{item.id()}</li>)}</ul>
-}
-```
-
-### useTraitEffect
-
-Subscribe to trait changes without causing rerenders. Runs as an effect.
-
-```typescript
-import { useTraitEffect } from 'koota/react'
-
-function SyncMesh({ entity, meshRef }: Props) {
-  useTraitEffect(entity, Position, (position) => {
-    if (!position) return
-    meshRef.current.position.set(position.x, position.y, 0)
-  })
-  return null
-}
-```
-
-## Actions
-
-Actions are functions that spawn or modify entities. Use `createActions` to get the world automatically.
-
-**`sim/actions.ts`:**
-
-```typescript
-import { createActions, type Entity } from 'koota'
-import { Position, Velocity, Health, IsPlayer, IsEnemy, IsDead } from './traits'
-
-export const actions = createActions((world) => ({
-  spawnPlayer: () => {
-    return world.spawn(Position({ x: 0, y: 0 }), Velocity, Health({ value: 100 }), IsPlayer)
-  },
-
-  spawnEnemy: (x: number, y: number) => {
-    return world.spawn(Position({ x, y }), Velocity, Health({ value: 50 }), IsEnemy)
-  },
-
-  spawnEnemies: (count: number) => {
-    const enemies = []
-    for (let i = 0; i < count; i++) {
-      enemies.push(actions.spawnEnemy(Math.random() * 800, Math.random() * 600))
-    }
-    return enemies
-  },
-
-  damageEntity: (entity: Entity, amount: number) => {
-    const health = entity.get(Health)
-    if (health) {
-      entity.set(Health, { value: Math.max(0, health.value - amount) })
-      if (health.value <= 0) {
-        entity.add(IsDead)
-      }
-    }
-  },
-}))
-```
-
-**Using actions:**
-
-- **In React:** `useActions(actions)`
-- **In vanilla/systems:** `actions(world)`
-
-**File organization:**
-
-- Simple apps: single `sim/actions.ts`
-- Larger apps: `sim/actions/` directory with `{domain}Actions.ts` files
-
-## Systems
-
-Systems query the world and update entities. Always take `world: World` as first parameter.
-
-**`sim/systems/update-movement.ts`:**
-
-```typescript
-import type { World } from 'koota'
-import { Position, Velocity, Time } from '../traits'
-
-export function updateMovement(world: World) {
-  const { delta } = world.get(Time)!
-
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
-    pos.x += vel.x * delta
-    pos.y += vel.y * delta
-  })
-}
-```
-
-**Key points:**
-
-- One file per system
-- Name files: `update-{thing}.ts` or `{verb}-{thing}.ts`
-- No React imports
-- Called from frameloop
-
-**Common patterns:**
-
-```typescript
-// Query and update each
-export function updatePhysics(world: World) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
-    pos.x += vel.x
-  })
-}
-
-// Manual iteration (when you need the entity)
-export function cleanupDead(world: World) {
-  for (const entity of world.query(IsDead)) {
-    entity.destroy()
-  }
-}
-
-// Read singleton traits
-export function updateAI(world: World) {
-  const { delta } = world.get(Time)!
-  const pointer = world.get(Pointer)!
-  // ... use delta and pointer
-}
-```
+- [View sync](#view-sync) - Ref pattern, handleInit, sync systems
+- [Three.js interop](#threejs-interop)
+- [Input patterns](#input-patterns) - Dragging, pointer capture
 
 ## App component
 
@@ -307,17 +45,15 @@ Spawn initial entities on mount. Clean up in `useEffect` return.
 ```typescript
 import { useActions } from 'koota/react'
 import { useEffect } from 'react'
-import { actions } from '../sim/actions'
+import { actions } from '../core/actions'
 
 export function Startup() {
   const { spawnPlayer, spawnEnemies } = useActions(actions)
 
   useEffect(() => {
-    // Spawn initial entities
     const player = spawnPlayer()
     const enemies = spawnEnemies(5)
 
-    // Cleanup when component unmounts
     return () => {
       player.destroy()
       enemies.forEach((e) => e.destroy())
@@ -330,142 +66,24 @@ export function Startup() {
 
 ## Frameloop component
 
-Run systems in requestAnimationFrame loop.
-
-**`app/frameloop.ts`:**
+Run systems in requestAnimationFrame loop. See [runtime.md](runtime.md) for details.
 
 ```typescript
 import { useWorld } from 'koota/react'
-import { useEffect } from 'react'
-import { updateMovement } from '../sim/systems/update-movement'
-import { updateCollisions } from '../sim/systems/update-collisions'
-import { Pointer } from '../sim/traits'
 import { useAnimationFrame } from './utils/use-animation-frame'
 
 export function Frameloop() {
   const world = useWorld()
 
-  // Run systems every frame
   useAnimationFrame(() => {
     updateTime(world)
     updateMovement(world)
-    updateCollisions(world)
+    syncToDOM(world)
   })
-
-  // Sync window events to world traits
-  useEffect(() => {
-    const handlePointerMove = (e: PointerEvent) => {
-      world.set(Pointer, { x: e.clientX, y: e.clientY })
-    }
-
-    window.addEventListener('pointermove', handlePointerMove)
-    return () => window.removeEventListener('pointermove', handlePointerMove)
-  }, [world])
 
   return null
 }
 ```
-
-**`app/utils/use-animation-frame.ts`:**
-
-```typescript
-import { useEffect, useRef } from 'react'
-
-export function useAnimationFrame(callback: () => void) {
-  const callbackRef = useRef(callback)
-  callbackRef.current = callback
-
-  useEffect(() => {
-    let rafId: number
-
-    const loop = () => {
-      callbackRef.current?.()
-      rafId = requestAnimationFrame(loop)
-    }
-
-    rafId = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(rafId)
-  }, [])
-}
-```
-
-## Time management
-
-Track delta time using a Time trait and updateTime system. Run first in frameloop.
-
-**`sim/traits/index.ts`:**
-
-```typescript
-export const Time = trait({ last: 0, delta: 0 })
-```
-
-**`sim/systems/update-time.ts`:**
-
-```typescript
-import type { World } from 'koota'
-import { Time } from '../traits'
-
-export function updateTime(world: World) {
-  const now = performance.now()
-  const time = world.get(Time)!
-  const delta = Math.min((now - time.last) / 1000, 0.1)
-  world.set(Time, { last: now, delta })
-}
-```
-
-**Key points:**
-
-- `Time` is a singleton trait passed to `createWorld(Time, ...)`
-- `delta` is in seconds (divided by 1000)
-- `delta` capped at 0.1s to prevent large jumps
-- Call `updateTime(world)` first in frameloop
-
-**Usage:**
-
-```typescript
-export function updateMovement(world: World) {
-  const { delta } = world.get(Time)!
-
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
-    pos.x += vel.x * delta
-    pos.y += vel.y * delta
-  })
-}
-```
-
-## Change detection
-
-Hooks like `useTrait` rerender when change events fire.
-
-**Automatic:** `set()` triggers change events automatically.
-
-```typescript
-entity.set(Position, { x: 10, y: 20 }) // Triggers change, useTrait rerenders
-world.set(GameState, { paused: true }) // Works for world traits too
-```
-
-**Manual (for AoS traits):** When mutating objects directly, signal the change:
-
-```typescript
-// ❌ Won't trigger React updates
-const history = entity.get(History)!
-history.undoStack.push(batch)
-history.pending.length = 0
-```
-
-```typescript
-// ✅ Mutate then signal
-const history = entity.get(History)!
-history.undoStack.push(batch)
-history.pending.length = 0
-entity.changed(History)
-```
-
-**When to use `changed()`:**
-
-- Mutating AoS trait objects (Sets, Maps, arrays, class instances)
-- After direct property mutation on complex objects
-- When `set()` isn't used but React needs to update
 
 ## Renderer pattern
 
@@ -476,16 +94,9 @@ Renderers query entities and map to View components.
 - `{Domain}Renderer` — Queries and maps to views
 - `{Domain}View` — Renders single entity
 
-**File organization:**
-
-- Single file by default: `enemy-renderer.tsx`
-- Separate files only for multiple view variants
-
 **Example:**
 
 ```typescript
-// enemy-renderer.tsx
-
 export function EnemyRenderer() {
   const enemies = useQuery(IsEnemy, Position, Health)
   return enemies.map((enemy) => <EnemyView key={enemy.id()} entity={enemy} />)
@@ -494,13 +105,12 @@ export function EnemyRenderer() {
 function EnemyView({ entity }: { entity: Entity }) {
   const position = useTrait(entity, Position)
   const health = useTrait(entity, Health)
-  const isDead = useHas(entity, IsDead)
 
   if (!position || !health) return null
 
   return (
     <div
-      className={`enemy ${isDead ? 'dead' : ''}`}
+      className="enemy"
       style={{ left: position.x, top: position.y }}
     >
       <div className="health-bar" style={{ width: `${health.value}%` }} />
@@ -509,8 +119,259 @@ function EnemyView({ entity }: { entity: Entity }) {
 }
 ```
 
-**When to use:**
+## View sync
 
-- Rendering lists of entities
-- Separating query logic from presentation
-- Creating reusable view components
+React controls when a view element connects to an entity. Systems only query and mutate; they never add or remove view refs.
+
+**Lifecycle:**
+1. Component mounts → add `Ref` trait via `handleInit`
+2. Systems mutate traits; sync system writes to view
+3. Component unmounts → remove `Ref` trait
+
+### Ref trait
+
+```typescript
+// For DOM
+export const Ref = trait(() => null! as HTMLDivElement)
+
+// For React Three Fiber
+export const Ref = trait(() => null! as THREE.Object3D)
+```
+
+### handleInit pattern
+
+```typescript
+function CardView({ entity }: { entity: Entity }) {
+  const card = useTrait(entity, Card)
+
+  const handleInit = useCallback(
+    (div: HTMLDivElement | null) => {
+      if (!div || !entity.isAlive()) return
+      entity.add(Ref(div))
+      return () => entity.remove(Ref)
+    },
+    [entity]
+  )
+
+  return (
+    <div ref={handleInit} className="card">
+      {card?.name}
+    </div>
+  )
+}
+```
+
+### Sync system
+
+```typescript
+export function syncToDOM(world: World) {
+  world.query(Position, Ref, ZIndex).updateEach(([pos, ref, zIndex]) => {
+    if (!ref) return
+    ref.style.transform = `translate(${pos.x}px, ${pos.y}px)`
+    ref.style.zIndex = zIndex.value.toString()
+  })
+}
+```
+
+### React Three Fiber
+
+```typescript
+function EnemyView({ entity }: { entity: Entity }) {
+  const handleInit = useCallback(
+    (group: THREE.Group | null) => {
+      if (!group || !entity.isAlive()) return
+      entity.add(Ref(group))
+      return () => entity.remove(Ref)
+    },
+    [entity]
+  )
+
+  return (
+    <group ref={handleInit}>
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial color="red" />
+      </mesh>
+    </group>
+  )
+}
+
+export function syncThreeObjects(world: World) {
+  world.query(Position, Rotation, Ref).updateEach(([pos, rot, ref]) => {
+    if (!ref) return
+    ref.position.set(pos.x, pos.y, pos.z)
+    ref.rotation.set(rot.x, rot.y, rot.z)
+  })
+}
+```
+
+**Why this pattern:**
+
+- **Performance** — Batch view updates in single system vs individual React renders
+- **Separation** — React creates view elements, systems animate them
+- **Control** — Run sync at precise points in frameloop
+
+## Three.js interop
+
+Choose based on how much third-party Three code needs to touch transforms.
+
+### Ref-owned transforms (max interop)
+
+Three.js objects stored in trait; systems mutate them directly. External libs (controls, physics) can also mutate transforms. No sync system needed.
+
+**Important**: Use if the user is relying on third party Three libraries. This is likely common.
+
+```typescript
+const Transform = trait({
+  position: () => new Vector3(),
+  rotation: () => new Euler(),
+  quaternion: () => new Quaternion(),
+})
+
+const handleInit = useCallback(
+  (group: THREE.Group | null) => {
+    if (!group || !entity.isAlive()) return
+
+    entity.set(Transform, (prev) => ({
+      position: group.position.copy(prev.position),
+      rotation: group.rotation.copy(prev.rotation),
+      quaternion: group.quaternion.copy(prev.quaternion),
+      scale: group.scale.copy(prev.scale),
+    }))
+  },
+  [entity]
+)
+
+// Systems mutate trait directly - Three sees changes immediately
+world.query(Transform, Movement).updateEach(([transform, movement]) => {
+  transform.position.add(movement.velocity)
+})
+```
+
+### Trait-owned transforms (balanced)
+
+Scalar traits for transforms; `Ref` holds `Object3D`. Systems mutate traits; a sync system writes to Three. External libs should not mutate transforms directly.
+
+**Important**: Only use if the user is not relying on third party Three libraries.
+
+```typescript
+const Position = trait({ x: 0, y: 0, z: 0 })
+const Rotation = trait({ x: 0, y: 0, z: 0 })
+const Ref = trait(() => null! as THREE.Object3D)
+
+function syncToThree(world: World) {
+  world.query(Position, Rotation, Ref).updateEach(([pos, rot, ref]) => {
+    ref.position.set(pos.x, pos.y, pos.z)
+    ref.rotation.set(rot.x, rot.y, rot.z)
+  })
+}
+```
+
+## Input patterns
+
+React components respond to user input by adding/removing traits. Systems process these traits.
+
+### Dragging pattern
+
+**Traits:**
+
+```typescript
+export const Dragging = trait({
+  offset: () => ({ x: 0, y: 0 }),
+})
+export const Pointer = trait({ x: 0, y: 0 }) // Singleton
+```
+
+**System:**
+
+```typescript
+export function updateDragging(world: World) {
+  const pointer = world.get(Pointer)
+  if (!pointer) return
+
+  const { delta } = world.get(Time)!
+
+  world.query(Position, Velocity, Dragging).updateEach(([pos, vel, dragging]) => {
+    const oldX = pos.x
+    const oldY = pos.y
+
+    pos.x = pointer.x - dragging.offset.x
+    pos.y = pointer.y - dragging.offset.y
+
+    const invDelta = delta > 0 ? 1 / delta : 0
+    vel.x = (pos.x - oldX) * invDelta
+    vel.y = (pos.y - oldY) * invDelta
+  })
+}
+```
+
+**Component:**
+
+```typescript
+function CardView({ entity }: { entity: Entity }) {
+  const isDragging = useHas(entity, Dragging)
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const rect = event.currentTarget.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+
+      const offset = {
+        x: event.clientX - centerX,
+        y: event.clientY - centerY,
+      }
+
+      entity.set(Position, { x: centerX, y: centerY })
+      entity.set(Velocity, { x: 0, y: 0 })
+      entity.add(Dragging({ offset }))
+
+      event.currentTarget.setPointerCapture(event.pointerId)
+    },
+    [entity]
+  )
+
+  const handlePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      entity.remove(Dragging)
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    },
+    [entity]
+  )
+
+  const handleLostPointerCapture = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.buttons === 0) entity.remove(Dragging)
+    },
+    [entity]
+  )
+
+  return (
+    <div
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onLostPointerCapture={handleLostPointerCapture}
+      className={`card ${isDragging ? 'dragging' : ''}`}
+    />
+  )
+}
+```
+
+**Key points:**
+
+- React handles input, adds traits
+- System updates position
+- Use pointer capture to track outside element
+- Check `buttons` on lost capture (React can trigger during re-renders)
+
+### Syncing global pointer
+
+```typescript
+useEffect(() => {
+  const handler = (e: PointerEvent) => {
+    world.set(Pointer, { x: e.clientX, y: e.clientY })
+  }
+  window.addEventListener('pointermove', handler)
+  return () => window.removeEventListener('pointermove', handler)
+}, [world])
+```
