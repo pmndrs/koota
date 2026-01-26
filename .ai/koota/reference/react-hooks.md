@@ -82,6 +82,16 @@ function PlayerHUD() {
 }
 ```
 
+**Prefer `useQueryFirst` for single-entity lookups.** Avoid `useQuery(...)[0]` so intent is clear and you don't subscribe to the full list.
+
+```typescript
+// ✅ Single entity
+const player = useQueryFirst(IsPlayer)
+
+// ❌ Avoid
+const player = useQuery(IsPlayer)[0]
+```
+
 ## useTrait
 
 Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed.
