@@ -6,6 +6,7 @@ Component patterns for Koota + React applications.
 
 - [App component](#app-component)
 - [Startup component](#startup-component)
+- [Entity lifetime in React](#entity-lifetime-in-react)
 - [Frameloop component](#frameloop-component)
 - [Renderer pattern](#renderer-pattern)
 - [View sync](#view-sync) - Ref pattern, handleInit, sync systems
@@ -62,6 +63,43 @@ export function Startup() {
 
   return null
 }
+```
+
+## Entity lifetime in React
+
+Entities can be destroyed outside React at any time. React does not own the source of truth.
+
+**Never store entities in `useState` or `useRef`:**
+
+```typescript
+// ❌ Entity may be destroyed while ref holds stale reference
+const entityRef = useRef<Entity | null>(null)
+entityRef.current = world.spawn(Foo)
+
+// ❌ Same problem with useState
+const [entity, setEntity] = useState<Entity | null>(null)
+```
+
+**Spawn in effects with cleanup, or in Startup:**
+
+```typescript
+// ✅ Effect with cleanup
+useEffect(() => {
+  const entity = world.spawn(Foo)
+  return () => entity.destroy()
+}, [world])
+
+// ✅ Startup component (see above)
+```
+
+**To access an entity in a component, query for it or pass it as a prop:**
+
+```typescript
+// ✅ Query
+const player = useQueryFirst(IsPlayer)
+
+// ✅ Prop from parent renderer
+function PlayerView({ entity }: { entity: Entity }) { ... }
 ```
 
 ## Frameloop component
