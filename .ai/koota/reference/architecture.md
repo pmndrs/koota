@@ -27,13 +27,40 @@ src/
 │
 ├── utils/                  # Generic, reusable
 │
-├── App.tsx                
+├── App.tsx
 └── main.tsx                # Entry point
 ```
 
 ## Organize by Role, Not Feature
 
 Organize `core/` by role (traits, systems, actions), not by feature slice. Traits and systems are composable across features.
+
+## Data modeling
+
+**Prefer multiple entities over array traits.** Instead of one entity with a flat array of objects, spawn many entities with shared traits.
+
+```typescript
+// ❌ Singleton with array — harder to query, compose, and extend
+const Inventory = trait(() => ({ items: [] as { id: string; count: number }[] }))
+const inventory = world.spawn(Inventory)
+
+// ✅ Multiple entities — queryable, composable, per-item traits
+const Item = trait({ id: '', count: 0 })
+const IsInInventory = trait()
+world.spawn(Item({ id: 'sword', count: 1 }), IsInInventory)
+world.spawn(Item({ id: 'potion', count: 5 }), IsInInventory)
+
+// Query all items
+world.query(Item, IsInInventory)
+```
+
+**Why multiple entities:**
+
+- **Queryable** — filter, sort, iterate with `query()`
+- **Composable** — add traits per-item (e.g., `IsEquipped`, `IsDamaged`)
+- **Extensible** — new behaviors without changing existing traits
+- **Reactive** — React hooks work per-entity, not per-array-element
+- **Graphs** — use relations to connect entities (e.g., `ChildOf`, `Contains`, `DependsOn`)
 
 ## Detailed Example
 
