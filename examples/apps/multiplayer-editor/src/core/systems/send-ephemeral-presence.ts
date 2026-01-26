@@ -1,5 +1,5 @@
 import type { World } from 'koota';
-import { IsCanvas, IsCanvasHovering, IsLocal, IsSelected, Pointer, StableId, User } from '../traits';
+import { IsCanvas, IsHovering, IsLocal, IsSelected, Pointer, StableId, User } from '../traits';
 import { sendEphemeralPresence } from '../multiplayer/ephemeral';
 
 let lastKey: string | null = null;
@@ -16,13 +16,9 @@ export function sendEphemeralPresenceSystem(world: World) {
 
     let cursorX: number | null = null;
     let cursorY: number | null = null;
-    world.query(IsCanvas, IsCanvasHovering).readEach((_, entity) => {
-        if (cursorX !== null && cursorY !== null) return;
-        const pointer = entity.get(Pointer);
-        if (pointer) {
-            cursorX = pointer.x;
-            cursorY = pointer.y;
-        }
+    world.query(IsCanvas, IsHovering, Pointer).readEach(([pointer]) => {
+        cursorX = pointer.x;
+        cursorY = pointer.y;
     });
 
     const cursor = cursorX !== null && cursorY !== null ? { x: cursorX, y: cursorY } : null;

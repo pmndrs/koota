@@ -10,7 +10,7 @@ Component patterns for Koota + React applications.
 - [Renderer pattern](#renderer-pattern)
 - [View sync](#view-sync) - Ref pattern, handleInit, sync systems
 - [Three.js interop](#threejs-interop)
-- [Input patterns](#input-patterns) - Dragging, pointer capture
+- [Input patterns](#input-patterns) - Dragging, pointer capture, scoped events
 
 ## App component
 
@@ -124,6 +124,7 @@ function EnemyView({ entity }: { entity: Entity }) {
 React controls when a view element connects to an entity. Systems only query and mutate; they never add or remove view refs.
 
 **Lifecycle:**
+
 1. Component mounts → add `Ref` trait via `handleInit`
 2. Systems mutate traits; sync system writes to view
 3. Component unmounts → remove `Ref` trait
@@ -364,9 +365,14 @@ function CardView({ entity }: { entity: Entity }) {
 - Use pointer capture to track outside element
 - Check `buttons` on lost capture (React can trigger during re-renders)
 
-### Syncing global pointer
+### Scoped events
+
+Store input on the world for global scope, or on a scoped entity for element scope.
+
+**Global scope** — Store on world singleton:
 
 ```typescript
+// Capture global pointer
 useEffect(() => {
   const handler = (e: PointerEvent) => {
     world.set(Pointer, { x: e.clientX, y: e.clientY })
@@ -374,4 +380,48 @@ useEffect(() => {
   window.addEventListener('pointermove', handler)
   return () => window.removeEventListener('pointermove', handler)
 }, [world])
+
+// Consume
+world.get(Pointer)
 ```
+
+**Entity scope** — Store on a dedicated entity with identifier tag:
+
+```typescript
+// Traits
+export const IsCanvas = trait()
+export const IsHovering = trait()
+export const Pointer = trait({ x: 0, y: 0 })
+
+// Spawn scoped entity
+const canvas = world.spawn(IsCanvas, Pointer)
+
+// Capture scoped pointer
+const handlePointerMove = (e: React.PointerEvent) => {
+  const canvas = world.queryFirst(IsCanvas)
+  if (!canvas) return
+  canvas.set(Pointer, { x: e.clientX, y: e.clientY })
+  if (!canvas.has(IsHovering)) canvas.add(IsHovering)
+}
+
+const handlePointerLeave = () => {
+  const canvas = world.queryFirst(IsCanvas)
+  if (canvas) canvas.remove(IsHovering)
+}
+
+// Consume
+world.query(IsCanvas, IsHovering, Pointer).readEach(([pointer]) => {
+  // Only runs when hovering canvas
+  pointer.x
+})
+```
+
+**When to use:**
+
+- **Global**: Global input you would listen to on window
+- **Scoped**: Element-scoped input (hover, focus, pointer capture)
+
+**Key points:**
+
+- Same traits (`Pointer`, `IsHovering`), different entities (world vs canvas entity)
+- Identifier tag (`IsCanvas`) finds the scoped entity
