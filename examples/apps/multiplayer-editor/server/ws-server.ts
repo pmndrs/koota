@@ -10,7 +10,7 @@ import type {
 } from '../src/core/multiplayer/protocol';
 import { createServerState, applyOpToState, recordCheckpoint } from './state';
 import { appendToJournal } from './journal';
-import { SEQ_UNASSIGNED } from '../src/core/ops/types';
+import { SEQ_UNASSIGNED } from '../src/core/types';
 
 type ClientInfo = {
     id: string;

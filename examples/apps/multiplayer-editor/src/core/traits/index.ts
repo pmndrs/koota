@@ -1,14 +1,9 @@
 import { trait } from 'koota';
-import type { Op } from '../ops/types';
 import type { Entity } from 'koota';
+import type { HistoryEntry, Op } from '../types';
 
 // History entry: stores both user intent and restore target
-export type HistoryEntry = {
-    intent: Op[]; // Original user ops (preserved across round-trips)
-    restoreTo: Op[]; // Snapshot to restore to (updated each undo/redo)
-};
 
-// Singletons
 export const Time = trait({ last: 0, delta: 0 });
 export const Pointer = trait({ x: 0, y: 0 });
 export const History = trait(() => ({

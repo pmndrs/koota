@@ -7,7 +7,7 @@ import type {
     Checkpoint,
     EphemeralSnapshot,
 } from './protocol';
-import { SEQ_UNASSIGNED, type Op } from '../ops/types';
+import { SEQ_UNASSIGNED, type Op } from '../types';
 import { rebaseWorld } from './rebase';
 import { History, User } from '../traits';
 import { applyCheckpoint } from './checkpoint';

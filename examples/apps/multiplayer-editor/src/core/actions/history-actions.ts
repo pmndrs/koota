@@ -1,10 +1,10 @@
 import { createActions, type Entity } from 'koota';
-import { OpCode, type Op, SEQ_UNASSIGNED } from '../ops/types';
-import { Color, History, Position, Rotation, Scale, StableId, type HistoryEntry } from '../traits';
+import { emitCommit } from '../multiplayer/commit-sink';
 import { applyOp } from '../ops/apply';
 import { invertOp } from '../ops/invert';
-import { emitCommit } from '../multiplayer/commit-sink';
 import { captureCurrentState } from '../ops/snapshot';
+import { Color, History, Position, Rotation, Scale, StableId } from '../traits';
+import { OpCode, SEQ_UNASSIGNED, type Op } from '../types';
 
 export const historyActions = createActions((world) => {
     const getHistory = () => world.get(History)!;

@@ -1,7 +1,7 @@
 import { createActions, type Entity } from 'koota';
 import { Color, History, Position, Rotation, Scale, Shape, StableId } from '../traits';
 import { historyActions } from './history-actions';
-import { OpCode, SEQ_UNASSIGNED } from '../ops/types';
+import { OpCode, SEQ_UNASSIGNED } from '../types';
 
 export const shapeActions = createActions((world) => {
     const { push, commit } = historyActions(world);

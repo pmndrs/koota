@@ -1,6 +1,6 @@
 import type { World } from 'koota';
-import type { Op } from './types';
-import { OpCode } from './types';
+import type { Op } from '../types';
+import { OpCode } from '../types';
 import { History, Position, Rotation, Scale, Color, Shape } from '../traits';
 
 /**

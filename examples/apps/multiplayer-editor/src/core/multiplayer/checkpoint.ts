@@ -1,5 +1,5 @@
 import type { World } from 'koota';
-import { Color, History, Position, Rotation, Scale, Shape, StableId, IsSelected } from '../traits';
+import { Color, History, IsSelected, Position, Rotation, Scale, Shape, StableId } from '../traits';
 import type { Checkpoint } from './protocol';
 
 export function createCheckpoint(world: World, seq: number): Checkpoint {

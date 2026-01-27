@@ -1,4 +1,4 @@
-import type { Op } from '../ops/types';
+import type { Op } from '../types';
 
 type CommitListener = (ops: Op[]) => void;
 

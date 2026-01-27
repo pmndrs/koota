@@ -1,5 +1,5 @@
 import type { World } from 'koota';
-import type { Op } from '../ops/types';
+import type { Op } from '../types';
 import { applyOp } from '../ops/apply';
 import type { Checkpoint } from './protocol';
 import { applyCheckpoint } from './checkpoint';

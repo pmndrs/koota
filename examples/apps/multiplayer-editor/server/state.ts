@@ -1,5 +1,5 @@
-import type { Op } from '../src/core/ops/types';
-import { OpCode } from '../src/core/ops/types';
+import type { Op } from '../src/core/types';
+import { OpCode } from '../src/core/types';
 import type { Checkpoint } from '../src/core/multiplayer/protocol';
 
 export type ShapeState = {

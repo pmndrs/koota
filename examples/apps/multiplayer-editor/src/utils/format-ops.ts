@@ -1,4 +1,4 @@
-import { OpCode, type Op } from '../core/ops/types';
+import { OpCode, type Op } from '../core/types';
 
 export function formatOpCode(code: OpCode): string {
     switch (code) {

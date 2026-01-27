@@ -1,5 +1,5 @@
-import type { Op } from './types';
-import { OpCode } from './types';
+import type { Op } from '../types';
+import { OpCode } from '../types';
 
 export function invertOp(op: Op): Op {
     switch (op.op) {

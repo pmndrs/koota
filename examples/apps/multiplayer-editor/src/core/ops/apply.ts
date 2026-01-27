@@ -1,6 +1,6 @@
 import type { World } from 'koota';
-import type { Op } from './types';
-import { OpCode } from './types';
+import type { Op } from '../types';
+import { OpCode } from '../types';
 import { Shape, Position, Rotation, Scale, Color, History, StableId } from '../traits';
 
 export function applyOp(world: World, op: Op): void {

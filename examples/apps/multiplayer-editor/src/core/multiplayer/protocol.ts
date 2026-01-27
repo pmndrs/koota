@@ -1,4 +1,4 @@
-import type { Op } from '../ops/types';
+import type { Op } from '../types';
 
 export type CheckpointShape = {
     id: number;

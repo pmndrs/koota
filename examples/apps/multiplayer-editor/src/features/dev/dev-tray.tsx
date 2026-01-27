@@ -10,7 +10,7 @@ export function DevTray() {
 
     if (!history) return null;
 
-    const totalOps = history.undoStack.flat().length;
+    const totalOps = history.undoStack.reduce((acc, entry) => acc + entry.intent.length, 0);
     const pendingCount = history.pending.length;
     const undoCount = history.undoStack.length;
     const redoCount = history.redoStack.length;
@@ -58,13 +58,13 @@ export function DevTray() {
                             <div className="dev-tray-section">
                                 <h4>Undo Stack ({undoCount} batches)</h4>
                                 <div className="dev-tray-batches">
-                                    {[...history.undoStack].reverse().map((batch, batchIdx) => (
+                                    {[...history.undoStack].reverse().map((entry, batchIdx) => (
                                         <div key={batchIdx} className="dev-tray-batch">
                                             <div className="dev-tray-batch-header">
-                                                Batch {undoCount - batchIdx} ({batch.length} ops)
+                                                Batch {undoCount - batchIdx} ({entry.intent.length} ops)
                                             </div>
                                             <div className="dev-tray-ops">
-                                                {batch.map((op, opIdx) => (
+                                                {entry.intent.map((op, opIdx) => (
                                                     <div key={opIdx} className="dev-tray-op">
                                                         {formatOp(op)}
                                                     </div>
@@ -81,13 +81,13 @@ export function DevTray() {
                             <div className="dev-tray-section">
                                 <h4>Redo Stack ({redoCount} batches)</h4>
                                 <div className="dev-tray-batches">
-                                    {[...history.redoStack].reverse().map((batch, batchIdx) => (
+                                    {[...history.redoStack].reverse().map((entry, batchIdx) => (
                                         <div key={batchIdx} className="dev-tray-batch">
                                             <div className="dev-tray-batch-header">
-                                                Batch {redoCount - batchIdx} ({batch.length} ops)
+                                                Batch {redoCount - batchIdx} ({entry.intent.length} ops)
                                             </div>
                                             <div className="dev-tray-ops">
-                                                {batch.map((op, opIdx) => (
+                                                {entry.intent.map((op, opIdx) => (
                                                     <div key={opIdx} className="dev-tray-op">
                                                         {formatOp(op)}
                                                     </div>

@@ -1,4 +1,4 @@
-import type { Op } from '../src/core/ops/types';
+import type { Op } from '../src/core/types';
 import type { ServerState } from './state';
 import { recordCheckpoint } from './state';
 

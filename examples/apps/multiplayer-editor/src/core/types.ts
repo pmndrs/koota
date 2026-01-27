@@ -1,5 +1,3 @@
-import type { Entity } from 'koota';
-
 export const enum OpCode {
     CreateShape = 1,
     DeleteShape = 2,
@@ -69,3 +67,8 @@ export type Op =
           fill: string;
           prevFill: string;
       };
+
+export type HistoryEntry = {
+    intent: Op[]; // Original user ops (preserved across round-trips)
+    restoreTo: Op[]; // Snapshot to restore to (updated each undo/redo)
+};
