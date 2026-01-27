@@ -459,6 +459,8 @@ const orphaned = world.query(Removed(ChildOf))
 
 The `Changed` modifier tracks all entities that have had the specified traits or relation stores change since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
 
+When multiple traits are passed to `Changed` it uses logical `AND`. Only entities where **all** specified traits have changed will be returned.
+
 ```js
 import { createChanged } from 'koota'
 
@@ -469,6 +471,9 @@ const movedEntities = world.query(Changed(Position))
 
 // Track entities whose ChildOf relation data has changed
 const updatedChildren = world.query(Changed(ChildOf))
+
+// Track entities where BOTH Position AND Velocity have changed
+const fullyUpdated = world.query(Changed(Position, Velocity))
 
 // After running the query, the Changed modifier is reset
 ```
