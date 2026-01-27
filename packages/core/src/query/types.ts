@@ -1,6 +1,6 @@
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
-import { AoSFactory, Store } from '../storage';
+import { AoSFactory } from '../storage';
 import type {
     ExtractSchema,
     ExtractStore,
@@ -95,32 +95,66 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
     traitIds: number[];
 };
 
+/** Parameter types that can be passed to Or modifier */
+export type OrParameter = Trait | Modifier;
+
+/** Or modifier that can contain both traits and nested modifiers */
+export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
+    ExtractTraitsFromOrParams<T>,
+    'or'
+> & {
+    modifiers: Modifier[];
+};
+
+/** Extract traits from Or parameters (filters out modifiers) */
+type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First, ...infer Rest]
+    ? First extends Trait
+        ? Rest extends OrParameter[]
+            ? [First, ...ExtractTraitsFromOrParams<Rest>]
+            : [First]
+        : Rest extends OrParameter[]
+          ? ExtractTraitsFromOrParams<Rest>
+          : []
+    : [];
+
+/**
+ * Unified tracking group that supports both AND and OR logic.
+ * Replaces the old separate tracking arrays and OrTrackingGroup.
+ */
+export type TrackingGroup = {
+    /** Whether all traits must match (and) or any trait can match (or) */
+    logic: 'and' | 'or';
+    /** The type of tracking event */
+    type: 'add' | 'remove' | 'change';
+    /** Tracking modifier ID for snapshot/mask lookups */
+    id: number;
+    /** Bitmasks indexed by generationId */
+    bitmasks: (number | undefined)[];
+    /** Per-entity tracker state indexed by [generationId][entityId] */
+    trackers: (number[] | undefined)[];
+};
+
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     version: number;
     world: World;
     parameters: T;
     hash: QueryHash;
     traits: Trait[];
+    /** Static trait instances for non-tracking query matching */
     traitInstances: {
         required: TraitInstance[];
         forbidden: TraitInstance[];
         or: TraitInstance[];
-        added: TraitInstance[];
-        removed: TraitInstance[];
-        changed: TraitInstance[];
         all: TraitInstance[];
     };
-    bitmasks: {
+    /** Static bitmasks for non-tracking query matching (indexed by generationId) */
+    staticBitmasks: {
         required: number;
         forbidden: number;
         or: number;
-        added: number;
-        removed: number;
-        changed: number;
-        addedTracker: number[];
-        removedTracker: number[];
-        changedTracker: number[];
     }[];
+    /** Unified tracking groups with explicit AND/OR logic */
+    trackingGroups: TrackingGroup[];
     generations: number[];
     entities: SparseSet;
     isTracking: boolean;
