@@ -423,6 +423,8 @@ const movingOrVisible = world.query(Or(Velocity, Renderable))
 
 The `Added` modifier tracks all entities that have added the specified traits or relations since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
 
+When multiple traits are passed to `Added` it uses logical `AND`. Only entities where **all** specified traits have been added will be returned.
+
 ```js
 import { createAdded } from 'koota'
 
@@ -434,12 +436,20 @@ const newPositions = world.query(Added(Position))
 // Track entities that added a ChildOf relation
 const newChildren = world.query(Added(ChildOf))
 
+// Track entities where BOTH Position AND Velocity were added
+const fullyAdded = world.query(Added(Position, Velocity))
+
+// Track entities where EITHER Position OR Velocity was added
+const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
+
 // After running the query, the Added modifier is reset
 ```
 
 #### Removed
 
 The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed. A new instance of the modifier must be created for tracking to be unique.
+
+When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
 ```js
 import { createRemoved } from 'koota'
@@ -452,12 +462,20 @@ const stoppedEntities = world.query(Removed(Velocity))
 // Track entities that removed a ChildOf relation
 const orphaned = world.query(Removed(ChildOf))
 
+// Track entities where BOTH Position AND Velocity were removed
+const fullyRemoved = world.query(Removed(Position, Velocity))
+
+// Track entities where EITHER Position OR Velocity was removed
+const eitherRemoved = world.query(Or(Removed(Position), Removed(Velocity)))
+
 // After running the query, the Removed modifier is reset
 ```
 
 #### Changed
 
 The `Changed` modifier tracks all entities that have had the specified traits or relation stores change since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
+
+When multiple traits are passed to `Changed` it uses logical `AND`. Only entities where **all** specified traits have changed will be returned.
 
 ```js
 import { createChanged } from 'koota'
@@ -469,6 +487,12 @@ const movedEntities = world.query(Changed(Position))
 
 // Track entities whose ChildOf relation data has changed
 const updatedChildren = world.query(Changed(ChildOf))
+
+// Track entities where BOTH Position AND Velocity have changed
+const fullyUpdated = world.query(Changed(Position, Velocity))
+
+// Track entities where EITHER Position OR Velocity has changed
+const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 // After running the query, the Changed modifier is reset
 ```
