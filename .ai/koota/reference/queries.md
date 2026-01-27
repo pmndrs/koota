@@ -101,6 +101,38 @@ const movedEntities = world.query(Changed(Position))
 const updatedChildren = world.query(Changed(ChildOf))
 ```
 
+**Logical AND (default):**
+
+When multiple traits are passed to a tracking modifier, it uses logical AND. Only entities where **all** specified traits match the condition are returned:
+
+```typescript
+// Entities where BOTH Position AND Velocity were added
+const fullyAdded = world.query(Added(Position, Velocity))
+
+// Entities where BOTH Position AND Velocity were removed
+const fullyRemoved = world.query(Removed(Position, Velocity))
+
+// Entities where BOTH Position AND Velocity have changed
+const fullyUpdated = world.query(Changed(Position, Velocity))
+```
+
+**Logical OR:**
+
+To track entities where **any** of the specified traits match, wrap individual tracking modifiers in `Or()`:
+
+```typescript
+import { Or } from 'koota'
+
+// Entities where EITHER Position OR Velocity was added
+const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
+
+// Entities where EITHER Position OR Velocity was removed
+const eitherRemoved = world.query(Or(Removed(Position), Removed(Velocity)))
+
+// Entities where EITHER Position OR Velocity has changed
+const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
+```
+
 **Key points:**
 
 - Create instances at module scope, not inside functions
