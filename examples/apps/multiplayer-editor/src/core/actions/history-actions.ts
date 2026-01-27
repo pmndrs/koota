@@ -1,9 +1,10 @@
 import { createActions, type Entity } from 'koota';
 import { OpCode, type Op, SEQ_UNASSIGNED } from '../ops/types';
-import { Color, History, Position, Rotation, Scale, StableId } from '../traits';
+import { Color, History, Position, Rotation, Scale, StableId, type HistoryEntry } from '../traits';
 import { applyOp } from '../ops/apply';
 import { invertOp } from '../ops/invert';
 import { emitCommit } from '../multiplayer/commit-sink';
+import { captureCurrentState } from '../ops/snapshot';
 
 export const historyActions = createActions((world) => {
     const getHistory = () => world.get(History)!;
@@ -18,19 +19,23 @@ export const historyActions = createActions((world) => {
         if (history.pending.length === 0) return;
 
         // Assign sequence numbers to pending ops
-        const batch = history.pending.map((op) => ({
+        const intent = history.pending.map((op) => ({
             ...op,
             seq: history.nextSeq++,
         }));
 
-        history.undoStack.push(batch);
+        // Create restoreTo by inverting the intent ops
+        // This restores to the state before the user's action
+        const restoreTo = intent.map((op) => invertOp(op));
+
+        history.undoStack.push({ intent, restoreTo });
         history.pending.length = 0;
         history.redoStack.length = 0; // Clear redo on new commit
 
         // Signal change to trigger reactive updates
         world.set(History, history);
 
-        emitCommit(batch);
+        emitCommit(intent);
     };
 
     return {
@@ -42,7 +47,11 @@ export const historyActions = createActions((world) => {
             commitPending();
         },
 
-        recordPositionChange: (entity: Entity, prev: { x: number; y: number }, next: { x: number; y: number }) => {
+        recordPositionChange: (
+            entity: Entity,
+            prev: { x: number; y: number },
+            next: { x: number; y: number }
+        ) => {
             if (prev.x === next.x && prev.y === next.y) return;
             if (!entity.has(Position)) return;
             const stableId = entity.get(StableId);
@@ -134,46 +143,70 @@ export const historyActions = createActions((world) => {
 
         undo: () => {
             const history = getHistory();
-            const batch = history.undoStack.pop();
-            if (!batch) return;
+            const entry = history.undoStack.pop();
+            if (!entry) return;
 
-            // Create inverted ops with new sequence numbers
-            const invertedBatch: Op[] = [];
-            for (let i = batch.length - 1; i >= 0; i--) {
-                const invertedOp = { ...invertOp(batch[i]), seq: history.nextSeq++ };
-                invertedBatch.push(invertedOp);
-                applyOp(world, invertedOp);
+            // Capture current state BEFORE applying restoreTo
+            // This becomes redo's restoreTo (preserves collaborator edits)
+            const currentSnapshot: Op[] = [];
+            for (const op of entry.intent) {
+                const snapshot = captureCurrentState(world, op);
+                if (snapshot) currentSnapshot.push(snapshot);
             }
 
-            history.redoStack.push(batch);
+            // Apply restoreTo ops (restore to state before user's action)
+            const emitOps: Op[] = [];
+            for (const op of entry.restoreTo) {
+                const seqOp = { ...op, seq: history.nextSeq++ };
+                emitOps.push(seqOp);
+                applyOp(world, seqOp);
+            }
+
+            // Push to redo with updated restoreTo (current snapshot)
+            history.redoStack.push({
+                intent: entry.intent,
+                restoreTo: currentSnapshot,
+            });
 
             // Signal change to trigger reactive updates
             world.set(History, history);
 
-            // Sync undo to server
-            emitCommit(invertedBatch);
+            // Sync to server
+            emitCommit(emitOps);
         },
 
         redo: () => {
             const history = getHistory();
-            const batch = history.redoStack.pop();
-            if (!batch) return;
+            const entry = history.redoStack.pop();
+            if (!entry) return;
 
-            // Create new ops with new sequence numbers for redo
-            const redoBatch: Op[] = [];
-            for (const op of batch) {
-                const redoOp = { ...op, seq: history.nextSeq++ };
-                redoBatch.push(redoOp);
-                applyOp(world, redoOp);
+            // Capture current state BEFORE applying restoreTo
+            // This becomes undo's restoreTo
+            const currentSnapshot: Op[] = [];
+            for (const op of entry.intent) {
+                const snapshot = captureCurrentState(world, op);
+                if (snapshot) currentSnapshot.push(snapshot);
             }
 
-            history.undoStack.push(batch);
+            // Apply restoreTo ops (restore to state at undo time)
+            const emitOps: Op[] = [];
+            for (const op of entry.restoreTo) {
+                const seqOp = { ...op, seq: history.nextSeq++ };
+                emitOps.push(seqOp);
+                applyOp(world, seqOp);
+            }
+
+            // Push to undo with updated restoreTo (current snapshot)
+            history.undoStack.push({
+                intent: entry.intent,
+                restoreTo: currentSnapshot,
+            });
 
             // Signal change to trigger reactive updates
             world.set(History, history);
 
-            // Sync redo to server
-            emitCommit(redoBatch);
+            // Sync to server
+            emitCommit(emitOps);
         },
 
         canUndo: () => {

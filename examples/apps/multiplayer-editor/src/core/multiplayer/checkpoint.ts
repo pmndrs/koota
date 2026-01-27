@@ -4,8 +4,9 @@ import type { Checkpoint } from './protocol';
 
 export function createCheckpoint(world: World, seq: number): Checkpoint {
     const shapes: Checkpoint['shapes'] = [];
-    world.query(StableId, Shape, Position, Rotation, Scale, Color).readEach(
-        ([id, shape, pos, rot, scale, color]) => {
+    world
+        .query(StableId, Shape, Position, Rotation, Scale, Color)
+        .readEach(([id, shape, pos, rot, scale, color]) => {
             shapes.push({
                 id: id.id,
                 type: shape.type,
@@ -16,8 +17,7 @@ export function createCheckpoint(world: World, seq: number): Checkpoint {
                 scaleY: scale.y,
                 color: color.fill,
             });
-        }
-    );
+        });
 
     return { seq, shapes: shapes.sort((a, b) => a.id - b.id) };
 }

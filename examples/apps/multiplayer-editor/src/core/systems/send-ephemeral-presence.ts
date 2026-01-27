@@ -9,22 +9,16 @@ export function sendEphemeralPresenceSystem(world: World) {
     world.query(IsSelected, StableId).readEach(([stableId]) => selectionIds.push(stableId.id));
     selectionIds.sort((a, b) => a - b);
 
-    let name: string | undefined;
-    world.query(IsLocal, User).readEach(([user]) => {
-        if (!name) name = user.name;
-    });
+    const name = world.queryFirst(IsLocal, User)?.get(User)?.name;
 
-    let cursorX: number | null = null;
-    let cursorY: number | null = null;
-    world.query(IsCanvas, IsHovering, Pointer).readEach(([pointer]) => {
-        cursorX = pointer.x;
-        cursorY = pointer.y;
-    });
+    const pointer = world.queryFirst(IsCanvas, IsHovering, Pointer)?.get(Pointer);
+    if (!pointer) return;
 
-    const cursor = cursorX !== null && cursorY !== null ? { x: cursorX, y: cursorY } : null;
+    const cursor = { x: pointer.x, y: pointer.y };
     const selectionKey = selectionIds.join(',');
-    const cursorKey = cursor ? `${cursorX},${cursorY}` : 'null';
+    const cursorKey = `${pointer.x},${pointer.y}`;
     const key = `${cursorKey}|${selectionKey}|${name ?? ''}`;
+
     if (key === lastKey) return;
     lastKey = key;
 

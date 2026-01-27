@@ -37,4 +37,13 @@ The **tl;dr** is that the traditional operational transform (OT) strategy utiliz
 
 **Undo/redo preserves the present collaboratively.** Undo followed by redo should return the document to exactly where it was. To achieve this, undo captures the current value into the redo stack. This ensures redo never overwrites concurrent edits from collaborators. History is per-user and local—the server only sees forward ops.
 
-**Ephemeral collaboration signals.** High-frequency UI signals (cursor, selection, in-progress transforms) are transmitted for UX but are not part of the authoritative op log. Only final committed intent becomes a durable semantic op.
+### History
+
+Each client maintains local undo and redo stacks while the server has no concept of undo. Instead, each client sends ops to the server indicating the operation, either an inverted opteration for undo or playback operation for restore operation for that property.
+
+Each entry stores two things:
+
+- `intent`: the original user ops (preserved across round-trips)
+- `restoreTo`: ops that restore to the state before the action (updated each undo/redo)
+
+This allows each user to have local history while preserving the final collaborative state whenever redoing.
