@@ -11,7 +11,7 @@ The **tl;dr** is that the traditional operational transform (OT) strategy utiliz
 
 **Authoritative server.** We use a centralized authoritative server that all clients connect to. We will use WebSockets for this connection. The canonical state is held on the server, and all correctness flows from server sequencing and validation.
 
-**The system favors determinism and recoverability over local autonomy.**  This unifies authoritative server, replay, validation, and durability without adding detail.
+**The system favors determinism and recoverability over local autonomy.** This unifies authoritative server, replay, validation, and durability without adding detail.
 
 **Prefer simple, predictable synchronization semantics.** The system favors a small, domain-appropriate set of deterministic rules over complex general-purpose distributed algorithms, making convergence and failure behavior easy to reason about.
 
@@ -34,3 +34,7 @@ The **tl;dr** is that the traditional operational transform (OT) strategy utiliz
 **Lock-free but scope-isolated edits.** There are no editor locks where only one user can make mutations. Since the editor uses a clear hierarchy, edits can be localized to specific branches. This limits the amount of conflict that is required. Therefore, conflicts are minimized structurally before they are resolved semantically.
 
 **Domain-specific conflict resolution.** While commutative, conflict-free resolutions are preferred, a policy is applied per domain based on its design model. For example, edits to disjoint fields, (color vs position) get applied without conflict. CRDTs like last-writer-wins can be applied conflicting edits on scalar props or set-union/remove for membership to sets.
+
+**Undo/redo preserves the present collaboratively.** Undo followed by redo should return the document to exactly where it was. To achieve this, undo captures the current value into the redo stack. This ensures redo never overwrites concurrent edits from collaborators. History is per-user and local—the server only sees forward ops.
+
+**Ephemeral collaboration signals.** High-frequency UI signals (cursor, selection, in-progress transforms) are transmitted for UX but are not part of the authoritative op log. Only final committed intent becomes a durable semantic op.
