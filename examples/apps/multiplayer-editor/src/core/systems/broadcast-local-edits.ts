@@ -1,36 +1,51 @@
-import type { World } from 'koota';
+import { createChanged, type World } from 'koota';
 import { Position, Rotation, Scale, Color, StableId, EditedBy, IsLocal } from '../traits';
 import { sendEditUpdate } from '../multiplayer/ephemeral';
 
-// Track last sent values to avoid redundant network sends
-const lastSent = new Map<number, string>();
+// Create a Changed modifier instance for tracking trait changes
+const Changed = createChanged();
+
+// Helper to check if entity has a local editor
+function hasLocalEditor(entity: ReturnType<World['query']> extends { readEach: (cb: (t: any, e: infer E) => void) => void } ? E : never): boolean {
+    return entity.targetsFor(EditedBy).some((editor) => editor.has(IsLocal));
+}
 
 export function broadcastLocalEdits(world: World) {
-    // Find shapes being edited locally
-    world.query(EditedBy('*'), StableId).readEach((_, entity) => {
-        const hasLocalEditor = entity.targetsFor(EditedBy).some((editor) => editor.has(IsLocal));
-        if (!hasLocalEditor) return; // Only broadcast local edits
-
-        const stableId = entity.get(StableId)!;
-        const pos = entity.get(Position);
-        const rot = entity.get(Rotation);
-        const scale = entity.get(Scale);
-        const color = entity.get(Color);
-
-        // Create a key for change detection (skip if unchanged)
-        const key = `${pos?.x ?? ''},${pos?.y ?? ''},${rot?.angle ?? ''},${scale?.x ?? ''},${scale?.y ?? ''},${color?.fill ?? ''}`;
-        if (lastSent.get(stableId.id) === key) return;
-        lastSent.set(stableId.id, key);
-
-        // Send absolute current values
+    // Broadcast position changes
+    world.query(EditedBy('*'), StableId, Changed(Position)).readEach(([stableId, pos], entity) => {
+        if (!hasLocalEditor(entity)) return;
         sendEditUpdate({
             shapeId: stableId.id,
-            x: pos?.x,
-            y: pos?.y,
-            angle: rot?.angle,
-            scaleX: scale?.x,
-            scaleY: scale?.y,
-            fill: color?.fill,
+            x: pos.x,
+            y: pos.y,
+        });
+    });
+
+    // Broadcast rotation changes
+    world.query(EditedBy('*'), StableId, Changed(Rotation)).readEach(([stableId, rot], entity) => {
+        if (!hasLocalEditor(entity)) return;
+        sendEditUpdate({
+            shapeId: stableId.id,
+            angle: rot.angle,
+        });
+    });
+
+    // Broadcast scale changes
+    world.query(EditedBy('*'), StableId, Changed(Scale)).readEach(([stableId, scale], entity) => {
+        if (!hasLocalEditor(entity)) return;
+        sendEditUpdate({
+            shapeId: stableId.id,
+            scaleX: scale.x,
+            scaleY: scale.y,
+        });
+    });
+
+    // Broadcast color changes
+    world.query(EditedBy('*'), StableId, Changed(Color)).readEach(([stableId, color], entity) => {
+        if (!hasLocalEditor(entity)) return;
+        sendEditUpdate({
+            shapeId: stableId.id,
+            fill: color.fill,
         });
     });
 }
