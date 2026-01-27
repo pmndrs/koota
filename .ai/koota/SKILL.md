@@ -43,16 +43,10 @@ Design systems as small, single-purpose units rather than monolithic functions t
 
 ```typescript
 // Good: Composable systems - each can be enabled/disabled independently
-function applyVelocity(world: World) { /* ... */ }
-function applyGravity(world: World) { /* ... */ }
-function applyFriction(world: World) { /* ... */ }
-function syncToDOM(world: World) { /* ... */ }
-
-// Run only what's needed
-applyVelocity(world)
-if (gravityEnabled) applyGravity(world)
-if (frictionEnabled) applyFriction(world)
-syncToDOM(world)
+function applyVelocity(world: World) {}
+function applyGravity(world: World) {}
+function applyFriction(world: World) {}
+function syncToDOM(world: World) {}
 
 // Bad: Monolithic system - can't disable gravity without disabling everything
 function updatePhysicsAndRender(world: World) {
