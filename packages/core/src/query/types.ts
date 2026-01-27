@@ -117,16 +117,21 @@ type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First
           : []
     : [];
 
-/** Represents a group of tracking modifiers combined with OR logic */
-export type OrTrackingGroup = {
+/**
+ * Unified tracking group that supports both AND and OR logic.
+ * Replaces the old separate tracking arrays and OrTrackingGroup.
+ */
+export type TrackingGroup = {
+    /** Whether all traits must match (and) or any trait can match (or) */
+    logic: 'and' | 'or';
+    /** The type of tracking event */
     type: 'add' | 'remove' | 'change';
+    /** Tracking modifier ID for snapshot/mask lookups */
     id: number;
-    traitInstances: TraitInstance[];
-    /**
-     * PERF: Use sparse array instead of Map for O(1) indexed access.
-     * Index is generationId, value is bitmask. Undefined entries mean no traits for that generation.
-     */
-    bitmasksByGeneration: (number | undefined)[];
+    /** Bitmasks indexed by generationId */
+    bitmasks: (number | undefined)[];
+    /** Per-entity tracker state indexed by [generationId][entityId] */
+    trackers: (number[] | undefined)[];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
@@ -135,26 +140,21 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     parameters: T;
     hash: QueryHash;
     traits: Trait[];
+    /** Static trait instances for non-tracking query matching */
     traitInstances: {
         required: TraitInstance[];
         forbidden: TraitInstance[];
         or: TraitInstance[];
-        added: TraitInstance[];
-        removed: TraitInstance[];
-        changed: TraitInstance[];
         all: TraitInstance[];
     };
-    bitmasks: {
+    /** Static bitmasks for non-tracking query matching (indexed by generationId) */
+    staticBitmasks: {
         required: number;
         forbidden: number;
         or: number;
-        added: number;
-        removed: number;
-        changed: number;
-        addedTracker: number[];
-        removedTracker: number[];
-        changedTracker: number[];
     }[];
+    /** Unified tracking groups with explicit AND/OR logic */
+    trackingGroups: TrackingGroup[];
     generations: number[];
     entities: SparseSet;
     isTracking: boolean;
@@ -165,8 +165,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     removeSubscriptions: Set<QuerySubscriber>;
     /** Relation pairs for target-specific queries */
     relationFilters?: RelationPair[];
-    /** Tracking modifiers combined with OR logic (entity matches if ANY condition is met) */
-    orTrackingGroups: OrTrackingGroup[];
     run: (world: World, params: QueryParameter[]) => QueryResult<T>;
     add: (entity: Entity) => void;
     remove: (world: World, entity: Entity) => void;

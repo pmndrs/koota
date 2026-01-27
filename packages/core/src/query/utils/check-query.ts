@@ -9,7 +9,8 @@ import type { QueryInstance } from '../types';
  * For tracking queries, use checkQueryTracking instead.
  */
 export function checkQuery(world: World, query: QueryInstance, entity: Entity): boolean {
-    const { bitmasks, generations } = query;
+    const staticBitmasks = query.staticBitmasks;
+    const generations = query.generations;
     const ctx = world[$internal];
     const eid = getEntityId(entity);
 
@@ -17,13 +18,17 @@ export function checkQuery(world: World, query: QueryInstance, entity: Entity): 
 
     for (let i = 0; i < generations.length; i++) {
         const generationId = generations[i];
-        const bitmask = bitmasks[i];
-        const { required, forbidden, or } = bitmask;
-        const entityMask = ctx.entityMasks[generationId][eid];
+        const bitmask = staticBitmasks[i];
+        if (!bitmask) continue;
+
+        const required = bitmask.required;
+        const forbidden = bitmask.forbidden;
+        const or = bitmask.or;
+        const entityMask = ctx.entityMasks[generationId]?.[eid] || 0;
 
         if (!forbidden && !required && !or) return false;
-        if ((entityMask & forbidden) !== 0) return false;
-        if ((entityMask & required) !== required) return false;
+        if (forbidden && (entityMask & forbidden) !== 0) return false;
+        if (required && (entityMask & required) !== required) return false;
         if (or !== 0 && (entityMask & or) === 0) return false;
     }
 

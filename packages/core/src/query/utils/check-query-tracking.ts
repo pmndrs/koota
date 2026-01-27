@@ -7,8 +7,12 @@ import { EventType, QueryInstance } from '../types';
 /**
  * Check if an entity matches a tracking query with event handling.
  *
- * PERF: This is a hot path - avoid object destructuring, use indexed loops,
- * cache property accesses, and avoid closures.
+ * PERF: This is a hot path - optimizations applied:
+ * - Cache all property accesses at function start
+ * - Use `| 0` instead of `|| 0` (bitwise coerces undefined to 0)
+ * - Avoid optional chaining in inner loops
+ * - Cache array references before mutation
+ * - Early exits where possible
  */
 export function checkQueryTracking(
     world: World,
@@ -18,113 +22,124 @@ export function checkQueryTracking(
     eventGenerationId: number,
     eventBitflag: number
 ): boolean {
-    // Cache array references to avoid repeated property access
-    const bitmasks = query.bitmasks;
+    // Cache all property accesses upfront
+    const staticBitmasks = query.staticBitmasks;
+    const trackingGroups = query.trackingGroups;
     const generations = query.generations;
-    const orTrackingGroups = query.orTrackingGroups;
+    const traitInstancesAll = query.traitInstances.all;
     const entityMasks = world[$internal].entityMasks;
     const eid = getEntityId(entity);
 
     const generationsLen = generations.length;
-    const orTrackingLen = orTrackingGroups.length;
+    const trackingGroupsLen = trackingGroups.length;
 
-    if (query.traitInstances.all.length === 0) return false;
+    // Early exit: no traits to check
+    if (traitInstancesAll.length === 0) return false;
 
-    // Check standard tracking (AND logic)
+    // 1. Check static constraints (required/forbidden/or)
     for (let i = 0; i < generationsLen; i++) {
         const generationId = generations[i];
-        const bitmask = bitmasks[i];
+        const bitmask = staticBitmasks[i];
+        if (!bitmask) continue;
 
-        // Cache bitmask properties to avoid repeated property access
         const required = bitmask.required;
         const forbidden = bitmask.forbidden;
         const or = bitmask.or;
-        const added = bitmask.added;
-        const removed = bitmask.removed;
-        const changed = bitmask.changed;
-        const entityMask = entityMasks[generationId][eid];
 
-        if (!forbidden && !required && !or && !removed && !added && !changed) {
-            // If we have or-tracking groups, don't fail yet - check those
-            if (orTrackingLen === 0) return false;
-            continue;
-        }
-
-        // Handle events only for matching generation
-        if (eventGenerationId === generationId) {
-            if (eventType === 'add') {
-                if (removed & eventBitflag) return false;
-                if (added & eventBitflag) {
-                    bitmask.addedTracker[eid] |= eventBitflag;
-                }
-            } else if (eventType === 'remove') {
-                if (added & eventBitflag) return false;
-                if (removed & eventBitflag) {
-                    bitmask.removedTracker[eid] |= eventBitflag;
-                }
-                if (changed & eventBitflag) return false;
-            } else if (eventType === 'change') {
-                if (!(entityMask & eventBitflag)) return false;
-                if (changed & eventBitflag) {
-                    bitmask.changedTracker[eid] |= eventBitflag;
-                }
-            }
-        }
+        // PERF: Direct access + bitwise OR coerces undefined to 0
+        const genMasks = entityMasks[generationId];
+        const entityMask = genMasks ? (genMasks[eid] | 0) : 0;
 
         // Check forbidden traits
-        if ((entityMask & forbidden) !== 0) return false;
+        if (forbidden && (entityMask & forbidden) !== 0) return false;
 
         // Check required traits
-        if ((entityMask & required) !== required) return false;
+        if (required && (entityMask & required) !== required) return false;
 
         // Check Or traits
         if (or !== 0 && (entityMask & or) === 0) return false;
+    }
 
-        // Check tracking masks only for matching generation
-        if (eventGenerationId === generationId) {
-            if (added) {
-                const entityAddedTracker = bitmask.addedTracker[eid] | 0;
-                if ((entityAddedTracker & added) !== added) return false;
+    // 2. Process tracking groups - update trackers and check cross-event invalidation
+    // Also track OR group state to avoid second loop when possible
+    let hasOrGroup = false;
+    let anyOrMatched = false;
+
+    for (let i = 0; i < trackingGroupsLen; i++) {
+        const group = trackingGroups[i];
+        const groupType = group.type;
+        const groupLogic = group.logic;
+        const groupBitmasks = group.bitmasks;
+        const groupBitmask = groupBitmasks[eventGenerationId];
+
+        // Check if this event affects this group's traits
+        if (groupBitmask && (groupBitmask & eventBitflag)) {
+            // Cross-event invalidation:
+            // - Remove event invalidates Added/Changed tracking
+            // - Add event invalidates Removed/Changed tracking
+            if (eventType === 'remove') {
+                if (groupType === 'add' || groupType === 'change') return false;
+            } else if (eventType === 'add') {
+                if (groupType === 'remove' || groupType === 'change') return false;
             }
-            if (removed) {
-                const entityRemovedTracker = bitmask.removedTracker[eid] | 0;
-                if ((entityRemovedTracker & removed) !== removed) return false;
+
+            // Update tracker if event type matches group type
+            if (groupType === eventType) {
+                // For change events, verify entity still has the trait
+                if (eventType === 'change') {
+                    const genMasks = entityMasks[eventGenerationId];
+                    const entityMask = genMasks ? (genMasks[eid] | 0) : 0;
+                    if (!(entityMask & eventBitflag)) return false;
+                }
+
+                // PERF: Cache tracker array reference before mutation
+                const groupTrackers = group.trackers;
+                let trackerArr = groupTrackers[eventGenerationId];
+                if (!trackerArr) {
+                    trackerArr = [];
+                    groupTrackers[eventGenerationId] = trackerArr;
+                }
+                trackerArr[eid] = (trackerArr[eid] | 0) | eventBitflag;
             }
-            if (changed) {
-                const entityChangedTracker = bitmask.changedTracker[eid] | 0;
-                if ((entityChangedTracker & changed) !== changed) return false;
+        }
+
+        // 3. Verify tracking group satisfaction (merged into same loop)
+        if (groupLogic === 'or') {
+            hasOrGroup = true;
+            if (!anyOrMatched) {
+                // Check if any trait in OR group has been tracked
+                const groupTrackers = group.trackers;
+                const bitmaskLen = groupBitmasks.length;
+                for (let genId = 0; genId < bitmaskLen; genId++) {
+                    const mask = groupBitmasks[genId];
+                    if (!mask) continue;
+                    const trackerArr = groupTrackers[genId];
+                    const tracker = trackerArr ? (trackerArr[eid] | 0) : 0;
+                    if (tracker & mask) {
+                        anyOrMatched = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // AND group: all traits must be tracked
+            const groupTrackers = group.trackers;
+            const bitmaskLen = groupBitmasks.length;
+            for (let genId = 0; genId < bitmaskLen; genId++) {
+                const mask = groupBitmasks[genId];
+                if (!mask) continue;
+                const trackerArr = groupTrackers[genId];
+                const tracker = trackerArr ? (trackerArr[eid] | 0) : 0;
+                if ((tracker & mask) !== mask) {
+                    return false;
+                }
             }
         }
     }
 
-    // Check or-tracking groups (OR logic - entity matches if ANY trait in the group matches)
-    if (orTrackingLen > 0) {
-        for (let i = 0; i < orTrackingLen; i++) {
-            const group = orTrackingGroups[i];
-
-            // Only check groups that match the event type
-            if (group.type !== eventType) continue;
-
-            // Check if this event's bitflag is relevant to this group
-            const groupBitmask = group.bitmasksByGeneration[eventGenerationId];
-            if (groupBitmask && groupBitmask & eventBitflag) {
-                // This event is relevant to this group - entity matches
-                return true;
-            }
-        }
-
-        // If we only have or-tracking groups and none matched, fail
-        if (generationsLen === 0) return false;
-
-        let hasAnyTracking = false;
-        for (let i = 0; i < generationsLen; i++) {
-            const b = bitmasks[i];
-            if (b.added || b.removed || b.changed) {
-                hasAnyTracking = true;
-                break;
-            }
-        }
-        if (!hasAnyTracking) return false;
+    // If we have OR groups, at least one must match
+    if (hasOrGroup && !anyOrMatched) {
+        return false;
     }
 
     return true;
