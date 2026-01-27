@@ -14,6 +14,7 @@ import { type Entity } from 'koota';
 import { useRef, useCallback } from 'react';
 import { selectionActions } from '../../core/actions';
 import { historyActions } from '../../core/actions';
+import { clearEphemeralTransform } from '../../core/multiplayer/ephemeral';
 
 // Generate a consistent color from client ID (matches cursor color)
 function getClientColor(clientId: string): string {
@@ -67,6 +68,8 @@ export function ShapeView({ entity }: ShapeViewProps) {
             const offset = {
                 offsetX: event.clientX - pos.x,
                 offsetY: event.clientY - pos.y,
+                startX: pos.x,
+                startY: pos.y,
             };
 
             // Select the shape (additive if Shift is held)
@@ -93,21 +96,31 @@ export function ShapeView({ entity }: ShapeViewProps) {
                     recordPositionChange(entity, dragStartPos.current, { x: pos.x, y: pos.y });
                 }
                 dragStartPos.current = null;
+                // Clear ephemeral transform now that the op is committed
+                clearEphemeralTransform();
             }
         },
         [entity, recordPositionChange]
     );
 
     const handlePointerCancel = useCallback(() => {
+        const wasDragging = entity.has(Dragging);
         entity.remove(Dragging);
         dragStartPos.current = null;
+        if (wasDragging) {
+            clearEphemeralTransform();
+        }
     }, [entity]);
 
     const handleLostPointerCapture = useCallback(
         (e: React.PointerEvent<HTMLDivElement>) => {
             if (e.buttons === 0) {
+                const wasDragging = entity.has(Dragging);
                 entity.remove(Dragging);
                 dragStartPos.current = null;
+                if (wasDragging) {
+                    clearEphemeralTransform();
+                }
             }
         },
         [entity]

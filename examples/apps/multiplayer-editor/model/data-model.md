@@ -60,6 +60,30 @@ erDiagram
   }
 ```
 
+### Ephemeral Transform
+
+When a remote user is actively transforming a shape (dragging, resizing, rotating), an ephemeral transform previews the change before it commits. This is separate from presence—presence is about the user, ephemeral transform is about the object being manipulated.
+
+```mermaid
+erDiagram
+  "User" ||--o| "EphemeralTransform" : owns
+  "EphemeralTransform" }o--|| "Shape" : applies_to
+
+  "EphemeralTransform" {
+    float deltaX "Position offset"
+    float deltaY "Position offset"
+    float scaleX "Scale multiplier, default 1"
+    float scaleY "Scale multiplier, default 1"
+    float rotation "Rotation offset in degrees, default 0"
+  }
+```
+
+Notes:
+
+- **Exclusive**: Only one user can transform a shape at a time.
+- **Ephemeral**: Not persisted. Cleared when the transform commits or the user disconnects.
+- **Distinct from selection**: Selecting a shape does not imply transforming it.
+
 ## Shape
 
 Shapes are the primary content entities. Each shape has a stable ID for cross-client references and supports transformation and color.

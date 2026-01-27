@@ -1,15 +1,20 @@
-import type { EphemeralPresence, ClientEphemeralMessage } from './protocol';
+import type { EphemeralPresence, EphemeralTransform, ClientEphemeralMessage } from './protocol';
 
 type SendFunction = (message: ClientEphemeralMessage) => void;
 
 let sendFn: SendFunction | null = null;
 let clientId: string = '';
 
-// Throttle state
+// Throttle state for presence
 const THROTTLE_MS = 33; // ~30fps
 let lastPresenceTime = 0;
 let pendingPresence: EphemeralPresence | null = null;
 let presenceTimerId: ReturnType<typeof setTimeout> | null = null;
+
+// Throttle state for transforms
+let lastTransformTime = 0;
+let pendingTransform: EphemeralTransform | null = null;
+let transformTimerId: ReturnType<typeof setTimeout> | null = null;
 
 export function setEphemeralSender(id: string, send: SendFunction | null) {
     clientId = id;
@@ -56,4 +61,43 @@ export function clearEphemeralPresence() {
         presenceTimerId = null;
     }
     pendingPresence = null;
+}
+
+export function sendEphemeralTransform(transform: EphemeralTransform) {
+    if (!sendFn || !clientId) return;
+
+    const now = Date.now();
+
+    if (now - lastTransformTime >= THROTTLE_MS) {
+        // Send immediately
+        lastTransformTime = now;
+        sendFn({ type: 'client-ephemeral', clientId, data: transform });
+        pendingTransform = null;
+    } else {
+        // Queue for later
+        pendingTransform = transform;
+        if (!transformTimerId) {
+            const delay = THROTTLE_MS - (now - lastTransformTime);
+            transformTimerId = setTimeout(() => {
+                transformTimerId = null;
+                if (pendingTransform !== null && sendFn && clientId) {
+                    lastTransformTime = Date.now();
+                    sendFn({ type: 'client-ephemeral', clientId, data: pendingTransform });
+                    pendingTransform = null;
+                }
+            }, delay);
+        }
+    }
+}
+
+export function clearEphemeralTransform() {
+    if (transformTimerId) {
+        clearTimeout(transformTimerId);
+        transformTimerId = null;
+    }
+    // Send null to clear the transform on server/other clients
+    if (sendFn && clientId) {
+        sendFn({ type: 'client-ephemeral', clientId, data: null });
+    }
+    pendingTransform = null;
 }

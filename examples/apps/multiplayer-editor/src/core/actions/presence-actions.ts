@@ -1,5 +1,15 @@
 import { createActions, type Entity } from 'koota';
-import { User, ClientId, IsLocal, IsRemote, RemoteCursor, RemoteSelection } from '../traits';
+import {
+    User,
+    ClientId,
+    IsLocal,
+    IsRemote,
+    RemoteCursor,
+    RemoteSelection,
+    RemotelyTransformedBy,
+    History,
+} from '../traits';
+import type { EphemeralTransform } from '../multiplayer/protocol';
 import { createRandomUserName } from '../utils/user-name';
 
 export const presenceActions = createActions((world) => {
@@ -56,6 +66,61 @@ export const presenceActions = createActions((world) => {
                 userEntity.set(RemoteSelection, selection);
             } else {
                 userEntity.remove(RemoteSelection);
+            }
+        },
+
+        updateRemoteTransform: (userEntity: Entity, transform: EphemeralTransform) => {
+            const history = world.get(History);
+            if (!history) return;
+
+            // If transform is null, clear any existing transform from this user
+            if (!transform) {
+                for (const [, shapeEntity] of history.entities) {
+                    if (shapeEntity.has(RemotelyTransformedBy(userEntity))) {
+                        shapeEntity.remove(RemotelyTransformedBy(userEntity));
+                    }
+                }
+                return;
+            }
+
+            // Find the shape entity by stable ID
+            const shapeEntity = history.entities.get(transform.shapeId);
+            if (!shapeEntity) return;
+
+            // Check if this user was transforming a different shape before
+            for (const [id, entity] of history.entities) {
+                if (id !== transform.shapeId && entity.has(RemotelyTransformedBy(userEntity))) {
+                    entity.remove(RemotelyTransformedBy(userEntity));
+                }
+            }
+
+            // Update or add the relation with target values for interpolation
+            if (shapeEntity.has(RemotelyTransformedBy(userEntity))) {
+                const current = shapeEntity.get(RemotelyTransformedBy(userEntity))!;
+                shapeEntity.set(RemotelyTransformedBy(userEntity), {
+                    ...current,
+                    targetDeltaX: transform.deltaX,
+                    targetDeltaY: transform.deltaY,
+                    targetScaleX: transform.scaleX,
+                    targetScaleY: transform.scaleY,
+                    targetRotation: transform.rotation,
+                });
+            } else {
+                // New transform - initialize current at target (no lag on first frame)
+                shapeEntity.add(
+                    RemotelyTransformedBy(userEntity, {
+                        deltaX: transform.deltaX,
+                        deltaY: transform.deltaY,
+                        scaleX: transform.scaleX,
+                        scaleY: transform.scaleY,
+                        rotation: transform.rotation,
+                        targetDeltaX: transform.deltaX,
+                        targetDeltaY: transform.deltaY,
+                        targetScaleX: transform.scaleX,
+                        targetScaleY: transform.scaleY,
+                        targetRotation: transform.rotation,
+                    })
+                );
             }
         },
     };

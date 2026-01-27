@@ -6,6 +6,7 @@ import type {
     ServerOp,
     Checkpoint,
     EphemeralSnapshot,
+    EphemeralData,
 } from './protocol';
 import { SEQ_UNASSIGNED, type Op } from '../types';
 import { rebaseWorld } from './rebase';
@@ -189,22 +190,19 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
         }
     }
 
-    function handleServerEphemeral(
-        remoteClientId: string,
-        data: {
-            type: 'presence';
-            name?: string;
-            cursor: { x: number; y: number } | null;
-            selection: number[];
-        }
-    ) {
+    function handleServerEphemeral(remoteClientId: string, data: EphemeralData) {
         const userEntity = getOrCreateRemoteUserEntity(remoteClientId);
 
-        if (data.name) {
-            userEntity.set(User, { name: data.name });
+        if (data?.type === 'presence') {
+            if (data.name) {
+                userEntity.set(User, { name: data.name });
+            }
+            presence.updateRemoteCursor(userEntity, data.cursor);
+            presence.updateRemoteSelection(userEntity, data.selection);
+        } else if (data?.type === 'transform' || data === null) {
+            console.log('received transform', data);
+            presence.updateRemoteTransform(userEntity, data);
         }
-        presence.updateRemoteCursor(userEntity, data.cursor);
-        presence.updateRemoteSelection(userEntity, data.selection);
     }
 
     function handleUserLeft(remoteClientId: string) {
@@ -221,6 +219,10 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
                 }
                 presence.updateRemoteCursor(userEntity, entry.presence.cursor);
                 presence.updateRemoteSelection(userEntity, entry.presence.selection);
+            }
+
+            if (entry.transform) {
+                presence.updateRemoteTransform(userEntity, entry.transform);
             }
         }
     }

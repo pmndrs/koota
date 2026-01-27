@@ -6,6 +6,7 @@ import type {
     ServerMessage,
     ServerOp,
     EphemeralPresence,
+    EphemeralTransform,
     EphemeralSnapshot,
 } from '../src/core/multiplayer/protocol';
 import { createServerState, applyOpToState, recordCheckpoint } from './state';
@@ -19,6 +20,7 @@ type ClientInfo = {
 
 type ClientEphemeralState = {
     presence?: EphemeralPresence;
+    transform?: EphemeralTransform;
 };
 
 const ephemeralState = new Map<string, ClientEphemeralState>();
@@ -66,6 +68,7 @@ wss.on('connection', (socket) => {
         ephemeralSnapshot.push({
             clientId: cid,
             presence: ephState.presence,
+            transform: ephState.transform,
         });
     }
 
@@ -101,14 +104,20 @@ function handleClientEphemeral(socket: WebSocket, message: ClientEphemeralMessag
     const clientInfo = clients.get(socket);
     if (!clientInfo) return;
 
-    // Update ephemeral state for this client (presence only - cursor + selection)
+    // Update ephemeral state for this client
     let clientState = ephemeralState.get(message.clientId);
     if (!clientState) {
         clientState = {};
         ephemeralState.set(message.clientId, clientState);
     }
 
-    clientState.presence = message.data;
+    const data = message.data;
+    if (data?.type === 'presence') {
+        clientState.presence = data;
+    } else if (data?.type === 'transform' || data === null) {
+        // null clears the transform
+        clientState.transform = data;
+    }
 
     // Broadcast to all OTHER clients (not the sender)
     broadcastExcept(socket, {

@@ -5,6 +5,7 @@ import { updateDragging } from '../core/systems/update-dragging';
 import { syncToDOM } from '../core/systems/sync-to-dom';
 import { interpolateRemote } from '../core/systems/interpolate-remote';
 import { sendEphemeralPresenceSystem } from '../core/systems/send-ephemeral-presence';
+import { sendLocalTransform } from '../core/systems/send-local-transform';
 import { Pointer } from '../core/traits';
 import { useAnimationFrame } from '../utils/use-animation-frame';
 
@@ -17,6 +18,7 @@ export function Frameloop() {
         updateDragging(world);
         interpolateRemote(world);
         sendEphemeralPresenceSystem(world);
+        sendLocalTransform(world);
         syncToDOM(world);
     });
 

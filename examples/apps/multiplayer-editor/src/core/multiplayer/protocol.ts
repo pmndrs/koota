@@ -43,6 +43,7 @@ export type ClientOpsMessage = {
 export type EphemeralSnapshot = {
     clientId: string;
     presence?: EphemeralPresence;
+    transform?: EphemeralTransform;
 };
 
 export type ServerWelcomeMessage = {
@@ -80,7 +81,17 @@ export type EphemeralPresence = {
     selection: number[];
 };
 
-export type EphemeralData = EphemeralPresence;
+export type EphemeralTransform = {
+    type: 'transform';
+    shapeId: number; // Stable ID of the shape being transformed
+    deltaX: number;
+    deltaY: number;
+    scaleX: number;
+    scaleY: number;
+    rotation: number;
+} | null; // null clears the transform
+
+export type EphemeralData = EphemeralPresence | EphemeralTransform;
 
 export type ClientEphemeralMessage = {
     type: 'client-ephemeral';
