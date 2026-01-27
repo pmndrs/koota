@@ -24,10 +24,19 @@ export const Rotation = trait({ angle: 0 }); // degrees
 export const Scale = trait({ x: 1, y: 1 });
 export const Color = trait({ fill: '#4a90d9' });
 
+// Editing state - captures durable (last committed op) values
+export const EditingPosition = trait({ durableX: 0, durableY: 0 });
+export const EditingRotation = trait({ durableAngle: 0 });
+export const EditingScale = trait({ durableX: 1, durableY: 1 });
+export const EditingColor = trait({ durableFill: '' });
+
+// Tracks which users are editing (non-exclusive)
+export const EditedBy = relation();
+
 // Interaction
 export const IsSelected = trait(); // Tag
 export const IsHovering = trait(); // Tag
-export const Dragging = trait({ offsetX: 0, offsetY: 0, startX: 0, startY: 0 });
+export const Dragging = trait({ offsetX: 0, offsetY: 0 });
 export const Ref = trait(() => null! as HTMLDivElement);
 
 export const IsCanvas = trait(); // Tag
@@ -48,24 +57,3 @@ export const RemoteCursor = trait({
 
 // Remote selection (array of stable IDs selected by remote user)
 export const RemoteSelection = trait(() => [] as number[]);
-
-// Ephemeral transform - relation from Shape to User with transform preview data
-// Exclusive: only one user can transform a shape at a time
-// Uses target values for interpolation (like RemoteCursor)
-export const RemotelyTransformedBy = relation({
-    exclusive: true,
-    store: {
-        // Current interpolated values
-        deltaX: 0,
-        deltaY: 0,
-        scaleX: 1,
-        scaleY: 1,
-        rotation: 0,
-        // Target values (from network)
-        targetDeltaX: 0,
-        targetDeltaY: 0,
-        targetScaleX: 1,
-        targetScaleY: 1,
-        targetRotation: 0,
-    },
-});

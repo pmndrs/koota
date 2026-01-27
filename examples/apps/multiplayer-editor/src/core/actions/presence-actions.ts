@@ -6,10 +6,18 @@ import {
     IsRemote,
     RemoteCursor,
     RemoteSelection,
-    RemotelyTransformedBy,
     History,
+    Position,
+    Rotation,
+    Scale,
+    Color,
+    EditingPosition,
+    EditingRotation,
+    EditingScale,
+    EditingColor,
+    EditedBy,
 } from '../traits';
-import type { EphemeralTransform } from '../multiplayer/protocol';
+import type { EditStart, EditUpdate, EditEnd } from '../multiplayer/protocol';
 import { createRandomUserName } from '../utils/user-name';
 
 export const presenceActions = createActions((world) => {
@@ -69,58 +77,112 @@ export const presenceActions = createActions((world) => {
             }
         },
 
-        updateRemoteTransform: (userEntity: Entity, transform: EphemeralTransform) => {
+        // Handle edit start from remote user - new unified model
+        handleRemoteEditStart: (userEntity: Entity, data: EditStart) => {
             const history = world.get(History);
             if (!history) return;
 
-            // If transform is null, clear any existing transform from this user
-            if (!transform) {
-                for (const [, shapeEntity] of history.entities) {
-                    if (shapeEntity.has(RemotelyTransformedBy(userEntity))) {
-                        shapeEntity.remove(RemotelyTransformedBy(userEntity));
-                    }
-                }
-                return;
-            }
-
-            // Find the shape entity by stable ID
-            const shapeEntity = history.entities.get(transform.shapeId);
+            const shapeEntity = history.entities.get(data.shapeId);
             if (!shapeEntity) return;
 
-            // Check if this user was transforming a different shape before
-            for (const [id, entity] of history.entities) {
-                if (id !== transform.shapeId && entity.has(RemotelyTransformedBy(userEntity))) {
-                    entity.remove(RemotelyTransformedBy(userEntity));
+            // Add editing traits with durable values
+            if (
+                data.properties.includes('position') &&
+                data.durableX !== undefined &&
+                !shapeEntity.has(EditingPosition)
+            ) {
+                shapeEntity.add(
+                    EditingPosition({ durableX: data.durableX, durableY: data.durableY! })
+                );
+            }
+            if (
+                data.properties.includes('rotation') &&
+                data.durableAngle !== undefined &&
+                !shapeEntity.has(EditingRotation)
+            ) {
+                shapeEntity.add(EditingRotation({ durableAngle: data.durableAngle }));
+            }
+            if (
+                data.properties.includes('scale') &&
+                data.durableScaleX !== undefined &&
+                !shapeEntity.has(EditingScale)
+            ) {
+                shapeEntity.add(
+                    EditingScale({ durableX: data.durableScaleX, durableY: data.durableScaleY! })
+                );
+            }
+            if (
+                data.properties.includes('color') &&
+                data.durableFill !== undefined &&
+                !shapeEntity.has(EditingColor)
+            ) {
+                shapeEntity.add(EditingColor({ durableFill: data.durableFill }));
+            }
+
+            // Track editor
+            shapeEntity.add(EditedBy(userEntity));
+        },
+
+        // Handle edit update from remote user - updates Position/Rotation/Scale/Color directly
+        handleRemoteEditUpdate: (data: EditUpdate) => {
+            const history = world.get(History);
+            if (!history) return;
+
+            const shapeEntity = history.entities.get(data.shapeId);
+            if (!shapeEntity) return;
+
+            // Update traits directly with absolute values
+            if (data.x !== undefined && data.y !== undefined) {
+                shapeEntity.set(Position, { x: data.x, y: data.y });
+            }
+            if (data.angle !== undefined) {
+                shapeEntity.set(Rotation, { angle: data.angle });
+            }
+            if (data.scaleX !== undefined && data.scaleY !== undefined) {
+                shapeEntity.set(Scale, { x: data.scaleX, y: data.scaleY });
+            }
+            if (data.fill !== undefined) {
+                shapeEntity.set(Color, { fill: data.fill });
+            }
+        },
+
+        // Handle edit end from remote user
+        handleRemoteEditEnd: (userEntity: Entity, data: EditEnd) => {
+            const history = world.get(History);
+            if (!history) return;
+
+            const shapeEntity = history.entities.get(data.shapeId);
+            if (!shapeEntity) return;
+
+            if (!data.committed) {
+                // Restore from durable values
+                const editPos = shapeEntity.get(EditingPosition);
+                if (editPos) {
+                    shapeEntity.set(Position, { x: editPos.durableX, y: editPos.durableY });
+                }
+                const editRot = shapeEntity.get(EditingRotation);
+                if (editRot) {
+                    shapeEntity.set(Rotation, { angle: editRot.durableAngle });
+                }
+                const editScale = shapeEntity.get(EditingScale);
+                if (editScale) {
+                    shapeEntity.set(Scale, { x: editScale.durableX, y: editScale.durableY });
+                }
+                const editColor = shapeEntity.get(EditingColor);
+                if (editColor) {
+                    shapeEntity.set(Color, { fill: editColor.durableFill });
                 }
             }
 
-            // Update or add the relation with target values for interpolation
-            if (shapeEntity.has(RemotelyTransformedBy(userEntity))) {
-                const current = shapeEntity.get(RemotelyTransformedBy(userEntity))!;
-                shapeEntity.set(RemotelyTransformedBy(userEntity), {
-                    ...current,
-                    targetDeltaX: transform.deltaX,
-                    targetDeltaY: transform.deltaY,
-                    targetScaleX: transform.scaleX,
-                    targetScaleY: transform.scaleY,
-                    targetRotation: transform.rotation,
-                });
-            } else {
-                // New transform - initialize current at target (no lag on first frame)
-                shapeEntity.add(
-                    RemotelyTransformedBy(userEntity, {
-                        deltaX: transform.deltaX,
-                        deltaY: transform.deltaY,
-                        scaleX: transform.scaleX,
-                        scaleY: transform.scaleY,
-                        rotation: transform.rotation,
-                        targetDeltaX: transform.deltaX,
-                        targetDeltaY: transform.deltaY,
-                        targetScaleX: transform.scaleX,
-                        targetScaleY: transform.scaleY,
-                        targetRotation: transform.rotation,
-                    })
-                );
+            // Remove editor
+            shapeEntity.remove(EditedBy(userEntity));
+
+            // Clean up editing state only if no editors remain
+            if (shapeEntity.targetsFor(EditedBy).length === 0) {
+                shapeEntity.remove(EditingPosition);
+                shapeEntity.remove(EditingRotation);
+                shapeEntity.remove(EditingScale);
+                shapeEntity.remove(EditingColor);
             }
         },
     };

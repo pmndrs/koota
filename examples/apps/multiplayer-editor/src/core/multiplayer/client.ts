@@ -199,9 +199,12 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
             }
             presence.updateRemoteCursor(userEntity, data.cursor);
             presence.updateRemoteSelection(userEntity, data.selection);
-        } else if (data?.type === 'transform' || data === null) {
-            console.log('received transform', data);
-            presence.updateRemoteTransform(userEntity, data);
+        } else if (data?.type === 'editStart') {
+            presence.handleRemoteEditStart(userEntity, data);
+        } else if (data?.type === 'editUpdate') {
+            presence.handleRemoteEditUpdate(data);
+        } else if (data?.type === 'editEnd') {
+            presence.handleRemoteEditEnd(userEntity, data);
         }
     }
 
@@ -221,9 +224,14 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
                 presence.updateRemoteSelection(userEntity, entry.presence.selection);
             }
 
-            if (entry.transform) {
-                presence.updateRemoteTransform(userEntity, entry.transform);
+            // Handle new editing protocol
+            if (entry.editStart) {
+                presence.handleRemoteEditStart(userEntity, entry.editStart);
             }
+            if (entry.editUpdate) {
+                presence.handleRemoteEditUpdate(entry.editUpdate);
+            }
+
         }
     }
 

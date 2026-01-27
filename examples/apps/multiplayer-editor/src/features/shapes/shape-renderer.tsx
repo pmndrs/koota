@@ -1,4 +1,4 @@
-import { useActions, useHas, useQuery, useTrait } from 'koota/react';
+import { useActions, useHas, useQuery, useTrait, useWorld } from 'koota/react';
 import {
     Dragging,
     IsSelected,
@@ -7,24 +7,14 @@ import {
     Shape,
     StableId,
     IsRemote,
+    IsLocal,
     RemoteSelection,
     ClientId,
 } from '../../core/traits';
 import { type Entity } from 'koota';
-import { useRef, useCallback } from 'react';
-import { selectionActions } from '../../core/actions';
-import { historyActions } from '../../core/actions';
-import { clearEphemeralTransform } from '../../core/multiplayer/ephemeral';
-
-// Generate a consistent color from client ID (matches cursor color)
-function getClientColor(clientId: string): string {
-    let hash = 0;
-    for (let i = 0; i < clientId.length; i++) {
-        hash = clientId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const hue = Math.abs(hash % 360);
-    return `hsl(${hue}, 70%, 50%)`;
-}
+import { useCallback } from 'react';
+import { selectionActions, editingActions } from '../../core/actions';
+import { getClientColor } from '../../utils/get-client-color';
 
 interface ShapeViewProps {
     entity: Entity;
@@ -37,14 +27,12 @@ export function ShapeRenderer() {
 }
 
 export function ShapeView({ entity }: ShapeViewProps) {
+    const world = useWorld();
     const shape = useTrait(entity, Shape);
     const position = useTrait(entity, Position);
     const isSelected = useHas(entity, IsSelected);
     const { selectShape } = useActions(selectionActions);
-    const { recordPositionChange } = useActions(historyActions);
-
-    // Track position at drag start for undo
-    const dragStartPos = useRef<{ x: number; y: number } | null>(null);
+    const { startEditing, commitEditing, cancelEditing } = useActions(editingActions);
 
     const handleInit = useCallback(
         (div: HTMLDivElement | null) => {
@@ -62,14 +50,18 @@ export function ShapeView({ entity }: ShapeViewProps) {
             const pos = entity.get(Position);
             if (!pos) return;
 
-            // Store position at drag start for undo
-            dragStartPos.current = { x: pos.x, y: pos.y };
+            // Get local user entity (optional - only for EditedBy/broadcast)
+            let localUser: Entity | undefined;
+            world.query(IsLocal).readEach((_, entity) => {
+                if (!localUser) localUser = entity;
+            });
+
+            // Start editing - captures durable values (broadcast if local user exists)
+            startEditing(entity, ['position'], localUser);
 
             const offset = {
                 offsetX: event.clientX - pos.x,
                 offsetY: event.clientY - pos.y,
-                startX: pos.x,
-                startY: pos.y,
             };
 
             // Select the shape (additive if Shift is held)
@@ -80,7 +72,7 @@ export function ShapeView({ entity }: ShapeViewProps) {
 
             event.currentTarget.setPointerCapture(event.pointerId);
         },
-        [entity, selectShape]
+        [entity, selectShape, startEditing, world]
     );
 
     const handlePointerUp = useCallback(
@@ -89,41 +81,35 @@ export function ShapeView({ entity }: ShapeViewProps) {
             entity.remove(Dragging);
             event.currentTarget.releasePointerCapture(event.pointerId);
 
-            // If we were dragging, record the position change for undo
-            if (wasDragging && dragStartPos.current) {
-                const pos = entity.get(Position);
-                if (pos) {
-                    recordPositionChange(entity, dragStartPos.current, { x: pos.x, y: pos.y });
-                }
-                dragStartPos.current = null;
-                // Clear ephemeral transform now that the op is committed
-                clearEphemeralTransform();
+            // If we were dragging, commit the edit (creates op and broadcasts)
+            if (wasDragging) {
+                commitEditing(entity, ['position']);
             }
         },
-        [entity, recordPositionChange]
+        [entity, commitEditing]
     );
 
     const handlePointerCancel = useCallback(() => {
         const wasDragging = entity.has(Dragging);
         entity.remove(Dragging);
-        dragStartPos.current = null;
         if (wasDragging) {
-            clearEphemeralTransform();
+            cancelEditing(entity, ['position']);
         }
-    }, [entity]);
+    }, [entity, cancelEditing]);
 
     const handleLostPointerCapture = useCallback(
         (e: React.PointerEvent<HTMLDivElement>) => {
             if (e.buttons === 0) {
                 const wasDragging = entity.has(Dragging);
                 entity.remove(Dragging);
-                dragStartPos.current = null;
                 if (wasDragging) {
-                    clearEphemeralTransform();
+                    commitEditing(entity, ['position']);
                 }
+            } else {
+                cancelEditing(entity, ['position']);
             }
         },
-        [entity]
+        [entity, commitEditing, cancelEditing]
     );
 
     const stableId = useTrait(entity, StableId);

@@ -60,29 +60,67 @@ erDiagram
   }
 ```
 
-### Ephemeral Transform
+### Editing State
 
-When a remote user is actively transforming a shape (dragging, resizing, rotating), an ephemeral transform previews the change before it commits. This is separate from presence—presence is about the user, ephemeral transform is about the object being manipulated.
+When a shape is being edited, the shape maintains two parallel states:
+
+1. **Live state**: Current property values, always reflecting the visual state.
+2. **Durable state** (per-property): Snapshot of a property's value when editing began.
 
 ```mermaid
 erDiagram
-  "User" ||--o| "EphemeralTransform" : owns
-  "EphemeralTransform" }o--|| "Shape" : applies_to
-
-  "EphemeralTransform" {
-    float deltaX "Position offset"
-    float deltaY "Position offset"
-    float scaleX "Scale multiplier, default 1"
-    float scaleY "Scale multiplier, default 1"
-    float rotation "Rotation offset in degrees, default 0"
-  }
+  "Shape" ||--o{ "EditedState*" : editing
+  "Shape" }o--o{ "User" : edited_by
 ```
+
+`edited_by` is a **non-exclusive** relationship: multiple users may be editing the same shape at the same time.
+
+#### Edited States
+
+Each property has its own edited state representing the durable state in the editing lifecycle. Properties can be edited independently or together. For example, a drag edits position only, while a transform handle might edit rotation and scale simultaneously.
+
+- **EditedPosition**: `{ x: float, y: float }`
+- **EditedRotation**: `{ angle: float }`
+- **EditedScale**: `{ x: float, y: float }`
+- **EditedColor**: `{ fill: string }`
+
+#### Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Live as Live State
+    participant Durable as Durable (per-property)
+    participant Op as History
+
+    Note over Live,Op: Edit Start (e.g., position)
+    Live->>Durable: capture position snapshot
+
+    Note over Live,Op: During Edit
+    Live->>Live: update position
+
+    Note over Live,Op: Commit
+    Durable->>Op: prev = durable position
+    Live->>Op: next = live position
+    Durable->>Durable: discard
+
+    Note over Live,Op: Cancel
+    Durable->>Live: restore position
+    Durable->>Durable: discard
+```
+
+On edit start, live values are captured into durable state; during editing, live values change; on commit, an op is created from durable → live and durable is discarded; on cancel, live is restored from durable and durable is discarded. Remote edits follow the same lifecycle, with edit start/update/end messages representing those steps.
+
+#### Relationship to Ops
+
+- **Durable** = property value at the last committed op
+- **Ops** are created per-property with `prev` (durable) and `next` (live) values
+- **Cancel** restores to the last committed state
 
 Notes:
 
-- **Exclusive**: Only one user can transform a shape at a time.
-- **Ephemeral**: Not persisted. Cleared when the transform commits or the user disconnects.
-- **Distinct from selection**: Selecting a shape does not imply transforming it.
+- Live state always reflects the current visual state for all clients.
+- Concurrent edits are allowed across different properties. If multiple users edit the same property at the same time, last write wins.
+- Editing is distinct from selection—selecting a shape does not imply editing it.
 
 ## Shape
 

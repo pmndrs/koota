@@ -43,7 +43,8 @@ export type ClientOpsMessage = {
 export type EphemeralSnapshot = {
     clientId: string;
     presence?: EphemeralPresence;
-    transform?: EphemeralTransform;
+    editStart?: EditStart;
+    editUpdate?: EditUpdate;
 };
 
 export type ServerWelcomeMessage = {
@@ -81,17 +82,39 @@ export type EphemeralPresence = {
     selection: number[];
 };
 
-export type EphemeralTransform = {
-    type: 'transform';
-    shapeId: number; // Stable ID of the shape being transformed
-    deltaX: number;
-    deltaY: number;
-    scaleX: number;
-    scaleY: number;
-    rotation: number;
-} | null; // null clears the transform
+// Editing protocol - sends absolute values
+export type EditStart = {
+    type: 'editStart';
+    shapeId: number;
+    properties: ('position' | 'rotation' | 'scale' | 'color')[];
+    // Durable values (last committed op value)
+    durableX?: number;
+    durableY?: number;
+    durableAngle?: number;
+    durableScaleX?: number;
+    durableScaleY?: number;
+    durableFill?: string;
+};
 
-export type EphemeralData = EphemeralPresence | EphemeralTransform;
+export type EditUpdate = {
+    type: 'editUpdate';
+    shapeId: number;
+    // Current absolute values
+    x?: number;
+    y?: number;
+    angle?: number;
+    scaleX?: number;
+    scaleY?: number;
+    fill?: string;
+};
+
+export type EditEnd = {
+    type: 'editEnd';
+    shapeId: number;
+    committed: boolean; // true = keep current values, false = restore durable
+};
+
+export type EphemeralData = EphemeralPresence | EditStart | EditUpdate | EditEnd;
 
 export type ClientEphemeralMessage = {
     type: 'client-ephemeral';

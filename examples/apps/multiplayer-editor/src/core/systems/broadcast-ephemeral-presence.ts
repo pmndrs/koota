@@ -4,7 +4,7 @@ import { sendEphemeralPresence } from '../multiplayer/ephemeral';
 
 let lastKey: string | null = null;
 
-export function sendEphemeralPresenceSystem(world: World) {
+export function broadcastEphemeralPresence(world: World) {
     const selectionIds: number[] = [];
     world.query(IsSelected, StableId).readEach(([stableId]) => selectionIds.push(stableId.id));
     selectionIds.sort((a, b) => a - b);

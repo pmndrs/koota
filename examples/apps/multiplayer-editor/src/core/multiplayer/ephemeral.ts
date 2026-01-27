@@ -1,4 +1,10 @@
-import type { EphemeralPresence, EphemeralTransform, ClientEphemeralMessage } from './protocol';
+import type {
+    EphemeralPresence,
+    ClientEphemeralMessage,
+    EditStart,
+    EditUpdate,
+    EditEnd,
+} from './protocol';
 
 type SendFunction = (message: ClientEphemeralMessage) => void;
 
@@ -10,11 +16,6 @@ const THROTTLE_MS = 33; // ~30fps
 let lastPresenceTime = 0;
 let pendingPresence: EphemeralPresence | null = null;
 let presenceTimerId: ReturnType<typeof setTimeout> | null = null;
-
-// Throttle state for transforms
-let lastTransformTime = 0;
-let pendingTransform: EphemeralTransform | null = null;
-let transformTimerId: ReturnType<typeof setTimeout> | null = null;
 
 export function setEphemeralSender(id: string, send: SendFunction | null) {
     clientId = id;
@@ -55,49 +56,57 @@ export function sendEphemeralPresence(
     }
 }
 
-export function clearEphemeralPresence() {
-    if (presenceTimerId) {
-        clearTimeout(presenceTimerId);
-        presenceTimerId = null;
-    }
-    pendingPresence = null;
+// Editing protocol - sends absolute values
+
+export function sendEditStart(data: Omit<EditStart, 'type'>) {
+    if (!sendFn || !clientId) return;
+    const message: EditStart = { type: 'editStart', ...data };
+    sendFn({ type: 'client-ephemeral', clientId, data: message });
 }
 
-export function sendEphemeralTransform(transform: EphemeralTransform) {
+// Throttle state for edit updates
+let lastEditUpdateTime = 0;
+let pendingEditUpdate: EditUpdate | null = null;
+let editUpdateTimerId: ReturnType<typeof setTimeout> | null = null;
+
+export function sendEditUpdate(data: Omit<EditUpdate, 'type'>) {
     if (!sendFn || !clientId) return;
 
+    const message: EditUpdate = { type: 'editUpdate', ...data };
     const now = Date.now();
 
-    if (now - lastTransformTime >= THROTTLE_MS) {
+    if (now - lastEditUpdateTime >= THROTTLE_MS) {
         // Send immediately
-        lastTransformTime = now;
-        sendFn({ type: 'client-ephemeral', clientId, data: transform });
-        pendingTransform = null;
+        lastEditUpdateTime = now;
+        sendFn({ type: 'client-ephemeral', clientId, data: message });
+        pendingEditUpdate = null;
     } else {
         // Queue for later
-        pendingTransform = transform;
-        if (!transformTimerId) {
-            const delay = THROTTLE_MS - (now - lastTransformTime);
-            transformTimerId = setTimeout(() => {
-                transformTimerId = null;
-                if (pendingTransform !== null && sendFn && clientId) {
-                    lastTransformTime = Date.now();
-                    sendFn({ type: 'client-ephemeral', clientId, data: pendingTransform });
-                    pendingTransform = null;
+        pendingEditUpdate = message;
+        if (!editUpdateTimerId) {
+            const delay = THROTTLE_MS - (now - lastEditUpdateTime);
+            editUpdateTimerId = setTimeout(() => {
+                editUpdateTimerId = null;
+                if (pendingEditUpdate && sendFn && clientId) {
+                    lastEditUpdateTime = Date.now();
+                    sendFn({ type: 'client-ephemeral', clientId, data: pendingEditUpdate });
+                    pendingEditUpdate = null;
                 }
             }, delay);
         }
     }
 }
 
-export function clearEphemeralTransform() {
-    if (transformTimerId) {
-        clearTimeout(transformTimerId);
-        transformTimerId = null;
+export function sendEditEnd(data: Omit<EditEnd, 'type'>) {
+    if (!sendFn || !clientId) return;
+
+    // Clear pending edit updates
+    if (editUpdateTimerId) {
+        clearTimeout(editUpdateTimerId);
+        editUpdateTimerId = null;
     }
-    // Send null to clear the transform on server/other clients
-    if (sendFn && clientId) {
-        sendFn({ type: 'client-ephemeral', clientId, data: null });
-    }
-    pendingTransform = null;
+    pendingEditUpdate = null;
+
+    const message: EditEnd = { type: 'editEnd', ...data };
+    sendFn({ type: 'client-ephemeral', clientId, data: message });
 }
