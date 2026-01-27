@@ -1,6 +1,6 @@
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
-import { AoSFactory, Store } from '../storage';
+import { AoSFactory } from '../storage';
 import type {
     ExtractSchema,
     ExtractStore,
@@ -95,6 +95,40 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
     traitIds: number[];
 };
 
+/** Parameter types that can be passed to Or modifier */
+export type OrParameter = Trait | Modifier;
+
+/** Or modifier that can contain both traits and nested modifiers */
+export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
+    ExtractTraitsFromOrParams<T>,
+    'or'
+> & {
+    modifiers: Modifier[];
+};
+
+/** Extract traits from Or parameters (filters out modifiers) */
+type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First, ...infer Rest]
+    ? First extends Trait
+        ? Rest extends OrParameter[]
+            ? [First, ...ExtractTraitsFromOrParams<Rest>]
+            : [First]
+        : Rest extends OrParameter[]
+          ? ExtractTraitsFromOrParams<Rest>
+          : []
+    : [];
+
+/** Represents a group of tracking modifiers combined with OR logic */
+export type OrTrackingGroup = {
+    type: 'add' | 'remove' | 'change';
+    id: number;
+    traitInstances: TraitInstance[];
+    /**
+     * PERF: Use sparse array instead of Map for O(1) indexed access.
+     * Index is generationId, value is bitmask. Undefined entries mean no traits for that generation.
+     */
+    bitmasksByGeneration: (number | undefined)[];
+};
+
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     version: number;
     world: World;
@@ -131,6 +165,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     removeSubscriptions: Set<QuerySubscriber>;
     /** Relation pairs for target-specific queries */
     relationFilters?: RelationPair[];
+    /** Tracking modifiers combined with OR logic (entity matches if ANY condition is met) */
+    orTrackingGroups: OrTrackingGroup[];
     run: (world: World, params: QueryParameter[]) => QueryResult<T>;
     add: (entity: Entity) => void;
     remove: (world: World, entity: Entity) => void;
