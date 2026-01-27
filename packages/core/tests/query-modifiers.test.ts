@@ -7,6 +7,7 @@ import {
     createWorld,
     getStore,
     Not,
+    Or,
     trait,
 } from '../src';
 
@@ -573,6 +574,98 @@ describe('Query modifiers', () => {
         });
 
         expect(entity.get(Name)!.name).toBe('modified');
+    });
+
+    it('should combine Or with Changed modifiers to match ANY changed trait', () => {
+        const Changed = createChanged();
+
+        const entityA = world.spawn(Position, Foo);
+        const entityB = world.spawn(Position, Foo);
+        const entityC = world.spawn(Position, Foo);
+
+        // No changes yet
+        let entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities.length).toBe(0);
+
+        // Change only Position on entityA
+        entityA.changed(Position);
+        entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities).toContain(entityA);
+        expect(entities.length).toBe(1);
+
+        // Change only Foo on entityB
+        entityB.changed(Foo);
+        entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities).toContain(entityB);
+        expect(entities.length).toBe(1);
+
+        // Change both on entityC - should still match
+        entityC.changed(Position);
+        entityC.changed(Foo);
+        entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities).toContain(entityC);
+        expect(entities.length).toBe(1);
+    });
+
+    it('should combine Or with Added modifiers to match ANY added trait', () => {
+        const Added = createAdded();
+
+        const entityA = world.spawn();
+        const entityB = world.spawn();
+        const entityC = world.spawn();
+
+        // No additions yet
+        let entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities.length).toBe(0);
+
+        // Add only Position to entityA
+        entityA.add(Position);
+        entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities).toContain(entityA);
+        expect(entities.length).toBe(1);
+
+        // Add only Foo to entityB
+        entityB.add(Foo);
+        entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities).toContain(entityB);
+        expect(entities.length).toBe(1);
+
+        // Add both to entityC - should still match
+        entityC.add(Position, Foo);
+        entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities).toContain(entityC);
+        expect(entities.length).toBe(1);
+    });
+
+    it('should combine Or with Removed modifiers to match ANY removed trait', () => {
+        const Removed = createRemoved();
+
+        const entityA = world.spawn(Position, Foo);
+        const entityB = world.spawn(Position, Foo);
+        const entityC = world.spawn(Position, Foo);
+
+        // No removals yet
+        let entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities.length).toBe(0);
+
+        // Remove only Position from entityA
+        entityA.remove(Position);
+        entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities).toContain(entityA);
+        expect(entities.length).toBe(1);
+
+        // Remove only Foo from entityB
+        entityB.remove(Foo);
+        entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities).toContain(entityB);
+        expect(entities.length).toBe(1);
+
+        // Remove both from entityC - should still match
+        entityC.remove(Position);
+        entityC.remove(Foo);
+        entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities).toContain(entityC);
+        expect(entities.length).toBe(1);
     });
 
     // @internal Tests internal implementation edge case with generation overflow

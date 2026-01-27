@@ -4,7 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { isOrderedTrait, getOrderedTraitRelation, setupOrderedTraitSync } from '../relation/ordered';
+import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import { OrderedList } from '../relation/ordered-list';
 import {
     addRelationTarget,
@@ -18,7 +18,6 @@ import {
     setRelationData,
     setRelationDataAtIndex,
 } from '../relation/relation';
-import { $orderedTargetsTrait } from '../relation/symbols';
 import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import {
