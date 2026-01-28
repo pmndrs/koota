@@ -14,33 +14,33 @@
  *          └──── entity 0 ────┘ └──── entity 1 ────┘
  */
 
-import { $internal } from '../common'
-import type { Trait, TraitInstance } from '../trait/types'
+import { $internal } from '../common';
+import type { Trait, TraitInstance } from '../trait/types';
 import {
-  type EntityMapping,
-  type FieldGroup,
-  type FieldGroupRecord,
-  type FieldGroupStore,
-  type GrowthPolicy,
-  type Layout,
-  type LayoutMetadata,
-  type LayoutOptions,
-  type LayoutSchema,
-  type LayoutStore,
-  type LayoutTrait,
-  type LayoutTraits,
-  type SchemaEntry,
-  type SchemaEntryRecord,
-  type SingleField,
-  type TraitLayoutInfo,
-  type TypedArrayConstructor,
-  LAYOUT_SYMBOL,
-  getBytesPerElement,
-  isFieldGroup,
-  isTypedArrayConstructor,
-} from './types'
+    type EntityMapping,
+    type FieldGroup,
+    type FieldGroupRecord,
+    type FieldGroupStore,
+    type GrowthPolicy,
+    type Layout,
+    type LayoutMetadata,
+    type LayoutOptions,
+    type LayoutSchema,
+    type LayoutStore,
+    type LayoutTrait,
+    type LayoutTraits,
+    type SchemaEntry,
+    type SchemaEntryRecord,
+    type SingleField,
+    type TraitLayoutInfo,
+    type TypedArrayConstructor,
+    LAYOUT_SYMBOL,
+    getBytesPerElement,
+    isFieldGroup,
+    isTypedArrayConstructor,
+} from './types';
 
-let layoutTraitId = 1000000 // Start high to avoid conflicts with regular traits
+let layoutTraitId = 1000000; // Start high to avoid conflicts with regular traits
 
 /**
  * Creates a multi-trait interleaved layout.
@@ -69,477 +69,466 @@ let layoutTraitId = 1000000 // Start high to avoid conflicts with regular traits
  * device.queue.writeBuffer(gpuBuffer, 0, InstanceData.buffer)
  * ```
  */
-export function layout<S extends LayoutSchema>(
-  schema: S,
-  options: LayoutOptions
-): Layout<S> {
-  const {
-    capacity,
-    growth = 'fixed',
-    buffer: externalBuffer,
-    alignment = 4,
-  } = options
+export function layout<S extends LayoutSchema>(schema: S, options: LayoutOptions): Layout<S> {
+    const { capacity, growth = 'fixed', buffer: externalBuffer, alignment = 4 } = options;
 
-  if (capacity <= 0) {
-    throw new Error('Layout capacity must be positive')
-  }
-
-  // Validate schema and calculate layout
-  const metadata = calculateLayoutMetadata(schema, alignment)
-
-  // Allocate or use external buffer
-  const requiredSize = metadata.stride * capacity
-  let buffer: ArrayBuffer
-
-  if (externalBuffer) {
-    if (externalBuffer.byteLength < requiredSize) {
-      throw new Error(
-        `External buffer too small. Required: ${requiredSize}, Got: ${externalBuffer.byteLength}`
-      )
+    if (capacity <= 0) {
+        throw new Error('Layout capacity must be positive');
     }
-    buffer = externalBuffer as ArrayBuffer
-  } else {
-    buffer = new ArrayBuffer(requiredSize)
-  }
 
-  // Create entity mapping for dense packing
-  const entityMapping: EntityMapping = {
-    entityToIndex: new Map(),
-    indexToEntity: [],
-    count: 0,
-  }
+    // Validate schema and calculate layout
+    const metadata = calculateLayoutMetadata(schema, alignment);
 
-  // Create store with strided TypedArray views
-  const store = createLayoutStore(schema, metadata, buffer, capacity)
+    // Allocate or use external buffer
+    const requiredSize = metadata.stride * capacity;
+    let buffer: ArrayBuffer;
 
-  // Create extracted traits
-  const traits = createLayoutTraits(schema, metadata)
-
-  // Build the layout object
-  const layoutInstance: Layout<S> = {
-    [LAYOUT_SYMBOL]: true,
-    schema,
-    traits: traits as LayoutTraits<S>,
-    buffer,
-    store: store as LayoutStore<S>,
-    metadata,
-    stride: metadata.stride,
-    growth,
-
-    get count() {
-      return entityMapping.count
-    },
-
-    get capacity() {
-      return capacity
-    },
-
-    indexOf(entityId: number): number {
-      return entityMapping.entityToIndex.get(entityId) ?? -1
-    },
-
-    entityAt(bufferIndex: number): number {
-      return entityMapping.indexToEntity[bufferIndex] ?? -1
-    },
-
-    has(entityId: number): boolean {
-      return entityMapping.entityToIndex.has(entityId)
-    },
-
-    _addEntity(entityId: number): number {
-      // Check if already in layout
-      if (entityMapping.entityToIndex.has(entityId)) {
-        return entityMapping.entityToIndex.get(entityId)!
-      }
-
-      // Check capacity
-      if (entityMapping.count >= capacity) {
-        if (growth === 'fixed' || growth === 'none') {
-          throw new Error(`Layout capacity exceeded: ${capacity}`)
+    if (externalBuffer) {
+        if (externalBuffer.byteLength < requiredSize) {
+            throw new Error(
+                `External buffer too small. Required: ${requiredSize}, Got: ${externalBuffer.byteLength}`
+            );
         }
-        if (growth === 'ring') {
-          // TODO: Implement ring buffer - for now, throw
-          throw new Error('Ring buffer growth not yet implemented')
-        }
-        // growth === 'double' - would need to reallocate
-        throw new Error('Dynamic growth not yet implemented for layouts')
-      }
+        buffer = externalBuffer as ArrayBuffer;
+    } else {
+        buffer = new ArrayBuffer(requiredSize);
+    }
 
-      // Assign next available index
-      const index = entityMapping.count
-      entityMapping.entityToIndex.set(entityId, index)
-      entityMapping.indexToEntity[index] = entityId
-      entityMapping.count++
+    // Create entity mapping for dense packing
+    const entityMapping: EntityMapping = {
+        entityToIndex: new Map(),
+        indexToEntity: [],
+        count: 0,
+    };
 
-      return index
-    },
+    // Create store with strided TypedArray views
+    const store = createLayoutStore(schema, metadata, buffer, capacity);
 
-    _removeEntity(entityId: number): void {
-      const index = entityMapping.entityToIndex.get(entityId)
-      if (index === undefined) return
+    // Create extracted traits
+    const traits = createLayoutTraits(schema, metadata);
 
-      const lastIndex = entityMapping.count - 1
+    // Build the layout object
+    const layoutInstance: Layout<S> = {
+        [LAYOUT_SYMBOL]: true,
+        schema,
+        traits: traits as LayoutTraits<S>,
+        buffer,
+        store: store as LayoutStore<S>,
+        metadata,
+        stride: metadata.stride,
+        growth,
 
-      if (index !== lastIndex) {
-        // Swap-remove: copy last entity's data to this slot
-        const lastEntityId = entityMapping.indexToEntity[lastIndex]
+        get count() {
+            return entityMapping.count;
+        },
 
-        // Copy data
-        const srcOffset = lastIndex * metadata.stride
-        const dstOffset = index * metadata.stride
-        const bytes = new Uint8Array(buffer)
-        bytes.copyWithin(dstOffset, srcOffset, srcOffset + metadata.stride)
+        get capacity() {
+            return capacity;
+        },
 
-        // Update mapping for moved entity
-        entityMapping.entityToIndex.set(lastEntityId, index)
-        entityMapping.indexToEntity[index] = lastEntityId
-      }
+        indexOf(entityId: number): number {
+            return entityMapping.entityToIndex.get(entityId) ?? -1;
+        },
 
-      // Remove the entity
-      entityMapping.entityToIndex.delete(entityId)
-      entityMapping.indexToEntity.pop()
-      entityMapping.count--
-    },
+        entityAt(bufferIndex: number): number {
+            return entityMapping.indexToEntity[bufferIndex] ?? -1;
+        },
 
-    _setValues<K extends keyof S>(
-      entityId: number,
-      traitName: K,
-      values: SchemaEntryRecord<S[K]>
-    ): void {
-      const index = entityMapping.entityToIndex.get(entityId)
-      if (index === undefined) {
-        throw new Error(`Entity ${entityId} not in layout`)
-      }
+        has(entityId: number): boolean {
+            return entityMapping.entityToIndex.has(entityId);
+        },
 
-      const traitStore = store[traitName]
-      const schemaEntry = schema[traitName]
+        _addEntity(entityId: number): number {
+            // Check if already in layout
+            if (entityMapping.entityToIndex.has(entityId)) {
+                return entityMapping.entityToIndex.get(entityId)!;
+            }
 
-      if (isFieldGroup(schemaEntry)) {
-        // Field group - set each field
-        const fieldGroupStore = traitStore as FieldGroupStore<FieldGroup>
-        const fieldGroupValues = values as FieldGroupRecord<FieldGroup>
-        for (const [field, value] of Object.entries(fieldGroupValues)) {
-          if (field in fieldGroupStore && value !== undefined) {
-            ;(fieldGroupStore as any)[field][index] = value
-          }
-        }
-      } else {
-        // Single field
-        ;(traitStore as any)[index] = values
-      }
-    },
+            // Check capacity
+            if (entityMapping.count >= capacity) {
+                if (growth === 'fixed' || growth === 'none') {
+                    throw new Error(`Layout capacity exceeded: ${capacity}`);
+                }
+                if (growth === 'ring') {
+                    // TODO: Implement ring buffer - for now, throw
+                    throw new Error('Ring buffer growth not yet implemented');
+                }
+                // growth === 'double' - would need to reallocate
+                throw new Error('Dynamic growth not yet implemented for layouts');
+            }
 
-    _getValues<K extends keyof S>(
-      entityId: number,
-      traitName: K
-    ): SchemaEntryRecord<S[K]> {
-      const index = entityMapping.entityToIndex.get(entityId)
-      if (index === undefined) {
-        throw new Error(`Entity ${entityId} not in layout`)
-      }
+            // Assign next available index
+            const index = entityMapping.count;
+            entityMapping.entityToIndex.set(entityId, index);
+            entityMapping.indexToEntity[index] = entityId;
+            entityMapping.count++;
 
-      const traitStore = store[traitName]
-      const schemaEntry = schema[traitName]
+            return index;
+        },
 
-      if (isFieldGroup(schemaEntry)) {
-        // Field group - get each field
-        const fieldGroupStore = traitStore as FieldGroupStore<FieldGroup>
-        const record = {} as FieldGroupRecord<FieldGroup>
-        for (const field of Object.keys(schemaEntry)) {
-          record[field] = (fieldGroupStore as any)[field][index]
-        }
-        return record as SchemaEntryRecord<S[K]>
-      } else {
-        // Single field
-        return (traitStore as any)[index] as SchemaEntryRecord<S[K]>
-      }
-    },
-  }
+        _removeEntity(entityId: number): void {
+            const index = entityMapping.entityToIndex.get(entityId);
+            if (index === undefined) return;
 
-  // Link traits back to layout
-  for (const traitName of Object.keys(traits)) {
-    ;(traits as any)[traitName]._layout = layoutInstance
-  }
+            const lastIndex = entityMapping.count - 1;
 
-  return layoutInstance
+            if (index !== lastIndex) {
+                // Swap-remove: copy last entity's data to this slot
+                const lastEntityId = entityMapping.indexToEntity[lastIndex];
+
+                // Copy data
+                const srcOffset = lastIndex * metadata.stride;
+                const dstOffset = index * metadata.stride;
+                const bytes = new Uint8Array(buffer);
+                bytes.copyWithin(dstOffset, srcOffset, srcOffset + metadata.stride);
+
+                // Update mapping for moved entity
+                entityMapping.entityToIndex.set(lastEntityId, index);
+                entityMapping.indexToEntity[index] = lastEntityId;
+            }
+
+            // Remove the entity
+            entityMapping.entityToIndex.delete(entityId);
+            entityMapping.indexToEntity.pop();
+            entityMapping.count--;
+        },
+
+        _setValues<K extends keyof S>(
+            entityId: number,
+            traitName: K,
+            values: SchemaEntryRecord<S[K]>
+        ): void {
+            const index = entityMapping.entityToIndex.get(entityId);
+            if (index === undefined) {
+                throw new Error(`Entity ${entityId} not in layout`);
+            }
+
+            const traitStore = store[traitName];
+            const schemaEntry = schema[traitName];
+
+            if (isFieldGroup(schemaEntry)) {
+                // Field group - set each field
+                const fieldGroupStore = traitStore as FieldGroupStore<FieldGroup>;
+                const fieldGroupValues = values as FieldGroupRecord<FieldGroup>;
+                for (const [field, value] of Object.entries(fieldGroupValues)) {
+                    if (field in fieldGroupStore && value !== undefined) {
+                        (fieldGroupStore as any)[field][index] = value;
+                    }
+                }
+            } else {
+                // Single field
+                (traitStore as any)[index] = values;
+            }
+        },
+
+        _getValues<K extends keyof S>(entityId: number, traitName: K): SchemaEntryRecord<S[K]> {
+            const index = entityMapping.entityToIndex.get(entityId);
+            if (index === undefined) {
+                throw new Error(`Entity ${entityId} not in layout`);
+            }
+
+            const traitStore = store[traitName];
+            const schemaEntry = schema[traitName];
+
+            if (isFieldGroup(schemaEntry)) {
+                // Field group - get each field
+                const fieldGroupStore = traitStore as FieldGroupStore<FieldGroup>;
+                const record = {} as FieldGroupRecord<FieldGroup>;
+                for (const field of Object.keys(schemaEntry)) {
+                    record[field] = (fieldGroupStore as any)[field][index];
+                }
+                return record as SchemaEntryRecord<S[K]>;
+            } else {
+                // Single field
+                return (traitStore as any)[index] as SchemaEntryRecord<S[K]>;
+            }
+        },
+    };
+
+    // Link traits back to layout
+    for (const traitName of Object.keys(traits)) {
+        (traits as any)[traitName]._layout = layoutInstance;
+    }
+
+    return layoutInstance;
 }
 
 /**
  * Calculates the complete layout metadata from a schema
  */
 function calculateLayoutMetadata<S extends LayoutSchema>(
-  schema: S,
-  alignment: number
+    schema: S,
+    alignment: number
 ): LayoutMetadata<S> {
-  const traitNames = Object.keys(schema) as (keyof S)[]
-  const traitOffsets = {} as { [K in keyof S]: number }
-  const traitInfo = {} as { [K in keyof S]: TraitLayoutInfo }
-  const flatFields: LayoutMetadata<S>['flatFields'] = []
+    const traitNames = Object.keys(schema) as (keyof S)[];
+    const traitOffsets = {} as { [K in keyof S]: number };
+    const traitInfo = {} as { [K in keyof S]: TraitLayoutInfo };
+    const flatFields: LayoutMetadata<S>['flatFields'] = [];
 
-  let currentOffset = 0
+    let currentOffset = 0;
 
-  for (const traitName of traitNames) {
-    const entry = schema[traitName]
-    const info: TraitLayoutInfo = {
-      byteOffset: currentOffset,
-      byteSize: 0,
-      fields: new Map(),
-    }
+    for (const traitName of traitNames) {
+        const entry = schema[traitName];
+        const info: TraitLayoutInfo = {
+            byteOffset: currentOffset,
+            byteSize: 0,
+            fields: new Map(),
+        };
 
-    traitOffsets[traitName] = currentOffset
+        traitOffsets[traitName] = currentOffset;
 
-    if (isFieldGroup(entry)) {
-      // Field group - multiple fields
-      const fieldGroup = entry as FieldGroup
-      let fieldOffset = 0
+        if (isFieldGroup(entry)) {
+            // Field group - multiple fields
+            const fieldGroup = entry as FieldGroup;
+            let fieldOffset = 0;
 
-      for (const [fieldName, fieldType] of Object.entries(fieldGroup)) {
-        if (!isTypedArrayConstructor(fieldType)) {
-          throw new Error(
-            `Field "${String(traitName)}.${fieldName}" must be a TypedArray constructor`
-          )
+            for (const [fieldName, fieldType] of Object.entries(fieldGroup)) {
+                if (!isTypedArrayConstructor(fieldType)) {
+                    throw new Error(
+                        `Field "${String(traitName)}.${fieldName}" must be a TypedArray constructor`
+                    );
+                }
+
+                const byteSize = getBytesPerElement(fieldType);
+
+                info.fields.set(fieldName, {
+                    byteOffset: fieldOffset,
+                    byteSize,
+                    type: fieldType,
+                });
+
+                flatFields.push({
+                    traitName,
+                    fieldName,
+                    byteOffset: currentOffset + fieldOffset,
+                    byteSize,
+                    type: fieldType,
+                });
+
+                fieldOffset += byteSize;
+            }
+
+            info.byteSize = fieldOffset;
+            currentOffset += fieldOffset;
+        } else {
+            // Single field
+            if (!isTypedArrayConstructor(entry)) {
+                throw new Error(`Trait "${String(traitName)}" must be a TypedArray constructor`);
+            }
+
+            const byteSize = getBytesPerElement(entry as TypedArrayConstructor);
+            info.byteSize = byteSize;
+
+            flatFields.push({
+                traitName,
+                fieldName: null,
+                byteOffset: currentOffset,
+                byteSize,
+                type: entry as TypedArrayConstructor,
+            });
+
+            currentOffset += byteSize;
         }
 
-        const byteSize = getBytesPerElement(fieldType)
-
-        info.fields.set(fieldName, {
-          byteOffset: fieldOffset,
-          byteSize,
-          type: fieldType,
-        })
-
-        flatFields.push({
-          traitName,
-          fieldName,
-          byteOffset: currentOffset + fieldOffset,
-          byteSize,
-          type: fieldType,
-        })
-
-        fieldOffset += byteSize
-      }
-
-      info.byteSize = fieldOffset
-      currentOffset += fieldOffset
-    } else {
-      // Single field
-      if (!isTypedArrayConstructor(entry)) {
-        throw new Error(`Trait "${String(traitName)}" must be a TypedArray constructor`)
-      }
-
-      const byteSize = getBytesPerElement(entry as TypedArrayConstructor)
-      info.byteSize = byteSize
-
-      flatFields.push({
-        traitName,
-        fieldName: null,
-        byteOffset: currentOffset,
-        byteSize,
-        type: entry as TypedArrayConstructor,
-      })
-
-      currentOffset += byteSize
+        traitInfo[traitName] = info;
     }
 
-    traitInfo[traitName] = info
-  }
+    // Apply alignment padding if needed
+    const stride = Math.ceil(currentOffset / alignment) * alignment;
 
-  // Apply alignment padding if needed
-  const stride = Math.ceil(currentOffset / alignment) * alignment
-
-  return {
-    schema,
-    stride,
-    traitOffsets,
-    traitInfo,
-    flatFields,
-  }
+    return {
+        schema,
+        stride,
+        traitOffsets,
+        traitInfo,
+        flatFields,
+    };
 }
 
 /**
  * Creates the store object with strided TypedArray proxies
  */
 function createLayoutStore<S extends LayoutSchema>(
-  schema: S,
-  metadata: LayoutMetadata<S>,
-  buffer: ArrayBuffer,
-  capacity: number
+    schema: S,
+    metadata: LayoutMetadata<S>,
+    buffer: ArrayBuffer,
+    capacity: number
 ): LayoutStore<S> {
-  const store = {} as LayoutStore<S>
-  const { stride, traitInfo } = metadata
+    const store = {} as LayoutStore<S>;
+    const { stride, traitInfo } = metadata;
 
-  for (const traitName of Object.keys(schema) as (keyof S)[]) {
-    const entry = schema[traitName]
-    const info = traitInfo[traitName]
+    for (const traitName of Object.keys(schema) as (keyof S)[]) {
+        const entry = schema[traitName];
+        const info = traitInfo[traitName];
 
-    if (isFieldGroup(entry)) {
-      // Field group - create nested store
-      const fieldGroupStore = {} as FieldGroupStore<FieldGroup>
+        if (isFieldGroup(entry)) {
+            // Field group - create nested store
+            const fieldGroupStore = {} as FieldGroupStore<FieldGroup>;
 
-      for (const [fieldName, fieldType] of Object.entries(entry)) {
-        const fieldInfo = info.fields.get(fieldName)!
-        const absoluteOffset = info.byteOffset + fieldInfo.byteOffset
+            for (const [fieldName, fieldType] of Object.entries(entry)) {
+                const fieldInfo = info.fields.get(fieldName)!;
+                const absoluteOffset = info.byteOffset + fieldInfo.byteOffset;
 
-        fieldGroupStore[fieldName] = createStridedArrayProxy(
-          fieldType,
-          buffer,
-          absoluteOffset,
-          stride,
-          capacity
-        )
-      }
+                fieldGroupStore[fieldName] = createStridedArrayProxy(
+                    fieldType,
+                    buffer,
+                    absoluteOffset,
+                    stride,
+                    capacity
+                );
+            }
 
-      store[traitName] = fieldGroupStore as LayoutStore<S>[keyof S]
-    } else {
-      // Single field
-      store[traitName] = createStridedArrayProxy(
-        entry as TypedArrayConstructor,
-        buffer,
-        info.byteOffset,
-        stride,
-        capacity
-      ) as LayoutStore<S>[keyof S]
+            store[traitName] = fieldGroupStore as LayoutStore<S>[keyof S];
+        } else {
+            // Single field
+            store[traitName] = createStridedArrayProxy(
+                entry as TypedArrayConstructor,
+                buffer,
+                info.byteOffset,
+                stride,
+                capacity
+            ) as LayoutStore<S>[keyof S];
+        }
     }
-  }
 
-  return store
+    return store;
 }
 
 /**
  * Creates a strided TypedArray proxy for accessing interleaved data
  */
 function createStridedArrayProxy(
-  ArrayCtor: TypedArrayConstructor,
-  buffer: ArrayBuffer,
-  byteOffset: number,
-  stride: number,
-  capacity: number
+    ArrayCtor: TypedArrayConstructor,
+    buffer: ArrayBuffer,
+    byteOffset: number,
+    stride: number,
+    capacity: number
 ): any {
-  const view = new DataView(buffer)
-  const bytesPerElement = getBytesPerElement(ArrayCtor)
-  const { read, write } = getDataViewMethods(ArrayCtor)
+    const view = new DataView(buffer);
+    const bytesPerElement = getBytesPerElement(ArrayCtor);
+    const { read, write } = getDataViewMethods(ArrayCtor);
 
-  return new Proxy([] as number[], {
-    get(target, prop) {
-      if (prop === 'length') return capacity
-      if (prop === 'buffer') return buffer
-      if (prop === 'byteOffset') return byteOffset
-      if (prop === 'stride') return stride
-      if (prop === 'BYTES_PER_ELEMENT') return bytesPerElement
+    return new Proxy([] as number[], {
+        get(target, prop) {
+            if (prop === 'length') return capacity;
+            if (prop === 'buffer') return buffer;
+            if (prop === 'byteOffset') return byteOffset;
+            if (prop === 'stride') return stride;
+            if (prop === 'BYTES_PER_ELEMENT') return bytesPerElement;
 
-      if (prop === Symbol.iterator) {
-        return function* () {
-          for (let i = 0; i < capacity; i++) {
-            yield read(view, byteOffset + i * stride)
-          }
-        }
-      }
+            if (prop === Symbol.iterator) {
+                return function* () {
+                    for (let i = 0; i < capacity; i++) {
+                        yield read(view, byteOffset + i * stride);
+                    }
+                };
+            }
 
-      if (prop === 'forEach') {
-        return (callback: (value: number | bigint, index: number) => void) => {
-          for (let i = 0; i < capacity; i++) {
-            callback(read(view, byteOffset + i * stride), i)
-          }
-        }
-      }
+            if (prop === 'forEach') {
+                return (callback: (value: number | bigint, index: number) => void) => {
+                    for (let i = 0; i < capacity; i++) {
+                        callback(read(view, byteOffset + i * stride), i);
+                    }
+                };
+            }
 
-      if (prop === 'fill') {
-        return (value: number | bigint, start = 0, end = capacity) => {
-          for (let i = start; i < end; i++) {
-            write(view, byteOffset + i * stride, value)
-          }
-        }
-      }
+            if (prop === 'fill') {
+                return (value: number | bigint, start = 0, end = capacity) => {
+                    for (let i = start; i < end; i++) {
+                        write(view, byteOffset + i * stride, value);
+                    }
+                };
+            }
 
-      // Numeric index
-      if (typeof prop === 'string' && !isNaN(Number(prop))) {
-        const index = Number(prop)
-        if (index >= 0 && index < capacity) {
-          return read(view, byteOffset + index * stride)
-        }
-      }
+            // Numeric index
+            if (typeof prop === 'string' && !isNaN(Number(prop))) {
+                const index = Number(prop);
+                if (index >= 0 && index < capacity) {
+                    return read(view, byteOffset + index * stride);
+                }
+            }
 
-      return undefined
-    },
+            return undefined;
+        },
 
-    set(target, prop, value) {
-      if (typeof prop === 'string' && !isNaN(Number(prop))) {
-        const index = Number(prop)
-        if (index >= 0 && index < capacity) {
-          write(view, byteOffset + index * stride, value)
-          return true
-        }
-      }
-      return false
-    },
-  })
+        set(target, prop, value) {
+            if (typeof prop === 'string' && !isNaN(Number(prop))) {
+                const index = Number(prop);
+                if (index >= 0 && index < capacity) {
+                    write(view, byteOffset + index * stride, value);
+                    return true;
+                }
+            }
+            return false;
+        },
+    });
 }
 
 function getDataViewMethods(ArrayCtor: TypedArrayConstructor): {
-  read: (view: DataView, offset: number) => number | bigint
-  write: (view: DataView, offset: number, value: number | bigint) => void
+    read: (view: DataView, offset: number) => number | bigint;
+    write: (view: DataView, offset: number, value: number | bigint) => void;
 } {
-  const littleEndian = true
+    const littleEndian = true;
 
-  switch (ArrayCtor) {
-    case Float32Array:
-      return {
-        read: (v, o) => v.getFloat32(o, littleEndian),
-        write: (v, o, val) => v.setFloat32(o, val as number, littleEndian),
-      }
-    case Float64Array:
-      return {
-        read: (v, o) => v.getFloat64(o, littleEndian),
-        write: (v, o, val) => v.setFloat64(o, val as number, littleEndian),
-      }
-    case Int8Array:
-      return {
-        read: (v, o) => v.getInt8(o),
-        write: (v, o, val) => v.setInt8(o, val as number),
-      }
-    case Int16Array:
-      return {
-        read: (v, o) => v.getInt16(o, littleEndian),
-        write: (v, o, val) => v.setInt16(o, val as number, littleEndian),
-      }
-    case Int32Array:
-      return {
-        read: (v, o) => v.getInt32(o, littleEndian),
-        write: (v, o, val) => v.setInt32(o, val as number, littleEndian),
-      }
-    case BigInt64Array:
-      return {
-        read: (v, o) => v.getBigInt64(o, littleEndian),
-        write: (v, o, val) => v.setBigInt64(o, val as bigint, littleEndian),
-      }
-    case Uint8Array:
-      return {
-        read: (v, o) => v.getUint8(o),
-        write: (v, o, val) => v.setUint8(o, val as number),
-      }
-    case Uint8ClampedArray:
-      return {
-        read: (v, o) => v.getUint8(o),
-        write: (v, o, val) => v.setUint8(o, Math.max(0, Math.min(255, val as number))),
-      }
-    case Uint16Array:
-      return {
-        read: (v, o) => v.getUint16(o, littleEndian),
-        write: (v, o, val) => v.setUint16(o, val as number, littleEndian),
-      }
-    case Uint32Array:
-      return {
-        read: (v, o) => v.getUint32(o, littleEndian),
-        write: (v, o, val) => v.setUint32(o, val as number, littleEndian),
-      }
-    case BigUint64Array:
-      return {
-        read: (v, o) => v.getBigUint64(o, littleEndian),
-        write: (v, o, val) => v.setBigUint64(o, val as bigint, littleEndian),
-      }
-    default:
-      throw new Error(`Unsupported TypedArray type`)
-  }
+    switch (ArrayCtor) {
+        case Float32Array:
+            return {
+                read: (v, o) => v.getFloat32(o, littleEndian),
+                write: (v, o, val) => v.setFloat32(o, val as number, littleEndian),
+            };
+        case Float64Array:
+            return {
+                read: (v, o) => v.getFloat64(o, littleEndian),
+                write: (v, o, val) => v.setFloat64(o, val as number, littleEndian),
+            };
+        case Int8Array:
+            return {
+                read: (v, o) => v.getInt8(o),
+                write: (v, o, val) => v.setInt8(o, val as number),
+            };
+        case Int16Array:
+            return {
+                read: (v, o) => v.getInt16(o, littleEndian),
+                write: (v, o, val) => v.setInt16(o, val as number, littleEndian),
+            };
+        case Int32Array:
+            return {
+                read: (v, o) => v.getInt32(o, littleEndian),
+                write: (v, o, val) => v.setInt32(o, val as number, littleEndian),
+            };
+        case BigInt64Array:
+            return {
+                read: (v, o) => v.getBigInt64(o, littleEndian),
+                write: (v, o, val) => v.setBigInt64(o, val as bigint, littleEndian),
+            };
+        case Uint8Array:
+            return {
+                read: (v, o) => v.getUint8(o),
+                write: (v, o, val) => v.setUint8(o, val as number),
+            };
+        case Uint8ClampedArray:
+            return {
+                read: (v, o) => v.getUint8(o),
+                write: (v, o, val) => v.setUint8(o, Math.max(0, Math.min(255, val as number))),
+            };
+        case Uint16Array:
+            return {
+                read: (v, o) => v.getUint16(o, littleEndian),
+                write: (v, o, val) => v.setUint16(o, val as number, littleEndian),
+            };
+        case Uint32Array:
+            return {
+                read: (v, o) => v.getUint32(o, littleEndian),
+                write: (v, o, val) => v.setUint32(o, val as number, littleEndian),
+            };
+        case BigUint64Array:
+            return {
+                read: (v, o) => v.getBigUint64(o, littleEndian),
+                write: (v, o, val) => v.setBigUint64(o, val as bigint, littleEndian),
+            };
+        default:
+            throw new Error(`Unsupported TypedArray type`);
+    }
 }
 
 /**
@@ -567,58 +556,54 @@ function getDataViewMethods(ArrayCtor: TypedArrayConstructor): {
  * dense entity mapping, which differs from koota's sparse entity ID indexing.
  */
 function createLayoutTraits<S extends LayoutSchema>(
-  schema: S,
-  metadata: LayoutMetadata<S>
+    schema: S,
+    metadata: LayoutMetadata<S>
 ): LayoutTraits<S> {
-  const traits = {} as LayoutTraits<S>
+    const traits = {} as LayoutTraits<S>;
 
-  for (const traitName of Object.keys(schema) as (keyof S)[]) {
-    const entry = schema[traitName]
-    const id = layoutTraitId++
+    for (const traitName of Object.keys(schema) as (keyof S)[]) {
+        const entry = schema[traitName];
+        const id = layoutTraitId++;
 
-    // Create the trait function
-    const trait = ((params?: Partial<SchemaEntryRecord<typeof entry>>) => {
-      return [trait, params ?? {}]
-    }) as LayoutTrait<typeof entry>
+        // Create the trait function
+        const trait = ((params?: Partial<SchemaEntryRecord<typeof entry>>) => {
+            return [trait, params ?? {}];
+        }) as LayoutTrait<typeof entry>;
 
-    // Attach properties
-    Object.defineProperties(trait, {
-      id: { value: id, writable: false, enumerable: true },
-      schema: { value: entry, writable: false, enumerable: true },
-      _layout: { value: null, writable: true }, // Set later
-      _traitName: { value: traitName, writable: false },
-    })
+        // Attach properties
+        Object.defineProperties(trait, {
+            id: { value: id, writable: false, enumerable: true },
+            schema: { value: entry, writable: false, enumerable: true },
+            _layout: { value: null, writable: true }, // Set later
+            _traitName: { value: traitName, writable: false },
+        });
 
-    traits[traitName] = trait as LayoutTraits<S>[keyof S]
-  }
+        traits[traitName] = trait as LayoutTraits<S>[keyof S];
+    }
 
-  return traits
+    return traits;
 }
 
 /**
  * Check if a value is a layout
  */
 export function isLayout<S extends LayoutSchema>(value: unknown): value is Layout<S> {
-  return typeof value === 'object' && value !== null && (value as any)[LAYOUT_SYMBOL] === true
+    return typeof value === 'object' && value !== null && (value as any)[LAYOUT_SYMBOL] === true;
 }
 
 /**
  * Check if a trait is backed by a layout
  */
 export function isLayoutTrait(trait: unknown): trait is LayoutTrait<any> {
-  return (
-    typeof trait === 'function' &&
-    '_layout' in trait &&
-    '_traitName' in trait
-  )
+    return typeof trait === 'function' && '_layout' in trait && '_traitName' in trait;
 }
 
 /**
  * Gets the layout that backs a trait, if any
  */
 export function getTraitLayout(trait: unknown): Layout<any> | null {
-  if (isLayoutTrait(trait)) {
-    return trait._layout
-  }
-  return null
+    if (isLayoutTrait(trait)) {
+        return trait._layout;
+    }
+    return null;
 }

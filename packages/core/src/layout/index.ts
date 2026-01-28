@@ -43,60 +43,55 @@
 
 // Core types
 export {
-  // TypedArray types
-  type TypedArrayConstructor,
-  type TypedArrayInstance,
-  type ElementType,
+    // TypedArray types
+    type TypedArrayConstructor,
+    type TypedArrayInstance,
+    type ElementType,
 
-  // Schema types
-  type FieldGroup,
-  type SingleField,
-  type SchemaEntry,
-  type LayoutSchema,
-  type IsFieldGroup,
+    // Schema types
+    type FieldGroup,
+    type SingleField,
+    type SchemaEntry,
+    type LayoutSchema,
+    type IsFieldGroup,
 
-  // Record types
-  type FieldGroupRecord,
-  type SchemaEntryRecord,
-  type LayoutRecords,
+    // Record types
+    type FieldGroupRecord,
+    type SchemaEntryRecord,
+    type LayoutRecords,
 
-  // Store types
-  type FieldGroupStore,
-  type SingleFieldStore,
-  type SchemaEntryStore,
-  type LayoutStore,
+    // Store types
+    type FieldGroupStore,
+    type SingleFieldStore,
+    type SchemaEntryStore,
+    type LayoutStore,
 
-  // Options and policies
-  type GrowthPolicy,
-  type LayoutOptions,
+    // Options and policies
+    type GrowthPolicy,
+    type LayoutOptions,
 
-  // Metadata
-  type FieldOffset,
-  type TraitLayoutInfo,
-  type LayoutMetadata,
+    // Metadata
+    type FieldOffset,
+    type TraitLayoutInfo,
+    type LayoutMetadata,
 
-  // Entity mapping
-  type EntityMapping,
+    // Entity mapping
+    type EntityMapping,
 
-  // Layout instance
-  type Layout,
-  LAYOUT_SYMBOL,
+    // Layout instance
+    type Layout,
+    LAYOUT_SYMBOL,
 
-  // Layout trait types
-  type LayoutBackedTrait,
-  type LayoutTraits,
-  type LayoutTrait,
+    // Layout trait types
+    type LayoutBackedTrait,
+    type LayoutTraits,
+    type LayoutTrait,
 
-  // Utilities
-  getBytesPerElement,
-  isTypedArrayConstructor,
-  isFieldGroup,
-} from './types'
+    // Utilities
+    getBytesPerElement,
+    isTypedArrayConstructor,
+    isFieldGroup,
+} from './types';
 
 // Multi-trait layout
-export {
-  layout,
-  isLayout,
-  isLayoutTrait,
-  getTraitLayout,
-} from './layout'
+export { layout, isLayout, isLayoutTrait, getTraitLayout } from './layout';
