@@ -120,101 +120,30 @@ The core trait API (`get`, `set`, `updateEach`, `getStore`) works transparently 
 
 ## Buffer Options
 
-```typescript
-interface BufferTraitOptions {
-  /** Buffer constructor (default: ArrayBuffer) */
-  buffer?: ArrayBufferConstructor | SharedArrayBufferConstructor
-}
+Buffer traits accept optional configuration for capacity and buffer type:
 
-// Buffer storage - no options needed, just works
+```typescript
+// No options needed - defaults work for most cases
 const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
 
-// Buffer storage with SharedArrayBuffer for workers
+// Custom initial capacity (default: 1024, doubles when exceeded)
+const Particles = trait({ x: types.f32(0), y: types.f32(0) }, { capacity: 10000 })
+
+// SharedArrayBuffer for worker thread access
 const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer })
+
+// Fixed capacity - throws error on growth (data still preserved)
+const Bullets = trait({ x: types.f32(0), y: types.f32(0) }, { capacity: 1000, fixed: true })
 ```
 
-### Why `buffer` is Trait-Level (Not Field-Level)
+**Options:**
+- `capacity?: number` - Initial element count (default: 1024). Buffers grow automatically by doubling.
+- `buffer?: ArrayBuffer | SharedArrayBuffer` - Buffer constructor. Use `SharedArrayBuffer` for worker parallelism.
+- `fixed?: boolean` - Throw error when capacity exceeded (growth still happens, data preserved).
 
-Both ArrayBuffer (transferable) and SharedArrayBuffer (shareable) are designed for worker interop. Since workers will likely process entire traits — not individual fields — `buffer` applies at the trait level.
-
-**SharedArrayBuffer's purpose** is to enable memory sharing between the main thread and Web Workers for parallel processing. In an ECS context, if you're parallelizing a physics system:
-
-```typescript
-// All fields use SharedArrayBuffer - worker can access entire trait
-const Position = trait({ x: types.f32(0), y: types.f32(0) }, {
-  buffer: SharedArrayBuffer
-});
-```
-
-If `x` used `SharedArrayBuffer` but `y` used `ArrayBuffer`, workers would have two access patterns and synchronization mechanisms - increasing the complexity of the parallel processing use case.
-
-**The unit of parallelism in an ECS is the trait**, not individual fields. When a worker processes Position data, it needs all fields (`x`, `y`, `z`), not a subset.
-
-**If fields have different sharing requirements, use separate traits:**
-
-```typescript
-// Shared with workers for parallel simulation
-const Position = trait({ x: types.f32(0), y: types.f32(0) }, {
-  buffer: SharedArrayBuffer
-});
-
-// Main thread only - not needed by simulation workers
-const RenderHint = trait({ opacity: types.f32(1), layer: types.u8(0) });
-```
-
-This keeps the mental model simple: a trait is either worker-compatible or it isn't.
-
-### SharedArrayBuffer Availability
-
-`SharedArrayBuffer` may not be available in all environments:
-
-**Browser:** Requires Cross-Origin Isolation headers (`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`). Without these, `SharedArrayBuffer` is `undefined`.
-
-**Node.js:** Generally available without restrictions.
-
-**No automatic fallback:** Koota does NOT fall back to `ArrayBuffer` if `SharedArrayBuffer` is unavailable. If you pass `{ buffer: SharedArrayBuffer }` and `SharedArrayBuffer` is `undefined` in your environment, Koota throws an error at trait creation time:
-
-```
-Koota: Invalid buffer option. SharedArrayBuffer may not be available in this environment.
-Check availability with: typeof SharedArrayBuffer !== "undefined"
-```
-
-This is intentional - silently falling back would cause worker code to read stale data, which is extremely difficult to debug.
-
-**Designing for optional SAB support:**
-
-If your application needs to work with or without `SharedArrayBuffer`, design your trait creation to be conditional:
-
-```typescript
-// Define schemas separately from buffer options
-const positionSchema = { x: types.f32(0), y: types.f32(0), z: types.f32(0) };
-const velocitySchema = { vx: types.f32(0), vy: types.f32(0), vz: types.f32(0) };
-
-// Check if SharedArrayBuffer is available
-const bufferCtor = typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer;
-
-// Create traits with conditional buffer type
-const Position = trait(positionSchema, { buffer: bufferCtor });
-const Velocity = trait(velocitySchema, { buffer: bufferCtor });
-
-// Your system logic works either way - just runs single-threaded without SAB
-function physicsSystem(world: World) {
-  // Same code regardless of buffer type
-  for (const entity of world.query(Position, Velocity)) {
-    // ...
-  }
-}
-```
-
-This approach keeps your ECS logic unchanged - you lose some multi-threading speedups when SAB is unavailable. You must design your worker logic accordingly.
-
-## Capacity and Growth
-
-Buffer storage starts at capacity 1024 and doubles when exceeded (same growth strategy as all koota arrays).
-
-- Creates multiple **separate, contiguous** TypedArrays
-- Each array is naturally aligned (Float32Array = 4-byte aligned elements)
-- No stride concept - elements are packed
+**Notes:**
+- `buffer` applies at trait level because workers process entire traits, not individual fields.
+- `SharedArrayBuffer` requires Cross-Origin Isolation headers in browsers. Koota throws if unavailable rather than silently falling back.
 
 ## Design Decisions
 

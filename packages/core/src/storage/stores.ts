@@ -1,5 +1,12 @@
 import { $typedArray, isTypedSchema, type TypedField } from '../types';
-import { $bufferStore, type Schema, type Store, type BufferStore, type BufferStoreOptions } from './types';
+import {
+    $bufferStore,
+    type Schema,
+    type Store,
+    type BufferStore,
+    type BufferStoreOptions,
+    type BufferType,
+} from './types';
 
 /** Initial capacity for buffer stores */
 const INITIAL_CAPACITY = 1024;
@@ -79,11 +86,14 @@ export function isBufferStore(store: unknown): store is BufferStore {
 }
 
 /**
- * Grow a buffer store to accommodate a minimum capacity
+ * Grow a buffer store to accommodate a minimum capacity.
+ * If store is marked as fixed, throws an error after growing.
  */
 export function growBufferStore(store: BufferStore, minCapacity: number): void {
+    const oldCapacity = store._capacity;
+
     // Calculate new capacity (double until we have enough)
-    let newCapacity = store._capacity;
+    let newCapacity = oldCapacity;
     while (newCapacity < minCapacity) {
         newCapacity = Math.ceil(newCapacity * GROWTH_FACTOR);
     }
@@ -96,15 +106,11 @@ export function growBufferStore(store: BufferStore, minCapacity: number): void {
         const field = schema[key];
         const ArrayConstructor = field[$typedArray];
         const oldArray = getBufferArray(store, key);
-        // Create new TypedArray with same buffer type
-        // Cast needed: TS lib types don't include SharedArrayBuffer overloads but runtime supports it
         const buffer = new BufferCtor(newCapacity * ArrayConstructor.BYTES_PER_ELEMENT);
         const newArray = new ArrayConstructor(buffer as ArrayBuffer);
 
-        // Copy existing data
         copyTypedArray(newArray, oldArray);
 
-        // Fill new slots with default value
         if (field.default !== 0 && field.default !== 0n) {
             fillTypedArray(newArray, field.default, oldArray.length);
         }
@@ -113,6 +119,13 @@ export function growBufferStore(store: BufferStore, minCapacity: number): void {
     }
 
     store._capacity = newCapacity;
+
+    if (store._fixed) {
+        throw new Error(
+            `Koota: Buffer exceeded fixed capacity (${oldCapacity} → ${newCapacity}). ` +
+                'Data preserved, but consider increasing capacity.'
+        );
+    }
 }
 
 /**
@@ -131,24 +144,24 @@ export function createBufferStore(
     schema: Record<string, TypedField>,
     options: BufferStoreOptions = {}
 ): BufferStore {
-    const { buffer: BufferCtor = ArrayBuffer } = options;
+    const capacity = options.capacity ?? INITIAL_CAPACITY;
+    const BufferCtor = options.buffer ?? ArrayBuffer;
+    const fixed = options.fixed ?? false;
 
     const store: BufferStore = {
         [$bufferStore]: true,
-        _capacity: INITIAL_CAPACITY,
+        _capacity: capacity,
         _schema: schema,
         _bufferType: BufferCtor,
+        _fixed: fixed,
     };
 
     for (const key in schema) {
         const field = schema[key];
         const ArrayConstructor = field[$typedArray];
-        // Create TypedArray with specified buffer type
-        // Cast needed: TS lib types don't include SharedArrayBuffer overloads but runtime supports it
-        const buffer = new BufferCtor(INITIAL_CAPACITY * ArrayConstructor.BYTES_PER_ELEMENT);
+        const buffer = new BufferCtor(capacity * ArrayConstructor.BYTES_PER_ELEMENT);
         const array = new ArrayConstructor(buffer as ArrayBuffer);
 
-        // Fill with default value if non-zero
         if (field.default !== 0 && field.default !== 0n) {
             fillTypedArray(array, field.default);
         }

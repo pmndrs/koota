@@ -669,4 +669,73 @@ describe('Buffer Type Options', () => {
             trait({ x: 0, y: 0 }, { buffer: ArrayBuffer })
         ).toThrow('Koota: buffer option can only be used with typed schemas');
     });
+
+    it('should allow custom initial capacity', () => {
+        const Position = trait(
+            { x: types.f32(0), y: types.f32(0) },
+            { capacity: 5000 }
+        );
+        world.spawn(Position);
+
+        const store = getStore(world, Position);
+        expect(store.x.length).toBe(5000);
+        expect(store.y.length).toBe(5000);
+    });
+
+    it('should throw when fixed buffer grows but still preserve data', () => {
+        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { fixed: true });
+
+        // Spawn entities up to near initial capacity (1024)
+        const entities: Entity[] = [];
+        for (let i = 0; i < 1000; i++) {
+            entities.push(world.spawn(Position({ x: i, y: i * 2 })));
+        }
+
+        // Spawning beyond capacity should throw
+        expect(() => {
+            for (let i = 0; i < 100; i++) {
+                world.spawn(Position({ x: i + 1000, y: (i + 1000) * 2 }));
+            }
+        }).toThrow('Buffer exceeded fixed capacity');
+
+        // But data should still be accessible (growth happened before throw)
+        for (let i = 0; i < 1000; i++) {
+            expect(entities[i].get(Position)).toEqual({ x: i, y: i * 2 });
+        }
+    });
+
+    it('should combine capacity and fixed options', () => {
+        const Position = trait(
+            { x: types.f32(0), y: types.f32(0) },
+            { capacity: 2000, fixed: true }
+        );
+
+        // Spawn up to near capacity - should work
+        for (let i = 0; i < 1500; i++) {
+            world.spawn(Position({ x: i, y: i }));
+        }
+
+        // Exceed capacity - should throw
+        expect(() => {
+            for (let i = 0; i < 1000; i++) {
+                world.spawn(Position({ x: i, y: i }));
+            }
+        }).toThrow('Buffer exceeded fixed capacity');
+    });
+
+    it('should combine capacity and SharedArrayBuffer', () => {
+        if (typeof SharedArrayBuffer === 'undefined') {
+            return;
+        }
+
+        const Position = trait(
+            { x: types.f32(0), y: types.f32(0) },
+            { buffer: SharedArrayBuffer, capacity: 2000 }
+        );
+        world.spawn(Position);
+
+        const store = getStore(world, Position);
+        expect(store.x.length).toBe(2000);
+        expect(store.x.buffer).toBeInstanceOf(SharedArrayBuffer);
+    });
 });

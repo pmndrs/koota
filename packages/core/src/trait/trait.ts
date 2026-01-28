@@ -119,10 +119,8 @@ function createTraitImpl<S extends Schema>(
     // Create the appropriate store factory
     let storeFactory: () => unknown;
     if (traitType === 'buffer') {
-        // Validate buffer option (catches undefined SharedArrayBuffer early)
         validateBufferOptions(options);
-        // For buffer storage, create buffer store with buffer option
-        const storeOptions: BufferStoreOptions = { buffer: options.buffer };
+        const storeOptions: BufferStoreOptions = { ...options };
         storeFactory = () => createBufferStore(schema as Record<string, TypedField>, storeOptions);
     } else {
         storeFactory = () => createStore<S>(schema);

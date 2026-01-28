@@ -21,9 +21,6 @@ import { trait, types } from 'koota'
 const Position = trait({ x: 0, y: 0 })
 const Velocity = trait({ x: 0, y: 0 })
 
-// Buffer trait - TypedArray storage for numerics
-const Transform = trait({ x: types.f32(0), y: types.f32(0), z: types.f32(0) })
-
 // Trait with a callback for initial value
 // ⚠️ Must be an object
 const Mesh = trait(() => new THREE.Mesh())
@@ -844,9 +841,9 @@ const store = [
 const Mesh = trait(() => new THREE.Mesh())
 ```
 
-#### Buffer traits with TypedArrays
+#### Buffers (AoS) - Schema-based buffer backed traits
 
-For performance-critical numeric data, use `types` helpers to create buffer traits backed by TypedArrays. The API is identical to regular traits - `entity.get()`, `entity.set()`, and `updateEach` all work transparently.
+For sharing data with workers or external systems (WebGL, WASM, physics engines), use `types` helpers to create buffer traits backed by TypedArrays. Use `SharedArrayBuffer` for zero-copy worker access, or `ArrayBuffer` for efficient transfers. The API is identical to regular traits.
 
 ```js
 import { trait, types, getStore } from 'koota'

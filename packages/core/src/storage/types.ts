@@ -126,6 +126,7 @@ export interface BufferStore {
     _capacity: number;
     _schema: Record<string, TypedField>;
     _bufferType: BufferType;
+    _fixed: boolean;
     [key: string]: unknown;
 }
 
@@ -142,11 +143,26 @@ export type BufferType = ArrayBufferConstructor | SharedArrayBufferConstructor;
  */
 export interface BufferTraitOptions {
     /**
-     * Buffer constructor to use for TypedArray backing storage.
-     * Use SharedArrayBuffer for multi-threaded scenarios (workers).
+     * Buffer constructor for TypedArray backing storage.
+     * Use SharedArrayBuffer for worker thread access.
      * @default ArrayBuffer
      */
     buffer?: BufferType;
+
+    /**
+     * Initial capacity (number of elements).
+     * Buffers grow automatically when exceeded.
+     * @default 1024
+     */
+    capacity?: number;
+
+    /**
+     * When true, throws an error if the buffer grows beyond initial capacity.
+     * The growth still happens (app continues working), but an error is thrown
+     * to alert developers to capacity issues.
+     * @default false
+     */
+    fixed?: boolean;
 }
 
 /**
@@ -156,5 +172,9 @@ export interface BufferTraitOptions {
 export interface BufferStoreOptions {
     /** Buffer constructor (default: ArrayBuffer) */
     buffer?: BufferType;
+    /** Initial capacity in elements (default: 1024) */
+    capacity?: number;
+    /** Whether to throw on growth */
+    fixed?: boolean;
 }
 
