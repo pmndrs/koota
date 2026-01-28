@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { updateTime } from '../core/systems/update-time';
 import { updateDragging } from '../core/systems/update-dragging';
 import { syncToDOM } from '../core/systems/sync-to-dom';
-import { interpolateRemoteCursors } from '../core/systems/interpolate-remote';
+import { interpolateRemote } from '../core/systems/interpolate-remote';
 import { broadcastEphemeralPresence } from '../core/systems/broadcast-ephemeral-presence';
 import { broadcastLocalEdits } from '../core/systems/broadcast-local-edits';
 import { Pointer } from '../core/traits';
@@ -16,7 +16,7 @@ export function Frameloop() {
     useAnimationFrame(() => {
         updateTime(world);
         updateDragging(world);
-        interpolateRemoteCursors(world);
+        interpolateRemote(world);
         broadcastEphemeralPresence(world);
         broadcastLocalEdits(world);
         syncToDOM(world);

@@ -3,7 +3,8 @@ import { emitCommit } from '../multiplayer/commit-sink';
 import { applyOp } from '../ops/apply';
 import { invertOp } from '../ops/invert';
 import { captureCurrentState } from '../ops/snapshot';
-import { Color, History, Position, Rotation, Scale, StableId, IsTombstoned } from '../traits';
+import { Color, History, Position, Rotation, Scale, StableId } from '../traits';
+import { isActive } from '../utils/shape-helpers';
 import { OpCode, SEQ_UNASSIGNED, type Op, type HistoryEntry } from '../types';
 
 export const historyActions = createActions((world) => {
@@ -17,7 +18,7 @@ export const historyActions = createActions((world) => {
         // CreateShape/DeleteShape are always valid (they change lifecycle)
         if (op.op === OpCode.CreateShape || op.op === OpCode.DeleteShape) return true;
         // Property updates are only valid if shape is active
-        return !entity.has(IsTombstoned);
+        return isActive(entity);
     };
 
     // Check if an entry has any valid ops (at least one op targets an active shape)

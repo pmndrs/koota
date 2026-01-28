@@ -37,7 +37,7 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
         });
         if (selected.length > 0) {
             for (const entity of selected) {
-                startEditing(entity, ['rotation'], localUser);
+                startEditing(entity, ['rotation'], localUser, 'discrete');
             }
         }
     }, [selected, startEditing, world]);
@@ -69,7 +69,7 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
         });
         if (selected.length > 0) {
             for (const entity of selected) {
-                startEditing(entity, ['scale'], localUser);
+                startEditing(entity, ['scale'], localUser, 'discrete');
             }
         }
     }, [selected, startEditing, world]);
@@ -102,7 +102,7 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
         });
         if (selected.length > 0) {
             for (const entity of selected) {
-                startEditing(entity, ['scale'], localUser);
+                startEditing(entity, ['scale'], localUser, 'discrete');
             }
         }
     }, [selected, startEditing, world]);

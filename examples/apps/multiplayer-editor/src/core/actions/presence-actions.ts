@@ -16,10 +16,11 @@ import {
     EditingScale,
     EditingColor,
     EditedBy,
-    IsTombstoned,
+    IsRemoteDragging,
 } from '../traits';
 import type { EditStart, EditUpdate, EditEnd } from '../multiplayer/protocol';
 import { createRandomUserName } from '../utils/user-name';
+import { getActiveByStableId } from '../utils/shape-helpers';
 
 export const presenceActions = createActions((world) => {
     const createUser = (
@@ -83,17 +84,25 @@ export const presenceActions = createActions((world) => {
             const history = world.get(History);
             if (!history) return;
 
-            const shapeEntity = history.entities.get(data.shapeId);
-            if (!shapeEntity || !shapeEntity.isAlive() || shapeEntity.has(IsTombstoned)) return;
+            const shapeEntity = getActiveByStableId(history, data.shapeId);
+            if (!shapeEntity) return;
 
-            // Add editing traits with durable values
+            const isDrag = data.mode === 'drag';
+
+            // Add editing traits with durable values and targets for interpolation
             if (
                 data.properties.includes('position') &&
                 data.durableX !== undefined &&
                 !shapeEntity.has(EditingPosition)
             ) {
+                const pos = shapeEntity.get(Position);
                 shapeEntity.add(
-                    EditingPosition({ durableX: data.durableX, durableY: data.durableY! })
+                    EditingPosition({
+                        durableX: data.durableX,
+                        durableY: data.durableY!,
+                        targetX: pos?.x ?? data.durableX,
+                        targetY: pos?.y ?? data.durableY!,
+                    })
                 );
             }
             if (
@@ -101,15 +110,27 @@ export const presenceActions = createActions((world) => {
                 data.durableAngle !== undefined &&
                 !shapeEntity.has(EditingRotation)
             ) {
-                shapeEntity.add(EditingRotation({ durableAngle: data.durableAngle }));
+                const rot = shapeEntity.get(Rotation);
+                shapeEntity.add(
+                    EditingRotation({
+                        durableAngle: data.durableAngle,
+                        targetAngle: rot?.angle ?? data.durableAngle,
+                    })
+                );
             }
             if (
                 data.properties.includes('scale') &&
                 data.durableScaleX !== undefined &&
                 !shapeEntity.has(EditingScale)
             ) {
+                const scale = shapeEntity.get(Scale);
                 shapeEntity.add(
-                    EditingScale({ durableX: data.durableScaleX, durableY: data.durableScaleY! })
+                    EditingScale({
+                        durableX: data.durableScaleX,
+                        durableY: data.durableScaleY!,
+                        targetX: scale?.x ?? data.durableScaleX,
+                        targetY: scale?.y ?? data.durableScaleY!,
+                    })
                 );
             }
             if (
@@ -120,29 +141,72 @@ export const presenceActions = createActions((world) => {
                 shapeEntity.add(EditingColor({ durableFill: data.durableFill }));
             }
 
+            // Mark for interpolation if drag mode
+            if (isDrag && !shapeEntity.has(IsRemoteDragging)) {
+                shapeEntity.add(IsRemoteDragging);
+            }
+
             // Track editor
             shapeEntity.add(EditedBy(userEntity));
         },
 
-        // Handle edit update from remote user - updates Position/Rotation/Scale/Color directly
+        // Handle edit update from remote user
+        // Drag mode: update targets (system interpolates Position toward them)
+        // Discrete mode: update Position directly (no interpolation)
         handleRemoteEditUpdate: (data: EditUpdate) => {
             const history = world.get(History);
             if (!history) return;
 
-            const shapeEntity = history.entities.get(data.shapeId);
-            if (!shapeEntity || !shapeEntity.isAlive() || shapeEntity.has(IsTombstoned)) return;
+            const shapeEntity = getActiveByStableId(history, data.shapeId);
+            if (!shapeEntity) return;
 
-            // Update traits directly with absolute values
+            const isDrag = shapeEntity.has(IsRemoteDragging);
+
             if (data.x !== undefined && data.y !== undefined) {
-                shapeEntity.set(Position, { x: data.x, y: data.y });
+                if (isDrag) {
+                    // Update interpolation target
+                    const editing = shapeEntity.get(EditingPosition);
+                    if (editing) {
+                        shapeEntity.set(EditingPosition, {
+                            ...editing,
+                            targetX: data.x,
+                            targetY: data.y,
+                        });
+                    }
+                } else {
+                    // Snap directly
+                    shapeEntity.set(Position, { x: data.x, y: data.y });
+                }
             }
             if (data.angle !== undefined) {
-                shapeEntity.set(Rotation, { angle: data.angle });
+                if (isDrag) {
+                    const editing = shapeEntity.get(EditingRotation);
+                    if (editing) {
+                        shapeEntity.set(EditingRotation, {
+                            ...editing,
+                            targetAngle: data.angle,
+                        });
+                    }
+                } else {
+                    shapeEntity.set(Rotation, { angle: data.angle });
+                }
             }
             if (data.scaleX !== undefined && data.scaleY !== undefined) {
-                shapeEntity.set(Scale, { x: data.scaleX, y: data.scaleY });
+                if (isDrag) {
+                    const editing = shapeEntity.get(EditingScale);
+                    if (editing) {
+                        shapeEntity.set(EditingScale, {
+                            ...editing,
+                            targetX: data.scaleX,
+                            targetY: data.scaleY,
+                        });
+                    }
+                } else {
+                    shapeEntity.set(Scale, { x: data.scaleX, y: data.scaleY });
+                }
             }
             if (data.fill !== undefined) {
+                // Color doesn't interpolate - always snap
                 shapeEntity.set(Color, { fill: data.fill });
             }
         },
@@ -152,8 +216,8 @@ export const presenceActions = createActions((world) => {
             const history = world.get(History);
             if (!history) return;
 
-            const shapeEntity = history.entities.get(data.shapeId);
-            if (!shapeEntity || !shapeEntity.isAlive() || shapeEntity.has(IsTombstoned)) return;
+            const shapeEntity = getActiveByStableId(history, data.shapeId);
+            if (!shapeEntity) return;
 
             if (!data.committed) {
                 // Restore from durable values
@@ -173,6 +237,20 @@ export const presenceActions = createActions((world) => {
                 if (editColor) {
                     shapeEntity.set(Color, { fill: editColor.durableFill });
                 }
+            } else if (shapeEntity.has(IsRemoteDragging)) {
+                // Committed drag edit: snap to final target values
+                const editPos = shapeEntity.get(EditingPosition);
+                if (editPos) {
+                    shapeEntity.set(Position, { x: editPos.targetX, y: editPos.targetY });
+                }
+                const editRot = shapeEntity.get(EditingRotation);
+                if (editRot) {
+                    shapeEntity.set(Rotation, { angle: editRot.targetAngle });
+                }
+                const editScale = shapeEntity.get(EditingScale);
+                if (editScale) {
+                    shapeEntity.set(Scale, { x: editScale.targetX, y: editScale.targetY });
+                }
             }
 
             // Remove editor
@@ -184,6 +262,7 @@ export const presenceActions = createActions((world) => {
                 shapeEntity.remove(EditingRotation);
                 shapeEntity.remove(EditingScale);
                 shapeEntity.remove(EditingColor);
+                shapeEntity.remove(IsRemoteDragging);
             }
         },
     };

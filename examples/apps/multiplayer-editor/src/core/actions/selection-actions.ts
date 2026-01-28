@@ -14,13 +14,14 @@ import {
 import { historyActions } from './history-actions';
 import { editingActions } from './editing-actions';
 import { OpCode, SEQ_UNASSIGNED } from '../types';
+import { isActive } from '../utils/shape-helpers';
 
 export const selectionActions = createActions((world) => {
     const { push, commit } = historyActions(world);
 
     return {
         selectShape: (entity: Entity, additive = false) => {
-            if (entity.has(IsTombstoned)) return;
+            if (!isActive(entity)) return;
             if (additive) {
                 // Shift-click: toggle selection for multi-select
                 if (entity.has(IsSelected)) {
@@ -53,7 +54,7 @@ export const selectionActions = createActions((world) => {
             const editing = editingActions(world);
 
             for (const entity of selected) {
-                if (entity.has(IsTombstoned)) continue;
+                if (!isActive(entity)) continue;
                 const stableId = entity.get(StableId);
                 const shape = entity.get(Shape);
                 const position = entity.get(Position);

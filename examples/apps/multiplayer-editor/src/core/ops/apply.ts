@@ -18,6 +18,7 @@ import {
     IsSelected,
     Dragging,
 } from '../traits';
+import { isActive } from '../utils/shape-helpers';
 
 export function applyOp(world: World, op: Op): void {
     const history = world.get(History)!;
@@ -109,12 +110,7 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdatePosition: {
             const entity = history.entities.get(op.id);
-            if (
-                entity &&
-                entity.isAlive() &&
-                !entity.has(IsTombstoned) &&
-                entity.has(Position)
-            ) {
+            if (isActive(entity) && entity.has(Position)) {
                 entity.set(Position, { x: op.x, y: op.y });
             }
             break;
@@ -122,12 +118,7 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateRotation: {
             const entity = history.entities.get(op.id);
-            if (
-                entity &&
-                entity.isAlive() &&
-                !entity.has(IsTombstoned) &&
-                entity.has(Rotation)
-            ) {
+            if (isActive(entity) && entity.has(Rotation)) {
                 entity.set(Rotation, { angle: op.angle });
             }
             break;
@@ -135,12 +126,7 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateScale: {
             const entity = history.entities.get(op.id);
-            if (
-                entity &&
-                entity.isAlive() &&
-                !entity.has(IsTombstoned) &&
-                entity.has(Scale)
-            ) {
+            if (isActive(entity) && entity.has(Scale)) {
                 entity.set(Scale, { x: op.x, y: op.y });
             }
             break;
@@ -148,12 +134,7 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateColor: {
             const entity = history.entities.get(op.id);
-            if (
-                entity &&
-                entity.isAlive() &&
-                !entity.has(IsTombstoned) &&
-                entity.has(Color)
-            ) {
+            if (isActive(entity) && entity.has(Color)) {
                 entity.set(Color, { fill: op.fill });
             }
             break;

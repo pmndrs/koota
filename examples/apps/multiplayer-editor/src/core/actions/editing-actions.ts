@@ -11,12 +11,13 @@ import {
     EditedBy,
     StableId,
     IsLocal,
-    IsTombstoned,
 } from '../traits';
 import { historyActions } from './history-actions';
 import { sendEditStart, sendEditEnd } from '../multiplayer/ephemeral';
+import { isActive } from '../utils/shape-helpers';
 
 export type EditableProperty = 'position' | 'rotation' | 'scale' | 'color';
+export type EditMode = 'drag' | 'discrete';
 
 export const editingActions = createActions((world) => {
     const getLocalEditor = (entity: Entity) => {
@@ -27,9 +28,15 @@ export const editingActions = createActions((world) => {
         /**
          * Start editing specified properties on an entity.
          * Captures the current (durable) values before editing begins.
+         * @param mode 'drag' for continuous input (interpolated remotely), 'discrete' for clicks/typing (snaps)
          */
-        startEditing: (entity: Entity, properties: EditableProperty[], editor?: Entity) => {
-            if (entity.has(IsTombstoned)) return;
+        startEditing: (
+            entity: Entity,
+            properties: EditableProperty[],
+            editor?: Entity,
+            mode: EditMode = 'drag'
+        ) => {
+            if (!isActive(entity)) return;
             const stableId = entity.get(StableId);
             if (!stableId) return;
 
@@ -48,7 +55,14 @@ export const editingActions = createActions((world) => {
                     case 'position': {
                         const pos = entity.get(Position);
                         if (pos && !entity.has(EditingPosition)) {
-                            entity.add(EditingPosition({ durableX: pos.x, durableY: pos.y }));
+                            entity.add(
+                                EditingPosition({
+                                    durableX: pos.x,
+                                    durableY: pos.y,
+                                    targetX: pos.x,
+                                    targetY: pos.y,
+                                })
+                            );
                             durableValues.durableX = pos.x;
                             durableValues.durableY = pos.y;
                         }
@@ -57,7 +71,9 @@ export const editingActions = createActions((world) => {
                     case 'rotation': {
                         const rot = entity.get(Rotation);
                         if (rot && !entity.has(EditingRotation)) {
-                            entity.add(EditingRotation({ durableAngle: rot.angle }));
+                            entity.add(
+                                EditingRotation({ durableAngle: rot.angle, targetAngle: rot.angle })
+                            );
                             durableValues.durableAngle = rot.angle;
                         }
                         break;
@@ -65,7 +81,14 @@ export const editingActions = createActions((world) => {
                     case 'scale': {
                         const scale = entity.get(Scale);
                         if (scale && !entity.has(EditingScale)) {
-                            entity.add(EditingScale({ durableX: scale.x, durableY: scale.y }));
+                            entity.add(
+                                EditingScale({
+                                    durableX: scale.x,
+                                    durableY: scale.y,
+                                    targetX: scale.x,
+                                    targetY: scale.y,
+                                })
+                            );
                             durableValues.durableScaleX = scale.x;
                             durableValues.durableScaleY = scale.y;
                         }
@@ -92,6 +115,7 @@ export const editingActions = createActions((world) => {
                 sendEditStart({
                     shapeId: stableId.id,
                     properties,
+                    mode,
                     ...durableValues,
                 });
             }
@@ -154,7 +178,7 @@ export const editingActions = createActions((world) => {
          * Removes editing state after creating ops.
          */
         commitEditing: (entity: Entity, properties?: EditableProperty[]) => {
-            if (entity.has(IsTombstoned)) return;
+            if (!isActive(entity)) return;
             const propsToCommit = properties ?? ['position', 'rotation', 'scale', 'color'];
             const stableId = entity.get(StableId);
             if (!stableId) return;
@@ -234,7 +258,7 @@ export const editingActions = createActions((world) => {
          * Cancel editing and restore to durable values.
          */
         cancelEditing: (entity: Entity, properties?: EditableProperty[]) => {
-            if (entity.has(IsTombstoned)) return;
+            if (!isActive(entity)) return;
             const propsToCancel = properties ?? ['position', 'rotation', 'scale', 'color'];
             const stableId = entity.get(StableId);
             const localEditor = getLocalEditor(entity);

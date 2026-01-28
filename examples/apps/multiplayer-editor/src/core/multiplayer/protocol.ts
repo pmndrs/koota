@@ -87,6 +87,7 @@ export type EditStart = {
     type: 'editStart';
     shapeId: number;
     properties: ('position' | 'rotation' | 'scale' | 'color')[];
+    mode: 'drag' | 'discrete'; // 'drag' = interpolate, 'discrete' = snap
     // Durable values (last committed op value)
     durableX?: number;
     durableY?: number;

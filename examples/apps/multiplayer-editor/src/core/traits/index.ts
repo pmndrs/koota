@@ -26,13 +26,17 @@ export const Color = trait({ fill: '#4a90d9' });
 export const IsTombstoned = trait(); // Tag
 
 // Editing state - captures durable (last committed op) values
-export const EditingPosition = trait({ durableX: 0, durableY: 0 });
-export const EditingRotation = trait({ durableAngle: 0 });
-export const EditingScale = trait({ durableX: 1, durableY: 1 });
+// Target fields are used for remote interpolation (drag mode only)
+export const EditingPosition = trait({ durableX: 0, durableY: 0, targetX: 0, targetY: 0 });
+export const EditingRotation = trait({ durableAngle: 0, targetAngle: 0 });
+export const EditingScale = trait({ durableX: 1, durableY: 1, targetX: 1, targetY: 1 });
 export const EditingColor = trait({ durableFill: '' });
 
 // Tracks which users are editing (non-exclusive)
 export const EditedBy = relation();
+
+// Tag: shape is being dragged by a remote user (enables interpolation)
+export const IsRemoteDragging = trait();
 
 // Interaction
 export const IsSelected = trait(); // Tag
