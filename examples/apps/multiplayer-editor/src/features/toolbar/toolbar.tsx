@@ -1,8 +1,8 @@
 import { useActions, useQuery, useTrait, useWorld } from 'koota/react';
 import type { Entity } from 'koota';
-import { useCallback, useRef } from 'react';
-import { historyActions, selectionActions, shapeActions } from '../../core/actions';
-import { Color, History, IsSelected } from '../../core/traits';
+import { useCallback } from 'react';
+import { editingActions, historyActions, selectionActions, shapeActions } from '../../core/actions';
+import { Color, History, IsLocal, IsSelected } from '../../core/traits';
 import { AddShapes } from './add-shapes';
 import { ColorPicker } from './color-picker';
 import { History as HistoryControls } from './history';
@@ -14,13 +14,12 @@ export function Toolbar() {
     const history = useTrait(world, History);
     const { addShape } = useActions(shapeActions);
     const { deleteSelected } = useActions(selectionActions);
-    const { undo, redo, recordColorChange } = useActions(historyActions);
+    const { undo, redo } = useActions(historyActions);
+    const { startEditing, commitEditing, cancelEditing } = useActions(editingActions);
     const selected = useQuery(IsSelected);
 
     const canUndoValue = history ? history.undoStack.length > 0 : false;
     const canRedoValue = history ? history.redoStack.length > 0 : false;
-
-    const initialColor = useRef<string | null>(null);
 
     const hasSelection = selected.length > 0;
 
@@ -36,40 +35,38 @@ export function Toolbar() {
         addShape('ellipse', window.innerWidth / 2, window.innerHeight / 2);
     }, [addShape]);
 
+    const handleStartColorEdit = useCallback(() => {
+        let localUser: Entity | undefined;
+        world.query(IsLocal).readEach((_, entity) => {
+            if (!localUser) localUser = entity;
+        });
+        for (const entity of selected) {
+            startEditing(entity, ['color'], localUser);
+        }
+    }, [selected, startEditing, world]);
+
     const handlePreviewColor = useCallback(
         (hex: string) => {
-            if (initialColor.current === null) {
-                initialColor.current = displayColor;
-            }
             for (const entity of selected) {
                 if (entity.has(Color)) {
                     entity.set(Color, { fill: hex });
                 }
             }
         },
-        [selected, displayColor]
+        [selected]
     );
 
-    const handleCommitColor = useCallback(
-        (hex: string) => {
-            if (initialColor.current !== null && hex !== initialColor.current) {
-                recordColorChange(selected, initialColor.current, hex);
-            }
-            initialColor.current = null;
-        },
-        [selected, recordColorChange]
-    );
+    const handleCommitColor = useCallback(() => {
+        for (const entity of selected) {
+            commitEditing(entity, ['color']);
+        }
+    }, [selected, commitEditing]);
 
     const handleCancelColor = useCallback(() => {
-        if (initialColor.current !== null) {
-            for (const entity of selected) {
-                if (entity.has(Color)) {
-                    entity.set(Color, { fill: initialColor.current });
-                }
-            }
+        for (const entity of selected) {
+            cancelEditing(entity, ['color']);
         }
-        initialColor.current = null;
-    }, [selected]);
+    }, [selected, cancelEditing]);
 
     return (
         <div className="toolbar">
@@ -79,6 +76,7 @@ export function Toolbar() {
                 <>
                     <ColorPicker
                         displayColor={displayColor}
+                        onOpen={handleStartColorEdit}
                         onPreview={handlePreviewColor}
                         onCommit={handleCommitColor}
                         onCancel={handleCancelColor}

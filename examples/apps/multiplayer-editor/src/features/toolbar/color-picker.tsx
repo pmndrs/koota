@@ -9,7 +9,7 @@ type ColorPickerPopoverProps = {
     anchorRef: RefObject<HTMLButtonElement | null>;
     initialColor: string;
     onPreview: (hex: string) => void;
-    onCommit: (hex: string) => void;
+    onCommit: () => void;
     onCancel: () => void;
 };
 
@@ -73,7 +73,7 @@ function ColorPickerPopover({
             if (!target) return;
             if (popoverRef.current?.contains(target)) return;
             if (anchorRef.current?.contains(target)) return;
-            onCommit(colorRef.current.hex);
+            onCommit();
         };
         document.addEventListener('pointerdown', handleOutside, { capture: true });
         return () => document.removeEventListener('pointerdown', handleOutside, { capture: true });
@@ -124,7 +124,7 @@ function ColorPickerPopover({
                 <button className="color-picker-cancel" onClick={onCancel}>
                     Cancel
                 </button>
-                <button className="color-picker-apply" onClick={() => onCommit(color.hex)}>
+                <button className="color-picker-apply" onClick={onCommit}>
                     Done
                 </button>
             </div>
@@ -135,13 +135,15 @@ function ColorPickerPopover({
 
 export function ColorPicker({
     displayColor,
+    onOpen,
     onPreview,
     onCommit,
     onCancel,
 }: {
     displayColor: string;
+    onOpen: () => void;
     onPreview: (hex: string) => void;
-    onCommit: (hex: string) => void;
+    onCommit: () => void;
     onCancel: () => void;
 }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -151,21 +153,19 @@ export function ColorPicker({
     const handleToggle = useCallback(() => {
         if (isOpen) {
             // Clicking button while open commits current color
-            onCommit(displayColor);
+            onCommit();
             setIsOpen(false);
         } else {
             setInitialColor(displayColor);
+            onOpen();
             setIsOpen(true);
         }
-    }, [isOpen, displayColor, onCommit]);
+    }, [isOpen, displayColor, onCommit, onOpen]);
 
-    const handleCommit = useCallback(
-        (hex: string) => {
-            setIsOpen(false);
-            onCommit(hex);
-        },
-        [onCommit]
-    );
+    const handleCommit = useCallback(() => {
+        setIsOpen(false);
+        onCommit();
+    }, [onCommit]);
 
     const handleCancel = useCallback(() => {
         setIsOpen(false);
