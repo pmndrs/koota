@@ -1,8 +1,8 @@
-# RFC: TypedArray Storage for Traits
+# RFC: Buffer Storage for Traits
 
 ## Summary
 
-Extend `trait()` to support TypedArray storage by detecting typed fields in schemas. Typed fields change the backing storage from JS arrays to TypedArrays.
+Extend `trait()` to support buffer storage by detecting typed fields in schemas. Typed fields change the backing storage from JS arrays to TypedArrays.
 
 ```typescript
 import { trait, types } from 'koota'
@@ -17,26 +17,25 @@ const Position = trait({ x: types.f32(0), y: types.f32(0) })
 const Mesh = trait(() => new THREE.Mesh())
 ```
 
-**No new patterns. The schema structure determines layout (SoA vs AoS). Typed fields determine storage (JS vs TypedArray).**
+**No new patterns. The schema structure determines layout (SoA vs AoS). Typed fields determine storage (Array vs ArrayBuffer).**
 
 ## Motivation
 
-Koota already has two layout patterns:
+Koota has two layout patterns:
 
 - **SoA (object schema)**: Each field stored in separate array
 - **AoS (function schema)**: One instance per entity in single array
 
-We extend SoA to support TypedArrays by detecting `types.f32()` etc. in the schema:
+We extend SoA to support TypedArrays by detecting `types.f32()` etc. in the schema. **Buffer is a storage variant of SoA, not a new layout pattern** - both use the same `store.field[index]` access pattern.
 
-| Schema                | Layout  | Storage               |
-| --------------------- | ------- | --------------------- |
-| `{ x: 0 }`            | SoA     | JS arrays             |
-| `{ x: types.f32(0) }` | Buffer  | TypedArrays           |
-| `() => new Thing()`   | AoS     | JS array of instances |
+| Layout | Storage    | Schema                | Store Type            |
+| ------ | ---------- | --------------------- | --------------------- |
+| SoA    | JS         | `{ x: 0 }`            | `{ x: number[] }`     |
+| SoA    | Buffer     | `{ x: types.f32(0) }` | `{ x: Float32Array }` |
+| AoS    | JS array   | `() => new Thing()`   | `T[]`                 |
+| Tag    | none       | `{}`                  | none                  |
 
-## Design
-
-### Type Helpers
+## Type Helpers
 
 ```typescript
 import { types } from 'koota'
@@ -49,134 +48,105 @@ types.f64(defaultValue?: number)  // Float64Array
 types.i8(defaultValue?: number)   // Int8Array
 types.i16(defaultValue?: number)  // Int16Array
 types.i32(defaultValue?: number)  // Int32Array
+types.i64(defaultValue?: bigint)  // BigInt64Array
 
 // Unsigned integers
 types.u8(defaultValue?: number)   // Uint8Array
+types.u8c(defaultValue?: number)  // Uint8ClampedArray (clamps to 0-255)
 types.u16(defaultValue?: number)  // Uint16Array
 types.u32(defaultValue?: number)  // Uint32Array
-```
-
-### Implementation
-
-```typescript
-const $typedArray = Symbol('typedArray')
-
-function createTypedHelper<T extends TypedArrayConstructor>(ctor: T) {
-  return (defaultValue: number = 0) => ({
-    [$typedArray]: ctor,
-    default: defaultValue,
-  })
-}
-
-export const types = {
-  f32: createTypedHelper(Float32Array),
-  f64: createTypedHelper(Float64Array),
-  i8: createTypedHelper(Int8Array),
-  i16: createTypedHelper(Int16Array),
-  i32: createTypedHelper(Int32Array),
-  u8: createTypedHelper(Uint8Array),
-  u16: createTypedHelper(Uint16Array),
-  u32: createTypedHelper(Uint32Array),
-}
-```
-
-### Detection Logic
-
-```typescript
-function createTrait(schema, options?) {
-  const isAoS = typeof schema === 'function'
-  const isTag = !isAoS && Object.keys(schema).length === 0
-
-  if (!isTag && !isAoS) {
-    const isBuffer = isTypedSchema(schema)
-    // buffer = separate TypedArrays
-    // soa = separate JS arrays
-  }
-}
-
-function isTypedField(value: unknown): boolean {
-  return typeof value === 'object' && value !== null && $typedArray in value
-}
-
-function isTypedSchema(schema: object): boolean {
-  const values = Object.values(schema)
-  return values.length > 0 && values.every(isTypedField)
-}
-```
-
-### Storage Types
-
-| Type     | Schema                | Store                 | Memory Layout           |
-| -------- | --------------------- | --------------------- | ----------------------- |
-| `tag`    | `{}`                  | none                  | none                    |
-| `soa`    | `{ x: 0 }`            | `{ x: number[] }`     | `x:[0,1,2] y:[0,1,2]`   |
-| `buffer` | `{ x: types.f32(0) }` | `{ x: Float32Array }` | `x:[0,1,2] y:[0,1,2]`   |
-| `aos`    | `() => T`             | `T[]`                 | `[inst0, inst1, inst2]` |
-
-### Store Creation
-
-```typescript
-// Buffer storage - no options, grows automatically
-function createBufferStore(schema) {
-  const store = {}
-  for (const key in schema) {
-    const field = schema[key]
-    store[key] = new field[$typedArray](0) // Start empty, grow as needed
-  }
-  return store
-}
+types.u64(defaultValue?: bigint)  // BigUint64Array
 ```
 
 ## API Examples
 
-### Buffer Storage with TypedArrays
+### Buffer Storage
 
 ```typescript
 const Position = trait({ x: types.f32(0), y: types.f32(0) })
 
-// Usage identical to regular traits
+// Usage identical to regular traits - API is unified
 const entity = world.spawn(Position({ x: 100, y: 200 }))
-entity.get(Position) // { x: 100, y: 200 }
-entity.set(Position, { x: 150 })
+entity.get(Position) // { x: 100, y: 200 } - returns plain object
+entity.set(Position, { x: 150 }) // triggers change events
 
-// Store has separate TypedArrays
+// updateEach works transparently - no special handling needed
+world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  pos.x += vel.x
+  pos.y += vel.y
+})
+
+// Store has separate TypedArrays for direct access
 const store = getStore(world, Position)
 // store.x = Float32Array [100, ...]
 // store.y = Float32Array [200, ...]
 
-// Bulk operations
+// Bulk operations via store (bypasses change detection)
 for (const eid of world.query(Position)) {
   store.x[eid] += velocity.x
   store.y[eid] += velocity.y
 }
+// Call entity.changed(Position) if React reactivity is needed
 ```
 
 ### Buffer vs SoA Comparison
 
+Both are SoA layout (separate array per field). Buffer uses ArrayBuffer-backed TypedArrays instead of JS Arrays.
+
 ```typescript
 // SoA - good for general ECS with JS flexibility
 const Position = trait({ x: 0, y: 0 })
-// Memory: x:[x0,x1,x2,...] y:[y0,y1,y2,...] (JS arrays)
+// Memory: x:[x0,x1,x2,...] y:[y0,y1,y2,...] (JS Arrays)
 
 // Buffer - good for CPU iteration with TypedArrays
 const Position = trait({ x: types.f32(0), y: types.f32(0) })
 // Memory: x:[x0,x1,x2,...] y:[y0,y1,y2,...] (TypedArrays)
 ```
 
-### Why `bufferType` is Trait-Level (Not Field-Level)
+**Use SoA** (default) for general ECS. JS Arrays handle any value type (strings, objects, etc.).
 
-The `bufferType` option applies to ALL fields in a trait, not individual fields. This is intentional.
+**Use Buffer** when you need:
+- **External system interop** - WebGL, WASM, and physics engines benefit from TypedArrays
+- **Worker parallelism** - SharedArrayBuffer lets workers read/write without copying. ArrayBuffers are transferable.
+- **Strict numeric types** - When f32 vs f64 precision matters, or you need strict numerics like clamped u8 and bigint
+
+### API Compatibility
+
+The core trait API (`get`, `set`, `updateEach`, `getStore`) works transparently with buffer traits. Key differences:
+
+- **Mixed schemas rejected** - All fields must be TypedArray fields or none (see [Mixed Schemas](#mixed-schemas))
+- **Relations don't support TypedArray fields** - Use a separate trait for buffer storage (see [Relations](#relations-do-not-support-typedarray-fields))
+- **`buffer` option** - Only valid for buffer traits, rejected otherwise
+
+## Buffer Options
+
+```typescript
+interface BufferTraitOptions {
+  /** Buffer constructor (default: ArrayBuffer) */
+  buffer?: ArrayBufferConstructor | SharedArrayBufferConstructor
+}
+
+// Buffer storage - no options needed, just works
+const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
+
+// Buffer storage with SharedArrayBuffer for workers
+const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer })
+```
+
+### Why `buffer` is Trait-Level (Not Field-Level)
+
+Both ArrayBuffer (transferable) and SharedArrayBuffer (shareable) are designed for worker interop. Since workers will likely process entire traits — not individual fields — `buffer` applies at the trait level.
 
 **SharedArrayBuffer's purpose** is to enable memory sharing between the main thread and Web Workers for parallel processing. In an ECS context, if you're parallelizing a physics system:
 
 ```typescript
 // All fields use SharedArrayBuffer - worker can access entire trait
 const Position = trait({ x: types.f32(0), y: types.f32(0) }, {
-  bufferType: SharedArrayBuffer
+  buffer: SharedArrayBuffer
 });
 ```
 
-If `x` used `SharedArrayBuffer` but `y` used `ArrayBuffer`, workers could only access half the data - breaking the parallel processing use case.
+If `x` used `SharedArrayBuffer` but `y` used `ArrayBuffer`, workers would have two access patterns and synchronization mechanisms - increasing the complexity of the parallel processing use case.
 
 **The unit of parallelism in an ECS is the trait**, not individual fields. When a worker processes Position data, it needs all fields (`x`, `y`, `z`), not a subset.
 
@@ -185,7 +155,7 @@ If `x` used `SharedArrayBuffer` but `y` used `ArrayBuffer`, workers could only a
 ```typescript
 // Shared with workers for parallel simulation
 const Position = trait({ x: types.f32(0), y: types.f32(0) }, {
-  bufferType: SharedArrayBuffer
+  buffer: SharedArrayBuffer
 });
 
 // Main thread only - not needed by simulation workers
@@ -202,10 +172,10 @@ This keeps the mental model simple: a trait is either worker-compatible or it is
 
 **Node.js:** Generally available without restrictions.
 
-**No automatic fallback:** Koota does NOT fall back to `ArrayBuffer` if `SharedArrayBuffer` is unavailable. If you pass `{ bufferType: SharedArrayBuffer }` and `SharedArrayBuffer` is `undefined` in your environment, Koota throws an error at trait creation time:
+**No automatic fallback:** Koota does NOT fall back to `ArrayBuffer` if `SharedArrayBuffer` is unavailable. If you pass `{ buffer: SharedArrayBuffer }` and `SharedArrayBuffer` is `undefined` in your environment, Koota throws an error at trait creation time:
 
 ```
-Koota: Invalid bufferType option. SharedArrayBuffer may not be available in this environment.
+Koota: Invalid buffer option. SharedArrayBuffer may not be available in this environment.
 Check availability with: typeof SharedArrayBuffer !== "undefined"
 ```
 
@@ -221,11 +191,11 @@ const positionSchema = { x: types.f32(0), y: types.f32(0), z: types.f32(0) };
 const velocitySchema = { vx: types.f32(0), vy: types.f32(0), vz: types.f32(0) };
 
 // Check if SharedArrayBuffer is available
-const bufferType = typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer;
+const bufferCtor = typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer;
 
 // Create traits with conditional buffer type
-const Position = trait(positionSchema, { bufferType });
-const Velocity = trait(velocitySchema, { bufferType });
+const Position = trait(positionSchema, { buffer: bufferCtor });
+const Velocity = trait(velocitySchema, { buffer: bufferCtor });
 
 // Your system logic works either way - just runs single-threaded without SAB
 function physicsSystem(world: World) {
@@ -236,7 +206,61 @@ function physicsSystem(world: World) {
 }
 ```
 
-This approach keeps your ECS logic unchanged - you just lose the multi-threading speedup when SAB is unavailable.
+This approach keeps your ECS logic unchanged - you lose some multi-threading speedups when SAB is unavailable. You must design your worker logic accordingly.
+
+## Capacity and Growth
+
+Buffer storage starts at capacity 1024 and doubles when exceeded (same growth strategy as all koota arrays).
+
+- Creates multiple **separate, contiguous** TypedArrays
+- Each array is naturally aligned (Float32Array = 4-byte aligned elements)
+- No stride concept - elements are packed
+
+## Design Decisions
+
+### Mixed Schemas
+
+**Question**: Allow `{ x: types.f32(0), y: 0 }` or reject?
+
+**Decision**: Reject at compile time AND runtime. All fields must use the same storage type.
+
+- **Compile-time**: `ConsistentSchema<T>` type returns `never` for mixed schemas, causing TypeScript error
+- **Runtime**: `validateSchema()` throws: "Koota: Mixed typed and untyped fields are not allowed"
+
+### Relations Do Not Support TypedArray Fields
+
+**Question**: Should `relation({ store: { amount: types.f32(0) } })` work?
+
+**Decision**: No. TypedArray fields are rejected in relation stores at compile time AND runtime.
+
+**Reasons:**
+
+1. **Non-exclusive relations have nested storage**: For non-exclusive relations, the store structure is `store[key][eid][targetIndex]` - an array of arrays per entity. TypedArrays can't represent this because inner arrays are dynamic length.
+
+2. **Exclusive relations could work, but the API doesn't expose it**: Exclusive relations have flat storage (`store[key][eid]`), which could use TypedArrays. However, the relation API accesses data through `entity.get(Relation(target))` which reconstructs objects - there's no `getStore()` equivalent for bulk iteration.
+
+3. **Access patterns differ**: Traits are designed for bulk iteration (`for (eid of query) { store.x[eid] }`). Relations are designed for targeted lookups (`entity.get(ChildOf(parent))`). TypedArrays benefit the former, not the latter.
+
+4. **Use a separate trait if you need buffer storage**: If you need fast bulk access to relationship-like data, model it as a trait instead:
+
+```typescript
+// Instead of this (not supported):
+const Targets = relation({ exclusive: true, store: { priority: types.f32(0) } });
+
+// Do this:
+const TargetPriority = trait({ priority: types.f32(0) });
+const Targets = relation({ exclusive: true });
+
+// Access pattern for bulk iteration:
+for (const eid of world.query(TargetPriority, Targets('*'))) {
+  priorityStore.priority[eid] *= 0.9; // decay
+}
+```
+
+**Implementation:**
+
+- **Compile-time**: `RelationSchema<T>` type returns `never` if any field is a TypedField
+- **Runtime**: `createRelation()` throws: "Koota: Relation stores do not support TypedArray fields"
 
 ## Type Inference
 
@@ -267,6 +291,93 @@ type InferBufferStore<T> = {
 }
 ```
 
+## Implementation Details
+
+### Type Helper Implementation
+
+```typescript
+const $typedArray = Symbol('typedArray')
+
+function createTypedHelper<T extends TypedArrayConstructor>(ctor: T) {
+  return (defaultValue: number = 0) => ({
+    [$typedArray]: ctor,
+    default: defaultValue,
+  })
+}
+
+export const types = {
+  f32: createTypedHelper(Float32Array),
+  f64: createTypedHelper(Float64Array),
+  i8: createTypedHelper(Int8Array),
+  i16: createTypedHelper(Int16Array),
+  i32: createTypedHelper(Int32Array),
+  i64: createTypedHelper(BigInt64Array),
+  u8: createTypedHelper(Uint8Array),
+  u8c: createTypedHelper(Uint8ClampedArray),
+  u16: createTypedHelper(Uint16Array),
+  u32: createTypedHelper(Uint32Array),
+  u64: createTypedHelper(BigUint64Array),
+}
+```
+
+### Detection Logic
+
+```typescript
+function createTrait(schema, options?) {
+  const isAoS = typeof schema === 'function'
+  const isTag = !isAoS && Object.keys(schema).length === 0
+
+  if (!isTag && !isAoS) {
+    const isBuffer = isTypedSchema(schema)
+    // buffer = separate ArrayBuffers
+    // soa = separate JS Arrays
+  }
+}
+
+function isTypedField(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && $typedArray in value
+}
+
+function isTypedSchema(schema: object): boolean {
+  const values = Object.values(schema)
+  return values.length > 0 && values.every(isTypedField)
+}
+```
+
+### Store Creation
+
+```typescript
+// Buffer storage - starts at capacity 1024, doubles when exceeded
+function createBufferStore(schema, options = {}) {
+  const { buffer = ArrayBuffer } = options
+  const store = {}
+  for (const key in schema) {
+    const field = schema[key]
+    const buf = new buffer(INITIAL_CAPACITY * field[$typedArray].BYTES_PER_ELEMENT)
+    store[key] = new field[$typedArray](buf)
+  }
+  return store
+}
+
+// Growth: automatic, doubles capacity when needed (like all koota arrays)
+function growBufferStore(store, minCapacity) {
+  let newCapacity = store._capacity
+  while (newCapacity < minCapacity) {
+    newCapacity = Math.ceil(newCapacity * GROWTH_FACTOR)
+  }
+  // Create new larger TypedArrays, copy data
+}
+```
+
+### Storage Types
+
+| Type     | Schema                | Store                 | Memory Layout           |
+| -------- | --------------------- | --------------------- | ----------------------- |
+| `tag`    | `{}`                  | none                  | none                    |
+| `soa`    | `{ x: 0 }`            | `{ x: number[] }`     | `x:[0,1,2] y:[0,1,2]`   |
+| `aos`    | `() => T`             | `T[]`                 | `[inst0, inst1, inst2]` |
+| `buffer` | `{ x: types.f32(0) }` | `{ x: Float32Array }` | `x:[0,1,2] y:[0,1,2]`   |
+
 ## Implementation Plan
 
 ### Phase 1: Type Helpers
@@ -286,7 +397,7 @@ type InferBufferStore<T> = {
 ### Phase 3: Trait Integration
 
 1. Update `createTrait()` to detect typed schemas
-2. Add `BufferTraitOptions` type with bufferType option
+2. Add `BufferTraitOptions` type with buffer option
 3. Pass options through to store creation
 4. Update accessor functions if needed
 
@@ -302,11 +413,10 @@ type InferBufferStore<T> = {
 1. Automatic growth when entity ID exceeds capacity (double, like all koota arrays)
 2. Buffer: Create new larger TypedArrays, copy data
 
-### Phase 6: Cleanup
+### Phase 6: Docs and examples
 
-1. Deprecate `typedTrait()` and `interleavedTrait()`
-2. Update docs and examples
-3. Migration guide
+1. Create an example that demonstrates use and lends itself naturally to buffer use
+2. Update the README and Koota skill to include TypeArray fields and buffers
 
 ## Files to Modify
 
@@ -324,76 +434,6 @@ packages/core/src/
 │   └── types.ts        # Add TraitOptions, extend types
 └── index.ts            # Export types
 ```
-
-## Capacity and Growth
-
-### Buffer Storage
-
-**Buffer** (`trait({ x: types.f32(0), y: types.f32(0) })`)
-
-- Creates multiple **separate, contiguous** TypedArrays
-- Each array is naturally aligned (Float32Array = 4-byte aligned elements)
-- No stride concept - elements are packed
-- **Grows automatically** like regular traits (double capacity when exceeded)
-- Optional `bufferType` for SharedArrayBuffer (worker scenarios)
-
-### Buffer Options
-
-```typescript
-interface BufferTraitOptions {
-  /** Buffer constructor (default: ArrayBuffer) */
-  bufferType?: ArrayBufferConstructor | SharedArrayBufferConstructor
-}
-```
-
-### API Examples
-
-```typescript
-// Buffer storage - no options needed, just works
-const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
-
-// Buffer storage with SharedArrayBuffer for workers
-const Position = trait({ x: types.f32(0), y: types.f32(0) }, { bufferType: SharedArrayBuffer })
-```
-
-### Implementation
-
-```typescript
-// Buffer storage - grows like regular traits
-function createBufferStore(schema, options = {}) {
-  const { bufferType = ArrayBuffer } = options
-  const store = {}
-  for (const key in schema) {
-    const field = schema[key]
-    const buffer = new bufferType(INITIAL_CAPACITY * field[$typedArray].BYTES_PER_ELEMENT)
-    store[key] = new field[$typedArray](buffer)
-  }
-  return store
-}
-
-// Growth: automatic, doubles capacity when needed (like all koota arrays)
-function growBufferStore(store, minCapacity) {
-  let newCapacity = store._capacity
-  while (newCapacity < minCapacity) {
-    newCapacity = Math.ceil(newCapacity * GROWTH_FACTOR)
-  }
-  // Create new larger TypedArrays, copy data
-}
-```
-
-### When to Use What
-
-| Use Case                         | Pattern | Why                                     |
-| -------------------------------- | ------- | --------------------------------------- |
-| General ECS with JS flexibility  | SoA     | Standard JS arrays                      |
-| General ECS with TypedArrays     | Buffer  | Simple, cache-friendly per-field access |
-| CPU-heavy single-field iteration | Buffer  | Contiguous memory per field             |
-| Multi-threaded with workers      | Buffer  | SharedArrayBuffer support               |
-
-## Open Questions
-
-1. **Mixed schemas**: Allow `{ x: types.f32(0), y: 0 }` or reject?
-   - **Decision**: Reject. All fields should be same storage type. Mixed schemas fall back to SoA.
 
 ## References
 

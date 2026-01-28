@@ -65,6 +65,7 @@ export type {
 } from './storage/types';
 export type { TraitType } from './trait/types';
 export { types } from './types';
+export type { ConsistentSchema } from './types';
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';

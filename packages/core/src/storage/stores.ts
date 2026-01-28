@@ -1,10 +1,10 @@
 import { $typedArray, isTypedSchema, type TypedField } from '../types';
 import { $bufferStore, type Schema, type Store, type BufferStore, type BufferStoreOptions } from './types';
 
-/** Initial capacity for typed stores */
-const INITIAL_CAPACITY = 8;
+/** Initial capacity for buffer stores */
+const INITIAL_CAPACITY = 1024;
 
-/** Growth factor when typed stores need to expand */
+/** Growth factor when buffer stores need to expand */
 const GROWTH_FACTOR = 2;
 
 /** All TypedArray instance types */
@@ -131,7 +131,7 @@ export function createBufferStore(
     schema: Record<string, TypedField>,
     options: BufferStoreOptions = {}
 ): BufferStore {
-    const { bufferType: BufferCtor = ArrayBuffer } = options;
+    const { buffer: BufferCtor = ArrayBuffer } = options;
 
     const store: BufferStore = {
         [$bufferStore]: true,

@@ -91,11 +91,46 @@ For detailed patterns and monorepo structures, see [reference/architecture.md](r
 
 ## Trait types
 
-| Type               | Syntax                     | Use when                  | Examples                         |
-| ------------------ | -------------------------- | ------------------------- | -------------------------------- |
-| **SoA (Schema)**   | `trait({ x: 0 })`          | Simple primitive data     | `Position`, `Velocity`, `Health` |
-| **AoS (Callback)** | `trait(() => new Thing())` | Complex objects/instances | `Ref` (DOM), `Keyboard` (Set)    |
-| **Tag**            | `trait()`                  | No data, just a flag      | `IsPlayer`, `IsEnemy`, `IsDead`  |
+| Type               | Syntax                           | Use when                      | Examples                         |
+| ------------------ | -------------------------------- | ----------------------------- | -------------------------------- |
+| **SoA (Schema)**   | `trait({ x: 0 })`                | Simple primitive data         | `Position`, `Velocity`, `Health` |
+| **Buffer (Typed)** | `trait({ x: types.f32(0) })`     | Performance-critical numerics | Physics, particles, transforms   |
+| **AoS (Callback)** | `trait(() => new Thing())`       | Complex objects/instances     | `Ref` (DOM), `Keyboard` (Set)    |
+| **Tag**            | `trait()`                        | No data, just a flag          | `IsPlayer`, `IsEnemy`, `IsDead`  |
+
+**Buffer traits** use TypedArrays for storage. The API is identical to SoA - `entity.get()`, `entity.set()`, and `updateEach` all work transparently. Use when you need:
+
+- Strict numeric typing (physics, particles, transforms)
+- Transferable to Web Workers via SharedArrayBuffer
+- Direct handoff to external systems (WebGL, WASM, physics engines)
+
+```typescript
+import { trait, types, getStore } from 'koota'
+
+// Define with typed fields
+const Position = trait({ x: types.f32(0), y: types.f32(0) })
+
+// API identical to regular traits
+entity.get(Position)           // { x: 100, y: 200 }
+entity.set(Position, { x: 0 }) // triggers change events
+
+// updateEach works transparently
+world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  pos.x += vel.x  // works exactly like SoA
+})
+
+// Direct store access for external systems
+const store = getStore(world, Position)
+// store.x = Float32Array, store.y = Float32Array
+
+// SharedArrayBuffer for Web Worker parallelism
+const Position = trait(
+  { x: types.f32(0), y: types.f32(0) },
+  { bufferType: SharedArrayBuffer }
+)
+```
+
+**Note:** Relation stores do not support TypedArray fields. Use a separate trait for buffer storage.
 
 ## Trait naming conventions
 

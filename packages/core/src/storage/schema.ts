@@ -1,4 +1,4 @@
-import { isTypedField } from '../types';
+import { isTypedField, isMixedSchema } from '../types';
 import type { BufferStoreOptions, Schema, StoreType } from './types';
 
 /**
@@ -30,6 +30,16 @@ import type { BufferStoreOptions, Schema, StoreType } from './types';
 }
 
 export /* @inline @pure */ function validateSchema(schema: Schema) {
+    // Check for mixed typed/untyped schemas (not allowed)
+    if (typeof schema === 'object' && schema !== null && !Array.isArray(schema)) {
+        if (isMixedSchema(schema)) {
+            throw new Error(
+                'Koota: Mixed typed and untyped fields are not allowed. ' +
+                    'Use all typed fields (types.f32, etc.) for buffer storage, or all regular fields for SoA storage.'
+            );
+        }
+    }
+
     for (const key in schema) {
         const value = schema[key as keyof Schema];
         if (value !== null && typeof value === 'object') {
@@ -44,13 +54,13 @@ export /* @inline @pure */ function validateSchema(schema: Schema) {
 
 /**
  * Validate buffer trait options.
- * Throws if bufferType was explicitly provided but is not a valid constructor
+ * Throws if buffer was explicitly provided but is not a valid constructor
  * (e.g., SharedArrayBuffer is undefined in this environment).
  */
 export function validateBufferOptions(options: BufferStoreOptions): void {
-    if ('bufferType' in options && typeof options.bufferType !== 'function') {
+    if ('buffer' in options && typeof options.buffer !== 'function') {
         throw new Error(
-            'Koota: Invalid bufferType option. SharedArrayBuffer may not be available in this environment. ' +
+            'Koota: Invalid buffer option. SharedArrayBuffer may not be available in this environment. ' +
                 'Check availability with: typeof SharedArrayBuffer !== "undefined"'
         );
     }

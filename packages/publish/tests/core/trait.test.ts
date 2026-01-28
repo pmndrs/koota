@@ -261,11 +261,11 @@ describe('Trait', () => {
     });
 });
 
-describe('Typed Trait Detection', () => {
+describe('Buffer Trait Detection', () => {
     it('should detect buffer when schema has all typed fields', () => {
-        const TypedPosition = trait({ x: types.f32(0), y: types.f32(0) });
+        const Position = trait({ x: types.f32(0), y: types.f32(0) });
 
-        expect(TypedPosition[$internal].type).toBe('buffer');
+        expect(Position[$internal].type).toBe('buffer');
     });
 
     it('should detect soa when schema has regular fields', () => {
@@ -276,13 +276,13 @@ describe('Typed Trait Detection', () => {
 
     it('should detect aos when factory returns object with typed fields', () => {
         // Factory functions are always AoS, even with typed fields
-        const TypedPosition = trait(() => ({
+        const Position = trait(() => ({
             x: types.f32(0),
             y: types.f32(0),
             z: types.f32(0),
         }));
 
-        expect(TypedPosition[$internal].type).toBe('aos');
+        expect(Position[$internal].type).toBe('aos');
     });
 
     it('should detect aos when factory returns regular object', () => {
@@ -300,11 +300,13 @@ describe('Typed Trait Detection', () => {
     });
 
     it('should reject mixed typed/untyped schemas', () => {
-        // Mixed schema should be detected as soa (not buffer)
-        // because isTypedSchema requires ALL fields to be typed
-        const MixedPosition = trait({ x: types.f32(0), y: 0 });
-
-        expect(MixedPosition[$internal].type).toBe('soa');
+        // Mixed schemas are not allowed - must be all typed or all regular
+        // TypeScript catches this at compile time (hence @ts-expect-error)
+        // Runtime also validates and throws
+        expect(() =>
+            // @ts-expect-error - Mixed schemas rejected at compile time
+            trait({ x: types.f32(0), y: 0 })
+        ).toThrow('Koota: Mixed typed and untyped fields are not allowed');
     });
 
     it('should allow typed fields in schema validation', () => {
@@ -440,32 +442,45 @@ describe('Type Helpers', () => {
         world.reset();
     });
 
-    it('should create correct TypedArray for each type helper', () => {
-        // Test all type helpers by creating traits and checking store types
-        const AllTypes = trait({
+    it('should create correct TypedArray for each number type helper', () => {
+        const NumberTypes = trait({
             f32: types.f32(0),
             f64: types.f64(0),
             i8: types.i8(0),
             i16: types.i16(0),
             i32: types.i32(0),
             u8: types.u8(0),
+            u8c: types.u8c(0),
             u16: types.u16(0),
             u32: types.u32(0),
         });
-        world.spawn(AllTypes);
+        world.spawn(NumberTypes);
 
-        const store = getStore(world, AllTypes);
+        const store = getStore(world, NumberTypes);
         expect(store.f32).toBeInstanceOf(Float32Array);
         expect(store.f64).toBeInstanceOf(Float64Array);
         expect(store.i8).toBeInstanceOf(Int8Array);
         expect(store.i16).toBeInstanceOf(Int16Array);
         expect(store.i32).toBeInstanceOf(Int32Array);
         expect(store.u8).toBeInstanceOf(Uint8Array);
+        expect(store.u8c).toBeInstanceOf(Uint8ClampedArray);
         expect(store.u16).toBeInstanceOf(Uint16Array);
         expect(store.u32).toBeInstanceOf(Uint32Array);
     });
 
-    it('should use correct default values', () => {
+    it('should create correct TypedArray for each bigint type helper', () => {
+        const BigIntTypes = trait({
+            i64: types.i64(0n),
+            u64: types.u64(0n),
+        });
+        world.spawn(BigIntTypes);
+
+        const store = getStore(world, BigIntTypes);
+        expect(store.i64).toBeInstanceOf(BigInt64Array);
+        expect(store.u64).toBeInstanceOf(BigUint64Array);
+    });
+
+    it('should use correct default values for number types', () => {
         const Defaults = trait({
             f32: types.f32(42),
             f64: types.f64(3.14),
@@ -473,6 +488,7 @@ describe('Type Helpers', () => {
             i16: types.i16(-32768),
             i32: types.i32(-2147483648),
             u8: types.u8(255),
+            u8c: types.u8c(200),
             u16: types.u16(65535),
             u32: types.u32(4294967295),
         });
@@ -485,37 +501,12 @@ describe('Type Helpers', () => {
         expect(data.i16).toBe(-32768);
         expect(data.i32).toBe(-2147483648);
         expect(data.u8).toBe(255);
+        expect(data.u8c).toBe(200);
         expect(data.u16).toBe(65535);
         expect(data.u32).toBe(4294967295);
     });
 
-    it('should default to zero when no default provided', () => {
-        const ZeroDefaults = trait({
-            f32: types.f32(),
-            i32: types.i32(),
-            u8: types.u8(),
-        });
-        const entity = world.spawn(ZeroDefaults);
-        const data = entity.get(ZeroDefaults)!;
-
-        expect(data.f32).toBe(0);
-        expect(data.i32).toBe(0);
-        expect(data.u8).toBe(0);
-    });
-
-    it('should support bigint types', () => {
-        const BigIntTypes = trait({
-            i64: types.i64(0n),
-            u64: types.u64(0n),
-        });
-        world.spawn(BigIntTypes);
-
-        const store = getStore(world, BigIntTypes);
-        expect(store.i64).toBeInstanceOf(BigInt64Array);
-        expect(store.u64).toBeInstanceOf(BigUint64Array);
-    });
-
-    it('should use bigint default values', () => {
+    it('should use correct default values for bigint types', () => {
         const BigIntDefaults = trait({
             i64: types.i64(-9223372036854775808n),
             u64: types.u64(18446744073709551615n),
@@ -525,5 +516,157 @@ describe('Type Helpers', () => {
 
         expect(data.i64).toBe(-9223372036854775808n);
         expect(data.u64).toBe(18446744073709551615n);
+    });
+
+    it('should default to zero when no default provided for number types', () => {
+        const ZeroDefaults = trait({
+            f32: types.f32(),
+            f64: types.f64(),
+            i8: types.i8(),
+            i16: types.i16(),
+            i32: types.i32(),
+            u8: types.u8(),
+            u8c: types.u8c(),
+            u16: types.u16(),
+            u32: types.u32(),
+        });
+        const entity = world.spawn(ZeroDefaults);
+        const data = entity.get(ZeroDefaults)!;
+
+        expect(data.f32).toBe(0);
+        expect(data.f64).toBe(0);
+        expect(data.i8).toBe(0);
+        expect(data.i16).toBe(0);
+        expect(data.i32).toBe(0);
+        expect(data.u8).toBe(0);
+        expect(data.u8c).toBe(0);
+        expect(data.u16).toBe(0);
+        expect(data.u32).toBe(0);
+    });
+
+    it('should default to zero when no default provided for bigint types', () => {
+        const ZeroBigIntDefaults = trait({
+            i64: types.i64(),
+            u64: types.u64(),
+        });
+        const entity = world.spawn(ZeroBigIntDefaults);
+        const data = entity.get(ZeroBigIntDefaults)!;
+
+        expect(data.i64).toBe(0n);
+        expect(data.u64).toBe(0n);
+    });
+
+    it('should clamp values for u8c (Uint8ClampedArray)', () => {
+        const Clamped = trait({ value: types.u8c(128) });
+        const entity = world.spawn(Clamped);
+
+        // Set value above 255 - should clamp to 255
+        entity.set(Clamped, { value: 300 });
+        expect(entity.get(Clamped)!.value).toBe(255);
+
+        // Set value below 0 - should clamp to 0
+        entity.set(Clamped, { value: -50 });
+        expect(entity.get(Clamped)!.value).toBe(0);
+
+        // Normal value in range
+        entity.set(Clamped, { value: 100 });
+        expect(entity.get(Clamped)!.value).toBe(100);
+    });
+});
+
+describe('Buffer Type Options', () => {
+    const world = createWorld();
+
+    beforeEach(() => {
+        world.reset();
+    });
+
+    it('should use ArrayBuffer by default', () => {
+        const Position = trait({ x: types.f32(0), y: types.f32(0) });
+        world.spawn(Position);
+
+        const store = getStore(world, Position);
+        // Check that the underlying buffer is an ArrayBuffer (not SharedArrayBuffer)
+        expect(store.x.buffer).toBeInstanceOf(ArrayBuffer);
+        expect(store.y.buffer).toBeInstanceOf(ArrayBuffer);
+    });
+
+    it('should use SharedArrayBuffer when specified', () => {
+        // Skip test if SharedArrayBuffer is not available (security context)
+        if (typeof SharedArrayBuffer === 'undefined') {
+            return;
+        }
+
+        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer });
+        world.spawn(Position);
+
+        const store = getStore(world, Position);
+        expect(store.x.buffer).toBeInstanceOf(SharedArrayBuffer);
+        expect(store.y.buffer).toBeInstanceOf(SharedArrayBuffer);
+    });
+
+    it('should preserve buffer type when store grows', () => {
+        // Skip test if SharedArrayBuffer is not available
+        if (typeof SharedArrayBuffer === 'undefined') {
+            return;
+        }
+
+        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer });
+
+        // Spawn enough entities to trigger growth (initial capacity is 8)
+        const entities: Entity[] = [];
+        for (let i = 0; i < 20; i++) {
+            entities.push(world.spawn(Position({ x: i, y: i * 2 })));
+        }
+
+        const store = getStore(world, Position);
+
+        // Buffer type should still be SharedArrayBuffer after growth
+        expect(store.x.buffer).toBeInstanceOf(SharedArrayBuffer);
+        expect(store.y.buffer).toBeInstanceOf(SharedArrayBuffer);
+
+        // Data should be preserved
+        for (let i = 0; i < 20; i++) {
+            expect(entities[i].get(Position)).toEqual({ x: i, y: i * 2 });
+        }
+    });
+
+    it('should allow mixing traits with different buffer types', () => {
+        // Skip test if SharedArrayBuffer is not available
+        if (typeof SharedArrayBuffer === 'undefined') {
+            return;
+        }
+
+        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer });
+        const Velocity = trait({ vx: types.f32(0), vy: types.f32(0) }); // Uses default ArrayBuffer
+
+        const entity = world.spawn(Position({ x: 1, y: 2 }), Velocity({ vx: 3, vy: 4 }));
+
+        const posStore = getStore(world, Position);
+        const velStore = getStore(world, Velocity);
+
+        expect(posStore.x.buffer).toBeInstanceOf(SharedArrayBuffer);
+        expect(velStore.vx.buffer).toBeInstanceOf(ArrayBuffer);
+
+        expect(entity.get(Position)).toEqual({ x: 1, y: 2 });
+        expect(entity.get(Velocity)).toEqual({ vx: 3, vy: 4 });
+    });
+
+    it('should throw if buffer is explicitly undefined', () => {
+        // Simulates what happens when SharedArrayBuffer is not available:
+        // trait({ x: types.f32(0) }, { buffer: SharedArrayBuffer })
+        // becomes { buffer: undefined } when SAB is undefined
+        expect(() =>
+            trait({ x: types.f32(0) }, { buffer: undefined as unknown as SharedArrayBufferConstructor })
+        ).toThrow('Koota: Invalid buffer option');
+    });
+
+    it('should throw if buffer is used with non-typed schema', () => {
+        // TypeScript catches this at compile time, but runtime should also validate
+        // in case someone bypasses types (e.g., using `any` or plain JS)
+        expect(() =>
+            // @ts-expect-error - TypeScript rejects this, testing runtime validation
+            trait({ x: 0, y: 0 }, { buffer: ArrayBuffer })
+        ).toThrow('Koota: buffer option can only be used with typed schemas');
     });
 });

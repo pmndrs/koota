@@ -261,11 +261,11 @@ describe('Trait', () => {
     });
 });
 
-describe('Typed Trait Detection', () => {
+describe('Buffer Trait Detection', () => {
     it('should detect buffer when schema has all typed fields', () => {
-        const TypedPosition = trait({ x: types.f32(0), y: types.f32(0) });
+        const Position = trait({ x: types.f32(0), y: types.f32(0) });
 
-        expect(TypedPosition[$internal].type).toBe('buffer');
+        expect(Position[$internal].type).toBe('buffer');
     });
 
     it('should detect soa when schema has regular fields', () => {
@@ -276,13 +276,13 @@ describe('Typed Trait Detection', () => {
 
     it('should detect aos when factory returns object with typed fields', () => {
         // Factory functions are always AoS, even with typed fields
-        const TypedPosition = trait(() => ({
+        const Position = trait(() => ({
             x: types.f32(0),
             y: types.f32(0),
             z: types.f32(0),
         }));
 
-        expect(TypedPosition[$internal].type).toBe('aos');
+        expect(Position[$internal].type).toBe('aos');
     });
 
     it('should detect aos when factory returns regular object', () => {
@@ -300,11 +300,13 @@ describe('Typed Trait Detection', () => {
     });
 
     it('should reject mixed typed/untyped schemas', () => {
-        // Mixed schema should be detected as soa (not buffer)
-        // because isTypedSchema requires ALL fields to be typed
-        const MixedPosition = trait({ x: types.f32(0), y: 0 });
-
-        expect(MixedPosition[$internal].type).toBe('soa');
+        // Mixed schemas are not allowed - must be all typed or all regular
+        // TypeScript catches this at compile time (hence @ts-expect-error)
+        // Runtime also validates and throws
+        expect(() =>
+            // @ts-expect-error - Mixed schemas rejected at compile time
+            trait({ x: types.f32(0), y: 0 })
+        ).toThrow('Koota: Mixed typed and untyped fields are not allowed');
     });
 
     it('should allow typed fields in schema validation', () => {
@@ -595,7 +597,7 @@ describe('Buffer Type Options', () => {
             return;
         }
 
-        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { bufferType: SharedArrayBuffer });
+        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer });
         world.spawn(Position);
 
         const store = getStore(world, Position);
@@ -609,7 +611,7 @@ describe('Buffer Type Options', () => {
             return;
         }
 
-        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { bufferType: SharedArrayBuffer });
+        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer });
 
         // Spawn enough entities to trigger growth (initial capacity is 8)
         const entities: Entity[] = [];
@@ -635,7 +637,7 @@ describe('Buffer Type Options', () => {
             return;
         }
 
-        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { bufferType: SharedArrayBuffer });
+        const Position = trait({ x: types.f32(0), y: types.f32(0) }, { buffer: SharedArrayBuffer });
         const Velocity = trait({ vx: types.f32(0), vy: types.f32(0) }); // Uses default ArrayBuffer
 
         const entity = world.spawn(Position({ x: 1, y: 2 }), Velocity({ vx: 3, vy: 4 }));
@@ -650,12 +652,21 @@ describe('Buffer Type Options', () => {
         expect(entity.get(Velocity)).toEqual({ vx: 3, vy: 4 });
     });
 
-    it('should throw if bufferType is explicitly undefined', () => {
+    it('should throw if buffer is explicitly undefined', () => {
         // Simulates what happens when SharedArrayBuffer is not available:
-        // trait({ x: types.f32(0) }, { bufferType: SharedArrayBuffer })
-        // becomes { bufferType: undefined } when SAB is undefined
+        // trait({ x: types.f32(0) }, { buffer: SharedArrayBuffer })
+        // becomes { buffer: undefined } when SAB is undefined
         expect(() =>
-            trait({ x: types.f32(0) }, { bufferType: undefined as unknown as SharedArrayBufferConstructor })
-        ).toThrow('Koota: Invalid bufferType');
+            trait({ x: types.f32(0) }, { buffer: undefined as unknown as SharedArrayBufferConstructor })
+        ).toThrow('Koota: Invalid buffer option');
+    });
+
+    it('should throw if buffer is used with non-typed schema', () => {
+        // TypeScript catches this at compile time, but runtime should also validate
+        // in case someone bypasses types (e.g., using `any` or plain JS)
+        expect(() =>
+            // @ts-expect-error - TypeScript rejects this, testing runtime validation
+            trait({ x: 0, y: 0 }, { buffer: ArrayBuffer })
+        ).toThrow('Koota: buffer option can only be used with typed schemas');
     });
 });

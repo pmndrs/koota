@@ -16,8 +16,8 @@ export const $bufferStore = Symbol('bufferStore');
 /**
  * Storage type for trait data.
  * - AoS: Array of instances, one per entity
- * - SoA: Object with arrays, one array per property
- * - Typed SoA: Object with TypedArrays (specific type based on field)
+ * - SoA: Object with JS arrays, one array per property
+ * - Buffer: Object with TypedArrays, one TypedArray per field
  */
 export type Store<T extends Schema = any> = T extends AoSFactory
     ? ReturnType<T>[]
@@ -41,7 +41,7 @@ export type StoreType = 'aos' | 'soa' | 'tag' | 'buffer';
 /**
  * Schema definition for traits.
  * Can be a SoA object schema, an AoS factory function, or an empty object (tag).
- * TypedField values (from types.f32, etc.) are also allowed for typed storage.
+ * TypedField values (from types.f32, etc.) are also allowed for buffer storage.
  */
 export type Schema =
     | {
@@ -133,12 +133,12 @@ export interface BufferStore {
 // Buffer Trait Options
 // ============================================================================
 
-/** Buffer constructor types for typed storage */
+/** Buffer constructor types for buffer storage */
 export type BufferType = ArrayBufferConstructor | SharedArrayBufferConstructor;
 
 /**
  * Options for buffer traits.
- * Used when schema is a typed SoA object.
+ * Used when schema contains TypedField values (from types.f32, etc.).
  */
 export interface BufferTraitOptions {
     /**
@@ -146,7 +146,7 @@ export interface BufferTraitOptions {
      * Use SharedArrayBuffer for multi-threaded scenarios (workers).
      * @default ArrayBuffer
      */
-    bufferType?: BufferType;
+    buffer?: BufferType;
 }
 
 /**
@@ -155,6 +155,6 @@ export interface BufferTraitOptions {
  */
 export interface BufferStoreOptions {
     /** Buffer constructor (default: ArrayBuffer) */
-    bufferType?: BufferType;
+    buffer?: BufferType;
 }
 

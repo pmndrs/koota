@@ -111,7 +111,7 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
     generationId: number;
     bitflag: number;
     trait: Trait;
-    /** The store uses ExtractStore to get the correct TypedArray types for typed traits */
+    /** The store uses ExtractStore to get the correct TypedArray types for buffer traits */
     store: ExtractStore<T>;
     /** Non-tracking queries that include this trait */
     queries: Set<QueryInstance>;

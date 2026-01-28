@@ -39,7 +39,7 @@ import {
     type BufferStoreOptions,
     type BufferTraitOptions,
 } from '../storage';
-import { isTypedSchema, type TypedField, type TypedSchema } from '../types';
+import { isTypedSchema, type TypedField, type TypedSchema, type ConsistentSchema } from '../types';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -56,17 +56,34 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
+/**
+ * Internal trait creation - no compile-time mixed schema checking.
+ * Used by relation() and other internal code that has already validated the schema.
+ * Runtime validation still catches mixed schemas.
+ * @internal
+ */
+export function createTraitInternal<S extends Schema>(
+    schema: S = tagSchema as S,
+    options: BufferTraitOptions = {}
+): Trait<Norm<S>, S> {
+    return createTraitImpl(schema, options);
+}
+
 // Overload 1: Tag trait (no schema or empty object)
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-// Overload 2: Buffer schema - BufferTraitOptions (bufferType only)
-function createTrait<S extends TypedSchema>(
-    schema: S,
-    options?: BufferTraitOptions
-): Trait<Norm<S>, S>;
-// Overload 3: Any other valid schema - no options parameter
-function createTrait<S extends Schema>(schema: S): Trait<Norm<S>, S>;
+// Overload 2: Buffer schema with options
+function createTrait<S extends TypedSchema>(schema: S, options: BufferTraitOptions): Trait<Norm<S>, S>;
+// Overload 3: Any schema without options - enforces no mixed typed/untyped fields
+function createTrait<S extends Schema>(schema: S & ConsistentSchema<S>): Trait<Norm<S>, S>;
 
 function createTrait<S extends Schema>(
+    schema: S = tagSchema as S,
+    options: BufferTraitOptions = {}
+): Trait<Norm<S>, S> {
+    return createTraitImpl(schema, options);
+}
+
+function createTraitImpl<S extends Schema>(
     schema: S = tagSchema as S,
     options: BufferTraitOptions = {}
 ): Trait<Norm<S>, S> {
@@ -86,6 +103,14 @@ function createTrait<S extends Schema>(
 
     validateSchema(schema);
 
+    // Validate: buffer option only valid with buffer storage
+    if (options.buffer !== undefined && traitType !== 'buffer') {
+        throw new Error(
+            'Koota: buffer option can only be used with typed schemas (types.f32, etc.). ' +
+                'Regular schemas use ArrayBuffer-backed JS arrays automatically.'
+        );
+    }
+
     // For accessor functions:
     // - buffer uses soa accessors (same store.field[index] pattern works with TypedArrays)
     // - regular aos uses aos accessors (store[index] = value pattern)
@@ -94,10 +119,10 @@ function createTrait<S extends Schema>(
     // Create the appropriate store factory
     let storeFactory: () => unknown;
     if (traitType === 'buffer') {
-        // Validate bufferType option (catches undefined SharedArrayBuffer early)
+        // Validate buffer option (catches undefined SharedArrayBuffer early)
         validateBufferOptions(options);
-        // For buffer storage, create buffer store with bufferType option
-        const storeOptions: BufferStoreOptions = { bufferType: options.bufferType };
+        // For buffer storage, create buffer store with buffer option
+        const storeOptions: BufferStoreOptions = { buffer: options.buffer };
         storeFactory = () => createBufferStore(schema as Record<string, TypedField>, storeOptions);
     } else {
         storeFactory = () => createStore<S>(schema);
