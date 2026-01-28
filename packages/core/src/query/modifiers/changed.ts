@@ -1,7 +1,9 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
+import { isEntityAlive } from '../../entity/utils/entity-index';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { isRelation } from '../../relation/utils/is-relation';
+import { strictAssert } from '../../strict';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
 import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
@@ -34,8 +36,16 @@ export function createChanged() {
 function markChanged(world: World, entity: Entity, trait: Trait) {
     const ctx = world[$internal];
 
+    strictAssert(
+        isEntityAlive(ctx.entityIndex, entity),
+        'Cannot mark trait as changed on a dead entity.'
+    );
+
     // Early exit if the trait is not on the entity.
-    if (!hasTrait(world, entity, trait)) return;
+    if (!hasTrait(world, entity, trait)) {
+        strictAssert(false, 'Cannot mark trait as changed when entity does not have it.');
+        return;
+    }
 
     // Register the trait if it's not already registered.
     if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);

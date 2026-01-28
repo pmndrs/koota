@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import { isEntityAlive } from '../entity/utils/entity-index';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
@@ -32,6 +33,7 @@ import {
     StoreType,
     validateSchema,
 } from '../storage';
+import { strictAssert } from '../strict';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -130,6 +132,10 @@ function getOrderedTrait(world: World, entity: Entity, trait: OrderedRelation): 
 }
 
 export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTrait[]) {
+    strictAssert(
+        isEntityAlive(world[$internal].entityIndex, entity),
+        'Cannot add traits to a dead entity.'
+    );
     for (let i = 0; i < traits.length; i++) {
         const config = traits[i];
 
@@ -190,7 +196,10 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
     // Ignore if entity already relates to this target
     // For example, adding Likes(alice) when this pair is already on the entity.
-    if (hasRelationToTarget(world, relation, entity, target)) return;
+    if (hasRelationToTarget(world, relation, entity, target)) {
+        strictAssert(false, 'Cannot add relation pair when entity already has it.');
+        return;
+    }
 
     // For exclusive relations, remove the old target first
     if (relationCtx.exclusive) {
@@ -225,6 +234,10 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: (Trait | RelationPair)[]) {
+    strictAssert(
+        isEntityAlive(world[$internal].entityIndex, entity),
+        'Cannot remove traits from a dead entity.'
+    );
     for (let i = 0; i < traits.length; i++) {
         const trait = traits[i];
 
@@ -235,7 +248,10 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         }
 
         // Exit early if the entity doesn't have the trait.
-        if (!hasTrait(world, entity, trait)) continue;
+        if (!hasTrait(world, entity, trait)) {
+            strictAssert(false, 'Cannot remove trait when entity does not have it.');
+            continue;
+        }
 
         // If this trait belongs to a relation, fire remove subscriptions for each pair
         const traitCtx = trait[$internal];
@@ -266,7 +282,10 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
     const relationTrait = relation[$internal].trait;
 
     // Check if entity has this relation
-    if (!hasTrait(world, entity, relationTrait)) return;
+    if (!hasTrait(world, entity, relationTrait)) {
+        strictAssert(false, 'Cannot remove relation pair when entity does not have the relation.');
+        return;
+    }
 
     const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
 
@@ -293,7 +312,10 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         }
 
         const { removedIndex, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
-        if (removedIndex === -1) return;
+        if (removedIndex === -1) {
+            strictAssert(false, 'Cannot remove relation pair when entity does not have this target.');
+            return;
+        }
 
         if (wasLastTarget) {
             removeTraitFromEntity(world, entity, relationTrait);
@@ -355,12 +377,34 @@ export function setTrait(
     value: any,
     triggerChanged = true
 ) {
-    if (isRelationPair(trait)) return setTraitForPair(world, entity, trait, value, triggerChanged);
+    strictAssert(
+        isEntityAlive(world[$internal].entityIndex, entity),
+        'Cannot set trait on a dead entity.'
+    );
+    if (isRelationPair(trait)) {
+        strictAssert(
+            hasRelationPair(world, entity, trait),
+            'Cannot set trait when entity does not have the relation pair.'
+        );
+        return setTraitForPair(world, entity, trait, value, triggerChanged);
+    }
+    strictAssert(hasTrait(world, entity, trait), 'Cannot set trait when entity does not have it.');
     return setTraitForTrait(world, entity, trait, value, triggerChanged);
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait | RelationPair) {
-    if (isRelationPair(trait)) return getTraitForPair(world, entity, trait);
+    strictAssert(
+        isEntityAlive(world[$internal].entityIndex, entity),
+        'Cannot get trait from a dead entity.'
+    );
+    if (isRelationPair(trait)) {
+        strictAssert(
+            hasRelationPair(world, entity, trait),
+            'Cannot get trait when entity does not have the relation pair.'
+        );
+        return getTraitForPair(world, entity, trait);
+    }
+    strictAssert(hasTrait(world, entity, trait), 'Cannot get trait when entity does not have it.');
     return getTraitForTrait(world, entity, trait);
 }
 
@@ -441,7 +485,10 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     trait: Trait
 ): TraitInstance | undefined {
     // Exit early if the entity already has the trait
-    if (hasTrait(world, entity, trait)) return undefined;
+    if (hasTrait(world, entity, trait)) {
+        strictAssert(false, 'Cannot add trait when entity already has it.');
+        return undefined;
+    }
 
     const ctx = world[$internal];
 

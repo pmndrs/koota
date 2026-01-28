@@ -1,4 +1,5 @@
 export { createActions } from './actions/create-actions';
+export { setStrictMode } from './strict';
 export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
 export { $internal } from './common';
 export type { Entity } from './entity/types';
