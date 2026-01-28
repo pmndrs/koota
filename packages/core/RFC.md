@@ -17,7 +17,9 @@ const Position = trait({ x: types.f32(0), y: types.f32(0) })
 const Mesh = trait(() => new THREE.Mesh())
 
 // AoS with interleaved TypedArray (one buffer, optional alignment)
-const Position = trait(() => ({ x: types.f32(0), y: types.f32(0), z: types.f32(0) }), { alignment: 16 })
+const Position = trait(() => ({ x: types.f32(0), y: types.f32(0), z: types.f32(0) }), {
+  alignment: 16,
+})
 ```
 
 **No new patterns. The schema structure determines layout (SoA vs AoS). Typed fields determine storage (JS vs TypedArray).**
@@ -25,17 +27,18 @@ const Position = trait(() => ({ x: types.f32(0), y: types.f32(0), z: types.f32(0
 ## Motivation
 
 Koota already has two layout patterns:
+
 - **SoA (object schema)**: Each field stored in separate array
 - **AoS (function schema)**: One instance per entity in single array
 
 We extend both to support TypedArrays by detecting `types.f32()` etc. in the schema:
 
-| Schema | Layout | Storage |
-|--------|--------|---------|
-| `{ x: 0 }` | SoA | JS arrays |
-| `{ x: types.f32(0) }` | SoA | TypedArrays |
-| `() => new Thing()` | AoS | JS array of instances |
-| `() => ({ x: types.f32(0) })` | AoS | Interleaved ArrayBuffer |
+| Schema                        | Layout | Storage                 |
+| ----------------------------- | ------ | ----------------------- |
+| `{ x: 0 }`                    | SoA    | JS arrays               |
+| `{ x: types.f32(0) }`         | SoA    | TypedArrays             |
+| `() => new Thing()`           | AoS    | JS array of instances   |
+| `() => ({ x: types.f32(0) })` | AoS    | Interleaved ArrayBuffer |
 
 ## Design
 
@@ -121,13 +124,13 @@ function isTypedFieldObject(obj: unknown): boolean {
 
 ### Storage Types
 
-| Type | Schema | Store | Memory Layout |
-|------|--------|-------|---------------|
-| `tag` | `{}` | none | none |
-| `soa` | `{ x: 0 }` | `{ x: number[] }` | `x:[0,1,2] y:[0,1,2]` |
-| `typed-soa` | `{ x: types.f32(0) }` | `{ x: Float32Array }` | `x:[0,1,2] y:[0,1,2]` |
-| `aos` | `() => T` | `T[]` | `[inst0, inst1, inst2]` |
-| `typed-aos` | `() => ({ x: types.f32(0) })` | `ArrayBuffer` | `[x0,y0, x1,y1, x2,y2]` |
+| Type        | Schema                        | Store                 | Memory Layout           |
+| ----------- | ----------------------------- | --------------------- | ----------------------- |
+| `tag`       | `{}`                          | none                  | none                    |
+| `soa`       | `{ x: 0 }`                    | `{ x: number[] }`     | `x:[0,1,2] y:[0,1,2]`   |
+| `typed-soa` | `{ x: types.f32(0) }`         | `{ x: Float32Array }` | `x:[0,1,2] y:[0,1,2]`   |
+| `aos`       | `() => T`                     | `T[]`                 | `[inst0, inst1, inst2]` |
+| `typed-aos` | `() => ({ x: types.f32(0) })` | `ArrayBuffer`         | `[x0,y0, x1,y1, x2,y2]` |
 
 ### Store Creation
 
@@ -137,7 +140,7 @@ function createTypedSoAStore(schema) {
   const store = {}
   for (const key in schema) {
     const field = schema[key]
-    store[key] = new field[$typedArray](0)  // Start empty, grow as needed
+    store[key] = new field[$typedArray](0) // Start empty, grow as needed
   }
   return store
 }
@@ -178,7 +181,7 @@ const Position = trait({ x: types.f32(0), y: types.f32(0) })
 
 // Usage identical to regular traits
 const entity = world.spawn(Position({ x: 100, y: 200 }))
-entity.get(Position)  // { x: 100, y: 200 }
+entity.get(Position) // { x: 100, y: 200 }
 entity.set(Position, { x: 150 })
 
 // Store has separate TypedArrays
@@ -196,15 +199,18 @@ for (const eid of world.query(Position)) {
 ### AoS Interleaved (for GPU)
 
 ```typescript
-const Position = trait(() => ({
-  x: types.f32(0),
-  y: types.f32(0),
-  z: types.f32(0),
-}), { alignment: 16 })
+const Position = trait(
+  () => ({
+    x: types.f32(0),
+    y: types.f32(0),
+    z: types.f32(0),
+  }),
+  { alignment: 16 }
+)
 
 // Usage identical to regular traits
 const entity = world.spawn(Position({ x: 100, y: 200, z: 300 }))
-entity.get(Position)  // { x: 100, y: 200, z: 300 }
+entity.get(Position) // { x: 100, y: 200, z: 300 }
 
 // Store has interleaved buffer
 const store = getStore(world, Position)
@@ -232,11 +238,14 @@ const Position = trait(() => ({ x: types.f32(0), y: types.f32(0) }))
 
 ```typescript
 // Alignment for GPU-friendly layout
-const Position = trait(() => ({
-  x: types.f32(0),
-  y: types.f32(0),
-  z: types.f32(0),
-}), { alignment: 16 })  // SIMD-friendly stride
+const Position = trait(
+  () => ({
+    x: types.f32(0),
+    y: types.f32(0),
+    z: types.f32(0),
+  }),
+  { alignment: 16 }
+) // SIMD-friendly stride
 ```
 
 ## Type Inference
@@ -249,11 +258,13 @@ interface TypedField<T extends TypedArrayConstructor = TypedArrayConstructor> {
 }
 
 // Element type from TypedArray constructor
-type ElementType<T> =
-  T extends Float32ArrayConstructor | Float64ArrayConstructor ? number :
-  T extends Int8ArrayConstructor | Int16ArrayConstructor | Int32ArrayConstructor ? number :
-  T extends Uint8ArrayConstructor | Uint16ArrayConstructor | Uint32ArrayConstructor ? number :
-  never
+type ElementType<T> = T extends Float32ArrayConstructor | Float64ArrayConstructor
+  ? number
+  : T extends Int8ArrayConstructor | Int16ArrayConstructor | Int32ArrayConstructor
+    ? number
+    : T extends Uint8ArrayConstructor | Uint16ArrayConstructor | Uint32ArrayConstructor
+      ? number
+      : never
 
 // Record type (what entity.get() returns)
 type InferRecord<T> = {
@@ -344,12 +355,14 @@ packages/core/src/
 ### SoA vs AoS: Different Needs
 
 **SoA Typed** (`trait({ x: types.f32(0), y: types.f32(0) })`)
+
 - Creates multiple **separate, contiguous** TypedArrays
 - Each array is naturally aligned (Float32Array = 4-byte aligned elements)
 - No stride concept - elements are packed
 - **No options needed** - grows automatically like regular traits
 
 **AoS Typed** (`trait(() => ({ x: types.f32(0), y: types.f32(0) }))`)
+
 - Creates one **interleaved** ArrayBuffer
 - Stride alignment matters for GPU/SIMD
 - Capacity matters for fixed GPU buffers
@@ -358,6 +371,7 @@ packages/core/src/
 ### Why This Split?
 
 `alignment` only makes sense for interleaved memory (AoS). In SoA:
+
 - Each TypedArray is already element-aligned
 - No stride to pad
 - GPU uploads separate vertex buffers with their own layout descriptors
@@ -382,11 +396,14 @@ That's it. Growth is automatic (double capacity when exceeded, like everything e
 const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
 
 // AoS interleaved - alignment for GPU/SIMD
-const Position = trait(() => ({
-  x: types.f32(0),
-  y: types.f32(0),
-  z: types.f32(0),
-}), { alignment: 16 })
+const Position = trait(
+  () => ({
+    x: types.f32(0),
+    y: types.f32(0),
+    z: types.f32(0),
+  }),
+  { alignment: 16 }
+)
 
 // No alignment needed? No options needed.
 const SimpleInterleaved = trait(() => ({
@@ -401,20 +418,38 @@ For GPU shaders requiring specific field alignments, add padding fields explicit
 
 ```typescript
 // vec3 with padding for 16-byte alignment (GPU-friendly)
-const Position = trait(() => ({
-  x: types.f32(0),
-  y: types.f32(0),
-  z: types.f32(0),
-  _pad: types.f32(0),  // Explicit padding for vec4
-}), { alignment: 16 })
+const Position = trait(
+  () => ({
+    x: types.f32(0),
+    y: types.f32(0),
+    z: types.f32(0),
+    _pad: types.f32(0), // Explicit padding for vec4
+  }),
+  { alignment: 16 }
+)
 
 // mat4 components (64 bytes per entity)
-const Transform = trait(() => ({
-  m00: types.f32(1), m01: types.f32(0), m02: types.f32(0), m03: types.f32(0),
-  m10: types.f32(0), m11: types.f32(1), m12: types.f32(0), m13: types.f32(0),
-  m20: types.f32(0), m21: types.f32(0), m22: types.f32(1), m23: types.f32(0),
-  m30: types.f32(0), m31: types.f32(0), m32: types.f32(0), m33: types.f32(1),
-}), { alignment: 16 })
+const Transform = trait(
+  () => ({
+    m00: types.f32(1),
+    m01: types.f32(0),
+    m02: types.f32(0),
+    m03: types.f32(0),
+    m10: types.f32(0),
+    m11: types.f32(1),
+    m12: types.f32(0),
+    m13: types.f32(0),
+    m20: types.f32(0),
+    m21: types.f32(0),
+    m22: types.f32(1),
+    m23: types.f32(0),
+    m30: types.f32(0),
+    m31: types.f32(0),
+    m32: types.f32(0),
+    m33: types.f32(1),
+  }),
+  { alignment: 16 }
+)
 ```
 
 ### Implementation
@@ -425,7 +460,7 @@ function createTypedSoAStore(schema) {
   const store = {}
   for (const key in schema) {
     const field = schema[key]
-    const arr = new field[$typedArray](0)  // Start empty, grow as needed
+    const arr = new field[$typedArray](0) // Start empty, grow as needed
     store[key] = arr
   }
   return store
@@ -463,7 +498,7 @@ function createTypedAoSStore(template, options: InterleavedTraitOptions = {}) {
 // Growth: automatic, doubles capacity when needed (like all koota arrays)
 function growTypedAoSStore(store, template, newCapacity, alignment) {
   const newBuffer = new ArrayBuffer(store.stride * newCapacity)
-  new Uint8Array(newBuffer).set(new Uint8Array(store.buffer))  // Copy existing data
+  new Uint8Array(newBuffer).set(new Uint8Array(store.buffer)) // Copy existing data
 
   store.buffer = newBuffer
   store.capacity = newCapacity
@@ -479,11 +514,11 @@ function growTypedAoSStore(store, template, newCapacity, alignment) {
 
 ### When to Use What
 
-| Use Case | Pattern | Why |
-|----------|---------|-----|
-| General ECS with TypedArrays | SoA typed | Simple, cache-friendly per-field access |
-| GPU instancing / SIMD | AoS typed + alignment | Single buffer, stride-aligned |
-| CPU-heavy single-field iteration | SoA typed | Contiguous memory per field |
+| Use Case                         | Pattern               | Why                                     |
+| -------------------------------- | --------------------- | --------------------------------------- |
+| General ECS with TypedArrays     | SoA typed             | Simple, cache-friendly per-field access |
+| GPU instancing / SIMD            | AoS typed + alignment | Single buffer, stride-aligned           |
+| CPU-heavy single-field iteration | SoA typed             | Contiguous memory per field             |
 
 ## Open Questions
 

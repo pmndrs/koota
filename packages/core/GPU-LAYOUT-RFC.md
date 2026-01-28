@@ -8,12 +8,13 @@ Extend koota with `layout()` for composing multiple traits into GPU-ready interl
 
 ### Two Worlds, Two Purposes
 
-| World | Storage | Optimized For |
-|-------|---------|---------------|
-| **Gameplay** | SoA typed traits | CPU iteration, cache-friendly field access |
-| **Render** | Interleaved layouts | GPU upload, batched draw calls |
+| World        | Storage             | Optimized For                              |
+| ------------ | ------------------- | ------------------------------------------ |
+| **Gameplay** | SoA typed traits    | CPU iteration, cache-friendly field access |
+| **Render**   | Interleaved layouts | GPU upload, batched draw calls             |
 
 The gameplay world uses SoA for per-field iteration (physics, AI, etc.). The render world uses interleaved layouts because:
+
 - Data flows game → render → GPU (minimal CPU iteration)
 - GPU wants contiguous per-instance data
 - Draw calls batch entities with identical trait composition
@@ -22,16 +23,17 @@ The gameplay world uses SoA for per-field iteration (physics, AI, etc.). The ren
 
 Batched instanced rendering maps naturally to ECS:
 
-| ECS Concept | Render Mapping |
-|-------------|----------------|
-| Entity | Instance in a draw call |
-| Trait | Shader resource (transform, color, material param) |
-| Layout | GPU buffer format |
-| Archetype | Batch (entities with same traits = same draw call) |
-| System | Draw call / render pass |
-| Relation | Render graph dependencies |
+| ECS Concept | Render Mapping                                     |
+| ----------- | -------------------------------------------------- |
+| Entity      | Instance in a draw call                            |
+| Trait       | Shader resource (transform, color, material param) |
+| Layout      | GPU buffer format                                  |
+| Archetype   | Batch (entities with same traits = same draw call) |
+| System      | Draw call / render pass                            |
+| Relation    | Render graph dependencies                          |
 
 This unlocks composable, flexible rendering:
+
 - Mix and match shader inputs as traits
 - Automatic batching by archetype
 - Relations can model render graph
@@ -75,10 +77,22 @@ import { layout, types } from 'koota'
 
 // Define traits as shader resources
 const Transform = {
-  m0: types.f32(1), m1: types.f32(0), m2: types.f32(0), m3: types.f32(0),
-  m4: types.f32(0), m5: types.f32(1), m6: types.f32(0), m7: types.f32(0),
-  m8: types.f32(0), m9: types.f32(0), m10: types.f32(1), m11: types.f32(0),
-  m12: types.f32(0), m13: types.f32(0), m14: types.f32(0), m15: types.f32(1),
+  m0: types.f32(1),
+  m1: types.f32(0),
+  m2: types.f32(0),
+  m3: types.f32(0),
+  m4: types.f32(0),
+  m5: types.f32(1),
+  m6: types.f32(0),
+  m7: types.f32(0),
+  m8: types.f32(0),
+  m9: types.f32(0),
+  m10: types.f32(1),
+  m11: types.f32(0),
+  m12: types.f32(0),
+  m13: types.f32(0),
+  m14: types.f32(0),
+  m15: types.f32(1),
 }
 
 const Color = {
@@ -89,10 +103,13 @@ const Color = {
 }
 
 // Compose into GPU-ready layout
-const StaticMeshInstance = layout({
-  transform: Transform,
-  color: Color,
-}, { alignment: 16 })
+const StaticMeshInstance = layout(
+  {
+    transform: Transform,
+    color: Color,
+  },
+  { alignment: 16 }
+)
 ```
 
 ### Memory Layout
@@ -118,8 +135,8 @@ const instance0 = renderWorld.spawn(StaticMeshInstance)
 const instance1 = renderWorld.spawn(StaticMeshInstance)
 
 // Set instance data (writes directly to GPU buffer)
-instance0.set(Transform, { m12: 100, m13: 50, m14: 0 })  // position
-instance0.set(Color, { r: 1, g: 0, b: 0, a: 1 })        // red
+instance0.set(Transform, { m12: 100, m13: 50, m14: 0 }) // position
+instance0.set(Color, { r: 1, g: 0, b: 0, a: 1 }) // red
 
 // Get buffer for GPU upload
 const buffer = renderWorld.getLayoutBuffer(StaticMeshInstance)
@@ -159,16 +176,22 @@ Different passes compose different traits from same source:
 
 ```typescript
 // Main pass: full instance data
-const MainPassInstance = layout({
-  transform: Transform,
-  color: Color,
-  material: Material,
-}, { alignment: 16 })
+const MainPassInstance = layout(
+  {
+    transform: Transform,
+    color: Color,
+    material: Material,
+  },
+  { alignment: 16 }
+)
 
 // Shadow pass: only needs transform
-const ShadowPassInstance = layout({
-  transform: Transform,
-}, { alignment: 16 })
+const ShadowPassInstance = layout(
+  {
+    transform: Transform,
+  },
+  { alignment: 16 }
+)
 
 // Same game entity, different render instances
 gameEntity.set(RenderRef, {
@@ -192,7 +215,7 @@ Render instances can be sorted/pooled:
 
 ```typescript
 const IsVisible = trait()
-const IsDead = trait()  // Pooled, ready for reuse
+const IsDead = trait() // Pooled, ready for reuse
 
 // Sort: visible first, dead at end
 function sortBatch(renderWorld: World, layout: Layout) {
@@ -248,10 +271,7 @@ mappedBuffer.unmap()
 Creates a multi-trait interleaved layout.
 
 ```typescript
-function layout<S extends LayoutSchema>(
-  schema: S,
-  options?: LayoutOptions
-): Layout<S>
+function layout<S extends LayoutSchema>(schema: S, options?: LayoutOptions): Layout<S>
 
 interface LayoutSchema {
   [traitName: string]: {
@@ -300,6 +320,7 @@ instance.set(Color, { r: 1, g: 0, b: 0 })
 ### Entity Mapping
 
 Render world entities need stable buffer indices for GPU:
+
 - **Dense packing**: Entity ID ≠ buffer index, requires mapping
 - **Sparse with holes**: Entity ID = buffer index, wastes memory but simpler
 - **Sorted pools**: Active at front, dead at back, draw count = active count
@@ -307,6 +328,7 @@ Render world entities need stable buffer indices for GPU:
 ### Growth
 
 Options:
+
 - **Fixed capacity**: Throw if exceeded (know your instance limits)
 - **Double**: Reallocate and copy (invalidates BYOB buffers)
 
@@ -315,6 +337,7 @@ For render world, fixed capacity is often preferred (known GPU limits).
 ### Trait Independence
 
 Layout traits are NOT independent - they share a buffer:
+
 - Adding/removing traits not supported (use different layout)
 - All entities with a layout have the same traits
 - This is intentional: matches GPU batch requirements
@@ -322,15 +345,19 @@ Layout traits are NOT independent - they share a buffer:
 ## Alignment with Koota Principles
 
 ### Data-Oriented
+
 Layouts are pure data definitions. Behavior (rendering) is in systems.
 
 ### Composable Systems
+
 Each render pass/draw call is a system. Mix and match passes by composing traits.
 
 ### Decouple View from Logic
+
 Gameplay world is logic. Render world is view. Clear separation via world boundary.
 
 ### Traits as Data
+
 Layout traits are shader resources - transform, color, material params. Pure data.
 
 ## Open Questions

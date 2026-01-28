@@ -4,12 +4,12 @@
 
 Koota's existing patterns determine memory layout. Typed fields determine storage:
 
-| Schema | Layout | Storage |
-|--------|--------|---------|
-| `{ x: 0 }` | SoA | JS arrays |
-| `{ x: types.f32(0) }` | SoA | TypedArrays |
-| `() => new Thing()` | AoS | JS array of instances |
-| `() => ({ x: types.f32(0) })` | AoS | Interleaved ArrayBuffer |
+| Schema                        | Layout | Storage                 |
+| ----------------------------- | ------ | ----------------------- |
+| `{ x: 0 }`                    | SoA    | JS arrays               |
+| `{ x: types.f32(0) }`         | SoA    | TypedArrays             |
+| `() => new Thing()`           | AoS    | JS array of instances   |
+| `() => ({ x: types.f32(0) })` | AoS    | Interleaved ArrayBuffer |
 
 **No new patterns needed.** The existing SoA/AoS distinction naturally maps to separate arrays vs interleaved buffer.
 
@@ -28,11 +28,14 @@ const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
 const Mesh = trait(() => new THREE.Mesh())
 
 // AoS with interleaved TypedArray (one buffer, GPU-friendly) - alignment option
-const Position = trait(() => ({
-  x: types.f32(0),
-  y: types.f32(0),
-  z: types.f32(0),
-}), { alignment: 16 })
+const Position = trait(
+  () => ({
+    x: types.f32(0),
+    y: types.f32(0),
+    z: types.f32(0),
+  }),
+  { alignment: 16 }
+)
 ```
 
 ## Options: AoS Interleaved Only
@@ -55,19 +58,25 @@ Growth is automatic for both SoA and AoS (double capacity when exceeded, like al
 const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
 
 // AoS interleaved - alignment for GPU/SIMD
-const Position = trait(() => ({
-  x: types.f32(0),
-  y: types.f32(0),
-  z: types.f32(0),
-}), { alignment: 16 })
+const Position = trait(
+  () => ({
+    x: types.f32(0),
+    y: types.f32(0),
+    z: types.f32(0),
+  }),
+  { alignment: 16 }
+)
 
 // Explicit padding for GPU shaders (vec4 alignment)
-const PositionPadded = trait(() => ({
-  x: types.f32(0),
-  y: types.f32(0),
-  z: types.f32(0),
-  _pad: types.f32(0),
-}), { alignment: 16 })
+const PositionPadded = trait(
+  () => ({
+    x: types.f32(0),
+    y: types.f32(0),
+    z: types.f32(0),
+    _pad: types.f32(0),
+  }),
+  { alignment: 16 }
+)
 
 // No alignment needed? No options needed.
 const Simple = trait(() => ({ a: types.f32(0), b: types.f32(0) }))
@@ -156,7 +165,7 @@ function createTrait(schema, options?) {
   if (isTag) {
     traitType = 'tag'
   } else if (isAoS) {
-    template = schema()  // Call once to inspect
+    template = schema() // Call once to inspect
     traitType = isTypedFieldObject(template) ? 'typed-aos' : 'aos'
   } else {
     traitType = isTypedSchema(schema) ? 'typed-soa' : 'soa'
@@ -188,8 +197,8 @@ function growTypedSoAStore(store, schema, newCapacity) {
     const field = schema[key]
     const oldArr = store[key]
     const newArr = new field[$typedArray](newCapacity)
-    newArr.set(oldArr)  // Copy existing data
-    newArr.fill(field.default, oldArr.length)  // Fill new slots with default
+    newArr.set(oldArr) // Copy existing data
+    newArr.fill(field.default, oldArr.length) // Fill new slots with default
     store[key] = newArr
   }
 }
@@ -231,6 +240,7 @@ function createTypedAoSStore(template, options: InterleavedTraitOptions = {}) {
 SoA accessors already work for TypedArrays (same `store.x[index]` pattern).
 
 For AoS typed, need new accessors:
+
 ```typescript
 // Get: read from strided views into object
 function createTypedAoSGetFunction(template) {
@@ -303,12 +313,13 @@ Multi-trait interleaved buffers (`layout()`) enable a **Render ECS** pattern - a
 
 **Key insight:** Two worlds, two purposes:
 
-| World | Storage | Optimized For |
-|-------|---------|---------------|
-| Gameplay | SoA typed traits | CPU iteration |
-| Render | Interleaved layouts | GPU upload |
+| World    | Storage             | Optimized For |
+| -------- | ------------------- | ------------- |
+| Gameplay | SoA typed traits    | CPU iteration |
+| Render   | Interleaved layouts | GPU upload    |
 
 **ECS maps naturally to batched rendering:**
+
 - Entity = instance in draw call
 - Trait = shader resource (transform, color, material)
 - Archetype = batch (same traits = same draw call)
