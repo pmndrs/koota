@@ -1,5 +1,6 @@
 export {
     createStore,
+    createTypedSoAStore,
     isTypedStore,
     growTypedSoAStore,
     ensureTypedStoreCapacity,
@@ -26,5 +27,9 @@ export type {
     Norm,
     TypedSoAStore,
     TypedAoSStore,
+    TypedSoAStoreOptions,
     TypedAoSStoreOptions,
+    TypedTraitOptions,
+    TypedAoSTraitOptions,
+    BufferType,
 } from './types';

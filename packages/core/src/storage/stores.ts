@@ -6,7 +6,9 @@ import {
     type Store,
     type TypedSoAStore,
     type TypedAoSStore,
+    type TypedSoAStoreOptions,
     type TypedAoSStoreOptions,
+    type BufferType,
 } from './types';
 
 /** Initial capacity for typed stores */
@@ -135,13 +137,17 @@ export function growTypedSoAStore(store: TypedSoAStore, minCapacity: number): vo
     }
 
     const schema = store._schema;
+    const BufferCtor = store._bufferType;
 
     // Grow each TypedArray
     for (const key in schema) {
         const field = schema[key];
         const ArrayConstructor = field[$typedArray];
         const oldArray = getSoAArray(store, key);
-        const newArray = new ArrayConstructor(newCapacity);
+        // Create new TypedArray with same buffer type
+        // Cast needed: TS lib types don't include SharedArrayBuffer overloads but runtime supports it
+        const buffer = new BufferCtor(newCapacity * ArrayConstructor.BYTES_PER_ELEMENT);
+        const newArray = new ArrayConstructor(buffer as ArrayBuffer);
 
         // Copy existing data
         copyTypedArray(newArray, oldArray);
@@ -169,17 +175,26 @@ export function ensureTypedStoreCapacity(store: TypedSoAStore, index: number): v
 /**
  * Create a typed SoA store with TypedArrays
  */
-function createTypedSoAStore(schema: Record<string, TypedField>): TypedSoAStore {
+export function createTypedSoAStore(
+    schema: Record<string, TypedField>,
+    options: TypedSoAStoreOptions = {}
+): TypedSoAStore {
+    const { bufferType: BufferCtor = ArrayBuffer } = options;
+
     const store: TypedSoAStore = {
         [$typedStore]: true,
         _capacity: INITIAL_CAPACITY,
         _schema: schema,
+        _bufferType: BufferCtor,
     };
 
     for (const key in schema) {
         const field = schema[key];
         const ArrayConstructor = field[$typedArray];
-        const array = new ArrayConstructor(INITIAL_CAPACITY);
+        // Create TypedArray with specified buffer type
+        // Cast needed: TS lib types don't include SharedArrayBuffer overloads but runtime supports it
+        const buffer = new BufferCtor(INITIAL_CAPACITY * ArrayConstructor.BYTES_PER_ELEMENT);
+        const array = new ArrayConstructor(buffer as ArrayBuffer);
 
         // Fill with default value if non-zero
         if (field.default !== 0 && field.default !== 0n) {
@@ -204,7 +219,7 @@ export function createTypedAoSStore(
     template: Record<string, TypedField>,
     options: TypedAoSStoreOptions = {}
 ): TypedAoSStore {
-    const { alignment = DEFAULT_ALIGNMENT } = options;
+    const { alignment = DEFAULT_ALIGNMENT, bufferType: BufferCtor = ArrayBuffer } = options;
 
     // Calculate offsets and stride (field order = memory order)
     let offset = 0;
@@ -219,8 +234,8 @@ export function createTypedAoSStore(
     // Align stride to boundary
     const stride = Math.ceil(offset / alignment) * alignment;
 
-    // Allocate buffer
-    const buffer = new ArrayBuffer(stride * INITIAL_CAPACITY);
+    // Allocate buffer with specified type
+    const buffer = new BufferCtor(stride * INITIAL_CAPACITY);
 
     // Create store with metadata
     const store: TypedAoSStore = {
@@ -231,6 +246,7 @@ export function createTypedAoSStore(
         _stride: stride,
         _offsets: offsets,
         _alignment: alignment,
+        _bufferType: BufferCtor,
     };
 
     // Create strided proxy views for each field
@@ -266,10 +282,16 @@ export function growTypedAoSStore(store: TypedAoSStore, minCapacity: number): vo
         newCapacity = Math.ceil(newCapacity * GROWTH_FACTOR);
     }
 
-    const { _template: template, _stride: stride, _offsets: offsets, _buffer: oldBuffer } = store;
+    const {
+        _template: template,
+        _stride: stride,
+        _offsets: offsets,
+        _buffer: oldBuffer,
+        _bufferType: BufferCtor,
+    } = store;
 
-    // Allocate new buffer
-    const newBuffer = new ArrayBuffer(stride * newCapacity);
+    // Allocate new buffer with same type
+    const newBuffer = new BufferCtor(stride * newCapacity);
 
     // Copy existing data
     new Uint8Array(newBuffer).set(new Uint8Array(oldBuffer));
@@ -314,13 +336,14 @@ export function ensureTypedAoSStoreCapacity(store: TypedAoSStore, index: number)
  */
 function createStridedArrayProxy(
     ArrayCtor: TypedArrayConstructor,
-    buffer: ArrayBuffer,
+    buffer: ArrayBuffer | SharedArrayBuffer,
     byteOffset: number,
     stride: number,
     capacity: number
 ): unknown {
     const bytesPerElement = ArrayCtor.BYTES_PER_ELEMENT;
-    const view = new DataView(buffer);
+    // DataView accepts both ArrayBuffer and SharedArrayBuffer
+    const view = new DataView(buffer as ArrayBuffer);
     const { read, write } = getDataViewMethods(ArrayCtor);
 
     // We store capacity in a mutable object so it can be updated

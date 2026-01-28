@@ -27,6 +27,7 @@ import {
     createGetFunction,
     createSetFunction,
     createStore,
+    createTypedSoAStore,
     getSchemaDefaults,
     Norm,
     Schema,
@@ -38,8 +39,17 @@ import {
     ensureTypedAoSStoreCapacity,
     createTypedAoSStore,
     type TypedAoSStoreOptions,
+    type TypedSoAStoreOptions,
+    type TypedTraitOptions,
+    type TypedAoSTraitOptions,
 } from '../storage';
-import { isTypedFieldObject, isTypedSchema, type TypedField, type IsTypedAoSFactory } from '../types';
+import {
+    isTypedFieldObject,
+    isTypedSchema,
+    type TypedField,
+    type IsTypedAoSFactory,
+    type TypedSchema,
+} from '../types';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -56,26 +66,22 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-/**
- * Options for creating typed-aos (interleaved) traits.
- * Only valid when schema is a factory returning all TypedField values.
- */
-export interface TypedAoSTraitOptions {
-    /** Byte alignment for entity stride in interleaved storage (default: 4) */
-    alignment?: number;
-}
-
 /** Schema type for typed AoS factories (returns all TypedField values) */
 type TypedAoSSchema = () => Record<string, TypedField>;
 
 // Overload 1: Tag trait (no schema or empty object)
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-// Overload 2: Typed AoS factory - options allowed
+// Overload 2: Typed AoS factory - TypedAoSTraitOptions (bufferType + alignment)
 function createTrait<S extends TypedAoSSchema>(
     schema: S,
     options?: TypedAoSTraitOptions
 ): Trait<Norm<S>, S>;
-// Overload 3: Any other valid schema - no options parameter
+// Overload 3: Typed SoA schema - TypedTraitOptions (bufferType only)
+function createTrait<S extends TypedSchema>(
+    schema: S,
+    options?: TypedTraitOptions
+): Trait<Norm<S>, S>;
+// Overload 4: Any other valid schema - no options parameter
 function createTrait<S extends Schema>(schema: S): Trait<Norm<S>, S>;
 
 function createTrait<S extends Schema>(
@@ -123,8 +129,15 @@ function createTrait<S extends Schema>(
     let storeFactory: () => unknown;
     if (traitType === 'typed-aos' && template) {
         // For typed-aos, create interleaved store with template and options
-        const storeOptions: TypedAoSStoreOptions = { alignment: options.alignment };
+        const storeOptions: TypedAoSStoreOptions = {
+            alignment: options.alignment,
+            bufferType: options.bufferType,
+        };
         storeFactory = () => createTypedAoSStore(template!, storeOptions);
+    } else if (traitType === 'typed-soa') {
+        // For typed-soa, create SoA store with bufferType option
+        const storeOptions: TypedSoAStoreOptions = { bufferType: options.bufferType };
+        storeFactory = () => createTypedSoAStore(schema as Record<string, TypedField>, storeOptions);
     } else {
         storeFactory = () => createStore<S>(schema);
     }

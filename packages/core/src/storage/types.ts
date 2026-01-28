@@ -145,6 +145,7 @@ export interface TypedSoAStore {
     [$typedStore]: true;
     _capacity: number;
     _schema: Record<string, TypedField>;
+    _bufferType: BufferType;
     [key: string]: unknown;
 }
 
@@ -156,17 +157,64 @@ export interface TypedAoSStore {
     [$typedAoSStore]: true;
     _capacity: number;
     _template: Record<string, TypedField>;
-    _buffer: ArrayBuffer;
+    _buffer: ArrayBuffer | SharedArrayBuffer;
     _stride: number;
     _offsets: Record<string, number>;
     _alignment: number;
+    _bufferType: BufferType;
     [key: string]: unknown;
+}
+
+// ============================================================================
+// Typed Trait Options
+// ============================================================================
+
+/** Buffer constructor types for typed storage */
+export type BufferType = ArrayBufferConstructor | SharedArrayBufferConstructor;
+
+/**
+ * Base options for all typed traits (typed-soa and typed-aos).
+ * Used when schema is a typed SoA object.
+ */
+export interface TypedTraitOptions {
+    /**
+     * Buffer constructor to use for TypedArray backing storage.
+     * Use SharedArrayBuffer for multi-threaded scenarios (workers).
+     * @default ArrayBuffer
+     */
+    bufferType?: BufferType;
+}
+
+/**
+ * Options for typed AoS (interleaved) traits.
+ * Used when schema is a factory returning typed fields.
+ * Extends base options with alignment for GPU/SIMD scenarios.
+ */
+export interface TypedAoSTraitOptions extends TypedTraitOptions {
+    /**
+     * Byte alignment for entity stride in interleaved storage.
+     * Useful for SIMD (16-byte) or GPU alignment requirements.
+     * @default 4
+     */
+    alignment?: number;
+}
+
+/**
+ * Options for creating typed SoA stores.
+ * @internal
+ */
+export interface TypedSoAStoreOptions {
+    /** Buffer constructor (default: ArrayBuffer) */
+    bufferType?: BufferType;
 }
 
 /**
  * Options for creating typed AoS (interleaved) stores.
+ * @internal
  */
 export interface TypedAoSStoreOptions {
     /** Byte alignment for entity stride (default: 4) */
     alignment?: number;
+    /** Buffer constructor (default: ArrayBuffer) */
+    bufferType?: BufferType;
 }
