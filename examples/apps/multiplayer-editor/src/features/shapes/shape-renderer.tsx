@@ -1,4 +1,4 @@
-import { useActions, useHas, useQuery, useTrait, useWorld } from 'koota/react';
+import { useActions, useHas, useQuery, useTrait } from 'koota/react';
 import { Not } from 'koota';
 import {
     Dragging,
@@ -8,14 +8,13 @@ import {
     Shape,
     StableId,
     IsRemote,
-    IsLocal,
     RemoteSelection,
     ClientId,
     IsTombstoned,
 } from '../../core/traits';
 import { type Entity } from 'koota';
 import { useCallback } from 'react';
-import { selectionActions, editingActions } from '../../core/actions';
+import { selectionActions, editingActions, userActions } from '../../core/actions';
 import { getClientColor } from '../../utils/get-client-color';
 
 interface ShapeViewProps {
@@ -29,12 +28,13 @@ export function ShapeRenderer() {
 }
 
 export function ShapeView({ entity }: ShapeViewProps) {
-    const world = useWorld();
     const shape = useTrait(entity, Shape);
     const position = useTrait(entity, Position);
     const isSelected = useHas(entity, IsSelected);
+
     const { selectShape } = useActions(selectionActions);
     const { startEditing, commitEditing, cancelEditing } = useActions(editingActions);
+    const { getLocalUser } = useActions(userActions);
 
     const handleInit = useCallback(
         (div: HTMLDivElement | null) => {
@@ -53,10 +53,7 @@ export function ShapeView({ entity }: ShapeViewProps) {
             if (!pos) return;
 
             // Get local user entity (optional - only for EditedBy/broadcast)
-            let localUser: Entity | undefined;
-            world.query(IsLocal).readEach((_, entity) => {
-                if (!localUser) localUser = entity;
-            });
+            const localUser = getLocalUser();
 
             // Start editing - captures durable values (broadcast if local user exists)
             startEditing(entity, ['position'], localUser);
@@ -74,7 +71,7 @@ export function ShapeView({ entity }: ShapeViewProps) {
 
             event.currentTarget.setPointerCapture(event.pointerId);
         },
-        [entity, selectShape, startEditing, world]
+        [entity, selectShape, startEditing, getLocalUser]
     );
 
     const handlePointerUp = useCallback(
@@ -84,9 +81,7 @@ export function ShapeView({ entity }: ShapeViewProps) {
             event.currentTarget.releasePointerCapture(event.pointerId);
 
             // If we were dragging, commit the edit (creates op and broadcasts)
-            if (wasDragging) {
-                commitEditing(entity, ['position']);
-            }
+            if (wasDragging) commitEditing(entity, ['position']);
         },
         [entity, commitEditing]
     );
@@ -94,9 +89,7 @@ export function ShapeView({ entity }: ShapeViewProps) {
     const handlePointerCancel = useCallback(() => {
         const wasDragging = entity.has(Dragging);
         entity.remove(Dragging);
-        if (wasDragging) {
-            cancelEditing(entity, ['position']);
-        }
+        if (wasDragging) cancelEditing(entity, ['position']);
     }, [entity, cancelEditing]);
 
     const handleLostPointerCapture = useCallback(
@@ -104,9 +97,7 @@ export function ShapeView({ entity }: ShapeViewProps) {
             if (e.buttons === 0) {
                 const wasDragging = entity.has(Dragging);
                 entity.remove(Dragging);
-                if (wasDragging) {
-                    commitEditing(entity, ['position']);
-                }
+                if (wasDragging) commitEditing(entity, ['position']);
             } else {
                 cancelEditing(entity, ['position']);
             }

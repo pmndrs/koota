@@ -1,14 +1,14 @@
-import { useActions, useWorld } from 'koota/react';
+import { useActions } from 'koota/react';
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import type { Entity } from 'koota';
-import { editingActions } from '../../core/actions';
-import { Rotation, Scale, IsLocal } from '../../core/traits';
+import { editingActions, userActions } from '../../core/actions';
+import { Rotation, Scale } from '../../core/traits';
 import { Section } from '../ui/section';
 import { RangeControl } from '../ui/range-control';
 
 export function Transforms({ selected }: { selected: readonly Entity[] }) {
-    const world = useWorld();
     const { startEditing, commitEditing } = useActions(editingActions);
+    const { getLocalUser } = useActions(userActions);
 
     const [rotation, setRotation] = useState(0);
     const [scaleX, setScaleX] = useState(1);
@@ -18,114 +18,64 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
     useEffect(() => {
         if (selected.length === 1) {
             const entity = selected[0];
-            const entityRotation = entity.get(Rotation);
-            const entityScale = entity.get(Scale);
-
-            if (entityRotation) setRotation(entityRotation.angle);
-            if (entityScale) {
-                setScaleX(entityScale.x);
-                setScaleY(entityScale.y);
+            const rot = entity.get(Rotation);
+            const scale = entity.get(Scale);
+            if (rot) setRotation(rot.angle);
+            if (scale) {
+                setScaleX(scale.x);
+                setScaleY(scale.y);
             }
         }
     }, [selected]);
 
-    // Rotation handlers
-    const handleRotationStart = useCallback(() => {
-        let localUser: Entity | undefined;
-        world.query(IsLocal).readEach((_, entity) => {
-            if (!localUser) localUser = entity;
-        });
-        if (selected.length > 0) {
+    // Generic start/end handlers
+    const handleEditStart = useCallback(
+        (property: 'rotation' | 'scale') => {
+            const localUser = getLocalUser();
             for (const entity of selected) {
-                startEditing(entity, ['rotation'], localUser, 'discrete');
+                startEditing(entity, [property], localUser, 'discrete');
             }
-        }
-    }, [selected, startEditing, world]);
+        },
+        [selected, startEditing, getLocalUser]
+    );
 
+    const handleEditEnd = useCallback(
+        (property: 'rotation' | 'scale') => {
+            for (const entity of selected) {
+                commitEditing(entity, [property]);
+            }
+        },
+        [selected, commitEditing]
+    );
+
+    // Change handlers
     const handleRotationChange = useCallback(
         (e: ChangeEvent<HTMLInputElement>) => {
             const angle = Number(e.target.value);
             setRotation(angle);
             for (const entity of selected) {
-                if (entity.has(Rotation)) {
-                    entity.set(Rotation, { angle });
-                }
+                if (entity.has(Rotation)) entity.set(Rotation, { angle });
             }
         },
         [selected]
     );
 
-    const handleRotationEnd = useCallback(() => {
-        for (const entity of selected) {
-            commitEditing(entity, ['rotation']);
-        }
-    }, [selected, commitEditing]);
+    const handleScaleChange = useCallback(
+        (axis: 'x' | 'y', value: number) => {
+            axis === 'x' ? setScaleX(value) : setScaleY(value);
 
-    // Scale X handlers
-    const handleScaleXStart = useCallback(() => {
-        let localUser: Entity | undefined;
-        world.query(IsLocal).readEach((_, entity) => {
-            if (!localUser) localUser = entity;
-        });
-        if (selected.length > 0) {
-            for (const entity of selected) {
-                startEditing(entity, ['scale'], localUser, 'discrete');
-            }
-        }
-    }, [selected, startEditing, world]);
-
-    const handleScaleXChange = useCallback(
-        (e: ChangeEvent<HTMLInputElement>) => {
-            const x = Number(e.target.value);
-            setScaleX(x);
             for (const entity of selected) {
                 const scale = entity.get(Scale);
                 if (scale) {
-                    entity.set(Scale, { x, y: scale.y });
+                    entity.set(
+                        Scale,
+                        axis === 'x' ? { x: value, y: scale.y } : { x: scale.x, y: value }
+                    );
                 }
             }
         },
         [selected]
     );
-
-    const handleScaleXEnd = useCallback(() => {
-        for (const entity of selected) {
-            commitEditing(entity, ['scale']);
-        }
-    }, [selected, commitEditing]);
-
-    // Scale Y handlers
-    const handleScaleYStart = useCallback(() => {
-        let localUser: Entity | undefined;
-        world.query(IsLocal).readEach((_, entity) => {
-            if (!localUser) localUser = entity;
-        });
-        if (selected.length > 0) {
-            for (const entity of selected) {
-                startEditing(entity, ['scale'], localUser, 'discrete');
-            }
-        }
-    }, [selected, startEditing, world]);
-
-    const handleScaleYChange = useCallback(
-        (e: ChangeEvent<HTMLInputElement>) => {
-            const y = Number(e.target.value);
-            setScaleY(y);
-            for (const entity of selected) {
-                const scale = entity.get(Scale);
-                if (scale) {
-                    entity.set(Scale, { x: scale.x, y });
-                }
-            }
-        },
-        [selected]
-    );
-
-    const handleScaleYEnd = useCallback(() => {
-        for (const entity of selected) {
-            commitEditing(entity, ['scale']);
-        }
-    }, [selected, commitEditing]);
 
     return (
         <>
@@ -136,9 +86,9 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
                     min={0}
                     max={360}
                     value={rotation}
-                    onPointerDown={handleRotationStart}
+                    onPointerDown={() => handleEditStart('rotation')}
                     onChange={handleRotationChange}
-                    onPointerUp={handleRotationEnd}
+                    onPointerUp={() => handleEditEnd('rotation')}
                 />
             </Section>
 
@@ -150,9 +100,9 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
                     max={3}
                     step={0.1}
                     value={scaleX}
-                    onPointerDown={handleScaleXStart}
-                    onChange={handleScaleXChange}
-                    onPointerUp={handleScaleXEnd}
+                    onPointerDown={() => handleEditStart('scale')}
+                    onChange={(e) => handleScaleChange('x', Number(e.target.value))}
+                    onPointerUp={() => handleEditEnd('scale')}
                 />
                 <RangeControl
                     label="Scale Y"
@@ -161,9 +111,9 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
                     max={3}
                     step={0.1}
                     value={scaleY}
-                    onPointerDown={handleScaleYStart}
-                    onChange={handleScaleYChange}
-                    onPointerUp={handleScaleYEnd}
+                    onPointerDown={() => handleEditStart('scale')}
+                    onChange={(e) => handleScaleChange('y', Number(e.target.value))}
+                    onPointerUp={() => handleEditEnd('scale')}
                 />
             </Section>
         </>

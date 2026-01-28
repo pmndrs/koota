@@ -1,22 +1,22 @@
+import { useActions, useTrait, useWorld } from 'koota/react';
+import { historyActions } from '../../core/actions';
+import { History as HistoryTrait } from '../../core/traits';
 import { Section } from '../ui/section';
 
-export function History({
-    onUndo,
-    onRedo,
-    canUndo,
-    canRedo,
-}: {
-    onUndo: () => void;
-    onRedo: () => void;
-    canUndo: boolean;
-    canRedo: boolean;
-}) {
+export function History() {
+    const world = useWorld();
+    const history = useTrait(world, HistoryTrait);
+    const { undo, redo, canUndo, canRedo } = useActions(historyActions);
+
+    const canUndoValue = history ? canUndo() : false;
+    const canRedoValue = history ? canRedo() : false;
+
     return (
         <Section>
-            <button onClick={onUndo} disabled={!canUndo}>
+            <button onClick={undo} disabled={!canUndoValue}>
                 Undo
             </button>
-            <button onClick={onRedo} disabled={!canRedo}>
+            <button onClick={redo} disabled={!canRedoValue}>
                 Redo
             </button>
         </Section>

@@ -25,20 +25,6 @@ export function applyOp(world: World, op: Op): void {
 
     switch (op.op) {
         case OpCode.CreateShape: {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/49ce6d5d-d793-4697-b0bb-8d91097dbd1f', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    location: 'apply.ts:11',
-                    message: 'applyOp CreateShape',
-                    data: { seq: op.seq, id: op.id, entityExists: history.entities.has(op.id) },
-                    timestamp: Date.now(),
-                    sessionId: 'debug-session',
-                    hypothesisId: 'C',
-                }),
-            }).catch(() => {});
-            // #endregion
             const existing = history.entities.get(op.id);
             if (existing && existing.isAlive()) {
                 if (existing.has(IsTombstoned)) {
@@ -72,25 +58,6 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.DeleteShape: {
             const entity = history.entities.get(op.id);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/49ce6d5d-d793-4697-b0bb-8d91097dbd1f', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    location: 'apply.ts:29',
-                    message: 'applyOp DeleteShape',
-                    data: {
-                        seq: op.seq,
-                        id: op.id,
-                        entityExists: !!entity,
-                        entityIsAlive: entity?.isAlive(),
-                    },
-                    timestamp: Date.now(),
-                    sessionId: 'debug-session',
-                    hypothesisId: 'C',
-                }),
-            }).catch(() => {});
-            // #endregion
             if (entity && entity.isAlive()) {
                 if (!entity.has(IsTombstoned)) {
                     entity.add(IsTombstoned);

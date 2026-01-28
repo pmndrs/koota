@@ -32,6 +32,8 @@ export const EditingRotation = trait({ durableAngle: 0, targetAngle: 0 });
 export const EditingScale = trait({ durableX: 1, durableY: 1, targetX: 1, targetY: 1 });
 export const EditingColor = trait({ durableFill: '' });
 
+export const EDITING_TRAITS = [EditingPosition, EditingRotation, EditingScale, EditingColor] as const;
+
 // Tracks which users are editing (non-exclusive)
 export const EditedBy = relation();
 

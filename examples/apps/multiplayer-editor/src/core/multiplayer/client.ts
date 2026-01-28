@@ -1,5 +1,5 @@
 import type { World, Entity } from 'koota';
-import { addCommitListener } from './commit-sink';
+import { addCommitListener } from './op-events';
 import type {
     ClientMessage,
     ServerMessage,
@@ -231,7 +231,6 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
             if (entry.editUpdate) {
                 presence.handleRemoteEditUpdate(entry.editUpdate);
             }
-
         }
     }
 
