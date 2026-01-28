@@ -48,10 +48,6 @@ erDiagram
 
   "Presence" ||--o| "Cursor" : cursor
 
-  "Presence" {
-    int[] selection "Stable Shape IDs"
-  }
-
   "Cursor" {
     float x
     float y
@@ -75,14 +71,16 @@ erDiagram
 
 `edited_by` is a **non-exclusive** relationship: multiple users may be editing the same shape at the same time.
 
-#### Edited States
+#### Editing States
 
-Each property has its own edited state representing the durable state in the editing lifecycle. Properties can be edited independently or together. For example, a drag edits position only, while a transform handle might edit rotation and scale simultaneously.
+Each property has its own editing state representing the durable state in the editing lifecycle. Properties can be edited independently or together. For example, a drag edits position only, while a transform handle might edit rotation and scale simultaneously.
 
-- **EditedPosition**: `{ x: float, y: float }`
-- **EditedRotation**: `{ angle: float }`
-- **EditedScale**: `{ x: float, y: float }`
-- **EditedColor**: `{ fill: string }`
+- **EditingPosition**: `{ durableX: float, durableY: float, targetX: float, targetY: float }`
+- **EditingRotation**: `{ durableAngle: float, targetAngle: float }`
+- **EditingScale**: `{ durableX: float, durableY: float, targetX: float, targetY: float }`
+- **EditingColor**: `{ durableFill: string }`
+
+The `target*` fields are used for remote interpolation during drag operations.
 
 #### Data Flow
 
