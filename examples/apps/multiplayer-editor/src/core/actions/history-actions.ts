@@ -3,11 +3,35 @@ import { emitCommit } from '../multiplayer/commit-sink';
 import { applyOp } from '../ops/apply';
 import { invertOp } from '../ops/invert';
 import { captureCurrentState } from '../ops/snapshot';
-import { Color, History, Position, Rotation, Scale, StableId } from '../traits';
-import { OpCode, SEQ_UNASSIGNED, type Op } from '../types';
+import { Color, History, Position, Rotation, Scale, StableId, IsTombstoned } from '../traits';
+import { OpCode, SEQ_UNASSIGNED, type Op, type HistoryEntry } from '../types';
 
 export const historyActions = createActions((world) => {
     const getHistory = () => world.get(History)!;
+
+    // Check if an op targets a non-tombstoned (active) shape
+    const isOpValid = (op: Op): boolean => {
+        const history = getHistory();
+        const entity = history.entities.get(op.id);
+        if (!entity || !entity.isAlive()) return false;
+        // CreateShape/DeleteShape are always valid (they change lifecycle)
+        if (op.op === OpCode.CreateShape || op.op === OpCode.DeleteShape) return true;
+        // Property updates are only valid if shape is active
+        return !entity.has(IsTombstoned);
+    };
+
+    // Check if an entry has any valid ops (at least one op targets an active shape)
+    const isEntryValid = (entry: HistoryEntry): boolean => {
+        return entry.restoreTo.some(isOpValid);
+    };
+
+    // Find the index of the first valid entry from the top of a stack
+    const findFirstValidIndex = (stack: HistoryEntry[]): number => {
+        for (let i = stack.length - 1; i >= 0; i--) {
+            if (isEntryValid(stack[i])) return i;
+        }
+        return -1;
+    };
 
     const pushOp = (op: Op) => {
         const history = getHistory();
@@ -143,8 +167,11 @@ export const historyActions = createActions((world) => {
 
         undo: () => {
             const history = getHistory();
-            const entry = history.undoStack.pop();
-            if (!entry) return;
+            const validIndex = findFirstValidIndex(history.undoStack);
+            if (validIndex === -1) return;
+
+            // Remove the valid entry from the stack
+            const [entry] = history.undoStack.splice(validIndex, 1);
 
             // Capture current state BEFORE applying restoreTo
             // This becomes redo's restoreTo (preserves collaborator edits)
@@ -177,8 +204,11 @@ export const historyActions = createActions((world) => {
 
         redo: () => {
             const history = getHistory();
-            const entry = history.redoStack.pop();
-            if (!entry) return;
+            const validIndex = findFirstValidIndex(history.redoStack);
+            if (validIndex === -1) return;
+
+            // Remove the valid entry from the stack
+            const [entry] = history.redoStack.splice(validIndex, 1);
 
             // Capture current state BEFORE applying restoreTo
             // This becomes undo's restoreTo
@@ -211,12 +241,14 @@ export const historyActions = createActions((world) => {
 
         canUndo: () => {
             const history = world.get(History);
-            return history ? history.undoStack.length > 0 : false;
+            if (!history) return false;
+            return findFirstValidIndex(history.undoStack) !== -1;
         },
 
         canRedo: () => {
             const history = world.get(History);
-            return history ? history.redoStack.length > 0 : false;
+            if (!history) return false;
+            return findFirstValidIndex(history.redoStack) !== -1;
         },
     };
 });

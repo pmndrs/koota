@@ -14,12 +14,12 @@ export function Toolbar() {
     const history = useTrait(world, History);
     const { addShape } = useActions(shapeActions);
     const { deleteSelected } = useActions(selectionActions);
-    const { undo, redo } = useActions(historyActions);
+    const { undo, redo, canUndo, canRedo } = useActions(historyActions);
     const { startEditing, commitEditing, cancelEditing } = useActions(editingActions);
     const selected = useQuery(IsSelected);
 
-    const canUndoValue = history ? history.undoStack.length > 0 : false;
-    const canRedoValue = history ? history.redoStack.length > 0 : false;
+    const canUndoValue = history ? canUndo() : false;
+    const canRedoValue = history ? canRedo() : false;
 
     const hasSelection = selected.length > 0;
 

@@ -1,4 +1,5 @@
 import { useActions, useHas, useQuery, useTrait, useWorld } from 'koota/react';
+import { Not } from 'koota';
 import {
     Dragging,
     IsSelected,
@@ -10,6 +11,7 @@ import {
     IsLocal,
     RemoteSelection,
     ClientId,
+    IsTombstoned,
 } from '../../core/traits';
 import { type Entity } from 'koota';
 import { useCallback } from 'react';
@@ -21,7 +23,7 @@ interface ShapeViewProps {
 }
 
 export function ShapeRenderer() {
-    const shapes = useQuery(Shape);
+    const shapes = useQuery(Shape, Not(IsTombstoned));
 
     return shapes.map((entity) => <ShapeView key={entity.id()} entity={entity} />);
 }

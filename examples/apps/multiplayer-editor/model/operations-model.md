@@ -13,10 +13,10 @@ Operations (ops) are semantic mutations exchanged between client and server. Eac
 
 ### Lifecycle
 
-| Op          | Purpose                                      |
-| ----------- | -------------------------------------------- |
-| CreateShape | Spawn a new shape with initial properties    |
-| DeleteShape | Remove a shape (carries full state for undo) |
+| Op          | Purpose                                                 |
+| ----------- | ------------------------------------------------------- |
+| CreateShape | Spawn or revive a shape with initial properties         |
+| DeleteShape | Tombstone a shape (carries full state for undo/restore) |
 
 ### Property updates
 
@@ -28,3 +28,9 @@ Operations (ops) are semantic mutations exchanged between client and server. Eac
 | UpdateColor    | Change a shape's fill color |
 
 All update ops include previous values to enable inversion.
+
+## Tombstone semantics
+
+- `DeleteShape` does not destroy identity; it marks the shape as deleted (tombstoned).
+- `CreateShape` clears the tombstone and restores properties for the given ID.
+- Ops targeting tombstoned shapes are ignored unless they restore (CreateShape).

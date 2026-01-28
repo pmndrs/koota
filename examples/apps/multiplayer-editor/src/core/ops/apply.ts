@@ -1,7 +1,23 @@
 import type { World } from 'koota';
 import type { Op } from '../types';
 import { OpCode } from '../types';
-import { Shape, Position, Rotation, Scale, Color, History, StableId } from '../traits';
+import {
+    Shape,
+    Position,
+    Rotation,
+    Scale,
+    Color,
+    History,
+    StableId,
+    IsTombstoned,
+    EditingPosition,
+    EditingRotation,
+    EditingScale,
+    EditingColor,
+    EditedBy,
+    IsSelected,
+    Dragging,
+} from '../traits';
 
 export function applyOp(world: World, op: Op): void {
     const history = world.get(History)!;
@@ -22,7 +38,24 @@ export function applyOp(world: World, op: Op): void {
                 }),
             }).catch(() => {});
             // #endregion
-            if (!history.entities.has(op.id)) {
+            const existing = history.entities.get(op.id);
+            if (existing && existing.isAlive()) {
+                if (existing.has(IsTombstoned)) {
+                    existing.remove(IsTombstoned);
+                }
+                if (!existing.has(StableId)) {
+                    existing.add(StableId({ id: op.id }));
+                }
+                if (!existing.has(Shape)) {
+                    existing.add(Shape({ type: op.shape }));
+                } else {
+                    existing.set(Shape, { type: op.shape });
+                }
+                existing.set(Position, { x: op.x, y: op.y });
+                existing.set(Rotation, { angle: op.rotation });
+                existing.set(Scale, { x: op.scaleX, y: op.scaleY });
+                existing.set(Color, { fill: op.color });
+            } else {
                 const entity = world.spawn(
                     StableId({ id: op.id }),
                     Shape({ type: op.shape }),
@@ -58,15 +91,30 @@ export function applyOp(world: World, op: Op): void {
             }).catch(() => {});
             // #endregion
             if (entity && entity.isAlive()) {
-                entity.destroy();
-                history.entities.delete(op.id);
+                if (!entity.has(IsTombstoned)) {
+                    entity.add(IsTombstoned);
+                }
+                entity.remove(IsSelected);
+                entity.remove(Dragging);
+                entity.remove(EditingPosition);
+                entity.remove(EditingRotation);
+                entity.remove(EditingScale);
+                entity.remove(EditingColor);
+                for (const editor of entity.targetsFor(EditedBy)) {
+                    entity.remove(EditedBy(editor));
+                }
             }
             break;
         }
 
         case OpCode.UpdatePosition: {
             const entity = history.entities.get(op.id);
-            if (entity && entity.isAlive() && entity.has(Position)) {
+            if (
+                entity &&
+                entity.isAlive() &&
+                !entity.has(IsTombstoned) &&
+                entity.has(Position)
+            ) {
                 entity.set(Position, { x: op.x, y: op.y });
             }
             break;
@@ -74,7 +122,12 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateRotation: {
             const entity = history.entities.get(op.id);
-            if (entity && entity.isAlive() && entity.has(Rotation)) {
+            if (
+                entity &&
+                entity.isAlive() &&
+                !entity.has(IsTombstoned) &&
+                entity.has(Rotation)
+            ) {
                 entity.set(Rotation, { angle: op.angle });
             }
             break;
@@ -82,7 +135,12 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateScale: {
             const entity = history.entities.get(op.id);
-            if (entity && entity.isAlive() && entity.has(Scale)) {
+            if (
+                entity &&
+                entity.isAlive() &&
+                !entity.has(IsTombstoned) &&
+                entity.has(Scale)
+            ) {
                 entity.set(Scale, { x: op.x, y: op.y });
             }
             break;
@@ -90,7 +148,12 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateColor: {
             const entity = history.entities.get(op.id);
-            if (entity && entity.isAlive() && entity.has(Color)) {
+            if (
+                entity &&
+                entity.isAlive() &&
+                !entity.has(IsTombstoned) &&
+                entity.has(Color)
+            ) {
                 entity.set(Color, { fill: op.fill });
             }
             break;

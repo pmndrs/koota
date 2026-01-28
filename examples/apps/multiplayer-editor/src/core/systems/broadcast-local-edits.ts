@@ -1,5 +1,5 @@
-import { createChanged, type World } from 'koota';
-import { Position, Rotation, Scale, Color, StableId, EditedBy, IsLocal } from '../traits';
+import { createChanged, Not, type World } from 'koota';
+import { Position, Rotation, Scale, Color, StableId, EditedBy, IsLocal, IsTombstoned } from '../traits';
 import { sendEditUpdate } from '../multiplayer/ephemeral';
 
 // Create a Changed modifier instance for tracking trait changes
@@ -12,7 +12,7 @@ function hasLocalEditor(entity: ReturnType<World['query']> extends { readEach: (
 
 export function broadcastLocalEdits(world: World) {
     // Broadcast position changes
-    world.query(EditedBy('*'), StableId, Changed(Position)).readEach(([stableId, pos], entity) => {
+    world.query(EditedBy('*'), StableId, Changed(Position), Not(IsTombstoned)).readEach(([stableId, pos], entity) => {
         if (!hasLocalEditor(entity)) return;
         sendEditUpdate({
             shapeId: stableId.id,
@@ -22,7 +22,7 @@ export function broadcastLocalEdits(world: World) {
     });
 
     // Broadcast rotation changes
-    world.query(EditedBy('*'), StableId, Changed(Rotation)).readEach(([stableId, rot], entity) => {
+    world.query(EditedBy('*'), StableId, Changed(Rotation), Not(IsTombstoned)).readEach(([stableId, rot], entity) => {
         if (!hasLocalEditor(entity)) return;
         sendEditUpdate({
             shapeId: stableId.id,
@@ -31,7 +31,7 @@ export function broadcastLocalEdits(world: World) {
     });
 
     // Broadcast scale changes
-    world.query(EditedBy('*'), StableId, Changed(Scale)).readEach(([stableId, scale], entity) => {
+    world.query(EditedBy('*'), StableId, Changed(Scale), Not(IsTombstoned)).readEach(([stableId, scale], entity) => {
         if (!hasLocalEditor(entity)) return;
         sendEditUpdate({
             shapeId: stableId.id,
@@ -41,7 +41,7 @@ export function broadcastLocalEdits(world: World) {
     });
 
     // Broadcast color changes
-    world.query(EditedBy('*'), StableId, Changed(Color)).readEach(([stableId, color], entity) => {
+    world.query(EditedBy('*'), StableId, Changed(Color), Not(IsTombstoned)).readEach(([stableId, color], entity) => {
         if (!hasLocalEditor(entity)) return;
         sendEditUpdate({
             shapeId: stableId.id,

@@ -1,7 +1,7 @@
 import type { World } from 'koota';
 import type { Op } from '../types';
 import { OpCode } from '../types';
-import { History, Position, Rotation, Scale, Color, Shape } from '../traits';
+import { History, Position, Rotation, Scale, Color, Shape, IsTombstoned } from '../traits';
 
 /**
  * Captures the current state of an entity as an op that would restore to that state.
@@ -17,7 +17,7 @@ export function captureCurrentState(world: World, op: Op): Op | null {
     switch (op.op) {
         case OpCode.CreateShape: {
             // Entity exists -> capture its current state for redo (which would recreate it)
-            if (entity && entity.isAlive()) {
+            if (entity && entity.isAlive() && !entity.has(IsTombstoned)) {
                 const pos = entity.get(Position);
                 const rot = entity.get(Rotation);
                 const scale = entity.get(Scale);
@@ -41,8 +41,27 @@ export function captureCurrentState(world: World, op: Op): Op | null {
         }
 
         case OpCode.DeleteShape: {
-            // Entity doesn't exist -> redo should delete it (need to capture what to delete)
-            // We use the op's stored state since the entity is gone
+            // Entity active -> capture current state, otherwise use stored state
+            if (entity && entity.isAlive() && !entity.has(IsTombstoned)) {
+                const pos = entity.get(Position);
+                const rot = entity.get(Rotation);
+                const scale = entity.get(Scale);
+                const color = entity.get(Color);
+                const shape = entity.get(Shape);
+                if (!pos || !rot || !scale || !color || !shape) return null;
+                return {
+                    op: OpCode.DeleteShape,
+                    id: op.id,
+                    seq: 0,
+                    shape: shape.type,
+                    x: pos.x,
+                    y: pos.y,
+                    rotation: rot.angle,
+                    scaleX: scale.x,
+                    scaleY: scale.y,
+                    color: color.fill,
+                };
+            }
             return {
                 op: OpCode.DeleteShape,
                 id: op.id,
@@ -58,7 +77,7 @@ export function captureCurrentState(world: World, op: Op): Op | null {
         }
 
         case OpCode.UpdatePosition: {
-            if (!entity || !entity.isAlive()) return null;
+            if (!entity || !entity.isAlive() || entity.has(IsTombstoned)) return null;
             const pos = entity.get(Position);
             if (!pos) return null;
             return {
@@ -73,7 +92,7 @@ export function captureCurrentState(world: World, op: Op): Op | null {
         }
 
         case OpCode.UpdateRotation: {
-            if (!entity || !entity.isAlive()) return null;
+            if (!entity || !entity.isAlive() || entity.has(IsTombstoned)) return null;
             const rot = entity.get(Rotation);
             if (!rot) return null;
             return {
@@ -86,7 +105,7 @@ export function captureCurrentState(world: World, op: Op): Op | null {
         }
 
         case OpCode.UpdateScale: {
-            if (!entity || !entity.isAlive()) return null;
+            if (!entity || !entity.isAlive() || entity.has(IsTombstoned)) return null;
             const scale = entity.get(Scale);
             if (!scale) return null;
             return {
@@ -101,7 +120,7 @@ export function captureCurrentState(world: World, op: Op): Op | null {
         }
 
         case OpCode.UpdateColor: {
-            if (!entity || !entity.isAlive()) return null;
+            if (!entity || !entity.isAlive() || entity.has(IsTombstoned)) return null;
             const color = entity.get(Color);
             if (!color) return null;
             return {

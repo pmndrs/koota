@@ -138,6 +138,7 @@ erDiagram
   "Shape" {
     int id "Stable ID, server-authoritative"
     string type "rect | ellipse"
+    string state "active | deleted (tombstoned)"
   }
 
   "Transform" {
@@ -161,3 +162,9 @@ erDiagram
     string fill "hex color"
   }
 ```
+
+### Shape lifecycle
+
+Deleting a shape marks it as `state = deleted` (tombstoned) but preserves its identity and last
+known properties. Systems that operate on visible or interactive shapes should target only
+`state = active` shapes. Undoing a delete clears the tombstone and restores the shape to active.

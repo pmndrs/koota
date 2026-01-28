@@ -1,6 +1,18 @@
 import { createActions, type Entity } from 'koota';
-import { Color, IsSelected, Position, Rotation, Scale, Shape, StableId } from '../traits';
+import {
+    Color,
+    IsSelected,
+    Position,
+    Rotation,
+    Scale,
+    Shape,
+    StableId,
+    IsTombstoned,
+    Dragging,
+    EditedBy,
+} from '../traits';
 import { historyActions } from './history-actions';
+import { editingActions } from './editing-actions';
 import { OpCode, SEQ_UNASSIGNED } from '../types';
 
 export const selectionActions = createActions((world) => {
@@ -8,6 +20,7 @@ export const selectionActions = createActions((world) => {
 
     return {
         selectShape: (entity: Entity, additive = false) => {
+            if (entity.has(IsTombstoned)) return;
             if (additive) {
                 // Shift-click: toggle selection for multi-select
                 if (entity.has(IsSelected)) {
@@ -37,8 +50,10 @@ export const selectionActions = createActions((world) => {
 
         deleteSelected: () => {
             const selected = Array.from(world.query(IsSelected));
+            const editing = editingActions(world);
 
             for (const entity of selected) {
+                if (entity.has(IsTombstoned)) continue;
                 const stableId = entity.get(StableId);
                 const shape = entity.get(Shape);
                 const position = entity.get(Position);
@@ -47,6 +62,7 @@ export const selectionActions = createActions((world) => {
                 const color = entity.get(Color);
 
                 if (stableId && shape && position && rotation && scale && color) {
+                    editing.finishEditing(entity);
                     push({
                         op: OpCode.DeleteShape,
                         id: stableId.id,
@@ -59,7 +75,12 @@ export const selectionActions = createActions((world) => {
                         scaleX: scale.x,
                         scaleY: scale.y,
                     });
-                    entity.destroy();
+                    entity.add(IsTombstoned);
+                    entity.remove(IsSelected);
+                    entity.remove(Dragging);
+                    for (const editor of entity.targetsFor(EditedBy)) {
+                        entity.remove(EditedBy(editor));
+                    }
                 }
             }
             commit();

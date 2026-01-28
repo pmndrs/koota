@@ -23,6 +23,7 @@ export const Position = trait({ x: 0, y: 0 });
 export const Rotation = trait({ angle: 0 }); // degrees
 export const Scale = trait({ x: 1, y: 1 });
 export const Color = trait({ fill: '#4a90d9' });
+export const IsTombstoned = trait(); // Tag
 
 // Editing state - captures durable (last committed op) values
 export const EditingPosition = trait({ durableX: 0, durableY: 0 });

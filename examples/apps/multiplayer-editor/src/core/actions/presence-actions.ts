@@ -16,6 +16,7 @@ import {
     EditingScale,
     EditingColor,
     EditedBy,
+    IsTombstoned,
 } from '../traits';
 import type { EditStart, EditUpdate, EditEnd } from '../multiplayer/protocol';
 import { createRandomUserName } from '../utils/user-name';
@@ -83,7 +84,7 @@ export const presenceActions = createActions((world) => {
             if (!history) return;
 
             const shapeEntity = history.entities.get(data.shapeId);
-            if (!shapeEntity) return;
+            if (!shapeEntity || !shapeEntity.isAlive() || shapeEntity.has(IsTombstoned)) return;
 
             // Add editing traits with durable values
             if (
@@ -129,7 +130,7 @@ export const presenceActions = createActions((world) => {
             if (!history) return;
 
             const shapeEntity = history.entities.get(data.shapeId);
-            if (!shapeEntity) return;
+            if (!shapeEntity || !shapeEntity.isAlive() || shapeEntity.has(IsTombstoned)) return;
 
             // Update traits directly with absolute values
             if (data.x !== undefined && data.y !== undefined) {
@@ -152,7 +153,7 @@ export const presenceActions = createActions((world) => {
             if (!history) return;
 
             const shapeEntity = history.entities.get(data.shapeId);
-            if (!shapeEntity) return;
+            if (!shapeEntity || !shapeEntity.isAlive() || shapeEntity.has(IsTombstoned)) return;
 
             if (!data.committed) {
                 // Restore from durable values
