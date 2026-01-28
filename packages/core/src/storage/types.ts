@@ -5,14 +5,9 @@ import { $typedArray, type TypedField, type TypedArrayConstructor } from '../typ
 // ============================================================================
 
 /**
- * Symbol to identify typed SoA stores that need capacity management
+ * Symbol to identify buffer stores that need capacity management
  */
-export const $typedStore = Symbol('typedStore');
-
-/**
- * Symbol to identify typed AoS (interleaved) stores
- */
-export const $typedAoSStore = Symbol('typedAoSStore');
+export const $bufferStore = Symbol('bufferStore');
 
 // ============================================================================
 // Store Types
@@ -23,7 +18,6 @@ export const $typedAoSStore = Symbol('typedAoSStore');
  * - AoS: Array of instances, one per entity
  * - SoA: Object with arrays, one array per property
  * - Typed SoA: Object with TypedArrays (specific type based on field)
- * - Typed AoS: Interleaved buffer with strided views
  */
 export type Store<T extends Schema = any> = T extends AoSFactory
     ? ReturnType<T>[]
@@ -40,10 +34,9 @@ export type Store<T extends Schema = any> = T extends AoSFactory
  * - 'soa': Struct of Arrays - properties stored in separate JS arrays
  * - 'aos': Array of Structs - instances stored directly in JS array
  * - 'tag': No data storage - empty schema marker
- * - 'typed-soa': Struct of Arrays with TypedArrays (separate arrays per field)
- * - 'typed-aos': Array of Structs with interleaved TypedArray buffer
+ * - 'buffer': Struct of Arrays with TypedArrays (separate arrays per field)
  */
-export type StoreType = 'aos' | 'soa' | 'tag' | 'typed-soa' | 'typed-aos';
+export type StoreType = 'aos' | 'soa' | 'tag' | 'buffer';
 
 /**
  * Schema definition for traits.
@@ -64,19 +57,6 @@ export type Schema =
       }
     | AoSFactory
     | Record<string, never>;
-
-/**
- * Represents a typed field value in a schema (minimal structural type).
- * This is what types.f32(0), types.i32(0), types.i64(0n), etc. return.
- */
-export interface TypedFieldValue {
-    default: number | bigint;
-}
-
-/**
- * Check if a type is a TypedFieldValue
- */
-export type IsTypedFieldValue<T> = T extends { default: number | bigint } ? true : false;
 
 /**
  * Factory function for AoS (Array of Structs) storage.
@@ -134,49 +114,33 @@ export type Norm<T extends Schema> =
           : NormObject<T>;
 
 // ============================================================================
-// Typed Store Interfaces
+// Buffer Store Interfaces
 // ============================================================================
 
 /**
- * Interface for typed SoA stores with capacity management.
+ * Interface for buffer stores with capacity management.
  * Each field is stored in a separate TypedArray.
  */
-export interface TypedSoAStore {
-    [$typedStore]: true;
+export interface BufferStore {
+    [$bufferStore]: true;
     _capacity: number;
     _schema: Record<string, TypedField>;
     _bufferType: BufferType;
     [key: string]: unknown;
 }
 
-/**
- * Interface for typed AoS (interleaved) stores with capacity management.
- * All fields are stored in a single ArrayBuffer with strided access.
- */
-export interface TypedAoSStore {
-    [$typedAoSStore]: true;
-    _capacity: number;
-    _template: Record<string, TypedField>;
-    _buffer: ArrayBuffer | SharedArrayBuffer;
-    _stride: number;
-    _offsets: Record<string, number>;
-    _alignment: number;
-    _bufferType: BufferType;
-    [key: string]: unknown;
-}
-
 // ============================================================================
-// Typed Trait Options
+// Buffer Trait Options
 // ============================================================================
 
 /** Buffer constructor types for typed storage */
 export type BufferType = ArrayBufferConstructor | SharedArrayBufferConstructor;
 
 /**
- * Base options for all typed traits (typed-soa and typed-aos).
+ * Options for buffer traits.
  * Used when schema is a typed SoA object.
  */
-export interface TypedTraitOptions {
+export interface BufferTraitOptions {
     /**
      * Buffer constructor to use for TypedArray backing storage.
      * Use SharedArrayBuffer for multi-threaded scenarios (workers).
@@ -186,35 +150,11 @@ export interface TypedTraitOptions {
 }
 
 /**
- * Options for typed AoS (interleaved) traits.
- * Used when schema is a factory returning typed fields.
- * Extends base options with alignment for GPU/SIMD scenarios.
- */
-export interface TypedAoSTraitOptions extends TypedTraitOptions {
-    /**
-     * Byte alignment for entity stride in interleaved storage.
-     * Useful for SIMD (16-byte) or GPU alignment requirements.
-     * @default 4
-     */
-    alignment?: number;
-}
-
-/**
- * Options for creating typed SoA stores.
+ * Options for creating buffer stores.
  * @internal
  */
-export interface TypedSoAStoreOptions {
+export interface BufferStoreOptions {
     /** Buffer constructor (default: ArrayBuffer) */
     bufferType?: BufferType;
 }
 
-/**
- * Options for creating typed AoS (interleaved) stores.
- * @internal
- */
-export interface TypedAoSStoreOptions {
-    /** Byte alignment for entity stride (default: 4) */
-    alignment?: number;
-    /** Buffer constructor (default: ArrayBuffer) */
-    bufferType?: BufferType;
-}

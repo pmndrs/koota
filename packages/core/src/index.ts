@@ -43,7 +43,7 @@ export { getStore, trait } from './trait/trait';
 export type {
     ConfigurableTrait,
     ExtractIsTag,
-    ExtractRawSchema,
+    ExtractStoreSchema,
     ExtractSchema,
     ExtractStore,
     IsTag,
@@ -61,8 +61,7 @@ export type {
     Schema,
     Store,
     StoreType,
-    TypedAoSTraitOptions,
-    TypedTraitOptions,
+    BufferTraitOptions,
 } from './storage/types';
 export type { TraitType } from './trait/types';
 export { types } from './types';

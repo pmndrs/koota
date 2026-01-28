@@ -15,9 +15,9 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
  * A trait definition.
  *
  * @typeParam TSchema - The normalized schema type (what entity.get() returns)
- * @typeParam TRawSchema - The raw schema type (preserves TypedField for Store typing)
+ * @typeParam TStoreSchema - The schema type preserving TypedField for Store typing
  */
-export type Trait<TSchema extends Schema = any, TRawSchema extends Schema = TSchema> = {
+export type Trait<TSchema extends Schema = any, TStoreSchema extends Schema = TSchema> = {
     /** Public read-only ID for fast array lookups */
     readonly id: number;
     readonly schema: TSchema;
@@ -31,14 +31,12 @@ export type Trait<TSchema extends Schema = any, TRawSchema extends Schema = TSch
         ) => boolean;
         get: (index: number, store: any) => TraitRecord<TSchema>;
         id: number;
-        createStore: () => Store<TRawSchema>;
+        createStore: () => Store<TStoreSchema>;
         /** Reference to parent relation if this trait is owned by a relation */
         relation: Relation<any> | null;
         type: StoreType;
-        /** Template object for typed-aos traits (result of calling the factory once) */
-        template: object | null;
     };
-} & ((params?: TraitValue<TSchema>) => [Trait<TSchema, TRawSchema>, TraitValue<TSchema>]);
+} & ((params?: TraitValue<TSchema>) => [Trait<TSchema, TStoreSchema>, TraitValue<TSchema>]);
 
 export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
 
@@ -84,14 +82,14 @@ export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> =
             ? S
             : never;
 
-/** Extracts the raw schema (TRawSchema) from a Trait - used for Store typing */
-export type ExtractRawSchema<T extends Trait | Relation<Trait> | RelationPair> =
+/** Extracts the store schema (TStoreSchema) from a Trait - used for Store typing */
+export type ExtractStoreSchema<T extends Trait | Relation<Trait> | RelationPair> =
     T extends RelationPair<infer R>
-        ? ExtractRawSchema<R>
+        ? ExtractStoreSchema<R>
         : T extends Relation<infer R>
-          ? ExtractRawSchema<R>
-          : T extends Trait<any, infer R>
-            ? R
+          ? ExtractStoreSchema<R>
+          : T extends Trait<any, infer S>
+            ? S
             : never;
 
 /** Extracts the Store type from a Trait's createStore method */

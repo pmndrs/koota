@@ -2,7 +2,7 @@
 
 ## Summary
 
-Extend `trait()` to support TypedArray storage by detecting typed fields in schemas. The existing SoA/AoS patterns determine the memory layout - typed fields just change the backing storage from JS arrays to TypedArrays.
+Extend `trait()` to support TypedArray storage by detecting typed fields in schemas. Typed fields change the backing storage from JS arrays to TypedArrays.
 
 ```typescript
 import { trait, types } from 'koota'
@@ -10,16 +10,11 @@ import { trait, types } from 'koota'
 // SoA with JS arrays (current)
 const Position = trait({ x: 0, y: 0 })
 
-// SoA with TypedArrays (separate arrays)
+// Buffer storage with TypedArrays (separate arrays per field)
 const Position = trait({ x: types.f32(0), y: types.f32(0) })
 
 // AoS with JS objects (current)
 const Mesh = trait(() => new THREE.Mesh())
-
-// AoS with interleaved TypedArray (one buffer, optional alignment)
-const Position = trait(() => ({ x: types.f32(0), y: types.f32(0), z: types.f32(0) }), {
-  alignment: 16,
-})
 ```
 
 **No new patterns. The schema structure determines layout (SoA vs AoS). Typed fields determine storage (JS vs TypedArray).**
@@ -31,14 +26,13 @@ Koota already has two layout patterns:
 - **SoA (object schema)**: Each field stored in separate array
 - **AoS (function schema)**: One instance per entity in single array
 
-We extend both to support TypedArrays by detecting `types.f32()` etc. in the schema:
+We extend SoA to support TypedArrays by detecting `types.f32()` etc. in the schema:
 
-| Schema                        | Layout | Storage                 |
-| ----------------------------- | ------ | ----------------------- |
-| `{ x: 0 }`                    | SoA    | JS arrays               |
-| `{ x: types.f32(0) }`         | SoA    | TypedArrays             |
-| `() => new Thing()`           | AoS    | JS array of instances   |
-| `() => ({ x: types.f32(0) })` | AoS    | Interleaved ArrayBuffer |
+| Schema                | Layout  | Storage               |
+| --------------------- | ------- | --------------------- |
+| `{ x: 0 }`            | SoA     | JS arrays             |
+| `{ x: types.f32(0) }` | Buffer  | TypedArrays           |
+| `() => new Thing()`   | AoS     | JS array of instances |
 
 ## Design
 
@@ -93,15 +87,9 @@ function createTrait(schema, options?) {
   const isAoS = typeof schema === 'function'
   const isTag = !isAoS && Object.keys(schema).length === 0
 
-  if (isAoS) {
-    // Call once to inspect the template
-    const template = schema()
-    const isTypedAoS = isTypedFieldObject(template)
-    // typed-aos = interleaved buffer
-    // aos = array of instances
-  } else if (!isTag) {
-    const isTypedSoA = isTypedSchema(schema)
-    // typed-soa = separate TypedArrays
+  if (!isTag && !isAoS) {
+    const isBuffer = isTypedSchema(schema)
+    // buffer = separate TypedArrays
     // soa = separate JS arrays
   }
 }
@@ -114,29 +102,22 @@ function isTypedSchema(schema: object): boolean {
   const values = Object.values(schema)
   return values.length > 0 && values.every(isTypedField)
 }
-
-function isTypedFieldObject(obj: unknown): boolean {
-  if (typeof obj !== 'object' || obj === null) return false
-  const values = Object.values(obj)
-  return values.length > 0 && values.every(isTypedField)
-}
 ```
 
 ### Storage Types
 
-| Type        | Schema                        | Store                 | Memory Layout           |
-| ----------- | ----------------------------- | --------------------- | ----------------------- |
-| `tag`       | `{}`                          | none                  | none                    |
-| `soa`       | `{ x: 0 }`                    | `{ x: number[] }`     | `x:[0,1,2] y:[0,1,2]`   |
-| `typed-soa` | `{ x: types.f32(0) }`         | `{ x: Float32Array }` | `x:[0,1,2] y:[0,1,2]`   |
-| `aos`       | `() => T`                     | `T[]`                 | `[inst0, inst1, inst2]` |
-| `typed-aos` | `() => ({ x: types.f32(0) })` | `ArrayBuffer`         | `[x0,y0, x1,y1, x2,y2]` |
+| Type     | Schema                | Store                 | Memory Layout           |
+| -------- | --------------------- | --------------------- | ----------------------- |
+| `tag`    | `{}`                  | none                  | none                    |
+| `soa`    | `{ x: 0 }`            | `{ x: number[] }`     | `x:[0,1,2] y:[0,1,2]`   |
+| `buffer` | `{ x: types.f32(0) }` | `{ x: Float32Array }` | `x:[0,1,2] y:[0,1,2]`   |
+| `aos`    | `() => T`             | `T[]`                 | `[inst0, inst1, inst2]` |
 
 ### Store Creation
 
 ```typescript
-// SoA (typed) - no options, grows automatically
-function createTypedSoAStore(schema) {
+// Buffer storage - no options, grows automatically
+function createBufferStore(schema) {
   const store = {}
   for (const key in schema) {
     const field = schema[key]
@@ -144,37 +125,11 @@ function createTypedSoAStore(schema) {
   }
   return store
 }
-
-// AoS (typed/interleaved) - alignment option only
-function createTypedAoSStore(template, options = {}) {
-  const { alignment = 4 } = options
-  const fields = Object.entries(template)
-
-  // Calculate stride with alignment
-  let stride = 0
-  const offsets = {}
-  for (const [name, field] of fields) {
-    offsets[name] = stride
-    stride += field[$typedArray].BYTES_PER_ELEMENT
-  }
-  stride = align(stride, alignment)
-
-  // Allocate buffer (starts empty, grows automatically)
-  const buffer = new ArrayBuffer(0)
-
-  // Create strided views for each field
-  const store = { buffer, stride, capacity: 0 }
-  for (const [name, field] of fields) {
-    store[name] = createStridedView(buffer, offsets[name], stride, 0, field[$typedArray])
-  }
-
-  return store
-}
 ```
 
 ## API Examples
 
-### SoA with TypedArrays
+### Buffer Storage with TypedArrays
 
 ```typescript
 const Position = trait({ x: types.f32(0), y: types.f32(0) })
@@ -196,57 +151,92 @@ for (const eid of world.query(Position)) {
 }
 ```
 
-### AoS Interleaved (for GPU)
+### Buffer vs SoA Comparison
 
 ```typescript
-const Position = trait(
-  () => ({
-    x: types.f32(0),
-    y: types.f32(0),
-    z: types.f32(0),
-  }),
-  { alignment: 16 }
-)
+// SoA - good for general ECS with JS flexibility
+const Position = trait({ x: 0, y: 0 })
+// Memory: x:[x0,x1,x2,...] y:[y0,y1,y2,...] (JS arrays)
 
-// Usage identical to regular traits
-const entity = world.spawn(Position({ x: 100, y: 200, z: 300 }))
-entity.get(Position) // { x: 100, y: 200, z: 300 }
-
-// Store has interleaved buffer
-const store = getStore(world, Position)
-// store.buffer = ArrayBuffer [x0,y0,z0, x1,y1,z1, ...]
-// store.stride = 16 (aligned)
-// store.x[eid], store.y[eid], store.z[eid] = strided views
-
-// Zero-copy GPU upload
-device.queue.writeBuffer(gpuBuffer, 0, store.buffer)
-```
-
-### Comparison
-
-```typescript
-// SoA typed - good for CPU iteration over single field
+// Buffer - good for CPU iteration with TypedArrays
 const Position = trait({ x: types.f32(0), y: types.f32(0) })
-// Memory: x:[x0,x1,x2,...] y:[y0,y1,y2,...]
-
-// AoS typed - good for GPU upload (interleaved)
-const Position = trait(() => ({ x: types.f32(0), y: types.f32(0) }))
-// Memory: [x0,y0, x1,y1, x2,y2, ...]
+// Memory: x:[x0,x1,x2,...] y:[y0,y1,y2,...] (TypedArrays)
 ```
 
-### With Alignment
+### Why `bufferType` is Trait-Level (Not Field-Level)
+
+The `bufferType` option applies to ALL fields in a trait, not individual fields. This is intentional.
+
+**SharedArrayBuffer's purpose** is to enable memory sharing between the main thread and Web Workers for parallel processing. In an ECS context, if you're parallelizing a physics system:
 
 ```typescript
-// Alignment for GPU-friendly layout
-const Position = trait(
-  () => ({
-    x: types.f32(0),
-    y: types.f32(0),
-    z: types.f32(0),
-  }),
-  { alignment: 16 }
-) // SIMD-friendly stride
+// All fields use SharedArrayBuffer - worker can access entire trait
+const Position = trait({ x: types.f32(0), y: types.f32(0) }, {
+  bufferType: SharedArrayBuffer
+});
 ```
+
+If `x` used `SharedArrayBuffer` but `y` used `ArrayBuffer`, workers could only access half the data - breaking the parallel processing use case.
+
+**The unit of parallelism in an ECS is the trait**, not individual fields. When a worker processes Position data, it needs all fields (`x`, `y`, `z`), not a subset.
+
+**If fields have different sharing requirements, use separate traits:**
+
+```typescript
+// Shared with workers for parallel simulation
+const Position = trait({ x: types.f32(0), y: types.f32(0) }, {
+  bufferType: SharedArrayBuffer
+});
+
+// Main thread only - not needed by simulation workers
+const RenderHint = trait({ opacity: types.f32(1), layer: types.u8(0) });
+```
+
+This keeps the mental model simple: a trait is either worker-compatible or it isn't.
+
+### SharedArrayBuffer Availability
+
+`SharedArrayBuffer` may not be available in all environments:
+
+**Browser:** Requires Cross-Origin Isolation headers (`Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: require-corp`). Without these, `SharedArrayBuffer` is `undefined`.
+
+**Node.js:** Generally available without restrictions.
+
+**No automatic fallback:** Koota does NOT fall back to `ArrayBuffer` if `SharedArrayBuffer` is unavailable. If you pass `{ bufferType: SharedArrayBuffer }` and `SharedArrayBuffer` is `undefined` in your environment, Koota throws an error at trait creation time:
+
+```
+Koota: Invalid bufferType option. SharedArrayBuffer may not be available in this environment.
+Check availability with: typeof SharedArrayBuffer !== "undefined"
+```
+
+This is intentional - silently falling back would cause worker code to read stale data, which is extremely difficult to debug.
+
+**Designing for optional SAB support:**
+
+If your application needs to work with or without `SharedArrayBuffer`, design your trait creation to be conditional:
+
+```typescript
+// Define schemas separately from buffer options
+const positionSchema = { x: types.f32(0), y: types.f32(0), z: types.f32(0) };
+const velocitySchema = { vx: types.f32(0), vy: types.f32(0), vz: types.f32(0) };
+
+// Check if SharedArrayBuffer is available
+const bufferType = typeof SharedArrayBuffer !== 'undefined' ? SharedArrayBuffer : ArrayBuffer;
+
+// Create traits with conditional buffer type
+const Position = trait(positionSchema, { bufferType });
+const Velocity = trait(velocitySchema, { bufferType });
+
+// Your system logic works either way - just runs single-threaded without SAB
+function physicsSystem(world: World) {
+  // Same code regardless of buffer type
+  for (const entity of world.query(Position, Velocity)) {
+    // ...
+  }
+}
+```
+
+This approach keeps your ECS logic unchanged - you just lose the multi-threading speedup when SAB is unavailable.
 
 ## Type Inference
 
@@ -271,16 +261,9 @@ type InferRecord<T> = {
   [K in keyof T]: T[K] extends TypedField<infer C> ? ElementType<C> : T[K]
 }
 
-// Store type for SoA typed
-type InferTypedSoAStore<T> = {
+// Store type for buffer storage
+type InferBufferStore<T> = {
   [K in keyof T]: T[K] extends TypedField<infer C> ? InstanceType<C> : never
-}
-
-// Store type for AoS typed (interleaved)
-interface TypedAoSStore<T> {
-  buffer: ArrayBuffer
-  stride: number
-  // Plus strided views for each field
 }
 ```
 
@@ -290,44 +273,36 @@ interface TypedAoSStore<T> {
 
 1. Create `$typedArray` symbol
 2. Implement `types.f32`, `types.f64`, `types.i8`, etc.
-3. Implement `isTypedField()`, `isTypedSchema()`, `isTypedFieldObject()`
+3. Implement `isTypedField()`, `isTypedSchema()`
 4. Export `types` from main index
 
-### Phase 2: SoA Typed Storage
+### Phase 2: Buffer Storage
 
-1. Extend `StoreType` to include `'typed-soa'`
+1. Extend `StoreType` to include `'buffer'`
 2. Update `createStore()` to handle typed fields
 3. Create TypedArrays (grow automatically like regular traits)
 4. Fill with default values on growth
 
-### Phase 3: AoS Typed Storage (Interleaved)
-
-1. Add `'typed-aos'` store type
-2. Implement `createTypedAoSStore()` with interleaved buffer
-3. Create strided views for field access
-4. Handle alignment options
-
-### Phase 4: Trait Integration
+### Phase 3: Trait Integration
 
 1. Update `createTrait()` to detect typed schemas
-2. Add `InterleavedTraitOptions` type with alignment (AoS only)
+2. Add `BufferTraitOptions` type with bufferType option
 3. Pass options through to store creation
 4. Update accessor functions if needed
 
-### Phase 5: Type Inference
+### Phase 4: Type Inference
 
 1. Extend `Schema` type to include TypedField
 2. Update `TraitRecord` inference
 3. Update `Store` type inference
 4. Ensure getStore() returns correct types
 
-### Phase 6: Growth
+### Phase 5: Growth
 
 1. Automatic growth when entity ID exceeds capacity (double, like all koota arrays)
-2. SoA typed: Create new larger TypedArrays, copy data
-3. AoS typed: Create new larger buffer, copy data, recreate strided views
+2. Buffer: Create new larger TypedArrays, copy data
 
-### Phase 7: Cleanup
+### Phase 6: Cleanup
 
 1. Deprecate `typedTrait()` and `interleavedTrait()`
 2. Update docs and examples
@@ -350,187 +325,78 @@ packages/core/src/
 └── index.ts            # Export types
 ```
 
-## Capacity, Growth, and Alignment
+## Capacity and Growth
 
-### SoA vs AoS: Different Needs
+### Buffer Storage
 
-**SoA Typed** (`trait({ x: types.f32(0), y: types.f32(0) })`)
+**Buffer** (`trait({ x: types.f32(0), y: types.f32(0) })`)
 
 - Creates multiple **separate, contiguous** TypedArrays
 - Each array is naturally aligned (Float32Array = 4-byte aligned elements)
 - No stride concept - elements are packed
-- **No options needed** - grows automatically like regular traits
+- **Grows automatically** like regular traits (double capacity when exceeded)
+- Optional `bufferType` for SharedArrayBuffer (worker scenarios)
 
-**AoS Typed** (`trait(() => ({ x: types.f32(0), y: types.f32(0) }))`)
-
-- Creates one **interleaved** ArrayBuffer
-- Stride alignment matters for GPU/SIMD
-- Capacity matters for fixed GPU buffers
-- **Options make sense** - user controls buffer characteristics
-
-### Why This Split?
-
-`alignment` only makes sense for interleaved memory (AoS). In SoA:
-
-- Each TypedArray is already element-aligned
-- No stride to pad
-- GPU uploads separate vertex buffers with their own layout descriptors
-
-Growth is automatic for both (double capacity when exceeded, like all koota arrays). The only option is `alignment` for AoS interleaved - and only when you need it for GPU/SIMD.
-
-### AoS Options (Interleaved Only)
+### Buffer Options
 
 ```typescript
-interface InterleavedTraitOptions {
-  /** Byte alignment for entity stride (default: 4) */
-  alignment?: number
+interface BufferTraitOptions {
+  /** Buffer constructor (default: ArrayBuffer) */
+  bufferType?: ArrayBufferConstructor | SharedArrayBufferConstructor
 }
 ```
-
-That's it. Growth is automatic (double capacity when exceeded, like everything else in koota). No capacity, maxCapacity, or growth options needed - just align the stride for GPU/SIMD when required.
 
 ### API Examples
 
 ```typescript
-// SoA typed - no options, just works
+// Buffer storage - no options needed, just works
 const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
 
-// AoS interleaved - alignment for GPU/SIMD
-const Position = trait(
-  () => ({
-    x: types.f32(0),
-    y: types.f32(0),
-    z: types.f32(0),
-  }),
-  { alignment: 16 }
-)
-
-// No alignment needed? No options needed.
-const SimpleInterleaved = trait(() => ({
-  a: types.f32(0),
-  b: types.f32(0),
-}))
-```
-
-### Explicit Padding
-
-For GPU shaders requiring specific field alignments, add padding fields explicitly:
-
-```typescript
-// vec3 with padding for 16-byte alignment (GPU-friendly)
-const Position = trait(
-  () => ({
-    x: types.f32(0),
-    y: types.f32(0),
-    z: types.f32(0),
-    _pad: types.f32(0), // Explicit padding for vec4
-  }),
-  { alignment: 16 }
-)
-
-// mat4 components (64 bytes per entity)
-const Transform = trait(
-  () => ({
-    m00: types.f32(1),
-    m01: types.f32(0),
-    m02: types.f32(0),
-    m03: types.f32(0),
-    m10: types.f32(0),
-    m11: types.f32(1),
-    m12: types.f32(0),
-    m13: types.f32(0),
-    m20: types.f32(0),
-    m21: types.f32(0),
-    m22: types.f32(1),
-    m23: types.f32(0),
-    m30: types.f32(0),
-    m31: types.f32(0),
-    m32: types.f32(0),
-    m33: types.f32(1),
-  }),
-  { alignment: 16 }
-)
+// Buffer storage with SharedArrayBuffer for workers
+const Position = trait({ x: types.f32(0), y: types.f32(0) }, { bufferType: SharedArrayBuffer })
 ```
 
 ### Implementation
 
 ```typescript
-// SoA typed - no options, grows like regular traits
-function createTypedSoAStore(schema) {
+// Buffer storage - grows like regular traits
+function createBufferStore(schema, options = {}) {
+  const { bufferType = ArrayBuffer } = options
   const store = {}
   for (const key in schema) {
     const field = schema[key]
-    const arr = new field[$typedArray](0) // Start empty, grow as needed
-    store[key] = arr
+    const buffer = new bufferType(INITIAL_CAPACITY * field[$typedArray].BYTES_PER_ELEMENT)
+    store[key] = new field[$typedArray](buffer)
   }
-  return store
-}
-
-// AoS typed - alignment option only
-function createTypedAoSStore(template, options: InterleavedTraitOptions = {}) {
-  const { alignment = 4 } = options
-  const fields = Object.entries(template)
-
-  // Calculate offsets (field order = memory order)
-  let offset = 0
-  const offsets: Record<string, number> = {}
-  for (const [name, field] of fields) {
-    offsets[name] = offset
-    offset += field[$typedArray].BYTES_PER_ELEMENT
-  }
-
-  // Align stride to boundary
-  const stride = Math.ceil(offset / alignment) * alignment
-
-  // Allocate buffer (starts small, grows automatically like everything else)
-  const capacity = 0
-  const buffer = new ArrayBuffer(stride * capacity)
-
-  // Create strided views
-  const store = { buffer, stride, capacity }
-  for (const [name, field] of fields) {
-    store[name] = createStridedView(buffer, offsets[name], stride, capacity, field[$typedArray])
-  }
-
   return store
 }
 
 // Growth: automatic, doubles capacity when needed (like all koota arrays)
-function growTypedAoSStore(store, template, newCapacity, alignment) {
-  const newBuffer = new ArrayBuffer(store.stride * newCapacity)
-  new Uint8Array(newBuffer).set(new Uint8Array(store.buffer)) // Copy existing data
-
-  store.buffer = newBuffer
-  store.capacity = newCapacity
-
-  // Recreate strided views
-  let offset = 0
-  for (const [name, field] of Object.entries(template)) {
-    store[name] = createStridedView(newBuffer, offset, store.stride, newCapacity, field[$typedArray])
-    offset += field[$typedArray].BYTES_PER_ELEMENT
+function growBufferStore(store, minCapacity) {
+  let newCapacity = store._capacity
+  while (newCapacity < minCapacity) {
+    newCapacity = Math.ceil(newCapacity * GROWTH_FACTOR)
   }
+  // Create new larger TypedArrays, copy data
 }
 ```
 
 ### When to Use What
 
-| Use Case                         | Pattern               | Why                                     |
-| -------------------------------- | --------------------- | --------------------------------------- |
-| General ECS with TypedArrays     | SoA typed             | Simple, cache-friendly per-field access |
-| GPU instancing / SIMD            | AoS typed + alignment | Single buffer, stride-aligned           |
-| CPU-heavy single-field iteration | SoA typed             | Contiguous memory per field             |
+| Use Case                         | Pattern | Why                                     |
+| -------------------------------- | ------- | --------------------------------------- |
+| General ECS with JS flexibility  | SoA     | Standard JS arrays                      |
+| General ECS with TypedArrays     | Buffer  | Simple, cache-friendly per-field access |
+| CPU-heavy single-field iteration | Buffer  | Contiguous memory per field             |
+| Multi-threaded with workers      | Buffer  | SharedArrayBuffer support               |
 
 ## Open Questions
 
 1. **Mixed schemas**: Allow `{ x: types.f32(0), y: 0 }` or reject?
-   - **Recommendation**: Reject. All fields should be same storage type.
-
-2. **Mixed AoS**: Allow `() => ({ x: types.f32(0), y: new Thing() })`?
-   - **Recommendation**: Reject. All fields should be typed or none.
+   - **Decision**: Reject. All fields should be same storage type. Mixed schemas fall back to SoA.
 
 ## References
 
-- Trait detection: `packages/core/src/trait/trait.ts:55-57`
+- Trait detection: `packages/core/src/trait/trait.ts`
 - Store creation: `packages/core/src/storage/stores.ts`
-- Current typedTrait: `packages/core/src/typed/typed-trait.ts`
-- Current interleavedTrait: `packages/core/src/layout/interleaved-trait.ts`
+- Type helpers: `packages/core/src/types/index.ts`

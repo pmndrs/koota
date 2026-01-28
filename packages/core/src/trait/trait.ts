@@ -27,29 +27,19 @@ import {
     createGetFunction,
     createSetFunction,
     createStore,
-    createTypedSoAStore,
+    createBufferStore,
     getSchemaDefaults,
     Norm,
     Schema,
     StoreType,
     validateSchema,
-    isTypedStore,
-    ensureTypedStoreCapacity,
-    isTypedAoSStore,
-    ensureTypedAoSStoreCapacity,
-    createTypedAoSStore,
-    type TypedAoSStoreOptions,
-    type TypedSoAStoreOptions,
-    type TypedTraitOptions,
-    type TypedAoSTraitOptions,
+    validateBufferOptions,
+    isBufferStore,
+    ensureBufferCapacity,
+    type BufferStoreOptions,
+    type BufferTraitOptions,
 } from '../storage';
-import {
-    isTypedFieldObject,
-    isTypedSchema,
-    type TypedField,
-    type IsTypedAoSFactory,
-    type TypedSchema,
-} from '../types';
+import { isTypedSchema, type TypedField, type TypedSchema } from '../types';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -66,78 +56,49 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-/** Schema type for typed AoS factories (returns all TypedField values) */
-type TypedAoSSchema = () => Record<string, TypedField>;
-
 // Overload 1: Tag trait (no schema or empty object)
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-// Overload 2: Typed AoS factory - TypedAoSTraitOptions (bufferType + alignment)
-function createTrait<S extends TypedAoSSchema>(
-    schema: S,
-    options?: TypedAoSTraitOptions
-): Trait<Norm<S>, S>;
-// Overload 3: Typed SoA schema - TypedTraitOptions (bufferType only)
+// Overload 2: Buffer schema - BufferTraitOptions (bufferType only)
 function createTrait<S extends TypedSchema>(
     schema: S,
-    options?: TypedTraitOptions
+    options?: BufferTraitOptions
 ): Trait<Norm<S>, S>;
-// Overload 4: Any other valid schema - no options parameter
+// Overload 3: Any other valid schema - no options parameter
 function createTrait<S extends Schema>(schema: S): Trait<Norm<S>, S>;
 
 function createTrait<S extends Schema>(
     schema: S = tagSchema as S,
-    options: TypedAoSTraitOptions = {}
+    options: BufferTraitOptions = {}
 ): Trait<Norm<S>, S> {
     const isAoS = typeof schema === 'function';
     const isTag = !isAoS && Object.keys(schema).length === 0;
 
     // Determine storage type based on schema structure
     let traitType: StoreType;
-    let template: Record<string, TypedField> | null = null;
 
     if (isTag) {
         traitType = 'tag';
     } else if (isAoS) {
-        // Call once to inspect the template for typed fields
-        const inspected = (schema as () => object)();
-        if (isTypedFieldObject(inspected)) {
-            template = inspected as Record<string, TypedField>;
-            traitType = 'typed-aos';
-        } else {
-            // Store template for regular AoS too (useful for inspection)
-            template = inspected as Record<string, TypedField>;
-            traitType = 'aos';
-        }
+        traitType = 'aos';
     } else {
-        traitType = isTypedSchema(schema as object) ? 'typed-soa' : 'soa';
+        traitType = isTypedSchema(schema as object) ? 'buffer' : 'soa';
     }
 
     validateSchema(schema);
 
     // For accessor functions:
-    // - typed-soa uses soa accessors (same store.field[index] pattern works with TypedArrays)
-    // - typed-aos uses soa accessors with the template (strided views support store.field[index])
+    // - buffer uses soa accessors (same store.field[index] pattern works with TypedArrays)
     // - regular aos uses aos accessors (store[index] = value pattern)
-    const accessorType: 'aos' | 'soa' | 'tag' =
-        traitType === 'typed-soa' || traitType === 'typed-aos' ? 'soa' : traitType;
-
-    // For typed-aos, use the template for accessor generation (schema is a function)
-    // For typed-soa and regular soa, use the schema directly
-    const accessorSchema = traitType === 'typed-aos' ? template : schema;
+    const accessorType: 'aos' | 'soa' | 'tag' = traitType === 'buffer' ? 'soa' : traitType;
 
     // Create the appropriate store factory
     let storeFactory: () => unknown;
-    if (traitType === 'typed-aos' && template) {
-        // For typed-aos, create interleaved store with template and options
-        const storeOptions: TypedAoSStoreOptions = {
-            alignment: options.alignment,
-            bufferType: options.bufferType,
-        };
-        storeFactory = () => createTypedAoSStore(template!, storeOptions);
-    } else if (traitType === 'typed-soa') {
-        // For typed-soa, create SoA store with bufferType option
-        const storeOptions: TypedSoAStoreOptions = { bufferType: options.bufferType };
-        storeFactory = () => createTypedSoAStore(schema as Record<string, TypedField>, storeOptions);
+    if (traitType === 'buffer') {
+        // Validate bufferType option (catches undefined SharedArrayBuffer early)
+        validateBufferOptions(options);
+        // For buffer storage, create buffer store with bufferType option
+        const storeOptions: BufferStoreOptions = { bufferType: options.bufferType };
+        storeFactory = () => createBufferStore(schema as Record<string, TypedField>, storeOptions);
     } else {
         storeFactory = () => createStore<S>(schema);
     }
@@ -146,17 +107,13 @@ function createTrait<S extends Schema>(
     const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
         [$internal]: {
             id: id,
-            set: createSetFunction[accessorType](accessorSchema as Schema),
-            fastSet: createFastSetFunction[accessorType](accessorSchema as Schema),
-            fastSetWithChangeDetection: createFastSetChangeFunction[accessorType](
-                accessorSchema as Schema
-            ),
-            get: createGetFunction[accessorType](accessorSchema as Schema),
+            set: createSetFunction[accessorType](schema as Schema),
+            fastSet: createFastSetFunction[accessorType](schema as Schema),
+            fastSetWithChangeDetection: createFastSetChangeFunction[accessorType](schema as Schema),
+            get: createGetFunction[accessorType](schema as Schema),
             createStore: storeFactory,
             relation: null,
             type: traitType,
-            // Store template for typed-aos (needed for store creation)
-            template: template,
         },
     }) as Trait<Norm<S>, S>;
 
@@ -514,11 +471,9 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     const store = getStore(world, trait);
     const index = getEntityId(entity);
 
-    // Ensure typed stores have enough capacity for this entity
-    if (isTypedStore(store)) {
-        ensureTypedStoreCapacity(store, index);
-    } else if (isTypedAoSStore(store)) {
-        ensureTypedAoSStoreCapacity(store, index);
+    // Ensure buffer stores have enough capacity for this entity
+    if (isBufferStore(store)) {
+        ensureBufferCapacity(store, index);
     }
 
     // A short circuit is more performance than an if statement which creates a new code statement.

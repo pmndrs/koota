@@ -1,13 +1,9 @@
 export {
     createStore,
-    createTypedSoAStore,
-    isTypedStore,
-    growTypedSoAStore,
-    ensureTypedStoreCapacity,
-    isTypedAoSStore,
-    createTypedAoSStore,
-    growTypedAoSStore,
-    ensureTypedAoSStoreCapacity,
+    createBufferStore,
+    isBufferStore,
+    growBufferStore,
+    ensureBufferCapacity,
 } from './stores';
 export {
     createSetFunction,
@@ -16,20 +12,17 @@ export {
     createGetFunction,
 } from './accessors';
 
-export { validateSchema, getSchemaDefaults } from './schema';
+export { validateSchema, validateBufferOptions, getSchemaDefaults } from './schema';
 
-export { $typedStore, $typedAoSStore } from './types';
+export { $bufferStore } from './types';
 export type {
     Store,
     StoreType,
     Schema,
     AoSFactory,
     Norm,
-    TypedSoAStore,
-    TypedAoSStore,
-    TypedSoAStoreOptions,
-    TypedAoSStoreOptions,
-    TypedTraitOptions,
-    TypedAoSTraitOptions,
+    BufferStore,
+    BufferStoreOptions,
+    BufferTraitOptions,
     BufferType,
 } from './types';

@@ -1,5 +1,5 @@
 import { isTypedField } from '../types';
-import type { Schema, StoreType } from './types';
+import type { BufferStoreOptions, Schema, StoreType } from './types';
 
 /**
  * Get default values from a schema.
@@ -13,20 +13,6 @@ import type { Schema, StoreType } from './types';
         return typeof schema === 'function' ? (schema() as Record<string, any>) : null;
     }
 
-    // For typed-aos, the template is passed directly (not as a function)
-    // and we need to extract defaults from TypedField objects
-    if (type === 'typed-aos') {
-        if (!schema || typeof schema === 'function' || Object.keys(schema).length === 0) return null;
-        const defaults: Record<string, any> = {};
-        for (const key in schema) {
-            const field = schema[key];
-            if (isTypedField(field)) {
-                defaults[key] = field.default;
-            }
-        }
-        return defaults;
-    }
-
     if (!schema || typeof schema === 'function' || Object.keys(schema).length === 0) return null;
 
     const defaults: Record<string, any> = {};
@@ -34,7 +20,7 @@ import type { Schema, StoreType } from './types';
         if (typeof schema[key] === 'function') {
             defaults[key] = schema[key]();
         } else if (isTypedField(schema[key])) {
-            // For typed-soa, extract default from TypedField
+            // For buffer storage, extract default from TypedField
             defaults[key] = schema[key].default;
         } else {
             defaults[key] = schema[key];
@@ -53,5 +39,19 @@ export /* @inline @pure */ function validateSchema(schema: Schema) {
             const kind = Array.isArray(value) ? 'array' : 'object';
             throw new Error(`Koota: ${key} is an ${kind}, which is not supported in traits.`);
         }
+    }
+}
+
+/**
+ * Validate buffer trait options.
+ * Throws if bufferType was explicitly provided but is not a valid constructor
+ * (e.g., SharedArrayBuffer is undefined in this environment).
+ */
+export function validateBufferOptions(options: BufferStoreOptions): void {
+    if ('bufferType' in options && typeof options.bufferType !== 'function') {
+        throw new Error(
+            'Koota: Invalid bufferType option. SharedArrayBuffer may not be available in this environment. ' +
+                'Check availability with: typeof SharedArrayBuffer !== "undefined"'
+        );
     }
 }

@@ -11,13 +11,6 @@
  *
  * // SoA with TypedArrays (separate arrays per field)
  * const Position = trait({ x: types.f32(0), y: types.f32(0) })
- *
- * // AoS with interleaved TypedArray (one buffer, GPU-friendly)
- * const Position = trait(() => ({
- *   x: types.f32(0),
- *   y: types.f32(0),
- *   z: types.f32(0),
- * }), { alignment: 16 })
  * ```
  */
 
@@ -70,34 +63,17 @@ export type ElementType<T extends TypedArrayConstructor> = T extends
       ? number
       : never;
 
-/** Schema where all fields are typed (for typed-soa) */
+/** Schema where all fields are typed (for buffer storage) */
 export type TypedSchema = {
     [key: string]: TypedField;
 };
-
-/**
- * Check if an object type has all TypedField values.
- * Used to detect typed-aos factories at the type level.
- */
-export type IsAllTypedFields<T> = T extends object
-    ? keyof T extends never
-        ? false // Empty object is not typed
-        : [T[keyof T]] extends [TypedField]
-          ? true
-          : false
-    : false;
-
-/**
- * Check if a factory function returns all typed fields (typed-aos detection).
- */
-export type IsTypedAoSFactory<T> = T extends () => infer R ? IsAllTypedFields<R> : false;
 
 /** Convert a typed schema to its record type (what entity.get() returns) */
 export type TypedSchemaRecord<T extends TypedSchema> = {
     [K in keyof T]: T[K] extends TypedField<infer C> ? ElementType<C> : never;
 };
 
-/** Convert a typed schema to its store type (what getStore() returns for typed-soa) */
+/** Convert a typed schema to its store type (what getStore() returns for buffer storage) */
 export type TypedSchemaStore<T extends TypedSchema> = {
     [K in keyof T]: T[K] extends TypedField<infer C> ? InstanceType<C> : never;
 };
@@ -177,22 +153,11 @@ export function isTypedField(value: unknown): value is TypedField {
 }
 
 /**
- * Checks if a schema object contains only typed fields (for typed-soa detection).
+ * Checks if a schema object contains only typed fields (for buffer storage detection).
  * Returns false for empty schemas (those are tags).
  */
 export function isTypedSchema(schema: object): schema is TypedSchema {
     const values = Object.values(schema);
-    return values.length > 0 && values.every(isTypedField);
-}
-
-/**
- * Checks if an object (typically from an AoS factory) contains only typed fields
- * (for typed-aos/interleaved detection).
- * Returns false for empty objects.
- */
-export function isTypedFieldObject(obj: unknown): boolean {
-    if (typeof obj !== 'object' || obj === null) return false;
-    const values = Object.values(obj);
     return values.length > 0 && values.every(isTypedField);
 }
 
