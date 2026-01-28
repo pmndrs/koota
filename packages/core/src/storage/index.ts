@@ -17,10 +17,7 @@ export {
 
 export { validateSchema, getSchemaDefaults } from './schema';
 
-export {
-    $typedStore,
-    $typedAoSStore,
-} from './types';
+export { $typedStore, $typedAoSStore } from './types';
 export type {
     Store,
     StoreType,

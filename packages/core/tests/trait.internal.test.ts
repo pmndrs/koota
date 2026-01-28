@@ -119,7 +119,10 @@ describe('Typed SoA Storage (Internal)', () => {
         }
 
         const posStore = getStore(world, Position) as unknown as { x: Float32Array; y: Float32Array };
-        const velStore = getStore(world, Velocity) as unknown as { vx: Float32Array; vy: Float32Array };
+        const velStore = getStore(world, Velocity) as unknown as {
+            vx: Float32Array;
+            vy: Float32Array;
+        };
 
         // Bulk update using direct array access
         for (const entity of entities) {

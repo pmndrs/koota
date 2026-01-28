@@ -58,15 +58,15 @@ export type ElementType<T extends TypedArrayConstructor> = T extends
     | BigUint64ArrayConstructor
     ? bigint
     : T extends
-          | Float32ArrayConstructor
-          | Float64ArrayConstructor
-          | Int8ArrayConstructor
-          | Int16ArrayConstructor
-          | Int32ArrayConstructor
-          | Uint8ArrayConstructor
-          | Uint8ClampedArrayConstructor
-          | Uint16ArrayConstructor
-          | Uint32ArrayConstructor
+            | Float32ArrayConstructor
+            | Float64ArrayConstructor
+            | Int8ArrayConstructor
+            | Int16ArrayConstructor
+            | Int32ArrayConstructor
+            | Uint8ArrayConstructor
+            | Uint8ClampedArrayConstructor
+            | Uint16ArrayConstructor
+            | Uint32ArrayConstructor
       ? number
       : never;
 
@@ -206,7 +206,9 @@ export function getTypedArrayConstructor(field: TypedField): TypedArrayConstruct
 /**
  * Gets the default value from a typed field descriptor.
  */
-export function getTypedFieldDefault<T extends TypedArrayConstructor>(field: TypedField<T>): ElementType<T> {
+export function getTypedFieldDefault<T extends TypedArrayConstructor>(
+    field: TypedField<T>
+): ElementType<T> {
     return field.default;
 }
 

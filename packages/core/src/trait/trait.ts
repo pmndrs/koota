@@ -135,7 +135,9 @@ function createTrait<S extends Schema>(
             id: id,
             set: createSetFunction[accessorType](accessorSchema as Schema),
             fastSet: createFastSetFunction[accessorType](accessorSchema as Schema),
-            fastSetWithChangeDetection: createFastSetChangeFunction[accessorType](accessorSchema as Schema),
+            fastSetWithChangeDetection: createFastSetChangeFunction[accessorType](
+                accessorSchema as Schema
+            ),
             get: createGetFunction[accessorType](accessorSchema as Schema),
             createStore: storeFactory,
             relation: null,

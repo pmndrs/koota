@@ -92,17 +92,18 @@ export type AoSFactory = () => unknown;
  * - function → function (preserved)
  * - object (non-function) → never (not allowed in schemas)
  */
-type NormField<T> = T extends TypedField<infer C>
-    ? C extends BigInt64ArrayConstructor | BigUint64ArrayConstructor
-        ? bigint
-        : number
-    : T extends (...args: never[]) => unknown
-      ? T
-      : T extends object
-        ? never
-        : T extends boolean
-          ? boolean
-          : T;
+type NormField<T> =
+    T extends TypedField<infer C>
+        ? C extends BigInt64ArrayConstructor | BigUint64ArrayConstructor
+            ? bigint
+            : number
+        : T extends (...args: never[]) => unknown
+          ? T
+          : T extends object
+            ? never
+            : T extends boolean
+              ? boolean
+              : T;
 
 /**
  * Normalizes an object's fields (used for both SoA schemas and AoS return types).
