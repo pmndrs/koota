@@ -3,7 +3,16 @@
     "allow": [
       "Bash(gh pr view:*)",
       "Bash(pnpm test:*)",
-      "Bash(pnpm:*)"
+      "Bash(pnpm:*)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(grep:*)",
+      "Bash(npx vitest run)",
+      "Bash(npx vitest:*)",
+      "Bash(node --version)",
+      "Bash(git status:*)",
+      "Bash(__NEW_LINE_2a4fa61b7d3cae9c__ echo \"\")",
+      "Bash(__NEW_LINE_7dd052c7f3e1b7c6__ echo \"\")"
     ]
   }
 }

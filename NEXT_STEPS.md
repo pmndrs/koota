@@ -105,8 +105,8 @@ const Position = trait(() => ({ x: types.f32(0), y: types.f32(0) }))
 ### Phase 1: Type Helpers
 
 ```typescript
-// src/types/index.ts
-const $typedArray = Symbol('typedArray')
+// packages/core/src/types/index.ts
+export const $typedArray = Symbol('typedArray')
 
 function createTypedHelper<T extends TypedArrayConstructor>(ctor: T) {
   return (defaultValue: number = 0) => ({
@@ -126,17 +126,19 @@ export const types = {
   u32: createTypedHelper(Uint32Array),
 }
 
-export function isTypedField(value: unknown): boolean {
+export function isTypedField(value: unknown): value is TypedField {
   return typeof value === 'object' && value !== null && $typedArray in value
 }
 
 export function isTypedSchema(schema: object): boolean {
-  return Object.values(schema).every(isTypedField)
+  const values = Object.values(schema)
+  return values.length > 0 && values.every(isTypedField)
 }
 
 export function isTypedFieldObject(obj: unknown): boolean {
   if (typeof obj !== 'object' || obj === null) return false
-  return Object.values(obj).every(isTypedField)
+  const values = Object.values(obj)
+  return values.length > 0 && values.every(isTypedField)
 }
 ```
 
@@ -287,13 +289,13 @@ packages/core/src/
 
 - [x] RFC written (`src/layout/RFC.md`)
 - [x] GPU Layout RFC written (`src/layout/GPU-LAYOUT-RFC.md`) - deferred
-- [ ] Phase 1: Type helpers
-- [ ] Phase 2: Detection in createTrait
-- [ ] Phase 3: SoA typed storage
-- [ ] Phase 4: AoS typed storage (interleaved)
-- [ ] Phase 5: Accessor functions
-- [ ] Phase 6: Growth handling
-- [ ] Phase 7: Cleanup (deprecate typedTrait, interleavedTrait)
+- [x] Phase 1: Type helpers
+- [x] Phase 2: Detection in createTrait
+- [x] Phase 3: SoA typed storage
+- [x] Phase 4: AoS typed storage (interleaved)
+- [x] Phase 5: Accessor functions (implemented via strided proxy views in Phase 4)
+- [x] Phase 6: Growth handling (implemented in Phases 3 & 4)
+- [x] Phase 7: Cleanup (removed typedTrait, interleavedTrait - never released)
 
 ## Render ECS with Multi-Trait Layouts
 

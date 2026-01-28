@@ -39,10 +39,11 @@ export type {
     RelationPair,
     RelationTarget,
 } from './relation/types';
-export { getStore, trait } from './trait/trait';
+export { getStore, trait, type TypedAoSTraitOptions } from './trait/trait';
 export type {
     ConfigurableTrait,
     ExtractIsTag,
+    ExtractRawSchema,
     ExtractSchema,
     ExtractStore,
     IsTag,
@@ -55,7 +56,7 @@ export type {
 } from './trait/types';
 export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';
-export * from './typed';
+export { types } from './types';
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';

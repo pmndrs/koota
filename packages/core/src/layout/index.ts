@@ -1,29 +1,29 @@
 /**
  * @file layout/index.ts
- * @description Multi-paradigm TypedArray storage with interleaved layouts
+ * @description Multi-trait interleaved layouts for GPU-friendly storage
  *
- * This module provides GPU-friendly interleaved storage paradigms:
+ * This module provides multi-trait layout functionality:
  *
- * 1. Single-trait Interleaved - via interleavedTrait()
- *    Single trait, fields interleaved: [x0,y0,z0, x1,y1,z1, ...]
+ * Multi-trait Layout - via layout()
+ *   Multiple traits in one buffer: [pos,rot,scale, pos,rot,scale, ...]
  *
- * 2. Multi-trait Layout - via layout()
- *    Multiple traits in one buffer: [pos,rot,scale, pos,rot,scale, ...]
- *
- * For SoA (Structure of Arrays) storage, use typedTrait() from './typed'.
+ * For single-trait typed storage, use the unified trait() API with types helpers:
  *
  * @example
  * ```ts
- * import { layout, interleavedTrait } from 'koota'
+ * import { trait, types, layout } from 'koota'
  *
- * // Single-trait interleaved
- * const Position = interleavedTrait({
- *   x: Float32Array,
- *   y: Float32Array,
- *   z: Float32Array,
- * })
+ * // Single-trait SoA with TypedArrays
+ * const Velocity = trait({ x: types.f32(0), y: types.f32(0) })
  *
- * // Multi-trait layout
+ * // Single-trait AoS with interleaved buffer
+ * const Position = trait(() => ({
+ *   x: types.f32(0),
+ *   y: types.f32(0),
+ *   z: types.f32(0),
+ * }), { alignment: 16 })
+ *
+ * // Multi-trait layout (experimental)
  * const InstanceData = layout({
  *   position: { x: Float32Array, y: Float32Array, z: Float32Array },
  *   rotation: Float32Array,
@@ -33,13 +33,11 @@
  *   growth: 'fixed',
  * })
  *
- * // Direct store access (working now)
+ * // Direct store access
  * InstanceData.store.position.x[0] = 100
  *
- * // Direct buffer upload to GPU (working now)
+ * // Direct buffer upload to GPU
  * device.queue.writeBuffer(gpuBuffer, 0, InstanceData.buffer)
- *
- * // NOTE: Koota world integration (spawn, query) is not yet implemented
  * ```
  */
 
@@ -89,25 +87,11 @@ export {
   type LayoutTraits,
   type LayoutTrait,
 
-  // Interleaved trait types
-  type InterleavedTrait,
-  type InterleavedTraitOptions,
-  INTERLEAVED_TRAIT_SYMBOL,
-
   // Utilities
   getBytesPerElement,
   isTypedArrayConstructor,
   isFieldGroup,
 } from './types'
-
-// Single-trait interleaved
-export {
-  interleavedTrait,
-  isInterleavedTrait,
-  setInterleavedTraitValues,
-  getInterleavedTraitValues,
-  resetInterleavedTraitValues,
-} from './interleaved-trait'
 
 // Multi-trait layout
 export {

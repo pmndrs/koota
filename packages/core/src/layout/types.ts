@@ -22,8 +22,11 @@ export type TypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | Uint8ArrayConstructor
+  | Uint8ClampedArrayConstructor
   | Uint16ArrayConstructor
   | Uint32ArrayConstructor
+  | BigInt64ArrayConstructor
+  | BigUint64ArrayConstructor
 
 /** TypedArray instance types */
 export type TypedArrayInstance =
@@ -33,17 +36,23 @@ export type TypedArrayInstance =
   | Int16Array
   | Int32Array
   | Uint8Array
+  | Uint8ClampedArray
   | Uint16Array
   | Uint32Array
+  | BigInt64Array
+  | BigUint64Array
 
 /** Extract element type from a TypedArray constructor */
 export type ElementType<T extends TypedArrayConstructor> =
+  T extends BigInt64ArrayConstructor ? bigint :
+  T extends BigUint64ArrayConstructor ? bigint :
   T extends Float32ArrayConstructor ? number :
   T extends Float64ArrayConstructor ? number :
   T extends Int8ArrayConstructor ? number :
   T extends Int16ArrayConstructor ? number :
   T extends Int32ArrayConstructor ? number :
   T extends Uint8ArrayConstructor ? number :
+  T extends Uint8ClampedArrayConstructor ? number :
   T extends Uint16ArrayConstructor ? number :
   T extends Uint32ArrayConstructor ? number :
   never
@@ -75,9 +84,9 @@ export type IsFieldGroup<T extends SchemaEntry> = T extends TypedArrayConstructo
 // Record Types (what entity.get() returns)
 // ============================================================================
 
-/** Convert a field group schema to a record type */
+/** Convert a field group schema to a record type (mutable for assignment) */
 export type FieldGroupRecord<T extends FieldGroup> = {
-  [K in keyof T]: ElementType<T[K]>
+  -readonly [K in keyof T]: ElementType<T[K]>
 }
 
 /** Convert a schema entry to its record type */
@@ -102,7 +111,7 @@ export type LayoutRecords<S extends LayoutSchema> = {
  * The arrays are VIEWS into the interleaved buffer, not separate allocations
  */
 export type FieldGroupStore<T extends FieldGroup> = {
-  [K in keyof T]: InstanceType<T[K]>
+  -readonly [K in keyof T]: InstanceType<T[K]>
 }
 
 /** Store type for a single field */

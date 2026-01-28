@@ -436,7 +436,7 @@ function createStridedArrayProxy(
       }
 
       if (prop === 'forEach') {
-        return (callback: (value: number, index: number) => void) => {
+        return (callback: (value: number | bigint, index: number) => void) => {
           for (let i = 0; i < capacity; i++) {
             callback(read(view, byteOffset + i * stride), i)
           }
@@ -444,7 +444,7 @@ function createStridedArrayProxy(
       }
 
       if (prop === 'fill') {
-        return (value: number, start = 0, end = capacity) => {
+        return (value: number | bigint, start = 0, end = capacity) => {
           for (let i = start; i < end; i++) {
             write(view, byteOffset + i * stride, value)
           }
@@ -476,8 +476,8 @@ function createStridedArrayProxy(
 }
 
 function getDataViewMethods(ArrayCtor: TypedArrayConstructor): {
-  read: (view: DataView, offset: number) => number
-  write: (view: DataView, offset: number, value: number) => void
+  read: (view: DataView, offset: number) => number | bigint
+  write: (view: DataView, offset: number, value: number | bigint) => void
 } {
   const littleEndian = true
 
@@ -485,42 +485,57 @@ function getDataViewMethods(ArrayCtor: TypedArrayConstructor): {
     case Float32Array:
       return {
         read: (v, o) => v.getFloat32(o, littleEndian),
-        write: (v, o, val) => v.setFloat32(o, val, littleEndian),
+        write: (v, o, val) => v.setFloat32(o, val as number, littleEndian),
       }
     case Float64Array:
       return {
         read: (v, o) => v.getFloat64(o, littleEndian),
-        write: (v, o, val) => v.setFloat64(o, val, littleEndian),
+        write: (v, o, val) => v.setFloat64(o, val as number, littleEndian),
       }
     case Int8Array:
       return {
         read: (v, o) => v.getInt8(o),
-        write: (v, o, val) => v.setInt8(o, val),
+        write: (v, o, val) => v.setInt8(o, val as number),
       }
     case Int16Array:
       return {
         read: (v, o) => v.getInt16(o, littleEndian),
-        write: (v, o, val) => v.setInt16(o, val, littleEndian),
+        write: (v, o, val) => v.setInt16(o, val as number, littleEndian),
       }
     case Int32Array:
       return {
         read: (v, o) => v.getInt32(o, littleEndian),
-        write: (v, o, val) => v.setInt32(o, val, littleEndian),
+        write: (v, o, val) => v.setInt32(o, val as number, littleEndian),
+      }
+    case BigInt64Array:
+      return {
+        read: (v, o) => v.getBigInt64(o, littleEndian),
+        write: (v, o, val) => v.setBigInt64(o, val as bigint, littleEndian),
       }
     case Uint8Array:
       return {
         read: (v, o) => v.getUint8(o),
-        write: (v, o, val) => v.setUint8(o, val),
+        write: (v, o, val) => v.setUint8(o, val as number),
+      }
+    case Uint8ClampedArray:
+      return {
+        read: (v, o) => v.getUint8(o),
+        write: (v, o, val) => v.setUint8(o, Math.max(0, Math.min(255, val as number))),
       }
     case Uint16Array:
       return {
         read: (v, o) => v.getUint16(o, littleEndian),
-        write: (v, o, val) => v.setUint16(o, val, littleEndian),
+        write: (v, o, val) => v.setUint16(o, val as number, littleEndian),
       }
     case Uint32Array:
       return {
         read: (v, o) => v.getUint32(o, littleEndian),
-        write: (v, o, val) => v.setUint32(o, val, littleEndian),
+        write: (v, o, val) => v.setUint32(o, val as number, littleEndian),
+      }
+    case BigUint64Array:
+      return {
+        read: (v, o) => v.getBigUint64(o, littleEndian),
+        write: (v, o, val) => v.setBigUint64(o, val as bigint, littleEndian),
       }
     default:
       throw new Error(`Unsupported TypedArray type`)

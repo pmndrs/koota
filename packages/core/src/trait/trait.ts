@@ -32,7 +32,14 @@ import {
     Schema,
     StoreType,
     validateSchema,
+    isTypedStore,
+    ensureTypedStoreCapacity,
+    isTypedAoSStore,
+    ensureTypedAoSStoreCapacity,
+    createTypedAoSStore,
+    type TypedAoSStoreOptions,
 } from '../storage';
+import { isTypedFieldObject, isTypedSchema, type TypedField, type IsTypedAoSFactory } from '../types';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -49,28 +56,94 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
+/**
+ * Options for creating typed-aos (interleaved) traits.
+ * Only valid when schema is a factory returning all TypedField values.
+ */
+export interface TypedAoSTraitOptions {
+    /** Byte alignment for entity stride in interleaved storage (default: 4) */
+    alignment?: number;
+}
+
+/** Schema type for typed AoS factories (returns all TypedField values) */
+type TypedAoSSchema = () => Record<string, TypedField>;
+
+// Overload 1: Tag trait (no schema or empty object)
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+// Overload 2: Typed AoS factory - options allowed
+function createTrait<S extends TypedAoSSchema>(
+    schema: S,
+    options?: TypedAoSTraitOptions
+): Trait<Norm<S>, S>;
+// Overload 3: Any other valid schema - no options parameter
+function createTrait<S extends Schema>(schema: S): Trait<Norm<S>, S>;
+
+function createTrait<S extends Schema>(
+    schema: S = tagSchema as S,
+    options: TypedAoSTraitOptions = {}
+): Trait<Norm<S>, S> {
     const isAoS = typeof schema === 'function';
     const isTag = !isAoS && Object.keys(schema).length === 0;
-    const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
+
+    // Determine storage type based on schema structure
+    let traitType: StoreType;
+    let template: Record<string, TypedField> | null = null;
+
+    if (isTag) {
+        traitType = 'tag';
+    } else if (isAoS) {
+        // Call once to inspect the template for typed fields
+        const inspected = (schema as () => object)();
+        if (isTypedFieldObject(inspected)) {
+            template = inspected as Record<string, TypedField>;
+            traitType = 'typed-aos';
+        } else {
+            // Store template for regular AoS too (useful for inspection)
+            template = inspected as Record<string, TypedField>;
+            traitType = 'aos';
+        }
+    } else {
+        traitType = isTypedSchema(schema as object) ? 'typed-soa' : 'soa';
+    }
 
     validateSchema(schema);
+
+    // For accessor functions:
+    // - typed-soa uses soa accessors (same store.field[index] pattern works with TypedArrays)
+    // - typed-aos uses soa accessors with the template (strided views support store.field[index])
+    // - regular aos uses aos accessors (store[index] = value pattern)
+    const accessorType: 'aos' | 'soa' | 'tag' =
+        traitType === 'typed-soa' || traitType === 'typed-aos' ? 'soa' : traitType;
+
+    // For typed-aos, use the template for accessor generation (schema is a function)
+    // For typed-soa and regular soa, use the schema directly
+    const accessorSchema = traitType === 'typed-aos' ? template : schema;
+
+    // Create the appropriate store factory
+    let storeFactory: () => unknown;
+    if (traitType === 'typed-aos' && template) {
+        // For typed-aos, create interleaved store with template and options
+        const storeOptions: TypedAoSStoreOptions = { alignment: options.alignment };
+        storeFactory = () => createTypedAoSStore(template!, storeOptions);
+    } else {
+        storeFactory = () => createStore<S>(schema);
+    }
 
     const id = traitId++;
     const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
         [$internal]: {
             id: id,
-            set: createSetFunction[traitType](schema),
-            fastSet: createFastSetFunction[traitType](schema),
-            fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
-            get: createGetFunction[traitType](schema),
-            createStore: () => createStore<S>(schema),
+            set: createSetFunction[accessorType](accessorSchema as Schema),
+            fastSet: createFastSetFunction[accessorType](accessorSchema as Schema),
+            fastSetWithChangeDetection: createFastSetChangeFunction[accessorType](accessorSchema as Schema),
+            get: createGetFunction[accessorType](accessorSchema as Schema),
+            createStore: storeFactory,
             relation: null,
             type: traitType,
+            // Store template for typed-aos (needed for store creation)
+            template: template,
         },
-    }) as Trait<Norm<S>>;
+    }) as Trait<Norm<S>, S>;
 
     // Add public read-only properties
     Object.defineProperty(Trait, 'id', {
@@ -346,7 +419,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 ): ExtractStore<C> {
     const ctx = world[$internal];
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    return instance.store as ExtractStore<C>;
+    return instance.store;
 }
 
 export function setTrait(
@@ -425,6 +498,13 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     const ctx = trait[$internal];
     const store = getStore(world, trait);
     const index = getEntityId(entity);
+
+    // Ensure typed stores have enough capacity for this entity
+    if (isTypedStore(store)) {
+        ensureTypedStoreCapacity(store, index);
+    } else if (isTypedAoSStore(store)) {
+        ensureTypedAoSStoreCapacity(store, index);
+    }
 
     // A short circuit is more performance than an if statement which creates a new code statement.
     value instanceof Function && (value = value(ctx.get(index, store)));

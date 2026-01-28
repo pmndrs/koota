@@ -27,7 +27,13 @@ async function processPackage(pkg: (typeof PACKAGES)[number]): Promise<number> {
     const targetDir = join(PUBLISH_TESTS_DIR, pkg.name);
 
     const files = await readdir(sourceDir);
-    const testFiles = files.filter((file) => file.endsWith('.test.ts') || file.endsWith('.test.tsx'));
+    const testFiles = files.filter((file) => {
+        // Include .test.ts and .test.tsx files
+        const isTestFile = file.endsWith('.test.ts') || file.endsWith('.test.tsx');
+        // Skip internal tests (*.internal.test.ts) - these test implementation details
+        const isInternalTest = file.includes('.internal.');
+        return isTestFile && !isInternalTest;
+    });
     if (verbose) console.log(`\n> Found ${testFiles.length} ${pkg.name} test files to process`);
 
     for (const file of testFiles) {

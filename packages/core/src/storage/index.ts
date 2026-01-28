@@ -1,4 +1,13 @@
-export { createStore } from './stores';
+export {
+    createStore,
+    isTypedStore,
+    growTypedSoAStore,
+    ensureTypedStoreCapacity,
+    isTypedAoSStore,
+    createTypedAoSStore,
+    growTypedAoSStore,
+    ensureTypedAoSStoreCapacity,
+} from './stores';
 export {
     createSetFunction,
     createFastSetFunction,
@@ -8,4 +17,17 @@ export {
 
 export { validateSchema, getSchemaDefaults } from './schema';
 
-export type { Store, StoreType, Schema, AoSFactory, Norm } from './types';
+export {
+    $typedStore,
+    $typedAoSStore,
+} from './types';
+export type {
+    Store,
+    StoreType,
+    Schema,
+    AoSFactory,
+    Norm,
+    TypedSoAStore,
+    TypedAoSStore,
+    TypedAoSStoreOptions,
+} from './types';

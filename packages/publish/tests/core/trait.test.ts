@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, type Entity, getStore, trait } from '../../dist';
+import { createWorld, type Entity, getStore, trait, types, $internal } from '../../dist';
 
 class TestClass {
     constructor(public name = 'TestClass') {}
@@ -33,9 +33,9 @@ describe('Trait', () => {
     });
 
     it('should throw an error if the schema contains an object or array', () => {
-        // @ts-expect-error - we want to test the error case
+        // @ts-expect-error - nested objects are not valid schema values
         expect(() => trait({ object: { a: 1, b: 2 } })).toThrow();
-        // @ts-expect-error - we want to test the error case
+        // @ts-expect-error - arrays are not valid schema values
         expect(() => trait({ array: [1, 2, 3] })).toThrow();
     });
 
@@ -258,5 +258,69 @@ describe('Trait', () => {
 
         // Getting a tag trait should not throw
         expect(entity.get(IsTag)).toBeUndefined();
+    });
+});
+
+describe('Typed Trait Detection', () => {
+    it('should detect typed-soa when schema has all typed fields', () => {
+        const TypedPosition = trait({ x: types.f32(0), y: types.f32(0) });
+
+        expect(TypedPosition[$internal].type).toBe('typed-soa');
+        expect(TypedPosition[$internal].template).toBeNull();
+    });
+
+    it('should detect soa when schema has regular fields', () => {
+        const Position = trait({ x: 0, y: 0 });
+
+        expect(Position[$internal].type).toBe('soa');
+        expect(Position[$internal].template).toBeNull();
+    });
+
+    it('should detect typed-aos when factory returns object with all typed fields', () => {
+        const TypedPosition = trait(() => ({
+            x: types.f32(0),
+            y: types.f32(0),
+            z: types.f32(0),
+        }));
+
+        expect(TypedPosition[$internal].type).toBe('typed-aos');
+        expect(TypedPosition[$internal].template).not.toBeNull();
+        expect(TypedPosition[$internal].template).toHaveProperty('x');
+        expect(TypedPosition[$internal].template).toHaveProperty('y');
+        expect(TypedPosition[$internal].template).toHaveProperty('z');
+    });
+
+    it('should detect aos when factory returns regular object', () => {
+        const Position = trait(() => ({ x: 0, y: 0 }));
+
+        expect(Position[$internal].type).toBe('aos');
+        expect(Position[$internal].template).not.toBeNull();
+    });
+
+    it('should detect tag when schema is empty', () => {
+        const IsTag = trait();
+        const IsTagEmpty = trait({});
+
+        expect(IsTag[$internal].type).toBe('tag');
+        expect(IsTagEmpty[$internal].type).toBe('tag');
+        expect(IsTag[$internal].template).toBeNull();
+    });
+
+    it('should reject mixed typed/untyped schemas', () => {
+        // Mixed schema should be detected as soa (not typed-soa)
+        // because isTypedSchema requires ALL fields to be typed
+        const MixedPosition = trait({ x: types.f32(0), y: 0 });
+
+        expect(MixedPosition[$internal].type).toBe('soa');
+    });
+
+    it('should allow typed fields in schema validation', () => {
+        // This should not throw (TypedField objects are allowed)
+        expect(() => trait({ x: types.f32(0), y: types.i32(0) })).not.toThrow();
+    });
+
+    it('should still reject regular objects in schema', () => {
+        // @ts-expect-error - nested objects are not valid schema values
+        expect(() => trait({ obj: { a: 1, b: 2 } })).toThrow();
     });
 });
