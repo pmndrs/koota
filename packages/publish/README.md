@@ -15,7 +15,7 @@ npm i koota
 Traits are the building blocks of your state. They represent slices of data with specific meanings.
 
 ```js
-import { trait } from 'koota'
+import { trait, types } from 'koota'
 
 // Basic trait with default values
 const Position = trait({ x: 0, y: 0 })
@@ -48,10 +48,17 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently.
 
 ```js
+// updateEach mutates and writes back to stores
 // Run this in a loop
 world.query(Position, Velocity).updateEach(([position, velocity]) => {
   position.x += velocity.x * delta
   position.y += velocity.y * delta
+})
+
+// For read-only operations with no mutation, use readEach
+const data = []
+world.query(Position, Velocity).readEach(([position, velocity]) => {
+  data.push({ x: position.x, y: position.y })
 })
 ```
 
@@ -833,6 +840,55 @@ const store = [
 // Similarly, this will create a new instance of Mesh in each index
 const Mesh = trait(() => new THREE.Mesh())
 ```
+
+#### Buffers (AoS) - Schema-based buffer backed traits
+
+For sharing data with workers or external systems (WebGL, WASM, physics engines), use `types` helpers to create buffer traits backed by TypedArrays. Use `SharedArrayBuffer` for zero-copy worker access, or `ArrayBuffer` for efficient transfers. The API is identical to regular traits.
+
+```js
+import { trait, types, getStore } from 'koota'
+
+// Define with typed fields
+const Position = trait({ x: types.f32(0), y: types.f32(0), z: types.f32(0) })
+
+// API identical to regular traits
+entity.get(Position)           // { x: 100, y: 200, z: 0 }
+entity.set(Position, { x: 0 }) // triggers change events
+
+// updateEach works transparently
+world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  pos.x += vel.x  // works exactly like SoA
+})
+
+// Internally creates TypedArrays:
+const store = {
+  x: Float32Array,
+  y: Float32Array,
+  z: Float32Array,
+}
+```
+
+Available type helpers:
+- `types.f32(default)`, `types.f64(default)` - Floats
+- `types.i8(default)`, `types.i16(default)`, `types.i32(default)` - Signed integers
+- `types.i64(default)` - BigInt64Array (uses `bigint`)
+- `types.u8(default)`, `types.u8c(default)`, `types.u16(default)`, `types.u32(default)` - Unsigned integers
+- `types.u64(default)` - BigUint64Array (uses `bigint`)
+
+**When to use buffer traits:**
+- Strict numeric typing (physics, particles, transforms)
+- Transferable to Web Workers via SharedArrayBuffer
+- Direct handoff to external systems (WebGL, WASM, physics engines)
+
+```js
+// SharedArrayBuffer for multi-threaded workers
+const Position = trait(
+  { x: types.f32(0), y: types.f32(0), z: types.f32(0) },
+  { buffer: SharedArrayBuffer }
+)
+```
+
+**Note:** Relation stores do not support TypedArray fields. Use a separate trait if you need buffer storage for relationship data.
 
 #### Trait record
 

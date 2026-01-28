@@ -3,13 +3,14 @@ import type { Trait, TraitInstance } from './types';
 export type TraitInstanceArray = (TraitInstance | undefined)[];
 
 /**
- * Get TraitInstance by trait ID
+ * Get TraitInstance by trait ID.
+ * Generic to preserve the Trait type for proper store typing.
  */
-export /* @inline @pure */ function getTraitInstance(
+export /* @inline @pure */ function getTraitInstance<T extends Trait>(
     traitData: TraitInstanceArray,
-    trait: Trait
-): TraitInstance | undefined {
-    return traitData[trait.id];
+    trait: T
+): TraitInstance<T> | undefined {
+    return traitData[trait.id] as TraitInstance<T> | undefined;
 }
 
 /**

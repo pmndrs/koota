@@ -3,9 +3,10 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { Schema } from '../storage';
-import { hasTrait, trait } from '../trait/trait';
+import { hasTrait, createTraitInternal } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
+import { hasAnyTypedFields, type RelationSchema } from '../types';
 import type { World } from '../world';
 import type { Relation, RelationPair, RelationTarget } from './types';
 import { $relation, $relationPair } from './symbols';
@@ -20,10 +21,23 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
     autoDestroy?: 'orphan' | 'source' | 'target';
     /** @deprecated Use `autoDestroy: 'orphan'` instead */
     autoRemoveTarget?: boolean;
-    store?: S;
+    /** Store schema - TypedArray fields are not supported in relations */
+    store?: S & RelationSchema<S>;
 }): Relation<Trait<S>> {
+    // Validate: TypedArray fields are not supported in relation stores
+    if (
+        definition?.store &&
+        typeof definition.store === 'object' &&
+        hasAnyTypedFields(definition.store)
+    ) {
+        throw new Error(
+            'Koota: Relation stores do not support TypedArray fields. ' +
+                'Use regular fields for relation data, or a separate trait for buffer storage.'
+        );
+    }
+
     // Create the underlying trait for this relation
-    const relationTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
+    const relationTrait = createTraitInternal(definition?.store ?? ({} as S)) as Trait<S>;
     const traitCtx = relationTrait[$internal];
 
     // Mark the trait as a relation trait

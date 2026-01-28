@@ -11,7 +11,13 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
     ? ReturnType<TSchema>
     : Partial<TraitRecord<TSchema>>;
 
-export type Trait<TSchema extends Schema = any> = {
+/**
+ * A trait definition.
+ *
+ * @typeParam TSchema - The normalized schema type (what entity.get() returns)
+ * @typeParam TStoreSchema - The schema type preserving TypedField for Store typing
+ */
+export type Trait<TSchema extends Schema = any, TStoreSchema extends Schema = TSchema> = {
     /** Public read-only ID for fast array lookups */
     readonly id: number;
     readonly schema: TSchema;
@@ -25,12 +31,12 @@ export type Trait<TSchema extends Schema = any> = {
         ) => boolean;
         get: (index: number, store: any) => TraitRecord<TSchema>;
         id: number;
-        createStore: () => Store<TSchema>;
+        createStore: () => Store<TStoreSchema>;
         /** Reference to parent relation if this trait is owned by a relation */
         relation: Relation<any> | null;
         type: StoreType;
     };
-} & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
+} & ((params?: TraitValue<TSchema>) => [Trait<TSchema, TStoreSchema>, TraitValue<TSchema>]);
 
 export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
 
@@ -66,26 +72,47 @@ export type TraitRecord<T extends Trait | Schema> = T extends Trait
 
 // Type Utils
 
+/** Extracts the normalized schema (TSchema) from a Trait - used for entity.get() return types */
 export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> =
     T extends RelationPair<infer R>
         ? ExtractSchema<R>
         : T extends Relation<infer R>
           ? ExtractSchema<R>
-          : T extends Trait<infer S>
+          : T extends Trait<infer S, any>
             ? S
             : never;
-export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
-    ? Store
+
+/** Extracts the store schema (TStoreSchema) from a Trait - used for Store typing */
+export type ExtractStoreSchema<T extends Trait | Relation<Trait> | RelationPair> =
+    T extends RelationPair<infer R>
+        ? ExtractStoreSchema<R>
+        : T extends Relation<infer R>
+          ? ExtractStoreSchema<R>
+          : T extends Trait<any, infer S>
+            ? S
+            : never;
+
+/** Extracts the Store type from a Trait's createStore method */
+export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer S } }
+    ? S
     : never;
+
 export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'tag' } } ? true : false;
 
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
+/**
+ * Internal instance data for a registered trait in a world.
+ *
+ * @typeParam T - The Trait type
+ * @typeParam S - The normalized schema (for entity.get() return types)
+ */
 export interface TraitInstance<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
     generationId: number;
     bitflag: number;
     trait: Trait;
-    store: Store<S>;
+    /** The store uses ExtractStore to get the correct TypedArray types for buffer traits */
+    store: ExtractStore<T>;
     /** Non-tracking queries that include this trait */
     queries: Set<QueryInstance>;
     /** Tracking queries (Added/Removed/Changed) that include this trait */

@@ -26,12 +26,19 @@ import {
     createGetFunction,
     createSetFunction,
     createStore,
+    createBufferStore,
     getSchemaDefaults,
     Norm,
     Schema,
     StoreType,
     validateSchema,
+    validateBufferOptions,
+    isBufferStore,
+    ensureBufferCapacity,
+    type BufferStoreOptions,
+    type BufferTraitOptions,
 } from '../storage';
+import { isTypedSchema, type TypedField, type TypedSchema, type ConsistentSchema } from '../types';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -48,28 +55,89 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
+/**
+ * Internal trait creation - no compile-time mixed schema checking.
+ * Used by relation() and other internal code that has already validated the schema.
+ * Runtime validation still catches mixed schemas.
+ * @internal
+ */
+export function createTraitInternal<S extends Schema>(
+    schema: S = tagSchema as S,
+    options: BufferTraitOptions = {}
+): Trait<Norm<S>, S> {
+    return createTraitImpl(schema, options);
+}
+
+// Overload 1: Tag trait (no schema or empty object)
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+// Overload 2: Buffer schema with options
+function createTrait<S extends TypedSchema>(schema: S, options: BufferTraitOptions): Trait<Norm<S>, S>;
+// Overload 3: Any schema without options - enforces no mixed typed/untyped fields
+function createTrait<S extends Schema>(schema: S & ConsistentSchema<S>): Trait<Norm<S>, S>;
+
+function createTrait<S extends Schema>(
+    schema: S = tagSchema as S,
+    options: BufferTraitOptions = {}
+): Trait<Norm<S>, S> {
+    return createTraitImpl(schema, options);
+}
+
+function createTraitImpl<S extends Schema>(
+    schema: S = tagSchema as S,
+    options: BufferTraitOptions = {}
+): Trait<Norm<S>, S> {
     const isAoS = typeof schema === 'function';
     const isTag = !isAoS && Object.keys(schema).length === 0;
-    const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
+
+    // Determine storage type based on schema structure
+    let traitType: StoreType;
+
+    if (isTag) {
+        traitType = 'tag';
+    } else if (isAoS) {
+        traitType = 'aos';
+    } else {
+        traitType = isTypedSchema(schema as object) ? 'buffer' : 'soa';
+    }
 
     validateSchema(schema);
+
+    // Validate: buffer option only valid with buffer storage
+    if (options.buffer !== undefined && traitType !== 'buffer') {
+        throw new Error(
+            'Koota: buffer option can only be used with typed schemas (types.f32, etc.). ' +
+                'Regular schemas use ArrayBuffer-backed JS arrays automatically.'
+        );
+    }
+
+    // For accessor functions:
+    // - buffer uses soa accessors (same store.field[index] pattern works with TypedArrays)
+    // - regular aos uses aos accessors (store[index] = value pattern)
+    const accessorType: 'aos' | 'soa' | 'tag' = traitType === 'buffer' ? 'soa' : traitType;
+
+    // Create the appropriate store factory
+    let storeFactory: () => unknown;
+    if (traitType === 'buffer') {
+        validateBufferOptions(options);
+        const storeOptions: BufferStoreOptions = { ...options };
+        storeFactory = () => createBufferStore(schema as Record<string, TypedField>, storeOptions);
+    } else {
+        storeFactory = () => createStore<S>(schema);
+    }
 
     const id = traitId++;
     const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
         [$internal]: {
             id: id,
-            set: createSetFunction[traitType](schema),
-            fastSet: createFastSetFunction[traitType](schema),
-            fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
-            get: createGetFunction[traitType](schema),
-            createStore: () => createStore<S>(schema),
+            set: createSetFunction[accessorType](schema as Schema),
+            fastSet: createFastSetFunction[accessorType](schema as Schema),
+            fastSetWithChangeDetection: createFastSetChangeFunction[accessorType](schema as Schema),
+            get: createGetFunction[accessorType](schema as Schema),
+            createStore: storeFactory,
             relation: null,
             type: traitType,
         },
-    }) as Trait<Norm<S>>;
+    }) as Trait<Norm<S>, S>;
 
     // Add public read-only properties
     Object.defineProperty(Trait, 'id', {
@@ -345,7 +413,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 ): ExtractStore<C> {
     const ctx = world[$internal];
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    return instance.store as ExtractStore<C>;
+    return instance.store;
 }
 
 export function setTrait(
@@ -424,6 +492,11 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     const ctx = trait[$internal];
     const store = getStore(world, trait);
     const index = getEntityId(entity);
+
+    // Ensure buffer stores have enough capacity for this entity
+    if (isBufferStore(store)) {
+        ensureBufferCapacity(store, index);
+    }
 
     // A short circuit is more performance than an if statement which creates a new code statement.
     value instanceof Function && (value = value(ctx.get(index, store)));
