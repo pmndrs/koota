@@ -43,7 +43,7 @@ Each client maintains local undo and redo stacks while the server has no concept
 
 Each entry stores two things:
 
-- `intent`: the original user ops (preserved across round-trips)
-- `restoreTo`: ops that restore to the state before the action (updated each undo/redo)
+- **Intent.** The original user ops are preserved across round-trips.
+- **Restore.** Ops that restore to the state before the action that is updated each undo/redo.
 
 This allows each user to have local history while preserving the final collaborative state whenever redoing.
