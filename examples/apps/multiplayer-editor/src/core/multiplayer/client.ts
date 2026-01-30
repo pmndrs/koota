@@ -97,6 +97,11 @@ export function createMultiplayerClient({ world, url }: MultiplayerClientOptions
         setEphemeralSender('', null);
         socket?.close();
         socket = null;
+        // Clean up all user entities
+        for (const entity of userEntities.values()) {
+            presence.removeUser(entity);
+        }
+        userEntities.clear();
     }
 
     function handleServerMessage(message: ServerMessage) {

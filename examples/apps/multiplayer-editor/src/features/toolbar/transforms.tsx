@@ -11,20 +11,16 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
     const { getLocalUser } = useActions(userActions);
 
     const [rotation, setRotation] = useState(0);
-    const [scaleX, setScaleX] = useState(1);
-    const [scaleY, setScaleY] = useState(1);
+    const [scale, setScale] = useState(1);
 
     // Sync state with selected entity
     useEffect(() => {
         if (selected.length === 1) {
             const entity = selected[0];
             const rot = entity.get(Rotation);
-            const scale = entity.get(Scale);
+            const scaleData = entity.get(Scale);
             if (rot) setRotation(rot.angle);
-            if (scale) {
-                setScaleX(scale.x);
-                setScaleY(scale.y);
-            }
+            if (scaleData) setScale(scaleData.x);
         }
     }, [selected]);
 
@@ -61,16 +57,13 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
     );
 
     const handleScaleChange = useCallback(
-        (axis: 'x' | 'y', value: number) => {
-            axis === 'x' ? setScaleX(value) : setScaleY(value);
+        (e: ChangeEvent<HTMLInputElement>) => {
+            const value = Number(e.target.value);
+            setScale(value);
 
             for (const entity of selected) {
-                const scale = entity.get(Scale);
-                if (scale) {
-                    entity.set(
-                        Scale,
-                        axis === 'x' ? { x: value, y: scale.y } : { x: scale.x, y: value }
-                    );
+                if (entity.has(Scale)) {
+                    entity.set(Scale, { x: value, y: value });
                 }
             }
         },
@@ -94,25 +87,14 @@ export function Transforms({ selected }: { selected: readonly Entity[] }) {
 
             <Section>
                 <RangeControl
-                    label="Scale X"
-                    valueLabel={scaleX.toFixed(2)}
+                    label="Scale"
+                    valueLabel={scale.toFixed(2)}
                     min={0.1}
                     max={3}
                     step={0.1}
-                    value={scaleX}
+                    value={scale}
                     onPointerDown={() => handleEditStart('scale')}
-                    onChange={(e) => handleScaleChange('x', Number(e.target.value))}
-                    onPointerUp={() => handleEditEnd('scale')}
-                />
-                <RangeControl
-                    label="Scale Y"
-                    valueLabel={scaleY.toFixed(2)}
-                    min={0.1}
-                    max={3}
-                    step={0.1}
-                    value={scaleY}
-                    onPointerDown={() => handleEditStart('scale')}
-                    onChange={(e) => handleScaleChange('y', Number(e.target.value))}
+                    onChange={handleScaleChange}
                     onPointerUp={() => handleEditEnd('scale')}
                 />
             </Section>

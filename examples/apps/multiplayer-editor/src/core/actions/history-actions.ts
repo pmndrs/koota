@@ -109,23 +109,21 @@ export const historyActions = createActions((world) => {
 
         recordScaleChange: (
             entities: readonly Entity[],
-            axis: 'x' | 'y',
-            prev: number,
-            next: number
+            prev: { x: number; y: number },
+            next: { x: number; y: number }
         ) => {
-            if (prev === next) return;
+            if (prev.x === next.x && prev.y === next.y) return;
             for (const entity of entities) {
-                const scale = entity.get(Scale);
                 const stableId = entity.get(StableId);
-                if (!scale || !stableId) continue;
+                if (!stableId || !entity.has(Scale)) continue;
                 pushOp({
                     op: OpCode.UpdateScale,
                     id: stableId.id,
                     seq: SEQ_UNASSIGNED,
-                    x: axis === 'x' ? next : scale.x,
-                    y: axis === 'y' ? next : scale.y,
-                    prevX: axis === 'x' ? prev : scale.x,
-                    prevY: axis === 'y' ? prev : scale.y,
+                    x: next.x,
+                    y: next.y,
+                    prevX: prev.x,
+                    prevY: prev.y,
                 });
             }
             commitPending();

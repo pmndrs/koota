@@ -19,7 +19,15 @@ import {
     Dragging,
 } from '../traits';
 import { isActive } from '../utils/shape-helpers';
+import { isLocallyEditing } from '../utils/editing-helpers';
 
+/**
+ * Apply an op to the world.
+ *
+ * For update ops, if the entity is being locally edited for that property,
+ * the op updates durable state instead of live state. This prevents remote
+ * updates from interrupting the user's interaction.
+ */
 export function applyOp(world: World, op: Op): void {
     const history = world.get(History)!;
 
@@ -77,7 +85,13 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdatePosition: {
             const entity = history.entities.get(op.id);
-            if (isActive(entity) && entity.has(Position)) {
+            if (!isActive(entity)) break;
+
+            if (isLocallyEditing(entity) && entity.has(EditingPosition)) {
+                // Update durable, preserve live
+                const editing = entity.get(EditingPosition)!;
+                entity.set(EditingPosition, { ...editing, durableX: op.x, durableY: op.y });
+            } else {
                 entity.set(Position, { x: op.x, y: op.y });
             }
             break;
@@ -85,7 +99,12 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateRotation: {
             const entity = history.entities.get(op.id);
-            if (isActive(entity) && entity.has(Rotation)) {
+            if (!isActive(entity)) break;
+
+            if (isLocallyEditing(entity) && entity.has(EditingRotation)) {
+                const editing = entity.get(EditingRotation)!;
+                entity.set(EditingRotation, { ...editing, durableAngle: op.angle });
+            } else {
                 entity.set(Rotation, { angle: op.angle });
             }
             break;
@@ -93,7 +112,12 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateScale: {
             const entity = history.entities.get(op.id);
-            if (isActive(entity) && entity.has(Scale)) {
+            if (!isActive(entity)) break;
+
+            if (isLocallyEditing(entity) && entity.has(EditingScale)) {
+                const editing = entity.get(EditingScale)!;
+                entity.set(EditingScale, { ...editing, durableX: op.x, durableY: op.y });
+            } else {
                 entity.set(Scale, { x: op.x, y: op.y });
             }
             break;
@@ -101,7 +125,17 @@ export function applyOp(world: World, op: Op): void {
 
         case OpCode.UpdateColor: {
             const entity = history.entities.get(op.id);
-            if (isActive(entity) && entity.has(Color)) {
+            if (!isActive(entity)) break;
+
+            if (isLocallyEditing(entity) && entity.has(EditingColor)) {
+                const editing = entity.get(EditingColor)!;
+                entity.set(EditingColor, {
+                    ...editing,
+                    durableR: op.r,
+                    durableG: op.g,
+                    durableB: op.b,
+                });
+            } else {
                 entity.set(Color, { r: op.r, g: op.g, b: op.b });
             }
             break;

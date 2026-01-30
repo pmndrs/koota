@@ -20,6 +20,7 @@ import {
 import type { EditStart, EditUpdate, EditEnd } from '../multiplayer/protocol';
 import { createRandomUserName } from '../utils/user-name';
 import { getActiveByStableId } from '../utils/shape-helpers';
+import { isLocallyEditing } from '../utils/editing-helpers';
 
 // Editing trait configs for remote edits
 
@@ -118,7 +119,8 @@ export const presenceActions = createActions((world) => {
             }
             // Color is commit-only - no remote editing state needed
 
-            if (isDrag && !shapeEntity.has(IsRemoteDragging)) {
+            // Don't add IsRemoteDragging if local user is editing - local interaction takes priority
+            if (isDrag && !shapeEntity.has(IsRemoteDragging) && !isLocallyEditing(shapeEntity)) {
                 shapeEntity.add(IsRemoteDragging);
             }
             shapeEntity.add(EditedBy(userEntity));
@@ -127,6 +129,9 @@ export const presenceActions = createActions((world) => {
         handleRemoteEditUpdate: (data: EditUpdate) => {
             const shapeEntity = getShapeEntity(data.shapeId);
             if (!shapeEntity) return;
+
+            // If local user is editing this shape, ignore all remote updates
+            if (isLocallyEditing(shapeEntity)) return;
 
             const isDrag = shapeEntity.has(IsRemoteDragging);
 

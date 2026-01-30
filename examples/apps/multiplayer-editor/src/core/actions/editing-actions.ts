@@ -181,12 +181,11 @@ export const editingActions = createActions((world) => {
                     } else if (prop === 'rotation') {
                         history.recordRotationChange([entity], editing.durableAngle, current.angle);
                     } else if (prop === 'scale') {
-                        if (editing.durableX !== current.x) {
-                            history.recordScaleChange([entity], 'x', editing.durableX, current.x);
-                        }
-                        if (editing.durableY !== current.y) {
-                            history.recordScaleChange([entity], 'y', editing.durableY, current.y);
-                        }
+                        history.recordScaleChange(
+                            [entity],
+                            { x: editing.durableX, y: editing.durableY },
+                            { x: current.x, y: current.y }
+                        );
                     } else if (prop === 'color') {
                         history.recordColorChange(
                             [entity],
