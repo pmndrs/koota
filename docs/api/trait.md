@@ -31,14 +31,14 @@ callback-based traits as shown below
 // ❌ Arrays and objects are not allowed in trait schemas
 const Inventory = trait({
   items: [],
-  vec3: { x: 0, y: 0, z: 0}
+  vec3: { x: 0, y: 0, z: 0},
   max: 10,
 })
 
 // ✅ Use a callback initializer for arrays and objects
 const Inventory = trait({
   items: () => [],
-  vec3: () => ({ x: 0, y: 0, z: 0})
+  vec3: () => ({ x: 0, y: 0, z: 0}),
   max: 10,
 })
 ```
