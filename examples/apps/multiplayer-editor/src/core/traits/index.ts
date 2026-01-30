@@ -22,7 +22,7 @@ export const Shape = trait({ type: 'rect' as 'rect' | 'ellipse' });
 export const Position = trait({ x: 0, y: 0 });
 export const Rotation = trait({ angle: 0 }); // degrees
 export const Scale = trait({ x: 1, y: 1 });
-export const Color = trait({ fill: '#4a90d9' });
+export const Color = trait({ r: 74, g: 144, b: 217 });
 export const IsTombstoned = trait(); // Tag
 
 // Editing state - captures durable (last committed op) values
@@ -30,7 +30,7 @@ export const IsTombstoned = trait(); // Tag
 export const EditingPosition = trait({ durableX: 0, durableY: 0, targetX: 0, targetY: 0 });
 export const EditingRotation = trait({ durableAngle: 0, targetAngle: 0 });
 export const EditingScale = trait({ durableX: 1, durableY: 1, targetX: 1, targetY: 1 });
-export const EditingColor = trait({ durableFill: '' });
+export const EditingColor = trait({ durableR: 0, durableG: 0, durableB: 0 });
 
 export const EDITING_TRAITS = [EditingPosition, EditingRotation, EditingScale, EditingColor] as const;
 

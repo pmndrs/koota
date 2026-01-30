@@ -34,7 +34,7 @@ export function formatOp(op: Op): string {
         case OpCode.UpdateScale:
             return `${base} (${op.x.toFixed(2)},${op.y.toFixed(2)})`;
         case OpCode.UpdateColor:
-            return `${base} (${op.fill})`;
+            return `${base} (rgb(${op.r},${op.g},${op.b}))`;
         default:
             return base;
     }

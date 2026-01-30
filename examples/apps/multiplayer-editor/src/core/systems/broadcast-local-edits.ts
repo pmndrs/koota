@@ -1,5 +1,5 @@
 import { createChanged, Not, type World } from 'koota';
-import { Position, Rotation, Scale, Color, StableId, EditedBy, IsLocal, IsTombstoned } from '../traits';
+import { Position, Rotation, Scale, StableId, EditedBy, IsLocal, IsTombstoned } from '../traits';
 import { sendEditUpdate } from '../multiplayer/ephemeral';
 
 // Create a Changed modifier instance for tracking trait changes
@@ -40,12 +40,6 @@ export function broadcastLocalEdits(world: World) {
         });
     });
 
-    // Broadcast color changes
-    world.query(EditedBy('*'), StableId, Changed(Color), Not(IsTombstoned)).readEach(([stableId, color], entity) => {
-        if (!hasLocalEditor(entity)) return;
-        sendEditUpdate({
-            shapeId: stableId.id,
-            fill: color.fill,
-        });
-    });
+    // Color is commit-only - no live broadcast. Remote users see color changes
+    // only when the op is committed, avoiding desync from late/dropped updates.
 }

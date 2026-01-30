@@ -1,4 +1,4 @@
-import type { Op } from '../src/core/types';
+import type { Op, RGB } from '../src/core/types';
 import { OpCode } from '../src/core/types';
 import type { Checkpoint } from '../src/core/multiplayer/protocol';
 
@@ -10,7 +10,7 @@ export type ShapeState = {
     rotation: number;
     scaleX: number;
     scaleY: number;
-    color: string;
+    color: RGB;
 };
 
 export type ServerState = {
@@ -82,7 +82,7 @@ export function applyOpToState(state: ServerState, op: Op): string | null {
         case OpCode.UpdateColor: {
             const shape = state.shapes.get(op.id);
             if (!shape) return `Shape ${op.id} does not exist`;
-            shape.color = op.fill;
+            shape.color = { r: op.r, g: op.g, b: op.b };
             return null;
         }
     }

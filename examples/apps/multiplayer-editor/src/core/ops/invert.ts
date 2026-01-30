@@ -67,8 +67,12 @@ export function invertOp(op: Op): Op {
                 op: OpCode.UpdateColor,
                 id: op.id,
                 seq: op.seq,
-                fill: op.prevFill,
-                prevFill: op.fill,
+                r: op.prevR,
+                g: op.prevG,
+                b: op.prevB,
+                prevR: op.r,
+                prevG: op.g,
+                prevB: op.b,
             };
     }
 }

@@ -71,7 +71,7 @@ export const selectionActions = createActions((world) => {
                         shape: shape.type,
                         x: position.x,
                         y: position.y,
-                        color: color.fill,
+                        color: { r: color.r, g: color.g, b: color.b },
                         rotation: rotation.angle,
                         scaleX: scale.x,
                         scaleY: scale.y,

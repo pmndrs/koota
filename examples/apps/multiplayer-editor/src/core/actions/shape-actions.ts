@@ -9,7 +9,7 @@ export const shapeActions = createActions((world) => {
     return {
         addShape: (type: 'rect' | 'ellipse', x: number, y: number): Entity => {
             const historyTrait = world.get(History)!;
-            const color = '#4a90d9';
+            const color = { r: 74, g: 144, b: 217 };
             const rotation = 0;
             const scaleX = 1;
             const scaleY = 1;
@@ -23,7 +23,7 @@ export const shapeActions = createActions((world) => {
                 Position({ x, y }),
                 Rotation({ angle: rotation }),
                 Scale({ x: scaleX, y: scaleY }),
-                Color({ fill: color })
+                Color(color)
             );
 
             // Register entity in map

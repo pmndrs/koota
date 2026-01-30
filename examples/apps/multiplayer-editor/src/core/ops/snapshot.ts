@@ -29,7 +29,7 @@ function captureLifecycleSnapshot(entity: Entity | undefined, fallbackId: number
             rotation: rot.angle,
             scaleX: scale.x,
             scaleY: scale.y,
-            color: color.fill,
+            color: { r: color.r, g: color.g, b: color.b },
         };
     }
 
@@ -43,7 +43,7 @@ function captureLifecycleSnapshot(entity: Entity | undefined, fallbackId: number
         rotation: rot.angle,
         scaleX: scale.x,
         scaleY: scale.y,
-        color: color.fill,
+        color: { r: color.r, g: color.g, b: color.b },
     };
 }
 
@@ -116,8 +116,12 @@ export function captureCurrentState(world: World, op: Op): Op | null {
                 op: OpCode.UpdateColor,
                 id: op.id,
                 seq: 0,
-                fill: color.fill,
-                prevFill: op.prevFill, // Will be updated after undo applies
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                prevR: op.prevR, // Will be updated after undo applies
+                prevG: op.prevG,
+                prevB: op.prevB,
             };
         }
     }

@@ -71,9 +71,21 @@ const PROPERTY_CONFIG = {
     color: {
         live: Color,
         editing: EditingColor,
-        toDurable: (color: { fill: string }) => ({ durableFill: color.fill }),
-        toRestore: (editing: { durableFill: string }) => ({ fill: editing.durableFill }),
-        broadcastDurable: (color: { fill: string }) => ({ durableFill: color.fill }),
+        toDurable: (color: { r: number; g: number; b: number }) => ({
+            durableR: color.r,
+            durableG: color.g,
+            durableB: color.b,
+        }),
+        toRestore: (editing: { durableR: number; durableG: number; durableB: number }) => ({
+            r: editing.durableR,
+            g: editing.durableG,
+            b: editing.durableB,
+        }),
+        broadcastDurable: (color: { r: number; g: number; b: number }) => ({
+            durableR: color.r,
+            durableG: color.g,
+            durableB: color.b,
+        }),
     },
 } as const;
 
@@ -176,7 +188,11 @@ export const editingActions = createActions((world) => {
                             history.recordScaleChange([entity], 'y', editing.durableY, current.y);
                         }
                     } else if (prop === 'color') {
-                        history.recordColorChange([entity], editing.durableFill, current.fill);
+                        history.recordColorChange(
+                            [entity],
+                            { r: editing.durableR, g: editing.durableG, b: editing.durableB },
+                            { r: current.r, g: current.g, b: current.b }
+                        );
                     }
                 }
                 entity.remove(config.editing as Trait);

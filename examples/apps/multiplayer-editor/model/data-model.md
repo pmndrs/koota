@@ -78,7 +78,7 @@ Each property has its own editing state representing the durable state in the ed
 - **EditingPosition**: `{ durableX: float, durableY: float, targetX: float, targetY: float }`
 - **EditingRotation**: `{ durableAngle: float, targetAngle: float }`
 - **EditingScale**: `{ durableX: float, durableY: float, targetX: float, targetY: float }`
-- **EditingColor**: `{ durableFill: string }`
+- **EditingColor**: `{ durableR: int, durableG: int, durableB: int }`
 
 The `target*` fields are used for remote interpolation during drag operations.
 
@@ -157,7 +157,9 @@ erDiagram
   }
 
   "Color" {
-    string fill "hex color"
+    int r "0-255"
+    int g "0-255"
+    int b "0-255"
   }
 ```
 

@@ -1,4 +1,4 @@
-import type { Op } from '../types';
+import type { Op, RGB } from '../types';
 
 export type CheckpointShape = {
     id: number;
@@ -8,7 +8,7 @@ export type CheckpointShape = {
     rotation: number;
     scaleX: number;
     scaleY: number;
-    color: string;
+    color: RGB;
 };
 
 export type Checkpoint = {
@@ -94,7 +94,9 @@ export type EditStart = {
     durableAngle?: number;
     durableScaleX?: number;
     durableScaleY?: number;
-    durableFill?: string;
+    durableR?: number;
+    durableG?: number;
+    durableB?: number;
 };
 
 export type EditUpdate = {
@@ -106,7 +108,9 @@ export type EditUpdate = {
     angle?: number;
     scaleX?: number;
     scaleY?: number;
-    fill?: string;
+    r?: number;
+    g?: number;
+    b?: number;
 };
 
 export type EditEnd = {

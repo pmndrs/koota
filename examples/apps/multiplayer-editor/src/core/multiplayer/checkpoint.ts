@@ -15,7 +15,7 @@ export function createCheckpoint(world: World, seq: number): Checkpoint {
                 rotation: rot.angle,
                 scaleX: scale.x,
                 scaleY: scale.y,
-                color: color.fill,
+                color: { r: color.r, g: color.g, b: color.b },
             });
         });
 
@@ -45,7 +45,7 @@ export function applyCheckpoint(world: World, checkpoint: Checkpoint) {
             Position({ x: shape.x, y: shape.y }),
             Rotation({ angle: shape.rotation }),
             Scale({ x: shape.scaleX, y: shape.scaleY }),
-            Color({ fill: shape.color })
+            Color({ r: shape.color.r, g: shape.color.g, b: shape.color.b })
         );
         history.entities.set(shape.id, entity);
     }

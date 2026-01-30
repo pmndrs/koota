@@ -10,11 +10,9 @@ import {
     Position,
     Rotation,
     Scale,
-    Color,
     EditingPosition,
     EditingRotation,
     EditingScale,
-    EditingColor,
     EditedBy,
     IsRemoteDragging,
     EDITING_TRAITS,
@@ -118,11 +116,7 @@ export const presenceActions = createActions((world) => {
                     );
                 }
             }
-            if (data.properties.includes('color') && data.durableFill !== undefined) {
-                if (!shapeEntity.has(EditingColor)) {
-                    shapeEntity.add(EditingColor({ durableFill: data.durableFill }));
-                }
-            }
+            // Color is commit-only - no remote editing state needed
 
             if (isDrag && !shapeEntity.has(IsRemoteDragging)) {
                 shapeEntity.add(IsRemoteDragging);
@@ -180,10 +174,7 @@ export const presenceActions = createActions((world) => {
                 }
             }
 
-            // Color update (always snaps)
-            if (data.fill !== undefined) {
-                shapeEntity.set(Color, { fill: data.fill });
-            }
+            // Color is commit-only - ignore remote ephemeral color updates
         },
 
         handleRemoteEditEnd: (userEntity: Entity, data: EditEnd) => {
@@ -203,8 +194,7 @@ export const presenceActions = createActions((world) => {
                 if (editScale)
                     shapeEntity.set(Scale, { x: editScale.durableX, y: editScale.durableY });
 
-                const editColor = shapeEntity.get(EditingColor);
-                if (editColor) shapeEntity.set(Color, { fill: editColor.durableFill });
+                // Color is commit-only - no restore needed
             } else if (shapeEntity.has(IsRemoteDragging)) {
                 // Snap to final target values
                 const editPos = shapeEntity.get(EditingPosition);

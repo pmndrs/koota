@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:mp": "concurrently -k -n server,app \"pnpm run dev:server\" \"pnpm run dev\"",
+    "dev:all": "concurrently -k -n server,app \"pnpm run dev:server\" \"pnpm run dev\"",
     "dev:server": "tsx server/ws-server.ts",
     "build": "tsc --noEmit && vite build",
     "lint": "oxlint",

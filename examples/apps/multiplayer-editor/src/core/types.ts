@@ -10,6 +10,8 @@ export const enum OpCode {
 // Sentinel value for unassigned sequence numbers
 export const SEQ_UNASSIGNED = 0;
 
+export type RGB = { r: number; g: number; b: number };
+
 export type Op =
     | {
           op: OpCode.CreateShape;
@@ -18,7 +20,7 @@ export type Op =
           shape: 'rect' | 'ellipse';
           x: number;
           y: number;
-          color: string;
+          color: RGB;
           rotation: number;
           scaleX: number;
           scaleY: number;
@@ -30,7 +32,7 @@ export type Op =
           shape: 'rect' | 'ellipse';
           x: number;
           y: number;
-          color: string;
+          color: RGB;
           rotation: number;
           scaleX: number;
           scaleY: number;
@@ -64,8 +66,12 @@ export type Op =
           op: OpCode.UpdateColor;
           id: number;
           seq: number;
-          fill: string;
-          prevFill: string;
+          r: number;
+          g: number;
+          b: number;
+          prevR: number;
+          prevG: number;
+          prevB: number;
       };
 
 export type HistoryEntry = {

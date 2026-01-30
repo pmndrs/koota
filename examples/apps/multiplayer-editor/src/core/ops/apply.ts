@@ -41,7 +41,7 @@ export function applyOp(world: World, op: Op): void {
                 existing.set(Position, { x: op.x, y: op.y });
                 existing.set(Rotation, { angle: op.rotation });
                 existing.set(Scale, { x: op.scaleX, y: op.scaleY });
-                existing.set(Color, { fill: op.color });
+                existing.set(Color, { r: op.color.r, g: op.color.g, b: op.color.b });
             } else {
                 const entity = world.spawn(
                     StableId({ id: op.id }),
@@ -49,7 +49,7 @@ export function applyOp(world: World, op: Op): void {
                     Position({ x: op.x, y: op.y }),
                     Rotation({ angle: op.rotation }),
                     Scale({ x: op.scaleX, y: op.scaleY }),
-                    Color({ fill: op.color })
+                    Color({ r: op.color.r, g: op.color.g, b: op.color.b })
                 );
                 history.entities.set(op.id, entity);
             }
@@ -102,7 +102,7 @@ export function applyOp(world: World, op: Op): void {
         case OpCode.UpdateColor: {
             const entity = history.entities.get(op.id);
             if (isActive(entity) && entity.has(Color)) {
-                entity.set(Color, { fill: op.fill });
+                entity.set(Color, { r: op.r, g: op.g, b: op.b });
             }
             break;
         }

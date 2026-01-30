@@ -131,8 +131,12 @@ export const historyActions = createActions((world) => {
             commitPending();
         },
 
-        recordColorChange: (entities: readonly Entity[], prevFill: string, nextFill: string) => {
-            if (prevFill === nextFill) return;
+        recordColorChange: (
+            entities: readonly Entity[],
+            prev: { r: number; g: number; b: number },
+            next: { r: number; g: number; b: number }
+        ) => {
+            if (prev.r === next.r && prev.g === next.g && prev.b === next.b) return;
             for (const entity of entities) {
                 const stableId = entity.get(StableId);
                 if (!stableId || !entity.has(Color)) continue;
@@ -140,8 +144,12 @@ export const historyActions = createActions((world) => {
                     op: OpCode.UpdateColor,
                     id: stableId.id,
                     seq: SEQ_UNASSIGNED,
-                    fill: nextFill,
-                    prevFill,
+                    r: next.r,
+                    g: next.g,
+                    b: next.b,
+                    prevR: prev.r,
+                    prevG: prev.g,
+                    prevB: prev.b,
                 });
             }
             commitPending();
