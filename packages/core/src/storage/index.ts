@@ -6,6 +6,22 @@ export {
     createGetFunction,
 } from './accessors';
 
-export { validateSchema, getSchemaDefaults } from './schema';
+export {
+    validateSchema,
+    getSchemaDefaults,
+    normalizeSchema,
+} from './schema';
 
-export type { Store, StoreType, Schema, AoSFactory, Norm } from './types';
+export type {
+    Store,
+    StoreType,
+    Schema,
+    AoSFactory,
+    Norm,
+    FieldDescriptor,
+    ExpandedSchema,
+    TraitDescriptor,
+    FieldType,
+    ScalarFieldType,
+    ReferenceFieldType,
+} from './types';

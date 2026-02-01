@@ -48,7 +48,18 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
+/**
+ * Creates a tag trait with no data storage.
+ */
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
+/**
+ * Creates a trait by inferring the data type from the schema.
+ * Factory functions in the schema are unwrapped to determine the field type.
+ *
+ * @example
+ * const Position = trait({ x: 0, y: 0 }); // Trait<{ x: number; y: number }>
+ * const Particle = trait({ id: () => nextId++ }); // Trait<{ id: number }>
+ */
 function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
 function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
     const isAoS = typeof schema === 'function';

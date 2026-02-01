@@ -63,3 +63,50 @@ export type Norm<T extends Schema> =
             : {
                   [K in keyof T]: T[K] extends boolean ? boolean : T[K];
               };
+
+// ============================================================================
+// Expanded Schema Types
+// ============================================================================
+
+/**
+ * Scalar field types that can be stored directly in SoA arrays.
+ */
+export type ScalarFieldType = 'number' | 'string' | 'boolean' | 'bigint' | 'null' | 'undefined';
+
+/**
+ * Reference field types that require per-entity instances.
+ */
+export type ReferenceFieldType = 'object' | 'array';
+
+/**
+ * All possible field types in an expanded schema.
+ */
+export type FieldType = ScalarFieldType | ReferenceFieldType;
+
+/**
+ * Expanded field descriptor with explicit type and default value.
+ * This is the normalized representation of a single schema field.
+ */
+export interface FieldDescriptor<T = unknown> {
+    /** The runtime type of the field */
+    type: FieldType;
+    /** The default value or factory function to create the default */
+    default: T | (() => T);
+}
+
+/**
+ * Expanded schema with explicit field descriptors for each property.
+ * This is the normalized internal representation of a trait schema.
+ */
+export type ExpandedSchema = Record<string, FieldDescriptor>;
+
+/**
+ * Complete trait descriptor containing storage type and expanded schema.
+ * This is the fully normalized representation of a trait definition.
+ */
+export interface TraitDescriptor<S extends ExpandedSchema = ExpandedSchema> {
+    /** The storage layout type */
+    storage: StoreType;
+    /** The expanded schema with field descriptors */
+    schema: S;
+}

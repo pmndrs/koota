@@ -114,3 +114,41 @@ export type ExtractTrait<T> = T extends Relation<infer TTrait> ? TTrait : T;
 export type ExtractTraits<T extends TraitOrRelation[]> = {
     [K in keyof T]: ExtractTrait<T[K]>;
 };
+
+// ============================================================================
+// Schema Type Utilities
+// ============================================================================
+
+/**
+ * Unwraps factory functions to their return type.
+ * If T is a function () => R, extracts R. Otherwise returns T unchanged.
+ *
+ * @example
+ * UnwrapDefault<() => number> // number
+ * UnwrapDefault<number> // number
+ * UnwrapDefault<() => string[]> // string[]
+ */
+export type UnwrapDefault<T> = T extends () => infer R ? R : T;
+
+/**
+ * Converts a schema type to the data type by unwrapping all factory functions.
+ * This is the type you get when calling entity.get(trait).
+ *
+ * @example
+ * SchemaToData<{ x: number; y: () => number }> // { x: number; y: number }
+ */
+export type SchemaToData<S> = {
+    [K in keyof S]: UnwrapDefault<S[K]>;
+};
+
+/**
+ * Converts a data type to an acceptable schema type.
+ * Each field can be either a value or a factory function returning that value.
+ * This is used for explicit generic trait definitions.
+ *
+ * @example
+ * DataToSchema<{ x: number; y: number }> // { x: number | (() => number); y: number | (() => number) }
+ */
+export type DataToSchema<T> = {
+    [K in keyof T]: T[K] | (() => T[K]);
+};

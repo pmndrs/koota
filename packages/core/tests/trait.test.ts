@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, type Entity, getStore, trait } from '../src';
+import { createWorld, type Entity, getStore, trait, normalizeSchema } from '../src';
 
 class TestClass {
     constructor(public name = 'TestClass') {}
@@ -258,5 +258,83 @@ describe('Trait', () => {
 
         // Getting a tag trait should not throw
         expect(entity.get(IsTag)).toBeUndefined();
+    });
+
+    it('should throw for objects without a factory function', () => {
+        expect(() =>
+            // @ts-expect-error - testing runtime error
+            trait({ config: { a: 1 } })
+        ).toThrow();
+    });
+
+    it('should throw for arrays without a factory function', () => {
+        expect(() =>
+            // @ts-expect-error - testing runtime error
+            trait({ items: [1, 2, 3] })
+        ).toThrow();
+    });
+
+    it('should support factory functions for SoA fields', () => {
+        const Particle = trait({
+            x: () => Math.random() * 100,
+            y: 0,
+            id: () => 'test-id',
+        });
+
+        const entity = world.spawn(Particle);
+        const data = entity.get(Particle);
+
+        expect(data).toBeDefined();
+        expect(typeof data!.x).toBe('number');
+        expect(typeof data!.y).toBe('number');
+        expect(typeof data!.id).toBe('string');
+    });
+});
+
+describe('Schema Normalization', () => {
+    describe('normalizeSchema', () => {
+        it('should normalize empty schema as tag', () => {
+            const result = normalizeSchema({});
+            expect(result.storage).toBe('tag');
+            expect(result.schema).toEqual({});
+        });
+
+        it('should normalize AoS factory schema', () => {
+            const factory = () => ({ x: 0, y: 0 });
+            const result = normalizeSchema(factory);
+
+            expect(result.storage).toBe('aos');
+            expect(result.schema.$value).toBeDefined();
+            expect(result.schema.$value.type).toBe('object');
+            expect(result.schema.$value.default).toBe(factory);
+        });
+
+        it('should normalize SoA object schema', () => {
+            const result = normalizeSchema({
+                x: 0,
+                y: 0,
+                name: 'test',
+                active: true,
+            });
+
+            expect(result.storage).toBe('soa');
+            expect(result.schema.x).toEqual({ type: 'number', default: 0 });
+            expect(result.schema.y).toEqual({ type: 'number', default: 0 });
+            expect(result.schema.name).toEqual({ type: 'string', default: 'test' });
+            expect(result.schema.active).toEqual({ type: 'boolean', default: true });
+        });
+
+        it('should normalize hybrid SoA schema with factories', () => {
+            const itemsFactory = () => [] as string[];
+            const result = normalizeSchema({
+                count: 0,
+                items: itemsFactory,
+            });
+
+            expect(result.storage).toBe('soa');
+            expect(result.schema.count).toEqual({ type: 'number', default: 0 });
+            expect(result.schema.items.type).toBe('array');
+            expect(result.schema.items.default).toBe(itemsFactory);
+        });
     });
 });

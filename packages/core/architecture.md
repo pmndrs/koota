@@ -10,7 +10,34 @@ Koota allows for many worlds. To make this experience simple there are global, s
 
 A world is the context and holds the underlying storage, manages entities and the general lifecycle for data changes. Refs get instantiated on a world and use the id as a key for its instance.
 
-Traits are a user-facing handle for storage. The user never interacts with stores directly and isntead deals with the mental model of traits -- composable pieces of semantic data.
+Traits are a user-facing handle for storage. The user never interacts with stores directly and instead deals with the mental model of traits, composable pieces of semantic data.
+
+## Core Design Principle
+
+**Traits return references, not values.**
+
+`get()` always returns an object reference (or `undefined` for tags), never a scalar. This is what makes `updateEach` work:
+
+- **AoS**: you mutate the stored object directly
+- **SoA**: you mutate a snapshot object, and `updateEach` commits changes back to the per-field arrays
+
+Because you always receive a reference, systems can modify fields in place and Koota can detect/commit those changes uniformly. This means traits cannot have a scalar
+
+## Schemas
+
+Schemas define the shape of trait data and determine both storage layout and TypeScript types.
+
+| Shorthand                    | Storage | Notes                                |
+| ---------------------------- | ------- | ------------------------------------ |
+| `trait()`                    | Tag     | No data                              |
+| `trait({ x: 0, y: 0 })`      | SoA     | Scalars stored in per-field arrays   |
+| `trait({ items: () => [] })` | SoA     | Factory required for reference types |
+| `trait(() => ({ ... }))`     | AoS     | Whole record stored per entity       |
+
+**Scalars** (number, string, boolean, bigint, null) can be values or factories.
+**References** (object, array) must use a factory function — Koota throws if you pass a plain object/array.
+
+TypeScript infers data types by unwrapping factories: `{ x: 0, y: () => rand() }` → `{ x: number, y: number }`.
 
 ## Glossary
 
@@ -30,10 +57,10 @@ Traits are a user-facing handle for storage. The user never interacts with store
 
 **World.** The context that holds all per-world state. Contains storage, trait instances, query instances, action instances, and manages the lifecycle of data changes.
 
-**Schema.** The shape definition for trait data. Can be SoA (struct of arrays), AoS (array of structs via factory function), or empty (tag trait).
+**Schema.** The shape definition for trait data, specified as shorthand (compact syntax) and normalized internally to an expanded form with explicit field descriptors. Schemas always define objects with named fields. Can be SoA (struct of arrays), AoS (array of structs via factory function), or empty (tag trait).
 
 **Store.** The actual per-world storage for trait data, created from a schema. SoA stores have one array per property; AoS stores have one array of objects.
 
 **Relation.** A directional connection between entities. The **source** is the entity that owns the relation, the **target** is the entity it points to. In `child.add(ChildOf(parent))`, child is the source and parent is the target.
 
-**OrderedRelation.** A trait added to the **target** entity that stores an ordered list of all entities with a relation pointing to it. The list and relation stay in sync bidirectionally—modifying the list updates the relation pairs, and modifying the relation updates the list.
+**Ordered Relation.** A trait added to the **target** entity that stores an ordered list of all entities with a relation pointing to it. The list and relation stay in sync bidirectionally—modifying the list updates the relation pairs, and modifying the relation updates the list.

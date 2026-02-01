@@ -42,18 +42,34 @@ export type {
 export { getStore, trait } from './trait/trait';
 export type {
     ConfigurableTrait,
+    DataToSchema,
     ExtractIsTag,
     ExtractSchema,
     ExtractStore,
     IsTag,
+    SchemaToData,
     SetTraitCallback,
     TagTrait,
     Trait,
     TraitRecord,
     TraitTuple,
     TraitValue,
+    UnwrapDefault,
 } from './trait/types';
-export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
+export type {
+    AoSFactory,
+    ExpandedSchema,
+    FieldDescriptor,
+    FieldType,
+    Norm,
+    ReferenceFieldType,
+    ScalarFieldType,
+    Schema,
+    Store,
+    StoreType,
+    TraitDescriptor,
+} from './storage/types';
+export { normalizeSchema } from './storage/schema';
 export type { TraitType } from './trait/types';
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
