@@ -20,7 +20,7 @@ import {
 } from '../relation/relation';
 import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import type { DefinitionFor } from '../storage';
+import type { DefinitionFor, FieldDescriptor } from '../storage';
 import {
     createFastSetChangeFunction,
     createFastSetFunction,
@@ -30,6 +30,7 @@ import {
     Definition,
     getSchemaDefaults,
     InferDefinition,
+    isFieldDescriptor,
     parseDefinition,
     StoreType,
     validateDefinition,
@@ -47,12 +48,23 @@ let traitId = 0;
 function createTrait(definition?: undefined | Record<string, never>): TagTrait;
 // Overload 2: AoS factory (infer return type)
 function createTrait<T>(definition: () => T): Trait<T>;
-// Overload 3: Explicit type provided (for SoA)
+// Overload 3: Top-level FieldDescriptor (single-ref trait)
+function createTrait<T>(definition: FieldDescriptor<T>): Trait<T>;
+// Overload 4: Explicit type provided (for SoA)
 function createTrait<T>(definition: DefinitionFor<T>): Trait<T>;
-// Overload 4: Infer type from definition (SoA)
+// Overload 5: Infer type from definition (SoA)
 function createTrait<D extends Definition>(definition: D): Trait<InferDefinition<D>>;
 // Implementation
-function createTrait(definition: Definition = tagDefinition): Trait<any> {
+function createTrait(definition: Definition | FieldDescriptor = tagDefinition): Trait<any> {
+    // Handle top-level FieldDescriptor (single-ref trait from field())
+    if (isFieldDescriptor(definition)) {
+        const descriptor = definition as FieldDescriptor;
+        const factory =
+            typeof descriptor.default === 'function' ? descriptor.default : () => descriptor.default;
+        // Create an AoS-style trait from the descriptor
+        definition = factory as () => unknown;
+    }
+
     const isAoS = typeof definition === 'function';
     const isTag = !isAoS && Object.keys(definition).length === 0;
     const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';

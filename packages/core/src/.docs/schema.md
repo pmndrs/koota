@@ -2,11 +2,11 @@ Koota has a just-enough design philosophy, but what does this mean in the contex
 
 ### Terminology
 
-**Definition** - The input format users write when calling `trait()`. Can be shorthand values (`{ x: 0 }`), FieldDescriptor format (`{ x: { kind: 'number', default: 0 } }`), or a mix of both.
+**Definition.**The input format users write when calling `trait()`. Can be shorthand values (`{ x: 0 }`), FieldDescriptor format (`{ x: { kind: 'number', default: 0 } }`), or a mix of both.
 
-**FieldDescriptor** - The canonical format for a single field: `{ kind, default, ... }`. Extensible with custom properties.
+**FieldDescriptor.** The canonical format for a single field: `{ kind, default, ... }`. Extensible with custom properties.
 
-**Schema** - A collection of FieldDescriptors. The source of truth after parsing a Definition.
+**Schema.** A collection of FieldDescriptors. The source of truth after parsing a Definition.
 
 ### Design Principles
 
@@ -64,7 +64,7 @@ type Ball = {
 const Ball = trait<Ball>({
   radius: 10,
   color: () => ({ r: 0, g: 0, b: 0 }),
-  tuple: () => [0, 0, 0],
+  tuple: (): [number, number, number] => [0, 0, 0],
   names: () => [],
 })
 
@@ -140,6 +140,7 @@ So far all storage is a struct of arrays. Some of the arrays are scalars, some r
 ```ts
 // Creates a Three Vector3 per entity
 const Velocity = trait(() => new THREE.Vector3())
+// store: Vector3[]
 
 // Can also be required instead to capture external refs
 const Ref = trait(() => required<THREE.Object3d>())
@@ -148,25 +149,26 @@ const Ref = trait(() => required<THREE.Object3d>())
 entity.add(Ref(mesh))
 ```
 
-Shorthand values in a definition get parsed into field descriptors. Alternatively, a user can write field descriptor format directly and skip shorthand.
+Shorthand values in a definition get parsed into field descriptors. Alternatively, a user can write field descriptor format directly and skip shorthand using `field.
 
 ```ts
 const Position = trait({
-  x: { kind: 'number', default: 0 },
-  y: { kind: 'number', default: 0 },
+  x: field({ kind: 'number', default: 0 }),
+  y: field({ kind: 'number', default: 0 }),
 })
 ```
 
 A user can create their own schema extensions with helpers that return type compliant field ASTs. Hooks can be defined on a per-field basis. And then they can be shared!!!
 
 ```ts
-const clamped = (value: number, min: number, max: number) => ({
-  kind: 'number',
-  default: () => value,
-  min,
-  max,
-  onSet: (v: number) => Math.max(min, Math.min(max, v)),
-})
+const clamped = (value: number, min: number, max: number) =>
+  field({
+    kind: 'number',
+    default: () => value,
+    min,
+    max,
+    onSet: (v: number) => Math.max(min, Math.min(max, v)),
+  })
 
 const Health = trait({
   current: clamped(100, 0, 100),
@@ -193,15 +195,13 @@ PacketStuff.onSet((value) => {
 Or this can now be turned into its own userland extension.
 
 ```ts
-const zod = <T extends z.ZodType>(schema: T, defaultValue?: z.infer<T>) => ({
-  kind: 'ref',
-  default: defaultValue !== undefined ? () => schema.parse(defaultValue) : undefined,
-  required: defaultValue === undefined,
-  onSet: (v: z.infer<T>) => schema.parse(v),
-})
+const zod = <T extends z.ZodType>(schema: T, defaultValue?: z.infer<T>) =>
+  field({
+    kind: 'ref',
+    default: defaultValue !== undefined ? () => schema.parse(defaultValue) : undefined,
+    onSet: (v: z.infer<T>) => schema.parse(v),
+  })
 
 // With default
-const Position = trait({
-  data: zod(zodSchema, { x: 0, y: 0 }),
-})
+const Position = trait(zod(zodSchema, { x: 0, y: 0 }))
 ```

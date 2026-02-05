@@ -57,6 +57,7 @@ export type {
     TraitTuple,
     TraitValue,
 } from './trait/types';
+export { field } from './storage/schema';
 export { $fieldDescriptor } from './storage/types';
 /** @deprecated Use $fieldDescriptor instead */
 export { $schemaEntry } from './storage/types';

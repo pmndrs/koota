@@ -49,7 +49,8 @@ export type DefinitionValue =
     | null
     | undefined
     | ((...args: never[]) => unknown)
-    | FieldDescriptor;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    | FieldDescriptor<any>;
 
 /**
  * A trait definition - what users pass to trait().
@@ -62,10 +63,7 @@ export type Definition = Record<string, DefinitionValue> | AoSFactory | Record<s
  * Each field can be: the value directly, a factory, or a FieldDescriptor.
  */
 export type DefinitionFor<T> = {
-    [K in keyof T]:
-        | T[K]
-        | (() => T[K])
-        | (FieldDescriptor<T[K]> & { default?: T[K] | (() => T[K]) });
+    [K in keyof T]: T[K] | (() => T[K]) | (FieldDescriptor<T[K]> & { default?: T[K] | (() => T[K]) });
 };
 
 /**
@@ -79,6 +77,25 @@ export type AoSFactory<T = unknown> = () => T;
 // ============================================================================
 
 /**
+ * Widens primitive literal types to their base types.
+ */
+export type Widen<T> = T extends number
+    ? number
+    : T extends string
+      ? string
+      : T extends boolean
+        ? boolean
+        : T extends bigint
+          ? bigint
+          : T;
+
+/**
+ * Helper type to extract the actual value type from a default field.
+ * Handles both direct values and factory functions, using conditional type distribution.
+ */
+type ExtractFromDefault<D> = D extends (...args: never[]) => infer R ? R : D;
+
+/**
  * Infers the data type from a single definition value.
  * Handles: primitives, factories, and FieldDescriptor objects.
  */
@@ -86,28 +103,31 @@ export type InferValue<T> =
     // Factory function -> return type
     T extends (...args: never[]) => infer R
         ? R
-        : // FieldDescriptor with required but no default -> unknown (must be provided)
-          T extends { kind: string; required: true; default?: undefined }
-          ? unknown
-          : // FieldDescriptor with factory default
-            T extends { kind: string; default: (...args: never[]) => infer R }
-            ? R
-            : // FieldDescriptor with value default
-              T extends { kind: string; default: infer D }
-              ? D
-              : // FieldDescriptor without default
-                T extends { kind: string }
-                ? unknown
-                : // Primitive value - widen literals to primitives
-                  T extends number
-                  ? number
-                  : T extends string
-                    ? string
-                    : T extends boolean
-                      ? boolean
-                      : T extends bigint
-                        ? bigint
-                        : T;
+        : // Branded FieldDescriptor (from field() helper) - use type distribution on default
+          T extends { [$fieldDescriptor]?: true; kind: string; default?: infer D }
+          ? ExtractFromDefault<Exclude<D, undefined>>
+          : // FieldDescriptor with required but no default -> unknown (must be provided)
+            T extends { kind: string; required: true; default?: undefined }
+            ? unknown
+            : // FieldDescriptor with factory default
+              T extends { kind: string; default: (...args: never[]) => infer R }
+              ? R
+              : // FieldDescriptor with value default
+                T extends { kind: string; default: infer D }
+                ? D
+                : // FieldDescriptor without default
+                  T extends { kind: string }
+                  ? unknown
+                  : // Primitive value - widen literals to primitives
+                    T extends number
+                    ? number
+                    : T extends string
+                      ? string
+                      : T extends boolean
+                        ? boolean
+                        : T extends bigint
+                          ? bigint
+                          : T;
 
 /**
  * Infers the data shape from a definition.
@@ -141,11 +161,12 @@ export type StoreType = 'aos' | 'soa' | 'tag';
  * - AoS: Array of instances, one per entity
  * - SoA: Object with arrays, one array per property
  */
-export type Store<T> = T extends Record<string, never>
-    ? Record<string, never>
-    : T extends Record<string, unknown>
-      ? { [K in keyof T]: T[K][] }
-      : T[];
+export type Store<T> =
+    T extends Record<string, never>
+        ? Record<string, never>
+        : T extends Record<string, unknown>
+          ? { [K in keyof T]: T[K][] }
+          : T[];
 
 // ============================================================================
 // Legacy Aliases (for backward compatibility during migration)
@@ -166,10 +187,11 @@ export type ParsedSchema = Schema;
 /**
  * @deprecated - Norm is no longer needed with the new type inference
  */
-export type Norm<T> = T extends Record<string, never>
-    ? T
-    : T extends AoSFactory<infer R>
-      ? AoSFactory<R>
-      : T extends Record<string, DefinitionValue>
-        ? InferDefinition<T>
-        : T;
+export type Norm<T> =
+    T extends Record<string, never>
+        ? T
+        : T extends AoSFactory<infer R>
+          ? AoSFactory<R>
+          : T extends Record<string, DefinitionValue>
+            ? InferDefinition<T>
+            : T;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     detectKind,
+    field,
     isFieldDescriptor,
     parseDefinition,
     parseField,
@@ -45,17 +46,26 @@ describe('Schema', () => {
     });
 
     describe('isFieldDescriptor', () => {
-        it('should return true for valid FieldDescriptor objects', () => {
-            expect(isFieldDescriptor({ kind: 'number', default: 0 })).toBe(true);
-            expect(isFieldDescriptor({ kind: 'string', default: '' })).toBe(true);
-            expect(isFieldDescriptor({ kind: 'boolean', default: true })).toBe(true);
-            expect(isFieldDescriptor({ kind: 'bigint', default: 0n })).toBe(true);
-            expect(isFieldDescriptor({ kind: 'ref', default: () => ({}) })).toBe(true);
+        it('should return true for field() created descriptors', () => {
+            expect(isFieldDescriptor(field({ kind: 'number', default: 0 }))).toBe(true);
+            expect(isFieldDescriptor(field({ kind: 'string', default: '' }))).toBe(true);
+            expect(isFieldDescriptor(field({ kind: 'boolean', default: true }))).toBe(true);
+            expect(isFieldDescriptor(field({ kind: 'bigint', default: 0n }))).toBe(true);
+            expect(isFieldDescriptor(field({ kind: 'ref', default: () => ({}) }))).toBe(true);
         });
 
-        it('should return true for FieldDescriptor with extra properties', () => {
-            expect(isFieldDescriptor({ kind: 'number', default: 0, min: 0, max: 100 })).toBe(true);
-            expect(isFieldDescriptor({ kind: 'ref', required: true })).toBe(true);
+        it('should return true for field() with extra properties', () => {
+            expect(isFieldDescriptor(field({ kind: 'number', default: 0, min: 0, max: 100 }))).toBe(
+                true
+            );
+            expect(isFieldDescriptor(field({ kind: 'ref', required: true }))).toBe(true);
+        });
+
+        it('should return false for plain objects without field()', () => {
+            // Plain objects without $fieldDescriptor symbol should NOT be detected
+            expect(isFieldDescriptor({ kind: 'number', default: 0 })).toBe(false);
+            expect(isFieldDescriptor({ kind: 'string', default: '' })).toBe(false);
+            expect(isFieldDescriptor({ kind: 'ref', default: () => ({}) })).toBe(false);
         });
 
         it('should return false for non-FieldDescriptor values', () => {
@@ -96,10 +106,17 @@ describe('Schema', () => {
             expect(result).toMatchObject({ kind: 'ref', default: factory });
         });
 
-        it('should pass through FieldDescriptor unchanged', () => {
-            const descriptor: FieldDescriptor = { kind: 'number', default: 42, min: 0, max: 100 };
+        it('should pass through field() descriptor unchanged', () => {
+            const descriptor = field({ kind: 'number', default: 42, min: 0, max: 100 });
             const result = parseField(descriptor);
             expect(result).toBe(descriptor); // Same reference
+        });
+
+        it('should parse plain object (without field()) as ref', () => {
+            // Plain objects without $fieldDescriptor are treated as ref shorthand
+            const plainObj = { kind: 'number', default: 0 };
+            const result = parseField(plainObj);
+            expect(result).toMatchObject({ kind: 'ref', default: plainObj });
         });
     });
 
@@ -134,18 +151,18 @@ describe('Schema', () => {
             expect(result.color).toMatchObject({ kind: 'ref', default: colorFactory });
         });
 
-        it('should pass through FieldDescriptor fields unchanged', () => {
-            const descriptor: FieldDescriptor = { kind: 'number', default: 10, min: 0 };
+        it('should pass through field() descriptors unchanged', () => {
+            const descriptor = field({ kind: 'number', default: 10, min: 0 });
             const result = parseDefinition({ radius: descriptor });
             expect(result.radius).toBe(descriptor);
         });
 
-        it('should handle mixed shorthand and FieldDescriptor', () => {
+        it('should handle mixed shorthand and field() descriptors', () => {
             const colorFactory = () => ({ r: 0, g: 0, b: 0 });
             const result = parseDefinition({
                 x: 0,
                 y: 0,
-                color: { kind: 'ref', default: colorFactory },
+                color: field({ kind: 'ref', default: colorFactory }),
                 name: 'entity',
             });
 
@@ -166,6 +183,7 @@ describe('Schema', () => {
         });
 
         it('should handle complex mixed definition', () => {
+            const damageDescriptor = field({ kind: 'number', default: 10, min: 0, max: 100 });
             const result = parseDefinition({
                 // Shorthand values
                 health: 100,
@@ -174,8 +192,8 @@ describe('Schema', () => {
                 score: 0n,
                 // Factory function
                 position: () => ({ x: 0, y: 0 }),
-                // Full FieldDescriptor
-                damage: { kind: 'number', default: 10, min: 0, max: 100 },
+                // Full field() descriptor
+                damage: damageDescriptor,
             });
 
             expect(result.health).toMatchObject({ kind: 'number', default: 100 });
@@ -184,7 +202,9 @@ describe('Schema', () => {
             expect(result.score).toMatchObject({ kind: 'bigint', default: 0n });
             expect(result.position.kind).toBe('ref');
             expect(typeof result.position.default).toBe('function');
-            expect(result.damage).toEqual({ kind: 'number', default: 10, min: 0, max: 100 });
+            expect(result.damage).toBe(damageDescriptor); // Same reference
+            expect(result.damage.min).toBe(0);
+            expect(result.damage.max).toBe(100);
         });
     });
 });

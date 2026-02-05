@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import { trait, type ExtractType, type TagTrait } from '../src';
+import { field, trait, type ExtractType, type TagTrait } from '../src';
 
 describe('Trait type inference', () => {
     describe('field-based traits', () => {
@@ -110,12 +110,12 @@ describe('Trait type inference', () => {
     });
 
     describe('field descriptors', () => {
-        it('infers data shape for all schema kinds', () => {
+        it('infers data shape for all schema kinds using field()', () => {
             const Config = trait({
-                count: { kind: 'number', default: 0 },
-                name: { kind: 'string', default: '' },
-                active: { kind: 'boolean', default: false },
-                id: { kind: 'bigint', default: 0n },
+                count: field({ kind: 'number', default: 0 }),
+                name: field({ kind: 'string', default: '' }),
+                active: field({ kind: 'boolean', default: false }),
+                id: field({ kind: 'bigint', default: 0n }),
             });
 
             expectTypeOf<ExtractType<typeof Config>>().toEqualTypeOf<{
@@ -128,7 +128,7 @@ describe('Trait type inference', () => {
 
         it('infers data shape for ref kind with factory default', () => {
             const Ball = trait({
-                color: { kind: 'ref', default: () => ({ r: 0, g: 0, b: 0 }) },
+                color: field({ kind: 'ref', default: () => ({ r: 0, g: 0, b: 0 }) }),
             });
 
             expectTypeOf<ExtractType<typeof Ball>>().toEqualTypeOf<{
@@ -140,7 +140,7 @@ describe('Trait type inference', () => {
             const Entity = trait({
                 x: 0, // shorthand
                 y: 0, // shorthand
-                name: { kind: 'string', default: 'entity' }, // field descriptor
+                name: field({ kind: 'string', default: 'entity' }), // field descriptor
                 color: () => ({ r: 0, g: 0, b: 0 }), // factory shorthand
             });
 
@@ -149,6 +149,34 @@ describe('Trait type inference', () => {
                 y: number;
                 name: string;
                 color: { r: number; g: number; b: number };
+            }>();
+        });
+
+        it('supports top-level field descriptor for single-ref traits', () => {
+            const Position = trait(field({ kind: 'ref', default: () => ({ x: 0, y: 0 }) }));
+
+            expectTypeOf<ExtractType<typeof Position>>().toEqualTypeOf<{
+                x: number;
+                y: number;
+            }>();
+        });
+
+        it('works with extension helpers that return field()', () => {
+            // Simulate an extension helper
+            const clamped = (value: number, _min: number, _max: number) =>
+                field({
+                    kind: 'number' as const,
+                    default: value,
+                });
+
+            const Health = trait({
+                current: clamped(100, 0, 100),
+                max: clamped(100, 0, 100),
+            });
+
+            expectTypeOf<ExtractType<typeof Health>>().toEqualTypeOf<{
+                current: number;
+                max: number;
             }>();
         });
     });

@@ -7,6 +7,7 @@ export {
 } from './accessors';
 
 export {
+    field,
     validateDefinition,
     getSchemaDefaults,
     parseDefinition,

@@ -1,24 +1,70 @@
-import type { Definition, FieldDescriptor, Schema, SchemaKind, StoreType } from './types';
+import type { Definition, FieldDescriptor, Schema, SchemaKind, StoreType, Widen } from './types';
 import { $fieldDescriptor } from './types';
+
+/**
+ * Creates an explicit FieldDescriptor with proper type inference.
+ * Use this when you want to define field metadata directly instead of using shorthand.
+ *
+ * @example
+ * // Explicit field descriptor with extensions
+ * const Health = trait({
+ *   current: field({ kind: 'number', default: 100, onSet: clamp }),
+ *   max: field({ kind: 'number', default: 100 }),
+ * })
+ *
+ * @example
+ * // Single-ref trait with field descriptor
+ * const Position = trait(field({ kind: 'ref', default: () => ({ x: 0, y: 0 }) }))
+ */
+// Overload 1: Factory default - infer T from return type
+export function field<T>(descriptor: {
+    kind: SchemaKind;
+    default: () => T;
+    required?: boolean;
+    onSet?: (value: T) => T;
+    [key: string]: unknown;
+}): FieldDescriptor<T>;
+// Overload 2: Primitive default - widen to base type
+export function field<T extends number | string | boolean | bigint>(descriptor: {
+    kind: SchemaKind;
+    default: T;
+    required?: boolean;
+    onSet?: (value: Widen<T>) => Widen<T>;
+    [key: string]: unknown;
+}): FieldDescriptor<Widen<T>>;
+// Overload 3: Required without default
+export function field<T = unknown>(descriptor: {
+    kind: SchemaKind;
+    required: true;
+    default?: undefined;
+    onSet?: (value: T) => T;
+    [key: string]: unknown;
+}): FieldDescriptor<T>;
+// Implementation
+export function field(descriptor: {
+    kind: SchemaKind;
+    default?: unknown;
+    required?: boolean;
+    onSet?: (value: unknown) => unknown;
+    [key: string]: unknown;
+}): FieldDescriptor<unknown> {
+    return {
+        ...descriptor,
+        [$fieldDescriptor]: true,
+    } as FieldDescriptor<unknown>;
+}
 
 // ============================================================================
 // Schema Parsing
 // ============================================================================
 
 /**
- * Check if a value is a FieldDescriptor (has a valid 'kind' property).
+ * Check if a value is a FieldDescriptor (created via field() helper).
+ * Only objects with the $fieldDescriptor symbol are considered FieldDescriptors.
  */
 export function isFieldDescriptor(value: unknown): value is FieldDescriptor {
     if (value === null || typeof value !== 'object') return false;
-    const obj = value as Record<string, unknown>;
-    const kind = obj.kind;
-    return (
-        kind === 'number' ||
-        kind === 'string' ||
-        kind === 'boolean' ||
-        kind === 'bigint' ||
-        kind === 'ref'
-    );
+    return $fieldDescriptor in value;
 }
 
 /**
@@ -121,8 +167,7 @@ export function parseDefinition(definition: Definition): Schema {
         // Handle canonical FieldDescriptor format
         if (isFieldDescriptor(value)) {
             if (value.default !== undefined) {
-                defaults[key] =
-                    typeof value.default === 'function' ? value.default() : value.default;
+                defaults[key] = typeof value.default === 'function' ? value.default() : value.default;
             }
             continue;
         }
