@@ -6,6 +6,37 @@ export {
     createGetFunction,
 } from './accessors';
 
-export { validateSchema, getSchemaDefaults } from './schema';
+export {
+    validateDefinition,
+    getSchemaDefaults,
+    parseDefinition,
+    parseField,
+    detectKind,
+    isFieldDescriptor,
+    /** @deprecated Use isFieldDescriptor instead */
+    isFieldDescriptor as isSchemaEntry,
+    /** @deprecated Use isFieldDescriptor instead */
+    isFieldDescriptor as isFieldSchema,
+} from './schema';
 
-export type { Store, StoreType, Schema, AoSFactory, Norm } from './types';
+export { $fieldDescriptor } from './types';
+/** @deprecated Use $fieldDescriptor instead */
+export { $schemaEntry } from './types';
+
+export type {
+    Store,
+    StoreType,
+    Definition,
+    DefinitionFor,
+    DefinitionValue,
+    AoSFactory,
+    Norm,
+    InferDefinition,
+    SchemaKind,
+    FieldDescriptor,
+    Schema,
+    /** @deprecated Use FieldDescriptor instead */
+    SchemaEntry,
+    /** @deprecated Use FieldDescriptor instead */
+    FieldSchema,
+} from './types';

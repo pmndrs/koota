@@ -12,11 +12,10 @@ import type {
 import type { Relation } from '../relation/types';
 import type {
     ConfigurableTrait,
-    ExtractSchema,
+    ExtractType,
     SetTraitCallback,
     Trait,
     TraitInstance,
-    TraitRecord,
     TraitValue,
 } from '../trait/types';
 
@@ -58,8 +57,8 @@ export type World = {
     has(target: Entity | Trait): boolean;
     add(...traits: ConfigurableTrait[]): void;
     remove(...traits: Trait[]): void;
-    get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
-    set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
+    get<T extends Trait>(trait: T): ExtractType<T> | undefined;
+    set<T extends Trait>(trait: T, value: Partial<ExtractType<T>> | SetTraitCallback<T>): void;
     destroy(): void;
     reset(): void;
     query<T extends QueryParameter[]>(key: Query<T>): QueryResult<T>;

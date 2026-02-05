@@ -84,12 +84,12 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                         let changed = false;
                         if (ctx.type === 'aos') {
-                            changed = ctx.fastSetWithChangeDetection(eid, store, newValue);
+                            changed = ctx.fastSetWithChangeDetection(eid, store, newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[index]);
                             }
                         } else {
-                            changed = ctx.fastSetWithChangeDetection(eid, store, newValue);
+                            changed = ctx.fastSetWithChangeDetection(eid, store, newValue as any);
                         }
 
                         // Collect changed traits.
@@ -102,7 +102,7 @@ export function createQueryResult<T extends QueryParameter[]>(
                         const trait = traits[index];
                         const ctx = trait[$internal];
                         const store = stores[index];
-                        ctx.fastSet(eid, store, state[index]);
+                        ctx.fastSet(eid, store, state[index] as any);
                     }
                 }
 
@@ -133,12 +133,12 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                         let changed = false;
                         if (ctx.type === 'aos') {
-                            changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+                            changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[j]);
                             }
                         } else {
-                            changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
+                            changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue as any);
                         }
 
                         // Collect changed traits.
@@ -165,7 +165,7 @@ export function createQueryResult<T extends QueryParameter[]>(
                     for (let j = 0; j < traits.length; j++) {
                         const trait = traits[j];
                         const ctx = trait[$internal];
-                        ctx.fastSet(eid, stores[j], state[j]);
+                        ctx.fastSet(eid, stores[j], state[j] as any);
                     }
                 }
             }

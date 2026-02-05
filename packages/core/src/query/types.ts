@@ -1,13 +1,11 @@
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
-import { AoSFactory } from '../storage';
 import type {
-    ExtractSchema,
     ExtractStore,
+    ExtractType,
     IsTag,
     Trait,
     TraitInstance,
-    TraitRecord,
 } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
@@ -58,9 +56,7 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
     ? [
           ...(First extends Trait
               ? IsTag<First> extends false
-                  ? ExtractSchema<First> extends AoSFactory
-                      ? [ReturnType<ExtractSchema<First>>]
-                      : [TraitRecord<First>]
+                  ? [ExtractType<First>]
                   : []
               : First extends Modifier
                 ? IsNotModifier<First> extends true

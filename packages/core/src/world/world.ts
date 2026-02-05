@@ -15,10 +15,9 @@ import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } fr
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
     ConfigurableTrait,
-    ExtractSchema,
+    ExtractType,
     SetTraitCallback,
     Trait,
-    TraitRecord,
     TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -102,11 +101,11 @@ export function createWorld(
             removeTrait(world, world[$internal].worldEntity, ...removeTraits);
         },
 
-        get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
+        get<T extends Trait>(trait: T): ExtractType<T> | undefined {
             return getTrait(world, world[$internal].worldEntity, trait);
         },
 
-        set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
+        set<T extends Trait>(trait: T, value: Partial<ExtractType<T>> | SetTraitCallback<T>) {
             setTrait(world, world[$internal].worldEntity, trait, value, true);
         },
 

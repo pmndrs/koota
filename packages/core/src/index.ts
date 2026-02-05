@@ -43,6 +43,10 @@ export { getStore, trait } from './trait/trait';
 export type {
     ConfigurableTrait,
     ExtractIsTag,
+    ExtractType,
+    /** @deprecated Use ExtractType instead */
+    ExtractDefinition,
+    /** @deprecated Use ExtractType instead */
     ExtractSchema,
     ExtractStore,
     IsTag,
@@ -53,7 +57,26 @@ export type {
     TraitTuple,
     TraitValue,
 } from './trait/types';
-export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
+export { $fieldDescriptor } from './storage/types';
+/** @deprecated Use $fieldDescriptor instead */
+export { $schemaEntry } from './storage/types';
+export type {
+    AoSFactory,
+    Definition,
+    DefinitionFor,
+    FieldDescriptor,
+    InferDefinition,
+    /** @deprecated Use FieldDescriptor instead */
+    FieldSchema,
+    /** @deprecated No longer needed */
+    Norm,
+    Schema,
+    /** @deprecated Use FieldDescriptor instead */
+    SchemaEntry,
+    SchemaKind,
+    Store,
+    StoreType,
+} from './storage/types';
 export type { TraitType } from './trait/types';
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';

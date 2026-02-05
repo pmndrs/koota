@@ -20,56 +20,64 @@ import {
 } from '../relation/relation';
 import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
+import type { DefinitionFor } from '../storage';
 import {
     createFastSetChangeFunction,
     createFastSetFunction,
     createGetFunction,
     createSetFunction,
     createStore,
+    Definition,
     getSchemaDefaults,
-    Norm,
-    Schema,
+    InferDefinition,
+    parseDefinition,
     StoreType,
-    validateSchema,
+    validateDefinition,
 } from '../storage';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
-import type {
-    ConfigurableTrait,
-    ExtractStore,
-    TagTrait,
-    Trait,
-    TraitInstance,
-    TraitValue,
-} from './types';
+import type { ConfigurableTrait, ExtractStore, TagTrait, Trait, TraitInstance } from './types';
 
 // No reason to create a new object every time a tag trait is created.
-const tagSchema = Object.freeze({});
+const tagDefinition = Object.freeze({});
 let traitId = 0;
 
-function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
-    const isAoS = typeof schema === 'function';
-    const isTag = !isAoS && Object.keys(schema).length === 0;
+// Overload 1: Tag trait (no definition or empty)
+function createTrait(definition?: undefined | Record<string, never>): TagTrait;
+// Overload 2: AoS factory (infer return type)
+function createTrait<T>(definition: () => T): Trait<T>;
+// Overload 3: Explicit type provided (for SoA)
+function createTrait<T>(definition: DefinitionFor<T>): Trait<T>;
+// Overload 4: Infer type from definition (SoA)
+function createTrait<D extends Definition>(definition: D): Trait<InferDefinition<D>>;
+// Implementation
+function createTrait(definition: Definition = tagDefinition): Trait<any> {
+    const isAoS = typeof definition === 'function';
+    const isTag = !isAoS && Object.keys(definition).length === 0;
     const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
-    validateSchema(schema);
+    validateDefinition(definition);
+
+    // Parse the definition into canonical schema format
+    const schema = parseDefinition(definition);
 
     const id = traitId++;
-    const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
+    const Trait = Object.assign((params: any) => [Trait, params], {
         [$internal]: {
             id: id,
-            set: createSetFunction[traitType](schema),
-            fastSet: createFastSetFunction[traitType](schema),
-            fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
-            get: createGetFunction[traitType](schema),
-            createStore: () => createStore<S>(schema),
+            set: createSetFunction[traitType](definition),
+            fastSet: createFastSetFunction[traitType](definition),
+            fastSetWithChangeDetection: createFastSetChangeFunction[traitType](definition),
+            get: createGetFunction[traitType](definition),
+            createStore: () => createStore(definition),
+            getDefault: isAoS
+                ? () => (definition as () => unknown)()
+                : () => getSchemaDefaults(schema, traitType),
             relation: null,
             type: traitType,
         },
-    }) as Trait<Norm<S>>;
+    }) as Trait<any>;
 
     // Add public read-only properties
     Object.defineProperty(Trait, 'id', {
@@ -158,7 +166,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
         const defaults = isOrderedTrait(trait)
             ? getOrderedTrait(world, entity, trait)
-            : getSchemaDefaults(data.schema, traitCtx.type);
+            : traitCtx.getDefault();
 
         if (traitCtx.type === 'aos') {
             setTrait(world, entity, trait, params ?? defaults, false);

@@ -1,10 +1,9 @@
 import type { Relation, RelationPair } from '../relation/types';
 import type {
     ConfigurableTrait,
-    ExtractSchema,
+    ExtractType,
     SetTraitCallback,
     Trait,
-    TraitRecord,
     TraitValue,
 } from '../trait/types';
 
@@ -16,10 +15,10 @@ export type Entity = number & {
     changed: (trait: Trait) => void;
     set: <T extends Trait | RelationPair>(
         trait: T,
-        value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>,
+        value: Partial<ExtractType<T>> | SetTraitCallback<T>,
         flagChanged?: boolean
     ) => void;
-    get: <T extends Trait | RelationPair>(trait: T) => TraitRecord<ExtractSchema<T>> | undefined;
+    get: <T extends Trait | RelationPair>(trait: T) => ExtractType<T> | undefined;
     targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
     targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
     id: () => number;

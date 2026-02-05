@@ -1,9 +1,9 @@
-import type { Schema } from './types';
+import type { Definition } from './types';
 
-function createSoASetFunction(schema: Schema) {
-    const keys = Object.keys(schema);
+function createSoASetFunction(definition: Definition) {
+    const keys = Object.keys(definition);
 
-    // Generate a hardcoded set function based on the schema keys
+    // Generate a hardcoded set function based on the definition keys
     const setFunctionBody = keys
         .map((key) => `if ('${key}' in value) store.${key}[index] = value.${key};`)
         .join('\n    ');
@@ -21,10 +21,10 @@ function createSoASetFunction(schema: Schema) {
     return set;
 }
 
-function createSoAFastSetFunction(schema: Schema) {
-    const keys = Object.keys(schema);
+function createSoAFastSetFunction(definition: Definition) {
+    const keys = Object.keys(definition);
 
-    // Generate a hardcoded set function based on the schema keys
+    // Generate a hardcoded set function based on the definition keys
     const setFunctionBody = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
 
     // Use new Function to create a set function with hardcoded keys
@@ -41,10 +41,10 @@ function createSoAFastSetFunction(schema: Schema) {
 }
 
 // Return true if any trait value were changed.
-function createSoAFastSetChangeFunction(schema: Schema) {
-    const keys = Object.keys(schema);
+function createSoAFastSetChangeFunction(definition: Definition) {
+    const keys = Object.keys(definition);
 
-    // Generate a hardcoded set function based on the schema keys
+    // Generate a hardcoded set function based on the definition keys
     const setFunctionBody = keys
         .map(
             (key) =>
@@ -70,8 +70,8 @@ function createSoAFastSetChangeFunction(schema: Schema) {
     return set;
 }
 
-function createSoAGetFunction(schema: Schema) {
-    const keys = Object.keys(schema);
+function createSoAGetFunction(definition: Definition) {
+    const keys = Object.keys(definition);
 
     // Create an object literal with all keys assigned from the store
     const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[index]`).join(', ')} }`;
@@ -88,13 +88,13 @@ function createSoAGetFunction(schema: Schema) {
     return get;
 }
 
-function createAoSSetFunction(_schema: Schema) {
+function createAoSSetFunction(_definition: Definition) {
     return (index: number, store: any, value: any) => {
         store[index] = value;
     };
 }
 
-function createAoSFastSetChangeFunction(_schema: Schema) {
+function createAoSFastSetChangeFunction(_definition: Definition) {
     return (index: number, store: any, value: any) => {
         let changed = false;
         if (value !== store[index]) {
@@ -105,7 +105,7 @@ function createAoSFastSetChangeFunction(_schema: Schema) {
     };
 }
 
-function createAoSGetFunction(_schema: Schema) {
+function createAoSGetFunction(_definition: Definition) {
     return (index: number, store: any) => store[index];
 }
 

@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { Schema } from '../storage';
+import { Definition } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
@@ -15,15 +15,15 @@ import { $relation, $relationPair } from './symbols';
  * Relations are stored efficiently - one trait per relation type, not per target.
  * Targets are stored in TraitInstance.relationTargets.
  */
-function createRelation<S extends Schema = Record<string, never>>(definition?: {
+function createRelation<D extends Definition = Record<string, never>>(definition?: {
     exclusive?: boolean;
     autoDestroy?: 'orphan' | 'source' | 'target';
     /** @deprecated Use `autoDestroy: 'orphan'` instead */
     autoRemoveTarget?: boolean;
-    store?: S;
-}): Relation<Trait<S>> {
+    store?: D;
+}): Relation<Trait<D>> {
     // Create the underlying trait for this relation
-    const relationTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
+    const relationTrait = trait(definition?.store ?? ({} as D)) as unknown as Trait<D>;
     const traitCtx = relationTrait[$internal];
 
     // Mark the trait as a relation trait
@@ -55,22 +55,22 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
     function relationFn(
         target: RelationTarget,
         params?: Record<string, unknown>
-    ): RelationPair<Trait<S>> {
+    ): RelationPair<Trait<D>> {
         if (target === undefined) throw Error('Relation target is undefined');
 
         return {
             [$relationPair]: true,
             [$internal]: {
-                relation: relationFn as Relation<Trait<S>>,
+                relation: relationFn as Relation<Trait<D>>,
                 target,
                 params,
             },
-        } as RelationPair<Trait<S>>;
+        } as RelationPair<Trait<D>>;
     }
 
     const relation = Object.assign(relationFn, {
         [$internal]: relationCtx,
-    }) as Relation<Trait<S>>;
+    }) as Relation<Trait<D>>;
 
     // Add symbol brand for fast type checking
     Object.defineProperty(relation, $relation, {
