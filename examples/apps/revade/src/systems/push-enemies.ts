@@ -8,7 +8,6 @@ const pushForce = new THREE.Vector3();
 
 export function pushEnemies(world: World) {
     const spatialHashMap = world.get(SpatialHashMap)!;
-
     world.query(IsPlayer, Transform, Movement).updateEach(([{ position }, { velocity }], player) => {
         // Get nearby entities
         const nearbyEntities = spatialHashMap.getNearbyEntities(

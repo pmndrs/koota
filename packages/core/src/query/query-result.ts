@@ -1,11 +1,11 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isRelationPair } from '../relation/utils/is-relation';
+import { isRelation, isRelationPair } from '../relation/utils/is-relation';
 import type { Relation } from '../relation/types';
 import { Store } from '../storage';
 import { getStore } from '../trait/trait';
-import type { Trait } from '../trait/types';
+import type { Trait, TraitInstance } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import type { World } from '../world';
 import { isModifier } from './modifier';
@@ -17,7 +17,9 @@ import type {
     QueryResult,
     QueryResultOptions,
     StoresFromParameters,
+    TraitInstancesFromParameters,
 } from './types';
+import { getTraitInstance, TraitInstanceArray } from '../trait/trait-instance';
 
 export function createQueryResult<T extends QueryParameter[]>(
     world: World,
@@ -178,6 +180,26 @@ export function createQueryResult<T extends QueryParameter[]>(
             return results;
         },
 
+        useTraitInstances(
+            callback: (
+                instances: TraitInstancesFromParameters<T>, 
+                entities: readonly Entity[]
+            ) => void
+            ) {
+            const ctx = world[$internal];
+            const instances: TraitInstance[] = [];
+
+            for (let i = 0; i < traits.length; i++) {
+                const trait = traits[i];
+                const instance = getTraitInstance(ctx.traitInstances, trait)!;
+                instances.push(instance);
+            }
+
+            callback(instances as unknown as TraitInstancesFromParameters<T>, entities);
+            
+            return results;
+        },
+        
         select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
             traits.length = 0;
             stores.length = 0;

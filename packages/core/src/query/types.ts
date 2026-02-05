@@ -34,6 +34,9 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
     useStores: (
         callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
     ) => QueryResult<T>;
+    useTraitInstances: (
+        callback: (instances: TraitInstancesFromParameters<T>, entities: readonly Entity[]) => void
+    ) => QueryResult<T>;
     select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
     sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
@@ -48,6 +51,26 @@ export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer 
                 ? StoresFromParameters<UnwrapModifierData<First>>
                 : []),
           ...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : []),
+      ]
+    : [];
+
+export type TraitInstancesFromParameters<T extends QueryParameter[]> = T extends [
+    infer First,
+    ...infer Rest,
+]
+    ? [
+          ...(First extends Trait
+              ? IsTag<First> extends true
+                  ? []
+                  : [TraitInstance<First>]
+              : First extends RelationPair<infer R>
+                ? [TraitInstance<R>]
+                : First extends Modifier
+                  ? IsNotModifier<First> extends true
+                      ? []
+                      : TraitInstancesFromParameters<UnwrapModifierData<First>>
+                  : []),
+          ...(Rest extends QueryParameter[] ? TraitInstancesFromParameters<Rest> : []),
       ]
     : [];
 

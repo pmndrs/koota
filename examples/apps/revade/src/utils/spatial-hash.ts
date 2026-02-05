@@ -2,6 +2,12 @@
 
 import type { Entity } from 'koota';
 
+export type SerializedSpatialHashMap = {
+    cellSize: number;
+    cells: [string, Entity[]][];
+    entityToCell: [Entity, Entity[]][];
+};
+
 type Cell = Set<Entity>;
 
 export class SpatialHashMap {
@@ -9,6 +15,22 @@ export class SpatialHashMap {
     protected entityToCell = new Map<Entity, Cell>();
 
     constructor(public cellSize: number) {}
+
+    serialize(): SerializedSpatialHashMap {
+        return {
+            cellSize: this.cellSize,
+            cells: Array.from(this.cells.entries()).map(([k, v]) => [k, Array.from(v)]),
+            entityToCell: Array.from(this.entityToCell.entries()).map(([k, v]) => [k, Array.from(v)]),
+        };
+    }
+
+    static unserialize(serialized: SerializedSpatialHashMap) {
+        return {
+            cellSize: serialized.cellSize,
+            cells: new Map(serialized.cells.map(([k, v]) => [k, new Set(v)])),
+            entityToCell: new Map(serialized.entityToCell.map(([k, v]) => [k, new Set(v)])),
+        };
+    }
 
     setEntity(entity: Entity, x: number, y: number, z: number) {
         const cell = this.getCell(x, y, z);

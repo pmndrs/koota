@@ -7,11 +7,33 @@ import type { AoSFactory, Schema, Store, StoreType } from '../storage';
 // Backwards-compatible alias (the trait "type" is the storage layout).
 export type TraitType = StoreType;
 
+type TraitRecordFromSchema<T extends Schema> = T extends AoSFactory
+    ? ReturnType<T>
+    : {
+          [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];
+      };
+
 export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
     ? ReturnType<TSchema>
-    : Partial<TraitRecord<TSchema>>;
+    : Partial<TraitRecordFromSchema<TSchema>>;
 
-export type Trait<TSchema extends Schema = any> = {
+export type Serializer<T> = (value: T) => any;
+export type Deserializer<T> = (value: any, current?: T) => T;
+
+export type SoASerializers<S extends Schema> = {
+    [K in keyof TraitRecordFromSchema<S>]?: Serializer<TraitRecordFromSchema<S>[K]>;
+};
+
+export type SoADeserializers<S extends Schema> = {
+    [K in keyof TraitRecordFromSchema<S>]?: Deserializer<TraitRecordFromSchema<S>[K]>;
+};
+
+export type TraitOptions<S extends Schema> = {
+    serialize?: S extends AoSFactory ? Serializer<ReturnType<S>> : SoASerializers<S>;
+    deserialize?: S extends AoSFactory ? Deserializer<ReturnType<S>> : SoADeserializers<S>;
+};
+
+export type Trait<TSchema extends Schema = any, TSerialized = TraitValue<TSchema>> = {
     /** Public read-only ID for fast array lookups */
     readonly id: number;
     readonly schema: TSchema;
@@ -29,8 +51,9 @@ export type Trait<TSchema extends Schema = any> = {
         /** Reference to parent relation if this trait is owned by a relation */
         relation: Relation<any> | null;
         type: StoreType;
+        options?: TraitOptions<TSchema>;
     };
-} & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
+} & ((params?: TraitValue<TSchema>) => [Trait<TSchema, TSerialized>, TraitValue<TSchema>]);
 
 export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
 
@@ -49,11 +72,7 @@ export type SetTraitCallback<T extends Trait | RelationPair> = (
     prev: TraitRecord<ExtractSchema<T>>
 ) => TraitValue<ExtractSchema<T>>;
 
-type TraitRecordFromSchema<T extends Schema> = T extends AoSFactory
-    ? ReturnType<T>
-    : {
-          [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];
-      };
+
 
 /**
  * The record of a trait.
@@ -102,7 +121,7 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
      * For exclusive: relationTargets[eid] = targetId (number)
      * For non-exclusive: relationTargets[eid] = [targetId1, targetId2, ...] (number[])
      */
-    relationTargets?: number[] | number[][];
+    relationTargets?: (number | undefined)[] | number[][];
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;

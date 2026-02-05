@@ -41,6 +41,7 @@ import type {
     TagTrait,
     Trait,
     TraitInstance,
+    TraitOptions,
     TraitValue,
 } from './types';
 
@@ -49,8 +50,14 @@ const tagSchema = Object.freeze({});
 let traitId = 0;
 
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+function createTrait<S extends Schema, TSerialized = S extends (...args: any) => infer R ? R : Norm<S>>(
+    schema: S,
+    options?: TraitOptions<S>
+): Trait<Norm<S>, TSerialized>;
+function createTrait<S extends Schema, TSerialized = S extends (...args: any) => infer R ? R : Norm<S>>(
+    schema: S = tagSchema as S,
+    options?: TraitOptions<S>
+): Trait<Norm<S>, TSerialized> {
     const isAoS = typeof schema === 'function';
     const isTag = !isAoS && Object.keys(schema).length === 0;
     const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
@@ -68,8 +75,9 @@ function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
             createStore: () => createStore<S>(schema),
             relation: null,
             type: traitType,
+            options
         },
-    }) as Trait<Norm<S>>;
+    }) as Trait<Norm<S>, TSerialized>;
 
     // Add public read-only properties
     Object.defineProperty(Trait, 'id', {

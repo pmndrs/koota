@@ -18,12 +18,12 @@ type TransformValue = TraitRecord<typeof Transform>;
 
 export const actions = createActions((world) => ({
     spawnPlayer: (transform?: TransformValue) => {
-        return world.spawn(IsPlayer, Movement, Input, Transform(transform));
+        return world.spawn(IsPlayer, Movement({ velocity: new THREE.Vector3(), force: new THREE.Vector3(), thrust: 1, damping: .9, maxSpeed: 10 }), Input, Transform(transform));
     },
     spawnEnemy: (options: { position?: [number, number, number]; target?: Entity } = {}) => {
         const enemy = world.spawn(
             IsEnemy,
-            Movement({ thrust: 0.5, damping: 0.98, maxSpeed: between(5, 10) }),
+            Movement({ velocity: new THREE.Vector3(), force: new THREE.Vector3(), thrust: 0.5, damping: 0.98, maxSpeed: between(5, 10) }),
             Transform,
             AutoRotate,
             Avoidance

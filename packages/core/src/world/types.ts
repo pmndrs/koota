@@ -3,6 +3,7 @@ import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
+    Modifier,
     Query,
     QueryInstance,
     QueryParameter,
@@ -97,4 +98,27 @@ export type World = {
         relation: Relation<T>,
         callback: (entity: Entity, target: Entity) => void
     ): QueryUnsubscriber;
+    snapshot<T extends QueryParameter[]>(key: Query<T>): WorldSnapshot;
+    snapshot<T extends QueryParameter[]>(...parameters: T): WorldSnapshot;
+    snapshot(
+       // will force inclusion of IsExcluded entities
+       string: '*'
+    ): WorldSnapshot;
+    load: (snapshot: WorldSnapshot) => void;
 };
+
+export type WorldSnapshot = {
+    worldId: number,
+    maxId: number,
+    aliveCount: number,
+    entities: number[],
+    entityMasks: number[][]
+    traitData: Array<
+        | { id: number; type: 'soa'; data: any[][]; colTypes?: number[] } // [TraitID, Type, Columns[], ColTypes?]
+        | { id: number; type: 'aos'; data: string } // [TraitID, Type, JSONString]
+    >;
+    relations: Array<
+        | {id: number, type: 'exclusive', data:(number | undefined)[]}
+        | {id: number, type: 'relation', data:string}
+    >
+}
