@@ -1,7 +1,7 @@
 {
   "name": "koota",
-  "version": "0.6.4",
-  "description": "🌎 Performant real-time state management for React and TypeScript",
+  "version": "0.6.5",
+  "description": "🌎 Performant real-time state management for TypeScript and React",
   "license": "ISC",
   "type": "module",
   "main": "./src/index.ts",
