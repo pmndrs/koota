@@ -1,7 +1,3 @@
-// ============================================================================
-// Schema Types (canonical metadata format)
-// ============================================================================
-
 /** Symbol to brand field descriptors for type checking */
 export const $fieldDescriptor = Symbol('fieldDescriptor');
 
@@ -30,13 +26,36 @@ export type FieldDescriptor<T = unknown> = {
 };
 
 /**
- * Canonical schema format - a collection of field descriptors.
+ * Schema for SoA (Struct of Arrays) traits.
+ * Each property is stored in a separate array.
  */
-export type Schema = Record<string, FieldDescriptor>;
+export type SoASchema = {
+    readonly kind: 'soa';
+    readonly fields: Record<string, FieldDescriptor>;
+};
 
-// ============================================================================
-// Definition Types (input format)
-// ============================================================================
+/**
+ * Schema for AoS (Array of Structs) traits.
+ * Each entity stores a single opaque instance (object, class, array, etc.).
+ */
+export type AoSSchema = {
+    readonly kind: 'aos';
+    readonly descriptor: FieldDescriptor<unknown> & { kind: 'ref' };
+};
+
+/**
+ * Schema for tag traits.
+ * No data — serves as a marker/flag.
+ */
+export type TagSchema = {
+    readonly kind: 'tag';
+};
+
+/**
+ * Canonical schema format — a self-describing discriminated union.
+ * The `kind` field determines how to interpret the schema and its storage.
+ */
+export type Schema = SoASchema | AoSSchema | TagSchema;
 
 /**
  * Valid values in a definition (what users can write).
@@ -71,10 +90,6 @@ export type DefinitionFor<T> = {
  * Returns a single instance that will be stored per entity.
  */
 export type AoSFactory<T = unknown> = () => T;
-
-// ============================================================================
-// Type Inference (Definition -> Data Type)
-// ============================================================================
 
 /**
  * Widens primitive literal types to their base types.
@@ -144,17 +159,10 @@ export type InferDefinition<D> =
             ? { [K in keyof D]: InferValue<D[K]> }
             : never;
 
-// ============================================================================
-// Storage Types
-// ============================================================================
-
 /**
- * Storage layout type.
- * - 'soa': Struct of Arrays - properties stored in separate arrays
- * - 'aos': Array of Structs - instances stored directly
- * - 'tag': No data storage - empty schema marker
+ * The kind of trait — derived from the Schema discriminant.
  */
-export type StoreType = 'aos' | 'soa' | 'tag';
+export type TraitKind = Schema['kind'];
 
 /**
  * Storage type for trait data.
@@ -167,31 +175,3 @@ export type Store<T> =
         : T extends Record<string, unknown>
           ? { [K in keyof T]: T[K][] }
           : T[];
-
-// ============================================================================
-// Legacy Aliases (for backward compatibility during migration)
-// ============================================================================
-
-/** @deprecated Use FieldDescriptor instead */
-export type FieldSchema<T = unknown> = FieldDescriptor<T>;
-
-/** @deprecated Use FieldDescriptor instead */
-export type SchemaEntry<T = unknown> = FieldDescriptor<T>;
-
-/** @deprecated Use $fieldDescriptor instead */
-export const $schemaEntry = $fieldDescriptor;
-
-/** @deprecated Use Schema instead */
-export type ParsedSchema = Schema;
-
-/**
- * @deprecated - Norm is no longer needed with the new type inference
- */
-export type Norm<T> =
-    T extends Record<string, never>
-        ? T
-        : T extends AoSFactory<infer R>
-          ? AoSFactory<R>
-          : T extends Record<string, DefinitionValue>
-            ? InferDefinition<T>
-            : T;

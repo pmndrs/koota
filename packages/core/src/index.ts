@@ -44,10 +44,6 @@ export type {
     ConfigurableTrait,
     ExtractIsTag,
     ExtractType,
-    /** @deprecated Use ExtractType instead */
-    ExtractDefinition,
-    /** @deprecated Use ExtractType instead */
-    ExtractSchema,
     ExtractStore,
     IsTag,
     SetTraitCallback,
@@ -59,26 +55,21 @@ export type {
 } from './trait/types';
 export { field } from './storage/schema';
 export { $fieldDescriptor } from './storage/types';
-/** @deprecated Use $fieldDescriptor instead */
-export { $schemaEntry } from './storage/types';
 export type {
     AoSFactory,
+    AoSSchema,
     Definition,
     DefinitionFor,
     FieldDescriptor,
     InferDefinition,
-    /** @deprecated Use FieldDescriptor instead */
-    FieldSchema,
-    /** @deprecated No longer needed */
-    Norm,
     Schema,
-    /** @deprecated Use FieldDescriptor instead */
-    SchemaEntry,
+    SoASchema,
     SchemaKind,
     Store,
-    StoreType,
+    TagSchema,
+    TraitKind,
 } from './storage/types';
-export type { TraitType } from './trait/types';
+
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';
@@ -90,13 +81,3 @@ export { createWorld } from './world';
 import { createQuery } from './query/query';
 /** @deprecated Use createQuery instead */
 export const cacheQuery = createQuery;
-
-import type { TraitInstance } from './trait/types';
-/** @deprecated Use TraitInstance instead */
-export type TraitData = TraitInstance;
-
-/** @deprecated Will remove this internal type entirely */
-export type { TraitInstance } from './trait/types';
-
-/** @deprecated Will remove this internal type entirely */
-export type { QueryInstance } from './query/types';

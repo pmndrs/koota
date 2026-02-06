@@ -2,18 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
-import type {
-    AoSFactory,
-    Definition,
-    DefinitionFor,
-    InferDefinition,
-    Schema,
-    Store,
-    StoreType,
-} from '../storage';
-
-// Backwards-compatible alias (the trait "type" is the storage layout).
-export type TraitType = StoreType;
+import type { Schema, Store, TagSchema } from '../storage';
 
 /**
  * Helper type for trait values that handles arrays correctly.
@@ -28,7 +17,6 @@ export type TraitPartial<T> = T extends any[] ? T : Partial<T>;
 export type Trait<T = any> = {
     /** Public read-only ID for fast array lookups */
     readonly id: number;
-    /** The canonical schema (metadata about each field) */
     readonly schema: Schema;
     [$internal]: {
         set: (index: number, store: any, value: TraitPartial<T>) => void;
@@ -37,15 +25,13 @@ export type Trait<T = any> = {
         get: (index: number, store: any) => T;
         id: number;
         createStore: () => Store<T>;
-        /** Get default values for this trait (calls factory for AoS, returns schema defaults for SoA) */
         getDefault: () => T | null;
         /** Reference to parent relation if this trait is owned by a relation */
         relation: Relation<any> | null;
-        type: StoreType;
     };
 } & ((params?: TraitPartial<T>) => [Trait<T>, TraitPartial<T>]);
 
-export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
+export type TagTrait = Trait<Record<string, never>> & { readonly schema: TagSchema };
 
 /**
  * The value type for setting/adding a trait.
@@ -85,21 +71,13 @@ export type ExtractType<T extends Trait | Relation<Trait> | RelationPair> =
             ? D
             : never;
 
-/** @deprecated Use ExtractType instead */
-export type ExtractDefinition<T extends Trait | Relation<Trait> | RelationPair> = ExtractType<T>;
-
-/** @deprecated Use ExtractType instead */
-export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> = ExtractType<T>;
-
 export type ExtractStore<T extends Trait> = T extends Trait<infer D> ? Store<D> : never;
 
-export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'tag' } } ? true : false;
+export type ExtractIsTag<T extends Trait> = T extends { readonly schema: { kind: 'tag' } }
+    ? true
+    : false;
 
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
-
-// ============================================================================
-// Trait Instance (internal runtime data)
-// ============================================================================
 
 export interface TraitInstance<T extends Trait = Trait> {
     generationId: number;
@@ -135,22 +113,3 @@ export type ExtractTrait<T> = T extends Relation<infer TTrait> ? TTrait : T;
 export type ExtractTraits<T extends TraitOrRelation[]> = {
     [K in keyof T]: ExtractTrait<T[K]>;
 };
-
-// ============================================================================
-// Trait Function Overloads (for type inference)
-// ============================================================================
-
-/**
- * Creates a trait with explicit type T and validates the definition.
- */
-export type TraitFnWithType = <T>(definition: DefinitionFor<T>) => Trait<T>;
-
-/**
- * Creates a trait and infers the type from the definition.
- */
-export type TraitFnInferred = <D extends Definition>(definition: D) => Trait<InferDefinition<D>>;
-
-/**
- * Creates a tag trait (no data).
- */
-export type TraitFnTag = () => TagTrait;

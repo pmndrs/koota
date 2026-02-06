@@ -83,7 +83,7 @@ export function createQueryResult<T extends QueryParameter[]>(
                         const store = stores[index];
 
                         let changed = false;
-                        if (ctx.type === 'aos') {
+                        if (trait.schema.kind === 'aos') {
                             changed = ctx.fastSetWithChangeDetection(eid, store, newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[index]);
@@ -132,7 +132,7 @@ export function createQueryResult<T extends QueryParameter[]>(
                         const newValue = state[j];
 
                         let changed = false;
-                        if (ctx.type === 'aos') {
+                        if (trait.schema.kind === 'aos') {
                             changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[j]);
@@ -239,7 +239,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         const ctx = trait[$internal];
         const value = ctx.get(entityId, stores[j]);
         state[j] = value;
-        atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
+        atomicSnapshots[j] = trait.schema.kind === 'aos' ? { ...value } : null;
     }
 }
 
@@ -257,7 +257,7 @@ export function createQueryResult<T extends QueryParameter[]>(
             const pairCtx = param[$internal];
             const relation = pairCtx.relation as Relation<Trait>;
             const baseTrait = relation[$internal].trait;
-            if (baseTrait[$internal].type !== 'tag') {
+            if (baseTrait.schema.kind !== 'tag') {
                 traits.push(baseTrait);
                 stores.push(getStore(world, baseTrait));
             }
@@ -270,13 +270,13 @@ export function createQueryResult<T extends QueryParameter[]>(
 
             const modifierTraits = param.traits;
             for (const trait of modifierTraits) {
-                if (trait[$internal].type === 'tag') continue; // Skip tags
+                if (trait.schema.kind === 'tag') continue; // Skip tags
                 traits.push(trait);
                 stores.push(getStore(world, trait));
             }
         } else {
             const trait = param as Trait;
-            if (trait[$internal].type === 'tag') continue; // Skip tags
+            if (trait.schema.kind === 'tag') continue; // Skip tags
             traits.push(trait);
             stores.push(getStore(world, trait));
         }

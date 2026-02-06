@@ -22,76 +22,71 @@ import type { OrderedRelation, Relation, RelationPair } from '../relation/types'
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { DefinitionFor, FieldDescriptor } from '../storage';
 import {
-    createFastSetChangeFunction,
-    createFastSetFunction,
-    createGetFunction,
-    createSetFunction,
+    createFastSetChangeAccessor,
+    createFastSetAccessor,
+    createGetAccessor,
+    createGetDefaultAccessor,
+    createSetAccessor,
     createStore,
     Definition,
-    getSchemaDefaults,
     InferDefinition,
-    isFieldDescriptor,
     parseDefinition,
-    StoreType,
     validateDefinition,
 } from '../storage';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
-import type { ConfigurableTrait, ExtractStore, TagTrait, Trait, TraitInstance } from './types';
+import type {
+    ConfigurableTrait,
+    ExtractStore,
+    TagTrait,
+    Trait,
+    TraitInstance,
+    TraitPartial,
+} from './types';
 
 // No reason to create a new object every time a tag trait is created.
 const tagDefinition = Object.freeze({});
 let traitId = 0;
 
-// Overload 1: Tag trait (no definition or empty)
+// Overload 1: Tag trait
 function createTrait(definition?: undefined | Record<string, never>): TagTrait;
-// Overload 2: AoS factory (infer return type)
+// Overload 2: AoS trait via factory
 function createTrait<T>(definition: () => T): Trait<T>;
-// Overload 3: Top-level FieldDescriptor (single-ref trait)
-function createTrait<T>(definition: FieldDescriptor<T>): Trait<T>;
-// Overload 4: Explicit type provided (for SoA)
+// Overload 3: AoS trait via top-level FieldDescriptor (must be ref kind)
+function createTrait<T>(definition: FieldDescriptor<T> & { kind: 'ref' }): Trait<T>;
+// Overload 4: SoA trait with explicit data shape type
 function createTrait<T>(definition: DefinitionFor<T>): Trait<T>;
-// Overload 5: Infer type from definition (SoA)
+// Overload 5: SoA trait with inferred data shape from definition
 function createTrait<D extends Definition>(definition: D): Trait<InferDefinition<D>>;
-// Implementation
-function createTrait(definition: Definition | FieldDescriptor = tagDefinition): Trait<any> {
-    // Handle top-level FieldDescriptor (single-ref trait from field())
-    if (isFieldDescriptor(definition)) {
-        const descriptor = definition as FieldDescriptor;
-        const factory =
-            typeof descriptor.default === 'function' ? descriptor.default : () => descriptor.default;
-        // Create an AoS-style trait from the descriptor
-        definition = factory as () => unknown;
-    }
 
-    const isAoS = typeof definition === 'function';
-    const isTag = !isAoS && Object.keys(definition).length === 0;
-    const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
-
+function createTrait(definition: Definition | FieldDescriptor = tagDefinition): Trait {
     validateDefinition(definition);
 
-    // Parse the definition into canonical schema format
+    // 1. Parse definition into canonical schema — the single source of truth
     const schema = parseDefinition(definition);
 
-    const id = traitId++;
-    const Trait = Object.assign((params: any) => [Trait, params], {
-        [$internal]: {
-            id: id,
-            set: createSetFunction[traitType](definition),
-            fastSet: createFastSetFunction[traitType](definition),
-            fastSetWithChangeDetection: createFastSetChangeFunction[traitType](definition),
-            get: createGetFunction[traitType](definition),
-            createStore: () => createStore(definition),
-            getDefault: isAoS
-                ? () => (definition as () => unknown)()
-                : () => getSchemaDefaults(schema, traitType),
-            relation: null,
-            type: traitType,
-        },
-    }) as Trait<any>;
+    // 2. Build accessors and storage from the schema
+    const set = createSetAccessor(schema);
+    const fastSet = createFastSetAccessor(schema);
+    const fastSetWithChangeDetection = createFastSetChangeAccessor(schema);
+    const get = createGetAccessor(schema);
+    const getDefault = createGetDefaultAccessor(schema);
 
-    // Add public read-only properties
+    // 3. Build the trait object
+    const id = traitId++;
+    const Trait = Object.assign((params?: TraitPartial<Trait>) => [Trait, params], {
+        [$internal]: {
+            set,
+            fastSet,
+            fastSetWithChangeDetection,
+            get,
+            createStore: () => createStore(schema),
+            getDefault,
+            relation: null,
+        },
+    }) as Trait;
+
     Object.defineProperty(Trait, 'id', {
         value: id,
         writable: false,
@@ -100,7 +95,7 @@ function createTrait(definition: Definition | FieldDescriptor = tagDefinition): 
     });
 
     Object.defineProperty(Trait, 'schema', {
-        value: schema,
+        value: Object.freeze(schema),
         writable: false,
         enumerable: true,
         configurable: false,
@@ -180,7 +175,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
             ? getOrderedTrait(world, entity, trait)
             : traitCtx.getDefault();
 
-        if (traitCtx.type === 'aos') {
+        if (trait.schema.kind === 'aos') {
             setTrait(world, entity, trait, params ?? defaults, false);
         } else if (defaults) {
             setTrait(world, entity, trait, { ...defaults, ...params }, false);
@@ -229,9 +224,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
     const targetIndex = addRelationTarget(world, relation, entity, target);
     if (targetIndex === -1) return; // No-op
 
-    const schema =
-        instance?.schema ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!.schema;
-    const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
+    const defaults = relationTrait[$internal].getDefault();
 
     if (defaults) {
         setRelationDataAtIndex(world, entity, relation, targetIndex, { ...defaults, ...params });

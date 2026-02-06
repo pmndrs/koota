@@ -1,43 +1,35 @@
-export { createStore } from './stores';
 export {
-    createSetFunction,
-    createFastSetFunction,
-    createFastSetChangeFunction,
-    createGetFunction,
+    createFastSetAccessor,
+    createFastSetChangeAccessor,
+    createGetAccessor,
+    createGetDefaultAccessor,
+    createSetAccessor,
 } from './accessors';
+export { createStore } from './stores';
 
 export {
+    detectKind,
     field,
-    validateDefinition,
-    getSchemaDefaults,
+    isFieldDescriptor,
     parseDefinition,
     parseField,
-    detectKind,
-    isFieldDescriptor,
-    /** @deprecated Use isFieldDescriptor instead */
-    isFieldDescriptor as isSchemaEntry,
-    /** @deprecated Use isFieldDescriptor instead */
-    isFieldDescriptor as isFieldSchema,
+    validateDefinition,
 } from './schema';
 
 export { $fieldDescriptor } from './types';
-/** @deprecated Use $fieldDescriptor instead */
-export { $schemaEntry } from './types';
 
 export type {
-    Store,
-    StoreType,
+    AoSFactory,
+    AoSSchema,
     Definition,
     DefinitionFor,
     DefinitionValue,
-    AoSFactory,
-    Norm,
-    InferDefinition,
-    SchemaKind,
     FieldDescriptor,
+    InferDefinition,
     Schema,
-    /** @deprecated Use FieldDescriptor instead */
-    SchemaEntry,
-    /** @deprecated Use FieldDescriptor instead */
-    FieldSchema,
+    SchemaKind,
+    SoASchema,
+    Store,
+    TagSchema,
+    TraitKind,
 } from './types';

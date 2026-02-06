@@ -93,6 +93,19 @@ describe('Trait type inference', () => {
             expectTypeOf<ExtractType<typeof Velocity>>().toEqualTypeOf<Vector3>();
         });
 
+        it('accepts explicit data shape type for factory traits', () => {
+            class Vector3 {
+                constructor(
+                    public x = 0,
+                    public y = 0,
+                    public z = 0
+                ) {}
+            }
+            const Velocity = trait<Vector3>(() => new Vector3());
+
+            expectTypeOf<ExtractType<typeof Velocity>>().toEqualTypeOf<Vector3>();
+        });
+
         it('works with typed arrays', () => {
             const Positions = trait((): [number, number, number] => [0, 0, 0]);
 
@@ -161,23 +174,13 @@ describe('Trait type inference', () => {
             }>();
         });
 
-        it('works with extension helpers that return field()', () => {
-            // Simulate an extension helper
-            const clamped = (value: number, _min: number, _max: number) =>
-                field({
-                    kind: 'number' as const,
-                    default: value,
-                });
-
-            const Health = trait({
-                current: clamped(100, 0, 100),
-                max: clamped(100, 0, 100),
-            });
-
-            expectTypeOf<ExtractType<typeof Health>>().toEqualTypeOf<{
-                current: number;
-                max: number;
-            }>();
+        it('rejects non-ref top-level field descriptors', () => {
+            // @ts-expect-error - top-level field descriptors must be ref kind
+            trait(field({ kind: 'number', default: 0 }));
+            // @ts-expect-error - top-level field descriptors must be ref kind
+            trait(field({ kind: 'string', default: '' }));
+            // @ts-expect-error - top-level field descriptors must be ref kind
+            trait(field({ kind: 'boolean', default: false }));
         });
     });
 });

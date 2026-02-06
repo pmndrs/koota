@@ -1,51 +1,81 @@
-import type { Definition } from './types';
+import type { Schema, SoASchema } from './types';
 
-function createSoASetFunction(definition: Definition) {
-    const keys = Object.keys(definition);
+/**
+ * Indirection is the killer of hot loops. We optimize for this by compiling away indirection
+ * for accessors at runtime using `new Function` to generate bytecode when a trait is created.
+ */
 
-    // Generate a hardcoded set function based on the definition keys
-    const setFunctionBody = keys
-        .map((key) => `if ('${key}' in value) store.${key}[index] = value.${key};`)
+//  SoA default value constructors
+
+function inlinePrimitive(value: unknown): string | null {
+    switch (typeof value) {
+        case 'number':
+        case 'boolean':
+            return String(value);
+        case 'string':
+            return JSON.stringify(value);
+        case 'bigint':
+            return `${value}n`;
+        default:
+            return null;
+    }
+}
+
+function createSoAGetDefaultFunction(schema: SoASchema) {
+    const keys = Object.keys(schema.fields);
+    const closureArgs: string[] = [];
+    const closureValues: any[] = [];
+
+    const fields = keys
+        .filter((key) => schema.fields[key].default !== undefined)
+        .map((key) => {
+            const def = schema.fields[key].default;
+            if (typeof def === 'function') {
+                const argName = `def_${key}`;
+                closureArgs.push(argName);
+                closureValues.push(def);
+                return `${key}: ${argName}()`;
+            }
+            const inlined = inlinePrimitive(def);
+            if (inlined !== null) return `${key}: ${inlined}`;
+            const argName = `def_${key}`;
+            closureArgs.push(argName);
+            closureValues.push(def);
+            return `${key}: ${argName}`;
+        });
+
+    if (fields.length === 0) return () => ({});
+
+    const innerBody = `return { ${fields.join(', ')} };`;
+    if (closureArgs.length === 0) return new Function(innerBody);
+    const outerBody = `return function getDefault() { ${innerBody} };`;
+    return new Function(...closureArgs, outerBody)(...closureValues);
+}
+
+// SoA accessors
+
+function createSoASetFunction(schema: SoASchema) {
+    const keys = Object.keys(schema.fields);
+
+    const body = keys
+        .map((key) => `if (Object.hasOwn(value, '${key}')) store.${key}[index] = value.${key};`)
         .join('\n    ');
 
-    // Use new Function to create a set function with hardcoded keys
-    const set = new Function(
-        'index',
-        'store',
-        'value',
-        `
-		${setFunctionBody}
-	  `
-    );
-
-    return set;
+    return new Function('index', 'store', 'value', body);
 }
 
-function createSoAFastSetFunction(definition: Definition) {
-    const keys = Object.keys(definition);
+function createSoAFastSetFunction(schema: SoASchema) {
+    const keys = Object.keys(schema.fields);
 
-    // Generate a hardcoded set function based on the definition keys
-    const setFunctionBody = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
+    const body = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
 
-    // Use new Function to create a set function with hardcoded keys
-    const set = new Function(
-        'index',
-        'store',
-        'value',
-        `
-		${setFunctionBody}
-	  `
-    );
-
-    return set;
+    return new Function('index', 'store', 'value', body);
 }
 
-// Return true if any trait value were changed.
-function createSoAFastSetChangeFunction(definition: Definition) {
-    const keys = Object.keys(definition);
+function createSoAFastSetChangeFunction(schema: SoASchema) {
+    const keys = Object.keys(schema.fields);
 
-    // Generate a hardcoded set function based on the definition keys
-    const setFunctionBody = keys
+    const body = keys
         .map(
             (key) =>
                 `if (store.${key}[index] !== value.${key}) {
@@ -55,83 +85,95 @@ function createSoAFastSetChangeFunction(definition: Definition) {
         )
         .join('\n    ');
 
-    // Use new Function to create a set function with hardcoded keys
-    const set = new Function(
+    return new Function(
         'index',
         'store',
         'value',
-        `
-        let changed = false;
-        ${setFunctionBody}
-        return changed;
-        `
+        `let changed = false;\n    ${body}\n    return changed;`
     );
-
-    return set;
 }
 
-function createSoAGetFunction(definition: Definition) {
-    const keys = Object.keys(definition);
+function createSoAGetFunction(schema: SoASchema) {
+    const keys = Object.keys(schema.fields);
 
-    // Create an object literal with all keys assigned from the store
     const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[index]`).join(', ')} }`;
 
-    // Use new Function to create a get function that returns the pre-populated object
-    const get = new Function(
-        'index',
-        'store',
-        `
-        return ${objectLiteral};
-        `
-    );
-
-    return get;
+    return new Function('index', 'store', `return ${objectLiteral};`);
 }
 
-function createAoSSetFunction(_definition: Definition) {
-    return (index: number, store: any, value: any) => {
+// AoS accessors: simple index-based read/write into a flat array store
+
+const aosSet = (index: number, store: any, value: any) => {
+    store[index] = value;
+};
+
+const aosFastSetChange = (index: number, store: any, value: any) => {
+    if (value !== store[index]) {
         store[index] = value;
-    };
-}
+        return true;
+    }
+    return false;
+};
 
-function createAoSFastSetChangeFunction(_definition: Definition) {
-    return (index: number, store: any, value: any) => {
-        let changed = false;
-        if (value !== store[index]) {
-            store[index] = value;
-            changed = true;
-        }
-        return changed;
-    };
-}
+const aosGet = (index: number, store: any) => store[index];
 
-function createAoSGetFunction(_definition: Definition) {
-    return (index: number, store: any) => store[index];
-}
+// Tag accessor: tags carry no data so all operations are no-ops
 
 const noop = () => {};
-const createTagNoop = () => noop;
 
-export const createSetFunction = {
-    soa: createSoASetFunction,
-    aos: createAoSSetFunction,
-    tag: createTagNoop,
-};
+export function createSetAccessor(schema: Schema) {
+    switch (schema.kind) {
+        case 'soa':
+            return createSoASetFunction(schema);
+        case 'aos':
+            return aosSet;
+        case 'tag':
+            return noop;
+    }
+}
 
-export const createFastSetFunction = {
-    soa: createSoAFastSetFunction,
-    aos: createAoSSetFunction,
-    tag: createTagNoop,
-};
+export function createFastSetAccessor(schema: Schema) {
+    switch (schema.kind) {
+        case 'soa':
+            return createSoAFastSetFunction(schema);
+        case 'aos':
+            return aosSet;
+        case 'tag':
+            return noop;
+    }
+}
 
-export const createFastSetChangeFunction = {
-    soa: createSoAFastSetChangeFunction,
-    aos: createAoSFastSetChangeFunction,
-    tag: createTagNoop,
-};
+export function createFastSetChangeAccessor(schema: Schema) {
+    switch (schema.kind) {
+        case 'soa':
+            return createSoAFastSetChangeFunction(schema);
+        case 'aos':
+            return aosFastSetChange;
+        case 'tag':
+            return noop;
+    }
+}
 
-export const createGetFunction = {
-    soa: createSoAGetFunction,
-    aos: createAoSGetFunction,
-    tag: createTagNoop,
-};
+export function createGetAccessor(schema: Schema) {
+    switch (schema.kind) {
+        case 'soa':
+            return createSoAGetFunction(schema);
+        case 'aos':
+            return aosGet;
+        case 'tag':
+            return noop;
+    }
+}
+
+export function createGetDefaultAccessor(schema: Schema): () => Record<string, any> | null {
+    switch (schema.kind) {
+        case 'tag':
+            return () => null;
+        case 'aos': {
+            const def = schema.descriptor.default;
+            return typeof def === 'function' ? (def as () => Record<string, any>) : () => null;
+        }
+        case 'soa':
+            return createSoAGetDefaultFunction(schema);
+    }
+}

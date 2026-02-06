@@ -1,4 +1,13 @@
-import type { Definition, FieldDescriptor, Schema, SchemaKind, StoreType, Widen } from './types';
+import type {
+    AoSSchema,
+    Definition,
+    FieldDescriptor,
+    Schema,
+    SchemaKind,
+    SoASchema,
+    TagSchema,
+    Widen,
+} from './types';
 import { $fieldDescriptor } from './types';
 
 /**
@@ -16,31 +25,35 @@ import { $fieldDescriptor } from './types';
  * // Single-ref trait with field descriptor
  * const Position = trait(field({ kind: 'ref', default: () => ({ x: 0, y: 0 }) }))
  */
-// Overload 1: Factory default - infer T from return type
-export function field<T>(descriptor: {
-    kind: SchemaKind;
+
+// Overload 1: Infer data type from SoA factory constructor
+export function field<T, K extends SchemaKind>(descriptor: {
+    kind: K;
     default: () => T;
     required?: boolean;
     onSet?: (value: T) => T;
     [key: string]: unknown;
-}): FieldDescriptor<T>;
-// Overload 2: Primitive default - widen to base type
-export function field<T extends number | string | boolean | bigint>(descriptor: {
-    kind: SchemaKind;
+}): FieldDescriptor<T> & { kind: K };
+// Overload 2: Infer data type from AoS default
+export function field<
+    T extends number | string | boolean | bigint,
+    K extends SchemaKind,
+>(descriptor: {
+    kind: K;
     default: T;
     required?: boolean;
     onSet?: (value: Widen<T>) => Widen<T>;
     [key: string]: unknown;
-}): FieldDescriptor<Widen<T>>;
-// Overload 3: Required without default
-export function field<T = unknown>(descriptor: {
-    kind: SchemaKind;
+}): FieldDescriptor<Widen<T>> & { kind: K };
+// Overload 3: Required with no default
+export function field<T = unknown, K extends SchemaKind = SchemaKind>(descriptor: {
+    kind: K;
     required: true;
     default?: undefined;
     onSet?: (value: T) => T;
     [key: string]: unknown;
-}): FieldDescriptor<T>;
-// Implementation
+}): FieldDescriptor<T> & { kind: K };
+
 export function field(descriptor: {
     kind: SchemaKind;
     default?: unknown;
@@ -53,10 +66,6 @@ export function field(descriptor: {
         [$fieldDescriptor]: true,
     } as FieldDescriptor<unknown>;
 }
-
-// ============================================================================
-// Schema Parsing
-// ============================================================================
 
 /**
  * Check if a value is a FieldDescriptor (created via field() helper).
@@ -108,90 +117,59 @@ export function parseField(value: unknown): FieldDescriptor {
 
 /**
  * Parse a trait definition into canonical Schema format.
- * Each field is normalized into a FieldDescriptor with kind and default.
+ * Returns a self-describing discriminated union — the `kind` field
+ * determines the storage strategy and how to interpret the schema.
  *
  * @example
- * // Shorthand input
  * parseDefinition({ x: 0, y: 0 })
- * // Returns: { x: { kind: 'number', default: 0 }, y: { kind: 'number', default: 0 } }
+ * // { kind: 'soa', fields: { x: { kind: 'number', default: 0 }, y: { ... } } }
  *
  * @example
- * // Mixed input (shorthand + field descriptor)
- * parseDefinition({ x: 0, color: { kind: 'ref', default: () => ({ r: 0 }) } })
- * // Returns: { x: { kind: 'number', default: 0 }, color: { kind: 'ref', default: [fn] } }
+ * parseDefinition(() => new Vector3())
+ * // { kind: 'aos', descriptor: { kind: 'ref', default: [factory] } }
  */
-export function parseDefinition(definition: Definition): Schema {
-    // AoS factory - not a field-based schema
+export function parseDefinition(definition: Definition | FieldDescriptor): Schema {
+    // Top-level FieldDescriptor (single-ref AoS trait via field())
+    if (isFieldDescriptor(definition)) {
+        const def = definition.default;
+        const factory = typeof def === 'function' ? def : () => def;
+        return {
+            kind: 'aos',
+            descriptor: { [$fieldDescriptor]: true, kind: 'ref', default: factory },
+        } as AoSSchema;
+    }
+
+    // AoS factory
     if (typeof definition === 'function') {
-        return {};
+        return {
+            kind: 'aos',
+            descriptor: { [$fieldDescriptor]: true, kind: 'ref', default: definition },
+        } as AoSSchema;
     }
 
     // Empty definition (tag)
     if (!definition || Object.keys(definition).length === 0) {
-        return {};
+        return { kind: 'tag' } as TagSchema;
     }
 
-    const parsed: Schema = {};
+    // SoA — parse each field into a FieldDescriptor
+    const fields: Record<string, FieldDescriptor> = {};
 
     for (const key in definition) {
         const value = definition[key as keyof typeof definition];
-        parsed[key] = parseField(value);
+        fields[key] = parseField(value);
     }
 
-    return parsed;
+    return { kind: 'soa', fields } as SoASchema;
 }
-
-// ============================================================================
-// Schema Defaults
-// ============================================================================
-
-/**
- * Get default values from a schema.
- * Returns null for tags (empty schemas) or if no defaults exist.
- * Handles both legacy definition format and canonical FieldDescriptor format.
- */
-/* @inline @pure */ export function getSchemaDefaults(
-    schema: Record<string, any> | (() => unknown),
-    type: StoreType
-): Record<string, any> | null {
-    if (type === 'aos') {
-        return typeof schema === 'function' ? (schema() as Record<string, any>) : null;
-    }
-
-    if (!schema || typeof schema === 'function' || Object.keys(schema).length === 0) return null;
-
-    const defaults: Record<string, any> = {};
-    for (const key in schema) {
-        const value = schema[key];
-
-        // Handle canonical FieldDescriptor format
-        if (isFieldDescriptor(value)) {
-            if (value.default !== undefined) {
-                defaults[key] = typeof value.default === 'function' ? value.default() : value.default;
-            }
-            continue;
-        }
-
-        // Handle legacy shorthand format
-        if (typeof value === 'function') {
-            defaults[key] = value();
-        } else {
-            defaults[key] = value;
-        }
-    }
-    return defaults;
-}
-
-// ============================================================================
-// Definition Validation
-// ============================================================================
 
 /**
  * Validate a trait definition.
  * Objects are only allowed if they are valid FieldDescriptor objects.
  */
-export /* @inline @pure */ function validateDefinition(definition: Definition) {
+export /* @inline @pure */ function validateDefinition(definition: Definition | FieldDescriptor) {
     if (typeof definition === 'function') return; // AoS factory
+    if (isFieldDescriptor(definition)) return; // Top-level FieldDescriptor
     for (const key in definition) {
         const value = (definition as Record<string, unknown>)[key];
         if (value !== null && typeof value === 'object') {

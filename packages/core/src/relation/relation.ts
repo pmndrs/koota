@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { Definition } from '../storage';
+import { Definition, type TraitKind } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
@@ -275,7 +275,7 @@ export function removeRelationTarget(
             targets[eid] = undefined;
             removedIndex = 0;
             hasRemainingTargets = false;
-            clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
+            clearRelationDataInternal(data.store, relationTrait.schema.kind, eid, 0, true);
         }
     } else {
         const targetsArray = data.relationTargets as number[][];
@@ -288,7 +288,7 @@ export function removeRelationTarget(
                     entityTargets[idx] = entityTargets[lastIdx];
                 }
                 entityTargets.pop();
-                swapAndPopRelationData(data.store, relationTrait[$internal].type, eid, idx, lastIdx);
+                swapAndPopRelationData(data.store, relationTrait.schema.kind, eid, idx, lastIdx);
                 removedIndex = idx;
                 hasRemainingTargets = entityTargets.length > 0;
             }
@@ -333,12 +333,12 @@ function updateQueriesForRelationChange(
 /** Swap-and-pop data arrays for non-exclusive relations */
 function swapAndPopRelationData(
     store: any,
-    type: string,
+    kind: TraitKind,
     eid: number,
     idx: number,
     lastIdx: number
 ): void {
-    if (type === 'aos') {
+    if (kind === 'aos') {
         const arr = store[eid];
         if (arr) {
             if (idx !== lastIdx) arr[idx] = arr[lastIdx];
@@ -358,13 +358,13 @@ function swapAndPopRelationData(
 /** Clear data for exclusive relations */
 function clearRelationDataInternal(
     store: any,
-    type: string,
+    kind: TraitKind,
     eid: number,
     _idx: number,
     exclusive: boolean
 ): void {
     if (!exclusive) return;
-    if (type === 'aos') {
+    if (kind === 'aos') {
         store[eid] = undefined;
     } else {
         for (const key in store) {
@@ -453,7 +453,7 @@ export function setRelationDataAtIndex(
     const store = traitData.store;
     const eid = getEntityId(entity);
 
-    if (baseTrait[$internal].type === 'aos') {
+    if (baseTrait.schema.kind === 'aos') {
         if (relationCtx.exclusive) {
             (store as unknown[])[eid] = value;
         } else {
@@ -508,12 +508,11 @@ export function getRelationData(
     const targetIndex = getTargetIndex(world, relation, entity, target);
     if (targetIndex === -1) return undefined;
 
-    const traitCtx = baseTrait[$internal];
     const store = traitData.store;
     const eid = getEntityId(entity);
     const relationCtx = relation[$internal];
 
-    if (traitCtx.type === 'aos') {
+    if (baseTrait.schema.kind === 'aos') {
         if (relationCtx.exclusive) {
             return (store as unknown[])[eid];
         } else {

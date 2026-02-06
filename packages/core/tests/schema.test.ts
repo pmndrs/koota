@@ -121,43 +121,55 @@ describe('Schema', () => {
     });
 
     describe('parseDefinition', () => {
-        it('should parse shorthand number fields', () => {
+        it('should parse shorthand number fields into SoA schema', () => {
             const result = parseDefinition({ x: 0, y: 0 });
-            expect(result.x).toMatchObject({ kind: 'number', default: 0 });
-            expect(result.y).toMatchObject({ kind: 'number', default: 0 });
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.x).toMatchObject({ kind: 'number', default: 0 });
+            expect(result.fields.y).toMatchObject({ kind: 'number', default: 0 });
         });
 
-        it('should parse shorthand string fields', () => {
+        it('should parse shorthand string fields into SoA schema', () => {
             const result = parseDefinition({ name: 'default', label: '' });
-            expect(result.name).toMatchObject({ kind: 'string', default: 'default' });
-            expect(result.label).toMatchObject({ kind: 'string', default: '' });
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.name).toMatchObject({ kind: 'string', default: 'default' });
+            expect(result.fields.label).toMatchObject({ kind: 'string', default: '' });
         });
 
-        it('should parse shorthand boolean fields', () => {
+        it('should parse shorthand boolean fields into SoA schema', () => {
             const result = parseDefinition({ active: true, visible: false });
-            expect(result.active).toMatchObject({ kind: 'boolean', default: true });
-            expect(result.visible).toMatchObject({ kind: 'boolean', default: false });
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.active).toMatchObject({ kind: 'boolean', default: true });
+            expect(result.fields.visible).toMatchObject({ kind: 'boolean', default: false });
         });
 
-        it('should parse shorthand bigint fields', () => {
+        it('should parse shorthand bigint fields into SoA schema', () => {
             const result = parseDefinition({ id: 0n, count: 100n });
-            expect(result.id).toMatchObject({ kind: 'bigint', default: 0n });
-            expect(result.count).toMatchObject({ kind: 'bigint', default: 100n });
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.id).toMatchObject({ kind: 'bigint', default: 0n });
+            expect(result.fields.count).toMatchObject({ kind: 'bigint', default: 100n });
         });
 
-        it('should parse shorthand ref fields (factories)', () => {
+        it('should parse shorthand ref fields (factories) into SoA schema', () => {
             const colorFactory = () => ({ r: 0, g: 0, b: 0 });
             const result = parseDefinition({ color: colorFactory });
-            expect(result.color).toMatchObject({ kind: 'ref', default: colorFactory });
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.color).toMatchObject({ kind: 'ref', default: colorFactory });
         });
 
-        it('should pass through field() descriptors unchanged', () => {
+        it('should pass through field() descriptors unchanged in SoA schema', () => {
             const descriptor = field({ kind: 'number', default: 10, min: 0 });
             const result = parseDefinition({ radius: descriptor });
-            expect(result.radius).toBe(descriptor);
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.radius).toBe(descriptor);
         });
 
-        it('should handle mixed shorthand and field() descriptors', () => {
+        it('should handle mixed shorthand and field() descriptors in SoA schema', () => {
             const colorFactory = () => ({ r: 0, g: 0, b: 0 });
             const result = parseDefinition({
                 x: 0,
@@ -166,45 +178,50 @@ describe('Schema', () => {
                 name: 'entity',
             });
 
-            expect(result.x).toMatchObject({ kind: 'number', default: 0 });
-            expect(result.y).toMatchObject({ kind: 'number', default: 0 });
-            expect(result.color).toMatchObject({ kind: 'ref', default: colorFactory });
-            expect(result.name).toMatchObject({ kind: 'string', default: 'entity' });
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.x).toMatchObject({ kind: 'number', default: 0 });
+            expect(result.fields.y).toMatchObject({ kind: 'number', default: 0 });
+            expect(result.fields.color).toMatchObject({ kind: 'ref', default: colorFactory });
+            expect(result.fields.name).toMatchObject({ kind: 'string', default: 'entity' });
         });
 
-        it('should return empty object for factory trait', () => {
-            const result = parseDefinition(() => ({ x: 0, y: 0 }));
-            expect(result).toEqual({});
+        it('should return AoS schema for factory trait', () => {
+            const factory = () => ({ x: 0, y: 0 });
+            const result = parseDefinition(factory);
+            expect(result.kind).toBe('aos');
+            if (result.kind !== 'aos') throw new Error();
+            expect(result.descriptor.kind).toBe('ref');
+            expect(result.descriptor.default).toBe(factory);
         });
 
-        it('should return empty object for empty schema (tag)', () => {
+        it('should return tag schema for empty definition', () => {
             const result = parseDefinition({});
-            expect(result).toEqual({});
+            expect(result.kind).toBe('tag');
         });
 
-        it('should handle complex mixed definition', () => {
+        it('should handle complex mixed definition into SoA schema', () => {
             const damageDescriptor = field({ kind: 'number', default: 10, min: 0, max: 100 });
             const result = parseDefinition({
-                // Shorthand values
                 health: 100,
                 name: 'player',
                 isAlive: true,
                 score: 0n,
-                // Factory function
                 position: () => ({ x: 0, y: 0 }),
-                // Full field() descriptor
                 damage: damageDescriptor,
             });
 
-            expect(result.health).toMatchObject({ kind: 'number', default: 100 });
-            expect(result.name).toMatchObject({ kind: 'string', default: 'player' });
-            expect(result.isAlive).toMatchObject({ kind: 'boolean', default: true });
-            expect(result.score).toMatchObject({ kind: 'bigint', default: 0n });
-            expect(result.position.kind).toBe('ref');
-            expect(typeof result.position.default).toBe('function');
-            expect(result.damage).toBe(damageDescriptor); // Same reference
-            expect(result.damage.min).toBe(0);
-            expect(result.damage.max).toBe(100);
+            expect(result.kind).toBe('soa');
+            if (result.kind !== 'soa') throw new Error();
+            expect(result.fields.health).toMatchObject({ kind: 'number', default: 100 });
+            expect(result.fields.name).toMatchObject({ kind: 'string', default: 'player' });
+            expect(result.fields.isAlive).toMatchObject({ kind: 'boolean', default: true });
+            expect(result.fields.score).toMatchObject({ kind: 'bigint', default: 0n });
+            expect(result.fields.position.kind).toBe('ref');
+            expect(typeof result.fields.position.default).toBe('function');
+            expect(result.fields.damage).toBe(damageDescriptor);
+            expect(result.fields.damage.min).toBe(0);
+            expect(result.fields.damage.max).toBe(100);
         });
     });
 });
