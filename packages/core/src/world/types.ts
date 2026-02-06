@@ -4,6 +4,7 @@ import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
     Query,
+    QueryFirstWithTraitsResult,
     QueryInstance,
     QueryParameter,
     QueryResult,
@@ -66,6 +67,8 @@ export type World = {
     query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
     queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
     queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
+    queryFirstWithTraits<T extends QueryParameter[]>(key: Query<T>): QueryFirstWithTraitsResult<T>;
+    queryFirstWithTraits<T extends QueryParameter[]>(...parameters: T): QueryFirstWithTraitsResult<T>;
     onQueryAdd<T extends QueryParameter[]>(
         key: Query<T>,
         callback: (entity: Entity) => void
