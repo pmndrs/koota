@@ -114,7 +114,7 @@ export type WorldSnapshot = {
     entities: number[],
     entityMasks: number[][]
     traitData: Array<
-        | { id: number; type: 'soa'; data: any[][]; colTypes?: number[] } // [TraitID, Type, Columns[], ColTypes?]
+        | { id: number; type: 'soa'; data: (any[] | string)[]; colTypes?: number[] } // [TraitID, Type, Columns[], ColTypes?]
         | { id: number; type: 'aos'; data: string } // [TraitID, Type, JSONString]
     >;
     relations: Array<

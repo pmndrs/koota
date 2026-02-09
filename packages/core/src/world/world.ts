@@ -371,22 +371,14 @@ export function createWorld(
             const entityMasks = ctx.entityMasks.map((gen) => [...gen]);
             const traitData: WorldSnapshot['traitData'] = [];
             let traits = [] as (TraitInstance | undefined)[]
+            let entityIdTraits = null as number[] | null
 
             if (args.length === 1 && args[0] === '*') {
                 traits = allInstances;
             } else {
                 world.query(...args).useTraitInstances((traitInstances, entities)=>{
-                    // if we want to exclude non entity matches
-                    /// (for better query semantics)
-                    //// should we remap ids?
-                    ///// does load() destroy everything previous?
-                    ////// can you do a partial snapshot?
-                    // in this example you also get the full store back
-                    /// TraitInstance > Store but same idea
-                    /// but looping over the matching entities is what constrains it
-                    //// to the matching entities (query semantics)
-                    //// https://github.com/pmndrs/koota?tab=readme-ov-file#modifying-trait-stores-directly
                     traits = traitInstances;
+                    entityIdTraits = entities.map((entity)=>entity.id());
                 })
             }
 
@@ -402,66 +394,97 @@ export function createWorld(
                     const schema = trait.schema as Record<string, any>;
                     const serializers = traitCtx.options?.serialize as Record<string, Function> | undefined;
                     
-                    const data = Object.keys(schema).map((key) => {
+                    const soaData = Object.keys(schema).map((key) => {
                         let dataArray = (store as Record<string, unknown[]>)[key].slice(
                             0,
                             entityIndex.maxId
                         );
-                        
-                        // Check for per-column serializer
                         const serializer = serializers?.[key];
-                        if (serializer) {
-                            dataArray = dataArray.map((v) => (v === undefined || v === null) ? v : serializer(v));
+                        if (serializer || entityIdTraits) {
+                            for (let i = 0; i < dataArray.length; i++){
+                                const data = dataArray[i]
+                                if(data === undefined || data === null){
+                                    continue;
+                                }
+                                if(entityIdTraits){
+                                    if(!entityIdTraits.includes(i)){
+                                        dataArray[i] = null
+                                        continue;
+                                    }    
+                                }
+                                if(serializer){
+                                    dataArray[i] = serializer(data)
+                                    continue;
+                                }
+                            }   
                         }
-                        
+                        if(typeof schema[key] === 'function'){
+                            return JSON.stringify(dataArray)
+                        }
                         return dataArray;
                     });
-                    traitData.push({ id: trait.id, type: 'soa', data });
+                    traitData.push({ id: trait.id, type: 'soa', data: soaData });
                 } else if (type === 'aos') {
-                    let data = (store as any[]).slice(0, entityIndex.maxId);
+                    let aosData = (store as any[]).slice(0, entityIndex.maxId);
                     
                     const serializer = traitCtx.options?.serialize as Function | undefined;
                     // Check for custom serializer
-                    if (serializer) {
-                        data = data.map((v) => v ? serializer(v) : v);
+                    if (serializer || entityIdTraits) {
+                        for (let i = 0; i < aosData.length; i++){
+                            const data = aosData[i]
+                            if(data === undefined || data === null){
+                                continue;
+                            }
+                            if(entityIdTraits){
+                                if(!entityIdTraits.includes(i)){
+                                    aosData[i] = null
+                                    continue;
+                                }    
+                            }
+                            if(serializer){
+                                aosData[i] = serializer(data) 
+                                continue;
+                            }
+                        }   
                     }
 
                     traitData.push({
                         id: trait.id,
                         type: 'aos',
-                        data: JSON.stringify(data),
+                        data: JSON.stringify(aosData),
                     });
                 }
             });
-            
-            // Gather Relation Topology
             const relations: WorldSnapshot['relations'] = [];
-            traits.forEach((instance) => {
-                if (!instance || !instance.relationTargets) return;
-                const { trait, relationTargets } = instance;
-                const traitCtx = trait[$internal];
-                const relation = traitCtx.relation;
-                if (!relation) return;
+            if (args.length === 1 && args[0] === '*') {
+                // Gather Relation Topology
+                traits.forEach((instance) => {
+                    if (!instance || !instance.relationTargets) return;
+                    const { trait, relationTargets } = instance;
+                    const traitCtx = trait[$internal];
+                    const relation = traitCtx.relation;
+                    if (!relation) return;
 
-                const isExclusive = relation[$internal].exclusive;
-                if (isExclusive) {
-                    // Exclusive: Array of Entity IDs (or undefined)
-                    const data = (relationTargets as (number | undefined)[]).slice(
-                        0,
-                        entityIndex.maxId
-                    );
-                    relations.push({ id: trait.id, type: 'exclusive', data });
-                } else {
-                    // Non-Exclusive: Array of Array of Entity IDs
-                    // We use JSON here to handle the nested variable-length arrays easily
-                    const rawData = (relationTargets as number[][]).slice(0, entityIndex.maxId);
-                    relations.push({
-                        id: trait.id,
-                        type: 'relation',
-                        data: JSON.stringify(rawData),
-                    });
-                }
-            });
+                    const isExclusive = relation[$internal].exclusive;
+                    if (isExclusive) {
+                        // Exclusive: Array of Entity IDs (or undefined)
+                        const data = (relationTargets as (number | undefined)[]).slice(
+                            0,
+                            entityIndex.maxId
+                        );
+                        relations.push({ id: trait.id, type: 'exclusive', data });
+                    } else {
+                        // Non-Exclusive: Array of Array of Entity IDs
+                        // We use JSON here to handle the nested variable-length arrays easily
+                        const rawData = (relationTargets as number[][]).slice(0, entityIndex.maxId);
+                        relations.push({
+                            id: trait.id,
+                            type: 'relation',
+                            data: JSON.stringify(rawData),
+                        });
+                    }
+                });
+            }
             
             return {
                 worldId: id,
@@ -510,46 +533,36 @@ export function createWorld(
             for (const t of traitData) {
                 const instance = ctx.traitInstances[t.id];
                 if (!instance) continue;
-
+                const traitType = t.type
+                const serializedData = t.data;
+                const currentStore = instance.store as Record<string, unknown[]>;
                 const traitCtx = instance.trait[$internal];
+                const deserializer = traitCtx.options?.deserialize as Record<string, Function> | undefined;
+                
+                const dataTargets = [];
 
-                if (t.type === 'soa') {
+                if(traitType === 'soa'){
                     const schema = instance.schema as Record<string, any>;
-                    const keys = Object.keys(schema);
-                    const store = instance.store as Record<string, unknown[]>;
-                    const data = t.data;
-                    const deserializers = traitCtx.options?.deserialize as Record<string, Function> | undefined;
-
-                    for (let k = 0; k < keys.length; k++) {
-                        const key = keys[k];
+                    const keys = Object.keys(schema)
+                    const soaData = serializedData as (any[] | string)[];
+                    for(let i = 0; i < keys.length; i++){
+                        const key = keys[i]
                         const val = schema[key];
-                        let dataArray = data[k];
-
-                        if (dataArray !== undefined) {
-                            const deserializer = deserializers?.[key];
-                            if (deserializer) {
-                                // For hydration, we retrieve the current value from the store to pass to deserialize
-                                const currentStore = store[key];
-                                dataArray = dataArray.map((v: any, idx: number) => 
-                                    (v === undefined || v === null) ? v : deserializer(v, currentStore[idx])
-                                );
-                            }
-                            store[key] = dataArray;
+                        const source = typeof val === 'function' ? JSON.parse(soaData[i] as string) : soaData[i];
+                        const target = currentStore[key];
+                        dataTargets.push([source, target, deserializer?.[key]]);
+                    }
+                } else{
+                    dataTargets.push([JSON.parse(serializedData as string), currentStore, deserializer])
+                }
+                for(const [source, target, deserializer] of dataTargets){
+                    for (let i = 0; i < source.length; i++) {
+                        const value = source[i];
+                        const currentValue = target[i];
+                        if((value !== null && value !== undefined)){
+                            target[i] = deserializer ? deserializer(value, currentValue) : value;
                         }
                     }
-                } else {
-                    const store = instance.store as any[];
-                    let deserialized = JSON.parse(t.data);
-                    const deserializer = traitCtx.options?.deserialize as Function | undefined;
-                    
-                    if (deserializer) {
-                        const newStore = deserialized.map((v: any, idx: number) =>
-                           v ? deserializer(v, store[idx]) : v
-                        );
-                        deserialized = newStore;
-                    }
-                    store.length = 0;
-                    store.push(...deserialized);
                 }
             }
 
