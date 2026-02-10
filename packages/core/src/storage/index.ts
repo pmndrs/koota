@@ -1,4 +1,10 @@
-export { createStore } from './stores';
+export {
+    createStore,
+    createBufferStore,
+    isBufferStore,
+    growBufferStore,
+    ensureBufferCapacity,
+} from './stores';
 export {
     createSetFunction,
     createFastSetFunction,
@@ -6,6 +12,17 @@ export {
     createGetFunction,
 } from './accessors';
 
-export { validateSchema, getSchemaDefaults } from './schema';
+export { validateSchema, validateBufferOptions, getSchemaDefaults } from './schema';
 
-export type { Store, StoreType, Schema, AoSFactory, Norm } from './types';
+export { $bufferStore } from './types';
+export type {
+    Store,
+    StoreType,
+    Schema,
+    AoSFactory,
+    Norm,
+    BufferStore,
+    BufferStoreOptions,
+    BufferTraitOptions,
+    BufferType,
+} from './types';

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, Not, relation, trait } from '../src';
+import { createWorld, Not, relation, trait, types } from '../src';
 
 describe('Relation', () => {
     const world = createWorld();
@@ -139,6 +139,13 @@ describe('Relation', () => {
         expect(Contains(gold)).not.toBe(Contains(silver));
         expect(inventory.get(Contains(gold))!.amount).toBe(5);
         expect(inventory.get(Contains(silver))!.amount).toBe(12);
+    });
+
+    it('should reject TypedArray fields in relation stores', () => {
+        expect(() =>
+            // @ts-expect-error - TypedArray fields are rejected at compile time
+            relation({ store: { amount: types.f32(0) } })
+        ).toThrow('Koota: Relation stores do not support TypedArray fields');
     });
 
     it('should query all relations with a wildcard', () => {
