@@ -62,7 +62,7 @@ export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedRelati
 export function setupOrderedTraitSync(world: World, orderedTrait: OrderedRelation): void {
     const ctx = world[$internal];
     const relation = getOrderedTraitRelation(orderedTrait);
-    const relationTrait = relation[$internal].trait;
+    const relationTrait = relation as unknown as Trait;
 
     const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
     if (!orderedInstance) return;
@@ -80,7 +80,7 @@ export function setupOrderedTraitSync(world: World, orderedTrait: OrderedRelatio
     const getList = (parent: Entity): OrderedList | undefined => {
         const eid = getEntityId(parent);
         return entityMasks[generationId]?.[eid] & bitflag
-            ? (traitCtx.get(eid, store) as OrderedList)
+            ? (traitCtx.accessors.get(eid, store) as OrderedList)
             : undefined;
     };
 

@@ -10,26 +10,56 @@ import type { Schema, Store, TagSchema } from '../storage';
  */
 export type TraitPartial<T> = T extends any[] ? T : Partial<T>;
 
-/**
- * A Trait, parameterized by the data shape T.
- * T is the type you get back when calling entity.get(Trait).
- */
-export type Trait<T = any> = {
+export type TraitHook = (...args: unknown[]) => void;
+
+export type TraitHooks = {
+    onSet?: TraitHook;
+    onAdd?: TraitHook;
+    onRemove?: TraitHook;
+    onTargetDestroy?: TraitHook;
+};
+
+export type TraitAccessors<T = any> = {
+    set: (index: number, store: any, value: TraitPartial<T>) => void;
+    fastSet: (index: number, store: any, value: TraitPartial<T>) => boolean;
+    fastSetWithChangeDetection: (index: number, store: any, value: TraitPartial<T>) => boolean;
+    get: (index: number, store: any) => T;
+};
+
+export type TraitConstructor<T = any> = () => T | null;
+
+export type TraitMode = 'unary' | 'binary';
+
+export type TraitDef<T = any, M extends TraitMode = 'unary'> = {
     /** Public read-only ID for fast array lookups */
     readonly id: number;
     readonly schema: Schema;
     [$internal]: {
-        set: (index: number, store: any, value: TraitPartial<T>) => void;
-        fastSet: (index: number, store: any, value: TraitPartial<T>) => boolean;
-        fastSetWithChangeDetection: (index: number, store: any, value: TraitPartial<T>) => boolean;
-        get: (index: number, store: any) => T;
-        id: number;
-        createStore: () => Store<T>;
-        getDefault: () => T | null;
-        /** Reference to parent relation if this trait is owned by a relation */
-        relation: Relation<any> | null;
+        mode: M;
+        hooks?: TraitHooks;
+        accessors: TraitAccessors<T>;
+        ctor: TraitConstructor<T>;
     };
-} & ((params?: TraitPartial<T>) => [Trait<T>, TraitPartial<T>]);
+};
+
+export type UnaryTraitCallable<T = any> = (
+    params?: TraitPartial<T>
+) => [Trait<T, 'unary'>, TraitPartial<T>];
+
+export type BinaryTraitCallable = (target: unknown, params?: unknown) => RelationPair;
+
+/** Extracts mode from a TraitDef, falling back to 'unary'. */
+export type ExtractMode<D> = D extends TraitDef<any, infer M> ? M : 'unary';
+
+export type TraitCallable<T = any, M extends TraitMode = 'unary'> = M extends 'binary'
+    ? BinaryTraitCallable
+    : UnaryTraitCallable<T>;
+
+/**
+ * A Trait, parameterized by the data shape T.
+ * T is the type you get back when calling entity.get(Trait).
+ */
+export type Trait<T = any, M extends TraitMode = 'unary'> = TraitDef<T, M> & TraitCallable<T, M>;
 
 export type TagTrait = Trait<Record<string, never>> & { readonly schema: TagSchema };
 
@@ -98,10 +128,9 @@ export interface TraitInstance<T extends Trait = Trait> {
     removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     /**
      * Only for relation traits.
-     * For exclusive: relationTargets[eid] = targetId (number)
-     * For non-exclusive: relationTargets[eid] = [targetId1, targetId2, ...] (number[])
+     * relationTargets[eid] = [targetId1, targetId2, ...]
      */
-    relationTargets?: number[] | number[][];
+    relationTargets?: number[][];
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;

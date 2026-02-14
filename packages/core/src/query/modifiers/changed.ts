@@ -1,7 +1,6 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { isRelation } from '../../relation/utils/is-relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
 import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
@@ -23,9 +22,7 @@ export function createChanged() {
     return <T extends TraitOrRelation[]>(
         ...inputs: T
     ): Modifier<ExtractTraits<T>, `changed-${number}`> => {
-        const traits = inputs.map((input) =>
-            isRelation(input) ? input[$internal].trait : input
-        ) as ExtractTraits<T>;
+        const traits = inputs as unknown as ExtractTraits<T>;
         return createModifier(`changed-${id}`, id, traits);
     };
 }

@@ -84,12 +84,12 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                         let changed = false;
                         if (trait.schema.kind === 'aos') {
-                            changed = ctx.fastSetWithChangeDetection(eid, store, newValue as any);
+                            changed = ctx.accessors.fastSetWithChangeDetection(eid, store, newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[index]);
                             }
                         } else {
-                            changed = ctx.fastSetWithChangeDetection(eid, store, newValue as any);
+                            changed = ctx.accessors.fastSetWithChangeDetection(eid, store, newValue as any);
                         }
 
                         // Collect changed traits.
@@ -102,7 +102,7 @@ export function createQueryResult<T extends QueryParameter[]>(
                         const trait = traits[index];
                         const ctx = trait[$internal];
                         const store = stores[index];
-                        ctx.fastSet(eid, store, state[index] as any);
+                        ctx.accessors.fastSet(eid, store, state[index] as any);
                     }
                 }
 
@@ -133,12 +133,12 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                         let changed = false;
                         if (trait.schema.kind === 'aos') {
-                            changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue as any);
+                            changed = ctx.accessors.fastSetWithChangeDetection(eid, stores[j], newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[j]);
                             }
                         } else {
-                            changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue as any);
+                            changed = ctx.accessors.fastSetWithChangeDetection(eid, stores[j], newValue as any);
                         }
 
                         // Collect changed traits.
@@ -165,7 +165,7 @@ export function createQueryResult<T extends QueryParameter[]>(
                     for (let j = 0; j < traits.length; j++) {
                         const trait = traits[j];
                         const ctx = trait[$internal];
-                        ctx.fastSet(eid, stores[j], state[j] as any);
+                        ctx.accessors.fastSet(eid, stores[j], state[j] as any);
                     }
                 }
             }
@@ -222,7 +222,7 @@ export function createQueryResult<T extends QueryParameter[]>(
     for (let i = 0; i < traits.length; i++) {
         const trait = traits[i];
         const ctx = trait[$internal];
-        const value = ctx.get(entityId, stores[i]);
+        const value = ctx.accessors.get(entityId, stores[i]);
         state[i] = value;
     }
 }
@@ -237,7 +237,7 @@ export function createQueryResult<T extends QueryParameter[]>(
     for (let j = 0; j < traits.length; j++) {
         const trait = traits[j];
         const ctx = trait[$internal];
-        const value = ctx.get(entityId, stores[j]);
+        const value = ctx.accessors.get(entityId, stores[j]);
         state[j] = value;
         atomicSnapshots[j] = trait.schema.kind === 'aos' ? { ...value } : null;
     }
@@ -256,7 +256,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         if (isRelationPair(param)) {
             const pairCtx = param[$internal];
             const relation = pairCtx.relation as Relation<Trait>;
-            const baseTrait = relation[$internal].trait;
+            const baseTrait = relation as unknown as Trait;
             if (baseTrait.schema.kind !== 'tag') {
                 traits.push(baseTrait);
                 stores.push(getStore(world, baseTrait));

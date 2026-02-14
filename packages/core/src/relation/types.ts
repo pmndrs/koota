@@ -12,17 +12,12 @@ export interface RelationPair<T extends Trait = Trait> {
     [$internal]: {
         relation: Relation<T>;
         target: RelationTarget;
-        params?: Record<string, unknown>;
+        params?: unknown;
     };
 }
 
 export type Relation<T extends Trait = Trait> = {
     readonly [$relation]: true;
-    [$internal]: {
-        trait: T;
-        exclusive: boolean;
-        autoDestroy: 'source' | 'target' | false;
-    };
 } & ((target: RelationTarget, params?: Record<string, unknown>) => RelationPair<T>);
 
 export interface OrderedRelation<T extends Trait = Trait> extends Trait<OrderedList> {

@@ -296,7 +296,7 @@ export function createWorld(
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? trait[$internal].trait : trait;
+            const target = isRelation(trait) ? (trait as unknown as Trait) : trait;
 
             let data = getTraitInstance(ctx.traitInstances, target);
 
@@ -315,7 +315,7 @@ export function createWorld(
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? trait[$internal].trait : trait;
+            const target = isRelation(trait) ? (trait as unknown as Trait) : trait;
 
             let data = getTraitInstance(ctx.traitInstances, target);
 
@@ -334,7 +334,7 @@ export function createWorld(
             callback: (entity: Entity, target?: Entity) => void
         ) {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? trait[$internal].trait : trait;
+            const target = isRelation(trait) ? (trait as unknown as Trait) : trait;
 
             // Register the trait if it's not already registered.
             if (!hasTraitInstance(ctx.traitInstances, target)) registerTrait(world, target);

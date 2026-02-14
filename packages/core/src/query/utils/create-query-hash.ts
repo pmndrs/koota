@@ -21,7 +21,7 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
             const relation = pairCtx.relation;
             const target = pairCtx.target;
 
-            const relationId = (relation as Relation<Trait>)[$internal].trait.id;
+            const relationId = (relation as unknown as Trait).id;
             const targetId = typeof target === 'number' ? target : -1;
 
             // Combine into a unique hash number

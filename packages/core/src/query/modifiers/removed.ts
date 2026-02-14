@@ -1,5 +1,3 @@
-import { $internal } from '../../common';
-import { isRelation } from '../../relation/utils/is-relation';
 import type { ExtractTraits, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import { createModifier } from '../modifier';
@@ -17,9 +15,7 @@ export function createRemoved() {
     return <T extends TraitOrRelation[]>(
         ...inputs: T
     ): Modifier<ExtractTraits<T>, `removed-${number}`> => {
-        const traits = inputs.map((input) =>
-            isRelation(input) ? input[$internal].trait : input
-        ) as ExtractTraits<T>;
+        const traits = inputs as unknown as ExtractTraits<T>;
         return createModifier(`removed-${id}`, id, traits);
     };
 }

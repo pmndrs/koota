@@ -224,7 +224,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
             query.relationFilters!.push(parameter);
 
-            const baseTrait = (relation as Relation<Trait>)[$internal].trait;
+            const baseTrait = relation as unknown as Trait;
             if (!hasTraitInstance(ctx.traitInstances, baseTrait)) registerTrait(world, baseTrait);
             query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, baseTrait)!);
             query.traits.push(baseTrait);
@@ -334,7 +334,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (hasRelationFilters) {
         for (const pair of query.relationFilters!) {
-            const relationTrait = pair[$internal].relation[$internal].trait;
+            const relationTrait = pair[$internal].relation as unknown as Trait;
             const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
             if (relationTraitInstance) {
                 relationTraitInstance.relationQueries.add(query);
