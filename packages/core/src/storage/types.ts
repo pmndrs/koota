@@ -58,9 +58,9 @@ export type TagSchema = {
 export type Schema = SoASchema | AoSSchema | TagSchema;
 
 /**
- * Valid values in a definition (what users can write).
+ * Valid values in schema shorthand (what users can write).
  */
-export type DefinitionValue =
+export type SchemaValue =
     | number
     | string
     | boolean
@@ -72,16 +72,16 @@ export type DefinitionValue =
     | FieldDescriptor<any>;
 
 /**
- * A trait definition - what users pass to trait().
+ * Schema shorthand users can pass to trait().
  * Can contain shorthand values, factory functions, or FieldDescriptor objects.
  */
-export type Definition = Record<string, DefinitionValue> | AoSFactory | Record<string, never>;
+export type SchemaShorthand = Record<string, SchemaValue> | AoSFactory | Record<string, never>;
 
 /**
- * Generates a valid definition type for a given data shape T.
+ * Generates a valid schema shorthand type for a given data shape T.
  * Each field can be: the value directly, a factory, or a FieldDescriptor.
  */
-export type DefinitionFor<T> = {
+export type SchemaFor<T> = {
     [K in keyof T]: T[K] | (() => T[K]) | (FieldDescriptor<T[K]> & { default?: T[K] | (() => T[K]) });
 };
 
@@ -111,7 +111,7 @@ export type Widen<T> = T extends number
 type ExtractFromDefault<D> = D extends (...args: never[]) => infer R ? R : D;
 
 /**
- * Infers the data type from a single definition value.
+ * Infers the data type from a single schema shorthand value.
  * Handles: primitives, factories, and FieldDescriptor objects.
  */
 export type InferValue<T> =
@@ -145,9 +145,9 @@ export type InferValue<T> =
                           : T;
 
 /**
- * Infers the data shape from a definition.
+ * Infers the data shape from schema shorthand.
  */
-export type InferDefinition<D> =
+export type InferSchema<D> =
     // AoS factory -> return type
     D extends (...args: never[]) => infer T
         ? T
@@ -175,3 +175,21 @@ export type Store<T> =
         : T extends Record<string, unknown>
           ? { [K in keyof T]: T[K][] }
           : T[];
+
+/**
+ * Backwards-compatible aliases. Prefer schema-oriented names.
+ * @deprecated Use SchemaValue
+ */
+export type DefinitionValue = SchemaValue;
+/**
+ * @deprecated Use SchemaShorthand
+ */
+export type Definition = SchemaShorthand;
+/**
+ * @deprecated Use SchemaFor
+ */
+export type DefinitionFor<T> = SchemaFor<T>;
+/**
+ * @deprecated Use InferSchema
+ */
+export type InferDefinition<D> = InferSchema<D>;

@@ -20,7 +20,7 @@ import {
 import { $relationPair } from '../relation/symbols';
 import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import type { DefinitionFor, FieldDescriptor } from '../storage';
+import type { FieldDescriptor, SchemaFor, SchemaShorthand } from '../storage';
 import {
     createFastSetAccessor,
     createFastSetChangeAccessor,
@@ -28,10 +28,9 @@ import {
     createGetDefaultAccessor,
     createSetAccessor,
     createStore,
-    Definition,
-    InferDefinition,
-    parseDefinition,
-    validateDefinition,
+    InferSchema,
+    normalizeSchema,
+    validateSchema,
 } from '../storage';
 import type { World } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
@@ -58,27 +57,26 @@ function createTrait<T>(definition: () => T): Trait<T>;
 // Overload 3: AoS trait via top-level FieldDescriptor (must be ref kind)
 function createTrait<T>(definition: FieldDescriptor<T> & { kind: 'ref' }): Trait<T>;
 // Overload 4: SoA trait with explicit data shape type
-function createTrait<T>(definition: DefinitionFor<T>): Trait<T>;
-// Overload 5: SoA trait with inferred data shape from definition
-function createTrait<D extends Definition>(definition: D): Trait<InferDefinition<D>>;
+function createTrait<T>(schema: SchemaFor<T>): Trait<T>;
+// Overload 5: SoA trait with inferred data shape from schema shorthand
+function createTrait<D extends SchemaShorthand>(schema: D): Trait<InferSchema<D>>;
 
 function createTrait(
-    definition: Definition | FieldDescriptor = tagDefinition,
+    schema: SchemaShorthand | FieldDescriptor = tagDefinition,
     mode: 'unary' | 'binary' = 'unary'
 ): Trait {
     let trait: Trait;
 
-    validateDefinition(definition);
-
-    // 1. Parse definition into canonical schema
-    const schema = parseDefinition(definition);
+    // 1. Normalize schema shorthand into canonical schema
+    validateSchema(schema);
+    const normalizedSchema = normalizeSchema(schema);
 
     // 2. Build the accessors from schema
-    const set = createSetAccessor(schema);
-    const fastSet = createFastSetAccessor(schema);
-    const fastSetWithChangeDetection = createFastSetChangeAccessor(schema);
-    const get = createGetAccessor(schema);
-    const ctor = createGetDefaultAccessor(schema);
+    const set = createSetAccessor(normalizedSchema);
+    const fastSet = createFastSetAccessor(normalizedSchema);
+    const fastSetWithChangeDetection = createFastSetChangeAccessor(normalizedSchema);
+    const get = createGetAccessor(normalizedSchema);
+    const ctor = createGetDefaultAccessor(normalizedSchema);
 
     // 3. Build the callable from mode
     let callable: BinaryTraitCallable | UnaryTraitCallable;
@@ -121,7 +119,7 @@ function createTrait(
     });
 
     Object.defineProperty(trait, 'schema', {
-        value: Object.freeze(schema),
+        value: Object.freeze(normalizedSchema),
         writable: false,
         enumerable: true,
         configurable: false,

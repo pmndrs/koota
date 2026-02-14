@@ -1,8 +1,8 @@
 import type {
     AoSSchema,
-    Definition,
     FieldDescriptor,
     Schema,
+    SchemaShorthand,
     SchemaKind,
     SoASchema,
     TagSchema,
@@ -116,22 +116,22 @@ export function parseField(value: unknown): FieldDescriptor {
 }
 
 /**
- * Parse a trait definition into canonical Schema format.
+ * Normalize a trait schema into canonical Schema format.
  * Returns a self-describing discriminated union — the `kind` field
  * determines the storage strategy and how to interpret the schema.
  *
  * @example
- * parseDefinition({ x: 0, y: 0 })
+ * normalizeSchema({ x: 0, y: 0 })
  * // { kind: 'soa', fields: { x: { kind: 'number', default: 0 }, y: { ... } } }
  *
  * @example
- * parseDefinition(() => new Vector3())
+ * normalizeSchema(() => new Vector3())
  * // { kind: 'aos', descriptor: { kind: 'ref', default: [factory] } }
  */
-export function parseDefinition(definition: Definition | FieldDescriptor): Schema {
+export function normalizeSchema(schema: SchemaShorthand | FieldDescriptor): Schema {
     // Top-level FieldDescriptor (single-ref AoS trait via field())
-    if (isFieldDescriptor(definition)) {
-        const def = definition.default;
+    if (isFieldDescriptor(schema)) {
+        const def = schema.default;
         const factory = typeof def === 'function' ? def : () => def;
         return {
             kind: 'aos',
@@ -140,23 +140,23 @@ export function parseDefinition(definition: Definition | FieldDescriptor): Schem
     }
 
     // AoS factory
-    if (typeof definition === 'function') {
+    if (typeof schema === 'function') {
         return {
             kind: 'aos',
-            descriptor: { [$fieldDescriptor]: true, kind: 'ref', default: definition },
+            descriptor: { [$fieldDescriptor]: true, kind: 'ref', default: schema },
         } as AoSSchema;
     }
 
-    // Empty definition (tag)
-    if (!definition || Object.keys(definition).length === 0) {
+    // Empty schema (tag)
+    if (!schema || Object.keys(schema).length === 0) {
         return { kind: 'tag' } as TagSchema;
     }
 
     // SoA — parse each field into a FieldDescriptor
     const fields: Record<string, FieldDescriptor> = {};
 
-    for (const key in definition) {
-        const value = definition[key as keyof typeof definition];
+    for (const key in schema) {
+        const value = schema[key as keyof typeof schema];
         fields[key] = parseField(value);
     }
 
@@ -164,14 +164,14 @@ export function parseDefinition(definition: Definition | FieldDescriptor): Schem
 }
 
 /**
- * Validate a trait definition.
+ * Validate a trait schema (including shorthand forms).
  * Objects are only allowed if they are valid FieldDescriptor objects.
  */
-export /* @inline @pure */ function validateDefinition(definition: Definition | FieldDescriptor) {
-    if (typeof definition === 'function') return; // AoS factory
-    if (isFieldDescriptor(definition)) return; // Top-level FieldDescriptor
-    for (const key in definition) {
-        const value = (definition as Record<string, unknown>)[key];
+export /* @inline @pure */ function validateSchema(schema: SchemaShorthand | FieldDescriptor) {
+    if (typeof schema === 'function') return; // AoS factory
+    if (isFieldDescriptor(schema)) return; // Top-level FieldDescriptor
+    for (const key in schema) {
+        const value = (schema as Record<string, unknown>)[key];
         if (value !== null && typeof value === 'object') {
             // Allow FieldDescriptor objects
             if (isFieldDescriptor(value)) continue;

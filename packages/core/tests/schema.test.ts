@@ -3,7 +3,7 @@ import {
     detectKind,
     field,
     isFieldDescriptor,
-    parseDefinition,
+    normalizeSchema,
     parseField,
     type FieldDescriptor,
 } from '../src/storage';
@@ -120,9 +120,9 @@ describe('Schema', () => {
         });
     });
 
-    describe('parseDefinition', () => {
+    describe('normalizeSchema', () => {
         it('should parse shorthand number fields into SoA schema', () => {
-            const result = parseDefinition({ x: 0, y: 0 });
+            const result = normalizeSchema({ x: 0, y: 0 });
             expect(result.kind).toBe('soa');
             if (result.kind !== 'soa') throw new Error();
             expect(result.fields.x).toMatchObject({ kind: 'number', default: 0 });
@@ -130,7 +130,7 @@ describe('Schema', () => {
         });
 
         it('should parse shorthand string fields into SoA schema', () => {
-            const result = parseDefinition({ name: 'default', label: '' });
+            const result = normalizeSchema({ name: 'default', label: '' });
             expect(result.kind).toBe('soa');
             if (result.kind !== 'soa') throw new Error();
             expect(result.fields.name).toMatchObject({ kind: 'string', default: 'default' });
@@ -138,7 +138,7 @@ describe('Schema', () => {
         });
 
         it('should parse shorthand boolean fields into SoA schema', () => {
-            const result = parseDefinition({ active: true, visible: false });
+            const result = normalizeSchema({ active: true, visible: false });
             expect(result.kind).toBe('soa');
             if (result.kind !== 'soa') throw new Error();
             expect(result.fields.active).toMatchObject({ kind: 'boolean', default: true });
@@ -146,7 +146,7 @@ describe('Schema', () => {
         });
 
         it('should parse shorthand bigint fields into SoA schema', () => {
-            const result = parseDefinition({ id: 0n, count: 100n });
+            const result = normalizeSchema({ id: 0n, count: 100n });
             expect(result.kind).toBe('soa');
             if (result.kind !== 'soa') throw new Error();
             expect(result.fields.id).toMatchObject({ kind: 'bigint', default: 0n });
@@ -155,7 +155,7 @@ describe('Schema', () => {
 
         it('should parse shorthand ref fields (factories) into SoA schema', () => {
             const colorFactory = () => ({ r: 0, g: 0, b: 0 });
-            const result = parseDefinition({ color: colorFactory });
+            const result = normalizeSchema({ color: colorFactory });
             expect(result.kind).toBe('soa');
             if (result.kind !== 'soa') throw new Error();
             expect(result.fields.color).toMatchObject({ kind: 'ref', default: colorFactory });
@@ -163,7 +163,7 @@ describe('Schema', () => {
 
         it('should pass through field() descriptors unchanged in SoA schema', () => {
             const descriptor = field({ kind: 'number', default: 10, min: 0 });
-            const result = parseDefinition({ radius: descriptor });
+            const result = normalizeSchema({ radius: descriptor });
             expect(result.kind).toBe('soa');
             if (result.kind !== 'soa') throw new Error();
             expect(result.fields.radius).toBe(descriptor);
@@ -171,7 +171,7 @@ describe('Schema', () => {
 
         it('should handle mixed shorthand and field() descriptors in SoA schema', () => {
             const colorFactory = () => ({ r: 0, g: 0, b: 0 });
-            const result = parseDefinition({
+            const result = normalizeSchema({
                 x: 0,
                 y: 0,
                 color: field({ kind: 'ref', default: colorFactory }),
@@ -188,7 +188,7 @@ describe('Schema', () => {
 
         it('should return AoS schema for factory trait', () => {
             const factory = () => ({ x: 0, y: 0 });
-            const result = parseDefinition(factory);
+            const result = normalizeSchema(factory);
             expect(result.kind).toBe('aos');
             if (result.kind !== 'aos') throw new Error();
             expect(result.descriptor.kind).toBe('ref');
@@ -196,13 +196,13 @@ describe('Schema', () => {
         });
 
         it('should return tag schema for empty definition', () => {
-            const result = parseDefinition({});
+            const result = normalizeSchema({});
             expect(result.kind).toBe('tag');
         });
 
         it('should handle complex mixed definition into SoA schema', () => {
             const damageDescriptor = field({ kind: 'number', default: 10, min: 0, max: 100 });
-            const result = parseDefinition({
+            const result = normalizeSchema({
                 health: 100,
                 name: 'player',
                 isAlive: true,

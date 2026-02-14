@@ -11,9 +11,9 @@ export {
     detectKind,
     field,
     isFieldDescriptor,
-    parseDefinition,
+    normalizeSchema,
     parseField,
-    validateDefinition,
+    validateSchema,
 } from './schema';
 
 export { $fieldDescriptor } from './types';
@@ -21,15 +21,20 @@ export { $fieldDescriptor } from './types';
 export type {
     AoSFactory,
     AoSSchema,
-    Definition,
-    DefinitionFor,
-    DefinitionValue,
+    SchemaFor,
+    SchemaShorthand,
+    SchemaValue,
     FieldDescriptor,
-    InferDefinition,
+    InferSchema,
     Schema,
     SchemaKind,
     SoASchema,
     Store,
     TagSchema,
     TraitKind,
+    // Deprecated aliases
+    Definition,
+    DefinitionFor,
+    DefinitionValue,
+    InferDefinition,
 } from './types';

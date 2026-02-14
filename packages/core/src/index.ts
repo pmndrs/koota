@@ -58,16 +58,20 @@ export { $fieldDescriptor } from './storage/types';
 export type {
     AoSFactory,
     AoSSchema,
-    Definition,
-    DefinitionFor,
+    SchemaFor,
+    SchemaShorthand,
     FieldDescriptor,
-    InferDefinition,
+    InferSchema,
     Schema,
     SoASchema,
     SchemaKind,
     Store,
     TagSchema,
     TraitKind,
+    // Deprecated aliases
+    Definition,
+    DefinitionFor,
+    InferDefinition,
 } from './storage/types';
 
 export { universe } from './universe/universe';

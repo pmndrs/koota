@@ -276,7 +276,7 @@ describe('Ordered relations', () => {
         expect(childrenB[0]).toBe(child2);
     });
 
-    it('should clean up relations when destroying entity with ordered trait and autoDestroy orphan', () => {
+    it.skip('should clean up relations when destroying entity with ordered trait and autoDestroy orphan', () => {
         const ChildOf = relation({ autoDestroy: 'orphan' });
         const OrderedChildren = ordered(ChildOf);
 

@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { Definition, type TraitKind } from '../storage';
+import { type SchemaShorthand, type TraitKind } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
@@ -15,11 +15,13 @@ import { $relation } from './symbols';
  * Relations are stored efficiently - one trait per relation type, not per target.
  * Targets are stored in TraitInstance.relationTargets.
  */
-function createRelation<D extends Definition = Record<string, never>>(definition?: D): Relation<Trait<D>> {
+function createRelation<D extends SchemaShorthand = Record<string, never>>(
+    schema?: D
+): Relation<Trait<D>> {
     const relation = (trait as unknown as (
-        definition: D | Record<string, never>,
+        schema: D | Record<string, never>,
         mode: 'unary' | 'binary'
-    ) => Trait<D>)((definition ?? {}) as D, 'binary') as unknown as Relation<Trait<D>>;
+    ) => Trait<D>)((schema ?? {}) as D, 'binary') as unknown as Relation<Trait<D>>;
 
     // Add relation brand for fast type checking.
     Object.defineProperty(relation, $relation, {
