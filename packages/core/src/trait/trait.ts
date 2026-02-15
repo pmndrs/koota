@@ -10,6 +10,8 @@ import {
     createFastSetChangeAccessor,
     createGetAccessor,
     createGetDefaultAccessor,
+    createPairGetAccessor,
+    createPairSetAccessor,
     createSetAccessor,
     createStore,
     normalizeSchema,
@@ -21,13 +23,12 @@ import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from '
 import { OrderedList } from './ordered-list';
 import {
     addRelationTarget,
-    getRelationData,
     getRelationTargets,
-    hasRelationPair,
+    getTargetIndex,
+    hasPair,
     hasRelationToTarget,
     removeAllRelationTargets,
     removeRelationTarget,
-    setRelationData,
     setRelationDataAtIndex,
 } from './relation';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -39,11 +40,11 @@ import type {
     Relation,
     RelationPair,
     Trait,
-    TraitMode,
     TraitInstance,
+    TraitMode,
     UnaryTraitCallable,
 } from './types';
-import { isRelationPair } from './utils/is-relation';
+import { isPair } from './utils/is-relation';
 
 // No reason to create a new object every time a tag trait is created
 const tagDefinition = Object.freeze({});
@@ -66,8 +67,11 @@ export function defineTrait(
     const fastSetWithChangeDetection = createFastSetChangeAccessor(normalizedSchema);
     const get = createGetAccessor(normalizedSchema);
     const ctor = createGetDefaultAccessor(normalizedSchema);
+    //Build pair accessors for binary traits
+    const pairSet = mode === 'binary' ? createPairSetAccessor(normalizedSchema) : undefined;
+    const pairGet = mode === 'binary' ? createPairGetAccessor(normalizedSchema) : undefined;
 
-    // 3. Build the callable from mode
+    // 3. Build the callable based on the mode
     let callable: BinaryTraitCallable | UnaryTraitCallable;
 
     if (mode === 'binary') {
@@ -85,6 +89,8 @@ export function defineTrait(
                 fastSet,
                 fastSetWithChangeDetection,
                 get,
+                pairSet,
+                pairGet,
             },
             ctor,
         },
@@ -165,7 +171,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
         const config = traits[i];
 
         // Handle relation pairs
-        if (isRelationPair(config)) {
+        if (isPair(config)) {
             addRelationPair(world, entity, config);
             continue;
         }
@@ -190,11 +196,11 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
             : instance.ctor();
 
         if (trait.schema.kind === 'aos') {
-            setTrait(world, entity, trait, params ?? defaults, false);
+            setUnaryTrait(world, entity, trait, params ?? defaults, false);
         } else if (defaults) {
-            setTrait(world, entity, trait, { ...defaults, ...params }, false);
+            setUnaryTrait(world, entity, trait, { ...defaults, ...params }, false);
         } else if (params) {
-            setTrait(world, entity, trait, params, false);
+            setUnaryTrait(world, entity, trait, params, false);
         }
 
         // Call add subscriptions after values are set
@@ -245,7 +251,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         const trait = traits[i];
 
         // Handle relation pairs
-        if (isRelationPair(trait)) {
+        if (isPair(trait)) {
             removeRelationPair(world, entity, trait);
             continue;
         }
@@ -355,6 +361,8 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
     return instance.store as ExtractStore<C>;
 }
 
+// Dispatchers — accept Trait | RelationPair, branch once, delegate to leaf functions
+
 export function setTrait(
     world: World,
     entity: Entity,
@@ -362,73 +370,71 @@ export function setTrait(
     value: any,
     triggerChanged = true
 ) {
-    if (isRelationPair(trait)) return setTraitForPair(world, entity, trait, value, triggerChanged);
-    return setTraitForTrait(world, entity, trait, value, triggerChanged);
+    if (isPair(trait)) return setBinaryTrait(world, entity, trait, value, triggerChanged);
+    return setUnaryTrait(world, entity, trait, value, triggerChanged);
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait | RelationPair) {
-    if (isRelationPair(trait)) return getTraitForPair(world, entity, trait);
-    return getTraitForTrait(world, entity, trait);
+    if (isPair(trait)) return getBinaryTrait(world, entity, trait);
+    return getUnaryTrait(world, entity, trait);
 }
 
-/**
- * Get trait data for a relation pair.
- */
-/* @inline @pure */ function getTraitForPair(world: World, entity: Entity, pair: RelationPair) {
-    const [relation, target] = pair;
+// Monomorphic leaf functions — internal callers use these directly
 
-    if (!hasRelationPair(world, entity, pair)) return undefined;
-    if (typeof target !== 'number') return undefined;
+export function setUnaryTrait(
+    world: World,
+    entity: Entity,
+    trait: Trait,
+    value: any,
+    triggerChanged = true
+) {
+    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
+    const index = getEntityId(entity);
 
-    return getRelationData(world, entity, relation, target);
+    // Evaluate callbacks ie `(prev) => ({ x: prev.x + 1 })`
+    // A short circuit is more performance than an if statement which creates a new code statement.
+    value instanceof Function && (value = value(instance.accessors.get(index, instance.store)));
+
+    instance.accessors.set(index, instance.store, value);
+    triggerChanged && setChanged(world, entity, trait);
 }
 
-/**
- * Get trait data for a regular trait.
- */
-/* @inline @pure */ function getTraitForTrait(world: World, entity: Entity, trait: Trait) {
+export function getUnaryTrait(world: World, entity: Entity, trait: Trait) {
     if (!hasTrait(world, entity, trait)) return undefined;
 
     const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
     return instance.accessors.get(getEntityId(entity), instance.store);
 }
 
-/**
- * Set trait data for a relation pair.
- */
-/* @inline */ function setTraitForPair(
+export function setBinaryTrait(
     world: World,
     entity: Entity,
     pair: RelationPair,
     value: any,
-    triggerChanged: boolean
+    triggerChanged = true
 ) {
     const [relation, target] = pair;
-
     if (typeof target !== 'number') return;
 
-    setRelationData(world, entity, relation, target, value);
+    const instance = getTraitInstance(world[$internal].traitInstances, relation)!;
+    const targetIndex = getTargetIndex(world, relation, entity, target);
+    if (targetIndex === -1) return;
+
+    instance.accessors.pairSet!(getEntityId(entity), targetIndex, instance.store, value);
     if (triggerChanged) setPairChanged(world, entity, relation, target);
 }
 
-/**
- * Set trait data for a regular trait.
- */
-/* @inline */ function setTraitForTrait(
-    world: World,
-    entity: Entity,
-    trait: Trait,
-    value: any,
-    triggerChanged: boolean
-) {
-    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
-    const index = getEntityId(entity);
+export function getBinaryTrait(world: World, entity: Entity, pair: RelationPair) {
+    const [relation, target] = pair;
 
-    // A short circuit is more performance than an if statement which creates a new code statement.
-    value instanceof Function && (value = value(instance.accessors.get(index, instance.store)));
+    if (!hasPair(world, entity, pair)) return undefined;
+    if (typeof target !== 'number') return undefined;
 
-    instance.accessors.set(index, instance.store, value);
-    triggerChanged && setChanged(world, entity, trait);
+    const instance = getTraitInstance(world[$internal].traitInstances, relation)!;
+    const targetIndex = getTargetIndex(world, relation, entity, target);
+    if (targetIndex === -1) return undefined;
+
+    return instance.accessors.pairGet!(getEntityId(entity), targetIndex, instance.store);
 }
 
 /**

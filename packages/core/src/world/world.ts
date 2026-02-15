@@ -8,18 +8,18 @@ import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '..
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { getEntitiesWithRelationTo } from '../trait/relation';
-import { isRelationPair } from '../trait/utils/is-relation';
+import {
+    addTrait,
+    getUnaryTrait,
+    hasTrait,
+    registerTrait,
+    removeTrait,
+    setUnaryTrait,
+} from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
-import type {
-    ConfigurableTrait,
-    ExtractType,
-    Relation,
-    SetTraitCallback,
-    Trait,
-    TraitValue,
-} from '../trait/types';
+import type { ConfigurableTrait, ExtractType, SetTraitCallback, Trait } from '../trait/types';
+import { isPair } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import type { World, WorldInternal, WorldOptions } from './types';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
@@ -102,11 +102,11 @@ export function createWorld(
         },
 
         get<T extends Trait>(trait: T): ExtractType<T> | undefined {
-            return getTrait(world, world[$internal].worldEntity, trait);
+            return getUnaryTrait(world, world[$internal].worldEntity, trait);
         },
 
         set<T extends Trait>(trait: T, value: Partial<ExtractType<T>> | SetTraitCallback<T>) {
-            setTrait(world, world[$internal].worldEntity, trait, value, true);
+            setUnaryTrait(world, world[$internal].worldEntity, trait, value, true);
         },
 
         destroy() {
@@ -188,16 +188,12 @@ export function createWorld(
                 const params = args as QueryParameter[];
 
                 // Fast path: single relation pair with specific target
-                if (params.length === 1 && isRelationPair(params[0])) {
+                if (params.length === 1 && isPair(params[0])) {
                     const [relation, target] = params[0];
 
                     // Only use fast path for specific targets
                     if (typeof target === 'number') {
-                        const entities = getEntitiesWithRelationTo(
-                            world,
-                            relation,
-                            target as Entity
-                        );
+                        const entities = getEntitiesWithRelationTo(world, relation, target as Entity);
                         return createRelationOnlyQueryResult(entities.slice() as Entity[]);
                     }
                 }
@@ -289,10 +285,7 @@ export function createWorld(
             return () => query.removeSubscriptions.delete(callback);
         },
 
-        onAdd(
-            trait: Trait,
-            callback: (entity: Entity, target?: Entity) => void
-        ): QueryUnsubscriber {
+        onAdd(trait: Trait, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber {
             const ctx = world[$internal];
             const target = trait;
 
@@ -327,10 +320,7 @@ export function createWorld(
             return () => data.removeSubscriptions.delete(callback);
         },
 
-        onChange(
-            trait: Trait,
-            callback: (entity: Entity, target?: Entity) => void
-        ) {
+        onChange(trait: Trait, callback: (entity: Entity, target?: Entity) => void) {
             const ctx = world[$internal];
             const target = trait;
 

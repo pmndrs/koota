@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isRelationPair } from '../trait/utils/is-relation';
+import { isPair } from '../trait/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait } from '../trait/types';
@@ -217,7 +217,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
         const parameter = parameters[i];
 
         // Handle relation pairs
-        if (isRelationPair(parameter)) {
+        if (isPair(parameter)) {
             const [relation] = parameter;
 
             query.relationFilters!.push(parameter);
@@ -252,7 +252,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 if (isOrWithModifiers(parameter)) {
                     for (const nestedModifier of parameter.modifiers) {
                         if (isTrackingModifier(nestedModifier)) {
-                            processTrackingModifier(world, query, nestedModifier, 'or', ctx, trackingGroupsMap);
+                            processTrackingModifier(
+                                world,
+                                query,
+                                nestedModifier,
+                                'or',
+                                ctx,
+                                trackingGroupsMap
+                            );
                         }
                     }
                 }

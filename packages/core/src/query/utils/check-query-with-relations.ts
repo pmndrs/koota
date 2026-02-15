@@ -1,5 +1,5 @@
 import type { Entity } from '../../entity/types';
-import { hasRelationPair } from '../../trait/relation';
+import { hasPair } from '../../trait/relation';
 import type { World } from '../../world';
 import type { QueryInstance } from '../types';
 import { checkQuery } from './check-query';
@@ -15,7 +15,7 @@ export function checkQueryWithRelations(world: World, query: QueryInstance, enti
     // Then check relation pairs if any
     if (query.relationFilters && query.relationFilters.length > 0) {
         for (const pair of query.relationFilters) {
-            if (!hasRelationPair(world, entity, pair)) {
+            if (!hasPair(world, entity, pair)) {
                 return false;
             }
         }

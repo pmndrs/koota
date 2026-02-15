@@ -11,6 +11,6 @@ export /* @inline @pure */ function isRelation(value: unknown): value is Relatio
 /**
  * Check if a value is a RelationPair.
  */
-export /* @inline @pure */ function isRelationPair(value: unknown): value is RelationPair {
+export /* @inline @pure */ function isPair(value: unknown): value is RelationPair {
     return Array.isArray(value) && value.length === 3;
 }

@@ -6,8 +6,8 @@
 import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
 import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
-import { getFirstRelationTarget, getRelationTargets, hasRelationPair } from '../trait/relation';
-import { isRelationPair } from '../trait/utils/is-relation';
+import { getFirstRelationTarget, getRelationTargets, hasPair } from '../trait/relation';
+import { isPair } from '../trait/utils/is-relation';
 import type { ConfigurableTrait, Relation, RelationPair, Trait } from '../trait/types';
 import { destroyEntity, getEntityWorld } from './entity';
 import type { Entity } from './types';
@@ -27,8 +27,8 @@ Number.prototype.remove = function (this: Entity, ...traits: (Trait | RelationPa
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait | RelationPair) {
     const world = getEntityWorld(this);
-    if (isRelationPair(trait)) return hasRelationPair(world, this, trait);
-    return /* @inline @pure */ hasTrait(world, this, trait);
+    if (isPair(trait)) return hasPair(world, this, trait);
+    return hasTrait(world, this, trait);
 };
 
 // @ts-expect-error

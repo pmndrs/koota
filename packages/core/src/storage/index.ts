@@ -3,6 +3,8 @@ export {
     createFastSetChangeAccessor,
     createGetAccessor,
     createGetDefaultAccessor,
+    createPairGetAccessor,
+    createPairSetAccessor,
     createSetAccessor,
 } from './accessors';
 export { createStore } from './stores';

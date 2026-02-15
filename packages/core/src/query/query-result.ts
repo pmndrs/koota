@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isRelationPair } from '../trait/utils/is-relation';
+import { isPair } from '../trait/utils/is-relation';
 import { Store } from '../storage';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -82,12 +82,20 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                         let changed = false;
                         if (inst.definition.schema.kind === 'aos') {
-                            changed = inst.accessors.fastSetWithChangeDetection(eid, inst.store, newValue as any);
+                            changed = inst.accessors.fastSetWithChangeDetection(
+                                eid,
+                                inst.store,
+                                newValue as any
+                            );
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[index]);
                             }
                         } else {
-                            changed = inst.accessors.fastSetWithChangeDetection(eid, inst.store, newValue as any);
+                            changed = inst.accessors.fastSetWithChangeDetection(
+                                eid,
+                                inst.store,
+                                newValue as any
+                            );
                         }
 
                         // Collect changed traits.
@@ -128,12 +136,20 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                         let changed = false;
                         if (inst.definition.schema.kind === 'aos') {
-                            changed = inst.accessors.fastSetWithChangeDetection(eid, inst.store, newValue as any);
+                            changed = inst.accessors.fastSetWithChangeDetection(
+                                eid,
+                                inst.store,
+                                newValue as any
+                            );
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[j]);
                             }
                         } else {
-                            changed = inst.accessors.fastSetWithChangeDetection(eid, inst.store, newValue as any);
+                            changed = inst.accessors.fastSetWithChangeDetection(
+                                eid,
+                                inst.store,
+                                newValue as any
+                            );
                         }
 
                         // Collect changed traits.
@@ -208,11 +224,7 @@ export function createQueryResult<T extends QueryParameter[]>(
     }
 }
 
-/* @inline */ function createSnapshots(
-    entityId: number,
-    instances: TraitInstance[],
-    state: any[]
-) {
+/* @inline */ function createSnapshots(entityId: number, instances: TraitInstance[], state: any[]) {
     for (let i = 0; i < instances.length; i++) {
         const inst = instances[i];
         state[i] = inst.accessors.get(entityId, inst.store);
@@ -245,7 +257,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         const param = params[i];
 
         // Handle relation pairs
-        if (isRelationPair(param)) {
+        if (isPair(param)) {
             const [relation] = param;
             if (relation.schema.kind !== 'tag') {
                 const inst = getTraitInstance(ctx.traitInstances, relation)!;

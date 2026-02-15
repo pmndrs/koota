@@ -294,36 +294,7 @@ export function setRelationDataAtIndex(
 ): void {
     const traitData = getTraitInstance(world[$internal].traitInstances, relation);
     if (!traitData) return;
-
-    const store = traitData.store;
-    const eid = getEntityId(entity);
-
-    if (relation.schema.kind === 'aos') {
-        ((store as unknown[][])[eid] ??= [])[targetIndex] = value;
-        return;
-    }
-
-    // SoA
-    for (const key in value) {
-        (((store as Record<string, Array<unknown | unknown[]>>)[key][eid] ??= []) as unknown[])[
-            targetIndex
-        ] = (value as Record<string, unknown>)[key];
-    }
-}
-
-/**
- * Set data for a specific relation target.
- */
-export function setRelationData(
-    world: World,
-    entity: Entity,
-    relation: Relation,
-    target: Entity,
-    value: Record<string, unknown>
-): void {
-    const targetIndex = getTargetIndex(world, relation, entity, target);
-    if (targetIndex === -1) return;
-    setRelationDataAtIndex(world, entity, relation, targetIndex, value);
+    traitData.accessors.pairSet!(getEntityId(entity), targetIndex, traitData.store, value);
 }
 
 /**
@@ -342,25 +313,13 @@ export function getRelationData(
     const targetIndex = getTargetIndex(world, relation, entity, target);
     if (targetIndex === -1) return undefined;
 
-    const store = traitData.store;
-    const eid = getEntityId(entity);
-    if (relation.schema.kind === 'aos') {
-        return (store as unknown[][])[eid]?.[targetIndex];
-    } else {
-        // SoA: reconstruct object from store arrays
-        const result: Record<string, unknown> = {};
-        const storeRecord = store as Record<string, Array<unknown | unknown[]>>;
-        for (const key in store) {
-            result[key] = (storeRecord[key][eid] as unknown[] | undefined)?.[targetIndex];
-        }
-        return result;
-    }
+    return traitData.accessors.pairGet!(getEntityId(entity), targetIndex, traitData.store);
 }
 
 /**
  * Check if entity has a relation pair.
  */
-export function hasRelationPair(world: World, entity: Entity, pair: RelationPair): boolean {
+export function hasPair(world: World, entity: Entity, pair: RelationPair): boolean {
     const [relation, target] = pair;
 
     // Check if entity has the base trait

@@ -24,6 +24,9 @@ export type TraitAccessors<T = any> = {
     fastSet: (index: number, store: any, value: TraitPartial<T>) => boolean;
     fastSetWithChangeDetection: (index: number, store: any, value: TraitPartial<T>) => boolean;
     get: (index: number, store: any) => T;
+    // Pair accessors for binary (relation) traits — 2D storage indexed by (eid, targetIndex)
+    pairSet?: (eid: number, targetIndex: number, store: any, value: TraitPartial<T>) => void;
+    pairGet?: (eid: number, targetIndex: number, store: any) => T;
 };
 
 export type TraitConstructor<T = any> = () => T | null;
