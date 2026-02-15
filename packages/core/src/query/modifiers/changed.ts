@@ -3,7 +3,7 @@ import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
-import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
+import type { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world';
 import { createModifier } from '../modifier';
@@ -19,11 +19,10 @@ export function createChanged() {
         setTrackingMasks(world, id);
     }
 
-    return <T extends TraitOrRelation[]>(
+    return <T extends Trait[]>(
         ...inputs: T
-    ): Modifier<ExtractTraits<T>, `changed-${number}`> => {
-        const traits = inputs as unknown as ExtractTraits<T>;
-        return createModifier(`changed-${id}`, id, traits);
+    ): Modifier<T, `changed-${number}`> => {
+        return createModifier(`changed-${id}`, id, inputs);
     };
 }
 

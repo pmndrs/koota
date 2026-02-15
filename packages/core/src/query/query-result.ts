@@ -1,8 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isRelationPair } from '../relation/utils/is-relation';
-import type { Relation } from '../relation/types';
+import { isRelationPair } from '../trait/utils/is-relation';
 import { Store } from '../storage';
 import { getStore } from '../trait/trait';
 import type { Trait } from '../trait/types';
@@ -254,12 +253,10 @@ export function createQueryResult<T extends QueryParameter[]>(
 
         // Handle relation pairs
         if (isRelationPair(param)) {
-            const pairCtx = param[$internal];
-            const relation = pairCtx.relation as Relation<Trait>;
-            const baseTrait = relation as unknown as Trait;
-            if (baseTrait.schema.kind !== 'tag') {
-                traits.push(baseTrait);
-                stores.push(getStore(world, baseTrait));
+            const [relation] = param;
+            if (relation.schema.kind !== 'tag') {
+                traits.push(relation);
+                stores.push(getStore(world, relation));
             }
             continue;
         }

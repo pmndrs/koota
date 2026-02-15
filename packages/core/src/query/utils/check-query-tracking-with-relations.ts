@@ -1,5 +1,5 @@
 import type { Entity } from '../../entity/types';
-import { hasRelationPair } from '../../relation/relation';
+import { hasRelationPair } from '../../trait/relation';
 import type { World } from '../../world';
 import type { EventType, QueryInstance } from '../types';
 import { checkQueryTracking } from './check-query-tracking';

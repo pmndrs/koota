@@ -9,10 +9,10 @@ import type {
     QueryResult,
     QueryUnsubscriber,
 } from '../query/types';
-import type { Relation } from '../relation/types';
 import type {
     ConfigurableTrait,
     ExtractType,
+    Relation,
     SetTraitCallback,
     Trait,
     TraitInstance,
@@ -30,7 +30,7 @@ export type WorldInternal = {
     entityTraits: Map<number, Set<Trait>>;
     bitflag: number;
     traitInstances: (TraitInstance | undefined)[];
-    relations: Set<Relation<Trait>>;
+    relations: Set<Relation>;
     queriesHashMap: Map<string, QueryInstance>;
     queryInstances: (QueryInstance | undefined)[];
     actionInstances: (ActionInstance | undefined)[];
@@ -81,19 +81,7 @@ export type World = {
         parameters: T,
         callback: (entity: Entity) => void
     ): QueryUnsubscriber;
-    onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onAdd<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onRemove<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onChange<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
+    onAdd(trait: Trait, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber;
+    onRemove(trait: Trait, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber;
+    onChange(trait: Trait, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber;
 };

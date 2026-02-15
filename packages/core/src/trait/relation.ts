@@ -2,39 +2,33 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { type SchemaShorthand, type TraitKind } from '../storage';
-import { hasTrait, trait } from '../trait/trait';
-import { getTraitInstance } from '../trait/trait-instance';
-import type { Trait } from '../trait/types';
+import type {
+    FieldDescriptor,
+    InferSchema,
+    SchemaFor,
+    SchemaShorthand,
+    TagSchema,
+    TraitKind,
+} from '../storage';
 import type { World } from '../world';
+import { defineTrait, hasTrait } from './trait';
+import { getTraitInstance } from './trait-instance';
 import type { Relation, RelationPair } from './types';
-import { $relation } from './symbols';
 
-/**
- * Creates a relation definition.
- * Relations are stored efficiently - one trait per relation type, not per target.
- * Targets are stored in TraitInstance.relationTargets.
- */
-function createRelation<D extends SchemaShorthand = Record<string, never>>(
-    schema?: D
-): Relation<Trait<D>> {
-    const relation = (trait as unknown as (
-        schema: D | Record<string, never>,
-        mode: 'unary' | 'binary'
-    ) => Trait<D>)((schema ?? {}) as D, 'binary') as unknown as Relation<Trait<D>>;
-
-    // Add relation brand for fast type checking.
-    Object.defineProperty(relation, $relation, {
-        value: true,
-        writable: false,
-        enumerable: false,
-        configurable: false,
-    });
-
-    return relation;
+/** @see {@link relation} for overload signatures */
+export interface relation {
+    (schema?: undefined | Record<string, never>): Relation<Record<string, never>> & {
+        readonly schema: TagSchema;
+    };
+    <T>(schema: () => T): Relation<T>;
+    <T>(schema: FieldDescriptor<T> & { kind: 'ref' }): Relation<T>;
+    <T>(schema: SchemaFor<T>): Relation<T>;
+    <D extends SchemaShorthand>(schema: D): Relation<InferSchema<D>>;
 }
 
-export const relation = createRelation;
+export const relation: relation = ((schema: SchemaShorthand | FieldDescriptor = {}): Relation => {
+    return defineTrait(schema, 'binary') as Relation;
+}) as relation;
 
 /**
  * Get the targets for a relation on an entity.
@@ -42,11 +36,11 @@ export const relation = createRelation;
  */
 export /* @inline */ function getRelationTargets(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     entity: Entity
 ): readonly Entity[] {
     const ctx = world[$internal];
-    const traitData = getTraitInstance(ctx.traitInstances, relation as unknown as Trait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData || !traitData.relationTargets) return [];
 
     const eid = getEntityId(entity);
@@ -61,11 +55,11 @@ export /* @inline */ function getRelationTargets(
  */
 export /* @inline */ function getFirstRelationTarget(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     entity: Entity
 ): Entity | undefined {
     const ctx = world[$internal];
-    const traitData = getTraitInstance(ctx.traitInstances, relation as unknown as Trait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData || !traitData.relationTargets) return undefined;
 
     const eid = getEntityId(entity);
@@ -79,14 +73,12 @@ export /* @inline */ function getFirstRelationTarget(
  */
 export /* @inline */ function getTargetIndex(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     entity: Entity,
     target: Entity
 ): number {
     const ctx = world[$internal];
-    const baseTrait = relation as unknown as Trait;
-
-    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData || !traitData.relationTargets) return -1;
 
     const eid = getEntityId(entity);
@@ -99,14 +91,12 @@ export /* @inline */ function getTargetIndex(
  */
 export /* @inline */ function hasRelationToTarget(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     entity: Entity,
     target: Entity
 ): boolean {
     const ctx = world[$internal];
-    const baseTrait = relation as unknown as Trait;
-
-    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData || !traitData.relationTargets) return false;
 
     const eid = getEntityId(entity);
@@ -121,14 +111,12 @@ export /* @inline */ function hasRelationToTarget(
  */
 export function addRelationTarget(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     entity: Entity,
     target: Entity
 ): number {
     const ctx = world[$internal];
-    const baseTrait = relation as unknown as Trait;
-
-    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData) return -1;
 
     if (!traitData.relationTargets) {
@@ -160,14 +148,12 @@ export function addRelationTarget(
  */
 export function removeRelationTarget(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     entity: Entity,
     target: Entity
 ): { removedIndex: number; wasLastTarget: boolean } {
     const ctx = world[$internal];
-    const relationTrait = relation as unknown as Trait;
-
-    const data = getTraitInstance(ctx.traitInstances, relationTrait);
+    const data = getTraitInstance(ctx.traitInstances, relation);
     if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
 
     const eid = getEntityId(entity);
@@ -184,7 +170,7 @@ export function removeRelationTarget(
                 entityTargets[idx] = entityTargets[lastIdx];
             }
             entityTargets.pop();
-            swapAndPopRelationData(data.store, relationTrait.schema.kind, eid, idx, lastIdx);
+            swapAndPopRelationData(data.store, relation.schema.kind, eid, idx, lastIdx);
             removedIndex = idx;
             hasRemainingTargets = entityTargets.length > 0;
         }
@@ -202,14 +188,9 @@ export function removeRelationTarget(
  * Update queries when relation targets change.
  * Called after addRelationTarget or removeRelationTarget to keep queries in sync.
  */
-function updateQueriesForRelationChange(
-    world: World,
-    relation: Relation<Trait>,
-    entity: Entity
-): void {
+function updateQueriesForRelationChange(world: World, relation: Relation, entity: Entity): void {
     const ctx = world[$internal];
-    const baseTrait = relation as unknown as Trait;
-    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData) return;
 
     // Update queries indexed by this relation (much faster than iterating all queries)
@@ -254,11 +235,7 @@ function swapAndPopRelationData(
  * Remove all relation targets from an entity.
  * Used for bulk removal when the base trait is also being removed.
  */
-export function removeAllRelationTargets(
-    world: World,
-    relation: Relation<Trait>,
-    entity: Entity
-): void {
+export function removeAllRelationTargets(world: World, relation: Relation, entity: Entity): void {
     const targets = getRelationTargets(world, relation, entity);
     for (const target of targets) {
         removeRelationTarget(world, relation, entity, target);
@@ -271,12 +248,11 @@ export function removeAllRelationTargets(
  */
 export function getEntitiesWithRelationTo(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     target: Entity
 ): readonly Entity[] {
     const ctx = world[$internal];
-    const baseTrait = relation as unknown as Trait;
-    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData || !traitData.relationTargets) return [];
 
     const targetId = target;
@@ -312,18 +288,17 @@ export function getEntitiesWithRelationTo(
 export function setRelationDataAtIndex(
     world: World,
     entity: Entity,
-    relation: Relation<Trait>,
+    relation: Relation,
     targetIndex: number,
     value: Record<string, unknown>
 ): void {
-    const baseTrait = relation as unknown as Trait;
-    const traitData = getTraitInstance(world[$internal].traitInstances, baseTrait);
+    const traitData = getTraitInstance(world[$internal].traitInstances, relation);
     if (!traitData) return;
 
     const store = traitData.store;
     const eid = getEntityId(entity);
 
-    if (baseTrait.schema.kind === 'aos') {
+    if (relation.schema.kind === 'aos') {
         ((store as unknown[][])[eid] ??= [])[targetIndex] = value;
         return;
     }
@@ -342,7 +317,7 @@ export function setRelationDataAtIndex(
 export function setRelationData(
     world: World,
     entity: Entity,
-    relation: Relation<Trait>,
+    relation: Relation,
     target: Entity,
     value: Record<string, unknown>
 ): void {
@@ -357,12 +332,11 @@ export function setRelationData(
 export function getRelationData(
     world: World,
     entity: Entity,
-    relation: Relation<Trait>,
+    relation: Relation,
     target: Entity
 ): unknown {
     const ctx = world[$internal];
-    const baseTrait = relation as unknown as Trait;
-    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+    const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData) return undefined;
 
     const targetIndex = getTargetIndex(world, relation, entity, target);
@@ -370,7 +344,7 @@ export function getRelationData(
 
     const store = traitData.store;
     const eid = getEntityId(entity);
-    if (baseTrait.schema.kind === 'aos') {
+    if (relation.schema.kind === 'aos') {
         return (store as unknown[][])[eid]?.[targetIndex];
     } else {
         // SoA: reconstruct object from store arrays
@@ -387,12 +361,10 @@ export function getRelationData(
  * Check if entity has a relation pair.
  */
 export function hasRelationPair(world: World, entity: Entity, pair: RelationPair): boolean {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
+    const [relation, target] = pair;
 
     // Check if entity has the base trait
-    if (!hasTrait(world, entity, relation as unknown as Trait)) return false;
+    if (!hasTrait(world, entity, relation)) return false;
 
     // Wildcard target
     if (target === '*') return true;

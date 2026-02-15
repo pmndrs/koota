@@ -26,19 +26,12 @@ export type {
     StoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
-export { relation } from './relation/relation';
+export { relation } from './trait/relation';
 /** @experimental This API is experimental and may change or be removed in future versions. */
-export { ordered } from './relation/ordered';
+export { ordered } from './trait/ordered';
 /** @experimental This API is experimental and may change or be removed in future versions. */
-export { OrderedList } from './relation/ordered-list';
-export { $relationPair, $relation } from './relation/symbols';
-export type {
-    /** @experimental This type is experimental and may change or be removed in future versions. */
-    OrderedRelation as OrderedTrait,
-    Relation,
-    RelationPair,
-    RelationTarget,
-} from './relation/types';
+export { OrderedList } from './trait/ordered-list';
+export { $relationPair } from './common';
 export { getStore, trait } from './trait/trait';
 export type {
     ConfigurableTrait,
@@ -46,6 +39,11 @@ export type {
     ExtractType,
     ExtractStore,
     IsTag,
+    /** @experimental This type is experimental and may change or be removed in future versions. */
+    OrderedRelation as OrderedTrait,
+    Relation,
+    RelationPair,
+    RelationTarget,
     SetTraitCallback,
     TagTrait,
     Trait,

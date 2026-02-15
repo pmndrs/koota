@@ -1,6 +1,4 @@
-import { $internal } from '../../common';
-import { isRelationPair } from '../../relation/utils/is-relation';
-import type { Relation } from '../../relation/types';
+import { isRelationPair } from '../../trait/utils/is-relation';
 import type { Trait } from '../../trait/types';
 import { isModifier } from '../modifier';
 import type { QueryHash, QueryParameter } from '../types';
@@ -17,9 +15,7 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
         if (isRelationPair(param)) {
             // Encode relation pair as: (relationTraitId * 1000000) + targetId
             // This ensures unique hashes for different relation/target combinations
-            const pairCtx = param[$internal];
-            const relation = pairCtx.relation;
-            const target = pairCtx.target;
+            const [relation, target] = param;
 
             const relationId = (relation as unknown as Trait).id;
             const targetId = typeof target === 'number' ? target : -1;

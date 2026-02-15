@@ -1,7 +1,8 @@
-import type { Relation, RelationPair } from '../relation/types';
 import type {
     ConfigurableTrait,
     ExtractType,
+    Relation,
+    RelationPair,
     SetTraitCallback,
     Trait,
     TraitValue,
@@ -19,8 +20,8 @@ export type Entity = number & {
         flagChanged?: boolean
     ) => void;
     get: <T extends Trait | RelationPair>(trait: T) => ExtractType<T> | undefined;
-    targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
-    targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
+    targetFor: (relation: Relation) => Entity | undefined;
+    targetsFor: (relation: Relation) => Entity[];
     id: () => number;
     generation: () => number;
     isAlive: () => boolean;

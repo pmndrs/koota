@@ -1,9 +1,8 @@
 import type { Entity } from '../entity/types';
-import type { World } from '../world';
-import type { Relation } from './types';
-import type { Trait } from '../trait/types';
-import { addTrait, removeTrait } from '../trait/trait';
 import { setChanged } from '../query/modifiers/changed';
+import type { World } from '../world';
+import { addTrait, removeTrait } from './trait';
+import type { Relation, Trait } from './types';
 
 /**
  * An ordered list of entities that syncs with a relation.

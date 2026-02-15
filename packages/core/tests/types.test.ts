@@ -1,48 +1,42 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import { field, trait, type ExtractType, type TagTrait } from '../src';
+import { field, relation, trait, type ExtractType, type TagTrait } from '../src';
 
 describe('Trait type inference', () => {
-    describe('field-based traits', () => {
+    describe('field-based schemas', () => {
         it('infers data shape from shorthand definition', () => {
-            const Position = trait({ x: 0, y: 0 });
+            const T = trait({ x: 0, y: 0 });
+            const R = relation({ x: 0, y: 0 });
+            type Expected = { x: number; y: number };
 
-            expectTypeOf<ExtractType<typeof Position>>().toEqualTypeOf<{
-                x: number;
-                y: number;
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('widens literal types to primitives', () => {
-            const Config = trait({ name: 'default', count: 42, active: true });
+            const T = trait({ name: 'default', count: 42, active: true });
+            const R = relation({ name: 'default', count: 42, active: true });
+            type Expected = { name: string; count: number; active: boolean };
 
-            expectTypeOf<ExtractType<typeof Config>>().toEqualTypeOf<{
-                name: string;
-                count: number;
-                active: boolean; // Should be boolean instead of true
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('infers data shape for ref fields from factory functions', () => {
-            const Ball = trait({
-                radius: 10,
-                color: () => ({ r: 0, g: 0, b: 0 }),
-            });
+            const T = trait({ radius: 10, color: () => ({ r: 0, g: 0, b: 0 }) });
+            const R = relation({ radius: 10, color: () => ({ r: 0, g: 0, b: 0 }) });
+            type Expected = { radius: number; color: { r: number; g: number; b: number } };
 
-            // For ref fields, the shape should be the return type
-            expectTypeOf<ExtractType<typeof Ball>>().toEqualTypeOf<{
-                radius: number;
-                color: { r: number; g: number; b: number };
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('handles typed factory for tuples', () => {
-            const Transform = trait({
-                position: (): [number, number, number] => [0, 0, 0],
-            });
+            const T = trait({ position: (): [number, number, number] => [0, 0, 0] });
+            const R = relation({ position: (): [number, number, number] => [0, 0, 0] });
+            type Expected = { position: [number, number, number] };
 
-            expectTypeOf<ExtractType<typeof Transform>>().toEqualTypeOf<{
-                position: [number, number, number];
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('accepts explicit data shape type with matching definition', () => {
@@ -52,32 +46,38 @@ describe('Trait type inference', () => {
                 tuple: [number, number, number];
             };
 
-            // Note: tuple factory needs explicit return type because
-            // () => [0, 0, 0] is inferred as () => number[], not () => [n, n, n]
-            const Ball = trait<Ball>({
+            const T = trait<Ball>({
+                radius: 10,
+                color: () => ({ r: 0, g: 0, b: 0 }),
+                tuple: (): [number, number, number] => [0, 0, 0],
+            });
+            const R = relation<Ball>({
                 radius: 10,
                 color: () => ({ r: 0, g: 0, b: 0 }),
                 tuple: (): [number, number, number] => [0, 0, 0],
             });
 
-            expectTypeOf<ExtractType<typeof Ball>>().toEqualTypeOf<Ball>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Ball>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Ball>();
         });
     });
 
-    describe('factory traits', () => {
+    describe('factory schemas', () => {
         it('infers data shape from factory function', () => {
-            const Position = trait(() => ({ x: 0, y: 0 }));
+            const T = trait(() => ({ x: 0, y: 0 }));
+            const R = relation(() => ({ x: 0, y: 0 }));
+            type Expected = { x: number; y: number };
 
-            expectTypeOf<ExtractType<typeof Position>>().toEqualTypeOf<{
-                x: number;
-                y: number;
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('works with array data', () => {
-            const Children = trait((): number[] => []);
+            const T = trait((): number[] => []);
+            const R = relation((): number[] => []);
 
-            expectTypeOf<ExtractType<typeof Children>>().toEqualTypeOf<number[]>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<number[]>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<number[]>();
         });
 
         it('works with class instances', () => {
@@ -88,12 +88,14 @@ describe('Trait type inference', () => {
                     public z = 0
                 ) {}
             }
-            const Velocity = trait(() => new Vector3());
+            const T = trait(() => new Vector3());
+            const R = relation(() => new Vector3());
 
-            expectTypeOf<ExtractType<typeof Velocity>>().toEqualTypeOf<Vector3>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Vector3>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Vector3>();
         });
 
-        it('accepts explicit data shape type for factory traits', () => {
+        it('accepts explicit data shape type for factory', () => {
             class Vector3 {
                 constructor(
                     public x = 0,
@@ -101,77 +103,87 @@ describe('Trait type inference', () => {
                     public z = 0
                 ) {}
             }
-            const Velocity = trait<Vector3>(() => new Vector3());
+            const T = trait<Vector3>(() => new Vector3());
+            const R = relation<Vector3>(() => new Vector3());
 
-            expectTypeOf<ExtractType<typeof Velocity>>().toEqualTypeOf<Vector3>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Vector3>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Vector3>();
         });
 
         it('works with typed arrays', () => {
-            const Positions = trait((): [number, number, number] => [0, 0, 0]);
+            const T = trait((): [number, number, number] => [0, 0, 0]);
+            const R = relation((): [number, number, number] => [0, 0, 0]);
 
-            expectTypeOf<ExtractType<typeof Positions>>().toEqualTypeOf<[number, number, number]>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<[number, number, number]>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<[number, number, number]>();
         });
     });
 
-    describe('tag traits', () => {
+    describe('tags', () => {
         it('creates tag with no definition', () => {
-            const IsPlayer = trait();
+            const T = trait();
+            const R = relation();
 
-            expectTypeOf(IsPlayer).toExtend<TagTrait>();
-            expectTypeOf<ExtractType<typeof IsPlayer>>().toEqualTypeOf<Record<string, never>>();
+            expectTypeOf(T).toExtend<TagTrait>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Record<string, never>>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Record<string, never>>();
         });
     });
 
     describe('field descriptors', () => {
         it('infers data shape for all schema kinds using field()', () => {
-            const Config = trait({
+            const schema = {
                 count: field({ kind: 'number', default: 0 }),
                 name: field({ kind: 'string', default: '' }),
                 active: field({ kind: 'boolean', default: false }),
                 id: field({ kind: 'bigint', default: 0n }),
-            });
+            };
+            const T = trait(schema);
+            const R = relation(schema);
+            type Expected = { count: number; name: string; active: boolean; id: bigint };
 
-            expectTypeOf<ExtractType<typeof Config>>().toEqualTypeOf<{
-                count: number;
-                name: string;
-                active: boolean;
-                id: bigint;
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('infers data shape for ref kind with factory default', () => {
-            const Ball = trait({
-                color: field({ kind: 'ref', default: () => ({ r: 0, g: 0, b: 0 }) }),
-            });
+            const schema = { color: field({ kind: 'ref', default: () => ({ r: 0, g: 0, b: 0 }) }) };
+            const T = trait(schema);
+            const R = relation(schema);
+            type Expected = { color: { r: number; g: number; b: number } };
 
-            expectTypeOf<ExtractType<typeof Ball>>().toEqualTypeOf<{
-                color: { r: number; g: number; b: number };
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('supports mixed shorthand and field descriptor format', () => {
-            const Entity = trait({
-                x: 0, // shorthand
-                y: 0, // shorthand
-                name: field({ kind: 'string', default: 'entity' }), // field descriptor
-                color: () => ({ r: 0, g: 0, b: 0 }), // factory shorthand
-            });
-
-            expectTypeOf<ExtractType<typeof Entity>>().toEqualTypeOf<{
+            const schema = {
+                x: 0,
+                y: 0,
+                name: field({ kind: 'string', default: 'entity' }),
+                color: () => ({ r: 0, g: 0, b: 0 }),
+            };
+            const T = trait(schema);
+            const R = relation(schema);
+            type Expected = {
                 x: number;
                 y: number;
                 name: string;
                 color: { r: number; g: number; b: number };
-            }>();
+            };
+
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('supports top-level field descriptor for single-ref traits', () => {
-            const Position = trait(field({ kind: 'ref', default: () => ({ x: 0, y: 0 }) }));
+            const desc = field({ kind: 'ref', default: () => ({ x: 0, y: 0 }) });
+            const T = trait(desc);
+            const R = relation(desc);
+            type Expected = { x: number; y: number };
 
-            expectTypeOf<ExtractType<typeof Position>>().toEqualTypeOf<{
-                x: number;
-                y: number;
-            }>();
+            expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
+            expectTypeOf<ExtractType<typeof R>>().toEqualTypeOf<Expected>();
         });
 
         it('rejects non-ref top-level field descriptors', () => {
@@ -181,6 +193,12 @@ describe('Trait type inference', () => {
             trait(field({ kind: 'string', default: '' }));
             // @ts-expect-error - top-level field descriptors must be ref kind
             trait(field({ kind: 'boolean', default: false }));
+            // @ts-expect-error - top-level field descriptors must be ref kind
+            relation(field({ kind: 'number', default: 0 }));
+            // @ts-expect-error - top-level field descriptors must be ref kind
+            relation(field({ kind: 'string', default: '' }));
+            // @ts-expect-error - top-level field descriptors must be ref kind
+            relation(field({ kind: 'boolean', default: false }));
         });
     });
 });

@@ -1,8 +1,8 @@
-import { $internal } from '../common';
+import { $internal, $orderedTargetsTrait } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
-import type { Relation, RelationPair } from '../relation/types';
 import type { Schema, Store, TagSchema } from '../storage';
+import type { OrderedList } from './ordered-list';
 
 /**
  * Helper type for trait values that handles arrays correctly.
@@ -30,7 +30,7 @@ export type TraitConstructor<T = any> = () => T | null;
 
 export type TraitMode = 'unary' | 'binary';
 
-export type TraitDef<T = any, M extends TraitMode = 'unary'> = {
+export type TraitDef<T = any, M extends TraitMode = TraitMode> = {
     /** Public read-only ID for fast array lookups */
     readonly id: number;
     readonly schema: Schema;
@@ -44,22 +44,22 @@ export type TraitDef<T = any, M extends TraitMode = 'unary'> = {
 
 export type UnaryTraitCallable<T = any> = (
     params?: TraitPartial<T>
-) => [Trait<T, 'unary'>, TraitPartial<T>];
+) => [Trait<T>, TraitPartial<T>];
 
-export type BinaryTraitCallable = (target: unknown, params?: unknown) => RelationPair;
+export type BinaryTraitCallable<T = any> = (target: unknown, params?: unknown) => RelationPair<T>;
 
 /** Extracts mode from a TraitDef, falling back to 'unary'. */
 export type ExtractMode<D> = D extends TraitDef<any, infer M> ? M : 'unary';
 
-export type TraitCallable<T = any, M extends TraitMode = 'unary'> = M extends 'binary'
-    ? BinaryTraitCallable
+export type TraitCallable<T = any, M extends TraitMode = TraitMode> = M extends 'binary'
+    ? BinaryTraitCallable<T>
     : UnaryTraitCallable<T>;
 
 /**
  * A Trait, parameterized by the data shape T.
  * T is the type you get back when calling entity.get(Trait).
  */
-export type Trait<T = any, M extends TraitMode = 'unary'> = TraitDef<T, M> & TraitCallable<T, M>;
+export type Trait<T = any, M extends TraitMode = TraitMode> = TraitDef<T, M> & TraitCallable<T, M>;
 
 export type TagTrait = Trait<Record<string, never>> & { readonly schema: TagSchema };
 
@@ -73,7 +73,7 @@ export type TraitValue<T> = T extends Record<string, never> ? undefined : Partia
  */
 export type TraitTuple<T extends Trait = Trait> = [T, T extends Trait<infer D> ? Partial<D> : never];
 
-export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair<T>;
+export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair;
 
 export type SetTraitCallback<T extends Trait | RelationPair> = (
     prev: ExtractType<T>
@@ -86,20 +86,36 @@ export type SetTraitCallback<T extends Trait | RelationPair> = (
 export type TraitRecord<T extends Trait> = T extends Trait<infer D> ? D : never;
 
 // ============================================================================
+// Relation Types
+// ============================================================================
+
+export type RelationTarget = Entity | '*';
+
+/** A Relation is a Trait in binary mode. */
+export type Relation<T = any> = Trait<T, 'binary'>;
+
+/** A pair represents a relation + target combination. */
+export type RelationPair<T = any> = [relation: Relation<T>, target: RelationTarget, params?: unknown];
+
+export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
+    [$orderedTargetsTrait]: {
+        relation: Relation<T>;
+    };
+};
+
+// ============================================================================
 // Type Extraction Utilities
 // ============================================================================
 
 /**
- * Extracts the data type T from a Trait<T>, Relation, or RelationPair.
+ * Extracts the data type T from a Trait<T> or RelationPair.
  */
-export type ExtractType<T extends Trait | Relation<Trait> | RelationPair> =
-    T extends RelationPair<infer R>
-        ? ExtractType<R>
-        : T extends Relation<infer R>
-          ? ExtractType<R>
-          : T extends Trait<infer D>
-            ? D
-            : never;
+export type ExtractType<T extends Trait | RelationPair> =
+    T extends RelationPair<infer D>
+        ? D
+        : T extends Trait<infer D>
+          ? D
+          : never;
 
 export type ExtractStore<T extends Trait> = T extends Trait<infer D> ? Store<D> : never;
 
@@ -132,13 +148,3 @@ export interface TraitInstance<T extends Trait = Trait> {
      */
     relationTargets?: number[][];
 }
-
-export type TraitOrRelation = Trait | Relation<Trait>;
-
-/** Extracts the underlying Trait from a TraitOrRelation (Relations contain a Trait) */
-export type ExtractTrait<T> = T extends Relation<infer TTrait> ? TTrait : T;
-
-/** Maps a tuple of TraitOrRelation to their underlying Traits */
-export type ExtractTraits<T extends TraitOrRelation[]> = {
-    [K in keyof T]: ExtractTrait<T[K]>;
-};

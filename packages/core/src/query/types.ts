@@ -1,5 +1,5 @@
 import type { Entity } from '../entity/types';
-import type { RelationPair } from '../relation/types';
+import type { RelationPair } from '../trait/types';
 import type {
     ExtractStore,
     ExtractType,

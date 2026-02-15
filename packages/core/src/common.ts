@@ -1,4 +1,6 @@
 export const $internal = Symbol.for('koota.internal');
+export const $relationPair = Symbol.for('relationPair');
+export const $orderedTargetsTrait = Symbol.for('orderedTargetsTrait');
 
 /**
  * Type utility for symbol-branded runtime type checks.

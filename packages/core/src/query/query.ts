@@ -1,8 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import type { Relation } from '../relation/types';
-import { isRelationPair } from '../relation/utils/is-relation';
+import { isRelationPair } from '../trait/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait } from '../trait/types';
@@ -219,15 +218,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
         // Handle relation pairs
         if (isRelationPair(parameter)) {
-            const pairCtx = parameter[$internal];
-            const relation = pairCtx.relation;
+            const [relation] = parameter;
 
             query.relationFilters!.push(parameter);
 
-            const baseTrait = relation as unknown as Trait;
-            if (!hasTraitInstance(ctx.traitInstances, baseTrait)) registerTrait(world, baseTrait);
-            query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, baseTrait)!);
-            query.traits.push(baseTrait);
+            if (!hasTraitInstance(ctx.traitInstances, relation)) registerTrait(world, relation);
+            query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, relation)!);
+            query.traits.push(relation);
 
             continue;
         }
@@ -334,7 +331,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (hasRelationFilters) {
         for (const pair of query.relationFilters!) {
-            const relationTrait = pair[$internal].relation as unknown as Trait;
+            const relationTrait = pair[0] as unknown as Trait;
             const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
             if (relationTraitInstance) {
                 relationTraitInstance.relationQueries.add(query);

@@ -1,4 +1,4 @@
-import type { ExtractTraits, TraitOrRelation } from '../../trait/types';
+import type { Trait } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
@@ -12,10 +12,9 @@ export function createAdded() {
         setTrackingMasks(world, id);
     }
 
-    return <T extends TraitOrRelation[]>(
+    return <T extends Trait[]>(
         ...inputs: T
-    ): Modifier<ExtractTraits<T>, `added-${number}`> => {
-        const traits = inputs as unknown as ExtractTraits<T>;
-        return createModifier(`added-${id}`, id, traits);
+    ): Modifier<T, `added-${number}`> => {
+        return createModifier(`added-${id}`, id, inputs);
     };
 }

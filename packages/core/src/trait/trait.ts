@@ -4,8 +4,21 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
-import { OrderedList } from '../relation/ordered-list';
+import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchema } from '../storage';
+import {
+    createFastSetAccessor,
+    createFastSetChangeAccessor,
+    createGetAccessor,
+    createGetDefaultAccessor,
+    createSetAccessor,
+    createStore,
+    normalizeSchema,
+    validateSchema,
+} from '../storage';
+import type { World } from '../world';
+import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from './ordered';
+import { OrderedList } from './ordered-list';
 import {
     addRelationTarget,
     getRelationData,
@@ -16,54 +29,30 @@ import {
     removeRelationTarget,
     setRelationData,
     setRelationDataAtIndex,
-} from '../relation/relation';
-import { $relationPair } from '../relation/symbols';
-import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
-import { isRelationPair } from '../relation/utils/is-relation';
-import type { FieldDescriptor, SchemaFor, SchemaShorthand } from '../storage';
-import {
-    createFastSetAccessor,
-    createFastSetChangeAccessor,
-    createGetAccessor,
-    createGetDefaultAccessor,
-    createSetAccessor,
-    createStore,
-    InferSchema,
-    normalizeSchema,
-    validateSchema,
-} from '../storage';
-import type { World } from '../world';
-import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+} from './relation';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
 import type {
     BinaryTraitCallable,
     ConfigurableTrait,
     ExtractStore,
-    TagTrait,
+    OrderedRelation,
+    Relation,
+    RelationPair,
     Trait,
+    TraitMode,
     TraitInstance,
-    TraitPartial,
     UnaryTraitCallable,
 } from './types';
+import { isRelationPair } from './utils/is-relation';
 
 // No reason to create a new object every time a tag trait is created.
 const tagDefinition = Object.freeze({});
 let traitId = 0;
 
-// Overload 1: Tag trait
-function createTrait(definition?: undefined | Record<string, never>): TagTrait;
-// Overload 2: AoS trait via factory
-function createTrait<T>(definition: () => T): Trait<T>;
-// Overload 3: AoS trait via top-level FieldDescriptor (must be ref kind)
-function createTrait<T>(definition: FieldDescriptor<T> & { kind: 'ref' }): Trait<T>;
-// Overload 4: SoA trait with explicit data shape type
-function createTrait<T>(schema: SchemaFor<T>): Trait<T>;
-// Overload 5: SoA trait with inferred data shape from schema shorthand
-function createTrait<D extends SchemaShorthand>(schema: D): Trait<InferSchema<D>>;
-
-function createTrait(
+/** @internal */
+export function defineTrait(
     schema: SchemaShorthand | FieldDescriptor = tagDefinition,
-    mode: 'unary' | 'binary' = 'unary'
+    mode: TraitMode = 'unary'
 ): Trait {
     let trait: Trait;
 
@@ -82,19 +71,9 @@ function createTrait(
     let callable: BinaryTraitCallable | UnaryTraitCallable;
 
     if (mode === 'binary') {
-        callable = (target: unknown, params?: unknown) => {
-            if (target === undefined) throw Error('Relation target is undefined');
-            return {
-                [$relationPair]: true,
-                [$internal]: {
-                    relation: trait as unknown as Relation<Trait>,
-                    target,
-                    params,
-                },
-            } as RelationPair;
-        };
+        callable = ((target, params) => [trait, target, params]) as BinaryTraitCallable;
     } else {
-        callable = (params?: TraitPartial<Trait>) => [trait, params] as [Trait, TraitPartial<Trait>];
+        callable = ((params) => [trait, params]) as UnaryTraitCallable;
     }
 
     // 4. Assemble the trait definition
@@ -128,11 +107,22 @@ function createTrait(
     return trait;
 }
 
-export const trait = createTrait;
+/** @see {@link trait} for overload signatures */
+export interface trait {
+    (schema?: undefined | Record<string, never>): Trait<Record<string, never>, 'unary'> & {
+        readonly schema: TagSchema;
+    };
+    <T>(schema: () => T): Trait<T, 'unary'>;
+    <T>(schema: FieldDescriptor<T> & { kind: 'ref' }): Trait<T, 'unary'>;
+    <T>(schema: SchemaFor<T>): Trait<T, 'unary'>;
+    <D extends SchemaShorthand>(schema: D): Trait<InferSchema<D>, 'unary'>;
+}
+
+export const trait: trait = defineTrait as trait;
 
 export function registerTrait(world: World, trait: Trait) {
     const ctx = world[$internal];
-    const traitCtx = trait[$internal] as { mode: 'unary' | 'binary' };
+    const traitCtx = trait[$internal];
 
     const data: TraitInstance = {
         generationId: ctx.entityMasks.length - 1,
@@ -154,7 +144,7 @@ export function registerTrait(world: World, trait: Trait) {
     world.traits.add(trait);
 
     // Track binary traits (relations)
-    if (traitCtx.mode === 'binary') ctx.relations.add(trait as unknown as Relation<Trait>);
+    if (traitCtx.mode === 'binary') ctx.relations.add(trait as Relation);
 
     // This ensures nested trait registrations get different bitflags.
     incrementWorldBitflag(world);
@@ -193,7 +183,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
         if (!data) continue; // Already had the trait
 
         // Initialize values
-        const traitCtx = trait[$internal] as { mode: 'unary' | 'binary'; ctor: () => unknown };
+        const traitCtx = trait[$internal];
 
         const defaults = isOrderedTrait(trait)
             ? getOrderedTrait(world, entity, trait)
@@ -216,26 +206,21 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
  * Add a relation pair to an entity.
  */
 /* @inline */ function addRelationPair(world: World, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
+    const [relation, target, params] = pair;
 
     // Only specific targets can be added (not wildcard '*')
     if (typeof target !== 'number') return;
-
-    const params = pairCtx.params;
-    const relationTrait = relation as unknown as Trait;
 
     // Ignore if entity already relates to this target
     // For example, adding Likes(alice) when this pair is already on the entity.
     if (hasRelationToTarget(world, relation, entity, target)) return;
 
-    let instance = addTraitToEntity(world, entity, relationTrait);
+    let instance = addTraitToEntity(world, entity, relation);
 
     const targetIndex = addRelationTarget(world, relation, entity, target);
     if (targetIndex === -1) return; // No-op
 
-    const defaults = relationTrait[$internal].ctor();
+    const defaults = relation[$internal].ctor();
     const defaultRecord =
         defaults && typeof defaults === 'object' ? (defaults as Record<string, unknown>) : undefined;
     const paramRecord =
@@ -251,7 +236,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
     }
 
     // Fire add subscription for this pair
-    instance = instance ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!;
+    instance = instance ?? getTraitInstance(world[$internal].traitInstances, relation)!;
     for (const sub of instance.addSubscriptions) sub(entity, target);
 }
 
@@ -269,20 +254,15 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         if (!hasTrait(world, entity, trait)) continue;
 
         // If this trait belongs to a relation, fire remove subscriptions for each pair
-        const traitCtx = trait[$internal] as { mode: 'unary' | 'binary' };
-        if (traitCtx.mode === 'binary') {
+        if (trait[$internal].mode === 'binary') {
             const instance = getTraitInstance(world[$internal].traitInstances, trait);
             if (instance) {
-                const targets = getRelationTargets(
-                    world,
-                    trait as unknown as Relation<Trait>,
-                    entity
-                );
+                const targets = getRelationTargets(world, trait as Relation, entity);
                 for (const t of targets) {
                     for (const sub of instance.removeSubscriptions) sub(entity, t);
                 }
             }
-            removeAllRelationTargets(world, trait as unknown as Relation<Trait>, entity);
+            removeAllRelationTargets(world, trait as Relation, entity);
         }
 
         // Remove the trait from the entity
@@ -294,16 +274,12 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
  * Remove a relation pair from an entity.
  */
 /* @inline */ function removeRelationPair(world: World, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
-
-    const relationTrait = relation as unknown as Trait;
+    const [relation, target] = pair;
 
     // Check if entity has this relation
-    if (!hasTrait(world, entity, relationTrait)) return;
+    if (!hasTrait(world, entity, relation)) return;
 
-    const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
+    const instance = getTraitInstance(world[$internal].traitInstances, relation);
 
     // Handle wildcard target -- remove all targets and the base trait.
     if (target === '*') {
@@ -316,7 +292,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         }
 
         removeAllRelationTargets(world, relation, entity);
-        removeTraitFromEntity(world, entity, relationTrait);
+        removeTraitFromEntity(world, entity, relation);
         return;
     }
 
@@ -331,7 +307,7 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         if (removedIndex === -1) return;
 
         if (wasLastTarget) {
-            removeTraitFromEntity(world, entity, relationTrait);
+            removeTraitFromEntity(world, entity, relation);
         }
     }
 }
@@ -342,14 +318,12 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
  */
 export function cleanupRelationTarget(
     world: World,
-    relation: Relation<Trait>,
+    relation: Relation,
     entity: Entity,
     target: Entity
 ): void {
-    const relationTrait = relation as unknown as Trait;
-
     // Fire remove subscription for this pair
-    const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
+    const instance = getTraitInstance(world[$internal].traitInstances, relation);
     if (instance) {
         for (const sub of instance.removeSubscriptions) sub(entity, target);
     }
@@ -358,7 +332,7 @@ export function cleanupRelationTarget(
     if (removedIndex === -1) return;
 
     if (wasLastTarget) {
-        removeTraitFromEntity(world, entity, relationTrait);
+        removeTraitFromEntity(world, entity, relation);
     }
 }
 
@@ -403,9 +377,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
  * Get trait data for a relation pair.
  */
 /* @inline @pure */ function getTraitForPair(world: World, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation as Relation<Trait>;
-    const target = pairCtx.target;
+    const [relation, target] = pair;
 
     if (!hasRelationPair(world, entity, pair)) return undefined;
     if (typeof target !== 'number') return undefined;
@@ -436,14 +408,12 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     value: any,
     triggerChanged: boolean
 ) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation as Relation<Trait>;
-    const target = pairCtx.target;
+    const [relation, target] = pair;
 
     if (typeof target !== 'number') return;
 
     setRelationData(world, entity, relation, target, value);
-    if (triggerChanged) setPairChanged(world, entity, relation as unknown as Trait, target);
+    if (triggerChanged) setPairChanged(world, entity, relation, target);
 }
 
 /**

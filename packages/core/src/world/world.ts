@@ -8,14 +8,14 @@ import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '..
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { getEntitiesWithRelationTo } from '../relation/relation';
-import type { Relation } from '../relation/types';
-import { isRelation, isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
+import { getEntitiesWithRelationTo } from '../trait/relation';
+import { isRelationPair } from '../trait/utils/is-relation';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
     ConfigurableTrait,
     ExtractType,
+    Relation,
     SetTraitCallback,
     Trait,
     TraitValue,
@@ -189,15 +189,13 @@ export function createWorld(
 
                 // Fast path: single relation pair with specific target
                 if (params.length === 1 && isRelationPair(params[0])) {
-                    const pairCtx = params[0][$internal];
-                    const relation = pairCtx.relation;
-                    const target = pairCtx.target;
+                    const [relation, target] = params[0];
 
                     // Only use fast path for specific targets
                     if (typeof target === 'number') {
                         const entities = getEntitiesWithRelationTo(
                             world,
-                            relation as Relation<Trait>,
+                            relation,
                             target as Entity
                         );
                         return createRelationOnlyQueryResult(entities.slice() as Entity[]);
@@ -291,12 +289,12 @@ export function createWorld(
             return () => query.removeSubscriptions.delete(callback);
         },
 
-        onAdd<T extends Trait>(
-            trait: T | Relation<T>,
+        onAdd(
+            trait: Trait,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? (trait as unknown as Trait) : trait;
+            const target = trait;
 
             let data = getTraitInstance(ctx.traitInstances, target);
 
@@ -310,12 +308,12 @@ export function createWorld(
             return () => data.addSubscriptions.delete(callback);
         },
 
-        onRemove<T extends Trait>(
-            trait: T | Relation<T>,
+        onRemove(
+            trait: Trait,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? (trait as unknown as Trait) : trait;
+            const target = trait;
 
             let data = getTraitInstance(ctx.traitInstances, target);
 
@@ -330,11 +328,11 @@ export function createWorld(
         },
 
         onChange(
-            trait: Trait | Relation<Trait>,
+            trait: Trait,
             callback: (entity: Entity, target?: Entity) => void
         ) {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? (trait as unknown as Trait) : trait;
+            const target = trait;
 
             // Register the trait if it's not already registered.
             if (!hasTraitInstance(ctx.traitInstances, target)) registerTrait(world, target);
