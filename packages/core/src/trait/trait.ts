@@ -45,7 +45,7 @@ import type {
 } from './types';
 import { isRelationPair } from './utils/is-relation';
 
-// No reason to create a new object every time a tag trait is created.
+// No reason to create a new object every time a tag trait is created
 const tagDefinition = Object.freeze({});
 let traitId = 0;
 
@@ -122,18 +122,20 @@ export const trait: trait = defineTrait as trait;
 
 export function registerTrait(world: World, trait: Trait) {
     const ctx = world[$internal];
-    const traitCtx = trait[$internal];
+    const { mode, accessors, ctor } = trait[$internal];
 
     const data: TraitInstance = {
         generationId: ctx.entityMasks.length - 1,
         bitflag: ctx.bitflag,
-        trait,
+        definition: trait,
         store: createStore(trait.schema) as TraitInstance['store'],
+        mode,
+        accessors,
+        ctor,
         queries: new Set(),
         trackingQueries: new Set(),
         notQueries: new Set(),
         relationQueries: new Set(),
-        schema: trait.schema,
         changeSubscriptions: new Set(),
         addSubscriptions: new Set(),
         removeSubscriptions: new Set(),
@@ -144,7 +146,7 @@ export function registerTrait(world: World, trait: Trait) {
     world.traits.add(trait);
 
     // Track binary traits (relations)
-    if (traitCtx.mode === 'binary') ctx.relations.add(trait as Relation);
+    if (mode === 'binary') ctx.relations.add(trait as Relation);
 
     // This ensures nested trait registrations get different bitflags.
     incrementWorldBitflag(world);
@@ -179,15 +181,13 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
         }
 
         // Add the trait to the entity
-        const data = addTraitToEntity(world, entity, trait);
-        if (!data) continue; // Already had the trait
+        const instance = addTraitToEntity(world, entity, trait);
+        if (!instance) continue; // Already had the trait
 
         // Initialize values
-        const traitCtx = trait[$internal];
-
         const defaults = isOrderedTrait(trait)
             ? getOrderedTrait(world, entity, trait)
-            : traitCtx.ctor();
+            : instance.ctor();
 
         if (trait.schema.kind === 'aos') {
             setTrait(world, entity, trait, params ?? defaults, false);
@@ -198,7 +198,7 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
         }
 
         // Call add subscriptions after values are set
-        for (const sub of data.addSubscriptions) sub(entity);
+        for (const sub of instance.addSubscriptions) sub(entity);
     }
 }
 
@@ -220,7 +220,8 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
     const targetIndex = addRelationTarget(world, relation, entity, target);
     if (targetIndex === -1) return; // No-op
 
-    const defaults = relation[$internal].ctor();
+    instance = instance ?? getTraitInstance(world[$internal].traitInstances, relation)!;
+    const defaults = instance.ctor();
     const defaultRecord =
         defaults && typeof defaults === 'object' ? (defaults as Record<string, unknown>) : undefined;
     const paramRecord =
@@ -236,7 +237,6 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
     }
 
     // Fire add subscription for this pair
-    instance = instance ?? getTraitInstance(world[$internal].traitInstances, relation)!;
     for (const sub of instance.addSubscriptions) sub(entity, target);
 }
 
@@ -254,13 +254,11 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         if (!hasTrait(world, entity, trait)) continue;
 
         // If this trait belongs to a relation, fire remove subscriptions for each pair
-        if (trait[$internal].mode === 'binary') {
-            const instance = getTraitInstance(world[$internal].traitInstances, trait);
-            if (instance) {
-                const targets = getRelationTargets(world, trait as Relation, entity);
-                for (const t of targets) {
-                    for (const sub of instance.removeSubscriptions) sub(entity, t);
-                }
+        const instance = getTraitInstance(world[$internal].traitInstances, trait);
+        if (instance?.mode === 'binary') {
+            const targets = getRelationTargets(world, trait as Relation, entity);
+            for (const t of targets) {
+                for (const sub of instance.removeSubscriptions) sub(entity, t);
             }
             removeAllRelationTargets(world, trait as Relation, entity);
         }
@@ -391,11 +389,8 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
 /* @inline @pure */ function getTraitForTrait(world: World, entity: Entity, trait: Trait) {
     if (!hasTrait(world, entity, trait)) return undefined;
 
-    const traitCtx = trait[$internal];
-    const store = getStore(world, trait);
-    const data = traitCtx.accessors.get(getEntityId(entity), store);
-
-    return data;
+    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
+    return instance.accessors.get(getEntityId(entity), instance.store);
 }
 
 /**
@@ -426,14 +421,13 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     value: any,
     triggerChanged: boolean
 ) {
-    const ctx = trait[$internal];
-    const store = getStore(world, trait);
+    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
     const index = getEntityId(entity);
 
     // A short circuit is more performance than an if statement which creates a new code statement.
-    value instanceof Function && (value = value(ctx.accessors.get(index, store)));
+    value instanceof Function && (value = value(instance.accessors.get(index, instance.store)));
 
-    ctx.accessors.set(index, store, value);
+    instance.accessors.set(index, instance.store, value);
     triggerChanged && setChanged(world, entity, trait);
 }
 

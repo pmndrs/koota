@@ -42,9 +42,7 @@ export type TraitDef<T = any, M extends TraitMode = TraitMode> = {
     };
 };
 
-export type UnaryTraitCallable<T = any> = (
-    params?: TraitPartial<T>
-) => [Trait<T>, TraitPartial<T>];
+export type UnaryTraitCallable<T = any> = (params?: TraitPartial<T>) => [Trait<T>, TraitPartial<T>];
 
 export type BinaryTraitCallable<T = any> = (target: unknown, params?: unknown) => RelationPair<T>;
 
@@ -111,11 +109,7 @@ export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
  * Extracts the data type T from a Trait<T> or RelationPair.
  */
 export type ExtractType<T extends Trait | RelationPair> =
-    T extends RelationPair<infer D>
-        ? D
-        : T extends Trait<infer D>
-          ? D
-          : never;
+    T extends RelationPair<infer D> ? D : T extends Trait<infer D> ? D : never;
 
 export type ExtractStore<T extends Trait> = T extends Trait<infer D> ? Store<D> : never;
 
@@ -128,8 +122,12 @@ export type IsTag<T extends Trait> = ExtractIsTag<T>;
 export interface TraitInstance<T extends Trait = Trait> {
     generationId: number;
     bitflag: number;
-    trait: Trait;
+    definition: TraitDef;
     store: Store<ExtractType<T>>;
+    // Snapshotted from definition at registration
+    mode: TraitMode;
+    accessors: TraitAccessors<ExtractType<T>>;
+    ctor: TraitConstructor<ExtractType<T>>;
     /** Non-tracking queries that include this trait */
     queries: Set<QueryInstance>;
     /** Tracking queries (Added/Removed/Changed) that include this trait */
@@ -137,8 +135,6 @@ export interface TraitInstance<T extends Trait = Trait> {
     notQueries: Set<QueryInstance>;
     /** Queries that filter by this relation (only for relation traits) */
     relationQueries: Set<QueryInstance>;
-    /** The canonical schema (metadata about each field) */
-    schema: Schema;
     changeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
