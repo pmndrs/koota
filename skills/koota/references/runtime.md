@@ -36,6 +36,29 @@ export function updateMovement(world: World) {
 - No React imports — systems are pure TypeScript
 - Called from frameloop or event handlers
 
+### Actions vs systems
+
+**Actions** are discrete, synchronous data mutations — create, read, update, destroy. Reusable from any call site (systems, UI handlers, tests, imports).
+
+```typescript
+// Good actions: direct mutations
+createEnemy: (pos) => world.spawn(Position(pos), IsEnemy)
+applyDamage: (entity, amount) => entity.set(Health, { hp: entity.get(Health).hp - amount })
+```
+
+**Systems** are reactive orchestrators. They observe state changes (`createAdded`, `createChanged`) in the frame loop and coordinate work, including async workflows. They may call actions for mutations, or mutate directly — whichever is clearer.
+
+```typescript
+// Good system: reacts to state, orchestrates behavior
+export function applyPoison(world: World) {
+  world.query(Changed(Poisoned)).readEach(([poison], entity) => {
+    entity.set(Health, { hp: entity.get(Health).hp - poison.dps * delta })
+  })
+}
+```
+
+**Litmus test:** if it's a direct mutation callable from multiple contexts, it's an action. If it's "when X happens, do Y" — observation plus orchestration — it's a system.
+
 **Common patterns:**
 
 ```typescript

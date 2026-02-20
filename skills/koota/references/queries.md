@@ -181,14 +181,20 @@ world.query(Position, Velocity).updateEach(([pos, vel]) => {
 })
 
 // Never trigger change events (silent updates)
-world.query(Position).updateEach(([pos]) => {
-  pos.x += 1
-}, { changeDetection: 'never' })
+world.query(Position).updateEach(
+  ([pos]) => {
+    pos.x += 1
+  },
+  { changeDetection: 'never' }
+)
 
 // Always trigger change events for all mutated traits (DEFAULT)
-world.query(Position).updateEach(([pos]) => {
-  pos.x += 1
-}, { changeDetection: 'always' })
+world.query(Position).updateEach(
+  ([pos]) => {
+    pos.x += 1
+  },
+  { changeDetection: 'always' }
+)
 ```
 
 **Shallow comparison:**
@@ -220,7 +226,8 @@ Use `select()` when query filter is wider than traits needed for update:
 ```typescript
 // Query filters by Position + Velocity + Mass
 // But only Mass is needed in the update
-world.query(Position, Velocity, Mass)
+world
+  .query(Position, Velocity, Mass)
   .select(Mass)
   .updateEach(([mass]) => {
     mass.value += 1

@@ -15,6 +15,8 @@ Koota manages state using entities with composable traits.
 - **World** - The context for all entities and their data (traits).
 - **Archetype** - A unique combination of traits that entities share.
 - **Query** - Fetches entities matching an archetype. The primary way to batch update state.
+- **Action** - A discrete, synchronous data mutation (create, update, destroy). Reusable from any call site.
+- **System** - A reactive orchestrator that observes state changes and coordinates work, including async workflows. Runs in the frame loop or event callbacks.
 
 ## Design Principles
 
