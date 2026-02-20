@@ -378,7 +378,7 @@ const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 
 #### Relation events
 
-Relations emit events per **relation pair**. This makes it easy to know exactly which target was involved.
+Relations emit events per **pair**. This makes it easy to know exactly which target was involved.
 
 - `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
 - `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
@@ -397,6 +397,16 @@ const child = world.spawn()
 child.add(ChildOf(parent)) // onAdd(child, parent)
 child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
 child.remove(ChildOf(parent)) // onRemove(child, parent)
+```
+
+Hooks also accept **relation pairs** for target-specific filtering. `ChildOf(parent)` only fires for that specific target, while `ChildOf('*')` fires for any target (equivalent to passing the relation itself).
+
+```js
+// Only fires when a ChildOf relation to this specific parent is added
+world.onAdd(ChildOf(parent), (entity, target) => {})
+
+// Fires for any ChildOf addition, the same as passing the ChildOf trait
+world.onAdd(ChildOf('*'), (entity, target) => {})
 ```
 
 ### Query modifiers
@@ -711,6 +721,10 @@ world.set(Time, (prev) => ({
 const unsub = world.onAdd(Position, (entity) => {})
 const unsub = world.onRemove(Position, (entity) => {})
 const unsub = world.onChange(Position, (entity) => {})
+
+// Hooks also accept relation pairs for target-specific filtering
+const unsub = world.onAdd(ChildOf(parent), (entity, target) => {})
+const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 
 // Subscribe to add or remove query events
 // This triggers whenever a query is updated
@@ -1067,9 +1081,14 @@ function App() {
 
 Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value. The returned trait snapshot maybe `undefined` if the trait is no longer on the target. This can be used to conditionally render.
 
+Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
+
 ```js
 // Get the position trait from an entity and reactively updates when it changes
 const position = useTrait(entity, Position)
+
+// Observe a specific relation pair's store data
+const childData = useTrait(entity, ChildOf(parent))
 
 // If position is removed from entity then it will be undefined
 if (!position) return null
@@ -1125,12 +1144,20 @@ function ActiveIndicator({ entity }) {
 
 Observes an entity, or world, for any trait and reactively updates when it is added or removed. Returns `true` when the trait is present or `false` when absent. Unlike `useTrait`, this only tracks presence and not the trait's value.
 
+Also accepts relation pairs like `ChildOf(parent)` or `ChildOf('*')` to track the presence of specific or any relation targets.
+
 ```js
 const Health = trait({ amount: 100 })
 
 function HealthIndicator({ entity }) {
   // Returns true if the entity has the trait, false otherwise
   const hasHealth = useHas(entity, Health)
+
+  // Track a specific relation pair
+  const isChildOfParent = useHas(entity, ChildOf(parent))
+
+  // Track any ChildOf relation
+  const hasAnyParent = useHas(entity, ChildOf('*'))
 
   if (!hasHealth) return null
 
@@ -1140,13 +1167,18 @@ function HealthIndicator({ entity }) {
 
 ### `useTraitEffect`
 
-Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering.
+Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering. Also accepts relation pairs.
 
 ```js
 // Subscribe to position changes on an entity and update a ref without causing a rerender
 useTraitEffect(entity, Position, (position) => {
   if (!position) return
   meshRef.current.position.copy(position)
+})
+
+// Subscribe to a specific relation pair
+useTraitEffect(entity, ChildOf(parent), (data) => {
+  console.log('ChildOf data changed:', data)
 })
 
 // Subscribe to world-level traits

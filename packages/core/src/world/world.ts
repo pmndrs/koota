@@ -9,7 +9,7 @@ import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { getEntitiesWithRelationTo } from '../relation/relation';
-import type { Relation } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import { isRelation, isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
@@ -34,6 +34,29 @@ export function createWorld(
     const id = allocateWorldId(universe.worldIndex);
     let isInitialized = false;
     let lazyTraits: ConfigurableTrait[] | undefined;
+    type HookInput = Trait | Relation<Trait> | RelationPair<Trait>;
+    type HookCallback = (entity: Entity, target?: Entity) => void;
+
+    const normalizeHookSubscription = (input: HookInput, callback: HookCallback) => {
+        if (isRelationPair(input)) {
+            const relation = input[$internal].relation;
+            const pairTarget = input[$internal].target;
+            const trait = relation[$internal].trait;
+
+            if (pairTarget === '*') return { trait, callback };
+            return {
+                trait,
+                callback: (entity: Entity, target?: Entity) => {
+                    if (target === pairTarget) callback(entity, target);
+                },
+            };
+        }
+
+        return {
+            trait: isRelation(input) ? input[$internal].trait : input,
+            callback,
+        };
+    };
 
     const world = {
         [$internal]: {
@@ -293,62 +316,63 @@ export function createWorld(
         },
 
         onAdd<T extends Trait>(
-            trait: T | Relation<T>,
+            trait: T | Relation<T> | RelationPair<T>,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? trait[$internal].trait : trait;
+            const normalized = normalizeHookSubscription(trait, callback);
 
-            let data = getTraitInstance(ctx.traitInstances, target);
+            let data = getTraitInstance(ctx.traitInstances, normalized.trait);
 
             if (!data) {
-                registerTrait(world, target);
-                data = getTraitInstance(ctx.traitInstances, target)!;
+                registerTrait(world, normalized.trait);
+                data = getTraitInstance(ctx.traitInstances, normalized.trait)!;
             }
 
-            data.addSubscriptions.add(callback);
+            data.addSubscriptions.add(normalized.callback);
 
-            return () => data.addSubscriptions.delete(callback);
+            return () => data.addSubscriptions.delete(normalized.callback);
         },
 
         onRemove<T extends Trait>(
-            trait: T | Relation<T>,
+            trait: T | Relation<T> | RelationPair<T>,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? trait[$internal].trait : trait;
+            const normalized = normalizeHookSubscription(trait, callback);
 
-            let data = getTraitInstance(ctx.traitInstances, target);
+            let data = getTraitInstance(ctx.traitInstances, normalized.trait);
 
             if (!data) {
-                registerTrait(world, target);
-                data = getTraitInstance(ctx.traitInstances, target)!;
+                registerTrait(world, normalized.trait);
+                data = getTraitInstance(ctx.traitInstances, normalized.trait)!;
             }
 
-            data.removeSubscriptions.add(callback);
+            data.removeSubscriptions.add(normalized.callback);
 
-            return () => data.removeSubscriptions.delete(callback);
+            return () => data.removeSubscriptions.delete(normalized.callback);
         },
 
         onChange(
-            trait: Trait | Relation<Trait>,
+            trait: Trait | Relation<Trait> | RelationPair<Trait>,
             callback: (entity: Entity, target?: Entity) => void
         ) {
             const ctx = world[$internal];
-            const target = isRelation(trait) ? trait[$internal].trait : trait;
+            const normalized = normalizeHookSubscription(trait, callback);
 
             // Register the trait if it's not already registered.
-            if (!hasTraitInstance(ctx.traitInstances, target)) registerTrait(world, target);
+            if (!hasTraitInstance(ctx.traitInstances, normalized.trait))
+                registerTrait(world, normalized.trait);
 
-            const data = getTraitInstance(ctx.traitInstances, target)!;
-            data.changeSubscriptions.add(callback);
+            const data = getTraitInstance(ctx.traitInstances, normalized.trait)!;
+            data.changeSubscriptions.add(normalized.callback);
 
             // Used by auto change detection to know which traits to track.
-            ctx.trackedTraits.add(target);
+            ctx.trackedTraits.add(normalized.trait);
 
             return () => {
-                data.changeSubscriptions.delete(callback);
-                if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(target);
+                data.changeSubscriptions.delete(normalized.callback);
+                if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(normalized.trait);
             };
         },
     } as World;
