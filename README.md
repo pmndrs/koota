@@ -8,7 +8,11 @@ Koota is an ECS-based state management library optimized for real-time apps, gam
 npm i koota
 ```
 
-👉 [Try the starter template](https://github.com/Ctrlmonster/r3f-koota-starter)
+The official AI agent skill can be installed from this repo. [Read more about skills here](https://agentskills.io/home).
+
+```bash
+npx skills add pmndrs/koota
+```
 
 ### First, define traits
 
