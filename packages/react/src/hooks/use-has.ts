@@ -1,24 +1,35 @@
-import { $internal, Trait, type Entity, type World } from '@koota/core';
+import {
+    $internal,
+    $relationPair,
+    type Entity,
+    type RelationPair,
+    type Trait,
+    type World,
+} from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
+import { useStableTrait } from '../utils/use-stable-pair';
 import { useWorld } from '../world/use-world';
 
-export function useHas(target: Entity | World | undefined | null, trait: Trait): boolean {
+export function useHas(
+    target: Entity | World | undefined | null,
+    trait: Trait | RelationPair
+): boolean {
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+    const stableTrait = useStableTrait(trait);
 
     const memo = useMemo(
-        () => (target ? createSubscriptions(target, trait, contextWorld) : undefined),
-        [target, trait, contextWorld]
+        () => (target ? createSubscriptions(target, stableTrait, contextWorld) : undefined),
+        [target, stableTrait, contextWorld]
     );
 
     const valueRef = useRef<boolean>(false);
     const memoRef = useRef(memo);
 
-    // Update cached value when memo changes
     if (memoRef.current !== memo) {
         memoRef.current = memo;
-        valueRef.current = memo?.entity.has(trait) ?? false;
+        valueRef.current = memo?.entity.has(stableTrait) ?? false;
     }
 
     useEffect(() => {
@@ -39,9 +50,22 @@ export function useHas(target: Entity | World | undefined | null, trait: Trait):
     return valueRef.current;
 }
 
-function createSubscriptions(target: Entity | World, trait: Trait, contextWorld: World) {
+function createSubscriptions(
+    target: Entity | World,
+    trait: Trait | RelationPair,
+    contextWorld: World
+) {
     const world = isWorld(target) ? target : contextWorld;
     const entity = isWorld(target) ? target[$internal].worldEntity : target;
+
+    // Wildcard pairs like ChildOf('*') fire on every pair removal, but the entity
+    // may still have other pairs. Since onRemove fires before state cleanup,
+    // we check targetsFor().length > 1 (the removed target is still counted).
+    const isWildcard =
+        !!(trait as any)?.[$relationPair] && (trait as RelationPair)[$internal].target === '*';
+    const wildcardRelation = isWildcard
+        ? (trait as RelationPair)[$internal].relation
+        : undefined;
 
     return {
         entity,
@@ -51,7 +75,12 @@ function createSubscriptions(target: Entity | World, trait: Trait, contextWorld:
             });
 
             const onRemoveUnsub = world.onRemove(trait, (e) => {
-                if (e === entity) setValue(false);
+                if (e !== entity) return;
+                if (wildcardRelation) {
+                    setValue(entity.targetsFor(wildcardRelation).length > 1);
+                } else {
+                    setValue(false);
+                }
             });
 
             setValue(entity.has(trait));

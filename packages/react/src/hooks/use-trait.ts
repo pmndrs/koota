@@ -1,26 +1,34 @@
-import { $internal, type Entity, type Trait, type TraitRecord, type World } from '@koota/core';
+import {
+    $internal,
+    type Entity,
+    type RelationPair,
+    type Trait,
+    type TraitRecord,
+    type World,
+} from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
+import { useStableTrait } from '../utils/use-stable-pair';
 import { useWorld } from '../world/use-world';
 
 export function useTrait<T extends Trait>(
     target: Entity | World | undefined | null,
-    trait: T
+    trait: T | RelationPair<T>
 ): TraitRecord<T> | undefined {
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
     const valueRef = useRef<TraitRecord<T> | undefined>(undefined);
     const memoRef = useRef<ReturnType<typeof createSubscriptions<T>> | undefined>(undefined);
+    const stableTrait = useStableTrait(trait);
 
     const memo = useMemo(
-        () => (target ? createSubscriptions(target, trait, contextWorld) : undefined),
-        [target, trait, contextWorld]
+        () => (target ? createSubscriptions(target, stableTrait, contextWorld) : undefined),
+        [target, stableTrait, contextWorld]
     );
 
-    // Update cached value when the target or trait changes
     if (memoRef.current !== memo) {
         memoRef.current = memo;
-        valueRef.current = memo?.entity.has(trait) ? memo.entity.get(trait) : undefined;
+        valueRef.current = memo?.entity.has(stableTrait) ? memo.entity.get(stableTrait) : undefined;
     }
 
     useEffect(() => {
@@ -37,7 +45,11 @@ export function useTrait<T extends Trait>(
     return valueRef.current;
 }
 
-function createSubscriptions<T extends Trait>(target: Entity | World, trait: T, contextWorld: World) {
+function createSubscriptions<T extends Trait>(
+    target: Entity | World,
+    trait: T | RelationPair<T>,
+    contextWorld: World
+) {
     // Use the context world unless the target is a world itself
     const world = isWorld(target) ? target : contextWorld;
     const entity = isWorld(target) ? target[$internal].worldEntity : target;

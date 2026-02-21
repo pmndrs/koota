@@ -1,4 +1,12 @@
-import { createWorld, trait, universe, type Entity, type TraitRecord, type World } from '@koota/core';
+import {
+    createWorld,
+    relation,
+    trait,
+    universe,
+    type Entity,
+    type TraitRecord,
+    type World,
+} from '@koota/core';
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -297,6 +305,51 @@ describe('useTrait', () => {
         // Every render after the switch should show entity B's value
         expect(positions.every((p) => p.x === 99 && p.y === 99)).toBe(true);
     });
+
+    it('reactively returns relation pair store data', async () => {
+        const ChildOf = relation({ store: { order: 0 } });
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const child = world.spawn();
+
+        let parentAData: { order: number } | undefined;
+        function Test() {
+            parentAData = useTrait(child, ChildOf(parentA));
+            return null;
+        }
+
+        await act(async () => {
+            render(
+                <StrictMode>
+                    <WorldProvider world={world}>
+                        <Test />
+                    </WorldProvider>
+                </StrictMode>
+            );
+        });
+
+        expect(parentAData).toBeUndefined();
+
+        await act(async () => {
+            child.add(ChildOf(parentB, { order: 10 }));
+        });
+        expect(parentAData).toBeUndefined();
+
+        await act(async () => {
+            child.add(ChildOf(parentA, { order: 1 }));
+        });
+        expect(parentAData).toEqual({ order: 1 });
+
+        await act(async () => {
+            child.set(ChildOf(parentA), { order: 2 });
+        });
+        expect(parentAData).toEqual({ order: 2 });
+
+        await act(async () => {
+            child.remove(ChildOf(parentA));
+        });
+        expect(parentAData).toBeUndefined();
+    });
 });
 
 describe('useTag', () => {
@@ -569,6 +622,59 @@ describe('useHas', () => {
         expect(hasPosition).toBe(false);
         expect(values.every((v) => v === false)).toBe(true);
     });
+
+    it('supports relation pair and wildcard pair subscriptions', async () => {
+        const ChildOf = relation();
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const child = world.spawn();
+
+        let hasParentA: boolean | undefined;
+        let hasAnyParent: boolean | undefined;
+
+        function Test() {
+            hasParentA = useHas(child, ChildOf(parentA));
+            hasAnyParent = useHas(child, ChildOf('*'));
+            return null;
+        }
+
+        await act(async () => {
+            render(
+                <StrictMode>
+                    <WorldProvider world={world}>
+                        <Test />
+                    </WorldProvider>
+                </StrictMode>
+            );
+        });
+
+        expect(hasParentA).toBe(false);
+        expect(hasAnyParent).toBe(false);
+
+        await act(async () => {
+            child.add(ChildOf(parentB));
+        });
+        expect(hasParentA).toBe(false);
+        expect(hasAnyParent).toBe(true);
+
+        await act(async () => {
+            child.add(ChildOf(parentA));
+        });
+        expect(hasParentA).toBe(true);
+        expect(hasAnyParent).toBe(true);
+
+        await act(async () => {
+            child.remove(ChildOf(parentA));
+        });
+        expect(hasParentA).toBe(false);
+        expect(hasAnyParent).toBe(true);
+
+        await act(async () => {
+            child.remove(ChildOf(parentB));
+        });
+        expect(hasParentA).toBe(false);
+        expect(hasAnyParent).toBe(false);
+    });
 });
 
 describe('useTraitEffect', () => {
@@ -666,5 +772,52 @@ describe('useTraitEffect', () => {
         });
 
         expect(timeOfDay).toEqual({ hour: 1 });
+    });
+
+    it('supports relation pair subscriptions', async () => {
+        const ChildOf = relation({ store: { order: 0 } });
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const child = world.spawn();
+        const updates: Array<{ order: number } | undefined> = [];
+
+        function Test() {
+            useTraitEffect(child, ChildOf(parentA), (value) => {
+                updates.push(value as { order: number } | undefined);
+            });
+            return null;
+        }
+
+        await act(async () => {
+            render(
+                <StrictMode>
+                    <WorldProvider world={world}>
+                        <Test />
+                    </WorldProvider>
+                </StrictMode>
+            );
+        });
+
+        expect(updates.at(-1)).toBeUndefined();
+
+        await act(async () => {
+            child.add(ChildOf(parentB, { order: 10 }));
+        });
+        expect(updates.at(-1)).toBeUndefined();
+
+        await act(async () => {
+            child.add(ChildOf(parentA, { order: 1 }));
+        });
+        expect(updates.at(-1)).toEqual({ order: 1 });
+
+        await act(async () => {
+            child.set(ChildOf(parentA), { order: 2 });
+        });
+        expect(updates.at(-1)).toEqual({ order: 2 });
+
+        await act(async () => {
+            child.remove(ChildOf(parentA));
+        });
+        expect(updates.at(-1)).toBeUndefined();
     });
 });

@@ -1,6 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
@@ -409,7 +410,18 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 }
 
                 if (matches) {
-                    query.add(entity);
+                    if (hasRelationFilters) {
+                        let relationMatch = true;
+                        for (const pair of query.relationFilters!) {
+                            if (!hasRelationPair(world, entity, pair)) {
+                                relationMatch = false;
+                                break;
+                            }
+                        }
+                        if (relationMatch) query.add(entity);
+                    } else {
+                        query.add(entity);
+                    }
                 }
             }
         }
