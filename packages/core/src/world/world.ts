@@ -37,26 +37,22 @@ export function createWorld(
     type HookInput = Trait | Relation<Trait> | RelationPair<Trait>;
     type HookCallback = (entity: Entity, target?: Entity) => void;
 
-    const normalizeHookSubscription = (input: HookInput, callback: HookCallback) => {
-        if (isRelationPair(input)) {
-            const relation = input[$internal].relation;
-            const pairTarget = input[$internal].target;
-            const trait = relation[$internal].trait;
+    function resolveHookTrait(input: HookInput): Trait {
+        if (isRelationPair(input)) return input[$internal].relation[$internal].trait;
+        if (isRelation(input)) return input[$internal].trait;
+        return input;
+    }
 
-            if (pairTarget === '*') return { trait, callback };
-            return {
-                trait,
-                callback: (entity: Entity, target?: Entity) => {
-                    if (target === pairTarget) callback(entity, target);
-                },
+    function resolveHookCallback(input: HookInput, callback: HookCallback): HookCallback {
+        if (isRelationPair(input)) {
+            const pairTarget = input[$internal].target;
+            if (pairTarget === '*') return callback;
+            return (entity: Entity, target?: Entity) => {
+                if (target === pairTarget) callback(entity, target);
             };
         }
-
-        return {
-            trait: isRelation(input) ? input[$internal].trait : input,
-            callback,
-        };
-    };
+        return callback;
+    }
 
     const world = {
         [$internal]: {
@@ -320,18 +316,19 @@ export function createWorld(
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const normalized = normalizeHookSubscription(trait, callback);
+            const resolvedTrait = resolveHookTrait(trait);
+            const resolvedCallback = resolveHookCallback(trait, callback);
 
-            let data = getTraitInstance(ctx.traitInstances, normalized.trait);
+            let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
 
             if (!data) {
-                registerTrait(world, normalized.trait);
-                data = getTraitInstance(ctx.traitInstances, normalized.trait)!;
+                registerTrait(world, resolvedTrait);
+                data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
             }
 
-            data.addSubscriptions.add(normalized.callback);
+            data.addSubscriptions.add(resolvedCallback);
 
-            return () => data.addSubscriptions.delete(normalized.callback);
+            return () => data.addSubscriptions.delete(resolvedCallback);
         },
 
         onRemove<T extends Trait>(
@@ -339,18 +336,19 @@ export function createWorld(
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const normalized = normalizeHookSubscription(trait, callback);
+            const resolvedTrait = resolveHookTrait(trait);
+            const resolvedCallback = resolveHookCallback(trait, callback);
 
-            let data = getTraitInstance(ctx.traitInstances, normalized.trait);
+            let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
 
             if (!data) {
-                registerTrait(world, normalized.trait);
-                data = getTraitInstance(ctx.traitInstances, normalized.trait)!;
+                registerTrait(world, resolvedTrait);
+                data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
             }
 
-            data.removeSubscriptions.add(normalized.callback);
+            data.removeSubscriptions.add(resolvedCallback);
 
-            return () => data.removeSubscriptions.delete(normalized.callback);
+            return () => data.removeSubscriptions.delete(resolvedCallback);
         },
 
         onChange(
@@ -358,21 +356,20 @@ export function createWorld(
             callback: (entity: Entity, target?: Entity) => void
         ) {
             const ctx = world[$internal];
-            const normalized = normalizeHookSubscription(trait, callback);
+            const resolvedTrait = resolveHookTrait(trait);
+            const resolvedCallback = resolveHookCallback(trait, callback);
 
-            // Register the trait if it's not already registered.
-            if (!hasTraitInstance(ctx.traitInstances, normalized.trait))
-                registerTrait(world, normalized.trait);
+            if (!hasTraitInstance(ctx.traitInstances, resolvedTrait))
+                registerTrait(world, resolvedTrait);
 
-            const data = getTraitInstance(ctx.traitInstances, normalized.trait)!;
-            data.changeSubscriptions.add(normalized.callback);
+            const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
+            data.changeSubscriptions.add(resolvedCallback);
 
-            // Used by auto change detection to know which traits to track.
-            ctx.trackedTraits.add(normalized.trait);
+            ctx.trackedTraits.add(resolvedTrait);
 
             return () => {
-                data.changeSubscriptions.delete(normalized.callback);
-                if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(normalized.trait);
+                data.changeSubscriptions.delete(resolvedCallback);
+                if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(resolvedTrait);
             };
         },
     } as World;
