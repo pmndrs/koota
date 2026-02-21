@@ -1,0 +1,21 @@
+{
+  "name": "@app/scene-graph",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@app/bench-tools": "workspace:*",
+    "@sim/scene-graph-propagation": "workspace:*",
+    "koota": "workspace:*"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*",
+    "vite": "catalog:"
+  }
+}
