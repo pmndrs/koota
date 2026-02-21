@@ -1,6 +1,6 @@
 export const CONFIG = {
     // total amount of desired entities
-    targetEntityCount: 10000,
+    targetEntityCount: 100000,
     // % of total entities that will be bottom level leaf objects
     bottomLeafFraction: 0.7,
     // how many available groups or objects will the next group be assigned

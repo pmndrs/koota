@@ -1,6 +1,6 @@
 import type { Entity, World } from 'koota';
 import { CONFIG } from '../config';
-import { ChildOf, IsGroup, IsObject, TotalValue, Value } from '../traits';
+import { ChildOf, IsGroup, IsObject, OrderedChildren, TotalValue, Value } from '../traits';
 
 export let root: Entity;
 export let resultingDepth = 0;
@@ -9,7 +9,7 @@ export const allEntities: Entity[] = [];
 const deterministicValue = (index: number) => (index * 37) % 65;
 
 const spawnGroup = (world: World, index: number) => {
-    const group = world.spawn(IsGroup, Value({ value: deterministicValue(index) }));
+    const group = world.spawn(IsGroup, OrderedChildren, Value({ value: deterministicValue(index) }));
     allEntities.push(group);
     return group;
 };
@@ -77,7 +77,7 @@ const buildGraph = (world: World) => {
     if (pending.length === 1) {
         root = pending[0];
     } else {
-        root = world.spawn(IsGroup, Value({ value: 0 }));
+        root = world.spawn(IsGroup, OrderedChildren, Value({ value: 0 }));
         for (const entity of pending) entity.add(ChildOf(root));
     }
 

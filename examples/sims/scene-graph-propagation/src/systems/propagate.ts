@@ -1,6 +1,6 @@
 import type { Entity, World } from 'koota';
 import { createChanged } from 'koota';
-import { ChildOf, TotalValue, Value } from '../traits';
+import { ChildOf, OrderedChildren, TotalValue, Value } from '../traits';
 
 const Changed = createChanged();
 
@@ -21,8 +21,11 @@ const propagateDown = (world: World, entity: Entity, ancestorSum: number) => {
         entity.set(TotalValue, { value: total });
     }
 
-    for (const child of world.query(ChildOf(entity))) {
-        propagateDown(world, child, total);
+    const children = entity.get(OrderedChildren);
+    if (children) {
+        for (let i = 0; i < children.length; i++) {
+            propagateDown(world, children[i], total);
+        }
     }
 };
 
