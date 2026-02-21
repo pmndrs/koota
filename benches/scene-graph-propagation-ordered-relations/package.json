@@ -1,14 +1,15 @@
 {
-  "name": "@sim/scene-graph-propagation",
+  "name": "@bench/scene-graph-propagation-ordered-relations",
   "private": true,
   "version": "0.0.1",
-  "description": "Scene graph hierarchy benchmark for change detection and tree traversal",
+  "description": "Scene graph hierarchy benchmark with ordered relations",
   "type": "module",
   "main": "./src/index.ts",
   "dependencies": {
-    "@sim/bench-tools": "workspace:*",
+    "@bench/scene-graph-propagation": "workspace:*",
+    "directed": "catalog:",
     "koota": "workspace:*",
-    "directed": "catalog:"
+    "mitata": "catalog:"
   },
   "devDependencies": {
     "@config/oxlint": "workspace:*",
