@@ -290,7 +290,7 @@ children.splice(0, 1) // removes ChildOf(parent) from child1
 child2.add(ChildOf(parent)) // child2 automatically added to list
 ```
 
-Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa.
+Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa, as well as emit change events.
 
 > ⚠️ **Performance note**<br>
 > Ordered relations requires additional bookkeeping where the cost of ordering is paid during structural changes (add, remove, move) instead of at query time. Use ordered relations only when entity order is essential or when hierarchical search (looping over children) is necessary.
@@ -344,9 +344,6 @@ player.has(banana) // false
 #### Tracking relation changes
 
 Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Changes can only be tracked on relations that have a store.
-
-> 👉 **Note**<br>
-> You can currently only track changes to all relations of a given type, such as `ChildOf`, but not specific relation pairs, such as `ChildOf(parent)`.
 
 ```js
 import { createAdded, createRemoved, createChanged } from 'koota'

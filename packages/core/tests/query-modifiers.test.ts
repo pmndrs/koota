@@ -8,6 +8,7 @@ import {
     getStore,
     Not,
     Or,
+    relation,
     trait,
 } from '../src';
 
@@ -666,6 +667,32 @@ describe('Query modifiers', () => {
         entities = world.query(Or(Removed(Position), Removed(Foo)));
         expect(entities).toContain(entityC);
         expect(entities.length).toBe(1);
+    });
+
+    it('should track Changed on a relation', () => {
+        const ChildOf = relation({ store: { order: 0 } });
+        const Changed = createChanged();
+
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+
+        // No changes yet
+        expect(world.query(Changed(ChildOf))).toHaveLength(0);
+
+        // Change only childA
+        childA.set(ChildOf(parentA), { order: 1 });
+        let changed = world.query(Changed(ChildOf));
+        expect(changed).toHaveLength(1);
+        expect(changed).toContain(childA);
+
+        // Change both, query filtered by parentA pair
+        childA.set(ChildOf(parentA), { order: 2 });
+        childB.set(ChildOf(parentB), { order: 3 });
+        const filteredA = world.query(Changed(ChildOf), ChildOf(parentA));
+        expect(filteredA).toHaveLength(1);
+        expect(filteredA).toContain(childA);
     });
 
     // @internal Tests internal implementation edge case with generation overflow
