@@ -695,6 +695,50 @@ describe('Query modifiers', () => {
         expect(filteredA).toContain(childA);
     });
 
+    it('should track Added on a relation', () => {
+        const ChildOf = relation();
+        const Added = createAdded();
+
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+        const childC = world.spawn(ChildOf(parentA));
+
+        // Filtered by parentA: only childA and childC target parentA
+        const filteredA = world.query(Added(ChildOf), ChildOf(parentA));
+        expect(filteredA).toHaveLength(2);
+        expect(filteredA).toContain(childA);
+        expect(filteredA).toContain(childC);
+        expect(filteredA).not.toContain(childB);
+    });
+
+    it('should track Removed on a relation', () => {
+        const ChildOf = relation();
+        const Removed = createRemoved();
+
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+
+        // No removals yet
+        expect(world.query(Removed(ChildOf))).toHaveLength(0);
+
+        // Remove childA's relation
+        childA.remove(ChildOf(parentA));
+        let removed = world.query(Removed(ChildOf));
+        expect(removed).toHaveLength(1);
+        expect(removed).toContain(childA);
+
+        // Remove childB
+        childB.remove(ChildOf(parentB));
+        removed = world.query(Removed(ChildOf));
+        expect(removed).toHaveLength(1);
+        expect(removed).toContain(childB);
+    });
+
     // @internal Tests internal implementation edge case with generation overflow
     it('[internal] should handle Changed modifier when trait registration causes generation overflow', () => {
         // Create a fresh world to control trait registration count

@@ -364,12 +364,13 @@ const orphaned = world.query(Removed(ChildOf))
 const updated = world.query(Changed(ChildOf))
 ```
 
-Combine with relation filters to track changes for specific targets.
+> 👉 **Note**<br>
+> Tracking modifiers do not accept pairs directly such as `Changed(ChildOf(parent))`. Instead, pass the base relation to the modifier and add the pair as a separate query parameter to filter by target.
 
 ```js
 const parent = world.spawn()
 
-// Track changes only for entities related to parent
+// Filter changed entities by a specific target
 const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 ```
 
