@@ -9,7 +9,7 @@ import type {
     QueryResult,
     QueryUnsubscriber,
 } from '../query/types';
-import type { Relation } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import type {
     ConfigurableTrait,
     ExtractSchema,
@@ -87,14 +87,38 @@ export type World = {
         relation: Relation<T>,
         callback: (entity: Entity, target: Entity) => void
     ): QueryUnsubscriber;
+    onAdd<T extends Trait>(
+        pair: RelationPair<T>,
+        callback: (entity: Entity, target: Entity) => void
+    ): QueryUnsubscriber;
+    onAdd(
+        input: Trait | Relation<Trait> | RelationPair,
+        callback: (entity: Entity, target?: Entity) => void
+    ): QueryUnsubscriber;
     onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
     onRemove<T extends Trait>(
         relation: Relation<T>,
         callback: (entity: Entity, target: Entity) => void
     ): QueryUnsubscriber;
+    onRemove<T extends Trait>(
+        pair: RelationPair<T>,
+        callback: (entity: Entity, target: Entity) => void
+    ): QueryUnsubscriber;
+    onRemove(
+        input: Trait | Relation<Trait> | RelationPair,
+        callback: (entity: Entity, target?: Entity) => void
+    ): QueryUnsubscriber;
     onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
     onChange<T extends Trait>(
         relation: Relation<T>,
         callback: (entity: Entity, target: Entity) => void
+    ): QueryUnsubscriber;
+    onChange<T extends Trait>(
+        pair: RelationPair<T>,
+        callback: (entity: Entity, target: Entity) => void
+    ): QueryUnsubscriber;
+    onChange(
+        input: Trait | Relation<Trait> | RelationPair,
+        callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
 };

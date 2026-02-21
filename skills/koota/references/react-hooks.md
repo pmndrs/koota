@@ -94,7 +94,7 @@ const player = useQuery(IsPlayer)[0]
 
 ## useTrait
 
-Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed.
+Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed. Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
 
 ```typescript
 import { useTrait } from 'koota/react'
@@ -103,6 +103,12 @@ function RocketView({ entity }: { entity: Entity }) {
   const position = useTrait(entity, Position)
   if (!position) return null
   return <div style={{ left: position.x, top: position.y }}>🚀</div>
+}
+
+// Observe a specific relation pair's store data
+function ChildPriority({ entity, parent }: Props) {
+  const data = useTrait(entity, ChildOf(parent))
+  return <span>{data?.priority}</span>
 }
 ```
 
@@ -132,7 +138,7 @@ function ActiveIndicator({ entity }: { entity: Entity }) {
 
 ## useHas
 
-Like `useTag` but for any trait. Returns `true`/`false` based on presence.
+Like `useTag` but for any trait. Returns `true`/`false` based on presence. Also accepts relation pairs like `ChildOf(parent)` or `ChildOf('*')`.
 
 ```typescript
 import { useHas } from 'koota/react'
@@ -141,6 +147,10 @@ function HealthIndicator({ entity }: { entity: Entity }) {
   const hasHealth = useHas(entity, Health)
   return hasHealth ? <span>❤️</span> : null
 }
+
+// Track a specific relation pair or any target
+const isChild = useHas(entity, ChildOf(parent))
+const hasAnyParent = useHas(entity, ChildOf('*'))
 ```
 
 ## useTarget / useTargets
@@ -165,7 +175,7 @@ function InventoryDisplay({ entity }: { entity: Entity }) {
 
 ## useTraitEffect
 
-Subscribe to trait changes without causing rerenders. Runs as an effect.
+Subscribe to trait changes without causing rerenders. Runs as an effect. Also accepts relation pairs.
 
 ```typescript
 import { useTraitEffect } from 'koota/react'
@@ -177,6 +187,11 @@ function SyncMesh({ entity, meshRef }: Props) {
   })
   return null
 }
+
+// Subscribe to a specific relation pair
+useTraitEffect(entity, ChildOf(parent), (data) => {
+  console.log('ChildOf data changed:', data)
+})
 ```
 
 ## Actions
