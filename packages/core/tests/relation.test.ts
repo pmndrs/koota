@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
@@ -426,6 +426,108 @@ describe('Relation', () => {
 
         unsubAdd();
         unsubRemove();
+    });
+
+    it('onAdd should accept relation pairs and filter by target', () => {
+        const ChildOf = relation();
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const childA = world.spawn();
+        const childB = world.spawn();
+
+        const onTrait = vi.fn();
+        const onWildcard = vi.fn();
+        const onParentA = vi.fn();
+
+        const unsubTrait = world.onAdd(ChildOf, onTrait);
+        const unsubWildcard = world.onAdd(ChildOf('*'), onWildcard);
+        const unsubParentA = world.onAdd(ChildOf(parentA), onParentA);
+
+        childA.add(ChildOf(parentA));
+        childB.add(ChildOf(parentB));
+
+        expect(onTrait).toHaveBeenCalledTimes(2);
+        expect(onTrait).toHaveBeenNthCalledWith(1, childA, parentA);
+        expect(onTrait).toHaveBeenNthCalledWith(2, childB, parentB);
+
+        expect(onWildcard).toHaveBeenCalledTimes(2);
+        expect(onWildcard).toHaveBeenNthCalledWith(1, childA, parentA);
+        expect(onWildcard).toHaveBeenNthCalledWith(2, childB, parentB);
+
+        expect(onParentA).toHaveBeenCalledTimes(1);
+        expect(onParentA).toHaveBeenCalledWith(childA, parentA);
+
+        unsubTrait();
+        unsubWildcard();
+        unsubParentA();
+    });
+
+    it('onRemove should accept relation pairs and filter by target', () => {
+        const ChildOf = relation();
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+
+        const onTrait = vi.fn();
+        const onWildcard = vi.fn();
+        const onParentA = vi.fn();
+
+        const unsubTrait = world.onRemove(ChildOf, onTrait);
+        const unsubWildcard = world.onRemove(ChildOf('*'), onWildcard);
+        const unsubParentA = world.onRemove(ChildOf(parentA), onParentA);
+
+        childA.remove(ChildOf(parentA));
+        childB.remove(ChildOf(parentB));
+
+        expect(onTrait).toHaveBeenCalledTimes(2);
+        expect(onTrait).toHaveBeenNthCalledWith(1, childA, parentA);
+        expect(onTrait).toHaveBeenNthCalledWith(2, childB, parentB);
+
+        expect(onWildcard).toHaveBeenCalledTimes(2);
+        expect(onWildcard).toHaveBeenNthCalledWith(1, childA, parentA);
+        expect(onWildcard).toHaveBeenNthCalledWith(2, childB, parentB);
+
+        expect(onParentA).toHaveBeenCalledTimes(1);
+        expect(onParentA).toHaveBeenCalledWith(childA, parentA);
+
+        unsubTrait();
+        unsubWildcard();
+        unsubParentA();
+    });
+
+    it('onChange should accept relation pairs and filter by target', () => {
+        const ChildOf = relation({ store: { order: 0 } });
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+
+        const onTrait = vi.fn();
+        const onWildcard = vi.fn();
+        const onParentA = vi.fn();
+
+        const unsubTrait = world.onChange(ChildOf, onTrait);
+        const unsubWildcard = world.onChange(ChildOf('*'), onWildcard);
+        const unsubParentA = world.onChange(ChildOf(parentA), onParentA);
+
+        childA.set(ChildOf(parentA), { order: 1 });
+        childB.set(ChildOf(parentB), { order: 2 });
+
+        expect(onTrait).toHaveBeenCalledTimes(2);
+        expect(onTrait).toHaveBeenNthCalledWith(1, childA, parentA);
+        expect(onTrait).toHaveBeenNthCalledWith(2, childB, parentB);
+
+        expect(onWildcard).toHaveBeenCalledTimes(2);
+        expect(onWildcard).toHaveBeenNthCalledWith(1, childA, parentA);
+        expect(onWildcard).toHaveBeenNthCalledWith(2, childB, parentB);
+
+        expect(onParentA).toHaveBeenCalledTimes(1);
+        expect(onParentA).toHaveBeenCalledWith(childA, parentA);
+
+        unsubTrait();
+        unsubWildcard();
+        unsubParentA();
     });
 
     it('should emit change events when relation store is updated', () => {

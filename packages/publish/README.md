@@ -8,7 +8,11 @@ Koota is an ECS-based state management library optimized for real-time apps, gam
 npm i koota
 ```
 
-👉 [Try the starter template](https://github.com/Ctrlmonster/r3f-koota-starter)
+The official AI agent skill can be installed from this repo. [Read more about skills here](https://agentskills.io/home).
+
+```bash
+npx skills add pmndrs/koota
+```
 
 ### First, define traits
 
@@ -48,10 +52,17 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently.
 
 ```js
+// updateEach mutates and writes back to stores
 // Run this in a loop
 world.query(Position, Velocity).updateEach(([position, velocity]) => {
   position.x += velocity.x * delta
   position.y += velocity.y * delta
+})
+
+// For read-only operations with no mutation, use readEach
+const data = []
+world.query(Position, Velocity).readEach(([position, velocity]) => {
+  data.push({ x: position.x, y: position.y })
 })
 ```
 
@@ -91,10 +102,10 @@ function RocketView({ entity }) {
 Use actions to safely modify Koota from inside of React in either effects or events.
 
 ```js
-import { defineActions } from 'koota'
+import { createActions } from 'koota'
 import { useActions } from 'koota/react'
 
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
   destroyAllShips: () => {
     world.query(Position, Velocity).forEach((entity) => {
@@ -136,7 +147,7 @@ useEffect(() => {
 
 ### Relations
 
-Koota supports relations between entities using the `relation` function. Relations allow you to create connections between entities and query them efficiently.
+Koota supports relations between entities using the `relation` function. Relations allow you to build graphs by creating connections between entities with efficient queries.
 
 ```js
 const ChildOf = relation()
@@ -146,6 +157,24 @@ const child = world.spawn(ChildOf(parent))
 
 const entity = world.queryFirst(ChildOf(parent)) // Returns child
 ```
+
+A relation is typically owned by the entity that needs to express it. The **source** is the entity that has the relation added, and the **target** is the entity it points to.
+
+```mermaid
+flowchart BT
+    subgraph Parent
+    end
+    subgraph childA["Child"]
+        COA["ChildOf(Parent)"]
+    end
+    subgraph childB["Child"]
+        COB["ChildOf(Parent)"]
+    end
+    COA --> Parent
+    COB --> Parent
+```
+
+In `child.add(ChildOf(parent))`, child is the source and parent is the target. This design means the parent doesn't need to know about its children, instead children care about their parent, optimzing batch queries.
 
 #### With data
 
@@ -167,12 +196,14 @@ inventory.set(Contains(gold), { amount: 20 })
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
-#### Auto remove target
+#### Auto destroy
 
-Relations can automatically remove target entities and their descendants.
+Relations can automatically destroy related entities when their counterpart is destroyed using the `autoDestroy` option.
+
+**Destroy orphans.** When a target is destroyed, destroy all sources pointing to it. This is commonly used for hierarchies when you want to clean up any detached graphs. It can be enabled with the `'orphan'` or `'source'` option.
 
 ```js
-const ChildOf = relation({ autoRemoveTarget: true })
+const ChildOf = relation({ autoDestroy: 'orphan' }) // Or 'source'
 
 const parent = world.spawn()
 const child = world.spawn(ChildOf(parent))
@@ -181,6 +212,21 @@ const grandchild = world.spawn(ChildOf(child))
 parent.destroy()
 
 world.has(child) // False, the child and grandchild are destroyed too
+```
+
+**Destroy targets.** When a source is destroyed, destroy all its targets.
+
+```js
+const Contains = relation({ autoDestroy: 'target' })
+
+const container = world.spawn()
+const itemA = world.spawn()
+const itemB = world.spawn()
+
+container.add(Contains(itemA), Contains(itemB))
+container.destroy()
+
+world.has(itemA) // False, items are destroyed with container
 ```
 
 #### Exclusive relations
@@ -206,7 +252,27 @@ hero.has(Targeting(goblin)) // True
 > ⚠️ **Experimental**<br>
 > This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
 
-Ordered relations maintain a list of related entities with bidirectional sync.
+Ordered relations maintain a list of related entities with
+bidirectional sync.
+
+A query like `world.query(ChildOf(parent))` returns a flat list of children without any ordering. If you need an ordered list, you'd have to store an order field and sort every time you query.
+
+An ordered relation solves this by caching the order on the target. It's a trait added to the parent that maintains a view of all entities targeting it.
+
+```mermaid
+flowchart BT
+    subgraph Parent
+        OC["OrderedChildren → [Child B, Child A]"]
+    end
+    subgraph childA["Child A"]
+        COA["ChildOf(Parent)"]
+    end
+    subgraph childB["Child B"]
+        COB["ChildOf(Parent)"]
+    end
+    COA --> Parent
+    COB --> Parent
+```
 
 ```js
 import { relation, ordered } from 'koota'
@@ -224,10 +290,10 @@ children.splice(0, 1) // removes ChildOf(parent) from child1
 child2.add(ChildOf(parent)) // child2 automatically added to list
 ```
 
-Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa.
+Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa, as well as emit change events.
 
 > ⚠️ **Performance note**<br>
-> Ordered relations are more expensive to update than regular relations but enable faster traversal when order matters. Use them only when entity order is essential.
+> Ordered relations requires additional bookkeeping where the cost of ordering is paid during structural changes (add, remove, move) instead of at query time. Use ordered relations only when entity order is essential or when hierarchical search (looping over children) is necessary.
 
 #### Querying relations
 
@@ -312,7 +378,7 @@ const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 
 #### Relation events
 
-Relations emit events per **relation pair**. This makes it easy to know exactly which target was involved.
+Relations emit events per **pair**. This makes it easy to know exactly which target was involved.
 
 - `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
 - `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
@@ -331,6 +397,16 @@ const child = world.spawn()
 child.add(ChildOf(parent)) // onAdd(child, parent)
 child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
 child.remove(ChildOf(parent)) // onRemove(child, parent)
+```
+
+Hooks also accept **relation pairs** for target-specific filtering. `ChildOf(parent)` only fires for that specific target, while `ChildOf('*')` fires for any target (equivalent to passing the relation itself).
+
+```js
+// Only fires when a ChildOf relation to this specific parent is added
+world.onAdd(ChildOf(parent), (entity, target) => {})
+
+// Fires for any ChildOf addition, the same as passing the ChildOf trait
+world.onAdd(ChildOf('*'), (entity, target) => {})
 ```
 
 ### Query modifiers
@@ -361,6 +437,8 @@ const movingOrVisible = world.query(Or(Velocity, Renderable))
 
 The `Added` modifier tracks all entities that have added the specified traits or relations since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
 
+When multiple traits are passed to `Added` it uses logical `AND`. Only entities where **all** specified traits have been added will be returned.
+
 ```js
 import { createAdded } from 'koota'
 
@@ -372,12 +450,20 @@ const newPositions = world.query(Added(Position))
 // Track entities that added a ChildOf relation
 const newChildren = world.query(Added(ChildOf))
 
+// Track entities where BOTH Position AND Velocity were added
+const fullyAdded = world.query(Added(Position, Velocity))
+
+// Track entities where EITHER Position OR Velocity was added
+const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
+
 // After running the query, the Added modifier is reset
 ```
 
 #### Removed
 
 The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed. A new instance of the modifier must be created for tracking to be unique.
+
+When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
 ```js
 import { createRemoved } from 'koota'
@@ -390,12 +476,20 @@ const stoppedEntities = world.query(Removed(Velocity))
 // Track entities that removed a ChildOf relation
 const orphaned = world.query(Removed(ChildOf))
 
+// Track entities where BOTH Position AND Velocity were removed
+const fullyRemoved = world.query(Removed(Position, Velocity))
+
+// Track entities where EITHER Position OR Velocity was removed
+const eitherRemoved = world.query(Or(Removed(Position), Removed(Velocity)))
+
 // After running the query, the Removed modifier is reset
 ```
 
 #### Changed
 
 The `Changed` modifier tracks all entities that have had the specified traits or relation stores change since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
+
+When multiple traits are passed to `Changed` it uses logical `AND`. Only entities where **all** specified traits have changed will be returned.
 
 ```js
 import { createChanged } from 'koota'
@@ -407,6 +501,12 @@ const movedEntities = world.query(Changed(Position))
 
 // Track entities whose ChildOf relation data has changed
 const updatedChildren = world.query(Changed(ChildOf))
+
+// Track entities where BOTH Position AND Velocity have changed
+const fullyUpdated = world.query(Changed(Position, Velocity))
+
+// Track entities where EITHER Position OR Velocity has changed
+const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 // After running the query, the Changed modifier is reset
 ```
@@ -621,6 +721,10 @@ world.set(Time, (prev) => ({
 const unsub = world.onAdd(Position, (entity) => {})
 const unsub = world.onRemove(Position, (entity) => {})
 const unsub = world.onChange(Position, (entity) => {})
+
+// Hooks also accept relation pairs for target-specific filtering
+const unsub = world.onAdd(ChildOf(parent), (entity, target) => {})
+const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 
 // Subscribe to add or remove query events
 // This triggers whenever a query is updated
@@ -977,9 +1081,14 @@ function App() {
 
 Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value. The returned trait snapshot maybe `undefined` if the trait is no longer on the target. This can be used to conditionally render.
 
+Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
+
 ```js
 // Get the position trait from an entity and reactively updates when it changes
 const position = useTrait(entity, Position)
+
+// Observe a specific relation pair's store data
+const childData = useTrait(entity, ChildOf(parent))
 
 // If position is removed from entity then it will be undefined
 if (!position) return null
@@ -1035,12 +1144,20 @@ function ActiveIndicator({ entity }) {
 
 Observes an entity, or world, for any trait and reactively updates when it is added or removed. Returns `true` when the trait is present or `false` when absent. Unlike `useTrait`, this only tracks presence and not the trait's value.
 
+Also accepts relation pairs like `ChildOf(parent)` or `ChildOf('*')` to track the presence of specific or any relation targets.
+
 ```js
 const Health = trait({ amount: 100 })
 
 function HealthIndicator({ entity }) {
   // Returns true if the entity has the trait, false otherwise
   const hasHealth = useHas(entity, Health)
+
+  // Track a specific relation pair
+  const isChildOfParent = useHas(entity, ChildOf(parent))
+
+  // Track any ChildOf relation
+  const hasAnyParent = useHas(entity, ChildOf('*'))
 
   if (!hasHealth) return null
 
@@ -1050,13 +1167,18 @@ function HealthIndicator({ entity }) {
 
 ### `useTraitEffect`
 
-Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering.
+Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering. Also accepts relation pairs.
 
 ```js
 // Subscribe to position changes on an entity and update a ref without causing a rerender
 useTraitEffect(entity, Position, (position) => {
   if (!position) return
   meshRef.current.position.copy(position)
+})
+
+// Subscribe to a specific relation pair
+useTraitEffect(entity, ChildOf(parent), (data) => {
+  console.log('ChildOf data changed:', data)
 })
 
 // Subscribe to world-level traits
@@ -1106,11 +1228,11 @@ function InventoryDisplay({ entity }) {
 
 ### `useActions`
 
-Returns actions bound to the world that is in context. Use actions created by `defineActions`.
+Returns actions bound to the world that is in context. Use actions created by `createActions`.
 
 ```js
 // Create actions
-const actions = defineActions((world) => ({
+const actions = createActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer).
     destroyAllPlayers: () => {
         world.query(IsPlayer).forEach((player) => {

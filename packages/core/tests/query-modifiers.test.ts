@@ -7,6 +7,8 @@ import {
     createWorld,
     getStore,
     Not,
+    Or,
+    relation,
     trait,
 } from '../src';
 
@@ -573,6 +575,168 @@ describe('Query modifiers', () => {
         });
 
         expect(entity.get(Name)!.name).toBe('modified');
+    });
+
+    it('should combine Or with Changed modifiers to match ANY changed trait', () => {
+        const Changed = createChanged();
+
+        const entityA = world.spawn(Position, Foo);
+        const entityB = world.spawn(Position, Foo);
+        const entityC = world.spawn(Position, Foo);
+
+        // No changes yet
+        let entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities.length).toBe(0);
+
+        // Change only Position on entityA
+        entityA.changed(Position);
+        entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities).toContain(entityA);
+        expect(entities.length).toBe(1);
+
+        // Change only Foo on entityB
+        entityB.changed(Foo);
+        entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities).toContain(entityB);
+        expect(entities.length).toBe(1);
+
+        // Change both on entityC - should still match
+        entityC.changed(Position);
+        entityC.changed(Foo);
+        entities = world.query(Or(Changed(Position), Changed(Foo)));
+        expect(entities).toContain(entityC);
+        expect(entities.length).toBe(1);
+    });
+
+    it('should combine Or with Added modifiers to match ANY added trait', () => {
+        const Added = createAdded();
+
+        const entityA = world.spawn();
+        const entityB = world.spawn();
+        const entityC = world.spawn();
+
+        // No additions yet
+        let entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities.length).toBe(0);
+
+        // Add only Position to entityA
+        entityA.add(Position);
+        entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities).toContain(entityA);
+        expect(entities.length).toBe(1);
+
+        // Add only Foo to entityB
+        entityB.add(Foo);
+        entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities).toContain(entityB);
+        expect(entities.length).toBe(1);
+
+        // Add both to entityC - should still match
+        entityC.add(Position, Foo);
+        entities = world.query(Or(Added(Position), Added(Foo)));
+        expect(entities).toContain(entityC);
+        expect(entities.length).toBe(1);
+    });
+
+    it('should combine Or with Removed modifiers to match ANY removed trait', () => {
+        const Removed = createRemoved();
+
+        const entityA = world.spawn(Position, Foo);
+        const entityB = world.spawn(Position, Foo);
+        const entityC = world.spawn(Position, Foo);
+
+        // No removals yet
+        let entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities.length).toBe(0);
+
+        // Remove only Position from entityA
+        entityA.remove(Position);
+        entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities).toContain(entityA);
+        expect(entities.length).toBe(1);
+
+        // Remove only Foo from entityB
+        entityB.remove(Foo);
+        entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities).toContain(entityB);
+        expect(entities.length).toBe(1);
+
+        // Remove both from entityC - should still match
+        entityC.remove(Position);
+        entityC.remove(Foo);
+        entities = world.query(Or(Removed(Position), Removed(Foo)));
+        expect(entities).toContain(entityC);
+        expect(entities.length).toBe(1);
+    });
+
+    it('should track Changed on a relation', () => {
+        const ChildOf = relation({ store: { order: 0 } });
+        const Changed = createChanged();
+
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+
+        // No changes yet
+        expect(world.query(Changed(ChildOf))).toHaveLength(0);
+
+        // Change only childA
+        childA.set(ChildOf(parentA), { order: 1 });
+        let changed = world.query(Changed(ChildOf));
+        expect(changed).toHaveLength(1);
+        expect(changed).toContain(childA);
+
+        // Change both, query filtered by parentA pair
+        childA.set(ChildOf(parentA), { order: 2 });
+        childB.set(ChildOf(parentB), { order: 3 });
+        const filteredA = world.query(Changed(ChildOf), ChildOf(parentA));
+        expect(filteredA).toHaveLength(1);
+        expect(filteredA).toContain(childA);
+    });
+
+    it('should track Added on a relation', () => {
+        const ChildOf = relation();
+        const Added = createAdded();
+
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+        const childC = world.spawn(ChildOf(parentA));
+
+        // Filtered by parentA: only childA and childC target parentA
+        const filteredA = world.query(Added(ChildOf), ChildOf(parentA));
+        expect(filteredA).toHaveLength(2);
+        expect(filteredA).toContain(childA);
+        expect(filteredA).toContain(childC);
+        expect(filteredA).not.toContain(childB);
+    });
+
+    it('should track Removed on a relation', () => {
+        const ChildOf = relation();
+        const Removed = createRemoved();
+
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+
+        // No removals yet
+        expect(world.query(Removed(ChildOf))).toHaveLength(0);
+
+        // Remove childA's relation
+        childA.remove(ChildOf(parentA));
+        let removed = world.query(Removed(ChildOf));
+        expect(removed).toHaveLength(1);
+        expect(removed).toContain(childA);
+
+        // Remove childB
+        childB.remove(ChildOf(parentB));
+        removed = world.query(Removed(ChildOf));
+        expect(removed).toHaveLength(1);
+        expect(removed).toContain(childB);
     });
 
     // @internal Tests internal implementation edge case with generation overflow

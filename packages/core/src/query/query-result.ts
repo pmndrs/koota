@@ -31,6 +31,24 @@ export function createQueryResult<T extends QueryParameter[]>(
     getQueryStores(params, traits, stores, world);
 
     const results = Object.assign(entities, {
+        readEach(
+            callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
+        ) {
+            const state = Array.from({ length: traits.length }) as InstancesFromParameters<T>;
+
+            for (let i = 0; i < entities.length; i++) {
+                const entity = entities[i];
+                const eid = getEntityId(entity);
+
+                // Create snapshots without atomic tracking
+                createSnapshots(eid, traits, stores, state);
+
+                callback(state, entity, i);
+            }
+
+            return results;
+        },
+
         updateEach(
             callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
             options: QueryResultOptions = { changeDetection: 'auto' }
@@ -267,6 +285,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
 export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
     const results = Object.assign([], {
+        readEach: () => results,
         updateEach: () => results,
         useStores: () => results,
         select: () => results,
@@ -278,6 +297,13 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
 
 // Cached no-op result methods for relation-only queries
 const relationOnlyMethods = {
+    readEach(this: QueryResult<any>, callback: any) {
+        // No traits to read, just iterate entities
+        for (let i = 0; i < this.length; i++) {
+            callback([], this[i], i);
+        }
+        return this;
+    },
     updateEach(this: QueryResult<any>, callback: any) {
         // No traits to update, just iterate entities
         for (let i = 0; i < this.length; i++) {
@@ -304,6 +330,7 @@ export function createRelationOnlyQueryResult<T extends QueryParameter[]>(
     entities: Entity[]
 ): QueryResult<T> {
     const results = Object.assign(entities, {
+        readEach: relationOnlyMethods.readEach,
         updateEach: relationOnlyMethods.updateEach,
         useStores: relationOnlyMethods.useStores,
         select: relationOnlyMethods.select,
