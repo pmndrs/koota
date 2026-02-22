@@ -1,0 +1,14 @@
+import { WorldProvider } from 'koota/react';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { App } from './app';
+import './index.css';
+import { world } from './sim';
+
+createRoot(document.getElementById('root')!).render(
+	<StrictMode>
+		<WorldProvider world={world}>
+			<App />
+		</WorldProvider>
+	</StrictMode>
+);

@@ -1,0 +1,20 @@
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: rgb(255, 232, 181);
+}
+
+.ball {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100px;
+  height: 100px;
+  background-color: red;
+  border-radius: 50%;
+  overflow: hidden;
+  will-change: transform;
+}
