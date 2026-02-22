@@ -1,0 +1,26 @@
+{
+  "name": "@examples/boids",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "sim": "tsx src/sim/main.ts",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@examples/app-tools": "workspace:*",
+    "@examples/bench-tools": "workspace:*",
+    "directed": "catalog:",
+    "koota": "workspace:*",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@config/typescript": "workspace:*",
+    "@types/three": "catalog:",
+    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react-swc": "^4.2.2",
+    "vite": "catalog:"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@examples/graph-traversal",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Graph traversal simulation using Koota relations",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {  
+    "dev": "tsx src/main.ts",
+    "sim": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@examples/bench-tools": "workspace:*",
+    "koota": "workspace:*",
+    "directed": "catalog:"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*"
+  }
+}
