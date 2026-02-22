@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
+		"sim": "tsx src/sim/main.ts",
 		"build": "tsc && vite build",
 		"lint": "oxlint",
 		"preview": "vite preview"
