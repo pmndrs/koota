@@ -37,6 +37,11 @@ const unsub = world.onAdd(Position, (entity) => {})
 const unsub = world.onRemove(Position, (entity) => {})
 const unsub = world.onChange(Position, (entity) => {})
 
+// Hooks also accept relation pairs for target-specific filtering
+const unsub = world.onAdd(ChildOf(parent), (entity, target) => {})
+const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
+
+
 // Subscribe to add or remove query events
 // This triggers whenever a query is updated
 // Return unsub function
