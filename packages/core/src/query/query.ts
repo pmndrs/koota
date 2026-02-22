@@ -1,10 +1,11 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isPair } from '../trait/utils/is-relation';
+import { hasPair } from '../trait/relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait } from '../trait/types';
+import { isPair } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
@@ -413,7 +414,18 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 }
 
                 if (matches) {
-                    query.add(entity);
+                    if (hasRelationFilters) {
+                        let relationMatch = true;
+                        for (const pair of query.relationFilters!) {
+                            if (!hasPair(world, entity, pair)) {
+                                relationMatch = false;
+                                break;
+                            }
+                        }
+                        if (relationMatch) query.add(entity);
+                    } else {
+                        query.add(entity);
+                    }
                 }
             }
         }

@@ -9,16 +9,9 @@ import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { getEntitiesWithRelationTo } from '../trait/relation';
-import {
-    addTrait,
-    getUnaryTrait,
-    hasTrait,
-    registerTrait,
-    removeTrait,
-    setUnaryTrait,
-} from '../trait/trait';
+import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
-import type { ConfigurableTrait, ExtractType, SetTraitCallback, Trait } from '../trait/types';
+import type { ConfigurableTrait, ExtractType, Relation, RelationPair, SetTraitCallback, Trait } from '../trait/types';
 import { isPair } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import type { World, WorldInternal, WorldOptions } from './types';
@@ -33,6 +26,24 @@ export function createWorld(
     const id = allocateWorldId(universe.worldIndex);
     let isInitialized = false;
     let lazyTraits: ConfigurableTrait[] | undefined;
+    type HookInput = Trait | RelationPair;
+    type HookCallback = (entity: Entity, target?: Entity) => void;
+
+    function resolveHookTrait(input: HookInput): Trait {
+        if (isPair(input)) return input[0];
+        return input;
+    }
+
+    function resolveHookCallback(input: HookInput, callback: HookCallback): HookCallback {
+        if (isPair(input)) {
+            const pairTarget = input[1];
+            if (pairTarget === '*') return callback;
+            return (entity: Entity, target?: Entity) => {
+                if (target === pairTarget) callback(entity, target);
+            };
+        }
+        return callback;
+    }
 
     const world = {
         [$internal]: {
@@ -102,11 +113,11 @@ export function createWorld(
         },
 
         get<T extends Trait>(trait: T): ExtractType<T> | undefined {
-            return getUnaryTrait(world, world[$internal].worldEntity, trait);
+            return getTrait(world, world[$internal].worldEntity, trait);
         },
 
         set<T extends Trait>(trait: T, value: Partial<ExtractType<T>> | SetTraitCallback<T>) {
-            setUnaryTrait(world, world[$internal].worldEntity, trait, value, true);
+            setTrait(world, world[$internal].worldEntity, trait, value, true);
         },
 
         destroy() {
@@ -285,57 +296,65 @@ export function createWorld(
             return () => query.removeSubscriptions.delete(callback);
         },
 
-        onAdd(trait: Trait, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber {
-            const ctx = world[$internal];
-            const target = trait;
-
-            let data = getTraitInstance(ctx.traitInstances, target);
-
-            if (!data) {
-                registerTrait(world, target);
-                data = getTraitInstance(ctx.traitInstances, target)!;
-            }
-
-            data.addSubscriptions.add(callback);
-
-            return () => data.addSubscriptions.delete(callback);
-        },
-
-        onRemove(
-            trait: Trait,
+        onAdd<T extends Trait>(
+            trait: T | Relation<T> | RelationPair<T>,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = trait;
+            const resolvedTrait = resolveHookTrait(trait);
+            const resolvedCallback = resolveHookCallback(trait, callback);
 
-            let data = getTraitInstance(ctx.traitInstances, target);
+            let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
 
             if (!data) {
-                registerTrait(world, target);
-                data = getTraitInstance(ctx.traitInstances, target)!;
+                registerTrait(world, resolvedTrait);
+                data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
             }
 
-            data.removeSubscriptions.add(callback);
+            data.addSubscriptions.add(resolvedCallback);
 
-            return () => data.removeSubscriptions.delete(callback);
+            return () => data.addSubscriptions.delete(resolvedCallback);
         },
 
-        onChange(trait: Trait, callback: (entity: Entity, target?: Entity) => void) {
+        onRemove<T extends Trait>(
+            trait: T | Relation<T> | RelationPair<T>,
+            callback: (entity: Entity, target?: Entity) => void
+        ): QueryUnsubscriber {
             const ctx = world[$internal];
-            const target = trait;
+            const resolvedTrait = resolveHookTrait(trait);
+            const resolvedCallback = resolveHookCallback(trait, callback);
 
-            // Register the trait if it's not already registered.
-            if (!hasTraitInstance(ctx.traitInstances, target)) registerTrait(world, target);
+            let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
 
-            const data = getTraitInstance(ctx.traitInstances, target)!;
-            data.changeSubscriptions.add(callback);
+            if (!data) {
+                registerTrait(world, resolvedTrait);
+                data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
+            }
 
-            // Used by auto change detection to know which traits to track.
-            ctx.trackedTraits.add(target);
+            data.removeSubscriptions.add(resolvedCallback);
+
+            return () => data.removeSubscriptions.delete(resolvedCallback);
+        },
+
+        onChange(
+            trait: Trait | Relation<Trait> | RelationPair<Trait>,
+            callback: (entity: Entity, target?: Entity) => void
+        ) {
+            const ctx = world[$internal];
+            const resolvedTrait = resolveHookTrait(trait);
+            const resolvedCallback = resolveHookCallback(trait, callback);
+
+            if (!hasTraitInstance(ctx.traitInstances, resolvedTrait))
+                registerTrait(world, resolvedTrait);
+
+            const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
+            data.changeSubscriptions.add(resolvedCallback);
+
+            ctx.trackedTraits.add(resolvedTrait);
 
             return () => {
-                data.changeSubscriptions.delete(callback);
-                if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(target);
+                data.changeSubscriptions.delete(resolvedCallback);
+                if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(resolvedTrait);
             };
         },
     } as World;
