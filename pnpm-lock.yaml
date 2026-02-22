@@ -69,30 +69,30 @@ importers:
 
   .config/typescript: {}
 
-  examples/apps/add-remove:
+  examples/add-remove:
     dependencies:
-      '@app/bench-tools':
+      '@examples/app-tools':
         specifier: workspace:*
-        version: link:../app-tools
-      '@sim/add-remove':
+        version: link:../tools/app-tools
+      '@examples/bench-tools':
         specifier: workspace:*
-        version: link:../../sims/add-remove
+        version: link:../tools/bench-tools
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
       koota:
         specifier: workspace:*
-        version: link:../../../packages/publish
+        version: link:../../packages/publish
       three:
         specifier: 'catalog:'
         version: 0.181.2
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
-        version: link:../../../.config/oxlint
+        version: link:../../.config/oxlint
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../.config/typescript
+        version: link:../../.config/typescript
       '@types/three':
         specifier: 'catalog:'
         version: 0.181.0
@@ -100,117 +100,135 @@ importers:
         specifier: 'catalog:'
         version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
 
-  examples/apps/app-tools:
+  examples/boids:
     dependencies:
-      '@sim/bench-tools':
+      '@examples/app-tools':
         specifier: workspace:*
-        version: link:../../sims/bench-tools
-    devDependencies:
-      '@config/typescript':
+        version: link:../tools/app-tools
+      '@examples/bench-tools':
         specifier: workspace:*
-        version: link:../../../.config/typescript
-
-  examples/apps/boids:
-    dependencies:
-      '@app/bench-tools':
-        specifier: workspace:*
-        version: link:../app-tools
-      '@sim/boids':
-        specifier: workspace:*
-        version: link:../../sims/boids
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
-      three:
-        specifier: 'catalog:'
-        version: 0.181.2
-    devDependencies:
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../../.config/typescript
-      '@types/three':
-        specifier: 'catalog:'
-        version: 0.181.0
-      '@vitejs/plugin-react':
-        specifier: ^5.1.1
-        version: 5.1.2(vite@7.2.4(@types/node@24.10.1)(tsx@4.21.0))
-      '@vitejs/plugin-react-swc':
-        specifier: ^4.2.2
-        version: 4.2.2(vite@7.2.4(@types/node@24.10.1)(tsx@4.21.0))
-      vite:
-        specifier: 'catalog:'
-        version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
-
-  examples/apps/cards:
-    dependencies:
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
-      react:
-        specifier: 'catalog:'
-        version: 19.2.0
-      react-dom:
-        specifier: 'catalog:'
-        version: 19.2.0(react@19.2.0)
-    devDependencies:
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../../.config/typescript
-      '@types/react':
-        specifier: 'catalog:'
-        version: 19.2.6
-      '@types/react-dom':
-        specifier: 'catalog:'
-        version: 19.2.3(@types/react@19.2.6)
-      '@vitejs/plugin-react':
-        specifier: ^5.1.1
-        version: 5.1.2(vite@7.2.4(@types/node@24.10.1)(tsx@4.21.0))
-      vite:
-        specifier: 'catalog:'
-        version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
-
-  examples/apps/n-body:
-    dependencies:
-      '@app/bench-tools':
-        specifier: workspace:*
-        version: link:../app-tools
-      '@sim/n-body':
-        specifier: workspace:*
-        version: link:../../sims/n-body
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
-      three:
-        specifier: 'catalog:'
-        version: 0.181.2
-    devDependencies:
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../../.config/typescript
-      '@types/three':
-        specifier: 'catalog:'
-        version: 0.181.0
-      vite:
-        specifier: 'catalog:'
-        version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
-
-  examples/apps/n-body-react:
-    dependencies:
-      '@app/bench-tools':
-        specifier: workspace:*
-        version: link:../app-tools
-      '@react-three/fiber':
-        specifier: 'catalog:'
-        version: 9.4.2(@types/react@19.2.6)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.181.2)
-      '@sim/n-body':
-        specifier: workspace:*
-        version: link:../../sims/n-body
+        version: link:../tools/bench-tools
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
       koota:
         specifier: workspace:*
-        version: link:../../../packages/publish
+        version: link:../../packages/publish
+      three:
+        specifier: 'catalog:'
+        version: 0.181.2
+    devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      '@types/three':
+        specifier: 'catalog:'
+        version: 0.181.0
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.2(vite@7.2.4(@types/node@24.10.1)(tsx@4.21.0))
+      '@vitejs/plugin-react-swc':
+        specifier: ^4.2.2
+        version: 4.2.2(vite@7.2.4(@types/node@24.10.1)(tsx@4.21.0))
+      vite:
+        specifier: 'catalog:'
+        version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
+
+  examples/cards:
+    dependencies:
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+      react:
+        specifier: 'catalog:'
+        version: 19.2.0
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.0(react@19.2.0)
+    devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.6
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.3(@types/react@19.2.6)
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.2(vite@7.2.4(@types/node@24.10.1)(tsx@4.21.0))
+      vite:
+        specifier: 'catalog:'
+        version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
+
+  examples/graph-traversal:
+    dependencies:
+      '@examples/bench-tools':
+        specifier: workspace:*
+        version: link:../tools/bench-tools
+      directed:
+        specifier: 'catalog:'
+        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+
+  examples/n-body:
+    dependencies:
+      '@examples/app-tools':
+        specifier: workspace:*
+        version: link:../tools/app-tools
+      '@examples/bench-tools':
+        specifier: workspace:*
+        version: link:../tools/bench-tools
+      directed:
+        specifier: 'catalog:'
+        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+      three:
+        specifier: 'catalog:'
+        version: 0.181.2
+    devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      '@types/three':
+        specifier: 'catalog:'
+        version: 0.181.0
+      vite:
+        specifier: 'catalog:'
+        version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
+
+  examples/n-body-react:
+    dependencies:
+      '@examples/app-tools':
+        specifier: workspace:*
+        version: link:../tools/app-tools
+      '@examples/bench-tools':
+        specifier: workspace:*
+        version: link:../tools/bench-tools
+      '@examples/n-body':
+        specifier: workspace:*
+        version: link:../n-body
+      '@react-three/fiber':
+        specifier: 'catalog:'
+        version: 9.4.2(@types/react@19.2.6)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.181.2)
+      directed:
+        specifier: 'catalog:'
+        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
       react:
         specifier: 'catalog:'
         version: 19.2.0
@@ -223,7 +241,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../.config/typescript
+        version: link:../../.config/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.6
@@ -243,7 +261,7 @@ importers:
         specifier: 'catalog:'
         version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
 
-  examples/apps/revade:
+  examples/revade:
     dependencies:
       '@react-three/drei':
         specifier: 'catalog:'
@@ -253,7 +271,7 @@ importers:
         version: 9.4.2(@types/react@19.2.6)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.181.2)
       koota:
         specifier: workspace:*
-        version: link:../../../packages/publish
+        version: link:../../packages/publish
       react:
         specifier: 'catalog:'
         version: 19.2.0
@@ -266,7 +284,7 @@ importers:
     devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../../.config/typescript
+        version: link:../../.config/typescript
       '@types/react':
         specifier: 'catalog:'
         version: 19.2.6
@@ -286,87 +304,21 @@ importers:
         specifier: 'catalog:'
         version: 7.2.4(@types/node@24.10.1)(tsx@4.21.0)
 
-  examples/sims/add-remove:
+  examples/tools/app-tools:
     dependencies:
-      '@sim/bench-tools':
+      '@examples/bench-tools':
         specifier: workspace:*
         version: link:../bench-tools
-      directed:
-        specifier: 'catalog:'
-        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
     devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../../.config/oxlint
       '@config/typescript':
         specifier: workspace:*
         version: link:../../../.config/typescript
 
-  examples/sims/bench-tools:
+  examples/tools/bench-tools:
     dependencies:
       web-worker:
         specifier: ^1.5.0
         version: 1.5.0
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../../.config/typescript
-
-  examples/sims/boids:
-    dependencies:
-      '@sim/bench-tools':
-        specifier: workspace:*
-        version: link:../bench-tools
-      directed:
-        specifier: 'catalog:'
-        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../../.config/typescript
-
-  examples/sims/graph-traversal:
-    dependencies:
-      '@sim/bench-tools':
-        specifier: workspace:*
-        version: link:../bench-tools
-      directed:
-        specifier: 'catalog:'
-        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../../.config/typescript
-
-  examples/sims/n-body:
-    dependencies:
-      '@sim/bench-tools':
-        specifier: workspace:*
-        version: link:../bench-tools
-      directed:
-        specifier: 'catalog:'
-        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
-      koota:
-        specifier: workspace:*
-        version: link:../../../packages/publish
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*

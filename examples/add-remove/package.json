@@ -1,0 +1,25 @@
+{
+  "name": "@examples/add-remove",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "sim": "tsx src/sim/main.ts",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "koota": "workspace:*",
+    "@examples/bench-tools": "workspace:*",
+    "@examples/app-tools": "workspace:*",
+    "three": "catalog:",
+    "directed": "catalog:"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*",
+    "@types/three": "catalog:",
+    "vite": "catalog:"
+  }
+}

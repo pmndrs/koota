@@ -1,7 +1,7 @@
 packages:
   - packages/*
-  - examples/sims/*
-  - examples/apps/*
+  - examples/*
+  - examples/tools/*
   - .config/*
 
 catalog:
