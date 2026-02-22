@@ -10,10 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@app/bench-tools": "workspace:*",
     "@react-three/drei": "catalog:",
     "@react-three/fiber": "catalog:",
-    "directed": "catalog:",
     "koota": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
