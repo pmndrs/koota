@@ -11,7 +11,7 @@ import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cur
 import { getEntitiesWithRelationTo } from '../trait/relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
-import type { ConfigurableTrait, ExtractType, Relation, RelationPair, SetTraitCallback, Trait } from '../trait/types';
+import type { ConfigurableTrait, ExtractType, RelationPair, SetTraitCallback, Trait } from '../trait/types';
 import { isPair } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import type { World, WorldInternal, WorldOptions } from './types';
@@ -296,8 +296,8 @@ export function createWorld(
             return () => query.removeSubscriptions.delete(callback);
         },
 
-        onAdd<T extends Trait>(
-            trait: T | Relation<T> | RelationPair<T>,
+        onAdd(
+            trait: Trait | RelationPair,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
@@ -316,8 +316,8 @@ export function createWorld(
             return () => data.addSubscriptions.delete(resolvedCallback);
         },
 
-        onRemove<T extends Trait>(
-            trait: T | Relation<T> | RelationPair<T>,
+        onRemove(
+            trait: Trait | RelationPair,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
@@ -337,7 +337,7 @@ export function createWorld(
         },
 
         onChange(
-            trait: Trait | Relation<Trait> | RelationPair<Trait>,
+            trait: Trait | RelationPair,
             callback: (entity: Entity, target?: Entity) => void
         ) {
             const ctx = world[$internal];

@@ -81,43 +81,16 @@ export type World = {
         parameters: T,
         callback: (entity: Entity) => void
     ): QueryUnsubscriber;
-    onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onAdd<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onAdd<T extends Trait>(
-        pair: RelationPair<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
     onAdd(
-        input: Trait | Relation<Trait> | RelationPair,
+        input: Trait | RelationPair,
         callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber;
-    onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onRemove<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onRemove<T extends Trait>(
-        pair: RelationPair<T>,
-        callback: (entity: Entity, target: Entity) => void
     ): QueryUnsubscriber;
     onRemove(
-        input: Trait | Relation<Trait> | RelationPair,
+        input: Trait | RelationPair,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
-    onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onChange<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onChange<T extends Trait>(
-        pair: RelationPair<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
     onChange(
-        input: Trait | Relation<Trait> | RelationPair,
+        input: Trait | RelationPair,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
 };

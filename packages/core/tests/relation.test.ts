@@ -497,7 +497,7 @@ describe('Relation', () => {
     });
 
     it('onChange should accept relation pairs and filter by target', () => {
-        const ChildOf = relation({ store: { order: 0 } });
+        const ChildOf = relation({ order: 0 });
         const parentA = world.spawn();
         const parentB = world.spawn();
         const childA = world.spawn(ChildOf(parentA));
