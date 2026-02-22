@@ -1,7 +1,7 @@
 import { $internal } from '../common';
-import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
-import { getEntitiesWithRelationTo } from '../trait/relation';
-import type { ConfigurableTrait } from '../trait/types';
+import { add, remove } from '../trait/api';
+import { cleanupRelationTarget, getEntitiesWithRelationTo } from '../trait/relation';
+import type { TraitLike } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { World } from '../world';
 import type { Entity } from './types';
@@ -11,7 +11,7 @@ import { getEntityId, getEntityWorldId } from './utils/pack-entity';
 // Ensure entity methods are patched.
 import './entity-methods-patch';
 
-export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
+export function createEntity(world: World, ...traits: TraitLike[]): Entity {
     const ctx = world[$internal];
     const entity = allocateEntity(ctx.entityIndex);
 
@@ -23,7 +23,7 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
     }
 
     ctx.entityTraits.set(entity, new Set());
-    addTrait(world, entity, ...traits);
+    add(world, entity, ...traits);
 
     return entity;
 }
@@ -69,7 +69,7 @@ export function destroyEntity(world: World, entity: Entity) {
         const entityTraits = ctx.entityTraits.get(currentEntity);
         if (entityTraits) {
             for (const trait of entityTraits) {
-                removeTrait(world, currentEntity, trait);
+                remove(world, currentEntity, trait);
             }
         }
 

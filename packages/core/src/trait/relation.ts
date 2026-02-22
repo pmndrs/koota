@@ -1,19 +1,13 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import type {
-    FieldDescriptor,
-    InferSchema,
-    SchemaFor,
-    SchemaShorthand,
-    TagSchema,
-    TraitKind,
-} from '../storage';
+import { setChanged } from '../query/modifiers/changed';
+import { checkQuery } from '../query/utils/check-query';
+import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchema } from '../storage';
 import type { World } from '../world';
-import { defineTrait, hasTrait } from './trait';
+import { addTraitToEntity, defineTrait, hasTrait, removeTraitFromEntity } from './trait';
 import { getTraitInstance } from './trait-instance';
-import type { Relation, RelationPair } from './types';
+import type { PairPattern, Relation, PairTarget, TraitInstance } from './types';
 
 /** @see {@link relation} for overload signatures */
 export interface relation {
@@ -50,7 +44,6 @@ export /* @inline */ function getRelationTargets(
 
 /**
  * Get the first target for a relation on an entity.
- * Returns the first target entity ID, or undefined if none exists.
  * Optimized version that avoids array allocation.
  */
 export /* @inline */ function getFirstRelationTarget(
@@ -68,10 +61,10 @@ export /* @inline */ function getFirstRelationTarget(
 }
 
 /**
- * Get the index of a target in the relation's target array.
- * Returns -1 if not found. Used for accessing per-target store data.
+ * Get the flat store slot for a (entity, target) pair.
+ * Returns -1 if not found.
  */
-export /* @inline */ function getTargetIndex(
+export /* @inline */ function getPairSlot(
     world: World,
     relation: Relation,
     entity: Entity,
@@ -79,15 +72,19 @@ export /* @inline */ function getTargetIndex(
 ): number {
     const ctx = world[$internal];
     const traitData = getTraitInstance(ctx.traitInstances, relation);
-    if (!traitData || !traitData.relationTargets) return -1;
+    if (!traitData || !traitData.relationTargets || !traitData.slotMap) return -1;
 
     const eid = getEntityId(entity);
     const targets = traitData.relationTargets[eid];
-    return targets ? targets.indexOf(target) : -1;
+    if (!targets) return -1;
+
+    const localIdx = targets.indexOf(target);
+    return localIdx !== -1 ? traitData.slotMap[eid][localIdx] : -1;
 }
 
 /**
  * Check if an entity has a relation to a specific target.
+ * @deprecated Use hasPair which uses the O(1) sparse array.
  */
 export /* @inline */ function hasRelationToTarget(
     world: World,
@@ -96,18 +93,31 @@ export /* @inline */ function hasRelationToTarget(
     target: Entity
 ): boolean {
     const ctx = world[$internal];
-    const traitData = getTraitInstance(ctx.traitInstances, relation);
-    if (!traitData || !traitData.relationTargets) return false;
+    const instance = getTraitInstance(ctx.traitInstances, relation);
+    if (!instance || !instance.targetPairIds) return false;
+
+    const targetEid = getEntityId(target);
+    const pairId = instance.targetPairIds[targetEid];
+    if (pairId === undefined) return false;
 
     const eid = getEntityId(entity);
-    const targets = traitData.relationTargets[eid];
-    return targets ? targets.includes(target) : false;
+    const pairArr = ctx.entityPairIds[eid];
+    return pairArr !== undefined && pairArr[pairId] === 1;
+}
+
+/* @inline */ function allocateSlot(data: TraitInstance): number {
+    if (data.freeSlots!.length > 0) return data.freeSlots!.pop()!;
+    return data.nextSlot!++;
+}
+
+/* @inline */ function allocatePairId(world: World): number {
+    const ctx = world[$internal];
+    return ctx.pairFreeIds.length > 0 ? ctx.pairFreeIds.pop()! : ctx.pairNextId++;
 }
 
 /**
  * Add a relation target to an entity.
- * Returns the index of the target in the targets array.
- * If the target already exists, returns -1.
+ * Returns the flat store slot for the new pair, or -1 if already exists.
  */
 export function addRelationTarget(
     world: World,
@@ -119,121 +129,156 @@ export function addRelationTarget(
     const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData) return -1;
 
-    if (!traitData.relationTargets) {
-        traitData.relationTargets = [];
-    }
+    if (!traitData.relationTargets) traitData.relationTargets = [];
+    if (!traitData.slotMap) traitData.slotMap = [];
+    if (!traitData.targetPairIds) traitData.targetPairIds = [];
 
     const eid = getEntityId(entity);
-    const targets = traitData.relationTargets;
-    if (!targets[eid]) {
-        targets[eid] = [];
+    const targetEid = getEntityId(target);
+
+    if (!traitData.relationTargets[eid]) traitData.relationTargets[eid] = [];
+    if (!traitData.slotMap[eid]) traitData.slotMap[eid] = [];
+
+    // Get or allocate a global compact pairId for this (relation, target) combination.
+    // targetPairIds[targetEid] = pairId — one integer-indexed array read, no hashing.
+    let pairId = traitData.targetPairIds[targetEid];
+    if (pairId === undefined) {
+        pairId = allocatePairId(world);
+        traitData.targetPairIds[targetEid] = pairId;
+        ctx.pairRefCount[pairId] = 0;
     }
 
-    const existingIndex = targets[eid].indexOf(target);
-    if (existingIndex !== -1) {
-        return -1;
+    // Check if entity already has this pair via O(1) sparse array
+    if (!ctx.entityPairIds[eid]) ctx.entityPairIds[eid] = [];
+    if (ctx.entityPairIds[eid][pairId] === 1) return -1;
+
+    // Set membership and increment ref count
+    ctx.entityPairIds[eid][pairId] = 1;
+    ctx.pairRefCount[pairId]++;
+
+    // Mark pair dirty for all active tracking IDs (infrastructure for Added(pair) tracking)
+    const pairDirtyMasks = ctx.pairDirtyMasks;
+    for (let i = 0; i < pairDirtyMasks.length; i++) {
+        const mask = pairDirtyMasks[i];
+        if (!mask) continue;
+        if (!mask[eid]) mask[eid] = [];
+        mask[eid][pairId] = 1;
     }
 
-    const targetIndex = targets[eid].length;
-    targets[eid].push(target);
+    // Allocate flat slot for data storage
+    const slot = allocateSlot(traitData);
+    traitData.relationTargets[eid].push(target);
+    traitData.slotMap[eid].push(slot);
 
-    updateQueriesForRelationChange(world, relation, entity);
+    updateQueriesForRelationChange(world, relation, entity, pairId);
 
-    return targetIndex;
+    return slot;
 }
 
 /**
  * Remove a relation target from an entity.
- * Returns the removed index and whether this was the last target.
+ * Frees the flat store slot. Returns whether this was the last target.
  */
 export function removeRelationTarget(
     world: World,
     relation: Relation,
     entity: Entity,
     target: Entity
-): { removedIndex: number; wasLastTarget: boolean } {
+): { removed: boolean; wasLastTarget: boolean } {
     const ctx = world[$internal];
     const data = getTraitInstance(ctx.traitInstances, relation);
-    if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
+    if (!data || !data.relationTargets || !data.slotMap)
+        return { removed: false, wasLastTarget: false };
 
     const eid = getEntityId(entity);
+    const targetEid = getEntityId(target);
+    const entityTargets = data.relationTargets[eid];
+    const entitySlots = data.slotMap[eid];
+    if (!entityTargets || !entitySlots) return { removed: false, wasLastTarget: false };
 
-    let removedIndex = -1;
-    let hasRemainingTargets = false;
-    const targetsArray = data.relationTargets;
-    const entityTargets = targetsArray[eid];
-    if (entityTargets) {
-        const idx = entityTargets.indexOf(target);
-        if (idx !== -1) {
-            const lastIdx = entityTargets.length - 1;
-            if (idx !== lastIdx) {
-                entityTargets[idx] = entityTargets[lastIdx];
-            }
-            entityTargets.pop();
-            swapAndPopRelationData(data.store, relation.schema.kind, eid, idx, lastIdx);
-            removedIndex = idx;
-            hasRemainingTargets = entityTargets.length > 0;
+    const idx = entityTargets.indexOf(target);
+    if (idx === -1) return { removed: false, wasLastTarget: false };
+
+    // Update sparse pair membership and ref count
+    const pairId = data.targetPairIds?.[targetEid];
+    if (pairId !== undefined) {
+        const pairArr = ctx.entityPairIds[eid];
+        if (pairArr) pairArr[pairId] = 0;
+
+        ctx.pairRefCount[pairId]--;
+        // Recycle the pairId when no entity holds this (relation, target) anymore
+        if (ctx.pairRefCount[pairId] === 0) {
+            data.targetPairIds![targetEid] = undefined!;
+            ctx.pairFreeIds.push(pairId);
+        }
+
+        // Mark pair dirty for all active tracking IDs (infrastructure for Removed(pair) tracking)
+        const pairDirtyMasks = ctx.pairDirtyMasks;
+        for (let i = 0; i < pairDirtyMasks.length; i++) {
+            const mask = pairDirtyMasks[i];
+            if (!mask) continue;
+            if (!mask[eid]) mask[eid] = [];
+            mask[eid][pairId] = 1;
         }
     }
 
-    if (removedIndex !== -1) {
-        updateQueriesForRelationChange(world, relation, entity);
-    }
+    // Free the flat data slot
+    data.freeSlots!.push(entitySlots[idx]);
 
-    const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
-    return { removedIndex, wasLastTarget };
+    // Swap-and-pop the parallel target/slot arrays
+    const lastIdx = entityTargets.length - 1;
+    if (idx !== lastIdx) {
+        entityTargets[idx] = entityTargets[lastIdx];
+        entitySlots[idx] = entitySlots[lastIdx];
+    }
+    entityTargets.pop();
+    entitySlots.pop();
+
+    updateQueriesForRelationChange(world, relation, entity, pairId);
+
+    return { removed: true, wasLastTarget: entityTargets.length === 0 };
 }
 
 /**
- * Update queries when relation targets change.
- * Called after addRelationTarget or removeRelationTarget to keep queries in sync.
+ * Update queries when a relation pair is added or removed for an entity.
+ * Uses pairQueries for exact-pair queries (O(1) lookup) and
+ * relationQueries for wildcard/non-specific filters.
  */
-function updateQueriesForRelationChange(world: World, relation: Relation, entity: Entity): void {
+function updateQueriesForRelationChange(
+    world: World,
+    relation: Relation,
+    entity: Entity,
+    pairId: number | undefined
+): void {
     const ctx = world[$internal];
     const traitData = getTraitInstance(ctx.traitInstances, relation);
     if (!traitData) return;
 
-    // Update queries indexed by this relation (much faster than iterating all queries)
-    // All queries in relationQueries already filter by this relation
-    for (const query of traitData.relationQueries) {
-        // Re-check entity against query
-        const match = checkQueryWithRelations(world, query, entity);
-        if (match) {
-            query.add(entity);
-        } else {
-            query.remove(world, entity);
-        }
-    }
-}
-
-/** Swap-and-pop data arrays for relation targets */
-function swapAndPopRelationData(
-    store: any,
-    kind: TraitKind,
-    eid: number,
-    idx: number,
-    lastIdx: number
-): void {
-    if (kind === 'aos') {
-        const arr = store[eid];
-        if (arr) {
-            if (idx !== lastIdx) arr[idx] = arr[lastIdx];
-            arr.pop();
-        }
-    } else {
-        for (const key in store) {
-            const arr = store[key][eid];
-            if (arr) {
-                if (idx !== lastIdx) arr[idx] = arr[lastIdx];
-                arr.pop();
+    // Re-evaluate exact-pair queries first (pairQueries[pairId])
+    if (pairId !== undefined) {
+        const exactQueries = ctx.pairQueries[pairId];
+        if (exactQueries) {
+            for (let i = 0; i < exactQueries.length; i++) {
+                const query = exactQueries[i];
+                const match = checkQuery(world, query, entity);
+                if (match) query.add(entity);
+                else query.remove(world, entity);
             }
         }
+    }
+
+    // Re-evaluate wildcard / non-exact-pair relation queries
+    for (const query of traitData.relationQueries) {
+        // Skip queries already handled by pairQueries above
+        if (pairId !== undefined && ctx.pairQueries[pairId]?.includes(query)) continue;
+        const match = checkQuery(world, query, entity);
+        if (match) query.add(entity);
+        else query.remove(world, entity);
     }
 }
 
 /**
  * Remove all relation targets from an entity.
- * Used for bulk removal when the base trait is also being removed.
  */
 export function removeAllRelationTargets(world: World, relation: Relation, entity: Entity): void {
     const targets = getRelationTargets(world, relation, entity);
@@ -262,15 +307,9 @@ export function getEntitiesWithRelationTo(
     const result: Entity[] = [];
     const relationTargets = traitData.relationTargets;
 
-    // Scan all entities to find those with relation to this target
     for (let eid = 0; eid < relationTargets.length; eid++) {
-        let hasTarget = false;
-
         const targets = relationTargets[eid];
-        hasTarget = targets ? targets.includes(targetId) : false;
-
-        if (hasTarget) {
-            // O(1) lookup via sparse array
+        if (targets && targets.includes(targetId)) {
             const denseIdx = sparse[eid];
             if (denseIdx !== undefined && getEntityId(dense[denseIdx]) === eid) {
                 result.push(dense[denseIdx]);
@@ -282,19 +321,17 @@ export function getEntitiesWithRelationTo(
 }
 
 /**
- * Set data for a specific relation target using target index.
- * Index corresponds to position in the target array.
+ * Set data for a relation pair using its flat store slot.
  */
-export function setRelationDataAtIndex(
-    world: World,
-    entity: Entity,
+export function setRelationDataAtSlot(
     relation: Relation,
-    targetIndex: number,
-    value: Record<string, unknown>
+    slot: number,
+    value: Record<string, unknown>,
+    world: World
 ): void {
     const traitData = getTraitInstance(world[$internal].traitInstances, relation);
-    if (!traitData) return;
-    traitData.accessors.pairSet!(getEntityId(entity), targetIndex, traitData.store, value);
+    if (!traitData || !traitData.pairStore) return;
+    traitData.accessors.set(slot, traitData.pairStore, value);
 }
 
 /**
@@ -308,28 +345,151 @@ export function getRelationData(
 ): unknown {
     const ctx = world[$internal];
     const traitData = getTraitInstance(ctx.traitInstances, relation);
-    if (!traitData) return undefined;
+    if (!traitData || !traitData.pairStore) return undefined;
 
-    const targetIndex = getTargetIndex(world, relation, entity, target);
-    if (targetIndex === -1) return undefined;
+    const slot = getPairSlot(world, relation, entity, target);
+    if (slot === -1) return undefined;
 
-    return traitData.accessors.pairGet!(getEntityId(entity), targetIndex, traitData.store);
+    return traitData.accessors.get(slot, traitData.pairStore);
 }
 
 /**
- * Check if entity has a relation pair.
+ * Check if entity has a relation pair. O(1) via sparse array.
  */
-export function hasPair(world: World, entity: Entity, pair: RelationPair): boolean {
+export function hasPair(world: World, entity: Entity, pair: PairPattern): boolean {
     const [relation, target] = pair;
 
-    // Check if entity has the base trait
     if (!hasTrait(world, entity, relation)) return false;
-
-    // Wildcard target
     if (target === '*') return true;
 
-    // Specific target
-    if (typeof target === 'number') return hasRelationToTarget(world, relation, entity, target);
+    if (typeof target === 'number') {
+        const ctx = world[$internal];
+        const instance = getTraitInstance(ctx.traitInstances, relation);
+        if (!instance || !instance.targetPairIds) return false;
+
+        const pairId = instance.targetPairIds[getEntityId(target)];
+        if (pairId === undefined) return false;
+
+        const pairArr = ctx.entityPairIds[getEntityId(entity)];
+        return pairArr !== undefined && pairArr[pairId] === 1;
+    }
 
     return false;
+}
+
+/**
+ * Get the compact global pairId for a (relation, target) combination.
+ * Returns undefined if no pair ID has been allocated yet.
+ */
+export /* @inline */ function getPairId(
+    world: World,
+    relation: Relation,
+    target: Entity
+): number | undefined {
+    const ctx = world[$internal];
+    const instance = getTraitInstance(ctx.traitInstances, relation);
+    if (!instance || !instance.targetPairIds) return undefined;
+    return instance.targetPairIds[getEntityId(target)];
+}
+
+// =============================================================================
+// Pair operations — called by api.ts dispatch layer
+// =============================================================================
+
+export function addPair(
+    world: World,
+    entity: Entity,
+    relation: Relation,
+    target: Entity,
+    params?: Record<string, any>
+) {
+    if (typeof target !== 'number') return;
+
+    let instance = addTraitToEntity(world, entity, relation);
+
+    const slot = addRelationTarget(world, relation, entity, target);
+    if (slot === -1) return;
+
+    instance = instance ?? getTraitInstance(world[$internal].traitInstances, relation)!;
+
+    const defaults = instance.ctor();
+    const merged =
+        defaults && typeof defaults === 'object'
+            ? {
+                  ...(defaults as Record<string, unknown>),
+                  ...(params as Record<string, unknown> | undefined),
+              }
+            : params;
+    if (merged) instance.accessors.set(slot, instance.pairStore, merged);
+
+    for (const sub of instance.addSubscriptions) sub(entity, target);
+}
+
+export function removePair(world: World, entity: Entity, relation: Relation, target: PairTarget) {
+    if (!hasTrait(world, entity, relation)) return;
+    const instance = getTraitInstance(world[$internal].traitInstances, relation)!;
+
+    if (target === '*') {
+        const targets = getRelationTargets(world, relation, entity);
+        for (const tgt of targets) {
+            for (const sub of instance.removeSubscriptions) sub(entity, tgt);
+        }
+        removeAllRelationTargets(world, relation, entity);
+        removeTraitFromEntity(world, entity, relation);
+    } else {
+        if (typeof target !== 'number') return;
+        for (const sub of instance.removeSubscriptions) sub(entity, target);
+        const { removed, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
+        if (!removed) return;
+        if (wasLastTarget) removeTraitFromEntity(world, entity, relation);
+    }
+}
+
+export function setPair(
+    world: World,
+    entity: Entity,
+    relation: Relation,
+    target: Entity,
+    value: any,
+    triggerChanged = true
+) {
+    if (typeof target !== 'number') return;
+    const instance = getTraitInstance(world[$internal].traitInstances, relation)!;
+    const slot = getPairSlot(world, relation, entity, target);
+    if (slot === -1) return;
+
+    value instanceof Function && (value = value(instance.accessors.get(slot, instance.pairStore)));
+    instance.accessors.set(slot, instance.pairStore, value);
+    if (triggerChanged) setChanged(world, entity, relation, target);
+}
+
+export function getPair(world: World, entity: Entity, relation: Relation, target: Entity) {
+    if (typeof target !== 'number') return undefined;
+
+    const slot = getPairSlot(world, relation, entity, target);
+    if (slot === -1) return undefined;
+
+    const instance = getTraitInstance(world[$internal].traitInstances, relation)!;
+    return instance.accessors.get(slot, instance.pairStore);
+}
+
+/**
+ * Remove a relation target and clean up the base trait if it was the last target.
+ * Used by entity destruction.
+ */
+export function cleanupRelationTarget(
+    world: World,
+    relation: Relation,
+    entity: Entity,
+    target: Entity
+): void {
+    const instance = getTraitInstance(world[$internal].traitInstances, relation);
+    if (instance) {
+        for (const sub of instance.removeSubscriptions) sub(entity, target);
+    }
+
+    const { removed, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
+    if (!removed) return;
+
+    if (wasLastTarget) removeTraitFromEntity(world, entity, relation);
 }

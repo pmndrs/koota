@@ -8,7 +8,6 @@ import { universe } from '../../universe/universe';
 import type { World } from '../../world';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
-import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createChanged() {
@@ -46,21 +45,12 @@ function markChanged(world: World, entity: Entity, trait: Trait) {
     }
 
     // Update tracking queries with change event
+    // checkTracking now handles relation filters internally
     for (const query of data.trackingQueries) {
         if (!query.hasChangedModifiers) continue;
         if (!query.changedTraits.has(trait)) continue;
 
-        const match =
-            query.relationFilters && query.relationFilters.length > 0
-                ? checkQueryTrackingWithRelations(
-                      world,
-                      query,
-                      entity,
-                      'change',
-                      generationId,
-                      bitflag
-                  )
-                : query.checkTracking(world, entity, 'change', generationId, bitflag);
+        const match = query.checkTracking(world, entity, 'change', generationId, bitflag);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
@@ -68,14 +58,29 @@ function markChanged(world: World, entity: Entity, trait: Trait) {
     return data;
 }
 
-export function setChanged(world: World, entity: Entity, trait: Trait) {
+export function setChanged(world: World, entity: Entity, trait: Trait, target?: Entity) {
     const data = markChanged(world, entity, trait);
     if (!data) return;
-    for (const sub of data.changeSubscriptions) sub(entity);
-}
 
-export function setPairChanged(world: World, entity: Entity, trait: Trait, target: Entity) {
-    const data = markChanged(world, entity, trait);
-    if (!data) return;
-    for (const sub of data.changeSubscriptions) sub(entity, target);
+    // If this is a relation pair change, also mark pair-level changed mask
+    if (target !== undefined) {
+        const ctx = world[$internal];
+        const instance = getTraitInstance(ctx.traitInstances, trait);
+        if (instance && instance.targetPairIds) {
+            const pairId = instance.targetPairIds[getEntityId(target)];
+            if (pairId !== undefined) {
+                const eid = getEntityId(entity);
+                const pairChangedMasks = ctx.pairChangedMasks;
+                for (let i = 0; i < pairChangedMasks.length; i++) {
+                    const mask = pairChangedMasks[i];
+                    if (!mask) continue;
+                    if (!mask[eid]) mask[eid] = [];
+                    mask[eid][pairId] = 1;
+                }
+            }
+        }
+        for (const sub of data.changeSubscriptions) sub(entity, target);
+    } else {
+        for (const sub of data.changeSubscriptions) sub(entity);
+    }
 }

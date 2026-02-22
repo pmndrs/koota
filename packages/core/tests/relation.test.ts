@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, Not, relation, trait } from '../src';
+import { $internal, createWorld, Not, relation, trait } from '../src';
+import { getEntityId } from '../src/entity/utils/pack-entity';
 
 describe('Relation', () => {
     const world = createWorld();
@@ -553,5 +554,123 @@ describe('Relation', () => {
         ]);
 
         unsub();
+    });
+
+    describe('Pair ID sparse array', () => {
+        it('O(1) has check via entityPairIds', () => {
+            const ChildOf = relation();
+            const parent = world.spawn();
+            const child = world.spawn(ChildOf(parent));
+            const other = world.spawn();
+
+            expect(child.has(ChildOf(parent))).toBe(true);
+            expect(child.has(ChildOf(other))).toBe(false);
+        });
+
+        it('pair ID is allocated on first add and recycled after last remove', () => {
+            const ChildOf = relation();
+            const parent = world.spawn();
+            const ctx = world[$internal];
+            const childA = world.spawn(ChildOf(parent));
+
+            const instance = ctx.traitInstances[ChildOf.id]!;
+            const parentEid = getEntityId(parent);
+            const pairId = instance.targetPairIds![parentEid];
+            expect(typeof pairId).toBe('number');
+            expect(ctx.pairRefCount[pairId!]).toBe(1);
+
+            const childB = world.spawn(ChildOf(parent));
+            expect(ctx.pairRefCount[pairId!]).toBe(2); // two entities share same pairId
+
+            childA.remove(ChildOf(parent));
+            expect(ctx.pairRefCount[pairId!]).toBe(1);
+
+            childB.remove(ChildOf(parent));
+            // ref count hits 0 → pairId recycled
+            expect(ctx.pairRefCount[pairId!]).toBe(0);
+            expect(ctx.pairFreeIds).toContain(pairId);
+            expect(instance.targetPairIds![parentEid]).toBeUndefined();
+        });
+
+        it('recycled pair IDs are reused on next allocation', () => {
+            const ChildOf = relation();
+            const parent = world.spawn();
+            const ctx = world[$internal];
+
+            const child = world.spawn(ChildOf(parent));
+            const instance = ctx.traitInstances[ChildOf.id]!;
+            const parentEid = getEntityId(parent);
+            const pairId = instance.targetPairIds![parentEid]!;
+
+            child.remove(ChildOf(parent));
+            expect(ctx.pairFreeIds).toContain(pairId);
+
+            // Re-add: should reuse the recycled pairId
+            world.spawn(ChildOf(parent));
+            const reusedId = instance.targetPairIds![parentEid]!;
+            expect(reusedId).toBe(pairId);
+        });
+
+        it('multiple entities sharing a pair have independent membership', () => {
+            const ChildOf = relation();
+            const parent = world.spawn();
+            const childA = world.spawn(ChildOf(parent));
+            const childB = world.spawn(ChildOf(parent));
+            const childC = world.spawn();
+
+            expect(childA.has(ChildOf(parent))).toBe(true);
+            expect(childB.has(ChildOf(parent))).toBe(true);
+            expect(childC.has(ChildOf(parent))).toBe(false);
+
+            childA.remove(ChildOf(parent));
+            expect(childA.has(ChildOf(parent))).toBe(false);
+            expect(childB.has(ChildOf(parent))).toBe(true); // unaffected
+        });
+
+        it('pairQueries index routes exact-pair query re-evaluation correctly', () => {
+            const ChildOf = relation();
+            const parentA = world.spawn();
+            const parentB = world.spawn();
+
+            const child1 = world.spawn(ChildOf(parentA));
+            const child2 = world.spawn(ChildOf(parentB));
+
+            const queryA = world.query(ChildOf(parentA));
+            const queryB = world.query(ChildOf(parentB));
+
+            expect(queryA).toContain(child1);
+            expect(queryA).not.toContain(child2);
+            expect(queryB).toContain(child2);
+            expect(queryB).not.toContain(child1);
+
+            // Reparent child1 from A to B
+            child1.remove(ChildOf(parentA));
+            child1.add(ChildOf(parentB));
+
+            const resultA = world.query(ChildOf(parentA));
+            const resultB = world.query(ChildOf(parentB));
+            expect(resultA).not.toContain(child1);
+            expect(resultB).toContain(child1);
+            expect(resultB).toContain(child2);
+        });
+
+        it('entityPairIds membership cleared on entity destroy', () => {
+            const ChildOf = relation();
+            const parent = world.spawn();
+            const child = world.spawn(ChildOf(parent));
+            const ctx = world[$internal];
+
+            const instance = ctx.traitInstances[ChildOf.id]!;
+            const parentEid = getEntityId(parent);
+            const pairId = instance.targetPairIds![parentEid]!;
+            const childEid = getEntityId(child);
+
+            expect(ctx.entityPairIds[childEid]?.[pairId]).toBe(1);
+
+            child.destroy();
+
+            // Pair membership should be cleared after destroy
+            expect(ctx.entityPairIds[childEid]?.[pairId]).not.toBe(1);
+        });
     });
 });

@@ -117,36 +117,6 @@ const aosFastSetChange = (index: number, store: any, value: any) => {
 
 const aosGet = (index: number, store: any) => store[index];
 
-// Pair accessors: 2D storage for binary (relation) traits
-// SoA pair: store.field[eid][targetIndex], AoS pair: store[eid][targetIndex]
-
-function createSoAPairSetFunction(schema: SoASchema) {
-    const keys = Object.keys(schema.fields);
-
-    const body = keys
-        .map(
-            (key) =>
-                `if (Object.hasOwn(value, '${key}')) (store.${key}[eid] || (store.${key}[eid] = []))[targetIndex] = value.${key};`
-        )
-        .join('\n    ');
-
-    return new Function('eid', 'targetIndex', 'store', 'value', body);
-}
-
-function createSoAPairGetFunction(schema: SoASchema) {
-    const keys = Object.keys(schema.fields);
-
-    const fields = keys.map((key) => `${key}: store.${key}[eid]?.[targetIndex]`).join(', ');
-
-    return new Function('eid', 'targetIndex', 'store', `return { ${fields} };`);
-}
-
-const aosPairSet = (eid: number, targetIndex: number, store: any, value: any) => {
-    (store[eid] || (store[eid] = []))[targetIndex] = value;
-};
-
-const aosPairGet = (eid: number, targetIndex: number, store: any) => store[eid]?.[targetIndex];
-
 // Tag accessor: tags carry no data so all operations are no-ops
 
 const noop = () => {};
@@ -190,28 +160,6 @@ export function createGetAccessor(schema: Schema) {
             return createSoAGetFunction(schema);
         case 'aos':
             return aosGet;
-        case 'tag':
-            return noop;
-    }
-}
-
-export function createPairSetAccessor(schema: Schema) {
-    switch (schema.kind) {
-        case 'soa':
-            return createSoAPairSetFunction(schema);
-        case 'aos':
-            return aosPairSet;
-        case 'tag':
-            return noop;
-    }
-}
-
-export function createPairGetAccessor(schema: Schema) {
-    switch (schema.kind) {
-        case 'soa':
-            return createSoAPairGetFunction(schema);
-        case 'aos':
-            return aosPairGet;
         case 'tag':
             return noop;
     }

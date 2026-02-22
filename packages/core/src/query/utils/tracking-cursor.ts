@@ -30,4 +30,10 @@ export function setTrackingMasks(world: World, id: number) {
         id,
         snapshot.map((mask) => mask.map(() => 0))
     );
+
+    // Initialize parallel pair tracking arrays indexed by this tracking ID.
+    // pairDirtyMasks[id][eid][pairId] = 1 when pair was added/removed for entity.
+    // Populated eagerly when pairs are added/removed, consumed by pair-tracking queries.
+    ctx.pairDirtyMasks[id] = [];
+    ctx.pairChangedMasks[id] = [];
 }

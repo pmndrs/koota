@@ -24,9 +24,6 @@ export type TraitAccessors<T = any> = {
     fastSet: (index: number, store: any, value: TraitPartial<T>) => boolean;
     fastSetWithChangeDetection: (index: number, store: any, value: TraitPartial<T>) => boolean;
     get: (index: number, store: any) => T;
-    // Pair accessors for binary (relation) traits — 2D storage indexed by (eid, targetIndex)
-    pairSet?: (eid: number, targetIndex: number, store: any, value: TraitPartial<T>) => void;
-    pairGet?: (eid: number, targetIndex: number, store: any) => T;
 };
 
 export type TraitConstructor<T = any> = () => T | null;
@@ -47,7 +44,10 @@ export type TraitDef<T = any, M extends TraitMode = TraitMode> = {
 
 export type UnaryTraitCallable<T = any> = (params?: TraitPartial<T>) => [Trait<T>, TraitPartial<T>];
 
-export type BinaryTraitCallable<T = any> = (target: unknown, params?: unknown) => RelationPair<T>;
+export interface BinaryTraitCallable<T = any> {
+    (target: Entity, params?: TraitPartial<T>): Pair<T>;
+    (target: '*'): PairPattern<T>;
+}
 
 /** Extracts mode from a TraitDef, falling back to 'unary'. */
 export type ExtractMode<D> = D extends TraitDef<any, infer M> ? M : 'unary';
@@ -72,11 +72,11 @@ export type TraitValue<T> = T extends Record<string, never> ? undefined : Partia
 /**
  * A tuple of [Trait, params] for adding a trait with initial values.
  */
-export type TraitTuple<T extends Trait = Trait> = [T, T extends Trait<infer D> ? Partial<D> : never];
+export type TraitConfig<T extends Trait = Trait> = [T, T extends Trait<infer D> ? Partial<D> : never];
 
-export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair;
+export type TraitLike<T extends Trait = Trait> = T | TraitConfig<T> | Pair;
 
-export type SetTraitCallback<T extends Trait | RelationPair> = (
+export type SetTraitCallback<T extends Trait | Pair | PairPattern> = (
     prev: ExtractType<T>
 ) => Partial<ExtractType<T>>;
 
@@ -90,13 +90,16 @@ export type TraitRecord<T extends Trait> = T extends Trait<infer D> ? D : never;
 // Relation Types
 // ============================================================================
 
-export type RelationTarget = Entity | '*';
-
 /** A Relation is a Trait in binary mode. */
 export type Relation<T = any> = Trait<T, 'binary'>;
 
-/** A pair represents a relation + target combination. */
-export type RelationPair<T = any> = [relation: Relation<T>, target: RelationTarget, params?: unknown];
+export type PairTarget = Entity | '*';
+
+/** A concrete pair — relation + entity target, optionally with init data. */
+export type Pair<T = any> = [relation: Relation<T>, target: Entity, params?: TraitPartial<T>];
+
+/** A pair pattern — allows wildcard target. Used in queries, has, and remove. */
+export type PairPattern<T = any> = [relation: Relation<T>, target: PairTarget, params?: unknown];
 
 export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
     [$orderedTargetsTrait]: {
@@ -109,10 +112,16 @@ export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
 // ============================================================================
 
 /**
- * Extracts the data type T from a Trait<T> or RelationPair.
+ * Extracts the data type T from a Trait<T>, Pair, or PairPattern.
  */
-export type ExtractType<T extends Trait | RelationPair> =
-    T extends RelationPair<infer D> ? D : T extends Trait<infer D> ? D : never;
+export type ExtractType<T extends Trait | Pair | PairPattern> =
+    T extends Pair<infer D>
+        ? D
+        : T extends PairPattern<infer D>
+          ? D
+          : T extends Trait<infer D>
+            ? D
+            : never;
 
 export type ExtractStore<T extends Trait> = T extends Trait<infer D> ? Store<D> : never;
 
@@ -142,8 +151,25 @@ export interface TraitInstance<T extends Trait = Trait> {
     addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     /**
-     * Only for relation traits.
+     * Only for binary (relation) traits.
      * relationTargets[eid] = [targetId1, targetId2, ...]
      */
     relationTargets?: number[][];
+    /**
+     * Only for binary traits. Flat 1D store indexed by allocated slots.
+     * Same schema/accessors as the unary store — the only difference is the index.
+     */
+    pairStore?: Store<ExtractType<T>>;
+    /** slotMap[eid][localTargetIdx] = flatSlot into pairStore */
+    slotMap?: number[][];
+    /** Monotonic slot allocator */
+    nextSlot?: number;
+    /** Recycled slots for reuse */
+    freeSlots?: number[];
+    /**
+     * Only for binary traits. Maps targetEid -> global compact pairId.
+     * Replaces the world-level pairIdMap — one integer-indexed array read per lookup.
+     * targetPairIds[targetEid] = globalCompactPairId | undefined
+     */
+    targetPairIds?: number[];
 }

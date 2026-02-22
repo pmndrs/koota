@@ -34,7 +34,7 @@ export { OrderedList } from './trait/ordered-list';
 export { $relationPair } from './common';
 export { getStore, trait } from './trait/trait';
 export type {
-    ConfigurableTrait,
+    TraitLike as ConfigurableTrait,
     ExtractIsTag,
     ExtractType,
     ExtractStore,
@@ -42,13 +42,14 @@ export type {
     /** @experimental This type is experimental and may change or be removed in future versions. */
     OrderedRelation as OrderedTrait,
     Relation,
-    RelationPair,
-    RelationTarget,
+    Pair as RelationPair,
+    PairPattern as RelationPairPattern,
+    PairTarget as RelationTarget,
     SetTraitCallback,
     TagTrait,
     Trait,
     TraitRecord,
-    TraitTuple,
+    TraitConfig as TraitTuple,
     TraitValue,
 } from './trait/types';
 export { field } from './storage/schema';

@@ -1,4 +1,4 @@
-import { isPair } from '../../trait/utils/is-relation';
+import { isPairPattern } from '../../trait/utils/is-relation';
 import type { Trait } from '../../trait/types';
 import { isModifier } from '../modifier';
 import type { QueryHash, QueryParameter } from '../types';
@@ -12,7 +12,7 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
     for (let i = 0; i < parameters.length; i++) {
         const param = parameters[i];
 
-        if (isPair(param)) {
+        if (isPairPattern(param)) {
             // Encode relation pair as: (relationTraitId * 1000000) + targetId
             // This ensures unique hashes for different relation/target combinations
             const [relation, target] = param;

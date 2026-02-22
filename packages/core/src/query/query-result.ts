@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isPair } from '../trait/utils/is-relation';
+import { isPairPattern } from '../trait/utils/is-relation';
 import { Store } from '../storage';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -257,7 +257,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         const param = params[i];
 
         // Handle relation pairs
-        if (isPair(param)) {
+        if (isPairPattern(param)) {
             const [relation] = param;
             if (relation.schema.kind !== 'tag') {
                 const inst = getTraitInstance(ctx.traitInstances, relation)!;

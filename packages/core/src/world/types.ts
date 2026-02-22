@@ -9,18 +9,20 @@ import type {
     QueryResult,
     QueryUnsubscriber,
 } from '../query/types';
+
 import type {
-    ConfigurableTrait,
+    TraitLike,
     ExtractType,
     Relation,
-    RelationPair,
+    Pair,
+    PairPattern,
     SetTraitCallback,
     Trait,
     TraitInstance,
 } from '../trait/types';
 
 export type WorldOptions = {
-    traits?: ConfigurableTrait[];
+    traits?: TraitLike[];
     lazy?: boolean;
 };
 
@@ -42,6 +44,30 @@ export type WorldInternal = {
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<(world: World) => void>;
+    // Pair ID allocator — no Map, all integer-indexed arrays
+    /** pairRefCount[pairId] = number of entities currently holding this pair */
+    pairRefCount: number[];
+    /** Monotonic pair ID allocator */
+    pairNextId: number;
+    /** Recycled pair IDs available for reuse */
+    pairFreeIds: number[];
+    /**
+     * Per-entity pair membership sparse array.
+     * entityPairIds[eid][pairId] = 1 (has pair) | 0 (does not have pair)
+     * One integer-indexed array read for O(1) membership check.
+     */
+    entityPairIds: (number[] | undefined)[];
+    /**
+     * Per-pair query index.
+     * pairQueries[pairId] = queries that filter by this exact (relation, target) combination.
+     * Sparse array — only populated for exact-pair (non-wildcard) relation filters.
+     */
+    pairQueries: (QueryInstance[] | undefined)[];
+    // Pair-level tracking (indexed by trackingGroupIdx, not Map)
+    /** pairDirtyMasks[trackingGroupIdx][eid][pairId] = dirty flag for add/remove tracking */
+    pairDirtyMasks: (number[][] | undefined)[];
+    /** pairChangedMasks[trackingGroupIdx][eid][pairId] = changed flag for change tracking */
+    pairChangedMasks: (number[][] | undefined)[];
 };
 
 export type World = {
@@ -50,12 +76,12 @@ export type World = {
     readonly entities: Entity[];
     readonly traits: Set<Trait>;
     [$internal]: WorldInternal;
-    init(...traits: ConfigurableTrait[]): void;
-    spawn(...traits: ConfigurableTrait[]): Entity;
+    init(...traits: TraitLike[]): void;
+    spawn(...traits: TraitLike[]): Entity;
     has(entity: Entity): boolean;
     has(trait: Trait): boolean;
     has(target: Entity | Trait): boolean;
-    add(...traits: ConfigurableTrait[]): void;
+    add(...traits: TraitLike[]): void;
     remove(...traits: Trait[]): void;
     get<T extends Trait>(trait: T): ExtractType<T> | undefined;
     set<T extends Trait>(trait: T, value: Partial<ExtractType<T>> | SetTraitCallback<T>): void;
@@ -82,15 +108,15 @@ export type World = {
         callback: (entity: Entity) => void
     ): QueryUnsubscriber;
     onAdd(
-        input: Trait | RelationPair,
+        input: Trait | PairPattern,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
     onRemove(
-        input: Trait | RelationPair,
+        input: Trait | PairPattern,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
     onChange(
-        input: Trait | RelationPair,
+        input: Trait | PairPattern,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
 };
