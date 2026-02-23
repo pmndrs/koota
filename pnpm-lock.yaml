@@ -24,6 +24,9 @@ catalogs:
     directed:
       specifier: ^0.1.6
       version: 0.1.6
+    mitata:
+      specifier: ^1.0.34
+      version: 1.0.34
     react:
       specifier: ^19.2.0
       version: 19.2.0
@@ -68,6 +71,47 @@ importers:
   .config/prettier: {}
 
   .config/typescript: {}
+
+  benches/scene-graph-propagation:
+    dependencies:
+      directed:
+        specifier: 'catalog:'
+        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+      mitata:
+        specifier: 'catalog:'
+        version: 1.0.34
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+
+  benches/scene-graph-propagation-ordered-relations:
+    dependencies:
+      '@bench/scene-graph-propagation':
+        specifier: workspace:*
+        version: link:../scene-graph-propagation
+      directed:
+        specifier: 'catalog:'
+        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+      mitata:
+        specifier: 'catalog:'
+        version: 1.0.34
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
 
   examples/add-remove:
     dependencies:
@@ -1704,6 +1748,9 @@ packages:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
 
+  mitata@1.0.34:
+    resolution: {integrity: sha512-Mc3zrtNBKIMeHSCQ0XqRLo1vbdIx1wvFV9c8NJAiyho6AjNfMY8bVhbS12bwciUdd1t4rj8099CH3N3NFahaUA==}
+
   mlly@1.8.0:
     resolution: {integrity: sha512-l8D9ODSRWLe2KHJSifWGwBqpTZXIXTeo8mlKjY+E2HAakaTeNpqAyBZ8GSqLzHgw4XmHmC8whvpjJNMbFZN7/g==}
 
@@ -3338,6 +3385,8 @@ snapshots:
     dependencies:
       braces: 3.0.3
       picomatch: 2.3.1
+
+  mitata@1.0.34: {}
 
   mlly@1.8.0:
     dependencies:
