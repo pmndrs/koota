@@ -75,6 +75,25 @@ importers:
 
   .config/typescript: {}
 
+  benches/relation-churn:
+    dependencies:
+      directed:
+        specifier: 'catalog:'
+        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+      mitata:
+        specifier: 'catalog:'
+        version: 1.0.34
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+
   benches/scene-graph-propagation:
     dependencies:
       directed:
