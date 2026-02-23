@@ -1,0 +1,16 @@
+{
+  "name": "@bench/query-performance",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Query selectivity, n-way intersection, throughput, and Not() exclusion",
+  "type": "module",
+  "main": "./src/main.ts",
+  "dependencies": {
+    "koota": "workspace:*",
+    "mitata": "catalog:"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*"
+  }
+}
