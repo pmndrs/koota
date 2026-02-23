@@ -86,9 +86,7 @@ export type SetTraitCallback<T extends Trait | Pair | PairPattern> = (
  */
 export type TraitRecord<T extends Trait> = T extends Trait<infer D> ? D : never;
 
-// ============================================================================
-// Relation Types
-// ============================================================================
+// Relation types
 
 /** A Relation is a Trait in binary mode. */
 export type Relation<T = any> = Trait<T, 'binary'>;
@@ -107,29 +105,7 @@ export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
     };
 };
 
-// ============================================================================
-// Type Extraction Utilities
-// ============================================================================
-
-/**
- * Extracts the data type T from a Trait<T>, Pair, or PairPattern.
- */
-export type ExtractType<T extends Trait | Pair | PairPattern> =
-    T extends Pair<infer D>
-        ? D
-        : T extends PairPattern<infer D>
-          ? D
-          : T extends Trait<infer D>
-            ? D
-            : never;
-
-export type ExtractStore<T extends Trait> = T extends Trait<infer D> ? Store<D> : never;
-
-export type ExtractIsTag<T extends Trait> = T extends { readonly schema: { kind: 'tag' } }
-    ? true
-    : false;
-
-export type IsTag<T extends Trait> = ExtractIsTag<T>;
+// Trait instance types
 
 export interface TraitInstance<T extends Trait = Trait> {
     generationId: number;
@@ -168,8 +144,29 @@ export interface TraitInstance<T extends Trait = Trait> {
     freeSlots?: number[];
     /**
      * Only for binary traits. Maps targetEid -> global compact pairId.
-     * Replaces the world-level pairIdMap — one integer-indexed array read per lookup.
      * targetPairIds[targetEid] = globalCompactPairId | undefined
      */
     targetPairIds?: number[];
 }
+
+// Type extraction utilities
+
+/**
+ * Extracts the data type T from a Trait<T>, Pair, or PairPattern.
+ */
+export type ExtractType<T extends Trait | Pair | PairPattern> =
+    T extends Pair<infer D>
+        ? D
+        : T extends PairPattern<infer D>
+          ? D
+          : T extends Trait<infer D>
+            ? D
+            : never;
+
+export type ExtractStore<T extends Trait> = T extends Trait<infer D> ? Store<D> : never;
+
+export type ExtractIsTag<T extends Trait> = T extends { readonly schema: { kind: 'tag' } }
+    ? true
+    : false;
+
+export type IsTag<T extends Trait> = ExtractIsTag<T>;
