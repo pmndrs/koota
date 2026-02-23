@@ -6,7 +6,6 @@
   "type": "module",
   "main": "./src/index.ts",
   "dependencies": {
-    "@sim/bench-tools": "workspace:*",
     "directed": "catalog:",
     "koota": "workspace:*",
     "mitata": "catalog:"
