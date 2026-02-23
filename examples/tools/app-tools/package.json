@@ -1,0 +1,14 @@
+{
+  "name": "@examples/app-tools",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Benchmark tools",
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "@examples/bench-tools": "workspace:*"
+  },
+  "devDependencies": {
+    "@config/typescript": "workspace:*"
+  }
+}

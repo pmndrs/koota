@@ -4,8 +4,8 @@
   "private": true,
   "license": "ISC",
   "scripts": {
-    "app": "tsx ./scripts/app.ts",
-    "sim": "tsx ./scripts/sim.ts",
+    "bench": "tsx ./scripts/bench.ts",
+    "examples": "tsx ./scripts/examples.ts",
     "release": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
     "prepublishOnly": "pnpm -F koota build && pnpm -F koota generate-tests",
     "test": "pnpm -F core test run && pnpm -F react test run",
@@ -14,6 +14,7 @@
     "format": "prettier --config .config/prettier/base.json --write ."
   },
   "devDependencies": {
+    "@clack/prompts": "^1.0.1",
     "@types/node": "^24.10.1",
     "oxlint": "^1.36.0",
     "prettier": "latest",
