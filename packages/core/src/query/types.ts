@@ -3,6 +3,7 @@ import type { PairPattern } from '../trait/types';
 import type { ExtractStore, ExtractType, IsTag, Trait, TraitInstance } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
+import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
@@ -118,9 +119,13 @@ export type TrackingGroup = {
     type: 'add' | 'remove' | 'change';
     /** Tracking modifier ID for snapshot/mask lookups */
     id: number;
-    /** Bitmasks indexed by generationId */
+    /** Trait instances in this group */
+    groupTraits: Trait[];
+    /** Per-trait HiSparseBitSet trackers — trackerBitSets[i] tracks groupTraits[i] */
+    trackerBitSets: HiSparseBitSet[];
+    /** Legacy bitmasks indexed by generationId (kept during migration) */
     bitmasks: (number | undefined)[];
-    /** Per-entity tracker state indexed by [generationId][entityId] */
+    /** Legacy per-entity tracker state indexed by [generationId][entityId] (kept during migration) */
     trackers: (number[] | undefined)[];
 };
 
@@ -163,8 +168,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
         world: World,
         entity: Entity,
         eventType: 'add' | 'remove' | 'change',
-        generationId: number,
-        bitflag: number
+        trait: Trait
     ) => boolean;
     resetTrackingBitmasks: (eid: number) => void;
 };

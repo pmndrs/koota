@@ -252,7 +252,7 @@ export function addTraitToEntity(
 
     for (const query of trackingQueries) {
         query.toRemove.remove(entity);
-        const match = query.checkTracking(world, entity, 'add', generationId, bitflag);
+        const match = query.checkTracking(world, entity, 'add', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
@@ -284,7 +284,7 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
     }
 
     for (const query of trackingQueries) {
-        const match = query.checkTracking(world, entity, 'remove', generationId, bitflag);
+        const match = query.checkTracking(world, entity, 'remove', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }

@@ -50,7 +50,7 @@ function markChanged(world: World, entity: Entity, trait: Trait) {
         if (!query.hasChangedModifiers) continue;
         if (!query.changedTraits.has(trait)) continue;
 
-        const match = query.checkTracking(world, entity, 'change', generationId, bitflag);
+        const match = query.checkTracking(world, entity, 'change', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }

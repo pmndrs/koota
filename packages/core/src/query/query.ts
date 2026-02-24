@@ -7,6 +7,7 @@ import type { TagTrait, Trait } from '../trait/types';
 import { isPairPattern } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
+import { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { World } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
 import { createQueryResult } from './query-result';
@@ -101,11 +102,9 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
     const groups = query.trackingGroups;
     const len = groups.length;
     for (let i = 0; i < len; i++) {
-        const trackers = groups[i].trackers;
-        const trackersLen = trackers.length;
-        for (let j = 0; j < trackersLen; j++) {
-            const tracker = trackers[j];
-            if (tracker) tracker[eid] = 0;
+        const trackerBitSets = groups[i].trackerBitSets;
+        for (let j = 0; j < trackerBitSets.length; j++) {
+            trackerBitSets[j].remove(eid);
         }
     }
 }
@@ -136,6 +135,8 @@ function processTrackingModifier(
             logic,
             type: trackingType,
             id,
+            groupTraits: [],
+            trackerBitSets: [],
             bitmasks: [],
             trackers: [],
         };
@@ -143,7 +144,7 @@ function processTrackingModifier(
         query.trackingGroups.push(group);
     }
 
-    // Register traits and build bitmasks
+    // Register traits and build bitmasks + trackerBitSets
     for (const trait of modifier.traits) {
         if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
         const instance = getTraitInstance(ctx.traitInstances, trait)!;
@@ -152,7 +153,11 @@ function processTrackingModifier(
         // Add to traitInstances.all for query registration
         query.traitInstances.all.push(instance);
 
-        // Build bitmasks by generation
+        // Add trait and its tracker bitset to the group
+        group.groupTraits.push(trait);
+        group.trackerBitSets.push(new HiSparseBitSet());
+
+        // Legacy: build bitmasks by generation (kept during migration)
         const genId = instance.generationId;
         group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
 
@@ -198,13 +203,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
         add: (entity: Entity) => addEntityToQuery(query, entity),
         remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
         check: (world: World, entity: Entity) => checkQuery(world, query, entity),
-        checkTracking: (
-            world: World,
-            entity: Entity,
-            eventType: EventType,
-            generationId: number,
-            bitflag: number
-        ) => checkQueryTracking(world, query, entity, eventType, generationId, bitflag),
+        checkTracking: (world: World, entity: Entity, eventType: EventType, eventTrait: Trait) =>
+            checkQueryTracking(world, query, entity, eventType, eventTrait),
         resetTrackingBitmasks: (eid: number) => resetQueryTrackingBitmasks(query, eid),
     };
 
