@@ -12,8 +12,11 @@ Benchmarks live in `benches/`. Each benchmark is a directory with a `src/main.ts
 # Interactive GUI selector
 pnpm bench
 
-# Run a specific suite by name (partial match works)
-pnpm bench <name>
+# Run one or more suites by name (partial match works)
+pnpm bench <name> [name2 ...]
+
+# Comma-separated names also work
+pnpm bench <name1,name2,...>
 
 # Replay last selection without prompting
 pnpm bench --last
