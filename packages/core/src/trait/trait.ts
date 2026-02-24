@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged } from '../query/modifiers/changed';
@@ -104,6 +105,7 @@ export function registerTrait(world: World, trait: Trait) {
     const data: TraitInstance = {
         generationId: ctx.entityMasks.length - 1,
         bitflag: ctx.bitflag,
+        bitSet: new HiSparseBitSet(),
         definition: trait,
         store: createStore(trait.schema) as TraitInstance['store'],
         mode,
@@ -234,6 +236,7 @@ export function addTraitToEntity(
 
     const eid = getEntityId(entity);
     ctx.entityMasks[generationId][eid] |= bitflag;
+    instance.bitSet.insert(eid);
 
     for (const dirtyMask of ctx.dirtyMasks.values()) {
         if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
@@ -268,6 +271,7 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
 
     const eid = getEntityId(entity);
     ctx.entityMasks[generationId][eid] &= ~bitflag;
+    instance.bitSet.remove(eid);
 
     for (const dirtyMask of ctx.dirtyMasks.values()) {
         dirtyMask[generationId][eid] |= bitflag;

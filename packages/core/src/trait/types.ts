@@ -2,6 +2,7 @@ import { $internal, $orderedTargetsTrait } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { Schema, Store, TagSchema } from '../storage';
+import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { OrderedList } from './ordered-list';
 
 /**
@@ -110,6 +111,8 @@ export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
 export interface TraitInstance<T extends Trait = Trait> {
     generationId: number;
     bitflag: number;
+    /** Per-trait membership bitset — tracks which entities have this trait. */
+    bitSet: HiSparseBitSet;
     definition: TraitDef;
     store: Store<ExtractType<T>>;
     // Snapshotted from definition at registration
