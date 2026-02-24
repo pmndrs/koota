@@ -20,6 +20,7 @@ import type {
     Trait,
     TraitInstance,
 } from '../trait/types';
+import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 
 export type WorldOptions = {
     traits?: TraitLike[];
@@ -39,8 +40,11 @@ export type WorldInternal = {
     notQueries: Set<QueryInstance>;
     dirtyQueries: Set<QueryInstance>;
     dirtyMasks: Map<number, number[][]>;
-    trackingSnapshots: Map<number, number[][]>;
+    trackingSnapshots: Map<number, Map<number, HiSparseBitSet>>;
     changedMasks: Map<number, number[][]>;
+    addedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    removedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    changedBitSets: Map<number, Map<number, HiSparseBitSet>>;
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<(world: World) => void>;

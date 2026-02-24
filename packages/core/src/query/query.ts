@@ -371,101 +371,136 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     // Populate query with initial matching entities
     if (query.trackingGroups.length > 0) {
-        // For tracking queries, check each entity against tracking groups
+        // For tracking queries, check each entity against tracking groups using bitset maps
         for (const group of query.trackingGroups) {
-            const { type, id, logic, bitmasks } = group;
-            const snapshot = ctx.trackingSnapshots.get(id)!;
-            const dirtyMask = ctx.dirtyMasks.get(id)!;
-            const changedMask = ctx.changedMasks.get(id)!;
+            const { type, id, logic, groupTraits } = group;
+            const snapshotMap = ctx.trackingSnapshots.get(id);
+            const addedMap = ctx.addedBitSets.get(id);
+            const removedMap = ctx.removedBitSets.get(id);
+            const changedMap = ctx.changedBitSets.get(id);
 
-            for (const entity of ctx.entityIndex.dense) {
-                // For AND groups, skip if already in query (will be checked by other groups)
-                // For OR groups, skip if already in query
-                if (query.entities.has(entity)) continue;
+            // For each trait in the group, find candidate entities via bitset events
+            for (let ti = 0; ti < groupTraits.length; ti++) {
+                const groupTrait = groupTraits[ti];
+                const traitId = groupTrait.id;
+                const traitInst = getTraitInstance(ctx.traitInstances, groupTrait);
 
-                const eid = getEntityId(entity);
-                let matches = logic === 'and'; // AND starts true, OR starts false
+                let candidateBitSet: HiSparseBitSet | undefined;
 
-                // Check each generation that has bitmasks
-                for (let genId = 0; genId < bitmasks.length; genId++) {
-                    const mask = bitmasks[genId];
-                    if (!mask) continue;
+                switch (type) {
+                    case 'add': {
+                        // Added: entity has trait now AND didn't have it at snapshot time
+                        candidateBitSet = addedMap?.get(traitId);
+                        break;
+                    }
+                    case 'remove': {
+                        // Removed: entity was removed since tracking started
+                        candidateBitSet = removedMap?.get(traitId);
+                        break;
+                    }
+                    case 'change': {
+                        // Changed: entity had trait changed since tracking started
+                        candidateBitSet = changedMap?.get(traitId);
+                        break;
+                    }
+                }
 
-                    const oldMask = snapshot[genId]?.[eid] || 0;
-                    const currentMask = ctx.entityMasks[genId]?.[eid] || 0;
+                if (!candidateBitSet) continue;
 
-                    // Check each bit in the mask
-                    for (let bit = 1; bit <= mask; bit <<= 1) {
-                        if (!(mask & bit)) continue;
+                candidateBitSet.forEach((eid) => {
+                    const entity = eid as Entity;
+                    if (query.entities.has(entity)) return;
 
-                        let traitMatches = false;
+                    let traitMatches = false;
 
-                        switch (type) {
-                            case 'add':
-                                traitMatches = (oldMask & bit) === 0 && (currentMask & bit) === bit;
-                                break;
-                            case 'remove':
-                                traitMatches =
-                                    ((oldMask & bit) === bit && (currentMask & bit) === 0) ||
-                                    ((oldMask & bit) === 0 &&
-                                        (currentMask & bit) === 0 &&
-                                        ((dirtyMask[genId]?.[eid] ?? 0) & bit) === bit);
-                                break;
-                            case 'change':
-                                traitMatches = ((changedMask[genId]?.[eid] ?? 0) & bit) === bit;
-                                break;
+                    switch (type) {
+                        case 'add': {
+                            // Entity must have the trait now and NOT have had it at snapshot
+                            const hasTrNow = traitInst ? traitInst.bitSet.has(eid) : false;
+                            const snapshotBs = snapshotMap?.get(traitId);
+                            const hadAtSnapshot = snapshotBs ? snapshotBs.has(eid) : false;
+                            traitMatches = hasTrNow && !hadAtSnapshot;
+                            break;
                         }
-
-                        if (logic === 'and') {
-                            if (!traitMatches) {
-                                matches = false;
-                                break;
-                            }
-                        } else {
-                            // OR logic
-                            if (traitMatches) {
-                                matches = true;
-                                break;
-                            }
+                        case 'remove': {
+                            // Entity must NOT have the trait now
+                            const hasTrNow2 = traitInst ? traitInst.bitSet.has(eid) : false;
+                            traitMatches = !hasTrNow2;
+                            break;
+                        }
+                        case 'change': {
+                            // Entity must still have the trait
+                            const hasTrNow3 = traitInst ? traitInst.bitSet.has(eid) : false;
+                            traitMatches = hasTrNow3;
+                            break;
                         }
                     }
 
-                    // Early exit for AND that failed or OR that succeeded
-                    if (logic === 'and' && !matches) break;
-                    if (logic === 'or' && matches) break;
-                }
+                    if (!traitMatches) return;
 
-                if (matches) {
-                    // Relation filter for tracking population — O(1) sparse array lookup
+                    if (logic === 'or') {
+                        // OR: any trait match suffices — check static constraints then add
+                        if (query.check(world, entity)) {
+                            // Pair filter
+                            if (hasRelationFilters) {
+                                const pairArr = ctx.entityPairIds[eid];
+                                for (const pair of query.relationFilters!) {
+                                    const [relation, target] = pair;
+                                    if (target === '*') continue;
+                                    if (typeof target !== 'number') return;
+                                    const inst = getTraitInstance(
+                                        ctx.traitInstances,
+                                        relation as unknown as Trait
+                                    );
+                                    if (!inst || !inst.targetPairIds) return;
+                                    const pairId = inst.targetPairIds[getEntityId(target)];
+                                    if (pairId === undefined || !pairArr || pairArr[pairId] !== 1)
+                                        return;
+                                }
+                            }
+                            query.add(entity);
+                        }
+                    } else {
+                        // AND: all traits in group must match — mark tracker and check later
+                        group.trackerBitSets[ti].insert(eid);
+                    }
+                });
+            }
+
+            // For AND groups, now check which entities have all trackers satisfied
+            if (logic === 'and' && groupTraits.length > 0) {
+                const firstTracker = group.trackerBitSets[0];
+                firstTracker.forEach((eid) => {
+                    const entity = eid as Entity;
+                    if (query.entities.has(entity)) return;
+
+                    // Check all other trackers
+                    for (let t = 1; t < group.trackerBitSets.length; t++) {
+                        if (!group.trackerBitSets[t].has(eid)) return;
+                    }
+
+                    // Check static constraints
+                    if (!query.check(world, entity)) return;
+
+                    // Pair filter
                     if (hasRelationFilters) {
-                        const eid2 = getEntityId(entity);
-                        const pairArr = ctx.entityPairIds[eid2];
-                        let pairMatch = true;
+                        const pairArr = ctx.entityPairIds[eid];
                         for (const pair of query.relationFilters!) {
                             const [relation, target] = pair;
                             if (target === '*') continue;
-                            if (typeof target !== 'number') {
-                                pairMatch = false;
-                                break;
-                            }
+                            if (typeof target !== 'number') return;
                             const inst = getTraitInstance(
                                 ctx.traitInstances,
                                 relation as unknown as Trait
                             );
-                            if (!inst || !inst.targetPairIds) {
-                                pairMatch = false;
-                                break;
-                            }
+                            if (!inst || !inst.targetPairIds) return;
                             const pairId = inst.targetPairIds[getEntityId(target)];
-                            if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) {
-                                pairMatch = false;
-                                break;
-                            }
+                            if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) return;
                         }
-                        if (!pairMatch) continue;
                     }
+
                     query.add(entity);
-                }
+                });
             }
         }
     } else {

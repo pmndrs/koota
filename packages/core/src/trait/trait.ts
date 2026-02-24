@@ -243,6 +243,17 @@ export function addTraitToEntity(
         dirtyMask[generationId][eid] |= bitflag;
     }
 
+    // Mark entity in tracking event bitsets (sparse — only touched entities consume memory)
+    const traitId = trait.id;
+    for (const [, traitMap] of ctx.addedBitSets) {
+        let bs = traitMap.get(traitId);
+        if (!bs) {
+            bs = new HiSparseBitSet();
+            traitMap.set(traitId, bs);
+        }
+        bs.insert(eid);
+    }
+
     for (const query of queries) {
         query.toRemove.remove(entity);
         const match = query.check(world, entity);
@@ -275,6 +286,17 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
 
     for (const dirtyMask of ctx.dirtyMasks.values()) {
         dirtyMask[generationId][eid] |= bitflag;
+    }
+
+    // Mark entity in removed tracking event bitsets
+    const traitId = trait.id;
+    for (const [, traitMap] of ctx.removedBitSets) {
+        let bs = traitMap.get(traitId);
+        if (!bs) {
+            bs = new HiSparseBitSet();
+            traitMap.set(traitId, bs);
+        }
+        bs.insert(eid);
     }
 
     for (const query of queries) {

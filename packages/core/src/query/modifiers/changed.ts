@@ -1,5 +1,6 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
+import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
@@ -42,6 +43,17 @@ function markChanged(world: World, entity: Entity, trait: Trait) {
         if (!changedMask[generationId]) changedMask[generationId] = [];
         if (!changedMask[generationId][eid]) changedMask[generationId][eid] = 0;
         changedMask[generationId][eid] |= bitflag;
+    }
+
+    // Mark entity in changed tracking event bitsets (sparse)
+    const traitId = trait.id;
+    for (const [, traitMap] of ctx.changedBitSets) {
+        let bs = traitMap.get(traitId);
+        if (!bs) {
+            bs = new HiSparseBitSet();
+            traitMap.set(traitId, bs);
+        }
+        bs.insert(eid);
     }
 
     // Update tracking queries with change event
