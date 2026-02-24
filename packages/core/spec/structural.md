@@ -30,6 +30,8 @@ flowchart TD
     I --> J[Call add hooks]
 ```
 
+
+
 ### Steps
 
 **1. Add trait**
@@ -40,8 +42,6 @@ entity.add(Name)
 
 The trait ref is passed as an argument. If the entity already has the trait, the operation is a no-op.
 
----
-
 **2. Resolve trait instance**
 
 ```ts
@@ -49,9 +49,7 @@ if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait)
 const instance = getTraitInstance(ctx.traitInstances, trait)
 ```
 
-Look up the per-world `TraitInstance` for this trait ref. If this is the first time the world has seen the trait, it is lazily registered — allocating storage, assigning a bitflag and generation ID, and integrating with existing queries.
-
----
+Look up the per-world `TraitInstance` for this trait ref. If this is the first time the world has seen the trait, it is lazily registered allocating storage, assigning a bitflag and generation ID, and integrating with existing queries.
 
 **3. Add bitflag to entity bitmask**
 
@@ -61,8 +59,6 @@ ctx.entityMasks[generationId][eid] |= bitflag
 
 The trait instance's bitflag is OR'd into the entity's bitmask at the correct generation index. This is the source of truth for "does this entity have this trait".
 
----
-
 **4. Mark entity dirty in tracking masks**
 
 ```ts
@@ -71,9 +67,7 @@ for (const dirtyMask of ctx.dirtyMasks.values()) {
 }
 ```
 
-For every registered tracking modifier (`Added`, `Removed`, `Changed`), mark this entity+trait as dirty. Tracking queries read these masks to detect what changed between calls.
-
----
+For every registered tracking modifier (`Added`, `Removed`, `Changed`), mark this entity+trait as dirty. 
 
 **5. Update queries: check bitmask**
 
@@ -81,9 +75,7 @@ For every registered tracking modifier (`Added`, `Removed`, `Changed`), mark thi
 const match = query.check(world, entity)
 ```
 
-Loop through all queries that reference this trait and compare the entity's updated bitmask against each query's required/forbidden/or masks. Tracking queries additionally check event-specific bitmasks.
-
----
+Loop through all queries that reference this trait and compare the entity's updated bitmask against each query's required/forbidden/or masks.
 
 **6. Update queries: add or remove**
 
@@ -92,9 +84,7 @@ if (match) query.add(entity)
 else query.remove(world, entity)
 ```
 
-If the entity's bitmask now satisfies the query, add it to the query's entity set. Otherwise remove it — the structural change may have invalidated a `Not(...)` filter.
-
----
+If the entity's bitmask now satisfies the query, add it to the query's entity set. Otherwise remove it.
 
 **7. Initialize trait values**
 
@@ -103,8 +93,6 @@ setTrait(world, entity, trait, { ...defaults, ...params }, false)
 ```
 
 After the entity is structurally committed, trait data is initialized from schema defaults merged with any user-provided params. The `triggerChanged` flag is `false` here since this is an add, not a mutation.
-
----
 
 **8. Call add hooks**
 
