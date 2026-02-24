@@ -63,15 +63,37 @@ const main = async () => {
 		return;
 	}
 
-	// If a suite name was passed as an arg, run it directly.
-	const arg = args.find((a) => !a.startsWith('-'));
-	if (arg) {
-		const match = suites.find((s) => s.includes(arg));
-		if (!match) {
-			p.log.error(`No suite matching "${arg}". Available: ${suites.join(', ')}`);
+	// If suite names were passed as args, run all matches directly.
+	// Supports:
+	// - pnpm bench relation query
+	// - pnpm bench relation,query
+	const requested = args
+		.filter((a) => !a.startsWith('-'))
+		.flatMap((a) => a.split(','))
+		.map((s) => s.trim())
+		.filter(Boolean);
+	if (requested.length > 0) {
+		const selected: string[] = [];
+		const missing: string[] = [];
+		const seen = new Set<string>();
+		for (const token of requested) {
+			const match = suites.find((s) => s.includes(token));
+			if (!match) {
+				missing.push(token);
+				continue;
+			}
+			if (!seen.has(match)) {
+				seen.add(match);
+				selected.push(match);
+			}
+		}
+		if (missing.length > 0) {
+			p.log.error(`No suite matching: ${missing.join(', ')}. Available: ${suites.join(', ')}`);
 			process.exit(1);
 		}
-		runBench(baseDir, match);
+		saveSelection(selected);
+		for (const name of selected) runBench(baseDir, name);
+		p.outro('Done');
 		return;
 	}
 
