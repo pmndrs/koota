@@ -34,9 +34,8 @@ export function runQuery<T extends QueryParameter[]>(
 ): QueryResult<T> {
     commitQueryRemovals(world);
 
-    // With hybrid bitmask strategy, query.entities is already incrementally maintained
-    // with both trait and relation filters applied. Just return the pre-filtered entities.
-    const entities = query.entities.dense.slice() as Entity[];
+    const raw = query.entities.denseRaw;
+    const entities = raw.array.slice(0, raw.length) as Entity[];
 
     // Clear so it can accumulate again.
     if (query.isTracking) {
@@ -84,8 +83,11 @@ export function commitQueryRemovals(world: World) {
     if (!ctx.dirtyQueries.size) return;
 
     for (const query of ctx.dirtyQueries) {
-        for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
-            const eid = query.toRemove.dense[i];
+        // PERF: Cache denseRaw once instead of calling .dense getter (which .slice()s)
+        // on every iteration.
+        const raw = query.toRemove.denseRaw;
+        for (let i = raw.length - 1; i >= 0; i--) {
+            const eid = raw.array[i];
             query.toRemove.remove(eid);
             query.entities.remove(eid);
         }
@@ -355,7 +357,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
                     if (pairId === undefined) {
                         // Allocate a pairId even before any entity holds this pair,
                         // so queries can be indexed before add() is called.
-                        pairId = ctx.pairFreeIds.length > 0 ? ctx.pairFreeIds.pop()! : ctx.pairNextId++;
+                        pairId =
+                            ctx.pairFreeIds.length > 0 ? ctx.pairFreeIds.pop()! : ctx.pairNextId++;
                         inst.targetPairIds[targetEid] = pairId;
                         ctx.pairRefCount[pairId] = 0; // no entities yet
                     }
@@ -441,11 +444,23 @@ export function createQueryInstance<T extends QueryParameter[]>(
                         for (const pair of query.relationFilters!) {
                             const [relation, target] = pair;
                             if (target === '*') continue;
-                            if (typeof target !== 'number') { pairMatch = false; break; }
-                            const inst = getTraitInstance(ctx.traitInstances, relation as unknown as Trait);
-                            if (!inst || !inst.targetPairIds) { pairMatch = false; break; }
+                            if (typeof target !== 'number') {
+                                pairMatch = false;
+                                break;
+                            }
+                            const inst = getTraitInstance(
+                                ctx.traitInstances,
+                                relation as unknown as Trait
+                            );
+                            if (!inst || !inst.targetPairIds) {
+                                pairMatch = false;
+                                break;
+                            }
                             const pairId = inst.targetPairIds[getEntityId(target)];
-                            if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) { pairMatch = false; break; }
+                            if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) {
+                                pairMatch = false;
+                                break;
+                            }
                         }
                         if (!pairMatch) continue;
                     }
