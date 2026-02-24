@@ -54,9 +54,63 @@ Traits are a user-facing handle for storage. The user never interacts with store
 
 ## Internals
 
-Each trait instance has a bitflag and a generation ID per world. An entity builds a bitmask representing all of the traits it has. A query has its own bitmask representing the traits that define is archetype. Queries compare its bitmask against an entity to know if it belongs in the archetype.
+### Dual Membership System
 
-Pairs cannot be represented in the bitmask of an entity of query, only the base relation, and therefore are not captured in that comparison. This especially effects change and forbidden masking.
+Each trait instance maintains two parallel membership records for compatibility, until the library is entirely migrated to use HiSparseBitsets
+
+| Record                           | Data structure             | Purpose                                                         |
+| -------------------------------- | -------------------------- | --------------------------------------------------------------- |
+| `entityMasks[generationId][eid]` | Dense `number[][]` bitmask | Legacy path — used by `hasTrait()`                              |
+| `instance.bitSet`                | `HiSparseBitSet` per trait | Primary path — used by query matching, population, and tracking |
+
+When a trait is added to an entity, both records are updated:
+
+```ts
+ctx.entityMasks[generationId][eid] |= bitflag; // legacy bitmask
+instance.bitSet.insert(eid); // hierarchical sparse bitset
+```
+
+The `HiSparseBitSet` is a 3-level hierarchical sparse bitset that decomposes a 20-bit entity ID into four 5-bit fields, enabling O(1) membership checks and sublinear multi-set intersection via top-down pruning. See [hi-sparse-bitset.md](./hi-sparse-bitset.md) for the full data structure specification.
+
+### Entity Bitmasks (Legacy)
+
+Each trait instance has a bitflag and a generation ID per world. An entity builds a bitmask representing all of the traits it has via `entityMasks[generationId][eid] |= bitflag`. When 32 traits fill a generation, a new generation is created.
+
+This system is still maintained for backward compatibility (`hasTrait()` reads it) but is **no longer used** by the query matching hot path (`checkQuery`, `checkQueryTracking`) or query population.
+
+### BitSet-Based Query Matching
+
+Query matching uses per-trait `bitSet.has(eid)` — an O(1) sparse-array lookup with no generation loop or bitmask aggregation:
+
+```ts
+// Required — ALL must be present
+for (let i = 0; i < required.length; i++) {
+  if (!required[i].bitSet.has(eid)) return false;
+}
+
+// Forbidden — NONE must be present
+for (let i = 0; i < forbidden.length; i++) {
+  if (forbidden[i].bitSet.has(eid)) return false;
+}
+```
+
+Initial query population uses `forEachQuery(requiredSets, forbiddenSets, callback)` — a hierarchical intersection that prunes entire subtrees of the entity ID space at L0 (32K IDs) and L1 (1K IDs) before touching individual L2 data words.
+
+### Tracking System
+
+Tracking modifiers (`Added`, `Removed`, `Changed`) use per-trait `HiSparseBitSet` maps:
+
+```ts
+addedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>;
+removedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>;
+changedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>;
+```
+
+These are sparse — only entities that actually experience events consume memory. Tracking snapshots use `bitSet.clone()` instead of `structuredClone(entityMasks)`, and per-query tracker state uses `TrackingGroup.trackerBitSets: HiSparseBitSet[]` instead of dense `number[][]` arrays.
+
+### Pairs
+
+Pairs cannot be represented in the bitset of an entity or query, only the base relation, and therefore are not captured in bitset intersection. Pair membership uses a separate `entityPairIds[eid][pairId]` sparse array for O(1) lookup.
 
 ### Structural Changes
 
@@ -69,3 +123,9 @@ See [structural.md](./structural.md) for detailed code path documentation.
 Calling `world.query(...)` hashes the parameters, retrieves or creates a cached `QueryInstance`, and returns a fresh `QueryResult` built from the instance's incrementally-maintained entity set.
 
 See [query.md](./query.md) for detailed code path documentation.
+
+### HiSparseBitSet
+
+The hierarchical sparse bitset is the core data structure enabling sublinear query population and O(1) per-trait membership checks.
+
+See [hi-sparse-bitset.md](./hi-sparse-bitset.md) for the full data structure specification.
