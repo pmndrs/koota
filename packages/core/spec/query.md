@@ -24,8 +24,7 @@ flowchart TD
     F --> D
     D --> G[Flush pending removals]
     G --> H[Snapshot matching entities]
-    H --> I[Wrap in result object]
-    I --> J["Return QueryResult (Entity[] + helpers)"]
+    H --> I["Return QueryResult (Entity[] + helpers)"]
 ```
 
 ### Steps
