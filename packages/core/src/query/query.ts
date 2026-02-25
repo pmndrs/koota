@@ -7,7 +7,7 @@ import type { TagTrait, Trait } from '../trait/types';
 import { isPairPattern } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
-import { HiSparseBitSet } from '../utils/hi-sparse-bitset';
+import { HiSparseBitSet, forEachIntersection, forEachQuery as forEachBitSetQuery } from '../utils/hi-sparse-bitset';
 import type { World } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
 import { createQueryResult } from './query-result';
@@ -367,145 +367,181 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     // Populate query with initial matching entities
     if (query.trackingGroups.length > 0) {
-        // For tracking queries, check each entity against tracking groups using bitset maps
-        for (const group of query.trackingGroups) {
-            const { type, id, logic, groupTraitInstances: gInstances } = group;
-            const snapshotMap = ctx.trackingSnapshots.get(id);
-            const addedMap = ctx.addedBitSets.get(id);
-            const removedMap = ctx.removedBitSets.get(id);
-            const changedMap = ctx.changedBitSets.get(id);
-
-            // For each trait in the group, find candidate entities via bitset events
-            for (let ti = 0; ti < gInstances.length; ti++) {
-                const gInst = gInstances[ti];
-                const traitId = gInst.definition.id;
-                const traitInst = gInst;
-
-                let candidateBitSet: HiSparseBitSet | undefined;
-
-                switch (type) {
-                    case 'add': {
-                        // Added: entity has trait now AND didn't have it at snapshot time
-                        candidateBitSet = addedMap?.get(traitId);
-                        break;
-                    }
-                    case 'remove': {
-                        // Removed: entity was removed since tracking started
-                        candidateBitSet = removedMap?.get(traitId);
-                        break;
-                    }
-                    case 'change': {
-                        // Changed: entity had trait changed since tracking started
-                        candidateBitSet = changedMap?.get(traitId);
+        const entitySparse = ctx.entityIndex.sparse;
+        const entityDense = ctx.entityIndex.dense;
+        const requiredInst = query.traitInstances.required;
+        const forbiddenInst = query.traitInstances.forbidden;
+        const orInst = query.traitInstances.or;
+        const checkStaticAndRelation = (eid: number): Entity | null => {
+            for (let i = 0; i < requiredInst.length; i++) {
+                if (!requiredInst[i].bitSet.has(eid)) return null;
+            }
+            for (let i = 0; i < forbiddenInst.length; i++) {
+                if (forbiddenInst[i].bitSet.has(eid)) return null;
+            }
+            if (orInst.length > 0) {
+                let anyOr = false;
+                for (let i = 0; i < orInst.length; i++) {
+                    if (orInst[i].bitSet.has(eid)) {
+                        anyOr = true;
                         break;
                     }
                 }
-
-                if (!candidateBitSet) continue;
-
-                candidateBitSet.forEach((eid) => {
-                    const entity = eid as Entity;
-                    if (query.entities.has(entity)) return;
-
-                    let traitMatches = false;
-
-                    switch (type) {
-                        case 'add': {
-                            // Entity must have the trait now and NOT have had it at snapshot
-                            const hasTrNow = traitInst ? traitInst.bitSet.has(eid) : false;
-                            const snapshotBs = snapshotMap?.get(traitId);
-                            const hadAtSnapshot = snapshotBs ? snapshotBs.has(eid) : false;
-                            traitMatches = hasTrNow && !hadAtSnapshot;
-                            break;
-                        }
-                        case 'remove': {
-                            // Entity must NOT have the trait now
-                            const hasTrNow2 = traitInst ? traitInst.bitSet.has(eid) : false;
-                            traitMatches = !hasTrNow2;
-                            break;
-                        }
-                        case 'change': {
-                            // Entity must still have the trait
-                            const hasTrNow3 = traitInst ? traitInst.bitSet.has(eid) : false;
-                            traitMatches = hasTrNow3;
-                            break;
-                        }
-                    }
-
-                    if (!traitMatches) return;
-
-                    if (logic === 'or') {
-                        // OR: any trait match suffices — check static constraints then add
-                        if (query.check(world, entity)) {
-                            // Pair filter
-                            if (hasRelationFilters) {
-                                const pairArr = ctx.entityPairIds[eid];
-                                for (const pair of query.relationFilters!) {
-                                    const [relation, target] = pair;
-                                    if (target === '*') continue;
-                                    if (typeof target !== 'number') return;
-                                    const inst = getTraitInstance(
-                                        ctx.traitInstances,
-                                        relation as unknown as Trait
-                                    );
-                                    if (!inst || !inst.targetPairIds) return;
-                                    const pairId = inst.targetPairIds[getEntityId(target)];
-                                    if (pairId === undefined || !pairArr || pairArr[pairId] !== 1)
-                                        return;
-                                }
-                            }
-                            query.add(entity);
-                        }
-                    } else {
-                        // AND: all traits in group must match — mark tracker and check later
-                        group.trackerBitSets[ti].insert(eid);
-                    }
-                });
+                if (!anyOr) return null;
             }
+            const entity = entityDense[entitySparse[eid]] as Entity;
+            if (hasRelationFilters) {
+                const pairArr = ctx.entityPairIds[eid];
+                for (const pair of query.relationFilters!) {
+                    const [relation, target] = pair;
+                    if (target === '*') continue;
+                    if (typeof target !== 'number') return null;
+                    const inst = getTraitInstance(ctx.traitInstances, relation as unknown as Trait);
+                    if (!inst || !inst.targetPairIds) return null;
+                    const pairId = inst.targetPairIds[getEntityId(target)];
+                    if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) return null;
+                }
+            }
+            return entity;
+        };
+        for (const group of query.trackingGroups) {
+            const { type, id, logic, groupTraitInstances: gInstances } = group;
+            const snapshot = ctx.trackingSnapshots.get(id)!;
+            if (type === 'add') {
+                const membershipSets = gInstances.map((inst) => inst.bitSet);
+                if (membershipSets.length === 0) continue;
 
-            // For AND groups, now check which entities have all trackers satisfied
-            if (logic === 'and' && gInstances.length > 0) {
-                const firstTracker = group.trackerBitSets[0];
-                firstTracker.forEach((eid) => {
-                    const entity = eid as Entity;
-                    if (query.entities.has(entity)) return;
-
-                    // Check all other trackers
-                    for (let t = 1; t < group.trackerBitSets.length; t++) {
-                        if (!group.trackerBitSets[t].has(eid)) return;
-                    }
-
-                    // Check static constraints
-                    if (!query.check(world, entity)) return;
-
-                    // Pair filter
-                    if (hasRelationFilters) {
-                        const pairArr = ctx.entityPairIds[eid];
-                        for (const pair of query.relationFilters!) {
-                            const [relation, target] = pair;
-                            if (target === '*') continue;
-                            if (typeof target !== 'number') return;
-                            const inst = getTraitInstance(
-                                ctx.traitInstances,
-                                relation as unknown as Trait
-                            );
-                            if (!inst || !inst.targetPairIds) return;
-                            const pairId = inst.targetPairIds[getEntityId(target)];
-                            if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) return;
+                if (logic === 'and') {
+                    forEachIntersection(membershipSets, (eid) => {
+                        if (query.entities.has(entityDense[entitySparse[eid]])) return;
+                        for (let i = 0; i < gInstances.length; i++) {
+                            if (snapshot.get(gInstances[i].definition.id)?.has(eid)) return;
                         }
+                        const entity = checkStaticAndRelation(eid);
+                        if (entity) query.add(entity);
+                    });
+                } else {
+                    for (let i = 0; i < gInstances.length; i++) {
+                        const inst = gInstances[i];
+                        inst.bitSet.forEach((eid) => {
+                            if (query.entities.has(entityDense[entitySparse[eid]])) return;
+                            if (snapshot.get(inst.definition.id)?.has(eid)) return;
+                            const entity = checkStaticAndRelation(eid);
+                            if (entity) query.add(entity);
+                        });
                     }
+                }
+            } else if (type === 'remove') {
+                const removedMap = ctx.removedBitSets.get(id);
+                if (!removedMap) continue;
+                const removedSets: HiSparseBitSet[] = [];
+                for (let i = 0; i < gInstances.length; i++) {
+                    const bs = removedMap.get(gInstances[i].definition.id);
+                    if (bs) removedSets.push(bs);
+                }
+                if (removedSets.length === 0) continue;
 
-                    query.add(entity);
-                });
+                if (logic === 'and') {
+                    forEachIntersection(removedSets, (eid) => {
+                        if (query.entities.has(entityDense[entitySparse[eid]])) return;
+                        for (let i = 0; i < gInstances.length; i++) {
+                            if (gInstances[i].bitSet.has(eid)) return;
+                        }
+                        const entity = checkStaticAndRelation(eid);
+                        if (entity) query.add(entity);
+                    });
+                } else {
+                    for (const rSet of removedSets) {
+                        rSet.forEach((eid) => {
+                            if (query.entities.has(entityDense[entitySparse[eid]])) return;
+                            const entity = checkStaticAndRelation(eid);
+                            if (entity) query.add(entity);
+                        });
+                    }
+                }
+            } else if (type === 'change') {
+                const changedMap = ctx.changedBitSets.get(id);
+                if (!changedMap) continue;
+                const changedSets: HiSparseBitSet[] = [];
+                for (let i = 0; i < gInstances.length; i++) {
+                    const bs = changedMap.get(gInstances[i].definition.id);
+                    if (bs) changedSets.push(bs);
+                }
+                if (changedSets.length === 0) continue;
+
+                if (logic === 'and') {
+                    forEachIntersection(changedSets, (eid) => {
+                        if (query.entities.has(entityDense[entitySparse[eid]])) return;
+                        for (let i = 0; i < gInstances.length; i++) {
+                            if (!gInstances[i].bitSet.has(eid)) return;
+                        }
+                        const entity = checkStaticAndRelation(eid);
+                        if (entity) query.add(entity);
+                    });
+                } else {
+                    for (const cSet of changedSets) {
+                        cSet.forEach((eid) => {
+                            if (query.entities.has(entityDense[entitySparse[eid]])) return;
+                            const entity = checkStaticAndRelation(eid);
+                            if (entity) query.add(entity);
+                        });
+                    }
+                }
             }
         }
     } else {
-        // Non-tracking query: populate immediately
-        // checkQuery now handles relation filters internally
-        const entities = ctx.entityIndex.dense;
-        for (let i = 0; i < entities.length; i++) {
-            const entity = entities[i];
-            if (query.check(world, entity)) query.add(entity);
+        // Non-tracking query: use bitset intersection for population
+        const requiredInstances = query.traitInstances.required;
+        const forbiddenInstances = query.traitInstances.forbidden;
+        const orInstances = query.traitInstances.or;
+        const hasOr = orInstances.length > 0;
+        const rf = query.relationFilters;
+        const hasRf = rf !== undefined && rf.length > 0;
+
+        if (requiredInstances.length > 0) {
+            const requiredSets = requiredInstances.map((inst) => inst.bitSet);
+            const forbiddenSets = forbiddenInstances.map((inst) => inst.bitSet);
+            const entitySparse = ctx.entityIndex.sparse;
+            const entityDense = ctx.entityIndex.dense;
+
+            forEachBitSetQuery(requiredSets, forbiddenSets, (eid) => {
+                if (hasOr) {
+                    let anyOr = false;
+                    for (let j = 0; j < orInstances.length; j++) {
+                        if (orInstances[j].bitSet.has(eid)) {
+                            anyOr = true;
+                            break;
+                        }
+                    }
+                    if (!anyOr) return;
+                }
+
+                const entity = entityDense[entitySparse[eid]] as Entity;
+
+                if (hasRf) {
+                    const pairArr = ctx.entityPairIds[eid];
+                    for (let j = 0; j < rf!.length; j++) {
+                        const [relation, target] = rf![j];
+                        if (target === '*') continue;
+                        if (typeof target !== 'number') return;
+                        const inst = getTraitInstance(
+                            ctx.traitInstances,
+                            relation as unknown as Trait
+                        );
+                        if (!inst || !inst.targetPairIds) return;
+                        const pairId = inst.targetPairIds[getEntityId(target)];
+                        if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) return;
+                    }
+                }
+
+                query.add(entity);
+            });
+        } else {
+            const entities = ctx.entityIndex.dense;
+            for (let i = 0; i < entities.length; i++) {
+                const entity = entities[i];
+                if (query.check(world, entity)) query.add(entity);
+            }
         }
     }
 
