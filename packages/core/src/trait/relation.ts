@@ -7,6 +7,7 @@ import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchem
 import type { World } from '../world';
 import { addTraitToEntity, defineTrait, hasTrait, removeTraitFromEntity } from './trait';
 import { getTraitInstance } from './trait-instance';
+import { SparseSet } from '../utils/sparse-set';
 import type { PairPattern, Relation, PairTarget, TraitInstance } from './types';
 
 /** Options that can be passed to `relation()` alongside or instead of a schema. */
@@ -200,6 +201,10 @@ export function addRelationTarget(
     ctx.entityPairIds[eid][pairId] = 1;
     ctx.pairRefCount[pairId]++;
 
+    // Maintain per-pair reverse index for O(K) relation queries
+    if (!ctx.pairEntities[pairId]) ctx.pairEntities[pairId] = new SparseSet();
+    ctx.pairEntities[pairId]!.add(eid);
+
     // Mark pair dirty for all active tracking IDs (infrastructure for Added(pair) tracking)
     const pairDirtyMasks = ctx.pairDirtyMasks;
     for (let i = 0; i < pairDirtyMasks.length; i++) {
@@ -248,6 +253,10 @@ export function removeRelationTarget(
     if (pairId !== undefined) {
         const pairArr = ctx.entityPairIds[eid];
         if (pairArr) pairArr[pairId] = 0;
+
+        // Remove from per-pair reverse index
+        const pairSet = ctx.pairEntities[pairId];
+        if (pairSet) pairSet.remove(eid);
 
         ctx.pairRefCount[pairId]--;
         // Recycle the pairId when no entity holds this (relation, target) anymore
@@ -334,7 +343,7 @@ export function removeAllRelationTargets(world: World, relation: Relation, entit
 
 /**
  * Get all entities that have a specific relation targeting a specific entity.
- * Builds result on-demand by scanning relationTargets (not maintained in reverse index).
+ * Uses per-pair SparseSet reverse index for O(K) lookup where K = matching entities.
  */
 export function getEntitiesWithRelationTo(
     world: World,
@@ -343,23 +352,22 @@ export function getEntitiesWithRelationTo(
 ): readonly Entity[] {
     const ctx = world[$internal];
     const traitData = getTraitInstance(ctx.traitInstances, relation);
-    if (!traitData || !traitData.relationTargets) return [];
+    if (!traitData || !traitData.targetPairIds) return [];
 
-    const targetId = target;
-    const entityIndex = ctx.entityIndex;
-    const sparse = entityIndex.sparse;
-    const dense = entityIndex.dense;
-    const result: Entity[] = [];
-    const relationTargets = traitData.relationTargets;
+    const targetEid = getEntityId(target);
+    const pairId = traitData.targetPairIds[targetEid];
+    if (pairId === undefined) return [];
 
-    for (let eid = 0; eid < relationTargets.length; eid++) {
-        const targets = relationTargets[eid];
-        if (targets && targets.includes(targetId)) {
-            const denseIdx = sparse[eid];
-            if (denseIdx !== undefined && getEntityId(dense[denseIdx]) === eid) {
-                result.push(dense[denseIdx]);
-            }
-        }
+    const pairSet = ctx.pairEntities[pairId];
+    if (!pairSet || pairSet.length === 0) return [];
+
+    // O(K) iteration: only visit entities that hold this exact pair
+    const raw = pairSet.denseRaw;
+    const sparse = ctx.entityIndex.sparse;
+    const dense = ctx.entityIndex.dense;
+    const result: Entity[] = new Array(raw.length);
+    for (let i = 0; i < raw.length; i++) {
+        result[i] = dense[sparse[raw.array[i]]];
     }
 
     return result;

@@ -28,8 +28,8 @@ export class HiSparseBitSet {
     /** L1 summary: l1Summary[l0i] bit j set means l2 block (l0i*32 + j) has data. */
     l1Summary: Uint32Array = new Uint32Array(32);
 
-    /** L2 data blocks. l2Blocks[l0i * 32 + l1i] is a 32-element Uint32Array. */
-    l2Blocks: (Uint32Array | null)[] = [];
+    /** L2 data blocks. l2Blocks[l1i] is a 32-element Uint32Array (pre-allocated to 32 null slots). */
+    l2Blocks: (Uint32Array | null)[] = new Array<Uint32Array | null>(32).fill(null);
 
     private _size: number = 0;
 
@@ -41,10 +41,7 @@ export class HiSparseBitSet {
     insert(index: number): void {
         const l0i = index >>> 15;
         const l1i = (index >>> 10) & 31;
-        const l2i = (index >>> 5) & 31;
-        const bit = index & 31;
-
-        const blockIdx = (l0i << 5) | l1i;
+        const blockIdx = l0i === 0 ? l1i : (l0i << 5) | l1i;
 
         // Allocate L2 block if needed
         let block = this.l2Blocks[blockIdx];
@@ -53,8 +50,9 @@ export class HiSparseBitSet {
             this.l2Blocks[blockIdx] = block;
         }
 
+        const l2i = (index >>> 5) & 31;
+        const mask = 1 << (index & 31);
         const word = block[l2i];
-        const mask = 1 << bit;
 
         if ((word & mask) === 0) {
             block[l2i] = word | mask;
@@ -68,15 +66,13 @@ export class HiSparseBitSet {
     remove(index: number): void {
         const l0i = index >>> 15;
         const l1i = (index >>> 10) & 31;
-        const l2i = (index >>> 5) & 31;
-        const bit = index & 31;
-
-        const blockIdx = (l0i << 5) | l1i;
+        const blockIdx = l0i === 0 ? l1i : (l0i << 5) | l1i;
         const block = this.l2Blocks[blockIdx];
         if (block === null || block === undefined) return;
 
+        const l2i = (index >>> 5) & 31;
+        const mask = 1 << (index & 31);
         const word = block[l2i];
-        const mask = 1 << bit;
 
         if ((word & mask) !== 0) {
             block[l2i] = word & ~mask;
@@ -108,14 +104,10 @@ export class HiSparseBitSet {
     /** Test membership. O(1). */
     has(index: number): boolean {
         const l0i = index >>> 15;
-        const l1i = (index >>> 10) & 31;
-        const l2i = (index >>> 5) & 31;
-        const bit = index & 31;
-
-        const blockIdx = (l0i << 5) | l1i;
+        const blockIdx = l0i === 0 ? (index >>> 10) & 31 : (l0i << 5) | ((index >>> 10) & 31);
         const block = this.l2Blocks[blockIdx];
         if (block === null || block === undefined) return false;
-        return (block[l2i] & (1 << bit)) !== 0;
+        return (block[(index >>> 5) & 31] & (1 << (index & 31))) !== 0;
     }
 
     /** Clear all entries. */

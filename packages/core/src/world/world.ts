@@ -78,6 +78,7 @@ export function createWorld(
             pairFreeIds: [],
             entityPairIds: [],
             pairQueries: [],
+            pairEntities: [],
             pairDirtyMasks: [],
             pairChangedMasks: [],
         } as WorldInternal,
@@ -180,6 +181,7 @@ export function createWorld(
             ctx.removedBitSets.clear();
             ctx.changedBitSets.clear();
             ctx.trackedTraits.clear();
+            ctx.pairEntities.length = 0;
 
             // Create new world entity.
             ctx.worldEntity = createEntity(world, IsExcluded);
