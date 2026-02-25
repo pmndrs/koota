@@ -25,7 +25,7 @@ export function checkQueryTracking(
     const trackingGroupsLen = trackingGroups.length;
 
     // Early exit: no traits to check
-    if (query.traitInstances.all.length === 0) return false;
+    if (required.length === 0 && forbidden.length === 0 && or.length === 0 && trackingGroupsLen === 0) return false;
 
     // 1. Check static constraints via bitSet.has(eid)
     for (let i = 0; i < required.length; i++) {

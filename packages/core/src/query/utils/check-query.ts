@@ -14,7 +14,7 @@ export function checkQuery(world: World, query: QueryInstance, entity: Entity): 
     const { required, forbidden, or } = query.traitInstances;
     const eid = getEntityId(entity);
 
-    if (query.traitInstances.all.length === 0) return false;
+    if (required.length === 0 && forbidden.length === 0 && or.length === 0) return false;
 
     // AND
     for (let i = 0; i < required.length; i++) {
