@@ -4,7 +4,7 @@ import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
-import type { Trait } from '../../trait/types';
+import type { Trait, TraitInstance } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world';
 import { createModifier } from '../modifier';
@@ -95,4 +95,31 @@ export function setChanged(world: World, entity: Entity, trait: Trait, target?: 
     } else {
         for (const sub of data.changeSubscriptions) sub(entity);
     }
+}
+
+
+/**
+ * Fast path for updateEach — skips hasTrait/getTraitInstance lookups
+ * since the caller already has the resolved instance.
+ */
+export function setChangedFast(world: World, entity: Entity, trait: Trait, instance: TraitInstance) {
+    const ctx = world[$internal];
+    const eid = getEntityId(entity);
+    const traitId = trait.id;
+
+    for (const [, traitMap] of ctx.changedBitSets) {
+        let bs = traitMap.get(traitId);
+        if (!bs) { bs = new HiSparseBitSet(); traitMap.set(traitId, bs); }
+        bs.insert(eid);
+    }
+
+    for (const query of instance.trackingQueries) {
+        if (!query.hasChangedModifiers) continue;
+        if (!query.changedTraits.has(trait)) continue;
+        const match = query.checkTracking(world, entity, 'change', trait);
+        if (match) query.add(entity);
+        else query.remove(world, entity);
+    }
+
+    for (const sub of instance.changeSubscriptions) sub(entity);
 }

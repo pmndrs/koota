@@ -8,7 +8,7 @@ import type { Trait, TraitInstance } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import type { World } from '../world';
 import { isModifier } from './modifier';
-import { setChanged } from './modifiers/changed';
+import { setChangedFast } from './modifiers/changed';
 import type {
     InstancesFromParameters,
     QueryInstance,
@@ -57,7 +57,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
             // Inline all three permutations of updateEach for performance.
             if (options.changeDetection === 'auto') {
-                const changedPairs: [Entity, Trait][] = [];
+                const changedPairs: [Entity, Trait, TraitInstance][] = [];
                 const atomicSnapshots: any[] = [];
                 const trackedIndices: number[] = [];
                 const untrackedIndices: number[] = [];
@@ -99,7 +99,7 @@ export function createQueryResult<T extends QueryParameter[]>(
                         }
 
                         // Collect changed traits.
-                        if (changed) changedPairs.push([entity, traits[index]] as const);
+                        if (changed) changedPairs.push([entity, traits[index], instances[index]]);
                     }
 
                     // Commit all changes back to the stores for untracked traits.
@@ -112,11 +112,11 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                 // Trigger change events for each entity that was modified.
                 for (let i = 0; i < changedPairs.length; i++) {
-                    const [entity, trait] = changedPairs[i];
-                    setChanged(world, entity, trait);
+                    const [entity, trait, inst] = changedPairs[i];
+                    setChangedFast(world, entity, trait, inst);
                 }
             } else if (options.changeDetection === 'always') {
-                const changedPairs: [Entity, Trait][] = [];
+                const changedPairs: [Entity, Trait, TraitInstance][] = [];
                 const atomicSnapshots: any[] = [];
 
                 for (let i = 0; i < entities.length; i++) {
@@ -153,14 +153,14 @@ export function createQueryResult<T extends QueryParameter[]>(
                         }
 
                         // Collect changed traits.
-                        if (changed) changedPairs.push([entity, traits[j]] as const);
+                        if (changed) changedPairs.push([entity, traits[j], instances[j]]);
                     }
                 }
 
                 // Trigger change events for each entity that was modified.
                 for (let i = 0; i < changedPairs.length; i++) {
-                    const [entity, trait] = changedPairs[i];
-                    setChanged(world, entity, trait);
+                    const [entity, trait, inst] = changedPairs[i];
+                    setChangedFast(world, entity, trait, inst);
                 }
             } else if (options.changeDetection === 'never') {
                 for (let i = 0; i < entities.length; i++) {
