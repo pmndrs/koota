@@ -21,6 +21,7 @@ import type {
     TraitInstance,
 } from '../trait/types';
 import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
+import type { SparseSet } from '../utils/sparse-set';
 
 export type WorldOptions = {
     traits?: TraitLike[];
@@ -69,6 +70,11 @@ export type WorldInternal = {
      * Sparse array — only populated for exact-pair (non-wildcard) relation filters.
      */
     pairQueries: (QueryInstance[] | undefined)[];
+    /**
+     * Per-pair reverse index. pairEntities[pairId] = SparseSet of eids holding this pair.
+     * Enables O(K) relation queries where K = matching entities.
+     */
+    pairEntities: (SparseSet | undefined)[];
     // Pair-level tracking (indexed by trackingGroupIdx, not Map)
     /** pairDirtyMasks[trackingGroupIdx][eid][pairId] = dirty flag for add/remove tracking */
     pairDirtyMasks: (number[][] | undefined)[];
