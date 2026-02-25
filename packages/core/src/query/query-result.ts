@@ -4,7 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { isPairPattern } from '../trait/utils/is-relation';
 import { Store } from '../storage';
 import { getTraitInstance } from '../trait/trait-instance';
-import type { Trait, TraitInstance } from '../trait/types';
+import type { Trait, TraitAccessors, TraitInstance } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import type { World } from '../world';
 import { isModifier } from './modifier';
@@ -18,44 +18,120 @@ import type {
     StoresFromParameters,
 } from './types';
 
+type CachedQueryContext = {
+    traits: Trait[];
+    stores: Store<any>[];
+    instances: TraitInstance[];
+    accessors: TraitAccessors[];
+    isAos: boolean[];
+    traitCount: number;
+    methods: CachedQueryMethods;
+};
+
+type CachedQueryMethods = {
+    readEach: any;
+    updateEach: any;
+    useStores: any;
+    select: any;
+    sort: any;
+};
+
+const _cachedContextMap = new WeakMap<QueryInstance, CachedQueryContext>();
+
 export function createQueryResult<T extends QueryParameter[]>(
     world: World,
     entities: Entity[],
     query: QueryInstance,
     params: QueryParameter[]
 ): QueryResult<T> {
-    const traits: Trait[] = [];
-    const stores: Store<any>[] = [];
-    const instances: TraitInstance[] = [];
+    let ctx = _cachedContextMap.get(query);
 
-    getQueryStores(params, traits, stores, instances, world);
+    if (!ctx) {
+        const traits: Trait[] = [];
+        const stores: Store<any>[] = [];
+        const instances: TraitInstance[] = [];
 
-    const results = Object.assign(entities, {
+        getQueryStores(params, traits, stores, instances, world);
+
+        const traitCount = traits.length;
+        const accessors: TraitAccessors[] = new Array(traitCount);
+        const isAos: boolean[] = new Array(traitCount);
+        for (let i = 0; i < traitCount; i++) {
+            accessors[i] = instances[i].accessors;
+            isAos[i] = instances[i].definition.schema.kind === 'aos';
+        }
+
+        ctx = {
+            traits,
+            stores,
+            instances,
+            accessors,
+            isAos,
+            traitCount,
+            methods: {} as CachedQueryMethods,
+        };
+
+        ctx.methods = buildMethods<T>(world, query, traits, stores, instances, accessors, isAos, ctx);
+        _cachedContextMap.set(query, ctx);
+    } else {
+        ctx.traits.length = 0;
+        ctx.stores.length = 0;
+        ctx.instances.length = 0;
+        getQueryStores(params, ctx.traits, ctx.stores, ctx.instances, world);
+        const newCount = ctx.traits.length;
+        ctx.accessors.length = newCount;
+        ctx.isAos.length = newCount;
+        for (let i = 0; i < newCount; i++) {
+            ctx.accessors[i] = ctx.instances[i].accessors;
+            ctx.isAos[i] = ctx.instances[i].definition.schema.kind === 'aos';
+        }
+        ctx.traitCount = newCount;
+    }
+
+    const results = Object.assign(entities, ctx.methods) as unknown as QueryResult<T>;
+    return results;
+}
+
+function buildMethods<T extends QueryParameter[]>(
+    world: World,
+    query: QueryInstance,
+    traits: Trait[],
+    stores: Store<any>[],
+    instances: TraitInstance[],
+    accessors: TraitAccessors[],
+    isAos: boolean[],
+    ctx: CachedQueryContext
+): CachedQueryMethods {
+    return {
         readEach(
+            this: Entity[],
             callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
         ) {
-            const state = Array.from({ length: instances.length }) as InstancesFromParameters<T>;
-
-            for (let i = 0; i < entities.length; i++) {
-                const entity = entities[i];
+            const ents = this;
+            const tc = ctx.traitCount;
+            const state = Array.from({
+                length: tc,
+            }) as InstancesFromParameters<T>;
+            for (let i = 0; i < ents.length; i++) {
+                const entity = ents[i];
                 const eid = getEntityId(entity);
-
-                // Create snapshots without atomic tracking
-                createSnapshots(eid, instances, state);
-
+                for (let j = 0; j < tc; j++) {
+                    state[j] = accessors[j].get(eid, stores[j]);
+                }
                 callback(state, entity, i);
             }
-
-            return results;
+            return ents;
         },
 
         updateEach(
+            this: Entity[],
             callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
             options: QueryResultOptions = { changeDetection: 'auto' }
         ) {
-            const state = Array.from({ length: instances.length });
+            const ents = this;
+            const tc = ctx.traitCount;
+            const state = Array.from({ length: tc });
 
-            // Inline all three permutations of updateEach for performance.
             if (options.changeDetection === 'auto') {
                 const changedPairs: [Entity, Trait, TraitInstance][] = [];
                 const atomicSnapshots: any[] = [];
@@ -64,53 +140,44 @@ export function createQueryResult<T extends QueryParameter[]>(
 
                 getTrackedTraits(traits, world, query, trackedIndices, untrackedIndices);
 
-                for (let i = 0; i < entities.length; i++) {
-                    const entity = entities[i];
+                for (let i = 0; i < ents.length; i++) {
+                    const entity = ents[i];
                     const eid = getEntityId(entity);
 
-                    createSnapshotsWithAtomic(eid, instances, state, atomicSnapshots);
+                    for (let j = 0; j < tc; j++) {
+                        const value = accessors[j].get(eid, stores[j]);
+                        state[j] = value;
+                        atomicSnapshots[j] = isAos[j] ? { ...value } : null;
+                    }
                     callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
-                    // Skip if the entity has been destroyed.
                     if (!world.has(entity)) continue;
 
-                    // Commit all changes back to the stores for tracked traits.
                     for (let j = 0; j < trackedIndices.length; j++) {
                         const index = trackedIndices[j];
-                        const inst = instances[index];
                         const newValue = state[index];
+                        const store = stores[index];
+                        const acc = accessors[index];
 
                         let changed = false;
-                        if (inst.definition.schema.kind === 'aos') {
-                            changed = inst.accessors.fastSetWithChangeDetection(
-                                eid,
-                                inst.store,
-                                newValue as any
-                            );
+                        if (isAos[index]) {
+                            changed = acc.fastSetWithChangeDetection(eid, store, newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[index]);
                             }
                         } else {
-                            changed = inst.accessors.fastSetWithChangeDetection(
-                                eid,
-                                inst.store,
-                                newValue as any
-                            );
+                            changed = acc.fastSetWithChangeDetection(eid, store, newValue as any);
                         }
 
-                        // Collect changed traits.
                         if (changed) changedPairs.push([entity, traits[index], instances[index]]);
                     }
 
-                    // Commit all changes back to the stores for untracked traits.
                     for (let j = 0; j < untrackedIndices.length; j++) {
                         const index = untrackedIndices[j];
-                        const inst = instances[index];
-                        inst.accessors.fastSet(eid, inst.store, state[index] as any);
+                        accessors[index].fastSet(eid, stores[index], state[index] as any);
                     }
                 }
 
-                // Trigger change events for each entity that was modified.
                 for (let i = 0; i < changedPairs.length; i++) {
                     const [entity, trait, inst] = changedPairs[i];
                     setChangedFast(world, entity, trait, inst);
@@ -119,92 +186,94 @@ export function createQueryResult<T extends QueryParameter[]>(
                 const changedPairs: [Entity, Trait, TraitInstance][] = [];
                 const atomicSnapshots: any[] = [];
 
-                for (let i = 0; i < entities.length; i++) {
-                    const entity = entities[i];
+                for (let i = 0; i < ents.length; i++) {
+                    const entity = ents[i];
                     const eid = getEntityId(entity);
 
-                    createSnapshotsWithAtomic(eid, instances, state, atomicSnapshots);
+                    for (let j = 0; j < tc; j++) {
+                        const value = accessors[j].get(eid, stores[j]);
+                        state[j] = value;
+                        atomicSnapshots[j] = isAos[j] ? { ...value } : null;
+                    }
                     callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
-                    // Skip if the entity has been destroyed.
                     if (!world.has(entity)) continue;
 
-                    // Commit all changes back to the stores.
-                    for (let j = 0; j < instances.length; j++) {
-                        const inst = instances[j];
+                    for (let j = 0; j < tc; j++) {
                         const newValue = state[j];
+                        const acc = accessors[j];
 
                         let changed = false;
-                        if (inst.definition.schema.kind === 'aos') {
-                            changed = inst.accessors.fastSetWithChangeDetection(
-                                eid,
-                                inst.store,
-                                newValue as any
-                            );
+                        if (isAos[j]) {
+                            changed = acc.fastSetWithChangeDetection(eid, stores[j], newValue as any);
                             if (!changed) {
                                 changed = !shallowEqual(newValue, atomicSnapshots[j]);
                             }
                         } else {
-                            changed = inst.accessors.fastSetWithChangeDetection(
-                                eid,
-                                inst.store,
-                                newValue as any
-                            );
+                            changed = acc.fastSetWithChangeDetection(eid, stores[j], newValue as any);
                         }
 
-                        // Collect changed traits.
                         if (changed) changedPairs.push([entity, traits[j], instances[j]]);
                     }
                 }
 
-                // Trigger change events for each entity that was modified.
                 for (let i = 0; i < changedPairs.length; i++) {
                     const [entity, trait, inst] = changedPairs[i];
                     setChangedFast(world, entity, trait, inst);
                 }
             } else if (options.changeDetection === 'never') {
-                for (let i = 0; i < entities.length; i++) {
-                    const entity = entities[i];
+                for (let i = 0; i < ents.length; i++) {
+                    const entity = ents[i];
                     const eid = getEntityId(entity);
-                    createSnapshots(eid, instances, state);
+
+                    for (let j = 0; j < tc; j++) {
+                        state[j] = accessors[j].get(eid, stores[j]);
+                    }
                     callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
-                    // Skip if the entity has been destroyed.
                     if (!world.has(entity)) continue;
 
-                    // Commit all changes back to the stores.
-                    for (let j = 0; j < instances.length; j++) {
-                        const inst = instances[j];
-                        inst.accessors.fastSet(eid, inst.store, state[j] as any);
+                    for (let j = 0; j < tc; j++) {
+                        accessors[j].fastSet(eid, stores[j], state[j] as any);
                     }
                 }
             }
 
-            return results;
+            return ents;
         },
 
-        useStores(callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void) {
-            callback(stores as unknown as StoresFromParameters<T>, entities);
-            return results;
+        useStores(
+            this: Entity[],
+            callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
+        ) {
+            callback(stores as unknown as StoresFromParameters<T>, this);
+            return this;
         },
 
-        select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
+        select(this: Entity[] & CachedQueryMethods, ...newParams: QueryParameter[]) {
             traits.length = 0;
             stores.length = 0;
             instances.length = 0;
-            getQueryStores(params, traits, stores, instances, world);
-            return results as unknown as QueryResult<U>;
+            getQueryStores(newParams, traits, stores, instances, world);
+            const newCount = traits.length;
+            accessors.length = newCount;
+            isAos.length = newCount;
+            for (let i = 0; i < newCount; i++) {
+                accessors[i] = instances[i].accessors;
+                isAos[i] = instances[i].definition.schema.kind === 'aos';
+            }
+            ctx.traitCount = newCount;
+            return this;
         },
 
         sort(
+            this: Entity[],
             callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
-        ): QueryResult<T> {
-            Array.prototype.sort.call(entities, callback);
-            return results;
+        ) {
+            Array.prototype.sort.call(this, callback);
+            return this;
         },
-    });
-
-    return results;
+    };
 }
 
 /* @inline */ function getTrackedTraits(
@@ -224,26 +293,6 @@ export function createQueryResult<T extends QueryParameter[]>(
     }
 }
 
-/* @inline */ function createSnapshots(entityId: number, instances: TraitInstance[], state: any[]) {
-    for (let i = 0; i < instances.length; i++) {
-        const inst = instances[i];
-        state[i] = inst.accessors.get(entityId, inst.store);
-    }
-}
-
-/* @inline */ function createSnapshotsWithAtomic(
-    entityId: number,
-    instances: TraitInstance[],
-    state: any[],
-    atomicSnapshots: any[]
-) {
-    for (let j = 0; j < instances.length; j++) {
-        const inst = instances[j];
-        const value = inst.accessors.get(entityId, inst.store);
-        state[j] = value;
-        atomicSnapshots[j] = inst.definition.schema.kind === 'aos' ? { ...value } : null;
-    }
-}
 
 /* @inline */ export function getQueryStores<T extends QueryParameter[]>(
     params: T,
