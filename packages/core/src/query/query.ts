@@ -135,16 +135,14 @@ function processTrackingModifier(
             logic,
             type: trackingType,
             id,
-            groupTraits: [],
+            groupTraitInstances: [],
             trackerBitSets: [],
-            bitmasks: [],
-            trackers: [],
         };
         groupsMap.set(key, group);
         query.trackingGroups.push(group);
     }
 
-    // Register traits and build bitmasks + trackerBitSets
+    // Register traits and build bitmasks
     for (const trait of modifier.traits) {
         if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
         const instance = getTraitInstance(ctx.traitInstances, trait)!;
@@ -153,13 +151,9 @@ function processTrackingModifier(
         // Add to traitInstances.all for query registration
         query.traitInstances.all.push(instance);
 
-        // Add trait and its tracker bitset to the group
-        group.groupTraits.push(trait);
+        // Add trait instance and its tracker bitset to the group
+        group.groupTraitInstances.push(instance);
         group.trackerBitSets.push(new HiSparseBitSet());
-
-        // Legacy: build bitmasks by generation (kept during migration)
-        const genId = instance.generationId;
-        group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
 
         // Track changed traits for change detection in query-result
         if (trackingType === 'change') {
@@ -375,17 +369,17 @@ export function createQueryInstance<T extends QueryParameter[]>(
     if (query.trackingGroups.length > 0) {
         // For tracking queries, check each entity against tracking groups using bitset maps
         for (const group of query.trackingGroups) {
-            const { type, id, logic, groupTraits } = group;
+            const { type, id, logic, groupTraitInstances: gInstances } = group;
             const snapshotMap = ctx.trackingSnapshots.get(id);
             const addedMap = ctx.addedBitSets.get(id);
             const removedMap = ctx.removedBitSets.get(id);
             const changedMap = ctx.changedBitSets.get(id);
 
             // For each trait in the group, find candidate entities via bitset events
-            for (let ti = 0; ti < groupTraits.length; ti++) {
-                const groupTrait = groupTraits[ti];
-                const traitId = groupTrait.id;
-                const traitInst = getTraitInstance(ctx.traitInstances, groupTrait);
+            for (let ti = 0; ti < gInstances.length; ti++) {
+                const gInst = gInstances[ti];
+                const traitId = gInst.definition.id;
+                const traitInst = gInst;
 
                 let candidateBitSet: HiSparseBitSet | undefined;
 
@@ -470,7 +464,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
             }
 
             // For AND groups, now check which entities have all trackers satisfied
-            if (logic === 'and' && groupTraits.length > 0) {
+            if (logic === 'and' && gInstances.length > 0) {
                 const firstTracker = group.trackerBitSets[0];
                 firstTracker.forEach((eid) => {
                     const entity = eid as Entity;

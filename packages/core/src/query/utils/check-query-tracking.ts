@@ -55,14 +55,14 @@ export function checkQueryTracking(
         const group = trackingGroups[i];
         const groupType = group.type;
         const groupLogic = group.logic;
-        const groupTraits = group.groupTraits;
+        const gInstances = group.groupTraitInstances;
         const trackerBitSets = group.trackerBitSets;
 
         // Find if the event trait is in this group
         let traitIndex = -1;
-        for (let t = 0; t < groupTraits.length; t++) {
-            if (groupTraits[t] === eventTrait) {
-                traitIndex = t;
+        for (let j = 0; j < gInstances.length; j++) {
+            if (gInstances[j].definition === eventTrait) {
+                traitIndex = j;
                 break;
             }
         }
@@ -79,12 +79,8 @@ export function checkQueryTracking(
 
             // Update tracker if event type matches group type
             if (groupType === eventType) {
-                // For change events, verify entity still has the trait
                 if (eventType === 'change') {
-                    const inst = groupTraits[traitIndex];
-                    // Use the trait instance's bitSet to check membership
-                    const traitInst = getTraitInstance(world[$internal].traitInstances, inst);
-                    if (!traitInst || !traitInst.bitSet.has(eid)) return false;
+                    if (!gInstances[traitIndex].bitSet.has(eid)) return false;
                 }
 
                 trackerBitSets[traitIndex].insert(eid);

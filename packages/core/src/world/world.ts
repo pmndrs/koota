@@ -69,6 +69,7 @@ export function createWorld(
             addedBitSets: new Map(),
             removedBitSets: new Map(),
             changedBitSets: new Map(),
+            trackingSnapshots: new Map(),
             worldEntity: null!,
             trackedTraits: new Set(),
             resetSubscriptions: new Set(),
