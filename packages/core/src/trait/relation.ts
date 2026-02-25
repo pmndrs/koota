@@ -268,13 +268,13 @@ function updateQueriesForRelationChange(
     }
 
     // Re-evaluate wildcard / non-exact-pair relation queries
-    for (const query of traitData.relationQueries) {
+    for (let qi = 0, qLen = traitData.relationQueries.length; qi < qLen; qi++) {
+        const query = traitData.relationQueries[qi];
         // Skip queries already handled by pairQueries above
         if (pairId !== undefined && ctx.pairQueries[pairId]?.includes(query)) continue;
         const match = checkQuery(world, query, entity);
         if (match) query.add(entity);
         else query.remove(world, entity);
-    }
 }
 
 /**

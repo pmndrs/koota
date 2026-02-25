@@ -39,12 +39,14 @@ export type WorldInternal = {
     actionInstances: (ActionInstance | undefined)[];
     notQueries: Set<QueryInstance>;
     dirtyQueries: Set<QueryInstance>;
-    dirtyMasks: Map<number, number[][]>;
-    trackingSnapshots: Map<number, Map<number, HiSparseBitSet>>;
-    changedMasks: Map<number, number[][]>;
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording add events since tracking creation */
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording add events since tracking creation */
     addedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording remove events since tracking creation */
     removedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording change events since tracking creation */
     changedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    trackingSnapshots: Map<number, Map<number, HiSparseBitSet>>;
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<(world: World) => void>;

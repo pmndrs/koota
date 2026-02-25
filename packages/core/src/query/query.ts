@@ -322,13 +322,15 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     // Register query with trait instances
     if (query.isTracking) {
-        query.traitInstances.all.forEach((instance) => {
-            instance.trackingQueries.add(query);
-        });
+        const all = query.traitInstances.all;
+        for (let i = 0; i < all.length; i++) {
+            all[i].trackingQueries.push(query);
+        }
     } else {
-        query.traitInstances.all.forEach((instance) => {
-            instance.queries.add(query);
-        });
+        const all = query.traitInstances.all;
+        for (let i = 0; i < all.length; i++) {
+            all[i].queries.push(query);
+        }
     }
 
     // Add to notQueries if has forbidden traits
@@ -343,7 +345,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
             const target = pair[1];
             const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
             if (relationTraitInstance) {
-                relationTraitInstance.relationQueries.add(query);
+                relationTraitInstance.relationQueries.push(query);
             }
 
             // For exact-pair filters (non-wildcard), also index in pairQueries[pairId].

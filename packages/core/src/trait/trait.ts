@@ -111,10 +111,10 @@ export function registerTrait(world: World, trait: Trait) {
         mode,
         accessors,
         ctor,
-        queries: new Set(),
-        trackingQueries: new Set(),
-        notQueries: new Set(),
-        relationQueries: new Set(),
+        queries: [],
+        trackingQueries: [],
+        notQueries: [],
+        relationQueries: [],
         changeSubscriptions: new Set(),
         addSubscriptions: new Set(),
         removeSubscriptions: new Set(),
@@ -238,11 +238,6 @@ export function addTraitToEntity(
     ctx.entityMasks[generationId][eid] |= bitflag;
     instance.bitSet.insert(eid);
 
-    for (const dirtyMask of ctx.dirtyMasks.values()) {
-        if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
-        dirtyMask[generationId][eid] |= bitflag;
-    }
-
     // Mark entity in tracking event bitsets (sparse — only touched entities consume memory)
     const traitId = trait.id;
     for (const [, traitMap] of ctx.addedBitSets) {
@@ -254,14 +249,16 @@ export function addTraitToEntity(
         bs.insert(eid);
     }
 
-    for (const query of queries) {
+    for (let qi = 0, qLen = queries.length; qi < qLen; qi++) {
+        const query = queries[qi];
         query.toRemove.remove(entity);
         const match = query.check(world, entity);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
 
-    for (const query of trackingQueries) {
+    for (let qi = 0, qLen = trackingQueries.length; qi < qLen; qi++) {
+        const query = trackingQueries[qi];
         query.toRemove.remove(entity);
         const match = query.checkTracking(world, entity, 'add', trait);
         if (match) query.add(entity);
@@ -284,10 +281,6 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
     ctx.entityMasks[generationId][eid] &= ~bitflag;
     instance.bitSet.remove(eid);
 
-    for (const dirtyMask of ctx.dirtyMasks.values()) {
-        dirtyMask[generationId][eid] |= bitflag;
-    }
-
     // Mark entity in removed tracking event bitsets
     const traitId = trait.id;
     for (const [, traitMap] of ctx.removedBitSets) {
@@ -299,13 +292,15 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
         bs.insert(eid);
     }
 
-    for (const query of queries) {
+    for (let qi = 0, qLen = queries.length; qi < qLen; qi++) {
+        const query = queries[qi];
         const match = query.check(world, entity);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
 
-    for (const query of trackingQueries) {
+    for (let qi = 0, qLen = trackingQueries.length; qi < qLen; qi++) {
+        const query = trackingQueries[qi];
         const match = query.checkTracking(world, entity, 'remove', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
