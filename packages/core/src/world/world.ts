@@ -66,9 +66,6 @@ export function createWorld(
             actionInstances: [],
             notQueries: new Set(),
             dirtyQueries: new Set(),
-            dirtyMasks: new Map(),
-            trackingSnapshots: new Map(),
-            changedMasks: new Map(),
             addedBitSets: new Map(),
             removedBitSets: new Map(),
             changedBitSets: new Map(),
@@ -179,8 +176,6 @@ export function createWorld(
             ctx.notQueries.clear();
 
             ctx.trackingSnapshots.clear();
-            ctx.dirtyMasks.clear();
-            ctx.changedMasks.clear();
             ctx.addedBitSets.clear();
             ctx.removedBitSets.clear();
             ctx.changedBitSets.clear();

@@ -1,5 +1,5 @@
 import { $internal } from '../../common';
-import { type HiSparseBitSet } from '../../utils/hi-sparse-bitset';
+import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
 import type { World } from '../../world';
 
 // Some values are reserved.
@@ -26,16 +26,7 @@ export function setTrackingMasks(world: World, id: number) {
     }
     ctx.trackingSnapshots.set(id, snapshotMap);
 
-    // Legacy: keep dirtyMasks/changedMasks for now (used by pair tracking)
-    const legacySnapshot = structuredClone(ctx.entityMasks);
-    ctx.dirtyMasks.set(
-        id,
-        legacySnapshot.map((mask) => mask.map(() => 0))
-    );
-    ctx.changedMasks.set(
-        id,
-        legacySnapshot.map((mask) => mask.map(() => 0))
-    );
+    // Initialize HiSparseBitSet maps for this tracking ID
 
     // Initialize HiSparseBitSet maps for this tracking ID
     ctx.addedBitSets.set(id, new Map());

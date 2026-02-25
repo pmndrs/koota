@@ -35,15 +35,7 @@ function markChanged(world: World, entity: Entity, trait: Trait) {
     if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
     const data = getTraitInstance(ctx.traitInstances, trait)!;
 
-    // Mark the trait as changed in bitmasks for Changed modifiers.
     const eid = getEntityId(entity);
-    const { generationId, bitflag } = data;
-
-    for (const changedMask of ctx.changedMasks.values()) {
-        if (!changedMask[generationId]) changedMask[generationId] = [];
-        if (!changedMask[generationId][eid]) changedMask[generationId][eid] = 0;
-        changedMask[generationId][eid] |= bitflag;
-    }
 
     // Mark entity in changed tracking event bitsets (sparse)
     const traitId = trait.id;
@@ -58,10 +50,10 @@ function markChanged(world: World, entity: Entity, trait: Trait) {
 
     // Update tracking queries with change event
     // checkTracking now handles relation filters internally
-    for (const query of data.trackingQueries) {
+    for (let qi = 0, qLen = data.trackingQueries.length; qi < qLen; qi++) {
+        const query = data.trackingQueries[qi];
         if (!query.hasChangedModifiers) continue;
         if (!query.changedTraits.has(trait)) continue;
-
         const match = query.checkTracking(world, entity, 'change', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
@@ -97,7 +89,6 @@ export function setChanged(world: World, entity: Entity, trait: Trait, target?: 
     }
 }
 
-
 /**
  * Fast path for updateEach — skips hasTrait/getTraitInstance lookups
  * since the caller already has the resolved instance.
@@ -109,11 +100,15 @@ export function setChangedFast(world: World, entity: Entity, trait: Trait, insta
 
     for (const [, traitMap] of ctx.changedBitSets) {
         let bs = traitMap.get(traitId);
-        if (!bs) { bs = new HiSparseBitSet(); traitMap.set(traitId, bs); }
+        if (!bs) {
+            bs = new HiSparseBitSet();
+            traitMap.set(traitId, bs);
+        }
         bs.insert(eid);
     }
 
-    for (const query of instance.trackingQueries) {
+    for (let qi = 0, qLen = instance.trackingQueries.length; qi < qLen; qi++) {
+        const query = instance.trackingQueries[qi];
         if (!query.hasChangedModifiers) continue;
         if (!query.changedTraits.has(trait)) continue;
         const match = query.checkTracking(world, entity, 'change', trait);

@@ -120,12 +120,12 @@ export interface TraitInstance<T extends Trait = Trait> {
     accessors: TraitAccessors<ExtractType<T>>;
     ctor: TraitConstructor<ExtractType<T>>;
     /** Non-tracking queries that include this trait */
-    queries: Set<QueryInstance>;
+    queries: QueryInstance[];
     /** Tracking queries (Added/Removed/Changed) that include this trait */
-    trackingQueries: Set<QueryInstance>;
-    notQueries: Set<QueryInstance>;
+    trackingQueries: QueryInstance[];
+    notQueries: QueryInstance[];
     /** Queries that filter by this relation (only for relation traits) */
-    relationQueries: Set<QueryInstance>;
+    relationQueries: QueryInstance[];
     changeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
