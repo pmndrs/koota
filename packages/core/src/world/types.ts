@@ -29,9 +29,9 @@ export type WorldOptions = {
 
 export type WorldInternal = {
     entityIndex: ReturnType<typeof createEntityIndex>;
-    entityMasks: number[][];
+
     entityTraits: Map<number, Set<Trait>>;
-    bitflag: number;
+
     traitInstances: (TraitInstance | undefined)[];
     relations: Set<Relation>;
     queriesHashMap: Map<string, QueryInstance>;

@@ -111,8 +111,6 @@ export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
 // Trait instance types
 
 export interface TraitInstance<T extends Trait = Trait> {
-    generationId: number;
-    bitflag: number;
     /** Per-trait membership bitset — tracks which entities have this trait. */
     bitSet: HiSparseBitSet;
     definition: TraitDef;

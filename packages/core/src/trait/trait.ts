@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { setChanged, setChangedFast } from '../query/modifiers/changed';
+import { setChangedFast } from '../query/modifiers/changed';
 import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchema } from '../storage';
 import {
     createFastSetAccessor,
@@ -15,7 +15,7 @@ import {
     validateSchema,
 } from '../storage';
 import type { World } from '../world';
-import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+
 import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from './ordered';
 import { OrderedList } from './ordered-list';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -103,8 +103,6 @@ export function registerTrait(world: World, trait: Trait) {
     const { mode, accessors, ctor, exclusive, autoDestroy } = trait[$internal];
 
     const data: TraitInstance = {
-        generationId: ctx.entityMasks.length - 1,
-        bitflag: ctx.bitflag,
         bitSet: new HiSparseBitSet(),
         definition: trait,
         store: createStore(trait.schema) as TraitInstance['store'],
@@ -118,7 +116,7 @@ export function registerTrait(world: World, trait: Trait) {
         changeSubscriptions: new Set(),
         addSubscriptions: new Set(),
         removeSubscriptions: new Set(),
-        // always initialize for monomorphism
+        // Always initialize binary fields for monomorphic hidden class
         exclusive: undefined,
         autoDestroy: undefined,
         pairStore: undefined,
@@ -142,8 +140,6 @@ export function registerTrait(world: World, trait: Trait) {
     world.traits.add(trait);
 
     if (mode === 'binary') ctx.relations.add(trait as Relation);
-
-    incrementWorldBitflag(world);
 
     if (isOrderedTrait(trait)) setupOrderedTraitSync(world, trait);
 }
@@ -182,17 +178,11 @@ export function removeTrait(world: World, entity: Entity, trait: Trait) {
     removeTraitFromEntity(world, entity, trait);
 }
 
-/** Bitmask-only membership check. */
+/** BitSet-based membership check. */
 export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
-    const ctx = world[$internal];
-    const instance = getTraitInstance(ctx.traitInstances, trait);
+    const instance = getTraitInstance(world[$internal].traitInstances, trait);
     if (!instance) return false;
-
-    const { generationId, bitflag } = instance;
-    const eid = getEntityId(entity);
-    const mask = ctx.entityMasks[generationId][eid];
-
-    return (mask & bitflag) === bitflag;
+    return instance.bitSet.has(getEntityId(entity));
 }
 
 export function setTrait(
@@ -213,14 +203,10 @@ export function setTrait(
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait) {
-    const ctx = world[$internal];
-    const instance = getTraitInstance(ctx.traitInstances, trait);
+    const instance = getTraitInstance(world[$internal].traitInstances, trait);
     if (!instance) return undefined;
-
     const eid = getEntityId(entity);
-    const mask = ctx.entityMasks[instance.generationId][eid];
-    if ((mask & instance.bitflag) !== instance.bitflag) return undefined;
-
+    if (!instance.bitSet.has(eid)) return undefined;
     return instance.accessors.get(eid, instance.store);
 }
 
@@ -234,7 +220,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 }
 
 // =============================================================================
-// Core bitmask operations — exported for relation.ts to use
+// Core trait entity operations — exported for relation.ts to use
 // =============================================================================
 
 export function addTraitToEntity(
@@ -249,10 +235,10 @@ export function addTraitToEntity(
     if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
 
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    const { generationId, bitflag, queries, trackingQueries } = instance;
+    const { queries, trackingQueries } = instance;
 
     const eid = getEntityId(entity);
-    ctx.entityMasks[generationId][eid] |= bitflag;
+    instance.bitSet.insert(eid);
     instance.bitSet.insert(eid);
 
     // Mark entity in tracking event bitsets (sparse — only touched entities consume memory)
@@ -294,10 +280,9 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
 
     const ctx = world[$internal];
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    const { generationId, bitflag, queries, trackingQueries } = instance;
+    const { queries, trackingQueries } = instance;
 
     const eid = getEntityId(entity);
-    ctx.entityMasks[generationId][eid] &= ~bitflag;
     instance.bitSet.remove(eid);
 
     // Mark entity in removed tracking event bitsets

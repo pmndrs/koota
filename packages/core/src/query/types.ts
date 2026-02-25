@@ -133,15 +133,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
         or: TraitInstance[];
         all: TraitInstance[];
     };
-    /** Static bitmasks for non-tracking query matching (indexed by generationId) */
-    staticBitmasks: {
-        required: number;
-        forbidden: number;
-        or: number;
-    }[];
     /** Unified tracking groups with explicit AND/OR logic */
     trackingGroups: TrackingGroup[];
-    generations: number[];
     entities: SparseSet;
     isTracking: boolean;
     hasChangedModifiers: boolean;

@@ -1,15 +1,6 @@
-import { $internal } from '../../common';
-import type { World } from '../types';
+import type { World } from "../types";
 
-// These should be Float32Arrays since we are using bitwise operations.
-// They are native Arrays to avoid overlow issues due to recycling.
-export /* @inline */ function incrementWorldBitflag(world: World) {
-    const ctx = world[$internal];
-
-    ctx.bitflag *= 2;
-
-    if (ctx.bitflag >= 2 ** 31) {
-        ctx.bitflag = 1;
-        ctx.entityMasks.push([]);
-    }
+/** @deprecated No longer needed — bitSet-based membership replaces bitmask generations. */
+export /* @inline */ function incrementWorldBitflag(_world: World) {
+  // No-op: bitmask generation system removed in favor of per-trait HiSparseBitSets.
 }

@@ -181,9 +181,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
             or: [],
             all: [],
         },
-        staticBitmasks: [],
+
         trackingGroups: [],
-        generations: [],
+
         entities: new SparseSet(),
         isTracking: false,
         hasChangedModifiers: false,
@@ -281,32 +281,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
         ...query.traitInstances.forbidden,
         ...query.traitInstances.or,
     ];
-
-    // Create an array of all trait generations
-    query.generations = query.traitInstances.all
-        .map((c) => c.generationId)
-        .reduce((a: number[], v) => {
-            if (a.includes(v)) return a;
-            a.push(v);
-            return a;
-        }, []);
-
-    // Create static bitmasks (required/forbidden/or only - tracking is in trackingGroups)
-    query.staticBitmasks = query.generations.map((generationId) => {
-        const required = query.traitInstances.required
-            .filter((c) => c.generationId === generationId)
-            .reduce((a, c) => a | c.bitflag, 0);
-
-        const forbidden = query.traitInstances.forbidden
-            .filter((c) => c.generationId === generationId)
-            .reduce((a, c) => a | c.bitflag, 0);
-
-        const or = query.traitInstances.or
-            .filter((c) => c.generationId === generationId)
-            .reduce((a, c) => a | c.bitflag, 0);
-
-        return { required, forbidden, or };
-    });
 
     // Create hash
     query.hash = createQueryHash(parameters);
