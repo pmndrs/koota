@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { setChanged } from '../query/modifiers/changed';
+import { setChanged, setChangedFast } from '../query/modifiers/changed';
 import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchema } from '../storage';
 import {
     createFastSetAccessor,
@@ -202,19 +202,26 @@ export function setTrait(
     value: any,
     triggerChanged = true
 ) {
-    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
+    const ctx = world[$internal];
+    const instance = getTraitInstance(ctx.traitInstances, trait)!;
     const index = getEntityId(entity);
     const store = instance.store;
 
     value instanceof Function && (value = value(instance.accessors.get(index, store)));
     instance.accessors.set(index, store, value);
-    if (triggerChanged) setChanged(world, entity, trait);
+    if (triggerChanged) setChangedFast(world, entity, trait, instance);
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait) {
-    if (!hasTrait(world, entity, trait)) return undefined;
-    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
-    return instance.accessors.get(getEntityId(entity), instance.store);
+    const ctx = world[$internal];
+    const instance = getTraitInstance(ctx.traitInstances, trait);
+    if (!instance) return undefined;
+
+    const eid = getEntityId(entity);
+    const mask = ctx.entityMasks[instance.generationId][eid];
+    if ((mask & instance.bitflag) !== instance.bitflag) return undefined;
+
+    return instance.accessors.get(eid, instance.store);
 }
 
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(
@@ -250,13 +257,15 @@ export function addTraitToEntity(
 
     // Mark entity in tracking event bitsets (sparse — only touched entities consume memory)
     const traitId = trait.id;
-    for (const [, traitMap] of ctx.addedBitSets) {
-        let bs = traitMap.get(traitId);
-        if (!bs) {
-            bs = new HiSparseBitSet();
-            traitMap.set(traitId, bs);
+    if (ctx.addedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.addedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
         }
-        bs.insert(eid);
     }
 
     for (let qi = 0, qLen = queries.length; qi < qLen; qi++) {
@@ -293,13 +302,15 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
 
     // Mark entity in removed tracking event bitsets
     const traitId = trait.id;
-    for (const [, traitMap] of ctx.removedBitSets) {
-        let bs = traitMap.get(traitId);
-        if (!bs) {
-            bs = new HiSparseBitSet();
-            traitMap.set(traitId, bs);
+    if (ctx.removedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.removedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
         }
-        bs.insert(eid);
     }
 
     for (let qi = 0, qLen = queries.length; qi < qLen; qi++) {
