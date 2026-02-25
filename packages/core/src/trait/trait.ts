@@ -100,7 +100,7 @@ export const trait: trait = defineTrait as trait;
 
 export function registerTrait(world: World, trait: Trait) {
     const ctx = world[$internal];
-    const { mode, accessors, ctor } = trait[$internal];
+    const { mode, accessors, ctor, exclusive, autoDestroy } = trait[$internal];
 
     const data: TraitInstance = {
         generationId: ctx.entityMasks.length - 1,
@@ -121,6 +121,8 @@ export function registerTrait(world: World, trait: Trait) {
     };
 
     if (mode === 'binary') {
+        data.exclusive = exclusive ?? false;
+        data.autoDestroy = autoDestroy ?? false;
         data.pairStore = createStore(trait.schema) as TraitInstance['pairStore'];
         data.slotMap = [];
         data.nextSlot = 0;
