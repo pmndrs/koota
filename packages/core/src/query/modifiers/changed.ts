@@ -27,13 +27,12 @@ export function createChanged() {
 function markChanged(world: World, entity: Entity, trait: Trait) {
     const ctx = world[$internal];
 
-    // Single lookup — fuse hasTrait + getTraitInstance
+    // Single lookup via bitSet
     const data = getTraitInstance(ctx.traitInstances, trait);
     if (!data) return;
 
     const eid = getEntityId(entity);
-    const mask = ctx.entityMasks[data.generationId][eid];
-    if ((mask & data.bitflag) !== data.bitflag) return;
+    if (!data.bitSet.has(eid)) return;
 
     // Mark entity in changed tracking event bitsets (sparse)
     const traitId = trait.id;

@@ -56,9 +56,9 @@ export function createWorld(
     const world = {
         [$internal]: {
             entityIndex: createEntityIndex(id),
-            entityMasks: [[]],
+
             entityTraits: new Map(),
-            bitflag: 1,
+
             traitInstances: [],
             relations: new Set(),
             queriesHashMap: new Map(),
@@ -163,8 +163,7 @@ export function createWorld(
 
             ctx.entityIndex = createEntityIndex(id);
             ctx.entityTraits.clear();
-            ctx.entityMasks = [[]];
-            ctx.bitflag = 1;
+
 
             clearTraitInstance(ctx.traitInstances);
             world.traits.clear();
