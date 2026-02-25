@@ -118,6 +118,14 @@ export function registerTrait(world: World, trait: Trait) {
         changeSubscriptions: new Set(),
         addSubscriptions: new Set(),
         removeSubscriptions: new Set(),
+        // always initialize for monomorphism
+        exclusive: undefined,
+        autoDestroy: undefined,
+        pairStore: undefined,
+        slotMap: undefined,
+        nextSlot: undefined,
+        freeSlots: undefined,
+        targetPairIds: undefined,
     };
 
     if (mode === 'binary') {
