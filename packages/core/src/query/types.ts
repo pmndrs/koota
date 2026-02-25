@@ -113,20 +113,11 @@ type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First
  * Replaces the old separate tracking arrays and OrTrackingGroup.
  */
 export type TrackingGroup = {
-    /** Whether all traits must match (and) or any trait can match (or) */
     logic: 'and' | 'or';
-    /** The type of tracking event */
     type: 'add' | 'remove' | 'change';
-    /** Tracking modifier ID for snapshot/mask lookups */
     id: number;
-    /** Trait instances in this group */
-    groupTraits: Trait[];
-    /** Per-trait HiSparseBitSet trackers — trackerBitSets[i] tracks groupTraits[i] */
+    groupTraitInstances: TraitInstance[];
     trackerBitSets: HiSparseBitSet[];
-    /** Legacy bitmasks indexed by generationId (kept during migration) */
-    bitmasks: (number | undefined)[];
-    /** Legacy per-entity tracker state indexed by [generationId][entityId] (kept during migration) */
-    trackers: (number[] | undefined)[];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {

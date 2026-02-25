@@ -275,6 +275,7 @@ function updateQueriesForRelationChange(
         const match = checkQuery(world, query, entity);
         if (match) query.add(entity);
         else query.remove(world, entity);
+    }
 }
 
 /**
