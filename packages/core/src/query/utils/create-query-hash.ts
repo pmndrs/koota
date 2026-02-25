@@ -3,45 +3,47 @@ import type { Trait } from '../../trait/types';
 import { isModifier } from '../modifier';
 import type { QueryHash, QueryParameter } from '../types';
 
-const sortedIDs = new Float64Array(1024); // Use Float64 for larger IDs with relation encoding
+const ids: number[] = [];
 
 export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
-    sortedIDs.fill(0);
     let cursor = 0;
 
     for (let i = 0; i < parameters.length; i++) {
         const param = parameters[i];
 
         if (isPairPattern(param)) {
-            // Encode relation pair as: (relationTraitId * 1000000) + targetId
-            // This ensures unique hashes for different relation/target combinations
             const [relation, target] = param;
-
             const relationId = (relation as unknown as Trait).id;
             const targetId = typeof target === 'number' ? target : -1;
-
-            // Combine into a unique hash number
-            sortedIDs[cursor++] = relationId * 10000000 + targetId + 5000000;
+            ids[cursor++] = relationId * 10000000 + targetId + 5000000;
         } else if (isModifier(param)) {
             const modifierId = param.id;
             const traitIds = param.traitIds;
-
-            for (let i = 0; i < traitIds.length; i++) {
-                const traitId = traitIds[i];
-                sortedIDs[cursor++] = modifierId * 100000 + traitId;
+            for (let j = 0; j < traitIds.length; j++) {
+                ids[cursor++] = modifierId * 100000 + traitIds[j];
             }
         } else {
-            const traitId = (param as Trait).id;
-            sortedIDs[cursor++] = traitId;
+            ids[cursor++] = (param as Trait).id;
         }
     }
 
-    // Sort only the portion of the array that has been filled.
-    const filledArray = sortedIDs.subarray(0, cursor);
-    filledArray.sort();
+    // Insertion sort — optimal for small arrays (typically 1-7 elements)
+    for (let i = 1; i < cursor; i++) {
+        const key = ids[i];
+        let j = i - 1;
+        while (j >= 0 && ids[j] > key) {
+            ids[j + 1] = ids[j];
+            j--;
+        }
+        ids[j + 1] = key;
+    }
 
-    // Create string key.
-    const hash = filledArray.join(',');
+    // Build string key without join() — avoids intermediate array allocation
+    if (cursor === 0) return '';
+    let hash = '' + ids[0];
+    for (let i = 1; i < cursor; i++) {
+        hash += ',' + ids[i];
+    }
 
     return hash;
 };

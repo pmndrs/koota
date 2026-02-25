@@ -82,9 +82,6 @@ export function destroyEntity(world: World, entity: Entity) {
 
         // Remove all entity state from world.
         ctx.entityTraits.delete(currentEntity);
-
-        // Note: entity bitmasks are already cleared by removeTraitFromEntity() above.
-        // The bitSet.remove(eid) and entityMasks clearing happen per-trait during removal.
     }
 }
 
