@@ -54,6 +54,14 @@ export class SparseSet {
         return this.#denseRaw;
     }
 
+    get rawDense(): readonly number[] {
+        return this.#dense;
+    }
+
+    get length(): number {
+        return this.#cursor;
+    }
+
     get sparse(): number[] {
         return this.#sparse;
     }
