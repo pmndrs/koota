@@ -33,7 +33,7 @@ describe('Relation', () => {
         expect(targets).toContain(guard);
     });
 
-    it.skip('should maintain exclusive relations', () => {
+    it('should maintain exclusive relations', () => {
         const Targeting = relation({ exclusive: true });
 
         const player = world.spawn();
@@ -66,7 +66,7 @@ describe('Relation', () => {
         expect(target).toBe(undefined);
     });
 
-    it.skip('exclusive relations should allow targeting entity 0', () => {
+    it('exclusive relations should allow targeting entity 0', () => {
         const Targeting = relation({ exclusive: true });
         const worldEntity = world.entities[0]!;
         const goblin = world.spawn(Targeting(worldEntity));
@@ -78,7 +78,7 @@ describe('Relation', () => {
         expect(goblin.targetFor(Targeting)).toBe(undefined);
     });
 
-    it.skip('should destroy orphaned sources when autoDestroy is orphan', () => {
+    it('should destroy orphaned sources when autoDestroy is orphan', () => {
         const ChildOf = relation({ autoDestroy: 'orphan' });
 
         const parent = world.spawn();
@@ -103,7 +103,7 @@ describe('Relation', () => {
         expect(world.has(childChildC)).toBe(false);
     });
 
-    it.skip('should destroy targets when autoDestroy is target', () => {
+    it('should destroy targets when autoDestroy is target', () => {
         const Contains = relation({ autoDestroy: 'target' });
 
         const container = world.spawn();
@@ -399,7 +399,7 @@ describe('Relation', () => {
         unsubRemove();
     });
 
-    it.skip('should emit add/remove events when switching an exclusive relation target', () => {
+    it('should emit add/remove events when switching an exclusive relation target', () => {
         const Parent = relation({ exclusive: true });
 
         const subject = world.spawn();

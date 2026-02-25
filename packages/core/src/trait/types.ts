@@ -40,6 +40,8 @@ export type TraitDef<T = any, M extends TraitMode = TraitMode> = {
         hooks?: TraitHooks;
         accessors: TraitAccessors<T>;
         ctor: TraitConstructor<T>;
+        exclusive?: boolean;
+        autoDestroy?: 'orphan' | 'source' | 'target' | false;
     };
 };
 
@@ -150,6 +152,10 @@ export interface TraitInstance<T extends Trait = Trait> {
      * targetPairIds[targetEid] = globalCompactPairId | undefined
      */
     targetPairIds?: number[];
+    /** Whether this relation is exclusive (one target per entity). */
+    exclusive?: boolean;
+    /** Auto-destroy behavior for this relation. */
+    autoDestroy?: 'orphan' | 'source' | 'target' | false;
 }
 
 // Type extraction utilities

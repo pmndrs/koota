@@ -9,8 +9,19 @@ import { addTraitToEntity, defineTrait, hasTrait, removeTraitFromEntity } from '
 import { getTraitInstance } from './trait-instance';
 import type { PairPattern, Relation, PairTarget, TraitInstance } from './types';
 
+/** Options that can be passed to `relation()` alongside or instead of a schema. */
+export type RelationOptions = {
+    exclusive?: boolean;
+    autoDestroy?: 'orphan' | 'source' | 'target';
+};
+
+const RELATION_OPTION_KEYS = new Set<string>(['exclusive', 'autoDestroy']);
+
 /** @see {@link relation} for overload signatures */
 export interface relation {
+    (options?: RelationOptions): Relation<Record<string, never>> & {
+        readonly schema: TagSchema;
+    };
     (schema?: undefined | Record<string, never>): Relation<Record<string, never>> & {
         readonly schema: TagSchema;
     };
@@ -20,8 +31,41 @@ export interface relation {
     <D extends SchemaShorthand>(schema: D): Relation<InferSchema<D>>;
 }
 
-export const relation: relation = ((schema: SchemaShorthand | FieldDescriptor = {}): Relation => {
-    return defineTrait(schema, 'binary') as Relation;
+export const relation: relation = ((
+    schema: SchemaShorthand | FieldDescriptor | RelationOptions = {}
+): Relation => {
+    let exclusive: boolean | undefined;
+    let autoDestroy: 'orphan' | 'source' | 'target' | false = false;
+
+    if (
+        schema &&
+        typeof schema === 'object' &&
+        !Array.isArray(schema) &&
+        typeof schema !== 'function'
+    ) {
+        const obj = schema as Record<string, unknown>;
+        if ('exclusive' in obj || 'autoDestroy' in obj) {
+            exclusive = obj.exclusive as boolean | undefined;
+            const ad = obj.autoDestroy as string | undefined;
+            if (ad === 'orphan' || ad === 'source') autoDestroy = 'source';
+            else if (ad === 'target') autoDestroy = 'target';
+
+            const remaining: Record<string, unknown> = {};
+            let hasSchemaKeys = false;
+            for (const key of Object.keys(obj)) {
+                if (!RELATION_OPTION_KEYS.has(key)) {
+                    remaining[key] = obj[key];
+                    hasSchemaKeys = true;
+                }
+            }
+            schema = (hasSchemaKeys ? remaining : {}) as SchemaShorthand;
+        }
+    }
+
+    const trait = defineTrait(schema as SchemaShorthand | FieldDescriptor, 'binary') as Relation;
+    trait[$internal].exclusive = exclusive ?? false;
+    trait[$internal].autoDestroy = autoDestroy;
+    return trait;
 }) as relation;
 
 /**
@@ -405,6 +449,15 @@ export function addPair(
     params?: Record<string, any>
 ) {
     if (typeof target !== 'number') return;
+
+    const isExclusive = relation[$internal].exclusive;
+    if (isExclusive && hasTrait(world, entity, relation)) {
+        const oldTarget = getFirstRelationTarget(world, relation, entity);
+        if (oldTarget !== undefined) {
+            if (oldTarget === target) return;
+            removePair(world, entity, relation, oldTarget);
+        }
+    }
 
     let instance = addTraitToEntity(world, entity, relation);
 
