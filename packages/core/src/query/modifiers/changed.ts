@@ -2,8 +2,7 @@ import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { hasTrait, registerTrait } from '../../trait/trait';
-import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
+import { getTraitInstance } from '../../trait/trait-instance';
 import type { Trait, TraitInstance } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world';
@@ -28,28 +27,28 @@ export function createChanged() {
 function markChanged(world: World, entity: Entity, trait: Trait) {
     const ctx = world[$internal];
 
-    // Early exit if the trait is not on the entity.
-    if (!hasTrait(world, entity, trait)) return;
-
-    // Register the trait if it's not already registered.
-    if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
-    const data = getTraitInstance(ctx.traitInstances, trait)!;
+    // Single lookup — fuse hasTrait + getTraitInstance
+    const data = getTraitInstance(ctx.traitInstances, trait);
+    if (!data) return;
 
     const eid = getEntityId(entity);
+    const mask = ctx.entityMasks[data.generationId][eid];
+    if ((mask & data.bitflag) !== data.bitflag) return;
 
     // Mark entity in changed tracking event bitsets (sparse)
     const traitId = trait.id;
-    for (const [, traitMap] of ctx.changedBitSets) {
-        let bs = traitMap.get(traitId);
-        if (!bs) {
-            bs = new HiSparseBitSet();
-            traitMap.set(traitId, bs);
+    if (ctx.changedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.changedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
         }
-        bs.insert(eid);
     }
 
     // Update tracking queries with change event
-    // checkTracking now handles relation filters internally
     for (let qi = 0, qLen = data.trackingQueries.length; qi < qLen; qi++) {
         const query = data.trackingQueries[qi];
         if (!query.hasChangedModifiers) continue;
@@ -98,13 +97,15 @@ export function setChangedFast(world: World, entity: Entity, trait: Trait, insta
     const eid = getEntityId(entity);
     const traitId = trait.id;
 
-    for (const [, traitMap] of ctx.changedBitSets) {
-        let bs = traitMap.get(traitId);
-        if (!bs) {
-            bs = new HiSparseBitSet();
-            traitMap.set(traitId, bs);
+    if (ctx.changedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.changedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
         }
-        bs.insert(eid);
     }
 
     for (let qi = 0, qLen = instance.trackingQueries.length; qi < qLen; qi++) {

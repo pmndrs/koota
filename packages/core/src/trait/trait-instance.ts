@@ -43,5 +43,6 @@ export /* @inline @pure */ function hasTraitInstance(
  * Clear all trait data
  */
 export /* @inline */ function clearTraitInstance(traitData: TraitInstanceArray): void {
-    traitData.length = 0;
+    traitData.length = 64;
+    traitData.fill(undefined);
 }
