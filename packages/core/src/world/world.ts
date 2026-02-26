@@ -56,9 +56,9 @@ export function createWorld(
     const world = {
         [$internal]: {
             entityIndex: createEntityIndex(id),
-            entityMasks: [[]],
+
             entityTraits: new Map(),
-            bitflag: 1,
+
             traitInstances: [],
             relations: new Set(),
             queriesHashMap: new Map(),
@@ -66,9 +66,10 @@ export function createWorld(
             actionInstances: [],
             notQueries: new Set(),
             dirtyQueries: new Set(),
-            dirtyMasks: new Map(),
+            addedBitSets: new Map(),
+            removedBitSets: new Map(),
+            changedBitSets: new Map(),
             trackingSnapshots: new Map(),
-            changedMasks: new Map(),
             worldEntity: null!,
             trackedTraits: new Set(),
             resetSubscriptions: new Set(),
@@ -77,6 +78,7 @@ export function createWorld(
             pairFreeIds: [],
             entityPairIds: [],
             pairQueries: [],
+            pairEntities: [],
             pairDirtyMasks: [],
             pairChangedMasks: [],
         } as WorldInternal,
@@ -162,8 +164,7 @@ export function createWorld(
 
             ctx.entityIndex = createEntityIndex(id);
             ctx.entityTraits.clear();
-            ctx.entityMasks = [[]];
-            ctx.bitflag = 1;
+
 
             clearTraitInstance(ctx.traitInstances);
             world.traits.clear();
@@ -176,9 +177,11 @@ export function createWorld(
             ctx.notQueries.clear();
 
             ctx.trackingSnapshots.clear();
-            ctx.dirtyMasks.clear();
-            ctx.changedMasks.clear();
+            ctx.addedBitSets.clear();
+            ctx.removedBitSets.clear();
+            ctx.changedBitSets.clear();
             ctx.trackedTraits.clear();
+            ctx.pairEntities.length = 0;
 
             // Create new world entity.
             ctx.worldEntity = createEntity(world, IsExcluded);

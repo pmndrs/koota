@@ -1,7 +1,12 @@
 import { $internal } from '../common';
 import { add, remove } from '../trait/api';
-import { cleanupRelationTarget, getEntitiesWithRelationTo } from '../trait/relation';
+import {
+    cleanupRelationTarget,
+    getEntitiesWithRelationTo,
+    getRelationTargets,
+} from '../trait/relation';
 import type { TraitLike } from '../trait/types';
+import { getTraitInstance } from '../trait/trait-instance';
 import { universe } from '../universe/universe';
 import type { World } from '../world';
 import type { Entity } from './types';
@@ -55,13 +60,30 @@ export function destroyEntity(world: World, entity: Entity) {
         processedEntities.add(currentEntity);
 
         for (const relation of ctx.relations) {
+            const instance = getTraitInstance(ctx.traitInstances, relation);
+
             // Handle entities that have relations pointing TO currentEntity (currentEntity is target).
             const sources = getEntitiesWithRelationTo(world, relation, currentEntity);
             for (const source of sources) {
                 if (!world.has(source)) continue;
 
+                // autoDestroy 'source'/'orphan': queue sources for destruction
+                if (instance?.autoDestroy === 'source' && !processedEntities.has(source)) {
+                    entityQueue.push(source);
+                }
+
                 // Remove the relation from source to currentEntity
                 cleanupRelationTarget(world, relation, source, currentEntity);
+            }
+
+            // autoDestroy 'target': when source is destroyed, queue its targets for destruction
+            if (instance?.autoDestroy === 'target') {
+                const targets = getRelationTargets(world, relation, currentEntity);
+                for (const tgt of targets) {
+                    if (world.has(tgt) && !processedEntities.has(tgt)) {
+                        entityQueue.push(tgt);
+                    }
+                }
             }
         }
 
@@ -82,12 +104,6 @@ export function destroyEntity(world: World, entity: Entity) {
 
         // Remove all entity state from world.
         ctx.entityTraits.delete(currentEntity);
-
-        // Clear entity bitmasks.
-        const eid = getEntityId(currentEntity);
-        for (let i = 0; i < ctx.entityMasks.length; i++) {
-            ctx.entityMasks[i][eid] = 0;
-        }
     }
 }
 

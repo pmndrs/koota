@@ -7,10 +7,22 @@ import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchem
 import type { World } from '../world';
 import { addTraitToEntity, defineTrait, hasTrait, removeTraitFromEntity } from './trait';
 import { getTraitInstance } from './trait-instance';
+import { SparseSet } from '../utils/sparse-set';
 import type { PairPattern, Relation, PairTarget, TraitInstance } from './types';
+
+/** Options that can be passed to `relation()` alongside or instead of a schema. */
+export type RelationOptions = {
+    exclusive?: boolean;
+    autoDestroy?: 'orphan' | 'source' | 'target';
+};
+
+const RELATION_OPTION_KEYS = new Set<string>(['exclusive', 'autoDestroy']);
 
 /** @see {@link relation} for overload signatures */
 export interface relation {
+    (options?: RelationOptions): Relation<Record<string, never>> & {
+        readonly schema: TagSchema;
+    };
     (schema?: undefined | Record<string, never>): Relation<Record<string, never>> & {
         readonly schema: TagSchema;
     };
@@ -20,8 +32,41 @@ export interface relation {
     <D extends SchemaShorthand>(schema: D): Relation<InferSchema<D>>;
 }
 
-export const relation: relation = ((schema: SchemaShorthand | FieldDescriptor = {}): Relation => {
-    return defineTrait(schema, 'binary') as Relation;
+export const relation: relation = ((
+    schema: SchemaShorthand | FieldDescriptor | RelationOptions = {}
+): Relation => {
+    let exclusive: boolean | undefined;
+    let autoDestroy: 'orphan' | 'source' | 'target' | false = false;
+
+    if (
+        schema &&
+        typeof schema === 'object' &&
+        !Array.isArray(schema) &&
+        typeof schema !== 'function'
+    ) {
+        const obj = schema as Record<string, unknown>;
+        if ('exclusive' in obj || 'autoDestroy' in obj) {
+            exclusive = obj.exclusive as boolean | undefined;
+            const ad = obj.autoDestroy as string | undefined;
+            if (ad === 'orphan' || ad === 'source') autoDestroy = 'source';
+            else if (ad === 'target') autoDestroy = 'target';
+
+            const remaining: Record<string, unknown> = {};
+            let hasSchemaKeys = false;
+            for (const key of Object.keys(obj)) {
+                if (!RELATION_OPTION_KEYS.has(key)) {
+                    remaining[key] = obj[key];
+                    hasSchemaKeys = true;
+                }
+            }
+            schema = (hasSchemaKeys ? remaining : {}) as SchemaShorthand;
+        }
+    }
+
+    const trait = defineTrait(schema as SchemaShorthand | FieldDescriptor, 'binary') as Relation;
+    trait[$internal].exclusive = exclusive ?? false;
+    trait[$internal].autoDestroy = autoDestroy;
+    return trait;
 }) as relation;
 
 /**
@@ -156,6 +201,10 @@ export function addRelationTarget(
     ctx.entityPairIds[eid][pairId] = 1;
     ctx.pairRefCount[pairId]++;
 
+    // Maintain per-pair reverse index for O(K) relation queries
+    if (!ctx.pairEntities[pairId]) ctx.pairEntities[pairId] = new SparseSet();
+    ctx.pairEntities[pairId]!.add(eid);
+
     // Mark pair dirty for all active tracking IDs (infrastructure for Added(pair) tracking)
     const pairDirtyMasks = ctx.pairDirtyMasks;
     for (let i = 0; i < pairDirtyMasks.length; i++) {
@@ -204,6 +253,10 @@ export function removeRelationTarget(
     if (pairId !== undefined) {
         const pairArr = ctx.entityPairIds[eid];
         if (pairArr) pairArr[pairId] = 0;
+
+        // Remove from per-pair reverse index
+        const pairSet = ctx.pairEntities[pairId];
+        if (pairSet) pairSet.remove(eid);
 
         ctx.pairRefCount[pairId]--;
         // Recycle the pairId when no entity holds this (relation, target) anymore
@@ -268,7 +321,8 @@ function updateQueriesForRelationChange(
     }
 
     // Re-evaluate wildcard / non-exact-pair relation queries
-    for (const query of traitData.relationQueries) {
+    for (let qi = 0, qLen = traitData.relationQueries.length; qi < qLen; qi++) {
+        const query = traitData.relationQueries[qi];
         // Skip queries already handled by pairQueries above
         if (pairId !== undefined && ctx.pairQueries[pairId]?.includes(query)) continue;
         const match = checkQuery(world, query, entity);
@@ -289,7 +343,7 @@ export function removeAllRelationTargets(world: World, relation: Relation, entit
 
 /**
  * Get all entities that have a specific relation targeting a specific entity.
- * Builds result on-demand by scanning relationTargets (not maintained in reverse index).
+ * Uses per-pair SparseSet reverse index for O(K) lookup where K = matching entities.
  */
 export function getEntitiesWithRelationTo(
     world: World,
@@ -298,23 +352,22 @@ export function getEntitiesWithRelationTo(
 ): readonly Entity[] {
     const ctx = world[$internal];
     const traitData = getTraitInstance(ctx.traitInstances, relation);
-    if (!traitData || !traitData.relationTargets) return [];
+    if (!traitData || !traitData.targetPairIds) return [];
 
-    const targetId = target;
-    const entityIndex = ctx.entityIndex;
-    const sparse = entityIndex.sparse;
-    const dense = entityIndex.dense;
-    const result: Entity[] = [];
-    const relationTargets = traitData.relationTargets;
+    const targetEid = getEntityId(target);
+    const pairId = traitData.targetPairIds[targetEid];
+    if (pairId === undefined) return [];
 
-    for (let eid = 0; eid < relationTargets.length; eid++) {
-        const targets = relationTargets[eid];
-        if (targets && targets.includes(targetId)) {
-            const denseIdx = sparse[eid];
-            if (denseIdx !== undefined && getEntityId(dense[denseIdx]) === eid) {
-                result.push(dense[denseIdx]);
-            }
-        }
+    const pairSet = ctx.pairEntities[pairId];
+    if (!pairSet || pairSet.length === 0) return [];
+
+    // O(K) iteration: only visit entities that hold this exact pair
+    const raw = pairSet.denseRaw;
+    const sparse = ctx.entityIndex.sparse;
+    const dense = ctx.entityIndex.dense;
+    const result: Entity[] = new Array(raw.length);
+    for (let i = 0; i < raw.length; i++) {
+        result[i] = dense[sparse[raw.array[i]]];
     }
 
     return result;
@@ -404,6 +457,15 @@ export function addPair(
     params?: Record<string, any>
 ) {
     if (typeof target !== 'number') return;
+
+    const isExclusive = relation[$internal].exclusive;
+    if (isExclusive && hasTrait(world, entity, relation)) {
+        const oldTarget = getFirstRelationTarget(world, relation, entity);
+        if (oldTarget !== undefined) {
+            if (oldTarget === target) return;
+            removePair(world, entity, relation, oldTarget);
+        }
+    }
 
     let instance = addTraitToEntity(world, entity, relation);
 

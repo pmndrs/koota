@@ -1,4 +1,5 @@
 import { $internal } from '../../common';
+import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
 import type { World } from '../../world';
 
 // Some values are reserved.
@@ -17,23 +18,22 @@ export function getTrackingCursor() {
 
 export function setTrackingMasks(world: World, id: number) {
     const ctx = world[$internal];
-    const snapshot = structuredClone(ctx.entityMasks);
-    ctx.trackingSnapshots.set(id, snapshot);
 
-    // For dirty and changed masks, make clone of entity masks and set all bits to 0.
-    ctx.dirtyMasks.set(
-        id,
-        snapshot.map((mask) => mask.map(() => 0))
-    );
+    // Snapshot current trait membership as Map<traitId, HiSparseBitSet> using bitSet.clone()
+    const snapshotMap = new Map<number, HiSparseBitSet>();
+    for (const inst of ctx.traitInstances) {
+        if (inst) snapshotMap.set(inst.definition.id, inst.bitSet.clone());
+    }
+    ctx.trackingSnapshots.set(id, snapshotMap);
 
-    ctx.changedMasks.set(
-        id,
-        snapshot.map((mask) => mask.map(() => 0))
-    );
+    // Initialize HiSparseBitSet maps for this tracking ID
+
+    // Initialize HiSparseBitSet maps for this tracking ID
+    ctx.addedBitSets.set(id, new Map());
+    ctx.removedBitSets.set(id, new Map());
+    ctx.changedBitSets.set(id, new Map());
 
     // Initialize parallel pair tracking arrays indexed by this tracking ID.
-    // pairDirtyMasks[id][eid][pairId] = 1 when pair was added/removed for entity.
-    // Populated eagerly when pairs are added/removed, consumed by pair-tracking queries.
     ctx.pairDirtyMasks[id] = [];
     ctx.pairChangedMasks[id] = [];
 }

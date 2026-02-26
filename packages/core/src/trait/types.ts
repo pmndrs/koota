@@ -2,6 +2,7 @@ import { $internal, $orderedTargetsTrait } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { Schema, Store, TagSchema } from '../storage';
+import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { OrderedList } from './ordered-list';
 
 /**
@@ -39,6 +40,8 @@ export type TraitDef<T = any, M extends TraitMode = TraitMode> = {
         hooks?: TraitHooks;
         accessors: TraitAccessors<T>;
         ctor: TraitConstructor<T>;
+        exclusive?: boolean;
+        autoDestroy?: 'orphan' | 'source' | 'target' | false;
     };
 };
 
@@ -108,8 +111,8 @@ export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
 // Trait instance types
 
 export interface TraitInstance<T extends Trait = Trait> {
-    generationId: number;
-    bitflag: number;
+    /** Per-trait membership bitset — tracks which entities have this trait. */
+    bitSet: HiSparseBitSet;
     definition: TraitDef;
     store: Store<ExtractType<T>>;
     // Snapshotted from definition at registration
@@ -117,12 +120,12 @@ export interface TraitInstance<T extends Trait = Trait> {
     accessors: TraitAccessors<ExtractType<T>>;
     ctor: TraitConstructor<ExtractType<T>>;
     /** Non-tracking queries that include this trait */
-    queries: Set<QueryInstance>;
+    queries: QueryInstance[];
     /** Tracking queries (Added/Removed/Changed) that include this trait */
-    trackingQueries: Set<QueryInstance>;
-    notQueries: Set<QueryInstance>;
+    trackingQueries: QueryInstance[];
+    notQueries: QueryInstance[];
     /** Queries that filter by this relation (only for relation traits) */
-    relationQueries: Set<QueryInstance>;
+    relationQueries: QueryInstance[];
     changeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
@@ -147,6 +150,10 @@ export interface TraitInstance<T extends Trait = Trait> {
      * targetPairIds[targetEid] = globalCompactPairId | undefined
      */
     targetPairIds?: number[];
+    /** Whether this relation is exclusive (one target per entity). */
+    exclusive?: boolean;
+    /** Auto-destroy behavior for this relation. */
+    autoDestroy?: 'orphan' | 'source' | 'target' | false;
 }
 
 // Type extraction utilities

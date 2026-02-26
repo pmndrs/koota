@@ -1,7 +1,8 @@
 import { $internal } from '../common';
+import { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { setChanged } from '../query/modifiers/changed';
+import { setChangedFast } from '../query/modifiers/changed';
 import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchema } from '../storage';
 import {
     createFastSetAccessor,
@@ -14,7 +15,7 @@ import {
     validateSchema,
 } from '../storage';
 import type { World } from '../world';
-import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+
 import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from './ordered';
 import { OrderedList } from './ordered-list';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
@@ -99,26 +100,35 @@ export const trait: trait = defineTrait as trait;
 
 export function registerTrait(world: World, trait: Trait) {
     const ctx = world[$internal];
-    const { mode, accessors, ctor } = trait[$internal];
+    const { mode, accessors, ctor, exclusive, autoDestroy } = trait[$internal];
 
     const data: TraitInstance = {
-        generationId: ctx.entityMasks.length - 1,
-        bitflag: ctx.bitflag,
+        bitSet: new HiSparseBitSet(),
         definition: trait,
         store: createStore(trait.schema) as TraitInstance['store'],
         mode,
         accessors,
         ctor,
-        queries: new Set(),
-        trackingQueries: new Set(),
-        notQueries: new Set(),
-        relationQueries: new Set(),
+        queries: [],
+        trackingQueries: [],
+        notQueries: [],
+        relationQueries: [],
         changeSubscriptions: new Set(),
         addSubscriptions: new Set(),
         removeSubscriptions: new Set(),
+        // Always initialize binary fields for monomorphic hidden class
+        exclusive: undefined,
+        autoDestroy: undefined,
+        pairStore: undefined,
+        slotMap: undefined,
+        nextSlot: undefined,
+        freeSlots: undefined,
+        targetPairIds: undefined,
     };
 
     if (mode === 'binary') {
+        data.exclusive = exclusive ?? false;
+        data.autoDestroy = autoDestroy ?? false;
         data.pairStore = createStore(trait.schema) as TraitInstance['pairStore'];
         data.slotMap = [];
         data.nextSlot = 0;
@@ -130,8 +140,6 @@ export function registerTrait(world: World, trait: Trait) {
     world.traits.add(trait);
 
     if (mode === 'binary') ctx.relations.add(trait as Relation);
-
-    incrementWorldBitflag(world);
 
     if (isOrderedTrait(trait)) setupOrderedTraitSync(world, trait);
 }
@@ -170,17 +178,11 @@ export function removeTrait(world: World, entity: Entity, trait: Trait) {
     removeTraitFromEntity(world, entity, trait);
 }
 
-/** Bitmask-only membership check. */
+/** BitSet-based membership check. */
 export /* @inline @pure */ function hasTrait(world: World, entity: Entity, trait: Trait): boolean {
-    const ctx = world[$internal];
-    const instance = getTraitInstance(ctx.traitInstances, trait);
+    const instance = getTraitInstance(world[$internal].traitInstances, trait);
     if (!instance) return false;
-
-    const { generationId, bitflag } = instance;
-    const eid = getEntityId(entity);
-    const mask = ctx.entityMasks[generationId][eid];
-
-    return (mask & bitflag) === bitflag;
+    return instance.bitSet.has(getEntityId(entity));
 }
 
 export function setTrait(
@@ -190,19 +192,22 @@ export function setTrait(
     value: any,
     triggerChanged = true
 ) {
-    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
+    const ctx = world[$internal];
+    const instance = getTraitInstance(ctx.traitInstances, trait)!;
     const index = getEntityId(entity);
     const store = instance.store;
 
     value instanceof Function && (value = value(instance.accessors.get(index, store)));
     instance.accessors.set(index, store, value);
-    if (triggerChanged) setChanged(world, entity, trait);
+    if (triggerChanged) setChangedFast(world, entity, trait, instance);
 }
 
 export function getTrait(world: World, entity: Entity, trait: Trait) {
-    if (!hasTrait(world, entity, trait)) return undefined;
-    const instance = getTraitInstance(world[$internal].traitInstances, trait)!;
-    return instance.accessors.get(getEntityId(entity), instance.store);
+    const instance = getTraitInstance(world[$internal].traitInstances, trait);
+    if (!instance) return undefined;
+    const eid = getEntityId(entity);
+    if (!instance.bitSet.has(eid)) return undefined;
+    return instance.accessors.get(eid, instance.store);
 }
 
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(
@@ -215,7 +220,7 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
 }
 
 // =============================================================================
-// Core bitmask operations — exported for relation.ts to use
+// Core trait entity operations — exported for relation.ts to use
 // =============================================================================
 
 export function addTraitToEntity(
@@ -230,26 +235,37 @@ export function addTraitToEntity(
     if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
 
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    const { generationId, bitflag, queries, trackingQueries } = instance;
+    const { queries, trackingQueries } = instance;
 
     const eid = getEntityId(entity);
-    ctx.entityMasks[generationId][eid] |= bitflag;
+    instance.bitSet.insert(eid);
+    instance.bitSet.insert(eid);
 
-    for (const dirtyMask of ctx.dirtyMasks.values()) {
-        if (!dirtyMask[generationId]) dirtyMask[generationId] = [];
-        dirtyMask[generationId][eid] |= bitflag;
+    // Mark entity in tracking event bitsets (sparse — only touched entities consume memory)
+    const traitId = trait.id;
+    if (ctx.addedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.addedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
+        }
     }
 
-    for (const query of queries) {
+    for (let qi = 0, qLen = queries.length; qi < qLen; qi++) {
+        const query = queries[qi];
         query.toRemove.remove(entity);
         const match = query.check(world, entity);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
 
-    for (const query of trackingQueries) {
+    for (let qi = 0, qLen = trackingQueries.length; qi < qLen; qi++) {
+        const query = trackingQueries[qi];
         query.toRemove.remove(entity);
-        const match = query.checkTracking(world, entity, 'add', generationId, bitflag);
+        const match = query.checkTracking(world, entity, 'add', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
@@ -264,23 +280,34 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
 
     const ctx = world[$internal];
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    const { generationId, bitflag, queries, trackingQueries } = instance;
+    const { queries, trackingQueries } = instance;
 
     const eid = getEntityId(entity);
-    ctx.entityMasks[generationId][eid] &= ~bitflag;
+    instance.bitSet.remove(eid);
 
-    for (const dirtyMask of ctx.dirtyMasks.values()) {
-        dirtyMask[generationId][eid] |= bitflag;
+    // Mark entity in removed tracking event bitsets
+    const traitId = trait.id;
+    if (ctx.removedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.removedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
+        }
     }
 
-    for (const query of queries) {
+    for (let qi = 0, qLen = queries.length; qi < qLen; qi++) {
+        const query = queries[qi];
         const match = query.check(world, entity);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
 
-    for (const query of trackingQueries) {
-        const match = query.checkTracking(world, entity, 'remove', generationId, bitflag);
+    for (let qi = 0, qLen = trackingQueries.length; qi < qLen; qi++) {
+        const query = trackingQueries[qi];
+        const match = query.checkTracking(world, entity, 'remove', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }

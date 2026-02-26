@@ -8,62 +8,46 @@ import { EventType, QueryInstance } from '../types';
 
 /**
  * Check if an entity matches a tracking query with event handling.
- *
- * PERF: This is a hot path - optimizations applied:
- * - Cache all property accesses at function start
- * - Use `| 0` instead of `|| 0` (bitwise coerces undefined to 0)
- * - Avoid optional chaining in inner loops
- * - Cache array references before mutation
- * - Early exits where possible
+ * Uses per-trait bitSet.has(eid) for static constraints and
+ * per-trait trackerBitSets for tracking group satisfaction.
  */
 export function checkQueryTracking(
     world: World,
     query: QueryInstance,
     entity: Entity,
     eventType: EventType,
-    eventGenerationId: number,
-    eventBitflag: number
+    eventTrait: Trait
 ): boolean {
-    // Cache all property accesses upfront
-    const staticBitmasks = query.staticBitmasks;
+    const { required, forbidden, or } = query.traitInstances;
     const trackingGroups = query.trackingGroups;
-    const generations = query.generations;
-    const traitInstancesAll = query.traitInstances.all;
-    const entityMasks = world[$internal].entityMasks;
     const eid = getEntityId(entity);
 
-    const generationsLen = generations.length;
     const trackingGroupsLen = trackingGroups.length;
 
     // Early exit: no traits to check
-    if (traitInstancesAll.length === 0) return false;
+    if (required.length === 0 && forbidden.length === 0 && or.length === 0 && trackingGroupsLen === 0) return false;
 
-    // 1. Check static constraints (required/forbidden/or)
-    for (let i = 0; i < generationsLen; i++) {
-        const generationId = generations[i];
-        const bitmask = staticBitmasks[i];
-        if (!bitmask) continue;
-
-        const required = bitmask.required;
-        const forbidden = bitmask.forbidden;
-        const or = bitmask.or;
-
-        // PERF: Direct access + bitwise OR coerces undefined to 0
-        const genMasks = entityMasks[generationId];
-        const entityMask = genMasks ? (genMasks[eid] | 0) : 0;
-
-        // Check forbidden traits
-        if (forbidden && (entityMask & forbidden) !== 0) return false;
-
-        // Check required traits
-        if (required && (entityMask & required) !== required) return false;
-
-        // Check Or traits
-        if (or !== 0 && (entityMask & or) === 0) return false;
+    // 1. Check static constraints via bitSet.has(eid)
+    for (let i = 0; i < required.length; i++) {
+        if (!required[i].bitSet.has(eid)) return false;
     }
 
-    // 2. Process tracking groups - update trackers and check cross-event invalidation
-    // Also track OR group state to avoid second loop when possible
+    for (let i = 0; i < forbidden.length; i++) {
+        if (forbidden[i].bitSet.has(eid)) return false;
+    }
+
+    if (or.length > 0) {
+        let anyOr = false;
+        for (let i = 0; i < or.length; i++) {
+            if (or[i].bitSet.has(eid)) {
+                anyOr = true;
+                break;
+            }
+        }
+        if (!anyOr) return false;
+    }
+
+    // 2. Process tracking groups — update trackerBitSets and check satisfaction
     let hasOrGroup = false;
     let anyOrMatched = false;
 
@@ -71,11 +55,19 @@ export function checkQueryTracking(
         const group = trackingGroups[i];
         const groupType = group.type;
         const groupLogic = group.logic;
-        const groupBitmasks = group.bitmasks;
-        const groupBitmask = groupBitmasks[eventGenerationId];
+        const gInstances = group.groupTraitInstances;
+        const trackerBitSets = group.trackerBitSets;
 
-        // Check if this event affects this group's traits
-        if (groupBitmask && (groupBitmask & eventBitflag)) {
+        // Find if the event trait is in this group
+        let traitIndex = -1;
+        for (let j = 0; j < gInstances.length; j++) {
+            if (gInstances[j].definition === eventTrait) {
+                traitIndex = j;
+                break;
+            }
+        }
+
+        if (traitIndex !== -1) {
             // Cross-event invalidation:
             // - Remove event invalidates Added/Changed tracking
             // - Add event invalidates Removed/Changed tracking
@@ -87,37 +79,20 @@ export function checkQueryTracking(
 
             // Update tracker if event type matches group type
             if (groupType === eventType) {
-                // For change events, verify entity still has the trait
                 if (eventType === 'change') {
-                    const genMasks = entityMasks[eventGenerationId];
-                    const entityMask = genMasks ? (genMasks[eid] | 0) : 0;
-                    if (!(entityMask & eventBitflag)) return false;
+                    if (!gInstances[traitIndex].bitSet.has(eid)) return false;
                 }
 
-                // PERF: Cache tracker array reference before mutation
-                const groupTrackers = group.trackers;
-                let trackerArr = groupTrackers[eventGenerationId];
-                if (!trackerArr) {
-                    trackerArr = [];
-                    groupTrackers[eventGenerationId] = trackerArr;
-                }
-                trackerArr[eid] = (trackerArr[eid] | 0) | eventBitflag;
+                trackerBitSets[traitIndex].insert(eid);
             }
         }
 
-        // 3. Verify tracking group satisfaction (merged into same loop)
+        // 3. Verify tracking group satisfaction
         if (groupLogic === 'or') {
             hasOrGroup = true;
             if (!anyOrMatched) {
-                // Check if any trait in OR group has been tracked
-                const groupTrackers = group.trackers;
-                const bitmaskLen = groupBitmasks.length;
-                for (let genId = 0; genId < bitmaskLen; genId++) {
-                    const mask = groupBitmasks[genId];
-                    if (!mask) continue;
-                    const trackerArr = groupTrackers[genId];
-                    const tracker = trackerArr ? (trackerArr[eid] | 0) : 0;
-                    if (tracker & mask) {
+                for (let t = 0; t < trackerBitSets.length; t++) {
+                    if (trackerBitSets[t].has(eid)) {
                         anyOrMatched = true;
                         break;
                     }
@@ -125,14 +100,8 @@ export function checkQueryTracking(
             }
         } else {
             // AND group: all traits must be tracked
-            const groupTrackers = group.trackers;
-            const bitmaskLen = groupBitmasks.length;
-            for (let genId = 0; genId < bitmaskLen; genId++) {
-                const mask = groupBitmasks[genId];
-                if (!mask) continue;
-                const trackerArr = groupTrackers[genId];
-                const tracker = trackerArr ? (trackerArr[eid] | 0) : 0;
-                if ((tracker & mask) !== mask) {
+            for (let t = 0; t < trackerBitSets.length; t++) {
+                if (!trackerBitSets[t].has(eid)) {
                     return false;
                 }
             }
@@ -147,14 +116,14 @@ export function checkQueryTracking(
     // Pair filter — O(1) sparse array lookup per pair
     const rf = query.relationFilters;
     if (rf && rf.length > 0) {
-        const ctx2 = world[$internal];
-        const entityPairIds = ctx2.entityPairIds;
+        const ctx = world[$internal];
+        const entityPairIds = ctx.entityPairIds;
         const pairArr = entityPairIds[eid];
         for (let i = 0; i < rf.length; i++) {
             const [relation, target] = rf[i];
             if (target === '*') continue;
             if (typeof target !== 'number') return false;
-            const instance = getTraitInstance(ctx2.traitInstances, relation as unknown as Trait);
+            const instance = getTraitInstance(ctx.traitInstances, relation as unknown as Trait);
             if (!instance || !instance.targetPairIds) return false;
             const pairId = instance.targetPairIds[getEntityId(target)];
             if (pairId === undefined) return false;

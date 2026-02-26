@@ -20,6 +20,8 @@ import type {
     Trait,
     TraitInstance,
 } from '../trait/types';
+import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
+import type { SparseSet } from '../utils/sparse-set';
 
 export type WorldOptions = {
     traits?: TraitLike[];
@@ -28,9 +30,9 @@ export type WorldOptions = {
 
 export type WorldInternal = {
     entityIndex: ReturnType<typeof createEntityIndex>;
-    entityMasks: number[][];
+
     entityTraits: Map<number, Set<Trait>>;
-    bitflag: number;
+
     traitInstances: (TraitInstance | undefined)[];
     relations: Set<Relation>;
     queriesHashMap: Map<string, QueryInstance>;
@@ -38,9 +40,14 @@ export type WorldInternal = {
     actionInstances: (ActionInstance | undefined)[];
     notQueries: Set<QueryInstance>;
     dirtyQueries: Set<QueryInstance>;
-    dirtyMasks: Map<number, number[][]>;
-    trackingSnapshots: Map<number, number[][]>;
-    changedMasks: Map<number, number[][]>;
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording add events since tracking creation */
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording add events since tracking creation */
+    addedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording remove events since tracking creation */
+    removedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording change events since tracking creation */
+    changedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    trackingSnapshots: Map<number, Map<number, HiSparseBitSet>>;
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<(world: World) => void>;
@@ -63,6 +70,11 @@ export type WorldInternal = {
      * Sparse array — only populated for exact-pair (non-wildcard) relation filters.
      */
     pairQueries: (QueryInstance[] | undefined)[];
+    /**
+     * Per-pair reverse index. pairEntities[pairId] = SparseSet of eids holding this pair.
+     * Enables O(K) relation queries where K = matching entities.
+     */
+    pairEntities: (SparseSet | undefined)[];
     // Pair-level tracking (indexed by trackingGroupIdx, not Map)
     /** pairDirtyMasks[trackingGroupIdx][eid][pairId] = dirty flag for add/remove tracking */
     pairDirtyMasks: (number[][] | undefined)[];

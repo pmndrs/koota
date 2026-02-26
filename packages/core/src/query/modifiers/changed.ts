@@ -1,9 +1,9 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
+import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { hasTrait, registerTrait } from '../../trait/trait';
-import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
-import type { Trait } from '../../trait/types';
+import { getTraitInstance } from '../../trait/trait-instance';
+import type { Trait, TraitInstance } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { World } from '../../world';
 import { createModifier } from '../modifier';
@@ -27,30 +27,32 @@ export function createChanged() {
 function markChanged(world: World, entity: Entity, trait: Trait) {
     const ctx = world[$internal];
 
-    // Early exit if the trait is not on the entity.
-    if (!hasTrait(world, entity, trait)) return;
+    // Single lookup via bitSet
+    const data = getTraitInstance(ctx.traitInstances, trait);
+    if (!data) return;
 
-    // Register the trait if it's not already registered.
-    if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait);
-    const data = getTraitInstance(ctx.traitInstances, trait)!;
-
-    // Mark the trait as changed in bitmasks for Changed modifiers.
     const eid = getEntityId(entity);
-    const { generationId, bitflag } = data;
+    if (!data.bitSet.has(eid)) return;
 
-    for (const changedMask of ctx.changedMasks.values()) {
-        if (!changedMask[generationId]) changedMask[generationId] = [];
-        if (!changedMask[generationId][eid]) changedMask[generationId][eid] = 0;
-        changedMask[generationId][eid] |= bitflag;
+    // Mark entity in changed tracking event bitsets (sparse)
+    const traitId = trait.id;
+    if (ctx.changedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.changedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
+        }
     }
 
     // Update tracking queries with change event
-    // checkTracking now handles relation filters internally
-    for (const query of data.trackingQueries) {
+    for (let qi = 0, qLen = data.trackingQueries.length; qi < qLen; qi++) {
+        const query = data.trackingQueries[qi];
         if (!query.hasChangedModifiers) continue;
         if (!query.changedTraits.has(trait)) continue;
-
-        const match = query.checkTracking(world, entity, 'change', generationId, bitflag);
+        const match = query.checkTracking(world, entity, 'change', trait);
         if (match) query.add(entity);
         else query.remove(world, entity);
     }
@@ -83,4 +85,36 @@ export function setChanged(world: World, entity: Entity, trait: Trait, target?: 
     } else {
         for (const sub of data.changeSubscriptions) sub(entity);
     }
+}
+
+/**
+ * Fast path for updateEach — skips hasTrait/getTraitInstance lookups
+ * since the caller already has the resolved instance.
+ */
+export function setChangedFast(world: World, entity: Entity, trait: Trait, instance: TraitInstance) {
+    const ctx = world[$internal];
+    const eid = getEntityId(entity);
+    const traitId = trait.id;
+
+    if (ctx.changedBitSets.size > 0) {
+        for (const [, traitMap] of ctx.changedBitSets) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
+        }
+    }
+
+    for (let qi = 0, qLen = instance.trackingQueries.length; qi < qLen; qi++) {
+        const query = instance.trackingQueries[qi];
+        if (!query.hasChangedModifiers) continue;
+        if (!query.changedTraits.has(trait)) continue;
+        const match = query.checkTracking(world, entity, 'change', trait);
+        if (match) query.add(entity);
+        else query.remove(world, entity);
+    }
+
+    for (const sub of instance.changeSubscriptions) sub(entity);
 }

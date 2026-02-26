@@ -3,6 +3,7 @@ import type { PairPattern } from '../trait/types';
 import type { ExtractStore, ExtractType, IsTag, Trait, TraitInstance } from '../trait/types';
 import type { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
+import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
@@ -112,16 +113,11 @@ type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First
  * Replaces the old separate tracking arrays and OrTrackingGroup.
  */
 export type TrackingGroup = {
-    /** Whether all traits must match (and) or any trait can match (or) */
     logic: 'and' | 'or';
-    /** The type of tracking event */
     type: 'add' | 'remove' | 'change';
-    /** Tracking modifier ID for snapshot/mask lookups */
     id: number;
-    /** Bitmasks indexed by generationId */
-    bitmasks: (number | undefined)[];
-    /** Per-entity tracker state indexed by [generationId][entityId] */
-    trackers: (number[] | undefined)[];
+    groupTraitInstances: TraitInstance[];
+    trackerBitSets: HiSparseBitSet[];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
@@ -137,15 +133,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
         or: TraitInstance[];
         all: TraitInstance[];
     };
-    /** Static bitmasks for non-tracking query matching (indexed by generationId) */
-    staticBitmasks: {
-        required: number;
-        forbidden: number;
-        or: number;
-    }[];
     /** Unified tracking groups with explicit AND/OR logic */
     trackingGroups: TrackingGroup[];
-    generations: number[];
     entities: SparseSet;
     isTracking: boolean;
     hasChangedModifiers: boolean;
@@ -163,8 +152,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
         world: World,
         entity: Entity,
         eventType: 'add' | 'remove' | 'change',
-        generationId: number,
-        bitflag: number
+        trait: Trait
     ) => boolean;
     resetTrackingBitmasks: (eid: number) => void;
 };

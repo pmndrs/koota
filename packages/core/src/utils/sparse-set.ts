@@ -2,6 +2,7 @@ export class SparseSet {
     #dense: number[] = [];
     #sparse: number[] = [];
     #cursor: number = 0;
+    #denseRaw: { array: number[]; length: number } = { array: this.#dense, length: 0 };
 
     has(val: number): boolean {
         const index = this.#sparse[val];
@@ -46,6 +47,19 @@ export class SparseSet {
 
     get dense(): number[] {
         return this.#dense.slice(0, this.#cursor);
+    }
+
+    get denseRaw(): { array: number[]; length: number } {
+        this.#denseRaw.length = this.#cursor;
+        return this.#denseRaw;
+    }
+
+    get rawDense(): readonly number[] {
+        return this.#dense;
+    }
+
+    get length(): number {
+        return this.#cursor;
     }
 
     get sparse(): number[] {
