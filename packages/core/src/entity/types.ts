@@ -1,27 +1,28 @@
-import type { Relation, RelationPair } from '../relation/types';
 import type {
-    ConfigurableTrait,
-    ExtractSchema,
+    TraitLike,
+    ExtractType,
+    Relation,
+    Pair,
+    PairPattern,
     SetTraitCallback,
     Trait,
-    TraitRecord,
     TraitValue,
 } from '../trait/types';
 
 export type Entity = number & {
-    add: (...traits: ConfigurableTrait[]) => void;
-    remove: (...traits: (Trait | RelationPair)[]) => void;
-    has: (trait: Trait | RelationPair) => boolean;
+    add: (...traits: TraitLike[]) => void;
+    remove: (...traits: (Trait | PairPattern)[]) => void;
+    has: (trait: Trait | PairPattern) => boolean;
     destroy: () => void;
     changed: (trait: Trait) => void;
-    set: <T extends Trait | RelationPair>(
+    set: <T extends Trait | Pair>(
         trait: T,
-        value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>,
+        value: Partial<ExtractType<T>> | SetTraitCallback<T>,
         flagChanged?: boolean
     ) => void;
-    get: <T extends Trait | RelationPair>(trait: T) => TraitRecord<ExtractSchema<T>> | undefined;
-    targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
-    targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
+    get: <T extends Trait | Pair>(trait: T) => ExtractType<T> | undefined;
+    targetFor: (relation: Relation) => Entity | undefined;
+    targetsFor: (relation: Relation) => Entity[];
     id: () => number;
     generation: () => number;
     isAlive: () => boolean;

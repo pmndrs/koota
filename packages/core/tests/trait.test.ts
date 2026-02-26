@@ -33,9 +33,8 @@ describe('Trait', () => {
     });
 
     it('should throw an error if the schema contains an object or array', () => {
-        // @ts-expect-error - we want to test the error case
+        // These throw at runtime even though types accept them
         expect(() => trait({ object: { a: 1, b: 2 } })).toThrow();
-        // @ts-expect-error - we want to test the error case
         expect(() => trait({ array: [1, 2, 3] })).toThrow();
     });
 

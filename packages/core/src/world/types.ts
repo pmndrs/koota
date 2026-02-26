@@ -9,19 +9,20 @@ import type {
     QueryResult,
     QueryUnsubscriber,
 } from '../query/types';
-import type { Relation, RelationPair } from '../relation/types';
+
 import type {
-    ConfigurableTrait,
-    ExtractSchema,
+    TraitLike,
+    ExtractType,
+    Relation,
+    Pair,
+    PairPattern,
     SetTraitCallback,
     Trait,
     TraitInstance,
-    TraitRecord,
-    TraitValue,
 } from '../trait/types';
 
 export type WorldOptions = {
-    traits?: ConfigurableTrait[];
+    traits?: TraitLike[];
     lazy?: boolean;
 };
 
@@ -31,7 +32,7 @@ export type WorldInternal = {
     entityTraits: Map<number, Set<Trait>>;
     bitflag: number;
     traitInstances: (TraitInstance | undefined)[];
-    relations: Set<Relation<Trait>>;
+    relations: Set<Relation>;
     queriesHashMap: Map<string, QueryInstance>;
     queryInstances: (QueryInstance | undefined)[];
     actionInstances: (ActionInstance | undefined)[];
@@ -43,6 +44,30 @@ export type WorldInternal = {
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<(world: World) => void>;
+    // Pair ID allocator — no Map, all integer-indexed arrays
+    /** pairRefCount[pairId] = number of entities currently holding this pair */
+    pairRefCount: number[];
+    /** Monotonic pair ID allocator */
+    pairNextId: number;
+    /** Recycled pair IDs available for reuse */
+    pairFreeIds: number[];
+    /**
+     * Per-entity pair membership sparse array.
+     * entityPairIds[eid][pairId] = 1 (has pair) | 0 (does not have pair)
+     * One integer-indexed array read for O(1) membership check.
+     */
+    entityPairIds: (number[] | undefined)[];
+    /**
+     * Per-pair query index.
+     * pairQueries[pairId] = queries that filter by this exact (relation, target) combination.
+     * Sparse array — only populated for exact-pair (non-wildcard) relation filters.
+     */
+    pairQueries: (QueryInstance[] | undefined)[];
+    // Pair-level tracking (indexed by trackingGroupIdx, not Map)
+    /** pairDirtyMasks[trackingGroupIdx][eid][pairId] = dirty flag for add/remove tracking */
+    pairDirtyMasks: (number[][] | undefined)[];
+    /** pairChangedMasks[trackingGroupIdx][eid][pairId] = changed flag for change tracking */
+    pairChangedMasks: (number[][] | undefined)[];
 };
 
 export type World = {
@@ -51,15 +76,15 @@ export type World = {
     readonly entities: Entity[];
     readonly traits: Set<Trait>;
     [$internal]: WorldInternal;
-    init(...traits: ConfigurableTrait[]): void;
-    spawn(...traits: ConfigurableTrait[]): Entity;
+    init(...traits: TraitLike[]): void;
+    spawn(...traits: TraitLike[]): Entity;
     has(entity: Entity): boolean;
     has(trait: Trait): boolean;
     has(target: Entity | Trait): boolean;
-    add(...traits: ConfigurableTrait[]): void;
+    add(...traits: TraitLike[]): void;
     remove(...traits: Trait[]): void;
-    get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
-    set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
+    get<T extends Trait>(trait: T): ExtractType<T> | undefined;
+    set<T extends Trait>(trait: T, value: Partial<ExtractType<T>> | SetTraitCallback<T>): void;
     destroy(): void;
     reset(): void;
     query<T extends QueryParameter[]>(key: Query<T>): QueryResult<T>;
@@ -82,43 +107,16 @@ export type World = {
         parameters: T,
         callback: (entity: Entity) => void
     ): QueryUnsubscriber;
-    onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onAdd<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onAdd<T extends Trait>(
-        pair: RelationPair<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
     onAdd(
-        input: Trait | Relation<Trait> | RelationPair,
+        input: Trait | PairPattern,
         callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber;
-    onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onRemove<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onRemove<T extends Trait>(
-        pair: RelationPair<T>,
-        callback: (entity: Entity, target: Entity) => void
     ): QueryUnsubscriber;
     onRemove(
-        input: Trait | Relation<Trait> | RelationPair,
+        input: Trait | PairPattern,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
-    onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-    onChange<T extends Trait>(
-        relation: Relation<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
-    onChange<T extends Trait>(
-        pair: RelationPair<T>,
-        callback: (entity: Entity, target: Entity) => void
-    ): QueryUnsubscriber;
     onChange(
-        input: Trait | Relation<Trait> | RelationPair,
+        input: Trait | PairPattern,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
 };

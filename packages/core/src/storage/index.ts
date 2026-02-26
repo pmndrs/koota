@@ -1,11 +1,40 @@
-export { createStore } from './stores';
 export {
-    createSetFunction,
-    createFastSetFunction,
-    createFastSetChangeFunction,
-    createGetFunction,
+    createFastSetAccessor,
+    createFastSetChangeAccessor,
+    createGetAccessor,
+    createGetDefaultAccessor,
+    createSetAccessor,
 } from './accessors';
+export { createStore } from './stores';
 
-export { validateSchema, getSchemaDefaults } from './schema';
+export {
+    detectKind,
+    field,
+    isFieldDescriptor,
+    normalizeSchema,
+    parseField,
+    validateSchema,
+} from './schema';
 
-export type { Store, StoreType, Schema, AoSFactory, Norm } from './types';
+export { $fieldDescriptor } from './types';
+
+export type {
+    AoSFactory,
+    AoSSchema,
+    SchemaFor,
+    SchemaShorthand,
+    SchemaValue,
+    FieldDescriptor,
+    InferSchema,
+    Schema,
+    SchemaKind,
+    SoASchema,
+    Store,
+    TagSchema,
+    TraitKind,
+    // Deprecated aliases
+    Definition,
+    DefinitionFor,
+    DefinitionValue,
+    InferDefinition,
+} from './types';

@@ -26,35 +26,53 @@ export type {
     StoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
-export { relation } from './relation/relation';
+export { relation } from './trait/relation';
 /** @experimental This API is experimental and may change or be removed in future versions. */
-export { ordered } from './relation/ordered';
+export { ordered } from './trait/ordered';
 /** @experimental This API is experimental and may change or be removed in future versions. */
-export { OrderedList } from './relation/ordered-list';
-export { $relationPair, $relation } from './relation/symbols';
+export { OrderedList } from './trait/ordered-list';
+export { $relationPair } from './common';
+export { getStore, trait } from './trait/trait';
 export type {
+    TraitLike as ConfigurableTrait,
+    ExtractIsTag,
+    ExtractType,
+    ExtractStore,
+    IsTag,
     /** @experimental This type is experimental and may change or be removed in future versions. */
     OrderedRelation as OrderedTrait,
     Relation,
-    RelationPair,
-    RelationTarget,
-} from './relation/types';
-export { getStore, trait } from './trait/trait';
-export type {
-    ConfigurableTrait,
-    ExtractIsTag,
-    ExtractSchema,
-    ExtractStore,
-    IsTag,
+    Pair as RelationPair,
+    PairPattern as RelationPairPattern,
+    PairTarget as RelationTarget,
     SetTraitCallback,
     TagTrait,
     Trait,
     TraitRecord,
-    TraitTuple,
+    TraitConfig as TraitTuple,
     TraitValue,
 } from './trait/types';
-export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
-export type { TraitType } from './trait/types';
+export { field } from './storage/schema';
+export { $fieldDescriptor } from './storage/types';
+export type {
+    AoSFactory,
+    AoSSchema,
+    SchemaFor,
+    SchemaShorthand,
+    FieldDescriptor,
+    InferSchema,
+    Schema,
+    SoASchema,
+    SchemaKind,
+    Store,
+    TagSchema,
+    TraitKind,
+    // Deprecated aliases
+    Definition,
+    DefinitionFor,
+    InferDefinition,
+} from './storage/types';
+
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';
@@ -66,13 +84,3 @@ export { createWorld } from './world';
 import { createQuery } from './query/query';
 /** @deprecated Use createQuery instead */
 export const cacheQuery = createQuery;
-
-import type { TraitInstance } from './trait/types';
-/** @deprecated Use TraitInstance instead */
-export type TraitData = TraitInstance;
-
-/** @deprecated Will remove this internal type entirely */
-export type { TraitInstance } from './trait/types';
-
-/** @deprecated Will remove this internal type entirely */
-export type { QueryInstance } from './query/types';

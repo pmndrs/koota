@@ -8,44 +8,43 @@ import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '..
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { getEntitiesWithRelationTo } from '../relation/relation';
-import type { Relation, RelationPair } from '../relation/types';
-import { isRelation, isRelationPair } from '../relation/utils/is-relation';
-import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
+import { getEntitiesWithRelationTo } from '../trait/relation';
+import { add, get, has as hasTraitOrPair, remove, set } from '../trait/api';
+import { registerTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
-    ConfigurableTrait,
-    ExtractSchema,
+    TraitLike,
+    ExtractType,
+    Pair,
+    PairPattern,
     SetTraitCallback,
     Trait,
-    TraitRecord,
-    TraitValue,
 } from '../trait/types';
+import { isPairPattern } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import type { World, WorldInternal, WorldOptions } from './types';
 import { allocateWorldId, releaseWorldId } from './utils/world-index';
 
 export function createWorld(options: WorldOptions): World;
-export function createWorld(...traits: ConfigurableTrait[]): World;
+export function createWorld(...traits: TraitLike[]): World;
 export function createWorld(
-    optionsOrFirstTrait?: WorldOptions | ConfigurableTrait,
-    ...traits: ConfigurableTrait[]
+    optionsOrFirstTrait?: WorldOptions | TraitLike,
+    ...traits: TraitLike[]
 ): World {
     const id = allocateWorldId(universe.worldIndex);
     let isInitialized = false;
-    let lazyTraits: ConfigurableTrait[] | undefined;
-    type HookInput = Trait | Relation<Trait> | RelationPair<Trait>;
+    let lazyTraits: TraitLike[] | undefined;
+    type HookInput = Trait | PairPattern;
     type HookCallback = (entity: Entity, target?: Entity) => void;
 
     function resolveHookTrait(input: HookInput): Trait {
-        if (isRelationPair(input)) return input[$internal].relation[$internal].trait;
-        if (isRelation(input)) return input[$internal].trait;
+        if (isPairPattern(input)) return input[0];
         return input;
     }
 
     function resolveHookCallback(input: HookInput, callback: HookCallback): HookCallback {
-        if (isRelationPair(input)) {
-            const pairTarget = input[$internal].target;
+        if (isPairPattern(input)) {
+            const pairTarget = input[1];
             if (pairTarget === '*') return callback;
             return (entity: Entity, target?: Entity) => {
                 if (target === pairTarget) callback(entity, target);
@@ -73,11 +72,18 @@ export function createWorld(
             worldEntity: null!,
             trackedTraits: new Set(),
             resetSubscriptions: new Set(),
+            pairRefCount: [],
+            pairNextId: 0,
+            pairFreeIds: [],
+            entityPairIds: [],
+            pairQueries: [],
+            pairDirtyMasks: [],
+            pairChangedMasks: [],
         } as WorldInternal,
 
         traits: new Set<Trait>(),
 
-        init(...initTraits: ConfigurableTrait[]) {
+        init(...initTraits: TraitLike[]) {
             const ctx = world[$internal];
             if (isInitialized) return;
 
@@ -103,30 +109,30 @@ export function createWorld(
             ctx.worldEntity = createEntity(world, IsExcluded, ...initTraits);
         },
 
-        spawn(...spawnTraits: ConfigurableTrait[]): Entity {
+        spawn(...spawnTraits: TraitLike[]): Entity {
             return createEntity(world, ...spawnTraits);
         },
 
         has(target: Entity | Trait): boolean {
             return typeof target === 'number'
                 ? isEntityAlive(world[$internal].entityIndex, target)
-                : hasTrait(world, world[$internal].worldEntity, target);
+                : hasTraitOrPair(world, world[$internal].worldEntity, target);
         },
 
-        add(...addTraits: ConfigurableTrait[]) {
-            addTrait(world, world[$internal].worldEntity, ...addTraits);
+        add(...addTraits: TraitLike[]) {
+            add(world, world[$internal].worldEntity, ...addTraits);
         },
 
         remove(...removeTraits: Trait[]) {
-            removeTrait(world, world[$internal].worldEntity, ...removeTraits);
+            remove(world, world[$internal].worldEntity, ...removeTraits);
         },
 
-        get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
-            return getTrait(world, world[$internal].worldEntity, trait);
+        get<T extends Trait>(trait: T): ExtractType<T> | undefined {
+            return get(world, world[$internal].worldEntity, trait);
         },
 
-        set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
-            setTrait(world, world[$internal].worldEntity, trait, value, true);
+        set<T extends Trait>(trait: T, value: Partial<ExtractType<T>> | SetTraitCallback<T>) {
+            set(world, world[$internal].worldEntity, trait, value, true);
         },
 
         destroy() {
@@ -208,18 +214,12 @@ export function createWorld(
                 const params = args as QueryParameter[];
 
                 // Fast path: single relation pair with specific target
-                if (params.length === 1 && isRelationPair(params[0])) {
-                    const pairCtx = params[0][$internal];
-                    const relation = pairCtx.relation;
-                    const target = pairCtx.target;
+                if (params.length === 1 && isPairPattern(params[0])) {
+                    const [relation, target] = params[0];
 
                     // Only use fast path for specific targets
                     if (typeof target === 'number') {
-                        const entities = getEntitiesWithRelationTo(
-                            world,
-                            relation as Relation<Trait>,
-                            target as Entity
-                        );
+                        const entities = getEntitiesWithRelationTo(world, relation, target as Entity);
                         return createRelationOnlyQueryResult(entities.slice() as Entity[]);
                     }
                 }
@@ -311,8 +311,8 @@ export function createWorld(
             return () => query.removeSubscriptions.delete(callback);
         },
 
-        onAdd<T extends Trait>(
-            trait: T | Relation<T> | RelationPair<T>,
+        onAdd(
+            trait: Trait | PairPattern,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
@@ -331,8 +331,8 @@ export function createWorld(
             return () => data.addSubscriptions.delete(resolvedCallback);
         },
 
-        onRemove<T extends Trait>(
-            trait: T | Relation<T> | RelationPair<T>,
+        onRemove(
+            trait: Trait | PairPattern,
             callback: (entity: Entity, target?: Entity) => void
         ): QueryUnsubscriber {
             const ctx = world[$internal];
@@ -351,10 +351,7 @@ export function createWorld(
             return () => data.removeSubscriptions.delete(resolvedCallback);
         },
 
-        onChange(
-            trait: Trait | Relation<Trait> | RelationPair<Trait>,
-            callback: (entity: Entity, target?: Entity) => void
-        ) {
+        onChange(trait: Trait | PairPattern, callback: (entity: Entity, target?: Entity) => void) {
             const ctx = world[$internal];
             const resolvedTrait = resolveHookTrait(trait);
             const resolvedCallback = resolveHookCallback(trait, callback);

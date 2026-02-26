@@ -1,7 +1,7 @@
 import { $internal } from '../common';
-import { getEntitiesWithRelationTo, getRelationTargets } from '../relation/relation';
-import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
-import type { ConfigurableTrait } from '../trait/types';
+import { add, remove } from '../trait/api';
+import { cleanupRelationTarget, getEntitiesWithRelationTo } from '../trait/relation';
+import type { TraitLike } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { World } from '../world';
 import type { Entity } from './types';
@@ -11,7 +11,7 @@ import { getEntityId, getEntityWorldId } from './utils/pack-entity';
 // Ensure entity methods are patched.
 import './entity-methods-patch';
 
-export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
+export function createEntity(world: World, ...traits: TraitLike[]): Entity {
     const ctx = world[$internal];
     const entity = allocateEntity(ctx.entityIndex);
 
@@ -23,7 +23,7 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
     }
 
     ctx.entityTraits.set(entity, new Set());
-    addTrait(world, entity, ...traits);
+    add(world, entity, ...traits);
 
     return entity;
 }
@@ -46,11 +46,8 @@ export function destroyEntity(world: World, entity: Entity) {
     entityQueue.push(entity);
     processedEntities.clear();
 
-    // Destroyed entities may be the target or source of relations.
-    // To avoid stale references, all these relations must be removed.
-    // autoDestroy controls cascade behavior:
-    // - 'source' (or 'orphan'): when target dies, destroy sources (e.g., parent dies → children die)
-    // - 'target': when source dies, destroy targets (e.g., container dies → items die)
+    // Destroyed entities may be relation targets.
+    // To avoid stale references, remove all relation pairs pointing to each destroyed target.
     while (entityQueue.length > 0) {
         const currentEntity = entityQueue.pop()!;
         if (processedEntities.has(currentEntity)) continue;
@@ -58,29 +55,13 @@ export function destroyEntity(world: World, entity: Entity) {
         processedEntities.add(currentEntity);
 
         for (const relation of ctx.relations) {
-            const relationCtx = relation[$internal];
-
-            // Handle entities that have relations pointing TO currentEntity (currentEntity is target)
-            // If autoDestroy is 'orphan', destroy those sources
+            // Handle entities that have relations pointing TO currentEntity (currentEntity is target).
             const sources = getEntitiesWithRelationTo(world, relation, currentEntity);
             for (const source of sources) {
                 if (!world.has(source)) continue;
 
                 // Remove the relation from source to currentEntity
                 cleanupRelationTarget(world, relation, source, currentEntity);
-
-                // If autoDestroy: 'source', queue the source for destruction
-                if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
-            }
-
-            // Handle relations where currentEntity is the source pointing to targets
-            // If autoDestroy is 'target', destroy those targets
-            if (relationCtx.autoDestroy === 'target') {
-                const targets = getRelationTargets(world, relation, currentEntity);
-                for (const target of targets) {
-                    if (!world.has(target)) continue;
-                    if (!processedEntities.has(target)) entityQueue.push(target);
-                }
             }
         }
 
@@ -88,7 +69,7 @@ export function destroyEntity(world: World, entity: Entity) {
         const entityTraits = ctx.entityTraits.get(currentEntity);
         if (entityTraits) {
             for (const trait of entityTraits) {
-                removeTrait(world, currentEntity, trait);
+                remove(world, currentEntity, trait);
             }
         }
 

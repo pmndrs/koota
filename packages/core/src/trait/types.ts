@@ -1,91 +1,121 @@
-import { $internal } from '../common';
+import { $internal, $orderedTargetsTrait } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
-import type { Relation, RelationPair } from '../relation/types';
-import type { AoSFactory, Schema, Store, StoreType } from '../storage';
-
-// Backwards-compatible alias (the trait "type" is the storage layout).
-export type TraitType = StoreType;
-
-export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
-    ? ReturnType<TSchema>
-    : Partial<TraitRecord<TSchema>>;
-
-export type Trait<TSchema extends Schema = any> = {
-    /** Public read-only ID for fast array lookups */
-    readonly id: number;
-    readonly schema: TSchema;
-    [$internal]: {
-        set: (index: number, store: any, value: TraitValue<TSchema>) => void;
-        fastSet: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
-        fastSetWithChangeDetection: (
-            index: number,
-            store: any,
-            value: TraitValue<TSchema>
-        ) => boolean;
-        get: (index: number, store: any) => TraitRecord<TSchema>;
-        id: number;
-        createStore: () => Store<TSchema>;
-        /** Reference to parent relation if this trait is owned by a relation */
-        relation: Relation<any> | null;
-        type: StoreType;
-    };
-} & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
-
-export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
-
-export type TraitTuple<T extends Trait = Trait> = [
-    T,
-    T extends Trait<infer S>
-        ? S extends AoSFactory
-            ? ReturnType<S>
-            : Partial<TraitRecord<S>>
-        : never,
-];
-
-export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair<T>;
-
-export type SetTraitCallback<T extends Trait | RelationPair> = (
-    prev: TraitRecord<ExtractSchema<T>>
-) => TraitValue<ExtractSchema<T>>;
-
-type TraitRecordFromSchema<T extends Schema> = T extends AoSFactory
-    ? ReturnType<T>
-    : {
-          [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];
-      };
+import type { Schema, Store, TagSchema } from '../storage';
+import type { OrderedList } from './ordered-list';
 
 /**
- * The record of a trait.
- * For SoA it is a snapshot of the state for a single entity.
- * For AoS it is the state instance for a single entity.
+ * Helper type for trait values that handles arrays correctly.
+ * Arrays are atomic and don't need Partial, but objects use Partial for partial updates.
  */
-export type TraitRecord<T extends Trait | Schema> = T extends Trait
-    ? TraitRecordFromSchema<T['schema']>
-    : TraitRecordFromSchema<T>;
+export type TraitPartial<T> = T extends any[] ? T : Partial<T>;
 
-// Type Utils
+export type TraitHook = (...args: unknown[]) => void;
 
-export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> =
-    T extends RelationPair<infer R>
-        ? ExtractSchema<R>
-        : T extends Relation<infer R>
-          ? ExtractSchema<R>
-          : T extends Trait<infer S>
-            ? S
-            : never;
-export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
-    ? Store
-    : never;
-export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'tag' } } ? true : false;
+export type TraitHooks = {
+    onSet?: TraitHook;
+    onAdd?: TraitHook;
+    onRemove?: TraitHook;
+    onTargetDestroy?: TraitHook;
+};
 
-export type IsTag<T extends Trait> = ExtractIsTag<T>;
+export type TraitAccessors<T = any> = {
+    set: (index: number, store: any, value: TraitPartial<T>) => void;
+    fastSet: (index: number, store: any, value: TraitPartial<T>) => boolean;
+    fastSetWithChangeDetection: (index: number, store: any, value: TraitPartial<T>) => boolean;
+    get: (index: number, store: any) => T;
+};
 
-export interface TraitInstance<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
+export type TraitConstructor<T = any> = () => T | null;
+
+export type TraitMode = 'unary' | 'binary';
+
+export type TraitDef<T = any, M extends TraitMode = TraitMode> = {
+    /** Public read-only ID for fast array lookups */
+    readonly id: number;
+    readonly schema: Schema;
+    [$internal]: {
+        mode: M;
+        hooks?: TraitHooks;
+        accessors: TraitAccessors<T>;
+        ctor: TraitConstructor<T>;
+    };
+};
+
+export type UnaryTraitCallable<T = any> = (params?: TraitPartial<T>) => [Trait<T>, TraitPartial<T>];
+
+export interface BinaryTraitCallable<T = any> {
+    (target: Entity, params?: TraitPartial<T>): Pair<T>;
+    (target: '*'): PairPattern<T>;
+}
+
+/** Extracts mode from a TraitDef, falling back to 'unary'. */
+export type ExtractMode<D> = D extends TraitDef<any, infer M> ? M : 'unary';
+
+export type TraitCallable<T = any, M extends TraitMode = TraitMode> = M extends 'binary'
+    ? BinaryTraitCallable<T>
+    : UnaryTraitCallable<T>;
+
+/**
+ * A Trait, parameterized by the data shape T.
+ * T is the type you get back when calling entity.get(Trait).
+ */
+export type Trait<T = any, M extends TraitMode = TraitMode> = TraitDef<T, M> & TraitCallable<T, M>;
+
+export type TagTrait = Trait<Record<string, never>> & { readonly schema: TagSchema };
+
+/**
+ * The value type for setting/adding a trait.
+ */
+export type TraitValue<T> = T extends Record<string, never> ? undefined : Partial<T>;
+
+/**
+ * A tuple of [Trait, params] for adding a trait with initial values.
+ */
+export type TraitConfig<T extends Trait = Trait> = [T, T extends Trait<infer D> ? Partial<D> : never];
+
+export type TraitLike<T extends Trait = Trait> = T | TraitConfig<T> | Pair;
+
+export type SetTraitCallback<T extends Trait | Pair | PairPattern> = (
+    prev: ExtractType<T>
+) => Partial<ExtractType<T>>;
+
+/**
+ * The record/data shape of a trait.
+ * This is what you get when calling entity.get(Trait).
+ */
+export type TraitRecord<T extends Trait> = T extends Trait<infer D> ? D : never;
+
+// Relation types
+
+/** A Relation is a Trait in binary mode. */
+export type Relation<T = any> = Trait<T, 'binary'>;
+
+export type PairTarget = Entity | '*';
+
+/** A concrete pair — relation + entity target, optionally with init data. */
+export type Pair<T = any> = [relation: Relation<T>, target: Entity, params?: TraitPartial<T>];
+
+/** A pair pattern — allows wildcard target. Used in queries, has, and remove. */
+export type PairPattern<T = any> = [relation: Relation<T>, target: PairTarget, params?: unknown];
+
+export type OrderedRelation<T = any> = Trait<OrderedList, 'unary'> & {
+    [$orderedTargetsTrait]: {
+        relation: Relation<T>;
+    };
+};
+
+// Trait instance types
+
+export interface TraitInstance<T extends Trait = Trait> {
     generationId: number;
     bitflag: number;
-    trait: Trait;
-    store: Store<S>;
+    definition: TraitDef;
+    store: Store<ExtractType<T>>;
+    // Snapshotted from definition at registration
+    mode: TraitMode;
+    accessors: TraitAccessors<ExtractType<T>>;
+    ctor: TraitConstructor<ExtractType<T>>;
     /** Non-tracking queries that include this trait */
     queries: Set<QueryInstance>;
     /** Tracking queries (Added/Removed/Changed) that include this trait */
@@ -93,24 +123,50 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
     notQueries: Set<QueryInstance>;
     /** Queries that filter by this relation (only for relation traits) */
     relationQueries: Set<QueryInstance>;
-    schema: S;
     changeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     /**
-     * Only for relation traits.
-     * For exclusive: relationTargets[eid] = targetId (number)
-     * For non-exclusive: relationTargets[eid] = [targetId1, targetId2, ...] (number[])
+     * Only for binary (relation) traits.
+     * relationTargets[eid] = [targetId1, targetId2, ...]
      */
-    relationTargets?: number[] | number[][];
+    relationTargets?: number[][];
+    /**
+     * Only for binary traits. Flat 1D store indexed by allocated slots.
+     * Same schema/accessors as the unary store — the only difference is the index.
+     */
+    pairStore?: Store<ExtractType<T>>;
+    /** slotMap[eid][localTargetIdx] = flatSlot into pairStore */
+    slotMap?: number[][];
+    /** Monotonic slot allocator */
+    nextSlot?: number;
+    /** Recycled slots for reuse */
+    freeSlots?: number[];
+    /**
+     * Only for binary traits. Maps targetEid -> global compact pairId.
+     * targetPairIds[targetEid] = globalCompactPairId | undefined
+     */
+    targetPairIds?: number[];
 }
 
-export type TraitOrRelation = Trait | Relation<Trait>;
+// Type extraction utilities
 
-/** Extracts the underlying Trait from a TraitOrRelation (Relations contain a Trait) */
-export type ExtractTrait<T> = T extends Relation<infer TTrait> ? TTrait : T;
+/**
+ * Extracts the data type T from a Trait<T>, Pair, or PairPattern.
+ */
+export type ExtractType<T extends Trait | Pair | PairPattern> =
+    T extends Pair<infer D>
+        ? D
+        : T extends PairPattern<infer D>
+          ? D
+          : T extends Trait<infer D>
+            ? D
+            : never;
 
-/** Maps a tuple of TraitOrRelation to their underlying Traits */
-export type ExtractTraits<T extends TraitOrRelation[]> = {
-    [K in keyof T]: ExtractTrait<T[K]>;
-};
+export type ExtractStore<T extends Trait> = T extends Trait<infer D> ? Store<D> : never;
+
+export type ExtractIsTag<T extends Trait> = T extends { readonly schema: { kind: 'tag' } }
+    ? true
+    : false;
+
+export type IsTag<T extends Trait> = ExtractIsTag<T>;

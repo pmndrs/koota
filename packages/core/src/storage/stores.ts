@@ -1,17 +1,17 @@
 import type { Schema } from './types';
-import type { Store } from './types';
 
-export function createStore<T extends Schema>(schema: T): Store<T>;
 export function createStore(schema: Schema): unknown {
-    if (typeof schema === 'function') {
-        return [];
-    } else {
-        const store: Record<string, unknown[]> = {};
-
-        for (const key in schema) {
-            store[key] = [];
+    switch (schema.kind) {
+        case 'aos':
+            return [];
+        case 'tag':
+            return {};
+        case 'soa': {
+            const store: Record<string, unknown[]> = {};
+            for (const key in schema.fields) {
+                store[key] = [];
+            }
+            return store;
         }
-
-        return store;
     }
 }

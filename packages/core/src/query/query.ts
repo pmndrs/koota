@@ -1,12 +1,10 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { hasRelationPair } from '../relation/relation';
-import type { Relation } from '../relation/types';
-import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait } from '../trait/types';
+import { isPairPattern } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
@@ -25,7 +23,6 @@ import {
 } from './types';
 import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
-import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 
 export const IsExcluded: TagTrait = trait();
@@ -219,16 +216,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
         const parameter = parameters[i];
 
         // Handle relation pairs
-        if (isRelationPair(parameter)) {
-            const pairCtx = parameter[$internal];
-            const relation = pairCtx.relation;
+        if (isPairPattern(parameter)) {
+            const [relation] = parameter;
 
             query.relationFilters!.push(parameter);
 
-            const baseTrait = (relation as Relation<Trait>)[$internal].trait;
-            if (!hasTraitInstance(ctx.traitInstances, baseTrait)) registerTrait(world, baseTrait);
-            query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, baseTrait)!);
-            query.traits.push(baseTrait);
+            if (!hasTraitInstance(ctx.traitInstances, relation)) registerTrait(world, relation);
+            query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, relation)!);
+            query.traits.push(relation);
 
             continue;
         }
@@ -256,7 +251,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 if (isOrWithModifiers(parameter)) {
                     for (const nestedModifier of parameter.modifiers) {
                         if (isTrackingModifier(nestedModifier)) {
-                            processTrackingModifier(world, query, nestedModifier, 'or', ctx, trackingGroupsMap);
+                            processTrackingModifier(
+                                world,
+                                query,
+                                nestedModifier,
+                                'or',
+                                ctx,
+                                trackingGroupsMap
+                            );
                         }
                     }
                 }
@@ -335,10 +337,31 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (hasRelationFilters) {
         for (const pair of query.relationFilters!) {
-            const relationTrait = pair[$internal].relation[$internal].trait;
+            const relationTrait = pair[0] as unknown as Trait;
+            const target = pair[1];
             const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
             if (relationTraitInstance) {
                 relationTraitInstance.relationQueries.add(query);
+            }
+
+            // For exact-pair filters (non-wildcard), also index in pairQueries[pairId].
+            // pairId may not exist yet (no entity has this pair), so we allocate it eagerly.
+            if (target !== '*' && typeof target === 'number') {
+                const inst = getTraitInstance(ctx.traitInstances, relationTrait);
+                if (inst) {
+                    if (!inst.targetPairIds) inst.targetPairIds = [];
+                    const targetEid = getEntityId(target);
+                    let pairId = inst.targetPairIds[targetEid];
+                    if (pairId === undefined) {
+                        // Allocate a pairId even before any entity holds this pair,
+                        // so queries can be indexed before add() is called.
+                        pairId = ctx.pairFreeIds.length > 0 ? ctx.pairFreeIds.pop()! : ctx.pairNextId++;
+                        inst.targetPairIds[targetEid] = pairId;
+                        ctx.pairRefCount[pairId] = 0; // no entities yet
+                    }
+                    if (!ctx.pairQueries[pairId]) ctx.pairQueries[pairId] = [];
+                    ctx.pairQueries[pairId]!.push(query);
+                }
             }
         }
     }
@@ -410,30 +433,33 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 }
 
                 if (matches) {
+                    // Relation filter for tracking population — O(1) sparse array lookup
                     if (hasRelationFilters) {
-                        let relationMatch = true;
+                        const eid2 = getEntityId(entity);
+                        const pairArr = ctx.entityPairIds[eid2];
+                        let pairMatch = true;
                         for (const pair of query.relationFilters!) {
-                            if (!hasRelationPair(world, entity, pair)) {
-                                relationMatch = false;
-                                break;
-                            }
+                            const [relation, target] = pair;
+                            if (target === '*') continue;
+                            if (typeof target !== 'number') { pairMatch = false; break; }
+                            const inst = getTraitInstance(ctx.traitInstances, relation as unknown as Trait);
+                            if (!inst || !inst.targetPairIds) { pairMatch = false; break; }
+                            const pairId = inst.targetPairIds[getEntityId(target)];
+                            if (pairId === undefined || !pairArr || pairArr[pairId] !== 1) { pairMatch = false; break; }
                         }
-                        if (relationMatch) query.add(entity);
-                    } else {
-                        query.add(entity);
+                        if (!pairMatch) continue;
                     }
+                    query.add(entity);
                 }
             }
         }
     } else {
         // Non-tracking query: populate immediately
+        // checkQuery now handles relation filters internally
         const entities = ctx.entityIndex.dense;
         for (let i = 0; i < entities.length; i++) {
             const entity = entities[i];
-            const match = hasRelationFilters
-                ? checkQueryWithRelations(world, query, entity)
-                : query.check(world, entity);
-            if (match) query.add(entity);
+            if (query.check(world, entity)) query.add(entity);
         }
     }
 

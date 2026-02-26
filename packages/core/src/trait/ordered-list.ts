@@ -1,9 +1,8 @@
 import type { Entity } from '../entity/types';
-import type { World } from '../world';
-import type { Relation } from './types';
-import type { Trait } from '../trait/types';
-import { addTrait, removeTrait } from '../trait/trait';
 import { setChanged } from '../query/modifiers/changed';
+import type { World } from '../world';
+import { addPair, removePair } from './relation';
+import type { Relation, Trait } from './types';
 
 /**
  * An ordered list of entities that syncs with a relation.
@@ -44,7 +43,7 @@ export class OrderedList extends Array<Entity> {
         this._syncing = true;
         try {
             for (const item of items) {
-                addTrait(this.world, item, this.relation(this.parent));
+                addPair(this.world, item, this.relation, this.parent);
             }
             const result = super.push(...items);
             setChanged(this.world, this.parent, this.orderedTrait);
@@ -62,7 +61,7 @@ export class OrderedList extends Array<Entity> {
         try {
             const item = super.pop();
             if (item !== undefined) {
-                removeTrait(this.world, item, this.relation(this.parent));
+                removePair(this.world, item, this.relation, this.parent);
                 setChanged(this.world, this.parent, this.orderedTrait);
             }
             return item;
@@ -79,7 +78,7 @@ export class OrderedList extends Array<Entity> {
         try {
             const item = super.shift();
             if (item !== undefined) {
-                removeTrait(this.world, item, this.relation(this.parent));
+                removePair(this.world, item, this.relation, this.parent);
                 setChanged(this.world, this.parent, this.orderedTrait);
             }
             return item;
@@ -95,7 +94,7 @@ export class OrderedList extends Array<Entity> {
         this._syncing = true;
         try {
             for (const item of items) {
-                addTrait(this.world, item, this.relation(this.parent));
+                addPair(this.world, item, this.relation, this.parent);
             }
             const result = super.unshift(...items);
             setChanged(this.world, this.parent, this.orderedTrait);
@@ -115,12 +114,12 @@ export class OrderedList extends Array<Entity> {
 
             // Remove relation pairs for removed items
             for (const item of removed) {
-                removeTrait(this.world, item, this.relation(this.parent));
+                removePair(this.world, item, this.relation, this.parent);
             }
 
             // Add relation pairs for inserted items
             for (const item of items) {
-                addTrait(this.world, item, this.relation(this.parent));
+                addPair(this.world, item, this.relation, this.parent);
             }
 
             if (removed.length > 0 || items.length > 0) {
@@ -198,7 +197,7 @@ export class OrderedList extends Array<Entity> {
     insert(item: Entity, index: number): void {
         this._syncing = true;
         try {
-            addTrait(this.world, item, this.relation(this.parent));
+            addPair(this.world, item, this.relation, this.parent);
             super.splice(index, 0, item);
             setChanged(this.world, this.parent, this.orderedTrait);
         } finally {

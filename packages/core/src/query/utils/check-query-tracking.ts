@@ -1,6 +1,8 @@
 import { $internal } from '../../common';
 import { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
+import { getTraitInstance } from '../../trait/trait-instance';
+import type { Trait } from '../../trait/types';
 import { World } from '../../world';
 import { EventType, QueryInstance } from '../types';
 
@@ -140,6 +142,24 @@ export function checkQueryTracking(
     // If we have OR groups, at least one must match
     if (hasOrGroup && !anyOrMatched) {
         return false;
+    }
+
+    // Pair filter — O(1) sparse array lookup per pair
+    const rf = query.relationFilters;
+    if (rf && rf.length > 0) {
+        const ctx2 = world[$internal];
+        const entityPairIds = ctx2.entityPairIds;
+        const pairArr = entityPairIds[eid];
+        for (let i = 0; i < rf.length; i++) {
+            const [relation, target] = rf[i];
+            if (target === '*') continue;
+            if (typeof target !== 'number') return false;
+            const instance = getTraitInstance(ctx2.traitInstances, relation as unknown as Trait);
+            if (!instance || !instance.targetPairIds) return false;
+            const pairId = instance.targetPairIds[getEntityId(target)];
+            if (pairId === undefined) return false;
+            if (!pairArr || pairArr[pairId] !== 1) return false;
+        }
     }
 
     return true;

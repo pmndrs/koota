@@ -1,13 +1,11 @@
-import { $internal } from '../common';
+import { $internal, $orderedTargetsTrait } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { trait, registerTrait } from '../trait/trait';
-import { getTraitInstance } from '../trait/trait-instance';
-import type { Trait } from '../trait/types';
 import type { World } from '../world';
 import { OrderedList } from './ordered-list';
-import { $orderedTargetsTrait } from './symbols';
-import type { OrderedRelation, Relation } from './types';
+import { trait, registerTrait } from './trait';
+import { getTraitInstance } from './trait-instance';
+import type { OrderedRelation, Relation, Trait } from './types';
 
 /**
  * Creates a trait that maintains an ordered list of entities related by a relation.
@@ -28,7 +26,7 @@ import type { OrderedRelation, Relation } from './types';
  * children.splice(0, 1); // removes ChildOf(parent) from child1
  * ```
  */
-export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation<T> {
+export function ordered<T = any>(relation: Relation<T>): OrderedRelation<T> {
     const orderedTrait = trait(() => [] as Entity[]);
 
     Object.defineProperty(orderedTrait, $orderedTargetsTrait, {
@@ -62,25 +60,23 @@ export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedRelati
 export function setupOrderedTraitSync(world: World, orderedTrait: OrderedRelation): void {
     const ctx = world[$internal];
     const relation = getOrderedTraitRelation(orderedTrait);
-    const relationTrait = relation[$internal].trait;
 
-    const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
+    const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait as Trait);
     if (!orderedInstance) return;
 
-    let relationInstance = getTraitInstance(ctx.traitInstances, relationTrait);
+    let relationInstance = getTraitInstance(ctx.traitInstances, relation);
     if (!relationInstance) {
-        registerTrait(world, relationTrait);
-        relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
+        registerTrait(world, relation);
+        relationInstance = getTraitInstance(ctx.traitInstances, relation)!;
     }
 
-    const { generationId, bitflag, store } = orderedInstance;
+    const { generationId, bitflag, store, accessors } = orderedInstance;
     const { entityMasks, entityIndex } = ctx;
-    const traitCtx = orderedTrait[$internal];
 
     const getList = (parent: Entity): OrderedList | undefined => {
         const eid = getEntityId(parent);
         return entityMasks[generationId]?.[eid] & bitflag
-            ? (traitCtx.get(eid, store) as OrderedList)
+            ? (accessors.get(eid, store) as OrderedList)
             : undefined;
     };
 
