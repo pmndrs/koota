@@ -41,7 +41,6 @@ export type WorldInternal = {
     notQueries: Set<QueryInstance>;
     dirtyQueries: Set<QueryInstance>;
     /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording add events since tracking creation */
-    /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording add events since tracking creation */
     addedBitSets: Map<number, Map<number, HiSparseBitSet>>;
     /** Per-tracking-ID, per-trait-ID HiSparseBitSets recording remove events since tracking creation */
     removedBitSets: Map<number, Map<number, HiSparseBitSet>>;

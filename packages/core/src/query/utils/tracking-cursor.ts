@@ -27,8 +27,6 @@ export function setTrackingMasks(world: World, id: number) {
     ctx.trackingSnapshots.set(id, snapshotMap);
 
     // Initialize HiSparseBitSet maps for this tracking ID
-
-    // Initialize HiSparseBitSet maps for this tracking ID
     ctx.addedBitSets.set(id, new Map());
     ctx.removedBitSets.set(id, new Map());
     ctx.changedBitSets.set(id, new Map());
