@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { LabsConfig } from './config.ts';
 
@@ -48,12 +48,22 @@ function saveSelection(files: string[]) {
 	writeFileSync(CACHE_FILE, JSON.stringify(files));
 }
 
-function runBench(file: string, nodeFlags: string[], label: string) {
+function runBench(file: string, nodeFlags: string[], label: string, tagFilter?: string) {
 	console.log(`\n${BLUE}▶ ${label}${RESET} ${DIM}(tsx + v8 flags)${RESET}`);
-	execSync(`pnpm dlx tsx ${nodeFlags.join(' ')} "${WORKER}"`, {
+	execSync(`pnpm tsx ${nodeFlags.join(' ')} "${WORKER}"`, {
 		stdio: 'inherit',
-		env: { ...process.env, LABS_BENCH_FILE: pathToFileURL(file).href },
+		env: {
+			...process.env,
+			LABS_BENCH_FILE: pathToFileURL(file).href,
+			...(tagFilter ? { LABS_GREP_TAGS: tagFilter } : {}),
+		},
 	});
+}
+
+function fileHasAnyTag(file: string, tags: string[]): boolean {
+	if (tags.length === 0) return true;
+	const content = readFileSync(file, 'utf-8');
+	return tags.some((tag) => content.includes(tag));
 }
 
 function error(msg: string): never {
@@ -81,31 +91,36 @@ export async function runCLI(args: string[]) {
 	if (allFiles.length === 0) error(`No bench files found matching "${config.testMatch}" in ${testDir}`);
 
 	const label = (f: string) => relative(testDir, f).replace(/\\/g, '/');
+	const suiteName = (f: string) => basename(f);
 
 	// --last: rerun previous selection
 	if (args.includes('--last')) {
 		const last = loadLastSelection().filter(existsSync);
 		if (last.length === 0) error('No previous selection found');
 		console.log(`${CYAN}labs${RESET} ${DIM}(replaying last)${RESET}`);
-		for (const f of last) runBench(f, config.nodeFlags, label(f));
+			for (const f of last) runBench(f, config.nodeFlags, suiteName(f));
 		return;
 	}
 
-	// Non-flag args are partial file name filters (comma or space separated).
-	const filters = args
+	// Split all non-flag args into tokens. @-prefixed tokens are tag filters, the rest are name filters.
+	const tokens = args
 		.filter((a) => !a.startsWith('-'))
-		.flatMap((a) => a.split(','))
-		.map((s) => s.trim())
+		.flatMap((a) => a.split(/\s+/))
 		.filter(Boolean);
+
+	const tagFilters = tokens.filter((t) => t.startsWith('@'));
+	const nameFilters = tokens.filter((t) => !t.startsWith('@'));
 
 	let selected: string[];
 
-	if (filters.length > 0) {
+	if (nameFilters.length > 0) {
+		const normalize = (s: string) => s.toLowerCase().replace(/[-\s_]+/g, '');
 		const seen = new Set<string>();
 		const missing: string[] = [];
 		selected = [];
-		for (const token of filters) {
-			const match = allFiles.find((f) => label(f).includes(token));
+		for (const token of nameFilters) {
+			const norm = normalize(token);
+			const match = allFiles.find((f) => normalize(label(f)).includes(norm));
 			if (!match) { missing.push(token); continue; }
 			if (!seen.has(match)) { seen.add(match); selected.push(match); }
 		}
@@ -113,11 +128,18 @@ export async function runCLI(args: string[]) {
 			error(`No file matching: ${missing.join(', ')}. Available: ${allFiles.map(label).join(', ')}`);
 		}
 	} else {
-		// No filters → run everything, like `playwright test` with no args.
 		selected = allFiles;
+	}
+
+	if (tagFilters.length > 0) {
+		selected = selected.filter((file) => fileHasAnyTag(file, tagFilters));
+	}
+	if (selected.length === 0) {
+		error(`No bench files matched the provided filters. Available: ${allFiles.map(label).join(', ')}`);
 	}
 
 	saveSelection(selected);
 	console.log(`${CYAN}labs${RESET}`);
-	for (const f of selected) runBench(f, config.nodeFlags, label(f));
+	const tagEnv = tagFilters.length > 0 ? tagFilters.join(',') : undefined;
+	for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
 }
