@@ -3,7 +3,7 @@ import { createWorld, relation, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 
-group('relation-queries-10k', () => {
+group('relation queries 10k @relation', () => {
 	const ChildOf = relation();
 
 	bench('1 parent query ChildOf(parent)', function* () {
@@ -38,7 +38,7 @@ group('relation-queries-10k', () => {
 	}).gc('inner');
 });
 
-group('many-targets-single-relation-10k', () => {
+group('many targets single relation 10k @relation', () => {
 	for (const targetCount of [10, 100, 1000]) {
 		bench(`${targetCount} targets, query specific`, function* () {
 			const Rel = relation();
@@ -61,7 +61,7 @@ group('many-targets-single-relation-10k', () => {
 	}
 });
 
-group('many-targets-multiple-relations-5k', () => {
+group('many targets multiple relations 5k @relation', () => {
 	const RelA = relation();
 	const RelB = relation();
 	const RelC = relation();

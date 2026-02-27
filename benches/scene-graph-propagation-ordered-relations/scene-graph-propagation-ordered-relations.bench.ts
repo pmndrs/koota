@@ -3,9 +3,9 @@ import { init } from './systems/init.ts';
 import { schedule } from './systems/schedule.ts';
 import { world } from '../scene-graph-propagation/world.ts';
 
-group('scene-graph-propagation-ordered-relations', () => {
+group('scene graph propagation ordered relations @scene @graph', () => {
 	init({ world });
-	bench('', () => {
+	bench(() => {
 		schedule.run({ world });
 	}).gc('inner');
 });

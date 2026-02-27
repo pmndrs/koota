@@ -11,7 +11,7 @@ const HasRender = trait();
 const HasAI = trait();
 const HasCollider = trait();
 
-group('query-selectivity-50k', () => {
+group('query selectivity 50k @query', () => {
 	bench('1 trait, 100% match', function* () {
 		const world = createWorld();
 		for (let i = 0; i < 50_000; i++) world.spawn(Velocity);
@@ -52,7 +52,7 @@ group('query-selectivity-50k', () => {
 	}).gc('inner');
 });
 
-group('n-way-intersection-100k', () => {
+group('n-way intersection 100k @query', () => {
 	const buildNWay = () => {
 		const world = createWorld();
 		for (let i = 0; i < 100_000; i++) {
@@ -125,7 +125,7 @@ group('n-way-intersection-100k', () => {
 	}).gc('inner');
 });
 
-group('not-exclusion-50k', () => {
+group('not exclusion 50k @query', () => {
 	bench('2 traits, 1% entities excluded', function* () {
 		const world = createWorld();
 		for (let i = 0; i < 50_000; i++) {
@@ -157,7 +157,7 @@ group('not-exclusion-50k', () => {
 	}).gc('inner');
 });
 
-group('query-throughput-50k', () => {
+group('query throughput 50k @query', () => {
 	bench('3 traits, query 2 - 50% match', function* () {
 		const world = createWorld();
 		for (let i = 0; i < 50_000; i++) {
@@ -193,7 +193,7 @@ group('query-throughput-50k', () => {
 	}).gc('inner');
 });
 
-group('query-maintenance-10k', () => {
+group('query maintenance 10k @query', () => {
 	const buildWithQueries = () => {
 		const world = createWorld();
 		const traitSubsets = [

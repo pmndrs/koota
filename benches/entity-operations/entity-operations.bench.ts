@@ -3,7 +3,7 @@ import { createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 
-group('entity-get-set-10k', () => {
+group('entity get set 10k @entity', () => {
 	bench('entity.get', function* () {
 		const world = createWorld();
 		const entities: Entity[] = [];
@@ -37,7 +37,7 @@ group('entity-get-set-10k', () => {
 	}).gc('inner');
 });
 
-group('high-trait-count-10k', () => {
+group('high trait count 10k @entity', () => {
 	const TRAIT_COUNT = 64;
 	const manyTraits = Array.from({ length: TRAIT_COUNT }, (_, i) => trait({ value: i }));
 

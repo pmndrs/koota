@@ -5,7 +5,7 @@ const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ vx: 0, vy: 0, vz: 0 });
 const Changed = createChanged();
 
-group('change-detection-50k', () => {
+group('change detection 50k @change @query', () => {
 	for (const changeCount of [10, 100, 1000]) {
 		bench(`${changeCount} changed`, function* () {
 			const world = createWorld();
