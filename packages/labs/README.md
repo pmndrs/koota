@@ -57,8 +57,8 @@ Place `labs.config.ts` alongside your bench files:
 import { defineConfig } from 'labs';
 
 export default defineConfig({
-  testDir: '.',
-  testMatch: '**/*.bench.ts',
+  benchDir: '.',
+  benchMatch: '**/*.bench.ts',
   nodeFlags: ['--allow-natives-syntax', '--expose-gc'],
 });
 ```
@@ -66,8 +66,8 @@ export default defineConfig({
 
 | Option      | Default                                     | Description                                  |
 | ----------- | ------------------------------------------- | -------------------------------------------- |
-| `testDir`   | (required)                                  | Directory to search, relative to config file |
-| `testMatch` | `**/*.bench.ts`                             | Glob pattern for discovery                   |
+| `benchDir`   | (required)                                  | Directory to search, relative to config file |
+| `benchMatch` | `**/*.bench.ts`                             | Glob pattern for discovery                   |
 | `nodeFlags` | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                |
 
 

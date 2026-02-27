@@ -84,13 +84,13 @@ export async function runCLI(args: string[]) {
 		error(`Failed to load config: ${configPath}\n${err}`);
 	}
 
-	const testDir = resolve(dirname(configPath), config.testDir);
-	if (!existsSync(testDir)) error(`testDir not found: ${testDir}`);
+	const benchDir = resolve(dirname(configPath), config.benchDir);
+	if (!existsSync(benchDir)) error(`benchDir not found: ${benchDir}`);
 
-	const allFiles = globBenchFiles(testDir, config.testMatch);
-	if (allFiles.length === 0) error(`No bench files found matching "${config.testMatch}" in ${testDir}`);
+	const allFiles = globBenchFiles(benchDir, config.benchMatch);
+	if (allFiles.length === 0) error(`No bench files found matching "${config.benchMatch}" in ${benchDir}`);
 
-	const label = (f: string) => relative(testDir, f).replace(/\\/g, '/');
+	const label = (f: string) => relative(benchDir, f).replace(/\\/g, '/');
 	const suiteName = (f: string) => basename(f);
 
 	// --last: rerun previous selection
