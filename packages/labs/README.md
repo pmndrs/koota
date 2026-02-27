@@ -13,6 +13,18 @@ pnpm bench "churn @relation"  # name + tag combined
 pnpm bench --last             # rerun previous selection
 ```
 
+## Saving Results
+
+```sh
+pnpm bench --save "v1.2.0"                         # run all, save result
+pnpm bench --save "v1.2.0" -m "after refactor"     # with description
+pnpm bench "@relation" --save "rel-run"            # filtered run + save
+pnpm bench --delete "v1.2.0"                       # delete a saved result
+pnpm bench --clear                                  # delete all saved results
+```
+
+Results are saved to `<benchDir>/.labs/results/<name>.json` and include hardware metadata (CPU, arch, runtime) for like-for-like comparisons.
+
 ## Writing a bench
 
 ```ts
@@ -64,10 +76,11 @@ export default defineConfig({
 ```
 
 
-| Option      | Default                                     | Description                                  |
-| ----------- | ------------------------------------------- | -------------------------------------------- |
-| `benchDir`   | (required)                                  | Directory to search, relative to config file |
-| `benchMatch` | `**/*.bench.ts`                             | Glob pattern for discovery                   |
-| `nodeFlags` | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                |
+| Option       | Default                                     | Description                                       |
+| ------------ | ------------------------------------------- | ------------------------------------------------- |
+| `benchDir`   | (required)                                  | Directory to search, relative to config file      |
+| `benchMatch` | `**/*.bench.ts`                             | Glob pattern for discovery                        |
+| `nodeFlags`  | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                     |
+| `resultsDir` | `.labs`                                     | Directory for saved results, relative to config   |
 
 

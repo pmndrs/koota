@@ -5,12 +5,15 @@ export interface LabsConfig {
 	benchMatch: string;
 	/** Node.js CLI flags passed when running each bench worker. */
 	nodeFlags: string[];
+	/** Directory for saved results and baseline pointer, relative to config file. @default ".labs" */
+	resultsDir: string;
 }
 
 export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'benchDir'>): LabsConfig {
 	return {
 		benchMatch: '**/*.bench.ts',
 		nodeFlags: ['--allow-natives-syntax', '--expose-gc'],
+		resultsDir: '.labs',
 		...config,
 	};
 }

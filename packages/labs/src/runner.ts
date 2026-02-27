@@ -1,13 +1,23 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { LabsConfig } from './config.ts';
+import {
+	type SavedResult,
+	type WorkerResult,
+	clearResults,
+	deleteResult,
+	getLabsDir,
+	saveResult,
+} from './store.ts';
 
 const RESET = '\x1b[0m';
 const DIM = '\x1b[2m';
 const BLUE = '\x1b[34m';
 const CYAN = '\x1b[36m';
+const GREEN = '\x1b[32m';
+const RED = '\x1b[31m';
 
 const WORKER = fileURLToPath(new URL('./worker.ts', import.meta.url));
 
@@ -44,11 +54,17 @@ function loadLastSelection(): string[] {
 
 function saveSelection(files: string[]) {
 	const dir = dirname(CACHE_FILE);
-	if (!existsSync(dir)) execSync(`mkdir -p "${dir}"`);
+	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 	writeFileSync(CACHE_FILE, JSON.stringify(files));
 }
 
-function runBench(file: string, nodeFlags: string[], label: string, tagFilter?: string) {
+function runBench(
+	file: string,
+	nodeFlags: string[],
+	label: string,
+	tagFilter?: string,
+	resultFile?: string,
+): void {
 	console.log(`\n${BLUE}▶ ${label}${RESET} ${DIM}(tsx + v8 flags)${RESET}`);
 	execSync(`pnpm tsx ${nodeFlags.join(' ')} "${WORKER}"`, {
 		stdio: 'inherit',
@@ -56,6 +72,7 @@ function runBench(file: string, nodeFlags: string[], label: string, tagFilter?: 
 			...process.env,
 			LABS_BENCH_FILE: pathToFileURL(file).href,
 			...(tagFilter ? { LABS_GREP_TAGS: tagFilter } : {}),
+			...(resultFile ? { LABS_RESULT_FILE: resultFile } : {}),
 		},
 	});
 }
@@ -67,8 +84,17 @@ function fileHasAnyTag(file: string, tags: string[]): boolean {
 }
 
 function error(msg: string): never {
-	console.error(`\x1b[31m✖\x1b[0m ${msg}`);
+	console.error(`${RED}✖${RESET} ${msg}`);
 	process.exit(1);
+}
+
+/** Parse a named flag value: --flag value → value, or undefined if flag absent. */
+function flagValue(args: string[], flag: string): string | undefined {
+	const i = args.indexOf(flag);
+	if (i === -1) return undefined;
+	const next = args[i + 1];
+	if (!next || next.startsWith('-')) return '';
+	return next;
 }
 
 export async function runCLI(args: string[]) {
@@ -82,6 +108,28 @@ export async function runCLI(args: string[]) {
 		config = await loadConfig(configPath);
 	} catch (err) {
 		error(`Failed to load config: ${configPath}\n${err}`);
+	}
+
+	const labsDir = getLabsDir(dirname(configPath), config.resultsDir);
+
+	// --clear: wipe all saved results and baseline pointer.
+	if (args.includes('--clear')) {
+		clearResults(labsDir);
+		console.log(`${GREEN}✔${RESET} Cleared all saved results`);
+		return;
+	}
+
+	// --delete <name>: remove a specific saved result.
+	const deleteName = flagValue(args, '--delete');
+	if (deleteName !== undefined) {
+		if (!deleteName) error('--delete requires a result name');
+		try {
+			deleteResult(labsDir, deleteName);
+			console.log(`${GREEN}✔${RESET} Deleted "${deleteName}"`);
+		} catch (e: any) {
+			error(e.message);
+		}
+		return;
 	}
 
 	const benchDir = resolve(dirname(configPath), config.benchDir);
@@ -98,15 +146,22 @@ export async function runCLI(args: string[]) {
 		const last = loadLastSelection().filter(existsSync);
 		if (last.length === 0) error('No previous selection found');
 		console.log(`${CYAN}labs${RESET} ${DIM}(replaying last)${RESET}`);
-			for (const f of last) runBench(f, config.nodeFlags, suiteName(f));
+		for (const f of last) runBench(f, config.nodeFlags, suiteName(f));
 		return;
 	}
 
 	// Split all non-flag args into tokens. @-prefixed tokens are tag filters, the rest are name filters.
-	const tokens = args
-		.filter((a) => !a.startsWith('-'))
-		.flatMap((a) => a.split(/\s+/))
-		.filter(Boolean);
+	// Skip values that follow known flags.
+	const FLAG_TAKES_VALUE = new Set(['--save', '--delete', '-m', '--message']);
+	const tokens: string[] = [];
+	for (let i = 0; i < args.length; i++) {
+		const a = args[i];
+		if (a.startsWith('-')) {
+			if (FLAG_TAKES_VALUE.has(a)) i++; // skip next value
+			continue;
+		}
+		tokens.push(...a.split(/\s+/).filter(Boolean));
+	}
 
 	const tagFilters = tokens.filter((t) => t.startsWith('@'));
 	const nameFilters = tokens.filter((t) => !t.startsWith('@'));
@@ -141,5 +196,60 @@ export async function runCLI(args: string[]) {
 	saveSelection(selected);
 	console.log(`${CYAN}labs${RESET}`);
 	const tagEnv = tagFilters.length > 0 ? tagFilters.join(',') : undefined;
-	for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
+
+	// --save <name>: collect results from each worker and persist.
+	const saveRaw = flagValue(args, '--save');
+	const saveName = saveRaw !== undefined
+		? (saveRaw || new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19))
+		: undefined;
+	const description = flagValue(args, '-m') ?? flagValue(args, '--message');
+
+	if (saveName !== undefined) {
+
+		const tmpDir = join(cwd, 'node_modules', '.cache', 'labs-tmp');
+		mkdirSync(tmpDir, { recursive: true });
+
+		const workerOutputs: Array<{ file: string; resultFile: string }> = [];
+		for (const f of selected) {
+			const resultFile = join(tmpDir, `${basename(f, '.ts')}-${Date.now()}.json`);
+			runBench(f, config.nodeFlags, suiteName(f), tagEnv, resultFile);
+			workerOutputs.push({ file: f, resultFile });
+		}
+
+		// Assemble SavedResult from worker outputs.
+		let hardware = { cpu: null as string | null, arch: null as string | null, runtime: null as string | null, freq: 0 };
+		const files: SavedResult['files'] = [];
+		let hardwareSet = false;
+
+		for (const { file, resultFile } of workerOutputs) {
+			if (!existsSync(resultFile)) continue;
+			const workerResult: WorkerResult = JSON.parse(readFileSync(resultFile, 'utf-8'));
+			rmSync(resultFile); // clean up temp
+
+			if (!hardwareSet) {
+				hardware = {
+					cpu: workerResult.context.cpu.name,
+					arch: workerResult.context.arch,
+					runtime: workerResult.context.runtime,
+					freq: workerResult.context.cpu.freq,
+				};
+				hardwareSet = true;
+			}
+
+			files.push({ file: suiteName(file), benchmarks: workerResult.benchmarks });
+		}
+
+		const result: SavedResult = {
+			name: saveName,
+			...(description ? { description } : {}),
+			timestamp: new Date().toISOString(),
+			hardware,
+			files,
+		};
+
+		saveResult(labsDir, result);
+		console.log(`\n${GREEN}✔${RESET} Saved "${saveName}" (${files.length} file${files.length !== 1 ? 's' : ''})`);
+	} else {
+		for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
+	}
 }
