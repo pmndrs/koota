@@ -4,7 +4,7 @@
   "private": true,
   "license": "ISC",
   "scripts": {
-    "bench": "tsx ./scripts/bench.ts",
+    "bench": "tsx ./packages/labs/src/cli.ts",
     "examples": "tsx ./scripts/examples.ts",
     "release": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
     "prepublishOnly": "pnpm -F koota build && pnpm -F koota generate-tests",

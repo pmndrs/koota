@@ -1,17 +1,14 @@
 {
-  "name": "@bench/relation-churn",
+  "name": "@koota/benches",
   "private": true,
   "version": "0.0.1",
-  "description": "Stress test for bulk relation add/remove every frame",
   "type": "module",
-  "main": "./src/index.ts",
   "dependencies": {
     "directed": "catalog:",
     "koota": "workspace:*",
-    "mitata": "catalog:"
+    "labs": "workspace:*"
   },
   "devDependencies": {
-    "@config/oxlint": "workspace:*",
     "@config/typescript": "workspace:*"
   }
 }

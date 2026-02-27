@@ -75,129 +75,21 @@ importers:
 
   .config/typescript: {}
 
-  benches/change-detection:
-    dependencies:
-      koota:
-        specifier: workspace:*
-        version: link:../../packages/publish
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
-
-  benches/entity-operations:
-    dependencies:
-      koota:
-        specifier: workspace:*
-        version: link:../../packages/publish
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
-
-  benches/query-performance:
-    dependencies:
-      koota:
-        specifier: workspace:*
-        version: link:../../packages/publish
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
-
-  benches/relation-churn:
+  benches:
     dependencies:
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
       koota:
         specifier: workspace:*
-        version: link:../../packages/publish
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-    devDependencies:
-      '@config/oxlint':
+        version: link:../packages/publish
+      labs:
         specifier: workspace:*
-        version: link:../../.config/oxlint
+        version: link:../packages/labs
+    devDependencies:
       '@config/typescript':
         specifier: workspace:*
-        version: link:../../.config/typescript
-
-  benches/relation-performance:
-    dependencies:
-      koota:
-        specifier: workspace:*
-        version: link:../../packages/publish
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
-
-  benches/scene-graph-propagation:
-    dependencies:
-      directed:
-        specifier: 'catalog:'
-        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
-      koota:
-        specifier: workspace:*
-        version: link:../../packages/publish
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
-
-  benches/scene-graph-propagation-ordered-relations:
-    dependencies:
-      '@bench/scene-graph-propagation':
-        specifier: workspace:*
-        version: link:../scene-graph-propagation
-      directed:
-        specifier: 'catalog:'
-        version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
-      koota:
-        specifier: workspace:*
-        version: link:../../packages/publish
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-    devDependencies:
-      '@config/oxlint':
-        specifier: workspace:*
-        version: link:../../.config/oxlint
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
+        version: link:../.config/typescript
 
   examples/add-remove:
     dependencies:
@@ -499,6 +391,22 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
+
+  packages/labs:
+    dependencies:
+      mitata:
+        specifier: 'catalog:'
+        version: 1.0.34
+      tsx:
+        specifier: latest
+        version: 4.21.0
+    devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.10.1
 
   packages/publish:
     dependencies:
