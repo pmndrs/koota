@@ -239,7 +239,6 @@ export function addTraitToEntity(
 
     const eid = getEntityId(entity);
     instance.bitSet.insert(eid);
-    instance.bitSet.insert(eid);
 
     // Mark entity in tracking event bitsets (sparse — only touched entities consume memory)
     const traitId = trait.id;
