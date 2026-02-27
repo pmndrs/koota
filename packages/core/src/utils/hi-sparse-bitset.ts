@@ -438,3 +438,91 @@ export function collectQuery(required: HiSparseBitSet[], forbidden: HiSparseBitS
     forEachQuery(required, forbidden, (eid) => result.push(eid));
     return result;
 }
+
+/**
+ * Iterates over blocks of entities that match all required bitsets and none of the forbidden ones.
+ * Calls back once per block (up to 1024 entities) with the block index and a bitmask of which
+ * entities within that block matched. Returns the total number of blocks visited.
+ */
+export function forEachBlockQuery(
+    required: HiSparseBitSet[],
+    forbidden: HiSparseBitSet[],
+    callback: (blockIdx: number, l2Words: Uint32Array) => void
+): number {
+    const nReq = required.length;
+    const nForb = forbidden.length;
+    if (nReq === 0) return 0;
+
+    let blockCount = 0;
+
+    // cache l2 arrays so we don't re-read properties in hot loops
+    const reqL2: (Uint32Array | null)[][] = new Array(nReq);
+    for (let i = 0; i < nReq; i++) reqL2[i] = required[i].l2Blocks;
+    const forbL2: (Uint32Array | null)[][] = new Array(nForb);
+    for (let i = 0; i < nForb; i++) forbL2[i] = forbidden[i].l2Blocks;
+
+    // buffer for combined bitmask words within a block
+    const wordBuf = new Uint32Array(32);
+
+    // top-level intersection — find which regions all share
+    let l0Combined = ~0 >>> 0;
+    for (let i = 0; i < nReq; i++) l0Combined &= required[i].l0;
+
+    while (l0Combined !== 0) {
+        const l0i = ctz32(l0Combined);
+        l0Combined &= l0Combined - 1;
+
+        // narrow down to shared sub-regions
+        let l1Combined = ~0 >>> 0;
+        for (let i = 0; i < nReq; i++) l1Combined &= required[i].l1Summary[l0i];
+
+        while (l1Combined !== 0) {
+            const l1i = ctz32(l1Combined);
+            l1Combined &= l1Combined - 1;
+
+            const blockIdx = (l0i << 5) | l1i;
+
+            // skip this block if any required set is missing data for it
+            let skipBlock = false;
+            for (let i = 0; i < nReq; i++) {
+                const blk = reqL2[i][blockIdx];
+                if (blk === null || blk === undefined) {
+                    skipBlock = true;
+                    break;
+                }
+            }
+            if (skipBlock) continue;
+
+            // intersect all required sets word-by-word within this block
+            let hasAny = false;
+            for (let l2i = 0; l2i < 32; l2i++) {
+                let word = ~0 >>> 0;
+                for (let i = 0; i < nReq; i++) {
+                    word &= reqL2[i][blockIdx]![l2i];
+                    if (word === 0) break;
+                }
+
+                // remove any entities that appear in a forbidden set
+                if (word !== 0) {
+                    for (let i = 0; i < nForb; i++) {
+                        const fBlock = forbL2[i][blockIdx];
+                        if (fBlock !== null && fBlock !== undefined) {
+                            word &= ~fBlock[l2i];
+                            if (word === 0) break;
+                        }
+                    }
+                }
+
+                wordBuf[l2i] = word;
+                if (word !== 0) hasAny = true;
+            }
+
+            if (hasAny) {
+                callback(blockIdx, wordBuf);
+                blockCount++;
+            }
+        }
+    }
+
+    return blockCount;
+}
