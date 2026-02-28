@@ -249,4 +249,61 @@ group('random-access-10k', () => {
     }).gc('inner');
 });
 
+group('forEachBlock-iteration', () => {
+    bench('50k entities, 2 traits — position += velocity', function* () {
+        const world = createWorld();
+        for (let i = 0; i < 50_000; i++) {
+            world.spawn(Position({ x: i, y: i, z: i }), Velocity({ vx: 1, vy: 1, vz: 1 }));
+        }
+        world.query(Position, Velocity);
+
+        yield () => {
+            world.query(Position, Velocity).forEachBlock(([pos, vel], offsets, count) => {
+                for (let i = 0; i < count; i++) {
+                    const off = offsets[i];
+                    pos.x[off] += vel.vx[off];
+                    pos.y[off] += vel.vy[off];
+                    pos.z[off] += vel.vz[off];
+                }
+            });
+        };
+
+        world.destroy();
+    }).gc('inner');
+
+    bench('50k entities, 4 traits — full physics step', function* () {
+        const world = createWorld();
+        for (let i = 0; i < 50_000; i++) {
+            world.spawn(
+                Position({ x: i, y: i, z: i }),
+                Velocity({ vx: 1, vy: 1, vz: 1 }),
+                Acceleration({ ax: 0.1, ay: -9.8, az: 0 }),
+                Damping({ dx: 0.99, dy: 0.99, dz: 0.99 }),
+            );
+        }
+        world.query(Position, Velocity, Acceleration, Damping);
+
+        yield () => {
+            world
+                .query(Position, Velocity, Acceleration, Damping)
+                .forEachBlock(([pos, vel, acc, damp], offsets, count) => {
+                    for (let i = 0; i < count; i++) {
+                        const off = offsets[i];
+                        vel.vx[off] += acc.ax[off];
+                        vel.vy[off] += acc.ay[off];
+                        vel.vz[off] += acc.az[off];
+                        vel.vx[off] *= damp.dx[off];
+                        vel.vy[off] *= damp.dy[off];
+                        vel.vz[off] *= damp.dz[off];
+                        pos.x[off] += vel.vx[off];
+                        pos.y[off] += vel.vy[off];
+                        pos.z[off] += vel.vz[off];
+                    }
+                });
+        };
+
+        world.destroy();
+    }).gc('inner');
+});
+
 await run();
