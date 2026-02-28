@@ -64,19 +64,19 @@ function createSoASetFunction(schema: SoASchema) {
     const numeric = isNumericSoA(schema);
     const blockCtor = numeric ? 'new Float64Array' : 'new Array';
 
-    // generate block-ensure + write code for each field
+    // generate block-ensure + write code for each field, caching block refs to avoid double lookups
     const body = [
         `var bi = index >>> ${BLOCK_SHIFT};`,
         `var off = index & ${BLOCK_MASK};`,
         ...keys.map(
             (key) =>
                 `if (Object.hasOwn(value, '${key}')) {\n` +
-                `        if (!store.${key}[bi]) store.${key}[bi] = ${blockCtor}(${BLOCK_SIZE});\n` +
-                `        store.${key}[bi][off] = value.${key};\n` +
+                `        var b_${key} = store.${key}[bi];\n` +
+                `        if (!b_${key}) { b_${key} = ${blockCtor}(${BLOCK_SIZE}); store.${key}[bi] = b_${key}; }\n` +
+                `        b_${key}[off] = value.${key};\n` +
                 `    }`
         ),
     ].join('\n    ');
-
     return new Function('index', 'store', 'value', body);
 }
 
@@ -89,7 +89,9 @@ function createSoAFastSetFunction(schema: SoASchema) {
         `var off = index & ${BLOCK_MASK};`,
         // guard against nulled blocks (freed by block deallocation)
         `if (!store.${firstKey}[bi]) return;`,
-        ...keys.map((key) => `store.${key}[bi][off] = value.${key};`),
+        // cache block refs to avoid repeated property lookups in the write path
+        ...keys.map((key) => `var b_${key} = store.${key}[bi];`),
+        ...keys.map((key) => `b_${key}[off] = value.${key};`),
     ].join('\n    ');
 
     return new Function('index', 'store', 'value', body);
@@ -105,10 +107,12 @@ function createSoAFastSetChangeFunction(schema: SoASchema) {
         // guard against nulled blocks (freed by block deallocation)
         `if (!store.${firstKey}[bi]) return false;`,
         'var changed = false;',
+        // cache block refs to avoid repeated property lookups in the compare+write path
+        ...keys.map((key) => `var b_${key} = store.${key}[bi];`),
         ...keys.map(
             (key) =>
-                `if (store.${key}[bi][off] !== value.${key}) {\n` +
-                `        store.${key}[bi][off] = value.${key};\n` +
+                `if (b_${key}[off] !== value.${key}) {\n` +
+                `        b_${key}[off] = value.${key};\n` +
                 `        changed = true;\n` +
                 `    }`
         ),
