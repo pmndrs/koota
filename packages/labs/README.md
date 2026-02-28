@@ -16,11 +16,11 @@ pnpm bench --last             # rerun previous selection
 ## Saving Results
 
 ```sh
-pnpm bench -s                                      # run all, save with auto timestamp
-pnpm bench -s "v1.2.0"                            # run all, save with name
-pnpm bench -s "v1.2.0" -m "after refactor"       # with description
+pnpm bench -s                                     # run all, save with auto timestamp
+pnpm bench -s "v1.2.0"                            # run all, save with name (shorthand)
+pnpm bench -s "v1.2.0" -m "after refactor"        # with description
 pnpm bench --save-baseline "v1.2.0"               # save and immediately set as baseline
-pnpm bench "@relation" -s "rel-run"              # filtered run + save
+pnpm bench "@relation" -s "rel-run"               # filtered run + save
 pnpm bench "@relation" --compare                  # run, save, then compare vs baseline
 pnpm bench "@relation" -c                         # shorthand for --compare
 ```
@@ -31,7 +31,7 @@ Results are saved to `<benchDir>/.labs/results/<name>.json` and include hardware
 
 ```sh
 pnpm bench list                        # list all saved results
-pnpm bench delete "v1.2.0"            # delete a specific saved result
+pnpm bench delete "v1.2.0"             # delete a specific saved result
 pnpm bench clear                       # delete all saved results
 ```
 
@@ -104,10 +104,10 @@ export default defineConfig({
 })
 ```
 
-| Option       | Default                                     | Description                                     |
-| ------------ | ------------------------------------------- | ----------------------------------------------- |
-| `benchDir`   | (required)                                  | Directory to search, relative to config file    |
-| `benchMatch` | `**/*.bench.ts`                             | Glob pattern for discovery                      |
-| `nodeFlags`  | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
-| `resultsDir` | `.labs`                                     | Directory for saved results, relative to config |
-| `compareThreshold` | `0.05`                                | Delta threshold for compare (±5% = neutral)     |
+| Option             | Default                                     | Description                                     |
+| ------------------ | ------------------------------------------- | ----------------------------------------------- |
+| `benchDir`         | (required)                                  | Directory to search, relative to config file    |
+| `benchMatch`       | `**/*.bench.ts`                             | Glob pattern for discovery                      |
+| `nodeFlags`        | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
+| `resultsDir`       | `.labs`                                     | Directory for saved results, relative to config |
+| `compareThreshold` | `0.05`                                      | Delta threshold for compare (±5% = neutral)     |
