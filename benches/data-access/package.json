@@ -1,0 +1,16 @@
+{
+  "name": "@bench/data-access",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Data access throughput: useStores, updateEach, readEach iteration",
+  "type": "module",
+  "main": "./src/main.ts",
+  "dependencies": {
+    "koota": "workspace:*",
+    "mitata": "catalog:"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*"
+  }
+}
