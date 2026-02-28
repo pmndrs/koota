@@ -2,14 +2,19 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { compare } from './compare.ts';
 import type { LabsConfig } from './config.ts';
 import {
 	type SavedResult,
 	type WorkerResult,
 	clearResults,
 	deleteResult,
+	getBaseline,
 	getLabsDir,
+	listResults,
+	loadResult,
 	saveResult,
+	setBaseline,
 } from './store.ts';
 
 const RESET = '\x1b[0m';
@@ -119,6 +124,46 @@ export async function runCLI(args: string[]) {
 		return;
 	}
 
+	// --list: print all saved results.
+	if (args.includes('--list')) {
+		const results = listResults(labsDir);
+		const baseline = getBaseline(labsDir);
+		if (results.length === 0) {
+			console.log(`${DIM}No saved results${RESET}`);
+		} else {
+			console.log('');
+			for (const r of results) {
+				const isBaseline = r.name === baseline;
+				const marker = isBaseline ? ` ${CYAN}(baseline)${RESET}` : '';
+				const desc = r.description ? ` ${DIM}— ${r.description}${RESET}` : '';
+				const date = new Date(r.timestamp).toLocaleString();
+				console.log(`  ${isBaseline ? GREEN : BLUE}▶${RESET} ${r.name}${marker}${desc}`);
+				console.log(`    ${DIM}${date}  ${r.hardware.cpu ?? 'unknown CPU'}${RESET}`);
+			}
+			console.log('');
+		}
+		return;
+	}
+
+	// --baseline <name>: set or print the current baseline.
+	const baselineArg = flagValue(args, '--baseline');
+	if (baselineArg !== undefined) {
+		if (!baselineArg) {
+			// --baseline with no value: print current
+			const current = getBaseline(labsDir);
+			if (!current) console.log(`${DIM}No baseline set${RESET}`);
+			else console.log(`${CYAN}baseline:${RESET} ${current}`);
+		} else {
+			try {
+				setBaseline(labsDir, baselineArg);
+				console.log(`${GREEN}✔${RESET} Baseline set to "${baselineArg}"`);
+			} catch (e: any) {
+				error(e.message);
+			}
+		}
+		return;
+	}
+
 	// --delete <name>: remove a specific saved result.
 	const deleteName = flagValue(args, '--delete');
 	if (deleteName !== undefined) {
@@ -126,6 +171,31 @@ export async function runCLI(args: string[]) {
 		try {
 			deleteResult(labsDir, deleteName);
 			console.log(`${GREEN}✔${RESET} Deleted "${deleteName}"`);
+		} catch (e: any) {
+			error(e.message);
+		}
+		return;
+	}
+
+	// --compare <name>: compare a saved result against the baseline.
+	const compareArg = flagValue(args, '--compare');
+	if (compareArg !== undefined) {
+		const baselineName = getBaseline(labsDir);
+		if (!baselineName) error('No baseline set. Use --baseline <name> first.');
+		let candidateName: string;
+		if (compareArg) {
+			candidateName = compareArg;
+		} else {
+			// No name given: use the most recent saved result that isn't the baseline.
+			const all = listResults(labsDir);
+			const candidate = all.filter((r) => r.name !== baselineName).pop();
+			if (!candidate) error('No saved result to compare. Save a result first with --save.');
+			candidateName = candidate.name;
+		}
+		try {
+			const baseline = loadResult(labsDir, baselineName);
+			const candidate = loadResult(labsDir, candidateName);
+			compare(baseline, candidate, config.compareThreshold);
 		} catch (e: any) {
 			error(e.message);
 		}
@@ -152,7 +222,7 @@ export async function runCLI(args: string[]) {
 
 	// Split all non-flag args into tokens. @-prefixed tokens are tag filters, the rest are name filters.
 	// Skip values that follow known flags.
-	const FLAG_TAKES_VALUE = new Set(['--save', '--delete', '-m', '--message']);
+	const FLAG_TAKES_VALUE = new Set(['--save', '--save-baseline', '--delete', '--baseline', '--compare', '-m', '--message']);
 	const tokens: string[] = [];
 	for (let i = 0; i < args.length; i++) {
 		const a = args[i];
@@ -197,11 +267,16 @@ export async function runCLI(args: string[]) {
 	console.log(`${CYAN}labs${RESET}`);
 	const tagEnv = tagFilters.length > 0 ? tagFilters.join(',') : undefined;
 
-	// --save <name>: collect results from each worker and persist.
+	// --save <name> / --save-baseline <name>: collect results from each worker and persist.
+	const defaultName = () => new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
 	const saveRaw = flagValue(args, '--save');
+	const saveBaselineRaw = flagValue(args, '--save-baseline');
 	const saveName = saveRaw !== undefined
-		? (saveRaw || new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19))
-		: undefined;
+		? (saveRaw || defaultName())
+		: saveBaselineRaw !== undefined
+			? (saveBaselineRaw || defaultName())
+			: undefined;
+	const setAsBaseline = saveBaselineRaw !== undefined;
 	const description = flagValue(args, '-m') ?? flagValue(args, '--message');
 
 	if (saveName !== undefined) {
@@ -248,7 +323,9 @@ export async function runCLI(args: string[]) {
 		};
 
 		saveResult(labsDir, result);
-		console.log(`\n${GREEN}✔${RESET} Saved "${saveName}" (${files.length} file${files.length !== 1 ? 's' : ''})`);
+		if (setAsBaseline) setBaseline(labsDir, saveName);
+		const baselineNote = setAsBaseline ? ` ${CYAN}(baseline)${RESET}` : '';
+		console.log(`\n${GREEN}✔${RESET} Saved "${saveName}"${baselineNote} (${files.length} file${files.length !== 1 ? 's' : ''})`);
 	} else {
 		for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
 	}

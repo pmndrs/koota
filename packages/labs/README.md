@@ -18,27 +18,48 @@ pnpm bench --last             # rerun previous selection
 ```sh
 pnpm bench --save "v1.2.0"                         # run all, save result
 pnpm bench --save "v1.2.0" -m "after refactor"     # with description
+pnpm bench --save                                  # save with auto timestamp name
 pnpm bench "@relation" --save "rel-run"            # filtered run + save
 pnpm bench --delete "v1.2.0"                       # delete a saved result
-pnpm bench --clear                                  # delete all saved results
+pnpm bench --clear                                 # delete all saved results
 ```
 
 Results are saved to `<benchDir>/.labs/results/<name>.json` and include hardware metadata (CPU, arch, runtime) for like-for-like comparisons.
 
+## Baseline
+
+```sh
+pnpm bench --list                      # list all saved results
+pnpm bench --baseline "v1.2.0"         # set a result as the baseline
+pnpm bench --baseline                  # print the current baseline name
+pnpm bench --save-baseline "v1.2.0"    # save and immediately set as baseline
+```
+
+The `--list` output shows the current baseline marked with `(baseline)` and the timestamp and CPU for each result.
+
+## Comparing
+
+```sh
+pnpm bench --compare "v1.3.0"     # compare named result vs baseline
+pnpm bench --compare              # compare most recent result vs baseline
+```
+
+Outputs a colored diff table showing each benchmark's avg time change and classification (faster/slower/neutral). Warns if hardware differs between runs.
+
 ## Writing a bench
 
 ```ts
-import { bench, group } from 'labs';
+import { bench, group } from 'labs'
 
 group('my-group @mytag', () => {
   bench('my-bench', function* () {
     // setup
     yield () => {
       // measured code
-    };
+    }
     // teardown
-  }).gc('inner');
-});
+  }).gc('inner')
+})
 ```
 
 ## Tags
@@ -66,21 +87,19 @@ pnpm bench "@slow"        # runs only wildcard
 Place `labs.config.ts` alongside your bench files:
 
 ```ts
-import { defineConfig } from 'labs';
+import { defineConfig } from 'labs'
 
 export default defineConfig({
   benchDir: '.',
   benchMatch: '**/*.bench.ts',
   nodeFlags: ['--allow-natives-syntax', '--expose-gc'],
-});
+})
 ```
 
-
-| Option       | Default                                     | Description                                       |
-| ------------ | ------------------------------------------- | ------------------------------------------------- |
-| `benchDir`   | (required)                                  | Directory to search, relative to config file      |
-| `benchMatch` | `**/*.bench.ts`                             | Glob pattern for discovery                        |
-| `nodeFlags`  | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                     |
-| `resultsDir` | `.labs`                                     | Directory for saved results, relative to config   |
-
-
+| Option       | Default                                     | Description                                     |
+| ------------ | ------------------------------------------- | ----------------------------------------------- |
+| `benchDir`   | (required)                                  | Directory to search, relative to config file    |
+| `benchMatch` | `**/*.bench.ts`                             | Glob pattern for discovery                      |
+| `nodeFlags`  | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
+| `resultsDir` | `.labs`                                     | Directory for saved results, relative to config |
+| `compareThreshold` | `0.05`                                | Delta threshold for compare (±5% = neutral)     |

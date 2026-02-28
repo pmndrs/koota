@@ -28,6 +28,7 @@ export interface BenchmarkTrial {
 	alias: string;
 	baseline: boolean;
 	runs: BenchmarkRun[];
+	groupName?: string;
 }
 
 export interface WorkerResult {
@@ -94,4 +95,17 @@ export function deleteResult(labsDir: string, name: string): void {
 
 export function clearResults(labsDir: string): void {
 	if (existsSync(labsDir)) rmSync(labsDir, { recursive: true, force: true });
+}
+
+export function setBaseline(labsDir: string, name: string): void {
+	const file = join(getResultsDir(labsDir), `${name}.json`);
+	if (!existsSync(file)) throw new Error(`No saved result named "${name}"`);
+	mkdirSync(labsDir, { recursive: true });
+	writeFileSync(join(labsDir, 'baseline'), name);
+}
+
+export function getBaseline(labsDir: string): string | undefined {
+	const file = join(labsDir, 'baseline');
+	if (!existsSync(file)) return undefined;
+	return readFileSync(file, 'utf-8').trim() || undefined;
 }
