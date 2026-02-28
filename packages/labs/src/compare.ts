@@ -1,5 +1,6 @@
+import type { LabsConfig } from './config.ts';
+import { type ClassifyOptions, type Verdict, classify } from './stats.ts';
 import type { SavedResult } from './store.ts';
-import { type Verdict, classify } from './stats.ts';
 
 const RESET = '\x1b[0m';
 const DIM = '\x1b[2m';
@@ -43,7 +44,6 @@ function formatPct(delta: number): string {
 	return `${sign}${pct.toFixed(1)}%`;
 }
 
-/** Format p-value compactly: "<.01", ".05", ".82" */
 function formatP(p: number): string {
 	if (p < 0.01) return '<.01';
 	return p.toFixed(2).replace(/^0/, '');
@@ -55,15 +55,15 @@ function verdictStyle(verdict: Verdict): { color: string; symbol: string } {
 	return { color: DIM, symbol: '■' };
 }
 
-function deltaBar(delta: number, verdict: Verdict): string {
+function deltaBar(delta: number, verdict: Verdict, noiseThreshold: number): string {
 	const { color } = verdictStyle(verdict);
-	const pct = Math.abs(delta) * 100;
-	const filled = Math.max(1, Math.min(10, Math.round(pct / 2)));
+	const excess = Math.max(0, Math.abs(delta) - noiseThreshold) * 100;
+	const filled = verdict === 'neutral' ? 0 : Math.max(1, Math.min(10, Math.round(excess / 2)));
 	const blocks = '█'.repeat(filled).padEnd(10, '·');
 
 	if (verdict === 'faster') return `${color}←${blocks}${RESET}`;
 	if (verdict === 'slower') return `${color}→${blocks}${RESET}`;
-	return `${DIM}·${blocks}${RESET}`;
+	return `${DIM} ${blocks}${RESET}`;
 }
 
 function buildIndex(result: SavedResult): Map<string, IndexEntry> {
@@ -80,7 +80,13 @@ function buildIndex(result: SavedResult): Map<string, IndexEntry> {
 	return map;
 }
 
-export function compare(baseline: SavedResult, candidate: SavedResult): void {
+export function compare(baseline: SavedResult, candidate: SavedResult, config: LabsConfig): void {
+	const opts: ClassifyOptions = {
+		alpha: config.alpha,
+		dThreshold: config.dThreshold,
+		noiseThreshold: config.noiseThreshold,
+	};
+
 	console.log(`\n${BOLD}${CYAN}━━ compare${RESET} ${DIM}${baseline.name} -> ${candidate.name}${RESET}`);
 
 	const hw1 = baseline.hardware;
@@ -89,11 +95,13 @@ export function compare(baseline: SavedResult, candidate: SavedResult): void {
 		console.log(`${YELLOW}⚠ hardware mismatch — results may not be directly comparable${RESET}`);
 		if (hw1.cpu !== hw2.cpu) console.log(`  ${DIM}CPU: ${hw1.cpu} vs ${hw2.cpu}${RESET}`);
 		if (hw1.arch !== hw2.arch) console.log(`  ${DIM}arch: ${hw1.arch} vs ${hw2.arch}${RESET}`);
-		if (hw1.runtime !== hw2.runtime) console.log(`  ${DIM}runtime: ${hw1.runtime} vs ${hw2.runtime}${RESET}`);
+		if (hw1.runtime !== hw2.runtime)
+			console.log(`  ${DIM}runtime: ${hw1.runtime} vs ${hw2.runtime}${RESET}`);
 	} else {
 		console.log(`${DIM}${hw1.cpu ?? 'unknown CPU'}${RESET}`);
 	}
-	console.log(`${DIM}Welch t-test  α=0.05  Cohen d≥0.2${RESET}\n`);
+	const noisePct = (config.noiseThreshold * 100).toFixed(0);
+	console.log(`${DIM}Welch t-test  α=${config.alpha}  |d|≥${config.dThreshold}  noise≥${noisePct}%${RESET}\n`);
 
 	const baseIndex = buildIndex(baseline);
 	const matched: MatchedBench[] = [];
@@ -106,7 +114,11 @@ export function compare(baseline: SavedResult, candidate: SavedResult): void {
 				const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}\0${run.name}`;
 				const base = baseIndex.get(key);
 				if (base === undefined) {
-					unmatched.push({ file: f.file, group: trial.groupName ?? trial.alias, name: run.name });
+					unmatched.push({
+						file: f.file,
+						group: trial.groupName ?? trial.alias,
+						name: run.name,
+					});
 					continue;
 				}
 				const delta = (run.stats.avg - base.avg) / base.avg;
@@ -136,7 +148,6 @@ export function compare(baseline: SavedResult, candidate: SavedResult): void {
 	const truncate = (s: string) =>
 		s.length > nameCol ? s.slice(0, nameCol - 1) + '…' : s.padEnd(nameCol);
 
-	// 4-char row prefix ("  ▼ ") must be reflected in the header indent.
 	const headerName = '    ' + 'bench'.padEnd(nameCol);
 	const header = `${DIM}${headerName} ${'baseline'.padStart(10)} ${'candidate'.padStart(10)} ${'delta'.padStart(7)}  ${'p'.padStart(4)}  trend${RESET}`;
 	const divider = `${DIM}${'-'.repeat(nameCol + 55)}${RESET}`;
@@ -144,9 +155,8 @@ export function compare(baseline: SavedResult, candidate: SavedResult): void {
 	let lastFile = '';
 	let lastGroup = '';
 
-	// Pre-compute verdicts so summary counts are accurate
 	const rows = matched.map((m) => {
-		const { verdict, p } = classify(m.baselineSamples, m.candidateSamples);
+		const { verdict, p } = classify(m.baselineSamples, m.candidateSamples, m.delta, opts);
 		return { m, verdict, p };
 	});
 
@@ -167,7 +177,7 @@ export function compare(baseline: SavedResult, candidate: SavedResult): void {
 		const { color, symbol } = verdictStyle(verdict);
 		const pctStr = formatPct(m.delta);
 		const pStr = formatP(p);
-		const bar = deltaBar(m.delta, verdict);
+		const bar = deltaBar(m.delta, verdict, config.noiseThreshold);
 
 		const name = truncate(m.key.name || m.key.group || 'anonymous');
 		const from = formatTime(m.baselineAvg).padStart(10);
@@ -181,7 +191,7 @@ export function compare(baseline: SavedResult, candidate: SavedResult): void {
 	if (unmatched.length > 0) {
 		console.log(`\n${YELLOW}new benchmarks (not in baseline)${RESET}`);
 		for (const u of unmatched) {
-			const label = u.group ? `${u.group} > ${u.name || 'anonymous'}` : (u.name || 'anonymous');
+			const label = u.group ? `${u.group} > ${u.name || 'anonymous'}` : u.name || 'anonymous';
 			console.log(`  ${DIM}• ${label}${RESET}`);
 		}
 	}

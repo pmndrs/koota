@@ -58,7 +58,7 @@ pnpm bench compare                     # compare most recent result vs baseline
 pnpm bench compare "v1.3.0"           # compare named result vs baseline
 ```
 
-Outputs a colored diff table showing each benchmark's avg time, delta %, p-value, and classification (faster/slower/neutral). Classification uses **Welch's t-test** (α=0.05) combined with **Cohen's d** (≥0.2) — both must pass to flag a change, which eliminates false positives from CPU noise. Warns if hardware differs between runs.
+Outputs a colored diff table showing each benchmark's avg time, delta %, p-value, and classification (faster/slower/neutral). All three conditions must be met to flag a change: **Welch's t-test** (p ≤ 0.05), **Cohen's d** (|d| ≥ 1.0), and a **noise floor** (|delta| ≥ 5%). This combination eliminates false positives from CPU thermal/boost fluctuations between runs. Warns if hardware differs.
 
 ## Writing a bench
 
@@ -116,3 +116,6 @@ export default defineConfig({
 | `benchMatch`       | `**/*.bench.ts`                             | Glob pattern for discovery                      |
 | `nodeFlags`        | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
 | `resultsDir`       | `.labs`                                     | Directory for saved results, relative to config |
+| `alpha`            | `0.05`                                      | Welch t-test significance level                 |
+| `dThreshold`       | `1.0`                                       | Cohen's d effect size threshold                 |
+| `noiseThreshold`   | `0.05`                                      | Minimum \|delta%\| to flag a change (noise floor) |

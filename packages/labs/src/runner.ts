@@ -189,7 +189,7 @@ export async function runCLI(args: string[]) {
 		try {
 			const baseline = loadResult(labsDir, baselineName);
 			const candidate = loadResult(labsDir, candidateName);
-			compare(baseline, candidate);
+			compare(baseline, candidate, config);
 		} catch (e: any) {
 			error(e.message);
 		}
@@ -331,7 +331,7 @@ export async function runCLI(args: string[]) {
 		} else {
 			try {
 				const baselineResult = loadResult(labsDir, baselineName);
-				compare(baselineResult, result);
+				compare(baselineResult, result, config);
 			} catch (e: any) {
 				console.log(`\n${RED}✖${RESET} Compare failed: ${e.message}`);
 			}

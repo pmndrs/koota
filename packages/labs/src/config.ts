@@ -7,6 +7,12 @@ export interface LabsConfig {
 	nodeFlags: string[];
 	/** Directory for saved results and baseline pointer, relative to config file. @default ".labs" */
 	resultsDir: string;
+	/** Welch t-test significance level. @default 0.05 */
+	alpha: number;
+	/** Cohen's d effect size threshold. @default 1.0 */
+	dThreshold: number;
+	/** Minimum |delta%| to flag a change (noise floor). @default 0.05 (5%) */
+	noiseThreshold: number;
 }
 
 export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'benchDir'>): LabsConfig {
@@ -14,6 +20,9 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
 		benchMatch: '**/*.bench.ts',
 		nodeFlags: ['--allow-natives-syntax', '--expose-gc'],
 		resultsDir: '.labs',
+		alpha: 0.05,
+		dThreshold: 1.0,
+		noiseThreshold: 0.05,
 		...config,
 	};
 }
