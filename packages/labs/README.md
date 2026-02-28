@@ -4,28 +4,34 @@ Benchmark runner for koota. Discovers `*.bench.ts` files and runs each in an iso
 
 ## Usage
 
-```sh
-pnpm bench                    # run all bench files
-pnpm bench relation           # partial match on file name
-pnpm bench "relation churn"   # separator-agnostic match
-pnpm bench "@relation"        # filter by tag
-pnpm bench "churn @relation"  # name + tag combined
-pnpm bench --last             # rerun previous selection
-```
-
-## Saving Results
+Every run saves results by default (auto-timestamped). Use `bench run` to execute without saving.
 
 ```sh
-pnpm bench -s                                     # run all, save with auto timestamp
-pnpm bench -s "v1.2.0"                            # run all, save with name (shorthand)
-pnpm bench -s "v1.2.0" -m "after refactor"        # with description
-pnpm bench --save-baseline "v1.2.0"               # save and immediately set as baseline
-pnpm bench "@relation" -s "rel-run"               # filtered run + save
-pnpm bench "@relation" --compare                  # run, save, then compare vs baseline
-pnpm bench "@relation" -c                         # shorthand for --compare
+pnpm bench                              # run all, save with auto timestamp
+pnpm bench "relation"                   # partial match on file name, save
+pnpm bench "relation churn"             # separator-agnostic match, save
+pnpm bench "@relation"                  # filter by tag, save
+pnpm bench "churn @relation"            # name + tag combined, save
+pnpm bench -n "v1.2.0"                 # save with explicit name
+pnpm bench -n "v1.2.0" -m "refactor"   # save with name and description
+pnpm bench --baseline                   # save and set as baseline
+pnpm bench -b                           # shorthand for --baseline
+pnpm bench -n "v1.2.0" -b              # save with name and set as baseline
+pnpm bench --compare                    # save, then compare vs baseline
+pnpm bench -c                           # shorthand for --compare
+pnpm bench --last                       # rerun previous selection, save
 ```
 
 Results are saved to `<benchDir>/.labs/results/<name>.json` and include hardware metadata (CPU, arch, runtime) for like-for-like comparisons.
+
+## Running without saving
+
+```sh
+pnpm bench run                          # run all, no save
+pnpm bench run "relation"              # filtered, no save
+pnpm bench run "@relation"             # filtered by tag, no save
+pnpm bench run --last                  # replay last selection, no save
+```
 
 ## Managing Results
 
@@ -52,7 +58,7 @@ pnpm bench compare                     # compare most recent result vs baseline
 pnpm bench compare "v1.3.0"           # compare named result vs baseline
 ```
 
-Outputs a colored diff table showing each benchmark's avg time change and classification (faster/slower/neutral). Warns if hardware differs between runs.
+Outputs a colored diff table showing each benchmark's avg time, delta %, p-value, and classification (faster/slower/neutral). Classification uses **Welch's t-test** (α=0.05) combined with **Cohen's d** (≥0.2) — both must pass to flag a change, which eliminates false positives from CPU noise. Warns if hardware differs between runs.
 
 ## Writing a bench
 
@@ -110,4 +116,3 @@ export default defineConfig({
 | `benchMatch`       | `**/*.bench.ts`                             | Glob pattern for discovery                      |
 | `nodeFlags`        | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
 | `resultsDir`       | `.labs`                                     | Directory for saved results, relative to config |
-| `compareThreshold` | `0.05`                                      | Delta threshold for compare (±5% = neutral)     |

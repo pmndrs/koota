@@ -189,12 +189,16 @@ export async function runCLI(args: string[]) {
 		try {
 			const baseline = loadResult(labsDir, baselineName);
 			const candidate = loadResult(labsDir, candidateName);
-			compare(baseline, candidate, config.compareThreshold);
+			compare(baseline, candidate);
 		} catch (e: any) {
 			error(e.message);
 		}
 		return;
 	}
+
+	// `run` subcommand — execute without saving results.
+	const shouldSave = subcmd !== 'run';
+	const benchArgs = shouldSave ? args : args.slice(1);
 
 	const benchDir = resolve(dirname(configPath), config.benchDir);
 	if (!existsSync(benchDir)) error(`benchDir not found: ${benchDir}`);
@@ -205,140 +209,132 @@ export async function runCLI(args: string[]) {
 	const label = (f: string) => relative(benchDir, f).replace(/\\/g, '/');
 	const suiteName = (f: string) => basename(f);
 
-	// --last: rerun previous selection
-	if (args.includes('--last')) {
-		const last = loadLastSelection().filter(existsSync);
-		if (last.length === 0) error('No previous selection found');
+	let selected: string[];
+	let tagEnv: string | undefined;
+
+	if (benchArgs.includes('--last')) {
+		selected = loadLastSelection().filter(existsSync);
+		if (selected.length === 0) error('No previous selection found');
 		console.log(`${CYAN}labs${RESET} ${DIM}(replaying last)${RESET}`);
-		for (const f of last) runBench(f, config.nodeFlags, suiteName(f));
+	} else {
+		// Single positional arg is the filter string (must be quoted on CLI).
+		const FLAG_TAKES_VALUE = new Set(['-n', '--name', '-m', '--message']);
+		let filterArg: string | undefined;
+		for (let i = 0; i < benchArgs.length; i++) {
+			const a = benchArgs[i];
+			if (a.startsWith('-')) {
+				if (FLAG_TAKES_VALUE.has(a)) i++;
+				continue;
+			}
+			filterArg = a;
+			break;
+		}
+
+		const tokens = filterArg ? filterArg.split(/\s+/).filter(Boolean) : [];
+		const tagFilters = tokens.filter((t) => t.startsWith('@'));
+		const nameFilters = tokens.filter((t) => !t.startsWith('@'));
+		tagEnv = tagFilters.length > 0 ? tagFilters.join(',') : undefined;
+
+		if (nameFilters.length > 0) {
+			const normalize = (s: string) => s.toLowerCase().replace(/[-\s_]+/g, '');
+			const seen = new Set<string>();
+			const missing: string[] = [];
+			selected = [];
+			for (const token of nameFilters) {
+				const norm = normalize(token);
+				const match = allFiles.find((f) => normalize(label(f)).includes(norm));
+				if (!match) { missing.push(token); continue; }
+				if (!seen.has(match)) { seen.add(match); selected.push(match); }
+			}
+			if (missing.length > 0) {
+				error(`No file matching: ${missing.join(', ')}. Available: ${allFiles.map(label).join(', ')}`);
+			}
+		} else {
+			selected = allFiles;
+		}
+
+		if (tagFilters.length > 0) {
+			selected = selected.filter((file) => fileHasAnyTag(file, tagFilters));
+		}
+		if (selected.length === 0) {
+			error(`No bench files matched the provided filters. Available: ${allFiles.map(label).join(', ')}`);
+		}
+
+		saveSelection(selected);
+		console.log(`${CYAN}labs${RESET}`);
+	}
+
+	if (!shouldSave) {
+		for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
 		return;
 	}
 
-	// Split all non-flag args into tokens. @-prefixed tokens are tag filters, the rest are name filters.
-	// Skip values that follow known flags.
-	const FLAG_TAKES_VALUE = new Set(['--save', '-s', '--save-baseline', '--compare', '-c', '-m', '--message']);
-	const tokens: string[] = [];
-	for (let i = 0; i < args.length; i++) {
-		const a = args[i];
-		if (a.startsWith('-')) {
-			if (FLAG_TAKES_VALUE.has(a)) i++; // skip next value
-			continue;
-		}
-		tokens.push(...a.split(/\s+/).filter(Boolean));
-	}
-
-	const tagFilters = tokens.filter((t) => t.startsWith('@'));
-	const nameFilters = tokens.filter((t) => !t.startsWith('@'));
-
-	let selected: string[];
-
-	if (nameFilters.length > 0) {
-		const normalize = (s: string) => s.toLowerCase().replace(/[-\s_]+/g, '');
-		const seen = new Set<string>();
-		const missing: string[] = [];
-		selected = [];
-		for (const token of nameFilters) {
-			const norm = normalize(token);
-			const match = allFiles.find((f) => normalize(label(f)).includes(norm));
-			if (!match) { missing.push(token); continue; }
-			if (!seen.has(match)) { seen.add(match); selected.push(match); }
-		}
-		if (missing.length > 0) {
-			error(`No file matching: ${missing.join(', ')}. Available: ${allFiles.map(label).join(', ')}`);
-		}
-	} else {
-		selected = allFiles;
-	}
-
-	if (tagFilters.length > 0) {
-		selected = selected.filter((file) => fileHasAnyTag(file, tagFilters));
-	}
-	if (selected.length === 0) {
-		error(`No bench files matched the provided filters. Available: ${allFiles.map(label).join(', ')}`);
-	}
-
-	saveSelection(selected);
-	console.log(`${CYAN}labs${RESET}`);
-	const tagEnv = tagFilters.length > 0 ? tagFilters.join(',') : undefined;
-
-	// --save <name> / --save-baseline <name>: collect results from each worker and persist.
+	// Save path: run workers, collect results, persist.
 	const defaultName = () => new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
-	const saveRaw = flagValue(args, '--save') ?? flagValue(args, '-s');
-	const saveBaselineRaw = flagValue(args, '--save-baseline');
-	const compareRaw = flagValue(args, '--compare') ?? flagValue(args, '-c'); // flag on run path: save + compare
-	// --compare as a run flag implies save; its optional value is the save name.
-	const needsSave = saveRaw !== undefined || saveBaselineRaw !== undefined || compareRaw !== undefined;
-	const saveName = needsSave
-		? (saveRaw || saveBaselineRaw || compareRaw || defaultName())
-		: undefined;
-	const setAsBaseline = saveBaselineRaw !== undefined;
-	const description = flagValue(args, '-m') ?? flagValue(args, '--message');
+	const saveName = flagValue(benchArgs, '-n') ?? flagValue(benchArgs, '--name') ?? defaultName();
+	const description = flagValue(benchArgs, '-m') ?? flagValue(benchArgs, '--message');
+	const setAsBaseline = benchArgs.includes('--baseline') || benchArgs.includes('-b');
+	const shouldCompare = benchArgs.includes('--compare') || benchArgs.includes('-c');
 
-	if (saveName !== undefined) {
-		const tmpDir = join(cwd, 'node_modules', '.cache', 'labs-tmp');
-		mkdirSync(tmpDir, { recursive: true });
+	const tmpDir = join(cwd, 'node_modules', '.cache', 'labs-tmp');
+	mkdirSync(tmpDir, { recursive: true });
 
-		const workerOutputs: Array<{ file: string; resultFile: string }> = [];
-		for (const f of selected) {
-			const resultFile = join(tmpDir, `${basename(f, '.ts')}-${Date.now()}.json`);
-			runBench(f, config.nodeFlags, suiteName(f), tagEnv, resultFile);
-			workerOutputs.push({ file: f, resultFile });
+	const workerOutputs: Array<{ file: string; resultFile: string }> = [];
+	for (const f of selected) {
+		const resultFile = join(tmpDir, `${basename(f, '.ts')}-${Date.now()}.json`);
+		runBench(f, config.nodeFlags, suiteName(f), tagEnv, resultFile);
+		workerOutputs.push({ file: f, resultFile });
+	}
+
+	let hardware = { cpu: null as string | null, arch: null as string | null, runtime: null as string | null, freq: 0 };
+	const files: SavedResult['files'] = [];
+	let hardwareSet = false;
+
+	for (const { file, resultFile } of workerOutputs) {
+		if (!existsSync(resultFile)) continue;
+		const workerResult: WorkerResult = JSON.parse(readFileSync(resultFile, 'utf-8'));
+		rmSync(resultFile);
+
+		if (!hardwareSet) {
+			hardware = {
+				cpu: workerResult.context.cpu.name,
+				arch: workerResult.context.arch,
+				runtime: workerResult.context.runtime,
+				freq: workerResult.context.cpu.freq,
+			};
+			hardwareSet = true;
 		}
 
-		// Assemble SavedResult from worker outputs.
-		let hardware = { cpu: null as string | null, arch: null as string | null, runtime: null as string | null, freq: 0 };
-		const files: SavedResult['files'] = [];
-		let hardwareSet = false;
+		files.push({ file: suiteName(file), benchmarks: workerResult.benchmarks });
+	}
 
-		for (const { file, resultFile } of workerOutputs) {
-			if (!existsSync(resultFile)) continue;
-			const workerResult: WorkerResult = JSON.parse(readFileSync(resultFile, 'utf-8'));
-			rmSync(resultFile);
+	const result: SavedResult = {
+		name: saveName,
+		...(description ? { description } : {}),
+		timestamp: new Date().toISOString(),
+		hardware,
+		files,
+	};
 
-			if (!hardwareSet) {
-				hardware = {
-					cpu: workerResult.context.cpu.name,
-					arch: workerResult.context.arch,
-					runtime: workerResult.context.runtime,
-					freq: workerResult.context.cpu.freq,
-				};
-				hardwareSet = true;
-			}
+	saveResult(labsDir, result);
+	const isFirstSave = !getBaseline(labsDir);
+	if (setAsBaseline || isFirstSave) setBaseline(labsDir, saveName);
+	const baselineNote = (setAsBaseline || isFirstSave) ? ` ${CYAN}(baseline)${RESET}` : '';
+	console.log(`\n${GREEN}✔${RESET} Saved "${saveName}"${baselineNote} (${files.length} file${files.length !== 1 ? 's' : ''})`);
 
-			files.push({ file: suiteName(file), benchmarks: workerResult.benchmarks });
-		}
-
-		const result: SavedResult = {
-			name: saveName,
-			...(description ? { description } : {}),
-			timestamp: new Date().toISOString(),
-			hardware,
-			files,
-		};
-
-		saveResult(labsDir, result);
-		const isFirstSave = !getBaseline(labsDir);
-		if (setAsBaseline || isFirstSave) setBaseline(labsDir, saveName);
-		const baselineNote = (setAsBaseline || isFirstSave) ? ` ${CYAN}(baseline)${RESET}` : '';
-		console.log(`\n${GREEN}✔${RESET} Saved "${saveName}"${baselineNote} (${files.length} file${files.length !== 1 ? 's' : ''})`);
-
-		// --compare flag: immediately compare the saved result against the baseline.
-		if (compareRaw !== undefined) {
-			const baselineName = getBaseline(labsDir);
-			if (!baselineName) {
-				console.log(`\n${DIM}No baseline set — skipping compare. Run: bench baseline <name>${RESET}`);
-			} else if (baselineName === saveName) {
-				console.log(`\n${DIM}Saved result is the baseline — nothing to compare${RESET}`);
-			} else {
-				try {
-					const baselineResult = loadResult(labsDir, baselineName);
-					compare(baselineResult, result, config.compareThreshold);
-				} catch (e: any) {
-					console.log(`\n${RED}✖${RESET} Compare failed: ${e.message}`);
-				}
+	if (shouldCompare) {
+		const baselineName = getBaseline(labsDir);
+		if (!baselineName) {
+			console.log(`\n${DIM}No baseline set — skipping compare. Run: bench baseline <name>${RESET}`);
+		} else if (baselineName === saveName) {
+			console.log(`\n${DIM}Saved result is the baseline — nothing to compare${RESET}`);
+		} else {
+			try {
+				const baselineResult = loadResult(labsDir, baselineName);
+				compare(baselineResult, result);
+			} catch (e: any) {
+				console.log(`\n${RED}✖${RESET} Compare failed: ${e.message}`);
 			}
 		}
-	} else {
-		for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
 	}
 }

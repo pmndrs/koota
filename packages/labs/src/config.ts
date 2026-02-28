@@ -7,8 +7,6 @@ export interface LabsConfig {
 	nodeFlags: string[];
 	/** Directory for saved results and baseline pointer, relative to config file. @default ".labs" */
 	resultsDir: string;
-	/** Delta threshold for compare: changes within ±threshold are neutral. @default 0.05 (5%) */
-	compareThreshold: number;
 }
 
 export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'benchDir'>): LabsConfig {
@@ -16,7 +14,6 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
 		benchMatch: '**/*.bench.ts',
 		nodeFlags: ['--allow-natives-syntax', '--expose-gc'],
 		resultsDir: '.labs',
-		compareThreshold: 0.05,
 		...config,
 	};
 }

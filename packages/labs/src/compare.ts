@@ -1,4 +1,5 @@
 import type { SavedResult } from './store.ts';
+import { type Verdict, classify } from './stats.ts';
 
 const RESET = '\x1b[0m';
 const DIM = '\x1b[2m';
@@ -15,14 +16,19 @@ interface BenchKey {
 	name: string;
 }
 
+interface IndexEntry {
+	avg: number;
+	samples: number[];
+}
+
 interface MatchedBench {
 	key: BenchKey;
 	baselineAvg: number;
 	candidateAvg: number;
+	baselineSamples: number[];
+	candidateSamples: number[];
 	delta: number;
 }
-
-type Verdict = 'faster' | 'slower' | 'neutral';
 
 function formatTime(ns: number): string {
 	if (ns >= 1_000_000_000) return `${(ns / 1_000_000_000).toFixed(2)}s`;
@@ -31,23 +37,16 @@ function formatTime(ns: number): string {
 	return `${ns.toFixed(2)}ns`;
 }
 
-function buildIndex(result: SavedResult): Map<string, number> {
-	const map = new Map<string, number>();
-	for (const f of result.files) {
-		for (const trial of f.benchmarks) {
-			for (const run of trial.runs) {
-				if (!run.stats) continue;
-				const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}\0${run.name}`;
-				map.set(key, run.stats.avg);
-			}
-		}
-	}
-	return map;
+function formatPct(delta: number): string {
+	const pct = delta * 100;
+	const sign = pct > 0 ? '+' : '';
+	return `${sign}${pct.toFixed(1)}%`;
 }
 
-function getVerdict(delta: number, threshold: number): Verdict {
-	if (Math.abs(delta) <= threshold) return 'neutral';
-	return delta < 0 ? 'faster' : 'slower';
+/** Format p-value compactly: "<.01", ".05", ".82" */
+function formatP(p: number): string {
+	if (p < 0.01) return '<.01';
+	return p.toFixed(2).replace(/^0/, '');
 }
 
 function verdictStyle(verdict: Verdict): { color: string; symbol: string } {
@@ -56,14 +55,7 @@ function verdictStyle(verdict: Verdict): { color: string; symbol: string } {
 	return { color: DIM, symbol: '■' };
 }
 
-function formatPct(delta: number): string {
-	const pct = delta * 100;
-	const sign = pct > 0 ? '+' : '';
-	return `${sign}${pct.toFixed(1)}%`;
-}
-
-function deltaBar(delta: number, threshold: number): string {
-	const verdict = getVerdict(delta, threshold);
+function deltaBar(delta: number, verdict: Verdict): string {
 	const { color } = verdictStyle(verdict);
 	const pct = Math.abs(delta) * 100;
 	const filled = Math.max(1, Math.min(10, Math.round(pct / 2)));
@@ -74,7 +66,21 @@ function deltaBar(delta: number, threshold: number): string {
 	return `${DIM}·${blocks}${RESET}`;
 }
 
-export function compare(baseline: SavedResult, candidate: SavedResult, threshold: number): void {
+function buildIndex(result: SavedResult): Map<string, IndexEntry> {
+	const map = new Map<string, IndexEntry>();
+	for (const f of result.files) {
+		for (const trial of f.benchmarks) {
+			for (const run of trial.runs) {
+				if (!run.stats) continue;
+				const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}\0${run.name}`;
+				map.set(key, { avg: run.stats.avg, samples: run.stats.samples ?? [] });
+			}
+		}
+	}
+	return map;
+}
+
+export function compare(baseline: SavedResult, candidate: SavedResult): void {
 	console.log(`\n${BOLD}${CYAN}━━ compare${RESET} ${DIM}${baseline.name} -> ${candidate.name}${RESET}`);
 
 	const hw1 = baseline.hardware;
@@ -87,7 +93,7 @@ export function compare(baseline: SavedResult, candidate: SavedResult, threshold
 	} else {
 		console.log(`${DIM}${hw1.cpu ?? 'unknown CPU'}${RESET}`);
 	}
-	console.log(`${DIM}threshold: ±${(threshold * 100).toFixed(0)}%${RESET}\n`);
+	console.log(`${DIM}Welch t-test  α=0.05  Cohen d≥0.2${RESET}\n`);
 
 	const baseIndex = buildIndex(baseline);
 	const matched: MatchedBench[] = [];
@@ -98,16 +104,18 @@ export function compare(baseline: SavedResult, candidate: SavedResult, threshold
 			for (const run of trial.runs) {
 				if (!run.stats) continue;
 				const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}\0${run.name}`;
-				const baseAvg = baseIndex.get(key);
-				if (baseAvg === undefined) {
+				const base = baseIndex.get(key);
+				if (base === undefined) {
 					unmatched.push({ file: f.file, group: trial.groupName ?? trial.alias, name: run.name });
 					continue;
 				}
-				const delta = (run.stats.avg - baseAvg) / baseAvg;
+				const delta = (run.stats.avg - base.avg) / base.avg;
 				matched.push({
 					key: { file: f.file, group: trial.groupName ?? trial.alias, name: trial.alias },
-					baselineAvg: baseAvg,
+					baselineAvg: base.avg,
 					candidateAvg: run.stats.avg,
+					baselineSamples: base.samples,
+					candidateSamples: run.stats.samples ?? [],
 					delta,
 				});
 			}
@@ -119,7 +127,6 @@ export function compare(baseline: SavedResult, candidate: SavedResult, threshold
 		return;
 	}
 
-	// Compute name column width: longest name, capped at 36, min 16.
 	const NAME_MAX = 36;
 	const nameCol = Math.min(
 		NAME_MAX,
@@ -131,14 +138,19 @@ export function compare(baseline: SavedResult, candidate: SavedResult, threshold
 
 	// 4-char row prefix ("  ▼ ") must be reflected in the header indent.
 	const headerName = '    ' + 'bench'.padEnd(nameCol);
-	const header =
-		`${DIM}${headerName} ${'baseline'.padStart(10)} ${'candidate'.padStart(10)} ${'delta'.padStart(7)}  trend${RESET}`;
-	const divider = `${DIM}${'-'.repeat(nameCol + 48)}${RESET}`;
+	const header = `${DIM}${headerName} ${'baseline'.padStart(10)} ${'candidate'.padStart(10)} ${'delta'.padStart(7)}  ${'p'.padStart(4)}  trend${RESET}`;
+	const divider = `${DIM}${'-'.repeat(nameCol + 55)}${RESET}`;
 
 	let lastFile = '';
 	let lastGroup = '';
 
-	for (const m of matched) {
+	// Pre-compute verdicts so summary counts are accurate
+	const rows = matched.map((m) => {
+		const { verdict, p } = classify(m.baselineSamples, m.candidateSamples);
+		return { m, verdict, p };
+	});
+
+	for (const { m, verdict, p } of rows) {
 		if (m.key.file !== lastFile) {
 			if (lastFile) console.log('');
 			lastFile = m.key.file;
@@ -152,17 +164,17 @@ export function compare(baseline: SavedResult, candidate: SavedResult, threshold
 			if (lastGroup) console.log(`  ${DIM}  ${lastGroup}${RESET}`);
 		}
 
-		const verdict = getVerdict(m.delta, threshold);
 		const { color, symbol } = verdictStyle(verdict);
 		const pctStr = formatPct(m.delta);
-		const bar = deltaBar(m.delta, threshold);
+		const pStr = formatP(p);
+		const bar = deltaBar(m.delta, verdict);
 
 		const name = truncate(m.key.name || m.key.group || 'anonymous');
 		const from = formatTime(m.baselineAvg).padStart(10);
 		const to = formatTime(m.candidateAvg).padStart(10);
 
 		console.log(
-			`  ${color}${symbol}${RESET} ${WHITE}${name}${RESET} ${DIM}${from} ${to}${RESET} ${color}${pctStr.padStart(7)}${RESET}  ${bar}`,
+			`  ${color}${symbol}${RESET} ${WHITE}${name}${RESET} ${DIM}${from} ${to}${RESET} ${color}${pctStr.padStart(7)}${RESET}  ${DIM}${pStr.padStart(4)}${RESET}  ${bar}`,
 		);
 	}
 
@@ -174,15 +186,15 @@ export function compare(baseline: SavedResult, candidate: SavedResult, threshold
 		}
 	}
 
-	const faster = matched.filter((m) => m.delta < -threshold).length;
-	const slower = matched.filter((m) => m.delta > threshold).length;
-	const neutral = matched.length - faster - slower;
+	const faster = rows.filter((r) => r.verdict === 'faster').length;
+	const slower = rows.filter((r) => r.verdict === 'slower').length;
+	const neutral = rows.length - faster - slower;
 
 	const parts: string[] = [];
 	if (faster > 0) parts.push(`${GREEN}${faster} faster${RESET}`);
 	if (slower > 0) parts.push(`${RED}${slower} slower${RESET}`);
 	if (neutral > 0) parts.push(`${DIM}${neutral} neutral${RESET}`);
 	console.log(`\n${BOLD}summary${RESET}  ${parts.join('  ')}`);
-	console.log(`${DIM}matched: ${matched.length}${RESET}`);
+	console.log(`${DIM}matched: ${rows.length}${RESET}`);
 	console.log('');
 }
