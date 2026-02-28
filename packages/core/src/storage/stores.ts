@@ -31,3 +31,10 @@ export function createStore(schema: Schema): unknown {
         }
     }
 }
+
+/** null out all field blocks at the given block index, freeing memory for empty regions. */
+export function nullifyStoreBlock(store: Record<string, (unknown[] | null)[]>, blockIdx: number): void {
+    for (const key in store) {
+        store[key][blockIdx] = null;
+    }
+}

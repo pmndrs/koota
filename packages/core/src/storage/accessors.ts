@@ -79,9 +79,12 @@ function createSoASetFunction(schema: SoASchema) {
 function createSoAFastSetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
+    const firstKey = keys[0];
     const body = [
         `var bi = index >>> ${BLOCK_SHIFT};`,
         `var off = index & ${BLOCK_MASK};`,
+        // guard against nulled blocks (freed by block deallocation)
+        `if (!store.${firstKey}[bi]) return;`,
         ...keys.map((key) => `store.${key}[bi][off] = value.${key};`),
     ].join('\n    ');
 
@@ -91,9 +94,12 @@ function createSoAFastSetFunction(schema: SoASchema) {
 function createSoAFastSetChangeFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
+    const firstKey = keys[0];
     const body = [
         `var bi = index >>> ${BLOCK_SHIFT};`,
         `var off = index & ${BLOCK_MASK};`,
+        // guard against nulled blocks (freed by block deallocation)
+        `if (!store.${firstKey}[bi]) return false;`,
         'var changed = false;',
         ...keys.map(
             (key) =>

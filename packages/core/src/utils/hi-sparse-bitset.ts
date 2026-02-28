@@ -62,13 +62,13 @@ export class HiSparseBitSet {
         }
     }
 
-    /** Remove an entity index from the set. O(1). */
-    remove(index: number): void {
+    /** Remove an entity index from the set. Returns the block index if the block became empty, -1 otherwise. */
+    remove(index: number): number {
         const l0i = index >>> 15;
         const l1i = (index >>> 10) & 31;
         const blockIdx = l0i === 0 ? l1i : (l0i << 5) | l1i;
         const block = this.l2Blocks[blockIdx];
-        if (block === null || block === undefined) return;
+        if (block === null || block === undefined) return -1;
 
         const l2i = (index >>> 5) & 31;
         const mask = 1 << (index & 31);
@@ -78,9 +78,8 @@ export class HiSparseBitSet {
             block[l2i] = word & ~mask;
             this._size--;
 
-            // Check if entire L2 block is now empty
+            // check if entire l2 block is now empty
             if (block[l2i] === 0) {
-                // Scan the block to see if any words remain
                 let blockEmpty = true;
                 for (let i = 0; i < 32; i++) {
                     if (block[i] !== 0) {
@@ -92,13 +91,16 @@ export class HiSparseBitSet {
                 if (blockEmpty) {
                     this.l1Summary[l0i] &= ~(1 << l1i);
 
-                    // Check if entire L1 group is now empty
                     if (this.l1Summary[l0i] === 0) {
                         this.l0 &= ~(1 << l0i);
                     }
+
+                    return blockIdx;
                 }
             }
         }
+
+        return -1;
     }
 
     /** Test membership. O(1). */

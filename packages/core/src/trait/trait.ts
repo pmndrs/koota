@@ -12,6 +12,7 @@ import {
     createSetAccessor,
     createStore,
     normalizeSchema,
+    nullifyStoreBlock,
     validateSchema,
 } from '../storage';
 import type { World } from '../world';
@@ -282,8 +283,12 @@ export function removeTraitFromEntity(world: World, entity: Entity, trait: Trait
     const { queries, trackingQueries } = instance;
 
     const eid = getEntityId(entity);
-    instance.bitSet.remove(eid);
+    const emptiedBlock = instance.bitSet.remove(eid);
 
+    // if the block is now empty, free the store's block arrays to reclaim memory
+    if (emptiedBlock >= 0 && trait.schema.kind === 'soa') {
+        nullifyStoreBlock(instance.store as Record<string, (unknown[] | null)[]>, emptiedBlock);
+    }
     // Mark entity in removed tracking event bitsets
     const traitId = trait.id;
     if (ctx.removedBitSets.size > 0) {
