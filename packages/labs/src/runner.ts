@@ -117,15 +117,11 @@ export async function runCLI(args: string[]) {
 
 	const labsDir = getLabsDir(dirname(configPath), config.resultsDir);
 
-	// --clear: wipe all saved results and baseline pointer.
-	if (args.includes('--clear')) {
-		clearResults(labsDir);
-		console.log(`${GREEN}✔${RESET} Cleared all saved results`);
-		return;
-	}
+	// Subcommands: first arg is a known keyword — no bench run occurs.
+	const subcmd = args[0];
+	const subcmdArg = args[1]; // optional positional arg for the subcommand
 
-	// --list: print all saved results.
-	if (args.includes('--list')) {
+	if (subcmd === 'list') {
 		const results = listResults(labsDir);
 		const baseline = getBaseline(labsDir);
 		if (results.length === 0) {
@@ -145,18 +141,32 @@ export async function runCLI(args: string[]) {
 		return;
 	}
 
-	// --baseline <name>: set or print the current baseline.
-	const baselineArg = flagValue(args, '--baseline');
-	if (baselineArg !== undefined) {
-		if (!baselineArg) {
-			// --baseline with no value: print current
+	if (subcmd === 'clear') {
+		clearResults(labsDir);
+		console.log(`${GREEN}✔${RESET} Cleared all saved results`);
+		return;
+	}
+
+	if (subcmd === 'delete') {
+		if (!subcmdArg) error('Usage: bench delete <name>');
+		try {
+			deleteResult(labsDir, subcmdArg);
+			console.log(`${GREEN}✔${RESET} Deleted "${subcmdArg}"`);
+		} catch (e: any) {
+			error(e.message);
+		}
+		return;
+	}
+
+	if (subcmd === 'baseline') {
+		if (!subcmdArg) {
 			const current = getBaseline(labsDir);
 			if (!current) console.log(`${DIM}No baseline set${RESET}`);
 			else console.log(`${CYAN}baseline:${RESET} ${current}`);
 		} else {
 			try {
-				setBaseline(labsDir, baselineArg);
-				console.log(`${GREEN}✔${RESET} Baseline set to "${baselineArg}"`);
+				setBaseline(labsDir, subcmdArg);
+				console.log(`${GREEN}✔${RESET} Baseline set to "${subcmdArg}"`);
 			} catch (e: any) {
 				error(e.message);
 			}
@@ -164,32 +174,16 @@ export async function runCLI(args: string[]) {
 		return;
 	}
 
-	// --delete <name>: remove a specific saved result.
-	const deleteName = flagValue(args, '--delete');
-	if (deleteName !== undefined) {
-		if (!deleteName) error('--delete requires a result name');
-		try {
-			deleteResult(labsDir, deleteName);
-			console.log(`${GREEN}✔${RESET} Deleted "${deleteName}"`);
-		} catch (e: any) {
-			error(e.message);
-		}
-		return;
-	}
-
-	// --compare <name>: compare a saved result against the baseline.
-	const compareArg = flagValue(args, '--compare');
-	if (compareArg !== undefined) {
+	if (subcmd === 'compare') {
 		const baselineName = getBaseline(labsDir);
-		if (!baselineName) error('No baseline set. Use --baseline <name> first.');
+		if (!baselineName) error('No baseline set. Run: bench baseline <name>');
 		let candidateName: string;
-		if (compareArg) {
-			candidateName = compareArg;
+		if (subcmdArg) {
+			candidateName = subcmdArg;
 		} else {
-			// No name given: use the most recent saved result that isn't the baseline.
 			const all = listResults(labsDir);
 			const candidate = all.filter((r) => r.name !== baselineName).pop();
-			if (!candidate) error('No saved result to compare. Save a result first with --save.');
+			if (!candidate) error('No saved result to compare. Save a result first with -s.');
 			candidateName = candidate.name;
 		}
 		try {
@@ -222,7 +216,7 @@ export async function runCLI(args: string[]) {
 
 	// Split all non-flag args into tokens. @-prefixed tokens are tag filters, the rest are name filters.
 	// Skip values that follow known flags.
-	const FLAG_TAKES_VALUE = new Set(['--save', '--save-baseline', '--delete', '--baseline', '--compare', '-m', '--message']);
+	const FLAG_TAKES_VALUE = new Set(['--save', '-s', '--save-baseline', '--compare', '-c', '-m', '--message']);
 	const tokens: string[] = [];
 	for (let i = 0; i < args.length; i++) {
 		const a = args[i];
@@ -269,18 +263,18 @@ export async function runCLI(args: string[]) {
 
 	// --save <name> / --save-baseline <name>: collect results from each worker and persist.
 	const defaultName = () => new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
-	const saveRaw = flagValue(args, '--save');
+	const saveRaw = flagValue(args, '--save') ?? flagValue(args, '-s');
 	const saveBaselineRaw = flagValue(args, '--save-baseline');
-	const saveName = saveRaw !== undefined
-		? (saveRaw || defaultName())
-		: saveBaselineRaw !== undefined
-			? (saveBaselineRaw || defaultName())
-			: undefined;
+	const compareRaw = flagValue(args, '--compare') ?? flagValue(args, '-c'); // flag on run path: save + compare
+	// --compare as a run flag implies save; its optional value is the save name.
+	const needsSave = saveRaw !== undefined || saveBaselineRaw !== undefined || compareRaw !== undefined;
+	const saveName = needsSave
+		? (saveRaw || saveBaselineRaw || compareRaw || defaultName())
+		: undefined;
 	const setAsBaseline = saveBaselineRaw !== undefined;
 	const description = flagValue(args, '-m') ?? flagValue(args, '--message');
 
 	if (saveName !== undefined) {
-
 		const tmpDir = join(cwd, 'node_modules', '.cache', 'labs-tmp');
 		mkdirSync(tmpDir, { recursive: true });
 
@@ -299,7 +293,7 @@ export async function runCLI(args: string[]) {
 		for (const { file, resultFile } of workerOutputs) {
 			if (!existsSync(resultFile)) continue;
 			const workerResult: WorkerResult = JSON.parse(readFileSync(resultFile, 'utf-8'));
-			rmSync(resultFile); // clean up temp
+			rmSync(resultFile);
 
 			if (!hardwareSet) {
 				hardware = {
@@ -323,9 +317,27 @@ export async function runCLI(args: string[]) {
 		};
 
 		saveResult(labsDir, result);
-		if (setAsBaseline) setBaseline(labsDir, saveName);
-		const baselineNote = setAsBaseline ? ` ${CYAN}(baseline)${RESET}` : '';
+		const isFirstSave = !getBaseline(labsDir);
+		if (setAsBaseline || isFirstSave) setBaseline(labsDir, saveName);
+		const baselineNote = (setAsBaseline || isFirstSave) ? ` ${CYAN}(baseline)${RESET}` : '';
 		console.log(`\n${GREEN}✔${RESET} Saved "${saveName}"${baselineNote} (${files.length} file${files.length !== 1 ? 's' : ''})`);
+
+		// --compare flag: immediately compare the saved result against the baseline.
+		if (compareRaw !== undefined) {
+			const baselineName = getBaseline(labsDir);
+			if (!baselineName) {
+				console.log(`\n${DIM}No baseline set — skipping compare. Run: bench baseline <name>${RESET}`);
+			} else if (baselineName === saveName) {
+				console.log(`\n${DIM}Saved result is the baseline — nothing to compare${RESET}`);
+			} else {
+				try {
+					const baselineResult = loadResult(labsDir, baselineName);
+					compare(baselineResult, result, config.compareThreshold);
+				} catch (e: any) {
+					console.log(`\n${RED}✖${RESET} Compare failed: ${e.message}`);
+				}
+			}
+		}
 	} else {
 		for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
 	}

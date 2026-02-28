@@ -16,32 +16,40 @@ pnpm bench --last             # rerun previous selection
 ## Saving Results
 
 ```sh
-pnpm bench --save "v1.2.0"                         # run all, save result
-pnpm bench --save "v1.2.0" -m "after refactor"     # with description
-pnpm bench --save                                  # save with auto timestamp name
-pnpm bench "@relation" --save "rel-run"            # filtered run + save
-pnpm bench --delete "v1.2.0"                       # delete a saved result
-pnpm bench --clear                                 # delete all saved results
+pnpm bench -s                                      # run all, save with auto timestamp
+pnpm bench -s "v1.2.0"                            # run all, save with name
+pnpm bench -s "v1.2.0" -m "after refactor"       # with description
+pnpm bench --save-baseline "v1.2.0"               # save and immediately set as baseline
+pnpm bench "@relation" -s "rel-run"              # filtered run + save
+pnpm bench "@relation" --compare                  # run, save, then compare vs baseline
+pnpm bench "@relation" -c                         # shorthand for --compare
 ```
 
 Results are saved to `<benchDir>/.labs/results/<name>.json` and include hardware metadata (CPU, arch, runtime) for like-for-like comparisons.
 
+## Managing Results
+
+```sh
+pnpm bench list                        # list all saved results
+pnpm bench delete "v1.2.0"            # delete a specific saved result
+pnpm bench clear                       # delete all saved results
+```
+
+`bench list` shows each result's name, description, timestamp, and CPU. The current baseline is marked with `(baseline)`.
+
 ## Baseline
 
 ```sh
-pnpm bench --list                      # list all saved results
-pnpm bench --baseline "v1.2.0"         # set a result as the baseline
-pnpm bench --baseline                  # print the current baseline name
-pnpm bench --save-baseline "v1.2.0"    # save and immediately set as baseline
+pnpm bench baseline                    # print the current baseline name
+pnpm bench baseline "v1.2.0"          # set a result as the baseline
+pnpm bench --save-baseline "v1.2.0"   # save and immediately set as baseline
 ```
-
-The `--list` output shows the current baseline marked with `(baseline)` and the timestamp and CPU for each result.
 
 ## Comparing
 
 ```sh
-pnpm bench --compare "v1.3.0"     # compare named result vs baseline
-pnpm bench --compare              # compare most recent result vs baseline
+pnpm bench compare                     # compare most recent result vs baseline
+pnpm bench compare "v1.3.0"           # compare named result vs baseline
 ```
 
 Outputs a colored diff table showing each benchmark's avg time change and classification (faster/slower/neutral). Warns if hardware differs between runs.
