@@ -200,6 +200,10 @@ export async function runCLI(args: string[]) {
 	const shouldSave = subcmd !== 'run';
 	const benchArgs = shouldSave ? args : args.slice(1);
 
+	// --runs N overrides config.runs for this invocation.
+	const runsRaw = flagValue(benchArgs, '--runs');
+	const runs = runsRaw !== undefined ? Math.max(1, parseInt(runsRaw, 10) || 1) : config.runs;
+
 	const benchDir = resolve(dirname(configPath), config.benchDir);
 	if (!existsSync(benchDir)) error(`benchDir not found: ${benchDir}`);
 
@@ -218,7 +222,7 @@ export async function runCLI(args: string[]) {
 		console.log(`${CYAN}labs${RESET} ${DIM}(replaying last)${RESET}`);
 	} else {
 		// Single positional arg is the filter string (must be quoted on CLI).
-		const FLAG_TAKES_VALUE = new Set(['-n', '--name', '-m', '--message']);
+		const FLAG_TAKES_VALUE = new Set(['-n', '--name', '-m', '--message', '--runs']);
 		let filterArg: string | undefined;
 		for (let i = 0; i < benchArgs.length; i++) {
 			const a = benchArgs[i];
@@ -265,7 +269,12 @@ export async function runCLI(args: string[]) {
 	}
 
 	if (!shouldSave) {
-		for (const f of selected) runBench(f, config.nodeFlags, suiteName(f), tagEnv);
+		for (let r = 0; r < runs; r++) {
+			for (const f of selected) {
+				const roundLabel = runs > 1 ? `${suiteName(f)} [${r + 1}/${runs}]` : suiteName(f);
+				runBench(f, config.nodeFlags, roundLabel, tagEnv);
+			}
+		}
 		return;
 	}
 
@@ -279,17 +288,24 @@ export async function runCLI(args: string[]) {
 	const tmpDir = join(cwd, 'node_modules', '.cache', 'labs-tmp');
 	mkdirSync(tmpDir, { recursive: true });
 
+	// Interleaved rounds: [file1, file2, ..., fileN] x runs
+	// Each file experiences different thermal states across rounds.
 	const workerOutputs: Array<{ file: string; resultFile: string }> = [];
-	for (const f of selected) {
-		const resultFile = join(tmpDir, `${basename(f, '.ts')}-${Date.now()}.json`);
-		runBench(f, config.nodeFlags, suiteName(f), tagEnv, resultFile);
-		workerOutputs.push({ file: f, resultFile });
+	for (let r = 0; r < runs; r++) {
+		for (const f of selected) {
+			const roundLabel = runs > 1 ? `${suiteName(f)} [${r + 1}/${runs}]` : suiteName(f);
+			const resultFile = join(tmpDir, `${basename(f, '.ts')}-r${r}-${Date.now()}.json`);
+			runBench(f, config.nodeFlags, roundLabel, tagEnv, resultFile);
+			workerOutputs.push({ file: f, resultFile });
+		}
 	}
 
 	let hardware = { cpu: null as string | null, arch: null as string | null, runtime: null as string | null, freq: 0 };
 	const files: SavedResult['files'] = [];
 	let hardwareSet = false;
 
+	// Group outputs by file name, preserving round order.
+	const outputsByFile = new Map<string, WorkerResult[]>();
 	for (const { file, resultFile } of workerOutputs) {
 		if (!existsSync(resultFile)) continue;
 		const workerResult: WorkerResult = JSON.parse(readFileSync(resultFile, 'utf-8'));
@@ -305,7 +321,34 @@ export async function runCLI(args: string[]) {
 			hardwareSet = true;
 		}
 
-		files.push({ file: suiteName(file), benchmarks: workerResult.benchmarks });
+		const key = suiteName(file);
+		if (!outputsByFile.has(key)) outputsByFile.set(key, []);
+		outputsByFile.get(key)!.push(workerResult);
+	}
+
+	// Merge rounds per file: use round 0 as skeleton, concatenate samples from rounds 1..N.
+	for (const [fileName, results] of outputsByFile) {
+		if (results.length === 1) {
+			files.push({ file: fileName, benchmarks: results[0].benchmarks });
+			continue;
+		}
+		// Deep-clone first round to avoid mutating the parsed object in place
+		const merged: WorkerResult = JSON.parse(JSON.stringify(results[0]));
+		for (const trial of merged.benchmarks) {
+			for (const run of trial.runs) {
+				if (!run.stats) continue;
+				for (let r = 1; r < results.length; r++) {
+					const matchTrial = results[r].benchmarks.find(
+						(t) => t.alias === trial.alias && t.groupName === trial.groupName,
+					);
+					const matchRun = matchTrial?.runs.find((mr) => mr.name === run.name);
+					if (matchRun?.stats) run.stats.samples.push(...matchRun.stats.samples);
+				}
+				// Recompute avg over all merged samples
+				run.stats.avg = run.stats.samples.reduce((a, b) => a + b, 0) / run.stats.samples.length;
+			}
+		}
+		files.push({ file: fileName, benchmarks: merged.benchmarks });
 	}
 
 	const result: SavedResult = {

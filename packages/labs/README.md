@@ -96,6 +96,26 @@ pnpm bench "@relation"    # runs both benches
 pnpm bench "@slow"        # runs only wildcard
 ```
 
+## Multi-run mode
+
+On noisy hardware (turbo boost, thermal throttling, P/E-core scheduling), a single run may produce false positives in comparison. Multi-run mode executes the bench suite N times, **interleaved**, and merges all samples before saving. This captures between-run environmental variance in the sample arrays so the statistical tests self-calibrate.
+
+```sh
+pnpm bench --runs 3          # 3 rounds, then save
+pnpm bench -c --runs 3       # 3 rounds, save, then compare vs baseline
+```
+
+Or set it permanently in config for a noisy machine:
+
+```ts
+export default defineConfig({
+  benchDir: '.',
+  runs: 3,
+})
+```
+
+Interleaved means the execution order is `[file1, file2, ..., fileN, file1, file2, ..., fileN, ...]` so each bench file experiences different thermal states across rounds rather than running back-to-back under identical conditions.
+
 ## Config
 
 Place `labs.config.ts` alongside your bench files:
@@ -116,6 +136,7 @@ export default defineConfig({
 | `benchMatch`       | `**/*.bench.ts`                             | Glob pattern for discovery                      |
 | `nodeFlags`        | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
 | `resultsDir`       | `.labs`                                     | Directory for saved results, relative to config |
+| `runs`             | `1`                                         | Rounds per save (interleaved). Set to 3+ for noisy environments |
 | `alpha`            | `0.05`                                      | Welch t-test significance level                 |
 | `dThreshold`       | `1.0`                                       | Cohen's d effect size threshold                 |
 | `noiseThreshold`   | `0.05`                                      | Minimum \|delta%\| to flag a change (noise floor) |
