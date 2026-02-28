@@ -5,7 +5,7 @@ export {
     createGetDefaultAccessor,
     createSetAccessor,
 } from './accessors';
-export { createStore, nullifyStoreBlock, BLOCK_SHIFT, BLOCK_SIZE, BLOCK_MASK } from './stores';
+export { createStore, nullifyStoreBlock, isNumericSoA, BLOCK_SHIFT, BLOCK_SIZE, BLOCK_MASK } from './stores';
 
 export {
     detectKind,

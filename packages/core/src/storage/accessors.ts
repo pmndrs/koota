@@ -1,5 +1,5 @@
 import type { Schema, SoASchema } from './types';
-import { BLOCK_SHIFT, BLOCK_SIZE, BLOCK_MASK } from './stores';
+import { BLOCK_SHIFT, BLOCK_SIZE, BLOCK_MASK, isNumericSoA } from './stores';
 
 /**
  * generates optimized get/set functions for trait stores at trait creation time.
@@ -56,9 +56,13 @@ function createSoAGetDefaultFunction(schema: SoASchema) {
     return new Function(...closureArgs, outerBody)(...closureValues);
 }
 
-// SoA accessors
+// block-aligned soa accessors via codegen
+// numeric-only schemas use Float64Array blocks for zero boxing and contiguous memory
+
 function createSoASetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
+    const numeric = isNumericSoA(schema);
+    const blockCtor = numeric ? 'new Float64Array' : 'new Array';
 
     // generate block-ensure + write code for each field
     const body = [
@@ -67,7 +71,7 @@ function createSoASetFunction(schema: SoASchema) {
         ...keys.map(
             (key) =>
                 `if (Object.hasOwn(value, '${key}')) {\n` +
-                `        if (!store.${key}[bi]) store.${key}[bi] = new Array(${BLOCK_SIZE});\n` +
+                `        if (!store.${key}[bi]) store.${key}[bi] = ${blockCtor}(${BLOCK_SIZE});\n` +
                 `        store.${key}[bi][off] = value.${key};\n` +
                 `    }`
         ),
@@ -116,9 +120,20 @@ function createSoAFastSetChangeFunction(schema: SoASchema) {
 
 function createSoAGetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
+    const numeric = isNumericSoA(schema);
 
-    // cache block references per key so we only look up each block once
-    // instead of twice (existence check + read)
+    if (numeric) {
+        // Float64Array blocks default to 0, so no null check needed — direct read
+        const body = [
+            `var bi = index >>> ${BLOCK_SHIFT};`,
+            `var off = index & ${BLOCK_MASK};`,
+            ...keys.map((key) => `var v_${key} = store.${key}[bi];`),
+            `return { ${keys.map((key) => `${key}: v_${key} ? v_${key}[off] : 0`).join(', ')} };`,
+        ].join('\n    ');
+        return new Function('index', 'store', body);
+    }
+
+    // non-numeric: cache block references per key so we only look up each block once
     const blockVars = keys.map((key) => `b_${key}`);
     const body = [
         `var bi = index >>> ${BLOCK_SHIFT};`,
