@@ -18,6 +18,8 @@ export type EntityIndex = {
     maxId: number;
     /** The current world ID. */
     worldId: number;
+    /** true when the dead portion needs re-sorting for block-aware recycling. */
+    recycleDirty: boolean;
 };
 
 /**
@@ -31,24 +33,53 @@ export const createEntityIndex = (worldId: number): EntityIndex => ({
     sparse: [],
     maxId: 0,
     worldId,
+    recycleDirty: false,
 });
 
 /**
  * Adds a new entity ID to the index or recycles an existing one.
- * @param index - The EntityIndex to add to.
- * @returns The new or recycled packed entity.
+ * block-aware: when recycling, prefers lower entity IDs so entities
+ * cluster into partially-occupied blocks for better data locality.
  */
 export const allocateEntity = (index: EntityIndex): Entity => {
     if (index.aliveCount < index.dense.length) {
-        // Recycle entity
-        const recycledEntity = incrementGeneration(index.dense[index.aliveCount]);
-        index.dense[index.aliveCount] = recycledEntity;
-        index.sparse[getEntityId(recycledEntity)] = index.aliveCount;
+        // sort the dead portion by entity ID (descending) so the lowest IDs
+        // are at the end and get recycled first — this clusters entities into
+        // lower-numbered blocks, improving cache locality after churn.
+        if (index.recycleDirty) {
+            const start = index.aliveCount;
+            const end = index.dense.length;
+            // sort descending so lowest ID is at the tail (popped first by swap)
+            const deadSlice = index.dense.slice(start, end);
+            deadSlice.sort((a, b) => getEntityId(b) - getEntityId(a));
+            for (let i = 0; i < deadSlice.length; i++) {
+                index.dense[start + i] = deadSlice[i];
+                index.sparse[getEntityId(deadSlice[i])] = start + i;
+            }
+            index.recycleDirty = false;
+        }
+
+        // recycle entity — take from the end of the dead portion (lowest ID)
+        const recycleIdx = index.dense.length - 1;
+        const recycledEntity = incrementGeneration(index.dense[recycleIdx]);
+
+        // swap recycled entity into the alive portion
+        if (recycleIdx !== index.aliveCount) {
+            const swapEntity = index.dense[index.aliveCount];
+            index.dense[index.aliveCount] = recycledEntity;
+            index.dense[recycleIdx] = swapEntity;
+            index.sparse[getEntityId(recycledEntity)] = index.aliveCount;
+            index.sparse[getEntityId(swapEntity)] = recycleIdx;
+        } else {
+            // only one dead entity — no swap needed, just update in place
+            index.dense[index.aliveCount] = recycledEntity;
+            index.sparse[getEntityId(recycledEntity)] = index.aliveCount;
+        }
         index.aliveCount++;
 
         return recycledEntity;
     }
-    // Create new entity
+    // create new entity
     const id = index.maxId++;
     const entity = packEntity(index.worldId, 0, id);
     index.dense.push(entity);
@@ -60,8 +91,7 @@ export const allocateEntity = (index: EntityIndex): Entity => {
 
 /**
  * Removes an entity ID from the index.
- * @param index - The EntityIndex to remove from.
- * @param entity - The packed entity to remove.
+ * marks the recycle pool as dirty so the next allocation re-sorts for block locality.
  */
 export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
     const id = getEntityId(entity);
@@ -72,13 +102,14 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
     const lastEntity = index.dense[lastIndex];
     const lastId = getEntityId(lastEntity);
 
-    // Swap with the last element
+    // Swap with the last alive element
     index.sparse[lastId] = denseIndex;
     index.dense[denseIndex] = lastEntity;
     // Update the removed entity's record
     index.sparse[id] = lastIndex;
     index.dense[lastIndex] = entity;
     index.aliveCount--;
+    index.recycleDirty = true;
 };
 
 /**

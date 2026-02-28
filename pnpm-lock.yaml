@@ -91,6 +91,22 @@ importers:
         specifier: workspace:*
         version: link:../../.config/typescript
 
+  benches/data-access:
+    dependencies:
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+      mitata:
+        specifier: 'catalog:'
+        version: 1.0.34
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+
   benches/entity-operations:
     dependencies:
       koota:

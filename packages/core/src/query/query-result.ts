@@ -6,6 +6,7 @@ import { Store } from '../storage';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitAccessors, TraitInstance } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
+import { ctz32, forEachBlockQuery, type HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import type { World } from '../world';
 import { isModifier } from './modifier';
 import { setChangedFast } from './modifiers/changed';
@@ -32,11 +33,16 @@ type CachedQueryMethods = {
     readEach: any;
     updateEach: any;
     useStores: any;
+    forEachBlock: any;
     select: any;
     sort: any;
 };
 
 const _cachedContextMap = new WeakMap<QueryInstance, CachedQueryContext>();
+
+// sequential offsets 0..1023 for fully-populated blocks (avoids rebuilding every time)
+const _seqOffsets = new Uint16Array(1024);
+for (let i = 0; i < 1024; i++) _seqOffsets[i] = i;
 
 export function createQueryResult<T extends QueryParameter[]>(
     world: World,
@@ -250,6 +256,96 @@ function buildMethods<T extends QueryParameter[]>(
             return this;
         },
 
+        forEachBlock(
+            this: Entity[],
+            callback: (stores: StoresFromParameters<T>, offsets: Uint16Array, count: number) => void
+        ) {
+            const tc = ctx.traitCount;
+            const qInst = query;
+
+            // cache bitset arrays on the query to avoid allocations on every call
+            let reqBits = (qInst as any)._reqBits as HiSparseBitSet[] | undefined;
+            let forbBits = (qInst as any)._forbBits as HiSparseBitSet[] | undefined;
+            if (!reqBits) {
+                reqBits = [];
+                for (let i = 0; i < qInst.traitInstances.required.length; i++)
+                    reqBits[i] = qInst.traitInstances.required[i].bitSet;
+                (qInst as any)._reqBits = reqBits;
+            }
+            if (!forbBits) {
+                forbBits = [];
+                for (let i = 0; i < qInst.traitInstances.forbidden.length; i++)
+                    forbBits[i] = qInst.traitInstances.forbidden[i].bitSet;
+                (qInst as any)._forbBits = forbBits;
+            }
+
+            // reusable offsets buffer (max 1024 entities per block)
+            const offsetsBuf = new Uint16Array(1024);
+            // one store view per trait, reused across blocks
+            const blockStores: any[] = new Array(tc);
+
+            // for soa traits, build a skeleton object per trait so we can swap
+            // its backing arrays each block without allocating new objects
+            const storeKeys: string[][] = new Array(tc);
+            for (let j = 0; j < tc; j++) {
+                if (isAos[j]) {
+                    blockStores[j] = stores[j];
+                    storeKeys[j] = [];
+                } else {
+                    const keys = Object.keys(stores[j] as any);
+                    storeKeys[j] = keys;
+                    const view: Record<string, unknown[] | null> = {};
+                    for (let k = 0; k < keys.length; k++) view[keys[k]] = null;
+                    blockStores[j] = view;
+                }
+            }
+
+            forEachBlockQuery(reqBits, forbBits, (blockIdx, l2Words) => {
+                // point each soa trait's view at the current block's arrays
+                for (let j = 0; j < tc; j++) {
+                    if (storeKeys[j].length === 0) continue; // AoS — already set
+                    const store = stores[j] as any;
+                    const keys = storeKeys[j];
+                    const view = blockStores[j];
+                    for (let k = 0; k < keys.length; k++) {
+                        view[keys[k]] = store[keys[k]][blockIdx] ?? null;
+                    }
+                }
+
+                // fast path: if every slot in the block is active, skip the
+                // bit-extraction loop and use the pre-built 0..1023 offsets
+                let allFull = true;
+                for (let l2i = 0; l2i < 32; l2i++) {
+                    if (l2Words[l2i] !== 0xffffffff) {
+                        allFull = false;
+                        break;
+                    }
+                }
+
+                if (allFull) {
+                    callback(blockStores as unknown as StoresFromParameters<T>, _seqOffsets, 1024);
+                    return;
+                }
+
+                // slow path: walk the bitmask to collect only the active offsets
+                let count = 0;
+                for (let l2i = 0; l2i < 32; l2i++) {
+                    let word = l2Words[l2i];
+                    if (word === 0) continue;
+                    const base = l2i << 5;
+                    while (word !== 0) {
+                        const bit = ctz32(word);
+                        word &= word - 1;
+                        offsetsBuf[count++] = base | bit;
+                    }
+                }
+
+                callback(blockStores as unknown as StoresFromParameters<T>, offsetsBuf, count);
+            });
+
+            return this;
+        },
+
         select(this: Entity[] & CachedQueryMethods, ...newParams: QueryParameter[]) {
             traits.length = 0;
             stores.length = 0;
@@ -293,7 +389,6 @@ function buildMethods<T extends QueryParameter[]>(
     }
 }
 
-
 /* @inline */ export function getQueryStores<T extends QueryParameter[]>(
     params: T,
     traits: Trait[],
@@ -305,7 +400,7 @@ function buildMethods<T extends QueryParameter[]>(
     for (let i = 0; i < params.length; i++) {
         const param = params[i];
 
-        // Handle relation pairs
+        // handle relation pairs
         if (isPairPattern(param)) {
             const [relation] = param;
             if (relation.schema.kind !== 'tag') {
@@ -318,7 +413,7 @@ function buildMethods<T extends QueryParameter[]>(
         }
 
         if (isModifier(param)) {
-            // Skip not modifier.
+            // skip not modifiers — they exclude, not include
             if (param.type === 'not') continue;
 
             const modifierTraits = param.traits;
@@ -345,6 +440,7 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
         readEach: () => results,
         updateEach: () => results,
         useStores: () => results,
+        forEachBlock: () => results,
         select: () => results,
         sort: () => results,
     }) as QueryResult<QueryParameter[]>;
@@ -352,36 +448,40 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
     return results;
 }
 
-// Cached no-op result methods for relation-only queries
+// shared no-op methods for queries that only match on relations (no trait data to read)
 const relationOnlyMethods = {
     readEach(this: QueryResult<any>, callback: any) {
-        // No traits to read, just iterate entities
+        // no traits to read, just iterate entities
         for (let i = 0; i < this.length; i++) {
             callback([], this[i], i);
         }
         return this;
     },
     updateEach(this: QueryResult<any>, callback: any) {
-        // No traits to update, just iterate entities
+        // no traits to update, just iterate entities
         for (let i = 0; i < this.length; i++) {
             callback([], this[i], i);
         }
         return this;
     },
     useStores(this: QueryResult<any>, callback: any) {
-        // No stores, call with empty array
+        // no stores available, call with empty array
         callback([], this);
         return this;
     },
+    forEachBlock(this: QueryResult<any>) {
+        // nothing to iterate block-wise
+        return this;
+    },
     select(this: QueryResult<any>) {
-        // No-op, nothing to select
+        // nothing to narrow down
         return this;
     },
 };
 
 /**
- * Lightweight query result for relation-only queries.
- * Skips store/trait setup since we only need to iterate entities.
+ * query result for relation-only queries — skips store/trait setup
+ * since we only need to iterate matched entities.
  */
 export function createRelationOnlyQueryResult<T extends QueryParameter[]>(
     entities: Entity[]
@@ -390,6 +490,7 @@ export function createRelationOnlyQueryResult<T extends QueryParameter[]>(
         readEach: relationOnlyMethods.readEach,
         updateEach: relationOnlyMethods.updateEach,
         useStores: relationOnlyMethods.useStores,
+        forEachBlock: relationOnlyMethods.forEachBlock,
         select: relationOnlyMethods.select,
         sort(
             callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)

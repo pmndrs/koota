@@ -1,8 +1,12 @@
 import type { Schema, SoASchema } from './types';
+import { BLOCK_SHIFT, BLOCK_SIZE, BLOCK_MASK, isNumericSoA } from './stores';
 
 /**
- * Indirection is the killer of hot loops. We optimize for this by compiling away indirection
- * for accessors at runtime using `new Function` to generate bytecode when a trait is created.
+ * generates optimized get/set functions for trait stores at trait creation time.
+ * uses `new Function` to compile away property lookups so hot loops stay fast.
+ *
+ * block-aligned variant: data lives in blocks of 1024 entries matching the bitset layout.
+ * access pattern: store.key[index >>> 10][index & 1023]
  */
 
 //  SoA default value constructors
@@ -52,22 +56,43 @@ function createSoAGetDefaultFunction(schema: SoASchema) {
     return new Function(...closureArgs, outerBody)(...closureValues);
 }
 
-// SoA accessors
+// block-aligned soa accessors via codegen
+// numeric-only schemas use Float64Array blocks for zero boxing and contiguous memory
 
 function createSoASetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
+    const numeric = isNumericSoA(schema);
+    const blockCtor = numeric ? 'new Float64Array' : 'new Array';
 
-    const body = keys
-        .map((key) => `if (Object.hasOwn(value, '${key}')) store.${key}[index] = value.${key};`)
-        .join('\n    ');
-
+    // generate block-ensure + write code for each field, caching block refs to avoid double lookups
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        ...keys.map(
+            (key) =>
+                `if (Object.hasOwn(value, '${key}')) {\n` +
+                `        var b_${key} = store.${key}[bi];\n` +
+                `        if (!b_${key}) { b_${key} = ${blockCtor}(${BLOCK_SIZE}); store.${key}[bi] = b_${key}; }\n` +
+                `        b_${key}[off] = value.${key};\n` +
+                `    }`
+        ),
+    ].join('\n    ');
     return new Function('index', 'store', 'value', body);
 }
 
 function createSoAFastSetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
-    const body = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
+    const firstKey = keys[0];
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        // guard against nulled blocks (freed by block deallocation)
+        `if (!store.${firstKey}[bi]) return;`,
+        // cache block refs to avoid repeated property lookups in the write path
+        ...keys.map((key) => `var b_${key} = store.${key}[bi];`),
+        ...keys.map((key) => `b_${key}[off] = value.${key};`),
+    ].join('\n    ');
 
     return new Function('index', 'store', 'value', body);
 }
@@ -75,30 +100,53 @@ function createSoAFastSetFunction(schema: SoASchema) {
 function createSoAFastSetChangeFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
-    const body = keys
-        .map(
+    const firstKey = keys[0];
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        // guard against nulled blocks (freed by block deallocation)
+        `if (!store.${firstKey}[bi]) return false;`,
+        'var changed = false;',
+        // cache block refs to avoid repeated property lookups in the compare+write path
+        ...keys.map((key) => `var b_${key} = store.${key}[bi];`),
+        ...keys.map(
             (key) =>
-                `if (store.${key}[index] !== value.${key}) {
-            store.${key}[index] = value.${key};
-            changed = true;
-        }`
-        )
-        .join('\n    ');
+                `if (b_${key}[off] !== value.${key}) {\n` +
+                `        b_${key}[off] = value.${key};\n` +
+                `        changed = true;\n` +
+                `    }`
+        ),
+        'return changed;',
+    ].join('\n    ');
 
-    return new Function(
-        'index',
-        'store',
-        'value',
-        `let changed = false;\n    ${body}\n    return changed;`
-    );
+    return new Function('index', 'store', 'value', body);
 }
 
 function createSoAGetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
+    const numeric = isNumericSoA(schema);
 
-    const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[index]`).join(', ')} }`;
+    if (numeric) {
+        // Float64Array blocks default to 0, so no null check needed — direct read
+        const body = [
+            `var bi = index >>> ${BLOCK_SHIFT};`,
+            `var off = index & ${BLOCK_MASK};`,
+            ...keys.map((key) => `var v_${key} = store.${key}[bi];`),
+            `return { ${keys.map((key) => `${key}: v_${key} ? v_${key}[off] : 0`).join(', ')} };`,
+        ].join('\n    ');
+        return new Function('index', 'store', body);
+    }
 
-    return new Function('index', 'store', `return ${objectLiteral};`);
+    // non-numeric: cache block references per key so we only look up each block once
+    const blockVars = keys.map((key) => `b_${key}`);
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        ...keys.map((key, i) => `var ${blockVars[i]} = store.${key}[bi];`),
+        `return { ${keys.map((key, i) => `${key}: ${blockVars[i]} ? ${blockVars[i]}[off] : undefined`).join(', ')} };`,
+    ].join('\n    ');
+
+    return new Function('index', 'store', body);
 }
 
 // AoS accessors: simple index-based read/write into a flat array store
