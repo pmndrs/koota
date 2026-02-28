@@ -1,8 +1,12 @@
 import type { Schema, SoASchema } from './types';
+import { BLOCK_SHIFT, BLOCK_SIZE, BLOCK_MASK } from './stores';
 
 /**
- * Indirection is the killer of hot loops. We optimize for this by compiling away indirection
- * for accessors at runtime using `new Function` to generate bytecode when a trait is created.
+ * generates optimized get/set functions for trait stores at trait creation time.
+ * uses `new Function` to compile away property lookups so hot loops stay fast.
+ *
+ * block-aligned variant: data lives in blocks of 1024 entries matching the bitset layout.
+ * access pattern: store.key[index >>> 10][index & 1023]
  */
 
 //  SoA default value constructors
@@ -53,13 +57,21 @@ function createSoAGetDefaultFunction(schema: SoASchema) {
 }
 
 // SoA accessors
-
 function createSoASetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
-    const body = keys
-        .map((key) => `if (Object.hasOwn(value, '${key}')) store.${key}[index] = value.${key};`)
-        .join('\n    ');
+    // generate block-ensure + write code for each field
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        ...keys.map(
+            (key) =>
+                `if (Object.hasOwn(value, '${key}')) {\n` +
+                `        if (!store.${key}[bi]) store.${key}[bi] = new Array(${BLOCK_SIZE});\n` +
+                `        store.${key}[bi][off] = value.${key};\n` +
+                `    }`
+        ),
+    ].join('\n    ');
 
     return new Function('index', 'store', 'value', body);
 }
@@ -67,7 +79,11 @@ function createSoASetFunction(schema: SoASchema) {
 function createSoAFastSetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
-    const body = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        ...keys.map((key) => `store.${key}[bi][off] = value.${key};`),
+    ].join('\n    ');
 
     return new Function('index', 'store', 'value', body);
 }
@@ -75,30 +91,37 @@ function createSoAFastSetFunction(schema: SoASchema) {
 function createSoAFastSetChangeFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
-    const body = keys
-        .map(
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        'var changed = false;',
+        ...keys.map(
             (key) =>
-                `if (store.${key}[index] !== value.${key}) {
-            store.${key}[index] = value.${key};
-            changed = true;
-        }`
-        )
-        .join('\n    ');
+                `if (store.${key}[bi][off] !== value.${key}) {\n` +
+                `        store.${key}[bi][off] = value.${key};\n` +
+                `        changed = true;\n` +
+                `    }`
+        ),
+        'return changed;',
+    ].join('\n    ');
 
-    return new Function(
-        'index',
-        'store',
-        'value',
-        `let changed = false;\n    ${body}\n    return changed;`
-    );
+    return new Function('index', 'store', 'value', body);
 }
 
 function createSoAGetFunction(schema: SoASchema) {
     const keys = Object.keys(schema.fields);
 
-    const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[index]`).join(', ')} }`;
+    // cache block references per key so we only look up each block once
+    // instead of twice (existence check + read)
+    const blockVars = keys.map((key) => `b_${key}`);
+    const body = [
+        `var bi = index >>> ${BLOCK_SHIFT};`,
+        `var off = index & ${BLOCK_MASK};`,
+        ...keys.map((key, i) => `var ${blockVars[i]} = store.${key}[bi];`),
+        `return { ${keys.map((key, i) => `${key}: ${blockVars[i]} ? ${blockVars[i]}[off] : undefined`).join(', ')} };`,
+    ].join('\n    ');
 
-    return new Function('index', 'store', `return ${objectLiteral};`);
+    return new Function('index', 'store', body);
 }
 
 // AoS accessors: simple index-based read/write into a flat array store
