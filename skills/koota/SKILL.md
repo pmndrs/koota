@@ -227,7 +227,3 @@ For component patterns (App, Startup, Renderer, view sync, input), see [referenc
 Systems query the world and update entities. Run them via frameloop (continuous) or event handlers (discrete).
 
 For systems, frameloop, event-driven patterns, and time management, see [references/runtime.md](references/runtime.md).
-
-## Benchmarking (labs)
-
-Koota benchmarks are run with `labs` via `pnpm bench` in the monorepo. The benchmark config file is `benches/labs.config.ts`.
