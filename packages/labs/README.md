@@ -58,7 +58,7 @@ pnpm bench compare                     # compare most recent result vs baseline
 pnpm bench compare "v1.3.0"           # compare named result vs baseline
 ```
 
-Outputs a colored diff table showing each benchmark's avg time, delta %, p-value, and classification (faster/slower/neutral). All three conditions must be met to flag a change: **Welch's t-test** (p ≤ 0.05), **Cohen's d** (|d| ≥ 1.0), and a **noise floor** (|delta| ≥ 5%). This combination eliminates false positives from CPU thermal/boost fluctuations between runs. Warns if hardware differs.
+Outputs a colored diff table showing each benchmark's avg time ±SD, delta %, and verdict (faster/slower/neutral). Two conditions must be met to flag a change: **Welch's t-test** (p ≤ α) and a **noise floor** (|delta| ≥ 5%). The ±SD shows between-run stability when using multi-run mode. Warns if hardware differs.
 
 ## Writing a bench
 
@@ -96,21 +96,31 @@ pnpm bench "@relation"    # runs both benches
 pnpm bench "@slow"        # runs only wildcard
 ```
 
-## Multi-run mode
+## Statistical comparison strategy
 
-On noisy hardware (turbo boost, thermal throttling, P/E-core scheduling), a single run may produce false positives in comparison. Multi-run mode executes the bench suite N times, **interleaved**, and merges all samples before saving. This captures between-run environmental variance in the sample arrays so the statistical tests self-calibrate.
+Labs uses a two-tier approach depending on how many runs are collected:
+
+**Single run (`runs: 1`)** — uses mitata's within-run samples for Welch's t-test. This assumes a stable environment (pinned CPU frequency, no thermal throttling). Suitable for dedicated benchmark machines or CI with controlled hardware.
+
+**Multi-run (`runs: 5+`)** — executes the entire suite N times, **interleaved**, and stores one mean per run per benchmark. Welch's t-test is applied to those N run means. This directly captures between-run variance (CPU frequency shifts, thermal throttling, scheduler noise) and is the gold-standard approach used by criterion.rs and Google Benchmark `--repetitions`.
+
+Two conditions must be met to flag a change:
+1. **Noise floor** — `|delta%| >= noiseThreshold` (default 5%)
+2. **Statistical significance** — `p <= alpha` (default 0.05)
+
+The `±SD` column in the comparison table reflects the standard deviation of run means (multi-run) or within-run samples (single run). It turns yellow when the effect size (Cohen's d) is small, indicating the signal-to-noise ratio is low.
 
 ```sh
-pnpm bench --runs 3          # 3 rounds, then save
-pnpm bench -c --runs 3       # 3 rounds, save, then compare vs baseline
+pnpm bench --runs 5          # 5 rounds, then save
+pnpm bench -c --runs 5       # 5 rounds, save, then compare vs baseline
 ```
 
-Or set it permanently in config for a noisy machine:
+Or set it permanently in config:
 
 ```ts
 export default defineConfig({
   benchDir: '.',
-  runs: 3,
+  runs: 5,
 })
 ```
 
@@ -136,7 +146,6 @@ export default defineConfig({
 | `benchMatch`       | `**/*.bench.ts`                             | Glob pattern for discovery                      |
 | `nodeFlags`        | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
 | `resultsDir`       | `.labs`                                     | Directory for saved results, relative to config |
-| `runs`             | `1`                                         | Rounds per save (interleaved). Set to 3+ for noisy environments |
+| `runs`             | `1`                                         | Rounds per save (interleaved). 1 = use mitata samples, 5+ = use run means |
 | `alpha`            | `0.05`                                      | Welch t-test significance level                 |
-| `dThreshold`       | `1.0`                                       | Cohen's d effect size threshold                 |
 | `noiseThreshold`   | `0.05`                                      | Minimum \|delta%\| to flag a change (noise floor) |

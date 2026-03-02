@@ -9,9 +9,9 @@ export interface LabsConfig {
 	resultsDir: string;
 	/** Number of times to run each file per save, interleaved. @default 1 */
 	runs: number;
-	/** Welch t-test significance level. @default 0.05 */
+	/** Mann-Whitney U significance level. @default 0.05 */
 	alpha: number;
-	/** Cohen's d effect size threshold. @default 1.0 */
+	/** Cliff's delta effect size threshold. @default 0.147 */
 	dThreshold: number;
 	/** Minimum |delta%| to flag a change (noise floor). @default 0.05 (5%) */
 	noiseThreshold: number;
@@ -24,7 +24,7 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
 		resultsDir: '.labs',
 		runs: 1,
 		alpha: 0.05,
-		dThreshold: 1.0,
+		dThreshold: 0.147,
 		noiseThreshold: 0.05,
 		...config,
 	};

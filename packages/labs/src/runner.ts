@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { compare } from './compare.ts';
+import { median } from './stats.ts';
 import type { LabsConfig } from './config.ts';
 import {
 	type SavedResult,
@@ -200,8 +201,8 @@ export async function runCLI(args: string[]) {
 	const shouldSave = subcmd !== 'run';
 	const benchArgs = shouldSave ? args : args.slice(1);
 
-	// --runs N overrides config.runs for this invocation.
-	const runsRaw = flagValue(benchArgs, '--runs');
+	// --run/--runs N overrides config.runs for this invocation.
+	const runsRaw = flagValue(benchArgs, '--run') ?? flagValue(benchArgs, '--runs');
 	const runs = runsRaw !== undefined ? Math.max(1, parseInt(runsRaw, 10) || 1) : config.runs;
 
 	const benchDir = resolve(dirname(configPath), config.benchDir);
@@ -222,7 +223,7 @@ export async function runCLI(args: string[]) {
 		console.log(`${CYAN}labs${RESET} ${DIM}(replaying last)${RESET}`);
 	} else {
 		// Single positional arg is the filter string (must be quoted on CLI).
-		const FLAG_TAKES_VALUE = new Set(['-n', '--name', '-m', '--message', '--runs']);
+		const FLAG_TAKES_VALUE = new Set(['-n', '--name', '-m', '--message', '--run', '--runs']);
 		let filterArg: string | undefined;
 		for (let i = 0; i < benchArgs.length; i++) {
 			const a = benchArgs[i];
@@ -326,26 +327,45 @@ export async function runCLI(args: string[]) {
 		outputsByFile.get(key)!.push(workerResult);
 	}
 
-	// Merge rounds per file: use round 0 as skeleton, concatenate samples from rounds 1..N.
+	// Merge rounds per file with per-run normalization.
+	// Each run may execute at a different CPU frequency / thermal state.
+	// Normalizing each run's samples to a common mean removes between-run level shifts
+	// while preserving within-run variance, so Cohen's d reflects algorithmic noise only.
 	for (const [fileName, results] of outputsByFile) {
 		if (results.length === 1) {
 			files.push({ file: fileName, benchmarks: results[0].benchmarks });
 			continue;
 		}
-		// Deep-clone first round to avoid mutating the parsed object in place
 		const merged: WorkerResult = JSON.parse(JSON.stringify(results[0]));
 		for (const trial of merged.benchmarks) {
 			for (const run of trial.runs) {
 				if (!run.stats) continue;
+
+				// Collect per-run sample arrays for this benchmark
+				const perRunSamples: number[][] = [run.stats.samples.slice()];
 				for (let r = 1; r < results.length; r++) {
 					const matchTrial = results[r].benchmarks.find(
 						(t) => t.alias === trial.alias && t.groupName === trial.groupName,
 					);
 					const matchRun = matchTrial?.runs.find((mr) => mr.name === run.name);
-					if (matchRun?.stats) run.stats.samples.push(...matchRun.stats.samples);
+					if (matchRun?.stats) perRunSamples.push(matchRun.stats.samples);
 				}
-				// Recompute avg over all merged samples
-				run.stats.avg = run.stats.samples.reduce((a, b) => a + b, 0) / run.stats.samples.length;
+
+				// Compute per-run medians and overall global median
+				const runMedians = perRunSamples.map(median);
+				const globalMedian = median(runMedians);
+
+				// Normalize each run's samples: sample * (globalMedian / runMedian)
+				const normalized: number[] = [];
+				for (let r = 0; r < perRunSamples.length; r++) {
+					const scale = runMedians[r] > 0 ? globalMedian / runMedians[r] : 1;
+					for (const s of perRunSamples[r]) {
+						normalized.push(s * scale);
+					}
+				}
+
+				run.stats.samples = normalized;
+				run.stats.avg = globalMedian;
 			}
 		}
 		files.push({ file: fileName, benchmarks: merged.benchmarks });

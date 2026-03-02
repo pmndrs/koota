@@ -5,7 +5,7 @@ import { world } from './world.ts';
 
 group('scene graph propagation @scene @graph', () => {
     init({ world });
-	bench(() => {
+    bench(() => {
         schedule.run({ world });
     }).gc('inner');
 });

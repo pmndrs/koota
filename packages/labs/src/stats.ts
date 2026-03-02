@@ -1,179 +1,135 @@
 /**
- * Welch's t-test + Cohen's d for benchmark sample comparison.
- * No external dependencies — p-value computed via regularized incomplete beta approximation.
+ * Non-parametric benchmark sample comparison.
+ * Mann-Whitney U test + Cliff's delta — robust to GC-induced outliers and
+ * non-normal distributions. No external dependencies.
  */
 
-function mean(a: number[]): number {
-    return a.reduce((s, v) => s + v, 0) / a.length;
+export function median(a: number[]): number {
+    if (a.length === 0) return 0;
+    const s = a.slice().sort((x, y) => x - y);
+    const mid = s.length >> 1;
+    return s.length % 2 === 1 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-function variance(a: number[], m = mean(a)): number {
-    return a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1);
+/** Median absolute deviation — robust spread metric paired with median. */
+export function mad(a: number[]): number {
+    if (a.length < 2) return 0;
+    const m = median(a);
+    return median(a.map((v) => Math.abs(v - m)));
 }
 
 /**
- * Regularized incomplete beta function I_x(a, b) via continued fraction expansion.
- * Accurate enough for the t-distribution p-value approximation we need.
+ * Mann-Whitney U test (two-tailed).
+ * Ranks all combined samples, sums ranks for group A, derives U and p-value
+ * via normal approximation. Accurate for n > ~20 (mitata yields 50+ samples).
+ *
+ * Returns { U, z, p } where p is the two-tailed p-value.
  */
-function incompleteBeta(x: number, a: number, b: number): number {
-    if (x <= 0) return 0;
-    if (x >= 1) return 1;
+export function mannWhitneyU(a: number[], b: number[]): { U: number; z: number; p: number } {
+    const n1 = a.length;
+    const n2 = b.length;
+    if (n1 === 0 || n2 === 0) return { U: 0, z: 0, p: 1 };
 
-    // Use continued fraction representation (Lentz's method)
-    const lbeta = lgamma(a) + lgamma(b) - lgamma(a + b);
-    const front = Math.exp(Math.log(x) * a + Math.log(1 - x) * b - lbeta) / a;
-
-    // Modified Lentz continued fraction
-    const MAXIT = 200;
-    const EPS = 3e-7;
-    let f = 1;
-    let c = 1;
-    let d = 1 - ((a + b) * x) / (a + 1);
-    if (Math.abs(d) < 1e-30) d = 1e-30;
-    d = 1 / d;
-    f = d;
-
-    for (let m = 1; m <= MAXIT; m++) {
-        // Even step
-        let num = (m * (b - m) * x) / ((a + 2 * m - 1) * (a + 2 * m));
-        d = 1 + num * d;
-        c = 1 + num / c;
-        if (Math.abs(d) < 1e-30) d = 1e-30;
-        if (Math.abs(c) < 1e-30) c = 1e-30;
-        d = 1 / d;
-        f *= d * c;
-
-        // Odd step
-        num = -((a + m) * (a + b + m) * x) / ((a + 2 * m) * (a + 2 * m + 1));
-        d = 1 + num * d;
-        c = 1 + num / c;
-        if (Math.abs(d) < 1e-30) d = 1e-30;
-        if (Math.abs(c) < 1e-30) c = 1e-30;
-        d = 1 / d;
-        const delta = d * c;
-        f *= delta;
-
-        if (Math.abs(delta - 1) < EPS) break;
-    }
-
-    return front * f;
-}
-
-/** Log-gamma via Lanczos approximation */
-function lgamma(z: number): number {
-    const g = 7;
-    const c = [
-        0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
-        -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
-        1.5056327351493116e-7,
-    ];
-    if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - lgamma(1 - z);
-    z -= 1;
-    let x = c[0];
-    for (let i = 1; i < g + 2; i++) x += c[i] / (z + i);
-    const t = z + g + 0.5;
-    return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
-}
-
-/** Two-tailed p-value from t-statistic and Welch-Satterthwaite degrees of freedom */
-function tDistPValue(t: number, df: number): number {
-    // p = I_{df/(df+t²)}(df/2, 1/2) — regularized incomplete beta relationship to t-dist CDF
-    const x = df / (df + t * t);
-    return incompleteBeta(x, df / 2, 0.5);
-}
-
-export interface WelchResult {
-    t: number;
-    df: number;
-    p: number; // two-tailed
-}
-
-/**
- * Welch's t-test: tests whether two independent samples have different means.
- * Does not assume equal variance (unlike Student's t-test).
- */
-export function welchTTest(a: number[], b: number[]): WelchResult {
-    if (a.length < 2 || b.length < 2) return { t: 0, df: 1, p: 1 };
-
-    const mA = mean(a);
-    const mB = mean(b);
-    const vA = variance(a, mA);
-    const vB = variance(b, mB);
-    const seA = vA / a.length;
-    const seB = vB / b.length;
-    const se = Math.sqrt(seA + seB);
-
-    if (se === 0) return { t: 0, df: 1, p: 1 };
-
-    const t = (mA - mB) / se;
-    // Welch-Satterthwaite degrees of freedom
-    const df = (seA + seB) ** 2 / (seA ** 2 / (a.length - 1) + seB ** 2 / (b.length - 1));
-    const p = tDistPValue(Math.abs(t), df);
-
-    return { t, df, p };
-}
-
-/**
- * Cohen's d: standardised effect size.
- * d = (meanB - meanA) / pooled_sd
- * Positive → B is slower, negative → B is faster.
- */
-export function cohensD(a: number[], b: number[]): number {
-    if (a.length < 2 || b.length < 2) return 0;
-
-    const mA = mean(a);
-    const mB = mean(b);
-    const vA = variance(a, mA);
-    const vB = variance(b, mB);
-    const pooledSD = Math.sqrt(
-        ((a.length - 1) * vA + (b.length - 1) * vB) / (a.length + b.length - 2)
+    // Merge and rank (average ranks for ties)
+    const combined = [...a.map((v) => ({ v, group: 0 })), ...b.map((v) => ({ v, group: 1 }))].sort(
+        (x, y) => x.v - y.v
     );
 
-    if (pooledSD === 0) return 0;
-    return (mB - mA) / pooledSD;
+    const ranks = new Float64Array(combined.length);
+    let i = 0;
+    while (i < combined.length) {
+        let j = i;
+        while (j < combined.length - 1 && combined[j + 1].v === combined[i].v) j++;
+        const avgRank = (i + j) / 2 + 1; // 1-indexed
+        for (let k = i; k <= j; k++) ranks[k] = avgRank;
+        i = j + 1;
+    }
+
+    let R1 = 0;
+    for (let k = 0; k < combined.length; k++) {
+        if (combined[k].group === 0) R1 += ranks[k];
+    }
+
+    const U1 = R1 - (n1 * (n1 + 1)) / 2;
+    const U = Math.min(U1, n1 * n2 - U1); // use smaller U for the approximation
+
+    const mean = (n1 * n2) / 2;
+    const sd = Math.sqrt((n1 * n2 * (n1 + n2 + 1)) / 12);
+    const z = sd === 0 ? 0 : (U - mean) / sd;
+
+    // Two-tailed p-value via erfc: p = erfc(|z| / sqrt(2))
+    const p = erfc(Math.abs(z) / Math.SQRT2);
+
+    return { U: U1, z, p };
+}
+
+/** Complementary error function approximation (Abramowitz & Stegun 7.1.26). */
+function erfc(x: number): number {
+    if (x < 0) return 2 - erfc(-x);
+    const t = 1 / (1 + 0.3275911 * x);
+    const poly =
+        t *
+        (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+    return poly * Math.exp(-(x * x));
+}
+
+/**
+ * Cliff's delta: (concordant - discordant) / (n1 * n2).
+ * Derived from the Mann-Whitney U1 statistic: delta = 2*U1/(n1*n2) - 1.
+ * Ranges [-1, 1]. Positive → b tends to be larger (slower). Negative → b tends to be smaller (faster).
+ */
+export function cliffsDelta(a: number[], b: number[]): number {
+    const n1 = a.length;
+    const n2 = b.length;
+    if (n1 === 0 || n2 === 0) return 0;
+    // U1 = # pairs where a (baseline) > b (candidate).
+    // Standard Cliff's delta = (concordant_b - concordant_a) / (n1*n2) = 1 - 2*U1/(n1*n2).
+    // Positive → candidate tends to be larger (slower). Negative → candidate tends to be smaller (faster).
+    const { U } = mannWhitneyU(a, b);
+    return 1 - (2 * U) / (n1 * n2);
 }
 
 export type Verdict = 'faster' | 'slower' | 'neutral';
 
 export interface ClassifyOptions {
-	/** Welch t-test significance level. @default 0.05 */
-	alpha?: number;
-	/** Cohen's d effect size threshold. @default 1.0 */
-	dThreshold?: number;
-	/** Minimum |delta%| to flag a change (noise floor). @default 0.05 (5%) */
-	noiseThreshold?: number;
+    /** Mann-Whitney U two-tailed significance level. @default 0.05 */
+    alpha?: number;
+    /** Cliff's delta effect size threshold. @default 0.147 */
+    dThreshold?: number;
+    /** Minimum |delta%| to flag a change (noise floor). @default 0.05 (5%) */
+    noiseThreshold?: number;
 }
 
-const DEFAULTS = { alpha: 0.05, dThreshold: 1.0, noiseThreshold: 0.05 } as const;
+const DEFAULTS = { alpha: 0.05, dThreshold: 0.147, noiseThreshold: 0.05 } as const;
 
 /**
  * Classify a pair of sample arrays.
  * All three conditions must be met to declare a change:
  *   1. |delta%| >= noiseThreshold  (practical magnitude)
- *   2. p <= alpha                  (statistical significance)
- *   3. |d| >= dThreshold           (effect size relative to within-run variance)
+ *   2. p <= alpha                  (Mann-Whitney U significance)
+ *   3. |d| >= dThreshold           (Cliff's delta effect size)
  */
 export function classify(
-	baselineSamples: number[],
-	candidateSamples: number[],
-	delta: number,
-	opts?: ClassifyOptions,
+    baselineSamples: number[],
+    candidateSamples: number[],
+    delta: number,
+    opts?: ClassifyOptions
 ): {
-	verdict: Verdict;
-	p: number;
-	d: number;
+    verdict: Verdict;
+    p: number;
+    d: number;
 } {
-	const alpha = opts?.alpha ?? DEFAULTS.alpha;
-	const dThreshold = opts?.dThreshold ?? DEFAULTS.dThreshold;
-	const noiseThreshold = opts?.noiseThreshold ?? DEFAULTS.noiseThreshold;
+    const alpha = opts?.alpha ?? DEFAULTS.alpha;
+    const dThreshold = opts?.dThreshold ?? DEFAULTS.dThreshold;
+    const noiseThreshold = opts?.noiseThreshold ?? DEFAULTS.noiseThreshold;
 
-	const { p } = welchTTest(baselineSamples, candidateSamples);
-	const d = cohensD(baselineSamples, candidateSamples);
+    const { p } = mannWhitneyU(baselineSamples, candidateSamples);
+    const d = cliffsDelta(baselineSamples, candidateSamples);
 
-	let verdict: Verdict = 'neutral';
-	if (Math.abs(delta) >= noiseThreshold && p <= alpha && Math.abs(d) >= dThreshold) {
-		verdict = d > 0 ? 'slower' : 'faster';
-	}
+    let verdict: Verdict = 'neutral';
+    if (Math.abs(delta) >= noiseThreshold && p <= alpha && Math.abs(d) >= dThreshold) {
+        verdict = d > 0 ? 'slower' : 'faster';
+    }
 
-	return { verdict, p, d };
+    return { verdict, p, d };
 }
