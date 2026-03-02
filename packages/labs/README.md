@@ -147,5 +147,10 @@ export default defineConfig({
 | `nodeFlags`        | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
 | `resultsDir`       | `.labs`                                     | Directory for saved results, relative to config |
 | `runs`             | `1`                                         | Rounds per save (interleaved). 1 = use mitata samples, 5+ = use run means |
+| `minCpuTime`       | mitata default                              | Minimum CPU time budget per benchmark in ns; set to raise/lower runtime budget |
+| `minSamples`       | mitata default                              | Minimum sample count per benchmark; set to increase/decrease sample floor |
+| `maxSamples`       | mitata default                              | Maximum sample cap per benchmark to prevent pathological long runs |
 | `alpha`            | `0.05`                                      | Welch t-test significance level                 |
 | `noiseThreshold`   | `0.05`                                      | Minimum \|delta%\| to flag a change (noise floor) |
+
+If unset, labs forwards no tune override and mitata uses its native defaults (including any internal rescaling behavior for heap/inner-gc modes). When set, sampling stops only after both thresholds are met: `samples >= minSamples` and `cpu_time >= minCpuTime`, with `maxSamples` as a hard safety cap.

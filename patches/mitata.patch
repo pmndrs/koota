@@ -1,0 +1,86 @@
+diff --git a/src/main.d.mts b/src/main.d.mts
+index 927e6ef485048a5f73d2eb1ce2d141865905cb57..e94d3850f65c64e2c584d0af07a624e05b51e407 100644
+--- a/src/main.d.mts
++++ b/src/main.d.mts
+@@ -94,6 +94,7 @@ export function run(opts?: {
+   colors?: boolean;
+   print?: (s: string) => any;
+   observe?: (t: trial) => trial;
++  tune?: k_options;
+ 
+   format?:
+     'json'
+@@ -142,7 +143,7 @@ export class B {
+   compact(bool?: boolean): this;
+   baseline(bool?: boolean): this;
+   highlight(color?: Color): this;
+-  run(thrw?: boolean): Promise<trial>;
++  run(thrw?: boolean, tune?: k_options): Promise<trial>;
+   args(map: Record<string, any[]>): this;
+   args(name: string, values: any[]): this;
+   gc(gc?: 'once' | 'inner' | boolean): this;
+diff --git a/src/main.mjs b/src/main.mjs
+index d0b58faba93ef42daecd2b98c70eca3f1d0a47bc..b1b628f2258738726330d593640fa9b270761d34 100644
+--- a/src/main.mjs
++++ b/src/main.mjs
+@@ -108,7 +108,7 @@ export class B {
+     }
+   }
+ 
+-  async run(thrw = false) {
++  async run(thrw = false, _tune = {}) {
+     const args = Object.keys(this._args);
+     const kind = 0 === args.length ? 'static' : (1 === args.length ? 'args' : 'multi-args');
+ 
+@@ -116,6 +116,7 @@ export class B {
+       $counters,
+       inner_gc: 'inner' === this._gc,
+       gc: !this._gc ? false : undefined,
++      ..._tune,
+ 
+       heap: await (async () => {
+         if (globalThis.Bun) {
+@@ -320,6 +321,7 @@ function defaults(opts) {
+   opts.filter ??= /.*/;
+   opts.format ??= 'mitata';
+   opts.colors ??= colors();
++  opts.tune ??= {};
+   opts.observe ??= trial => trial;
+ }
+ 
+@@ -380,7 +382,7 @@ const formats = {
+   async quiet(_, opts, benchmarks) {
+     for (const collection of COLLECTIONS) {
+       for (const trial of collection.trials) {
+-        if (opts.filter.test(trial._name)) benchmarks.push(opts.observe(await trial.run(opts.throw)));
++        if (opts.filter.test(trial._name)) benchmarks.push(opts.observe(await trial.run(opts.throw, opts.tune)));
+       }
+     }
+   },
+@@ -392,7 +394,7 @@ const formats = {
+ 
+     for (const collection of COLLECTIONS) {
+       for (const trial of collection.trials) {
+-        if (opts.filter.test(trial._name)) benchmarks.push(opts.observe(await trial.run(opts.throw)));
++        if (opts.filter.test(trial._name)) benchmarks.push(opts.observe(await trial.run(opts.throw, opts.tune)));
+       }
+     }
+ 
+@@ -425,7 +427,7 @@ const formats = {
+ 
+       for (const trial of collection.trials) {
+         if (opts.filter.test(trial._name)) {
+-          let bench = await trial.run(opts.throw);
++          let bench = await trial.run(opts.throw, opts.tune);
+ 
+           bench = opts.observe(bench);
+           trials.push(bench); benchmarks.push(bench);
+@@ -510,7 +512,7 @@ const formats = {
+ 
+       for (const trial of collection.trials) {
+         if (opts.filter.test(trial._name)) {
+-          let bench = await trial.run(opts.throw);
++          let bench = await trial.run(opts.throw, opts.tune);
+ 
+           bench = opts.observe(bench);
+           trials.push([trial, bench]); benchmarks.push(bench);

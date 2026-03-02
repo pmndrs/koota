@@ -68,6 +68,7 @@ function runBench(
 	file: string,
 	nodeFlags: string[],
 	label: string,
+	tune: Pick<Partial<LabsConfig>, 'minCpuTime' | 'minSamples' | 'maxSamples'>,
 	tagFilter?: string,
 	resultFile?: string,
 ): void {
@@ -77,6 +78,9 @@ function runBench(
 		env: {
 			...process.env,
 			LABS_BENCH_FILE: pathToFileURL(file).href,
+			...(tune.minCpuTime !== undefined ? { LABS_MIN_CPU_TIME: String(tune.minCpuTime) } : {}),
+			...(tune.minSamples !== undefined ? { LABS_MIN_SAMPLES: String(tune.minSamples) } : {}),
+			...(tune.maxSamples !== undefined ? { LABS_MAX_SAMPLES: String(tune.maxSamples) } : {}),
 			...(tagFilter ? { LABS_GREP_TAGS: tagFilter } : {}),
 			...(resultFile ? { LABS_RESULT_FILE: resultFile } : {}),
 		},
@@ -273,7 +277,13 @@ export async function runCLI(args: string[]) {
 		for (let r = 0; r < runs; r++) {
 			for (const f of selected) {
 				const roundLabel = runs > 1 ? `${suiteName(f)} [${r + 1}/${runs}]` : suiteName(f);
-				runBench(f, config.nodeFlags, roundLabel, tagEnv);
+				runBench(
+					f,
+					config.nodeFlags,
+					roundLabel,
+					{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
+					tagEnv,
+				);
 			}
 		}
 		return;
@@ -296,7 +306,14 @@ export async function runCLI(args: string[]) {
 		for (const f of selected) {
 			const roundLabel = runs > 1 ? `${suiteName(f)} [${r + 1}/${runs}]` : suiteName(f);
 			const resultFile = join(tmpDir, `${basename(f, '.ts')}-r${r}-${Date.now()}.json`);
-			runBench(f, config.nodeFlags, roundLabel, tagEnv, resultFile);
+			runBench(
+				f,
+				config.nodeFlags,
+				roundLabel,
+				{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
+				tagEnv,
+				resultFile,
+			);
 			workerOutputs.push({ file: f, resultFile });
 		}
 	}
