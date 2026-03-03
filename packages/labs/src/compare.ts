@@ -32,6 +32,19 @@ interface MatchedBench {
     delta: number;
 }
 
+type LegacyTrial = {
+    stats?: { samples?: number[] };
+    runs?: Array<{ stats?: { samples?: number[] } }>;
+};
+
+type ComparableTrial = SavedResult['files'][number]['benchmarks'][number] | LegacyTrial;
+
+function trialSamples(trial: ComparableTrial): number[] {
+    if (Array.isArray(trial.stats?.samples)) return trial.stats.samples;
+    const legacySamples = 'runs' in trial ? trial.runs?.[0]?.stats?.samples : undefined;
+    return Array.isArray(legacySamples) ? legacySamples : [];
+}
+
 function formatTime(ns: number): string {
     if (ns >= 1_000_000_000) return `${(ns / 1_000_000_000).toFixed(2)}s`;
     if (ns >= 1_000_000) return `${(ns / 1_000_000).toFixed(2)}ms`;
@@ -79,12 +92,10 @@ function buildIndex(result: SavedResult): Map<string, IndexEntry> {
     const map = new Map<string, IndexEntry>();
     for (const f of result.files) {
         for (const trial of f.benchmarks) {
-            for (const run of trial.runs) {
-                if (!run.stats) continue;
-                const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}\0${run.name}`;
-                const samples = run.stats.samples ?? [];
-                map.set(key, { median: median(samples), samples });
-            }
+            const samples = trialSamples(trial);
+            if (samples.length === 0) continue;
+            const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}`;
+            map.set(key, { median: median(samples), samples });
         }
     }
     return map;
@@ -123,30 +134,28 @@ export function compare(baseline: SavedResult, candidate: SavedResult, config: L
 
     for (const f of candidate.files) {
         for (const trial of f.benchmarks) {
-            for (const run of trial.runs) {
-                if (!run.stats) continue;
-                const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}\0${run.name}`;
-                const base = baseIndex.get(key);
-                if (base === undefined) {
-                    unmatched.push({
-                        file: f.file,
-                        group: trial.groupName ?? trial.alias,
-                        name: run.name,
-                    });
-                    continue;
-                }
-                const candidateSamples = run.stats.samples ?? [];
-                const candidateMedian = median(candidateSamples);
-                const delta = base.median > 0 ? (candidateMedian - base.median) / base.median : 0;
-                matched.push({
-                    key: { file: f.file, group: trial.groupName ?? trial.alias, name: trial.alias },
-                    baselineMedian: base.median,
-                    candidateMedian,
-                    baselineSamples: base.samples,
-                    candidateSamples,
-                    delta,
+            const candidateSamples = trialSamples(trial);
+            if (candidateSamples.length === 0) continue;
+            const key = `${f.file}\0${trial.groupName ?? ''}\0${trial.alias}`;
+            const base = baseIndex.get(key);
+            if (base === undefined) {
+                unmatched.push({
+                    file: f.file,
+                    group: trial.groupName ?? trial.alias,
+                    name: trial.alias,
                 });
+                continue;
             }
+            const candidateMedian = median(candidateSamples);
+            const delta = base.median > 0 ? (candidateMedian - base.median) / base.median : 0;
+            matched.push({
+                key: { file: f.file, group: trial.groupName ?? trial.alias, name: trial.alias },
+                baselineMedian: base.median,
+                candidateMedian,
+                baselineSamples: base.samples,
+                candidateSamples,
+                delta,
+            });
         }
     }
 

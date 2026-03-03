@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { compare } from './compare.ts';
-import { median } from './stats.ts';
 import type { LabsConfig } from './config.ts';
 import {
 	type SavedResult,
@@ -204,10 +203,9 @@ export async function runCLI(args: string[]) {
 	// `run` subcommand — execute without saving results.
 	const shouldSave = subcmd !== 'run';
 	const benchArgs = shouldSave ? args : args.slice(1);
-
-	// --run/--runs N overrides config.runs for this invocation.
-	const runsRaw = flagValue(benchArgs, '--run') ?? flagValue(benchArgs, '--runs');
-	const runs = runsRaw !== undefined ? Math.max(1, parseInt(runsRaw, 10) || 1) : config.runs;
+	if (benchArgs.includes('--run') || benchArgs.includes('--runs')) {
+		error('`--run`/`--runs` are no longer supported; labs is single-run only');
+	}
 
 	const benchDir = resolve(dirname(configPath), config.benchDir);
 	if (!existsSync(benchDir)) error(`benchDir not found: ${benchDir}`);
@@ -227,7 +225,7 @@ export async function runCLI(args: string[]) {
 		console.log(`${CYAN}labs${RESET} ${DIM}(replaying last)${RESET}`);
 	} else {
 		// Single positional arg is the filter string (must be quoted on CLI).
-		const FLAG_TAKES_VALUE = new Set(['-n', '--name', '-m', '--message', '--run', '--runs']);
+		const FLAG_TAKES_VALUE = new Set(['-n', '--name', '-m', '--message']);
 		let filterArg: string | undefined;
 		for (let i = 0; i < benchArgs.length; i++) {
 			const a = benchArgs[i];
@@ -274,17 +272,14 @@ export async function runCLI(args: string[]) {
 	}
 
 	if (!shouldSave) {
-		for (let r = 0; r < runs; r++) {
-			for (const f of selected) {
-				const roundLabel = runs > 1 ? `${suiteName(f)} [${r + 1}/${runs}]` : suiteName(f);
-				runBench(
-					f,
-					config.nodeFlags,
-					roundLabel,
-					{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
-					tagEnv,
-				);
-			}
+		for (const f of selected) {
+			runBench(
+				f,
+				config.nodeFlags,
+				suiteName(f),
+				{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
+				tagEnv,
+			);
 		}
 		return;
 	}
@@ -299,31 +294,25 @@ export async function runCLI(args: string[]) {
 	const tmpDir = join(cwd, 'node_modules', '.cache', 'labs-tmp');
 	mkdirSync(tmpDir, { recursive: true });
 
-	// Interleaved rounds: [file1, file2, ..., fileN] x runs
-	// Each file experiences different thermal states across rounds.
 	const workerOutputs: Array<{ file: string; resultFile: string }> = [];
-	for (let r = 0; r < runs; r++) {
-		for (const f of selected) {
-			const roundLabel = runs > 1 ? `${suiteName(f)} [${r + 1}/${runs}]` : suiteName(f);
-			const resultFile = join(tmpDir, `${basename(f, '.ts')}-r${r}-${Date.now()}.json`);
-			runBench(
-				f,
-				config.nodeFlags,
-				roundLabel,
-				{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
-				tagEnv,
-				resultFile,
-			);
-			workerOutputs.push({ file: f, resultFile });
-		}
+	for (const f of selected) {
+		const resultFile = join(tmpDir, `${basename(f, '.ts')}-${Date.now()}.json`);
+		runBench(
+			f,
+			config.nodeFlags,
+			suiteName(f),
+			{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
+			tagEnv,
+			resultFile,
+		);
+		workerOutputs.push({ file: f, resultFile });
 	}
 
 	let hardware = { cpu: null as string | null, arch: null as string | null, runtime: null as string | null, freq: 0 };
 	const files: SavedResult['files'] = [];
 	let hardwareSet = false;
 
-	// Group outputs by file name, preserving round order.
-	const outputsByFile = new Map<string, WorkerResult[]>();
+	let warnedMultiRun = false;
 	for (const { file, resultFile } of workerOutputs) {
 		if (!existsSync(resultFile)) continue;
 		const workerResult: WorkerResult = JSON.parse(readFileSync(resultFile, 'utf-8'));
@@ -339,53 +328,25 @@ export async function runCLI(args: string[]) {
 			hardwareSet = true;
 		}
 
-		const key = suiteName(file);
-		if (!outputsByFile.has(key)) outputsByFile.set(key, []);
-		outputsByFile.get(key)!.push(workerResult);
-	}
-
-	// Merge rounds per file with per-run normalization.
-	// Each run may execute at a different CPU frequency / thermal state.
-	// Normalizing each run's samples to a common mean removes between-run level shifts
-	// while preserving within-run variance, so Cohen's d reflects algorithmic noise only.
-	for (const [fileName, results] of outputsByFile) {
-		if (results.length === 1) {
-			files.push({ file: fileName, benchmarks: results[0].benchmarks });
-			continue;
-		}
-		const merged: WorkerResult = JSON.parse(JSON.stringify(results[0]));
-		for (const trial of merged.benchmarks) {
-			for (const run of trial.runs) {
-				if (!run.stats) continue;
-
-				// Collect per-run sample arrays for this benchmark
-				const perRunSamples: number[][] = [run.stats.samples.slice()];
-				for (let r = 1; r < results.length; r++) {
-					const matchTrial = results[r].benchmarks.find(
-						(t) => t.alias === trial.alias && t.groupName === trial.groupName,
+		files.push({
+			file: suiteName(file),
+			benchmarks: workerResult.benchmarks.map((trial) => {
+				if (!warnedMultiRun && trial.runs.length > 1) {
+					warnedMultiRun = true;
+					console.warn(
+						`${DIM}labs: trial "${trial.alias}" has ${trial.runs.length} runs; only the first run is kept${RESET}`,
 					);
-					const matchRun = matchTrial?.runs.find((mr) => mr.name === run.name);
-					if (matchRun?.stats) perRunSamples.push(matchRun.stats.samples);
 				}
-
-				// Compute per-run medians and overall global median
-				const runMedians = perRunSamples.map(median);
-				const globalMedian = median(runMedians);
-
-				// Normalize each run's samples: sample * (globalMedian / runMedian)
-				const normalized: number[] = [];
-				for (let r = 0; r < perRunSamples.length; r++) {
-					const scale = runMedians[r] > 0 ? globalMedian / runMedians[r] : 1;
-					for (const s of perRunSamples[r]) {
-						normalized.push(s * scale);
-					}
-				}
-
-				run.stats.samples = normalized;
-				run.stats.avg = globalMedian;
-			}
-		}
-		files.push({ file: fileName, benchmarks: merged.benchmarks });
+				const primaryRun = trial.runs[0];
+				return {
+					alias: trial.alias,
+					baseline: trial.baseline,
+					groupName: trial.groupName,
+					...(primaryRun?.stats ? { stats: primaryRun.stats } : {}),
+					...(primaryRun?.error !== undefined ? { error: primaryRun.error } : {}),
+				};
+			}),
+		});
 	}
 
 	const result: SavedResult = {

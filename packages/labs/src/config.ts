@@ -7,8 +7,6 @@ export interface LabsConfig {
     nodeFlags: string[];
     /** Directory for saved results and baseline pointer, relative to config file. @default ".labs" */
     resultsDir: string;
-    /** Number of times to run each file per save, interleaved. @default 1 */
-    runs: number;
     /**
      * Minimum benchmark CPU time budget in nanoseconds. Default is scaled if GC inner is used. @default `642 * 1e6`
      */
@@ -30,7 +28,6 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
         benchMatch: '**/*.bench.ts',
         nodeFlags: ['--allow-natives-syntax', '--expose-gc'],
         resultsDir: '.labs',
-        runs: 1,
         minSamples: 12,
         maxSamples: 1e9,
         alpha: 0.05,

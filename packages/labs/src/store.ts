@@ -8,9 +8,7 @@ export interface HardwareInfo {
 	freq: number;
 }
 
-export interface BenchmarkRun {
-	name: string;
-	args: Record<string, any>;
+export interface BenchmarkStats {
 	stats?: {
 		avg: number;
 		min: number;
@@ -21,14 +19,26 @@ export interface BenchmarkRun {
 		samples: number[];
 		gc?: { avg: number; min: number; max: number; total: number };
 	};
+}
+
+export interface WorkerBenchmarkRun extends BenchmarkStats {
+	name: string;
+	args: Record<string, any>;
 	error?: unknown;
 }
 
-export interface BenchmarkTrial {
+export interface WorkerBenchmarkTrial {
 	alias: string;
 	baseline: boolean;
-	runs: BenchmarkRun[];
+	runs: WorkerBenchmarkRun[];
 	groupName?: string;
+}
+
+export interface SavedBenchmarkTrial extends BenchmarkStats {
+	alias: string;
+	baseline: boolean;
+	groupName?: string;
+	error?: unknown;
 }
 
 export interface WorkerResult {
@@ -37,12 +47,12 @@ export interface WorkerResult {
 		arch: string | null;
 		runtime: string | null;
 	};
-	benchmarks: BenchmarkTrial[];
+	benchmarks: WorkerBenchmarkTrial[];
 }
 
 export interface SavedFile {
 	file: string;
-	benchmarks: BenchmarkTrial[];
+	benchmarks: SavedBenchmarkTrial[];
 }
 
 export interface SavedResult {
