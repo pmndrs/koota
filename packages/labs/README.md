@@ -1,5 +1,8 @@
 # Labs
 
+> [!WARNING]
+> Labs currently only supports Node.js. Workers are spawned via `tsx` with V8-specific flags (`--allow-natives-syntax`, `--expose-gc`), which are not portable to Bun (JSC) or Deno. Portability will be on the roadmap.
+
 Benchmark runner for koota. Discovers `*.bench.ts` files and runs each in an isolated process with V8 flags.
 
 ## Usage
