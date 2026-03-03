@@ -67,7 +67,7 @@ function runBench(
 	file: string,
 	nodeFlags: string[],
 	label: string,
-	tune: Pick<Partial<LabsConfig>, 'minCpuTime' | 'minSamples' | 'maxSamples'>,
+	tune: Pick<Partial<LabsConfig>, 'minCpuTime' | 'minSamples' | 'maxSamples' | 'adaptive' | 'maxCpuTime'>,
 	tagFilter?: string,
 	resultFile?: string,
 ): void {
@@ -77,9 +77,11 @@ function runBench(
 		env: {
 			...process.env,
 			LABS_BENCH_FILE: pathToFileURL(file).href,
-			...(tune.minCpuTime !== undefined ? { LABS_MIN_CPU_TIME: String(tune.minCpuTime) } : {}),
+			...(tune.minCpuTime !== undefined ? { LABS_MIN_CPU_TIME: String(tune.minCpuTime * 1e9) } : {}),
 			...(tune.minSamples !== undefined ? { LABS_MIN_SAMPLES: String(tune.minSamples) } : {}),
 			...(tune.maxSamples !== undefined ? { LABS_MAX_SAMPLES: String(tune.maxSamples) } : {}),
+			...(tune.adaptive !== undefined ? { LABS_ADAPTIVE: String(tune.adaptive) } : {}),
+			...(tune.maxCpuTime !== undefined ? { LABS_MAX_CPU_TIME: String(tune.maxCpuTime * 1e9) } : {}),
 			...(tagFilter ? { LABS_GREP_TAGS: tagFilter } : {}),
 			...(resultFile ? { LABS_RESULT_FILE: resultFile } : {}),
 		},
@@ -277,7 +279,13 @@ export async function runCLI(args: string[]) {
 				f,
 				config.nodeFlags,
 				suiteName(f),
-				{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
+				{
+					minCpuTime: config.minCpuTime,
+					minSamples: config.minSamples,
+					maxSamples: config.maxSamples,
+					adaptive: config.adaptive,
+					maxCpuTime: config.maxCpuTime,
+				},
 				tagEnv,
 			);
 		}
@@ -301,7 +309,13 @@ export async function runCLI(args: string[]) {
 			f,
 			config.nodeFlags,
 			suiteName(f),
-			{ minCpuTime: config.minCpuTime, minSamples: config.minSamples, maxSamples: config.maxSamples },
+			{
+				minCpuTime: config.minCpuTime,
+				minSamples: config.minSamples,
+				maxSamples: config.maxSamples,
+				adaptive: config.adaptive,
+				maxCpuTime: config.maxCpuTime,
+			},
 			tagEnv,
 			resultFile,
 		);

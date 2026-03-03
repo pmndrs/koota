@@ -30,6 +30,7 @@ interface MatchedBench {
     baselineSamples: number[];
     candidateSamples: number[];
     delta: number;
+    noisy: boolean;
 }
 
 type LegacyTrial = {
@@ -43,6 +44,12 @@ function trialSamples(trial: ComparableTrial): number[] {
     if (Array.isArray(trial.stats?.samples)) return trial.stats.samples;
     const legacySamples = 'runs' in trial ? trial.runs?.[0]?.stats?.samples : undefined;
     return Array.isArray(legacySamples) ? legacySamples : [];
+}
+
+function trialNoisy(trial: ComparableTrial): boolean {
+    if (trial.stats?.noisy) return true;
+    if ('runs' in trial) return !!(trial.runs?.[0]?.stats as any)?.noisy;
+    return false;
 }
 
 function formatTime(ns: number): string {
@@ -155,6 +162,7 @@ export function compare(baseline: SavedResult, candidate: SavedResult, config: L
                 baselineSamples: base.samples,
                 candidateSamples,
                 delta,
+                noisy: trialNoisy(trial),
             });
         }
     }
@@ -206,7 +214,9 @@ export function compare(baseline: SavedResult, candidate: SavedResult, config: L
         const pctStr = formatPct(m.delta);
         const bar = deltaBar(m.delta, verdict, config.noiseThreshold);
 
-        const name = truncate(m.key.name || m.key.group || 'anonymous');
+        const rawName = m.key.name || m.key.group || 'anonymous';
+        const noisySuffix = m.noisy ? ` ${YELLOW}~${RESET}` : '';
+        const name = truncate(rawName);
         const bSD = formatTimeMAD(m.baselineMedian, m.baselineSamples);
         const cSD = formatTimeMAD(m.candidateMedian, m.candidateSamples);
         const sdColor = Math.abs(d) < config.dThreshold ? YELLOW : GRAY;
@@ -219,7 +229,7 @@ export function compare(baseline: SavedResult, candidate: SavedResult, config: L
         };
 
         console.log(
-            `  ${color}${symbol}${RESET} ${WHITE}${name}${RESET} ${fmtTimeSD(bSD)} ${fmtTimeSD(cSD)} ${color}${pctStr.padStart(7)}${RESET}  ${bar}`
+            `  ${color}${symbol}${RESET} ${WHITE}${name}${RESET}${noisySuffix} ${fmtTimeSD(bSD)} ${fmtTimeSD(cSD)} ${color}${pctStr.padStart(7)}${RESET}  ${bar}`
         );
     }
 
@@ -234,11 +244,13 @@ export function compare(baseline: SavedResult, candidate: SavedResult, config: L
     const faster = rows.filter((r) => r.verdict === 'faster').length;
     const slower = rows.filter((r) => r.verdict === 'slower').length;
     const neutral = rows.length - faster - slower;
+    const noisy = rows.filter((r) => r.m.noisy).length;
 
     const parts: string[] = [];
     if (faster > 0) parts.push(`${GREEN}${faster} faster${RESET}`);
     if (slower > 0) parts.push(`${RED}${slower} slower${RESET}`);
     if (neutral > 0) parts.push(`${DIM}${neutral} neutral${RESET}`);
+    if (noisy > 0) parts.push(`${YELLOW}${noisy} noisy${RESET}`);
     console.log(`\n${BOLD}summary${RESET}  ${parts.join('  ')}`);
     console.log(`${DIM}matched: ${rows.length}${RESET}`);
     console.log('');

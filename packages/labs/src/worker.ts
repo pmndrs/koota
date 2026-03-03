@@ -5,17 +5,33 @@ type TuneOptions = {
 	min_cpu_time?: number;
 	min_samples?: number;
 	max_samples?: number;
+	adaptive?: boolean | number;
+	max_cpu_time?: number;
 };
 
 function parseTuneEnv(): TuneOptions {
 	const minCpuTime = Number(process.env.LABS_MIN_CPU_TIME);
 	const minSamples = Number(process.env.LABS_MIN_SAMPLES);
 	const maxSamples = Number(process.env.LABS_MAX_SAMPLES);
+	const maxCpuTime = Number(process.env.LABS_MAX_CPU_TIME);
+
+	// LABS_ADAPTIVE: "false" → false, a numeric string → that number, anything else → true
+	let adaptive: boolean | number | undefined;
+	const adaptiveEnv = process.env.LABS_ADAPTIVE;
+	if (adaptiveEnv !== undefined) {
+		if (adaptiveEnv === 'false') adaptive = false;
+		else {
+			const n = Number(adaptiveEnv);
+			adaptive = Number.isFinite(n) && n > 0 ? n : true;
+		}
+	}
 
 	return {
 		...(Number.isFinite(minCpuTime) && minCpuTime > 0 ? { min_cpu_time: minCpuTime } : {}),
 		...(Number.isFinite(minSamples) && minSamples > 0 ? { min_samples: minSamples } : {}),
 		...(Number.isFinite(maxSamples) && maxSamples > 0 ? { max_samples: maxSamples } : {}),
+		...(Number.isFinite(maxCpuTime) && maxCpuTime > 0 ? { max_cpu_time: maxCpuTime } : {}),
+		...(adaptive !== undefined ? { adaptive } : {}),
 	};
 }
 

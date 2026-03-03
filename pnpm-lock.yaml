@@ -47,9 +47,9 @@ catalogs:
       version: 4.0.13
 
 patchedDependencies:
-  mitata:
-    hash: 4571cb184790c368fe215161a4d7109408ab6aaa22e685c935bad0d3fdb0bca9
-    path: patches/mitata.patch
+  mitata@1.0.34:
+    hash: 9ac7c0ff306d7d9c33d0312fce7f024532d245193b8db801ba1ace7d72fd7c8a
+    path: patches/mitata@1.0.34.patch
 
 importers:
 
@@ -401,7 +401,7 @@ importers:
     dependencies:
       mitata:
         specifier: 'catalog:'
-        version: 1.0.34(patch_hash=4571cb184790c368fe215161a4d7109408ab6aaa22e685c935bad0d3fdb0bca9)
+        version: 1.0.34(patch_hash=9ac7c0ff306d7d9c33d0312fce7f024532d245193b8db801ba1ace7d72fd7c8a)
       tsx:
         specifier: latest
         version: 4.21.0
@@ -3405,7 +3405,7 @@ snapshots:
       braces: 3.0.3
       picomatch: 2.3.1
 
-  mitata@1.0.34(patch_hash=4571cb184790c368fe215161a4d7109408ab6aaa22e685c935bad0d3fdb0bca9): {}
+  mitata@1.0.34(patch_hash=9ac7c0ff306d7d9c33d0312fce7f024532d245193b8db801ba1ace7d72fd7c8a): {}
 
   mlly@1.8.0:
     dependencies:

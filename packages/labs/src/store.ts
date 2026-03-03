@@ -17,6 +17,7 @@ export interface BenchmarkStats {
 		p99: number;
 		p999: number;
 		samples: number[];
+		noisy?: boolean;
 		gc?: { avg: number; min: number; max: number; total: number };
 	};
 }

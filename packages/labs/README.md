@@ -58,7 +58,7 @@ pnpm bench compare                     # compare most recent result vs baseline
 pnpm bench compare "v1.3.0"           # compare named result vs baseline
 ```
 
-Outputs a colored diff table showing each benchmark's median time and ±MAD, delta %, and verdict (faster/slower/neutral). Labs compares mitata sample distributions per benchmark and warns if hardware differs.
+Outputs a colored diff table showing each benchmark's median time and ±MAD, delta %, and verdict (faster/slower/neutral). Labs compares mitata sample distributions per benchmark and warns if hardware differs. A `~` marker indicates the benchmark hit the adaptive max CPU budget before convergence (`noisy`).
 
 ## Writing a bench
 
@@ -101,6 +101,7 @@ pnpm bench "@slow"        # runs only wildcard
 Labs is single-run only. Each benchmark comparison uses mitata's collected sample arrays for the baseline and candidate.
 
 A change is flagged only when all three conditions are met:
+
 1. **Noise floor** — `|delta%| >= noiseThreshold` (default 5%)
 2. **Statistical significance** — Mann-Whitney U `p <= alpha` (default 0.05)
 3. **Effect size** — `|d| >= dThreshold` (Cliff's delta, default 0.147)
@@ -121,16 +122,36 @@ export default defineConfig({
 })
 ```
 
-| Option             | Default                                     | Description                                     |
-| ------------------ | ------------------------------------------- | ----------------------------------------------- |
-| `benchDir`         | (required)                                  | Directory to search, relative to config file    |
-| `benchMatch`       | `**/*.bench.ts`                             | Glob pattern for discovery                      |
-| `nodeFlags`        | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                   |
-| `resultsDir`       | `.labs`                                     | Directory for saved results, relative to config |
-| `minCpuTime`       | mitata default                              | Minimum CPU time budget per benchmark in ns; set to raise/lower runtime budget |
-| `minSamples`       | mitata default                              | Minimum sample count per benchmark; set to increase/decrease sample floor |
-| `maxSamples`       | mitata default                              | Maximum sample cap per benchmark to prevent pathological long runs |
-| `alpha`            | `0.05`                                      | Mann-Whitney U significance level               |
-| `noiseThreshold`   | `0.05`                                      | Minimum \|delta%\| to flag a change (noise floor) |
+| Option           | Default                                     | Description                                                                                                        |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `benchDir`       | (required)                                  | Directory to search, relative to config file                                                                       |
+| `benchMatch`     | `**/*.bench.ts`                             | Glob pattern for discovery                                                                                         |
+| `nodeFlags`      | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                                                                                      |
+| `resultsDir`     | `.labs`                                     | Directory for saved results, relative to config                                                                    |
+| `adaptive`       | `true`                                      | Adaptive sampling mode: `true` uses default CI threshold, `false` disables, number sets CI threshold (e.g. `0.01`) |
+| `maxCpuTime`     | `5`                                         | Max CPU budget in seconds for adaptive sampling; benches that do not converge are flagged `noisy`                  |
+| `minCpuTime`     | `0.642`                                     | Minimum CPU time budget per benchmark in seconds; set to raise/lower runtime budget                                |
+| `minSamples`     | `12`                                        | Minimum sample count per benchmark; set to increase/decrease sample floor                                          |
+| `maxSamples`     | `1e9`                                       | Maximum sample cap per benchmark to prevent pathological long runs                                                 |
+| `alpha`          | `0.05`                                      | Mann-Whitney U significance level                                                                                  |
+| `dThreshold`     | `0.147`                                     | Cliff's delta effect size threshold                                                                                |
+| `noiseThreshold` | `0.05`                                      | Minimum \|delta%\| to flag a change (noise floor)                                                                  |
 
-If unset, labs forwards no tune override and mitata uses its native defaults (including any internal rescaling behavior for heap/inner-gc modes). When set, sampling stops only after both thresholds are met: `samples >= minSamples` and `cpu_time >= minCpuTime`, with `maxSamples` as a hard safety cap.
+Sampling behavior:
+
+- `adaptive: false`: fixed stopping (`samples >= minSamples` and `cpu_time >= minCpuTime`) with `maxSamples` as cap.
+- `adaptive: true`: adaptive CI stopping with default threshold (`2.5%`), but never before `minSamples` and `minCpuTime`.
+- `adaptive: <number>`: same adaptive behavior with a custom CI threshold (`0.01` is stricter than `0.025`).
+- In adaptive mode, `maxCpuTime` is a hard budget. If reached before CI convergence, the benchmark is marked `noisy`.
+
+> [!NOTE]
+> **More info: adaptive statistics**
+>
+> Labs uses online variance in log-space (Welford update) to handle long-tailed VM timing samples. This means convergence is based on multiplicative error (relative confidence), which is usually more stable for benchmark timing data than linear-space variance.
+>
+> Stopping in adaptive mode is:
+>
+> - Floor: wait until both `minSamples` and `minCpuTime` are reached
+> - Converged: stop once the relative CI target is met (`adaptive: true` => `2.5%`, `adaptive: 0.01` => `1%`)
+> - Bailout: if convergence is not reached before `maxCpuTime`, mark the benchmark as `noisy`
+> - Safety cap: `maxSamples` still limits pathological runs
