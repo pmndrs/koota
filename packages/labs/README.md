@@ -61,7 +61,17 @@ pnpm bench compare                     # compare most recent result vs baseline
 pnpm bench compare "v1.3.0"           # compare named result vs baseline
 ```
 
-Outputs a colored diff table showing each benchmark's median time and ±MAD, delta %, and verdict (faster/slower/neutral).
+Outputs a colored table for each eligible benchmark:
+
+| Column | Description |
+|---|---|
+| baseline | Baseline p50 (median) time |
+| candidate | Candidate p50 (median) time |
+| Δp50 | Signed percent change in p50 — color-coded green (faster), red (slower), or dim (neutral) |
+| Δp99 | Signed percent change in p99 — when this diverges from Δp50, the distribution shape changed |
+| p | Mann-Whitney U p-value — below `alpha` = statistically significant |
+
+Each row is prefixed with a verdict icon: green `▲` (faster), red `▼` (slower), or gray `■` (neutral). Below each row, two distribution sparklines sit under their respective columns — baseline (cyan) and candidate (magenta) — on a shared axis. This makes distribution shifts, bimodal behavior, and tail changes visible at a glance.
 
 Comparison is gated. Two runs must pass all checks before any results are shown.
 
@@ -116,12 +126,9 @@ pnpm bench "@slow"        # runs only wildcard
 
 Labs is single-run only. Each benchmark comparison uses mitata's collected sample arrays for the baseline and candidate.
 
-A change is flagged only when both conditions are met:
+A change is flagged when `p <= alpha` (Mann-Whitney U, default 0.05). The Mann-Whitney U test is a non-parametric, rank-based test that determines whether values from one group consistently rank higher than the other. It is robust to non-normal distributions and GC-induced outliers. If significant, the p50 ratio direction determines faster vs slower.
 
-1. **Statistical significance** — Mann-Whitney U `p <= alpha` (default 0.05). Tests whether values from one group consistently rank higher than the other. Robust to non-normal distributions and GC-induced outliers.
-2. **Effect size** — `|d| >= dThreshold` (Cliff's delta, default 0.147). Measures how often candidate values beat baseline values across all pairs. Guards against large-N sensitivity where any tiny shift becomes statistically significant.
-
-The spread column shows ±MAD (median absolute deviation). It turns yellow when the effect size is below threshold, indicating a weak signal.
+The p99 ratio provides a variance/stability signal. When it diverges from the p50 ratio, the distribution shape changed between runs (e.g., tails got worse even if the median improved).
 
 ## Config
 
@@ -149,7 +156,6 @@ export default defineConfig({
 | `minSamples`     | `12`                                        | Minimum sample count per benchmark; set to increase/decrease sample floor                                          |
 | `maxSamples`     | `1e9`                                       | Maximum sample cap per benchmark to prevent pathological long runs                                                 |
 | `alpha`          | `0.05`                                      | Mann-Whitney U significance level                                                                                  |
-| `dThreshold`     | `0.147`                                     | Cliff's delta effect size threshold                                                                                |
 
 Sampling behavior:
 

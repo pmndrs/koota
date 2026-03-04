@@ -18,15 +18,8 @@ import {
     saveResult,
     setBaseline,
 } from './store.ts';
-
-const RESET = '\x1b[0m';
-const DIM = '\x1b[2m';
-const BOLD = '\x1b[1m';
-const BLUE = '\x1b[34m';
-const CYAN = '\x1b[36m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
+import { BLUE, BOLD, CYAN, DIM, GREEN, RED, RESET, YELLOW } from './utils/ansi.ts';
+import { visibleLength } from './utils/format.ts';
 
 function collectEnvData(
     workerResult: WorkerResult,
@@ -45,11 +38,6 @@ function collectEnvData(
         const stats = trial.runs[0]?.stats;
         if (stats && (stats as any).noisy) noisyAliases.push(trial.alias);
     }
-}
-
-function visibleLength(s: string): number {
-    // eslint-disable-next-line no-control-regex
-    return s.replace(/\x1b\[[0-9;]*m/g, '').length;
 }
 
 function printReport(envData: FreqSample[], noisyAliases: string[], saveMsg?: string): void {

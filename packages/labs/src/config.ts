@@ -23,8 +23,6 @@ export interface LabsConfig {
     maxCpuTime?: number;
     /** Mann-Whitney U significance level. @default 0.05 */
     alpha: number;
-    /** Cliff's delta effect size threshold. @default 0.147 */
-    dThreshold: number;
 }
 
 export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'benchDir'>): LabsConfig {
@@ -37,7 +35,6 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
         adaptive: true,
         maxCpuTime: 5,
         alpha: 0.05,
-        dThreshold: 0.147,
         ...config,
     };
 }

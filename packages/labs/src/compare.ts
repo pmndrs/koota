@@ -1,18 +1,9 @@
 import type { LabsConfig } from './config.ts';
-import { type ClassifyOptions, type Verdict, classify, mad, median } from './stats.ts';
+import { renderDistributions } from './histogram.ts';
+import { type ClassifyOptions, type Verdict, classify, median } from './stats.ts';
 import { type FreqSample, type SavedResult, isEnvironmentStable } from './store.ts';
-
-// ─── ANSI ────────────────────────────────────────────────────────────────────
-
-const RESET = '\x1b[0m';
-const DIM = '\x1b[2m';
-const GRAY = '\x1b[38;5;248m';
-const BOLD = '\x1b[1m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
-const CYAN = '\x1b[36m';
-const WHITE = '\x1b[37m';
+import { BOLD, CYAN, DIM, GRAY, GREEN, RED, RESET, WHITE, YELLOW } from './utils/ansi.ts';
+import { formatDelta, formatP, formatTime } from './utils/format.ts';
 
 // ─── Check infrastructure ────────────────────────────────────────────────────
 
@@ -63,7 +54,6 @@ export const checkClockStability: EnvironmentCheck = (baseline, candidate) => {
     const bFreqs = baseline.environment?.freqs ?? [];
     const cFreqs = candidate.environment?.freqs ?? [];
 
-    // Skip the check if neither run recorded frequency data (old saved results).
     if (bFreqs.length === 0 && cFreqs.length === 0) return { ok: true };
 
     if (!isEnvironmentStable(baseline)) {
@@ -81,7 +71,6 @@ export const checkClockStability: EnvironmentCheck = (baseline, candidate) => {
         };
     }
 
-    // Both runs were internally stable. Now check if they ran at comparable speeds.
     if (bFreqs.length > 0 && cFreqs.length > 0) {
         const bMed = medianFreq(bFreqs);
         const cMed = medianFreq(cFreqs);
@@ -113,7 +102,6 @@ export const checkNotNoisy: BenchCheck = (baseline, candidate) => {
 };
 
 export const checkMinSamples: BenchCheck = (baseline, candidate) => {
-    // Mann-Whitney U normal approximation requires ~20 samples per group.
     if (baseline.samples.length < MIN_SAMPLES && candidate.samples.length < MIN_SAMPLES) {
         return {
             ok: false,
@@ -149,14 +137,14 @@ export interface BenchKey {
 export interface EligibleBench {
     kind: 'eligible';
     key: BenchKey;
-    baselineMedian: number;
-    candidateMedian: number;
+    baselineP50: number;
+    candidateP50: number;
     baselineSamples: number[];
     candidateSamples: number[];
-    delta: number;
-    verdict: Verdict;
+    deltaP50: number;
+    deltaP99: number;
     p: number;
-    d: number;
+    verdict: Verdict;
 }
 
 export interface SkippedBench {
@@ -168,7 +156,6 @@ export interface SkippedBench {
 export interface MissingBench {
     kind: 'missing';
     key: BenchKey;
-    /** Which run has the bench. */
     presentIn: 'baseline' | 'candidate';
 }
 
@@ -178,7 +165,6 @@ export interface CompareResult {
     baselineName: string;
     candidateName: string;
     hardware: SavedResult['hardware'];
-    /** Failed environment checks. If non-empty the comparison was aborted. */
     environmentFailures: string[];
     benches: BenchResult[];
 }
@@ -186,8 +172,8 @@ export interface CompareResult {
 // ─── Legacy trial helpers ────────────────────────────────────────────────────
 
 type LegacyTrial = {
-    stats?: { samples?: number[]; noisy?: boolean };
-    runs?: Array<{ stats?: { samples?: number[]; noisy?: boolean } }>;
+    stats?: { samples?: number[]; noisy?: boolean; p99?: number };
+    runs?: Array<{ stats?: { samples?: number[]; noisy?: boolean; p99?: number } }>;
 };
 
 type ComparableTrial = SavedResult['files'][number]['benchmarks'][number] | LegacyTrial;
@@ -196,6 +182,12 @@ function trialSamples(trial: ComparableTrial): number[] {
     if (Array.isArray(trial.stats?.samples)) return trial.stats.samples;
     const legacySamples = 'runs' in trial ? trial.runs?.[0]?.stats?.samples : undefined;
     return Array.isArray(legacySamples) ? legacySamples : [];
+}
+
+function trialP99(trial: ComparableTrial): number {
+    if (trial.stats?.p99 !== undefined) return trial.stats.p99;
+    if ('runs' in trial) return trial.runs?.[0]?.stats?.p99 ?? 0;
+    return 0;
 }
 
 function trialNoisy(trial: ComparableTrial): boolean {
@@ -208,9 +200,9 @@ function trialNoisy(trial: ComparableTrial): boolean {
 
 interface IndexEntry {
     median: number;
+    p99: number;
     samples: number[];
     noisy: boolean;
-    trial: ComparableTrial;
 }
 
 function buildIndex(result: SavedResult): Map<string, IndexEntry> {
@@ -221,9 +213,9 @@ function buildIndex(result: SavedResult): Map<string, IndexEntry> {
             const samples = trialSamples(trial);
             map.set(key, {
                 median: samples.length > 0 ? median(samples) : 0,
+                p99: trialP99(trial),
                 samples,
                 noisy: trialNoisy(trial),
-                trial,
             });
         }
     }
@@ -245,12 +237,8 @@ export function compare(
     candidate: SavedResult,
     config: LabsConfig
 ): CompareResult {
-    const opts: ClassifyOptions = {
-        alpha: config.alpha,
-        dThreshold: config.dThreshold,
-    };
+    const opts: ClassifyOptions = { alpha: config.alpha };
 
-    // Environment preflight — run all checks; collect failures.
     const environmentFailures: string[] = [];
     for (const check of ENVIRONMENT_CHECKS) {
         const result = check(baseline, candidate);
@@ -272,8 +260,7 @@ export function compare(
     const baseIndex = buildIndex(baseline);
     const candidateIndex = buildIndex(candidate);
 
-    // Baseline-only benches.
-    for (const [key, entry] of baseIndex) {
+    for (const [key] of baseIndex) {
         if (!candidateIndex.has(key)) {
             const parts = key.split('\0');
             benches.push({
@@ -284,7 +271,6 @@ export function compare(
         }
     }
 
-    // Candidate benches — matched or candidate-only.
     for (const f of candidate.files) {
         for (const trial of f.benchmarks) {
             const key = trialKey(f.file, trial);
@@ -303,7 +289,6 @@ export function compare(
                 candidate: { samples: candidateSamples, noisy: candidateNoisy },
             };
 
-            // Per-bench eligibility checks.
             let skipReason: string | undefined;
             for (const check of BENCH_CHECKS) {
                 const result = check(benchData.baseline, benchData.candidate);
@@ -319,20 +304,22 @@ export function compare(
             }
 
             const candidateMedian = median(candidateSamples);
-            const delta = base.median > 0 ? (candidateMedian - base.median) / base.median : 0;
-            const { verdict, p, d } = classify(base.samples, candidateSamples, opts);
+            const candidateP99 = trialP99(trial);
+            const deltaP50 = base.median > 0 ? (candidateMedian - base.median) / base.median : 0;
+            const deltaP99 = base.p99 > 0 ? (candidateP99 - base.p99) / base.p99 : 0;
+            const { verdict, p } = classify(base.samples, candidateSamples, opts);
 
             benches.push({
                 kind: 'eligible',
                 key: key_,
-                baselineMedian: base.median,
-                candidateMedian,
+                baselineP50: base.median,
+                candidateP50: candidateMedian,
                 baselineSamples: base.samples,
                 candidateSamples,
-                delta,
-                verdict,
+                deltaP50,
+                deltaP99,
                 p,
-                d,
+                verdict,
             });
         }
     }
@@ -346,45 +333,17 @@ export function compare(
     };
 }
 
-// ─── Formatting helpers ──────────────────────────────────────────────────────
+// ─── Report formatting ───────────────────────────────────────────────────────
 
-function formatTime(ns: number): string {
-    if (ns >= 1_000_000_000) return `${(ns / 1_000_000_000).toFixed(2)}s`;
-    if (ns >= 1_000_000) return `${(ns / 1_000_000).toFixed(2)}ms`;
-    if (ns >= 1_000) return `${(ns / 1_000).toFixed(2)}µs`;
-    return `${ns.toFixed(2)}ns`;
-}
-
-function formatPct(delta: number): string {
-    const pct = delta * 100;
-    const sign = pct > 0 ? '+' : '';
-    return `${sign}${pct.toFixed(1)}%`;
-}
-
-function formatTimeMAD(ns: number, samples: number[]): { time: string; sd: string } {
-    const m = mad(samples);
-    let sdStr: string;
-    if (ns >= 1_000_000_000) sdStr = `±${(m / 1_000_000_000).toFixed(2)}`;
-    else if (ns >= 1_000_000) sdStr = `±${(m / 1_000_000).toFixed(2)}`;
-    else if (ns >= 1_000) sdStr = `±${(m / 1_000).toFixed(1)}`;
-    else sdStr = `±${m.toFixed(1)}`;
-    return { time: formatTime(ns), sd: sdStr };
+function deltaColor(delta: number, significant: boolean): string {
+    if (!significant) return DIM;
+    return delta < 0 ? GREEN : delta > 0 ? RED : DIM;
 }
 
 function verdictStyle(verdict: Verdict): { color: string; symbol: string } {
-    if (verdict === 'faster') return { color: GREEN, symbol: '▼' };
-    if (verdict === 'slower') return { color: RED, symbol: '▲' };
-    return { color: DIM, symbol: '■' };
-}
-
-function deltaBar(delta: number, verdict: Verdict): string {
-    const { color } = verdictStyle(verdict);
-    const excess = Math.max(0, Math.abs(delta)) * 100;
-    const filled = verdict === 'neutral' ? 0 : Math.max(1, Math.min(6, Math.round(excess / 3)));
-    const blocks = '█'.repeat(filled).padEnd(6, '·');
-    if (verdict === 'faster') return `${color}←${blocks}${RESET}`;
-    if (verdict === 'slower') return `${color}→${blocks}${RESET}`;
-    return `${DIM} ${blocks}${RESET}`;
+    if (verdict === 'faster') return { color: GREEN, symbol: '▲' };
+    if (verdict === 'slower') return { color: RED, symbol: '▼' };
+    return { color: GRAY, symbol: '■' };
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────
@@ -394,7 +353,7 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
         `\n${BOLD}${CYAN}━━ compare${RESET} ${DIM}${result.baselineName} -> ${result.candidateName}${RESET}`
     );
     console.log(`${DIM}${result.hardware.cpu ?? 'unknown CPU'}${RESET}`);
-    console.log(`${DIM}Mann-Whitney U  α=${config.alpha}  |d|≥${config.dThreshold}${RESET}\n`);
+    console.log(`${DIM}Mann-Whitney U  α=${config.alpha}${RESET}\n`);
 
     if (result.environmentFailures.length > 0) {
         console.log(`${RED}✖ cannot compare — environment check failed${RESET}`);
@@ -419,20 +378,32 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
         return;
     }
 
+    // ── Column widths ────────────────────────────────────────────────────────
+
+    const NAME_MAX = 36;
+    const nameCol = eligible.length > 0
+        ? Math.min(NAME_MAX, Math.max(16, ...eligible.map((b) => (b.key.name || b.key.group || 'anonymous').length)))
+        : 16;
+
+    const TIME_COL = 10;
+    const DELTA_COL = 7;
+    const P_COL = 5;
+
+    const truncate = (s: string) =>
+        s.length > nameCol ? s.slice(0, nameCol - 1) + '…' : s.padEnd(nameCol);
+
     // ── Eligible bench table ─────────────────────────────────────────────────
 
     if (eligible.length > 0) {
-        const NAME_MAX = 36;
-        const nameCol = Math.min(
-            NAME_MAX,
-            Math.max(16, ...eligible.map((m) => (m.key.name || m.key.group || 'anonymous').length))
-        );
-        const truncate = (s: string) =>
-            s.length > nameCol ? s.slice(0, nameCol - 1) + '…' : s.padEnd(nameCol);
-
-        const TIME_COL = 16;
-        const totalWidth = 4 + nameCol + 1 + TIME_COL + 1 + TIME_COL + 1 + 7 + 2 + 8;
-        const header = `${GRAY}${'    ' + 'bench'.padEnd(nameCol)} ${'baseline'.padStart(TIME_COL)} ${'candidate'.padStart(TIME_COL)} ${'delta'.padStart(7)}  trend${RESET}`;
+        const totalWidth = 4 + nameCol + 1 + TIME_COL + 1 + TIME_COL + 1 + DELTA_COL + 1 + DELTA_COL + 1 + P_COL;
+        const header =
+            `${GRAY}${'  ' + 'bench'.padEnd(nameCol + 2)}` +
+            ` ${'baseline'.padStart(TIME_COL)}` +
+            ` ${'candidate'.padStart(TIME_COL)}` +
+            ` ${'Δp50'.padStart(DELTA_COL)}` +
+            ` ${'Δp99'.padStart(DELTA_COL)}` +
+            ` ${'p'.padStart(P_COL)}` +
+            `${RESET}`;
         const divider = `${GRAY}${'-'.repeat(totalWidth)}${RESET}`;
 
         let lastFile = '';
@@ -450,27 +421,33 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
             if (bench.key.group !== lastGroup) {
                 lastGroup = bench.key.group;
                 if (lastGroup && lastGroup !== bench.key.name)
-                    console.log(`  ${DIM}  ${lastGroup}${RESET}`);
+                    console.log(`  ${DIM}${lastGroup}${RESET}`);
             }
 
+            const sig = bench.p <= config.alpha;
             const { color, symbol } = verdictStyle(bench.verdict);
-            const pctStr = formatPct(bench.delta);
-            const bar = deltaBar(bench.delta, bench.verdict);
             const rawName = bench.key.name || bench.key.group || 'anonymous';
             const name = truncate(rawName);
-            const bSD = formatTimeMAD(bench.baselineMedian, bench.baselineSamples);
-            const cSD = formatTimeMAD(bench.candidateMedian, bench.candidateSamples);
-            const sdColor = Math.abs(bench.d) < config.dThreshold ? YELLOW : GRAY;
-
-            const fmtTimeSD = (t: { time: string; sd: string }) => {
-                const visible = `${t.time} ${t.sd}`;
-                const pad = ' '.repeat(Math.max(0, TIME_COL - visible.length));
-                return `${pad}${GRAY}${t.time} ${sdColor}${t.sd}${RESET}`;
-            };
+            const dp50Color = bench.verdict === 'faster' ? GREEN
+                : bench.verdict === 'slower' ? RED
+                : DIM;
+            const dp99Color = deltaColor(bench.deltaP99, sig);
+            const pColor = sig ? WHITE : DIM;
 
             console.log(
-                `  ${color}${symbol}${RESET} ${WHITE}${name}${RESET} ${fmtTimeSD(bSD)} ${fmtTimeSD(cSD)} ${color}${pctStr.padStart(7)}${RESET}  ${bar}`
+                `  ${color}${symbol}${RESET} ${WHITE}${name}${RESET}` +
+                ` ${GRAY}${formatTime(bench.baselineP50).padStart(TIME_COL)}${RESET}` +
+                ` ${GRAY}${formatTime(bench.candidateP50).padStart(TIME_COL)}${RESET}` +
+                ` ${dp50Color}${formatDelta(bench.deltaP50).padStart(DELTA_COL)}${RESET}` +
+                ` ${dp99Color}${formatDelta(bench.deltaP99).padStart(DELTA_COL)}${RESET}` +
+                ` ${pColor}${formatP(bench.p).padStart(P_COL)}${RESET}`
             );
+
+            const dist = renderDistributions(bench.baselineSamples, bench.candidateSamples, TIME_COL);
+            console.log(
+                `${' '.repeat(4 + nameCol)} ${dist.baseline} ${dist.candidate}`
+            );
+            console.log('');
         }
     }
 
@@ -479,7 +456,7 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
     if (skipped.length > 0) {
         console.log(`\n${YELLOW}skipped (${skipped.length})${RESET}`);
         for (const b of skipped) {
-            const label = b.key.name || b.key.group || 'anonymous';
+            const label = truncate(b.key.name || b.key.group || 'anonymous');
             console.log(`  ${DIM}· ${label}${RESET}  ${YELLOW}${b.reason}${RESET}`);
         }
     }

@@ -1,6 +1,6 @@
 /**
  * Non-parametric benchmark sample comparison.
- * Mann-Whitney U test + Cliff's delta — robust to GC-induced outliers and
+ * Mann-Whitney U test — robust to GC-induced outliers and
  * non-normal distributions. No external dependencies.
  */
 
@@ -73,38 +73,17 @@ function erfc(x: number): number {
     return poly * Math.exp(-(x * x));
 }
 
-/**
- * Cliff's delta: (concordant - discordant) / (n1 * n2).
- * Derived from the Mann-Whitney U1 statistic: delta = 2*U1/(n1*n2) - 1.
- * Ranges [-1, 1]. Positive → b tends to be larger (slower). Negative → b tends to be smaller (faster).
- */
-export function cliffsDelta(a: number[], b: number[]): number {
-    const n1 = a.length;
-    const n2 = b.length;
-    if (n1 === 0 || n2 === 0) return 0;
-    // U1 = # pairs where a (baseline) > b (candidate).
-    // Standard Cliff's delta = (concordant_b - concordant_a) / (n1*n2) = 1 - 2*U1/(n1*n2).
-    // Positive → candidate tends to be larger (slower). Negative → candidate tends to be smaller (faster).
-    const { U } = mannWhitneyU(a, b);
-    return 1 - (2 * U) / (n1 * n2);
-}
-
 export type Verdict = 'faster' | 'slower' | 'neutral';
 
 export interface ClassifyOptions {
     /** Mann-Whitney U two-tailed significance level. @default 0.05 */
     alpha?: number;
-    /** Cliff's delta effect size threshold. @default 0.147 */
-    dThreshold?: number;
 }
-
-const DEFAULTS = { alpha: 0.05, dThreshold: 0.147 } as const;
 
 /**
  * Classify a pair of sample arrays.
- * Both conditions must be met to declare a change:
- *   1. p <= alpha        (Mann-Whitney U significance)
- *   2. |d| >= dThreshold (Cliff's delta effect size)
+ * If `p <= alpha`, the p50 ratio direction determines faster vs slower.
+ * Otherwise the result is neutral.
  */
 export function classify(
     baselineSamples: number[],
@@ -113,18 +92,14 @@ export function classify(
 ): {
     verdict: Verdict;
     p: number;
-    d: number;
 } {
-    const alpha = opts?.alpha ?? DEFAULTS.alpha;
-    const dThreshold = opts?.dThreshold ?? DEFAULTS.dThreshold;
-
+    const alpha = opts?.alpha ?? 0.05;
     const { p } = mannWhitneyU(baselineSamples, candidateSamples);
-    const d = cliffsDelta(baselineSamples, candidateSamples);
 
     let verdict: Verdict = 'neutral';
-    if (p <= alpha && Math.abs(d) >= dThreshold) {
-        verdict = d > 0 ? 'slower' : 'faster';
+    if (p <= alpha) {
+        verdict = median(candidateSamples) > median(baselineSamples) ? 'slower' : 'faster';
     }
 
-    return { verdict, p, d };
+    return { verdict, p };
 }
