@@ -40,7 +40,7 @@ function collectEnvData(
     }
 }
 
-function printReport(envData: FreqSample[], noisyAliases: string[], saveMsg?: string): void {
+function printReport(envData: FreqSample[], noisyAliases: string[], maxCpuTime: number, saveMsg?: string): void {
     const lines: string[] = [];
 
     if (saveMsg) {
@@ -71,6 +71,7 @@ function printReport(envData: FreqSample[], noisyAliases: string[], saveMsg?: st
     if (noisyAliases.length > 0) {
         lines.push(`${YELLOW}\u26A0 (${noisyAliases.length}) noisy benches${RESET}`);
         for (const alias of noisyAliases) lines.push(`  ${DIM}\u00B7 ${alias}${RESET}`);
+        lines.push(`  ${DIM}Increase maxCpuTime (currently ${maxCpuTime}s) to allow convergence.${RESET}`);
     } else {
         lines.push(`${GREEN}\u2714 All measurements stable${RESET}`);
     }
@@ -437,7 +438,7 @@ export async function runCLI(args: string[]) {
             rmSync(resultFile);
             collectEnvData(workerResult, suiteName(file), runEnvData, runNoisyAliases);
         }
-        printReport(runEnvData, runNoisyAliases);
+        printReport(runEnvData, runNoisyAliases, config.maxCpuTime!);
         return;
     }
 
@@ -547,7 +548,7 @@ export async function runCLI(args: string[]) {
     const baselineNote = markedBaseline ? ` ${CYAN}(baseline)${RESET}` : '';
     const saveMsg = `${GREEN}\u2714${RESET} Saved "${saveName}"${baselineNote} (${files.length} file${files.length !== 1 ? 's' : ''})`;
 
-    printReport(saveEnvData, saveNoisyAliases, saveMsg);
+    printReport(saveEnvData, saveNoisyAliases, config.maxCpuTime!, saveMsg);
 
     if (shouldCompare) {
         const baselineName = getBaseline(labsDir);
