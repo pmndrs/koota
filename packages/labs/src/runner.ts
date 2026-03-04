@@ -87,7 +87,7 @@ function printReport(envData: WorkerEnvSample[], noisyAliases: string[], saveMsg
         lines.push(`${YELLOW}\u26A0 (${noisyAliases.length}) noisy benches${RESET}`);
         for (const alias of noisyAliases) lines.push(`  ${DIM}\u00B7 ${alias}${RESET}`);
     } else {
-        lines.push(`${GREEN}\u2714 No noisy benchmarks${RESET}`);
+        lines.push(`${GREEN}\u2714 All measurements stable${RESET}`);
     }
 
     const PAD = 2;
