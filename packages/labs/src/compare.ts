@@ -2,7 +2,7 @@ import type { LabsConfig } from './config.ts';
 import { renderDistributions } from './histogram.ts';
 import { type ClassifyOptions, type Verdict, classify, median } from './stats.ts';
 import { type FreqSample, type SavedResult, isEnvironmentStable } from './store.ts';
-import { BOLD, CYAN, DIM, GRAY, GREEN, RED, RESET, WHITE, YELLOW } from './utils/ansi.ts';
+import { BOLD, CYAN, DARK_GRAY, DIM, GRAY, GREEN, RED, RESET, WHITE, YELLOW } from './utils/ansi.ts';
 import { formatDelta, formatP, formatTime } from './utils/format.ts';
 
 // ─── Check infrastructure ────────────────────────────────────────────────────
@@ -20,7 +20,6 @@ type BenchCheck = (baseline: BenchData, candidate: BenchData) => CheckResult;
 
 // ─── Environment checks ──────────────────────────────────────────────────────
 
-const MIN_SAMPLES = 20;
 
 /** Max relative difference between the two runs' median clock speeds to consider them comparable. */
 const CLOCK_COMPARE_THRESHOLD = 0.05;
@@ -95,31 +94,26 @@ export const ENVIRONMENT_CHECKS: EnvironmentCheck[] = [checkHardwareMatch, check
 
 export const checkNotNoisy: BenchCheck = (baseline, candidate) => {
     if (baseline.noisy && candidate.noisy)
-        return { ok: false, reason: 'both runs did not converge during sampling' };
-    if (baseline.noisy) return { ok: false, reason: 'baseline did not converge during sampling' };
-    if (candidate.noisy) return { ok: false, reason: 'candidate did not converge during sampling' };
+        return { ok: false, reason: 'noisy — insufficient or unconverged samples in both runs' };
+    if (baseline.noisy)
+        return { ok: false, reason: 'noisy — baseline did not collect enough stable samples' };
+    if (candidate.noisy)
+        return { ok: false, reason: 'noisy — candidate did not collect enough stable samples' };
     return { ok: true };
 };
 
+/** MW-U normal approximation is unreliable below this threshold. */
+const MW_U_MIN_SAMPLES = 14;
+
 export const checkMinSamples: BenchCheck = (baseline, candidate) => {
-    if (baseline.samples.length < MIN_SAMPLES && candidate.samples.length < MIN_SAMPLES) {
-        return {
-            ok: false,
-            reason: `too few samples (baseline: ${baseline.samples.length}, candidate: ${candidate.samples.length}; need ≥${MIN_SAMPLES})`,
-        };
-    }
-    if (baseline.samples.length < MIN_SAMPLES) {
-        return {
-            ok: false,
-            reason: `baseline has too few samples (${baseline.samples.length}; need ≥${MIN_SAMPLES})`,
-        };
-    }
-    if (candidate.samples.length < MIN_SAMPLES) {
-        return {
-            ok: false,
-            reason: `candidate has too few samples (${candidate.samples.length}; need ≥${MIN_SAMPLES})`,
-        };
-    }
+    const bN = baseline.samples.length;
+    const cN = candidate.samples.length;
+    if (bN < MW_U_MIN_SAMPLES && cN < MW_U_MIN_SAMPLES)
+        return { ok: false, reason: `too few samples for MW-U (baseline: ${bN}, candidate: ${cN}; need ≥${MW_U_MIN_SAMPLES})` };
+    if (bN < MW_U_MIN_SAMPLES)
+        return { ok: false, reason: `baseline has too few samples for MW-U (${bN}; need ≥${MW_U_MIN_SAMPLES})` };
+    if (cN < MW_U_MIN_SAMPLES)
+        return { ok: false, reason: `candidate has too few samples for MW-U (${cN}; need ≥${MW_U_MIN_SAMPLES})` };
     return { ok: true };
 };
 
@@ -237,7 +231,7 @@ export function compare(
     candidate: SavedResult,
     config: LabsConfig
 ): CompareResult {
-    const opts: ClassifyOptions = { alpha: config.alpha };
+    const opts: ClassifyOptions = { alpha: config.alpha, minDelta: config.minDelta };
 
     const environmentFailures: string[] = [];
     for (const check of ENVIRONMENT_CHECKS) {
@@ -353,7 +347,7 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
         `\n${BOLD}${CYAN}━━ compare${RESET} ${DIM}${result.baselineName} -> ${result.candidateName}${RESET}`
     );
     console.log(`${DIM}${result.hardware.cpu ?? 'unknown CPU'}${RESET}`);
-    console.log(`${DIM}Mann-Whitney U  α=${config.alpha}${RESET}\n`);
+    console.log(`${DIM}Mann-Whitney U  α=${config.alpha}  minΔ=${(config.minDelta * 100).toFixed(0)}%${RESET}\n`);
 
     if (result.environmentFailures.length > 0) {
         console.log(`${RED}✖ cannot compare — environment check failed${RESET}`);
@@ -420,19 +414,20 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
             }
             if (bench.key.group !== lastGroup) {
                 lastGroup = bench.key.group;
-                if (lastGroup && lastGroup !== bench.key.name)
-                    console.log(`  ${DIM}${lastGroup}${RESET}`);
+                if (lastGroup && lastGroup !== bench.key.name) {
+                    console.log(`  • ${lastGroup}`);
+                    console.log(`  ${DARK_GRAY}${'-'.repeat(totalWidth - 2)}${RESET}`);
+                }
             }
 
             const sig = bench.p <= config.alpha;
             const { color, symbol } = verdictStyle(bench.verdict);
             const rawName = bench.key.name || bench.key.group || 'anonymous';
             const name = truncate(rawName);
-            const dp50Color = bench.verdict === 'faster' ? GREEN
-                : bench.verdict === 'slower' ? RED
-                : DIM;
-            const dp99Color = deltaColor(bench.deltaP99, sig);
-            const pColor = sig ? WHITE : DIM;
+            const neutral = bench.verdict === 'neutral';
+            const dp50Color = neutral ? DIM : bench.verdict === 'faster' ? GREEN : RED;
+            const dp99Color = neutral ? DIM : deltaColor(bench.deltaP99, sig);
+            const pColor = neutral ? DIM : WHITE;
 
             console.log(
                 `  ${color}${symbol}${RESET} ${WHITE}${name}${RESET}` +

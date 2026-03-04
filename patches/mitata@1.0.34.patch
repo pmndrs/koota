@@ -41,9 +41,9 @@ index 2485e0dfa13bc99a0314d21f7ec0cbab0c7fd56b..b54f169eb7ffb9e19cb61a583968bb67
 +        const _ld = _lx - _lm;
 +        _lm += _ld / (_ + 1);
 +        _lm2 += _ld * (_lx - _lm);
-+        if (_ + 1 >= ${opts.min_samples} && t >= ${opts.min_cpu_time} && _lm2 / (_ * (_ + 1)) <= ${Math.log(1 + opts.target_rel_ci) ** 2}) break;
++        if (_ + 1 >= ${opts.min_samples} && t >= ${opts.min_cpu_time} && _lm2 / (_ * (_ + 1)) <= ${Math.log(1 + opts.target_rel_ci) ** 2}) { _++; break; }
 +      }
-+      if (t >= ${opts.max_cpu_time}) { _noisy = true; break; }
++      if (t >= ${opts.max_cpu_time}) { _noisy = true; _++; break; }
 +      `}
      }
  
@@ -83,9 +83,9 @@ index 2485e0dfa13bc99a0314d21f7ec0cbab0c7fd56b..b54f169eb7ffb9e19cb61a583968bb67
 +          const _ld = _lx - _lm;
 +          _lm += _ld / (_ + 1);
 +          _lm2 += _ld * (_lx - _lm);
-+          if (_ + 1 >= ${opts.min_samples} && t >= ${opts.min_cpu_time} && _lm2 / (_ * (_ + 1)) <= ${Math.log(1 + opts.target_rel_ci) ** 2}) break;
++          if (_ + 1 >= ${opts.min_samples} && t >= ${opts.min_cpu_time} && _lm2 / (_ * (_ + 1)) <= ${Math.log(1 + opts.target_rel_ci) ** 2}) { _++; break; }
 +        }
-+        if (t >= ${opts.max_cpu_time}) { $state.noisy = true; break; }
++        if (t >= ${opts.max_cpu_time}) { $state.noisy = true; _++; break; }
 +        `}
        }
  

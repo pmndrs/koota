@@ -2,6 +2,7 @@ export const RESET = '\x1b[0m';
 export const DIM = '\x1b[2m';
 export const BOLD = '\x1b[1m';
 export const GRAY = '\x1b[38;5;248m';
+export const DARK_GRAY = '\x1b[90m';
 export const WHITE = '\x1b[37m';
 export const RED = '\x1b[31m';
 export const GREEN = '\x1b[32m';

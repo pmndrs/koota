@@ -9,7 +9,7 @@ export interface LabsConfig {
     resultsDir: string;
     /** Minimum benchmark CPU time budget in seconds. Scaled internally when GC inner is used. @default 0.642 */
     minCpuTime?: number;
-    /** Minimum benchmark sample count. @default 12 */
+    /** Minimum benchmark sample count. @default 20 */
     minSamples?: number;
     /** Maximum benchmark sample count safety cap. @default 1e9 */
     maxSamples?: number;
@@ -23,6 +23,8 @@ export interface LabsConfig {
     maxCpuTime?: number;
     /** Mann-Whitney U significance level. @default 0.05 */
     alpha: number;
+    /** Minimum absolute Δp50 required to flag a verdict. Filters environmental noise on identical code. @default 0.05 */
+    minDelta: number;
 }
 
 export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'benchDir'>): LabsConfig {
@@ -30,11 +32,12 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
         benchMatch: '**/*.bench.ts',
         nodeFlags: ['--allow-natives-syntax', '--expose-gc'],
         resultsDir: '.labs',
-        minSamples: 12,
+        minSamples: 20,
         maxSamples: 1e9,
         adaptive: true,
         maxCpuTime: 5,
         alpha: 0.05,
+        minDelta: 0.05,
         ...config,
     };
 }

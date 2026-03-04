@@ -488,7 +488,6 @@ export async function runCLI(args: string[]) {
         if (!existsSync(resultFile)) continue;
         const workerResult: WorkerResult = JSON.parse(readFileSync(resultFile, 'utf-8'));
         rmSync(resultFile);
-
         if (!hardwareSet) {
             hardware = {
                 cpu: workerResult.context.cpu.name,

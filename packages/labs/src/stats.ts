@@ -78,12 +78,14 @@ export type Verdict = 'faster' | 'slower' | 'neutral';
 export interface ClassifyOptions {
     /** Mann-Whitney U two-tailed significance level. @default 0.05 */
     alpha?: number;
+    /** Minimum absolute Δp50 ratio to flag a verdict. @default 0.05 */
+    minDelta?: number;
 }
 
 /**
  * Classify a pair of sample arrays.
- * If `p <= alpha`, the p50 ratio direction determines faster vs slower.
- * Otherwise the result is neutral.
+ * Requires both statistical significance (p <= alpha) and a practical effect
+ * size (|Δp50| >= minDelta) before declaring faster or slower.
  */
 export function classify(
     baselineSamples: number[],
@@ -94,11 +96,17 @@ export function classify(
     p: number;
 } {
     const alpha = opts?.alpha ?? 0.05;
+    const minDelta = opts?.minDelta ?? 0.05;
     const { p } = mannWhitneyU(baselineSamples, candidateSamples);
 
     let verdict: Verdict = 'neutral';
     if (p <= alpha) {
-        verdict = median(candidateSamples) > median(baselineSamples) ? 'slower' : 'faster';
+        const bMed = median(baselineSamples);
+        const cMed = median(candidateSamples);
+        const ratio = bMed > 0 ? Math.abs(cMed - bMed) / bMed : 0;
+        if (ratio >= minDelta) {
+            verdict = cMed > bMed ? 'slower' : 'faster';
+        }
     }
 
     return { verdict, p };

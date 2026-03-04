@@ -83,8 +83,8 @@ Comparison is gated. Two runs must pass all checks before any results are shown.
 **Per-bench checks** (fail = that bench is skipped with a reason):
 
 - **Not missing** — the bench must exist in both runs. Benches present only in baseline or only in candidate are reported separately.
-- **Not noisy** — neither run's samples can be flagged `noisy` (i.e. adaptive sampling hit `maxCpuTime` before converging). Unconverged samples are not reliable enough to compare.
-- **Minimum samples** — both runs must have ≥ 20 samples. The Mann-Whitney U normal approximation is inaccurate below this threshold.
+- **Not noisy** — neither run's samples can be flagged `noisy` (adaptive sampling hit `maxCpuTime` before converging). Noisy data is not reliable enough to compare.
+- **Minimum samples** — both runs must have ≥ 14 samples after outlier trimming. The MW-U normal approximation is unreliable below this threshold.
 
 ## Writing a bench
 
@@ -126,7 +126,7 @@ pnpm bench "@slow"        # runs only wildcard
 
 Labs is single-run only. Each benchmark comparison uses mitata's collected sample arrays for the baseline and candidate.
 
-A change is flagged when `p <= alpha` (Mann-Whitney U, default 0.05). The Mann-Whitney U test is a non-parametric, rank-based test that determines whether values from one group consistently rank higher than the other. It is robust to non-normal distributions and GC-induced outliers. If significant, the p50 ratio direction determines faster vs slower.
+A change is flagged when both conditions are met: `p <= alpha` (Mann-Whitney U, default 0.05) **and** `|Δp50| >= minDelta` (default 5%). The Mann-Whitney U test is a non-parametric, rank-based test that determines whether values from one group consistently rank higher than the other. It is robust to non-normal distributions and GC-induced outliers. The `minDelta` gate filters environmental noise (thermal throttling, OS scheduling, etc.) that can produce statistically significant but practically meaningless differences, especially on hybrid-core CPUs.
 
 The p99 ratio provides a variance/stability signal. When it diverges from the p50 ratio, the distribution shape changed between runs (e.g., tails got worse even if the median improved).
 
@@ -151,18 +151,19 @@ export default defineConfig({
 | `nodeFlags`      | `['--allow-natives-syntax', '--expose-gc']` | Node flags per worker process                                                                                      |
 | `resultsDir`     | `.labs`                                     | Directory for saved results, relative to config                                                                    |
 | `adaptive`       | `true`                                      | Adaptive sampling mode: `true` uses default CI threshold, `false` disables, number sets CI threshold (e.g. `0.01`) |
-| `maxCpuTime`     | `5`                                         | Max CPU budget in seconds for adaptive sampling; benches that do not converge are flagged `noisy`                  |
+| `maxCpuTime`     | `5`                                         | Max CPU budget in seconds for adaptive sampling; benches that don't converge or reach `minSamples` are `noisy`    |
 | `minCpuTime`     | `0.642`                                     | Minimum CPU time budget per benchmark in seconds; set to raise/lower runtime budget                                |
-| `minSamples`     | `12`                                        | Minimum sample count per benchmark; set to increase/decrease sample floor                                          |
+| `minSamples`     | `20`                                        | Minimum sample count per benchmark; set to increase/decrease sample floor                                          |
 | `maxSamples`     | `1e9`                                       | Maximum sample cap per benchmark to prevent pathological long runs                                                 |
 | `alpha`          | `0.05`                                      | Mann-Whitney U significance level                                                                                  |
+| `minDelta`       | `0.05`                                      | Minimum absolute Δp50 ratio to flag a verdict; filters environmental noise on identical code                       |
 
 Sampling behavior:
 
 - `adaptive: false`: fixed stopping (`samples >= minSamples` and `cpu_time >= minCpuTime`) with `maxSamples` as cap.
 - `adaptive: true`: adaptive CI stopping with default threshold (`2.5%`), but never before `minSamples` and `minCpuTime`.
 - `adaptive: <number>`: same adaptive behavior with a custom CI threshold (`0.01` is stricter than `0.025`).
-- In adaptive mode, `maxCpuTime` is a hard budget. If reached before CI convergence, the benchmark is marked `noisy`.
+- In adaptive mode, `maxCpuTime` is a hard budget. Benchmarks that don't converge or don't reach `minSamples` are marked `noisy`.
 
 > [!NOTE]
 > **More info: adaptive statistics**
@@ -173,5 +174,5 @@ Sampling behavior:
 >
 > - Floor: wait until both `minSamples` and `minCpuTime` are reached
 > - Converged: stop once the relative CI target is met (`adaptive: true` => `2.5%`, `adaptive: 0.01` => `1%`)
-> - Bailout: if convergence is not reached before `maxCpuTime`, mark the benchmark as `noisy`
+> - Bailout: if convergence or `minSamples` is not reached before `maxCpuTime`, mark as `noisy`
 > - Safety cap: `maxSamples` still limits pathological runs
