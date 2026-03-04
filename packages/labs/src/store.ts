@@ -57,12 +57,20 @@ export interface SavedFile {
 	benchmarks: SavedBenchmarkTrial[];
 }
 
+export interface FreqSample {
+	file: string;
+	preFreq: number;
+	runFreq: number;
+	postFreq: number;
+}
+
 export interface SavedResult {
 	name: string;
 	description?: string;
 	timestamp: string;
 	hardware: HardwareInfo;
 	files: SavedFile[];
+	environment?: { freqs: FreqSample[] };
 }
 
 export function getLabsDir(configDir: string, resultsDir: string): string {

@@ -2,9 +2,10 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { compare } from './compare.ts';
+import { compare, printCompareReport } from './compare.ts';
 import type { LabsConfig } from './config.ts';
 import {
+    type FreqSample,
     type SavedResult,
     type WorkerResult,
     clearResults,
@@ -26,17 +27,11 @@ const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';
 const YELLOW = '\x1b[33m';
 
-interface WorkerEnvSample {
-    file: string;
-    preFreq: number;
-    runFreq: number;
-    postFreq: number;
-}
 
 function collectEnvData(
     workerResult: WorkerResult,
     file: string,
-    envData: WorkerEnvSample[],
+    envData: FreqSample[],
     noisyAliases: string[]
 ): void {
     const runFreq = workerResult.context.cpu.freq;
@@ -57,7 +52,7 @@ function visibleLength(s: string): number {
     return s.replace(/\x1b\[[0-9;]*m/g, '').length;
 }
 
-function printReport(envData: WorkerEnvSample[], noisyAliases: string[], saveMsg?: string): void {
+function printReport(envData: FreqSample[], noisyAliases: string[], saveMsg?: string): void {
     const lines: string[] = [];
 
     if (saveMsg) {
@@ -292,7 +287,7 @@ export async function runCLI(args: string[]) {
         try {
             const baseline = loadResult(labsDir, baselineName);
             const candidate = loadResult(labsDir, candidateName);
-            compare(baseline, candidate, config);
+            printCompareReport(compare(baseline, candidate, config), config);
         } catch (e: any) {
             error(e.message);
         }
@@ -403,7 +398,7 @@ export async function runCLI(args: string[]) {
             );
             runOutputs.push({ file: f, resultFile });
         }
-        const runEnvData: WorkerEnvSample[] = [];
+        const runEnvData: FreqSample[] = [];
         const runNoisyAliases: string[] = [];
         for (const { file, resultFile } of runOutputs) {
             if (!existsSync(resultFile)) continue;
@@ -454,7 +449,7 @@ export async function runCLI(args: string[]) {
     };
     const files: SavedResult['files'] = [];
     let hardwareSet = false;
-    const saveEnvData: WorkerEnvSample[] = [];
+    const saveEnvData: FreqSample[] = [];
     const saveNoisyAliases: string[] = [];
 
     let warnedMultiRun = false;
@@ -502,6 +497,7 @@ export async function runCLI(args: string[]) {
         timestamp: new Date().toISOString(),
         hardware,
         files,
+        environment: { freqs: saveEnvData },
     };
 
     saveResult(labsDir, result);
@@ -523,7 +519,7 @@ export async function runCLI(args: string[]) {
         } else {
             try {
                 const baselineResult = loadResult(labsDir, baselineName);
-                compare(baselineResult, result, config);
+                printCompareReport(compare(baselineResult, result, config), config);
             } catch (e: any) {
                 console.log(`\n${RED}✖${RESET} Compare failed: ${e.message}`);
             }

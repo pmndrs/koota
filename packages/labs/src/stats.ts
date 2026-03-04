@@ -96,23 +96,19 @@ export interface ClassifyOptions {
     alpha?: number;
     /** Cliff's delta effect size threshold. @default 0.147 */
     dThreshold?: number;
-    /** Minimum |delta%| to flag a change (noise floor). @default 0.05 (5%) */
-    noiseThreshold?: number;
 }
 
-const DEFAULTS = { alpha: 0.05, dThreshold: 0.147, noiseThreshold: 0.05 } as const;
+const DEFAULTS = { alpha: 0.05, dThreshold: 0.147 } as const;
 
 /**
  * Classify a pair of sample arrays.
- * All three conditions must be met to declare a change:
- *   1. |delta%| >= noiseThreshold  (practical magnitude)
- *   2. p <= alpha                  (Mann-Whitney U significance)
- *   3. |d| >= dThreshold           (Cliff's delta effect size)
+ * Both conditions must be met to declare a change:
+ *   1. p <= alpha        (Mann-Whitney U significance)
+ *   2. |d| >= dThreshold (Cliff's delta effect size)
  */
 export function classify(
     baselineSamples: number[],
     candidateSamples: number[],
-    delta: number,
     opts?: ClassifyOptions
 ): {
     verdict: Verdict;
@@ -121,13 +117,12 @@ export function classify(
 } {
     const alpha = opts?.alpha ?? DEFAULTS.alpha;
     const dThreshold = opts?.dThreshold ?? DEFAULTS.dThreshold;
-    const noiseThreshold = opts?.noiseThreshold ?? DEFAULTS.noiseThreshold;
 
     const { p } = mannWhitneyU(baselineSamples, candidateSamples);
     const d = cliffsDelta(baselineSamples, candidateSamples);
 
     let verdict: Verdict = 'neutral';
-    if (Math.abs(delta) >= noiseThreshold && p <= alpha && Math.abs(d) >= dThreshold) {
+    if (p <= alpha && Math.abs(d) >= dThreshold) {
         verdict = d > 0 ? 'slower' : 'faster';
     }
 

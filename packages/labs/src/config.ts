@@ -25,8 +25,6 @@ export interface LabsConfig {
     alpha: number;
     /** Cliff's delta effect size threshold. @default 0.147 */
     dThreshold: number;
-    /** Minimum |delta%| to flag a change (noise floor). @default 0.05 (5%) */
-    noiseThreshold: number;
 }
 
 export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'benchDir'>): LabsConfig {
@@ -40,7 +38,6 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
         maxCpuTime: 5,
         alpha: 0.05,
         dThreshold: 0.147,
-        noiseThreshold: 0.05,
         ...config,
     };
 }

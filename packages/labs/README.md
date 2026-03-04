@@ -61,7 +61,20 @@ pnpm bench compare                     # compare most recent result vs baseline
 pnpm bench compare "v1.3.0"           # compare named result vs baseline
 ```
 
-Outputs a colored diff table showing each benchmark's median time and ±MAD, delta %, and verdict (faster/slower/neutral). Labs compares mitata sample distributions per benchmark and warns if hardware differs. A `~` marker indicates the benchmark hit the adaptive max CPU budget before convergence (`noisy`).
+Outputs a colored diff table showing each benchmark's median time and ±MAD, delta %, and verdict (faster/slower/neutral).
+
+Comparison is gated. Two runs must pass all checks before any results are shown.
+
+**Environment checks** (fail = entire comparison is denied):
+
+- **Hardware match** — CPU model, architecture, and runtime (Node/Bun/etc.) must be identical between runs.
+- **Clock stability** — each run's CPU frequency must be stable throughout (pre/post drift < 5%), and the two runs must have run at comparable clock speeds (< 5% apart). Unstable clocks produce unreliable timings regardless of sample count.
+
+**Per-bench checks** (fail = that bench is skipped with a reason):
+
+- **Not missing** — the bench must exist in both runs. Benches present only in baseline or only in candidate are reported separately.
+- **Not noisy** — neither run's samples can be flagged `noisy` (i.e. adaptive sampling hit `maxCpuTime` before converging). Unconverged samples are not reliable enough to compare.
+- **Minimum samples** — both runs must have ≥ 20 samples. The Mann-Whitney U normal approximation is inaccurate below this threshold.
 
 ## Writing a bench
 
@@ -103,13 +116,12 @@ pnpm bench "@slow"        # runs only wildcard
 
 Labs is single-run only. Each benchmark comparison uses mitata's collected sample arrays for the baseline and candidate.
 
-A change is flagged only when all three conditions are met:
+A change is flagged only when both conditions are met:
 
-1. **Noise floor** — `|delta%| >= noiseThreshold` (default 5%)
-2. **Statistical significance** — Mann-Whitney U `p <= alpha` (default 0.05)
-3. **Effect size** — `|d| >= dThreshold` (Cliff's delta, default 0.147)
+1. **Statistical significance** — Mann-Whitney U `p <= alpha` (default 0.05). Tests whether values from one group consistently rank higher than the other. Robust to non-normal distributions and GC-induced outliers.
+2. **Effect size** — `|d| >= dThreshold` (Cliff's delta, default 0.147). Measures how often candidate values beat baseline values across all pairs. Guards against large-N sensitivity where any tiny shift becomes statistically significant.
 
-The spread column shows ±MAD (median absolute deviation). It turns yellow when the effect size is below threshold, which indicates a weak signal.
+The spread column shows ±MAD (median absolute deviation). It turns yellow when the effect size is below threshold, indicating a weak signal.
 
 ## Config
 
@@ -138,7 +150,6 @@ export default defineConfig({
 | `maxSamples`     | `1e9`                                       | Maximum sample cap per benchmark to prevent pathological long runs                                                 |
 | `alpha`          | `0.05`                                      | Mann-Whitney U significance level                                                                                  |
 | `dThreshold`     | `0.147`                                     | Cliff's delta effect size threshold                                                                                |
-| `noiseThreshold` | `0.05`                                      | Minimum \|delta%\| to flag a change (noise floor)                                                                  |
 
 Sampling behavior:
 
