@@ -49,6 +49,7 @@ export interface WorkerResult {
 		runtime: string | null;
 	};
 	benchmarks: WorkerBenchmarkTrial[];
+	environment?: { preFreq: number; postFreq: number };
 }
 
 export interface SavedFile {

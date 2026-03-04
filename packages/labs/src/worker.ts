@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { getBenchRegistry } from './index.ts';
-import { run } from 'mitata';
+import { measure, run } from 'mitata';
 type TuneOptions = {
 	min_cpu_time?: number;
 	min_samples?: number;
@@ -41,8 +41,16 @@ if (!file) {
 	process.exit(1);
 }
 
+async function calibrateFreq(): Promise<number> {
+	const r = await measure(() => {}, { batch_unroll: 1 });
+	return 1 / (r as any).avg;
+}
+
 await import(file);
+const preFreq = await calibrateFreq();
 const result = await run({ tune: parseTuneEnv() });
+const postFreq = await calibrateFreq();
+// preFreq/postFreq bracket the full benchmark suite to detect clock drift during the run
 
 // Attach groupName to each trial using the registry built during bench registration.
 // The registry and benchmarks[] are in the same sequential order.
@@ -52,5 +60,5 @@ for (let i = 0; i < result.benchmarks.length; i++) {
 }
 
 if (process.env.LABS_RESULT_FILE) {
-	writeFileSync(process.env.LABS_RESULT_FILE, JSON.stringify(result));
+	writeFileSync(process.env.LABS_RESULT_FILE, JSON.stringify({ ...result, environment: { preFreq, postFreq } }));
 }
