@@ -53,8 +53,6 @@ export const checkClockStability: EnvironmentCheck = (baseline, candidate) => {
     const bFreqs = baseline.environment?.freqs ?? [];
     const cFreqs = candidate.environment?.freqs ?? [];
 
-    if (bFreqs.length === 0 && cFreqs.length === 0) return { ok: true };
-
     if (!isEnvironmentStable(baseline)) {
         const drift = freqDrift(bFreqs);
         return {
@@ -70,17 +68,25 @@ export const checkClockStability: EnvironmentCheck = (baseline, candidate) => {
         };
     }
 
+    // Compare clock speeds between runs: prefer detailed per-bench freq samples,
+    // fall back to the coarse hardware.freq snapshot from each worker.
+    let bFreq = 0;
+    let cFreq = 0;
     if (bFreqs.length > 0 && cFreqs.length > 0) {
-        const bMed = medianFreq(bFreqs);
-        const cMed = medianFreq(cFreqs);
-        if (bMed > 0 && cMed > 0) {
-            const diff = Math.abs(bMed - cMed) / ((bMed + cMed) / 2);
-            if (diff > CLOCK_COMPARE_THRESHOLD) {
-                return {
-                    ok: false,
-                    reason: `CPU clock speeds differ between runs (${bMed.toFixed(2)} GHz vs ${cMed.toFixed(2)} GHz — ${(diff * 100).toFixed(1)}% apart)`,
-                };
-            }
+        bFreq = medianFreq(bFreqs);
+        cFreq = medianFreq(cFreqs);
+    } else {
+        bFreq = baseline.hardware.freq;
+        cFreq = candidate.hardware.freq;
+    }
+
+    if (bFreq > 0 && cFreq > 0) {
+        const diff = Math.abs(bFreq - cFreq) / ((bFreq + cFreq) / 2);
+        if (diff > CLOCK_COMPARE_THRESHOLD) {
+            return {
+                ok: false,
+                reason: `CPU clock speeds differ between runs (${bFreq.toFixed(2)} GHz vs ${cFreq.toFixed(2)} GHz — ${(diff * 100).toFixed(1)}% apart)`,
+            };
         }
     }
 
@@ -138,6 +144,7 @@ export interface EligibleBench {
     deltaP50: number;
     deltaP99: number;
     p: number;
+    d: number;
     verdict: Verdict;
 }
 
@@ -231,7 +238,7 @@ export function compare(
     candidate: SavedResult,
     config: LabsConfig
 ): CompareResult {
-    const opts: ClassifyOptions = { alpha: config.alpha, minDelta: config.minDelta };
+    const opts: ClassifyOptions = { alpha: config.alpha, minDelta: config.minDelta, minEffect: config.minEffect };
 
     const environmentFailures: string[] = [];
     for (const check of ENVIRONMENT_CHECKS) {
@@ -301,7 +308,7 @@ export function compare(
             const candidateP99 = trialP99(trial);
             const deltaP50 = base.median > 0 ? (candidateMedian - base.median) / base.median : 0;
             const deltaP99 = base.p99 > 0 ? (candidateP99 - base.p99) / base.p99 : 0;
-            const { verdict, p } = classify(base.samples, candidateSamples, opts);
+            const { verdict, p, d } = classify(base.samples, candidateSamples, opts);
 
             benches.push({
                 kind: 'eligible',
@@ -313,6 +320,7 @@ export function compare(
                 deltaP50,
                 deltaP99,
                 p,
+                d,
                 verdict,
             });
         }
@@ -347,7 +355,7 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
         `\n${BOLD}${CYAN}━━ compare${RESET} ${DIM}${result.baselineName} -> ${result.candidateName}${RESET}`
     );
     console.log(`${DIM}${result.hardware.cpu ?? 'unknown CPU'}${RESET}`);
-    console.log(`${DIM}Mann-Whitney U  α=${config.alpha}  minΔ=${(config.minDelta * 100).toFixed(0)}%${RESET}\n`);
+    console.log(`${DIM}Mann-Whitney U  α=${config.alpha}  minΔ=${(config.minDelta * 100).toFixed(0)}%  cliff's d≥${config.minEffect}${RESET}\n`);
 
     if (result.environmentFailures.length > 0) {
         console.log(`${RED}✖ cannot compare — environment check failed${RESET}`);

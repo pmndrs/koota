@@ -25,6 +25,8 @@ export interface LabsConfig {
     alpha: number;
     /** Minimum absolute Δp50 required to flag a verdict. Filters environmental noise on identical code. @default 0.05 */
     minDelta: number;
+    /** Minimum |Cliff's d| required to flag a verdict. Filters noise on high-variance benches where distributions overlap despite a median shift. @default 0.474 */
+    minEffect: number;
 }
 
 export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'benchDir'>): LabsConfig {
@@ -38,6 +40,7 @@ export function defineConfig(config: Partial<LabsConfig> & Pick<LabsConfig, 'ben
         maxCpuTime: 5,
         alpha: 0.05,
         minDelta: 0.05,
+        minEffect: 0.474,
         ...config,
     };
 }

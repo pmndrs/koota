@@ -73,6 +73,32 @@ function erfc(x: number): number {
     return poly * Math.exp(-(x * x));
 }
 
+/**
+ * Cliff's delta — non-parametric effect size measuring how separated two
+ * distributions are. Returns a value in [-1, +1]: 0 = perfect overlap,
+ * ±1 = no overlap. Positive when `a` tends to be larger than `b`.
+ *
+ * Standard interpretation (Romano et al. 2006):
+ *   |d| < 0.147  negligible
+ *   |d| < 0.33   small
+ *   |d| < 0.474  medium
+ *   |d| ≥ 0.474  large
+ */
+export function cliffsD(a: number[], b: number[]): number {
+    const n1 = a.length;
+    const n2 = b.length;
+    if (n1 === 0 || n2 === 0) return 0;
+    let more = 0;
+    let less = 0;
+    for (let i = 0; i < n1; i++) {
+        for (let j = 0; j < n2; j++) {
+            if (a[i] > b[j]) more++;
+            else if (a[i] < b[j]) less++;
+        }
+    }
+    return (more - less) / (n1 * n2);
+}
+
 export type Verdict = 'faster' | 'slower' | 'neutral';
 
 export interface ClassifyOptions {
@@ -80,12 +106,16 @@ export interface ClassifyOptions {
     alpha?: number;
     /** Minimum absolute Δp50 ratio to flag a verdict. @default 0.05 */
     minDelta?: number;
+    /** Minimum |Cliff's d| to flag a verdict. Filters noise on high-variance benches. @default 0.474 */
+    minEffect?: number;
 }
 
 /**
- * Classify a pair of sample arrays.
- * Requires both statistical significance (p <= alpha) and a practical effect
- * size (|Δp50| >= minDelta) before declaring faster or slower.
+ * Three-gate classification:
+ *   1. p ≤ alpha        — statistical significance (Mann-Whitney U)
+ *   2. |Δp50| ≥ minDelta — practical magnitude ("do I care about this size of change?")
+ *   3. |cliff's d| ≥ minEffect — effect size ("are the distributions actually separated?")
+ * All three must hold to declare faster or slower.
  */
 export function classify(
     baselineSamples: number[],
@@ -94,13 +124,16 @@ export function classify(
 ): {
     verdict: Verdict;
     p: number;
+    d: number;
 } {
     const alpha = opts?.alpha ?? 0.05;
     const minDelta = opts?.minDelta ?? 0.05;
+    const minEffect = opts?.minEffect ?? 0.474;
     const { p } = mannWhitneyU(baselineSamples, candidateSamples);
+    const d = cliffsD(baselineSamples, candidateSamples);
 
     let verdict: Verdict = 'neutral';
-    if (p <= alpha) {
+    if (p <= alpha && Math.abs(d) >= minEffect) {
         const bMed = median(baselineSamples);
         const cMed = median(candidateSamples);
         const ratio = bMed > 0 ? Math.abs(cMed - bMed) / bMed : 0;
@@ -109,5 +142,5 @@ export function classify(
         }
     }
 
-    return { verdict, p };
+    return { verdict, p, d };
 }
