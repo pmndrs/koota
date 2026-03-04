@@ -127,7 +127,11 @@ pnpm bench "@slow"        # runs only wildcard
 
 Labs is single-run only. Each benchmark comparison uses mitata's collected sample arrays for the baseline and candidate.
 
-A change is flagged when both conditions are met: `p <= alpha` (Mann-Whitney U, default 0.05) **and** `|Δp50| >= minDelta` (default 5%). The Mann-Whitney U test is a non-parametric, rank-based test that determines whether values from one group consistently rank higher than the other. It is robust to non-normal distributions and GC-induced outliers. The `minDelta` gate filters environmental noise (thermal throttling, OS scheduling, etc.) that can produce statistically significant but practically meaningless differences, especially on hybrid-core CPUs.
+A change is flagged only when all three conditions are met:
+
+1. **`p <= alpha`** (Mann-Whitney U, default 0.05) — statistical significance. The Mann-Whitney U test is a non-parametric, rank-based test that determines whether values from one group consistently rank higher than the other. It is robust to non-normal distributions and GC-induced outliers.
+2. **`|Δp50| >= minDelta`** (default 5%) — practical magnitude. Filters environmental noise (thermal throttling, OS scheduling, etc.) that can produce statistically significant but practically meaningless differences, especially on hybrid-core CPUs.
+3. **`|cliff's d| >= minEffect`** (default 0.474) — effect size. [Cliff's delta](https://en.wikipedia.org/wiki/Effect_size#Cliff's_delta) measures how separated two distributions are (range [-1, +1]). High-variance benchmarks can show large median shifts while the actual sample distributions overlap heavily — a sign of JIT/scheduling noise rather than a real code change. The default threshold of 0.474 corresponds to the "medium" effect size boundary (Romano et al. 2006), meaning at least ~74% of pairwise sample comparisons must favor one direction.
 
 The p99 ratio provides a variance/stability signal. When it diverges from the p50 ratio, the distribution shape changed between runs (e.g., tails got worse even if the median improved).
 
@@ -158,6 +162,7 @@ export default defineConfig({
 | `maxSamples`     | `1e9`                                       | Maximum sample cap per benchmark to prevent pathological long runs                                                 |
 | `alpha`          | `0.05`                                      | Mann-Whitney U significance level                                                                                  |
 | `minDelta`       | `0.05`                                      | Minimum absolute Δp50 ratio to flag a verdict; filters environmental noise on identical code                       |
+| `minEffect`      | `0.474`                                     | Minimum \|Cliff's d\| to flag a verdict; filters noise on high-variance benches where distributions overlap        |
 
 Sampling behavior:
 

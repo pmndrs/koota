@@ -542,12 +542,6 @@ export function hasRelationPair(world: World, entity: Entity, pair: RelationPair
     const relation = pairCtx.relation;
     const target = pairCtx.target;
 
-    // // TEMPORARY: artificial slowdown to validate benchmark comparison
-    // // Force V8 to execute by making result observable via side-effect
-    // let _waste = 0;
-    // for (let i = 0; i < 5000; i++) _waste += Math.sin(i);
-    // if (_waste === -Infinity) console.log(_waste);
-
     // Check if entity has the base trait
     if (!hasTrait(world, entity, relation[$internal].trait)) return false;
 
