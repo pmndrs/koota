@@ -251,6 +251,22 @@ export async function runCLI(args: string[]) {
         return;
     }
 
+    if (subcmd === 'prune') {
+        const results = listResults(labsDir);
+        const baseline = getBaseline(labsDir);
+        const unstable = results.filter((r) => r.name !== baseline && !isEnvironmentStable(r));
+        if (unstable.length === 0) {
+            console.log(`${GREEN}✔${RESET} No unstable results to prune`);
+        } else {
+            for (const r of unstable) deleteResult(labsDir, r.name);
+            console.log(
+                `${GREEN}✔${RESET} Pruned ${unstable.length} unstable result${unstable.length !== 1 ? 's' : ''}`
+            );
+            for (const r of unstable) console.log(`  ${DIM}· ${r.name}${RESET}`);
+        }
+        return;
+    }
+
     if (subcmd === 'baseline') {
         if (!subcmdArg) {
             const results = listResults(labsDir);

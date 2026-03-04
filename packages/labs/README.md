@@ -41,6 +41,7 @@ pnpm bench run --last                  # replay last selection, no save
 ```sh
 pnpm bench list                        # list all saved results
 pnpm bench delete "v1.2.0"             # delete a specific saved result
+pnpm bench prune                       # remove results with unstable CPU clocks
 pnpm bench clear                       # delete all saved results
 ```
 
