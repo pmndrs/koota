@@ -27,7 +27,6 @@ const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';
 const YELLOW = '\x1b[33m';
 
-
 function collectEnvData(
     workerResult: WorkerResult,
     file: string,
@@ -70,7 +69,9 @@ function printReport(envData: FreqSample[], noisyAliases: string[], saveMsg?: st
             lines.push(
                 `${RED}\u2716 CPU unstable${RESET}  ${rangeStr}  ${DIM}(${(drift * 100).toFixed(1)}% drift)${RESET}`
             );
-            lines.push(`  ${DIM}clock speed changed \u2014 disable turbo / fix governor${RESET}`);
+            lines.push(
+                `  ${DIM}Disable turbo and fix the governor for a stable benchmark environment.${RESET}`
+            );
         } else {
             lines.push(`${GREEN}\u2714 CPU stable${RESET}  ${DIM}${rangeStr}${RESET}`);
         }

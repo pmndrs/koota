@@ -75,13 +75,13 @@ export const checkClockStability: EnvironmentCheck = (baseline, candidate) => {
     if (bDrift > CLOCK_DRIFT_THRESHOLD) {
         return {
             ok: false,
-            reason: `baseline CPU was unstable during the run (${(bDrift * 100).toFixed(1)}% clock drift — disable turbo / fix governor)`,
+            reason: `baseline CPU was unstable during the run (${(bDrift * 100).toFixed(1)}% clock drift — disable turbo and fix the governor for a stable benchmark environment)`,
         };
     }
     if (cDrift > CLOCK_DRIFT_THRESHOLD) {
         return {
             ok: false,
-            reason: `candidate CPU was unstable during the run (${(cDrift * 100).toFixed(1)}% clock drift — disable turbo / fix governor)`,
+            reason: `candidate CPU was unstable during the run (${(cDrift * 100).toFixed(1)}% clock drift — disable turbo and fix the governor for a stable benchmark environment)`,
         };
     }
 
@@ -238,10 +238,7 @@ function trialKey(file: string, trial: SavedResult['files'][number]['benchmarks'
     return `${file}\0${trial.groupName ?? ''}\0${trial.alias}`;
 }
 
-function benchKey(
-    file: string,
-    trial: SavedResult['files'][number]['benchmarks'][number]
-): BenchKey {
+function benchKey(file: string, trial: SavedResult['files'][number]['benchmarks'][number]): BenchKey {
     return { file, group: trial.groupName ?? trial.alias, name: trial.alias };
 }
 
@@ -326,8 +323,7 @@ export function compare(
             }
 
             const candidateMedian = median(candidateSamples);
-            const delta =
-                base.median > 0 ? (candidateMedian - base.median) / base.median : 0;
+            const delta = base.median > 0 ? (candidateMedian - base.median) / base.median : 0;
             const { verdict, p, d } = classify(base.samples, candidateSamples, opts);
 
             benches.push({
@@ -402,9 +398,7 @@ export function printCompareReport(result: CompareResult, config: LabsConfig): v
         `\n${BOLD}${CYAN}━━ compare${RESET} ${DIM}${result.baselineName} -> ${result.candidateName}${RESET}`
     );
     console.log(`${DIM}${result.hardware.cpu ?? 'unknown CPU'}${RESET}`);
-    console.log(
-        `${DIM}Mann-Whitney U  α=${config.alpha}  |d|≥${config.dThreshold}${RESET}\n`
-    );
+    console.log(`${DIM}Mann-Whitney U  α=${config.alpha}  |d|≥${config.dThreshold}${RESET}\n`);
 
     if (result.environmentFailures.length > 0) {
         console.log(`${RED}✖ cannot compare — environment check failed${RESET}`);
