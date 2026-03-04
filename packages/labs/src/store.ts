@@ -73,6 +73,16 @@ export interface SavedResult {
 	environment?: { freqs: FreqSample[] };
 }
 
+/** Returns true if the CPU clock was stable during the run (drift ≤ threshold). */
+export function isEnvironmentStable(result: SavedResult, threshold = 0.05): boolean {
+	const freqs = result.environment?.freqs ?? [];
+	if (freqs.length === 0) return true; // no freq data = legacy result, assume stable
+	const all = freqs.flatMap((s) => [s.preFreq, s.runFreq, s.postFreq]);
+	const min = Math.min(...all);
+	const max = Math.max(...all);
+	return (max - min) / ((max + min) / 2) <= threshold;
+}
+
 export function getLabsDir(configDir: string, resultsDir: string): string {
 	return join(configDir, resultsDir);
 }

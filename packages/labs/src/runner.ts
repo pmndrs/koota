@@ -12,6 +12,7 @@ import {
     deleteResult,
     getBaseline,
     getLabsDir,
+    isEnvironmentStable,
     listResults,
     loadResult,
     saveResult,
@@ -229,10 +230,14 @@ export async function runCLI(args: string[]) {
             console.log('');
             for (const r of results) {
                 const isBaseline = r.name === baseline;
+                const stable = isEnvironmentStable(r);
                 const marker = isBaseline ? ` ${CYAN}(baseline)${RESET}` : '';
+                const unstableMarker = stable ? '' : ` ${RED}⚠ unstable${RESET}`;
                 const desc = r.description ? ` ${DIM}— ${r.description}${RESET}` : '';
                 const date = new Date(r.timestamp).toLocaleString();
-                console.log(`  ${isBaseline ? GREEN : BLUE}▶${RESET} ${r.name}${marker}${desc}`);
+                console.log(
+                    `  ${isBaseline ? GREEN : BLUE}▶${RESET} ${r.name}${marker}${unstableMarker}${desc}`
+                );
                 console.log(`    ${DIM}${date}  ${r.hardware.cpu ?? 'unknown CPU'}${RESET}`);
             }
             console.log('');
@@ -259,9 +264,46 @@ export async function runCLI(args: string[]) {
 
     if (subcmd === 'baseline') {
         if (!subcmdArg) {
+            const results = listResults(labsDir);
+            if (results.length === 0) {
+                console.log(`${DIM}No saved results${RESET}`);
+                return;
+            }
             const current = getBaseline(labsDir);
-            if (!current) console.log(`${DIM}No baseline set${RESET}`);
-            else console.log(`${CYAN}baseline:${RESET} ${current}`);
+            const { select, isCancel } = await import('@clack/prompts');
+            const chosen = await select({
+                message: 'Select a baseline',
+                options: results.map((r) => {
+                    const stable = isEnvironmentStable(r);
+                    const hints: string[] = [];
+                    if (r.name === current) hints.push('current');
+                    if (!stable) hints.push('unstable');
+                    return {
+                        value: r.name,
+                        label: r.name,
+                        hint: hints.length ? hints.join(', ') : undefined,
+                        disabled: !stable,
+                    };
+                }),
+                // Start cursor on the current baseline if one is set.
+                initialValue: current,
+            });
+            if (isCancel(chosen)) {
+                console.log(`${DIM}Cancelled${RESET}`);
+                return;
+            }
+            const chosenResult = results.find((r) => r.name === chosen)!;
+            if (!isEnvironmentStable(chosenResult)) {
+                console.log(
+                    `${RED}\u2716 "${chosen}" had an unstable CPU environment${RESET}`
+                );
+            }
+            try {
+                setBaseline(labsDir, chosen as string);
+                console.log(`${GREEN}\u2714${RESET} Baseline set to "${chosen}"`);
+            } catch (e: any) {
+                error(e.message);
+            }
         } else {
             try {
                 setBaseline(labsDir, subcmdArg);
@@ -503,8 +545,19 @@ export async function runCLI(args: string[]) {
 
     saveResult(labsDir, result);
     const isFirstSave = !getBaseline(labsDir);
-    if (setAsBaseline || isFirstSave) setBaseline(labsDir, saveName);
-    const baselineNote = setAsBaseline || isFirstSave ? ` ${CYAN}(baseline)${RESET}` : '';
+    const stable = isEnvironmentStable(result);
+    let markedBaseline = false;
+
+    if (setAsBaseline && !stable) {
+        console.log(
+            `${RED}\u2716 Skipping baseline \u2014 CPU was unstable during this run${RESET}`
+        );
+    } else if (setAsBaseline || (isFirstSave && stable)) {
+        setBaseline(labsDir, saveName);
+        markedBaseline = true;
+    }
+
+    const baselineNote = markedBaseline ? ` ${CYAN}(baseline)${RESET}` : '';
     const saveMsg = `${GREEN}\u2714${RESET} Saved "${saveName}"${baselineNote} (${files.length} file${files.length !== 1 ? 's' : ''})`;
 
     printReport(saveEnvData, saveNoisyAliases, saveMsg);

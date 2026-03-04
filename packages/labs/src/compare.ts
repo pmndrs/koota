@@ -1,6 +1,6 @@
 import type { LabsConfig } from './config.ts';
 import { type ClassifyOptions, type Verdict, classify, mad, median } from './stats.ts';
-import type { FreqSample, SavedResult } from './store.ts';
+import { type FreqSample, type SavedResult, isEnvironmentStable } from './store.ts';
 
 // ─── ANSI ────────────────────────────────────────────────────────────────────
 
@@ -31,19 +31,8 @@ type BenchCheck = (baseline: BenchData, candidate: BenchData) => CheckResult;
 
 const MIN_SAMPLES = 20;
 
-/** Clock drift threshold: >5% is considered unstable (matches the run-time check in runner.ts). */
-const CLOCK_DRIFT_THRESHOLD = 0.05;
-
 /** Max relative difference between the two runs' median clock speeds to consider them comparable. */
 const CLOCK_COMPARE_THRESHOLD = 0.05;
-
-function clockDrift(freqs: FreqSample[]): number {
-    if (freqs.length === 0) return 0;
-    const all = freqs.flatMap((s) => [s.preFreq, s.runFreq, s.postFreq]);
-    const min = Math.min(...all);
-    const max = Math.max(...all);
-    return (max - min) / ((max + min) / 2);
-}
 
 function medianFreq(freqs: FreqSample[]): number {
     if (freqs.length === 0) return 0;
@@ -62,6 +51,14 @@ export const checkHardwareMatch: EnvironmentCheck = (baseline, candidate) => {
     return { ok: true };
 };
 
+function freqDrift(freqs: FreqSample[]): number {
+    if (freqs.length === 0) return 0;
+    const all = freqs.flatMap((s) => [s.preFreq, s.runFreq, s.postFreq]);
+    const min = Math.min(...all);
+    const max = Math.max(...all);
+    return (max - min) / ((max + min) / 2);
+}
+
 export const checkClockStability: EnvironmentCheck = (baseline, candidate) => {
     const bFreqs = baseline.environment?.freqs ?? [];
     const cFreqs = candidate.environment?.freqs ?? [];
@@ -69,19 +66,18 @@ export const checkClockStability: EnvironmentCheck = (baseline, candidate) => {
     // Skip the check if neither run recorded frequency data (old saved results).
     if (bFreqs.length === 0 && cFreqs.length === 0) return { ok: true };
 
-    const bDrift = clockDrift(bFreqs);
-    const cDrift = clockDrift(cFreqs);
-
-    if (bDrift > CLOCK_DRIFT_THRESHOLD) {
+    if (!isEnvironmentStable(baseline)) {
+        const drift = freqDrift(bFreqs);
         return {
             ok: false,
-            reason: `baseline CPU was unstable during the run (${(bDrift * 100).toFixed(1)}% clock drift — disable turbo and fix the governor for a stable benchmark environment)`,
+            reason: `baseline CPU was unstable during the run (${(drift * 100).toFixed(1)}% clock drift — disable turbo and fix the governor for a stable benchmark environment)`,
         };
     }
-    if (cDrift > CLOCK_DRIFT_THRESHOLD) {
+    if (!isEnvironmentStable(candidate)) {
+        const drift = freqDrift(cFreqs);
         return {
             ok: false,
-            reason: `candidate CPU was unstable during the run (${(cDrift * 100).toFixed(1)}% clock drift — disable turbo and fix the governor for a stable benchmark environment)`,
+            reason: `candidate CPU was unstable during the run (${(drift * 100).toFixed(1)}% clock drift — disable turbo and fix the governor for a stable benchmark environment)`,
         };
     }
 
