@@ -11,10 +11,12 @@ import {
     clearResults,
     deleteResult,
     getBaseline,
+    getLastComparison,
     getLabsDir,
     isEnvironmentStable,
     listResults,
     loadResult,
+    setLastComparison,
     saveResult,
     setBaseline,
 } from './store.ts';
@@ -323,19 +325,50 @@ export async function runCLI(args: string[]) {
     if (subcmd === 'compare') {
         const baselineName = getBaseline(labsDir);
         if (!baselineName) error('No baseline set. Run: bench baseline <name>');
+        let compareBaselineName = baselineName;
         let candidateName: string;
-        if (subcmdArg) {
+        if (subcmdArg === '--last' || subcmdArg === '-l') {
+            const last = getLastComparison(labsDir);
+            if (!last) error('No previous comparison found');
+            compareBaselineName = last.baselineName;
+            candidateName = last.candidateName;
+            console.log(
+                `${CYAN}labs${RESET} ${DIM}(replaying last compare: ${compareBaselineName} -> ${candidateName})${RESET}`
+            );
+        } else if (subcmdArg) {
             candidateName = subcmdArg;
         } else {
             const all = listResults(labsDir);
-            const candidate = all.filter((r) => r.name !== baselineName).pop();
-            if (!candidate) error('No saved result to compare. Save a result first with -s.');
-            candidateName = candidate.name;
+            const candidates = all.filter((r) => r.name !== baselineName);
+            if (candidates.length === 0) error('No saved result to compare. Save a result first with -s.');
+            const latestCandidate = candidates[candidates.length - 1]!;
+            const { select, isCancel } = await import('@clack/prompts');
+            const chosen = await select({
+                message: `Select result to compare against baseline "${baselineName}"`,
+                options: candidates.map((r) => {
+                    const stable = isEnvironmentStable(r);
+                    const hints: string[] = [];
+                    if (r.name === latestCandidate.name) hints.push('latest');
+                    if (!stable) hints.push('unstable');
+                    return {
+                        value: r.name,
+                        label: r.name,
+                        hint: hints.length > 0 ? hints.join(', ') : undefined,
+                    };
+                }),
+                initialValue: latestCandidate.name,
+            });
+            if (isCancel(chosen)) {
+                console.log(`${DIM}Cancelled${RESET}`);
+                return;
+            }
+            candidateName = chosen as string;
         }
         try {
-            const baseline = loadResult(labsDir, baselineName);
+            const baseline = loadResult(labsDir, compareBaselineName);
             const candidate = loadResult(labsDir, candidateName);
             printCompareReport(compare(baseline, candidate, config), config);
+            setLastComparison(labsDir, compareBaselineName, candidateName);
         } catch (e: any) {
             error(e.message);
         }
@@ -578,6 +611,7 @@ export async function runCLI(args: string[]) {
             try {
                 const baselineResult = loadResult(labsDir, baselineName);
                 printCompareReport(compare(baselineResult, result, config), config);
+                setLastComparison(labsDir, baselineName, saveName);
             } catch (e: any) {
                 console.log(`\n${RED}✖${RESET} Compare failed: ${e.message}`);
             }

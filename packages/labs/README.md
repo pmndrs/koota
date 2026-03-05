@@ -50,16 +50,19 @@ pnpm bench clear                       # delete all saved results
 ## Baseline
 
 ```sh
-pnpm bench baseline                    # print the current baseline name
+pnpm bench baseline                    # interactive baseline picker
 pnpm bench baseline "v1.2.0"          # set a result as the baseline
-pnpm bench --save-baseline "v1.2.0"   # save and immediately set as baseline
+pnpm bench --baseline                 # save and set the new result as baseline
+pnpm bench -b                         # shorthand for --baseline
 ```
 
 ## Comparing
 
 ```sh
-pnpm bench compare                     # compare most recent result vs baseline
+pnpm bench compare                     # interactive picker (latest preselected)
 pnpm bench compare "v1.3.0"           # compare named result vs baseline
+pnpm bench compare --last             # replay the last compared pair
+pnpm bench compare -l                 # shorthand for --last
 ```
 
 Outputs a colored table for each eligible benchmark:

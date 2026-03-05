@@ -73,6 +73,11 @@ export interface SavedResult {
 	environment?: { freqs: FreqSample[] };
 }
 
+export interface LastComparison {
+	baselineName: string;
+	candidateName: string;
+}
+
 /** Returns true if the CPU clock was stable during the run (drift ≤ threshold). */
 export function isEnvironmentStable(result: SavedResult, threshold = 0.05): boolean {
 	const freqs = result.environment?.freqs ?? [];
@@ -121,6 +126,18 @@ export function deleteResult(labsDir: string, name: string): void {
 	if (existsSync(baselineFile) && readFileSync(baselineFile, 'utf-8').trim() === name) {
 		rmSync(baselineFile);
 	}
+	// Clear last-compare pointer if it referenced this result.
+	const lastCompareFile = join(labsDir, 'last-compare.json');
+	if (existsSync(lastCompareFile)) {
+		try {
+			const last = JSON.parse(readFileSync(lastCompareFile, 'utf-8')) as LastComparison;
+			if (last.baselineName === name || last.candidateName === name) {
+				rmSync(lastCompareFile);
+			}
+		} catch {
+			rmSync(lastCompareFile);
+		}
+	}
 }
 
 export function clearResults(labsDir: string): void {
@@ -138,4 +155,27 @@ export function getBaseline(labsDir: string): string | undefined {
 	const file = join(labsDir, 'baseline');
 	if (!existsSync(file)) return undefined;
 	return readFileSync(file, 'utf-8').trim() || undefined;
+}
+
+export function setLastComparison(
+	labsDir: string,
+	baselineName: string,
+	candidateName: string
+): void {
+	mkdirSync(labsDir, { recursive: true });
+	const file = join(labsDir, 'last-compare.json');
+	writeFileSync(file, JSON.stringify({ baselineName, candidateName }, null, 2));
+}
+
+export function getLastComparison(labsDir: string): LastComparison | undefined {
+	const file = join(labsDir, 'last-compare.json');
+	if (!existsSync(file)) return undefined;
+	try {
+		const parsed = JSON.parse(readFileSync(file, 'utf-8')) as Partial<LastComparison>;
+		if (typeof parsed.baselineName !== 'string') return undefined;
+		if (typeof parsed.candidateName !== 'string') return undefined;
+		return { baselineName: parsed.baselineName, candidateName: parsed.candidateName };
+	} catch {
+		return undefined;
+	}
 }
