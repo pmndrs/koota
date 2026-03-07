@@ -241,6 +241,10 @@ export function createWorld(
             return world.query(...args)[0];
         },
 
+        queryFirstWithTraits(...args: any[]) {
+            return world.query(...args).readFirst();
+        },
+
         onQueryAdd(
             args: Query<QueryParameter[]> | QueryParameter[],
             callback: (entity: Entity) => void
