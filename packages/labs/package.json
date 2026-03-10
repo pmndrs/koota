@@ -14,7 +14,9 @@
     "tsx": "latest"
   },
   "devDependencies": {
+    "@clack/prompts": "^1.0.1",
     "@config/typescript": "workspace:*",
-    "@types/node": "^24.10.1"
+    "@types/node": "^24.10.1",
+    "vitest": "catalog:"
   }
 }
