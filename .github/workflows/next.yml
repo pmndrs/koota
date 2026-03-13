@@ -1,0 +1,42 @@
+name: Next Release
+
+on:
+  push:
+    branches: [next]
+
+jobs:
+  publish-next:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set next version
+        run: |
+          CURRENT=$(node -p "require('./packages/publish/package.json').version")
+          SHA=$(git rev-parse --short HEAD)
+          npm --prefix packages/publish pkg set version="${CURRENT}-next.${SHA}"
+
+      - name: Build
+        run: pnpm -F koota build
+
+      - name: Test
+        run: pnpm -F koota test run
+
+      - name: Publish next
+        run: pnpm -F koota publish --tag next --no-git-checks
