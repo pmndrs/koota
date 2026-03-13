@@ -30,7 +30,7 @@ jobs:
         run: |
           CURRENT=$(node -p "require('./packages/publish/package.json').version")
           SHA=$(git rev-parse --short HEAD)
-          pnpm --filter koota pkg set version="${CURRENT}-canary.${SHA}"
+          npm --prefix packages/publish pkg set version="${CURRENT}-canary.${SHA}"
 
       - name: Build
         run: pnpm -F koota build
