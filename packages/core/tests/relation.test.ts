@@ -496,6 +496,29 @@ describe('Relation', () => {
         unsubParentA();
     });
 
+    it('onRemove callback should still have access to the relation target and its data', () => {
+        const Contains = relation({ store: { amount: 0 } });
+
+        const inventory = world.spawn();
+        const gold = world.spawn();
+
+        inventory.add(Contains(gold, { amount: 42 }));
+
+        const removeCb = vi.fn((entity: typeof inventory, target: typeof gold) => {
+            // The relation pair should still be present during onRemove
+            expect(entity.has(Contains(target))).toBe(true);
+            // The store data should still be readable
+            expect(entity.get(Contains(target))?.amount).toBe(42);
+            // targetFor should still resolve the target
+            expect(entity.targetFor(Contains)).toBe(target);
+        });
+
+        world.onRemove(Contains, removeCb);
+        inventory.remove(Contains(gold));
+
+        expect(removeCb).toHaveBeenCalledTimes(1);
+    });
+
     it('onChange should accept relation pairs and filter by target', () => {
         const ChildOf = relation({ store: { order: 0 } });
         const parentA = world.spawn();

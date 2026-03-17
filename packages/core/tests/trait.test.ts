@@ -232,9 +232,13 @@ describe('Trait', () => {
             expect(entity.get(Position)).toMatchObject({ x: 1, y: 2 });
         });
 
-        // The trait should still be present after the onRemove callback is called.
+        /**
+         * The trait should still be present after the onRemove callback is called
+         * and its data accessible.
+         */
         const removeCb = vi.fn((entity: Entity) => {
             expect(entity.has(Position)).toBe(true);
+            expect(entity.get(Position)).toMatchObject({ x: 1, y: 2 });
         });
 
         const entity = world.spawn();
