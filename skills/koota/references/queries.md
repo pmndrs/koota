@@ -20,16 +20,15 @@ Queries fetch entities that share specific traits (archetypes).
 // Returns QueryResult (Entity[] with extra methods)
 const entities = world.query(Position, Velocity)
 
-// Process with forEach
-entities.forEach((entity) => {
-  const pos = entity.get(Position)
-  // ...
-})
-
-// Batch update with updateEach (preferred)
+// Batch update with updateEach
 world.query(Position, Velocity).updateEach(([pos, vel]) => {
   pos.x += vel.x
   pos.y += vel.y
+})
+
+// Batch read with readEach
+world.query(Position).readEach(([pos], entity) => {
+  // ...
 })
 
 // Get first match only
@@ -37,11 +36,6 @@ const player = world.queryFirst(IsPlayer, Position)
 
 // Query all entities (excludes system entities)
 const allEntities = world.query()
-
-// Use for...of for iterator
-for (const entity of world.query(Position)) {
-  // ...
-}
 ```
 
 ## Query modifiers
