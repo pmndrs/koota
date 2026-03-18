@@ -980,7 +980,7 @@ While this is not likely to be a bottleneck in your code compared to the actual 
 
 ```js
 // The internal query is created immediately before it is invoked
-const movementQuery = defineQuery(Position, Velocity)
+const movementQuery = createQuery(Position, Velocity)
 
 // The query ref is used for fast array-based lookup
 function updateMovement(world) {
