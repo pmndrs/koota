@@ -7,7 +7,7 @@ Complete guide to querying entities in Koota.
 - [Basic queries](#basic-queries)
 - [Query modifiers](#query-modifiers) - Not, Or
 - [Tracking modifiers](#tracking-modifiers) - Added, Removed, Changed
-- [Caching queries](#caching-queries) - defineQuery for performance
+- [Caching queries](#caching-queries) - createQuery for performance
 - [Change detection](#change-detection) - updateEach options
 - [Query + select](#query--select) - Select subset of traits for updates
 - [Direct store access](#direct-store-access) - useStores for performance
@@ -20,16 +20,15 @@ Queries fetch entities that share specific traits (archetypes).
 // Returns QueryResult (Entity[] with extra methods)
 const entities = world.query(Position, Velocity)
 
-// Process with forEach
-entities.forEach((entity) => {
-  const pos = entity.get(Position)
-  // ...
-})
-
-// Batch update with updateEach (preferred)
+// Batch update with updateEach
 world.query(Position, Velocity).updateEach(([pos, vel]) => {
   pos.x += vel.x
   pos.y += vel.y
+})
+
+// Batch read with readEach
+world.query(Position).readEach(([pos], entity) => {
+  // ...
 })
 
 // Get first match only
@@ -37,11 +36,6 @@ const player = world.queryFirst(IsPlayer, Position)
 
 // Query all entities (excludes system entities)
 const allEntities = world.query()
-
-// Use for...of for iterator
-for (const entity of world.query(Position)) {
-  // ...
-}
 ```
 
 ## Query modifiers
@@ -141,13 +135,13 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 ## Caching queries
 
-Inline queries hash parameters each call. For hot paths, cache with `defineQuery`.
+Inline queries hash parameters each call. For hot paths, cache with `createQuery`.
 
 ```typescript
-import { defineQuery } from 'koota'
+import { createQuery } from 'koota'
 
 // Define once at module scope
-const movementQuery = defineQuery(Position, Velocity)
+const movementQuery = createQuery(Position, Velocity)
 
 function updateMovement(world: World) {
   // Fast array-based lookup
