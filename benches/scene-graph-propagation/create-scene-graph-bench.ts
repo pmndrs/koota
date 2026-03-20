@@ -9,12 +9,28 @@ import {
 } from 'koota';
 import { CONFIG } from './config.ts';
 
+/**
+ * Builds a large synthetic scene graph and benchmarks the common propagation pattern:
+ * dirty a fixed subset of nodes, walk upward to collect ancestor state, then push
+ * updated totals downward through each dirty node's descendants.
+ *
+ * To keep runs comparable, the dirty system precomputes deterministic batches whose
+ * estimated traversal cost is balanced by depth and subtree size. That preserves the
+ * same mixed leaf/group propagation case without the large per-iteration swings that
+ * come from dirtying entities in raw creation order.
+ */
 export type SceneGraphVariant = 'child-of-exclusive' | 'child-of-not-exclusive' | 'ordered-relation';
 
 export type SceneGraphContext = {
     world: World;
     dirty: (ctx: { world: World }) => void;
     propagate: (ctx: { world: World }) => void;
+};
+
+type SceneGraphBuild = {
+    allEntities: Entity[];
+    depthByEntityId: number[];
+    subtreeSizeByEntityId: number[];
 };
 
 const deterministicValue = (index: number) => (index * 37) % 65;
@@ -33,12 +49,37 @@ function createTraits(variant: SceneGraphVariant) {
 
 type Traits = ReturnType<typeof createTraits>;
 
-function buildGraph(world: World, traits: Traits): Entity[] {
+function analyzeGraph(root: Entity, childrenByEntityId: Entity[][]) {
+    const depthByEntityId: number[] = [];
+    const subtreeSizeByEntityId: number[] = [];
+
+    const visit = (entity: Entity, depth: number): number => {
+        depthByEntityId[entity.id()] = depth;
+
+        let subtreeSize = 1;
+        const children = childrenByEntityId[entity.id()];
+        if (children) {
+            for (let i = 0; i < children.length; i++) {
+                subtreeSize += visit(children[i], depth + 1);
+            }
+        }
+
+        subtreeSizeByEntityId[entity.id()] = subtreeSize;
+        return subtreeSize;
+    };
+
+    visit(root, 0);
+
+    return { depthByEntityId, subtreeSizeByEntityId };
+}
+
+function buildGraph(world: World, traits: Traits): SceneGraphBuild {
     const { ChildOf, OrderedChildren, IsGroup, IsObject, Value, TotalValue } = traits;
     const { targetEntityCount, bottomLeafFraction, groupChildrenCycle, objectChildrenCycle } =
         CONFIG;
     const cap = targetEntityCount;
     const allEntities: Entity[] = [];
+    const childrenByEntityId: Entity[][] = [];
 
     const spawnGroup = (index: number) => {
         const group = OrderedChildren
@@ -52,6 +93,11 @@ function buildGraph(world: World, traits: Traits): Entity[] {
         const leaf = world.spawn(IsObject, Value({ value: deterministicValue(index) }), TotalValue);
         allEntities.push(leaf);
         return leaf;
+    };
+
+    const linkChildToParent = (child: Entity, parent: Entity) => {
+        child.add(ChildOf(parent));
+        (childrenByEntityId[parent.id()] ??= []).push(child);
     };
 
     let groupCycle = 0;
@@ -83,12 +129,12 @@ function buildGraph(world: World, traits: Traits): Entity[] {
             const group = spawnGroup(created++);
 
             for (let i = 0; i < adoptCount && pendingIndex < pending.length; i++) {
-                pending[pendingIndex++].add(ChildOf(group));
+                linkChildToParent(pending[pendingIndex++], group);
             }
 
             const sprinkleCount = created < cap ? nextObjectCount(cap - created) : 0;
             for (let i = 0; i < sprinkleCount && created < cap; i++) {
-                spawnLeaf(created++).add(ChildOf(group));
+                linkChildToParent(spawnLeaf(created++), group);
             }
 
             nextPending.push(group);
@@ -110,7 +156,7 @@ function buildGraph(world: World, traits: Traits): Entity[] {
 
     if (pending.length > 1) {
         for (let i = 0; i < pending.length; i++) {
-            pending[i].add(ChildOf(root));
+            linkChildToParent(pending[i], root);
         }
     }
 
@@ -118,26 +164,103 @@ function buildGraph(world: World, traits: Traits): Entity[] {
         const groups = world.query(IsGroup);
         let groupIndex = 0;
         while (created < cap) {
-            spawnLeaf(created++).add(ChildOf(groups[groupIndex++ % groups.length]));
+            linkChildToParent(spawnLeaf(created++), groups[groupIndex++ % groups.length]);
         }
     }
 
-    return allEntities;
+    const { depthByEntityId, subtreeSizeByEntityId } = analyzeGraph(root, childrenByEntityId);
+
+    return { allEntities, depthByEntityId, subtreeSizeByEntityId };
 }
 
-function createDirtySystem(allEntities: Entity[], Value: Traits['Value']) {
-    let dirtyOffset = 0;
+function getEntityTraversalCost(
+    entity: Entity,
+    depthByEntityId: number[],
+    subtreeSizeByEntityId: number[]
+) {
+    return subtreeSizeByEntityId[entity.id()] + depthByEntityId[entity.id()];
+}
+
+function selectLightestBatch(dirtyBatches: Entity[][], dirtyBatchCosts: number[], dirtyCount: number) {
+    let bestBatchIndex = 0;
+
+    for (let i = 1; i < dirtyBatches.length; i++) {
+        if (dirtyBatches[i].length >= dirtyCount) continue;
+        if (dirtyBatches[bestBatchIndex].length >= dirtyCount) {
+            bestBatchIndex = i;
+            continue;
+        }
+        if (dirtyBatchCosts[i] < dirtyBatchCosts[bestBatchIndex]) {
+            bestBatchIndex = i;
+        }
+    }
+
+    return bestBatchIndex;
+}
+
+function createDirtyBatches(
+    allEntities: Entity[],
+    dirtyCount: number,
+    depthByEntityId: number[],
+    subtreeSizeByEntityId: number[]
+) {
+    const batchCount = Math.max(1, Math.ceil(allEntities.length / dirtyCount));
+    const dirtyBatches = Array.from({ length: batchCount }, () => [] as Entity[]);
+    const dirtyBatchCosts = Array.from({ length: batchCount }, () => 0);
+    const candidates = allEntities
+        .map((entity) => ({
+            entity,
+            cost: getEntityTraversalCost(entity, depthByEntityId, subtreeSizeByEntityId),
+        }))
+        .sort((a, b) => b.cost - a.cost || a.entity - b.entity);
+
+    // Greedy bin packing keeps each frame's total propagation cost close,
+    // while cycling through fixed precomputed batches preserves determinism.
+    for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        const batchIndex = selectLightestBatch(dirtyBatches, dirtyBatchCosts, dirtyCount);
+        dirtyBatches[batchIndex].push(candidate.entity);
+        dirtyBatchCosts[batchIndex] += candidate.cost;
+    }
+
+    // Top up any short batch with the cheapest entities so each frame dirties the same count.
+    let fillerIndex = candidates.length - 1;
+    for (let i = 0; i < dirtyBatches.length; i++) {
+        while (dirtyBatches[i].length < dirtyCount) {
+            dirtyBatches[i].push(candidates[fillerIndex].entity);
+            fillerIndex = fillerIndex > 0 ? fillerIndex - 1 : candidates.length - 1;
+        }
+    }
+
+    return dirtyBatches;
+}
+
+function createDirtySystem(
+    allEntities: Entity[],
+    Value: Traits['Value'],
+    depthByEntityId: number[],
+    subtreeSizeByEntityId: number[]
+) {
+    const dirtyCount = Math.max(1, Math.floor(allEntities.length * CONFIG.dirtyFraction));
+    const dirtyBatches = createDirtyBatches(
+        allEntities,
+        dirtyCount,
+        depthByEntityId,
+        subtreeSizeByEntityId
+    );
+
+    let dirtyBatchIndex = 0;
     let frame = 0;
 
     return () => {
-        const count = Math.max(1, Math.floor(allEntities.length * CONFIG.dirtyFraction));
+        const dirtyBatch = dirtyBatches[dirtyBatchIndex];
 
-        for (let i = 0; i < count; i++) {
-            const index = (dirtyOffset + i) % allEntities.length;
-            allEntities[index].set(Value, { value: (frame + index) % 65 });
+        for (let i = 0; i < dirtyBatch.length; i++) {
+            const entity = dirtyBatch[i];
+            entity.set(Value, { value: (frame + entity.id()) % 65 });
         }
 
-        dirtyOffset = (dirtyOffset + count) % allEntities.length;
+        dirtyBatchIndex = (dirtyBatchIndex + 1) % dirtyBatches.length;
         frame++;
     };
 }
@@ -201,9 +324,14 @@ function createPropagateSystem(traits: Pick<Traits, 'ChildOf' | 'OrderedChildren
 export function createSceneGraphContext(variant: SceneGraphVariant): SceneGraphContext {
     const world = createWorld();
     const traits = createTraits(variant);
-    const allEntities = buildGraph(world, traits);
+    const { allEntities, depthByEntityId, subtreeSizeByEntityId } = buildGraph(world, traits);
 
-    const dirtyImpl = createDirtySystem(allEntities, traits.Value);
+    const dirtyImpl = createDirtySystem(
+        allEntities,
+        traits.Value,
+        depthByEntityId,
+        subtreeSizeByEntityId
+    );
     const propagate = createPropagateSystem(traits);
 
     return {
