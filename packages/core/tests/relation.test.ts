@@ -231,6 +231,29 @@ describe('Relation', () => {
         expect(world.has(cherry)).toBe(true);
     });
 
+    it('should update exclusive relation queries when switching targets', () => {
+        const Parent = relation({ exclusive: true });
+
+        const parentA = world.spawn();
+        const parentB = world.spawn();
+        const child = world.spawn(Parent(parentA));
+
+        expect(world.query(Parent(parentA))).toHaveLength(1);
+        expect(world.query(Parent(parentA))).toContain(child);
+        expect(world.query(Parent(parentB))).toHaveLength(0);
+
+        child.add(Parent(parentB));
+
+        expect(world.query(Parent(parentA))).toHaveLength(0);
+        expect(world.query(Parent(parentB))).toHaveLength(1);
+        expect(world.query(Parent(parentB))).toContain(child);
+
+        child.remove(Parent(parentB));
+
+        expect(world.query(Parent(parentA))).toHaveLength(0);
+        expect(world.query(Parent(parentB))).toHaveLength(0);
+    });
+
     it('removes the relation trait when its last target is destroyed', () => {
         const Targets = relation();
 
