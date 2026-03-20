@@ -1,10 +1,10 @@
 import { Schedule } from 'directed';
-import { world } from '../world';
-import { dirty } from './dirty';
-import { propagate } from './propagate';
+import type { SceneGraphContext } from '../create-scene-graph-bench.ts';
 
-export const schedule = new Schedule<{ world: typeof world }>();
-
-schedule.add(dirty);
-schedule.add(propagate, { after: dirty });
-schedule.build();
+export function createSchedule({ dirty, propagate }: SceneGraphContext) {
+    const schedule = new Schedule<{ world: SceneGraphContext['world'] }>();
+    schedule.add(dirty);
+    schedule.add(propagate, { after: dirty });
+    schedule.build();
+    return schedule;
+}
