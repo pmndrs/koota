@@ -194,49 +194,6 @@ export /* @inline */ function hasRelationToTarget(
     }
 }
 
-function addExclusiveRelationSource(
-    traitData: ReturnType<typeof getTraitInstance>,
-    source: Entity,
-    target: Entity
-): void {
-    if (!traitData) return;
-
-    const targetEid = getEntityId(target);
-    const sourceEid = getEntityId(source);
-    const relationSources = (traitData.relationSources ??= []);
-    const relationSourceIndices = (traitData.relationSourceIndices ??= []);
-    const sources = (relationSources[targetEid] ??= []);
-
-    relationSourceIndices[sourceEid] = sources.length;
-    sources.push(source);
-}
-
-function removeExclusiveRelationSource(
-    traitData: ReturnType<typeof getTraitInstance>,
-    source: Entity,
-    target: Entity
-): void {
-    if (!traitData?.relationSources || !traitData.relationSourceIndices) return;
-
-    const targetEid = getEntityId(target);
-    const sourceEid = getEntityId(source);
-    const sources = traitData.relationSources[targetEid];
-    const sourceIndex = traitData.relationSourceIndices[sourceEid];
-
-    if (!sources || sourceIndex === undefined) return;
-
-    const lastIndex = sources.length - 1;
-    const lastSource = sources[lastIndex];
-
-    if (sourceIndex !== lastIndex) {
-        sources[sourceIndex] = lastSource;
-        traitData.relationSourceIndices[getEntityId(lastSource)] = sourceIndex;
-    }
-
-    sources.pop();
-    traitData.relationSourceIndices[sourceEid] = undefined;
-}
-
 /**
  * Add a relation target to an entity.
  * Returns the index of the target in the targets array.
@@ -268,7 +225,6 @@ export function addRelationTarget(
         // No-op if unchanged
         if (targets[eid] === target) return -1;
         targets[eid] = target;
-        addExclusiveRelationSource(traitData, entity, target);
         targetIndex = 0;
     } else {
         const targetsArray = traitData.relationTargets as number[][];
@@ -319,7 +275,6 @@ export function removeRelationTarget(
             targets[eid] = undefined;
             removedIndex = 0;
             hasRemainingTargets = false;
-            removeExclusiveRelationSource(data, entity, target);
             clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
         }
     } else {
@@ -447,11 +402,6 @@ export function getEntitiesWithRelationTo(
     const baseTrait = relationCtx.trait;
     const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
     if (!traitData || !traitData.relationTargets) return [];
-
-    if (relationCtx.exclusive && traitData.relationSources) {
-        const sources = traitData.relationSources[getEntityId(target)];
-        return sources !== undefined ? (sources.slice() as Entity[]) : [];
-    }
 
     const targetId = target;
     const entityIndex = ctx.entityIndex;
