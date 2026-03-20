@@ -64,16 +64,16 @@ export function applyPoison(world: World) {
 ```typescript
 // Query and update each
 export function updatePhysics(world: World) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
-    pos.x += vel.x
+  world.query(Position, Velocity).updateEach(([position, velocity]) => {
+    position.x += velocity.x
   })
 }
 
-// Manual iteration (when you need the entity)
-export function cleanupDead(world: World) {
-  for (const entity of world.query(IsDead)) {
-    entity.destroy()
-  }
+// If you need both queried data and the entity, prefer readEach
+export function processCompletedImages(world: World) {
+  world.query(Position).readEach(([position], entity) => {
+    // Read position
+  })
 }
 
 // Read singleton traits
