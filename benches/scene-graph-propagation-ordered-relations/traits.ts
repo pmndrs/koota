@@ -5,7 +5,7 @@ import {
     IsObject,
     Value,
     TotalValue
-} from "@bench/scene-graph-propagation"
+} from '../scene-graph-propagation/traits.ts'
 
 const OrderedChildren = ordered(ChildOf);
 

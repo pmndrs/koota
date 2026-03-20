@@ -1,5 +1,5 @@
 import { Schedule } from 'directed';
-import { world } from '@bench/scene-graph-propagation';
+import { world } from '../../scene-graph-propagation/world.ts';
 import { dirty } from './dirty';
 import { propagate } from './propagate';
 

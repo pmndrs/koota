@@ -1,5 +1,5 @@
 import type { Entity, World } from 'koota';
-import { CONFIG } from '@bench/scene-graph-propagation';
+import { CONFIG } from '../../scene-graph-propagation/config.ts';
 import { ChildOf, IsGroup, IsObject, OrderedChildren, TotalValue, Value } from '../traits';
 
 export let root: Entity;

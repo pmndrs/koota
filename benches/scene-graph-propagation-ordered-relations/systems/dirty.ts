@@ -1,4 +1,4 @@
-import { CONFIG } from '@bench/scene-graph-propagation';
+import { CONFIG } from '../../scene-graph-propagation/config.ts';
 import { Value } from '../traits';
 import { allEntities } from './init';
 
