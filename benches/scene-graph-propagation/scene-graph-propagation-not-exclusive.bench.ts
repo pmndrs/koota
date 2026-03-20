@@ -7,7 +7,7 @@ group('scene graph propagation: ChildOf not exclusive @scene @graph @relation', 
     const ctx = createSceneGraphContext('child-of-not-exclusive');
     const schedule = createSchedule(ctx);
 
-    bench('ChildOf not exclusive', () => {
+    bench(() => {
         schedule.run({ world: ctx.world });
     }).gc('inner');
 });
