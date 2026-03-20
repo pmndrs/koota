@@ -103,13 +103,6 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
      * For non-exclusive: relationTargets[eid] = [targetId1, targetId2, ...] (number[])
      */
     relationTargets?: number[] | number[][];
-    /**
-     * Reverse index for exclusive relation traits.
-     * relationSources[targetEid] = [sourceEntity, ...]
-     * relationSourceIndices[sourceEid] = index in relationSources[targetEid]
-     */
-    relationSources?: number[][];
-    relationSourceIndices?: Array<number | undefined>;
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;
