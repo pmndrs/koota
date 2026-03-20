@@ -1,4 +1,4 @@
-import { bench, group } from 'labs';
+import { bench, group } from '@pmndrs/labs';
 import { createChanged, createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });

@@ -4,9 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
+    "@pmndrs/labs": "^0.3.0",
     "directed": "catalog:",
-    "koota": "workspace:*",
-    "labs": "workspace:*"
+    "koota": "workspace:*"
   },
   "devDependencies": {
     "@config/typescript": "workspace:*"
