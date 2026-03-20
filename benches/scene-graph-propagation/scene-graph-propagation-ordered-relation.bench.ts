@@ -7,7 +7,7 @@ group('scene graph propagation: OrderedRelation @scene @graph @relation', () => 
     const ctx = createSceneGraphContext('ordered-relation');
     const schedule = createSchedule(ctx);
 
-    bench('OrderedRelation', () => {
+    bench(() => {
         schedule.run({ world: ctx.world });
     }).gc('inner');
 });
