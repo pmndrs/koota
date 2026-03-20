@@ -24,9 +24,6 @@ catalogs:
     directed:
       specifier: ^0.1.6
       version: 0.1.6
-    mitata:
-      specifier: ^1.0.34
-      version: 1.0.34
     react:
       specifier: ^19.2.0
       version: 19.2.0
@@ -75,8 +72,8 @@ importers:
   benches:
     dependencies:
       '@pmndrs/labs':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.4.0
+        version: 0.4.0
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
@@ -385,28 +382,6 @@ importers:
       '@config/typescript':
         specifier: workspace:*
         version: link:../../.config/typescript
-      vitest:
-        specifier: 'catalog:'
-        version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
-
-  packages/labs:
-    dependencies:
-      mitata:
-        specifier: 'catalog:'
-        version: 1.0.34
-      tsx:
-        specifier: latest
-        version: 4.21.0
-    devDependencies:
-      '@clack/prompts':
-        specifier: ^1.0.1
-        version: 1.0.1
-      '@config/typescript':
-        specifier: workspace:*
-        version: link:../../.config/typescript
-      '@types/node':
-        specifier: ^24.10.1
-        version: 24.10.1
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
@@ -1013,8 +988,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@pmndrs/labs@0.3.0':
-    resolution: {integrity: sha512-4rqaodH8MAwVTwKLkwqfu3sXr5eel6dnJF0tGyFarKkcKBNg9kJn+LmkeCHiiq8GOHg5/9MbTsNjZZOj/o/BSA==}
+  '@pmndrs/labs@0.4.0':
+    resolution: {integrity: sha512-4vH+1FThYo6s/c2Hktf7RfZms8vtH7tv6Txo1yq3rvNsxpfBtzNPBw6HeRYhAg4Ye8zIlGmG2eCmhytYNA0n9A==}
     engines: {node: '>=25.0.0', pnpm: '>=10.0.0'}
     hasBin: true
 
@@ -1774,9 +1749,6 @@ packages:
   micromatch@4.0.8:
     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
     engines: {node: '>=8.6'}
-
-  mitata@1.0.34:
-    resolution: {integrity: sha512-Mc3zrtNBKIMeHSCQ0XqRLo1vbdIx1wvFV9c8NJAiyho6AjNfMY8bVhbS12bwciUdd1t4rj8099CH3N3NFahaUA==}
 
   mlly@1.8.0:
     resolution: {integrity: sha512-l8D9ODSRWLe2KHJSifWGwBqpTZXIXTeo8mlKjY+E2HAakaTeNpqAyBZ8GSqLzHgw4XmHmC8whvpjJNMbFZN7/g==}
@@ -2710,10 +2682,9 @@ snapshots:
   '@oxlint/win32-x64@1.39.0':
     optional: true
 
-  '@pmndrs/labs@0.3.0':
+  '@pmndrs/labs@0.4.0':
     dependencies:
       '@clack/prompts': 1.0.1
-      mitata: 1.0.34
       tsx: 4.21.0
 
   '@react-three/drei@10.7.7(@react-three/fiber@9.4.2(@types/react@19.2.6)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.181.2))(@types/react@19.2.6)(@types/three@0.181.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(three@0.181.2)':
@@ -3432,8 +3403,6 @@ snapshots:
     dependencies:
       braces: 3.0.3
       picomatch: 2.3.1
-
-  mitata@1.0.34: {}
 
   mlly@1.8.0:
     dependencies:
