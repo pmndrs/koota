@@ -342,6 +342,46 @@ describe('Relation', () => {
         expect(visited).toContain(child3);
     });
 
+    it('should return a new reference for each query', () => {
+        const ChildOf = relation();
+
+        const parent = world.spawn();
+        const otherParent = world.spawn();
+        world.spawn(ChildOf(parent));
+
+        // A unique reference so each query passes an immutability test
+        const first = world.query(ChildOf(parent));
+        const second = world.query(ChildOf(parent));
+        expect(first).not.toBe(second);
+
+        // Expect if it is empty!
+        const emptyFirst = world.query(ChildOf(otherParent));
+        const emptySecond = world.query(ChildOf(otherParent));
+        expect(emptyFirst).toBe(emptySecond);
+    });
+
+    it('relation-only queries should tolerate relation removal during iteration', () => {
+        const ChildOf = relation();
+
+        const parent = world.spawn();
+        const child1 = world.spawn(ChildOf(parent));
+        const child2 = world.spawn(ChildOf(parent));
+        const child3 = world.spawn(ChildOf(parent));
+
+        const visited: number[] = [];
+        world.query(ChildOf(parent)).updateEach((state, entity) => {
+            expect(state).toEqual([]);
+            visited.push(entity);
+            entity.remove(ChildOf(parent));
+        });
+
+        expect(visited).toHaveLength(3);
+        expect(visited).toContain(child1);
+        expect(visited).toContain(child2);
+        expect(visited).toContain(child3);
+        expect(world.query(ChildOf(parent))).toHaveLength(0);
+    });
+
     it('queries should support relations with modifiers and traits', () => {
         const ChildOf = relation();
         const Weapon = trait();

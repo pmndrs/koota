@@ -130,7 +130,7 @@ export function createWorld(
         },
 
         destroy() {
-            // Destroy world entity.
+            // Destroy world entity.`
             destroyEntity(world, world[$internal].worldEntity);
             world[$internal].worldEntity = null!;
 
@@ -220,7 +220,7 @@ export function createWorld(
                             relation as Relation<Trait>,
                             target as Entity
                         );
-                        return createRelationOnlyQueryResult((entities as Entity[]).slice());
+                        return createRelationOnlyQueryResult(entities as Entity[]);
                     }
                 }
 

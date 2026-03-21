@@ -51,14 +51,22 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
         autoDestroy,
     };
 
-    // The relation function creates a pair when called with a target
+    // Cache parameterless entity-target pairs. This is a hot path for
+    // relation-only queries like world.query(ChildOf(parent)).
+    const pairCache: Array<RelationPair<Trait<S>> | undefined> = [];
+
     function relationFn(
         target: RelationTarget,
         params?: Record<string, unknown>
     ): RelationPair<Trait<S>> {
         if (target === undefined) throw Error('Relation target is undefined');
 
-        return {
+        if (params === undefined && typeof target === 'number') {
+            const cached = pairCache[target];
+            if (cached) return cached;
+        }
+
+        const pair = {
             [$relationPair]: true,
             [$internal]: {
                 relation: relationFn as Relation<Trait<S>>,
@@ -66,6 +74,12 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
                 params,
             },
         } as RelationPair<Trait<S>>;
+
+        if (params === undefined && typeof target === 'number') {
+            pairCache[target] = pair;
+        }
+
+        return pair;
     }
 
     const relation = Object.assign(relationFn, {
@@ -87,6 +101,99 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
 }
 
 export const relation = createRelation;
+
+const EMPTY_ENTITY_ARRAY: readonly Entity[] = Object.freeze([]) as readonly Entity[];
+
+function ensureReverseRelationIndex(traitData: TraitInstance, exclusive: boolean) {
+    traitData.relationSourcesByTarget ??= [];
+    traitData.relationSourcePositions ??= [];
+    if (!exclusive) {
+        traitData.relationSourceSlotsByTarget ??= [];
+    }
+}
+
+function addEntityToReverseRelationIndex(
+    traitData: TraitInstance,
+    exclusive: boolean,
+    entity: Entity,
+    target: Entity,
+    targetSlot: number
+) {
+    ensureReverseRelationIndex(traitData, exclusive);
+
+    const targetId = getEntityId(target);
+    const sourceId = getEntityId(entity);
+    const bucket = (traitData.relationSourcesByTarget![targetId] ??= []);
+    const bucketIndex = bucket.length;
+    bucket.push(entity);
+
+    if (exclusive) {
+        (traitData.relationSourcePositions as number[])[sourceId] = bucketIndex;
+        return;
+    }
+
+    const sourcePositions = ((traitData.relationSourcePositions as number[][])[sourceId] ??= []);
+    sourcePositions[targetSlot] = bucketIndex;
+    ((traitData.relationSourceSlotsByTarget as number[][])[targetId] ??= []).push(targetSlot);
+}
+
+function removeEntityFromReverseRelationIndex(
+    traitData: TraitInstance,
+    exclusive: boolean,
+    entity: Entity,
+    target: Entity,
+    targetSlot: number
+) {
+    const buckets = traitData.relationSourcesByTarget;
+    const sourcePositions = traitData.relationSourcePositions;
+    if (!buckets || !sourcePositions) return;
+
+    const targetId = getEntityId(target);
+    const sourceId = getEntityId(entity);
+    const bucket = buckets[targetId];
+    if (!bucket || bucket.length === 0) return;
+
+    const bucketIndex = exclusive
+        ? (sourcePositions as number[])[sourceId]
+        : (sourcePositions as number[][])[sourceId]?.[targetSlot];
+
+    if (bucketIndex === undefined) {
+        throw new Error('Reverse relation index is out of sync');
+    }
+
+    const lastBucketIndex = bucket.length - 1;
+    if (bucketIndex !== lastBucketIndex) {
+        const swappedSource = bucket[lastBucketIndex];
+        const swappedSourceId = getEntityId(swappedSource);
+        bucket[bucketIndex] = swappedSource;
+
+        if (exclusive) {
+            (sourcePositions as number[])[swappedSourceId] = bucketIndex;
+        } else {
+            const targetSlots = traitData.relationSourceSlotsByTarget?.[targetId];
+            const swappedSourcePositions = (sourcePositions as number[][])[swappedSourceId];
+            if (!targetSlots || !swappedSourcePositions) {
+                throw new Error('Reverse relation index is out of sync');
+            }
+            const swappedSourceSlot = targetSlots[lastBucketIndex];
+            targetSlots[bucketIndex] = swappedSourceSlot;
+            swappedSourcePositions[swappedSourceSlot] = bucketIndex;
+        }
+    }
+
+    bucket.pop();
+
+    if (exclusive) {
+        delete (sourcePositions as number[])[sourceId];
+        return;
+    }
+
+    const targetSlots = traitData.relationSourceSlotsByTarget?.[targetId];
+    if (!targetSlots) {
+        throw new Error('Reverse relation index is out of sync');
+    }
+    targetSlots.pop();
+}
 
 /**
  * Get the targets for a relation on an entity.
@@ -222,11 +329,11 @@ export function addRelationTarget(
 
     if (relationCtx.exclusive) {
         const targets = traitData.relationTargets as Array<Entity | undefined>;
+        const previousTarget = targets[eid];
         // No-op if unchanged
-        if (targets[eid] === target) return -1;
-        const oldTarget = targets[eid];
-        if (oldTarget !== undefined) {
-            removeFromRelationSources(traitData, entity, oldTarget as Entity);
+        if (previousTarget === target) return -1;
+        if (previousTarget !== undefined) {
+            removeEntityFromReverseRelationIndex(traitData, true, entity, previousTarget, 0);
         }
         targets[eid] = target;
         targetIndex = 0;
@@ -246,7 +353,7 @@ export function addRelationTarget(
         targetsArray[eid].push(target);
     }
 
-    addToRelationSources(traitData, entity, target);
+    addEntityToReverseRelationIndex(traitData, relationCtx.exclusive, entity, target, targetIndex);
     updateQueriesForRelationChange(world, relation, entity);
 
     return targetIndex;
@@ -277,6 +384,7 @@ export function removeRelationTarget(
     if (relationCtx.exclusive) {
         const targets = data.relationTargets as Array<Entity | undefined>;
         if (targets[eid] === target) {
+            removeEntityFromReverseRelationIndex(data, true, entity, target, 0);
             targets[eid] = undefined;
             removedIndex = 0;
             hasRemainingTargets = false;
@@ -289,10 +397,16 @@ export function removeRelationTarget(
             const idx = entityTargets.indexOf(target);
             if (idx !== -1) {
                 const lastIdx = entityTargets.length - 1;
+                const sourcePositions = (data.relationSourcePositions as number[][] | undefined)?.[eid];
+                removeEntityFromReverseRelationIndex(data, false, entity, target, idx);
                 if (idx !== lastIdx) {
                     entityTargets[idx] = entityTargets[lastIdx];
+                    if (sourcePositions) {
+                        sourcePositions[idx] = sourcePositions[lastIdx];
+                    }
                 }
                 entityTargets.pop();
+                sourcePositions?.pop();
                 swapAndPopRelationData(data.store, relationTrait[$internal].type, eid, idx, lastIdx);
                 removedIndex = idx;
                 hasRemainingTargets = entityTargets.length > 0;
@@ -300,10 +414,7 @@ export function removeRelationTarget(
         }
     }
 
-    if (removedIndex !== -1) {
-        removeFromRelationSources(data, entity, target);
-        updateQueriesForRelationChange(world, relation, entity);
-    }
+    if (removedIndex !== -1) updateQueriesForRelationChange(world, relation, entity);
 
     const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
     return { removedIndex, wasLastTarget };
@@ -394,59 +505,22 @@ export function removeAllRelationTargets(
     }
 }
 
-function addToRelationSources(traitData: TraitInstance, source: Entity, target: Entity): void {
-    const targetEid = getEntityId(target);
-    let sources = traitData.relationSources;
-    if (!sources) {
-        sources = [];
-        traitData.relationSources = sources;
-    }
-    const bucket = sources[targetEid];
-    if (bucket === undefined) {
-        sources[targetEid] = [source as number] as Entity[];
-    } else {
-        (bucket as number[]).push(source as number);
-    }
-}
-
-function removeFromRelationSources(traitData: TraitInstance, source: Entity, target: Entity): void {
-    const sources = traitData.relationSources;
-    if (sources === undefined) return;
-    const bucket = sources[getEntityId(target)];
-    if (bucket === undefined) return;
-    const idx = (bucket as number[]).indexOf(source as number);
-    if (idx === -1) return;
-    const lastIdx = bucket.length - 1;
-    if (idx !== lastIdx) {
-        bucket[idx] = bucket[lastIdx];
-    }
-    bucket.length = lastIdx;
-}
-
-const EMPTY: readonly Entity[] = [];
-
 /**
  * Get all entities that have a specific relation targeting a specific entity.
- * O(1) lookup via reverse index maintained alongside relationTargets.
- * Returns the live backing array — callers must not mutate it.
- * Iterate backward if the loop body may remove relations (swap-and-pop safe).
+ * Returns a fresh snapshot so callers can safely iterate while relations mutate.
  */
 export function getEntitiesWithRelationTo(
-    _world: World,
+    world: World,
     relation: Relation<Trait>,
     target: Entity
 ): readonly Entity[] {
+    const ctx = world[$internal];
+    if (!world.has(target)) return EMPTY_ENTITY_ARRAY;
+
     const baseTrait = relation[$internal].trait;
-    const traitData = getTraitInstance(_world[$internal].traitInstances, baseTrait);
-    if (!traitData) return EMPTY;
-
-    const sources = traitData.relationSources;
-    if (sources === undefined) return EMPTY;
-
-    const bucket = sources[getEntityId(target)];
-    if (bucket === undefined || bucket.length === 0) return EMPTY;
-
-    return bucket as Entity[];
+    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+    if (!traitData?.relationSourcesByTarget) return EMPTY_ENTITY_ARRAY;
+    return traitData.relationSourcesByTarget[getEntityId(target)]?.slice() ?? EMPTY_ENTITY_ARRAY;
 }
 
 /**
