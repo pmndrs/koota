@@ -103,12 +103,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
      * For non-exclusive: relationTargets[eid] = [targetId1, targetId2, ...] (number[])
      */
     relationTargets?: number[] | number[][];
-    /** Reverse relation index keyed by target entity ID. Each bucket stores sources pointing at that target. */
+    /** Reverse index: target entity ID → source entities pointing at it. */
     relationSourcesByTarget?: Entity[][];
-    /** Source-side slot -> reverse bucket position. */
-    relationSourcePositions?: number[] | number[][];
-    /** Reverse bucket entry -> source-side slot for non-exclusive relations. */
-    relationSourceSlotsByTarget?: number[][];
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;
