@@ -1,5 +1,6 @@
 import {
     $internal,
+    shallowEqual,
     type Entity,
     type RelationPair,
     type Trait,
@@ -34,7 +35,14 @@ export function useTrait<T extends Trait>(
     useEffect(() => {
         if (!memo) return;
 
+        let initialized = false;
         const unsub = memo.subscribe((value) => {
+            if (!initialized) {
+                // Skip the initial sync call if the value is the same
+                // reference already read during render.
+                initialized = true;
+                if (shallowEqual(value, valueRef.current)) return;
+            }
             valueRef.current = value;
             forceUpdate();
         });
