@@ -72,8 +72,8 @@ importers:
   benches:
     dependencies:
       '@pmndrs/labs':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.5.0
+        version: 0.5.0
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
@@ -988,8 +988,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@pmndrs/labs@0.4.0':
-    resolution: {integrity: sha512-4vH+1FThYo6s/c2Hktf7RfZms8vtH7tv6Txo1yq3rvNsxpfBtzNPBw6HeRYhAg4Ye8zIlGmG2eCmhytYNA0n9A==}
+  '@pmndrs/labs@0.5.0':
+    resolution: {integrity: sha512-ZkC9Yaq2jLEti4YKj/SaYu0lJJAZVsBmkcaOQ1okU3BHlg0JLvuAU/m6LF0Wd+pf867mjJosGmTrYnCiacxhvg==}
     engines: {node: '>=25.0.0', pnpm: '>=10.0.0'}
     hasBin: true
 
@@ -2682,7 +2682,7 @@ snapshots:
   '@oxlint/win32-x64@1.39.0':
     optional: true
 
-  '@pmndrs/labs@0.4.0':
+  '@pmndrs/labs@0.5.0':
     dependencies:
       '@clack/prompts': 1.0.1
       tsx: 4.21.0
