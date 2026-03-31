@@ -2,6 +2,102 @@ import { bench, group } from '@pmndrs/labs';
 import { createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
+const Velocity = trait({ vx: 0, vy: 0, vz: 0 });
+
+group('spawn throughput 50k @entity', () => {
+	bench('bare spawn (no traits)', function* () {
+		const world = createWorld();
+
+		yield () => {
+			for (let i = 0; i < 50_000; i++) {
+				world.spawn();
+			}
+		};
+
+		world.destroy();
+	}).gc('inner');
+
+	bench('spawn with 1 trait', function* () {
+		const world = createWorld();
+
+		yield () => {
+			for (let i = 0; i < 50_000; i++) {
+				world.spawn(Position);
+			}
+		};
+
+		world.destroy();
+	}).gc('inner');
+});
+
+group('entity.has dispatch 10k @entity', () => {
+	bench('entity.has (true)', function* () {
+		const world = createWorld();
+		const entities: Entity[] = [];
+		for (let i = 0; i < 10_000; i++) {
+			entities.push(world.spawn(Position));
+		}
+
+		yield () => {
+			for (let i = 0; i < entities.length; i++) {
+				entities[i].has(Position);
+			}
+		};
+
+		world.destroy();
+	}).gc('inner');
+
+	bench('entity.has (false)', function* () {
+		const world = createWorld();
+		const entities: Entity[] = [];
+		for (let i = 0; i < 10_000; i++) {
+			entities.push(world.spawn(Position));
+		}
+
+		yield () => {
+			for (let i = 0; i < entities.length; i++) {
+				entities[i].has(Velocity);
+			}
+		};
+
+		world.destroy();
+	}).gc('inner');
+});
+
+group('entity.destroy 10k @entity', () => {
+	bench('destroy entities', function* () {
+		const world = createWorld();
+		const entities: Entity[] = [];
+		for (let i = 0; i < 10_000; i++) {
+			entities.push(world.spawn(Position));
+		}
+
+		yield () => {
+			for (let i = 0; i < entities.length; i++) {
+				entities[i].destroy();
+			}
+		};
+
+		world.destroy();
+	}).gc('inner');
+
+	bench('destroy entities with 3 traits', function* () {
+		const world = createWorld();
+		const Tag = trait();
+		const entities: Entity[] = [];
+		for (let i = 0; i < 10_000; i++) {
+			entities.push(world.spawn(Position, Velocity, Tag));
+		}
+
+		yield () => {
+			for (let i = 0; i < entities.length; i++) {
+				entities[i].destroy();
+			}
+		};
+
+		world.destroy();
+	}).gc('inner');
+});
 
 group('entity get set 10k @entity', () => {
 	bench('entity.get', function* () {
