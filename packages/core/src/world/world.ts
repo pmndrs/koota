@@ -130,7 +130,7 @@ export function createWorld(
         },
 
         destroy() {
-            // Destroy world entity.`
+            // Destroy world entity.
             destroyEntity(world, world[$internal].worldEntity);
             world[$internal].worldEntity = null!;
 
