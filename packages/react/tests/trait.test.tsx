@@ -2,7 +2,6 @@ import {
     createWorld,
     relation,
     trait,
-    universe,
     type Entity,
     type TraitRecord,
     type World,
@@ -25,7 +24,6 @@ const IsTagged = trait();
 
 describe('useTrait', () => {
     beforeEach(() => {
-        universe.reset();
         world = createWorld();
     });
 
@@ -354,7 +352,6 @@ describe('useTrait', () => {
 
 describe('useTag', () => {
     beforeEach(() => {
-        universe.reset();
         world = createWorld();
     });
 
@@ -490,7 +487,6 @@ describe('useTag', () => {
 
 describe('useHas', () => {
     beforeEach(() => {
-        universe.reset();
         world = createWorld();
     });
 
@@ -679,7 +675,6 @@ describe('useHas', () => {
 
 describe('useTraitEffect', () => {
     beforeEach(() => {
-        universe.reset();
         world = createWorld();
     });
 

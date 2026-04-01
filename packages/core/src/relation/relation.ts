@@ -1,5 +1,6 @@
 import { $internal } from '../common';
-import type { Entity } from '../entity/types';
+import type { RawEntity } from '../entity/types';
+import { toRawEntity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { Schema } from '../storage';
@@ -9,6 +10,8 @@ import type { Trait } from '../trait/types';
 import type { World } from '../world';
 import type { Relation, RelationPair, RelationTarget } from './types';
 import { $relation, $relationPair } from './symbols';
+
+type Entity = RawEntity;
 
 /**
  * Creates a relation definition.
@@ -62,7 +65,7 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
             [$relationPair]: true,
             [$internal]: {
                 relation: relationFn as Relation<Trait<S>>,
-                target,
+                target: target === '*' ? target : toRawEntity(target),
                 params,
             },
         } as RelationPair<Trait<S>>;

@@ -1,4 +1,4 @@
-import type { Entity } from '../entity/types';
+import type { Entity, RawEntity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory } from '../storage';
 import type {
@@ -23,7 +23,8 @@ export type QueryResultOptions = {
     changeDetection?: 'always' | 'auto' | 'never';
 };
 
-export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
+export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly RawEntity[] & {
+    readonly raw: readonly RawEntity[];
     readEach: (
         callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
     ) => QueryResult<T>;
@@ -32,10 +33,10 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
         options?: QueryResultOptions
     ) => QueryResult<T>;
     useStores: (
-        callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
+        callback: (stores: StoresFromParameters<T>, entities: readonly RawEntity[]) => void
     ) => QueryResult<T>;
     select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
-    sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
+    sort(callback?: (a: RawEntity, b: RawEntity) => number): QueryResult<T>;
 };
 
 type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
@@ -136,6 +137,9 @@ export type TrackingGroup = {
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     version: number;
+    cachedResultVersion: number;
+    cachedResult?: QueryResult<T>;
+    cachedResultKey?: string;
     world: World;
     parameters: T;
     hash: QueryHash;
@@ -166,12 +170,12 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     /** Relation pairs for target-specific queries */
     relationFilters?: RelationPair[];
     run: (world: World, params: QueryParameter[]) => QueryResult<T>;
-    add: (entity: Entity) => void;
-    remove: (world: World, entity: Entity) => void;
-    check: (world: World, entity: Entity) => boolean;
+    add: (entity: RawEntity) => void;
+    remove: (world: World, entity: RawEntity) => void;
+    check: (world: World, entity: RawEntity) => boolean;
     checkTracking: (
         world: World,
-        entity: Entity,
+        entity: RawEntity,
         eventType: 'add' | 'remove' | 'change',
         generationId: number,
         bitflag: number

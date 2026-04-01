@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorld, Not, relation, trait } from '../src';
+const raw = (entity: { raw: number }) => entity.raw;
 
 describe('Relation', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();
@@ -154,20 +154,20 @@ describe('Relation', () => {
 
         let relations = world.query(Contains('*'));
         expect(relations.length).toBe(1);
-        expect(relations).toContain(inventory);
+        expect(relations).toContain(raw(inventory));
 
         shop.add(Contains(gold));
 
         relations = world.query(Contains('*'));
         expect(relations.length).toBe(2);
-        expect(relations).toContain(inventory);
-        expect(relations).toContain(shop);
+        expect(relations).toContain(raw(inventory));
+        expect(relations).toContain(raw(shop));
 
         // Wildcard '*' should return all entities with Contains relation
         relations = world.query(Contains('*'));
         expect(relations.length).toBe(2);
-        expect(relations).toContain(inventory);
-        expect(relations).toContain(shop);
+        expect(relations).toContain(raw(inventory));
+        expect(relations).toContain(raw(shop));
     });
 
     it('should query a specific relation targeting an entity', () => {
@@ -182,11 +182,11 @@ describe('Relation', () => {
         const childrenOfChild2 = world.query(ChildOf(child2));
 
         expect(childrenOfRoot.length).toBe(2);
-        expect(childrenOfRoot).toContain(child1);
-        expect(childrenOfRoot).toContain(child2);
+        expect(childrenOfRoot).toContain(raw(child1));
+        expect(childrenOfRoot).toContain(raw(child2));
 
         expect(childrenOfChild2.length).toBe(1);
-        expect(childrenOfChild2).toContain(leaf);
+        expect(childrenOfChild2).toContain(raw(leaf));
     });
 
     it('should correctly remove targets when they are destroyed', () => {
@@ -239,14 +239,14 @@ describe('Relation', () => {
         const child = world.spawn(Parent(parentA));
 
         expect(world.query(Parent(parentA))).toHaveLength(1);
-        expect(world.query(Parent(parentA))).toContain(child);
+        expect(world.query(Parent(parentA))).toContain(raw(child));
         expect(world.query(Parent(parentB))).toHaveLength(0);
 
         child.add(Parent(parentB));
 
         expect(world.query(Parent(parentA))).toHaveLength(0);
         expect(world.query(Parent(parentB))).toHaveLength(1);
-        expect(world.query(Parent(parentB))).toContain(child);
+        expect(world.query(Parent(parentB))).toContain(raw(child));
 
         child.remove(Parent(parentB));
 
@@ -355,14 +355,14 @@ describe('Relation', () => {
         // updateEach should work but with empty state array
         world.query(ChildOf(parent)).updateEach((state, entity, index) => {
             expect(state).toEqual([]);
-            visited.push(entity);
+            visited.push(entity.raw);
             expect(index).toBe(visited.length - 1);
         });
 
         expect(visited.length).toBe(3);
-        expect(visited).toContain(child1);
-        expect(visited).toContain(child2);
-        expect(visited).toContain(child3);
+        expect(visited).toContain(raw(child1));
+        expect(visited).toContain(raw(child2));
+        expect(visited).toContain(raw(child3));
     });
 
     it('queries should support relations with modifiers and traits', () => {
@@ -377,13 +377,13 @@ describe('Relation', () => {
         const notResult = world.query(ChildOf(parent), Not(Weapon));
 
         expect(notResult.length).toBe(1);
-        expect(notResult).toContain(child2);
-        expect(notResult).not.toContain(child1);
+        expect(notResult).toContain(raw(child2));
+        expect(notResult).not.toContain(raw(child1));
 
         const weaponResult = world.query(ChildOf(parent), Weapon);
         expect(weaponResult.length).toBe(1);
-        expect(weaponResult).toContain(child1);
-        expect(weaponResult).not.toContain(child2);
+        expect(weaponResult).toContain(raw(child1));
+        expect(weaponResult).not.toContain(raw(child2));
     });
 
     it('should emit add/remove events for each pair', () => {
@@ -396,25 +396,29 @@ describe('Relation', () => {
         const adds: Array<{ entity: number; target?: number }> = [];
         const removes: Array<{ entity: number; target?: number }> = [];
 
-        const unsubAdd = world.onAdd(Likes, (e, t) => adds.push({ entity: e, target: t }));
-        const unsubRemove = world.onRemove(Likes, (e, t) => removes.push({ entity: e, target: t }));
+        const unsubAdd = world.onAdd(Likes, (e, t) =>
+            adds.push({ entity: e.raw, target: t?.raw })
+        );
+        const unsubRemove = world.onRemove(Likes, (e, t) =>
+            removes.push({ entity: e.raw, target: t?.raw })
+        );
 
         // First add: fires add event for pair (subject, a)
         subject.add(Likes(targetA));
-        expect(adds).toEqual([{ entity: subject, target: targetA }]);
+        expect(adds).toEqual([{ entity: raw(subject), target: raw(targetA) }]);
         expect(removes).toEqual([]);
 
         // Second add: fires add event for pair (subject, b)
         subject.add(Likes(targetB));
         expect(adds).toEqual([
-            { entity: subject, target: targetA },
-            { entity: subject, target: targetB },
+            { entity: raw(subject), target: raw(targetA) },
+            { entity: raw(subject), target: raw(targetB) },
         ]);
         expect(subject.targetsFor(Likes).sort()).toEqual([targetA, targetB].sort());
 
         // Remove one target: fires remove event for pair (subject, a)
         subject.remove(Likes(targetA));
-        expect(removes).toEqual([{ entity: subject, target: targetA }]);
+        expect(removes).toEqual([{ entity: raw(subject), target: raw(targetA) }]);
         expect(subject.targetsFor(Likes)).toEqual([targetB]);
 
         unsubAdd();
@@ -431,19 +435,23 @@ describe('Relation', () => {
         const adds: Array<{ entity: number; target?: number }> = [];
         const removes: Array<{ entity: number; target?: number }> = [];
 
-        const unsubAdd = world.onAdd(Parent, (e, t) => adds.push({ entity: e, target: t }));
-        const unsubRemove = world.onRemove(Parent, (e, t) => removes.push({ entity: e, target: t }));
+        const unsubAdd = world.onAdd(Parent, (e, t) =>
+            adds.push({ entity: e.raw, target: t?.raw })
+        );
+        const unsubRemove = world.onRemove(Parent, (e, t) =>
+            removes.push({ entity: e.raw, target: t?.raw })
+        );
 
         // First add
         subject.add(Parent(targetA));
-        expect(adds).toEqual([{ entity: subject, target: targetA }]);
+        expect(adds).toEqual([{ entity: raw(subject), target: raw(targetA) }]);
 
         // Switch targets: should fire remove for old, add for new
         subject.add(Parent(targetB));
-        expect(removes).toEqual([{ entity: subject, target: targetA }]);
+        expect(removes).toEqual([{ entity: raw(subject), target: raw(targetA) }]);
         expect(adds).toEqual([
-            { entity: subject, target: targetA },
-            { entity: subject, target: targetB },
+            { entity: raw(subject), target: raw(targetA) },
+            { entity: raw(subject), target: raw(targetB) },
         ]);
         expect(subject.targetFor(Parent)).toBe(targetB);
 
@@ -580,7 +588,9 @@ describe('Relation', () => {
         const ChildOf = relation({ store: { order: 0 } });
 
         const changes: Array<{ entity: number; target?: number }> = [];
-        const unsub = world.onChange(ChildOf, (e, t) => changes.push({ entity: e, target: t }));
+        const unsub = world.onChange(ChildOf, (e, t) =>
+            changes.push({ entity: e.raw, target: t?.raw })
+        );
 
         const parent = world.spawn();
         const child = world.spawn(ChildOf(parent));
@@ -589,13 +599,13 @@ describe('Relation', () => {
 
         // Update relation store
         child.set(ChildOf(parent), { order: 1 });
-        expect(changes).toEqual([{ entity: child, target: parent }]);
+        expect(changes).toEqual([{ entity: raw(child), target: raw(parent) }]);
 
         // Update again
         child.set(ChildOf(parent), { order: 2 });
         expect(changes).toEqual([
-            { entity: child, target: parent },
-            { entity: child, target: parent },
+            { entity: raw(child), target: raw(parent) },
+            { entity: raw(child), target: raw(parent) },
         ]);
 
         unsub();

@@ -1,7 +1,7 @@
-import { createWorld, universe, type World } from '@koota/core';
+import { createWorld, type World } from '@koota/core';
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useMemo } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { useWorld, WorldProvider } from '../src';
 
 declare global {
@@ -11,15 +11,9 @@ declare global {
 // Let React know that we'll be testing effectful components
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
-let world: World;
-
 describe('World', () => {
-    beforeEach(() => {
-        universe.reset();
-        world = createWorld();
-    });
-
     it('provides a world to its children', async () => {
+        const world = createWorld();
         let worldTest: World | null = null;
 
         function Test() {
@@ -40,16 +34,13 @@ describe('World', () => {
         expect(worldTest).toBe(world);
     });
 
-    it('can lazy init to create a world in useMemo', () => {
-        universe.reset();
-
+    it('can create a world in useMemo', () => {
         let worldTest: World = null!;
 
         function Test() {
-            worldTest = useMemo(() => createWorld({ lazy: true }), []);
+            worldTest = useMemo(() => createWorld(), []);
 
             useEffect(() => {
-                worldTest.init();
                 return () => worldTest.destroy();
             }, [worldTest]);
 
@@ -63,7 +54,5 @@ describe('World', () => {
         );
 
         expect(worldTest).toBeDefined();
-        expect(worldTest!.isInitialized).toBe(true);
-        expect(universe.worlds.length).toBe(1);
     });
 });

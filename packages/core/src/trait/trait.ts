@@ -1,5 +1,6 @@
 import { $internal } from '../common';
-import type { Entity } from '../entity/types';
+import { createEntityHandle } from '../entity/entity-handle';
+import type { RawEntity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
@@ -43,6 +44,8 @@ import type {
     TraitInstance,
     TraitValue,
 } from './types';
+
+type Entity = RawEntity;
 
 // No reason to create a new object every time a tag trait is created.
 const tagSchema = Object.freeze({});
@@ -169,7 +172,8 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
         }
 
         // Call add subscriptions after values are set
-        for (const sub of data.addSubscriptions) sub(entity);
+        const source = createEntityHandle(world, entity);
+        for (const sub of data.addSubscriptions) sub(source);
     }
 }
 
@@ -198,7 +202,9 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
         if (oldTarget !== undefined && oldTarget !== target) {
             const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
             if (instance) {
-                for (const sub of instance.removeSubscriptions) sub(entity, oldTarget);
+                const source = createEntityHandle(world, entity);
+                const oldTargetHandle = createEntityHandle(world, oldTarget);
+                for (const sub of instance.removeSubscriptions) sub(source, oldTargetHandle);
             }
             removeRelationTarget(world, relation, entity, oldTarget);
         }
@@ -221,7 +227,9 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
 
     // Fire add subscription for this pair
     instance = instance ?? getTraitInstance(world[$internal].traitInstances, relationTrait)!;
-    for (const sub of instance.addSubscriptions) sub(entity, target);
+    const source = createEntityHandle(world, entity);
+    const targetHandle = createEntityHandle(world, target);
+    for (const sub of instance.addSubscriptions) sub(source, targetHandle);
 }
 
 export function removeTrait(world: World, entity: Entity, ...traits: (Trait | RelationPair)[]) {
@@ -243,7 +251,9 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
             if (instance) {
                 const targets = getRelationTargets(world, traitCtx.relation, entity);
                 for (const t of targets) {
-                    for (const sub of instance.removeSubscriptions) sub(entity, t);
+                    const source = createEntityHandle(world, entity);
+                    const targetHandle = createEntityHandle(world, t);
+                    for (const sub of instance.removeSubscriptions) sub(source, targetHandle);
                 }
             }
             removeAllRelationTargets(world, traitCtx.relation, entity);
@@ -251,7 +261,8 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
             // Regular trait: emit generic remove
             const instance = getTraitInstance(world[$internal].traitInstances, trait);
             if (instance) {
-                for (const sub of instance.removeSubscriptions) sub(entity);
+                const source = createEntityHandle(world, entity);
+                for (const sub of instance.removeSubscriptions) sub(source);
             }
         }
 
@@ -273,7 +284,9 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
         if (instance) {
             const targets = getRelationTargets(world, relation, entity);
             for (const t of targets) {
-                for (const sub of instance.removeSubscriptions) sub(entity, t);
+                const source = createEntityHandle(world, entity);
+                const targetHandle = createEntityHandle(world, t);
+                for (const sub of instance.removeSubscriptions) sub(source, targetHandle);
             }
         }
         removeAllRelationTargets(world, relation, entity);
@@ -283,7 +296,9 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 
     if (typeof target === 'number') {
         if (instance) {
-            for (const sub of instance.removeSubscriptions) sub(entity, target);
+            const source = createEntityHandle(world, entity);
+            const targetHandle = createEntityHandle(world, target);
+            for (const sub of instance.removeSubscriptions) sub(source, targetHandle);
         }
 
         const { removedIndex, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
@@ -307,7 +322,9 @@ export function cleanupRelationTarget(
 
     const instance = getTraitInstance(world[$internal].traitInstances, relationTrait);
     if (instance) {
-        for (const sub of instance.removeSubscriptions) sub(entity, target);
+        const source = createEntityHandle(world, entity);
+        const targetHandle = createEntityHandle(world, target);
+        for (const sub of instance.removeSubscriptions) sub(source, targetHandle);
     }
 
     const { removedIndex, wasLastTarget } = removeRelationTarget(world, relation, entity, target);
@@ -475,7 +492,7 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     }
 
     // Add trait to entity internally
-    ctx.entityTraits.get(entity)!.add(trait);
+    ctx.entityTraits[eid]!.add(trait);
 
     return instance;
 }
@@ -530,5 +547,5 @@ function removeTraitFromEntity(world: World, entity: Entity, trait: Trait): void
     }
 
     // Remove trait from entity internally
-    ctx.entityTraits.get(entity)!.delete(trait);
+    ctx.entityTraits[eid]!.delete(trait);
 }

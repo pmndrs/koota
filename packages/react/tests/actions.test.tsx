@@ -1,4 +1,4 @@
-import { createActions, createWorld, type Entity, trait, universe, type World } from '@koota/core';
+import { createActions, createWorld, type Entity, trait, type World } from '@koota/core';
 import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -16,7 +16,6 @@ const Position = trait({ x: 0, y: 0 });
 
 describe('useActions', () => {
     beforeEach(() => {
-        universe.reset();
         world = createWorld();
     });
 

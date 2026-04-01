@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createChanged, createWorld, ordered, relation } from '../src';
+const raw = (entity: { raw: number }) => entity.raw;
 
 describe('Ordered relations', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();
@@ -286,7 +286,7 @@ describe('Ordered relations', () => {
         const child = world.spawn(OrderedChildren, ChildOf(parent));
 
         // Verify initial state
-        expect(world.query(ChildOf(grandparent))).toContain(parent);
+        expect(world.query(ChildOf(grandparent))).toContain(raw(parent));
         expect(world.query(ChildOf(grandparent))).toHaveLength(1);
 
         // Destroy parent - cascades to child via autoDestroy: 'orphan'
@@ -317,7 +317,7 @@ describe('Ordered relations', () => {
 
         // Push should flag as changed
         children.push(child1);
-        expect(world.query(Changed(OrderedChildren))).toContain(parent);
+        expect(world.query(Changed(OrderedChildren))).toContain(raw(parent));
 
         // Query consumed the change, should be empty now
         expect(world.query(Changed(OrderedChildren))).toHaveLength(0);
@@ -326,6 +326,6 @@ describe('Ordered relations', () => {
         children.push(child2);
         world.query(Changed(OrderedChildren));
         children.pop();
-        expect(world.query(Changed(OrderedChildren))).toContain(parent);
+        expect(world.query(Changed(OrderedChildren))).toContain(raw(parent));
     });
 });

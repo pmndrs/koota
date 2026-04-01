@@ -1,26 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, type TraitRecord, trait, universe } from '../src';
+import { createWorld, relation, type TraitRecord, trait } from '../src';
 
 describe('World', () => {
-    beforeEach(() => {
-        universe.reset();
-    });
-
     it('should create a world', () => {
-        // World inits on creation.
         const world = createWorld();
 
-        expect(world.isInitialized).toBe(true);
-        expect(world.id).toBe(0);
-        expect(universe.worlds[0]!).toBe(world);
-        expect(universe.worldIndex.worldCursor).toBe(1);
+        expect(typeof world.id).toBe('number');
     });
 
-    it('should optionaly init lazily', () => {
-        const world = createWorld({ lazy: true });
-        expect(world.isInitialized).toBe(false);
-        world.init();
-        expect(world.isInitialized).toBe(true);
+    it('should always be initialized after creation', () => {
+        const world = createWorld();
+        expect(world).toBeDefined();
+        expect(world.entities.length).toBe(1);
     });
 
     it('should reset the world', () => {
@@ -65,22 +56,18 @@ describe('World', () => {
         expect(() => world.destroy()).not.toThrow();
     });
 
-    it('errors if more than 16 worlds are created', () => {
-        for (let i = 0; i < 16; i++) {
-            createWorld();
+    it('should create unlimited worlds', () => {
+        const worlds = [];
+        for (let i = 0; i < 20; i++) {
+            worlds.push(createWorld());
         }
-
-        expect(() => createWorld()).toThrow();
+        expect(worlds).toHaveLength(20);
     });
 
-    it('should recycle world IDs when destroyed', () => {
-        const world = createWorld();
-        const id = world.id;
-
-        world.destroy();
-
-        const newWorld = createWorld();
-        expect(newWorld.id).toBe(id);
+    it('should assign monotonic world IDs', () => {
+        const a = createWorld();
+        const b = createWorld();
+        expect(b.id).toBeGreaterThan(a.id);
     });
 
     it('should add, remove and get singletons', () => {

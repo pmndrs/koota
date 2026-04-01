@@ -1,5 +1,6 @@
 import { $internal } from '../common';
-import type { Entity } from '../entity/types';
+import { createEntityCursor, resetEntityCursor } from '../entity/entity-handle';
+import type { Entity, RawEntity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { Relation } from '../relation/types';
@@ -19,31 +20,50 @@ import type {
     StoresFromParameters,
 } from './types';
 
+function defineQueryResultMethods<T extends object>(result: T, methods: Record<string, unknown>): T {
+    for (const [key, value] of Object.entries(methods)) {
+        Object.defineProperty(result, key, {
+            value,
+            enumerable: false,
+        });
+    }
+    return result;
+}
+
 export function createQueryResult<T extends QueryParameter[]>(
     world: World,
-    entities: Entity[],
+    dense: readonly RawEntity[],
+    length: number,
     query: QueryInstance,
     params: QueryParameter[]
 ): QueryResult<T> {
     const traits: Trait[] = [];
     const stores: Store<any>[] = [];
-
     getQueryStores(params, traits, stores, world);
+    const raw = new Array<RawEntity>(length);
+    for (let i = 0; i < length; i++) {
+        raw[i] = dense[i];
+    }
 
-    const results = Object.assign(entities, {
+    const results = raw as QueryResult<T>;
+
+    Object.defineProperty(results, 'raw', {
+        get: () => results,
+        enumerable: false,
+    });
+
+    defineQueryResultMethods(results, {
         readEach(
             callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
         ) {
             const state = Array.from({ length: traits.length }) as InstancesFromParameters<T>;
+            const cursor = createEntityCursor(world, 0 as RawEntity);
 
-            for (let i = 0; i < entities.length; i++) {
-                const entity = entities[i];
+            for (let i = 0; i < results.length; i++) {
+                const entity = results[i];
                 const eid = getEntityId(entity);
-
-                // Create snapshots without atomic tracking
                 createSnapshots(eid, traits, stores, state);
-
-                callback(state, entity, i);
+                callback(state, resetEntityCursor(cursor, world, entity), i);
             }
 
             return results;
@@ -54,27 +74,29 @@ export function createQueryResult<T extends QueryParameter[]>(
             options: QueryResultOptions = { changeDetection: 'auto' }
         ) {
             const state = Array.from({ length: traits.length });
+            const cursor = createEntityCursor(world, 0 as RawEntity);
 
-            // Inline all three permutations of updateEach for performance.
             if (options.changeDetection === 'auto') {
-                const changedPairs: [Entity, Trait][] = [];
+                const changedPairs: [RawEntity, Trait][] = [];
                 const atomicSnapshots: any[] = [];
                 const trackedIndices: number[] = [];
                 const untrackedIndices: number[] = [];
 
                 getTrackedTraits(traits, world, query, trackedIndices, untrackedIndices);
 
-                for (let i = 0; i < entities.length; i++) {
-                    const entity = entities[i];
+                for (let i = 0; i < results.length; i++) {
+                    const entity = results[i];
                     const eid = getEntityId(entity);
 
                     createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
-                    callback(state as unknown as InstancesFromParameters<T>, entity, i);
+                    callback(
+                        state as unknown as InstancesFromParameters<T>,
+                        resetEntityCursor(cursor, world, entity),
+                        i
+                    );
 
-                    // Skip if the entity has been destroyed.
                     if (!world.has(entity)) continue;
 
-                    // Commit all changes back to the stores for tracked traits.
                     for (let j = 0; j < trackedIndices.length; j++) {
                         const index = trackedIndices[j];
                         const trait = traits[index];
@@ -85,47 +107,43 @@ export function createQueryResult<T extends QueryParameter[]>(
                         let changed = false;
                         if (ctx.type === 'aos') {
                             changed = ctx.fastSetWithChangeDetection(eid, store, newValue);
-                            if (!changed) {
-                                changed = !shallowEqual(newValue, atomicSnapshots[index]);
-                            }
+                            if (!changed) changed = !shallowEqual(newValue, atomicSnapshots[index]);
                         } else {
                             changed = ctx.fastSetWithChangeDetection(eid, store, newValue);
                         }
 
-                        // Collect changed traits.
                         if (changed) changedPairs.push([entity, trait] as const);
                     }
 
-                    // Commit all changes back to the stores for untracked traits.
                     for (let j = 0; j < untrackedIndices.length; j++) {
                         const index = untrackedIndices[j];
                         const trait = traits[index];
                         const ctx = trait[$internal];
-                        const store = stores[index];
-                        ctx.fastSet(eid, store, state[index]);
+                        ctx.fastSet(eid, stores[index], state[index]);
                     }
                 }
 
-                // Trigger change events for each entity that was modified.
                 for (let i = 0; i < changedPairs.length; i++) {
                     const [entity, trait] = changedPairs[i];
                     setChanged(world, entity, trait);
                 }
             } else if (options.changeDetection === 'always') {
-                const changedPairs: [Entity, Trait][] = [];
+                const changedPairs: [RawEntity, Trait][] = [];
                 const atomicSnapshots: any[] = [];
 
-                for (let i = 0; i < entities.length; i++) {
-                    const entity = entities[i];
+                for (let i = 0; i < results.length; i++) {
+                    const entity = results[i];
                     const eid = getEntityId(entity);
 
                     createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
-                    callback(state as unknown as InstancesFromParameters<T>, entity, i);
+                    callback(
+                        state as unknown as InstancesFromParameters<T>,
+                        resetEntityCursor(cursor, world, entity),
+                        i
+                    );
 
-                    // Skip if the entity has been destroyed.
                     if (!world.has(entity)) continue;
 
-                    // Commit all changes back to the stores.
                     for (let j = 0; j < traits.length; j++) {
                         const trait = traits[j];
                         const ctx = trait[$internal];
@@ -134,34 +152,32 @@ export function createQueryResult<T extends QueryParameter[]>(
                         let changed = false;
                         if (ctx.type === 'aos') {
                             changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
-                            if (!changed) {
-                                changed = !shallowEqual(newValue, atomicSnapshots[j]);
-                            }
+                            if (!changed) changed = !shallowEqual(newValue, atomicSnapshots[j]);
                         } else {
                             changed = ctx.fastSetWithChangeDetection(eid, stores[j], newValue);
                         }
 
-                        // Collect changed traits.
                         if (changed) changedPairs.push([entity, trait] as const);
                     }
                 }
 
-                // Trigger change events for each entity that was modified.
                 for (let i = 0; i < changedPairs.length; i++) {
                     const [entity, trait] = changedPairs[i];
                     setChanged(world, entity, trait);
                 }
-            } else if (options.changeDetection === 'never') {
-                for (let i = 0; i < entities.length; i++) {
-                    const entity = entities[i];
+            } else {
+                for (let i = 0; i < results.length; i++) {
+                    const entity = results[i];
                     const eid = getEntityId(entity);
                     createSnapshots(eid, traits, stores, state);
-                    callback(state as unknown as InstancesFromParameters<T>, entity, i);
+                    callback(
+                        state as unknown as InstancesFromParameters<T>,
+                        resetEntityCursor(cursor, world, entity),
+                        i
+                    );
 
-                    // Skip if the entity has been destroyed.
                     if (!world.has(entity)) continue;
 
-                    // Commit all changes back to the stores.
                     for (let j = 0; j < traits.length; j++) {
                         const trait = traits[j];
                         const ctx = trait[$internal];
@@ -173,26 +189,31 @@ export function createQueryResult<T extends QueryParameter[]>(
             return results;
         },
 
-        useStores(callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void) {
-            callback(stores as unknown as StoresFromParameters<T>, entities);
+        useStores(callback: (stores: StoresFromParameters<T>, entities: readonly RawEntity[]) => void) {
+            callback(stores as unknown as StoresFromParameters<T>, results);
             return results;
         },
 
-        select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
-            traits.length = 0;
-            stores.length = 0;
-            getQueryStores(params, traits, stores, world);
-            return results as unknown as QueryResult<U>;
+        select<U extends QueryParameter[]>(...nextParams: U): QueryResult<U> {
+            return createQueryResult(
+                world,
+                results,
+                results.length,
+                query,
+                nextParams
+            ) as unknown as QueryResult<U>;
         },
 
         sort(
-            callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+            callback: (a: RawEntity, b: RawEntity) => number = (a, b) => getEntityId(a) - getEntityId(b)
         ): QueryResult<T> {
-            Array.prototype.sort.call(entities, callback);
-            return results;
+            const sorted = Array.from(results);
+            sorted.sort(callback);
+            return createQueryResult(world, sorted, sorted.length, query, params);
         },
     });
 
+    Object.freeze(results);
     return results;
 }
 
@@ -252,7 +273,6 @@ export function createQueryResult<T extends QueryParameter[]>(
     for (let i = 0; i < params.length; i++) {
         const param = params[i];
 
-        // Handle relation pairs
         if (isRelationPair(param)) {
             const pairCtx = param[$internal];
             const relation = pairCtx.relation as Relation<Trait>;
@@ -265,18 +285,17 @@ export function createQueryResult<T extends QueryParameter[]>(
         }
 
         if (isModifier(param)) {
-            // Skip not modifier.
             if (param.type === 'not') continue;
 
             const modifierTraits = param.traits;
             for (const trait of modifierTraits) {
-                if (trait[$internal].type === 'tag') continue; // Skip tags
+                if (trait[$internal].type === 'tag') continue;
                 traits.push(trait);
                 stores.push(getStore(world, trait));
             }
         } else {
             const trait = param as Trait;
-            if (trait[$internal].type === 'tag') continue; // Skip tags
+            if (trait[$internal].type === 'tag') continue;
             traits.push(trait);
             stores.push(getStore(world, trait));
         }
@@ -284,7 +303,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 }
 
 export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
-    const results = Object.assign([], {
+    const results = defineQueryResultMethods([], {
         readEach: () => results,
         updateEach: () => results,
         useStores: () => results,
@@ -292,55 +311,55 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
         sort: () => results,
     }) as QueryResult<QueryParameter[]>;
 
+    Object.defineProperty(results, 'raw', {
+        get: () => results,
+        enumerable: false,
+    });
+
+    Object.freeze(results);
     return results;
 }
 
-// Cached no-op result methods for relation-only queries
-const relationOnlyMethods = {
-    readEach(this: QueryResult<any>, callback: any) {
-        // No traits to read, just iterate entities
-        for (let i = 0; i < this.length; i++) {
-            callback([], this[i], i);
-        }
-        return this;
-    },
-    updateEach(this: QueryResult<any>, callback: any) {
-        // No traits to update, just iterate entities
-        for (let i = 0; i < this.length; i++) {
-            callback([], this[i], i);
-        }
-        return this;
-    },
-    useStores(this: QueryResult<any>, callback: any) {
-        // No stores, call with empty array
-        callback([], this);
-        return this;
-    },
-    select(this: QueryResult<any>) {
-        // No-op, nothing to select
-        return this;
-    },
-};
-
-/**
- * Lightweight query result for relation-only queries.
- * Skips store/trait setup since we only need to iterate entities.
- */
 export function createRelationOnlyQueryResult<T extends QueryParameter[]>(
-    entities: Entity[]
+    world: World,
+    entities: RawEntity[]
 ): QueryResult<T> {
-    const results = Object.assign(entities, {
-        readEach: relationOnlyMethods.readEach,
-        updateEach: relationOnlyMethods.updateEach,
-        useStores: relationOnlyMethods.useStores,
-        select: relationOnlyMethods.select,
-        sort(
-            callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
-        ): QueryResult<T> {
-            Array.prototype.sort.call(entities, callback);
+    const results = defineQueryResultMethods(entities.slice(), {
+        readEach(callback: (state: [], entity: Entity, index: number) => void) {
+            const cursor = createEntityCursor(world, 0 as RawEntity);
+            for (let i = 0; i < results.length; i++) {
+                callback([], resetEntityCursor(cursor, world, results[i]), i);
+            }
             return results;
+        },
+        updateEach(callback: (state: [], entity: Entity, index: number) => void) {
+            const cursor = createEntityCursor(world, 0 as RawEntity);
+            for (let i = 0; i < results.length; i++) {
+                callback([], resetEntityCursor(cursor, world, results[i]), i);
+            }
+            return results;
+        },
+        useStores(callback: (stores: [], entities: readonly RawEntity[]) => void) {
+            callback([], results);
+            return results;
+        },
+        select<U extends QueryParameter[]>(): QueryResult<U> {
+            return results as unknown as QueryResult<U>;
+        },
+        sort(
+            callback: (a: RawEntity, b: RawEntity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+        ): QueryResult<T> {
+            const sorted = entities.slice();
+            sorted.sort(callback);
+            return createRelationOnlyQueryResult(world, sorted);
         },
     }) as unknown as QueryResult<T>;
 
+    Object.defineProperty(results, 'raw', {
+        get: () => results,
+        enumerable: false,
+    });
+
+    Object.freeze(results);
     return results;
 }

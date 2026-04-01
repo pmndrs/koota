@@ -1,26 +1,18 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, type TraitRecord, trait, universe } from '../../dist';
+import { createWorld, relation, type TraitRecord, trait } from '../../dist';
 
 describe('World', () => {
-    beforeEach(() => {
-        universe.reset();
-    });
-
     it('should create a world', () => {
-        // World inits on creation.
         const world = createWorld();
 
         expect(world.isInitialized).toBe(true);
-        expect(world.id).toBe(0);
-        expect(universe.worlds[0]!).toBe(world);
-        expect(universe.worldIndex.worldCursor).toBe(1);
+        expect(typeof world.id).toBe('number');
     });
 
-    it('should optionaly init lazily', () => {
-        const world = createWorld({ lazy: true });
-        expect(world.isInitialized).toBe(false);
-        world.init();
-        expect(world.isInitialized).toBe(true);
+    it('should always be initialized after creation', () => {
+        const world = createWorld();
+        expect(world).toBeDefined();
+        expect(world.entities.length).toBe(1);
     });
 
     it('should reset the world', () => {

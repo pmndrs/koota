@@ -1,6 +1,6 @@
 import { ActionInstance } from '../actions/types';
 import type { $internal } from '../common';
-import type { Entity } from '../entity/types';
+import type { Entity, RawEntity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
     Query,
@@ -22,13 +22,12 @@ import type {
 
 export type WorldOptions = {
     traits?: ConfigurableTrait[];
-    lazy?: boolean;
 };
 
 export type WorldInternal = {
     entityIndex: ReturnType<typeof createEntityIndex>;
     entityMasks: number[][];
-    entityTraits: Map<number, Set<Trait>>;
+    entityTraits: (Set<Trait> | undefined)[];
     bitflag: number;
     traitInstances: (TraitInstance | undefined)[];
     relations: Set<Relation<Trait>>;
@@ -41,17 +40,16 @@ export type WorldInternal = {
     trackingSnapshots: Map<number, number[][]>;
     changedMasks: Map<number, number[][]>;
     worldEntity: Entity;
+    entityHandles: (Entity | undefined)[];
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<(world: World) => void>;
 };
 
 export type World = {
     readonly id: number;
-    readonly isInitialized: boolean;
     readonly entities: Entity[];
     readonly traits: Set<Trait>;
     [$internal]: WorldInternal;
-    init(...traits: ConfigurableTrait[]): void;
     spawn(...traits: ConfigurableTrait[]): Entity;
     has(entity: Entity): boolean;
     has(trait: Trait): boolean;

@@ -1,4 +1,4 @@
-import { createWorld, relation, trait, universe, type Entity, type World } from '@koota/core';
+import { createWorld, relation, trait, type Entity, type World } from '@koota/core';
 import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -15,7 +15,6 @@ const Marker = trait();
 
 describe('useTarget', () => {
     beforeEach(() => {
-        universe.reset();
         world = createWorld();
     });
 
@@ -104,7 +103,6 @@ describe('useTarget', () => {
 
 describe('useTargets', () => {
     beforeEach(() => {
-        universe.reset();
         world = createWorld();
     });
 

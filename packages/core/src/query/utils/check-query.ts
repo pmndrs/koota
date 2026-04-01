@@ -1,5 +1,5 @@
 import { $internal } from '../../common';
-import type { Entity } from '../../entity/types';
+import type { RawEntity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import type { World } from '../../world';
 import type { QueryInstance } from '../types';
@@ -8,7 +8,7 @@ import type { QueryInstance } from '../types';
  * Check if an entity matches a non-tracking query.
  * For tracking queries, use checkQueryTracking instead.
  */
-export function checkQuery(world: World, query: QueryInstance, entity: Entity): boolean {
+export function checkQuery(world: World, query: QueryInstance, entity: RawEntity): boolean {
     const staticBitmasks = query.staticBitmasks;
     const generations = query.generations;
     const ctx = world[$internal];

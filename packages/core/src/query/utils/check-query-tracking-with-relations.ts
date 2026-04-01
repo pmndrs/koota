@@ -1,4 +1,4 @@
-import type { Entity } from '../../entity/types';
+import type { RawEntity } from '../../entity/types';
 import { hasRelationPair } from '../../relation/relation';
 import type { World } from '../../world';
 import type { EventType, QueryInstance } from '../types';
@@ -11,7 +11,7 @@ import { checkQueryTracking } from './check-query-tracking';
 export function checkQueryTrackingWithRelations(
     world: World,
     query: QueryInstance,
-    entity: Entity,
+    entity: RawEntity,
     eventType: EventType,
     eventGenerationId: number,
     eventBitflag: number

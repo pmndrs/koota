@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import { toRawEntity } from '../entity/types';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { trait, registerTrait } from '../trait/trait';
@@ -78,7 +79,7 @@ export function setupOrderedTraitSync(world: World, orderedTrait: OrderedRelatio
     const traitCtx = orderedTrait[$internal];
 
     const getList = (parent: Entity): OrderedList | undefined => {
-        const eid = getEntityId(parent);
+        const eid = getEntityId(toRawEntity(parent));
         return entityMasks[generationId]?.[eid] & bitflag
             ? (traitCtx.get(eid, store) as OrderedList)
             : undefined;
@@ -91,7 +92,7 @@ export function setupOrderedTraitSync(world: World, orderedTrait: OrderedRelatio
     });
 
     (relationInstance.removeSubscriptions as Set<RelationSub>).add((child, parent) => {
-        const eid = getEntityId(parent);
+        const eid = getEntityId(toRawEntity(parent));
         const denseIdx = entityIndex.sparse[eid];
         if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
             getList(parent)?._removeWithoutSync(child);

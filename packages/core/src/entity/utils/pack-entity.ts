@@ -1,45 +1,34 @@
-import type { Entity } from '../types';
+import type { RawEntity } from '../types';
 
-// Constants for bit sizes
-export const WORLD_ID_BITS = 4; // 4 bits can represent 0-15
+// Entity packing: 8 bits generation + 24 bits entity ID = 32 bits
+// No world ID bits — the handle carries the world reference.
 export const GENERATION_BITS = 8; // 8 bits can represent 0-255
-export const ENTITY_ID_BITS = 20; // 20 bits can represent 0-1,048,575
-// Total bits used: 4 + 8 + 20 = 32 bits
+export const ENTITY_ID_BITS = 24; // 24 bits can represent 0-16,777,215
 
 // Masks for extracting values
-export const WORLD_ID_MASK = (1 << WORLD_ID_BITS) - 1;
 export const GENERATION_MASK = (1 << GENERATION_BITS) - 1;
 export const ENTITY_ID_MASK = (1 << ENTITY_ID_BITS) - 1;
 
 // Bit shifts for positioning each component
 export const GENERATION_SHIFT = ENTITY_ID_BITS;
-export const WORLD_ID_SHIFT = GENERATION_SHIFT + GENERATION_BITS;
 
-export function packEntity(worldId: number, generation: number, entityId: number): Entity {
-    return (((worldId & WORLD_ID_MASK) << WORLD_ID_SHIFT) |
-        ((generation & GENERATION_MASK) << GENERATION_SHIFT) |
-        (entityId & ENTITY_ID_MASK)) as Entity;
+export function packEntity(generation: number, entityId: number): RawEntity {
+    return (((generation & GENERATION_MASK) << GENERATION_SHIFT) |
+        (entityId & ENTITY_ID_MASK)) as RawEntity;
 }
 
-export function unpackEntity(entity: Entity) {
+export function unpackEntity(entity: RawEntity) {
     return {
-        worldId: entity >>> WORLD_ID_SHIFT,
         generation: (entity >>> GENERATION_SHIFT) & GENERATION_MASK,
         entityId: entity & ENTITY_ID_MASK,
     };
 }
 
-export const getEntityId = /* @inline @pure */ (entity: Entity) => entity & ENTITY_ID_MASK;
-export const getEntityWorldId = /* @inline @pure */ (entity: Entity) => entity >>> WORLD_ID_SHIFT;
-export const getEntityAndWorldId = /* @pure */ (entity: Entity): [number, number] => [
-    entity & ENTITY_ID_MASK,
-    entity >>> WORLD_ID_SHIFT,
-];
-
-export const getEntityGeneration = /* @inline @pure */ (entity: Entity) =>
+export const getEntityId = /* @inline @pure */ (entity: RawEntity) => entity & ENTITY_ID_MASK;
+export const getEntityGeneration = /* @inline @pure */ (entity: RawEntity) =>
     (entity >>> GENERATION_SHIFT) & GENERATION_MASK;
 
-export const incrementGeneration = (entity: Entity): Entity =>
-    ((entity & ~(GENERATION_MASK << GENERATION_SHIFT)) | // Clear current generation bits
+export const incrementGeneration = (entity: RawEntity): RawEntity =>
+    ((entity & ~(GENERATION_MASK << GENERATION_SHIFT)) |
         (((((entity >>> GENERATION_SHIFT) & GENERATION_MASK) + 1) & GENERATION_MASK) <<
-            GENERATION_SHIFT)) as unknown as Entity; // Extract generation, increment, wrap around, shift back, and combine
+            GENERATION_SHIFT)) as unknown as RawEntity;

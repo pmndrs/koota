@@ -1,24 +1,19 @@
 import { $internal } from '../../common';
-import type { Entity } from '../../entity/types';
+import { createEntityHandle } from '../../entity/entity-handle';
+import type { RawEntity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { isRelation } from '../../relation/utils/is-relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
 import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
-import { universe } from '../../universe/universe';
 import type { World } from '../../world';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
 import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
-import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
+import { createTrackingId } from '../utils/tracking-cursor';
 
 export function createChanged() {
     const id = createTrackingId();
-
-    for (const world of universe.worlds) {
-        if (!world) continue;
-        setTrackingMasks(world, id);
-    }
 
     return <T extends TraitOrRelation[]>(
         ...inputs: T
@@ -31,7 +26,7 @@ export function createChanged() {
 }
 
 /** @inline */
-function markChanged(world: World, entity: Entity, trait: Trait) {
+function markChanged(world: World, entity: RawEntity, trait: Trait) {
     const ctx = world[$internal];
 
     // Early exit if the trait is not on the entity.
@@ -74,14 +69,21 @@ function markChanged(world: World, entity: Entity, trait: Trait) {
     return data;
 }
 
-export function setChanged(world: World, entity: Entity, trait: Trait) {
+export function setChanged(world: World, entity: RawEntity, trait: Trait) {
     const data = markChanged(world, entity, trait);
     if (!data) return;
-    for (const sub of data.changeSubscriptions) sub(entity);
+    if (data.changeSubscriptions.size > 0) {
+        const source = createEntityHandle(world, entity);
+        for (const sub of data.changeSubscriptions) sub(source);
+    }
 }
 
-export function setPairChanged(world: World, entity: Entity, trait: Trait, target: Entity) {
+export function setPairChanged(world: World, entity: RawEntity, trait: Trait, target: RawEntity) {
     const data = markChanged(world, entity, trait);
     if (!data) return;
-    for (const sub of data.changeSubscriptions) sub(entity, target);
+    if (data.changeSubscriptions.size > 0) {
+        const source = createEntityHandle(world, entity);
+        const targetHandle = createEntityHandle(world, target);
+        for (const sub of data.changeSubscriptions) sub(source, targetHandle);
+    }
 }

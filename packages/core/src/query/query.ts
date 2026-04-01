@@ -1,5 +1,6 @@
 import { $internal } from '../common';
-import type { Entity } from '../entity/types';
+import { createEntityHandle } from '../entity/entity-handle';
+import type { Entity, RawEntity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
@@ -7,7 +8,6 @@ import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait } from '../trait/types';
-import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
@@ -37,36 +37,57 @@ export function runQuery<T extends QueryParameter[]>(
 ): QueryResult<T> {
     commitQueryRemovals(world);
 
+    if (
+        !query.isTracking &&
+        query.cachedResult &&
+        query.cachedResultVersion === query.version &&
+        query.cachedResultKey === createOrderedParameterKey(params)
+    ) {
+        return query.cachedResult;
+    }
+
     // With hybrid bitmask strategy, query.entities is already incrementally maintained
     // with both trait and relation filters applied. Just return the pre-filtered entities.
-    const entities = query.entities.dense.slice() as Entity[];
+    const entities = query.entities.denseUnsafe as RawEntity[];
+    const length = query.entities.size;
 
     // Clear so it can accumulate again.
     if (query.isTracking) {
         query.entities.clear();
         // PERF: Use indexed loop instead of for...of
-        const len = entities.length;
-        for (let i = 0; i < len; i++) {
+        for (let i = 0; i < length; i++) {
             query.resetTrackingBitmasks(entities[i]);
         }
     }
 
-    return createQueryResult(world, entities, query, params);
+    const result = createQueryResult(world, entities, length, query, params);
+
+    if (!query.isTracking) {
+        query.cachedResult = result;
+        query.cachedResultKey = createOrderedParameterKey(params);
+        query.cachedResultVersion = query.version;
+    }
+
+    return result;
 }
 
-export function addEntityToQuery(query: QueryInstance, entity: Entity) {
+export function addEntityToQuery(query: QueryInstance, entity: RawEntity) {
     query.toRemove.remove(entity);
     query.entities.add(entity);
 
     // Notify subscriptions.
     for (const sub of query.addSubscriptions) {
-        sub(entity);
+        sub(createEntityHandle(query.world, entity));
     }
 
     query.version++;
 }
 
-export function removeEntityFromQuery(world: World, query: QueryInstance, entity: Entity) {
+function seedEntityToQuery(query: QueryInstance, entity: RawEntity) {
+    query.entities.add(entity);
+}
+
+export function removeEntityFromQuery(world: World, query: QueryInstance, entity: RawEntity) {
     if (!query.entities.has(entity) || query.toRemove.has(entity)) return;
 
     const ctx = world[$internal];
@@ -76,7 +97,7 @@ export function removeEntityFromQuery(world: World, query: QueryInstance, entity
 
     // Notify subscriptions.
     for (const sub of query.removeSubscriptions) {
-        sub(entity);
+        sub(createEntityHandle(query.world, entity));
     }
 
     query.version++;
@@ -87,8 +108,9 @@ export function commitQueryRemovals(world: World) {
     if (!ctx.dirtyQueries.size) return;
 
     for (const query of ctx.dirtyQueries) {
-        for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
-            const eid = query.toRemove.dense[i];
+        const dense = query.toRemove.denseUnsafe;
+        for (let i = query.toRemove.size - 1; i >= 0; i--) {
+            const eid = dense[i];
             query.toRemove.remove(eid);
             query.entities.remove(eid);
         }
@@ -127,7 +149,6 @@ function processTrackingModifier(
     if (!trackingType) return;
 
     const id = modifier.id;
-    // Key includes logic so Changed(A) at top-level stays separate from Or(Changed(A))
     const key = `${trackingType}-${id}-${logic}`;
 
     // Find or create tracking group
@@ -173,6 +194,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 ): QueryInstance {
     const query: QueryInstance = {
         version: 0,
+        cachedResultVersion: -1,
         world,
         parameters,
         hash: '',
@@ -196,12 +218,12 @@ export function createQueryInstance<T extends QueryParameter[]>(
         relationFilters: [],
 
         run: (world: World, params: QueryParameter[]) => runQuery(world, query, params),
-        add: (entity: Entity) => addEntityToQuery(query, entity),
-        remove: (world: World, entity: Entity) => removeEntityFromQuery(world, query, entity),
-        check: (world: World, entity: Entity) => checkQuery(world, query, entity),
+        add: (entity: RawEntity) => addEntityToQuery(query, entity),
+        remove: (world: World, entity: RawEntity) => removeEntityFromQuery(world, query, entity),
+        check: (world: World, entity: RawEntity) => checkQuery(world, query, entity),
         checkTracking: (
             world: World,
-            entity: Entity,
+            entity: RawEntity,
             eventType: EventType,
             generationId: number,
             bitflag: number
@@ -418,9 +440,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
                                 break;
                             }
                         }
-                        if (relationMatch) query.add(entity);
+                        if (relationMatch) seedEntityToQuery(query, entity);
                     } else {
-                        query.add(entity);
+                        seedEntityToQuery(query, entity);
                     }
                 }
             }
@@ -433,23 +455,45 @@ export function createQueryInstance<T extends QueryParameter[]>(
             const match = hasRelationFilters
                 ? checkQueryWithRelations(world, query, entity)
                 : query.check(world, entity);
-            if (match) query.add(entity);
+            if (match) seedEntityToQuery(query, entity);
         }
     }
 
     return query;
 }
 
+function createOrderedParameterKey(parameters: QueryParameter[]): string {
+    let key = '';
+
+    for (let i = 0; i < parameters.length; i++) {
+        const param = parameters[i];
+
+        if (isRelationPair(param)) {
+            const pairCtx = param[$internal];
+            const relation = pairCtx.relation as Relation<Trait>;
+            const relationId = relation[$internal].trait.id;
+            const target = pairCtx.target;
+            const targetId = typeof target === 'number' ? target : -1;
+            key += `r${relationId}:${targetId}|`;
+        } else if (isModifier(param)) {
+            key += `m${param.type}:${param.id}:${param.traitIds.join('.')}` + '|';
+        } else {
+            key += `t${(param as Trait).id}|`;
+        }
+    }
+
+    return key;
+}
+
 let queryId = 0;
+const cachedQueries = new Map<string, Query<any>>();
 
 export function createQuery<T extends QueryParameter[]>(...parameters: T): Query<T> {
     const hash = createQueryHash(parameters);
 
-    // Check if this query was already cached
-    const existing = universe.cachedQueries.get(hash);
+    const existing = cachedQueries.get(hash);
     if (existing) return existing as Query<T>;
 
-    // Create new query ref with ID
     const id = queryId++;
     const queryRef = Object.freeze({
         [$queryRef]: true,
@@ -458,8 +502,7 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
         parameters,
     }) as Query<T>;
 
-    // Cache the ref for deduplication and stable IDs
-    universe.cachedQueries.set(hash, queryRef);
+    cachedQueries.set(hash, queryRef);
 
     return queryRef;
 }

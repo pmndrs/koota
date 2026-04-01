@@ -7,8 +7,14 @@ import type {
     TraitRecord,
     TraitValue,
 } from '../trait/types';
+import type { World } from '../world';
 
-export type Entity = number & {
+export type RawEntity = number;
+
+export interface EntityHandle {
+    readonly __entity_handle__: true;
+    readonly world: World;
+    readonly raw: RawEntity;
     add: (...traits: ConfigurableTrait[]) => void;
     remove: (...traits: (Trait | RelationPair)[]) => void;
     has: (trait: Trait | RelationPair) => boolean;
@@ -25,4 +31,14 @@ export type Entity = number & {
     id: () => number;
     generation: () => number;
     isAlive: () => boolean;
-};
+}
+
+export type Entity = EntityHandle;
+
+export function isEntityHandle(entity: Entity | RawEntity): entity is EntityHandle {
+    return typeof entity === 'object' && entity !== null;
+}
+
+export function toRawEntity(entity: Entity | RawEntity): RawEntity {
+    return isEntityHandle(entity) ? entity.raw : entity;
+}

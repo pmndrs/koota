@@ -14,13 +14,13 @@ describe('Entity', () => {
 
     it('should create and destroy an entity', () => {
         const entityA = world.spawn();
-        expect(entityA).toBe(1);
+        expect(entityA.raw).toBe(1);
 
         const entityB = world.spawn();
-        expect(entityB).toBe(2);
+        expect(entityB.raw).toBe(2);
 
         const entityC = world.spawn();
-        expect(entityC).toBe(3);
+        expect(entityC.raw).toBe(3);
 
         entityA.destroy();
         entityC.destroy();
@@ -29,19 +29,12 @@ describe('Entity', () => {
         expect(world.entities.length).toBe(1);
     });
 
-    it('should encode world ID in entity', () => {
+    it('should unpack entity into generation and entityId', () => {
         const entity = world.spawn();
-        const { worldId, entityId } = unpackEntity(entity);
+        const { generation, entityId } = unpackEntity(entity.raw);
 
-        expect(worldId).toBe(world.id);
+        expect(generation).toBe(0);
         expect(entityId).toBe(1);
-
-        const world2 = createWorld();
-        const entity2 = world2.spawn();
-        const { worldId: worldId2, entityId: entityId2 } = unpackEntity(entity2);
-
-        expect(worldId2).toBe(world2.id);
-        expect(entityId2).toBe(1);
     });
 
     it('should recycle entities and increment generation', () => {

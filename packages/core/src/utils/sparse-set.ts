@@ -48,6 +48,14 @@ export class SparseSet {
         return this.#dense.slice(0, this.#cursor);
     }
 
+    get denseUnsafe(): readonly number[] {
+        return this.#dense;
+    }
+
+    get size(): number {
+        return this.#cursor;
+    }
+
     get sparse(): number[] {
         return this.#sparse;
     }
