@@ -739,6 +739,24 @@ describe('Query modifiers', () => {
         expect(removed).toContain(childB);
     });
 
+    it('updateEach should work with Removed modifier for relations', () => {
+        const Removed = createRemoved();
+        const Contains = relation({ store: { amount: 0 } });
+
+        const inventory = world.spawn();
+        const gold = world.spawn();
+
+        inventory.add(Contains(gold, { amount: 42 }));
+        inventory.remove(Contains(gold));
+
+        world.query(Removed(Contains), Contains(gold)).updateEach(([contains], entity) => {
+            // Removed relation queries should still expose the removed pair's store data.
+            expect(contains).toHaveProperty('amount', 42);
+            // And its target
+            expect(entity.targetFor(Contains)).toBe(gold);
+        });
+    });
+
     // @internal Tests internal implementation edge case with generation overflow
     it('[internal] should handle Changed modifier when trait registration causes generation overflow', () => {
         // Create a fresh world to control trait registration count

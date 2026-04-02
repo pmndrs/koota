@@ -3,6 +3,10 @@
   "version": "0.6.5",
   "description": "🌎 Performant real-time state management for TypeScript and React",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pmndrs/koota"
+  },
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
