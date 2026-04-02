@@ -124,7 +124,7 @@ describe('Relation', () => {
     });
 
     it('should create stores for relations', () => {
-        const Contains = relation({ amount: 0 });
+        const Contains = relation({ schema: { amount: 0 } });
 
         const inventory = world.spawn();
         const gold = world.spawn();
@@ -330,7 +330,7 @@ describe('Relation', () => {
     });
 
     it('should ignore data on re-add', () => {
-        const Contains = relation({ amount: 0 });
+        const Contains = relation({ schema: { amount: 0 } });
         const container = world.spawn();
         const item = world.spawn();
 
@@ -521,18 +521,19 @@ describe('Relation', () => {
     });
 
     it('onRemove callback should still have access to the relation target and its data', () => {
-        const Contains = relation({ store: { amount: 0 } });
+        const Contains = relation({ schema: { amount: 0 } });
 
         const inventory = world.spawn();
         const gold = world.spawn();
 
         inventory.add(Contains(gold, { amount: 42 }));
 
-        const removeCb = vi.fn((entity: typeof inventory, target: typeof gold) => {
+        const removeCb = vi.fn((entity: typeof inventory, target?: typeof gold) => {
+            expect(target).toBe(gold);
             // The relation pair should still be present during onRemove
-            expect(entity.has(Contains(target))).toBe(true);
+            expect(entity.has(Contains(target!))).toBe(true);
             // The store data should still be readable
-            expect(entity.get(Contains(target))?.amount).toBe(42);
+            expect(entity.get(Contains(target!))?.amount).toBe(42);
             // targetFor should still resolve the target
             expect(entity.targetFor(Contains)).toBe(target);
         });
@@ -544,7 +545,7 @@ describe('Relation', () => {
     });
 
     it('onChange should accept relation pairs and filter by target', () => {
-        const ChildOf = relation({ order: 0 });
+        const ChildOf = relation({ schema: { order: 0 } });
         const parentA = world.spawn();
         const parentB = world.spawn();
         const childA = world.spawn(ChildOf(parentA));
@@ -578,7 +579,7 @@ describe('Relation', () => {
     });
 
     it('should emit change events when relation store is updated', () => {
-        const ChildOf = relation({ order: 0 });
+        const ChildOf = relation({ schema: { order: 0 } });
 
         const changes: Array<{ entity: number; target?: number }> = [];
         const unsub = world.onChange(ChildOf, (e, t) => changes.push({ entity: e, target: t }));

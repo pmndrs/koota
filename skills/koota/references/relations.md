@@ -37,7 +37,7 @@ import { relation } from 'koota'
 const ChildOf = relation()
 
 // Relation with data
-const Contains = relation({ store: { amount: 0 } })
+const Contains = relation({ schema: { amount: 0 } })
 
 // Auto cleanup when target destroyed
 const ChildOf = relation({ autoDestroy: 'orphan' })
@@ -64,7 +64,7 @@ parent.destroy() // child and grandchild also destroyed
 ### Inventories (contains)
 
 ```typescript
-const Contains = relation({ store: { amount: 0 } })
+const Contains = relation({ schema: { amount: 0 } })
 
 const inventory = world.spawn()
 const gold = world.spawn()

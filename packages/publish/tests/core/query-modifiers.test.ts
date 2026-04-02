@@ -670,7 +670,7 @@ describe('Query modifiers', () => {
     });
 
     it('should track Changed on a relation', () => {
-        const ChildOf = relation({ store: { order: 0 } });
+        const ChildOf = relation({ schema: { order: 0 } });
         const Changed = createChanged();
 
         const parentA = world.spawn();

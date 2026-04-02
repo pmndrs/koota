@@ -100,7 +100,7 @@ Relations build graphs between entities such as hierarchies, inventories, target
 import { relation } from 'koota'
 
 const ChildOf = relation({ autoDestroy: 'orphan' }) // Hierarchy
-const Contains = relation({ store: { amount: 0 } }) // With data
+const Contains = relation({ schema: { amount: 0 } }) // With data
 const Targeting = relation({ exclusive: true }) // One target only
 
 // Build graph

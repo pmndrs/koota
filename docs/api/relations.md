@@ -40,7 +40,7 @@ In `child.add(ChildOf(parent))`, child is the source and parent is the target. T
 Relations can contain data like any trait.
 
 ```js
-const Contains = relation({ store: { amount: 0 } })
+const Contains = relation({ schema: { amount: 0 } })
 
 const inventory = world.spawn()
 const gold = world.spawn()
@@ -215,7 +215,7 @@ const Added = createAdded()
 const Removed = createRemoved()
 const Changed = createChanged()
 
-const ChildOf = relation({ store: { priority: 0 } })
+const ChildOf = relation({ schema: { priority: 0 } })
 
 // Track when any entity adds the ChildOf relation
 const newChildren = world.query(Added(ChildOf))
@@ -248,7 +248,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 - `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
 
 ```js
-const ChildOf = relation({ store: { priority: 0 } })
+const ChildOf = relation({ schema: { priority: 0 } })
 
 const unsubAdd = world.onAdd(ChildOf, (entity, target) => {})
 const unsubRemove = world.onRemove(ChildOf, (entity, target) => {})

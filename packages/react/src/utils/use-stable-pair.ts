@@ -1,11 +1,7 @@
-import { $internal, $relationPair, type RelationPair, type Trait } from '@koota/core';
+import { isPairPattern, type RelationPair, type Trait } from '@koota/core';
 import { useMemo } from 'react';
 
-type TraitOrPair<T extends Trait = Trait> = T | RelationPair<T>;
-
-function isRelationPair(value: unknown): value is RelationPair {
-    return !!(value as any)?.[$relationPair];
-}
+type TraitOrPair = Trait | RelationPair;
 
 /**
  * Stabilizes a trait-or-pair argument for use in React deps arrays.
@@ -13,9 +9,9 @@ function isRelationPair(value: unknown): value is RelationPair {
  * Relation pairs like `ChildOf(parent)` create a new object each render,
  * so we memoize based on the underlying relation + target identity.
  */
-export function useStableTrait<T extends Trait>(input: TraitOrPair<T>): TraitOrPair<T> {
-    const relation = isRelationPair(input) ? input[$internal].relation : input;
-    const pairTarget = isRelationPair(input) ? input[$internal].target : undefined;
+export function useStableTrait(input: TraitOrPair): TraitOrPair {
+    const relation = isPairPattern(input) ? input[0] : input;
+    const pairTarget = isPairPattern(input) ? input[1] : undefined;
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return useMemo(() => input, [relation, pairTarget]);

@@ -13,12 +13,20 @@ import { useWorld } from '../world/use-world';
 
 export function useTrait<T extends Trait>(
     target: Entity | World | undefined | null,
-    trait: T | RelationPair<T>
-): TraitRecord<T> | undefined {
+    trait: T
+): TraitRecord<T> | undefined;
+export function useTrait<T>(
+    target: Entity | World | undefined | null,
+    trait: RelationPair<T>
+): T | undefined;
+export function useTrait(
+    target: Entity | World | undefined | null,
+    trait: Trait | RelationPair
+): unknown {
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-    const valueRef = useRef<TraitRecord<T> | undefined>(undefined);
-    const memoRef = useRef<ReturnType<typeof createSubscriptions<T>> | undefined>(undefined);
+    const valueRef = useRef<unknown>(undefined);
+    const memoRef = useRef<ReturnType<typeof createSubscriptions> | undefined>(undefined);
     const stableTrait = useStableTrait(trait);
 
     const memo = useMemo(
@@ -45,9 +53,9 @@ export function useTrait<T extends Trait>(
     return valueRef.current;
 }
 
-function createSubscriptions<T extends Trait>(
+function createSubscriptions(
     target: Entity | World,
-    trait: T | RelationPair<T>,
+    trait: Trait | RelationPair,
     contextWorld: World
 ) {
     // Use the context world unless the target is a world itself
@@ -56,7 +64,7 @@ function createSubscriptions<T extends Trait>(
 
     return {
         entity,
-        subscribe: (setValue: (value: TraitRecord<T> | undefined) => void) => {
+        subscribe: (setValue: (value: unknown) => void) => {
             const onChangeUnsub = world.onChange(trait, (e) => {
                 if (e === entity) setValue(e.get(trait));
             });

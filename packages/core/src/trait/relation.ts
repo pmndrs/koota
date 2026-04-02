@@ -10,60 +10,47 @@ import { getTraitInstance } from './trait-instance';
 import { SparseSet } from '../utils/sparse-set';
 import type { PairPattern, Relation, PairTarget, TraitInstance } from './types';
 
-/** Options that can be passed to `relation()` alongside or instead of a schema. */
+/** Options that can be passed to `relation()`. Schema is provided via the `schema` key. */
 export type RelationOptions = {
     exclusive?: boolean;
     autoDestroy?: 'orphan' | 'source' | 'target';
+    schema?: SchemaShorthand | FieldDescriptor;
 };
-
-const RELATION_OPTION_KEYS = new Set<string>(['exclusive', 'autoDestroy']);
 
 /** @see {@link relation} for overload signatures */
 export interface relation {
-    (options?: RelationOptions): Relation<Record<string, never>> & {
-        readonly schema: TagSchema;
-    };
-    (schema?: undefined | Record<string, never>): Relation<Record<string, never>> & {
-        readonly schema: TagSchema;
-    };
+    (): Relation<Record<string, never>> & { readonly schema: TagSchema };
     <T>(schema: () => T): Relation<T>;
     <T>(schema: FieldDescriptor<T> & { kind: 'ref' }): Relation<T>;
-    <T>(schema: SchemaFor<T>): Relation<T>;
-    <D extends SchemaShorthand>(schema: D): Relation<InferSchema<D>>;
+    <T>(options: RelationOptions & { schema: () => T }): Relation<T>;
+    <T>(options: RelationOptions & { schema: FieldDescriptor<T> & { kind: 'ref' } }): Relation<T>;
+    <D extends SchemaShorthand>(options: RelationOptions & { schema: D }): Relation<InferSchema<D>>;
+    <T>(options: RelationOptions & { schema: SchemaFor<T> }): Relation<T>;
+    (options?: RelationOptions): Relation<Record<string, never>> & { readonly schema: TagSchema };
 }
 
 export const relation: relation = ((
-    schema: SchemaShorthand | FieldDescriptor | RelationOptions = {}
+    input: SchemaShorthand | FieldDescriptor | RelationOptions = {}
 ): Relation => {
     let exclusive: boolean | undefined;
     let autoDestroy: 'orphan' | 'source' | 'target' | false = false;
+    let schema: SchemaShorthand | FieldDescriptor = {};
 
-    if (
-        schema &&
-        typeof schema === 'object' &&
-        !Array.isArray(schema) &&
-        typeof schema !== 'function'
-    ) {
-        const obj = schema as Record<string, unknown>;
-        if ('exclusive' in obj || 'autoDestroy' in obj) {
-            exclusive = obj.exclusive as boolean | undefined;
-            const ad = obj.autoDestroy as string | undefined;
-            if (ad === 'orphan' || ad === 'source') autoDestroy = 'source';
-            else if (ad === 'target') autoDestroy = 'target';
+    if (typeof input === 'function') {
+        schema = input;
+    } else if (input && typeof input === 'object') {
+        const obj = input as Record<string, unknown>;
+        exclusive = obj.exclusive as boolean | undefined;
+        const ad = obj.autoDestroy as string | undefined;
+        if (ad === 'orphan' || ad === 'source') autoDestroy = 'source';
+        else if (ad === 'target') autoDestroy = 'target';
 
-            const remaining: Record<string, unknown> = {};
-            let hasSchemaKeys = false;
-            for (const key of Object.keys(obj)) {
-                if (!RELATION_OPTION_KEYS.has(key)) {
-                    remaining[key] = obj[key];
-                    hasSchemaKeys = true;
-                }
-            }
-            schema = (hasSchemaKeys ? remaining : {}) as SchemaShorthand;
+        if (obj.schema != null) {
+            schema = obj.schema as SchemaShorthand | FieldDescriptor;
         }
     }
 
-    const trait = defineTrait(schema as SchemaShorthand | FieldDescriptor, 'binary') as Relation;
+    const trait = defineTrait(schema, 'binary') as Relation;
     trait[$internal].exclusive = exclusive ?? false;
     trait[$internal].autoDestroy = autoDestroy;
     return trait;

@@ -16,15 +16,15 @@ export function useTraitEffect<T extends Trait>(
     trait: T,
     callback: (value: TraitRecord<T> | undefined) => void
 ): void;
-export function useTraitEffect<T extends Trait>(
+export function useTraitEffect<T>(
     target: Entity | World,
     trait: RelationPair<T>,
-    callback: (value: TraitRecord<T> | undefined) => void
+    callback: (value: T | undefined) => void
 ): void;
-export function useTraitEffect<T extends Trait>(
+export function useTraitEffect(
     target: Entity | World,
-    trait: T | RelationPair<T>,
-    callback: (value: TraitRecord<T> | undefined) => void
+    trait: Trait | RelationPair,
+    callback: (value: unknown) => void
 ) {
     const contextWorld = useWorld();
     const world = useMemo(() => (isWorld(target) ? target : contextWorld), [target, contextWorld]);

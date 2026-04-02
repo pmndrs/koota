@@ -123,7 +123,7 @@ describe('Relation', () => {
     });
 
     it('should create stores for relations', () => {
-        const Contains = relation({ store: { amount: 0 } });
+        const Contains = relation({ schema: { amount: 0 } });
 
         const inventory = world.spawn();
         const gold = world.spawn();
@@ -306,7 +306,7 @@ describe('Relation', () => {
     });
 
     it('should ignore data on re-add', () => {
-        const Contains = relation({ store: { amount: 0 } });
+        const Contains = relation({ schema: { amount: 0 } });
         const container = world.spawn();
         const item = world.spawn();
 
@@ -497,7 +497,7 @@ describe('Relation', () => {
     });
 
     it('onChange should accept relation pairs and filter by target', () => {
-        const ChildOf = relation({ store: { order: 0 } });
+        const ChildOf = relation({ schema: { order: 0 } });
         const parentA = world.spawn();
         const parentB = world.spawn();
         const childA = world.spawn(ChildOf(parentA));
@@ -531,7 +531,7 @@ describe('Relation', () => {
     });
 
     it('should emit change events when relation store is updated', () => {
-        const ChildOf = relation({ store: { order: 0 } });
+        const ChildOf = relation({ schema: { order: 0 } });
 
         const changes: Array<{ entity: number; target?: number }> = [];
         const unsub = world.onChange(ChildOf, (e, t) => changes.push({ entity: e, target: t }));

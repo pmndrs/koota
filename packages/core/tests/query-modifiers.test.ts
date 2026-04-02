@@ -670,7 +670,7 @@ describe('Query modifiers', () => {
     });
 
     it('should track Changed on a relation', () => {
-        const ChildOf = relation({ order: 0 });
+        const ChildOf = relation({ schema: { order: 0 } });
         const Changed = createChanged();
 
         const parentA = world.spawn();
@@ -741,7 +741,7 @@ describe('Query modifiers', () => {
 
     it('updateEach should work with Removed modifier for relations', () => {
         const Removed = createRemoved();
-        const Contains = relation({ store: { amount: 0 } });
+        const Contains = relation({ schema: { amount: 0 } });
 
         const inventory = world.spawn();
         const gold = world.spawn();
