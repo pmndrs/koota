@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { $internal, createWorld, Not, relation, trait } from '../src';
-import { getEntityId } from '../src/entity/utils/pack-entity';
+import { $internal, createWorld, Not, relation, trait, unpackEntity } from '../src';
 
 describe('Relation', () => {
     const world = createWorld();
@@ -621,7 +620,7 @@ describe('Relation', () => {
             const childA = world.spawn(ChildOf(parent));
 
             const instance = ctx.traitInstances[ChildOf.id]!;
-            const parentEid = getEntityId(parent);
+            const parentEid = unpackEntity(parent).entityId;
             const pairId = instance.targetPairIds![parentEid];
             expect(typeof pairId).toBe('number');
             expect(ctx.pairRefCount[pairId!]).toBe(1);
@@ -646,7 +645,7 @@ describe('Relation', () => {
 
             const child = world.spawn(ChildOf(parent));
             const instance = ctx.traitInstances[ChildOf.id]!;
-            const parentEid = getEntityId(parent);
+            const parentEid = unpackEntity(parent).entityId;
             const pairId = instance.targetPairIds![parentEid]!;
 
             child.remove(ChildOf(parent));
@@ -708,9 +707,9 @@ describe('Relation', () => {
             const ctx = world[$internal];
 
             const instance = ctx.traitInstances[ChildOf.id]!;
-            const parentEid = getEntityId(parent);
+            const parentEid = unpackEntity(parent).entityId;
             const pairId = instance.targetPairIds![parentEid]!;
-            const childEid = getEntityId(child);
+            const childEid = unpackEntity(child).entityId;
 
             expect(ctx.entityPairIds[childEid]?.[pairId]).toBe(1);
 

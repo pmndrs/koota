@@ -73,6 +73,7 @@ export type {
     InferDefinition,
 } from './storage/types';
 
+export { SparseSet } from './utils/sparse-set';
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';

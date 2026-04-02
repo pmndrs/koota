@@ -276,7 +276,7 @@ function buildMethods<T extends QueryParameter[]>(
     };
 }
 
-/* @inline */ function getTrackedTraits(
+function getTrackedTraits(
     traits: Trait[],
     world: World,
     query: QueryInstance,
@@ -293,7 +293,7 @@ function buildMethods<T extends QueryParameter[]>(
     }
 }
 
-/* @inline */ export function getQueryStores<T extends QueryParameter[]>(
+export function getQueryStores<T extends QueryParameter[]>(
     params: T,
     traits: Trait[],
     stores: Store<any>[],

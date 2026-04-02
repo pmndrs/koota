@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWorld, field, trait } from '../src';
+import { createWorld, field, trait } from '../../dist';
 
 describe('Schema', () => {
     describe('shorthand schemas', () => {
