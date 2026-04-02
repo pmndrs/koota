@@ -375,6 +375,10 @@ importers:
         version: link:../../../.config/typescript
 
   packages/collections:
+    dependencies:
+      '@pmndrs/labs':
+        specifier: ^0.6.0
+        version: 0.6.0
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*

@@ -8,7 +8,11 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "test": "vitest --typecheck"
+    "test": "vitest --typecheck",
+    "bench": "labs"
+  },
+  "dependencies": {
+    "@pmndrs/labs": "^0.6.0"
   },
   "devDependencies": {
     "@config/oxlint": "workspace:*",
