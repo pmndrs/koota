@@ -13,9 +13,9 @@ export /* @inline @pure */ function ctz32(v: number): number {
 
 /** Population count — number of set bits in a 32-bit integer. */
 /* @inline @pure */ function popcount32(v: number): number {
-    v = v - ((v >>> 1) & 0x55555555);
-    v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
-    return (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+    const a = v - ((v >>> 1) & 0x55555555);
+    const b = (a & 0x33333333) + ((a >>> 2) & 0x33333333);
+    return (((b + (b >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
 }
 
 /** Static empty block for branchless reads. */
