@@ -1,5 +1,5 @@
 import { $internal } from '../../common';
-import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
+import { HiSparseBitSet } from '@koota/collections';
 import type { World } from '../../world';
 
 // Some values are reserved.

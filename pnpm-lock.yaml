@@ -374,7 +374,23 @@ importers:
         specifier: workspace:*
         version: link:../../../.config/typescript
 
+  packages/collections:
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
+
   packages/core:
+    dependencies:
+      '@koota/collections':
+        specifier: workspace:*
+        version: link:../collections
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*

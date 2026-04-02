@@ -7,7 +7,7 @@ import type { FieldDescriptor, InferSchema, SchemaFor, SchemaShorthand, TagSchem
 import type { World } from '../world';
 import { addTraitToEntity, defineTrait, hasTrait, removeTraitFromEntity } from './trait';
 import { getTraitInstance } from './trait-instance';
-import { SparseSet } from '../utils/sparse-set';
+import { SparseSet } from '@koota/collections';
 import type { PairPattern, Relation, PairTarget, TraitInstance } from './types';
 
 /** Options that can be passed to `relation()`. Schema is provided via the `schema` key. */

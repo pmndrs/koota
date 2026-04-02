@@ -1,2 +1,1 @@
-export { Deque } from './deque';
-export { SparseSet } from './sparse-set';
+export { shallowEqual } from './shallow-equal';

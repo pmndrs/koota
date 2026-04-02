@@ -20,8 +20,7 @@ import type {
     Trait,
     TraitInstance,
 } from '../trait/types';
-import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
-import type { SparseSet } from '../utils/sparse-set';
+import type { HiSparseBitSet, SparseSet } from '@koota/collections';
 
 export type WorldOptions = {
     traits?: TraitLike[];
