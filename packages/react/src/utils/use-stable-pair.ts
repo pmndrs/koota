@@ -1,7 +1,7 @@
-import { isPairPattern, type RelationPair, type Trait } from '@koota/core';
+import { isPairPattern, type RelationPair, type RelationPairPattern, type Trait } from '@koota/core';
 import { useMemo } from 'react';
 
-type TraitOrPair = Trait | RelationPair;
+type TraitOrPair = Trait | RelationPair | RelationPairPattern;
 
 /**
  * Stabilizes a trait-or-pair argument for use in React deps arrays.

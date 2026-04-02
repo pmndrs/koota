@@ -3,6 +3,7 @@ import {
     isPairPattern,
     type Entity,
     type RelationPair,
+    type RelationPairPattern,
     type Trait,
     type World,
 } from '@koota/core';
@@ -13,7 +14,7 @@ import { useWorld } from '../world/use-world';
 
 export function useHas(
     target: Entity | World | undefined | null,
-    trait: Trait | RelationPair
+    trait: Trait | RelationPair | RelationPairPattern
 ): boolean {
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
@@ -52,7 +53,7 @@ export function useHas(
 
 function createSubscriptions(
     target: Entity | World,
-    trait: Trait | RelationPair,
+    trait: Trait | RelationPair | RelationPairPattern,
     contextWorld: World
 ) {
     const world = isWorld(target) ? target : contextWorld;

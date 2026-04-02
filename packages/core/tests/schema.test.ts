@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-    detectKind,
-    field,
-    isFieldDescriptor,
-    normalizeSchema,
-    parseField,
-    type FieldDescriptor,
-} from '../src/storage';
+import { detectKind, field, isFieldDescriptor, normalizeSchema, parseField } from '../src/storage';
 
 describe('Schema', () => {
     describe('detectKind', () => {
