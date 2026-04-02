@@ -12,9 +12,7 @@ export function createAdded() {
         setTrackingMasks(world, id);
     }
 
-    return <T extends Trait[]>(
-        ...inputs: T
-    ): Modifier<T, `added-${number}`> => {
+    return <T extends Trait[]>(...inputs: T): Modifier<T, `added-${number}`> => {
         return createModifier(`added-${id}`, id, inputs);
     };
 }

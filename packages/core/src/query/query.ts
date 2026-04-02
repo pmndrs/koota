@@ -7,7 +7,11 @@ import type { TagTrait, Trait } from '../trait/types';
 import { isPairPattern } from '../trait/utils/is-relation';
 import { universe } from '../universe/universe';
 import { SparseSet } from '../utils/sparse-set';
-import { HiSparseBitSet, forEachIntersection, forEachQuery as forEachBitSetQuery } from '../utils/hi-sparse-bitset';
+import {
+    HiSparseBitSet,
+    forEachIntersection,
+    forEachQuery as forEachBitSetQuery,
+} from '../utils/hi-sparse-bitset';
 import type { World } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
 import { createQueryResult } from './query-result';

@@ -42,11 +42,7 @@ export function useTarget(
     return valueRef.current;
 }
 
-function createSubscriptions(
-    target: Entity | World,
-    relation: Relation,
-    contextWorld: World
-) {
+function createSubscriptions(target: Entity | World, relation: Relation, contextWorld: World) {
     const world = isWorld(target) ? target : contextWorld;
     const entity = isWorld(target) ? target[$internal].worldEntity : target;
 

@@ -3,10 +3,7 @@ import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
-export function useTargets(
-    target: Entity | World | undefined | null,
-    relation: Relation
-): Entity[] {
+export function useTargets(target: Entity | World | undefined | null, relation: Relation): Entity[] {
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
@@ -42,11 +39,7 @@ export function useTargets(
     return valueRef.current;
 }
 
-function createSubscriptions(
-    target: Entity | World,
-    relation: Relation,
-    contextWorld: World
-) {
+function createSubscriptions(target: Entity | World, relation: Relation, contextWorld: World) {
     const world = isWorld(target) ? target : contextWorld;
     const entity = isWorld(target) ? target[$internal].worldEntity : target;
 

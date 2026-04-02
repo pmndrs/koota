@@ -293,7 +293,6 @@ function buildMethods<T extends QueryParameter[]>(
     }
 }
 
-
 /* @inline */ export function getQueryStores<T extends QueryParameter[]>(
     params: T,
     traits: Trait[],

@@ -74,9 +74,7 @@ export function setupOrderedTraitSync(world: World, orderedTrait: OrderedRelatio
     const { entityIndex } = ctx;
     const getList = (parent: Entity): OrderedList | undefined => {
         const eid = getEntityId(parent);
-        return bitSet.has(eid)
-            ? (accessors.get(eid, store) as OrderedList)
-            : undefined;
+        return bitSet.has(eid) ? (accessors.get(eid, store) as OrderedList) : undefined;
     };
 
     type RelationSub = (entity: Entity, target: Entity) => void;

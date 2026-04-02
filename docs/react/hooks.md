@@ -146,7 +146,7 @@ function HealthIndicator({ entity }) {
   // Returns true if the entity has the trait, false otherwise
   const hasHealth = useHas(entity, Health)
 
-   // Track a specific relation pair
+  // Track a specific relation pair
   const isChildOfParent = useHas(entity, ChildOf(parent))
 
   // Track any ChildOf relation
