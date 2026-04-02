@@ -27,7 +27,7 @@ export function useTrait(
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
     const valueRef = useRef<unknown>(undefined);
     const memoRef = useRef<ReturnType<typeof createSubscriptions> | undefined>(undefined);
-    const stableTrait = useStableTrait(trait);
+    const stableTrait = useStableTrait(trait) as Trait | RelationPair;
 
     const memo = useMemo(
         () => (target ? createSubscriptions(target, stableTrait, contextWorld) : undefined),

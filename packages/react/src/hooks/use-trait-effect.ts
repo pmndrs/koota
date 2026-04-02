@@ -32,7 +32,7 @@ export function useTraitEffect(
         () => (isWorld(target) ? target[$internal].worldEntity : target),
         [target]
     );
-    const stableTrait = useStableTrait(trait);
+    const stableTrait = useStableTrait(trait) as Trait | RelationPair;
 
     const callbackRef = useRef(callback);
     callbackRef.current = callback;
