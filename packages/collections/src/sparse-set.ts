@@ -1,68 +1,68 @@
 export class SparseSet {
-    #dense: number[] = [];
-    #sparse: number[] = [];
-    #cursor: number = 0;
-    #denseRaw: { array: number[]; length: number } = { array: this.#dense, length: 0 };
+    _dense: number[] = [];
+    _sparse: number[] = [];
+    _cursor: number = 0;
+    _denseRaw: { array: number[]; length: number } = { array: this._dense, length: 0 };
 
     has(val: number): boolean {
-        const index = this.#sparse[val];
-        return index < this.#cursor && this.#dense[index] === val;
+        const index = this._sparse[val];
+        return index < this._cursor && this._dense[index] === val;
     }
 
     add(val: number): void {
         if (this.has(val)) return;
-        this.#sparse[val] = this.#cursor;
-        this.#dense[this.#cursor++] = val;
+        this._sparse[val] = this._cursor;
+        this._dense[this._cursor++] = val;
     }
 
     remove(val: number): void {
         if (!this.has(val)) return;
-        const index = this.#sparse[val];
-        this.#cursor--;
-        const swapped = this.#dense[this.#cursor];
+        const index = this._sparse[val];
+        this._cursor--;
+        const swapped = this._dense[this._cursor];
         if (swapped !== val) {
-            this.#dense[index] = swapped;
-            this.#sparse[swapped] = index;
+            this._dense[index] = swapped;
+            this._sparse[swapped] = index;
         }
     }
 
     clear(): void {
         // Clear the sparse array entries for all active values
-        for (let i = 0; i < this.#cursor; i++) {
-            this.#sparse[this.#dense[i]] = 0;
+        for (let i = 0; i < this._cursor; i++) {
+            this._sparse[this._dense[i]] = 0;
         }
-        this.#cursor = 0;
+        this._cursor = 0;
     }
 
     sort(): void {
-        this.#dense.sort((a, b) => a - b);
-        for (let i = 0; i < this.#dense.length; i++) {
-            this.#sparse[this.#dense[i]] = i;
+        this._dense.sort((a, b) => a - b);
+        for (let i = 0; i < this._dense.length; i++) {
+            this._sparse[this._dense[i]] = i;
         }
     }
 
     getIndex(val: number): number {
-        return this.#sparse[val];
+        return this._sparse[val];
     }
 
     get dense(): number[] {
-        return this.#dense.slice(0, this.#cursor);
+        return this._dense.slice(0, this._cursor);
     }
 
     get denseRaw(): { array: number[]; length: number } {
-        this.#denseRaw.length = this.#cursor;
-        return this.#denseRaw;
+        this._denseRaw.length = this._cursor;
+        return this._denseRaw;
     }
 
     get rawDense(): readonly number[] {
-        return this.#dense;
+        return this._dense;
     }
 
     get length(): number {
-        return this.#cursor;
+        return this._cursor;
     }
 
     get sparse(): number[] {
-        return this.#sparse;
+        return this._sparse;
     }
 }

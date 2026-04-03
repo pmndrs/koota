@@ -6,7 +6,7 @@
  */
 
 /** Count trailing zeros — position of lowest set bit. */
-export /* @inline @pure */ function ctz32(v: number): number {
+/* @inline @pure */ export function ctz32(v: number): number {
     if (v === 0) return 32;
     return 31 - Math.clz32(v & -v);
 }
