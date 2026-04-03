@@ -5,6 +5,7 @@
   "license": "ISC",
   "scripts": {
     "bench": "pnpm --filter @koota/benches exec labs",
+    "build": "pnpm -F koota build",
     "examples": "tsx ./scripts/examples.ts",
     "release": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
     "prepublishOnly": "pnpm -F koota build && pnpm -F koota generate-tests",

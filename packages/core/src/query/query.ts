@@ -1,3 +1,4 @@
+import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
@@ -8,7 +9,6 @@ import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
-import { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
 import { createQueryResult } from './query-result';

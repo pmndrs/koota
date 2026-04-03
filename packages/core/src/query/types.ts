@@ -1,3 +1,4 @@
+import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory } from '../storage';
@@ -9,7 +10,6 @@ import type {
     TraitInstance,
     TraitRecord,
 } from '../trait/types';
-import type { SparseSet } from '../utils/sparse-set';
 import type { World } from '../world';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';

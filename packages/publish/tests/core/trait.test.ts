@@ -232,9 +232,13 @@ describe('Trait', () => {
             expect(entity.get(Position)).toMatchObject({ x: 1, y: 2 });
         });
 
-        // The trait should still be present after the onRemove callback is called.
+        /**
+         * The trait should still be present after the onRemove callback is called
+         * and its data accessible.
+         */
         const removeCb = vi.fn((entity: Entity) => {
             expect(entity.has(Position)).toBe(true);
+            expect(entity.get(Position)).toMatchObject({ x: 1, y: 2 });
         });
 
         const entity = world.spawn();
@@ -258,5 +262,20 @@ describe('Trait', () => {
 
         // Getting a tag trait should not throw
         expect(entity.get(IsTag)).toBeUndefined();
+    });
+
+    it('does not fire onChange when a trait is added without or with initial data', () => {
+        const cb = vi.fn();
+        world.onChange(Position, cb);
+
+        // Plain add — no initial data
+        const entityA = world.spawn();
+        entityA.add(Position);
+        expect(cb).not.toHaveBeenCalled();
+
+        // Add with inline initial data via trait ref
+        const entityB = world.spawn();
+        entityB.add(Position({ x: 1, y: 2 }));
+        expect(cb).not.toHaveBeenCalled();
     });
 });
