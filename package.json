@@ -8,7 +8,7 @@
     "examples": "tsx ./scripts/examples.ts",
     "release": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
     "prepublishOnly": "pnpm -F koota build && pnpm -F koota generate-tests",
-    "test": "pnpm -F core test run && pnpm -F react test run",
+    "test": "pnpm -r --filter=!koota test",
     "test:build": "pnpm prepublishOnly && pnpm -F koota test run",
     "lint": "pnpm -r lint",
     "format": "prettier --config .config/prettier/base.json --write ."
