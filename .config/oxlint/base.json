@@ -11,7 +11,8 @@
       }
     ],
     "no-useless-escape": "off",
-    "no-unused-expressions": ["warn", { "allowShortCircuit": true }]
+    "no-unused-expressions": ["warn", { "allowShortCircuit": true }],
+    "no-new-array": "off"
   },
   "ignorePatterns": ["dist"]
 }
