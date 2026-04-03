@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
-import { PAGE_SIZE, getEntityId } from '../entity/utils/pack-entity';
+import { getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
@@ -92,8 +92,7 @@ export /* @inline */ function getRelationTargets(
     if (!traitData || !traitData.relationTargets) return [];
 
     const eid = getEntityId(entity);
-    const p = eid >>> 10,
-        o = eid & 1023;
+    const p = eid >>> 10, o = eid & 1023;
     const page = traitData.relationTargets[p];
     if (!page) return [];
 
@@ -192,8 +191,7 @@ export function addRelationTarget(
     }
 
     const eid = getEntityId(entity);
-    const p = eid >>> 10,
-        o = eid & 1023;
+    const p = eid >>> 10, o = eid & 1023;
     const page = ensureRelPage(traitData.relationTargets, p);
 
     let targetIndex: number;
@@ -211,6 +209,16 @@ export function addRelationTarget(
 
         targetIndex = entityTargets.length;
         entityTargets.push(target);
+    }
+
+    // Maintain reverse index: target -> source entities.
+    if (!traitData.relationSources) traitData.relationSources = [];
+    const tid = getEntityId(target);
+    const sources = traitData.relationSources[tid];
+    if (sources) {
+        sources.push(entity);
+    } else {
+        traitData.relationSources[tid] = [entity];
     }
 
     updateQueriesForRelationChange(ctx, relation, entity);
@@ -231,8 +239,7 @@ export function removeRelationTarget(
     if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
 
     const eid = getEntityId(entity);
-    const p = eid >>> 10,
-        o = eid & 1023;
+    const p = eid >>> 10, o = eid & 1023;
     const page = data.relationTargets[p];
     if (!page) return { removedIndex: -1, wasLastTarget: false };
 
@@ -264,6 +271,20 @@ export function removeRelationTarget(
     }
 
     if (removedIndex !== -1) {
+        // Clean up reverse index.
+        if (data.relationSources) {
+            const tid = getEntityId(target);
+            const sources = data.relationSources[tid];
+            if (sources) {
+                const si = sources.indexOf(entity);
+                if (si !== -1) {
+                    const last = sources.length - 1;
+                    if (si !== last) sources[si] = sources[last];
+                    sources.pop();
+                }
+            }
+        }
+
         updateQueriesForRelationChange(ctx, relation, entity);
     }
 
@@ -297,8 +318,7 @@ function swapAndPopRelationData(
     idx: number,
     lastIdx: number
 ): void {
-    const p = eid >>> 10,
-        o = eid & 1023;
+    const p = eid >>> 10, o = eid & 1023;
     if (type === 'aos') {
         const arr = store[p]?.[o];
         if (arr) {
@@ -324,8 +344,7 @@ function clearRelationDataInternal(
     exclusive: boolean
 ): void {
     if (!exclusive) return;
-    const p = eid >>> 10,
-        o = eid & 1023;
+    const p = eid >>> 10, o = eid & 1023;
     if (type === 'aos') {
         if (store[p]) store[p][o] = undefined;
     } else {
@@ -351,45 +370,12 @@ export function getEntitiesWithRelationTo(
     relation: Relation<Trait>,
     target: Entity
 ): readonly Entity[] {
-    const relationCtx = relation[$internal];
-    const baseTrait = relationCtx.trait;
+    const baseTrait = relation[$internal].trait;
     const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
-    if (!traitData || !traitData.relationTargets) return [];
+    if (!traitData || !traitData.relationSources) return [];
 
-    const targetId = target;
-    const entityIndex = ctx.entityIndex;
-    const sparse = entityIndex.sparse;
-    const dense = entityIndex.dense;
-    const result: Entity[] = [];
-    const relationTargets = traitData.relationTargets;
-    const isExclusive = relationCtx.exclusive;
-
-    for (let p = 0; p < relationTargets.length; p++) {
-        const page = relationTargets[p];
-        if (!page) continue;
-
-        for (let o = 0; o < PAGE_SIZE; o++) {
-            const entry = page[o];
-            if (entry === undefined) continue;
-
-            let hasTarget = false;
-            if (isExclusive) {
-                hasTarget = entry === targetId;
-            } else {
-                hasTarget = (entry as number[]).includes(targetId);
-            }
-
-            if (hasTarget) {
-                const eid = p * PAGE_SIZE + o;
-                const denseIdx = sparse[eid];
-                if (denseIdx !== undefined && getEntityId(dense[denseIdx]) === eid) {
-                    result.push(dense[denseIdx]);
-                }
-            }
-        }
-    }
-
-    return result;
+    const sources = traitData.relationSources[getEntityId(target)];
+    return sources ? sources.slice() : [];
 }
 
 export function setRelationDataAtIndex(
@@ -406,8 +392,7 @@ export function setRelationDataAtIndex(
 
     const store = traitData.store;
     const eid = getEntityId(entity);
-    const p = eid >>> 10,
-        o = eid & 1023;
+    const p = eid >>> 10, o = eid & 1023;
 
     if (baseTrait[$internal].type === 'aos') {
         const page = ensureRelPage(store as any[], p);
@@ -460,8 +445,7 @@ export function getRelationData(
     const traitCtx = baseTrait[$internal];
     const store = traitData.store;
     const eid = getEntityId(entity);
-    const p = eid >>> 10,
-        o = eid & 1023;
+    const p = eid >>> 10, o = eid & 1023;
     const relationCtx = relation[$internal];
 
     if (traitCtx.type === 'aos') {

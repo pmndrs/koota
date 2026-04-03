@@ -103,6 +103,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
      * For non-exclusive: relationTargets[pageId][offset] = [targetId1, targetId2, ...] (number[])
      */
     relationTargets?: any[][];
+    /** Reverse index: target entityId -> array of source entities that point to it. */
+    relationSources?: (Entity[] | undefined)[];
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;

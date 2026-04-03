@@ -63,12 +63,12 @@ describe('World', () => {
         expect(() => world.destroy()).not.toThrow();
     });
 
-    it('can create many worlds (no 16-world limit)', () => {
+    it('can create many worlds', () => {
         const worlds = [];
-        for (let i = 0; i < 100; i++) {
+        for (let i = 0; i < 200; i++) {
             worlds.push(createWorld());
         }
-        expect(worlds.length).toBe(100);
+        expect(worlds.length).toBe(200);
     });
 
     it('should add, remove and get singletons', () => {

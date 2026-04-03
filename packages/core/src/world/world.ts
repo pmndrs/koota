@@ -1,12 +1,7 @@
 import { $internal } from '../common';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
-import {
-    createEntityIndex,
-    getAliveEntities,
-    isEntityAlive,
-    releaseOwnedPages,
-} from '../entity/utils/entity-index';
+import { createEntityIndex, getAliveEntities, isEntityAlive, releaseOwnedPages } from '../entity/utils/entity-index';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { IsExcluded, createQueryInstance } from '../query/query';

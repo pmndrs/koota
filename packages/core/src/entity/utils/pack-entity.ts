@@ -13,23 +13,23 @@ export const PAGE_MASK = PAGE_SIZE - 1; // 1023
 export const MAX_PAGES = 1 << (ENTITY_ID_BITS - PAGE_BITS); // 1024
 
 export function packEntity(generation: number, entityId: number): Entity {
-    return (((generation & GENERATION_MASK) << GENERATION_SHIFT) |
-        (entityId & ENTITY_ID_MASK)) as Entity;
+	return (((generation & GENERATION_MASK) << GENERATION_SHIFT) |
+		(entityId & ENTITY_ID_MASK)) as Entity;
 }
 
 export function unpackEntity(entity: Entity) {
-    return {
-        generation: (entity >>> GENERATION_SHIFT) & GENERATION_MASK,
-        entityId: entity & ENTITY_ID_MASK,
-    };
+	return {
+		generation: (entity >>> GENERATION_SHIFT) & GENERATION_MASK,
+		entityId: entity & ENTITY_ID_MASK,
+	};
 }
 
 export const getEntityId = /* @inline @pure */ (entity: Entity) => entity & ENTITY_ID_MASK;
 
 export const getEntityGeneration = /* @inline @pure */ (entity: Entity) =>
-    (entity >>> GENERATION_SHIFT) & GENERATION_MASK;
+	(entity >>> GENERATION_SHIFT) & GENERATION_MASK;
 
 export const incrementGeneration = (entity: Entity): Entity =>
-    ((entity & ~(GENERATION_MASK << GENERATION_SHIFT)) |
-        (((((entity >>> GENERATION_SHIFT) & GENERATION_MASK) + 1) & GENERATION_MASK) <<
-            GENERATION_SHIFT)) as unknown as Entity;
+	((entity & ~(GENERATION_MASK << GENERATION_SHIFT)) |
+		(((((entity >>> GENERATION_SHIFT) & GENERATION_MASK) + 1) & GENERATION_MASK) <<
+			GENERATION_SHIFT)) as unknown as Entity;

@@ -1,15 +1,14 @@
 import type { WorldInternal } from '../../world/types';
 import type { Entity } from '../types';
-import type { PageAllocator } from './page-allocator';
-import { ctz32, leasePage } from './page-allocator';
 import {
     GENERATION_MASK,
-    GENERATION_SHIFT,
     PAGE_SIZE,
     getEntityGeneration,
     getEntityId,
     packEntity,
 } from './pack-entity';
+import type { PageAllocator } from './page-allocator';
+import { ctz32, leasePage } from './page-allocator';
 
 export type EntityIndex = {
     /** The number of currently alive entities. */

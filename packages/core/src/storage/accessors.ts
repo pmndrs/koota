@@ -28,7 +28,8 @@ function createSoAFastSetFunction(schema: Schema) {
 
     const setFunctionBody = keys
         .map(
-            (key) => `if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key};`
+            (key) =>
+                `if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key};`
         )
         .join('\n    ');
 
@@ -98,8 +99,7 @@ function createAoSSetFunction(_schema: Schema) {
 
 function createAoSFastSetChangeFunction(_schema: Schema) {
     return (index: number, store: any, value: any) => {
-        const p = index >>> 10,
-            o = index & 1023;
+        const p = index >>> 10, o = index & 1023;
         if (!store[p]) store[p] = [];
         let changed = false;
         if (value !== store[p][o]) {
