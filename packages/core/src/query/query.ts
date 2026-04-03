@@ -2,7 +2,11 @@ import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { EMPTY_MASK_PAGE, createEmptyMaskGeneration, ensureMaskPage } from '../entity/utils/paged-mask';
+import {
+    EMPTY_MASK_PAGE,
+    createEmptyMaskGeneration,
+    ensureMaskPage,
+} from '../entity/utils/paged-mask';
 import { hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -230,7 +234,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 if (isOrWithModifiers(parameter)) {
                     for (const nestedModifier of parameter.modifiers) {
                         if (isTrackingModifier(nestedModifier)) {
-                            processTrackingModifier(ctx, query, nestedModifier, 'or', trackingGroupsMap);
+                            processTrackingModifier(
+                                ctx,
+                                query,
+                                nestedModifier,
+                                'or',
+                                trackingGroupsMap
+                            );
                         }
                     }
                 }

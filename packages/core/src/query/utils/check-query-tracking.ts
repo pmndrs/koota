@@ -50,7 +50,7 @@ export function checkQueryTracking(
         const groupBitmasks = group.bitmasks;
         const groupBitmask = groupBitmasks[eventGenerationId];
 
-        if (groupBitmask && (groupBitmask & eventBitflag)) {
+        if (groupBitmask && groupBitmask & eventBitflag) {
             if (eventType === 'remove') {
                 if (groupType === 'add' || groupType === 'change') return false;
             } else if (eventType === 'add') {
@@ -67,7 +67,8 @@ export function checkQueryTracking(
                 if (!groupTrackers[eventGenerationId]) {
                     groupTrackers[eventGenerationId] = createEmptyMaskGeneration();
                 }
-                ensureMaskPage(groupTrackers[eventGenerationId], eid >>> 10)[eid & 1023] |= eventBitflag;
+                ensureMaskPage(groupTrackers[eventGenerationId], eid >>> 10)[eid & 1023] |=
+                    eventBitflag;
             }
         }
 

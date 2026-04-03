@@ -191,8 +191,7 @@ export function addTrait(ctx: WorldInternal, entity: Entity, ...traits: Configur
     const targetIndex = addRelationTarget(ctx, relation, entity, target);
     if (targetIndex === -1) return;
 
-    const schema =
-        instance?.schema ?? getTraitInstance(ctx.traitInstances, relationTrait)!.schema;
+    const schema = instance?.schema ?? getTraitInstance(ctx.traitInstances, relationTrait)!.schema;
     const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
     if (defaults) {
@@ -306,7 +305,10 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
     ctxOrWorld: WorldInternal | World,
     trait: C
 ): ExtractStore<C> {
-    const ctx = 'traitInstances' in ctxOrWorld ? ctxOrWorld as WorldInternal : (ctxOrWorld as World)[$internal];
+    const ctx =
+        'traitInstances' in ctxOrWorld
+            ? (ctxOrWorld as WorldInternal)
+            : (ctxOrWorld as World)[$internal];
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
     return instance.store as ExtractStore<C>;
 }
@@ -455,14 +457,7 @@ function removeTraitFromEntity(ctx: WorldInternal, entity: Entity, trait: Trait)
     for (const query of trackingQueries) {
         const match =
             query.relationFilters && query.relationFilters.length > 0
-                ? checkQueryTrackingWithRelations(
-                      ctx,
-                      query,
-                      entity,
-                      'remove',
-                      generationId,
-                      bitflag
-                  )
+                ? checkQueryTrackingWithRelations(ctx, query, entity, 'remove', generationId, bitflag)
                 : query.checkTracking(ctx, entity, 'remove', generationId, bitflag);
         if (match) query.add(entity);
         else query.remove(ctx, entity);

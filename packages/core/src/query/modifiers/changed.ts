@@ -53,14 +53,7 @@ function markChanged(ctx: WorldInternal, entity: Entity, trait: Trait) {
 
         const match =
             query.relationFilters && query.relationFilters.length > 0
-                ? checkQueryTrackingWithRelations(
-                      ctx,
-                      query,
-                      entity,
-                      'change',
-                      generationId,
-                      bitflag
-                  )
+                ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', generationId, bitflag)
                 : query.checkTracking(ctx, entity, 'change', generationId, bitflag);
         if (match) query.add(entity);
         else query.remove(ctx, entity);

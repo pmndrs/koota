@@ -93,4 +93,3 @@ export function destroyEntity(ctx: WorldInternal, entity: Entity) {
 export function getEntityContext(entity: Entity): WorldInternal {
     return universe.pageOwners[getEntityId(entity) >>> 10]!;
 }
-
