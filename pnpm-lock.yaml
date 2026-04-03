@@ -34,8 +34,8 @@ catalogs:
       specifier: ^0.181.2
       version: 0.181.2
     unplugin-inline-functions:
-      specifier: ^0.4.0
-      version: 0.4.0
+      specifier: ^0.4.2
+      version: 0.4.2
     vite:
       specifier: ^7.2.4
       version: 7.2.4
@@ -389,6 +389,9 @@ importers:
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.3)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
+      unplugin-inline-functions:
+        specifier: 'catalog:'
+        version: 0.4.2(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
@@ -438,7 +441,7 @@ importers:
         version: 8.5.1(@swc/core@1.15.3)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
       unplugin-inline-functions:
         specifier: 'catalog:'
-        version: 0.4.0(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
+        version: 0.4.2(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
@@ -2116,8 +2119,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  unplugin-inline-functions@0.4.0:
-    resolution: {integrity: sha512-6phPGfQa0+AjRbuPBof51kAGFn12TvEoJZw6j6f24iBo0KyvcSpX+GUJJWlwFsVdk7nvEfSK24gXNRjQnL866A==}
+  unplugin-inline-functions@0.4.2:
+    resolution: {integrity: sha512-kr/TwZ6A5wWKNkmzBW8iynDNAyR/ookiCPhzvfn3AAZ0F8L90K9AFNMX6q5H5nzUT4dheoO4C2hEL3wvGE0V7g==}
     peerDependencies:
       '@babel/parser': ^7.26.3
       '@babel/traverse': ^7.26.4
@@ -3755,7 +3758,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  unplugin-inline-functions@0.4.0(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
+  unplugin-inline-functions@0.4.2(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
     dependencies:
       '@babel/parser': 7.28.5
       '@babel/traverse': 7.28.5
