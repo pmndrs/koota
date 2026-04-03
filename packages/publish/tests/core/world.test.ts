@@ -7,24 +7,22 @@ describe('World', () => {
     });
 
     it('should create a world', () => {
-        // World inits on creation.
         const world = createWorld();
 
-        expect(world.isInitialized).toBe(true);
-        expect(world.id).toBe(0);
-        expect(universe.worlds[0]!).toBe(world);
-        expect(universe.worldIndex.worldCursor).toBe(1);
+        expect(world.isRegistered).toBe(false);
+        expect(universe.worlds[world.id]).toBeUndefined();
     });
 
-    it('should optionaly init lazily', () => {
-        const world = createWorld({ lazy: true });
-        expect(world.isInitialized).toBe(false);
-        world.init();
-        expect(world.isInitialized).toBe(true);
+    it('should auto-register on first mutation', () => {
+        const world = createWorld();
+        expect(world.isRegistered).toBe(false);
+        world.spawn();
+        expect(world.isRegistered).toBe(true);
     });
 
     it('should reset the world', () => {
         const world = createWorld();
+        world.spawn();
         world.reset();
 
         // Always has one entity that is the world itself.
@@ -65,22 +63,12 @@ describe('World', () => {
         expect(() => world.destroy()).not.toThrow();
     });
 
-    it('errors if more than 16 worlds are created', () => {
-        for (let i = 0; i < 16; i++) {
-            createWorld();
+    it('can create many worlds (no 16-world limit)', () => {
+        const worlds = [];
+        for (let i = 0; i < 100; i++) {
+            worlds.push(createWorld());
         }
-
-        expect(() => createWorld()).toThrow();
-    });
-
-    it('should recycle world IDs when destroyed', () => {
-        const world = createWorld();
-        const id = world.id;
-
-        world.destroy();
-
-        const newWorld = createWorld();
-        expect(newWorld.id).toBe(id);
+        expect(worlds.length).toBe(100);
     });
 
     it('should add, remove and get singletons', () => {

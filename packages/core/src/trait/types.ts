@@ -98,11 +98,11 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
     addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
     /**
-     * Only for relation traits.
-     * For exclusive: relationTargets[eid] = targetId (number)
-     * For non-exclusive: relationTargets[eid] = [targetId1, targetId2, ...] (number[])
+     * Paged relation targets.
+     * For exclusive: relationTargets[pageId][offset] = targetId (number)
+     * For non-exclusive: relationTargets[pageId][offset] = [targetId1, targetId2, ...] (number[])
      */
-    relationTargets?: number[] | number[][];
+    relationTargets?: any[][];
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;

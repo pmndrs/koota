@@ -19,7 +19,6 @@ const Bar = trait();
 
 describe('Query modifiers', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();
@@ -761,7 +760,6 @@ describe('Query modifiers', () => {
     it('[internal] should handle Changed modifier when trait registration causes generation overflow', () => {
         // Create a fresh world to control trait registration count
         const testWorld = createWorld();
-        testWorld.init();
 
         // IsExcluded is already registered (bitflag=2 after), register 29 more to get bitflag=2^30
         const fillerTraits = Array.from({ length: 29 }, () => trait());

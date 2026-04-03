@@ -3,7 +3,6 @@ import { createChanged, createWorld, ordered, relation } from '../src';
 
 describe('Ordered relations', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();

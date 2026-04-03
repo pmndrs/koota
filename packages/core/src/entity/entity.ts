@@ -3,27 +3,25 @@ import { getEntitiesWithRelationTo, getRelationTargets } from '../relation/relat
 import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
-import type { World } from '../world';
+import type { World, WorldInternal } from '../world';
 import type { Entity } from './types';
-import { allocateEntity, releaseEntity } from './utils/entity-index';
-import { getEntityId, getEntityWorldId } from './utils/pack-entity';
+import { allocateEntity, isEntityAlive, releaseEntity } from './utils/entity-index';
+import { getEntityId } from './utils/pack-entity';
+import { EMPTY_MASK_PAGE } from './utils/paged-mask';
 
 // Ensure entity methods are patched.
 import './entity-methods-patch';
 
-export function createEntity(world: World, ...traits: ConfigurableTrait[]): Entity {
-    const ctx = world[$internal];
+export function createEntity(ctx: WorldInternal, ...traits: ConfigurableTrait[]): Entity {
     const entity = allocateEntity(ctx.entityIndex);
-
     for (const query of ctx.notQueries) {
-        const match = query.check(world, entity);
+        const match = query.check(ctx, entity);
         if (match) query.add(entity);
-        // Reset all tracking bitmasks for the query.
         query.resetTrackingBitmasks(getEntityId(entity));
     }
 
     ctx.entityTraits.set(entity, new Set());
-    addTrait(world, entity, ...traits);
+    addTrait(ctx, entity, ...traits);
 
     return entity;
 }
@@ -31,26 +29,17 @@ export function createEntity(world: World, ...traits: ConfigurableTrait[]): Enti
 const cachedSet = new Set<Entity>();
 const cachedQueue = [] as Entity[];
 
-export function destroyEntity(world: World, entity: Entity) {
-    const ctx = world[$internal];
+export function destroyEntity(ctx: WorldInternal, entity: Entity) {
+    if (!isEntityAlive(ctx.entityIndex, entity))
+        throw new Error('Koota: The entity being destroyed does not exist.');
 
-    // Check if entity exists.
-    if (!world.has(entity)) throw new Error('Koota: The entity being destroyed does not exist.');
-
-    // Caching the lookup in the outer scope of the loop increases performance.
     const entityQueue = cachedQueue;
     const processedEntities = cachedSet;
 
-    // Ensure the queue is empty before starting.
     entityQueue.length = 0;
     entityQueue.push(entity);
     processedEntities.clear();
 
-    // Destroyed entities may be the target or source of relations.
-    // To avoid stale references, all these relations must be removed.
-    // autoDestroy controls cascade behavior:
-    // - 'source' (or 'orphan'): when target dies, destroy sources (e.g., parent dies → children die)
-    // - 'target': when source dies, destroy targets (e.g., container dies → items die)
     while (entityQueue.length > 0) {
         const currentEntity = entityQueue.pop()!;
         if (processedEntities.has(currentEntity)) continue;
@@ -60,57 +49,48 @@ export function destroyEntity(world: World, entity: Entity) {
         for (const relation of ctx.relations) {
             const relationCtx = relation[$internal];
 
-            // Handle entities that have relations pointing TO currentEntity (currentEntity is target)
-            // If autoDestroy is 'orphan', destroy those sources
-            const sources = getEntitiesWithRelationTo(world, relation, currentEntity);
+            const sources = getEntitiesWithRelationTo(ctx, relation, currentEntity);
             for (const source of sources) {
-                if (!world.has(source)) continue;
-
-                // Remove the relation from source to currentEntity
-                cleanupRelationTarget(world, relation, source, currentEntity);
-
-                // If autoDestroy: 'source', queue the source for destruction
+                if (!isEntityAlive(ctx.entityIndex, source)) continue;
+                cleanupRelationTarget(ctx, relation, source, currentEntity);
                 if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
             }
 
-            // Handle relations where currentEntity is the source pointing to targets
-            // If autoDestroy is 'target', destroy those targets
             if (relationCtx.autoDestroy === 'target') {
-                const targets = getRelationTargets(world, relation, currentEntity);
+                const targets = getRelationTargets(ctx, relation, currentEntity);
                 for (const target of targets) {
-                    if (!world.has(target)) continue;
+                    if (!isEntityAlive(ctx.entityIndex, target)) continue;
                     if (!processedEntities.has(target)) entityQueue.push(target);
                 }
             }
         }
 
-        // Remove all traits of the current entity.
         const entityTraits = ctx.entityTraits.get(currentEntity);
         if (entityTraits) {
             for (const trait of entityTraits) {
-                removeTrait(world, currentEntity, trait);
+                removeTrait(ctx, currentEntity, trait);
             }
         }
 
-        // Free the entity.
         releaseEntity(ctx.entityIndex, currentEntity);
 
-        // Remove the entity from the all query.
         const allQuery = ctx.queriesHashMap.get('');
-        if (allQuery) allQuery.remove(world, currentEntity);
+        if (allQuery) allQuery.remove(ctx, currentEntity);
 
-        // Remove all entity state from world.
         ctx.entityTraits.delete(currentEntity);
 
-        // Clear entity bitmasks.
         const eid = getEntityId(currentEntity);
+        const pageId = eid >>> 10;
+        const offset = eid & 1023;
         for (let i = 0; i < ctx.entityMasks.length; i++) {
-            ctx.entityMasks[i][eid] = 0;
+            const page = ctx.entityMasks[i][pageId];
+            if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
         }
     }
 }
 
-/* @inline @pure */ export function getEntityWorld(entity: Entity) {
-    const worldId = getEntityWorldId(entity);
-    return universe.worlds[worldId]!;
+/** Resolve WorldInternal directly from pageOwners. Used by entity methods. */
+export function getEntityContext(entity: Entity): WorldInternal {
+    return universe.pageOwners[getEntityId(entity) >>> 10]!;
 }
+

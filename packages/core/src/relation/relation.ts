@@ -1,20 +1,20 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
-import { getEntityId } from '../entity/utils/pack-entity';
+import { PAGE_SIZE, getEntityId } from '../entity/utils/pack-entity';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
-import type { World } from '../world';
+import type { WorldInternal } from '../world';
 import type { Relation, RelationPair, RelationTarget } from './types';
 import { $relation, $relationPair } from './symbols';
 
-/**
- * Creates a relation definition.
- * Relations are stored efficiently - one trait per relation type, not per target.
- * Targets are stored in TraitInstance.relationTargets.
- */
+function ensureRelPage(arr: any[], pageId: number): any[] {
+    if (!arr[pageId]) arr[pageId] = [];
+    return arr[pageId];
+}
+
 function createRelation<S extends Schema = Record<string, never>>(definition?: {
     exclusive?: boolean;
     autoDestroy?: 'orphan' | 'source' | 'target';
@@ -22,14 +22,11 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
     autoRemoveTarget?: boolean;
     store?: S;
 }): Relation<Trait<S>> {
-    // Create the underlying trait for this relation
     const relationTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
     const traitCtx = relationTrait[$internal];
 
-    // Mark the trait as a relation trait
-    traitCtx.relation = null!; // Will be set below after relation is created
+    traitCtx.relation = null!;
 
-    // Handle autoDestroy option - 'orphan' is an alias for 'source'
     let autoDestroy: 'source' | 'target' | false = false;
     if (definition?.autoDestroy === 'orphan' || definition?.autoDestroy === 'source') {
         autoDestroy = 'source';
@@ -37,7 +34,6 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
         autoDestroy = 'target';
     }
 
-    // Handle deprecated autoRemoveTarget option
     if (definition?.autoRemoveTarget) {
         console.warn(
             "Koota: 'autoRemoveTarget' is deprecated. Use 'autoDestroy: \"orphan\"' instead."
@@ -51,7 +47,6 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
         autoDestroy,
     };
 
-    // The relation function creates a pair when called with a target
     function relationFn(
         target: RelationTarget,
         params?: Record<string, unknown>
@@ -72,7 +67,6 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
         [$internal]: relationCtx,
     }) as Relation<Trait<S>>;
 
-    // Add symbol brand for fast type checking
     Object.defineProperty(relation, $relation, {
         value: true,
         writable: false,
@@ -80,7 +74,6 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
         configurable: false,
     });
 
-    // Set the back-reference from trait to relation
     traitCtx.relation = relation;
 
     return relation;
@@ -88,70 +81,57 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
 
 export const relation = createRelation;
 
-/**
- * Get the targets for a relation on an entity.
- * Returns an array of target entity IDs.
- */
 export /* @inline */ function getRelationTargets(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity
 ): readonly Entity[] {
-    const ctx = world[$internal];
     const relationCtx = relation[$internal];
 
     const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
     if (!traitData || !traitData.relationTargets) return [];
 
     const eid = getEntityId(entity);
+    const p = eid >>> 10, o = eid & 1023;
+    const page = traitData.relationTargets[p];
+    if (!page) return [];
 
     if (relationCtx.exclusive) {
-        const target = (traitData.relationTargets as Array<Entity | undefined>)[eid];
-        return target !== undefined ? [target as Entity] : [];
+        const target = page[o] as Entity | undefined;
+        return target !== undefined ? [target] : [];
     } else {
-        const targets = (traitData.relationTargets as number[][])[eid];
+        const targets = page[o] as number[] | undefined;
         return targets !== undefined ? (targets.slice() as Entity[]) : [];
     }
 }
 
-/**
- * Get the first target for a relation on an entity.
- * Returns the first target entity ID, or undefined if none exists.
- * Optimized version that avoids array allocation.
- */
 export /* @inline */ function getFirstRelationTarget(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity
 ): Entity | undefined {
-    const ctx = world[$internal];
     const relationCtx = relation[$internal];
 
     const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
     if (!traitData || !traitData.relationTargets) return undefined;
 
     const eid = getEntityId(entity);
+    const page = traitData.relationTargets[eid >>> 10];
+    if (!page) return undefined;
 
     if (relationCtx.exclusive) {
-        const target = (traitData.relationTargets as Array<Entity | undefined>)[eid];
-        return target;
+        return page[eid & 1023] as Entity | undefined;
     } else {
-        const targets = (traitData.relationTargets as number[][])[eid];
-        return targets?.[0] as Entity | undefined;
+        return (page[eid & 1023] as number[] | undefined)?.[0] as Entity | undefined;
     }
 }
 
-/**
- * Get the index of a target in the relation's target array.
- * Returns -1 if not found. Used for accessing per-target store data.
- */
 export /* @inline */ function getTargetIndex(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
 ): number {
-    const ctx = world[$internal];
     const relationCtx = relation[$internal];
     const baseTrait = relationCtx.trait;
 
@@ -159,25 +139,23 @@ export /* @inline */ function getTargetIndex(
     if (!traitData || !traitData.relationTargets) return -1;
 
     const eid = getEntityId(entity);
+    const page = traitData.relationTargets[eid >>> 10];
+    if (!page) return -1;
 
     if (relationCtx.exclusive) {
-        return (traitData.relationTargets as Array<Entity | undefined>)[eid] === target ? 0 : -1;
+        return page[eid & 1023] === target ? 0 : -1;
     } else {
-        const targets = (traitData.relationTargets as number[][])[eid];
+        const targets = page[eid & 1023] as number[] | undefined;
         return targets ? targets.indexOf(target) : -1;
     }
 }
 
-/**
- * Check if an entity has a relation to a specific target.
- */
 export /* @inline */ function hasRelationToTarget(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
 ): boolean {
-    const ctx = world[$internal];
     const relationCtx = relation[$internal];
     const baseTrait = relationCtx.trait;
 
@@ -185,27 +163,23 @@ export /* @inline */ function hasRelationToTarget(
     if (!traitData || !traitData.relationTargets) return false;
 
     const eid = getEntityId(entity);
+    const page = traitData.relationTargets[eid >>> 10];
+    if (!page) return false;
 
     if (relationCtx.exclusive) {
-        return (traitData.relationTargets as Array<Entity | undefined>)[eid] === target;
+        return page[eid & 1023] === target;
     } else {
-        const targets = (traitData.relationTargets as number[][])[eid];
+        const targets = page[eid & 1023] as number[] | undefined;
         return targets ? targets.includes(target) : false;
     }
 }
 
-/**
- * Add a relation target to an entity.
- * Returns the index of the target in the targets array.
- * If the target already exists, returns -1.
- */
 export function addRelationTarget(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
 ): number {
-    const ctx = world[$internal];
     const relationCtx = relation[$internal];
     const baseTrait = relationCtx.trait;
 
@@ -217,47 +191,37 @@ export function addRelationTarget(
     }
 
     const eid = getEntityId(entity);
+    const p = eid >>> 10, o = eid & 1023;
+    const page = ensureRelPage(traitData.relationTargets, p);
 
     let targetIndex: number;
 
     if (relationCtx.exclusive) {
-        const targets = traitData.relationTargets as Array<Entity | undefined>;
-        // No-op if unchanged
-        if (targets[eid] === target) return -1;
-        targets[eid] = target;
+        if (page[o] === target) return -1;
+        page[o] = target;
         targetIndex = 0;
     } else {
-        const targetsArray = traitData.relationTargets as number[][];
-        if (!targetsArray[eid]) {
-            targetsArray[eid] = [];
-        }
+        if (!page[o]) page[o] = [];
+        const entityTargets = page[o] as number[];
 
-        // Check if already exists
-        const existingIndex = targetsArray[eid].indexOf(target);
-        if (existingIndex !== -1) {
-            return -1;
-        }
+        const existingIndex = entityTargets.indexOf(target);
+        if (existingIndex !== -1) return -1;
 
-        targetIndex = targetsArray[eid].length;
-        targetsArray[eid].push(target);
+        targetIndex = entityTargets.length;
+        entityTargets.push(target);
     }
 
-    updateQueriesForRelationChange(world, relation, entity);
+    updateQueriesForRelationChange(ctx, relation, entity);
 
     return targetIndex;
 }
 
-/**
- * Remove a relation target from an entity.
- * Returns the removed index and whether this was the last target.
- */
 export function removeRelationTarget(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
 ): { removedIndex: number; wasLastTarget: boolean } {
-    const ctx = world[$internal];
     const relationCtx = relation[$internal];
     const relationTrait = relationCtx.trait;
 
@@ -265,21 +229,22 @@ export function removeRelationTarget(
     if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
 
     const eid = getEntityId(entity);
+    const p = eid >>> 10, o = eid & 1023;
+    const page = data.relationTargets[p];
+    if (!page) return { removedIndex: -1, wasLastTarget: false };
 
     let removedIndex = -1;
     let hasRemainingTargets = false;
 
     if (relationCtx.exclusive) {
-        const targets = data.relationTargets as Array<Entity | undefined>;
-        if (targets[eid] === target) {
-            targets[eid] = undefined;
+        if (page[o] === target) {
+            page[o] = undefined;
             removedIndex = 0;
             hasRemainingTargets = false;
             clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
         }
     } else {
-        const targetsArray = data.relationTargets as number[][];
-        const entityTargets = targetsArray[eid];
+        const entityTargets = page[o] as number[] | undefined;
         if (entityTargets) {
             const idx = entityTargets.indexOf(target);
             if (idx !== -1) {
@@ -296,41 +261,32 @@ export function removeRelationTarget(
     }
 
     if (removedIndex !== -1) {
-        updateQueriesForRelationChange(world, relation, entity);
+        updateQueriesForRelationChange(ctx, relation, entity);
     }
 
     const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
     return { removedIndex, wasLastTarget };
 }
 
-/**
- * Update queries when relation targets change.
- * Called after addRelationTarget or removeRelationTarget to keep queries in sync.
- */
 function updateQueriesForRelationChange(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity
 ): void {
-    const ctx = world[$internal];
     const baseTrait = relation[$internal].trait;
     const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
     if (!traitData) return;
 
-    // Update queries indexed by this relation (much faster than iterating all queries)
-    // All queries in relationQueries already filter by this relation
     for (const query of traitData.relationQueries) {
-        // Re-check entity against query
-        const match = checkQueryWithRelations(world, query, entity);
+        const match = checkQueryWithRelations(ctx, query, entity);
         if (match) {
             query.add(entity);
         } else {
-            query.remove(world, entity);
+            query.remove(ctx, entity);
         }
     }
 }
 
-/** Swap-and-pop data arrays for non-exclusive relations */
 function swapAndPopRelationData(
     store: any,
     type: string,
@@ -338,15 +294,16 @@ function swapAndPopRelationData(
     idx: number,
     lastIdx: number
 ): void {
+    const p = eid >>> 10, o = eid & 1023;
     if (type === 'aos') {
-        const arr = store[eid];
+        const arr = store[p]?.[o];
         if (arr) {
             if (idx !== lastIdx) arr[idx] = arr[lastIdx];
             arr.pop();
         }
     } else {
         for (const key in store) {
-            const arr = store[key][eid];
+            const arr = store[key][p]?.[o];
             if (arr) {
                 if (idx !== lastIdx) arr[idx] = arr[lastIdx];
                 arr.pop();
@@ -355,7 +312,6 @@ function swapAndPopRelationData(
     }
 }
 
-/** Clear data for exclusive relations */
 function clearRelationDataInternal(
     store: any,
     type: string,
@@ -364,40 +320,32 @@ function clearRelationDataInternal(
     exclusive: boolean
 ): void {
     if (!exclusive) return;
+    const p = eid >>> 10, o = eid & 1023;
     if (type === 'aos') {
-        store[eid] = undefined;
+        if (store[p]) store[p][o] = undefined;
     } else {
         for (const key in store) {
-            store[key][eid] = undefined;
+            if (store[key][p]) store[key][p][o] = undefined;
         }
     }
 }
 
-/**
- * Remove all relation targets from an entity.
- * Used for bulk removal when the base trait is also being removed.
- */
 export function removeAllRelationTargets(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     entity: Entity
 ): void {
-    const targets = getRelationTargets(world, relation, entity);
+    const targets = getRelationTargets(ctx, relation, entity);
     for (const target of targets) {
-        removeRelationTarget(world, relation, entity, target);
+        removeRelationTarget(ctx, relation, entity, target);
     }
 }
 
-/**
- * Get all entities that have a specific relation targeting a specific entity.
- * Builds result on-demand by scanning relationTargets (not maintained in reverse index).
- */
 export function getEntitiesWithRelationTo(
-    world: World,
+    ctx: WorldInternal,
     relation: Relation<Trait>,
     target: Entity
 ): readonly Entity[] {
-    const ctx = world[$internal];
     const relationCtx = relation[$internal];
     const baseTrait = relationCtx.trait;
     const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
@@ -409,23 +357,29 @@ export function getEntitiesWithRelationTo(
     const dense = entityIndex.dense;
     const result: Entity[] = [];
     const relationTargets = traitData.relationTargets;
+    const isExclusive = relationCtx.exclusive;
 
-    // Scan all entities to find those with relation to this target
-    for (let eid = 0; eid < relationTargets.length; eid++) {
-        let hasTarget = false;
+    for (let p = 0; p < relationTargets.length; p++) {
+        const page = relationTargets[p];
+        if (!page) continue;
 
-        if (relationCtx.exclusive) {
-            hasTarget = (relationTargets as Array<Entity | undefined>)[eid] === targetId;
-        } else {
-            const targets = (relationTargets as number[][])[eid];
-            hasTarget = targets ? targets.includes(targetId) : false;
-        }
+        for (let o = 0; o < PAGE_SIZE; o++) {
+            const entry = page[o];
+            if (entry === undefined) continue;
 
-        if (hasTarget) {
-            // O(1) lookup via sparse array
-            const denseIdx = sparse[eid];
-            if (denseIdx !== undefined && getEntityId(dense[denseIdx]) === eid) {
-                result.push(dense[denseIdx]);
+            let hasTarget = false;
+            if (isExclusive) {
+                hasTarget = entry === targetId;
+            } else {
+                hasTarget = (entry as number[]).includes(targetId);
+            }
+
+            if (hasTarget) {
+                const eid = p * PAGE_SIZE + o;
+                const denseIdx = sparse[eid];
+                if (denseIdx !== undefined && getEntityId(dense[denseIdx]) === eid) {
+                    result.push(dense[denseIdx]);
+                }
             }
         }
     }
@@ -433,13 +387,8 @@ export function getEntitiesWithRelationTo(
     return result;
 }
 
-/**
- * Set data for a specific relation target using target index.
- * For exclusive relations, index is always 0.
- * For non-exclusive, index corresponds to position in targets array.
- */
 export function setRelationDataAtIndex(
-    world: World,
+    ctx: WorldInternal,
     entity: Entity,
     relation: Relation<Trait>,
     targetIndex: number,
@@ -447,109 +396,101 @@ export function setRelationDataAtIndex(
 ): void {
     const relationCtx = relation[$internal];
     const baseTrait = relationCtx.trait;
-    const traitData = getTraitInstance(world[$internal].traitInstances, baseTrait);
+    const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
     if (!traitData) return;
 
     const store = traitData.store;
     const eid = getEntityId(entity);
+    const p = eid >>> 10, o = eid & 1023;
 
     if (baseTrait[$internal].type === 'aos') {
+        const page = ensureRelPage(store as any[], p);
         if (relationCtx.exclusive) {
-            (store as unknown[])[eid] = value;
+            page[o] = value;
         } else {
-            ((store as unknown[][])[eid] ??= [])[targetIndex] = value;
+            (page[o] ??= [])[targetIndex] = value;
         }
         return;
     }
 
-    // SoA
+    const storeRec = store as Record<string, any[]>;
     if (relationCtx.exclusive) {
         for (const key in value) {
-            (store as Record<string, unknown[]>)[key][eid] = (value as Record<string, unknown>)[key];
+            ensureRelPage(storeRec[key], p)[o] = (value as Record<string, unknown>)[key];
         }
     } else {
         for (const key in value) {
-            (((store as Record<string, Array<unknown | unknown[]>>)[key][eid] ??= []) as unknown[])[
-                targetIndex
-            ] = (value as Record<string, unknown>)[key];
+            const kPage = ensureRelPage(storeRec[key], p);
+            (kPage[o] ??= [])[targetIndex] = (value as Record<string, unknown>)[key];
         }
     }
 }
 
-/**
- * Set data for a specific relation target.
- */
 export function setRelationData(
-    world: World,
+    ctx: WorldInternal,
     entity: Entity,
     relation: Relation<Trait>,
     target: Entity,
     value: Record<string, unknown>
 ): void {
-    const targetIndex = getTargetIndex(world, relation, entity, target);
+    const targetIndex = getTargetIndex(ctx, relation, entity, target);
     if (targetIndex === -1) return;
-    setRelationDataAtIndex(world, entity, relation, targetIndex, value);
+    setRelationDataAtIndex(ctx, entity, relation, targetIndex, value);
 }
 
-/**
- * Get data for a specific relation target.
- */
 export function getRelationData(
-    world: World,
+    ctx: WorldInternal,
     entity: Entity,
     relation: Relation<Trait>,
     target: Entity
 ): unknown {
-    const ctx = world[$internal];
     const baseTrait = relation[$internal].trait;
     const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
     if (!traitData) return undefined;
 
-    const targetIndex = getTargetIndex(world, relation, entity, target);
+    const targetIndex = getTargetIndex(ctx, relation, entity, target);
     if (targetIndex === -1) return undefined;
 
     const traitCtx = baseTrait[$internal];
     const store = traitData.store;
     const eid = getEntityId(entity);
+    const p = eid >>> 10, o = eid & 1023;
     const relationCtx = relation[$internal];
 
     if (traitCtx.type === 'aos') {
+        const page = (store as any[])[p];
+        if (!page) return undefined;
         if (relationCtx.exclusive) {
-            return (store as unknown[])[eid];
+            return page[o];
         } else {
-            return (store as unknown[][])[eid]?.[targetIndex];
+            return page[o]?.[targetIndex];
         }
     } else {
-        // SoA: reconstruct object from store arrays
         const result: Record<string, unknown> = {};
-        const storeRecord = store as Record<string, Array<unknown | unknown[]>>;
+        const storeRecord = store as Record<string, any[]>;
         for (const key in store) {
+            const kPage = storeRecord[key][p];
+            if (!kPage) continue;
             if (relationCtx.exclusive) {
-                result[key] = storeRecord[key][eid];
+                result[key] = kPage[o];
             } else {
-                result[key] = (storeRecord[key][eid] as unknown[] | undefined)?.[targetIndex];
+                result[key] = (kPage[o] as unknown[] | undefined)?.[targetIndex];
             }
         }
         return result;
     }
 }
 
-/**
- * Check if entity has a relation pair.
- */
-export function hasRelationPair(world: World, entity: Entity, pair: RelationPair): boolean {
+export function hasRelationPair(ctx: WorldInternal, entity: Entity, pair: RelationPair): boolean {
     const pairCtx = pair[$internal];
     const relation = pairCtx.relation;
     const target = pairCtx.target;
 
-    // Check if entity has the base trait
-    if (!hasTrait(world, entity, relation[$internal].trait)) return false;
+    if (!hasTrait(ctx, entity, relation[$internal].trait)) return false;
 
-    // Wildcard target
     if (target === '*') return true;
 
-    // Specific target
-    if (typeof target === 'number') return hasRelationToTarget(world, relation, entity, target);
+    if (typeof target === 'number') return hasRelationToTarget(ctx, relation, entity, target);
 
     return false;
 }

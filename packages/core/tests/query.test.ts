@@ -9,7 +9,6 @@ const Bar = trait();
 
 describe('Query', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();

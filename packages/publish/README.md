@@ -735,15 +735,15 @@ const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
 // Entity[]
 world.entities
 
-// Returns the world's unique ID
+// Returns the world's unique ID (debug-only counter, not packed into entities)
 // Return number
-const id = world.id()
+const id = world.id
 
 // Resets the world as if it were just created
-// The world ID and reference is preserved
+// The world reference is preserved
 world.reset()
 
-// Nukes the world and releases its ID
+// Destroys the world, releasing all pages and entities
 world.destroy()
 ```
 
@@ -797,7 +797,7 @@ entity.destroy()
 For introspection, `unpackEntity` can be used to get all of the encoded values. This can be useful for debugging.
 
 ```js
-const { entityId, generation, worldId } = unpackEntity(entity)
+const { entityId, generation } = unpackEntity(entity)
 ```
 
 ### Trait

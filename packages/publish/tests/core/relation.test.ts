@@ -3,7 +3,6 @@ import { createWorld, Not, relation, trait } from '../../dist';
 
 describe('Relation', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();

@@ -56,7 +56,7 @@ export type {
 export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';
 export { universe } from './universe/universe';
-export type { World, WorldOptions } from './world';
+export type { World } from './world';
 export { createWorld } from './world';
 
 /**

@@ -29,19 +29,20 @@ describe('Entity', () => {
         expect(world.entities.length).toBe(1);
     });
 
-    it('should encode world ID in entity', () => {
+    it('should encode generation and entity ID', () => {
         const entity = world.spawn();
-        const { worldId, entityId } = unpackEntity(entity);
+        const { generation, entityId } = unpackEntity(entity);
 
-        expect(worldId).toBe(world.id);
-        expect(entityId).toBe(1);
+        expect(generation).toBe(0);
+        expect(entityId).toBeGreaterThanOrEqual(0);
 
         const world2 = createWorld();
         const entity2 = world2.spawn();
-        const { worldId: worldId2, entityId: entityId2 } = unpackEntity(entity2);
+        const { generation: generation2, entityId: entityId2 } = unpackEntity(entity2);
 
-        expect(worldId2).toBe(world2.id);
-        expect(entityId2).toBe(1);
+        expect(generation2).toBe(0);
+        // Different worlds get different entity IDs from the global allocator.
+        expect(entityId2).not.toBe(entityId);
     });
 
     it('should recycle entities and increment generation', () => {
@@ -52,32 +53,28 @@ describe('Entity', () => {
         }
 
         const bar = getStore(world, Bar);
-
-        // Length should be 50 + 1 (world entity).
-        expect(bar.value.length).toBe(51);
+        const storePageCount = bar.value.length;
 
         for (const entity of entities) {
             entity.destroy();
         }
 
-        // IDs are recycled in reverse order.
-        let entity = world.spawn(Bar);
-        let { generation, entityId } = unpackEntity(entity);
-        expect(generation).toBe(1);
-        expect(entityId).toBe(50);
+        // Spawning after destroy should recycle slots with bumped generation.
+        const recycled1 = world.spawn(Bar);
+        const u1 = unpackEntity(recycled1);
+        expect(u1.generation).toBe(1);
 
-        entity = world.spawn(Bar);
-        ({ generation, entityId } = unpackEntity(entity));
-        expect(generation).toBe(1);
-        expect(entityId).toBe(49);
+        const recycled2 = world.spawn(Bar);
+        const u2 = unpackEntity(recycled2);
+        expect(u2.generation).toBe(1);
+        expect(u2.entityId).not.toBe(u1.entityId);
 
-        entity = world.spawn(Bar);
-        ({ generation, entityId } = unpackEntity(entity));
-        expect(generation).toBe(1);
-        expect(entityId).toBe(48);
+        const recycled3 = world.spawn(Bar);
+        const u3 = unpackEntity(recycled3);
+        expect(u3.generation).toBe(1);
 
-        // Should remain the same and not increase because of the entity encoding.
-        expect(bar.value.length).toBe(51);
+        // Store pages should not grow since slots are reused within the same page.
+        expect(bar.value.length).toBe(storePageCount);
     });
 
     it('should add entities with spawn', () => {
@@ -170,8 +167,8 @@ describe('Entity', () => {
     it('can check if an entity is alive', () => {
         let entity = world.spawn();
         expect(entity.isAlive()).toBe(true);
-        expect(entity.id()).toBe(1);
         expect(entity.generation()).toBe(0);
+        const eid = entity.id();
 
         entity.destroy();
         expect(entity.isAlive()).toBe(false);
@@ -179,7 +176,7 @@ describe('Entity', () => {
         // Should be resilient to changes in generation with the same entity ID.
         entity = world.spawn(Bar);
         expect(entity.isAlive()).toBe(true);
-        expect(entity.id()).toBe(1);
+        expect(entity.id()).toBe(eid);
         expect(entity.generation()).toBe(1);
 
         entity.destroy();
@@ -188,8 +185,8 @@ describe('Entity', () => {
 
     it('can get entity id', () => {
         const entity = world.spawn();
-        // The first entity is always 1 since a world entity is created first.
-        expect(entity.id()).toBe(1);
+        expect(typeof entity.id()).toBe('number');
+        expect(entity.id()).toBeGreaterThanOrEqual(0);
     });
 
     it('can get entity generation', () => {

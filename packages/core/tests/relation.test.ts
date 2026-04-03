@@ -3,7 +3,6 @@ import { createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();

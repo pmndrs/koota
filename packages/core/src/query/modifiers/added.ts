@@ -11,7 +11,7 @@ export function createAdded() {
 
     for (const world of universe.worlds) {
         if (!world) continue;
-        setTrackingMasks(world, id);
+        setTrackingMasks(world[$internal], id);
     }
 
     return <T extends TraitOrRelation[]>(

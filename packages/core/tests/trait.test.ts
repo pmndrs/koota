@@ -76,8 +76,11 @@ describe('Trait', () => {
         entity.add(Position);
         const store = getStore(world, Position);
 
-        // First entry is the world entity.
-        expect(store).toMatchObject({ x: [undefined, 0], y: [undefined, 0] });
+        expect(store.x).toBeDefined();
+        expect(store.y).toBeDefined();
+        const eid = entity & 0xfffff;
+        expect(store.x[eid >>> 10][eid & 1023]).toBe(0);
+        expect(store.y[eid >>> 10][eid & 1023]).toBe(0);
     });
 
     it('should set defaults based on the schema', () => {

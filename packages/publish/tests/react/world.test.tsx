@@ -40,16 +40,16 @@ describe('World', () => {
         expect(worldTest).toBe(world);
     });
 
-    it('can lazy init to create a world in useMemo', () => {
+    it('can create a world in useMemo and auto-register on first use', () => {
         universe.reset();
 
         let worldTest: World = null!;
 
         function Test() {
-            worldTest = useMemo(() => createWorld({ lazy: true }), []);
+            worldTest = useMemo(() => createWorld(), []);
 
             useEffect(() => {
-                worldTest.init();
+                worldTest.spawn();
                 return () => worldTest.destroy();
             }, [worldTest]);
 
@@ -63,7 +63,6 @@ describe('World', () => {
         );
 
         expect(worldTest).toBeDefined();
-        expect(worldTest!.isInitialized).toBe(true);
-        expect(universe.worlds.length).toBe(1);
+        expect(worldTest!.isRegistered).toBe(true);
     });
 });

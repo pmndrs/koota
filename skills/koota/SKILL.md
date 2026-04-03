@@ -162,7 +162,7 @@ entity.destroy()
 
 **Entity IDs**
 
-An entity is internally a number packed with entity ID, generation ID (for recycling), and world ID. Safe to store directly for persistence or networking.
+An entity is internally a 32-bit number packed with generation (12 bits) and entity ID (20 bits). Safe to store directly for persistence or networking.
 
 ```typescript
 entity.id() // Just the entity ID (reused after destroy)
