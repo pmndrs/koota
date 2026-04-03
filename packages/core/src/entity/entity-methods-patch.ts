@@ -74,11 +74,10 @@ Number.prototype.generation = function (this: Entity) {
 //@ts-expect-error
 Number.prototype.isAlive = function (this: Entity) {
     const eid = getEntityId(this);
-    const pageId = eid >>> 10;
-    const offset = eid & 1023;
-    const allocator = universe.pageAllocator;
-    const alive = allocator.alive[pageId];
-    if (!alive) return false;
-    if ((alive[offset >>> 5] & (1 << (offset & 31))) === 0) return false;
-    return getEntityGeneration(this) === allocator.generations[pageId]![offset];
+    const owner = universe.pageAllocator.pageOwners[eid >>> 10];
+    if (!owner) return false;
+    const idx = owner.entityIndex;
+    const denseIdx = idx.sparse[eid];
+    if (denseIdx === undefined || denseIdx >= idx.aliveCount) return false;
+    return idx.dense[denseIdx] === (this as unknown as number);
 };

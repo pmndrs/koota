@@ -48,7 +48,7 @@ export function runQuery<T extends QueryParameter[]>(
         query.entities.clear();
         const len = entities.length;
         for (let i = 0; i < len; i++) {
-            query.resetTrackingBitmasks(entities[i]);
+            query.resetTrackingBitmasks(getEntityId(entities[i]));
         }
     }
 

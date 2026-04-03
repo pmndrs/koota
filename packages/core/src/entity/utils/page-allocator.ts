@@ -9,8 +9,8 @@ export type PageCleanupToken = {
 export type PageAllocator = {
     /** Per-page generation values (pageId -> Uint16Array(PAGE_SIZE)). */
     generations: (Uint16Array | null)[];
-    /** Per-page alive bitsets (pageId -> Uint32Array(PAGE_SIZE / 32)). */
-    alive: (Uint32Array | null)[];
+    /** Per-page alive entity count. O(1) emptiness check for reclamation. */
+    pageAliveCounts: number[];
     /** Stack of released page IDs available for leasing. */
     freePages: number[];
     /** Next fresh page ID to allocate. */
@@ -21,12 +21,10 @@ export type PageAllocator = {
     worldFinalizer: FinalizationRegistry<PageCleanupToken>;
 };
 
-const ALIVE_WORDS = PAGE_SIZE >>> 5; // 32 words for 1024 bits
-
 export function createPageAllocator(): PageAllocator {
     const allocator: PageAllocator = {
         generations: new Array(MAX_PAGES).fill(null),
-        alive: new Array(MAX_PAGES).fill(null),
+        pageAliveCounts: new Array(MAX_PAGES).fill(0),
         freePages: [],
         pageCursor: 0,
         pageOwners: new Array(MAX_PAGES).fill(null),
@@ -36,8 +34,7 @@ export function createPageAllocator(): PageAllocator {
     allocator.worldFinalizer = new FinalizationRegistry<PageCleanupToken>((token) => {
         if (!token.registered) return;
         for (const pageId of token.ownedPages) {
-            const aliveBits = allocator.alive[pageId];
-            if (aliveBits) aliveBits.fill(0);
+            allocator.pageAliveCounts[pageId] = 0;
             allocator.pageOwners[pageId] = null;
             allocator.freePages.push(pageId);
         }
@@ -68,9 +65,6 @@ export function leasePage(allocator: PageAllocator, owner: WorldInternal): numbe
     if (!allocator.generations[pageId]) {
         allocator.generations[pageId] = new Uint16Array(PAGE_SIZE);
     }
-    if (!allocator.alive[pageId]) {
-        allocator.alive[pageId] = new Uint32Array(ALIVE_WORDS);
-    }
     return pageId;
 }
 
@@ -79,19 +73,11 @@ export function releasePage(allocator: PageAllocator, pageId: number): void {
     allocator.freePages.push(pageId);
 }
 
-function isPageEmpty(alive: Uint32Array): boolean {
-    for (let i = 0; i < alive.length; i++) {
-        if (alive[i] !== 0) return false;
-    }
-    return true;
-}
-
 function reclaimEmptyPages(allocator: PageAllocator, needed: number): number {
     let reclaimed = 0;
     for (let pageId = 0; pageId < allocator.pageCursor && reclaimed < needed; pageId++) {
         if (allocator.pageOwners[pageId] === null) continue;
-        const alive = allocator.alive[pageId];
-        if (alive && isPageEmpty(alive)) {
+        if (allocator.pageAliveCounts[pageId] === 0) {
             revokePageFromOwner(allocator, pageId);
             allocator.freePages.push(pageId);
             reclaimed++;
@@ -102,10 +88,4 @@ function reclaimEmptyPages(allocator: PageAllocator, needed: number): number {
 
 function revokePageFromOwner(allocator: PageAllocator, _pageId: number): void {
     allocator.pageOwners[_pageId] = null;
-}
-
-/** Count trailing zeros (finds the first set bit). Returns 32 if word is 0. */
-export function ctz32(word: number): number {
-    if (word === 0) return 32;
-    return Math.clz32(word & -word) ^ 31;
 }
