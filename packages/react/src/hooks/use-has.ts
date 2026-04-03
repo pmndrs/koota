@@ -63,9 +63,7 @@ function createSubscriptions(
     // we check targetsFor().length > 1 (the removed target is still counted).
     const isWildcard =
         !!(trait as any)?.[$relationPair] && (trait as RelationPair)[$internal].target === '*';
-    const wildcardRelation = isWildcard
-        ? (trait as RelationPair)[$internal].relation
-        : undefined;
+    const wildcardRelation = isWildcard ? (trait as RelationPair)[$internal].relation : undefined;
 
     return {
         entity,

@@ -3,40 +3,40 @@ name: Global Entity Index
 overview: Remove packed world ID from entities and replace with a self-cleaning global page allocator, enabling unlimited worlds sharing a ~1M entity budget with pure createWorld() and automatic GC-based cleanup.
 todos:
   - id: entity-format
-    content: "Phase 1: New entity bit layout -- remove worldId from pack-entity.ts, reclaim bits for generation (12+20=32). Update packEntity, unpackEntity, getEntityId, getEntityGeneration, incrementGeneration. Remove getEntityWorldId, getEntityAndWorldId, WORLD_ID_* constants."
+    content: 'Phase 1: New entity bit layout -- remove worldId from pack-entity.ts, reclaim bits for generation (12+20=32). Update packEntity, unpackEntity, getEntityId, getEntityGeneration, incrementGeneration. Remove getEntityWorldId, getEntityAndWorldId, WORLD_ID_* constants.'
     status: completed
   - id: page-allocator
     content: "Phase 1: Create page-allocator.ts with self-cleaning PageAllocator -- pageOwners, per-page generations (Uint16Array), per-page alive bitsets (Uint32Array), freePages stack, pressure-based revocation of empty pages, FinalizationRegistry for GC'd worlds. Add to universe.ts."
     status: completed
   - id: entity-index
-    content: "Phase 1: Rewrite entity-index.ts to use page-based allocation. allocateEntity finds free bits in owned pages via ctz32, triggers lazy world registration on first call. releaseEntity clears alive bit. isEntityAlive checks alive bit + generation. Maintains aliveDense for world.entities."
+    content: 'Phase 1: Rewrite entity-index.ts to use page-based allocation. allocateEntity finds free bits in owned pages via ctz32, triggers lazy world registration on first call. releaseEntity clears alive bit. isEntityAlive checks alive bit + generation. Maintains aliveDense for world.entities.'
     status: completed
   - id: world-lookup
-    content: "Phase 1: Replace getEntityWorld with getEntityContext returning WorldInternal via pageOwners[eid >>> 10]. Remove world-index.ts. Replace universe.worlds with universe.worldContexts: Set<WorldInternal>."
+    content: 'Phase 1: Replace getEntityWorld with getEntityContext returning WorldInternal via pageOwners[eid >>> 10]. Remove world-index.ts. Replace universe.worlds with universe.worldContexts: Set<WorldInternal>.'
     status: completed
   - id: internal-refactor
-    content: "Phase 1: Refactor all internal functions (trait.ts, entity.ts, relation.ts, query.ts, check-query.ts, check-query-tracking.ts, changed.ts, ordered.ts, etc.) from taking World to taking WorldInternal directly. Update World facade methods and Number.prototype entity methods to pass ctx. Eliminates all WeakRef.deref() from runtime paths."
+    content: 'Phase 1: Refactor all internal functions (trait.ts, entity.ts, relation.ts, query.ts, check-query.ts, check-query-tracking.ts, changed.ts, ordered.ts, etc.) from taking World to taking WorldInternal directly. Update World facade methods and Number.prototype entity methods to pass ctx. Eliminates all WeakRef.deref() from runtime paths.'
     status: completed
   - id: paged-masks
-    content: "Phase 2: Convert entityMasks, dirtyMasks, changedMasks, trackingSnapshots to paged Uint32Array[][] with frozen EMPTY_MASK_PAGE sentinel (no null, monomorphic type). Use ensureMaskPage on write paths only. Update WorldInternal type. Update increment-world-bit-flag.ts."
+    content: 'Phase 2: Convert entityMasks, dirtyMasks, changedMasks, trackingSnapshots to paged Uint32Array[][] with frozen EMPTY_MASK_PAGE sentinel (no null, monomorphic type). Use ensureMaskPage on write paths only. Update WorldInternal type. Update increment-world-bit-flag.ts.'
     status: completed
   - id: mask-access-sites
-    content: "Phase 2: Update every entityMasks[gen][eid] read/write to paged access -- trait.ts (hasTrait, addTraitToEntity, removeTraitFromEntity), entity.ts (destroyEntity), check-query.ts, check-query-tracking.ts, changed.ts (markChanged), ordered.ts, tracking-cursor.ts (setTrackingMasks)."
+    content: 'Phase 2: Update every entityMasks[gen][eid] read/write to paged access -- trait.ts (hasTrait, addTraitToEntity, removeTraitFromEntity), entity.ts (destroyEntity), check-query.ts, check-query-tracking.ts, changed.ts (markChanged), ordered.ts, tracking-cursor.ts (setTrackingMasks).'
     status: completed
   - id: paged-stores
-    content: "Phase 3: Convert trait stores to paged layout. Update stores.ts createStore to return paged structure. Update accessors.ts generated get/set/fastSet/fastSetWithChangeDetection to hoist page/offset (const p = index >>> 10, o = index & 1023) once, reuse across all keys. Add ensurePage helper for lazy page allocation."
+    content: 'Phase 3: Convert trait stores to paged layout. Update stores.ts createStore to return paged structure. Update accessors.ts generated get/set/fastSet/fastSetWithChangeDetection to hoist page/offset (const p = index >>> 10, o = index & 1023) once, reuse across all keys. Add ensurePage helper for lazy page allocation.'
     status: completed
   - id: paged-relations
-    content: "Phase 3: Convert relation storage to paged layout -- relationTargets[pageId][offset], relation data stores. Update all access sites in relation.ts (addRelationTarget, removeRelationTarget, getRelationTargets, getFirstRelationTarget, hasRelationToTarget, setRelationDataAtIndex, getRelationData, getEntitiesWithRelationTo, swapAndPopRelationData, clearRelationDataInternal)."
+    content: 'Phase 3: Convert relation storage to paged layout -- relationTargets[pageId][offset], relation data stores. Update all access sites in relation.ts (addRelationTarget, removeRelationTarget, getRelationTargets, getFirstRelationTarget, hasRelationToTarget, setRelationDataAtIndex, getRelationData, getEntitiesWithRelationTo, swapAndPopRelationData, clearRelationDataInternal).'
     status: completed
   - id: world-lifecycle
-    content: "Phase 4: Make createWorld() pure -- only FR.register (unobservable). No init() API. Lazy self-registration adds WorldInternal to universe.worldContexts on first mutation. FinalizationRegistry cleans up pages on GC via PageCleanupToken. Explicit destroy() calls FR.unregister(). Remove lazy/init options."
+    content: 'Phase 4: Make createWorld() pure -- only FR.register (unobservable). No init() API. Lazy self-registration adds WorldInternal to universe.worldContexts on first mutation. FinalizationRegistry cleans up pages on GC via PageCleanupToken. Explicit destroy() calls FR.unregister(). Remove lazy/init options.'
     status: completed
   - id: tracking-groups
-    content: "Phase 4: Convert query tracking group trackers to paged Uint32Array with EMPTY_MASK_PAGE sentinel (same as entityMasks). Update checkQueryTracking, resetQueryTrackingBitmasks, and query population loop in query.ts. Replace structuredClone in tracking-cursor.ts with manual paged clone that preserves sentinel references."
+    content: 'Phase 4: Convert query tracking group trackers to paged Uint32Array with EMPTY_MASK_PAGE sentinel (same as entityMasks). Update checkQueryTracking, resetQueryTrackingBitmasks, and query population loop in query.ts. Replace structuredClone in tracking-cursor.ts with manual paged clone that preserves sentinel references.'
     status: completed
   - id: public-api-tests
-    content: "Phase 5: Update public API -- remove worldId from unpackEntity return, remove getEntityWorldId export, remove init() from World type. Update all test files. Update README and SKILL.md docs."
+    content: 'Phase 5: Update public API -- remove worldId from unpackEntity return, remove getEntityWorldId export, remove init() from World type. Update all test files. Update README and SKILL.md docs.'
     status: completed
 isProject: false
 ---
@@ -156,19 +156,19 @@ New file: `packages/core/src/entity/utils/page-allocator.ts`
 
 ```ts
 type PageCleanupToken = {
-  ownedPages: number[]; // mutated by world as pages are leased/released
-  registered: boolean; // false until first mutation
-};
+  ownedPages: number[] // mutated by world as pages are leased/released
+  registered: boolean // false until first mutation
+}
 
 // pageOwners hoisted to universe top level for minimal property-chain depth
 // in entity method dispatch: universe.pageOwners[pageId]
 type PageAllocator = {
-  generations: (Uint16Array | null)[]; // pageId -> 1024 generation values
-  alive: (Uint32Array | null)[]; // pageId -> 32 words (1024 alive bits)
-  freePages: number[]; // stack of unleased page IDs
-  pageCursor: number; // next fresh pageId
-  worldFinalizer: FinalizationRegistry<PageCleanupToken>;
-};
+  generations: (Uint16Array | null)[] // pageId -> 1024 generation values
+  alive: (Uint32Array | null)[] // pageId -> 32 words (1024 alive bits)
+  freePages: number[] // stack of unleased page IDs
+  pageCursor: number // next fresh pageId
+  worldFinalizer: FinalizationRegistry<PageCleanupToken>
+}
 ```
 
 ### Page leasing
@@ -182,20 +182,16 @@ When `freePages` is empty and `pageCursor === MAX_PAGES`:
 
 ```ts
 function reclaimEmptyPages(allocator: PageAllocator, needed: number): number {
-  let reclaimed = 0;
-  for (
-    let pageId = 0;
-    pageId < allocator.pageCursor && reclaimed < needed;
-    pageId++
-  ) {
-    if (allocator.pageOwners[pageId] === null) continue;
+  let reclaimed = 0
+  for (let pageId = 0; pageId < allocator.pageCursor && reclaimed < needed; pageId++) {
+    if (allocator.pageOwners[pageId] === null) continue
     if (isPageEmpty(allocator.alive[pageId]!)) {
-      revokePageFromOwner(allocator, pageId);
-      allocator.freePages.push(pageId);
-      reclaimed++;
+      revokePageFromOwner(allocator, pageId)
+      allocator.freePages.push(pageId)
+      reclaimed++
     }
   }
-  return reclaimed;
+  return reclaimed
 }
 ```
 
@@ -205,14 +201,14 @@ A page is "empty" when all 32 alive words are zero (no living entities). The own
 
 ```ts
 const worldFinalizer = new FinalizationRegistry<PageCleanupToken>((token) => {
-  if (!token.registered) return; // never used, nothing to clean
+  if (!token.registered) return // never used, nothing to clean
   for (const pageId of token.ownedPages) {
-    clearAliveBits(allocator, pageId); // kill any remaining entities
-    allocator.pageOwners[pageId] = null;
-    allocator.freePages.push(pageId);
+    clearAliveBits(allocator, pageId) // kill any remaining entities
+    allocator.pageOwners[pageId] = null
+    allocator.freePages.push(pageId)
   }
-  token.ownedPages.length = 0;
-});
+  token.ownedPages.length = 0
+})
 ```
 
 The `PageCleanupToken` is a plain object that:
@@ -225,12 +221,12 @@ Registration happens inside `createWorld()`:
 
 ```ts
 function createWorld() {
-  const cleanupToken: PageCleanupToken = { ownedPages: [], registered: false };
+  const cleanupToken: PageCleanupToken = { ownedPages: [], registered: false }
   const world = {
     /* ... */
-  };
-  universe.pageAllocator.worldFinalizer.register(world, cleanupToken);
-  return world;
+  }
+  universe.pageAllocator.worldFinalizer.register(world, cleanupToken)
+  return world
 }
 ```
 
@@ -242,15 +238,15 @@ The world tracks an `isRegistered` flag (initially false). On first mutation:
 
 ```ts
 function ensureWorldRegistered(world: World) {
-  if (world[$internal].isRegistered) return;
-  world[$internal].isRegistered = true;
-  world[$internal].cleanupToken.registered = true;
-  universe.worlds.add(world);
+  if (world[$internal].isRegistered) return
+  world[$internal].isRegistered = true
+  world[$internal].cleanupToken.registered = true
+  universe.worlds.add(world)
 
   // Set up tracking masks for any existing tracking modifiers
-  const cursor = getTrackingCursor();
+  const cursor = getTrackingCursor()
   for (let i = 0; i < cursor; i++) {
-    setTrackingMasks(world, i);
+    setTrackingMasks(world, i)
   }
 }
 ```
@@ -289,11 +285,11 @@ Replace [entity-index.ts](packages/core/src/entity/utils/entity-index.ts) with p
 
 ```ts
 type WorldEntityIndex = {
-  ownedPages: number[]; // dense list of leased page IDs (same array as cleanupToken.ownedPages)
-  currentPage: number; // page we're currently allocating from (-1 if none)
-  aliveDense: Entity[]; // dense list of alive entities (for world.entities)
-  aliveCount: number;
-};
+  ownedPages: number[] // dense list of leased page IDs (same array as cleanupToken.ownedPages)
+  currentPage: number // page we're currently allocating from (-1 if none)
+  aliveDense: Entity[] // dense list of alive entities (for world.entities)
+  aliveCount: number
+}
 ```
 
 - `allocateEntity(world)`:
@@ -337,7 +333,7 @@ Currently every internal function takes `World` and immediately destructures it:
 
 ```ts
 function addTrait(world: World, entity: Entity, ...traits) {
-  const ctx = world[$internal]; // first line, every time
+  const ctx = world[$internal] // first line, every time
   // ... rest uses ctx exclusively
 }
 ```
@@ -355,22 +351,22 @@ This is a mechanical refactor: ~20 source files, every function already does `wo
 ```ts
 const world = {
   spawn(...traits) {
-    return createEntity(world[$internal], ...traits);
+    return createEntity(world[$internal], ...traits)
   },
   add(...traits) {
-    addTrait(world[$internal], world[$internal].worldEntity, ...traits);
+    addTrait(world[$internal], world[$internal].worldEntity, ...traits)
   },
   // etc.
-};
+}
 ```
 
 Entity convenience methods (`entity.add()`, `entity.get()`) resolve `WorldInternal` directly from `pageOwners`, never touching the `World` facade:
 
 ```ts
 Number.prototype.add = function (this: Entity, ...traits) {
-  const ctx = universe.pageAllocator.pageOwners[getEntityId(this) >>> 10]!;
-  addTrait(ctx, this, ...traits);
-};
+  const ctx = universe.pageAllocator.pageOwners[getEntityId(this) >>> 10]!
+  addTrait(ctx, this, ...traits)
+}
 ```
 
 **No `WeakRef.deref()` anywhere in any code path.** The `World` facade is only held by user code. Internal operations work exclusively with `WorldInternal`.
@@ -381,7 +377,7 @@ Replace `getEntityWorld` in [entity.ts](packages/core/src/entity/entity.ts) with
 
 ```ts
 function getEntityContext(entity: Entity): WorldInternal {
-  return universe.pageAllocator.pageOwners[getEntityId(entity) >>> 10]!;
+  return universe.pageAllocator.pageOwners[getEntityId(entity) >>> 10]!
 }
 ```
 
@@ -404,14 +400,14 @@ New type:
 Read path (branchless):
 
 ```ts
-const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
+const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023]
 ```
 
 Write path (ensurePage guard, one-time per page):
 
 ```ts
-const page = ensureMaskPage(ctx.entityMasks[generationId], eid >>> 10);
-page[eid & 1023] |= bitflag;
+const page = ensureMaskPage(ctx.entityMasks[generationId], eid >>> 10)
+page[eid & 1023] |= bitflag
 ```
 
 Same sentinel pattern for `dirtyMasks`, `changedMasks`, `trackingSnapshots`, and tracking group `trackers`.
@@ -450,10 +446,8 @@ In [tracking-cursor.ts](packages/core/src/query/utils/tracking-cursor.ts), repla
 ```ts
 function clonePagedMasks(masks: Uint32Array[][]): Uint32Array[][] {
   return masks.map((gen) =>
-    gen.map((page) =>
-      page === EMPTY_MASK_PAGE ? EMPTY_MASK_PAGE : new Uint32Array(page),
-    ),
-  );
+    gen.map((page) => (page === EMPTY_MASK_PAGE ? EMPTY_MASK_PAGE : new Uint32Array(page)))
+  )
 }
 ```
 
@@ -491,7 +485,7 @@ Zeroed dirty/changed masks can be built by filling with `EMPTY_MASK_PAGE` sentin
 All paged mask arrays (`entityMasks`, `dirtyMasks`, `changedMasks`, `trackingSnapshots`, tracking group `trackers`) must use a shared frozen sentinel instead of `null` for unallocated pages:
 
 ```ts
-const EMPTY_MASK_PAGE = Object.freeze(new Uint32Array(1024));
+const EMPTY_MASK_PAGE = Object.freeze(new Uint32Array(1024))
 ```
 
 This eliminates null-check branches on every read-path access (checkQuery, checkQueryTracking, hasTrait) and keeps the type monomorphic (`Uint32Array[]`, never `(Uint32Array | null)[]`). V8's TurboFan sees a stable inline cache shape. `Uint32Array` also never returns `undefined`, so the `| 0` coercion trick in `checkQueryTracking` becomes unnecessary.
@@ -499,19 +493,19 @@ This eliminates null-check branches on every read-path access (checkQuery, check
 Reads become branchless:
 
 ```ts
-const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
+const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023]
 ```
 
 Writes use an `ensurePage` guard (only on the write path, which is less hot):
 
 ```ts
 function ensureMaskPage(masks: Uint32Array[], pageId: number): Uint32Array {
-  let page = masks[pageId];
+  let page = masks[pageId]
   if (page === EMPTY_MASK_PAGE) {
-    page = new Uint32Array(1024);
-    masks[pageId] = page;
+    page = new Uint32Array(1024)
+    masks[pageId] = page
   }
-  return page;
+  return page
 }
 ```
 
@@ -524,28 +518,28 @@ The generated SoA accessor functions in [accessors.ts](packages/core/src/storage
 ```ts
 // Generated get (example: Position with x, y)
 const p = index >>> 10,
-  o = index & 1023;
-return { x: store.x[p][o], y: store.y[p][o] };
+  o = index & 1023
+return { x: store.x[p][o], y: store.y[p][o] }
 
 // Generated fastSet
 const p = index >>> 10,
-  o = index & 1023;
-store.x[p][o] = value.x;
-store.y[p][o] = value.y;
+  o = index & 1023
+store.x[p][o] = value.x
+store.y[p][o] = value.y
 
 // Generated fastSetWithChangeDetection
 const p = index >>> 10,
-  o = index & 1023;
-let changed = false;
+  o = index & 1023
+let changed = false
 if (store.x[p][o] !== value.x) {
-  store.x[p][o] = value.x;
-  changed = true;
+  store.x[p][o] = value.x
+  changed = true
 }
 if (store.y[p][o] !== value.y) {
-  store.y[p][o] = value.y;
-  changed = true;
+  store.y[p][o] = value.y
+  changed = true
 }
-return changed;
+return changed
 ```
 
 V8 cannot be relied on to CSE `index >>> 10` across separate property chains (`store.x[...]` vs `store.y[...]`) in `new Function()` generated code. Hoisting guarantees one shift and one mask regardless of key count.
@@ -565,7 +559,7 @@ Avoid deep property chain in entity method dispatch. Instead of `universe.pageAl
 export const universe = {
   pageOwners: [] as (WorldInternal | null)[],
   // ... rest of allocator state in a sub-object
-};
+}
 ```
 
 Entity context lookup becomes: `universe.pageOwners[pageId]` -- same depth as current `universe.worlds[worldId]`. Combined with the internal refactor (skipping `world[$internal]`), entity methods are net faster than today.
@@ -577,10 +571,8 @@ Replace `structuredClone(ctx.entityMasks)` in [tracking-cursor.ts](packages/core
 ```ts
 function clonePagedMasks(masks: Uint32Array[][]): Uint32Array[][] {
   return masks.map((gen) =>
-    gen.map((page) =>
-      page === EMPTY_MASK_PAGE ? EMPTY_MASK_PAGE : new Uint32Array(page),
-    ),
-  );
+    gen.map((page) => (page === EMPTY_MASK_PAGE ? EMPTY_MASK_PAGE : new Uint32Array(page)))
+  )
 }
 ```
 

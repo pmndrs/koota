@@ -92,7 +92,8 @@ export /* @inline */ function getRelationTargets(
     if (!traitData || !traitData.relationTargets) return [];
 
     const eid = getEntityId(entity);
-    const p = eid >>> 10, o = eid & 1023;
+    const p = eid >>> 10,
+        o = eid & 1023;
     const page = traitData.relationTargets[p];
     if (!page) return [];
 
@@ -191,7 +192,8 @@ export function addRelationTarget(
     }
 
     const eid = getEntityId(entity);
-    const p = eid >>> 10, o = eid & 1023;
+    const p = eid >>> 10,
+        o = eid & 1023;
     const page = ensureRelPage(traitData.relationTargets, p);
 
     let targetIndex: number;
@@ -229,7 +231,8 @@ export function removeRelationTarget(
     if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
 
     const eid = getEntityId(entity);
-    const p = eid >>> 10, o = eid & 1023;
+    const p = eid >>> 10,
+        o = eid & 1023;
     const page = data.relationTargets[p];
     if (!page) return { removedIndex: -1, wasLastTarget: false };
 
@@ -294,7 +297,8 @@ function swapAndPopRelationData(
     idx: number,
     lastIdx: number
 ): void {
-    const p = eid >>> 10, o = eid & 1023;
+    const p = eid >>> 10,
+        o = eid & 1023;
     if (type === 'aos') {
         const arr = store[p]?.[o];
         if (arr) {
@@ -320,7 +324,8 @@ function clearRelationDataInternal(
     exclusive: boolean
 ): void {
     if (!exclusive) return;
-    const p = eid >>> 10, o = eid & 1023;
+    const p = eid >>> 10,
+        o = eid & 1023;
     if (type === 'aos') {
         if (store[p]) store[p][o] = undefined;
     } else {
@@ -401,7 +406,8 @@ export function setRelationDataAtIndex(
 
     const store = traitData.store;
     const eid = getEntityId(entity);
-    const p = eid >>> 10, o = eid & 1023;
+    const p = eid >>> 10,
+        o = eid & 1023;
 
     if (baseTrait[$internal].type === 'aos') {
         const page = ensureRelPage(store as any[], p);
@@ -454,7 +460,8 @@ export function getRelationData(
     const traitCtx = baseTrait[$internal];
     const store = traitData.store;
     const eid = getEntityId(entity);
-    const p = eid >>> 10, o = eid & 1023;
+    const p = eid >>> 10,
+        o = eid & 1023;
     const relationCtx = relation[$internal];
 
     if (traitCtx.type === 'aos') {
