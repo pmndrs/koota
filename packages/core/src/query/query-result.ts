@@ -6,7 +6,7 @@ import { Store } from '../storage';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitAccessors, TraitInstance } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
-import { ctz32, forEachBlockQuery, type HiSparseBitSet } from '../utils/hi-sparse-bitset';
+
 import type { World } from '../world';
 import { isModifier } from './modifier';
 import { setChangedFast } from './modifiers/changed';
@@ -18,6 +18,8 @@ import type {
     QueryResultOptions,
     StoresFromParameters,
 } from './types';
+import { HiSparseBitSet } from '@koota/collections';
+import { ctz32, forEachBlockQuery } from '@koota/collections/src/hi-sparse-bitset';
 
 type CachedQueryContext = {
     traits: Trait[];
