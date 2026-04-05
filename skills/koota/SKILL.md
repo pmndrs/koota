@@ -100,7 +100,7 @@ Relations build graphs between entities such as hierarchies, inventories, target
 import { relation } from 'koota'
 
 const ChildOf = relation({ autoDestroy: 'orphan' }) // Hierarchy
-const Contains = relation({ store: { amount: 0 } }) // With data
+const Contains = relation({ schema: { amount: 0 } }) // With data
 const Targeting = relation({ exclusive: true }) // One target only
 
 // Build graph
@@ -201,6 +201,8 @@ const player = world.queryFirst(IsPlayer, Position)
 world.query(Position, Not(Velocity)) // Has Position but not Velocity
 world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 ```
+
+Prefer `updateEach`/`readEach` over `for...of` + `entity.get()` for data-bearing queries. `readEach` still gives you the entity as the second argument.
 
 **Note:** `updateEach`/`readEach` only return data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
 

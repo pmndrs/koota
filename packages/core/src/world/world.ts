@@ -165,7 +165,6 @@ export function createWorld(
             ctx.entityIndex = createEntityIndex(id);
             ctx.entityTraits.clear();
 
-
             clearTraitInstance(ctx.traitInstances);
             world.traits.clear();
             ctx.relations.clear();

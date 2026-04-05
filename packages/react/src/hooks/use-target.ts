@@ -1,11 +1,11 @@
-import { $internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
+import { $internal, type Entity, type Relation, type World } from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/use-world';
 
-export function useTarget<T extends Trait>(
+export function useTarget(
     target: Entity | World | undefined | null,
-    relation: Relation<T>
+    relation: Relation
 ): Entity | undefined {
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
@@ -42,11 +42,7 @@ export function useTarget<T extends Trait>(
     return valueRef.current;
 }
 
-function createSubscriptions<T extends Trait>(
-    target: Entity | World,
-    relation: Relation<T>,
-    contextWorld: World
-) {
+function createSubscriptions(target: Entity | World, relation: Relation, contextWorld: World) {
     const world = isWorld(target) ? target : contextWorld;
     const entity = isWorld(target) ? target[$internal].worldEntity : target;
 

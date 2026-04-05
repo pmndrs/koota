@@ -1,6 +1,6 @@
 [![Discord Shield](https://img.shields.io/discord/740090768164651008?style=flat&colorA=000000&colorB=000000&label=&logo=discord&logoColor=ffffff)](https://discord.gg/poimandres)
 
-<img src="logo.svg" alt="Koota" width="100%" />
+<img src="docs/logo.svg" alt="Koota" width="100%" />
 
 Koota is an ECS-based state management library optimized for real-time apps, games, and XR experiences. Use as much or as little as you need.
 
@@ -181,7 +181,7 @@ In `child.add(ChildOf(parent))`, child is the source and parent is the target. T
 Relations can contain data like any trait.
 
 ```js
-const Contains = relation({ store: { amount: 0 } })
+const Contains = relation({ schema: { amount: 0 } })
 
 const inventory = world.spawn()
 const gold = world.spawn()
@@ -345,9 +345,6 @@ player.has(banana) // false
 
 Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Changes can only be tracked on relations that have a store.
 
-> 👉 **Note**<br>
-> You can currently only track changes to all relations of a given type, such as `ChildOf`, but not specific relation pairs, such as `ChildOf(parent)`.
-
 ```js
 import { createAdded, createRemoved, createChanged } from 'koota'
 
@@ -355,7 +352,7 @@ const Added = createAdded()
 const Removed = createRemoved()
 const Changed = createChanged()
 
-const ChildOf = relation({ store: { priority: 0 } })
+const ChildOf = relation({ schema: { priority: 0 } })
 
 // Track when any entity adds the ChildOf relation
 const newChildren = world.query(Added(ChildOf))
@@ -367,12 +364,13 @@ const orphaned = world.query(Removed(ChildOf))
 const updated = world.query(Changed(ChildOf))
 ```
 
-Combine with relation filters to track changes for specific targets.
+> 👉 **Note**<br>
+> Tracking modifiers do not accept pairs directly such as `Changed(ChildOf(parent))`. Instead, pass the base relation to the modifier and add the pair as a separate query parameter to filter by target.
 
 ```js
 const parent = world.spawn()
 
-// Track changes only for entities related to parent
+// Filter changed entities by a specific target
 const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 ```
 
@@ -385,7 +383,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 - `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
 
 ```js
-const ChildOf = relation({ store: { priority: 0 } })
+const ChildOf = relation({ schema: { priority: 0 } })
 
 const unsubAdd = world.onAdd(ChildOf, (entity, target) => {})
 const unsubRemove = world.onRemove(ChildOf, (entity, target) => {})
@@ -980,7 +978,7 @@ While this is not likely to be a bottleneck in your code compared to the actual 
 
 ```js
 // The internal query is created immediately before it is invoked
-const movementQuery = defineQuery(Position, Velocity)
+const movementQuery = createQuery(Position, Velocity)
 
 // The query ref is used for fast array-based lookup
 function updateMovement(world) {

@@ -5,7 +5,7 @@ describe('Trait type inference', () => {
     describe('field-based schemas', () => {
         it('infers data shape from shorthand definition', () => {
             const T = trait({ x: 0, y: 0 });
-            const R = relation({ x: 0, y: 0 });
+            const R = relation({ schema: { x: 0, y: 0 } });
             type Expected = { x: number; y: number };
 
             expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
@@ -14,7 +14,7 @@ describe('Trait type inference', () => {
 
         it('widens literal types to primitives', () => {
             const T = trait({ name: 'default', count: 42, active: true });
-            const R = relation({ name: 'default', count: 42, active: true });
+            const R = relation({ schema: { name: 'default', count: 42, active: true } });
             type Expected = { name: string; count: number; active: boolean };
 
             expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
@@ -23,7 +23,7 @@ describe('Trait type inference', () => {
 
         it('infers data shape for ref fields from factory functions', () => {
             const T = trait({ radius: 10, color: () => ({ r: 0, g: 0, b: 0 }) });
-            const R = relation({ radius: 10, color: () => ({ r: 0, g: 0, b: 0 }) });
+            const R = relation({ schema: { radius: 10, color: () => ({ r: 0, g: 0, b: 0 }) } });
             type Expected = { radius: number; color: { r: number; g: number; b: number } };
 
             expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
@@ -32,7 +32,7 @@ describe('Trait type inference', () => {
 
         it('handles typed factory for tuples', () => {
             const T = trait({ position: (): [number, number, number] => [0, 0, 0] });
-            const R = relation({ position: (): [number, number, number] => [0, 0, 0] });
+            const R = relation({ schema: { position: (): [number, number, number] => [0, 0, 0] } });
             type Expected = { position: [number, number, number] };
 
             expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
@@ -52,9 +52,11 @@ describe('Trait type inference', () => {
                 tuple: (): [number, number, number] => [0, 0, 0],
             });
             const R = relation<Ball>({
-                radius: 10,
-                color: () => ({ r: 0, g: 0, b: 0 }),
-                tuple: (): [number, number, number] => [0, 0, 0],
+                schema: {
+                    radius: 10,
+                    color: () => ({ r: 0, g: 0, b: 0 }),
+                    tuple: (): [number, number, number] => [0, 0, 0],
+                },
             });
 
             expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Ball>();
@@ -139,7 +141,7 @@ describe('Trait type inference', () => {
                 id: field({ kind: 'bigint', default: 0n }),
             };
             const T = trait(schema);
-            const R = relation(schema);
+            const R = relation({ schema });
             type Expected = { count: number; name: string; active: boolean; id: bigint };
 
             expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
@@ -149,7 +151,7 @@ describe('Trait type inference', () => {
         it('infers data shape for ref kind with factory default', () => {
             const schema = { color: field({ kind: 'ref', default: () => ({ r: 0, g: 0, b: 0 }) }) };
             const T = trait(schema);
-            const R = relation(schema);
+            const R = relation({ schema });
             type Expected = { color: { r: number; g: number; b: number } };
 
             expectTypeOf<ExtractType<typeof T>>().toEqualTypeOf<Expected>();
@@ -164,7 +166,7 @@ describe('Trait type inference', () => {
                 color: () => ({ r: 0, g: 0, b: 0 }),
             };
             const T = trait(schema);
-            const R = relation(schema);
+            const R = relation({ schema });
             type Expected = {
                 x: number;
                 y: number;

@@ -1,9 +1,8 @@
 import type { Entity } from '../entity/types';
 import type { PairPattern } from '../trait/types';
 import type { ExtractStore, ExtractType, IsTag, Trait, TraitInstance } from '../trait/types';
-import type { SparseSet } from '../utils/sparse-set';
+import type { SparseSet, HiSparseBitSet } from '@koota/collections';
 import type { World } from '../world';
-import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 

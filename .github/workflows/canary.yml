@@ -1,0 +1,45 @@
+name: Canary Release
+
+on:
+  push:
+    branches: [main, next]
+
+jobs:
+  publish-canary:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for OIDC trusted publishing
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set version and dist-tag
+        run: |
+          CURRENT=$(node -p "require('./packages/publish/package.json').version")
+          SHA=$(git rev-parse --short HEAD)
+          BRANCH="${{ github.ref_name }}"
+          TAG=$([ "$BRANCH" = "next" ] && echo "next" || echo "canary")
+          npm --prefix packages/publish pkg set version="${CURRENT}-${TAG}.${SHA}"
+          echo "DIST_TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Build
+        run: pnpm -F koota build
+
+      - name: Test
+        run: pnpm -F koota test run
+
+      - name: Publish
+        run: pnpm -F koota publish --tag ${{ env.DIST_TAG }} --no-git-checks

@@ -167,7 +167,7 @@ export function normalizeSchema(schema: SchemaShorthand | FieldDescriptor): Sche
  * Validate a trait schema (including shorthand forms).
  * Objects are only allowed if they are valid FieldDescriptor objects.
  */
-export /* @inline @pure */ function validateSchema(schema: SchemaShorthand | FieldDescriptor) {
+export function validateSchema(schema: SchemaShorthand | FieldDescriptor) {
     if (typeof schema === 'function') return; // AoS factory
     if (isFieldDescriptor(schema)) return; // Top-level FieldDescriptor
     for (const key in schema) {

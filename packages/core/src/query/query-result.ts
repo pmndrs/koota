@@ -372,7 +372,7 @@ function buildMethods<T extends QueryParameter[]>(
     };
 }
 
-/* @inline */ function getTrackedTraits(
+function getTrackedTraits(
     traits: Trait[],
     world: World,
     query: QueryInstance,

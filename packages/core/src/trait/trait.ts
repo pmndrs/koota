@@ -1,5 +1,5 @@
 import { $internal } from '../common';
-import { HiSparseBitSet } from '../utils/hi-sparse-bitset';
+import { HiSparseBitSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { setChangedFast } from '../query/modifiers/changed';

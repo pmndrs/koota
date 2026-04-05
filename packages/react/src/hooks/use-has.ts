@@ -1,8 +1,9 @@
 import {
     $internal,
-    $relationPair,
+    isPairPattern,
     type Entity,
     type RelationPair,
+    type RelationPairPattern,
     type Trait,
     type World,
 } from '@koota/core';
@@ -13,7 +14,7 @@ import { useWorld } from '../world/use-world';
 
 export function useHas(
     target: Entity | World | undefined | null,
-    trait: Trait | RelationPair
+    trait: Trait | RelationPair | RelationPairPattern
 ): boolean {
     const contextWorld = useWorld();
     const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
@@ -52,7 +53,7 @@ export function useHas(
 
 function createSubscriptions(
     target: Entity | World,
-    trait: Trait | RelationPair,
+    trait: Trait | RelationPair | RelationPairPattern,
     contextWorld: World
 ) {
     const world = isWorld(target) ? target : contextWorld;
@@ -61,11 +62,8 @@ function createSubscriptions(
     // Wildcard pairs like ChildOf('*') fire on every pair removal, but the entity
     // may still have other pairs. Since onRemove fires before state cleanup,
     // we check targetsFor().length > 1 (the removed target is still counted).
-    const isWildcard =
-        !!(trait as any)?.[$relationPair] && (trait as RelationPair)[$internal].target === '*';
-    const wildcardRelation = isWildcard
-        ? (trait as RelationPair)[$internal].relation
-        : undefined;
+    const isWildcard = isPairPattern(trait) && trait[1] === '*';
+    const wildcardRelation = isWildcard ? trait[0] : undefined;
 
     return {
         entity,

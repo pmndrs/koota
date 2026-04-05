@@ -1,227 +1,131 @@
 import { describe, expect, it } from 'vitest';
-import {
-    detectKind,
-    field,
-    isFieldDescriptor,
-    normalizeSchema,
-    parseField,
-    type FieldDescriptor,
-} from '../src/storage';
+import { createWorld, field, trait } from '../src';
 
 describe('Schema', () => {
-    describe('detectKind', () => {
-        it('should detect number kind', () => {
-            expect(detectKind(0)).toBe('number');
-            expect(detectKind(42)).toBe('number');
-            expect(detectKind(-1.5)).toBe('number');
-            expect(detectKind(Infinity)).toBe('number');
-            expect(detectKind(NaN)).toBe('number');
+    describe('shorthand schemas', () => {
+        it('should support number fields', () => {
+            const Position = trait({ x: 0, y: 0 });
+            const world = createWorld();
+            const entity = world.spawn(Position);
+            expect(entity.get(Position)).toMatchObject({ x: 0, y: 0 });
         });
 
-        it('should detect string kind', () => {
-            expect(detectKind('')).toBe('string');
-            expect(detectKind('hello')).toBe('string');
+        it('should support string fields', () => {
+            const Name = trait({ first: 'John', last: '' });
+            const world = createWorld();
+            const entity = world.spawn(Name);
+            expect(entity.get(Name)).toMatchObject({ first: 'John', last: '' });
         });
 
-        it('should detect boolean kind', () => {
-            expect(detectKind(true)).toBe('boolean');
-            expect(detectKind(false)).toBe('boolean');
+        it('should support boolean fields', () => {
+            const Flags = trait({ active: true, visible: false });
+            const world = createWorld();
+            const entity = world.spawn(Flags);
+            expect(entity.get(Flags)).toMatchObject({ active: true, visible: false });
         });
 
-        it('should detect bigint kind', () => {
-            expect(detectKind(0n)).toBe('bigint');
-            expect(detectKind(BigInt(42))).toBe('bigint');
+        it('should support bigint fields', () => {
+            const BigNumbers = trait({ id: 0n, count: 100n });
+            const world = createWorld();
+            const entity = world.spawn(BigNumbers);
+            expect(entity.get(BigNumbers)).toMatchObject({ id: 0n, count: 100n });
         });
 
-        it('should detect ref kind for functions', () => {
-            expect(detectKind(() => ({}))).toBe('ref');
-            expect(detectKind(() => [])).toBe('ref');
-            expect(detectKind(function () {})).toBe('ref');
+        it('should support ref fields via factory functions', () => {
+            const Color = trait({ color: () => ({ r: 0, g: 0, b: 0 }) });
+            const world = createWorld();
+            const entity = world.spawn(Color);
+            expect(entity.get(Color)).toMatchObject({ color: { r: 0, g: 0, b: 0 } });
         });
 
-        it('should detect ref kind for null/undefined', () => {
-            expect(detectKind(null)).toBe('ref');
-            expect(detectKind(undefined)).toBe('ref');
-        });
-    });
-
-    describe('isFieldDescriptor', () => {
-        it('should return true for field() created descriptors', () => {
-            expect(isFieldDescriptor(field({ kind: 'number', default: 0 }))).toBe(true);
-            expect(isFieldDescriptor(field({ kind: 'string', default: '' }))).toBe(true);
-            expect(isFieldDescriptor(field({ kind: 'boolean', default: true }))).toBe(true);
-            expect(isFieldDescriptor(field({ kind: 'bigint', default: 0n }))).toBe(true);
-            expect(isFieldDescriptor(field({ kind: 'ref', default: () => ({}) }))).toBe(true);
-        });
-
-        it('should return true for field() with extra properties', () => {
-            expect(isFieldDescriptor(field({ kind: 'number', default: 0, min: 0, max: 100 }))).toBe(
-                true
-            );
-            expect(isFieldDescriptor(field({ kind: 'ref', required: true }))).toBe(true);
-        });
-
-        it('should return false for plain objects without field()', () => {
-            // Plain objects without $fieldDescriptor symbol should NOT be detected
-            expect(isFieldDescriptor({ kind: 'number', default: 0 })).toBe(false);
-            expect(isFieldDescriptor({ kind: 'string', default: '' })).toBe(false);
-            expect(isFieldDescriptor({ kind: 'ref', default: () => ({}) })).toBe(false);
-        });
-
-        it('should return false for non-FieldDescriptor values', () => {
-            expect(isFieldDescriptor(null)).toBe(false);
-            expect(isFieldDescriptor(undefined)).toBe(false);
-            expect(isFieldDescriptor(0)).toBe(false);
-            expect(isFieldDescriptor('string')).toBe(false);
-            expect(isFieldDescriptor({})).toBe(false);
-            expect(isFieldDescriptor({ kind: 'invalid' })).toBe(false);
-            expect(isFieldDescriptor({ default: 0 })).toBe(false);
-        });
-    });
-
-    describe('parseField', () => {
-        it('should parse number shorthand', () => {
-            const result = parseField(0);
-            expect(result).toMatchObject({ kind: 'number', default: 0 });
-        });
-
-        it('should parse string shorthand', () => {
-            const result = parseField('hello');
-            expect(result).toMatchObject({ kind: 'string', default: 'hello' });
-        });
-
-        it('should parse boolean shorthand', () => {
-            const result = parseField(true);
-            expect(result).toMatchObject({ kind: 'boolean', default: true });
-        });
-
-        it('should parse bigint shorthand', () => {
-            const result = parseField(1n);
-            expect(result).toMatchObject({ kind: 'bigint', default: 1n });
-        });
-
-        it('should parse function shorthand as ref', () => {
-            const factory = () => ({ x: 0, y: 0 });
-            const result = parseField(factory);
-            expect(result).toMatchObject({ kind: 'ref', default: factory });
-        });
-
-        it('should pass through field() descriptor unchanged', () => {
-            const descriptor = field({ kind: 'number', default: 42, min: 0, max: 100 });
-            const result = parseField(descriptor);
-            expect(result).toBe(descriptor); // Same reference
-        });
-
-        it('should parse plain object (without field()) as ref', () => {
-            // Plain objects without $fieldDescriptor are treated as ref shorthand
-            const plainObj = { kind: 'number', default: 0 };
-            const result = parseField(plainObj);
-            expect(result).toMatchObject({ kind: 'ref', default: plainObj });
-        });
-    });
-
-    describe('normalizeSchema', () => {
-        it('should parse shorthand number fields into SoA schema', () => {
-            const result = normalizeSchema({ x: 0, y: 0 });
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.x).toMatchObject({ kind: 'number', default: 0 });
-            expect(result.fields.y).toMatchObject({ kind: 'number', default: 0 });
-        });
-
-        it('should parse shorthand string fields into SoA schema', () => {
-            const result = normalizeSchema({ name: 'default', label: '' });
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.name).toMatchObject({ kind: 'string', default: 'default' });
-            expect(result.fields.label).toMatchObject({ kind: 'string', default: '' });
-        });
-
-        it('should parse shorthand boolean fields into SoA schema', () => {
-            const result = normalizeSchema({ active: true, visible: false });
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.active).toMatchObject({ kind: 'boolean', default: true });
-            expect(result.fields.visible).toMatchObject({ kind: 'boolean', default: false });
-        });
-
-        it('should parse shorthand bigint fields into SoA schema', () => {
-            const result = normalizeSchema({ id: 0n, count: 100n });
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.id).toMatchObject({ kind: 'bigint', default: 0n });
-            expect(result.fields.count).toMatchObject({ kind: 'bigint', default: 100n });
-        });
-
-        it('should parse shorthand ref fields (factories) into SoA schema', () => {
-            const colorFactory = () => ({ r: 0, g: 0, b: 0 });
-            const result = normalizeSchema({ color: colorFactory });
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.color).toMatchObject({ kind: 'ref', default: colorFactory });
-        });
-
-        it('should pass through field() descriptors unchanged in SoA schema', () => {
-            const descriptor = field({ kind: 'number', default: 10, min: 0 });
-            const result = normalizeSchema({ radius: descriptor });
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.radius).toBe(descriptor);
-        });
-
-        it('should handle mixed shorthand and field() descriptors in SoA schema', () => {
-            const colorFactory = () => ({ r: 0, g: 0, b: 0 });
-            const result = normalizeSchema({
-                x: 0,
-                y: 0,
-                color: field({ kind: 'ref', default: colorFactory }),
-                name: 'entity',
-            });
-
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.x).toMatchObject({ kind: 'number', default: 0 });
-            expect(result.fields.y).toMatchObject({ kind: 'number', default: 0 });
-            expect(result.fields.color).toMatchObject({ kind: 'ref', default: colorFactory });
-            expect(result.fields.name).toMatchObject({ kind: 'string', default: 'entity' });
-        });
-
-        it('should return AoS schema for factory trait', () => {
-            const factory = () => ({ x: 0, y: 0 });
-            const result = normalizeSchema(factory);
-            expect(result.kind).toBe('aos');
-            if (result.kind !== 'aos') throw new Error();
-            expect(result.descriptor.kind).toBe('ref');
-            expect(result.descriptor.default).toBe(factory);
-        });
-
-        it('should return tag schema for empty definition', () => {
-            const result = normalizeSchema({});
-            expect(result.kind).toBe('tag');
-        });
-
-        it('should handle complex mixed definition into SoA schema', () => {
-            const damageDescriptor = field({ kind: 'number', default: 10, min: 0, max: 100 });
-            const result = normalizeSchema({
+        it('should handle mixed field types', () => {
+            const Complex = trait({
                 health: 100,
                 name: 'player',
                 isAlive: true,
                 score: 0n,
                 position: () => ({ x: 0, y: 0 }),
-                damage: damageDescriptor,
             });
+            const world = createWorld();
+            const entity = world.spawn(Complex);
+            const val = entity.get(Complex)!;
+            expect(val.health).toBe(100);
+            expect(val.name).toBe('player');
+            expect(val.isAlive).toBe(true);
+            expect(val.score).toBe(0n);
+            expect(val.position).toEqual({ x: 0, y: 0 });
+        });
 
-            expect(result.kind).toBe('soa');
-            if (result.kind !== 'soa') throw new Error();
-            expect(result.fields.health).toMatchObject({ kind: 'number', default: 100 });
-            expect(result.fields.name).toMatchObject({ kind: 'string', default: 'player' });
-            expect(result.fields.isAlive).toMatchObject({ kind: 'boolean', default: true });
-            expect(result.fields.score).toMatchObject({ kind: 'bigint', default: 0n });
-            expect(result.fields.position.kind).toBe('ref');
-            expect(typeof result.fields.position.default).toBe('function');
-            expect(result.fields.damage).toBe(damageDescriptor);
-            expect(result.fields.damage.min).toBe(0);
-            expect(result.fields.damage.max).toBe(100);
+        it('should produce a tag trait from an empty schema', () => {
+            const Tag = trait();
+            const world = createWorld();
+            const entity = world.spawn(Tag);
+            expect(entity.has(Tag)).toBe(true);
+            expect(entity.get(Tag)).toBeUndefined();
+        });
+    });
+
+    describe('field() descriptors', () => {
+        it('should support explicit field descriptors', () => {
+            const Stats = trait({
+                damage: field({ kind: 'number', default: 10 }),
+            });
+            const world = createWorld();
+            const entity = world.spawn(Stats);
+            expect(entity.get(Stats)).toMatchObject({ damage: 10 });
+        });
+
+        it('should support mixing shorthand and field() descriptors', () => {
+            const colorFactory = () => ({ r: 0, g: 0, b: 0 });
+            const Stats = trait({
+                x: 0,
+                y: 0,
+                color: field({ kind: 'ref', default: colorFactory }),
+                name: 'entity',
+            });
+            const world = createWorld();
+            const entity = world.spawn(Stats);
+            const val = entity.get(Stats)!;
+            expect(val.x).toBe(0);
+            expect(val.y).toBe(0);
+            expect(val.color).toEqual({ r: 0, g: 0, b: 0 });
+            expect(val.name).toBe('entity');
+        });
+    });
+
+    describe('factory (AoS) schemas', () => {
+        it('should support a factory function as the entire schema', () => {
+            const Transform = trait(() => ({ x: 0, y: 0 }));
+            const world = createWorld();
+            const entity = world.spawn(Transform);
+            expect(entity.get(Transform)).toEqual({ x: 0, y: 0 });
+        });
+
+        it('should create independent instances per entity', () => {
+            const Inventory = trait(() => ({ items: [] as string[] }));
+            const world = createWorld();
+            const a = world.spawn(Inventory);
+            const b = world.spawn(Inventory);
+            a.get(Inventory)!.items.push('sword');
+            expect(a.get(Inventory)!.items).toEqual(['sword']);
+            expect(b.get(Inventory)!.items).toEqual([]);
+        });
+    });
+
+    describe('setting values', () => {
+        it('should accept initial values on spawn', () => {
+            const Position = trait({ x: 0, y: 0 });
+            const world = createWorld();
+            const entity = world.spawn(Position({ x: 5, y: 10 }));
+            expect(entity.get(Position)).toMatchObject({ x: 5, y: 10 });
+        });
+
+        it('should set values via entity.set', () => {
+            const Position = trait({ x: 0, y: 0 });
+            const world = createWorld();
+            const entity = world.spawn(Position);
+            entity.set(Position, { x: 42, y: 99 });
+            expect(entity.get(Position)).toMatchObject({ x: 42, y: 99 });
         });
     });
 });

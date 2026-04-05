@@ -66,8 +66,8 @@ Each trait instance maintains two parallel membership records for compatibility,
 When a trait is added to an entity, both records are updated:
 
 ```ts
-ctx.entityMasks[generationId][eid] |= bitflag; // legacy bitmask
-instance.bitSet.insert(eid); // hierarchical sparse bitset
+ctx.entityMasks[generationId][eid] |= bitflag // legacy bitmask
+instance.bitSet.insert(eid) // hierarchical sparse bitset
 ```
 
 The `HiSparseBitSet` is a 3-level hierarchical sparse bitset that decomposes a 20-bit entity ID into four 5-bit fields, enabling O(1) membership checks and sublinear multi-set intersection via top-down pruning. See [hi-sparse-bitset.md](./hi-sparse-bitset.md) for the full data structure specification.
@@ -85,12 +85,12 @@ Query matching uses per-trait `bitSet.has(eid)` — an O(1) sparse-array lookup 
 ```ts
 // Required — ALL must be present
 for (let i = 0; i < required.length; i++) {
-  if (!required[i].bitSet.has(eid)) return false;
+  if (!required[i].bitSet.has(eid)) return false
 }
 
 // Forbidden — NONE must be present
 for (let i = 0; i < forbidden.length; i++) {
-  if (forbidden[i].bitSet.has(eid)) return false;
+  if (forbidden[i].bitSet.has(eid)) return false
 }
 ```
 
@@ -101,9 +101,9 @@ Initial query population uses `forEachQuery(requiredSets, forbiddenSets, callbac
 Tracking modifiers (`Added`, `Removed`, `Changed`) use per-trait `HiSparseBitSet` maps:
 
 ```ts
-addedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>;
-removedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>;
-changedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>;
+addedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>
+removedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>
+changedBitSets: Map<trackingId, Map<traitId, HiSparseBitSet>>
 ```
 
 These are sparse — only entities that actually experience events consume memory. Tracking snapshots use `bitSet.clone()` instead of `structuredClone(entityMasks)`, and per-query tracker state uses `TrackingGroup.trackerBitSets: HiSparseBitSet[]` instead of dense `number[][]` arrays.

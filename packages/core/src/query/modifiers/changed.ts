@@ -1,6 +1,6 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
-import { HiSparseBitSet } from '../../utils/hi-sparse-bitset';
+import { HiSparseBitSet } from '@koota/collections';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { getTraitInstance } from '../../trait/trait-instance';
 import type { Trait, TraitInstance } from '../../trait/types';

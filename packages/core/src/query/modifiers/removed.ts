@@ -12,9 +12,7 @@ export function createRemoved() {
         setTrackingMasks(world, id);
     }
 
-    return <T extends Trait[]>(
-        ...inputs: T
-    ): Modifier<T, `removed-${number}`> => {
+    return <T extends Trait[]>(...inputs: T): Modifier<T, `removed-${number}`> => {
         return createModifier(`removed-${id}`, id, inputs);
     };
 }

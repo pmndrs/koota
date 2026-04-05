@@ -31,7 +31,7 @@ export { relation } from './trait/relation';
 export { ordered } from './trait/ordered';
 /** @experimental This API is experimental and may change or be removed in future versions. */
 export { OrderedList } from './trait/ordered-list';
-export { $relationPair } from './common';
+export { isPair, isPairPattern } from './trait/utils/is-relation';
 export { getStore, trait } from './trait/trait';
 export type {
     TraitLike as ConfigurableTrait,
@@ -73,6 +73,7 @@ export type {
     InferDefinition,
 } from './storage/types';
 
+export { SparseSet } from '@koota/collections';
 export { universe } from './universe/universe';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';

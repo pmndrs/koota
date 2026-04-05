@@ -11,6 +11,9 @@
     "test": "vitest --typecheck",
     "lint": "oxlint"
   },
+  "dependencies": {
+    "@koota/collections": "workspace:*"
+  },
   "devDependencies": {
     "@config/oxlint": "workspace:*",
     "@config/typescript": "workspace:*",

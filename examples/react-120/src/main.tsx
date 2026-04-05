@@ -6,9 +6,9 @@ import './index.css';
 import { world } from './sim';
 
 createRoot(document.getElementById('root')!).render(
-	<StrictMode>
-		<WorldProvider world={world}>
-			<App />
-		</WorldProvider>
-	</StrictMode>
+    <StrictMode>
+        <WorldProvider world={world}>
+            <App />
+        </WorldProvider>
+    </StrictMode>
 );

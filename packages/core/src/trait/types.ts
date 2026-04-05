@@ -2,7 +2,7 @@ import { $internal, $orderedTargetsTrait } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { Schema, Store, TagSchema } from '../storage';
-import type { HiSparseBitSet } from '../utils/hi-sparse-bitset';
+import type { HiSparseBitSet } from '@koota/collections';
 import type { OrderedList } from './ordered-list';
 
 /**

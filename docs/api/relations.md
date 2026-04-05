@@ -40,7 +40,7 @@ In `child.add(ChildOf(parent))`, child is the source and parent is the target. T
 Relations can contain data like any trait.
 
 ```js
-const Contains = relation({ store: { amount: 0 } })
+const Contains = relation({ schema: { amount: 0 } })
 
 const inventory = world.spawn()
 const gold = world.spawn()
@@ -215,7 +215,7 @@ const Added = createAdded()
 const Removed = createRemoved()
 const Changed = createChanged()
 
-const ChildOf = relation({ store: { priority: 0 } })
+const ChildOf = relation({ schema: { priority: 0 } })
 
 // Track when any entity adds the ChildOf relation
 const newChildren = world.query(Added(ChildOf))
@@ -227,10 +227,8 @@ const orphaned = world.query(Removed(ChildOf))
 const updated = world.query(Changed(ChildOf))
 ```
 
-
 > [!IMPORTANT]  
 > Tracking modifiers do not accept pairs directly such as `Changed(ChildOf(parent))`. Instead, pass the base relation to the modifier and add the pair as a separate query parameter to filter by target.
-
 
 ```js
 const parent = world.spawn()
@@ -248,7 +246,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 - `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
 
 ```js
-const ChildOf = relation({ store: { priority: 0 } })
+const ChildOf = relation({ schema: { priority: 0 } })
 
 const unsubAdd = world.onAdd(ChildOf, (entity, target) => {})
 const unsubRemove = world.onRemove(ChildOf, (entity, target) => {})

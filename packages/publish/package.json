@@ -3,6 +3,10 @@
   "version": "0.6.5",
   "description": "🌎 Performant real-time state management for TypeScript and React",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pmndrs/koota"
+  },
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -46,7 +50,7 @@
     }
   },
   "scripts": {
-    "build": "tsup && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
+    "build": "pnpm --filter @koota/collections build && tsup --tsconfig tsconfig.build.json && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
     "test": "vitest --environment=jsdom",
     "generate-tests": "node scripts/generate-tests.ts"
   },

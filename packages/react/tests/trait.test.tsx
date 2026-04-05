@@ -307,7 +307,7 @@ describe('useTrait', () => {
     });
 
     it('reactively returns relation pair store data', async () => {
-        const ChildOf = relation({ store: { order: 0 } });
+        const ChildOf = relation({ schema: { order: 0 } });
         const parentA = world.spawn();
         const parentB = world.spawn();
         const child = world.spawn();
@@ -775,7 +775,7 @@ describe('useTraitEffect', () => {
     });
 
     it('supports relation pair subscriptions', async () => {
-        const ChildOf = relation({ store: { order: 0 } });
+        const ChildOf = relation({ schema: { order: 0 } });
         const parentA = world.spawn();
         const parentB = world.spawn();
         const child = world.spawn();

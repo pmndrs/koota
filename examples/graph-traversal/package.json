@@ -5,7 +5,7 @@
   "description": "Graph traversal simulation using Koota relations",
   "type": "module",
   "main": "./src/index.ts",
-  "scripts": {  
+  "scripts": {
     "dev": "tsx src/main.ts",
     "sim": "tsx src/main.ts"
   },
