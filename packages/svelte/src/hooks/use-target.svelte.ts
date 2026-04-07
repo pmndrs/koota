@@ -1,4 +1,10 @@
-import { $internal as internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
+import {
+    $internal as internal,
+    type Entity,
+    type Relation,
+    type Trait,
+    type World,
+} from '@koota/core';
 import { isWorld } from '../utils/is-world';
 import { useWorld } from '../world/world-context';
 
@@ -7,7 +13,7 @@ export function useTarget<T extends Trait>(
     relation: Relation<T>
 ): { readonly current: Entity | undefined } {
     const contextWorld = useWorld();
-    let value = $state.raw<Entity | undefined>(undefined);
+    let value = $state.raw<Entity>();
 
     $effect(() => {
         const t = target();
