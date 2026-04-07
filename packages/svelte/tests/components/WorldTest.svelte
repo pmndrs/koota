@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { World } from '@koota/core';
+    import { untrack } from 'svelte';
     import { provideWorld, useWorld } from '../../src';
 
     let {
@@ -11,5 +12,5 @@
     const world = provideWorld();
     const contextWorld = useWorld();
 
-    onWorld?.(contextWorld);
+    untrack(() => onWorld?.(contextWorld));
 </script>

@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Entity, RelationPair, Trait, World } from '@koota/core';
+    import { untrack } from 'svelte';
     import { provideWorld, useHas } from '../../src';
 
     let {
@@ -13,9 +14,9 @@
     } = $props();
 
     const world = provideWorld();
-    onWorld?.(world);
+    untrack(() => onWorld?.(world));
 
-    const result = useHas(() => target(), trait);
+    const result = useHas(() => target(), untrack(() => trait));
 </script>
 
 <span data-testid="value">{result.current}</span>

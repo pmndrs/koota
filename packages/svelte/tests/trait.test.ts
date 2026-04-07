@@ -141,7 +141,7 @@ describe('useTrait', () => {
         await tick();
         const initial = getByTestId('value').textContent;
 
-        entity.get(CounterTrait).increment();
+        entity.get(CounterTrait)?.increment();
         entity.changed(CounterTrait);
         await tick();
 

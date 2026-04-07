@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { QueryParameter, World } from '@koota/core';
+    import { untrack } from 'svelte';
     import { provideWorld, useQuery } from '../../src';
 
     let {
@@ -11,7 +12,7 @@
     } = $props();
 
     const world = provideWorld();
-    onWorld?.(world);
+    untrack(() => onWorld?.(world));
 
     const result = useQuery(() => params());
 </script>
