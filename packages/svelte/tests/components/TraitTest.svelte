@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Entity, RelationPair, Trait, World } from '@koota/core';
+    import { untrack } from 'svelte';
     import { provideWorld, useTrait } from '../../src';
 
     let {
@@ -13,9 +14,9 @@
     } = $props();
 
     const world = provideWorld();
-    onWorld?.(world);
+    untrack(() => onWorld?.(world));
 
-    const result = useTrait(() => target(), trait());
+    const result = useTrait(() => target(), untrack(() => trait()));
 </script>
 
 <span data-testid="value">{JSON.stringify(result.current) ?? 'undefined'}</span>

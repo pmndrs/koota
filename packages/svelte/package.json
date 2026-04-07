@@ -33,7 +33,7 @@
   "scripts": {
     "build": "svelte-package -i src",
     "test": "vitest",
-    "lint": "oxlint"
+    "lint": "oxlint && svelte-check --fail-on-warnings"
   },
   "dependencies": {
     "@koota/core": "workspace:*"
@@ -46,6 +46,8 @@
     "@testing-library/svelte": "^5.2.0",
     "jsdom": "^27.2.0",
     "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.0.0",
     "vitest": "catalog:"
   },
   "peerDependencies": {

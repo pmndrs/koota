@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Entity, RelationPair, Trait, TraitRecord, World } from '@koota/core';
+    import { untrack } from 'svelte';
     import { provideWorld, useTraitEffect } from '../../src';
 
     let {
@@ -10,12 +11,12 @@
     }: {
         target: () => Entity | World;
         trait: () => Trait | RelationPair;
-        callback: (value: TraitRecord | undefined) => void;
+        callback: (value: TraitRecord<Trait> | undefined) => void;
         onWorld?: (world: World) => void;
     } = $props();
 
     const world = provideWorld();
-    onWorld?.(world);
+    untrack(() => onWorld?.(world));
 
-    useTraitEffect(() => target(), trait(), callback);
+    useTraitEffect(() => target(), untrack(() => trait()), untrack(() => callback));
 </script>

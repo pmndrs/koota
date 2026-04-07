@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { World } from '@koota/core';
+    import { untrack } from 'svelte';
     import { provideWorld, useActions } from '../../src';
 
     let {
@@ -13,8 +14,8 @@
     } = $props();
 
     const world = provideWorld();
-    const boundActions = useActions(actions);
+    const boundActions = useActions(untrack(() => actions));
 
-    onWorld?.(world);
-    onActions?.(boundActions);
+    untrack(() => onWorld?.(world));
+    untrack(() => onActions?.(boundActions));
 </script>
