@@ -1,0 +1,35 @@
+{
+  "name": "@koota/svelte",
+  "version": "0.0.1",
+  "description": "Svelte bindings for Koota",
+  "private": true,
+  "license": "ISC",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest",
+    "lint": "oxlint"
+  },
+  "dependencies": {
+    "@koota/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@testing-library/svelte": "^5.2.0",
+    "jsdom": "^27.2.0",
+    "svelte": "^5.0.0",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  }
+}
