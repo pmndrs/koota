@@ -1,7 +1,8 @@
-import { createActions, trait, universe, type Entity } from '@koota/core';
+import { createActions, createWorld, trait, universe, type Entity } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import ActionsTest from './components/ActionsTest.svelte';
+import { WORLD_KEY } from '../src/world/world-context';
 
 const Position = trait({ x: 0, y: 0 });
 
@@ -18,6 +19,7 @@ describe('useActions', () => {
         let spawnedEntity: Entity | undefined;
 
         render(ActionsTest, {
+            context: new Map([[WORLD_KEY, createWorld()]]),
             props: {
                 actions,
                 onActions: (boundActions: Record<string, any>) => {

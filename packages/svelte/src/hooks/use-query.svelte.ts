@@ -1,4 +1,9 @@
-import { $internal as internal, createQuery, type QueryParameter, type QueryResult } from '@koota/core';
+import {
+    $internal as internal,
+    createQuery,
+    type QueryParameter,
+    type QueryResult,
+} from '@koota/core';
 import { useWorld } from '../world/world-context';
 
 export function useQuery<T extends QueryParameter[]>(

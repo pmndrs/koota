@@ -1,16 +1,15 @@
 <script lang="ts">
-    import type { World } from '@koota/core';
-    import { untrack } from 'svelte';
-    import { provideWorld, useWorld } from '../../src';
+  import type { World } from "@koota/core";
+  import { untrack } from "svelte";
+  import { provideWorld } from "../../src";
 
-    let {
-        onWorld,
-    }: {
-        onWorld?: (world: World) => void;
-    } = $props();
+  let {
+    onWorld,
+  }: {
+    onWorld?: (world: World) => void;
+  } = $props();
 
-    const world = provideWorld();
-    const contextWorld = useWorld();
+  const world = provideWorld();
 
-    untrack(() => onWorld?.(contextWorld));
+  untrack(() => onWorld?.(world));
 </script>

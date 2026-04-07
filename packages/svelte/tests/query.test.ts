@@ -1,26 +1,30 @@
-import { relation, trait, universe, type Entity, type World } from '@koota/core';
+import { createWorld, relation, trait, universe, type Entity, type World } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import QueryTest from './components/QueryTest.svelte';
+import { WORLD_KEY } from '../src/world/world-context';
 
 const Position = trait({ x: 0, y: 0 });
 
 describe('useQuery', () => {
+    let world = createWorld();
+
     beforeEach(() => {
         universe.reset();
+        world = createWorld();
     });
 
-    it('reactively returns entities matching the query', async () => {
-        let world: World = null!;
+    const renderSubject = (props: any) => {
+        return render(QueryTest, {
+            props,
+            context: new Map([[WORLD_KEY, world]]),
+        });
+    };
 
-        const { getByTestId } = render(QueryTest, {
-            props: {
-                params: () => [Position],
-                onWorld: (w: World) => {
-                    world = w;
-                },
-            },
+    it('reactively returns entities matching the query', async () => {
+        const { getByTestId } = renderSubject({
+            params: [Position],
         });
 
         await tick();
@@ -40,15 +44,8 @@ describe('useQuery', () => {
     });
 
     it('reactively updates when the world is reset', async () => {
-        let world: World = null!;
-
-        const { getByTestId } = render(QueryTest, {
-            props: {
-                params: () => [Position],
-                onWorld: (w: World) => {
-                    world = w;
-                },
-            },
+        const { getByTestId } = renderSubject({
+            params: [Position],
         });
 
         await tick();
@@ -69,10 +66,8 @@ describe('useQuery', () => {
     });
 
     it('should define special methods on query result', async () => {
-        const { getByTestId } = render(QueryTest, {
-            props: {
-                params: () => [],
-            },
+        const { getByTestId } = renderSubject({
+            params: [],
         });
 
         await tick();
@@ -83,29 +78,25 @@ describe('useQuery', () => {
         const ChildOf = relation();
         const Tag = trait();
 
-        let parent1: Entity = null!;
-        let parent2: Entity = null!;
+        const parent1 = world.spawn(Tag);
+        const parent2 = world.spawn(Tag);
 
-        const { getByTestId, rerender } = render(QueryTest, {
-            props: {
-                params: () => [Tag, ChildOf(parent1)],
-                onWorld: (w: World) => {
-                    parent1 = w.spawn(Tag);
-                    parent2 = w.spawn(Tag);
-                    // Two children of parent1
-                    w.spawn(Tag, ChildOf(parent1));
-                    w.spawn(Tag, ChildOf(parent1));
-                    // One child of parent2
-                    w.spawn(Tag, ChildOf(parent2));
-                },
-            },
+        // Two children of parent1
+        world.spawn(Tag, ChildOf(parent1));
+        world.spawn(Tag, ChildOf(parent1));
+
+        // One child of parent2
+        world.spawn(Tag, ChildOf(parent2));
+
+        const { getByTestId, rerender } = renderSubject({
+            params: [Tag, ChildOf(parent1)],
         });
 
         await tick();
         expect(getByTestId('count').textContent).toBe('2');
 
         // Change parent - the query should update to reflect children of parent2
-        await rerender({ params: () => [Tag, ChildOf(parent2)] });
+        await rerender({ params: [Tag, ChildOf(parent2)] });
         await tick();
         expect(getByTestId('count').textContent).toBe('1');
     });
