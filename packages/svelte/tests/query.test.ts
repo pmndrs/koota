@@ -83,7 +83,6 @@ describe('useQuery', () => {
         const ChildOf = relation();
         const Tag = trait();
 
-        let world: World = null!;
         let parent1: Entity = null!;
         let parent2: Entity = null!;
 
@@ -91,7 +90,6 @@ describe('useQuery', () => {
             props: {
                 params: () => [Tag, ChildOf(parent1)],
                 onWorld: (w: World) => {
-                    world = w;
                     parent1 = w.spawn(Tag);
                     parent2 = w.spawn(Tag);
                     // Two children of parent1
