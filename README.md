@@ -145,7 +145,7 @@ useEffect(() => {
 
 ### Use in your Svelte components
 
-Koota has first-class Svelte 5 support with reactive bindings powered by runes. See the full [Svelte API documentation](packages/svelte/README.md).
+Koota has first-class Svelte 5+ support with reactive bindings powered by runes. See the full [Svelte API documentation](packages/svelte/README.md).
 
 ```svelte
 <script>

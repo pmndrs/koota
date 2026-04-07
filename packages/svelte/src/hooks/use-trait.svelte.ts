@@ -15,7 +15,7 @@ export function useTrait<T extends Trait>(
     trait: T | RelationPair<T>
 ): { readonly current: TraitRecord<T> | undefined } {
     const contextWorld = useWorld();
-    let value = $state.raw<TraitRecord<T> | undefined>(undefined);
+    let value = $state.raw<TraitRecord<T>>();
     // Version counter to force reactivity when the value reference is the same (AoS traits).
     // Only read in the getter, never in the effect.
     let version = $state(0);
