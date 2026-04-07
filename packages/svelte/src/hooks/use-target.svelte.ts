@@ -6,11 +6,12 @@ import {
     type World,
 } from '@koota/core';
 import { isWorld } from '../utils/is-world';
+import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
 
 export function useTarget<T extends Trait>(
     target: () => Entity | World | undefined | null,
-    relation: Relation<T>
+    relation: MaybeGetter<Relation<T>>
 ): { readonly current: Entity | undefined } {
     const contextWorld = useWorld();
     let value = $state.raw<Entity>();
@@ -23,21 +24,22 @@ export function useTarget<T extends Trait>(
             return;
         }
 
+        const resolvedRelation = resolve(relation);
         const world = isWorld(t) ? t : contextWorld;
         const entity = isWorld(t) ? t[internal].worldEntity : t;
 
-        value = entity.targetFor(relation);
+        value = entity.targetFor(resolvedRelation);
 
-        const onAddUnsub = world.onAdd(relation, (e) => {
-            if (e === entity) value = entity.targetFor(relation);
+        const onAddUnsub = world.onAdd(resolvedRelation, (e) => {
+            if (e === entity) value = entity.targetFor(resolvedRelation);
         });
 
-        const onRemoveUnsub = world.onRemove(relation, (e) => {
+        const onRemoveUnsub = world.onRemove(resolvedRelation, (e) => {
             if (e === entity) value = undefined;
         });
 
-        const onChangeUnsub = world.onChange(relation, (e) => {
-            if (e === entity) value = entity.targetFor(relation);
+        const onChangeUnsub = world.onChange(resolvedRelation, (e) => {
+            if (e === entity) value = entity.targetFor(resolvedRelation);
         });
 
         return () => {

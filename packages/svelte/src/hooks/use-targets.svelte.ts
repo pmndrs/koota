@@ -1,10 +1,11 @@
 import { $internal as internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { isWorld } from '../utils/is-world';
+import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
 
 export function useTargets<T extends Trait>(
     target: () => Entity | World | undefined | null,
-    relation: Relation<T>
+    relation: MaybeGetter<Relation<T>>
 ): { readonly current: Entity[] } {
     const contextWorld = useWorld();
     let value = $state.raw<Entity[]>([]);
@@ -17,22 +18,23 @@ export function useTargets<T extends Trait>(
             return;
         }
 
+        const resolvedRelation = resolve(relation);
         const world = isWorld(t) ? t : contextWorld;
         const entity = isWorld(t) ? t[internal].worldEntity : t;
 
-        value = entity.targetsFor(relation);
+        value = entity.targetsFor(resolvedRelation);
 
-        const onAddUnsub = world.onAdd(relation, (e) => {
-            if (e === entity) value = entity.targetsFor(relation);
+        const onAddUnsub = world.onAdd(resolvedRelation, (e) => {
+            if (e === entity) value = entity.targetsFor(resolvedRelation);
         });
 
         // onRemove fires before data is removed, so filter out the target
-        const onRemoveUnsub = world.onRemove(relation, (e, removedTarget) => {
+        const onRemoveUnsub = world.onRemove(resolvedRelation, (e, removedTarget) => {
             if (e === entity) value = value.filter((p) => p !== removedTarget);
         });
 
-        const onChangeUnsub = world.onChange(relation, (e) => {
-            if (e === entity) value = entity.targetsFor(relation);
+        const onChangeUnsub = world.onChange(resolvedRelation, (e) => {
+            if (e === entity) value = entity.targetsFor(resolvedRelation);
         });
 
         return () => {

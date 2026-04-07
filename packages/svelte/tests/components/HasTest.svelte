@@ -1,22 +1,19 @@
 <script lang="ts">
-    import type { Entity, RelationPair, Trait, World } from '@koota/core';
-    import { untrack } from 'svelte';
-    import { provideWorld, useHas } from '../../src';
+  import type { Entity, RelationPair, Trait, World } from "@koota/core";
+  import { useHas } from "../../src";
 
-    let {
-        target,
-        trait,
-        onWorld,
-    }: {
-        target: () => Entity | World | undefined | null;
-        trait: Trait | RelationPair;
-        onWorld?: (world: World) => void;
-    } = $props();
+  let {
+    target,
+    trait,
+  }: {
+    target: Entity | World | undefined | null;
+    trait: Trait | RelationPair;
+  } = $props();
 
-    const world = provideWorld();
-    untrack(() => onWorld?.(world));
-
-    const result = useHas(() => target(), untrack(() => trait));
+  const result = useHas(
+    () => target,
+    () => trait,
+  );
 </script>
 
 <span data-testid="value">{result.current}</span>

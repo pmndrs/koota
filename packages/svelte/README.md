@@ -92,6 +92,24 @@ Or access world directly and use it.
 </script>
 ```
 
+### Reactive arguments
+
+Most hooks accept a getter for the `target` parameter, which is always reactive — when the entity or world it returns changes, the hook re-subscribes automatically.
+
+The second argument (trait, tag, or relation) can be passed as either a direct value or a getter. Direct values work for module-level constants, while getters enable reactivity for relation pairs with dynamic targets:
+
+```svelte
+<script>
+  let { entity, parent } = $props()
+
+  // Direct value — fine for static traits
+  const position = useTrait(() => entity, Position)
+
+  // Getter — reactive when parent changes
+  const childData = useTrait(() => entity, () => ChildOf(parent))
+</script>
+```
+
 ## API
 
 ### `provideWorld`

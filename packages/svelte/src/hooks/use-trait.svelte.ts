@@ -8,11 +8,12 @@ import {
 } from '@koota/core';
 import { untrack } from 'svelte';
 import { isWorld } from '../utils/is-world';
+import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
 
 export function useTrait<T extends Trait>(
     target: () => Entity | World | undefined | null,
-    trait: T | RelationPair<T>
+    trait: MaybeGetter<T | RelationPair<T>>
 ): { readonly current: TraitRecord<T> | undefined } {
     const contextWorld = useWorld();
     let value = $state.raw<TraitRecord<T>>();
@@ -28,23 +29,24 @@ export function useTrait<T extends Trait>(
             return;
         }
 
+        const resolvedTrait = resolve(trait);
         const world = isWorld(t) ? t : contextWorld;
         const entity = isWorld(t) ? t[internal].worldEntity : t;
 
-        value = entity.has(trait) ? entity.get(trait) : undefined;
+        value = entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined;
 
-        const onChangeUnsub = world.onChange(trait, (e) => {
+        const onChangeUnsub = world.onChange(resolvedTrait, (e) => {
             if (e === entity) {
-                value = e.get(trait);
+                value = e.get(resolvedTrait);
                 untrack(() => version++);
             }
         });
 
-        const onAddUnsub = world.onAdd(trait, (e) => {
-            if (e === entity) value = e.get(trait);
+        const onAddUnsub = world.onAdd(resolvedTrait, (e) => {
+            if (e === entity) value = e.get(resolvedTrait);
         });
 
-        const onRemoveUnsub = world.onRemove(trait, (e) => {
+        const onRemoveUnsub = world.onRemove(resolvedTrait, (e) => {
             if (e === entity) value = undefined;
         });
 
