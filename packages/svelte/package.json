@@ -1,9 +1,28 @@
 {
   "name": "@koota/svelte",
   "version": "0.0.1",
-  "description": "Svelte bindings for Koota",
+  "description": "Svelte bindings for Koota - ECS-based state management for real-time apps, games, and XR",
   "license": "ISC",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pmndrs/koota",
+    "directory": "packages/svelte"
+  },
+  "homepage": "https://github.com/pmndrs/koota/tree/main/packages/svelte#readme",
+  "bugs": {
+    "url": "https://github.com/pmndrs/koota/issues"
+  },
+  "keywords": [
+    "svelte",
+    "ecs",
+    "state-management",
+    "koota",
+    "entity-component-system",
+    "gamedev",
+    "xr",
+    "realtime"
+  ],
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -21,7 +40,6 @@
   "publishConfig": {
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
-    "svelte": "./dist/index.js",
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
