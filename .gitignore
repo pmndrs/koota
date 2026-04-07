@@ -13,5 +13,8 @@ dist
 packages/publish/publish/
 packages/publish/tests/
 
+# svelte-kit
+.svelte-kit
+
 # labs
 .labs
