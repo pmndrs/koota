@@ -3,6 +3,7 @@ import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import QueryTest from './components/QueryTest.svelte';
+import QueryVariadicTest from './components/QueryVariadicTest.svelte';
 import { WORLD_KEY } from '../src/world/world-context';
 
 const Position = trait({ x: 0, y: 0 });
@@ -72,6 +73,20 @@ describe('useQuery', () => {
 
         await tick();
         expect(getByTestId('has-update-each').textContent).toBe('true');
+    });
+
+    it('supports variadic arguments', async () => {
+        const { getByTestId } = render(QueryVariadicTest, {
+            context: new Map([[WORLD_KEY, world]]),
+            props: { params: [Position] },
+        });
+
+        await tick();
+        expect(getByTestId('count').textContent).toBe('0');
+
+        world.spawn(Position);
+        await tick();
+        expect(getByTestId('count').textContent).toBe('1');
     });
 
     it('should handle relation query when target entity changes', async () => {

@@ -144,14 +144,18 @@ Returns the world held in context via `provideWorld`.
 
 ### `useQuery`
 
-Reactively updates when entities matching the query change. Returns an object with a reactive `current` property containing a `QueryResult`, which is like an array of entities. Takes a getter that returns the query parameters.
+Reactively updates when entities matching the query change. Returns an object with a reactive `current` property containing a `QueryResult`, which is like an array of entities. Supports both variadic arguments and a getter form:
 
 ```svelte
 <script>
   import { useQuery } from '@koota/svelte'
 
-  // Get all entities with Position and Velocity traits
-  const entities = useQuery(() => [Position, Velocity])
+  // Variadic arguments
+  const entities = useQuery(Position, Velocity)
+
+  // Getter form — for reactive relation pair targets
+  let { parent } = $props()
+  const children = useQuery(() => [Tag, ChildOf(parent)])
 </script>
 
 {#each entities.current as entity (entity)}
@@ -159,26 +163,18 @@ Reactively updates when entities matching the query change. Returns an object wi
 {/each}
 ```
 
-Relation pairs with reactive targets work naturally through the getter:
-
-```svelte
-<script>
-  let { parent } = $props()
-
-  // Re-queries when parent changes
-  const children = useQuery(() => [Tag, ChildOf(parent)])
-</script>
-```
-
 ### `useQueryFirst`
 
-Works like `useQuery` but only returns the first result. Can either be an entity or undefined.
+Works like `useQuery` but only returns the first result. Can either be an entity or undefined. Supports both variadic and getter forms.
 
 ```svelte
 <script>
   import { useQueryFirst } from '@koota/svelte'
 
-  // Get the first entity with Player and Position traits
+  // Variadic
+  const player = useQueryFirst(Player, Position)
+
+  // Getter
   const player = useQueryFirst(() => [Player, Position])
 </script>
 

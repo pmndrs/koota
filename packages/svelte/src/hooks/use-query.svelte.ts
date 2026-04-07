@@ -7,8 +7,13 @@ import {
 import { useWorld } from '../world/world-context';
 
 export function useQuery<T extends QueryParameter[]>(
-    params: () => [...T]
+    ...args: [...T] | [() => [...T]]
 ): { readonly current: QueryResult<T> } {
+    const getParams =
+        args.length === 1 && typeof args[0] === 'function' && !(internal in args[0])
+            ? (args[0] as () => [...T])
+            : () => args as unknown as [...T];
+
     const world = useWorld();
     let result = $state.raw<QueryResult<T>>([] as unknown as QueryResult<T>);
     let resetCount = $state(0);
@@ -17,7 +22,7 @@ export function useQuery<T extends QueryParameter[]>(
         // Track resetCount so the effect re-runs on world reset
         void resetCount;
 
-        const queryRef = createQuery(...params());
+        const queryRef = createQuery(...getParams());
 
         result = world.query(queryRef).sort();
 

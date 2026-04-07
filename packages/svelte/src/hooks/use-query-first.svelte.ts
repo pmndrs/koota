@@ -2,9 +2,9 @@ import type { Entity, QueryParameter } from '@koota/core';
 import { useQuery } from './use-query.svelte';
 
 export function useQueryFirst<T extends QueryParameter[]>(
-    params: () => [...T]
+    ...args: [...T] | [() => [...T]]
 ): { readonly current: Entity | undefined } {
-    const query = useQuery(params);
+    const query = useQuery(...args);
 
     return {
         get current() {
