@@ -1,5 +1,6 @@
 import {
     $internal,
+    shallowEqual,
     type Entity,
     type RelationPair,
     type Trait,
@@ -10,6 +11,15 @@ import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
 import { useStableTrait } from '../utils/use-stable-pair';
 import { useWorld } from '../world/use-world';
+
+/**
+ * Making sure the values are never stale requires syncing at each boundary.
+ *
+ * - Render: Read the current trait snapshot synchronously.
+ * - Effect: Update again after subscribing at effect time. This catches any
+ *   changes that happen after render but before effect.
+ * - Subscribe: Whenever the trait value changes in the world.
+ */
 
 export function useTrait<T extends Trait>(
     target: Entity | World | undefined | null,
@@ -26,6 +36,7 @@ export function useTrait<T extends Trait>(
         [target, stableTrait, contextWorld]
     );
 
+    // Reads the trait value synchronously
     if (memoRef.current !== memo) {
         memoRef.current = memo;
         valueRef.current = memo?.entity.has(stableTrait) ? memo.entity.get(stableTrait) : undefined;
@@ -34,7 +45,14 @@ export function useTrait<T extends Trait>(
     useEffect(() => {
         if (!memo) return;
 
+        let initialized = false;
         const unsub = memo.subscribe((value) => {
+            if (!initialized) {
+                // Skip the initial sync call if the value is the same
+                // reference already read during render.
+                initialized = true;
+                if (shallowEqual(value, valueRef.current)) return;
+            }
             valueRef.current = value;
             forceUpdate();
         });
