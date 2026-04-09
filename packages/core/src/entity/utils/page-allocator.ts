@@ -7,8 +7,8 @@ export type PageCleanupToken = {
 };
 
 export type PageAllocator = {
-    /** Per-page generation values (pageId -> Uint16Array(PAGE_SIZE)). */
-    generations: (Uint16Array | null)[];
+    /** Per-page generation values (pageId -> Uint8Array(PAGE_SIZE)). */
+    generations: (Uint8Array | null)[];
     /** Per-page alive entity count. O(1) emptiness check for reclamation. */
     pageAliveCounts: number[];
     /** Stack of released page IDs available for leasing. */
@@ -63,7 +63,7 @@ export function leasePage(allocator: PageAllocator, owner: WorldInternal): numbe
 
     allocator.pageOwners[pageId] = owner;
     if (!allocator.generations[pageId]) {
-        allocator.generations[pageId] = new Uint16Array(PAGE_SIZE);
+        allocator.generations[pageId] = new Uint8Array(PAGE_SIZE);
     }
     return pageId;
 }
