@@ -254,8 +254,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
         // Handle relation pairs
         if (isRelationPair(param)) {
-            const pairCtx = param[$internal];
-            const relation = pairCtx.relation as Relation<Trait>;
+            const relation = param.relation as Relation<Trait>;
             const baseTrait = relation[$internal].trait;
             if (baseTrait[$internal].type !== 'tag') {
                 traits.push(baseTrait);

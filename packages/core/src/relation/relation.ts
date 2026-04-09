@@ -51,35 +51,17 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
         autoDestroy,
     };
 
-    // Cache parameterless entity-target pairs. This is a hot path for
-    // relation-only queries like world.query(ChildOf(parent)).
-    const pairCache: Array<RelationPair<Trait<S>> | undefined> = [];
-
     function relationFn(
         target: RelationTarget,
         params?: Record<string, unknown>
     ): RelationPair<Trait<S>> {
         if (target === undefined) throw Error('Relation target is undefined');
-
-        if (params === undefined && typeof target === 'number') {
-            const cached = pairCache[target];
-            if (cached) return cached;
-        }
-
-        const pair = {
+        return {
             [$relationPair]: true,
-            [$internal]: {
-                relation: relationFn as Relation<Trait<S>>,
-                target,
-                params,
-            },
+            relation: relationFn as unknown as Relation<Trait<S>>,
+            target,
+            params,
         } as RelationPair<Trait<S>>;
-
-        if (params === undefined && typeof target === 'number') {
-            pairCache[target] = pair;
-        }
-
-        return pair;
     }
 
     const relation = Object.assign(relationFn, {
@@ -546,9 +528,8 @@ export function getRelationData(
  * Check if entity has a relation pair.
  */
 export function hasRelationPair(world: World, entity: Entity, pair: RelationPair): boolean {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
+    const relation = pair.relation;
+    const target = pair.target;
 
     // Check if entity has the base trait
     if (!hasTrait(world, entity, relation[$internal].trait)) return false;

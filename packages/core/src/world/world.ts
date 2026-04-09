@@ -38,14 +38,14 @@ export function createWorld(
     type HookCallback = (entity: Entity, target?: Entity) => void;
 
     function resolveHookTrait(input: HookInput): Trait {
-        if (isRelationPair(input)) return input[$internal].relation[$internal].trait;
+        if (isRelationPair(input)) return input.relation[$internal].trait;
         if (isRelation(input)) return input[$internal].trait;
         return input;
     }
 
     function resolveHookCallback(input: HookInput, callback: HookCallback): HookCallback {
         if (isRelationPair(input)) {
-            const pairTarget = input[$internal].target;
+            const pairTarget = input.target;
             if (pairTarget === '*') return callback;
             return (entity: Entity, target?: Entity) => {
                 if (target === pairTarget) callback(entity, target);
@@ -209,9 +209,8 @@ export function createWorld(
 
                 // Fast path: single relation pair with specific target
                 if (params.length === 1 && isRelationPair(params[0])) {
-                    const pairCtx = params[0][$internal];
-                    const relation = pairCtx.relation;
-                    const target = pairCtx.target;
+                    const relation = params[0].relation;
+                    const target = params[0].target;
 
                     // Only use fast path for specific targets
                     if (typeof target === 'number') {
