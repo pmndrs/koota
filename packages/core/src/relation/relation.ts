@@ -1,10 +1,13 @@
+import type { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { isQuery } from '../query/utils/is-query';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
+import type { QueryParameter } from '../query/types';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { World } from '../world';
 import type { Relation, RelationPair, RelationTarget } from './types';
@@ -51,17 +54,33 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
         autoDestroy,
     };
 
-    function relationFn(
-        target: RelationTarget,
-        params?: Record<string, unknown>
-    ): RelationPair<Trait<S>> {
-        if (target === undefined) throw Error('Relation target is undefined');
+    function relationFn(...args: any[]): RelationPair<Trait<S>> {
+        const firstArg = args[0];
+        if (firstArg === undefined) throw Error('Relation target is undefined');
+
+        if (firstArg === '*' || typeof firstArg === 'number') {
+            return {
+                [$relationPair]: true,
+                relation: relationFn as unknown as Relation<Trait<S>>,
+                target: firstArg,
+                params: args[1],
+            };
+        }
+
+        if (isQuery(firstArg)) {
+            if (args.length > 1) throw Error('Query relations do not accept additional parameters.');
+            return {
+                [$relationPair]: true,
+                relation: relationFn as unknown as Relation<Trait<S>>,
+                targetQuery: firstArg,
+            };
+        }
+
         return {
             [$relationPair]: true,
             relation: relationFn as unknown as Relation<Trait<S>>,
-            target,
-            params,
-        } as RelationPair<Trait<S>>;
+            targetQuery: args as QueryParameter[],
+        };
     }
 
     const relation = Object.assign(relationFn, {
@@ -423,6 +442,34 @@ export function getEntitiesWithRelationTo(
     return traitData.relationSourcesByTarget[getEntityId(target)]?.slice() ?? EMPTY_ENTITY_ARRAY;
 }
 
+export function hasRelationTargetInSet(
+    world: World,
+    relation: Relation<Trait>,
+    entity: Entity,
+    matches: SparseSet
+): boolean {
+    const ctx = world[$internal];
+    const relationCtx = relation[$internal];
+    const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
+    if (!traitData?.relationTargets) return false;
+
+    const eid = getEntityId(entity);
+
+    if (relationCtx.exclusive) {
+        const target = (traitData.relationTargets as Array<Entity | undefined>)[eid];
+        return target !== undefined && matches.has(target);
+    }
+
+    const targets = (traitData.relationTargets as number[][])[eid];
+    if (!targets) return false;
+
+    for (let i = 0; i < targets.length; i++) {
+        if (matches.has(targets[i]!)) return true;
+    }
+
+    return false;
+}
+
 /**
  * Set data for a specific relation target using target index.
  * For exclusive relations, index is always 0.
@@ -530,9 +577,22 @@ export function getRelationData(
 export function hasRelationPair(world: World, entity: Entity, pair: RelationPair): boolean {
     const relation = pair.relation;
     const target = pair.target;
+    const targetQuery = pair.targetQuery;
 
     // Check if entity has the base trait
     if (!hasTrait(world, entity, relation[$internal].trait)) return false;
+
+    if (targetQuery) {
+        const matchingTargets = isQuery(targetQuery) ? world.query(targetQuery) : world.query(...targetQuery);
+        if (!matchingTargets.length) return false;
+
+        const targets = getRelationTargets(world, relation, entity);
+        for (let i = 0; i < targets.length; i++) {
+            if (matchingTargets.includes(targets[i])) return true;
+        }
+
+        return false;
+    }
 
     // Wildcard target
     if (target === '*') return true;
