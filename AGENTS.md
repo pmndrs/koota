@@ -6,18 +6,15 @@ The `skills/koota` directory contains a skill with reference documentation for t
 
 ## Benchmarks
 
-Benchmarks live in `benches/`. Each benchmark is a directory with a `src/main.ts` entry point.
+Benchmarks live in `benches/`. Benches should be run only for the relevant set using the tags or names and then compared to look for regressions or to optimize code.
 
 ```sh
-# Interactive GUI selector
-pnpm bench
+# Run suites using tags or by name and name with -n
+pnpm bench "@relation @graph" -n "Name"
 
-# Run one or more suites by name (partial match works)
-pnpm bench <name> [name2 ...]
+# Set baseline
+pnpm bench baseline "Name"
 
-# Comma-separated names also work
-pnpm bench <name1,name2,...>
-
-# Replay last selection without prompting
-pnpm bench --last
+# Compare baseline to a test by name
+pnpm bench compare "Name"
 ```
