@@ -3,7 +3,7 @@ import { getEntitiesWithRelationTo, getRelationTargets } from '../relation/relat
 import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
-import type { World, WorldInternal } from '../world';
+import type { WorldInternal } from '../world';
 import type { Entity } from './types';
 import { allocateEntity, isEntityAlive, releaseEntity } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';

@@ -1,5 +1,5 @@
 import type { Entity } from '../../entity/types';
-import { hasRelationPair } from '../../relation/relation';
+import { hasRelationPair, hasRelationTargetInSet } from '../../relation/relation';
 import type { WorldInternal } from '../../world';
 import type { EventType, QueryInstance } from '../types';
 import { checkQueryTracking } from './check-query-tracking';
@@ -18,6 +18,14 @@ export function checkQueryTrackingWithRelations(
 
     if (query.relationFilters && query.relationFilters.length > 0) {
         for (const pair of query.relationFilters) {
+            if (pair.targetQueryMatches) {
+                if (!hasRelationTargetInSet(ctx, pair.relation, entity, pair.targetQueryMatches)) {
+                    return false;
+                }
+
+                continue;
+            }
+
             if (!hasRelationPair(ctx, entity, pair)) {
                 return false;
             }

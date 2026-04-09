@@ -163,13 +163,12 @@ export function addTrait(ctx: WorldInternal, entity: Entity, ...traits: Configur
 }
 
 /* @inline */ function addRelationPair(ctx: WorldInternal, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
+    const relation = pair.relation;
+    const target = pair.target;
 
     if (typeof target !== 'number') return;
 
-    const params = pairCtx.params;
+    const params = pair.params;
     const relationCtx = relation[$internal];
     const relationTrait = relationCtx.trait;
 
@@ -238,9 +237,8 @@ export function removeTrait(ctx: WorldInternal, entity: Entity, ...traits: (Trai
 }
 
 /* @inline */ function removeRelationPair(ctx: WorldInternal, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
+    const relation = pair.relation;
+    const target = pair.target;
     const relationTrait = relation[$internal].trait;
 
     if (!hasTrait(ctx, entity, relationTrait)) return;
@@ -330,9 +328,8 @@ export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | Rela
 }
 
 /* @inline @pure */ function getTraitForPair(ctx: WorldInternal, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation as Relation<Trait>;
-    const target = pairCtx.target;
+    const relation = pair.relation as Relation<Trait>;
+    const target = pair.target;
 
     if (!hasRelationPair(ctx, entity, pair)) return undefined;
     if (typeof target !== 'number') return undefined;
@@ -357,9 +354,8 @@ export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | Rela
     value: any,
     triggerChanged: boolean
 ) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation as Relation<Trait>;
-    const target = pairCtx.target;
+    const relation = pair.relation as Relation<Trait>;
+    const target = pair.target;
 
     if (typeof target !== 'number') return;
 

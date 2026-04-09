@@ -54,14 +54,21 @@ declare class HiSparseBitSet {
  *
  * Returns the number of entities visited.
  */
-declare function forEachIntersection(sets: HiSparseBitSet[], callback: (entityId: number) => void): number;
+declare function forEachIntersection(
+    sets: HiSparseBitSet[],
+    callback: (entityId: number) => void
+): number;
 /**
  * N-way intersection with forbidden set exclusion.
  * The full ECS query pattern: required(A, B, C) AND NOT(D, E).
  *
  * Returns the number of entities visited.
  */
-declare function forEachQuery(required: HiSparseBitSet[], forbidden: HiSparseBitSet[], callback: (entityId: number) => void): number;
+declare function forEachQuery(
+    required: HiSparseBitSet[],
+    forbidden: HiSparseBitSet[],
+    callback: (entityId: number) => void
+): number;
 /**
  * Collect intersection results into an array.
  */
@@ -71,4 +78,12 @@ declare function collectIntersection(sets: HiSparseBitSet[]): number[];
  */
 declare function collectQuery(required: HiSparseBitSet[], forbidden: HiSparseBitSet[]): number[];
 
-export { Deque, HiSparseBitSet, collectIntersection, collectQuery, ctz32, forEachIntersection, forEachQuery };
+export {
+    Deque,
+    HiSparseBitSet,
+    collectIntersection,
+    collectQuery,
+    ctz32,
+    forEachIntersection,
+    forEachQuery,
+};

@@ -3,6 +3,7 @@ export type { Actions, ActionsInitializer, ActionRecord } from './actions/types'
 export { $internal } from './common';
 export type { Entity } from './entity/types';
 export { unpackEntity } from './entity/utils/pack-entity';
+export { shallowEqual } from './utils/shallow-equal';
 export { createAdded } from './query/modifiers/added';
 export { createChanged } from './query/modifiers/changed';
 export { Not } from './query/modifiers/not';
@@ -35,6 +36,7 @@ export { $relationPair, $relation } from './relation/symbols';
 export type {
     /** @experimental This type is experimental and may change or be removed in future versions. */
     OrderedRelation as OrderedTrait,
+    RelationInputTarget,
     Relation,
     RelationPair,
     RelationTarget,

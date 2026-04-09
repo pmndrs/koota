@@ -1,6 +1,6 @@
 import { createPageAllocator } from '../entity/utils/page-allocator';
 import type { Query } from '../query/types';
-import type { World, WorldInternal } from '../world';
+import type { World } from '../world';
 
 function createInitialState() {
     const allocator = createPageAllocator();

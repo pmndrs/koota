@@ -61,9 +61,8 @@ function createSubscriptions(
     // Wildcard pairs like ChildOf('*') fire on every pair removal, but the entity
     // may still have other pairs. Since onRemove fires before state cleanup,
     // we check targetsFor().length > 1 (the removed target is still counted).
-    const isWildcard =
-        !!(trait as any)?.[$relationPair] && (trait as RelationPair)[$internal].target === '*';
-    const wildcardRelation = isWildcard ? (trait as RelationPair)[$internal].relation : undefined;
+    const isWildcard = !!(trait as any)?.[$relationPair] && (trait as RelationPair).target === '*';
+    const wildcardRelation = isWildcard ? (trait as RelationPair).relation : undefined;
 
     return {
         entity,

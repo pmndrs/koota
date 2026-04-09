@@ -241,8 +241,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         const param = params[i];
 
         if (isRelationPair(param)) {
-            const pairCtx = param[$internal];
-            const relation = pairCtx.relation as Relation<Trait>;
+            const relation = param.relation as Relation<Trait>;
             const baseTrait = relation[$internal].trait;
             if (baseTrait[$internal].type !== 'tag') {
                 traits.push(baseTrait);
@@ -281,6 +280,7 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
     return results;
 }
 
+// Shared methods for relation-only query snapshots.
 const relationOnlyMethods = {
     readEach(this: QueryResult<any>, callback: any) {
         for (let i = 0; i < this.length; i++) {
@@ -301,23 +301,20 @@ const relationOnlyMethods = {
     select(this: QueryResult<any>) {
         return this;
     },
+    sort(
+        this: QueryResult<any>,
+        callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+    ) {
+        Array.prototype.sort.call(this, callback);
+        return this;
+    },
 };
 
 export function createRelationOnlyQueryResult<T extends QueryParameter[]>(
     entities: Entity[]
 ): QueryResult<T> {
-    const results = Object.assign(entities, {
-        readEach: relationOnlyMethods.readEach,
-        updateEach: relationOnlyMethods.updateEach,
-        useStores: relationOnlyMethods.useStores,
-        select: relationOnlyMethods.select,
-        sort(
-            callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
-        ): QueryResult<T> {
-            Array.prototype.sort.call(entities, callback);
-            return results;
-        },
-    }) as unknown as QueryResult<T>;
-
-    return results;
+    if (entities.length === 0) return cachedEmptyRelationResult as unknown as QueryResult<T>;
+    return Object.assign(entities, relationOnlyMethods) as unknown as QueryResult<T>;
 }
+
+const cachedEmptyRelationResult = Object.assign([], relationOnlyMethods) as QueryResult<any>;

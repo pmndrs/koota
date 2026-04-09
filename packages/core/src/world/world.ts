@@ -9,7 +9,7 @@ import {
 } from '../entity/utils/entity-index';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
-import { IsExcluded, createQueryInstance } from '../query/query';
+import { IsExcluded, createQuery, createQueryInstance } from '../query/query';
 import { createRelationOnlyQueryResult } from '../query/query-result';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
@@ -62,19 +62,38 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     type HookCallback = (entity: Entity, target?: Entity) => void;
 
     function resolveHookTrait(input: HookInput): Trait {
-        if (isRelationPair(input)) return input[$internal].relation[$internal].trait;
+        if (isRelationPair(input)) return input.relation[$internal].trait;
         if (isRelation(input)) return input[$internal].trait;
         return input;
     }
 
     function resolveHookCallback(input: HookInput, callback: HookCallback): HookCallback {
         if (isRelationPair(input)) {
-            const pairTarget = input[$internal].target;
+            const pairTargetQuery = input.targetQuery;
+            if (pairTargetQuery) {
+                const targetQuery = isQuery(pairTargetQuery)
+                    ? pairTargetQuery
+                    : createQuery(...pairTargetQuery);
+
+                return (entity: Entity, target?: Entity) => {
+                    /**
+                     * @todo This should be using the same caching logic as the query system
+                     * instead of searching with `includes`.
+                     */
+                    if (target !== undefined && world.query(targetQuery).includes(target)) {
+                        callback(entity, target);
+                    }
+                };
+            }
+
+            const pairTarget = input.target;
             if (pairTarget === '*') return callback;
+
             return (entity: Entity, target?: Entity) => {
                 if (target === pairTarget) callback(entity, target);
             };
         }
+
         return callback;
     }
 
@@ -84,6 +103,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     const world = {
         [$internal]: {
+            world: null!,
             entityIndex: null! as ReturnType<typeof createEntityIndex>,
             entityMasks: [createEmptyMaskGeneration()],
             entityTraits: new Map(),
@@ -183,6 +203,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             ctx.entityMasks = [createEmptyMaskGeneration()];
             ctx.bitflag = 1;
 
+            for (const query of ctx.queriesHashMap.values()) {
+                for (let i = 0; i < query.cleanup.length; i++) {
+                    query.cleanup[i]();
+                }
+            }
+
             clearTraitInstance(ctx.traitInstances);
             ctx.traits.clear();
             ctx.relations.clear();
@@ -228,17 +254,17 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
                 const params = args as QueryParameter[];
 
                 if (params.length === 1 && isRelationPair(params[0])) {
-                    const pairCtx = params[0][$internal];
-                    const relation = pairCtx.relation;
-                    const target = pairCtx.target;
+                    const relation = params[0].relation;
+                    const target = params[0].target;
 
-                    if (typeof target === 'number') {
+                    // Only use fast path for specific targets
+                    if (!params[0].targetQuery && typeof target === 'number') {
                         const entities = getEntitiesWithRelationTo(
                             ctx,
                             relation as Relation<Trait>,
                             target as Entity
                         );
-                        return createRelationOnlyQueryResult(entities.slice() as Entity[]);
+                        return createRelationOnlyQueryResult(entities as Entity[]);
                     }
                 }
 
@@ -407,6 +433,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         get: () => world[$internal].traits,
         enumerable: true,
     });
+
+    world[$internal].world = world;
 
     Object.defineProperty(world, 'id', {
         get: () => id,

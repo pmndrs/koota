@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     uses: pmndrs/docs/.github/workflows/build.yml@v2
     with:
       mdx: 'docs'
@@ -23,6 +24,7 @@ jobs:
       discord: 'https://discord.com/channels/740090768164651008/1282082309335552043'
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
 
