@@ -12,6 +12,15 @@ import { isWorld } from '../utils/is-world';
 import { useStableTrait } from '../utils/use-stable-pair';
 import { useWorld } from '../world/use-world';
 
+/**
+ * Making sure the values are never stale requires syncing at each boundary.
+ *
+ * - Render: Read the current trait snapshot synchronously.
+ * - Effect: Update again after subscribing at effect time. This catches any
+ *   changes that happen after render but before effect.
+ * - Subscribe: Whenever the trait value changes in the world.
+ */
+
 export function useTrait<T extends Trait>(
     target: Entity | World | undefined | null,
     trait: T | RelationPair<T>
@@ -27,6 +36,7 @@ export function useTrait<T extends Trait>(
         [target, stableTrait, contextWorld]
     );
 
+    // Reads the trait value synchronously
     if (memoRef.current !== memo) {
         memoRef.current = memo;
         valueRef.current = memo?.entity.has(stableTrait) ? memo.entity.get(stableTrait) : undefined;
