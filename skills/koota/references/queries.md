@@ -20,6 +20,9 @@ Queries fetch entities that share specific traits (archetypes).
 // Returns QueryResult (Entity[] with extra methods)
 const entities = world.query(Position, Velocity)
 
+// Relation filters can target entities that match a query
+const playerChildren = world.query(ChildOf(IsPlayer))
+
 // Batch update with updateEach
 world.query(Position, Velocity).updateEach(([pos, vel]) => {
   pos.x += vel.x

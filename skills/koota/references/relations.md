@@ -128,6 +128,24 @@ const allChildren = world.query(ChildOf('*'))
 const allContainers = world.query(Contains('*'))
 ```
 
+### Query relation targets by query
+
+```typescript
+import { createQuery } from 'koota'
+
+// Children whose parent matches IsPlayer
+const playerChildren = world.query(ChildOf(IsPlayer))
+
+// Children whose parent matches multiple traits
+const activePlayerChildren = world.query(ChildOf(IsPlayer, IsActive))
+
+// Reuse a cached target query in hot paths
+const activePlayers = createQuery(IsPlayer, IsActive)
+const cachedChildren = world.query(ChildOf(activePlayers))
+```
+
+These target-query filters stay live. If a target gains or loses the traits required by the filter, cached queries and `onQueryAdd`/`onQueryRemove` subscriptions update automatically.
+
 ### Get targets from an entity
 
 ```typescript

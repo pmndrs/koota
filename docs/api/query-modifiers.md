@@ -104,6 +104,15 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 // After running the query, the Changed modifier is reset
 ```
 
+Tracking modifiers do not accept relation pairs directly such as `Changed(ChildOf(parent))`. Pass the base relation to the modifier and add a separate relation filter parameter. Relation filters can use any legal query, not just a single trait.
+
+```js
+const parent = world.spawn()
+
+const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
+const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer, IsActive))
+```
+
 ## Add, remove and change events
 
 Koota allows you to subscribe to add, remove, and change events for specific traits.

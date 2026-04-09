@@ -27,6 +27,9 @@ const result = world.has(entity)
 // Return QueryResult (which is Entity[] with extras)
 const entities = world.query(Position)
 
+// Relation filters can use any legal query
+const rareInventories = world.query(Contains(IsRare))
+
 // Return the first entity that matches the query
 // Return Entity
 const entity = world.queryFirst(Position)
@@ -46,6 +49,9 @@ const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 // Return unsub function
 const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
 const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
+
+// Relation-filtered query subscriptions stay live as target membership changes
+const unsub = world.onQueryAdd([ChildOf(IsPlayer, IsActive)], (entity) => {})
 
 // An array of all entities alive in the world, including non-queryable entities
 // This is a copy so editing it won't do anything!
