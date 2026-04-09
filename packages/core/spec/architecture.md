@@ -52,11 +52,27 @@ A world is the context and holds the underlying storage, manages entities and th
 
 Traits are a user-facing handle for storage. The user never interacts with stores directly and instead deals with the mental model of traits -- composable pieces of semantic data.
 
+Worlds are **lazily registered** with the global universe. `createWorld()` allocates the facade and internal state, but it does not enter the global universe until first use (`spawn`, `add`, `set`, `query`, hook registration). This keeps world creation cheap and makes React-style memoized world creation safer.
+
 ## Internals
 
 Each trait instance has a bitflag and a generation ID per world. An entity builds a bitmask representing all of the traits it has. A query has its own bitmask representing the traits that define is archetype. Queries compare its bitmask against an entity to know if it belongs in the archetype.
 
 Pairs cannot be represented in the bitmask of an entity of query, only the base relation, and therefore are not captured in that comparison. This especially effects change and forbidden masking.
+
+The runtime stores entity identity globally instead of encoding `worldId` into the entity value. Packed entities are now `generation(8) + entityId(24)`. The world/context for an entity is resolved from global page ownership using the entity ID's page, while the packed generation still protects against stale recycled handles.
+
+A single entity index is held for **all** worlds in a global universe. This means worlds share a single entity limit. Entities are allocated to worlds per-page.
+
+Along with this, most per-entity state is paged. Bitmasks, trait stores, relation targets, and tracking snapshots use page-based arrays keyed by `pageId = entityId >>> 10` and `offset = entityId & 1023`. This keeps large sparse worlds from paying for giant flat arrays and improves locality when entities from the same world are iterated together.
+
+Entity allocation is handled by a global page allocator plus a per-world entity index:
+
+- The global allocator owns page generations, page ownership, free pages, and empty-page reclamation.
+- Each world owns a dense alive prefix, sparse lookup, and per-page cursors for fresh allocation.
+- Destroying an entity bumps generation and leaves behind a recyclable dead slot, so reuse is fast without scanning for holes.
+
+Internals use `WorldInternal`, the actual context, instead of `World` handle. That avoids repeated `world[$internal]` lookups in hot paths and lets entity convenience methods resolve context directly from page ownership. In addition, this means that the world context can be held onto while letting the the world handle get garbage collected, allowing us to free global resources in response.
 
 ### Structural Changes
 
