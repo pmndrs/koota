@@ -51,7 +51,7 @@
   },
   "scripts": {
     "build": "pnpm --filter @koota/collections build && tsup --tsconfig tsconfig.build.json && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
-    "test": "vitest --environment=jsdom",
+    "test": "NODE_OPTIONS=--expose-gc vitest --environment=jsdom",
     "generate-tests": "node scripts/generate-tests.ts"
   },
   "devDependencies": {

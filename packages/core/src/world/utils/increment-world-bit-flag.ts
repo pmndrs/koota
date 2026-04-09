@@ -1,15 +1,15 @@
-import { $internal } from '../../common';
-import type { World } from '../types';
+import { createEmptyMaskGeneration } from '../../entity/utils/paged-mask';
+import type { WorldContext } from '../types';
 
-// These should be Float32Arrays since we are using bitwise operations.
-// They are native Arrays to avoid overlow issues due to recycling.
-export /* @inline */ function incrementWorldBitflag(world: World) {
-    const ctx = world[$internal];
-
+export /* @inline */ function incrementWorldBitflag(ctx: WorldContext) {
     ctx.bitflag *= 2;
 
     if (ctx.bitflag >= 2 ** 31) {
         ctx.bitflag = 1;
-        ctx.entityMasks.push([]);
+        ctx.entityMasks.push(createEmptyMaskGeneration());
+
+        for (const m of ctx.dirtyMasks.values()) m.push(createEmptyMaskGeneration());
+        for (const m of ctx.changedMasks.values()) m.push(createEmptyMaskGeneration());
+        for (const m of ctx.trackingSnapshots.values()) m.push(createEmptyMaskGeneration());
     }
 }

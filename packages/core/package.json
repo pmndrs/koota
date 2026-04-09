@@ -8,7 +8,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "test": "vitest",
+    "test": "NODE_OPTIONS=--expose-gc vitest",
     "lint": "oxlint"
   },
   "dependencies": {

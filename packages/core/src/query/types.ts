@@ -10,7 +10,7 @@ import type {
     TraitInstance,
     TraitRecord,
 } from '../trait/types';
-import type { World } from '../world';
+import type { WorldContext } from '../world';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
@@ -135,13 +135,13 @@ export type TrackingGroup = {
     id: number;
     /** Bitmasks indexed by generationId */
     bitmasks: (number | undefined)[];
-    /** Per-entity tracker state indexed by [generationId][entityId] */
-    trackers: (number[] | undefined)[];
+    /** Per-entity tracker state indexed by [generationId][pageId][offset] */
+    trackers: Uint32Array[][];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     version: number;
-    world: World;
+    ctx: WorldContext;
     parameters: T;
     hash: QueryHash;
     traits: Trait[];
@@ -171,12 +171,12 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     removeSubscriptions: Set<QuerySubscriber>;
     /** Relation pairs for target-specific queries */
     relationFilters?: ResolvedRelationFilter[];
-    run: (world: World, params: QueryParameter[]) => QueryResult<T>;
+    run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
     add: (entity: Entity) => void;
-    remove: (world: World, entity: Entity) => void;
-    check: (world: World, entity: Entity) => boolean;
+    remove: (ctx: WorldContext, entity: Entity) => void;
+    check: (ctx: WorldContext, entity: Entity) => boolean;
     checkTracking: (
-        world: World,
+        ctx: WorldContext,
         entity: Entity,
         eventType: 'add' | 'remove' | 'change',
         generationId: number,

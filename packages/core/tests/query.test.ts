@@ -11,7 +11,6 @@ const ChildOf = relation();
 
 describe('Query', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();

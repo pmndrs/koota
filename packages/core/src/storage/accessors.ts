@@ -3,19 +3,21 @@ import type { Schema } from './types';
 function createSoASetFunction(schema: Schema) {
     const keys = Object.keys(schema);
 
-    // Generate a hardcoded set function based on the schema keys
     const setFunctionBody = keys
-        .map((key) => `if ('${key}' in value) store.${key}[index] = value.${key};`)
+        .map(
+            (key) =>
+                `if ('${key}' in value) { if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key}; }`
+        )
         .join('\n    ');
 
-    // Use new Function to create a set function with hardcoded keys
     const set = new Function(
         'index',
         'store',
         'value',
         `
-		${setFunctionBody}
-	  `
+        var p = index >>> 10, o = index & 1023;
+        ${setFunctionBody}
+        `
     );
 
     return set;
@@ -24,44 +26,43 @@ function createSoASetFunction(schema: Schema) {
 function createSoAFastSetFunction(schema: Schema) {
     const keys = Object.keys(schema);
 
-    // Generate a hardcoded set function based on the schema keys
-    const setFunctionBody = keys.map((key) => `store.${key}[index] = value.${key};`).join('\n    ');
+    const setFunctionBody = keys
+        .map(
+            (key) => `if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key};`
+        )
+        .join('\n    ');
 
-    // Use new Function to create a set function with hardcoded keys
     const set = new Function(
         'index',
         'store',
         'value',
         `
-		${setFunctionBody}
-	  `
+        var p = index >>> 10, o = index & 1023;
+        ${setFunctionBody}
+        `
     );
 
     return set;
 }
 
-// Return true if any trait value were changed.
 function createSoAFastSetChangeFunction(schema: Schema) {
     const keys = Object.keys(schema);
 
-    // Generate a hardcoded set function based on the schema keys
     const setFunctionBody = keys
         .map(
             (key) =>
-                `if (store.${key}[index] !== value.${key}) {
-            store.${key}[index] = value.${key};
-            changed = true;
-        }`
+                `if (!store.${key}[p]) store.${key}[p] = [];
+        if (store.${key}[p][o] !== value.${key}) { store.${key}[p][o] = value.${key}; changed = true; }`
         )
         .join('\n    ');
 
-    // Use new Function to create a set function with hardcoded keys
     const set = new Function(
         'index',
         'store',
         'value',
         `
-        let changed = false;
+        var p = index >>> 10, o = index & 1023;
+        var changed = false;
         ${setFunctionBody}
         return changed;
         `
@@ -73,14 +74,13 @@ function createSoAFastSetChangeFunction(schema: Schema) {
 function createSoAGetFunction(schema: Schema) {
     const keys = Object.keys(schema);
 
-    // Create an object literal with all keys assigned from the store
-    const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[index]`).join(', ')} }`;
+    const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[p][o]`).join(', ')} }`;
 
-    // Use new Function to create a get function that returns the pre-populated object
     const get = new Function(
         'index',
         'store',
         `
+        var p = index >>> 10, o = index & 1023;
         return ${objectLiteral};
         `
     );
@@ -90,15 +90,20 @@ function createSoAGetFunction(schema: Schema) {
 
 function createAoSSetFunction(_schema: Schema) {
     return (index: number, store: any, value: any) => {
-        store[index] = value;
+        const p = index >>> 10;
+        if (!store[p]) store[p] = [];
+        store[p][index & 1023] = value;
     };
 }
 
 function createAoSFastSetChangeFunction(_schema: Schema) {
     return (index: number, store: any, value: any) => {
+        const p = index >>> 10,
+            o = index & 1023;
+        if (!store[p]) store[p] = [];
         let changed = false;
-        if (value !== store[index]) {
-            store[index] = value;
+        if (value !== store[p][o]) {
+            store[p][o] = value;
             changed = true;
         }
         return changed;
@@ -106,7 +111,10 @@ function createAoSFastSetChangeFunction(_schema: Schema) {
 }
 
 function createAoSGetFunction(_schema: Schema) {
-    return (index: number, store: any) => store[index];
+    return (index: number, store: any) => {
+        const page = store[index >>> 10];
+        return page ? page[index & 1023] : undefined;
+    };
 }
 
 const noop = () => {};

@@ -19,7 +19,6 @@ const Bar = trait();
 
 describe('Query modifiers', () => {
     const world = createWorld();
-    world.init();
 
     beforeEach(() => {
         world.reset();
@@ -417,8 +416,9 @@ describe('Query modifiers', () => {
         expect(entities.length).toBe(0);
 
         const positions = getStore(world, Position);
-        positions.x[entityA] = 10;
-        positions.y[entityA] = 20;
+        const eidA = entityA & 0xfffff;
+        positions.x[eidA >>> 10][eidA & 1023] = 10;
+        positions.y[eidA >>> 10][eidA & 1023] = 20;
 
         // Set changed should populate the query.
         entityA.changed(Position);
@@ -442,8 +442,9 @@ describe('Query modifiers', () => {
         const entity = world.spawn(Position);
 
         const positions = getStore(world, Position);
-        positions.x[entity] = 10;
-        positions.y[entity] = 20;
+        const eid = entity & 0xfffff;
+        positions.x[eid >>> 10][eid & 1023] = 10;
+        positions.y[eid >>> 10][eid & 1023] = 20;
         entity.changed(Position);
 
         let entities = world.query(Changed(Position));
@@ -454,8 +455,8 @@ describe('Query modifiers', () => {
         let entities2 = world.query(LaterChanged(Position));
         expect(entities2.length).toBe(0);
 
-        positions.x[entity] = 30;
-        positions.y[entity] = 40;
+        positions.x[eid >>> 10][eid & 1023] = 30;
+        positions.y[eid >>> 10][eid & 1023] = 40;
         entity.changed(Position);
 
         entities = world.query(Changed(Position));
@@ -761,7 +762,6 @@ describe('Query modifiers', () => {
     it('[internal] should handle Changed modifier when trait registration causes generation overflow', () => {
         // Create a fresh world to control trait registration count
         const testWorld = createWorld();
-        testWorld.init();
 
         // IsExcluded is already registered (bitflag=2 after), register 29 more to get bitflag=2^30
         const fillerTraits = Array.from({ length: 29 }, () => trait());
