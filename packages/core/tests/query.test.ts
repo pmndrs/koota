@@ -10,8 +10,7 @@ const Bar = trait();
 const ChildOf = relation();
 
 describe('Query', () => {
-  const world = createWorld();
-  world.init();
+    const world = createWorld();
 
   beforeEach(() => {
     world.reset();

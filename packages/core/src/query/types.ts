@@ -10,7 +10,7 @@ import type {
   TraitInstance,
   TraitRecord,
 } from '../trait/types';
-import type { World } from '../world';
+import type { WorldContext } from '../world';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
@@ -127,62 +127,62 @@ type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First
  * Replaces the old separate tracking arrays and OrTrackingGroup.
  */
 export type TrackingGroup = {
-  /** Whether all traits must match (and) or any trait can match (or) */
-  logic: 'and' | 'or';
-  /** The type of tracking event */
-  type: 'add' | 'remove' | 'change';
-  /** Tracking modifier ID for snapshot/mask lookups */
-  id: number;
-  /** Bitmasks indexed by generationId */
-  bitmasks: (number | undefined)[];
-  /** Per-entity tracker state indexed by [generationId][entityId] */
-  trackers: (number[] | undefined)[];
+    /** Whether all traits must match (and) or any trait can match (or) */
+    logic: 'and' | 'or';
+    /** The type of tracking event */
+    type: 'add' | 'remove' | 'change';
+    /** Tracking modifier ID for snapshot/mask lookups */
+    id: number;
+    /** Bitmasks indexed by generationId */
+    bitmasks: (number | undefined)[];
+    /** Per-entity tracker state indexed by [generationId][pageId][offset] */
+    trackers: Uint32Array[][];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
-  version: number;
-  world: World;
-  parameters: T;
-  hash: QueryHash;
-  traits: Trait[];
-  /** Static trait instances for non-tracking query matching */
-  traitInstances: {
-    required: TraitInstance[];
-    forbidden: TraitInstance[];
-    or: TraitInstance[];
-    all: TraitInstance[];
-  };
-  /** Static bitmasks for non-tracking query matching (indexed by generationId) */
-  staticBitmasks: {
-    required: number;
-    forbidden: number;
-    or: number;
-  }[];
-  /** Unified tracking groups with explicit AND/OR logic */
-  trackingGroups: TrackingGroup[];
-  generations: number[];
-  entities: SparseSet;
-  isTracking: boolean;
-  hasChangedModifiers: boolean;
-  changedTraits: Set<Trait>;
-  toRemove: SparseSet;
-  cleanup: QueryUnsubscriber[];
-  addSubscriptions: Set<QuerySubscriber>;
-  removeSubscriptions: Set<QuerySubscriber>;
-  /** Relation pairs for target-specific queries */
-  relationFilters?: ResolvedRelationFilter[];
-  run: (world: World, params: QueryParameter[]) => QueryResult<T>;
-  add: (entity: Entity) => void;
-  remove: (world: World, entity: Entity) => void;
-  check: (world: World, entity: Entity) => boolean;
-  checkTracking: (
-    world: World,
-    entity: Entity,
-    eventType: 'add' | 'remove' | 'change',
-    generationId: number,
-    bitflag: number
-  ) => boolean;
-  resetTrackingBitmasks: (eid: number) => void;
+    version: number;
+    ctx: WorldContext;
+    parameters: T;
+    hash: QueryHash;
+    traits: Trait[];
+    /** Static trait instances for non-tracking query matching */
+    traitInstances: {
+        required: TraitInstance[];
+        forbidden: TraitInstance[];
+        or: TraitInstance[];
+        all: TraitInstance[];
+    };
+    /** Static bitmasks for non-tracking query matching (indexed by generationId) */
+    staticBitmasks: {
+        required: number;
+        forbidden: number;
+        or: number;
+    }[];
+    /** Unified tracking groups with explicit AND/OR logic */
+    trackingGroups: TrackingGroup[];
+    generations: number[];
+    entities: SparseSet;
+    isTracking: boolean;
+    hasChangedModifiers: boolean;
+    changedTraits: Set<Trait>;
+    toRemove: SparseSet;
+    cleanup: QueryUnsubscriber[];
+    addSubscriptions: Set<QuerySubscriber>;
+    removeSubscriptions: Set<QuerySubscriber>;
+    /** Relation pairs for target-specific queries */
+    relationFilters?: ResolvedRelationFilter[];
+    run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
+    add: (entity: Entity) => void;
+    remove: (ctx: WorldContext, entity: Entity) => void;
+    check: (ctx: WorldContext, entity: Entity) => boolean;
+    checkTracking: (
+        ctx: WorldContext,
+        entity: Entity,
+        eventType: 'add' | 'remove' | 'change',
+        generationId: number,
+        bitflag: number
+    ) => boolean;
+    resetTrackingBitmasks: (eid: number) => void;
 };
 
 export type EventType = 'add' | 'remove' | 'change';

@@ -9,9 +9,10 @@ dist
 .DS_Store
 # managed:end
 
-# publish
-packages/publish/publish/
-packages/publish/tests/
+# react
+packages/publish/react/
+packages/publish/collections/
 
-# labs
 .labs
+
+pnpm-lock.yaml

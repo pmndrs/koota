@@ -49,22 +49,30 @@ describe('World', () => {
       const lazyWorld = useMemo(() => createWorld({ lazy: true }), []);
       worldTest = lazyWorld;
 
-      useEffect(() => {
-        lazyWorld.init();
-        return () => lazyWorld.destroy();
-      }, [lazyWorld]);
+    it('can create a world in useMemo and auto-register on first use', () => {
+        universe.reset();
 
       return null;
     }
 
-    render(
-      <StrictMode>
-        <Test />
-      </StrictMode>
-    );
+        function Test() {
+            worldTest = useMemo(() => createWorld(), []);
 
-    expect(worldTest).toBeDefined();
-    expect(worldTest!.isInitialized).toBe(true);
-    expect(universe.worlds.length).toBe(1);
-  });
+            useEffect(() => {
+                worldTest.spawn();
+                return () => worldTest.destroy();
+            }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+            return null;
+        }
+
+        render(
+            <StrictMode>
+                <Test />
+            </StrictMode>
+        );
+
+        expect(worldTest).toBeDefined();
+        expect(worldTest!.isRegistered).toBe(true);
+    });
 });

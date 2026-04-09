@@ -18,16 +18,17 @@ entity.add(Name)
 
 ```mermaid
 flowchart TD
-    A["entity.add(Name)"] --> B[Resolve trait instance]
-    B --> C[Add bitflag to entity bitmask]
-    C --> D[Mark entity dirty in tracking masks]
-    D --> E[Update queries: check bitmask match]
-    E --> F{Match?}
-    F -- yes --> G[Add entity to query]
-    F -- no --> H[Remove entity from query]
-    G --> I[Initialize trait values]
-    H --> I
-    I --> J[Call add hooks]
+    A["entity.add(Name)"] --> B[Resolve entity context]
+    B --> C[Resolve trait instance]
+    C --> D[Add bitflag to paged entity mask]
+    D --> E[Mark paged tracking masks dirty]
+    E --> F[Re-check affected queries]
+    F --> G{Match?}
+    G -- yes --> H[Add entity to query]
+    G -- no --> I[Remove entity from query]
+    H --> J[Initialize trait values]
+    I --> J
+    J --> K[Call add hooks]
 ```
 
 ### Steps
@@ -43,7 +44,7 @@ The trait ref is passed as an argument. If the entity already has the trait, the
 **2. Resolve trait instance**
 
 ```ts
-if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(world, trait)
+if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait)
 const instance = getTraitInstance(ctx.traitInstances, trait)
 ```
 
@@ -52,7 +53,7 @@ Look up the per-world `TraitInstance` for this trait ref. If this is the first t
 **3. Add bitflag to entity bitmask**
 
 ```ts
-ctx.entityMasks[generationId][eid] |= bitflag
+ensureMaskPage(ctx.entityMasks[generationId], eid >>> 10)[eid & 1023] |= bitflag
 ```
 
 The trait instance's bitflag is OR'd into the entity's bitmask at the correct generation index. This is the source of truth for "does this entity have this trait".
@@ -61,7 +62,7 @@ The trait instance's bitflag is OR'd into the entity's bitmask at the correct ge
 
 ```ts
 for (const dirtyMask of ctx.dirtyMasks.values()) {
-  dirtyMask[generationId][eid] |= bitflag
+  ensureMaskPage(dirtyMask[generationId], eid >>> 10)[eid & 1023] |= bitflag
 }
 ```
 
@@ -70,7 +71,7 @@ For every registered tracking modifier (`Added`, `Removed`, `Changed`), mark thi
 **5. Update queries: check bitmask**
 
 ```ts
-const match = query.check(world, entity)
+const match = query.check(ctx, entity)
 ```
 
 Loop through all queries that reference this trait and compare the entity's updated bitmask against each query's required/forbidden/or masks.
@@ -79,7 +80,7 @@ Loop through all queries that reference this trait and compare the entity's upda
 
 ```ts
 if (match) query.add(entity)
-else query.remove(world, entity)
+else query.remove(ctx, entity)
 ```
 
 If the entity's bitmask now satisfies the query, add it to the query's entity set. Otherwise remove it.
@@ -87,7 +88,7 @@ If the entity's bitmask now satisfies the query, add it to the query's entity se
 **7. Initialize trait values**
 
 ```ts
-setTrait(world, entity, trait, { ...defaults, ...params }, false)
+setTrait(ctx, entity, trait, { ...defaults, ...params }, false)
 ```
 
 After the entity is structurally committed, trait data is initialized from schema defaults merged with any user-provided params. The `triggerChanged` flag is `false` here since this is an add, not a mutation.
@@ -99,3 +100,11 @@ for (const sub of data.addSubscriptions) sub(entity)
 ```
 
 Fire `onAdd` subscriptions for this trait, letting listeners react to the structural change. Hooks run after values are set so listeners can read the initialized data.
+
+## Structural vs mutative changes
+
+`add`, `remove`, `spawn`, relation add/remove, and entity destruction are structural. They change membership, layout, or ownership.
+
+`set` and direct trait value updates are mutative. They usually do not change whether an entity belongs to a query unless a tracking modifier such as `Changed(...)` is involved.
+
+Structural changes update query membership immediately, while ordinary mutations mostly stay within existing storage.

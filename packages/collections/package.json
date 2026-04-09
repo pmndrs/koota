@@ -17,6 +17,8 @@
   "devDependencies": {
     "@config/oxlint": "workspace:*",
     "@config/typescript": "workspace:*",
+    "tsup": "^8.5.1",
+    "unplugin-inline-functions": "catalog:",
     "vitest": "catalog:"
   }
 }

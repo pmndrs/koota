@@ -1,13 +1,15 @@
 /**
- * Storage type for trait data.
- * - AoS: Array of instances, one per entity
- * - SoA: Object with arrays, one array per property
+ * Paged storage type for trait data.
+ * - AoS: store[pageId][offset] = instance
+ * - SoA: store.key[pageId][offset] = value
  */
 export type Store<T extends Schema = any> = T extends AoSFactory
-  ? ReturnType<T>[]
-  : {
-      [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]>[] : T[P][];
-    };
+    ? ReturnType<T>[][]
+    : {
+          [P in keyof T]: T[P] extends (...args: never[]) => unknown
+              ? ReturnType<T[P]>[][]
+              : T[P][][];
+      };
 
 /**
  * Storage layout type.
