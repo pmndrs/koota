@@ -34,8 +34,8 @@ catalogs:
       specifier: ^0.181.2
       version: 0.181.2
     unplugin-inline-functions:
-      specifier: ^0.3.10
-      version: 0.3.10
+      specifier: ^0.4.2
+      version: 0.4.2
     vite:
       specifier: ^7.2.4
       version: 7.2.4
@@ -72,8 +72,8 @@ importers:
   benches:
     dependencies:
       '@pmndrs/labs':
-        specifier: ^0.4.0
-        version: 0.4.0
+        specifier: ^0.6.0
+        version: 0.6.0
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.2.6)(react@19.2.0)
@@ -374,7 +374,30 @@ importers:
         specifier: workspace:*
         version: link:../../../.config/typescript
 
+  packages/collections:
+    dependencies:
+      '@pmndrs/labs':
+        specifier: ^0.6.0
+        version: 0.6.0
+    devDependencies:
+      '@config/oxlint':
+        specifier: workspace:*
+        version: link:../../.config/oxlint
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.3)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
+
   packages/core:
+    dependencies:
+      '@koota/collections':
+        specifier: workspace:*
+        version: link:../collections
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
@@ -415,7 +438,7 @@ importers:
         version: 8.5.1(@swc/core@1.15.3)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)
       unplugin-inline-functions:
         specifier: 'catalog:'
-        version: 0.3.10(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
+        version: 0.4.2(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5)
       vitest:
         specifier: 'catalog:'
         version: 4.0.13(@types/node@24.10.1)(jsdom@27.2.0)(tsx@4.21.0)
@@ -988,8 +1011,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@pmndrs/labs@0.4.0':
-    resolution: {integrity: sha512-4vH+1FThYo6s/c2Hktf7RfZms8vtH7tv6Txo1yq3rvNsxpfBtzNPBw6HeRYhAg4Ye8zIlGmG2eCmhytYNA0n9A==}
+  '@pmndrs/labs@0.6.0':
+    resolution: {integrity: sha512-RBGGNfUgMR6mYh+u7nhPqvPga/gFZaEXUMmkv6vJj0y7JrTT4c0+1fu0H3aQaSMoH/VcCtB6I4ai1i4FB6f3kg==}
     engines: {node: '>=25.0.0', pnpm: '>=10.0.0'}
     hasBin: true
 
@@ -2093,8 +2116,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  unplugin-inline-functions@0.3.10:
-    resolution: {integrity: sha512-zCQB2PTs+QJIxIJsUcx4NoTIRVLqfFxHdGFjetKxWcuuJAT9K3WChcAxHB+4377TDH3GJROOmi4NG33StobUyA==}
+  unplugin-inline-functions@0.4.2:
+    resolution: {integrity: sha512-kr/TwZ6A5wWKNkmzBW8iynDNAyR/ookiCPhzvfn3AAZ0F8L90K9AFNMX6q5H5nzUT4dheoO4C2hEL3wvGE0V7g==}
     peerDependencies:
       '@babel/parser': ^7.26.3
       '@babel/traverse': ^7.26.4
@@ -2682,7 +2705,7 @@ snapshots:
   '@oxlint/win32-x64@1.39.0':
     optional: true
 
-  '@pmndrs/labs@0.4.0':
+  '@pmndrs/labs@0.6.0':
     dependencies:
       '@clack/prompts': 1.0.1
       tsx: 4.21.0
@@ -3732,7 +3755,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  unplugin-inline-functions@0.3.10(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
+  unplugin-inline-functions@0.4.2(@babel/parser@7.28.5)(@babel/traverse@7.28.5)(@babel/types@7.28.5):
     dependencies:
       '@babel/parser': 7.28.5
       '@babel/traverse': 7.28.5

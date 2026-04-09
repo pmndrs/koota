@@ -62,9 +62,9 @@ function createSubscriptions(
     // may still have other pairs. Since onRemove fires before state cleanup,
     // we check targetsFor().length > 1 (the removed target is still counted).
     const isWildcard =
-        !!(trait as any)?.[$relationPair] && (trait as RelationPair)[$internal].target === '*';
+        !!(trait as any)?.[$relationPair] && (trait as RelationPair).target === '*';
     const wildcardRelation = isWildcard
-        ? (trait as RelationPair)[$internal].relation
+        ? (trait as RelationPair).relation
         : undefined;
 
     return {

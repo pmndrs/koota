@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { SparseSet } from '../../src/utils/sparse-set';
+import { SparseSet } from '../src';
 
 describe('SparseSet', () => {
     let set: SparseSet;

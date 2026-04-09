@@ -17,9 +17,8 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
         if (isRelationPair(param)) {
             // Encode relation pair as: (relationTraitId * 1000000) + targetId
             // This ensures unique hashes for different relation/target combinations
-            const pairCtx = param[$internal];
-            const relation = pairCtx.relation;
-            const target = pairCtx.target;
+            const relation = param.relation;
+            const target = param.target;
 
             const relationId = (relation as Relation<Trait>)[$internal].trait.id;
             const targetId = typeof target === 'number' ? target : -1;
