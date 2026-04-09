@@ -1,6 +1,6 @@
 {
   "name": "koota",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "🌎 Performant real-time state management for TypeScript and React",
   "license": "ISC",
   "repository": {
