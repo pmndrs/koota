@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createWorld, relation, type TraitRecord, trait, universe } from '../../dist';
+import {
+    $internal,
+    createWorld,
+    relation,
+    type TraitRecord,
+    trait,
+    universe,
+    IsExcluded,
+} from '../../dist';
+import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 describe('World', () => {
     beforeEach(() => {
@@ -18,6 +27,52 @@ describe('World', () => {
         expect(world.isRegistered).toBe(false);
         world.spawn();
         expect(world.isRegistered).toBe(true);
+    });
+
+    describe('finalization', () => {
+        it.skipIf(!hasNativeGc())(
+            'should finalize an unused abandoned world',
+            async () => {
+                await expect(
+                    waitForFinalization((registry) => {
+                        (() => {
+                            const world = createWorld();
+                            registry.register(world, 'world');
+                        })();
+                    })
+                ).resolves.toBe(true);
+            },
+            20_000
+        );
+
+        it.skipIf(!hasNativeGc())(
+            'should finalize a used abandoned world',
+            async () => {
+                let worldId = -1;
+                let ownedPages: number[] = [];
+
+                await expect(
+                    waitForFinalization((registry) => {
+                        (() => {
+                            const world = createWorld();
+                            world.spawn();
+                            world.query(IsExcluded);
+                            worldId = world.id;
+                            ownedPages = [...world[$internal].entityIndex.ownedPages];
+                            registry.register(world, 'world');
+                        })();
+                    })
+                ).resolves.toBe(true);
+
+                expect(universe.worlds[worldId]).toBeUndefined();
+                for (const pageId of ownedPages) {
+                    expect(universe.pageAllocator.pageOwners[pageId]).toBeNull();
+                    expect(universe.pageAllocator.pageAliveCounts[pageId]).toBe(0);
+                    expect(universe.pageAllocator.freePages).toContain(pageId);
+                }
+            },
+            20_000
+        );
     });
 
     it('should reset the world', () => {

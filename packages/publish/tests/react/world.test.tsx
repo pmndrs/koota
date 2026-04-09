@@ -51,7 +51,7 @@ describe('World', () => {
             useEffect(() => {
                 worldTest.spawn();
                 return () => worldTest.destroy();
-            }, [worldTest]);
+            }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
             return null;
         }
