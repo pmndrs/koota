@@ -2,16 +2,15 @@ import type { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isQuery } from '../query/utils/is-query';
-import { queryInternal } from '../query/query-bridge';
-import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import type { QueryParameter } from '../query/types';
+import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
+import { isQuery } from '../query/utils/is-query';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
-import type { Relation, RelationPair, RelationTarget } from './types';
+import type { Relation, RelationPair } from './types';
 import { $relation, $relationPair } from './symbols';
 
 function ensureRelPage(arr: any[], pageId: number): any[] {
@@ -524,30 +523,17 @@ export function getRelationData(
     }
 }
 
+/**
+ * Check if an entity has a concrete relation pair (specific target or wildcard).
+ * Does NOT handle targetQuery — that is resolved by the query layer or entity convenience methods.
+ */
 export function hasRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair): boolean {
     const relation = pair.relation;
     const target = pair.target;
-    const targetQuery = pair.targetQuery;
 
     if (!hasTrait(ctx, entity, relation[$internal].trait)) return false;
 
-    if (targetQuery) {
-        const matchingTargets = isQuery(targetQuery)
-            ? queryInternal(ctx, targetQuery)
-            : queryInternal(ctx, ...(targetQuery as QueryParameter[]));
-        if (!matchingTargets.length) return false;
-
-        const targets = getRelationTargets(ctx, relation, entity);
-        for (let i = 0; i < targets.length; i++) {
-            if (matchingTargets.includes(targets[i])) return true;
-        }
-
-        return false;
-    }
-
-    // Wildcard target
     if (target === '*') return true;
-
     if (typeof target === 'number') return hasRelationToTarget(ctx, relation, entity, target);
 
     return false;

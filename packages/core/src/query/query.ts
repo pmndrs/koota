@@ -12,7 +12,6 @@ import type { TagTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
-import { _setQueryBridge } from './query-bridge';
 import { createQueryResult } from './query-result';
 import { $queryRef } from './symbols';
 import {
@@ -563,5 +562,3 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
 
     return queryRef;
 }
-
-_setQueryBridge(queryInternal, subscribeQueryAdd, subscribeQueryRemove);

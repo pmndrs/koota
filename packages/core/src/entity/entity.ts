@@ -1,7 +1,10 @@
 import { $internal } from '../common';
-import { getEntitiesWithRelationTo, getRelationTargets } from '../relation/relation';
-import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
-import type { ConfigurableTrait } from '../trait/types';
+import { queryInternal } from '../query/query';
+import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
+import type { RelationPair } from '../relation/types';
+import { isRelationPair } from '../relation/utils/is-relation';
+import { addTrait, cleanupRelationTarget, hasTrait, removeTrait } from '../trait/trait';
+import type { ConfigurableTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
 import type { Entity } from './types';
@@ -92,4 +95,16 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 /** Resolve WorldContext directly from pageOwners. Used by entity methods. */
 export function getEntityContext(entity: Entity): WorldContext {
     return universe.pageOwners[getEntityId(entity) >>> 10]!;
+}
+
+export function entityHas(ctx: WorldContext, entity: Entity, trait: Trait | RelationPair): boolean {
+    if (!isRelationPair(trait)) return hasTrait(ctx, entity, trait);
+    if (!hasTrait(ctx, entity, trait.relation[$internal].trait)) return false;
+    if (trait.targetQuery) {
+        const targets = getRelationTargets(ctx, trait.relation, entity);
+        return queryInternal(ctx, ...(trait.targetQuery as any)).some((match: Entity) =>
+            targets.includes(match)
+        );
+    }
+    return hasRelationPair(ctx, entity, trait);
 }

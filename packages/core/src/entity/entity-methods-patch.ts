@@ -1,13 +1,12 @@
 import { setChanged } from '../query/modifiers/changed';
-import { getFirstRelationTarget, getRelationTargets, hasRelationPair } from '../relation/relation';
+import { getFirstRelationTarget, getRelationTargets } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
-import { isRelationPair } from '../relation/utils/is-relation';
-import { addTrait, getTrait, hasTrait, removeTrait, setTrait } from '../trait/trait';
+import { addTrait, getTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
-import { destroyEntity, getEntityContext } from './entity';
+import { universe } from '../universe/universe';
+import { destroyEntity, entityHas, getEntityContext } from './entity';
 import type { Entity } from './types';
 import { getEntityGeneration, getEntityId } from './utils/pack-entity';
-import { universe } from '../universe/universe';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
@@ -21,9 +20,7 @@ Number.prototype.remove = function (this: Entity, ...traits: (Trait | RelationPa
 
 // @ts-expect-error
 Number.prototype.has = function (this: Entity, trait: Trait | RelationPair) {
-    const ctx = getEntityContext(this);
-    if (isRelationPair(trait)) return hasRelationPair(ctx, this, trait);
-    return /* @inline @pure */ hasTrait(ctx, this, trait);
+    return entityHas(getEntityContext(this), this, trait);
 };
 
 // @ts-expect-error
