@@ -1,7 +1,7 @@
 import { createEmptyMaskGeneration } from '../../entity/utils/paged-mask';
-import type { WorldInternal } from '../types';
+import type { WorldContext } from '../types';
 
-export /* @inline */ function incrementWorldBitflag(ctx: WorldInternal) {
+export /* @inline */ function incrementWorldBitflag(ctx: WorldContext) {
     ctx.bitflag *= 2;
 
     if (ctx.bitflag >= 2 ** 31) {

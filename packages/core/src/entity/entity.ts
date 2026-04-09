@@ -3,7 +3,7 @@ import { getEntitiesWithRelationTo, getRelationTargets } from '../relation/relat
 import { addTrait, cleanupRelationTarget, removeTrait } from '../trait/trait';
 import type { ConfigurableTrait } from '../trait/types';
 import { universe } from '../universe/universe';
-import type { WorldInternal } from '../world';
+import type { WorldContext } from '../world';
 import type { Entity } from './types';
 import { allocateEntity, isEntityAlive, releaseEntity } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
@@ -12,7 +12,7 @@ import { EMPTY_MASK_PAGE } from './utils/paged-mask';
 // Ensure entity methods are patched.
 import './entity-methods-patch';
 
-export function createEntity(ctx: WorldInternal, ...traits: ConfigurableTrait[]): Entity {
+export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]): Entity {
     const entity = allocateEntity(ctx.entityIndex);
     for (const query of ctx.notQueries) {
         const match = query.check(ctx, entity);
@@ -29,7 +29,7 @@ export function createEntity(ctx: WorldInternal, ...traits: ConfigurableTrait[])
 const cachedSet = new Set<Entity>();
 const cachedQueue = [] as Entity[];
 
-export function destroyEntity(ctx: WorldInternal, entity: Entity) {
+export function destroyEntity(ctx: WorldContext, entity: Entity) {
     if (!isEntityAlive(ctx.entityIndex, entity))
         throw new Error('Koota: The entity being destroyed does not exist.');
 
@@ -89,7 +89,7 @@ export function destroyEntity(ctx: WorldInternal, entity: Entity) {
     }
 }
 
-/** Resolve WorldInternal directly from pageOwners. Used by entity methods. */
-export function getEntityContext(entity: Entity): WorldInternal {
+/** Resolve WorldContext directly from pageOwners. Used by entity methods. */
+export function getEntityContext(entity: Entity): WorldContext {
     return universe.pageOwners[getEntityId(entity) >>> 10]!;
 }

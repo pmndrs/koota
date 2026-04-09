@@ -1,5 +1,5 @@
 import { cloneMaskGenerations, createZeroedMaskLike } from '../../entity/utils/paged-mask';
-import type { WorldInternal } from '../../world';
+import type { WorldContext } from '../../world';
 
 let cursor = 3;
 
@@ -11,7 +11,7 @@ export function getTrackingCursor() {
     return cursor;
 }
 
-export function setTrackingMasks(ctx: WorldInternal, id: number) {
+export function setTrackingMasks(ctx: WorldContext, id: number) {
     const snapshot = cloneMaskGenerations(ctx.entityMasks);
     ctx.trackingSnapshots.set(id, snapshot);
     ctx.dirtyMasks.set(id, createZeroedMaskLike(snapshot));

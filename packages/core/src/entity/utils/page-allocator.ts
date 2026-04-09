@@ -1,4 +1,4 @@
-import type { WorldInternal } from '../../world/types';
+import type { WorldContext } from '../../world/types';
 import { MAX_PAGES, PAGE_SIZE } from './pack-entity';
 
 export type PageCleanupToken = {
@@ -15,8 +15,8 @@ export type PageAllocator = {
     freePages: number[];
     /** Next fresh page ID to allocate. */
     pageCursor: number;
-    /** Maps pageId -> owning WorldInternal. */
-    pageOwners: (WorldInternal | null)[];
+    /** Maps pageId -> owning WorldContext. */
+    pageOwners: (WorldContext | null)[];
     /** Safety-net cleanup for GC'd worlds. */
     worldFinalizer: FinalizationRegistry<PageCleanupToken>;
 };
@@ -44,7 +44,7 @@ export function createPageAllocator(): PageAllocator {
     return allocator;
 }
 
-export function leasePage(allocator: PageAllocator, owner: WorldInternal): number {
+export function leasePage(allocator: PageAllocator, owner: WorldContext): number {
     let pageId: number;
 
     if (allocator.freePages.length > 0) {

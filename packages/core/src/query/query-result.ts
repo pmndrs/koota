@@ -8,7 +8,7 @@ import { Store } from '../storage';
 import { getStore } from '../trait/trait';
 import type { Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
-import type { WorldInternal } from '../world';
+import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
 import type {
@@ -21,7 +21,7 @@ import type {
 } from './types';
 
 export function createQueryResult<T extends QueryParameter[]>(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entities: Entity[],
     query: QueryInstance,
     params: QueryParameter[]
@@ -186,7 +186,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
 /* @inline */ function getTrackedTraits(
     traits: Trait[],
-    ctx: WorldInternal,
+    ctx: WorldContext,
     query: QueryInstance,
     trackedIndices: number[],
     untrackedIndices: number[]
@@ -235,7 +235,7 @@ export function createQueryResult<T extends QueryParameter[]>(
     params: T,
     traits: Trait[],
     stores: Store<any>[],
-    ctx: WorldInternal
+    ctx: WorldContext
 ) {
     for (let i = 0; i < params.length; i++) {
         const param = params[i];

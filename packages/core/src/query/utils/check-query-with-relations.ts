@@ -1,11 +1,11 @@
 import type { Entity } from '../../entity/types';
 import { hasRelationPair, hasRelationTargetInSet } from '../../relation/relation';
-import type { WorldInternal } from '../../world';
+import type { WorldContext } from '../../world';
 import type { QueryInstance } from '../types';
 import { checkQuery } from './check-query';
 
 export function checkQueryWithRelations(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     query: QueryInstance,
     entity: Entity
 ): boolean {

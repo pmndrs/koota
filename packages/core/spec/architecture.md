@@ -72,7 +72,7 @@ Entity allocation is handled by a global page allocator plus a per-world entity 
 - Each world owns a dense alive prefix, sparse lookup, and per-page cursors for fresh allocation.
 - Destroying an entity bumps generation and leaves behind a recyclable dead slot, so reuse is fast without scanning for holes.
 
-Internals use `WorldInternal`, the actual context, instead of `World` handle. That avoids repeated `world[$internal]` lookups in hot paths and lets entity convenience methods resolve context directly from page ownership. In addition, this means that the world context can be held onto while letting the the world handle get garbage collected, allowing us to free global resources in response.
+Internals use `WorldContext`, the actual context, instead of `World` handle. That avoids repeated `world[$internal]` lookups in hot paths and lets entity convenience methods resolve context directly from page ownership. In addition, this means that the world context can be held onto while letting the the world handle get garbage collected, allowing us to free global resources in response.
 
 ### Structural Changes
 

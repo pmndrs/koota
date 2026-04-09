@@ -29,7 +29,7 @@ import type {
     TraitValue,
 } from '../trait/types';
 import { universe } from '../universe/universe';
-import type { World, WorldInternal } from './types';
+import type { World, WorldContext } from './types';
 
 let nextWorldId = 0;
 
@@ -37,12 +37,12 @@ let nextWorldId = 0;
  * Lazily registers a world in the universe on first mutation.
  * Sets up tracking masks, registers IsExcluded, creates the world entity.
  */
-function ensureWorldRegistered(ctx: WorldInternal, world: World, id: number): void {
+function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): void {
     if (ctx.isRegistered) return;
     ctx.isRegistered = true;
     if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
 
-    universe.worlds[id] = world;
+    universe.worlds[id] = ctx;
 
     const cursor = getTrackingCursor();
     for (let i = 0; i < cursor; i++) {
@@ -103,7 +103,6 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     const world = {
         [$internal]: {
-            world: null!,
             entityIndex: null! as ReturnType<typeof createEntityIndex>,
             entityMasks: [createEmptyMaskGeneration()],
             entityTraits: new Map(),
@@ -125,7 +124,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             isRegistered: false,
             pendingTraits,
             cleanupToken,
-        } as WorldInternal,
+        } as WorldContext,
 
         traits: null! as Set<Trait>,
 
@@ -227,7 +226,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             ctx.worldEntity = createEntity(ctx, IsExcluded);
 
             for (const sub of ctx.resetSubscriptions) {
-                sub(world);
+                sub();
             }
         },
 
@@ -433,8 +432,6 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         get: () => world[$internal].traits,
         enumerable: true,
     });
-
-    world[$internal].world = world;
 
     Object.defineProperty(world, 'id', {
         get: () => id,

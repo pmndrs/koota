@@ -4,7 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait } from '../trait/types';
-import type { WorldInternal } from '../world';
+import type { WorldContext } from '../world';
 import { OrderedList } from './ordered-list';
 import { $orderedTargetsTrait } from './symbols';
 import type { OrderedRelation, Relation } from './types';
@@ -30,7 +30,7 @@ export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedRelati
     return trait[$orderedTargetsTrait].relation;
 }
 
-export function setupOrderedTraitSync(ctx: WorldInternal, orderedTrait: OrderedRelation): void {
+export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRelation): void {
     const relation = getOrderedTraitRelation(orderedTrait);
     const relationTrait = relation[$internal].trait;
 

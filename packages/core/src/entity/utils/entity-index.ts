@@ -1,4 +1,4 @@
-import type { WorldInternal } from '../../world/types';
+import type { WorldContext } from '../../world/types';
 import type { Entity } from '../types';
 import {
     GENERATION_MASK,
@@ -25,11 +25,11 @@ export type EntityIndex = {
     currentPageIdx: number;
     /** Reference to the global page allocator. */
     allocator: PageAllocator;
-    /** The owning WorldInternal context (for page leasing). */
-    owner: WorldInternal;
+    /** The owning WorldContext (for page leasing). */
+    owner: WorldContext;
 };
 
-export const createEntityIndex = (allocator: PageAllocator, owner: WorldInternal): EntityIndex => ({
+export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext): EntityIndex => ({
     aliveCount: 0,
     dense: [],
     sparse: [],

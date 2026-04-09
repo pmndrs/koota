@@ -9,9 +9,9 @@ import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 export function createRemoved() {
     const id = createTrackingId();
 
-    for (const world of universe.worlds) {
-        if (!world) continue;
-        setTrackingMasks(world[$internal], id);
+    for (const ctx of universe.worlds) {
+        if (!ctx) continue;
+        setTrackingMasks(ctx, id);
     }
 
     return <T extends TraitOrRelation[]>(

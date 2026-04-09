@@ -10,7 +10,7 @@ import type {
     TraitInstance,
     TraitRecord,
 } from '../trait/types';
-import type { WorldInternal } from '../world';
+import type { WorldContext } from '../world';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
@@ -141,7 +141,7 @@ export type TrackingGroup = {
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     version: number;
-    ctx: WorldInternal;
+    ctx: WorldContext;
     parameters: T;
     hash: QueryHash;
     traits: Trait[];
@@ -171,12 +171,12 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     removeSubscriptions: Set<QuerySubscriber>;
     /** Relation pairs for target-specific queries */
     relationFilters?: ResolvedRelationFilter[];
-    run: (ctx: WorldInternal, params: QueryParameter[]) => QueryResult<T>;
+    run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
     add: (entity: Entity) => void;
-    remove: (ctx: WorldInternal, entity: Entity) => void;
-    check: (ctx: WorldInternal, entity: Entity) => boolean;
+    remove: (ctx: WorldContext, entity: Entity) => void;
+    check: (ctx: WorldContext, entity: Entity) => boolean;
     checkTracking: (
-        ctx: WorldInternal,
+        ctx: WorldContext,
         entity: Entity,
         eventType: 'add' | 'remove' | 'change',
         generationId: number,

@@ -1,11 +1,11 @@
 import type { Entity } from '../../entity/types';
 import { hasRelationPair, hasRelationTargetInSet } from '../../relation/relation';
-import type { WorldInternal } from '../../world';
+import type { WorldContext } from '../../world';
 import type { EventType, QueryInstance } from '../types';
 import { checkQueryTracking } from './check-query-tracking';
 
 export function checkQueryTrackingWithRelations(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     query: QueryInstance,
     entity: Entity,
     eventType: EventType,

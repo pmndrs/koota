@@ -20,8 +20,7 @@ import type {
     TraitValue,
 } from '../trait/types';
 
-export type WorldInternal = {
-    world: World;
+export type WorldContext = {
     entityIndex: ReturnType<typeof createEntityIndex>;
     entityMasks: Uint32Array[][];
     entityTraits: Map<number, Set<Trait>>;
@@ -39,7 +38,7 @@ export type WorldInternal = {
     changedMasks: Map<number, Uint32Array[][]>;
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
-    resetSubscriptions: Set<(world: World) => void>;
+    resetSubscriptions: Set<() => void>;
     /** Whether this world has been lazily registered in the universe. */
     isRegistered: boolean;
     /** Pending initial traits to apply on first registration. */
@@ -53,7 +52,7 @@ export type World = {
     readonly isRegistered: boolean;
     readonly entities: Entity[];
     readonly traits: Set<Trait>;
-    [$internal]: WorldInternal;
+    [$internal]: WorldContext;
     spawn(...traits: ConfigurableTrait[]): Entity;
     has(entity: Entity): boolean;
     has(trait: Trait): boolean;

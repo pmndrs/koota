@@ -2,11 +2,7 @@ import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import {
-    EMPTY_MASK_PAGE,
-    createEmptyMaskGeneration,
-    ensureMaskPage,
-} from '../entity/utils/paged-mask';
+import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -14,8 +10,9 @@ import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
-import type { WorldInternal } from '../world';
+import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
+import { _setQueryBridge } from './query-bridge';
 import { createQueryResult } from './query-result';
 import { $queryRef } from './symbols';
 import {
@@ -25,8 +22,8 @@ import {
     type QueryInstance,
     type QueryParameter,
     type QueryResult,
-    type ResolvedRelationFilter,
     type QuerySubscriber,
+    type ResolvedRelationFilter,
     type TrackingGroup,
 } from './types';
 import { checkQuery } from './utils/check-query';
@@ -52,7 +49,7 @@ function resolveRelationFilter(filter: ResolvedRelationFilter): ResolvedRelation
 }
 
 export function runQuery<T extends QueryParameter[]>(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     query: QueryInstance<T>,
     params: QueryParameter[]
 ): QueryResult<T> {
@@ -82,7 +79,7 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
     query.version++;
 }
 
-export function removeEntityFromQuery(ctx: WorldInternal, query: QueryInstance, entity: Entity) {
+export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, entity: Entity) {
     if (!query.entities.has(entity) || query.toRemove.has(entity)) return;
 
     query.toRemove.add(entity);
@@ -95,7 +92,7 @@ export function removeEntityFromQuery(ctx: WorldInternal, query: QueryInstance, 
     query.version++;
 }
 
-export function commitQueryRemovals(ctx: WorldInternal) {
+export function commitQueryRemovals(ctx: WorldContext) {
     if (!ctx.dirtyQueries.size) return;
 
     for (const query of ctx.dirtyQueries) {
@@ -125,7 +122,7 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
 }
 
 function processTrackingModifier(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     query: QueryInstance,
     modifier: Modifier,
     logic: 'and' | 'or',
@@ -170,7 +167,7 @@ function processTrackingModifier(
 }
 
 export function createQueryInstance<T extends QueryParameter[]>(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     parameters: T
 ): QueryInstance {
     const query: QueryInstance = {
@@ -198,12 +195,12 @@ export function createQueryInstance<T extends QueryParameter[]>(
         removeSubscriptions: new Set<QuerySubscriber>(),
         relationFilters: [],
 
-        run: (ctx: WorldInternal, params: QueryParameter[]) => runQuery(ctx, query, params),
+        run: (ctx: WorldContext, params: QueryParameter[]) => runQuery(ctx, query, params),
         add: (entity: Entity) => addEntityToQuery(query, entity),
-        remove: (ctx: WorldInternal, entity: Entity) => removeEntityFromQuery(ctx, query, entity),
-        check: (ctx: WorldInternal, entity: Entity) => checkQuery(ctx, query, entity),
+        remove: (ctx: WorldContext, entity: Entity) => removeEntityFromQuery(ctx, query, entity),
+        check: (ctx: WorldContext, entity: Entity) => checkQuery(ctx, query, entity),
         checkTracking: (
-            ctx: WorldInternal,
+            ctx: WorldContext,
             entity: Entity,
             eventType: EventType,
             generationId: number,
@@ -322,7 +319,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
 
     if (hasRelationFilters) {
-        const world = ctx.world;
         for (const pair of query.relationFilters!) {
             const relationTrait = pair.relation[$internal].trait;
             const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
@@ -331,7 +327,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
             }
 
             if (pair.targetQueryRef && pair.targetQueryMatches) {
-                const matchingTargets = world.query(pair.targetQueryRef);
+                const matchingTargets = queryInternal(ctx, pair.targetQueryRef);
                 for (let i = 0; i < matchingTargets.length; i++) {
                     pair.targetQueryMatches.add(matchingTargets[i]);
                 }
@@ -354,13 +350,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 };
 
                 query.cleanup.push(
-                    world.onQueryAdd(pair.targetQueryRef, (target) => {
+                    subscribeQueryAdd(ctx, pair.targetQueryRef, (target) => {
                         pair.targetQueryMatches!.add(target);
                         refreshSourcesForTarget(target);
                     })
                 );
                 query.cleanup.push(
-                    world.onQueryRemove(pair.targetQueryRef, (target) => {
+                    subscribeQueryRemove(ctx, pair.targetQueryRef, (target) => {
                         pair.targetQueryMatches!.remove(target);
                         refreshSourcesForTarget(target);
                     })
@@ -459,6 +455,94 @@ export function createQueryInstance<T extends QueryParameter[]>(
     return query;
 }
 
+/**
+ * Resolve or create a QueryInstance for the given parameters.
+ * Internal equivalent of the first half of world.query().
+ */
+export function resolveQueryInstance(ctx: WorldContext, params: QueryParameter[]): QueryInstance {
+    const hash = createQueryHash(params);
+    let query = ctx.queriesHashMap.get(hash);
+    if (!query) {
+        query = createQueryInstance(ctx, params);
+        ctx.queriesHashMap.set(hash, query);
+    }
+    return query;
+}
+
+/**
+ * Resolve a QueryInstance from a Query ref (fast path via id).
+ */
+export function resolveQueryInstanceFromRef(
+    ctx: WorldContext,
+    queryRef: Query<QueryParameter[]>
+): QueryInstance {
+    let query = ctx.queryInstances[queryRef.id];
+    if (query) return query;
+
+    query = ctx.queriesHashMap.get(queryRef.hash);
+    if (!query) {
+        query = createQueryInstance(ctx, queryRef.parameters);
+        ctx.queriesHashMap.set(queryRef.hash, query);
+        if (queryRef.id >= ctx.queryInstances.length) {
+            ctx.queryInstances.length = queryRef.id + 1;
+        }
+        ctx.queryInstances[queryRef.id] = query;
+    }
+    return query;
+}
+
+/**
+ * Run a query entirely through internals. No World facade needed.
+ */
+export function queryInternal<T extends QueryParameter[]>(
+    ctx: WorldContext,
+    ...args: [Query<T>] | T
+): QueryResult<T> {
+    if (args.length === 1 && isQuery(args[0])) {
+        const instance = resolveQueryInstanceFromRef(ctx, args[0]);
+        return instance.run(ctx, args[0].parameters) as QueryResult<T>;
+    }
+    const params = args as unknown as QueryParameter[];
+    const instance = resolveQueryInstance(ctx, params);
+    return instance.run(ctx, params) as QueryResult<T>;
+}
+
+/**
+ * Subscribe to query additions. Internal equivalent of world.onQueryAdd().
+ */
+export function subscribeQueryAdd(
+    ctx: WorldContext,
+    args: Query<QueryParameter[]> | QueryParameter[],
+    callback: (entity: Entity) => void
+): () => void {
+    let query: QueryInstance;
+    if (isQuery(args)) {
+        query = resolveQueryInstanceFromRef(ctx, args);
+    } else {
+        query = resolveQueryInstance(ctx, args as QueryParameter[]);
+    }
+    query.addSubscriptions.add(callback);
+    return () => query.addSubscriptions.delete(callback);
+}
+
+/**
+ * Subscribe to query removals. Internal equivalent of world.onQueryRemove().
+ */
+export function subscribeQueryRemove(
+    ctx: WorldContext,
+    args: Query<QueryParameter[]> | QueryParameter[],
+    callback: (entity: Entity) => void
+): () => void {
+    let query: QueryInstance;
+    if (isQuery(args)) {
+        query = resolveQueryInstanceFromRef(ctx, args);
+    } else {
+        query = resolveQueryInstance(ctx, args as QueryParameter[]);
+    }
+    query.removeSubscriptions.add(callback);
+    return () => query.removeSubscriptions.delete(callback);
+}
+
 let queryId = 0;
 
 export function createQuery<T extends QueryParameter[]>(...parameters: T): Query<T> {
@@ -479,3 +563,5 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
 
     return queryRef;
 }
+
+_setQueryBridge(queryInternal, subscribeQueryAdd, subscribeQueryRemove);

@@ -33,7 +33,7 @@ import {
     StoreType,
     validateSchema,
 } from '../storage';
-import type { World, WorldInternal } from '../world';
+import type { World, WorldContext } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
 import type {
@@ -90,7 +90,7 @@ function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S
 
 export const trait = createTrait;
 
-export function registerTrait(ctx: WorldInternal, trait: Trait) {
+export function registerTrait(ctx: WorldContext, trait: Trait) {
     const traitCtx = trait[$internal];
 
     const data: TraitInstance = {
@@ -118,12 +118,12 @@ export function registerTrait(ctx: WorldInternal, trait: Trait) {
     if (isOrderedTrait(trait)) setupOrderedTraitSync(ctx, trait);
 }
 
-function getOrderedTrait(ctx: WorldInternal, entity: Entity, trait: OrderedRelation): OrderedList {
+function getOrderedTrait(ctx: WorldContext, entity: Entity, trait: OrderedRelation): OrderedList {
     const relation = getOrderedTraitRelation(trait);
     return new OrderedList(ctx, entity, relation, trait);
 }
 
-export function addTrait(ctx: WorldInternal, entity: Entity, ...traits: ConfigurableTrait[]) {
+export function addTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
     for (let i = 0; i < traits.length; i++) {
         const config = traits[i];
 
@@ -162,7 +162,7 @@ export function addTrait(ctx: WorldInternal, entity: Entity, ...traits: Configur
     }
 }
 
-/* @inline */ function addRelationPair(ctx: WorldInternal, entity: Entity, pair: RelationPair) {
+/* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
     const relation = pair.relation;
     const target = pair.target;
 
@@ -203,7 +203,7 @@ export function addTrait(ctx: WorldInternal, entity: Entity, ...traits: Configur
     for (const sub of instance.addSubscriptions) sub(entity, target);
 }
 
-export function removeTrait(ctx: WorldInternal, entity: Entity, ...traits: (Trait | RelationPair)[]) {
+export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait | RelationPair)[]) {
     for (let i = 0; i < traits.length; i++) {
         const trait = traits[i];
 
@@ -236,7 +236,7 @@ export function removeTrait(ctx: WorldInternal, entity: Entity, ...traits: (Trai
     }
 }
 
-/* @inline */ function removeRelationPair(ctx: WorldInternal, entity: Entity, pair: RelationPair) {
+/* @inline */ function removeRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
     const relation = pair.relation;
     const target = pair.target;
     const relationTrait = relation[$internal].trait;
@@ -270,7 +270,7 @@ export function removeTrait(ctx: WorldInternal, entity: Entity, ...traits: (Trai
 }
 
 export function cleanupRelationTarget(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
@@ -288,7 +288,7 @@ export function cleanupRelationTarget(
     if (wasLastTarget) removeTraitFromEntity(ctx, entity, relationTrait);
 }
 
-export function hasTrait(ctx: WorldInternal, entity: Entity, trait: Trait): boolean {
+export function hasTrait(ctx: WorldContext, entity: Entity, trait: Trait): boolean {
     const instance = getTraitInstance(ctx.traitInstances, trait);
     if (!instance) return false;
 
@@ -300,19 +300,19 @@ export function hasTrait(ctx: WorldInternal, entity: Entity, trait: Trait): bool
 }
 
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(
-    ctxOrWorld: WorldInternal | World,
+    ctxOrWorld: WorldContext | World,
     trait: C
 ): ExtractStore<C> {
     const ctx =
         'traitInstances' in ctxOrWorld
-            ? (ctxOrWorld as WorldInternal)
+            ? (ctxOrWorld as WorldContext)
             : (ctxOrWorld as World)[$internal];
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
     return instance.store as ExtractStore<C>;
 }
 
 export function setTrait(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entity: Entity,
     trait: Trait | RelationPair,
     value: any,
@@ -322,12 +322,12 @@ export function setTrait(
     return setTraitForTrait(ctx, entity, trait, value, triggerChanged);
 }
 
-export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | RelationPair) {
+export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | RelationPair) {
     if (isRelationPair(trait)) return getTraitForPair(ctx, entity, trait);
     return getTraitForTrait(ctx, entity, trait);
 }
 
-/* @inline @pure */ function getTraitForPair(ctx: WorldInternal, entity: Entity, pair: RelationPair) {
+/* @inline @pure */ function getTraitForPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
     const relation = pair.relation as Relation<Trait>;
     const target = pair.target;
 
@@ -337,7 +337,7 @@ export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | Rela
     return getRelationData(ctx, entity, relation, target);
 }
 
-/* @inline @pure */ function getTraitForTrait(ctx: WorldInternal, entity: Entity, trait: Trait) {
+/* @inline @pure */ function getTraitForTrait(ctx: WorldContext, entity: Entity, trait: Trait) {
     if (!hasTrait(ctx, entity, trait)) return undefined;
 
     const traitCtx = trait[$internal];
@@ -348,7 +348,7 @@ export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | Rela
 }
 
 /* @inline */ function setTraitForPair(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entity: Entity,
     pair: RelationPair,
     value: any,
@@ -364,7 +364,7 @@ export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | Rela
 }
 
 /* @inline */ function setTraitForTrait(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entity: Entity,
     trait: Trait,
     value: any,
@@ -381,7 +381,7 @@ export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | Rela
 }
 
 /* @inline */ function addTraitToEntity(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entity: Entity,
     trait: Trait
 ): TraitInstance | undefined {
@@ -426,7 +426,7 @@ export function getTrait(ctx: WorldInternal, entity: Entity, trait: Trait | Rela
     return instance;
 }
 
-function removeTraitFromEntity(ctx: WorldInternal, entity: Entity, trait: Trait): void {
+function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait): void {
     if (!hasTrait(ctx, entity, trait)) return;
 
     const instance = getTraitInstance(ctx.traitInstances, trait)!;

@@ -1,5 +1,5 @@
 import type { Entity } from '../entity/types';
-import type { WorldInternal } from '../world';
+import type { WorldContext } from '../world';
 import type { Relation } from './types';
 import type { Trait } from '../trait/types';
 import { addTrait, removeTrait } from '../trait/trait';
@@ -13,14 +13,14 @@ import { setChanged } from '../query/modifiers/changed';
  * Please provide feedback on GitHub or Discord.
  */
 export class OrderedList extends Array<Entity> {
-    private ctx: WorldInternal;
+    private ctx: WorldContext;
     private parent: Entity;
     private relation: Relation;
     private orderedTrait: Trait;
     private _syncing: boolean = false;
 
     constructor(
-        ctx: WorldInternal,
+        ctx: WorldContext,
         parent: Entity,
         relation: Relation,
         orderedTrait: Trait,

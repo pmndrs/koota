@@ -3,13 +3,14 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isQuery } from '../query/utils/is-query';
+import { queryInternal } from '../query/query-bridge';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import type { QueryParameter } from '../query/types';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
-import type { WorldInternal } from '../world';
+import type { WorldContext } from '../world';
 import type { Relation, RelationPair, RelationTarget } from './types';
 import { $relation, $relationPair } from './symbols';
 
@@ -120,7 +121,7 @@ function removeFromRelationSources(traitData: TraitInstance, entity: Entity, tar
  * Returns an array of target entity IDs.
  */
 export /* @inline */ function getRelationTargets(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity
 ): readonly Entity[] {
@@ -145,7 +146,7 @@ export /* @inline */ function getRelationTargets(
 }
 
 export /* @inline */ function getFirstRelationTarget(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity
 ): Entity | undefined {
@@ -166,7 +167,7 @@ export /* @inline */ function getFirstRelationTarget(
 }
 
 export /* @inline */ function getTargetIndex(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
@@ -190,7 +191,7 @@ export /* @inline */ function getTargetIndex(
 }
 
 export /* @inline */ function hasRelationToTarget(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
@@ -214,7 +215,7 @@ export /* @inline */ function hasRelationToTarget(
 }
 
 export function addRelationTarget(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
@@ -258,7 +259,7 @@ export function addRelationTarget(
 }
 
 export function removeRelationTarget(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity,
     target: Entity
@@ -309,7 +310,7 @@ export function removeRelationTarget(
 }
 
 function updateQueriesForRelationChange(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity
 ): void {
@@ -373,7 +374,7 @@ function clearRelationDataInternal(
 }
 
 export function removeAllRelationTargets(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity
 ): void {
@@ -388,7 +389,7 @@ export function removeAllRelationTargets(
  * Returns a fresh snapshot so callers can safely iterate while relations mutate.
  */
 export function getEntitiesWithRelationTo(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     target: Entity
 ): readonly Entity[] {
@@ -399,7 +400,7 @@ export function getEntitiesWithRelationTo(
 }
 
 export function hasRelationTargetInSet(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     relation: Relation<Trait>,
     entity: Entity,
     matches: SparseSet
@@ -428,7 +429,7 @@ export function hasRelationTargetInSet(
 }
 
 export function setRelationDataAtIndex(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entity: Entity,
     relation: Relation<Trait>,
     targetIndex: number,
@@ -468,7 +469,7 @@ export function setRelationDataAtIndex(
 }
 
 export function setRelationData(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entity: Entity,
     relation: Relation<Trait>,
     target: Entity,
@@ -480,7 +481,7 @@ export function setRelationData(
 }
 
 export function getRelationData(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     entity: Entity,
     relation: Relation<Trait>,
     target: Entity
@@ -523,7 +524,7 @@ export function getRelationData(
     }
 }
 
-export function hasRelationPair(ctx: WorldInternal, entity: Entity, pair: RelationPair): boolean {
+export function hasRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair): boolean {
     const relation = pair.relation;
     const target = pair.target;
     const targetQuery = pair.targetQuery;
@@ -531,10 +532,9 @@ export function hasRelationPair(ctx: WorldInternal, entity: Entity, pair: Relati
     if (!hasTrait(ctx, entity, relation[$internal].trait)) return false;
 
     if (targetQuery) {
-        const world = ctx.world;
         const matchingTargets = isQuery(targetQuery)
-            ? world.query(targetQuery)
-            : world.query(...targetQuery);
+            ? queryInternal(ctx, targetQuery)
+            : queryInternal(ctx, ...(targetQuery as QueryParameter[]));
         if (!matchingTargets.length) return false;
 
         const targets = getRelationTargets(ctx, relation, entity);

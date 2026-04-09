@@ -1,9 +1,9 @@
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import type { WorldInternal } from '../../world';
+import type { WorldContext } from '../../world';
 import type { QueryInstance } from '../types';
 
-export function checkQuery(ctx: WorldInternal, query: QueryInstance, entity: Entity): boolean {
+export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Entity): boolean {
     const staticBitmasks = query.staticBitmasks;
     const generations = query.generations;
     const eid = getEntityId(entity);

@@ -1,11 +1,11 @@
 import { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { createEmptyMaskGeneration, ensureMaskPage } from '../../entity/utils/paged-mask';
-import { WorldInternal } from '../../world';
+import { WorldContext } from '../../world';
 import { EventType, QueryInstance } from '../types';
 
 export function checkQueryTracking(
-    ctx: WorldInternal,
+    ctx: WorldContext,
     query: QueryInstance,
     entity: Entity,
     eventType: EventType,
