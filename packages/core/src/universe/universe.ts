@@ -3,7 +3,9 @@ import type { Query } from '../query/types';
 import type { WorldContext } from '../world';
 
 function createInitialState() {
-    const allocator = createPageAllocator();
+    const allocator = createPageAllocator((worldId) => {
+        delete universe.worlds[worldId];
+    });
     return {
         worlds: [] as (WorldContext | null)[],
         pageOwners: allocator.pageOwners,

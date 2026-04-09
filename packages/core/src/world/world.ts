@@ -99,7 +99,11 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     const pendingTraits = traits.length > 0 ? traits : undefined;
 
-    const cleanupToken: PageCleanupToken = { ownedPages: [], registered: false };
+    const cleanupToken: PageCleanupToken = {
+        ownedPages: [],
+        registered: false,
+        worldId: id,
+    };
 
     const world = {
         [$internal]: {
