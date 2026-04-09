@@ -4,7 +4,6 @@ description: How to use Koota
 nav: 1
 ---
 
-
 ## Define traits
 
 Traits are the building blocks of your state. They represent slices of data with specific meanings.

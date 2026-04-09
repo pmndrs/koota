@@ -1,5 +1,5 @@
 export const CONFIG = {
-	entityCount: 1000,
-	neighborRadius: 40,
-	maxNeighborsPerEntity: 20,
+    entityCount: 1000,
+    neighborRadius: 40,
+    maxNeighborsPerEntity: 20,
 };

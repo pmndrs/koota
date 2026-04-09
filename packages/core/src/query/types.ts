@@ -87,6 +87,11 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
     readonly [$parameters]: T;
 };
 
+export type ResolvedRelationFilter = RelationPair & {
+    targetQueryRef?: Query<QueryParameter[]>;
+    targetQueryMatches?: SparseSet;
+};
+
 export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = string> = {
     [$modifier]: true;
     type: TType;
@@ -161,10 +166,11 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     hasChangedModifiers: boolean;
     changedTraits: Set<Trait>;
     toRemove: SparseSet;
+    cleanup: QueryUnsubscriber[];
     addSubscriptions: Set<QuerySubscriber>;
     removeSubscriptions: Set<QuerySubscriber>;
     /** Relation pairs for target-specific queries */
-    relationFilters?: RelationPair[];
+    relationFilters?: ResolvedRelationFilter[];
     run: (world: World, params: QueryParameter[]) => QueryResult<T>;
     add: (entity: Entity) => void;
     remove: (world: World, entity: Entity) => void;

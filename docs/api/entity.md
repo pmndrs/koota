@@ -53,3 +53,4 @@ For introspection, `unpackEntity` can be used to get all of the encoded values. 
 
 ```js
 const { entityId, generation, worldId } = unpackEntity(entity)
+```

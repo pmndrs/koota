@@ -6,7 +6,7 @@ nav: 2
 
 The `World` is where all data is stored. We have methods on entities but this is a bit of a trick, entities don't actually store any data and instead it is operating on the connected world. Each world has its own set of entities that do not overlap with another. Typically you only need one world.
 
-World's can also have their own traits, which function as singletons. 
+World's can also have their own traits, which function as singletons.
 
 - [World API](#World-API)
 - [World Traits](#World-Traits)
@@ -41,7 +41,6 @@ const unsub = world.onChange(Position, (entity) => {})
 const unsub = world.onAdd(ChildOf(parent), (entity, target) => {})
 const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 
-
 // Subscribe to add or remove query events
 // This triggers whenever a query is updated
 // Return unsub function
@@ -65,15 +64,13 @@ world.reset()
 world.destroy()
 ```
 
-
 ## World traits
 
-Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. 
+Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock.
 
-Under the hood, each world gets its own entity tied to these world traits. **This world entity is not queryable but will show up in the list of active entities**. 
+Under the hood, each world gets its own entity tied to these world traits. **This world entity is not queryable but will show up in the list of active entities**.
 
-To access a world trait instead of using queries you must access the world directly. Note these methods mirror the [Entity API](/api/entity). 
-
+To access a world trait instead of using queries you must access the world directly. Note these methods mirror the [Entity API](/api/entity).
 
 ```js
 // Add a trait to the world

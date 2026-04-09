@@ -1,50 +1,70 @@
 import { $internal } from '../../common';
-import { isRelationPair } from '../../relation/utils/is-relation';
 import type { Relation } from '../../relation/types';
+import { isRelationPair } from '../../relation/utils/is-relation';
 import type { Trait } from '../../trait/types';
 import { isModifier } from '../modifier';
+import { isQuery } from './is-query';
 import type { QueryHash, QueryParameter } from '../types';
 
-const sortedIDs = new Float64Array(1024); // Use Float64 for larger IDs with relation encoding
+const MODIFIER_FACTOR = 100000;
+const RELATION_FACTOR = 10000000;
+const RELATION_OFFSET = 5000000;
+// Offset for target-query relation pairs so they don't collide with concrete target encodings.
+const RELATION_QUERY_OFFSET = 9000000;
+
+// Reusable buffer — avoids allocation per call.
+const sortBuf = new Float64Array(1024);
+
+// Maps a sub-query hash string to a stable numeric id for encoding in the Float64Array.
+let nextQueryId = 1;
+const queryHashToId = new Map<string, number>();
+
+function queryHashNumericId(hash: string): number {
+    let id = queryHashToId.get(hash);
+    if (id === undefined) {
+        id = nextQueryId++;
+        queryHashToId.set(hash, id);
+    }
+    return id;
+}
 
 export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
-    sortedIDs.fill(0);
     let cursor = 0;
 
     for (let i = 0; i < parameters.length; i++) {
         const param = parameters[i];
 
         if (isRelationPair(param)) {
-            // Encode relation pair as: (relationTraitId * 1000000) + targetId
-            // This ensures unique hashes for different relation/target combinations
-            const relation = param.relation;
-            const target = param.target;
+            const relationId = (param.relation as Relation<Trait>)[$internal].trait.id;
 
-            const relationId = (relation as Relation<Trait>)[$internal].trait.id;
-            const targetId = typeof target === 'number' ? target : -1;
-
-            // Combine into a unique hash number
-            sortedIDs[cursor++] = relationId * 10000000 + targetId + 5000000;
-        } else if (isModifier(param)) {
-            const modifierId = param.id;
-            const traitIds = param.traitIds;
-
-            for (let i = 0; i < traitIds.length; i++) {
-                const traitId = traitIds[i];
-                sortedIDs[cursor++] = modifierId * 100000 + traitId;
+            if (param.targetQuery) {
+                const subHash = isQuery(param.targetQuery)
+                    ? param.targetQuery.hash
+                    : createQueryHash([...param.targetQuery]);
+                sortBuf[cursor++] =
+                    relationId * RELATION_FACTOR +
+                    queryHashNumericId(subHash) +
+                    RELATION_QUERY_OFFSET;
+                continue;
             }
-        } else {
-            const traitId = (param as Trait).id;
-            sortedIDs[cursor++] = traitId;
+
+            const target = param.target;
+            const targetId = typeof target === 'number' ? target : -1;
+            sortBuf[cursor++] = relationId * RELATION_FACTOR + targetId + RELATION_OFFSET;
+            continue;
         }
+
+        if (isModifier(param)) {
+            for (let j = 0; j < param.traitIds.length; j++) {
+                sortBuf[cursor++] = param.id * MODIFIER_FACTOR + param.traitIds[j];
+            }
+            continue;
+        }
+
+        sortBuf[cursor++] = (param as Trait).id;
     }
 
-    // Sort only the portion of the array that has been filled.
-    const filledArray = sortedIDs.subarray(0, cursor);
-    filledArray.sort();
-
-    // Create string key.
-    const hash = filledArray.join(',');
-
-    return hash;
+    const filled = sortBuf.subarray(0, cursor);
+    filled.sort();
+    return filled.join(',');
 };

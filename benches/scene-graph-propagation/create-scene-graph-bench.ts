@@ -1,12 +1,4 @@
-import {
-    createChanged,
-    createWorld,
-    ordered,
-    relation,
-    trait,
-    type Entity,
-    type World,
-} from 'koota';
+import { createChanged, createWorld, ordered, relation, trait, type Entity, type World } from 'koota';
 import { CONFIG } from './config.ts';
 
 /**
@@ -36,8 +28,7 @@ type SceneGraphBuild = {
 const deterministicValue = (index: number) => (index * 37) % 65;
 
 function createTraits(variant: SceneGraphVariant) {
-    const ChildOf =
-        variant === 'child-of-not-exclusive' ? relation() : relation({ exclusive: true });
+    const ChildOf = variant === 'child-of-not-exclusive' ? relation() : relation({ exclusive: true });
     const OrderedChildren = variant === 'ordered-relation' ? ordered(ChildOf) : null;
     const IsGroup = trait();
     const IsObject = trait();
@@ -75,8 +66,7 @@ function analyzeGraph(root: Entity, childrenByEntityId: Entity[][]) {
 
 function buildGraph(world: World, traits: Traits): SceneGraphBuild {
     const { ChildOf, OrderedChildren, IsGroup, IsObject, Value, TotalValue } = traits;
-    const { targetEntityCount, bottomLeafFraction, groupChildrenCycle, objectChildrenCycle } =
-        CONFIG;
+    const { targetEntityCount, bottomLeafFraction, groupChildrenCycle, objectChildrenCycle } = CONFIG;
     const cap = targetEntityCount;
     const allEntities: Entity[] = [];
     const childrenByEntityId: Entity[][] = [];
@@ -181,7 +171,11 @@ function getEntityTraversalCost(
     return subtreeSizeByEntityId[entity.id()] + depthByEntityId[entity.id()];
 }
 
-function selectLightestBatch(dirtyBatches: Entity[][], dirtyBatchCosts: number[], dirtyCount: number) {
+function selectLightestBatch(
+    dirtyBatches: Entity[][],
+    dirtyBatchCosts: number[],
+    dirtyCount: number
+) {
     let bestBatchIndex = 0;
 
     for (let i = 1; i < dirtyBatches.length; i++) {
@@ -265,7 +259,9 @@ function createDirtySystem(
     };
 }
 
-function createPropagateSystem(traits: Pick<Traits, 'ChildOf' | 'OrderedChildren' | 'Value' | 'TotalValue'>) {
+function createPropagateSystem(
+    traits: Pick<Traits, 'ChildOf' | 'OrderedChildren' | 'Value' | 'TotalValue'>
+) {
     const { ChildOf, OrderedChildren, Value, TotalValue } = traits;
     const Changed = createChanged();
 

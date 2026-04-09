@@ -4,11 +4,11 @@ import { Renderers } from './view/renderers';
 import { Startup } from './view/startup';
 
 export function App() {
-	return (
-		<>
-			<Renderers />
-			<FrameLoop />
-			<Startup />
-		</>
-	);
+    return (
+        <>
+            <Renderers />
+            <FrameLoop />
+            <Startup />
+        </>
+    );
 }

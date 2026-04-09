@@ -89,9 +89,12 @@ function CardView({ entity }: { entity: Entity }) {
      * When React reorders, the captured element can be unmounted/remounted, and the browser fires
      * a lostpointercapture event because the element holding capture disappears.
      */
-    const handleLostPointerCapture = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-        if (event.buttons === 0) entity.remove(Dragging);
-    }, [entity]);
+    const handleLostPointerCapture = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            if (event.buttons === 0) entity.remove(Dragging);
+        },
+        [entity]
+    );
 
     if (!card) return null;
 
