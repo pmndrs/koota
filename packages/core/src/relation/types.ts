@@ -9,11 +9,9 @@ export type RelationTarget = Entity | '*';
 /** A pair represents a relation + target combination */
 export interface RelationPair<T extends Trait = Trait> {
     readonly [$relationPair]: true;
-    [$internal]: {
-        relation: Relation<T>;
-        target: RelationTarget;
-        params?: Record<string, unknown>;
-    };
+    readonly relation: Relation<T>;
+    readonly target: RelationTarget;
+    readonly params?: Record<string, unknown>;
 }
 
 export type Relation<T extends Trait = Trait> = {

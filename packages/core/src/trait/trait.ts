@@ -177,14 +177,13 @@ export function addTrait(world: World, entity: Entity, ...traits: ConfigurableTr
  * Add a relation pair to an entity.
  */
 /* @inline */ function addRelationPair(world: World, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
+    const relation = pair.relation;
+    const target = pair.target;
 
     // Only specific targets can be added (not wildcard '*')
     if (typeof target !== 'number') return;
 
-    const params = pairCtx.params;
+    const params = pair.params;
     const relationCtx = relation[$internal];
     const relationTrait = relationCtx.trait;
 
@@ -260,9 +259,8 @@ export function removeTrait(world: World, entity: Entity, ...traits: (Trait | Re
 }
 
 /* @inline */ function removeRelationPair(world: World, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation;
-    const target = pairCtx.target;
+    const relation = pair.relation;
+    const target = pair.target;
     const relationTrait = relation[$internal].trait;
 
     if (!hasTrait(world, entity, relationTrait)) return;
@@ -357,9 +355,8 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
  * Get trait data for a relation pair.
  */
 /* @inline @pure */ function getTraitForPair(world: World, entity: Entity, pair: RelationPair) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation as Relation<Trait>;
-    const target = pairCtx.target;
+    const relation = pair.relation as Relation<Trait>;
+    const target = pair.target;
 
     if (!hasRelationPair(world, entity, pair)) return undefined;
     if (typeof target !== 'number') return undefined;
@@ -390,9 +387,8 @@ export function getTrait(world: World, entity: Entity, trait: Trait | RelationPa
     value: any,
     triggerChanged: boolean
 ) {
-    const pairCtx = pair[$internal];
-    const relation = pairCtx.relation as Relation<Trait>;
-    const target = pairCtx.target;
+    const relation = pair.relation as Relation<Trait>;
+    const target = pair.target;
 
     if (typeof target !== 'number') return;
 
