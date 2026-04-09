@@ -20,7 +20,7 @@ import {
 } from '../relation/relation';
 import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { EMPTY_MASK_PAGE, ensureMaskPage } from '../entity/utils/paged-mask';
+import { ensureMaskPage } from '../entity/utils/paged-mask';
 import {
     createFastSetChangeFunction,
     createFastSetFunction,
