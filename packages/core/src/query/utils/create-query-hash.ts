@@ -20,49 +20,51 @@ let nextQueryId = 1;
 const queryHashToId = new Map<string, number>();
 
 function queryHashNumericId(hash: string): number {
-	let id = queryHashToId.get(hash);
-	if (id === undefined) {
-		id = nextQueryId++;
-		queryHashToId.set(hash, id);
-	}
-	return id;
+    let id = queryHashToId.get(hash);
+    if (id === undefined) {
+        id = nextQueryId++;
+        queryHashToId.set(hash, id);
+    }
+    return id;
 }
 
 export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
-	let cursor = 0;
+    let cursor = 0;
 
-	for (let i = 0; i < parameters.length; i++) {
-		const param = parameters[i];
+    for (let i = 0; i < parameters.length; i++) {
+        const param = parameters[i];
 
-		if (isRelationPair(param)) {
-			const relationId = (param.relation as Relation<Trait>)[$internal].trait.id;
+        if (isRelationPair(param)) {
+            const relationId = (param.relation as Relation<Trait>)[$internal].trait.id;
 
-			if (param.targetQuery) {
-				const subHash = isQuery(param.targetQuery)
-					? param.targetQuery.hash
-					: createQueryHash([...param.targetQuery]);
-				sortBuf[cursor++] =
-					relationId * RELATION_FACTOR + queryHashNumericId(subHash) + RELATION_QUERY_OFFSET;
-				continue;
-			}
+            if (param.targetQuery) {
+                const subHash = isQuery(param.targetQuery)
+                    ? param.targetQuery.hash
+                    : createQueryHash([...param.targetQuery]);
+                sortBuf[cursor++] =
+                    relationId * RELATION_FACTOR +
+                    queryHashNumericId(subHash) +
+                    RELATION_QUERY_OFFSET;
+                continue;
+            }
 
-			const target = param.target;
-			const targetId = typeof target === 'number' ? target : -1;
-			sortBuf[cursor++] = relationId * RELATION_FACTOR + targetId + RELATION_OFFSET;
-			continue;
-		}
+            const target = param.target;
+            const targetId = typeof target === 'number' ? target : -1;
+            sortBuf[cursor++] = relationId * RELATION_FACTOR + targetId + RELATION_OFFSET;
+            continue;
+        }
 
-		if (isModifier(param)) {
-			for (let j = 0; j < param.traitIds.length; j++) {
-				sortBuf[cursor++] = param.id * MODIFIER_FACTOR + param.traitIds[j];
-			}
-			continue;
-		}
+        if (isModifier(param)) {
+            for (let j = 0; j < param.traitIds.length; j++) {
+                sortBuf[cursor++] = param.id * MODIFIER_FACTOR + param.traitIds[j];
+            }
+            continue;
+        }
 
-		sortBuf[cursor++] = (param as Trait).id;
-	}
+        sortBuf[cursor++] = (param as Trait).id;
+    }
 
-	const filled = sortBuf.subarray(0, cursor);
-	filled.sort();
-	return filled.join(',');
+    const filled = sortBuf.subarray(0, cursor);
+    filled.sort();
+    return filled.join(',');
 };

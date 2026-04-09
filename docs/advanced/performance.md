@@ -1,6 +1,6 @@
 ---
 title: Performance
-description: Tips and options for added performance. 
+description: Tips and options for added performance.
 nav: 10
 ---
 
@@ -26,6 +26,7 @@ world.query(Position, Velocity).useStores(([position, velocity], entities) => {
   }
 })
 ```
+
 ## Query optimization
 
 Consider these tips to optimize query performance.

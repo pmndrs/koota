@@ -5,7 +5,7 @@ import { world } from './world.ts';
 
 group('relation churn @relation', () => {
     init({ world });
-	bench(() => {
+    bench(() => {
         schedule.run({ world });
     }).gc('inner');
 });

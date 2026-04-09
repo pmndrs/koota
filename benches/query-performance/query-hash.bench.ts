@@ -16,34 +16,34 @@ const simple: QueryParameter[] = [Position, Velocity, Health];
 const withModifiers: QueryParameter[] = [Position, Not(IsStatic), Or(Velocity, Health)];
 const withRelation: QueryParameter[] = [ChildOf(parent), Position, Not(IsStatic)];
 const dense: QueryParameter[] = [
-	Position,
-	Velocity,
-	Health,
-	IsActive,
-	Not(IsStatic),
-	Or(Position, Velocity, Health),
-	ChildOf(parent),
+    Position,
+    Velocity,
+    Health,
+    IsActive,
+    Not(IsStatic),
+    Or(Position, Velocity, Health),
+    ChildOf(parent),
 ];
 const targetFilter: QueryParameter[] = [ChildOf(IsPlayer, IsActive), Position];
 
 group('query hash @query @hash', () => {
-	bench('3 traits', function* () {
-		yield () => createQueryHash(simple);
-	}).gc('inner');
+    bench('3 traits', function* () {
+        yield () => createQueryHash(simple);
+    }).gc('inner');
 
-	bench('modifiers', function* () {
-		yield () => createQueryHash(withModifiers);
-	}).gc('inner');
+    bench('modifiers', function* () {
+        yield () => createQueryHash(withModifiers);
+    }).gc('inner');
 
-	bench('relation + modifiers', function* () {
-		yield () => createQueryHash(withRelation);
-	}).gc('inner');
+    bench('relation + modifiers', function* () {
+        yield () => createQueryHash(withRelation);
+    }).gc('inner');
 
-	bench('dense mixed (7 params)', function* () {
-		yield () => createQueryHash(dense);
-	}).gc('inner');
+    bench('dense mixed (7 params)', function* () {
+        yield () => createQueryHash(dense);
+    }).gc('inner');
 
-	bench('relation target filter', function* () {
-		yield () => createQueryHash(targetFilter);
-	}).gc('inner');
+    bench('relation target filter', function* () {
+        yield () => createQueryHash(targetFilter);
+    }).gc('inner');
 });

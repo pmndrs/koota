@@ -271,7 +271,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 if (isOrWithModifiers(parameter)) {
                     for (const nestedModifier of parameter.modifiers) {
                         if (isTrackingModifier(nestedModifier)) {
-                            processTrackingModifier(world, query, nestedModifier, 'or', ctx, trackingGroupsMap);
+                            processTrackingModifier(
+                                world,
+                                query,
+                                nestedModifier,
+                                'or',
+                                ctx,
+                                trackingGroupsMap
+                            );
                         }
                     }
                 }
@@ -363,7 +370,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 }
 
                 const refreshSourcesForTarget = (target: Entity) => {
-                    const sources = getEntitiesWithRelationTo(world, pair.relation as Relation<Trait>, target);
+                    const sources = getEntitiesWithRelationTo(
+                        world,
+                        pair.relation as Relation<Trait>,
+                        target
+                    );
                     for (let i = 0; i < sources.length; i++) {
                         const source = sources[i];
                         const match = checkQueryWithRelations(world, query, source);

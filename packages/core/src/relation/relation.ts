@@ -583,7 +583,9 @@ export function hasRelationPair(world: World, entity: Entity, pair: RelationPair
     if (!hasTrait(world, entity, relation[$internal].trait)) return false;
 
     if (targetQuery) {
-        const matchingTargets = isQuery(targetQuery) ? world.query(targetQuery) : world.query(...targetQuery);
+        const matchingTargets = isQuery(targetQuery)
+            ? world.query(targetQuery)
+            : world.query(...targetQuery);
         if (!matchingTargets.length) return false;
 
         const targets = getRelationTargets(world, relation, entity);

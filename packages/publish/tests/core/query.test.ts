@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { $internal, createQuery, createWorld, IsExcluded, Not, Or, relation, trait } from '../../dist';
+import {
+    $internal,
+    createQuery,
+    createWorld,
+    IsExcluded,
+    Not,
+    Or,
+    relation,
+    trait,
+} from '../../dist';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
