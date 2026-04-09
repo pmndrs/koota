@@ -2,7 +2,7 @@ name: Canary Release
 
 on:
   push:
-    branches: [main, next]
+    branches: [canary]
 
 jobs:
   publish-canary:
@@ -30,10 +30,8 @@ jobs:
         run: |
           CURRENT=$(node -p "require('./packages/publish/package.json').version")
           SHA=$(git rev-parse --short HEAD)
-          BRANCH="${{ github.ref_name }}"
-          TAG=$([ "$BRANCH" = "next" ] && echo "next" || echo "canary")
-          npm --prefix packages/publish pkg set version="${CURRENT}-${TAG}.${SHA}"
-          echo "DIST_TAG=$TAG" >> $GITHUB_ENV
+          npm --prefix packages/publish pkg set version="${CURRENT}-canary.${SHA}"
+          echo "DIST_TAG=canary" >> $GITHUB_ENV
 
       - name: Build
         run: pnpm -F koota build

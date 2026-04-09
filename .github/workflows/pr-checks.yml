@@ -2,9 +2,9 @@ name: PR Checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, canary]
   push:
-    branches: [main]
+    branches: [main, canary]
   workflow_dispatch:
     inputs:
       test:
