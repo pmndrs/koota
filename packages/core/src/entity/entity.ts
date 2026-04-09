@@ -63,13 +63,12 @@ export function destroyEntity(world: World, entity: Entity) {
             // Handle entities that have relations pointing TO currentEntity (currentEntity is target)
             // If autoDestroy is 'orphan', destroy those sources
             const sources = getEntitiesWithRelationTo(world, relation, currentEntity);
-            for (const source of sources) {
+            for (let si = sources.length - 1; si >= 0; si--) {
+                const source = sources[si];
                 if (!world.has(source)) continue;
 
-                // Remove the relation from source to currentEntity
                 cleanupRelationTarget(world, relation, source, currentEntity);
 
-                // If autoDestroy: 'source', queue the source for destruction
                 if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
             }
 
