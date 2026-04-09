@@ -30,8 +30,6 @@ flowchart TD
     I --> J[Call add hooks]
 ```
 
-
-
 ### Steps
 
 **1. Add trait**
@@ -67,7 +65,7 @@ for (const dirtyMask of ctx.dirtyMasks.values()) {
 }
 ```
 
-For every registered tracking modifier (`Added`, `Removed`, `Changed`), mark this entity+trait as dirty. 
+For every registered tracking modifier (`Added`, `Removed`, `Changed`), mark this entity+trait as dirty.
 
 **5. Update queries: check bitmask**
 

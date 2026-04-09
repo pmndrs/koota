@@ -36,6 +36,7 @@ export { $relationPair, $relation } from './relation/symbols';
 export type {
     /** @experimental This type is experimental and may change or be removed in future versions. */
     OrderedRelation as OrderedTrait,
+    RelationInputTarget,
     Relation,
     RelationPair,
     RelationTarget,

@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { $internal, createQuery, createWorld, IsExcluded, Not, Or, trait } from '../src';
+import { $internal, createQuery, createWorld, IsExcluded, Not, Or, relation, trait } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
 const IsActive = trait();
+const IsPlayer = trait();
 const Foo = trait();
 const Bar = trait();
+const ChildOf = relation();
 
 describe('Query', () => {
     const world = createWorld();
@@ -317,6 +319,48 @@ describe('Query', () => {
         expect(entities).toContain(entityA);
         expect(entities).toContain(entityB);
         expect(entities).not.toContain(entityC);
+    });
+
+    it('can filter relation targets with query parameters', () => {
+        const parentA = world.spawn(IsPlayer, IsActive);
+        const parentB = world.spawn(IsPlayer);
+        const parentC = world.spawn(IsActive);
+
+        const childA = world.spawn(ChildOf(parentA));
+        const childB = world.spawn(ChildOf(parentB));
+        const childC = world.spawn(ChildOf(parentC));
+
+        expect(Array.from(world.query(ChildOf(IsPlayer)))).toEqual([childA, childB]);
+        expect(world.query(ChildOf(IsPlayer, IsActive))).toContain(childA);
+        expect(world.query(ChildOf(IsActive, IsPlayer))).toContain(childA);
+
+        // Works with a cached query
+        const playerAndActive = createQuery(IsPlayer, IsActive);
+        expect(world.query(ChildOf(playerAndActive))).toContain(childA);
+        expect(world.query(ChildOf(IsPlayer))).not.toContain(childC);
+    });
+
+    it('updates relation target filters when target query membership changes', () => {
+        const onAdd = vi.fn();
+        const onRemove = vi.fn();
+
+        const parent = world.spawn();
+        const child = world.spawn(ChildOf(parent));
+
+        world.onQueryAdd([ChildOf(IsPlayer)], onAdd);
+        world.onQueryRemove([ChildOf(IsPlayer)], onRemove);
+
+        expect(world.query(ChildOf(IsPlayer))).toHaveLength(0);
+
+        parent.add(IsPlayer);
+        expect(world.query(ChildOf(IsPlayer))).toContain(child);
+        expect(onAdd).toHaveBeenCalledTimes(1);
+        expect(onAdd).toHaveBeenCalledWith(child);
+
+        parent.remove(IsPlayer);
+        expect(world.query(ChildOf(IsPlayer))).toHaveLength(0);
+        expect(onRemove).toHaveBeenCalledTimes(1);
+        expect(onRemove).toHaveBeenCalledWith(child);
     });
 
     it('should select traits', () => {
