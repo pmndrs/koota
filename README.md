@@ -312,6 +312,19 @@ const containsSilver = world.query(Contains(silver)) // Returns [inventory]
 const containsAnything = world.query(Contains('*')) // Returns [inventory, chest]
 ```
 
+#### Relation filters
+
+A query nested in a relation can be used to filter target entities instead of naming one specific target. Use them when you want to ask for relations pointing at "any player", "any active parent", or "any rare item".
+
+```js
+const IsRare = trait()
+
+silver.add(IsRare)
+
+const containsRareItems = world.query(Contains(IsRare))
+const equippedOnAngryGoblin = world.query(EquippedOn(Goblin, IsAngry))
+```
+
 #### Removing relations
 
 A relation targets a specific entity, so we need to likewise remove relations with specific entities.
@@ -372,6 +385,9 @@ const parent = world.spawn()
 
 // Filter changed entities by a specific target
 const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
+
+// Filter changed entities by the target's traits
+const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer))
 ```
 
 #### Relation events
