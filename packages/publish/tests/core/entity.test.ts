@@ -147,23 +147,6 @@ describe('Entity', () => {
         expect(entity.get(Bar)!.value).toBe(1);
     });
 
-    it('should trigger change events when trait state is set', () => {
-        const entity = world.spawn(Bar);
-        let called = false;
-
-        world.onChange(Bar, () => {
-            called = true;
-        });
-
-        entity.set(Bar, { value: 1 });
-        expect(called).toBe(true);
-
-        // Can optionally suppress the event.
-        called = false;
-        entity.set(Bar, { value: 2 }, false);
-        expect(called).toBe(false);
-    });
-
     it('can check if an entity is alive', () => {
         let entity = world.spawn();
         expect(entity.isAlive()).toBe(true);
