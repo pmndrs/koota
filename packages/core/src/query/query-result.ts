@@ -14,6 +14,8 @@ import { setChanged } from './modifiers/changed';
 import type {
     InstancesFromParameters,
     QueryInstance,
+    QueryLayout,
+    QueryLayoutCache,
     QueryParameter,
     QueryResult,
     QueryResultOptions,
@@ -30,6 +32,7 @@ export function createQueryResult<T extends QueryParameter[]>(
     const stores: Store<any>[] = [];
 
     getQueryStores(params, traits, stores, ctx);
+    let usesCustomOrder = false;
 
     const results = Object.assign(entities, {
         readEach(
@@ -161,8 +164,11 @@ export function createQueryResult<T extends QueryParameter[]>(
             return results;
         },
 
-        useStores(callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void) {
-            callback(stores as unknown as StoresFromParameters<T>, entities);
+        useStores(callback: (stores: StoresFromParameters<T>, layout: QueryLayout) => void) {
+            const layout = usesCustomOrder
+                ? createQueryLayout(entities)
+                : getCachedQueryLayout(query, entities);
+            callback(stores as unknown as StoresFromParameters<T>, layout);
             return results;
         },
 
@@ -176,6 +182,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         sort(
             callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
         ): QueryResult<T> {
+            usesCustomOrder = true;
             Array.prototype.sort.call(entities, callback);
             return results;
         },
@@ -268,11 +275,105 @@ export function createQueryResult<T extends QueryParameter[]>(
     }
 }
 
+type QueryPageBuilder = {
+    pageId: number;
+    offsets: number[];
+    entities: Entity[];
+};
+
+const EMPTY_LAYOUT_CACHE: QueryLayoutCache = {
+    version: -1,
+    pageCount: 0,
+    pageIds: new Uint32Array(0),
+    pageStarts: new Uint32Array(0),
+    pageCounts: new Uint16Array(0),
+    offsets: new Uint16Array(0),
+    entities: [],
+};
+
+function getCachedQueryLayout(query: QueryInstance, entities: readonly Entity[]): QueryLayout {
+    const cache = query.layoutCache;
+    if (cache && cache.version === query.version) return cache;
+
+    const next = createQueryLayout(entities, query.version);
+    query.layoutCache = next;
+    return next;
+}
+
+function createQueryLayout(
+    entities: readonly Entity[],
+    version = EMPTY_LAYOUT_CACHE.version
+): QueryLayoutCache {
+    if (entities.length === 0) return EMPTY_LAYOUT_CACHE;
+
+    const pagesById = new Map<number, QueryPageBuilder>();
+
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        const eid = getEntityId(entity);
+        const pageId = eid >>> 10;
+
+        let page = pagesById.get(pageId);
+        if (!page) {
+            page = {
+                pageId,
+                offsets: [],
+                entities: [],
+            };
+            pagesById.set(pageId, page);
+        }
+
+        page.offsets.push(eid & 1023);
+        page.entities.push(entity);
+    }
+
+    const orderedPages = Array.from(pagesById.values()).sort((a, b) => a.pageId - b.pageId);
+    const pageCount = orderedPages.length;
+    const pageIds = new Uint32Array(pageCount);
+    const pageStarts = new Uint32Array(pageCount);
+    const pageCounts = new Uint16Array(pageCount);
+
+    let flatIndex = 0;
+    for (let i = 0; i < pageCount; i++) {
+        const page = orderedPages[i];
+        pageIds[i] = page.pageId;
+        pageStarts[i] = flatIndex;
+        pageCounts[i] = page.offsets.length;
+        flatIndex += page.offsets.length;
+    }
+
+    const offsets = new Uint16Array(flatIndex);
+    const orderedEntities = new Array<Entity>(flatIndex);
+
+    let offsetIndex = 0;
+    for (let i = 0; i < pageCount; i++) {
+        const page = orderedPages[i];
+        for (let j = 0; j < page.offsets.length; j++) {
+            offsets[offsetIndex] = page.offsets[j];
+            orderedEntities[offsetIndex] = page.entities[j];
+            offsetIndex++;
+        }
+    }
+
+    return {
+        version,
+        pageCount,
+        pageIds,
+        pageStarts,
+        pageCounts,
+        offsets,
+        entities: orderedEntities,
+    };
+}
+
 export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
     const results = Object.assign([], {
         readEach: () => results,
         updateEach: () => results,
-        useStores: () => results,
+        useStores: (callback: any) => {
+            callback([], EMPTY_LAYOUT_CACHE);
+            return results;
+        },
         select: () => results,
         sort: () => results,
     }) as QueryResult<QueryParameter[]>;
@@ -295,7 +396,7 @@ const relationOnlyMethods = {
         return this;
     },
     useStores(this: QueryResult<any>, callback: any) {
-        callback([], this);
+        callback([], createQueryLayout(this as unknown as Entity[]));
         return this;
     },
     select(this: QueryResult<any>) {
