@@ -233,14 +233,24 @@ world
 
 ## Direct store access
 
-For maximum performance, access SoA stores directly with `useStores`:
+For maximum performance, access the raw stores with a cached page-grouped layout. Stores are paged internally, so the layout tells you which query entities belong to which store page and offset:
 
 ```typescript
-world.query(Position, Velocity).useStores(([position, velocity], entities) => {
-  for (let i = 0; i < entities.length; i++) {
-    const eid = entities[i].id()
-    position.x[eid] += velocity.x[eid] * delta
-    position.y[eid] += velocity.y[eid] * delta
+world.query(Position, Velocity).useStores(([position, velocity], layout) => {
+  for (let p = 0; p < layout.pageCount; p++) {
+    const pageId = layout.pageIds[p] // Physical page in the paged stores
+    const start = layout.pageStarts[p] // First flat query index in this page
+    const end = start + layout.pageCounts[p] // One past the last flat query index
+    const posX = position.x[pageId]
+    const posY = position.y[pageId]
+    const velX = velocity.x[pageId]
+    const velY = velocity.y[pageId]
+
+    for (let i = start; i < end; i++) {
+      const o = layout.offsets[i] // Offset within the current page
+      posX[o] += velX[o] * delta
+      posY[o] += velY[o] * delta
+    }
   }
 })
 ```

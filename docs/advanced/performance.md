@@ -11,18 +11,25 @@ Performance, safety and readability are all tradeoffs. The standard patterns are
 
 ## Modifying trait stores directly
 
-For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
+For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. Stores are paged internally, and `useStores` returns the raw stores plus a cached page-grouped layout so your loops can stay cache-friendly without manual page math.
 
 ```js
-// Returns the SoA stores
-world.query(Position, Velocity).useStores(([position, velocity], entities) => {
-  // Write our own loop over the stores
-  for (let i = 0; i < entities.length; i++) {
-    // Get the entity ID to use as the array index
-    const eid = entities[i].id()
-    // Write to each array in the store
-    position.x[eid] += velocity.x[eid] * delta
-    position.y[eid] += velocity.y[eid] * delta
+// Returns the raw stores plus a page-grouped query layout
+world.query(Position, Velocity).useStores(([position, velocity], layout) => {
+  for (let p = 0; p < layout.pageCount; p++) {
+    const pageId = layout.pageIds[p]
+    const start = layout.pageStarts[p]
+    const end = start + layout.pageCounts[p]
+    const posX = position.x[pageId]
+    const posY = position.y[pageId]
+    const velX = velocity.x[pageId]
+    const velY = velocity.y[pageId]
+
+    for (let i = start; i < end; i++) {
+      const o = layout.offsets[i]
+      posX[o] += velX[o] * delta
+      posY[o] += velY[o] * delta
+    }
   }
 })
 ```
