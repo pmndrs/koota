@@ -756,6 +756,13 @@ const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
 const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
 
+// Subscribe to entity lifecycle events
+const unsub = world.onEntitySpawn((entity) => {})
+const unsub = world.onEntityDestroy((entity) => {})
+
+// Or trait registratoin if you are doing tooling
+const unsub = world.onTraitRegistered((trait) => {})
+
 // An array of all entities alive in the world, including non-queryable entities
 // This is a copy so editing it won't do anything!
 // Entity[]
