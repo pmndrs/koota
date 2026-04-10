@@ -24,6 +24,7 @@ export type QueryResultOptions = {
 };
 
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
+    readFirst: () => QueryFirstWithTraitsResult<T>;
     readEach: (
         callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
     ) => QueryResult<T>;
@@ -37,6 +38,9 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
     select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
     sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
+export type QueryFirstWithTraitsResult<T extends QueryParameter[] = QueryParameter[]> =
+    | [Entity, ...InstancesFromParameters<T>]
+    | [undefined, ...{ [K in keyof T]: undefined }];
 
 type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
 

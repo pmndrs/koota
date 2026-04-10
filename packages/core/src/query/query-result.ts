@@ -12,6 +12,7 @@ import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
 import type {
     InstancesFromParameters,
+    QueryFirstWithTraitsResult,
     QueryInstance,
     QueryParameter,
     QueryResult,
@@ -31,6 +32,18 @@ export function createQueryResult<T extends QueryParameter[]>(
     getQueryStores(params, traits, stores, world);
 
     const results = Object.assign(entities, {
+        readFirst(): QueryFirstWithTraitsResult<T> {
+            const state = Array.from({ length: traits.length }) as InstancesFromParameters<T>;
+            if (entities.length === 0) {
+                return [] as unknown as [undefined, ...{ [K in keyof T]: undefined }];
+            }
+            const entity = entities[0];
+            const eid = getEntityId(entity);
+
+            // Create snapshots without atomic tracking
+            createSnapshots(eid, traits, stores, state);
+            return [entity, ...state];
+        },
         readEach(
             callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
         ) {
@@ -284,6 +297,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
 export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
     const results = Object.assign([], {
+        readFirst: () => [] as unknown as QueryFirstWithTraitsResult<QueryParameter[]>,
         readEach: () => results,
         updateEach: () => results,
         useStores: () => results,

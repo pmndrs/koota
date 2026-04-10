@@ -309,6 +309,39 @@ describe('Query', () => {
         expect(entity).toBe(entityA);
     });
 
+    it('should include traits in a queryFirstWithTraits query', () => {
+        const entityA = world.spawn(Position({ x: 10, y: 20 }), Name({ name: 'test' }));
+
+        const [entity, position, name] = world.queryFirstWithTraits(Position, Name);
+        expect(entity).toBe(entityA);
+        if (entity) {
+            expect(position).toHaveProperty('x');
+            expect(position).toHaveProperty('y');
+            expect(name).toHaveProperty('name');
+            // Note that because of the `if (entity)` above TS knows name isn't undefined
+            expect(name.name).toBe('test');
+        }
+
+        // Second query with REVERSED order: Name, Position
+        // This should return values in the order specified (Name first, Position second)
+        const [entity2, name2, position2] = world.queryFirstWithTraits(Name, Position);
+        expect(entity2).toBe(entityA);
+        expect(position2).toHaveProperty('x');
+        expect(position2).toHaveProperty('y');
+        expect(name2).toHaveProperty('name');
+        expect(name2?.name).toBe('test');
+    });
+
+    it('should return undefined when a queryFirstWithTraits query has no matches', () => {
+        const [entity, position, name] = world.queryFirstWithTraits(Position, Name);
+        expect(entity).toBe(undefined);
+        // Just adding this branch so I can mouseover position/name and confirm that TS narrowed them to undefined
+        if (entity === undefined) {
+            expect(position).toBeUndefined();
+            expect(name).toBeUndefined();
+        }
+    });
+
     it('should implement Or', () => {
         const entityA = world.spawn(Position);
         const entityB = world.spawn(Foo);
