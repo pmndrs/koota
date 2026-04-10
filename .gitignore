@@ -37,8 +37,9 @@ dist
 
 # react
 packages/publish/react/
-packages/publish/collections/
+
 
 .labs
 
 pnpm-lock.yaml
+.pnpm-store/
