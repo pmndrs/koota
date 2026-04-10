@@ -16,6 +16,7 @@ export type {
     InstancesFromParameters,
     IsNotModifier,
     Modifier,
+    QueryLayout,
     Query,
     QueryModifier,
     QueryParameter,
