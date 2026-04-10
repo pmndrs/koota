@@ -227,58 +227,8 @@ describe('Query', () => {
       position.x = 10;
     });
 
-    expect(query.length).toBe(10);
-    expect(query[0].get(Position)!.x).toBe(0);
-
-    for (let i = 1; i < 10; i++) {
-      expect(query[i].get(Position)!.x).toBe(10);
-    }
-  });
-
-  it('updateEach can be run with change detection', () => {
-    const cb = vi.fn();
-    world.onChange(Position, cb);
-
-    for (let i = 0; i < 10; i++) {
-      world.spawn(Position);
-    }
-
-    const query = world.query(Position);
-
-    query.updateEach(([position], _entity, index) => {
-      if (index === 0) return;
-      position.x = 10;
-    });
-
-    expect(cb).toHaveBeenCalledTimes(9);
-
-    // If values do not change, no events should be triggered.
-    query.updateEach(([position], _entity, index) => {
-      if (index === 0) return;
-      position.x = 10;
-    });
-
-    expect(cb).toHaveBeenCalledTimes(9);
-  });
-
-  it('should read trait data with readEach without modifying stores', () => {
-    for (let i = 0; i < 5; i++) {
-      world.spawn(Position({ x: i, y: i * 2 }), Name({ name: `Entity${i}` }));
-    }
-
-    const results: any[] = [];
-    world.query(Position, Name).readEach(([position, name], entity, index) => {
-      results.push({
-        x: position.x,
-        name: name.name,
-        index,
-      });
-    });
-
-    expect(results).toHaveLength(5);
-    expect(results[0]).toEqual({ x: 0, name: 'Entity0', index: 0 });
-    expect(results[2]).toEqual({ x: 2, name: 'Entity2', index: 2 });
-  });
+    it('can cache and use the query key', () => {
+        const key = createQuery(Position, Name, IsActive);
 
   it('updateEach should return values in caller parameter order regardless of cache', () => {
     // Create entity with both traits

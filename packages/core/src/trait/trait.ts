@@ -116,6 +116,10 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     incrementWorldBitflag(ctx);
 
     if (isOrderedTrait(trait)) setupOrderedTraitSync(ctx, trait);
+
+    if (ctx.traitRegisteredSubscriptions.size > 0) {
+        for (const sub of ctx.traitRegisteredSubscriptions) sub(trait);
+    }
 }
 
 function getOrderedTrait(ctx: WorldContext, entity: Entity, trait: OrderedRelation): OrderedList {

@@ -39,6 +39,9 @@ export type WorldContext = {
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<() => void>;
+    entitySpawnSubscriptions: Set<(entity: Entity) => void>;
+    entityDestroySubscriptions: Set<(entity: Entity) => void>;
+    traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
     /** Whether this world has been lazily registered in the universe. */
     isRegistered: boolean;
     /** Pending initial traits to apply on first registration. */
@@ -122,4 +125,7 @@ export type World = {
         input: Trait | Relation<Trait> | RelationPair,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
+    onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber;
+    onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber;
+    onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber;
 };

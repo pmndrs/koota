@@ -1,5 +1,5 @@
 import { $internal } from '../common';
-import { queryInternal } from '../query/query';
+import { IsExcluded, queryInternal } from '../query/query';
 import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -26,7 +26,11 @@ export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]):
     ctx.entityTraits.set(entity, new Set());
     addTrait(ctx, entity, ...traits);
 
-  return entity;
+    if (ctx.entitySpawnSubscriptions.size > 0 && !ctx.entityTraits.get(entity)!.has(IsExcluded)) {
+        for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
+    }
+
+    return entity;
 }
 
 const cachedSet = new Set<Entity>();
@@ -66,6 +70,10 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
                     if (!processedEntities.has(target)) entityQueue.push(target);
                 }
             }
+        }
+
+        if (ctx.entityDestroySubscriptions.size > 0 && currentEntity !== ctx.worldEntity) {
+            for (const sub of ctx.entityDestroySubscriptions) sub(currentEntity);
         }
 
         const entityTraits = ctx.entityTraits.get(currentEntity);
