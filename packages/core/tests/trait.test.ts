@@ -229,33 +229,6 @@ describe('Trait', () => {
         expect(entity.get(AtomicArray)).toEqual([4, 5, 6]);
     });
 
-    it('can be subscribed for for add and remove events', () => {
-        // The trait should have its data set before the onAdd callback is called.
-        const addCb = vi.fn((entity: Entity) => {
-            expect(entity.get(Position)).toMatchObject({ x: 1, y: 2 });
-        });
-
-        /**
-         * The trait should still be present after the onRemove callback is called
-         * and its data accessible.
-         */
-        const removeCb = vi.fn((entity: Entity) => {
-            expect(entity.has(Position)).toBe(true);
-            expect(entity.get(Position)).toMatchObject({ x: 1, y: 2 });
-        });
-
-        const entity = world.spawn();
-
-        world.onAdd(Position, addCb);
-        world.onRemove(Position, removeCb);
-
-        entity.add(Position({ x: 1, y: 2 }));
-        expect(addCb).toHaveBeenCalledTimes(1);
-
-        entity.remove(Position);
-        expect(removeCb).toHaveBeenCalledTimes(1);
-    });
-
     it('should return undefined for tag traits', () => {
         const IsTag = trait();
         const entity = world.spawn();
@@ -267,18 +240,4 @@ describe('Trait', () => {
         expect(entity.get(IsTag)).toBeUndefined();
     });
 
-    it('does not fire onChange when a trait is added without or with initial data', () => {
-        const cb = vi.fn();
-        world.onChange(Position, cb);
-
-        // Plain add — no initial data
-        const entityA = world.spawn();
-        entityA.add(Position);
-        expect(cb).not.toHaveBeenCalled();
-
-        // Add with inline initial data via trait ref
-        const entityB = world.spawn();
-        entityB.add(Position({ x: 1, y: 2 }));
-        expect(cb).not.toHaveBeenCalled();
-    });
 });

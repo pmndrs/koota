@@ -629,18 +629,28 @@ world.query(Position, Velocity, Mass)
 
 ### Modifying trait stores directly
 
-For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. All stores are structure of arrays for performance purposes.
+For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. Stores are paged internally, so `useStores` gives you the raw paged stores plus a layout describing which query entities live in which pages and offsets.
 
 ```js
-// Returns the SoA stores
-world.query(Position, Velocity).useStores(([position, velocity], entities) => {
-  // Write our own loop over the stores
-  for (let i = 0; i < entities.length; i++) {
-    // Get the entity ID to use as the array index
-    const eid = entities[i].id()
-    // Write to each array in the store
-    position.x[eid] += velocity.x[eid] * delta
-    position.y[eid] += velocity.y[eid] * delta
+// Returns the raw stores plus a page-grouped query layout
+world.query(Position, Velocity).useStores(([position, velocity], layout) => {
+  // Loop over all the pages
+  for (let p = 0; p < layout.pageCount; p++) {
+    const pageId = layout.pageIds[p] // Physical page in the paged stores
+    const start = layout.pageStarts[p] // First flat query index in this page
+    const end = start + layout.pageCounts[p] // One past the last flat query index
+
+    const posX = position.x[pageId]
+    const posY = position.y[pageId]
+    const velX = velocity.x[pageId]
+    const velY = velocity.y[pageId]
+
+    // For each entity in the page, updates its data
+    for (let i = start; i < end; i++) {
+      const o = layout.offsets[i] // Offset within the current page
+      posX[o] += velX[o] * delta
+      posY[o] += velY[o] * delta
+    }
   }
 })
 ```
@@ -745,6 +755,13 @@ const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 // Return unsub function
 const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
 const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
+
+// Subscribe to entity lifecycle events
+const unsub = world.onEntitySpawn((entity) => {})
+const unsub = world.onEntityDestroy((entity) => {})
+
+// Or trait registratoin if you are doing tooling
+const unsub = world.onTraitRegistered((trait) => {})
 
 // An array of all entities alive in the world, including non-queryable entities
 // This is a copy so editing it won't do anything!

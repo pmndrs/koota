@@ -7,34 +7,67 @@ export const updateGravity = ({ world }: { world: World }) => {
     const bodies = world.query(...bodyTraits);
     const { delta } = world.get(Time)!;
 
-    bodies.useStores(([position, velocity, mass, _, acceleration], bodies) => {
-        for (let j = 0; j < bodies.length; j++) {
-            const currentId = bodies[j].id();
+    bodies.useStores(([position, velocity, mass, _, acceleration], layout) => {
+        const { pageCount, pageIds, pageStarts, pageCounts, offsets } = layout;
 
-            acceleration.x[currentId] = 0;
-            acceleration.y[currentId] = 0;
+        for (let currentPageIndex = 0; currentPageIndex < pageCount; currentPageIndex++) {
+            const currentPageId = pageIds[currentPageIndex];
+            const currentStart = pageStarts[currentPageIndex];
+            const currentEnd = currentStart + pageCounts[currentPageIndex];
+            const currentPosX = position.x[currentPageId];
+            const currentPosY = position.y[currentPageId];
+            const currentVelX = velocity.x[currentPageId];
+            const currentVelY = velocity.y[currentPageId];
+            const currentMass = mass.value[currentPageId];
+            const currentAccX = acceleration.x[currentPageId];
+            const currentAccY = acceleration.y[currentPageId];
 
-            for (let i = 0; i < bodies.length; i++) {
-                const targetId = bodies[i].id();
-                if (currentId === targetId) continue; // Skip self
+            for (let currentIndex = currentStart; currentIndex < currentEnd; currentIndex++) {
+                const currentOffset = offsets[currentIndex];
+                const currentX = currentPosX[currentOffset];
+                const currentY = currentPosY[currentOffset];
+                const bodyMass = +currentMass[currentOffset];
 
-                const dx = position.x[targetId] - position.x[currentId];
-                const dy = position.y[targetId] - position.y[currentId];
-                let distanceSquared = dx * dx + dy * dy;
+                currentAccX[currentOffset] = 0;
+                currentAccY[currentOffset] = 0;
 
-                if (distanceSquared < CONSTANTS.STICKY) distanceSquared = CONSTANTS.STICKY; // Apply stickiness
+                for (let targetPageIndex = 0; targetPageIndex < pageCount; targetPageIndex++) {
+                    const targetPageId = pageIds[targetPageIndex];
+                    const targetStart = pageStarts[targetPageIndex];
+                    const targetEnd = targetStart + pageCounts[targetPageIndex];
+                    const targetPosX = position.x[targetPageId];
+                    const targetPosY = position.y[targetPageId];
+                    const targetMass = mass.value[targetPageId];
 
-                const distance = Math.sqrt(distanceSquared);
-                const forceMagnitude =
-                    (+mass.value[currentId] * +mass.value[targetId]) / distanceSquared;
+                    for (let targetIndex = targetStart; targetIndex < targetEnd; targetIndex++) {
+                        const targetOffset = offsets[targetIndex];
 
-                acceleration.x[currentId] += (dx / distance) * forceMagnitude;
-                acceleration.y[currentId] += (dy / distance) * forceMagnitude;
+                        if (
+                            currentPageId === targetPageId &&
+                            currentOffset === targetOffset
+                        ) {
+                            continue;
+                        }
+
+                        const dx = targetPosX[targetOffset] - currentX;
+                        const dy = targetPosY[targetOffset] - currentY;
+                        let distanceSquared = dx * dx + dy * dy;
+
+                        if (distanceSquared < CONSTANTS.STICKY) distanceSquared = CONSTANTS.STICKY;
+
+                        const distance = Math.sqrt(distanceSquared);
+                        const forceMagnitude =
+                            (bodyMass * +targetMass[targetOffset]) / distanceSquared;
+
+                        currentAccX[currentOffset] += (dx / distance) * forceMagnitude;
+                        currentAccY[currentOffset] += (dy / distance) * forceMagnitude;
+                    }
+                }
+
+                // Apply computed force to entity's velocity, adjusting for its mass
+                currentVelX[currentOffset] += (currentAccX[currentOffset] * delta) / bodyMass;
+                currentVelY[currentOffset] += (currentAccY[currentOffset] * delta) / bodyMass;
             }
-
-            // Apply computed force to entity's velocity, adjusting for its mass
-            velocity.x[currentId] += (acceleration.x[currentId] * delta) / mass.value[currentId];
-            velocity.y[currentId] += (acceleration.y[currentId] * delta) / mass.value[currentId];
         }
     });
 };

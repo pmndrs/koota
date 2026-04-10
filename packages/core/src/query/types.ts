@@ -23,6 +23,20 @@ export type QueryResultOptions = {
     changeDetection?: 'always' | 'auto' | 'never';
 };
 
+export type QueryLayout = {
+    pageCount: number;
+    pageIds: Uint32Array;
+    pageStarts: Uint32Array;
+    pageCounts: Uint16Array;
+    offsets: Uint16Array;
+    entities: readonly Entity[];
+};
+
+export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
+    version: number;
+    entities: readonly Entity[];
+};
+
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
     readEach: (
         callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
@@ -32,7 +46,7 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
         options?: QueryResultOptions
     ) => QueryResult<T>;
     useStores: (
-        callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
+        callback: (stores: StoresFromParameters<T>, layout: QueryLayout) => void
     ) => QueryResult<T>;
     select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
     sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
@@ -169,6 +183,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     cleanup: QueryUnsubscriber[];
     addSubscriptions: Set<QuerySubscriber>;
     removeSubscriptions: Set<QuerySubscriber>;
+    layoutCache: QueryLayoutCache | null;
     /** Relation pairs for target-specific queries */
     relationFilters?: ResolvedRelationFilter[];
     run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;

@@ -18,29 +18,45 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
     const colors = particles.geometry.attributes.color.array;
     const sizes = particles.geometry.attributes.size.array;
 
-    entities.useStores(([position, circle, color]) => {
-        for (let i = 0; i < entities.length; i++) {
-            const eid = entities[i].id();
+    entities.useStores(([position, circle, color], layout) => {
+        const { pageCount, pageIds, pageStarts, pageCounts, offsets, entities } = layout;
 
-            // Update positions
-            positions[eid * 3] = position.x[eid];
-            positions[eid * 3 + 1] = position.y[eid];
-            positions[eid * 3 + 2] = position.z[eid];
+        for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
+            const pageId = pageIds[pageIndex];
+            const start = pageStarts[pageIndex];
+            const end = start + pageCounts[pageIndex];
+            const posX = position.x[pageId];
+            const posY = position.y[pageId];
+            const posZ = position.z[pageId];
+            const radius = circle.radius[pageId];
+            const colorR = color.r[pageId];
+            const colorG = color.g[pageId];
+            const colorB = color.b[pageId];
 
-            // Update sizes
-            sizes[eid] = circle.radius[eid] * 0.3;
+            for (let i = start; i < end; i++) {
+                const eid = entities[i].id();
+                const offset = offsets[i];
 
-            // Update colors
-            const r = normalize(color.r[eid], 0, 255);
-            const g = normalize(color.g[eid], 0, 255);
-            const b = normalize(color.b[eid], 0, 255);
-            colors[eid * 3] = r;
-            colors[eid * 3 + 1] = g;
-            colors[eid * 3 + 2] = b;
+                // Update positions
+                positions[eid * 3] = posX[offset];
+                positions[eid * 3 + 1] = posY[offset];
+                positions[eid * 3 + 2] = posZ[offset];
+
+                // Update sizes
+                sizes[eid] = radius[offset] * 0.3;
+
+                // Update colors
+                const r = normalize(colorR[offset], 0, 255);
+                const g = normalize(colorG[offset], 0, 255);
+                const b = normalize(colorB[offset], 0, 255);
+                colors[eid * 3] = r;
+                colors[eid * 3 + 1] = g;
+                colors[eid * 3 + 2] = b;
+            }
         }
 
         for (let i = 0; i < removedEntities.length; i++) {
-            const eid = removedEntities[i];
+            const eid = removedEntities[i].id();
             sizes[eid] = 0;
         }
     });

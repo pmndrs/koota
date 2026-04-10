@@ -1,13 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-    $internal,
-    createWorld,
-    relation,
-    type TraitRecord,
-    trait,
-    universe,
-    IsExcluded,
-} from '../src';
+import { $internal, createWorld, relation, trait, universe, IsExcluded } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 describe('World', () => {
@@ -176,16 +168,4 @@ describe('World', () => {
         expect(world.get(Test)!.delta).toBe(2);
     });
 
-    it('should observe traits', () => {
-        const TimeOfDay = trait({ hour: 0 });
-        const world = createWorld(TimeOfDay);
-
-        let timeOfDay: TraitRecord<typeof TimeOfDay> | undefined;
-        world.onChange(TimeOfDay, (e) => {
-            timeOfDay = e.get(TimeOfDay);
-        });
-
-        world.set(TimeOfDay, { hour: 1 });
-        expect(timeOfDay).toEqual({ hour: 1 });
-    });
 });

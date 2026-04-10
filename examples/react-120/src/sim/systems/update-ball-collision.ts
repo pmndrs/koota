@@ -5,53 +5,80 @@ export function updateBallCollision(world: World) {
     const { delta } = world.get(Time)!;
     const invDelta = delta > 0 ? 1 / delta : 0;
 
-    world.query(Position, Velocity, Ball).useStores(([position, velocity, ball], entities) => {
-        for (let i = 0; i < entities.length; i++) {
-            const idA = entities[i].id();
+    world.query(Position, Velocity, Ball).useStores(([position, velocity, ball], layout) => {
+        const { pageCount, pageIds, pageStarts, pageCounts, offsets, entities } = layout;
 
-            const xA = position.x[idA];
-            const yA = position.y[idA];
-            const scaleA = entities[i].get(Scale)?.value ?? 1;
-            const radiusA = ball.radius[idA] * scaleA;
-            const massA = radiusA * radiusA * Math.PI;
+        for (let aPageIndex = 0; aPageIndex < pageCount; aPageIndex++) {
+            const aPageId = pageIds[aPageIndex];
+            const aStart = pageStarts[aPageIndex];
+            const aEnd = aStart + pageCounts[aPageIndex];
+            const aPosX = position.x[aPageId];
+            const aPosY = position.y[aPageId];
+            const aVelX = velocity.x[aPageId];
+            const aVelY = velocity.y[aPageId];
+            const aRadius = ball.radius[aPageId];
 
-            for (let j = i + 1; j < entities.length; j++) {
-                const indexB = entities[j].id();
+            for (let ai = aStart; ai < aEnd; ai++) {
+                const offsetA = offsets[ai];
+                const entityA = entities[ai];
 
-                const xB = position.x[indexB];
-                const xY = position.y[indexB];
-                const scaleB = entities[j].get(Scale)?.value ?? 1;
-                const radiusB = ball.radius[indexB] * scaleB;
+                const xA = aPosX[offsetA];
+                const yA = aPosY[offsetA];
+                const scaleA = entityA.get(Scale)?.value ?? 1;
+                const radiusA = aRadius[offsetA] * scaleA;
+                const massA = radiusA * radiusA * Math.PI;
 
-                const rsum = radiusA + radiusB;
-                const dx = xA - xB;
-                const dy = yA - xY;
+                for (let bPageIndex = aPageIndex; bPageIndex < pageCount; bPageIndex++) {
+                    const bPageId = pageIds[bPageIndex];
+                    const bPageStart = pageStarts[bPageIndex];
+                    const bEnd = bPageStart + pageCounts[bPageIndex];
+                    const bStart = bPageIndex === aPageIndex ? ai + 1 : bPageStart;
+                    const bPosX = position.x[bPageId];
+                    const bPosY = position.y[bPageId];
+                    const bVelX = velocity.x[bPageId];
+                    const bVelY = velocity.y[bPageId];
+                    const bRadius = ball.radius[bPageId];
 
-                // AABB early-out
-                if (dx > rsum || -dx > rsum || dy > rsum || -dy > rsum) continue;
+                    for (let bi = bStart; bi < bEnd; bi++) {
+                        const offsetB = offsets[bi];
+                        const entityB = entities[bi];
 
-                // Circle overlap check
-                const distSq = dx * dx + dy * dy;
-                if (distSq >= rsum * rsum) continue;
+                        const xB = bPosX[offsetB];
+                        const yB = bPosY[offsetB];
+                        const scaleB = entityB.get(Scale)?.value ?? 1;
+                        const radiusB = bRadius[offsetB] * scaleB;
 
-                // Penetration along the center line (mirrors reference scaling by radius sum)
-                const dist = Math.sqrt(distSq) || 1;
-                const penetration = dist - rsum; // negative
-                const invNorm = 1 / rsum;
-                const offX = dx * penetration * invNorm;
-                const offY = dy * penetration * invNorm;
+                        const rsum = radiusA + radiusB;
+                        const dx = xA - xB;
+                        const dy = yA - yB;
 
-                // Mass-based momentum distribution (πr²)
-                const massB = radiusB * radiusB * Math.PI;
-                const invTotal = 1 / (massA + massB);
-                const ratioA = massB * invTotal; // push A by proportion of B
-                const ratioB = massA * invTotal; // push B by proportion of A
+                        // AABB early-out
+                        if (dx > rsum || -dx > rsum || dy > rsum || -dy > rsum) continue;
 
-                // Convert position-like offsets to per-second velocity impulses
-                velocity.x[idA] -= offX * ratioA * invDelta;
-                velocity.y[idA] -= offY * ratioA * invDelta;
-                velocity.x[indexB] += offX * ratioB * invDelta;
-                velocity.y[indexB] += offY * ratioB * invDelta;
+                        // Circle overlap check
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq >= rsum * rsum) continue;
+
+                        // Penetration along the center line (mirrors reference scaling by radius sum)
+                        const dist = Math.sqrt(distSq) || 1;
+                        const penetration = dist - rsum; // negative
+                        const invNorm = 1 / rsum;
+                        const offX = dx * penetration * invNorm;
+                        const offY = dy * penetration * invNorm;
+
+                        // Mass-based momentum distribution (πr²)
+                        const massB = radiusB * radiusB * Math.PI;
+                        const invTotal = 1 / (massA + massB);
+                        const ratioA = massB * invTotal; // push A by proportion of B
+                        const ratioB = massA * invTotal; // push B by proportion of A
+
+                        // Convert position-like offsets to per-second velocity impulses
+                        aVelX[offsetA] -= offX * ratioA * invDelta;
+                        aVelY[offsetA] -= offY * ratioA * invDelta;
+                        bVelX[offsetB] += offX * ratioB * invDelta;
+                        bVelY[offsetB] += offY * ratioB * invDelta;
+                    }
+                }
             }
         }
     });
