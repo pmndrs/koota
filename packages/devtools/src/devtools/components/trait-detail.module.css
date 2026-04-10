@@ -1,0 +1,46 @@
+.detailSource {
+	font-size: 9px;
+	color: var(--k-text-muted);
+	word-break: break-all;
+	text-decoration: none;
+	transition: color 0.15s;
+}
+
+.detailSource:hover {
+	color: var(--k-accent-tag);
+}
+
+.traitMetaInline {
+	display: flex;
+	gap: 6px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+	align-items: center;
+}
+
+.schemaList {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.schemaRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 3px 6px;
+	font-size: 10px;
+	font-family: var(--k-font-mono);
+	background: var(--k-bg-sub);
+	border-radius: 3px;
+}
+
+.schemaKey {
+	color: var(--k-text-muted);
+}
+
+.schemaValue {
+	color: var(--k-text-secondary);
+	font-variant-numeric: tabular-nums;
+	font-weight: 500;
+}

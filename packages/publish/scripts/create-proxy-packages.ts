@@ -10,6 +10,14 @@ const proxyPackages = [
 			types: '../dist/react.d.ts',
 		},
 	},
+	{
+		folder: 'devtools',
+		config: {
+			type: 'module',
+			main: '../dist/devtools.js',
+			types: '../dist/devtools.d.ts',
+		},
+	},
 ];
 
 async function generateCtsTypes() {

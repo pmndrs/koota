@@ -1,0 +1,5 @@
+{
+  "type": "module",
+  "main": "../dist/devtools.js",
+  "types": "../dist/devtools.d.ts"
+}

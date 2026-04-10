@@ -18,11 +18,40 @@
     "./react": {
       "types": "./src/react.ts",
       "import": "./src/react.ts"
+    },
+    "./devtools": {
+      "types": "./src/devtools.ts",
+      "import": "./src/devtools.ts"
+    },
+    "./devtools/react": {
+      "types": "./src/devtools-react.ts",
+      "import": "./src/devtools-react.ts"
+    },
+    "./devtools/vite": {
+      "types": "./src/devtools-vite.ts",
+      "import": "./src/devtools-vite.ts"
+    },
+    "./devtools/rollup": {
+      "types": "./src/devtools-rollup.ts",
+      "import": "./src/devtools-rollup.ts"
+    },
+    "./devtools/rolldown": {
+      "types": "./src/devtools-rolldown.ts",
+      "import": "./src/devtools-rolldown.ts"
+    },
+    "./devtools/webpack": {
+      "types": "./src/devtools-webpack.ts",
+      "import": "./src/devtools-webpack.ts"
+    },
+    "./devtools/esbuild": {
+      "types": "./src/devtools-esbuild.ts",
+      "import": "./src/devtools-esbuild.ts"
     }
   },
   "files": [
     "dist",
     "react",
+    "devtools",
     "README.md",
     "LICENSE"
   ],
@@ -46,12 +75,42 @@
         },
         "import": "./dist/react.js",
         "require": "./dist/react.cjs"
+      },
+      "./devtools": {
+        "types": "./dist/devtools.d.ts",
+        "import": "./dist/devtools.js"
+      },
+      "./devtools/react": {
+        "types": "./dist/devtools-react.d.ts",
+        "import": "./dist/devtools-react.js"
+      },
+      "./devtools/vite": {
+        "types": "./dist/devtools-vite.d.ts",
+        "import": "./dist/devtools-vite.js"
+      },
+      "./devtools/rollup": {
+        "types": "./dist/devtools-rollup.d.ts",
+        "import": "./dist/devtools-rollup.js"
+      },
+      "./devtools/rolldown": {
+        "types": "./dist/devtools-rolldown.d.ts",
+        "import": "./dist/devtools-rolldown.js"
+      },
+      "./devtools/webpack": {
+        "types": "./dist/devtools-webpack.d.ts",
+        "import": "./dist/devtools-webpack.js"
+      },
+      "./devtools/esbuild": {
+        "types": "./dist/devtools-esbuild.d.ts",
+        "import": "./dist/devtools-esbuild.js"
       }
     }
   },
   "scripts": {
-    "build": "pnpm clean && rollup -c rollup.config.ts && rollup -c rollup.dts.config.ts && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
+    "build": "pnpm clean && rollup -c rollup.config.ts && rollup -c rollup.devtools.config.ts && rollup -c rollup.plugin.config.ts && rollup -c rollup.dts.config.ts && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
     "build:js": "rollup -c rollup.config.ts",
+    "build:devtools": "rollup -c rollup.devtools.config.ts",
+    "build:plugin": "rollup -c rollup.plugin.config.ts",
     "build:types": "rollup -c rollup.dts.config.ts",
     "clean": "node --input-type=module -e \"import {rmSync} from 'fs'; rmSync('dist', {recursive: true, force: true})\"",
     "test": "NODE_OPTIONS=--expose-gc vitest --environment=jsdom",
@@ -61,14 +120,19 @@
     "@config/typescript": "workspace:*",
     "@koota/collections": "workspace:*",
     "@koota/core": "workspace:*",
+    "@koota/devtools": "workspace:*",
     "@koota/react": "workspace:*",
+    "@rollup/plugin-alias": "^5.1.1",
+    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "@testing-library/react": "^16.3.0",
+    "preact": "^10.25.4",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "@rollup/plugin-node-resolve": "^16.0.3",
     "rollup": "^4.52.4",
-    "rollup-plugin-esbuild": "^6.2.1",
     "rollup-plugin-dts": "^6.4.1",
+    "rollup-plugin-esbuild": "^6.2.1",
+    "rollup-plugin-postcss": "^4.0.2",
     "unplugin-inline-functions": "catalog:",
     "vitest": "catalog:"
   },
