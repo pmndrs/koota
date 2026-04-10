@@ -17,7 +17,7 @@ catalog:
   react-dom: ^19.2.0
   three: ^0.181.2
   unplugin-inline-functions: ^0.4.2
-  vite: ^7.2.4
+  vite: ^8.0.8
   vitest: ^4.0.13
 
 manage-package-manager-versions: true

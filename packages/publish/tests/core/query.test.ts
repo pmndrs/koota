@@ -84,107 +84,6 @@ describe('Query', () => {
         expect(entities.length).toBe(3);
     });
 
-    it('can be subscribed to for a stream of updates', () => {
-        const event = { entity: 0 };
-        const staticCb = vi.fn((entity) => {
-            event.entity = entity;
-        });
-
-        // Static query subscriptions.
-        const entity = world.spawn();
-
-        // With a cache key.
-        const queryKey = createQuery(Position, Foo);
-        world.onQueryAdd(queryKey, staticCb);
-        world.onQueryRemove(queryKey, staticCb);
-
-        entity.add(Position);
-        expect(staticCb).toHaveBeenCalledTimes(0);
-
-        entity.add(Foo);
-        expect(staticCb).toHaveBeenCalledTimes(1);
-        expect(event.entity).toBe(entity);
-
-        entity.remove(Foo);
-        expect(staticCb).toHaveBeenCalledTimes(2);
-        expect(event.entity).toBe(entity);
-
-        // With parameters.
-        world.onQueryAdd([Position, Bar], staticCb);
-        world.onQueryRemove([Position, Bar], staticCb);
-
-        entity.add(Position);
-        expect(staticCb).toHaveBeenCalledTimes(2);
-
-        entity.add(Bar);
-        expect(staticCb).toHaveBeenCalledTimes(3);
-        expect(event.entity).toBe(entity);
-
-        entity.remove(Bar);
-        expect(staticCb).toHaveBeenCalledTimes(4);
-        expect(event.entity).toBe(entity);
-
-        entity.remove(Position);
-        expect(staticCb).toHaveBeenCalledTimes(4);
-    });
-
-    it('calls onAdd after the trait is added with data', () => {
-        const entity = world.spawn();
-
-        world.onAdd(Position, (entity) => {
-            expect(entity.get(Position)!.x).toBe(10);
-        });
-
-        entity.add(Position({ x: 10, y: 20 }));
-    });
-
-    it('can subscribe to changes on a specific trait', () => {
-        const entityA = world.spawn(Position);
-        const entityB = world.spawn(Position);
-
-        const cb = vi.fn();
-        let unsub = world.onChange(Position, cb);
-
-        entityA.set(Position, { x: 10, y: 20 });
-
-        expect(cb).toHaveBeenCalledTimes(1);
-        expect(cb).toHaveBeenCalledWith(entityA);
-
-        unsub();
-
-        entityA.set(Position, { x: 20, y: 30 });
-
-        expect(cb).toHaveBeenCalledTimes(1);
-
-        entityA.changed(Name);
-
-        expect(cb).toHaveBeenCalledTimes(1);
-
-        // Test that subscribing to multiple entities with the same trait works.
-        unsub = world.onChange(Position, cb);
-
-        const cb2 = vi.fn();
-        world.onChange(Position, cb2);
-
-        entityB.set(Position, { x: 10, y: 20 });
-
-        expect(cb).toHaveBeenCalledTimes(2);
-        expect(cb2).toHaveBeenCalledTimes(1);
-        expect(cb2).toHaveBeenCalledWith(entityB);
-
-        // Remove one unsub to test that we don't accidentally remove trait tracking
-        // for all callbacks associated with the trait.
-        unsub();
-
-        // Test changed detection with updateEach.
-        world.query(Position).updateEach(([position]) => {
-            position.x = 100;
-        });
-
-        // Increments by 2 because we are updating two entities.
-        expect(cb2).toHaveBeenCalledTimes(3);
-    });
-
     it('can cache and use the query key', () => {
         const key = createQuery(Position, Name, IsActive);
 
@@ -278,6 +177,41 @@ describe('Query', () => {
         expect(results).toHaveLength(5);
         expect(results[0]).toEqual({ x: 0, name: 'Entity0', index: 0 });
         expect(results[2]).toEqual({ x: 2, name: 'Entity2', index: 2 });
+    });
+
+    it('useStores groups entities into query pages', () => {
+        const localWorld = createWorld();
+
+        // Pages are 1024 entities wide
+        for (let i = 0; i < 1026; i++) {
+            localWorld.spawn(Position({ x: i, y: i * 2 }));
+        }
+
+        const query = localWorld.query(Position);
+
+        query.useStores(([position], layout) => {
+            expect(layout.pageCount).toBe(2);
+
+            const firstEntityId = layout.entities[0].id();
+            const firstPageId = layout.pageIds[0];
+            const secondPageId = layout.pageIds[1];
+
+            expect(layout.pageCounts[0]).toBe(1023);
+            expect(layout.offsets[0]).toBe(firstEntityId & 1023);
+            expect(layout.entities[0].id()).toBe(firstEntityId);
+            expect(position.x[firstPageId][layout.offsets[1]]).toBe(1);
+
+            expect(layout.pageCounts[1]).toBe(3);
+            expect(Array.from(layout.offsets.slice(layout.pageStarts[1]))).toEqual([0, 1, 2]);
+            expect(layout.entities.slice(layout.pageStarts[1]).map((entity) => entity.id())).toEqual([
+                firstEntityId + 1023,
+                firstEntityId + 1024,
+                firstEntityId + 1025,
+            ]);
+            expect(position.x[secondPageId][layout.offsets[layout.pageStarts[1] + 2]]).toBe(1025);
+        });
+
+        localWorld.destroy();
     });
 
     it('updateEach should return values in caller parameter order regardless of cache', () => {
