@@ -1,0 +1,205 @@
+.entityTitle {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.icon {
+	color: var(--k-text-muted);
+	opacity: 0.8;
+	flex-shrink: 0;
+}
+
+.worldBadge {
+	font-size: 8px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 5px;
+	border-radius: 3px;
+	background: var(--k-accent-rel);
+	color: var(--k-bg-panel);
+}
+
+.entityMetaInline {
+	display: flex;
+	gap: 6px;
+	font-size: 10px;
+	color: var(--k-text-muted);
+	position: relative;
+	width: 100%;
+}
+
+.emptySmall {
+	font-size: 10px;
+	color: var(--k-text-dim);
+}
+
+.relationTargetCount {
+	font-size: 9px;
+	color: var(--k-text-muted);
+	font-weight: 400;
+}
+
+.relationTargetsList {
+	margin-left: 8px;
+	border-left: 1px solid var(--k-border);
+}
+
+.relationTargetRow {
+	padding: 3px 8px 3px 12px;
+	font-size: 10px;
+}
+
+.relationTargetArrow {
+	font-size: 10px;
+	color: var(--k-text-muted);
+	opacity: 0.6;
+}
+
+.sectionHeader {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	width: 100%;
+}
+
+.addTraitButton {
+	all: unset;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 2px 6px;
+	font-size: 10px;
+	font-weight: 500;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	border-radius: 3px;
+	transition: all 0.15s;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.addTraitButton:hover {
+	color: var(--k-text-secondary);
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.addTraitButton:active {
+	color: var(--k-text-secondary);
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.traitRowContainer {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.expandIcon {
+	font-size: 8px;
+	color: var(--k-text-muted);
+	margin-left: auto;
+	opacity: 0.6;
+	transition: opacity 0.15s;
+}
+
+.traitRowContainer:hover .expandIcon {
+	opacity: 1;
+}
+
+.removeButton {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	font-size: 14px;
+	line-height: 1;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	border-radius: 3px;
+	transition: all 0.15s;
+	opacity: 0;
+	margin-left: auto;
+}
+
+.traitRowContainer:hover .removeButton {
+	opacity: 0.6;
+}
+
+.removeButton:hover {
+	opacity: 1 !important;
+	background: rgba(255, 100, 100, 0.2);
+	color: #ff6b6b;
+}
+
+.infoButton {
+	all: unset;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	font-size: 11px;
+	color: var(--k-text-muted);
+	cursor: pointer;
+	border-radius: 3px;
+	transition: all 0.15s;
+	opacity: 0;
+}
+
+.traitRowContainer:hover .infoButton {
+	opacity: 0.6;
+}
+
+.infoButton:hover {
+	opacity: 1 !important;
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--k-text-secondary);
+}
+
+/* Metadata Section */
+
+.metadataContent {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.metadataRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 4px 6px;
+	font-size: 10px;
+	font-family: var(--k-font-mono);
+	background: var(--k-bg-sub);
+	border-radius: 3px;
+}
+
+.metadataLabel {
+	color: var(--k-text-muted);
+}
+
+.metadataValue {
+	color: var(--k-text-secondary);
+	font-weight: 500;
+}
+
+.metadataToggle {
+	font-size: 8px;
+	opacity: 0.6;
+	margin-left: 5px;
+	transition: transform 0.15s;
+}
+
+.metadataSummary {
+	margin-left: 8px;
+	font-size: 9px;
+	font-weight: 400;
+	color: var(--k-text-dim);
+	font-family: var(--k-font-mono);
+}

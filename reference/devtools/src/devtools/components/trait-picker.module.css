@@ -1,0 +1,36 @@
+/* Trait picker specific styles */
+
+.headerRelation {
+	color: var(--k-text-secondary);
+	font-weight: 500;
+}
+
+.itemName {
+	color: var(--k-text-secondary);
+	flex: 1;
+}
+
+.itemSelf {
+	background: rgba(255, 255, 255, 0.03);
+}
+
+.relationArrow {
+	color: var(--k-text-muted);
+	font-size: 12px;
+	margin-left: auto;
+}
+
+.entityIcon {
+	color: var(--k-text-muted);
+	flex-shrink: 0;
+}
+
+.selfBadge {
+	font-size: 9px;
+	color: var(--k-text-muted);
+	background: rgba(255, 255, 255, 0.1);
+	padding: 2px 6px;
+	border-radius: 3px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
