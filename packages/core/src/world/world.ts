@@ -125,6 +125,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             worldEntity: null!,
             trackedTraits: new Set(),
             resetSubscriptions: new Set(),
+            entitySpawnSubscriptions: new Set(),
+            entityDestroySubscriptions: new Set(),
+            traitRegisteredSubscriptions: new Set(),
             isRegistered: false,
             pendingTraits,
             cleanupToken,
@@ -421,6 +424,24 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
                 data.changeSubscriptions.delete(resolvedCallback);
                 if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(resolvedTrait);
             };
+        },
+
+        onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
+            const ctx = world[$internal];
+            ctx.entitySpawnSubscriptions.add(callback);
+            return () => ctx.entitySpawnSubscriptions.delete(callback);
+        },
+
+        onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
+            const ctx = world[$internal];
+            ctx.entityDestroySubscriptions.add(callback);
+            return () => ctx.entityDestroySubscriptions.delete(callback);
+        },
+
+        onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber {
+            const ctx = world[$internal];
+            ctx.traitRegisteredSubscriptions.add(callback);
+            return () => ctx.traitRegisteredSubscriptions.delete(callback);
         },
     } as World;
 

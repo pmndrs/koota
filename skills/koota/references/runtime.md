@@ -167,7 +167,7 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**Entity lifecycle events** (`onAdd`, `onRemove`, `onChange`) are also transition-based:
+**Trait lifecycle events** (`onAdd`, `onRemove`, `onChange`) are also transition-based:
 
 ```typescript
 useEffect(() => {
@@ -175,6 +175,22 @@ useEffect(() => {
     // Runs immediately when entity gains Position
   })
 }, [world])
+```
+
+**Entity lifecycle events** fire on spawn/destroy (excludes the internal world entity):
+
+```typescript
+const unsub = world.onEntitySpawn((entity) => {
+  // Entity is fully initialized with its spawn traits
+})
+
+const unsub2 = world.onEntityDestroy((entity) => {
+  // Fires before traits are removed — entity.has(T) still works
+})
+
+const unsub3 = world.onTraitRegistered((trait) => {
+  // Fires when a trait is first used on this world
+})
 ```
 
 ## Time management
