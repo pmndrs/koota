@@ -2,7 +2,7 @@ import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { hasRelationPair } from '../relation/relation';
+import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
@@ -20,6 +20,7 @@ import {
     type QueryInstance,
     type QueryParameter,
     type QueryResult,
+    type ResolvedRelationFilter,
     type QuerySubscriber,
     type TrackingGroup,
 } from './types';
@@ -27,8 +28,23 @@ import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
+import { isQuery } from './utils/is-query';
 
 export const IsExcluded: TagTrait = trait();
+
+function resolveRelationFilter(filter: ResolvedRelationFilter): ResolvedRelationFilter {
+    if (!filter.targetQuery) return filter;
+
+    const targetQueryRef = isQuery(filter.targetQuery)
+        ? filter.targetQuery
+        : createQuery(...filter.targetQuery);
+
+    return {
+        ...filter,
+        targetQueryRef,
+        targetQueryMatches: new SparseSet(),
+    };
+}
 
 export function runQuery<T extends QueryParameter[]>(
     world: World,
@@ -191,6 +207,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
         hasChangedModifiers: false,
         changedTraits: new Set<Trait>(),
         toRemove: new SparseSet(),
+        cleanup: [],
         addSubscriptions: new Set<QuerySubscriber>(),
         removeSubscriptions: new Set<QuerySubscriber>(),
         relationFilters: [],
@@ -220,10 +237,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
         // Handle relation pairs
         if (isRelationPair(parameter)) {
-            const pairCtx = parameter[$internal];
-            const relation = pairCtx.relation;
-
-            query.relationFilters!.push(parameter);
+            const relation = parameter.relation;
+            query.relationFilters!.push(resolveRelationFilter(parameter));
 
             const baseTrait = (relation as Relation<Trait>)[$internal].trait;
             if (!hasTraitInstance(ctx.traitInstances, baseTrait)) registerTrait(world, baseTrait);
@@ -256,7 +271,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 if (isOrWithModifiers(parameter)) {
                     for (const nestedModifier of parameter.modifiers) {
                         if (isTrackingModifier(nestedModifier)) {
-                            processTrackingModifier(world, query, nestedModifier, 'or', ctx, trackingGroupsMap);
+                            processTrackingModifier(
+                                world,
+                                query,
+                                nestedModifier,
+                                'or',
+                                ctx,
+                                trackingGroupsMap
+                            );
                         }
                     }
                 }
@@ -335,10 +357,47 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (hasRelationFilters) {
         for (const pair of query.relationFilters!) {
-            const relationTrait = pair[$internal].relation[$internal].trait;
+            const relationTrait = pair.relation[$internal].trait;
             const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
             if (relationTraitInstance) {
                 relationTraitInstance.relationQueries.add(query);
+            }
+
+            if (pair.targetQueryRef && pair.targetQueryMatches) {
+                const matchingTargets = world.query(pair.targetQueryRef);
+                for (let i = 0; i < matchingTargets.length; i++) {
+                    pair.targetQueryMatches.add(matchingTargets[i]);
+                }
+
+                const refreshSourcesForTarget = (target: Entity) => {
+                    const sources = getEntitiesWithRelationTo(
+                        world,
+                        pair.relation as Relation<Trait>,
+                        target
+                    );
+                    for (let i = 0; i < sources.length; i++) {
+                        const source = sources[i];
+                        const match = checkQueryWithRelations(world, query, source);
+                        if (match) {
+                            query.add(source);
+                        } else {
+                            query.remove(world, source);
+                        }
+                    }
+                };
+
+                query.cleanup.push(
+                    world.onQueryAdd(pair.targetQueryRef, (target) => {
+                        pair.targetQueryMatches!.add(target);
+                        refreshSourcesForTarget(target);
+                    })
+                );
+                query.cleanup.push(
+                    world.onQueryRemove(pair.targetQueryRef, (target) => {
+                        pair.targetQueryMatches!.remove(target);
+                        refreshSourcesForTarget(target);
+                    })
+                );
             }
         }
     }

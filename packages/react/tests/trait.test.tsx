@@ -264,6 +264,49 @@ describe('useTrait', () => {
         expect(renderCount).toBeGreaterThan(initialRenderCount);
     });
 
+    it('does not spuriously re-render on mount for SoA traits', async () => {
+        const entity = world.spawn(Position({ x: 10, y: 20 }));
+        let renderCount = 0;
+
+        function Test() {
+            renderCount++;
+            useTrait(entity, Position);
+            return null;
+        }
+
+        await act(async () => {
+            render(
+                <WorldProvider world={world}>
+                    <Test />
+                </WorldProvider>
+            );
+        });
+
+        expect(renderCount).toBe(1);
+    });
+
+    it('does not spuriously re-render on mount for AoS traits', async () => {
+        const AoSTrait = trait(() => ({ value: 42 }));
+        const entity = world.spawn(AoSTrait);
+        let renderCount = 0;
+
+        function Test() {
+            renderCount++;
+            useTrait(entity, AoSTrait);
+            return null;
+        }
+
+        await act(async () => {
+            render(
+                <WorldProvider world={world}>
+                    <Test />
+                </WorldProvider>
+            );
+        });
+
+        expect(renderCount).toBe(1);
+    });
+
     it('immediately reflects the new entity value when switching entities', async () => {
         const entityA = world.spawn(Position({ x: 1, y: 1 }));
         const entityB = world.spawn(Position({ x: 99, y: 99 }));
