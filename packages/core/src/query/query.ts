@@ -1,8 +1,7 @@
-import { SparseSet } from '@koota/collections';
+import { HiSparseBitSet, SparseSet, forEachQuery as bitsetForEachQuery } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -108,14 +107,10 @@ export function commitQueryRemovals(ctx: WorldContext) {
 export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
     const groups = query.trackingGroups;
     const len = groups.length;
-    const pageId = eid >>> 10;
-    const offset = eid & 1023;
     for (let i = 0; i < len; i++) {
-        const trackers = groups[i].trackers;
-        const trackersLen = trackers.length;
-        for (let j = 0; j < trackersLen; j++) {
-            const page = trackers[j][pageId];
-            if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
+        const bitSets = groups[i].trackerBitSets;
+        for (let j = 0; j < bitSets.length; j++) {
+            bitSets[j].remove(eid);
         }
     }
 }
@@ -140,7 +135,10 @@ function processTrackingModifier(
             type: trackingType,
             id,
             bitmasks: [],
-            trackers: [],
+            trackerBitSets: [],
+            traitGenerationIds: [],
+            traitBitflags: [],
+            traitIds: [],
         };
         groupsMap.set(key, group);
         query.trackingGroups.push(group);
@@ -155,6 +153,10 @@ function processTrackingModifier(
 
         const genId = instance.generationId;
         group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
+        group.trackerBitSets.push(new HiSparseBitSet());
+        group.traitGenerationIds.push(genId);
+        group.traitBitflags.push(instance.bitflag);
+        group.traitIds.push(trait[$internal].id);
 
         if (trackingType === 'change') {
             query.changedTraits.add(trait);
@@ -367,10 +369,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (query.trackingGroups.length > 0) {
         for (const group of query.trackingGroups) {
-            const { type, id, logic, bitmasks } = group;
-            const snapshot = ctx.trackingSnapshots.get(id)!;
-            const dirtyMask = ctx.dirtyMasks.get(id)!;
-            const changedMask = ctx.changedMasks.get(id)!;
+            const { type, id, logic, traitIds, traitGenerationIds, traitBitflags } = group;
+            const worldBitSets =
+                type === 'add'
+                    ? ctx.addedBitSets.get(id)
+                    : type === 'remove'
+                      ? ctx.removedBitSets.get(id)
+                      : ctx.changedBitSets.get(id);
 
             for (const entity of ctx.entityIndex.dense) {
                 if (query.entities.has(entity)) continue;
@@ -378,51 +383,35 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 const eid = getEntityId(entity);
                 let matches = logic === 'and';
 
-                for (let genId = 0; genId < bitmasks.length; genId++) {
-                    const mask = bitmasks[genId];
-                    if (!mask) continue;
+                for (let t = 0; t < traitIds.length; t++) {
+                    const worldBs = worldBitSets?.get(traitIds[t]);
+                    let traitMatches = false;
 
-                    const pageId = eid >>> 10;
-                    const offset = eid & 1023;
-                    const oldMask = snapshot[genId][pageId][offset];
-                    const currentMask = ctx.entityMasks[genId][pageId][offset];
-
-                    for (let bit = 1; bit <= mask; bit <<= 1) {
-                        if (!(mask & bit)) continue;
-
-                        let traitMatches = false;
-
-                        switch (type) {
-                            case 'add':
-                                traitMatches = (oldMask & bit) === 0 && (currentMask & bit) === bit;
-                                break;
-                            case 'remove':
-                                traitMatches =
-                                    ((oldMask & bit) === bit && (currentMask & bit) === 0) ||
-                                    ((oldMask & bit) === 0 &&
-                                        (currentMask & bit) === 0 &&
-                                        (dirtyMask[genId][pageId][offset] & bit) === bit);
-                                break;
-                            case 'change':
-                                traitMatches = (changedMask[genId][pageId][offset] & bit) === bit;
-                                break;
-                        }
-
-                        if (logic === 'and') {
-                            if (!traitMatches) {
-                                matches = false;
-                                break;
-                            }
+                    if (worldBs && worldBs.has(eid)) {
+                        if (type === 'add') {
+                            const currentMask =
+                                ctx.entityMasks[traitGenerationIds[t]][eid >>> 10][eid & 1023];
+                            traitMatches = (currentMask & traitBitflags[t]) === traitBitflags[t];
+                        } else if (type === 'remove') {
+                            const currentMask =
+                                ctx.entityMasks[traitGenerationIds[t]][eid >>> 10][eid & 1023];
+                            traitMatches = (currentMask & traitBitflags[t]) === 0;
                         } else {
-                            if (traitMatches) {
-                                matches = true;
-                                break;
-                            }
+                            traitMatches = true;
                         }
                     }
 
-                    if (logic === 'and' && !matches) break;
-                    if (logic === 'or' && matches) break;
+                    if (logic === 'and') {
+                        if (!traitMatches) {
+                            matches = false;
+                            break;
+                        }
+                    } else {
+                        if (traitMatches) {
+                            matches = true;
+                            break;
+                        }
+                    }
                 }
 
                 if (matches) {
@@ -442,13 +431,32 @@ export function createQueryInstance<T extends QueryParameter[]>(
             }
         }
     } else {
-        const entities = ctx.entityIndex.dense;
-        for (let i = 0; i < entities.length; i++) {
-            const entity = entities[i];
-            const match = hasRelationFilters
-                ? checkQueryWithRelations(ctx, query, entity)
-                : query.check(ctx, entity);
-            if (match) query.add(entity);
+        const requiredInstances = query.traitInstances.required;
+        const hasOrTraits = query.traitInstances.or.length > 0;
+
+        if (!hasOrTraits && requiredInstances.length > 0) {
+            const requiredBitSets = requiredInstances.map((i) => i.bitSet);
+            const forbiddenBitSets = query.traitInstances.forbidden.map((i) => i.bitSet);
+            const sparse = ctx.entityIndex.sparse;
+            const dense = ctx.entityIndex.dense;
+
+            bitsetForEachQuery(requiredBitSets, forbiddenBitSets, (eid) => {
+                const entity = dense[sparse[eid]];
+                if (hasRelationFilters) {
+                    if (checkQueryWithRelations(ctx, query, entity)) query.add(entity);
+                } else {
+                    query.add(entity);
+                }
+            });
+        } else {
+            const entities = ctx.entityIndex.dense;
+            for (let i = 0; i < entities.length; i++) {
+                const entity = entities[i];
+                const match = hasRelationFilters
+                    ? checkQueryWithRelations(ctx, query, entity)
+                    : query.check(ctx, entity);
+                if (match) query.add(entity);
+            }
         }
     }
 

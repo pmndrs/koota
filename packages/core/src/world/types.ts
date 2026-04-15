@@ -1,3 +1,4 @@
+import type { HiSparseBitSet } from '@koota/collections';
 import { ActionInstance } from '../actions/types';
 import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
@@ -33,9 +34,9 @@ export type WorldContext = {
     actionInstances: (ActionInstance | undefined)[];
     notQueries: Set<QueryInstance>;
     dirtyQueries: Set<QueryInstance>;
-    dirtyMasks: Map<number, Uint32Array[][]>;
-    trackingSnapshots: Map<number, Uint32Array[][]>;
-    changedMasks: Map<number, Uint32Array[][]>;
+    addedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    removedBitSets: Map<number, Map<number, HiSparseBitSet>>;
+    changedBitSets: Map<number, Map<number, HiSparseBitSet>>;
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
     resetSubscriptions: Set<() => void>;

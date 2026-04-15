@@ -1,3 +1,4 @@
+import { HiSparseBitSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
@@ -98,6 +99,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
         bitflag: ctx.bitflag,
         trait,
         store: traitCtx.createStore(),
+        bitSet: new HiSparseBitSet(),
         queries: new Set(),
         trackingQueries: new Set(),
         notQueries: new Set(),
@@ -198,7 +200,10 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
     const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
 
     if (defaults) {
-        setRelationDataAtIndex(ctx, entity, relation, targetIndex, { ...defaults, ...params });
+        setRelationDataAtIndex(ctx, entity, relation, targetIndex, {
+            ...defaults,
+            ...params,
+        });
     } else if (params) {
         setRelationDataAtIndex(ctx, entity, relation, targetIndex, params);
     }
@@ -296,11 +301,7 @@ export function hasTrait(ctx: WorldContext, entity: Entity, trait: Trait): boole
     const instance = getTraitInstance(ctx.traitInstances, trait);
     if (!instance) return false;
 
-    const { generationId, bitflag } = instance;
-    const eid = getEntityId(entity);
-    const mask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
-
-    return (mask & bitflag) === bitflag;
+    return instance.bitSet.has(getEntityId(entity));
 }
 
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(
@@ -400,9 +401,18 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
     const pageId = eid >>> 10;
     const offset = eid & 1023;
     ensureMaskPage(ctx.entityMasks[generationId], pageId)[offset] |= bitflag;
+    instance.bitSet.insert(eid);
 
-    for (const dirtyMask of ctx.dirtyMasks.values()) {
-        ensureMaskPage(dirtyMask[generationId], pageId)[offset] |= bitflag;
+    if (ctx.addedBitSets.size > 0) {
+        const addTraitId = trait[$internal].id;
+        for (const traitMap of ctx.addedBitSets.values()) {
+            let bs = traitMap.get(addTraitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(addTraitId, bs);
+            }
+            bs.insert(eid);
+        }
     }
 
     for (const query of queries) {
@@ -440,9 +450,18 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
     const pageId = eid >>> 10;
     const offset = eid & 1023;
     ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
+    instance.bitSet.remove(eid);
 
-    for (const dirtyMask of ctx.dirtyMasks.values()) {
-        ensureMaskPage(dirtyMask[generationId], pageId)[offset] |= bitflag;
+    if (ctx.removedBitSets.size > 0) {
+        const removeTraitId = trait[$internal].id;
+        for (const traitMap of ctx.removedBitSets.values()) {
+            let bs = traitMap.get(removeTraitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(removeTraitId, bs);
+            }
+            bs.insert(eid);
+        }
     }
 
     for (const query of queries) {
