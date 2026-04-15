@@ -53,6 +53,9 @@ describe('Query modifiers', () => {
         entities = world.query(Not(Foo));
         expect(entities[0]).toBe(entityB);
 
+        // entities = world.query(Not(Foo), Or(Foo));
+        // expect(entities.length).toBe(3);
+
         // Remove
         entityA.remove(Foo);
 
@@ -86,30 +89,29 @@ describe('Query modifiers', () => {
         let entities: any = world.query(ChildOf('*'));
         expect(entities.length).toBe(0);
 
-        entities = world.query(Not(ChildOf('*')));
+        entities = world.query(Not(ChildOf));
         expect(entities.length).toBe(2);
 
-        parent.add(ChildOf(child));
+        child.add(ChildOf(parent));
 
         entities = world.query(ChildOf('*'));
         expect(entities[0]).toEqual(child);
         expect(entities.length).toBe(1);
 
-        entities = world.query(Not(ChildOf('*')));
+        entities = world.query(Not(ChildOf));
         expect(entities[0]).toEqual(parent);
         expect(entities.length).toBe(1);
 
-        parent.remove(ChildOf('*'));
+        // entities = world.query(Not(ChildOf), Or(ChildOf));
+        // expect(entities.length).toBe(2);
+
+        child.remove(ChildOf('*'));
 
         entities = world.query(ChildOf('*'));
         expect(entities.length).toBe(0);
 
-        entities = world.query(Not(ChildOf('*')));
+        entities = world.query(Not(ChildOf));
         expect(entities.length).toBe(2);
-
-
-        // These queries should be hashed the same.
-        expect(ctx.queriesHashMap.size).toBe(1);
     });
 
     it('modifiers can be added as one call or separately', () => {

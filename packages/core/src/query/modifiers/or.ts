@@ -1,6 +1,8 @@
-import type { Trait } from '../../trait/types';
+import { $internal } from '../../common';
+import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
 import type { Modifier, OrModifier, OrParameter } from '../types';
 import { $modifier, createModifier } from '../modifier';
+import { isRelation } from '../../relation/utils/is-relation';
 
 export const Or = <T extends OrParameter[]>(...params: T): OrModifier<T> => {
     // Separate traits from nested modifiers
@@ -11,7 +13,7 @@ export const Or = <T extends OrParameter[]>(...params: T): OrModifier<T> => {
         if ((param as Modifier)[$modifier]) {
             modifiers.push(param as Modifier);
         } else {
-            traits.push(param as Trait);
+            traits.push(isRelation(param) ? param[$internal].trait : param as Trait);
         }
     }
 
