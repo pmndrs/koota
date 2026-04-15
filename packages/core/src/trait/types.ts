@@ -1,3 +1,4 @@
+import type { HiSparseBitSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
@@ -32,7 +33,9 @@ export type Trait<TSchema extends Schema = any> = {
     };
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 
-export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
+export type TagTrait = Trait<Record<string, never>> & {
+    [$internal]: { type: 'tag' };
+};
 
 export type TraitTuple<T extends Trait = Trait> = [
     T,
@@ -74,10 +77,16 @@ export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> =
           : T extends Trait<infer S>
             ? S
             : never;
-export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
+export type ExtractStore<T extends Trait> = T extends {
+    [$internal]: { createStore(): infer Store };
+}
     ? Store
     : never;
-export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'tag' } } ? true : false;
+export type ExtractIsTag<T extends Trait> = T extends {
+    [$internal]: { type: 'tag' };
+}
+    ? true
+    : false;
 
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
@@ -86,6 +95,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
     bitflag: number;
     trait: Trait;
     store: Store<S>;
+    /** Per-trait hierarchical sparse bitset tracking which entities have this trait */
+    bitSet: HiSparseBitSet;
     /** Non-tracking queries that include this trait */
     queries: Set<QueryInstance>;
     /** Tracking queries (Added/Removed/Changed) that include this trait */

@@ -1,4 +1,4 @@
-import type { SparseSet } from '@koota/collections';
+import type { HiSparseBitSet, SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory } from '../storage';
@@ -147,10 +147,13 @@ export type TrackingGroup = {
     type: 'add' | 'remove' | 'change';
     /** Tracking modifier ID for snapshot/mask lookups */
     id: number;
-    /** Bitmasks indexed by generationId */
+    /** Bitmasks indexed by generationId — used for fast event filtering */
     bitmasks: (number | undefined)[];
-    /** Per-entity tracker state indexed by [generationId][pageId][offset] */
-    trackers: Uint32Array[][];
+    /** One HiSparseBitSet per tracked trait (parallel with traitGenerationIds/traitBitflags) */
+    trackerBitSets: HiSparseBitSet[];
+    traitGenerationIds: number[];
+    traitBitflags: number[];
+    traitIds: number[];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
