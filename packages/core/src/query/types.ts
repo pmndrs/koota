@@ -7,6 +7,7 @@ import type {
     ExtractStore,
     IsTag,
     Trait,
+    TraitOrRelation,
     TraitInstance,
     TraitRecord,
 } from '../trait/types';
@@ -101,7 +102,7 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
 };
 
 /** Parameter types that can be passed to Or modifier */
-export type OrParameter = Trait | Modifier;
+export type OrParameter = TraitOrRelation | Modifier;
 
 /** Or modifier that can contain both traits and nested modifiers */
 export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
