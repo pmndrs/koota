@@ -254,7 +254,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
             // Register traits
             for (let j = 0; j < traits.length; j++) {
                 const t = traits[j];
-                // console.log("isModifier", {parameter});
                 if (!hasTraitInstance(ctx.traitInstances, t)) registerTrait(world, t);
             }
 
