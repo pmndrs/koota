@@ -1,6 +1,6 @@
 import { $internal } from '../../common';
 import { isRelation } from '../../relation/utils/is-relation';
-import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
+import type { ExtractTraits, TraitOrRelation } from '../../trait/types';
 import type { Modifier } from '../types';
 import { createModifier } from '../modifier';
 
