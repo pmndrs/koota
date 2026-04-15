@@ -77,6 +77,41 @@ describe('Query modifiers', () => {
         expect(entities.length).toBe(3);
     });
 
+    it('should correctly populate Not queries when relations are added and removed', () => {
+        const ctx = world[$internal];
+        const ChildOf = relation();
+        const parent = world.spawn();
+        const child = world.spawn();
+    
+        let entities: any = world.query(ChildOf('*'));
+        expect(entities.length).toBe(0);
+
+        entities = world.query(Not(ChildOf('*')));
+        expect(entities.length).toBe(2);
+
+        parent.add(ChildOf(child));
+
+        entities = world.query(ChildOf('*'));
+        expect(entities[0]).toEqual(child);
+        expect(entities.length).toBe(1);
+
+        entities = world.query(Not(ChildOf('*')));
+        expect(entities[0]).toEqual(parent);
+        expect(entities.length).toBe(1);
+
+        parent.remove(ChildOf('*'));
+
+        entities = world.query(ChildOf('*'));
+        expect(entities.length).toBe(0);
+
+        entities = world.query(Not(ChildOf('*')));
+        expect(entities.length).toBe(2);
+
+
+        // These queries should be hashed the same.
+        expect(ctx.queriesHashMap.size).toBe(1);
+    });
+
     it('modifiers can be added as one call or separately', () => {
         const ctx = world[$internal];
         const entity = world.spawn();
