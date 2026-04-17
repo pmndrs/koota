@@ -10,7 +10,7 @@ import type {
     TraitInstance,
     TraitRecord,
 } from '../trait/types';
-import type { World } from '../world';
+import type { WorldContext } from '../world';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
@@ -23,6 +23,20 @@ export type QueryResultOptions = {
     changeDetection?: 'always' | 'auto' | 'never';
 };
 
+export type QueryLayout = {
+    pageCount: number;
+    pageIds: Uint32Array;
+    pageStarts: Uint32Array;
+    pageCounts: Uint16Array;
+    offsets: Uint16Array;
+    entities: readonly Entity[];
+};
+
+export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
+    version: number;
+    entities: readonly Entity[];
+};
+
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
     readEach: (
         callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
@@ -32,7 +46,7 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
         options?: QueryResultOptions
     ) => QueryResult<T>;
     useStores: (
-        callback: (stores: StoresFromParameters<T>, entities: readonly Entity[]) => void
+        callback: (stores: StoresFromParameters<T>, layout: QueryLayout) => void
     ) => QueryResult<T>;
     select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
     sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
@@ -135,13 +149,13 @@ export type TrackingGroup = {
     id: number;
     /** Bitmasks indexed by generationId */
     bitmasks: (number | undefined)[];
-    /** Per-entity tracker state indexed by [generationId][entityId] */
-    trackers: (number[] | undefined)[];
+    /** Per-entity tracker state indexed by [generationId][pageId][offset] */
+    trackers: Uint32Array[][];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     version: number;
-    world: World;
+    ctx: WorldContext;
     parameters: T;
     hash: QueryHash;
     traits: Trait[];
@@ -169,14 +183,15 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
     cleanup: QueryUnsubscriber[];
     addSubscriptions: Set<QuerySubscriber>;
     removeSubscriptions: Set<QuerySubscriber>;
+    layoutCache: QueryLayoutCache | null;
     /** Relation pairs for target-specific queries */
     relationFilters?: ResolvedRelationFilter[];
-    run: (world: World, params: QueryParameter[]) => QueryResult<T>;
+    run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
     add: (entity: Entity) => void;
-    remove: (world: World, entity: Entity) => void;
-    check: (world: World, entity: Entity) => boolean;
+    remove: (ctx: WorldContext, entity: Entity) => void;
+    check: (ctx: WorldContext, entity: Entity) => boolean;
     checkTracking: (
-        world: World,
+        ctx: WorldContext,
         entity: Entity,
         eventType: 'add' | 'remove' | 'change',
         generationId: number,

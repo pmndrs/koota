@@ -20,38 +20,42 @@ import type {
     TraitValue,
 } from '../trait/types';
 
-export type WorldOptions = {
-    traits?: ConfigurableTrait[];
-    lazy?: boolean;
-};
-
-export type WorldInternal = {
+export type WorldContext = {
     entityIndex: ReturnType<typeof createEntityIndex>;
-    entityMasks: number[][];
+    entityMasks: Uint32Array[][];
     entityTraits: Map<number, Set<Trait>>;
     bitflag: number;
     traitInstances: (TraitInstance | undefined)[];
+    traits: Set<Trait>;
     relations: Set<Relation<Trait>>;
     queriesHashMap: Map<string, QueryInstance>;
     queryInstances: (QueryInstance | undefined)[];
     actionInstances: (ActionInstance | undefined)[];
     notQueries: Set<QueryInstance>;
     dirtyQueries: Set<QueryInstance>;
-    dirtyMasks: Map<number, number[][]>;
-    trackingSnapshots: Map<number, number[][]>;
-    changedMasks: Map<number, number[][]>;
+    dirtyMasks: Map<number, Uint32Array[][]>;
+    trackingSnapshots: Map<number, Uint32Array[][]>;
+    changedMasks: Map<number, Uint32Array[][]>;
     worldEntity: Entity;
     trackedTraits: Set<Trait>;
-    resetSubscriptions: Set<(world: World) => void>;
+    resetSubscriptions: Set<() => void>;
+    entitySpawnSubscriptions: Set<(entity: Entity) => void>;
+    entityDestroySubscriptions: Set<(entity: Entity) => void>;
+    traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
+    /** Whether this world has been lazily registered in the universe. */
+    isRegistered: boolean;
+    /** Pending initial traits to apply on first registration. */
+    pendingTraits: ConfigurableTrait[] | undefined;
+    /** FR cleanup token (shared ownedPages with entityIndex). */
+    cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
 };
 
 export type World = {
     readonly id: number;
-    readonly isInitialized: boolean;
+    readonly isRegistered: boolean;
     readonly entities: Entity[];
     readonly traits: Set<Trait>;
-    [$internal]: WorldInternal;
-    init(...traits: ConfigurableTrait[]): void;
+    [$internal]: WorldContext;
     spawn(...traits: ConfigurableTrait[]): Entity;
     has(entity: Entity): boolean;
     has(trait: Trait): boolean;
@@ -121,4 +125,7 @@ export type World = {
         input: Trait | Relation<Trait> | RelationPair,
         callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber;
+    onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber;
+    onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber;
+    onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber;
 };

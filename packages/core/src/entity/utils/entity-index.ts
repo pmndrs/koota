@@ -1,107 +1,138 @@
+import type { WorldContext } from '../../world/types';
 import type { Entity } from '../types';
 import {
+    GENERATION_MASK,
+    PAGE_SIZE,
     getEntityGeneration,
     getEntityId,
-    getEntityWorldId,
-    incrementGeneration,
     packEntity,
 } from './pack-entity';
+import type { PageAllocator } from './page-allocator';
+import { leasePage } from './page-allocator';
 
 export type EntityIndex = {
     /** The number of currently alive entities. */
     aliveCount: number;
-    /** Array of packed entities, densely packed. */
+    /** Dense list of alive packed entities. */
     dense: Entity[];
-    /** Sparse array mapping entity IDs to their index in the dense array. */
+    /** Sparse: entityId -> index in dense (or undefined). */
     sparse: number[];
-    /** The highest entity ID that has been assigned. */
-    maxId: number;
-    /** The current world ID. */
-    worldId: number;
+    /** Dense list of leased page IDs. */
+    ownedPages: number[];
+    /** Per-page cursor: next fresh offset to allocate from (parallel to ownedPages). */
+    pageCursors: number[];
+    /** Index into ownedPages of the page we're currently filling. */
+    currentPageIdx: number;
+    /** Reference to the global page allocator. */
+    allocator: PageAllocator;
+    /** The owning WorldContext (for page leasing). */
+    owner: WorldContext;
 };
 
-/**
- * Creates and initializes a new EntityIndex.
- * @param worldId - The ID of the world this index belongs to.
- * @returns A new EntityIndex object.
- */
-export const createEntityIndex = (worldId: number): EntityIndex => ({
+export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext): EntityIndex => ({
     aliveCount: 0,
     dense: [],
     sparse: [],
-    maxId: 0,
-    worldId,
+    ownedPages: [],
+    pageCursors: [],
+    currentPageIdx: -1,
+    allocator,
+    owner,
 });
 
-/**
- * Adds a new entity ID to the index or recycles an existing one.
- * @param index - The EntityIndex to add to.
- * @returns The new or recycled packed entity.
- */
 export const allocateEntity = (index: EntityIndex): Entity => {
-    if (index.aliveCount < index.dense.length) {
-        // Recycle entity
-        const recycledEntity = incrementGeneration(index.dense[index.aliveCount]);
-        index.dense[index.aliveCount] = recycledEntity;
-        index.sparse[getEntityId(recycledEntity)] = index.aliveCount;
-        index.aliveCount++;
+    const allocator = index.allocator;
+    let entity: Entity;
+    let entityId: number;
 
-        return recycledEntity;
+    if (index.aliveCount < index.dense.length) {
+        // Recycle: dense[aliveCount] already has the pre-packed entity with bumped gen
+        // (written by releaseEntity). No TypedArray reads needed.
+        entity = index.dense[index.aliveCount];
+        entityId = getEntityId(entity);
+    } else {
+        // Fresh allocation from page cursor.
+        if (index.currentPageIdx === -1 || index.pageCursors[index.currentPageIdx] >= PAGE_SIZE) {
+            const pid = leasePage(allocator, index.owner);
+            index.ownedPages.push(pid);
+            index.pageCursors.push(0);
+            index.currentPageIdx = index.ownedPages.length - 1;
+        }
+
+        const pid = index.ownedPages[index.currentPageIdx];
+        const offset = index.pageCursors[index.currentPageIdx]++;
+        entityId = pid * PAGE_SIZE + offset;
+        // Read gen from TypedArray — handles re-leased pages where gen > 0.
+        const gen = allocator.generations[entityId >>> 10]![offset];
+        entity = packEntity(gen, entityId);
     }
-    // Create new entity
-    const id = index.maxId++;
-    const entity = packEntity(index.worldId, 0, id);
-    index.dense.push(entity);
-    index.sparse[id] = index.aliveCount;
+
+    allocator.pageAliveCounts[entityId >>> 10]++;
+
+    const denseIdx = index.aliveCount;
+    index.sparse[entityId] = denseIdx;
+    if (denseIdx < index.dense.length) {
+        index.dense[denseIdx] = entity;
+    } else {
+        index.dense.push(entity);
+    }
     index.aliveCount++;
 
     return entity;
 };
 
-/**
- * Removes an entity ID from the index.
- * @param index - The EntityIndex to remove from.
- * @param entity - The packed entity to remove.
- */
 export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
-    const id = getEntityId(entity);
-    const denseIndex = index.sparse[id];
-    if (denseIndex === undefined || denseIndex >= index.aliveCount) return;
+    const entityId = getEntityId(entity);
+    const denseIdx = index.sparse[entityId];
+    if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
 
-    const lastIndex = index.aliveCount - 1;
-    const lastEntity = index.dense[lastIndex];
+    const allocator = index.allocator;
+    const pageId = entityId >>> 10;
+    const offset = entityId & 1023;
+
+    allocator.pageAliveCounts[pageId]--;
+
+    // Bump generation and persist to both dense (for fast recycle) and TypedArray (for page re-lease safety).
+    const nextGen = (getEntityGeneration(entity) + 1) & GENERATION_MASK;
+    allocator.generations[pageId]![offset] = nextGen;
+    const deadEntry = packEntity(nextGen, entityId);
+
+    // Swap with last alive in dense array.
+    const lastIdx = index.aliveCount - 1;
+    const lastEntity = index.dense[lastIdx];
     const lastId = getEntityId(lastEntity);
 
-    // Swap with the last element
-    index.sparse[lastId] = denseIndex;
-    index.dense[denseIndex] = lastEntity;
-    // Update the removed entity's record
-    index.sparse[id] = lastIndex;
-    index.dense[lastIndex] = entity;
+    index.sparse[lastId] = denseIdx;
+    index.dense[denseIdx] = lastEntity;
+    index.sparse[entityId] = lastIdx;
+    index.dense[lastIdx] = deadEntry;
     index.aliveCount--;
 };
 
-/**
- * Checks if an entity ID is currently alive in the index.
- * @param index - The EntityIndex to check.
- * @param entity - The packed entity to check.
- * @returns True if the entity is alive, false otherwise.
- */
 export const isEntityAlive = /* @inline @pure */ (index: EntityIndex, entity: Entity): boolean => {
-    const denseIndex = index.sparse[getEntityId(entity)];
-    if (denseIndex === undefined || denseIndex >= index.aliveCount) return false;
-    const storedEntity = index.dense[denseIndex];
-    return (
-        getEntityGeneration(entity) === getEntityGeneration(storedEntity) &&
-        getEntityWorldId(entity) === index.worldId
-    );
+    const entityId = getEntityId(entity);
+    const denseIdx = index.sparse[entityId];
+    if (denseIdx === undefined || denseIdx >= index.aliveCount) return false;
+    // Generation check is implicit: packed entity includes gen, so strict equality
+    // catches stale handles with outdated generations.
+    return index.dense[denseIdx] === entity;
 };
 
-/**
- * Gets an array of all currently alive entities.
- * @param index - The EntityIndex to get alive entities from.
- * @returns An array of alive entities.
- */
 export const getAliveEntities = (index: EntityIndex): Entity[] => {
     return index.dense.slice(0, index.aliveCount);
 };
+
+/** Release all pages owned by this entity index back to the allocator. */
+export function releaseOwnedPages(index: EntityIndex): void {
+    const allocator = index.allocator;
+    for (const pageId of index.ownedPages) {
+        allocator.pageAliveCounts[pageId] = 0;
+        const gens = allocator.generations[pageId];
+        if (gens) gens.fill(0);
+        allocator.pageOwners[pageId] = null;
+        allocator.freePages.push(pageId);
+    }
+    index.ownedPages.length = 0;
+    index.pageCursors.length = 0;
+    index.currentPageIdx = -1;
+}

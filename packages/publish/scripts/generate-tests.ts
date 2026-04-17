@@ -22,28 +22,49 @@ const PACKAGES = [
     },
 ] as const;
 
+function isTestFile(path: string): boolean {
+    return path.endsWith('.test.ts') || path.endsWith('.test.tsx');
+}
+
+function transformImports(content: string, pkg: (typeof PACKAGES)[number]): string {
+    // Replace imports from other packages with their publish import paths.
+    content = content.replace(/from ['"]@koota\/([^'"]+)['"]/g, (_, pkgName) => {
+        const targetPkg = PACKAGES.find((p) => p.name === pkgName);
+        return targetPkg ? `from '${targetPkg.importPath}'` : `from '@koota/${pkgName}'`;
+    });
+
+    // Replace local source imports with the built package entrypoint.
+    return content.replace(/from ['"]\.\.\/src['"]/g, `from '${pkg.importPath}'`);
+}
+
+async function getFiles(dir: string, prefix = ''): Promise<string[]> {
+    const entries = await readdir(join(dir, prefix), { withFileTypes: true });
+    const files = await Promise.all(
+        entries.map(async (entry) => {
+            const relativePath = join(prefix, entry.name);
+            if (entry.isDirectory()) return getFiles(dir, relativePath);
+            return [relativePath];
+        })
+    );
+
+    return files.flat();
+}
+
 async function processPackage(pkg: (typeof PACKAGES)[number]): Promise<number> {
     const sourceDir = join(dirname(require.resolve(pkg.package)), '../tests');
     const targetDir = join(PUBLISH_TESTS_DIR, pkg.name);
 
-    const files = await readdir(sourceDir);
-    const testFiles = files.filter((file) => file.endsWith('.test.ts') || file.endsWith('.test.tsx'));
+    const files = await getFiles(sourceDir);
+    const testFiles = files.filter(isTestFile);
     if (verbose) console.log(`\n> Found ${testFiles.length} ${pkg.name} test files to process`);
 
-    for (const file of testFiles) {
+    for (const file of files) {
         const sourcePath = join(sourceDir, file);
         const targetPath = join(targetDir, file);
+        await mkdir(dirname(targetPath), { recursive: true });
 
         let content = await readFile(sourcePath, 'utf-8');
-
-        // Replace imports from other packages with their import paths
-        content = content.replace(/from ['"]@koota\/([^'"]+)['"]/g, (_, pkgName) => {
-            const targetPkg = PACKAGES.find((p) => p.name === pkgName);
-            return targetPkg ? `from '${targetPkg.importPath}'` : `from '@koota/${pkgName}'`;
-        });
-
-        // Replace local src imports with package's import path
-        content = content.replace(/from ['"]\.\.\/src['"]/g, `from '${pkg.importPath}'`);
+        content = transformImports(content, pkg);
 
         await writeFile(targetPath, content);
         if (verbose) console.log(`  ✓ ${pkg.name}/${file}`);

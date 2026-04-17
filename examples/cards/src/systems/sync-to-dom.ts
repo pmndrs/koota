@@ -10,7 +10,7 @@ export function syncToDOM(world: World) {
      */
     world
         .query(Card, Position, Rotation, Scale, Ref, ZIndex)
-        .updateEach(([card, position, rotation, scale, ref, zIndex], entity) => {
+        .updateEach(([_card, position, rotation, scale, ref, zIndex], entity) => {
             if (!ref) return;
 
             const isDragging = entity.has(Dragging);
