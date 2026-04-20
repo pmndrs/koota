@@ -22,6 +22,21 @@ export function runDevtoolsHighlightSystem(
 		}
 	}
 
+	// Sync externally-added IsDevtoolsSelected back to devtools nav.
+	const selected = world.query(IsDevtoolsSelected);
+	if (selected.length > 0) {
+		const newest = selected[selected.length - 1];
+		if (newest !== previousSelectedEntityRef.current) {
+			// Remove trait from the old selection
+			const prev = previousSelectedEntityRef.current;
+			if (prev !== null && world.has(prev) && prev !== newest) {
+				prev.remove(IsDevtoolsSelected);
+			}
+			previousSelectedEntityRef.current = newest;
+			setSelectedEntity(newest);
+		}
+	}
+
 	const anyHovered = world.query(IsDevtoolsHovered).length > 0;
 	const anySelected = world.query(IsDevtoolsSelected).length > 0;
 

@@ -1,0 +1,59 @@
+.badge {
+	font-size: 7px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 4px;
+	border-radius: 3px;
+	color: var(--k-text-secondary);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.badgeTag {
+	background: rgba(81, 154, 186, 0.16);
+	color: #7fb7d1;
+}
+
+.badgeSoa {
+	background: rgba(97, 175, 134, 0.16);
+	color: #85c79f;
+}
+
+.badgeAos {
+	background: rgba(241, 179, 103, 0.16);
+	color: #e7be81;
+}
+
+.badgeRel {
+	background: rgba(198, 160, 246, 0.16);
+	color: #c6a0f6;
+}
+
+.detailBadge {
+	font-size: 8px;
+	font-weight: 600;
+	text-transform: uppercase;
+	padding: 2px 5px;
+	border-radius: 4px;
+	color: var(--k-text-secondary);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.detailBadgeTag {
+	background: rgba(81, 154, 186, 0.16);
+	color: #7fb7d1;
+}
+
+.detailBadgeSoa {
+	background: rgba(97, 175, 134, 0.16);
+	color: #85c79f;
+}
+
+.detailBadgeAos {
+	background: rgba(241, 179, 103, 0.16);
+	color: #e7be81;
+}
+
+.detailBadgeRel {
+	background: rgba(198, 160, 246, 0.16);
+	color: #c6a0f6;
+}

@@ -107,6 +107,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     const world = {
         [$internal]: {
+            world: null! as World,
             entityIndex: null! as ReturnType<typeof createEntityIndex>,
             entityMasks: [createEmptyMaskGeneration()],
             entityTraits: new Map(),
@@ -444,6 +445,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             return () => ctx.traitRegisteredSubscriptions.delete(callback);
         },
     } as World;
+
+    world[$internal].world = world;
 
     // Initialize entity index.
     world[$internal].entityIndex = createEntityIndex(universe.pageAllocator, world[$internal]);

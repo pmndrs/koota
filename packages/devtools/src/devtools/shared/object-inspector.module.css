@@ -1,0 +1,90 @@
+.inspector {
+    font-family: inherit;
+    font-size: 10px;
+    line-height: 1.4;
+    user-select: text;
+    color: var(--text-secondary);
+    width: 100%;
+}
+
+.inspector ::selection {
+    background: rgba(100, 108, 255, 0.6);
+    color: #ffffff;
+    border-radius: 2px;
+    padding: 1px 2px;
+}
+
+.row {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    cursor: default;
+    padding: 0;
+    border-radius: 2px;
+}
+
+.row:hover {
+    background-color: var(--bg-hover);
+}
+
+.arrow {
+    display: inline-block;
+    width: 12px;
+    font-size: 9px;
+    text-align: center;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.arrowPlaceholder {
+    display: inline-block;
+    width: 12px;
+    flex-shrink: 0;
+}
+
+.name {
+    color: var(--accent-blue);
+    flex-shrink: 0;
+}
+
+.valueString {
+    color: var(--accent-blue);
+}
+.valueNumber {
+    color: var(--accent-blue);
+}
+.valueBoolean {
+    color: var(--accent-blue);
+}
+.valueNull,
+.valueUndefined {
+    color: var(--text-muted);
+    font-style: italic;
+}
+.valueFunction {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+.valueArray {
+    color: var(--text-secondary);
+}
+.valueObject {
+    color: var(--text-secondary);
+}
+.valueDefault {
+    color: var(--text-secondary);
+}
+
+.preview {
+    color: var(--text-muted);
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 400px;
+    display: inline-block;
+    vertical-align: bottom;
+    opacity: 0.7;
+}

@@ -1,15 +1,47 @@
 // Based on work by Hendrik Mans: https://github.com/hmans/miniplex/tree/main/apps/demo
 
 import { PerspectiveCamera } from '@react-three/drei';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Not, type Entity } from 'koota';
-import { useHas, useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
+import { IsDevtoolsHovered, IsDevtoolsInspecting, IsDevtoolsSelected } from 'koota/devtools';
+import { useHas, useQuery, useQueryFirst, useTraitEffect, useWorld } from 'koota/react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Frameloop } from './frameloop';
 import { Startup } from './startup';
 import { Bullet, Explosion, Input, IsEnemy, IsPlayer, IsShieldVisible, Transform } from './traits';
 import { Devtools } from 'koota/devtools/react';
+
+const selectionCircle = new THREE.RingGeometry(0.8, 1.1, 48);
+selectionCircle.rotateX(-Math.PI / 2);
+
+function SelectionRing({ color = '#44ccff', opacity = 0.7, radius = 1.2 }: {
+    color?: THREE.ColorRepresentation;
+    opacity?: number;
+    radius?: number;
+}) {
+    const ref = useRef<THREE.Mesh>(null);
+    const parentQuatInv = useMemo(() => new THREE.Quaternion(), []);
+
+    useFrame(({ camera }) => {
+        if (!ref.current?.parent) return;
+        ref.current.parent.getWorldQuaternion(parentQuatInv).invert();
+        ref.current.quaternion.copy(parentQuatInv).multiply(camera.quaternion);
+    });
+
+    return (
+        <mesh ref={ref} renderOrder={999} scale={radius}>
+            <ringGeometry args={[0.7, 1, 48]} />
+            <meshBasicMaterial
+                color={color}
+                transparent
+                opacity={opacity}
+                depthTest={false}
+                side={THREE.DoubleSide}
+            />
+        </mesh>
+    );
+}
 
 export function App() {
     const world = useWorld();
@@ -43,8 +75,12 @@ function EnemyRenderer() {
 }
 
 const EnemyView = ({ entity }: { entity: Entity }) => {
+    const world = useWorld();
     const groupRef = useRef<THREE.Group>(null);
     const scaleRef = useRef(0);
+    const isHovered = useHas(entity, IsDevtoolsHovered);
+    const isSelected = useHas(entity, IsDevtoolsSelected);
+    const isInspecting = useHas(world, IsDevtoolsInspecting);
 
     const handleInit = useCallback(
         (group: THREE.Group | null) => {
@@ -69,12 +105,31 @@ const EnemyView = ({ entity }: { entity: Entity }) => {
         groupRef.current.scale.setScalar(eased);
     });
 
+    const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+        if (!isInspecting) return;
+        e.stopPropagation();
+        if (!entity.isAlive()) return;
+        if (isSelected) entity.remove(IsDevtoolsSelected);
+        else entity.add(IsDevtoolsSelected);
+    }, [entity, isSelected, isInspecting]);
+
     return (
         <group ref={handleInit}>
-            <mesh>
+            <mesh
+                onClick={handleClick}
+                onPointerOver={(e) => { if (!isInspecting) return; e.stopPropagation(); if (entity.isAlive()) entity.add(IsDevtoolsHovered); }}
+                onPointerOut={() => { if (!isInspecting) return; if (entity.isAlive()) entity.remove(IsDevtoolsHovered); }}
+            >
                 <dodecahedronGeometry />
                 <meshBasicMaterial color="white" wireframe />
             </mesh>
+            {(isSelected || isHovered) && (
+                <SelectionRing
+                    color={isSelected ? '#44ccff' : '#ffa500'}
+                    opacity={1}
+                    radius={1.4}
+                />
+            )}
         </group>
     );
 };
@@ -85,7 +140,11 @@ function PlayerRenderer() {
 }
 
 const PlayerView = ({ entity }: { entity: Entity }) => {
+    const world = useWorld();
     const [isThrusting, setIsThrusting] = useState(false);
+    const isHovered = useHas(entity, IsDevtoolsHovered);
+    const isSelected = useHas(entity, IsDevtoolsSelected);
+    const isInspecting = useHas(world, IsDevtoolsInspecting);
 
     useTraitEffect(entity, Input, (input) => {
         if (input && input.length() > 0) setIsThrusting(true);
@@ -107,12 +166,31 @@ const PlayerView = ({ entity }: { entity: Entity }) => {
         [entity]
     );
 
+    const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+        if (!isInspecting) return;
+        e.stopPropagation();
+        if (!entity.isAlive()) return;
+        if (isSelected) entity.remove(IsDevtoolsSelected);
+        else entity.add(IsDevtoolsSelected);
+    }, [entity, isSelected, isInspecting]);
+
     return (
         <group ref={handleInit}>
-            <mesh>
+            <mesh
+                onClick={handleClick}
+                onPointerOver={(e) => { if (!isInspecting) return; e.stopPropagation(); if (entity.isAlive()) entity.add(IsDevtoolsHovered); }}
+                onPointerOut={() => { if (!isInspecting) return; if (entity.isAlive()) entity.remove(IsDevtoolsHovered); }}
+            >
                 <boxGeometry />
                 <meshBasicMaterial color="orange" wireframe />
             </mesh>
+            {(isSelected || isHovered) && (
+                <SelectionRing
+                    color={isSelected ? '#44ccff' : '#ffa500'}
+                    opacity={1}
+                    radius={1.4}
+                />
+            )}
             {isThrusting && <ThrusterView />}
             {isShieldVisible && <ShieldView />}
         </group>
@@ -133,7 +211,6 @@ function ThrusterView() {
 
     useFrame(({ clock }) => {
         if (!meshRef.current) return;
-        // Create a pulsing effect by using a sine wave
         const scale = 0.8 + Math.sin(clock.elapsedTime * 10) * 0.2;
         meshRef.current.scale.setY(scale);
         meshRef.current.position.y = -(1 - scale) / 2;
@@ -167,7 +244,6 @@ function ExplosionView({ entity }: { entity: Entity }) {
         [entity]
     );
 
-    // Create particles once with their initial state
     const particles = useMemo(() => {
         const velocities = entity.get(Explosion)!.velocities;
         const randomOffset = Math.random() * Math.PI * 2;
@@ -217,6 +293,11 @@ function BulletRenderer() {
 }
 
 const BulletView = memo(({ entity }: { entity: Entity }) => {
+    const world = useWorld();
+    const isHovered = useHas(entity, IsDevtoolsHovered);
+    const isSelected = useHas(entity, IsDevtoolsSelected);
+    const isInspecting = useHas(world, IsDevtoolsInspecting);
+
     const handleInit = useCallback(
         (group: THREE.Group | null) => {
             if (!entity.isAlive() || !group) return;
@@ -230,12 +311,32 @@ const BulletView = memo(({ entity }: { entity: Entity }) => {
         [entity]
     );
 
+    const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+        if (!isInspecting) return;
+        e.stopPropagation();
+        if (!entity.isAlive()) return;
+        if (isSelected) entity.remove(IsDevtoolsSelected);
+        else entity.add(IsDevtoolsSelected);
+    }, [entity, isSelected, isInspecting]);
+
     return (
         <group ref={handleInit}>
-            <mesh scale={0.2}>
+            <mesh
+                scale={0.2}
+                onClick={handleClick}
+                onPointerOver={(e) => { if (!isInspecting) return; e.stopPropagation(); if (entity.isAlive()) entity.add(IsDevtoolsHovered); }}
+                onPointerOut={() => { if (!isInspecting) return; if (entity.isAlive()) entity.remove(IsDevtoolsHovered); }}
+            >
                 <sphereGeometry />
                 <meshBasicMaterial color="red" wireframe />
             </mesh>
+            {(isSelected || isHovered) && (
+                <SelectionRing
+                    color={isSelected ? '#44ccff' : '#ffa500'}
+                    opacity={1}
+                    radius={0.4}
+                />
+            )}
         </group>
     );
 });

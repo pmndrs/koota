@@ -1,0 +1,142 @@
+.editorGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    font-family: var(--k-font-mono, 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace);
+    font-size: 10px;
+    margin: 4px 0 8px 0;
+}
+
+.aosData {
+    margin: 6px 0 8px 12px;
+}
+
+.editorRow {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    align-items: start;
+    min-height: 28px;
+    gap: 10px;
+    padding: 0 8px;
+    background: var(--k-bg-sub);
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    transition:
+        color 0.1s ease,
+        background 0.12s ease,
+        box-shadow 0.12s ease;
+}
+
+.editorRow:hover {
+    background: var(--bg-hover);
+    color: var(--k-text-primary);
+}
+
+.editorRow:focus-within {
+    background: var(--bg-active);
+    box-shadow: inset 0 0 0 1px rgba(81, 154, 186, 0.22);
+}
+
+.editorKey {
+    color: var(--k-text-muted);
+    font-weight: 500;
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+}
+
+.editorValue {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-width: 0;
+    min-height: 28px;
+    padding: 0;
+}
+
+.editorValueExpanded {
+    align-items: stretch;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.input {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: inherit;
+    padding: 0;
+    margin: 0;
+    outline: none;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.4;
+}
+
+.input[type='text'] {
+    text-align: right;
+}
+
+.inspectorValue {
+    width: 100%;
+    min-width: 0;
+}
+
+.input:focus {
+    color: var(--k-text-primary);
+}
+
+.input::selection {
+    background: rgba(81, 154, 186, 0.35);
+    color: #ffffff;
+    border-radius: 2px;
+}
+
+/* Hide number spinners */
+.input::-webkit-outer-spin-button,
+.input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.checkbox {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    accent-color: var(--accent-blue);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.readonly {
+    font-size: 10px;
+    color: var(--k-text-muted);
+    font-style: italic;
+}
+
+.emptyMessage {
+    padding: 6px 8px;
+    font-size: 10px;
+    color: var(--k-text-muted);
+    font-style: italic;
+    background: var(--k-bg-sub);
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    margin: 4px 0 8px 0;
+}

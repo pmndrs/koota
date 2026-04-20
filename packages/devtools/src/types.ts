@@ -1,5 +1,7 @@
 import { Trait } from '@koota/core';
 
+export type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
+
 export interface SourceInfo {
 	file: string;
 	line: number;

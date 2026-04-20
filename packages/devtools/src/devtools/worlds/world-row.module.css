@@ -1,0 +1,31 @@
+.icon {
+    color: var(--accent-blue);
+    flex-shrink: 0;
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 9px;
+    color: var(--text-muted);
+}
+
+.statIcon {
+    opacity: 0.6;
+}

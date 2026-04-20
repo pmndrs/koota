@@ -1,0 +1,9 @@
+.entityIcon {
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.entityName {
+	color: var(--text-secondary);
+	flex: 1;
+}

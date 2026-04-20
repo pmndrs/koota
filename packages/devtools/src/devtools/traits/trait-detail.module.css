@@ -1,0 +1,52 @@
+.detailSource {
+	font-size: 9px;
+	color: var(--k-text-muted);
+	word-break: break-all;
+	text-decoration: none;
+	transition: color 0.15s;
+}
+
+.detailSource:hover {
+	color: var(--accent-blue);
+}
+
+.traitMetaInline {
+	display: flex;
+	gap: 6px;
+	font-size: 9px;
+	color: var(--k-text-dim);
+	align-items: center;
+	opacity: 0.7;
+}
+
+.schemaList {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.schemaRow {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 5px 8px;
+	font-size: 10px;
+	font-family: var(--k-font-mono);
+	background: var(--k-bg-sub);
+	border-radius: 6px;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.schemaKey {
+	color: var(--k-text-muted);
+	flex-shrink: 0;
+}
+
+.schemaValue {
+	color: var(--text-secondary);
+	font-variant-numeric: tabular-nums;
+	font-weight: 500;
+	text-align: right;
+	margin-left: auto;
+}

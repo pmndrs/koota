@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
 import type { World } from '@koota/core';
-import { Editor } from '../devtools/devtools';
+import type { Editor } from '../types';
 
 export interface DevtoolsProps {
-	world: World;
+	/** @deprecated Use `worlds` instead. */
+	world?: World;
+	worlds?: World[];
 	defaultPosition?: { x: number; y: number };
 	defaultOpen?: boolean;
 	editor?: Editor;
@@ -18,7 +20,9 @@ export function Devtools(props: DevtoolsProps) {
 		import('../create-devtools').then(({ createDevtools }) => {
 			if (!isMounted) return;
 
-			const instance = createDevtools(props.world, {
+			const worlds = props.worlds ?? (props.world ? [props.world] : undefined);
+
+			const instance = createDevtools(worlds, {
 				defaultPosition: props.defaultPosition,
 				defaultOpen: props.defaultOpen,
 				editor: props.editor,

@@ -5,3 +5,4 @@ export const IsDevtoolsSelected = trait();
 export const IsDevtoolsHovering = trait();
 export const IsDevtoolsSelecting = trait();
 export const IsDevtoolsHighlighting = trait();
+export const IsDevtoolsInspecting = trait();

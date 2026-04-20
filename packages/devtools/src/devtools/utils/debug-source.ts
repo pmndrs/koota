@@ -1,6 +1,4 @@
-import type { SourceInfo } from '../../types';
-
-type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';
+import type { Editor, SourceInfo } from '../../types';
 
 export function getEditorUrl(
 	editor: Editor,

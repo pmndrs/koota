@@ -21,6 +21,7 @@ import type {
 } from '../trait/types';
 
 export type WorldContext = {
+    world: World;
     entityIndex: ReturnType<typeof createEntityIndex>;
     entityMasks: Uint32Array[][];
     entityTraits: Map<number, Set<Trait>>;
