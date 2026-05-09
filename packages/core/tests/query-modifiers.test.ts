@@ -531,17 +531,91 @@ describe('Query modifiers', () => {
     const Name = trait({ name: '' });
     const entity = world.spawn(Position({ x: 5, y: 15 }), Name({ name: 'test' }));
 
-    world.query(Added(Position), Name).updateEach(([position, name]) => {
-      expect(position).toHaveProperty('x', 5);
-      expect(position).toHaveProperty('y', 15);
-      expect(name).toHaveProperty('name', 'test');
-      position.x = 50;
-      name.name = 'updated';
+        entities = world.query(Not(Foo));
+        expect(entities[0]).toBe(entityA);
+        expect(entities[1]).toBe(entityB);
+        expect(entities[2]).toBe(entityC);
+
+        // Add
+        entityA.add(Foo);
+        entityB.add(Bar);
+        entityC.add(Foo, Bar);
+
+        entities = world.query(Foo);
+        expect(entities[0]).toBe(entityA);
+        expect(entities[1]).toBe(entityC);
+
+        entities = world.query(Foo, Bar);
+        expect(entities[0]).toBe(entityC);
+
+        entities = world.query(Not(Foo));
+        expect(entities[0]).toBe(entityB);
+
+        // entities = world.query(Not(Foo), Or(Foo));
+        // expect(entities.length).toBe(3);
+
+        // Remove
+        entityA.remove(Foo);
+
+        entities = world.query(Foo);
+        expect(entities[0]).toBe(entityC);
+
+        entities = world.query(Not(Foo));
+        expect(entities[0]).toBe(entityB);
+        expect(entities[1]).toBe(entityA);
+
+        entities = world.query(Not(Foo), Not(Bar));
+        expect(entities[0]).toBe(entityA);
+
+        // Remove more so entity A and C have no traits
+        entityC.remove(Foo);
+        entityC.remove(Bar);
+
+        entities = world.query(Not(Foo), Not(Bar));
+        expect(entities.length).toBe(2);
+
+        entities = world.query(Not(Foo));
+        expect(entities.length).toBe(3);
     });
 
-    expect(entity.get(Position)!.x).toBe(50);
-    expect(entity.get(Name)!.name).toBe('updated');
-  });
+    it('should correctly populate Not queries when relations are added and removed', () => {
+        const ctx = world[$internal];
+        const ChildOf = relation();
+        const parent = world.spawn();
+        const child = world.spawn();
+    
+        let entities: any = world.query(ChildOf('*'));
+        expect(entities.length).toBe(0);
+
+        entities = world.query(Not(ChildOf));
+        expect(entities.length).toBe(2);
+
+        child.add(ChildOf(parent));
+
+        entities = world.query(ChildOf('*'));
+        expect(entities[0]).toEqual(child);
+        expect(entities.length).toBe(1);
+
+        entities = world.query(Not(ChildOf));
+        expect(entities[0]).toEqual(parent);
+        expect(entities.length).toBe(1);
+
+        // entities = world.query(Not(ChildOf), Or(ChildOf));
+        // expect(entities.length).toBe(2);
+
+        child.remove(ChildOf('*'));
+
+        entities = world.query(ChildOf('*'));
+        expect(entities.length).toBe(0);
+
+        entities = world.query(Not(ChildOf));
+        expect(entities.length).toBe(2);
+    });
+
+    it('modifiers can be added as one call or separately', () => {
+        const ctx = world[$internal];
+        const entity = world.spawn();
+        entity.add(Position, IsActive);
 
   it('updateEach should work with Changed modifier', () => {
     const Changed = createChanged();

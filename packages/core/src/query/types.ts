@@ -3,12 +3,13 @@ import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory } from '../storage';
 import type {
-  ExtractSchema,
-  ExtractStore,
-  IsTag,
-  Trait,
-  TraitInstance,
-  TraitRecord,
+    ExtractSchema,
+    ExtractStore,
+    IsTag,
+    Trait,
+    TraitOrRelation,
+    TraitInstance,
+    TraitRecord,
 } from '../trait/types';
 import type { WorldContext } from '../world';
 import { $modifier } from './modifier';
@@ -115,7 +116,7 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
 };
 
 /** Parameter types that can be passed to Or modifier */
-export type OrParameter = Trait | Modifier;
+export type OrParameter = TraitOrRelation | Modifier;
 
 /** Or modifier that can contain both traits and nested modifiers */
 export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
