@@ -35,6 +35,9 @@ yarn-error.log*
 # dist
 dist
 
+# svelte-kit
+.svelte-kit
+
 # react
 packages/publish/react/
 
