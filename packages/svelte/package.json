@@ -1,0 +1,75 @@
+{
+  "name": "@koota/svelte",
+  "version": "0.0.1",
+  "description": "Svelte bindings for Koota - ECS-based state management for real-time apps, games, and XR",
+  "license": "ISC",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pmndrs/koota",
+    "directory": "packages/svelte"
+  },
+  "homepage": "https://github.com/pmndrs/koota/tree/main/packages/svelte#readme",
+  "bugs": {
+    "url": "https://github.com/pmndrs/koota/issues"
+  },
+  "keywords": [
+    "svelte",
+    "ecs",
+    "state-management",
+    "koota",
+    "entity-component-system",
+    "gamedev",
+    "xr",
+    "realtime"
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "svelte": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "svelte": "./dist/index.js",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "svelte-package -i src",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "lint": "oxlint && svelte-check --fail-on-warnings"
+  },
+  "dependencies": {
+    "@koota/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@config/oxlint": "workspace:*",
+    "@config/typescript": "workspace:*",
+    "@sveltejs/package": "^2.5.7",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@testing-library/svelte": "^5.3.1",
+    "jsdom": "^29.0.2",
+    "svelte": "^5.55.2",
+    "svelte-check": "^4.4.6",
+    "typescript": "^6.0.2",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "svelte": ">=5"
+  }
+}
