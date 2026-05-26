@@ -43,9 +43,11 @@ export function useQuery<T extends QueryParameter[]>(
             result = next;
         };
 
-        // Cache invalidation: addEntityToQuery fires subscriptions BEFORE
-        // bumping query.version, so the cache version check would incorrectly
-        // hit on the stale (pre-bump) version. Force a fresh recompute.
+        /**
+         * Cache invalidation: addEntityToQuery fires subscriptions before
+         * bumping query.version, so the cache version check would incorrectly
+         * hit on the stale (pre-bump) version. Force a fresh recompute.
+         */
         const onChange = () => {
             cache = null;
             refresh();

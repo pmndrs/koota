@@ -24,8 +24,10 @@ export function useTraitEffect<T extends Trait>(
 
         let entity: Entity;
 
-        // Subscribe before reading worldEntity: world.onChange triggers lazy
-        // registration so worldEntity is guaranteed to exist after this.
+        /**
+         * Subscribe before reading worldEntity: world.onChange triggers lazy
+         * registration so worldEntity is guaranteed to exist after this.
+         */
         const onChangeUnsub = world.onChange(resolvedTrait, (e) => {
             if (e === entity) callback(e.get(resolvedTrait));
         });
