@@ -24,8 +24,10 @@ export function useTag(
 
         let entity: Entity;
 
-        // Subscribe before reading worldEntity: world.onAdd triggers lazy
-        // registration so worldEntity is guaranteed to exist after this.
+        /**
+         * Subscribe before reading worldEntity: world.onAdd triggers lazy
+         * registration so worldEntity is guaranteed to exist after this.
+         */
         const onAddUnsub = world.onAdd(resolvedTag, (e) => {
             if (e === entity) value = true;
         });
