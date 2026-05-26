@@ -21,10 +21,11 @@ export function useTag(
 
         const resolvedTag = resolve(tag);
         const world = isWorld(t) ? t : contextWorld;
-        const entity = isWorld(t) ? t[internal].worldEntity : t;
 
-        value = entity.has(resolvedTag);
+        let entity: Entity;
 
+        // Subscribe before reading worldEntity: world.onAdd triggers lazy
+        // registration so worldEntity is guaranteed to exist after this.
         const onAddUnsub = world.onAdd(resolvedTag, (e) => {
             if (e === entity) value = true;
         });
@@ -32,6 +33,9 @@ export function useTag(
         const onRemoveUnsub = world.onRemove(resolvedTag, (e) => {
             if (e === entity) value = false;
         });
+
+        entity = isWorld(t) ? t[internal].worldEntity : t;
+        value = entity.has(resolvedTag);
 
         return () => {
             onAddUnsub();
