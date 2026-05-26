@@ -18,22 +18,55 @@ export function useQuery<T extends QueryParameter[]>(
     let result = $state.raw<QueryResult<T>>([] as unknown as QueryResult<T>);
     let resetCount = $state(0);
 
+    let cache: { hash: string; version: number; result: QueryResult<T> } | null = null;
+
     $effect(() => {
         // Track resetCount so the effect re-runs on world reset
         void resetCount;
 
         const queryRef = createQuery(...getParams());
 
-        result = world.query(queryRef).sort();
+        const refresh = () => {
+            const query = world[internal].queriesHashMap.get(queryRef.hash);
 
-        const update = () => {
-            result = world.query(queryRef).sort();
+            if (query && cache?.hash === queryRef.hash && cache.version === query.version) {
+                result = cache.result;
+                return;
+            }
+
+            const next = world.query(queryRef).sort();
+            const registered = world[internal].queriesHashMap.get(queryRef.hash);
+
+            if (registered) {
+                cache = { hash: queryRef.hash, version: registered.version, result: next };
+            }
+            result = next;
         };
 
-        const unsubAdd = world.onQueryAdd(queryRef, update);
-        const unsubRemove = world.onQueryRemove(queryRef, update);
+        // Cache invalidation: addEntityToQuery fires subscriptions BEFORE
+        // bumping query.version, so the cache version check would incorrectly
+        // hit on the stale (pre-bump) version. Force a fresh recompute.
+        const onChange = () => {
+            cache = null;
+            refresh();
+        };
+
+        refresh();
+
+        const unsubAdd = world.onQueryAdd(queryRef, onChange);
+        const unsubRemove = world.onQueryRemove(queryRef, onChange);
+
+        /**
+         * Catch query updates that happened between the initial read and
+         * subscription attachment
+         */
+        const queryNow = world[internal].queriesHashMap.get(queryRef.hash);
+        if (queryNow && cache && queryNow.version !== cache.version) {
+            refresh();
+        }
 
         const handleReset = () => {
+            cache = null;
             resetCount++;
         };
 

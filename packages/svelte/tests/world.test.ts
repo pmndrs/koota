@@ -20,6 +20,7 @@ describe('World', () => {
         });
 
         expect(worldTest).toBeDefined();
-        expect(worldTest!.isInitialized).toBe(true);
+        worldTest!.spawn();
+        expect(worldTest!.isRegistered).toBe(true);
     });
 });

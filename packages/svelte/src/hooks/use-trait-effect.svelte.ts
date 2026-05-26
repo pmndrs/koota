@@ -21,8 +21,11 @@ export function useTraitEffect<T extends Trait>(
         const t = target();
         const resolvedTrait = resolve(trait);
         const world = isWorld(t) ? t : contextWorld;
-        const entity = isWorld(t) ? t[internal].worldEntity : t;
 
+        let entity: Entity;
+
+        // Subscribe before reading worldEntity: world.onChange triggers lazy
+        // registration so worldEntity is guaranteed to exist after this.
         const onChangeUnsub = world.onChange(resolvedTrait, (e) => {
             if (e === entity) callback(e.get(resolvedTrait));
         });
@@ -35,6 +38,7 @@ export function useTraitEffect<T extends Trait>(
             if (e === entity) callback(undefined);
         });
 
+        entity = isWorld(t) ? t[internal].worldEntity : t;
         callback(entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined);
 
         return () => {

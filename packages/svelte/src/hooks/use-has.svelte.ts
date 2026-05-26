@@ -34,9 +34,9 @@ export function useHas(
         // we check targetsFor().length > 1 (the removed target is still counted).
         const isWildcard =
             !!(resolvedTrait as any)?.[relationPair] &&
-            (resolvedTrait as RelationPair)[internal].target === '*';
+            (resolvedTrait as RelationPair).target === '*';
         const wildcardRelation = isWildcard
-            ? (resolvedTrait as RelationPair)[internal].relation
+            ? (resolvedTrait as RelationPair).relation
             : undefined;
 
         value = entity.has(resolvedTrait);
