@@ -1,11 +1,11 @@
 import {
-    $internal,
-    shallowEqual,
-    type Entity,
-    type RelationPair,
-    type Trait,
-    type TraitRecord,
-    type World,
+  $internal,
+  shallowEqual,
+  type Entity,
+  type RelationPair,
+  type Trait,
+  type TraitRecord,
+  type World,
 } from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { isWorld } from '../utils/is-world';
@@ -22,79 +22,79 @@ import { useWorld } from '../world/use-world';
  */
 
 export function useTrait<T extends Trait>(
-    target: Entity | World | undefined | null,
-    trait: T | RelationPair<T>
+  target: Entity | World | undefined | null,
+  trait: T | RelationPair<T>
 ): TraitRecord<T> | undefined {
-    const contextWorld = useWorld();
-    const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-    const valueRef = useRef<TraitRecord<T> | undefined>(undefined);
-    const memoRef = useRef<ReturnType<typeof createSubscriptions<T>> | undefined>(undefined);
-    const stableTrait = useStableTrait(trait);
+  const contextWorld = useWorld();
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  const valueRef = useRef<TraitRecord<T> | undefined>(undefined);
+  const memoRef = useRef<ReturnType<typeof createSubscriptions<T>> | undefined>(undefined);
+  const stableTrait = useStableTrait(trait);
 
-    const memo = useMemo(
-        () => (target ? createSubscriptions(target, stableTrait, contextWorld) : undefined),
-        [target, stableTrait, contextWorld]
-    );
+  const memo = useMemo(
+    () => (target ? createSubscriptions(target, stableTrait, contextWorld) : undefined),
+    [target, stableTrait, contextWorld]
+  );
 
-    // Reads the trait value synchronously
-    if (memoRef.current !== memo) {
-        memoRef.current = memo;
-        valueRef.current = memo?.entity.has(stableTrait) ? memo.entity.get(stableTrait) : undefined;
-    }
+  // Reads the trait value synchronously
+  if (memoRef.current !== memo) {
+    memoRef.current = memo;
+    valueRef.current = memo?.entity.has(stableTrait) ? memo.entity.get(stableTrait) : undefined;
+  }
 
-    useEffect(() => {
-        if (!memo) return;
+  useEffect(() => {
+    if (!memo) return;
 
-        let initialized = false;
-        const unsub = memo.subscribe((value) => {
-            if (!initialized) {
-                // Skip the initial sync call if the value is the same
-                // reference already read during render.
-                initialized = true;
-                if (shallowEqual(value, valueRef.current)) return;
-            }
-            valueRef.current = value;
-            forceUpdate();
-        });
+    let initialized = false;
+    const unsub = memo.subscribe((value) => {
+      if (!initialized) {
+        // Skip the initial sync call if the value is the same
+        // reference already read during render.
+        initialized = true;
+        if (shallowEqual(value, valueRef.current)) return;
+      }
+      valueRef.current = value;
+      forceUpdate();
+    });
 
-        return () => unsub();
-    }, [memo]);
+    return () => unsub();
+  }, [memo]);
 
-    return valueRef.current;
+  return valueRef.current;
 }
 
 function createSubscriptions<T extends Trait>(
-    target: Entity | World,
-    trait: T | RelationPair<T>,
-    contextWorld: World
+  target: Entity | World,
+  trait: T | RelationPair<T>,
+  contextWorld: World
 ) {
-    // Use the context world unless the target is a world itself
-    const world = isWorld(target) ? target : contextWorld;
-    const entity = isWorld(target) ? target[$internal].worldEntity : target;
+  // Use the context world unless the target is a world itself
+  const world = isWorld(target) ? target : contextWorld;
+  const entity = isWorld(target) ? target[$internal].worldEntity : target;
 
-    return {
-        entity,
-        subscribe: (setValue: (value: TraitRecord<T> | undefined) => void) => {
-            const onChangeUnsub = world.onChange(trait, (e) => {
-                if (e === entity) setValue(e.get(trait));
-            });
+  return {
+    entity,
+    subscribe: (setValue: (value: TraitRecord<T> | undefined) => void) => {
+      const onChangeUnsub = world.onChange(trait, (e) => {
+        if (e === entity) setValue(e.get(trait));
+      });
 
-            const onAddUnsub = world.onAdd(trait, (e) => {
-                if (e === entity) setValue(e.get(trait));
-            });
+      const onAddUnsub = world.onAdd(trait, (e) => {
+        if (e === entity) setValue(e.get(trait));
+      });
 
-            const onRemoveUnsub = world.onRemove(trait, (e) => {
-                if (e === entity) setValue(undefined);
-            });
+      const onRemoveUnsub = world.onRemove(trait, (e) => {
+        if (e === entity) setValue(undefined);
+      });
 
-            // Set initial value
-            setValue(entity.has(trait) ? entity.get(trait) : undefined);
+      // Set initial value
+      setValue(entity.has(trait) ? entity.get(trait) : undefined);
 
-            return () => {
-                onChangeUnsub();
-                onAddUnsub();
-                onRemoveUnsub();
-            };
-        },
-    };
+      return () => {
+        onChangeUnsub();
+        onAddUnsub();
+        onRemoveUnsub();
+      };
+    },
+  };
 }

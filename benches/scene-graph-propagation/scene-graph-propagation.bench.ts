@@ -10,10 +10,10 @@ import { createSchedule } from './systems/schedule.ts';
  * Each variant is in its own file for process isolation (labs runs each .bench.ts separately).
  */
 group('scene graph propagation: ChildOf exclusive @scene @graph @relation', () => {
-    const ctx = createSceneGraphContext('child-of-exclusive');
-    const schedule = createSchedule(ctx);
+  const ctx = createSceneGraphContext('child-of-exclusive');
+  const schedule = createSchedule(ctx);
 
-    bench(() => {
-        schedule.run({ world: ctx.world });
-    }).gc('inner');
+  bench(() => {
+    schedule.run({ world: ctx.world });
+  }).gc('inner');
 });

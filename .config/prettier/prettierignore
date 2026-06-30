@@ -1,0 +1,7 @@
+package-lock.json
+npm-shrinkwrap.json
+pnpm-lock.yaml
+pnpm-lock.json
+yarn.lock
+bun.lock
+bun.lockb

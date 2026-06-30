@@ -5,26 +5,28 @@
   "license": "ISC",
   "scripts": {
     "bench": "pnpm --filter @koota/benches exec labs",
-    "build": "pnpm -F koota build",
+    "build": "pnpm --filter './packages/*' run build && pnpm --filter './apps/*' run build",
     "examples": "tsx ./scripts/examples.ts",
     "release": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
     "prepublishOnly": "pnpm -F koota build && pnpm -F koota generate-tests",
-    "test": "pnpm -r --filter=!koota test",
+    "test": "pnpm -r run test",
     "test:build": "pnpm prepublishOnly && pnpm -F koota test run",
-    "lint": "pnpm -r lint",
-    "format": "prettier --config .config/prettier/base.json --write .",
-    "typecheck": "pnpm -r --filter './packages/*' --filter '!./packages/publish' exec tsc --noEmit"
+    "lint": "oxlint .",
+    "format": "prettier --config .config/prettier/base.json --ignore-path .config/prettier/prettierignore --write .",
+    "typecheck": "pnpm -r --filter './packages/*' --filter '!./packages/publish' exec tsc --noEmit",
+    "dev": "pnpm --filter './apps/*' run dev"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
-    "oxlint": "^1.36.0",
-    "prettier": "latest",
-    "tsx": "latest",
-    "typescript": "latest"
+    "@types/node": "^24.13.2",
+    "oxlint": "^1.71.0",
+    "oxlint-tsgolint": "^0.22.1",
+    "prettier": "3.9.4",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3"
   },
   "engines": {
     "node": ">=24.2.0",
-    "pnpm": ">=10.12.1"
+    "pnpm": ">=11.0.0"
   },
-  "packageManager": "pnpm@10.32.0"
+  "packageManager": "pnpm@11.9.0"
 }

@@ -1,3 +1,5 @@
+manage-package-manager-versions: true
+
 packages:
   - packages/*
   - examples/*
@@ -20,8 +22,14 @@ catalog:
   vite: ^7.2.4
   vitest: ^4.0.13
 
-manage-package-manager-versions: true
+pmOnFail: download
+
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
 
 onlyBuiltDependencies:
-  - '@swc/core'
   - esbuild
+
+minimumReleaseAgeExclude:
+  - prettier@3.9.4
