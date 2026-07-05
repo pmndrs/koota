@@ -18,7 +18,7 @@ world
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
 ```
 
-Changed detection shallowly compares the scalar values just like React. This means objects and arrays will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually flag that a changed has occured.
+Changed detection shallowly compares the scalar values just like React. This means objects and arrays will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually flag that a change has occurred.
 
 ```js
 // ❌ This change will not be detected since the array is mutated and will pass the comparison
