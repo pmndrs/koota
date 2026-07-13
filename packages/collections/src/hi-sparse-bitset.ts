@@ -215,7 +215,7 @@ export class HiSparseBitSet {
     setRange(start: number, end: number): void {
         if (start >= end) return;
 
-        for (let idx = start; idx < end; ) {
+        for (let idx = start; idx < end;) {
             const l0i = idx >>> 15;
             const l1i = (idx >>> 10) & 31;
             const l2i = (idx >>> 5) & 31;

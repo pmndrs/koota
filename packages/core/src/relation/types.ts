@@ -7,9 +7,7 @@ import { $orderedTargetsTrait, $relation, $relationPair } from './symbols';
 
 export type RelationTarget = Entity | '*';
 export type RelationInputTarget =
-    | RelationTarget
-    | Query<QueryParameter[]>
-    | readonly QueryParameter[];
+    RelationTarget | Query<QueryParameter[]> | readonly QueryParameter[];
 
 export interface ConcreteRelationPair<T extends Trait = Trait> {
     readonly [$relationPair]: true;
