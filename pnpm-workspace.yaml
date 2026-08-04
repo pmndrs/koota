@@ -9,18 +9,18 @@ packages:
 
 catalog:
   '@react-three/drei': ^10.7.7
-  '@react-three/fiber': ^9.6.1
-  '@types/react': ^19.2.17
-  '@types/react-dom': ^19.2.3
-  '@types/three': ^0.185.0
+  '@react-three/fiber': ^9.7.0
+  '@types/react': ^19.2.18
+  '@types/react-dom': ^19.2.4
+  '@types/three': ^0.185.3
   directed: ^0.1.6
   mitata: ^1.0.34
-  react: ^19.2.7
-  react-dom: ^19.2.7
-  three: ^0.181.2
+  react: ^19.2.8
+  react-dom: ^19.2.8
+  three: ^0.185.1
   unplugin-inline-functions: ^0.4.2
-  vite: ^8.1.2
-  vitest: ^4.1.9
+  vite: ^8.2.0
+  vitest: ^4.1.10
 
 pmOnFail: download
 
