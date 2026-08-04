@@ -5,3 +5,4 @@ pnpm-lock.json
 yarn.lock
 bun.lock
 bun.lockb
+dist
