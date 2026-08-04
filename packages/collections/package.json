@@ -8,7 +8,6 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "build": "tsup",
     "test": "vitest --typecheck",
     "bench": "labs"
   },
@@ -18,7 +17,6 @@
   "devDependencies": {
     "@config/oxlint": "workspace:*",
     "@config/typescript": "workspace:*",
-    "tsup": "^8.5.1",
     "vitest": "catalog:"
   }
 }

@@ -32,25 +32,19 @@
     "types": "./dist/index.d.ts",
     "exports": {
       ".": {
-        "types": {
-          "import": "./dist/index.d.ts",
-          "require": "./dist/index.d.cts"
-        },
+        "types": "./dist/index.d.cts",
         "import": "./dist/index.js",
         "require": "./dist/index.cjs"
       },
       "./react": {
-        "types": {
-          "import": "./dist/react.d.ts",
-          "require": "./dist/react.d.cts"
-        },
+        "types": "./dist/react.d.cts",
         "import": "./dist/react.js",
         "require": "./dist/react.cjs"
       }
     }
   },
   "scripts": {
-    "build": "pnpm --filter @koota/collections build && tsup --tsconfig tsconfig.build.json && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/copy-react-files.ts",
+    "build": "tsdown && node --no-warnings scripts/copy-readme.ts",
     "test": "vitest --environment=jsdom",
     "generate-tests": "node scripts/generate-tests.ts"
   },
@@ -61,7 +55,7 @@
     "@testing-library/react": "^16.3.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "tsup": "^8.5.1",
+    "tsdown": "^0.22.14",
     "unplugin-inline-functions": "catalog:",
     "vitest": "catalog:"
   },

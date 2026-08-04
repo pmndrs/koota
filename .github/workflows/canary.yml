@@ -33,11 +33,8 @@ jobs:
           npm --prefix packages/publish pkg set version="${CURRENT}-canary.${SHA}"
           echo "DIST_TAG=canary" >> $GITHUB_ENV
 
-      - name: Build
-        run: pnpm -F koota build
-
-      - name: Test
-        run: pnpm -F koota test run
+      - name: Test publish build
+        run: pnpm test:build
 
       - name: Publish
         run: pnpm -F koota publish --tag ${{ env.DIST_TAG }} --no-git-checks
