@@ -5,16 +5,15 @@
   "license": "ISC",
   "scripts": {
     "bench": "pnpm --filter @koota/benches exec labs",
-    "build": "pnpm --filter './packages/*' run build && pnpm --filter './apps/*' run build",
+    "build": "pnpm -F koota build",
     "examples": "tsx ./scripts/examples.ts",
     "release": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
     "prepublishOnly": "pnpm -F koota build && pnpm -F koota generate-tests",
-    "test": "pnpm -r run test",
+    "test": "pnpm -r --filter=!koota test",
     "test:build": "pnpm prepublishOnly && pnpm -F koota test run",
     "lint": "oxlint .",
     "format": "prettier --config .config/prettier/base.json --ignore-path .config/prettier/prettierignore --write .",
-    "typecheck": "pnpm -r --filter './packages/*' --filter '!./packages/publish' exec tsc --noEmit",
-    "dev": "pnpm --filter './apps/*' run dev"
+    "typecheck": "pnpm -r --filter './packages/*' --filter '!./packages/publish' exec tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
