@@ -1,18 +1,15 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
     "target": "ESNext",
-    "esModuleInterop": true,
-    "allowJs": true,
+    "module": "ESNext",
     "moduleResolution": "bundler",
-    "declaration": true,
-    "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "strict": true,
-    "resolveJsonModule": true,
-    "useDefineForClassFields": true
-  },
-  "exclude": ["dist"]
+    "skipLibCheck": true,
+    "composite": true,
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true
+  }
 }

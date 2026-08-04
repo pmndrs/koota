@@ -32,3 +32,6 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+      - name: Run publish build tests
+        run: pnpm test:build

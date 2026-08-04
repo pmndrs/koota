@@ -1,7 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/prettierrc",
   "printWidth": 102,
-  "tabWidth": 4,
+  "tabWidth": 2,
+  "useTabs": false,
   "semi": true,
   "singleQuote": true,
   "trailingComma": "es5",
@@ -9,20 +10,14 @@
   "arrowParens": "always",
   "overrides": [
     {
-      "files": ["*.json", "**/*.json"],
-      "options": { "tabWidth": 2 }
-    },
-    {
       "files": ["*.md", "**/*.md"],
       "options": {
-        "tabWidth": 2,
         "semi": false
       }
     },
     {
       "files": ["*.yml", "*.yaml", "**/*.yml", "**/*.yaml"],
       "options": {
-        "tabWidth": 2,
         "semi": false
       }
     }
