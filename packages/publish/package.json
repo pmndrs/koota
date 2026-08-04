@@ -32,18 +32,12 @@
     "types": "./dist/index.d.ts",
     "exports": {
       ".": {
-        "types": {
-          "import": "./dist/index.d.ts",
-          "require": "./dist/index.d.cts"
-        },
+        "types": "./dist/index.d.cts",
         "import": "./dist/index.js",
         "require": "./dist/index.cjs"
       },
       "./react": {
-        "types": {
-          "import": "./dist/react.d.ts",
-          "require": "./dist/react.d.cts"
-        },
+        "types": "./dist/react.d.cts",
         "import": "./dist/react.js",
         "require": "./dist/react.cjs"
       }
