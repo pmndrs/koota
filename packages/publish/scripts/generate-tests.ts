@@ -18,7 +18,7 @@ const PACKAGES = [
   {
     name: 'react',
     package: '@koota/react',
-    importPath: '../../react',
+    importPath: '../../dist/react.js',
   },
 ] as const;
 
@@ -56,7 +56,7 @@ async function generateTests() {
   if (verbose) console.log('\n> Preparing to generate tests...');
   try {
     await rm(PUBLISH_TESTS_DIR, { recursive: true, force: true });
-  } catch (_error) {
+  } catch {
     // Ignore if directory doesn't exist
   }
 

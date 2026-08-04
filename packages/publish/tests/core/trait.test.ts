@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorld, type Entity, getStore, trait } from '../../dist';
 
 class TestClass {
-  constructor(public name = 'TestClass') {}
+  public name: string;
+
+  constructor(name = 'TestClass') {
+    this.name = name;
+  }
 }
 
 const Position = trait({ x: 0, y: 0 });

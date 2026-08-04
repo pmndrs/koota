@@ -2,14 +2,14 @@ import { createWorld, universe, type World } from '../../dist';
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useMemo } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useWorld, WorldProvider } from '../../react';
+import { useWorld, WorldProvider } from '../../dist/react.js';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 
 // Let React know that we'll be testing effectful components
-global.IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let world: World;
 
@@ -46,12 +46,13 @@ describe('World', () => {
     let worldTest: World = null!;
 
     function Test() {
-      worldTest = useMemo(() => createWorld({ lazy: true }), []);
+      const lazyWorld = useMemo(() => createWorld({ lazy: true }), []);
+      worldTest = lazyWorld;
 
       useEffect(() => {
-        worldTest.init();
-        return () => worldTest.destroy();
-      }, [worldTest]);
+        lazyWorld.init();
+        return () => lazyWorld.destroy();
+      }, [lazyWorld]);
 
       return null;
     }

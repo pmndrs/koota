@@ -10,14 +10,14 @@ import {
 import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useQuery, WorldProvider } from '../../react';
+import { useQuery, WorldProvider } from '../../dist/react.js';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 
 // Let React know that we'll be testing effectful components
-global.IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let world: World;
 const Position = trait({ x: 0, y: 0 });

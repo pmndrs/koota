@@ -2,13 +2,13 @@ import { createWorld, relation, trait, universe, type Entity, type World } from 
 import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useTarget, useTargets, WorldProvider } from '../../react';
+import { useTarget, useTargets, WorldProvider } from '../../dist/react.js';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 
-global.IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let world: World;
 const Marker = trait();

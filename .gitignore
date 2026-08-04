@@ -10,7 +10,6 @@ dist
 # managed:end
 
 # publish
-packages/publish/react/
 packages/publish/publish/
 
 # labs
