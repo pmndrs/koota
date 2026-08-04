@@ -11,6 +11,7 @@ dist
 
 # publish
 packages/publish/publish/
+packages/publish/tests/
 
 # labs
 .labs

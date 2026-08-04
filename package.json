@@ -7,10 +7,9 @@
     "bench": "pnpm --filter @koota/benches exec labs",
     "build": "pnpm -F koota build",
     "examples": "tsx ./scripts/examples.ts",
-    "release": "pnpm -F koota build && pnpm -F koota test run && pnpm -F koota publish",
-    "prepublishOnly": "pnpm -F koota build && pnpm -F koota generate-tests",
+    "release": "pnpm test:build && pnpm -F koota publish",
     "test": "pnpm -r --filter=!koota test",
-    "test:build": "pnpm prepublishOnly && pnpm -F koota test run",
+    "test:build": "pnpm build && pnpm -F koota generate-tests && pnpm -F koota test run",
     "lint": "oxlint .",
     "format": "prettier --config .config/prettier/base.json --ignore-path .config/prettier/prettierignore --write .",
     "typecheck": "pnpm -r --filter './packages/*' --filter '!./packages/publish' exec tsc --noEmit"

@@ -6,3 +6,4 @@ yarn.lock
 bun.lock
 bun.lockb
 dist
+packages/publish/tests
