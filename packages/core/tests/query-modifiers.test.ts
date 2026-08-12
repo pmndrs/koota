@@ -172,6 +172,21 @@ describe('Query modifiers', () => {
     expect(entities[0]).toBe(entityB);
   });
 
+  it('should detect Added traits after an archetype is reused', () => {
+    const Added = createAdded();
+    const ThreeRef = trait(() => ({ object: {} as object }));
+    const entityA = world.spawn(Foo, ThreeRef({ object: {} }));
+
+    world.query(Added(Foo), ThreeRef);
+    entityA.remove(Foo);
+
+    const entityB = world.spawn(Foo, ThreeRef({ object: {} }));
+
+    const entities = world.query(Added(Foo), ThreeRef);
+    expect(entities).toHaveLength(1);
+    expect(entities[0]).toBe(entityB);
+  });
+
   it('should track multiple Added modifiers independently', () => {
     const Added = createAdded();
     const Added2 = createAdded();
