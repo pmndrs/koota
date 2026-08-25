@@ -31,10 +31,12 @@ export function useTrait<T extends Trait>(
 
         const resolvedTrait = resolve(trait);
         const world = isWorld(t) ? t : contextWorld;
-        const entity = isWorld(t) ? t[internal].worldEntity : t;
+        let entity: Entity;
 
-        value = entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined;
-
+        /**
+         * Subscribe before reading worldEntity: world.onChange triggers lazy
+         * registration so worldEntity is guaranteed to exist after this.
+         */
         const onChangeUnsub = world.onChange(resolvedTrait, (e) => {
             if (e === entity) {
                 value = e.get(resolvedTrait);
@@ -49,6 +51,9 @@ export function useTrait<T extends Trait>(
         const onRemoveUnsub = world.onRemove(resolvedTrait, (e) => {
             if (e === entity) value = undefined;
         });
+
+        entity = isWorld(t) ? t[internal].worldEntity : t;
+        value = entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined;
 
         return () => {
             onChangeUnsub();

@@ -65,6 +65,16 @@ describe('useTrait', () => {
         expect(getByTestId('value').textContent).toBe(JSON.stringify({ hour: 1 }));
     });
 
+    it('handles an unregistered world', async () => {
+        const { getByTestId } = renderSubject({
+            target: world,
+            trait: Position,
+        });
+
+        await tick();
+        expect(getByTestId('value').textContent).toBe('undefined');
+    });
+
     it('returns undefined when the target is undefined', async () => {
         const { getByTestId } = renderSubject({
             target: undefined,

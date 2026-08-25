@@ -27,7 +27,7 @@ export function useHas(
 
         const resolvedTrait = resolve(trait);
         const world = isWorld(t) ? t : contextWorld;
-        const entity = isWorld(t) ? t[internal].worldEntity : t;
+        let entity: Entity;
 
         // Wildcard pairs like ChildOf('*') fire on every pair removal, but the entity
         // may still have other pairs. Since onRemove fires before state cleanup,
@@ -39,8 +39,10 @@ export function useHas(
             ? (resolvedTrait as RelationPair).relation
             : undefined;
 
-        value = entity.has(resolvedTrait);
-
+        /**
+         * Subscribe before reading worldEntity: world.onAdd triggers lazy
+         * registration so worldEntity is guaranteed to exist after this.
+         */
         const onAddUnsub = world.onAdd(resolvedTrait, (e) => {
             if (e === entity) value = true;
         });
@@ -53,6 +55,9 @@ export function useHas(
                 value = false;
             }
         });
+
+        entity = isWorld(t) ? t[internal].worldEntity : t;
+        value = entity.has(resolvedTrait);
 
         return () => {
             onAddUnsub();

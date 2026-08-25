@@ -26,10 +26,12 @@ export function useTarget<T extends Trait>(
 
         const resolvedRelation = resolve(relation);
         const world = isWorld(t) ? t : contextWorld;
-        const entity = isWorld(t) ? t[internal].worldEntity : t;
+        let entity: Entity;
 
-        value = entity.targetFor(resolvedRelation);
-
+        /**
+         * Subscribe before reading worldEntity: world.onAdd triggers lazy
+         * registration so worldEntity is guaranteed to exist after this.
+         */
         const onAddUnsub = world.onAdd(resolvedRelation, (e) => {
             if (e === entity) value = entity.targetFor(resolvedRelation);
         });
@@ -41,6 +43,9 @@ export function useTarget<T extends Trait>(
         const onChangeUnsub = world.onChange(resolvedRelation, (e) => {
             if (e === entity) value = entity.targetFor(resolvedRelation);
         });
+
+        entity = isWorld(t) ? t[internal].worldEntity : t;
+        value = entity.targetFor(resolvedRelation);
 
         return () => {
             onAddUnsub();

@@ -70,6 +70,16 @@ describe('useHas', () => {
         expect(getByTestId('value').textContent).toBe('false');
     });
 
+    it('handles an unregistered world', async () => {
+        const { getByTestId } = renderSubject({
+            target: world,
+            trait: Position,
+        });
+
+        await tick();
+        expect(getByTestId('value').textContent).toBe('false');
+    });
+
     it('immediately reflects the correct value when switching entities', async () => {
         const entityA = world.spawn(Position);
         const entityB = world.spawn(); // No Position

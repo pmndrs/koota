@@ -23,6 +23,14 @@ describe('useTarget', () => {
         world = createWorld();
     });
 
+    it('handles an unregistered world', async () => {
+        const Parent = relation();
+        const { getByTestId } = renderSubject({ target: world, relation: Parent });
+
+        await tick();
+        expect(getByTestId('value').textContent).toBe('undefined');
+    });
+
     it('reactively returns the target for an entity relation', async () => {
         const Parent = relation({ exclusive: true });
         const subject = world.spawn(Marker);
@@ -84,6 +92,14 @@ describe('useTargets', () => {
     beforeEach(() => {
         universe.reset();
         world = createWorld();
+    });
+
+    it('handles an unregistered world', async () => {
+        const Contains = relation();
+        const { getByTestId } = renderSubject({ target: world, relation: Contains });
+
+        await tick();
+        expect(getByTestId('count').textContent).toBe('0');
     });
 
     it('reactively returns targets for an entity relation', async () => {
