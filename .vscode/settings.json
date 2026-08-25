@@ -1,8 +1,18 @@
 {
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "oxc.enable": true,
-  "oxc.disableNestedConfig": false,
   "biome.enabled": false,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.detectIndentation": false,
+  "editor.insertSpaces": true,
+  "editor.tabSize": 2,
   "eslint.enable": false,
-  "prettier.configPath": ".config/prettier/base.json"
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    ".gitignore": ".gitattributes",
+    "AGENTS.md": "CLAUDE.md",
+    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml"
+  },
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "oxc.enable": true
 }

@@ -1,3 +1,23 @@
 # `@config/prettier`
 
-These are base shared `.prettierrc.json`s from which all other `.prettierrc.json`'s inherit from.
+Shared Prettier configuration for the monorepo.
+
+## Usage
+
+In your package's `package.json`:
+
+```json
+{
+  "prettier": "@config/prettier"
+}
+```
+
+Or in `.prettierrc.json`:
+
+```json
+"@config/prettier"
+```
+
+## Available Configs
+
+- Default export - Base formatter settings

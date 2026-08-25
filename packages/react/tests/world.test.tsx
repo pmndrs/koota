@@ -5,64 +5,64 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useWorld, WorldProvider } from '../src';
 
 declare global {
-    var IS_REACT_ACT_ENVIRONMENT: boolean;
+  var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 
 // Let React know that we'll be testing effectful components
-global.IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let world: World;
 
 describe('World', () => {
-    beforeEach(() => {
-        universe.reset();
-        world = createWorld();
+  beforeEach(() => {
+    universe.reset();
+    world = createWorld();
+  });
+
+  it('provides a world to its children', async () => {
+    let worldTest: World | null = null;
+
+    function Test() {
+      worldTest = useWorld();
+      return null;
+    }
+
+    await act(async () => {
+      render(
+        <StrictMode>
+          <WorldProvider world={world}>
+            <Test />
+          </WorldProvider>
+        </StrictMode>
+      );
     });
 
-    it('provides a world to its children', async () => {
-        let worldTest: World | null = null;
+    expect(worldTest).toBe(world);
+  });
 
-        function Test() {
-            worldTest = useWorld();
-            return null;
-        }
+  it('can create a world in useMemo and auto-register on first use', () => {
+    universe.reset();
 
-        await act(async () => {
-            render(
-                <StrictMode>
-                    <WorldProvider world={world}>
-                        <Test />
-                    </WorldProvider>
-                </StrictMode>
-            );
-        });
+    let worldTest: World = null!;
 
-        expect(worldTest).toBe(world);
-    });
+    function Test() {
+      worldTest = useMemo(() => createWorld(), []);
 
-    it('can create a world in useMemo and auto-register on first use', () => {
-        universe.reset();
+      useEffect(() => {
+        worldTest.spawn();
+        return () => worldTest.destroy();
+      }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-        let worldTest: World = null!;
+      return null;
+    }
 
-        function Test() {
-            worldTest = useMemo(() => createWorld(), []);
+    render(
+      <StrictMode>
+        <Test />
+      </StrictMode>
+    );
 
-            useEffect(() => {
-                worldTest.spawn();
-                return () => worldTest.destroy();
-            }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-            return null;
-        }
-
-        render(
-            <StrictMode>
-                <Test />
-            </StrictMode>
-        );
-
-        expect(worldTest).toBeDefined();
-        expect(worldTest!.isRegistered).toBe(true);
-    });
+    expect(worldTest).toBeDefined();
+    expect(worldTest!.isRegistered).toBe(true);
+  });
 });

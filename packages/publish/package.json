@@ -32,43 +32,31 @@
     "types": "./dist/index.d.ts",
     "exports": {
       ".": {
-        "types": {
-          "import": "./dist/index.d.ts",
-          "require": "./dist/index.d.cts"
-        },
+        "types": "./dist/index.d.cts",
         "import": "./dist/index.js",
         "require": "./dist/index.cjs"
       },
       "./react": {
-        "types": {
-          "import": "./dist/react.d.ts",
-          "require": "./dist/react.d.cts"
-        },
+        "types": "./dist/react.d.cts",
         "import": "./dist/react.js",
         "require": "./dist/react.cjs"
       }
     }
   },
   "scripts": {
-    "build": "pnpm clean && rollup -c rollup.config.ts && rollup -c rollup.dts.config.ts && node --no-warnings scripts/copy-readme.ts && node --no-warnings scripts/create-proxy-packages.ts",
-    "build:js": "rollup -c rollup.config.ts",
-    "build:types": "rollup -c rollup.dts.config.ts",
-    "clean": "node --input-type=module -e \"import {rmSync} from 'fs'; rmSync('dist', {recursive: true, force: true})\"",
+    "build": "tsdown && node --no-warnings scripts/copy-readme.ts",
     "test": "NODE_OPTIONS=--expose-gc vitest --environment=jsdom",
     "generate-tests": "node scripts/generate-tests.ts"
   },
   "devDependencies": {
     "@config/typescript": "workspace:*",
-    "@koota/collections": "workspace:*",
     "@koota/core": "workspace:*",
     "@koota/react": "workspace:*",
     "@testing-library/react": "^16.3.0",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "@rollup/plugin-node-resolve": "^16.0.3",
-    "rollup": "^4.52.4",
-    "rollup-plugin-esbuild": "^6.2.1",
-    "rollup-plugin-dts": "^6.4.1",
+    "tsdown": "^0.22.14",
+    "typescript": "7.0.2",
     "unplugin-inline-functions": "catalog:",
     "vitest": "catalog:"
   },
