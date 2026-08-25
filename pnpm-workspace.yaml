@@ -1,4 +1,4 @@
-manage-package-manager-versions: true
+manage-package-manager-versions: false
 
 packages:
   - packages/*
@@ -19,8 +19,8 @@ catalog:
   react-dom: ^19.2.8
   three: ^0.185.1
   unplugin-inline-functions: ^0.4.2
-  vite: ^8.0.8
-  vitest: ^4.0.13
+  vite: ^8.2.0
+  vitest: ^4.1.10
 
 pmOnFail: download
 

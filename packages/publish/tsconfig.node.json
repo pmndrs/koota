@@ -1,4 +1,4 @@
 {
   "extends": "@config/typescript/node.json",
-  "include": ["rollup.config.ts", "rollup.dts.config.ts", "scripts"]
+  "include": ["scripts"]
 }

@@ -3,7 +3,7 @@ import inlineFunctions from 'unplugin-inline-functions/rolldown';
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/react.ts'],
-  tsconfig: 'tsconfig.build.json',
+  tsconfig: '../tsconfig-publish.json',
   format: ['esm', 'cjs'],
   fixedExtension: false,
   // Force emitting "use strict" for ESM output
