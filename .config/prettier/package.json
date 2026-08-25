@@ -2,7 +2,12 @@
   "name": "@config/prettier",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./base.json"
+  },
   "files": [
-    "base.json"
+    "base.json",
+    "prettierignore"
   ]
 }

@@ -1,8 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "paths": {
-      "@koota/collections": ["../collections/dist/index.d.ts"]
-    }
-  }
-}
