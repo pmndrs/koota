@@ -36,31 +36,7 @@ export function checkQueryTracking(
   // Early exit: no traits to check
   if (traitInstancesAll.length === 0) return false;
 
-  // 1. Check static constraints (required/forbidden/or)
-  for (let i = 0; i < generationsLen; i++) {
-    const generationId = generations[i];
-    const bitmask = staticBitmasks[i];
-    if (!bitmask) continue;
-
-    const required = bitmask.required;
-    const forbidden = bitmask.forbidden;
-    const or = bitmask.or;
-
-    // PERF: Direct access + bitwise OR coerces undefined to 0
-    const genMasks = entityMasks[generationId];
-    const entityMask = genMasks ? genMasks[eid] | 0 : 0;
-
-    // Check forbidden traits
-    if (forbidden && (entityMask & forbidden) !== 0) return false;
-
-    // Check required traits
-    if (required && (entityMask & required) !== required) return false;
-
-    // Check Or traits
-    if (or !== 0 && (entityMask & or) === 0) return false;
-  }
-
-  // 2. Process tracking groups - update trackers and check cross-event invalidation
+  // 1. Process tracking groups - update trackers and check cross-event invalidation
   // Also track OR group state to avoid second loop when possible
   let hasOrGroup = false;
   let anyOrMatched = false;
@@ -140,6 +116,33 @@ export function checkQueryTracking(
   // If we have OR groups, at least one must match
   if (hasOrGroup && !anyOrMatched) {
     return false;
+  }
+
+  // 2. Check static constraints (required/forbidden/or) after recording the
+  // tracking event. A tracked trait may be added before another required trait
+  // during entity creation; the event must remain pending until the entity
+  // satisfies the complete query.
+  for (let i = 0; i < generationsLen; i++) {
+    const generationId = generations[i];
+    const bitmask = staticBitmasks[i];
+    if (!bitmask) continue;
+
+    const required = bitmask.required;
+    const forbidden = bitmask.forbidden;
+    const or = bitmask.or;
+
+    // PERF: Direct access + bitwise OR coerces undefined to 0
+    const genMasks = entityMasks[generationId];
+    const entityMask = genMasks ? genMasks[eid] | 0 : 0;
+
+    // Check forbidden traits
+    if (forbidden && (entityMask & forbidden) !== 0) return false;
+
+    // Check required traits
+    if (required && (entityMask & required) !== required) return false;
+
+    // Check Or traits
+    if (or !== 0 && (entityMask & or) === 0) return false;
   }
 
   return true;
