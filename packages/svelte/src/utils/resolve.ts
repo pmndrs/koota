@@ -8,5 +8,7 @@ export type MaybeGetter<T> = T | (() => T);
  * koota symbol — all koota objects have it, plain getter functions don't.
  */
 export function resolve<T>(value: MaybeGetter<T>): T {
-    return typeof value === 'function' ? (value as () => T)() : (value as T);
+    return typeof value === 'function' && !(internal in value)
+        ? (value as () => T)()
+        : (value as T);
 }
