@@ -58,6 +58,19 @@ describe('useTarget', () => {
         expect(getByTestId('value').textContent).toBe('undefined');
     });
 
+    it('returns a remaining target when one is removed', async () => {
+        const Parent = relation();
+        const removedTarget = world.spawn();
+        const remainingTarget = world.spawn();
+        const subject = world.spawn(Parent(removedTarget), Parent(remainingTarget));
+        const { getByTestId } = renderSubject({ target: subject, relation: Parent });
+
+        await tick();
+        subject.remove(Parent(removedTarget));
+        await tick();
+        expect(getByTestId('value').textContent).toBe(String(remainingTarget));
+    });
+
     it('immediately reflects the correct value when switching entities', async () => {
         const Parent = relation({ exclusive: true });
         const entityA = world.spawn();
