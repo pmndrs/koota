@@ -5,7 +5,6 @@ import {
     universe,
     type Entity,
     type TraitRecord,
-    type World,
 } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { ComponentProps, tick } from 'svelte';
@@ -37,7 +36,6 @@ describe('useTrait', () => {
         const { getByTestId } = renderSubject({
             target: entity,
             trait: Position,
-            onWorld: (w: World) => {},
         });
 
         await tick();

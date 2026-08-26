@@ -10,7 +10,6 @@
   }: {
     target: Entity | World | undefined | null;
     trait: Trait | RelationPair;
-    onWorld?: (world: World) => void;
     onInitial?: (value: unknown) => void;
   } = $props();
 
