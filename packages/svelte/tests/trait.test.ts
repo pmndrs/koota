@@ -268,6 +268,23 @@ describe('useTraitEffect', () => {
         expect(position).toEqual({ x: 1, y: 1 });
     });
 
+    it('does not track state read by the callback', async () => {
+        const entity = world.spawn(Position);
+        let calls = 0;
+        const { getByTestId } = renderSubject({
+            target: entity,
+            trait: Position,
+            callback: () => calls++,
+        });
+
+        await tick();
+        expect(calls).toBe(1);
+
+        getByTestId('dependency').click();
+        await tick();
+        expect(calls).toBe(1);
+    });
+
     it('calls callback with undefined when trait is removed', async () => {
         let entity = world.spawn(Position);
         let position: TraitRecord<typeof Position> | undefined;

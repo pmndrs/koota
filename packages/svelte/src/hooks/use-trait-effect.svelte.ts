@@ -6,6 +6,7 @@ import {
     type TraitRecord,
     type World,
 } from '@koota/core';
+import { untrack } from 'svelte';
 import { isWorld } from '../utils/is-world';
 import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
@@ -16,6 +17,7 @@ export function useTraitEffect<T extends Trait>(
     callback: (value: TraitRecord<T> | undefined) => void
 ) {
     const contextWorld = useWorld();
+    const notify = (value: TraitRecord<T> | undefined) => untrack(() => callback(value));
 
     $effect(() => {
         const t = target();
@@ -29,19 +31,19 @@ export function useTraitEffect<T extends Trait>(
          * registration so worldEntity is guaranteed to exist after this.
          */
         const onChangeUnsub = world.onChange(resolvedTrait, (e) => {
-            if (e === entity) callback(e.get(resolvedTrait));
+            if (e === entity) notify(e.get(resolvedTrait));
         });
 
         const onAddUnsub = world.onAdd(resolvedTrait, (e) => {
-            if (e === entity) callback(e.get(resolvedTrait));
+            if (e === entity) notify(e.get(resolvedTrait));
         });
 
         const onRemoveUnsub = world.onRemove(resolvedTrait, (e) => {
-            if (e === entity) callback(undefined);
+            if (e === entity) notify(undefined);
         });
 
         entity = isWorld(t) ? t[internal].worldEntity : t;
-        callback(entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined);
+        notify(entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined);
 
         return () => {
             onChangeUnsub();

@@ -19,9 +19,17 @@
     callback: (value: TraitRecord<Trait> | undefined) => void;
   } = $props();
 
+  const onChange = untrack(() => callback);
+  let dependency = $state(0);
+
   useTraitEffect(
     () => target,
     () => trait,
-    untrack(() => callback),
+    (value) => {
+      void dependency;
+      onChange(value);
+    },
   );
 </script>
+
+<button data-testid="dependency" onclick={() => dependency++}>dependency</button>
