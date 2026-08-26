@@ -7,9 +7,9 @@ import {
     type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { isWorld } from '../utils/is-world';
-import { type MaybeGetter, resolve } from '../utils/resolve';
-import { useWorld } from '../world/world-context';
+import { isWorld } from '../utils/is-world.js';
+import { type MaybeGetter, resolve } from '../utils/resolve.js';
+import { useWorld } from '../world/world-context.js';
 
 export function useTraitEffect<T extends Trait>(
     target: () => Entity | World,

@@ -1,5 +1,5 @@
 import type { World } from '@koota/core';
-import { useWorld } from '../world/world-context';
+import { useWorld } from '../world/world-context.js';
 
 export function useActions<T extends Record<string, (...args: any[]) => any>>(
     actions: (world: World) => T

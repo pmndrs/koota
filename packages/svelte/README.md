@@ -1,4 +1,4 @@
-# @koota/svelte
+# koota/svelte
 
 Svelte bindings for [Koota](https://github.com/pmndrs/koota) - an ECS-based state management library optimized for real-time apps, games, and XR experiences.
 
@@ -9,7 +9,7 @@ Traits can be used reactively inside of Svelte components.
 ```svelte
 <script>
   import { trait } from 'koota'
-  import { provideWorld, useQuery, useTrait } from '@koota/svelte'
+  import { provideWorld, useQuery, useTrait } from 'koota/svelte'
 
   const Position = trait({ x: 0, y: 0 })
   const Velocity = trait({ x: 0, y: 0 })
@@ -29,7 +29,8 @@ Traits can be used reactively inside of Svelte components.
 ```svelte
 <!-- RocketView.svelte -->
 <script>
-  import { useWorld, useTrait } from '@koota/svelte'
+  import { Position } from './traits'
+  import { useTrait } from 'koota/svelte'
 
   let { entity } = $props()
 
@@ -51,7 +52,7 @@ Use actions to safely modify Koota from inside of Svelte.
 ```svelte
 <script>
   import { createActions } from 'koota'
-  import { useActions } from '@koota/svelte'
+  import { useActions } from 'koota/svelte'
 
   const actions = createActions((world) => ({
     spawnShip: (position) => world.spawn(Position(position), Velocity),
@@ -81,7 +82,7 @@ Or access world directly and use it.
 
 ```svelte
 <script>
-  import { useWorld } from '@koota/svelte'
+  import { useWorld } from 'koota/svelte'
 
   const world = useWorld()
 
@@ -118,7 +119,7 @@ Creates a new world and provides it to child components via Svelte context. Retu
 
 ```svelte
 <script>
-  import { provideWorld } from '@koota/svelte'
+  import { provideWorld } from 'koota/svelte'
 
   // Create a world and set it in context for child components
   const world = provideWorld()
@@ -131,7 +132,7 @@ Returns the world held in context via `provideWorld`.
 
 ```svelte
 <script>
-  import { useWorld } from '@koota/svelte'
+  import { useWorld } from 'koota/svelte'
 
   const world = useWorld()
 
@@ -148,7 +149,7 @@ Reactively updates when entities matching the query change. Returns an object wi
 
 ```svelte
 <script>
-  import { useQuery } from '@koota/svelte'
+  import { useQuery } from 'koota/svelte'
 
   // Variadic arguments
   const entities = useQuery(Position, Velocity)
@@ -169,17 +170,17 @@ Works like `useQuery` but only returns the first result. Can either be an entity
 
 ```svelte
 <script>
-  import { useQueryFirst } from '@koota/svelte'
+  import { useQueryFirst } from 'koota/svelte'
 
   // Variadic
-  const player = useQueryFirst(Player, Position)
+  const firstPlayer = useQueryFirst(Player, Position)
 
   // Getter
-  const player = useQueryFirst(() => [Player, Position])
+  const firstPlayerFromGetter = useQueryFirst(() => [Player, Position])
 </script>
 
-{#if player.current}
-  <View entity={player.current} />
+{#if firstPlayer.current}
+  <View entity={firstPlayer.current} />
 {/if}
 ```
 
@@ -191,7 +192,7 @@ Also accepts relation pairs like `ChildOf(parent)` to observe a specific relatio
 
 ```svelte
 <script>
-  import { useTrait } from '@koota/svelte'
+  import { useTrait } from 'koota/svelte'
 
   let { entity } = $props()
 
@@ -236,7 +237,7 @@ Observes an entity, or world, for a tag and reactively updates when it is added 
 
 ```svelte
 <script>
-  import { useTag } from '@koota/svelte'
+  import { useTag } from 'koota/svelte'
 
   const IsActive = trait()
 
@@ -257,7 +258,7 @@ Also accepts relation pairs like `ChildOf(parent)` or `ChildOf('*')` to track th
 
 ```svelte
 <script>
-  import { useHas } from '@koota/svelte'
+  import { useHas } from 'koota/svelte'
 
   const Health = trait({ amount: 100 })
 
@@ -284,7 +285,7 @@ Subscribes a callback to a trait on an entity. This callback fires whenever the 
 
 ```svelte
 <script>
-  import { useTraitEffect } from '@koota/svelte'
+  import { useTraitEffect } from 'koota/svelte'
 
   let { entity } = $props()
 
@@ -314,7 +315,7 @@ Observes an entity, or world, for a relation and reactively returns the first ta
 
 ```svelte
 <script>
-  import { useTarget } from '@koota/svelte'
+  import { useTarget } from 'koota/svelte'
 
   const ChildOf = relation()
 
@@ -335,7 +336,7 @@ Observes an entity, or world, for a relation and reactively returns all target e
 
 ```svelte
 <script>
-  import { useTargets } from '@koota/svelte'
+  import { useTargets } from 'koota/svelte'
 
   const Contains = relation()
 
@@ -357,7 +358,7 @@ Returns actions bound to the world that is in context. Use actions created by `c
 ```svelte
 <script>
   import { createActions } from 'koota'
-  import { useActions } from '@koota/svelte'
+  import { useActions } from 'koota/svelte'
 
   const actions = createActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer),

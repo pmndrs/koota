@@ -4,7 +4,7 @@ import {
     type QueryParameter,
     type QueryResult,
 } from '@koota/core';
-import { useWorld } from '../world/world-context';
+import { useWorld } from '../world/world-context.js';
 
 export function useQuery<T extends QueryParameter[]>(
     ...args: [...T] | [() => [...T]]

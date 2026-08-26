@@ -1,5 +1,5 @@
 import { $internal as internal, type Entity, type World } from '@koota/core';
-import { isWorld } from './is-world';
+import { isWorld } from './is-world.js';
 
 export function getTargetEntity(target: Entity | World | undefined | null): Entity | undefined {
     if (target == null) return undefined;

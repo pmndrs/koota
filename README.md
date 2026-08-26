@@ -145,12 +145,12 @@ useEffect(() => {
 
 ### Use in your Svelte components
 
-Koota has first-class Svelte 5+ support with reactive bindings powered by runes. See the full [Svelte API documentation](packages/svelte/README.md).
+Koota has first-class Svelte 5+ support with reactive bindings powered by runes. See the full [Svelte API documentation](https://github.com/pmndrs/koota/tree/main/packages/svelte#readme).
 
 ```svelte
 <script>
   import { trait } from 'koota'
-  import { provideWorld, useQuery, useTrait } from '@koota/svelte'
+  import { provideWorld, useQuery, useTrait } from 'koota/svelte'
 
   const Position = trait({ x: 0, y: 0 })
   const Velocity = trait({ x: 0, y: 0 })

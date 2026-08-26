@@ -1,7 +1,7 @@
 {
   "name": "koota",
   "version": "0.6.6",
-  "description": "🌎 Performant real-time state management for TypeScript and React",
+  "description": "🌎 Performant real-time state management for TypeScript, React and Svelte",
   "license": "ISC",
   "repository": {
     "type": "git",
@@ -18,33 +18,55 @@
     "./react": {
       "types": "./src/react.ts",
       "import": "./src/react.ts"
+    },
+    "./svelte": {
+      "types": "./src/svelte.ts",
+      "svelte": "./src/svelte.ts",
+      "default": "./src/svelte.ts"
     }
   },
   "files": [
     "dist",
     "react",
+    "svelte",
     "README.md",
     "LICENSE"
   ],
+  "sideEffects": false,
   "publishConfig": {
     "main": "./dist/index.cjs",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
       ".": {
-        "types": "./dist/index.d.cts",
-        "import": "./dist/index.js",
-        "require": "./dist/index.cjs"
+        "import": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/index.js"
+        },
+        "require": {
+          "types": "./dist/index.d.cts",
+          "default": "./dist/index.cjs"
+        }
       },
       "./react": {
-        "types": "./dist/react.d.cts",
-        "import": "./dist/react.js",
-        "require": "./dist/react.cjs"
+        "import": {
+          "types": "./dist/react.d.ts",
+          "default": "./dist/react.js"
+        },
+        "require": {
+          "types": "./dist/react.d.cts",
+          "default": "./dist/react.cjs"
+        }
+      },
+      "./svelte": {
+        "types": "./dist/svelte/index.d.ts",
+        "svelte": "./dist/svelte/index.js",
+        "default": "./dist/svelte/index.js"
       }
     }
   },
   "scripts": {
-    "build": "tsdown && node --no-warnings scripts/copy-readme.ts",
+    "build": "tsdown && node --no-warnings scripts/build-svelte.ts && node --no-warnings scripts/copy-readme.ts",
     "test": "NODE_OPTIONS=--expose-gc vitest --environment=jsdom",
     "generate-tests": "node scripts/generate-tests.ts"
   },
@@ -52,9 +74,11 @@
     "@config/typescript": "workspace:*",
     "@koota/core": "workspace:*",
     "@koota/react": "workspace:*",
+    "@koota/svelte": "workspace:*",
     "@testing-library/react": "^16.3.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "svelte": "^5.55.2",
     "tsdown": "^0.22.14",
     "typescript": "7.0.2",
     "unplugin-inline-functions": "catalog:",
@@ -62,13 +86,17 @@
   },
   "peerDependencies": {
     "@types/react": ">=18.0.0",
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "svelte": ">=5.0.0"
   },
   "peerDependenciesMeta": {
     "@types/react": {
       "optional": true
     },
     "react": {
+      "optional": true
+    },
+    "svelte": {
       "optional": true
     }
   }

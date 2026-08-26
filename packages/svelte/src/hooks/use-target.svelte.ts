@@ -4,10 +4,10 @@ import {
     type Trait,
     type World,
 } from '@koota/core';
-import { getTargetEntity } from '../utils/get-target-entity';
-import { isWorld } from '../utils/is-world';
-import { type MaybeGetter, resolve } from '../utils/resolve';
-import { useWorld } from '../world/world-context';
+import { getTargetEntity } from '../utils/get-target-entity.js';
+import { isWorld } from '../utils/is-world.js';
+import { type MaybeGetter, resolve } from '../utils/resolve.js';
+import { useWorld } from '../world/world-context.js';
 
 export function useTarget<T extends Trait>(
     target: () => Entity | World | undefined | null,

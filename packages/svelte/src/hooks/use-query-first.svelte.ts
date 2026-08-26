@@ -1,5 +1,5 @@
 import type { Entity, QueryParameter } from '@koota/core';
-import { useQuery } from './use-query.svelte';
+import { useQuery } from './use-query.svelte.js';
 
 export function useQueryFirst<T extends QueryParameter[]>(
     ...args: [...T] | [() => [...T]]

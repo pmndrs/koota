@@ -143,6 +143,32 @@ useEffect(() => {
 })
 ```
 
+### Use in your Svelte components
+
+Koota has first-class Svelte 5+ support with reactive bindings powered by runes. See the full [Svelte API documentation](https://github.com/pmndrs/koota/tree/main/packages/svelte#readme).
+
+```svelte
+<script>
+  import { trait } from 'koota'
+  import { provideWorld, useQuery, useTrait } from 'koota/svelte'
+
+  const Position = trait({ x: 0, y: 0 })
+  const Velocity = trait({ x: 0, y: 0 })
+
+  let { entity } = $props()
+
+  // Reactively update whenever the query updates with new entities
+  const rockets = useQuery(() => [Position, Velocity])
+
+  // Observes this entity's position trait and reactively updates when it changes
+  const position = useTrait(() => entity, Position)
+</script>
+
+{#each rockets.current as entity (entity)}
+  <RocketView {entity} />
+{/each}
+```
+
 ## Advanced
 
 ### Relations
