@@ -8,14 +8,15 @@ Traits can be used reactively inside of Svelte components.
 
 ```svelte
 <script>
-  import { trait } from 'koota'
+  import { createWorld, trait } from 'koota'
   import { provideWorld, useQuery, useTrait } from 'koota/svelte'
 
   const Position = trait({ x: 0, y: 0 })
   const Velocity = trait({ x: 0, y: 0 })
 
-  // Create a world and provide it to child components via context
-  const world = provideWorld()
+  // Provide the world to child components via context
+  const world = createWorld()
+  provideWorld(world)
 
   // Reactively update whenever the query updates with new entities
   const rockets = useQuery(() => [Position, Velocity])
@@ -115,14 +116,15 @@ The second argument (trait, tag, or relation) can be passed as either a direct v
 
 ### `provideWorld`
 
-Creates a new world and provides it to child components via Svelte context. Returns the created world.
+Provides a world to child components via Svelte context and returns it. This is the Svelte equivalent of React's `WorldProvider`.
 
 ```svelte
 <script>
+  import { createWorld } from 'koota'
   import { provideWorld } from 'koota/svelte'
 
-  // Create a world and set it in context for child components
-  const world = provideWorld()
+  const world = createWorld()
+  provideWorld(world)
 </script>
 ```
 

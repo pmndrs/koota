@@ -1,10 +1,9 @@
-import { createWorld, type World } from '@koota/core';
+import type { World } from '@koota/core';
 import { getContext, setContext } from 'svelte';
 
 export const WORLD_KEY = Symbol('koota-world');
 
-export function provideWorld(): World {
-    const world = createWorld();
+export function provideWorld(world: World): World {
     setContext(WORLD_KEY, world);
     return world;
 }
