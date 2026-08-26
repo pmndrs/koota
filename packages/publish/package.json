@@ -67,7 +67,7 @@
   },
   "scripts": {
     "build": "tsdown && node --no-warnings scripts/build-svelte.ts && node --no-warnings scripts/copy-readme.ts",
-    "test": "NODE_OPTIONS=--expose-gc vitest --environment=jsdom",
+    "test": "NODE_OPTIONS=--expose-gc vitest --config vitest-config.ts",
     "generate-tests": "node scripts/generate-tests.ts"
   },
   "devDependencies": {
@@ -75,7 +75,9 @@
     "@koota/core": "workspace:*",
     "@koota/react": "workspace:*",
     "@koota/svelte": "workspace:*",
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@testing-library/react": "^16.3.0",
+    "@testing-library/svelte": "^5.3.1",
     "react": "catalog:",
     "react-dom": "catalog:",
     "svelte": "^5.55.2",

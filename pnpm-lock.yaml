@@ -429,9 +429,15 @@ importers:
       '@koota/svelte':
         specifier: workspace:*
         version: link:../svelte
+      '@sveltejs/vite-plugin-svelte':
+        specifier: ^7.0.0
+        version: 7.0.0(svelte@5.55.2)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.22.4))
       '@testing-library/react':
         specifier: ^16.3.0
         version: 16.3.0(@testing-library/dom@10.4.0)(@types/react-dom@19.2.5(@types/react@19.2.6))(@types/react@19.2.6)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@testing-library/svelte':
+        specifier: ^5.3.1
+        version: 5.3.1(svelte@5.55.2)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.22.4))(vitest@4.1.11(@types/node@24.13.3)(jsdom@29.0.2)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.22.4)))
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -3435,7 +3441,7 @@ snapshots:
     dependencies:
       deepmerge: 4.3.1
       magic-string: 0.30.21
-      obug: 2.1.1
+      obug: 2.1.4
       svelte: 5.55.2
       vite: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.22.4)
       vitefu: 1.1.3(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.22.4))
