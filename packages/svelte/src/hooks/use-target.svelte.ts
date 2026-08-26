@@ -1,10 +1,10 @@
 import {
-    $internal as internal,
     type Entity,
     type Relation,
     type Trait,
     type World,
 } from '@koota/core';
+import { getTargetEntity } from '../utils/get-target-entity';
 import { isWorld } from '../utils/is-world';
 import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
@@ -14,7 +14,8 @@ export function useTarget<T extends Trait>(
     relation: MaybeGetter<Relation<T>>
 ): { readonly current: Entity | undefined } {
     const contextWorld = useWorld();
-    let value = $state.raw<Entity>();
+    const initialEntity = getTargetEntity(target());
+    let value = $state.raw<Entity | undefined>(initialEntity?.targetFor(resolve(relation)));
 
     $effect(() => {
         const t = target();
@@ -58,7 +59,7 @@ export function useTarget<T extends Trait>(
             if (e === entity) update();
         });
 
-        entity = isWorld(t) ? t[internal].worldEntity : t;
+        entity = getTargetEntity(t)!;
         update();
 
         return () => {

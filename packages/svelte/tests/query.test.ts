@@ -44,6 +44,20 @@ describe('useQuery', () => {
         expect(getByTestId('count').textContent).toBe('1');
     });
 
+    it('returns initial matches synchronously', () => {
+        world.spawn(Position);
+        let initialCount = 0;
+
+        renderSubject({
+            params: [Position],
+            onInitial: (result: Entity[]) => {
+                initialCount = result.length;
+            },
+        });
+
+        expect(initialCount).toBe(1);
+    });
+
     it('reactively updates when the world is reset', async () => {
         const { getByTestId } = renderSubject({
             params: [Position],

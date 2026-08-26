@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { useQuery } from "../../src";
 
-  let { params } = $props();
+  let { params, onInitial } = $props();
 
   const result = useQuery(() => params);
+  untrack(() => onInitial)?.(result.current);
 </script>
 
 <span data-testid="count">

@@ -1,5 +1,4 @@
 import {
-    $internal as internal,
     type Entity,
     type RelationPair,
     type Trait,
@@ -7,6 +6,7 @@ import {
     type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
+import { getTargetEntity } from '../utils/get-target-entity';
 import { isWorld } from '../utils/is-world';
 import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
@@ -16,7 +16,13 @@ export function useTrait<T extends Trait>(
     trait: MaybeGetter<T | RelationPair<T>>
 ): { readonly current: TraitRecord<T> | undefined } {
     const contextWorld = useWorld();
-    let value = $state.raw<TraitRecord<T>>();
+    const initialEntity = getTargetEntity(target());
+    const initialTrait = initialEntity === undefined ? undefined : resolve(trait);
+    let value = $state.raw<TraitRecord<T> | undefined>(
+        initialEntity !== undefined && initialTrait !== undefined && initialEntity.has(initialTrait)
+            ? initialEntity.get(initialTrait)
+            : undefined
+    );
     // Version counter to force reactivity when the value reference is the same (AoS traits).
     // Only read in the getter, never in the effect.
     let version = $state(0);
@@ -52,7 +58,7 @@ export function useTrait<T extends Trait>(
             if (e === entity) value = undefined;
         });
 
-        entity = isWorld(t) ? t[internal].worldEntity : t;
+        entity = getTargetEntity(t)!;
         value = entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined;
 
         return () => {

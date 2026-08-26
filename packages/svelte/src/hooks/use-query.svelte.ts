@@ -15,7 +15,11 @@ export function useQuery<T extends QueryParameter[]>(
             : () => args as unknown as [...T];
 
     const world = useWorld();
-    let result = $state.raw<QueryResult<T>>([] as unknown as QueryResult<T>);
+    let result = $state.raw<QueryResult<T>>(
+        world.isRegistered
+            ? world.query(createQuery(...getParams())).sort()
+            : ([] as unknown as QueryResult<T>)
+    );
     let resetCount = $state(0);
 
     let cache: { hash: string; version: number; result: QueryResult<T> } | null = null;

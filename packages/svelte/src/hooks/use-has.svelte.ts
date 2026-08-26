@@ -1,11 +1,11 @@
 import {
-    $internal as internal,
     $relationPair as relationPair,
     type Entity,
     type RelationPair,
     type Trait,
     type World,
 } from '@koota/core';
+import { getTargetEntity } from '../utils/get-target-entity';
 import { isWorld } from '../utils/is-world';
 import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
@@ -15,7 +15,8 @@ export function useHas(
     trait: MaybeGetter<Trait | RelationPair>
 ): { readonly current: boolean } {
     const contextWorld = useWorld();
-    let value = $state(false);
+    const initialEntity = getTargetEntity(target());
+    let value = $state(initialEntity?.has(resolve(trait)) ?? false);
 
     $effect(() => {
         const t = target();
@@ -56,7 +57,7 @@ export function useHas(
             }
         });
 
-        entity = isWorld(t) ? t[internal].worldEntity : t;
+        entity = getTargetEntity(t)!;
         value = entity.has(resolvedTrait);
 
         return () => {

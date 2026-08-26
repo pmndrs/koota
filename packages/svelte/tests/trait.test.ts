@@ -48,6 +48,21 @@ describe('useTrait', () => {
         expect(getByTestId('value').textContent).toBe(JSON.stringify({ x: 1, y: 1 }));
     });
 
+    it('returns the initial value synchronously', () => {
+        const entity = world.spawn(Position({ x: 1, y: 2 }));
+        let initialValue: unknown;
+
+        renderSubject({
+            target: entity,
+            trait: Position,
+            onInitial: (value: unknown) => {
+                initialValue = value;
+            },
+        });
+
+        expect(initialValue).toEqual({ x: 1, y: 2 });
+    });
+
     it('works with a world', async () => {
         const TimeOfDay = trait({ hour: 0 });
         world.add(TimeOfDay);

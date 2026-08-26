@@ -1,4 +1,5 @@
-import { $internal as internal, type Entity, type TagTrait, type World } from '@koota/core';
+import { type Entity, type TagTrait, type World } from '@koota/core';
+import { getTargetEntity } from '../utils/get-target-entity';
 import { isWorld } from '../utils/is-world';
 import { type MaybeGetter, resolve } from '../utils/resolve';
 import { useWorld } from '../world/world-context';
@@ -8,8 +9,8 @@ export function useTag(
     tag: MaybeGetter<TagTrait>
 ): { readonly current: boolean } {
     const contextWorld = useWorld();
-
-    let value = $state(false);
+    const initialEntity = getTargetEntity(target());
+    let value = $state(initialEntity?.has(resolve(tag)) ?? false);
 
     $effect(() => {
         const t = target();
@@ -36,7 +37,7 @@ export function useTag(
             if (e === entity) value = false;
         });
 
-        entity = isWorld(t) ? t[internal].worldEntity : t;
+        entity = getTargetEntity(t)!;
         value = entity.has(resolvedTag);
 
         return () => {
