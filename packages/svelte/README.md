@@ -1,25 +1,44 @@
 # koota/svelte
 
-Svelte bindings for [Koota](https://github.com/pmndrs/koota) - an ECS-based state management library optimized for real-time apps, games, and XR experiences.
+Svelte 5 bindings for [Koota](https://github.com/pmndrs/koota), an ECS-based state management library for real-time apps, games, and XR experiences.
 
-### Use in your Svelte components
+## Installation
 
-Traits can be used reactively inside of Svelte components.
+Install `koota` in a Svelte 5 project:
+
+```sh
+pnpm add koota
+```
+
+Import core APIs from `koota` and Svelte bindings from `koota/svelte`.
+
+## Getting started
+
+Define application traits in a shared module:
+
+```ts
+// traits.ts
+import { trait } from 'koota'
+
+export const Position = trait({ x: 0, y: 0 })
+export const Velocity = trait({ x: 0, y: 0 })
+```
+
+Create a world near the root of the component tree and provide it through Svelte context. Call `provideWorld` during component initialization, before using any other Koota Svelte binding in that component or its descendants.
 
 ```svelte
-<script>
-  import { createWorld, trait } from 'koota'
-  import { provideWorld, useQuery, useTrait } from 'koota/svelte'
+<!-- App.svelte -->
+<script lang="ts">
+  import { createWorld } from 'koota'
+  import { provideWorld, useQuery } from 'koota/svelte'
+  import RocketView from './RocketView.svelte'
+  import { Position, Velocity } from './traits'
 
-  const Position = trait({ x: 0, y: 0 })
-  const Velocity = trait({ x: 0, y: 0 })
+  const world = provideWorld(createWorld())
+  world.spawn(Position({ x: 40, y: 40 }), Velocity)
 
-  // Provide the world to child components via context
-  const world = createWorld()
-  provideWorld(world)
-
-  // Reactively update whenever the query updates with new entities
-  const rockets = useQuery(() => [Position, Velocity])
+  // `current` updates when entities enter or leave the query.
+  const rockets = useQuery(Position, Velocity)
 </script>
 
 {#each rockets.current as entity (entity)}
@@ -27,88 +46,113 @@ Traits can be used reactively inside of Svelte components.
 {/each}
 ```
 
+Bindings return objects whose `current` property is reactive:
+
 ```svelte
 <!-- RocketView.svelte -->
-<script>
-  import { Position } from './traits'
+<script lang="ts">
+  import type { Entity } from 'koota'
   import { useTrait } from 'koota/svelte'
+  import { Position } from './traits'
 
-  let { entity } = $props()
-
-  // Observes this entity's position trait and reactively updates when it changes
+  let { entity }: { entity: Entity } = $props()
   const position = useTrait(() => entity, Position)
 </script>
 
 {#if position.current}
-  <div style:position="absolute" style:left="{position.current.x}px" style:top="{position.current.y}px">
+  <div
+    style:position="absolute"
+    style:left={`${position.current.x}px`}
+    style:top={`${position.current.y}px`}
+  >
     🚀
   </div>
 {/if}
 ```
 
-### Modify Koota state safely with actions
+All `use*` bindings read the world from context, including bindings whose target is a `World`. Calling one without first calling `provideWorld` in the same component or an ancestor throws an error.
 
-Use actions to safely modify Koota from inside of Svelte.
+## Reactive arguments
+
+Target-based bindings take a getter as their first argument. When the entity or world returned by that getter changes, the binding subscribes to the new target.
+
+Trait, tag, and relation arguments can be either direct values or getters. Use direct values for module-level constants. Use a getter when constructing a relation pair from reactive state:
 
 ```svelte
-<script>
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation } from 'koota'
+  import { useTrait } from 'koota/svelte'
+  import { Position } from './traits'
+
+  const ChildOf = relation({ store: { order: 0 } })
+
+  let { entity, parent }: { entity: Entity; parent: Entity } = $props()
+
+  // Static trait: pass it directly.
+  const position = useTrait(() => entity, Position)
+
+  // Dynamic relation pair: rebuild it when `parent` changes.
+  const childData = useTrait(() => entity, () => ChildOf(parent))
+</script>
+```
+
+Queries accept either variadic parameters or a getter that returns the complete parameter list:
+
+```svelte
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation } from 'koota'
+  import { useQuery } from 'koota/svelte'
+  import { Position, Velocity } from './traits'
+
+  const ChildOf = relation()
+
+  let { parent }: { parent: Entity } = $props()
+
+  const moving = useQuery(Position, Velocity)
+  const children = useQuery(() => [Position, ChildOf(parent)])
+</script>
+```
+
+## Mutating state
+
+Use actions to keep mutations reusable and bind them to the world in context:
+
+```svelte
+<script lang="ts">
   import { createActions } from 'koota'
   import { useActions } from 'koota/svelte'
+  import { Position, Velocity } from './traits'
 
-  const actions = createActions((world) => ({
-    spawnShip: (position) => world.spawn(Position(position), Velocity),
+  const shipActions = createActions((world) => ({
+    spawnShip: (position: { x: number; y: number }) =>
+      world.spawn(Position(position), Velocity),
     destroyAllShips: () => {
-      world.query(Position, Velocity).forEach((entity) => {
-        entity.destroy()
-      })
+      world.query(Position, Velocity).forEach((entity) => entity.destroy())
     },
   }))
 
-  const { spawnShip, destroyAllShips } = useActions(actions)
-
-  // Spawn three ships on mount, destroy on unmount
-  $effect(() => {
-    spawnShip({ x: 0, y: 1 })
-    spawnShip({ x: 1, y: 0 })
-    spawnShip({ x: 1, y: 1 })
-
-    return () => destroyAllShips()
-  })
+  const { spawnShip, destroyAllShips } = useActions(shipActions)
 </script>
 
-<button onclick={destroyAllShips}>Boom!</button>
+<button onclick={() => spawnShip({ x: 10, y: 20 })}>Spawn ship</button>
+<button onclick={destroyAllShips}>Destroy all ships</button>
 ```
 
-Or access world directly and use it.
+For local component behavior, you can also access the world directly:
 
 ```svelte
-<script>
+<script lang="ts">
   import { useWorld } from 'koota/svelte'
+  import { Position, Velocity } from './traits'
 
   const world = useWorld()
 
   $effect(() => {
-    const entity = world.spawn(Velocity, Position)
+    const entity = world.spawn(Position, Velocity)
     return () => entity.destroy()
   })
-</script>
-```
-
-### Reactive arguments
-
-Most hooks accept a getter for the `target` parameter, which is always reactive — when the entity or world it returns changes, the hook re-subscribes automatically.
-
-The second argument (trait, tag, or relation) can be passed as either a direct value or a getter. Direct values work for module-level constants, while getters enable reactivity for relation pairs with dynamic targets:
-
-```svelte
-<script>
-  let { entity, parent } = $props()
-
-  // Direct value — fine for static traits
-  const position = useTrait(() => entity, Position)
-
-  // Getter — reactive when parent changes
-  const childData = useTrait(() => entity, () => ChildOf(parent))
 </script>
 ```
 
@@ -116,212 +160,215 @@ The second argument (trait, tag, or relation) can be passed as either a direct v
 
 ### `provideWorld`
 
-Provides a world to child components via Svelte context and returns it. This is the Svelte equivalent of React's `WorldProvider`.
+Provides a world through Svelte context and returns that world. Call it during component initialization.
 
 ```svelte
-<script>
+<script lang="ts">
   import { createWorld } from 'koota'
   import { provideWorld } from 'koota/svelte'
 
-  const world = createWorld()
-  provideWorld(world)
+  const world = provideWorld(createWorld())
 </script>
 ```
 
 ### `useWorld`
 
-Returns the world held in context via `provideWorld`.
+Returns the world from the nearest Koota context. It throws if no world has been provided.
 
 ```svelte
-<script>
+<script lang="ts">
   import { useWorld } from 'koota/svelte'
 
   const world = useWorld()
-
-  $effect(() => {
-    const entity = world.spawn()
-    return () => entity.destroy()
-  })
 </script>
 ```
 
 ### `useQuery`
 
-Reactively updates when entities matching the query change. Returns an object with a reactive `current` property containing a `QueryResult`, which is like an array of entities. Supports both variadic arguments and a getter form:
+Returns an object whose reactive `current` property contains a `QueryResult`, an array-like collection of entities matching the query. It updates when entities enter or leave the query.
+
+Pass query parameters variadically, or pass a getter when the parameters depend on reactive state:
 
 ```svelte
-<script>
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation } from 'koota'
   import { useQuery } from 'koota/svelte'
+  import { Position, Velocity } from './traits'
 
-  // Variadic arguments
-  const entities = useQuery(Position, Velocity)
+  const ChildOf = relation()
 
-  // Getter form — for reactive relation pair targets
-  let { parent } = $props()
-  const children = useQuery(() => [Tag, ChildOf(parent)])
+  let { parent }: { parent: Entity } = $props()
+
+  const moving = useQuery(Position, Velocity)
+  const children = useQuery(() => [Position, ChildOf(parent)])
 </script>
 
-{#each entities.current as entity (entity)}
-  <View {entity} />
+{#each children.current as child (child)}
+  <div>Child {child.id()}</div>
 {/each}
 ```
 
 ### `useQueryFirst`
 
-Works like `useQuery` but only returns the first result. Can either be an entity or undefined. Supports both variadic and getter forms.
+Works like `useQuery`, but `current` contains only the first matching entity or `undefined`. It supports the same variadic and getter forms.
 
 ```svelte
-<script>
+<script lang="ts">
+  import { trait } from 'koota'
   import { useQueryFirst } from 'koota/svelte'
+  import { Position } from './traits'
 
-  // Variadic
-  const firstPlayer = useQueryFirst(Player, Position)
-
-  // Getter
-  const firstPlayerFromGetter = useQueryFirst(() => [Player, Position])
+  const IsPlayer = trait()
+  const player = useQueryFirst(IsPlayer, Position)
 </script>
 
-{#if firstPlayer.current}
-  <View entity={firstPlayer.current} />
+{#if player.current}
+  <div>Player {player.current.id()}</div>
 {/if}
 ```
 
 ### `useTrait`
 
-Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value. Takes a getter for the target. The returned `current` value may be `undefined` if the trait is no longer on the target. This can be used to conditionally render.
+Observes a trait on an entity or world. `current` updates when the trait is added, removed, or changed, and is `undefined` when the target is nullish or does not have the trait.
 
-Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
+The target must be a getter. The trait or relation pair can be direct or returned by a getter:
 
 ```svelte
-<script>
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation } from 'koota'
   import { useTrait } from 'koota/svelte'
+  import { Position } from './traits'
 
-  let { entity } = $props()
+  const ChildOf = relation({ store: { order: 0 } })
 
-  // Get the position trait from an entity and reactively update when it changes
+  let { entity, parent }: { entity: Entity; parent: Entity } = $props()
+
   const position = useTrait(() => entity, Position)
-
-  // Observe a specific relation pair's store data
-  const childData = useTrait(() => entity, ChildOf(parent))
+  const childData = useTrait(() => entity, () => ChildOf(parent))
 </script>
 
 {#if position.current}
-  <div>
-    Position: {position.current.x}, {position.current.y}
-  </div>
+  <div>Position: {position.current.x}, {position.current.y}</div>
 {/if}
 ```
 
-The target getter can return `undefined` or `null`. This helps with situations where `useTrait` is combined with queries in the same component. However, this means that `current` can be `undefined` if the trait is not on the entity or if the target is itself `undefined`. In most cases the distinction will not matter, but if it does you can disambiguate by testing the target.
+A nullish target is useful with `useQueryFirst`:
 
 ```svelte
-<script>
-  // The entity may be undefined if there is no valid result
-  const entity = useQueryFirst(() => [Position, Velocity])
-  // useTrait handles this by returning undefined if the target does not exist
+<script lang="ts">
+  import { useQueryFirst, useTrait } from 'koota/svelte'
+  import { Position, Velocity } from './traits'
+
+  const entity = useQueryFirst(Position, Velocity)
   const position = useTrait(() => entity.current, Position)
 </script>
 
 {#if !entity.current}
-  <div>No entity found!</div>
+  <div>No matching entity</div>
 {:else if !position.current}
-  <!-- Position was removed from entity -->
+  <div>The entity no longer has Position</div>
 {:else}
-  <div>
-    Position: {position.current.x}, {position.current.y}
-  </div>
+  <div>Position: {position.current.x}, {position.current.y}</div>
 {/if}
 ```
 
 ### `useTag`
 
-Observes an entity, or world, for a tag and reactively updates when it is added or removed. Returns `true` when the tag is present or `false` when absent. Use this instead of `useTrait` for tags. For tracking the presence of non-tag traits, use `useHas`.
+Observes a tag on an entity or world. `current` is `true` when the tag is present and `false` when it is absent or the target is nullish. Use `useHas` to observe the presence of data-bearing traits.
 
 ```svelte
-<script>
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { trait } from 'koota'
   import { useTag } from 'koota/svelte'
 
   const IsActive = trait()
 
-  let { entity } = $props()
+  let { entity }: { entity: Entity } = $props()
   const isActive = useTag(() => entity, IsActive)
 </script>
 
 {#if isActive.current}
-  <div>🟢 Active</div>
+  <div>Active</div>
 {/if}
 ```
 
 ### `useHas`
 
-Observes an entity, or world, for any trait and reactively updates when it is added or removed. Returns `true` when the trait is present or `false` when absent. Unlike `useTrait`, this only tracks presence and not the trait's value.
-
-Also accepts relation pairs like `ChildOf(parent)` or `ChildOf('*')` to track the presence of specific or any relation targets.
+Observes the presence of any trait or relation pair on an entity or world. `current` is a boolean; changes to a trait's value do not affect it.
 
 ```svelte
-<script>
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation, trait } from 'koota'
   import { useHas } from 'koota/svelte'
 
   const Health = trait({ amount: 100 })
+  const ChildOf = relation()
 
-  let { entity } = $props()
+  let { entity, parent }: { entity: Entity; parent: Entity } = $props()
 
-  // Returns true if the entity has the trait, false otherwise
   const hasHealth = useHas(() => entity, Health)
-
-  // Track a specific relation pair
-  const isChildOfParent = useHas(() => entity, ChildOf(parent))
-
-  // Track any ChildOf relation
+  const isChildOfParent = useHas(() => entity, () => ChildOf(parent))
   const hasAnyParent = useHas(() => entity, ChildOf('*'))
 </script>
-
-{#if hasHealth.current}
-  <div>❤️ Has Health</div>
-{/if}
 ```
 
 ### `useTraitEffect`
 
-Subscribes a callback to a trait on an entity. This callback fires whenever the trait is added, removed or changes value without triggering a re-render. Also accepts relation pairs.
+Runs a callback with the current trait value when its effect starts and again whenever the trait is added, removed, or changed. A missing or removed trait produces `undefined`. Reads inside the callback are untracked, so they do not become dependencies of the binding's internal effect.
+
+Unlike `useTrait`, its target getter must return an entity or world; it cannot return `null` or `undefined`.
 
 ```svelte
-<script>
-  import { useTraitEffect } from 'koota/svelte'
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation } from 'koota'
+  import { useTraitEffect, useWorld } from 'koota/svelte'
+  import { Position } from './traits'
 
-  let { entity } = $props()
+  const ChildOf = relation({ store: { order: 0 } })
 
-  // Subscribe to position changes on an entity and update a reference without causing reactivity
+  let {
+    entity,
+    parent,
+    move,
+  }: {
+    entity: Entity
+    parent: Entity
+    move: (x: number, y: number) => void
+  } = $props()
+
   useTraitEffect(() => entity, Position, (position) => {
-    if (!position) return
-    mesh.position.copy(position)
+    if (position) move(position.x, position.y)
   })
 
-  // Subscribe to a specific relation pair
-  useTraitEffect(() => entity, ChildOf(parent), (data) => {
-    console.log('ChildOf data changed:', data)
+  useTraitEffect(() => entity, () => ChildOf(parent), (data) => {
+    console.log('ChildOf data:', data)
   })
 
-  // Subscribe to world-level traits
   const world = useWorld()
-  useTraitEffect(() => world, GameState, (state) => {
-    if (!state) return
-    console.log('Game state changed:', state)
+  useTraitEffect(() => world, Position, (position) => {
+    console.log('World position:', position)
   })
 </script>
 ```
 
 ### `useTarget`
 
-Observes an entity, or world, for a relation and reactively returns the first target entity. Returns `undefined` if no target exists.
+Observes a relation on an entity or world. `current` is the first target entity, or `undefined` when no target exists or the source target is nullish.
 
 ```svelte
-<script>
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation } from 'koota'
   import { useTarget } from 'koota/svelte'
 
   const ChildOf = relation()
 
-  let { entity } = $props()
+  let { entity }: { entity: Entity } = $props()
   const parent = useTarget(() => entity, ChildOf)
 </script>
 
@@ -334,15 +381,17 @@ Observes an entity, or world, for a relation and reactively returns the first ta
 
 ### `useTargets`
 
-Observes an entity, or world, for a relation and reactively returns all target entities as an array. Returns an empty array if no targets exist.
+Observes a relation on an entity or world. `current` contains all target entities and is an empty array when none exist or the source target is nullish.
 
 ```svelte
-<script>
+<script lang="ts">
+  import type { Entity } from 'koota'
+  import { relation } from 'koota'
   import { useTargets } from 'koota/svelte'
 
   const Contains = relation()
 
-  let { entity } = $props()
+  let { entity }: { entity: Entity } = $props()
   const items = useTargets(() => entity, Contains)
 </script>
 
@@ -355,27 +404,24 @@ Observes an entity, or world, for a relation and reactively returns all target e
 
 ### `useActions`
 
-Returns actions bound to the world that is in context. Use actions created by `createActions`.
+Calls an action initializer with the world from context and returns the bound actions. Use it with actions created by `createActions`.
 
 ```svelte
-<script>
-  import { createActions } from 'koota'
+<script lang="ts">
+  import { createActions, trait } from 'koota'
   import { useActions } from 'koota/svelte'
 
-  const actions = createActions((world) => ({
+  const IsPlayer = trait()
+  const playerActions = createActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer),
     destroyAllPlayers: () => {
-      world.query(IsPlayer).forEach((player) => {
-        player.destroy()
-      })
+      world.query(IsPlayer).forEach((player) => player.destroy())
     },
   }))
 
-  const { spawnPlayer, destroyAllPlayers } = useActions(actions)
-
-  $effect(() => {
-    spawnPlayer()
-    return () => destroyAllPlayers()
-  })
+  const { spawnPlayer, destroyAllPlayers } = useActions(playerActions)
 </script>
+
+<button onclick={spawnPlayer}>Spawn player</button>
+<button onclick={destroyAllPlayers}>Destroy all players</button>
 ```

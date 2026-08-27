@@ -240,8 +240,7 @@ For component patterns (App, Startup, Renderer, view sync, input), see [referenc
 
 **Imports:** Core types (`World`, `Entity`) from `'koota'`. Svelte bindings from `'koota/svelte'`.
 
-Svelte hooks return objects with a reactive `current` property. Pass getters for reactive entity, world, relation-pair, or query inputs.
-Call `provideWorld(world)` in a parent component to make the world available to children via `useWorld()`.
+Svelte bindings return objects with a reactive `current` property. Call `provideWorld(world)` during component initialization before using bindings in that component or its descendants. Target arguments are getters; pass trait, tag, and relation constants directly, but wrap relation pairs in a getter when their target is reactive.
 
 ```svelte
 <script lang="ts">
