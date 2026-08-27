@@ -1,4 +1,3 @@
-import { cloneMaskGenerations, createZeroedMaskLike } from '../../entity/utils/paged-mask';
 import type { WorldContext } from '../../world';
 
 let cursor = 3;
@@ -12,8 +11,7 @@ export function getTrackingCursor() {
 }
 
 export function setTrackingMasks(ctx: WorldContext, id: number) {
-    const snapshot = cloneMaskGenerations(ctx.entityMasks);
-    ctx.trackingSnapshots.set(id, snapshot);
-    ctx.dirtyMasks.set(id, createZeroedMaskLike(snapshot));
-    ctx.changedMasks.set(id, createZeroedMaskLike(snapshot));
+    ctx.addedBitSets.set(id, new Map());
+    ctx.removedBitSets.set(id, new Map());
+    ctx.changedBitSets.set(id, new Map());
 }

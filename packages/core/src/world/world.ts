@@ -45,7 +45,7 @@ function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): voi
     universe.worlds[id] = ctx;
 
     const cursor = getTrackingCursor();
-    for (let i = 0; i < cursor; i++) {
+    for (let i = 3; i < cursor; i++) {
         setTrackingMasks(ctx, i);
     }
 
@@ -119,9 +119,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             actionInstances: [],
             notQueries: new Set(),
             dirtyQueries: new Set(),
-            dirtyMasks: new Map(),
-            trackingSnapshots: new Map(),
-            changedMasks: new Map(),
+            addedBitSets: new Map(),
+            removedBitSets: new Map(),
+            changedBitSets: new Map(),
             worldEntity: null!,
             trackedTraits: new Set(),
             resetSubscriptions: new Set(),
@@ -225,9 +225,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             ctx.dirtyQueries.clear();
             ctx.notQueries.clear();
 
-            ctx.trackingSnapshots.clear();
-            ctx.dirtyMasks.clear();
-            ctx.changedMasks.clear();
+            ctx.addedBitSets.clear();
+            ctx.removedBitSets.clear();
+            ctx.changedBitSets.clear();
             ctx.trackedTraits.clear();
 
             ctx.worldEntity = createEntity(ctx, IsExcluded);

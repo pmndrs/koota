@@ -1,7 +1,7 @@
+import { HiSparseBitSet } from '@koota/collections';
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { ensureMaskPage } from '../../entity/utils/paged-mask';
 import { isRelation } from '../../relation/utils/is-relation';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
@@ -40,11 +40,17 @@ function markChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
 
     const eid = getEntityId(entity);
     const { generationId, bitflag } = data;
-    const pageId = eid >>> 10;
-    const offset = eid & 1023;
+    const traitId = trait[$internal].id;
 
-    for (const changedMask of ctx.changedMasks.values()) {
-        ensureMaskPage(changedMask[generationId], pageId)[offset] |= bitflag;
+    if (ctx.changedBitSets.size > 0) {
+        for (const traitMap of ctx.changedBitSets.values()) {
+            let bs = traitMap.get(traitId);
+            if (!bs) {
+                bs = new HiSparseBitSet();
+                traitMap.set(traitId, bs);
+            }
+            bs.insert(eid);
+        }
     }
 
     for (const query of data.trackingQueries) {
