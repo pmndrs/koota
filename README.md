@@ -66,9 +66,12 @@ world.query(Position, Velocity).readEach(([position, velocity]) => {
 })
 ```
 
-### Use in your React components
+### Use in your favorite reactive components
 
-Traits can be used reactively inside of React components.
+Traits can be used reactively inside of React or Svelte components.
+
+<details open>
+<summary>React</summary>
 
 ```js
 import { WorldProvider, useQuery, useTrait } from 'koota/react'
@@ -78,7 +81,7 @@ createRoot(document.getElementById('root')!).render(
     <WorldProvider world={world}>
         <App />
     </WorldProvider>
-);
+)
 
 function RocketRenderer() {
     // Reactively update whenever the query updates with new entities
@@ -97,9 +100,45 @@ function RocketView({ entity }) {
 }
 ```
 
-### Modify Koota state safely with actions
+See the [React API](docs/react/api.md) for all hooks and components.
 
-Use actions to safely modify Koota from inside of React in either effects or events.
+</details>
+
+<details>
+<summary>Svelte</summary>
+
+```svelte
+<script>
+  import { trait } from 'koota'
+  import { provideWorld, useQuery, useTrait } from 'koota/svelte'
+
+  const Position = trait({ x: 0, y: 0 })
+  const Velocity = trait({ x: 0, y: 0 })
+
+  let { entity } = $props()
+
+  // Reactively update whenever the query updates with new entities
+  const rockets = useQuery(() => [Position, Velocity])
+
+  // Observes this entity's position trait and reactively updates when it changes
+  const position = useTrait(() => entity, Position)
+</script>
+
+{#each rockets.current as entity (entity)}
+  <RocketView {entity} />
+{/each}
+```
+
+See the [Svelte API](docs/svelte/api.md) for all bindings.
+
+</details>
+
+### Mutate world with actions
+
+Use actions to safely mutate the world from inside of React or Svelte in either effects or events.
+
+<details open>
+<summary>React</summary>
 
 ```js
 import { createActions } from 'koota'
@@ -143,31 +182,58 @@ useEffect(() => {
 })
 ```
 
-### Use in your Svelte components
+</details>
 
-Koota has first-class Svelte 5+ support with reactive bindings powered by runes. See the full [Svelte API documentation](https://github.com/pmndrs/koota/tree/main/packages/svelte#readme).
+<details>
+<summary>Svelte</summary>
 
 ```svelte
 <script>
-  import { trait } from 'koota'
-  import { provideWorld, useQuery, useTrait } from 'koota/svelte'
+  import { createActions } from 'koota'
+  import { useActions } from 'koota/svelte'
 
-  const Position = trait({ x: 0, y: 0 })
-  const Velocity = trait({ x: 0, y: 0 })
+  const actions = createActions((world) => ({
+    spawnShip: (position) => world.spawn(Position(position), Velocity),
+    destroyAllShips: () => {
+      world.query(Position, Velocity).forEach((entity) => {
+        entity.destroy()
+      })
+    },
+  }))
 
-  let { entity } = $props()
+  const { spawnShip, destroyAllShips } = useActions(actions)
 
-  // Reactively update whenever the query updates with new entities
-  const rockets = useQuery(() => [Position, Velocity])
+  // Spawn three ships on mount
+  $effect(() => {
+    spawnShip({ x: 0, y: 1 })
+    spawnShip({ x: 1, y: 0 })
+    spawnShip({ x: 1, y: 1 })
 
-  // Observes this entity's position trait and reactively updates when it changes
-  const position = useTrait(() => entity, Position)
+    // Destroy all ships during cleanup
+    return () => destroyAllShips()
+  })
 </script>
 
-{#each rockets.current as entity (entity)}
-  <RocketView {entity} />
-{/each}
+<!-- And destroy all ships on click! -->
+<button onclick={destroyAllShips}>Boom!</button>
 ```
+
+Or access world directly and use it.
+
+```svelte
+<script>
+  import { useWorld } from 'koota/svelte'
+
+  const world = useWorld()
+
+  $effect(() => {
+    const entity = world.spawn(Velocity, Position)
+    return () => entity.destroy()
+  })
+</script>
+```
+
+</details>
 
 ## Advanced
 
@@ -650,7 +716,7 @@ world.query(Position, Velocity, Mass)
   .updateEach([mass] => {
     // We are going blackhole
     mass.value += 1
-  });
+  })
 ```
 
 ### Modifying trait stores directly
@@ -861,7 +927,7 @@ const { entityId, generation } = unpackEntity(entity)
 
 ### Trait
 
-Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React or web components.
+Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React, Svelte, or web components.
 
 A trait can be created with a schema that describes the kind of data it will hold.
 
@@ -911,14 +977,14 @@ Both schema-based and callback-based traits are used similarly, but they have di
 When using a schema, each property is stored in its own array. This can lead to better cache locality when accessing a single property across many entities. This is always the fastest option for data that has intensive operations.
 
 ```js
-const Position = trait({ x: 0, y: 0, z: 0 });
+const Position = trait({ x: 0, y: 0, z: 0 })
 
 // Internally, this creates a store structure like:
 const store = {
   x: [0, 0, 0, ...], // Array for x values
   y: [0, 0, 0, ...], // Array for y values
   z: [0, 0, 0, ...], // Array for z values
-};
+}
 ```
 
 #### Array of Structures (AoS) - Callback-based traits
@@ -1068,242 +1134,10 @@ const entities = world.query(Position)
 entities.includes(entity) // This will always be false
 ```
 
-### React
+## React
 
-### `useQuery`
+See the [React API documentation](docs/react/api.md).
 
-Reactively updates when entities matching the query changes. Returns a `QueryResult`, which is like an array of entities.
+## Svelte
 
-```js
-// Get all entities with Position and Velocity traits
-const entities = useQuery(Position, Velocity)
-
-// Render a view
-return (
-  <>
-    {entities.map((entity) => (
-      <View key={entity.id()} entity={entity} />
-    ))}
-  </>
-)
-```
-
-### `useQueryFirst`
-
-Works like `useQuery` but only returns the first result. Can either be an entity of undefined.
-
-```js
-// Get the first entity with Player and Position traits
-const player = useQueryFirst(Player, Position)
-
-// Render a view if an entity is found
-return player ? <View entity={player} /> : null
-```
-
-### `useWorld`
-
-Returns the world held in context via `WorldProvider`.
-
-```js
-// Get the default world
-const world = useWorld();
-
-// Use the world to create an entity on mount
-useEffect(() => {
-    const entity = world.spawn()
-    return => entity.destroy()
-}, [])
-
-```
-
-### `WorldProvider`
-
-The provider for the world context. A world must be created and passed in.
-
-```js
-// Create a world and pass it to the provider
-const world = createWorld()
-
-// All hooks will now use this world instead of the default
-function App() {
-  return (
-    <WorldProvider world={world}>
-      <Game />
-    </WorldProvider>
-  )
-}
-```
-
-### `useTrait`
-
-Observes an entity, or world, for a given trait and reactively updates when it is added, removed or changes value. The returned trait snapshot maybe `undefined` if the trait is no longer on the target. This can be used to conditionally render.
-
-Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
-
-```js
-// Get the position trait from an entity and reactively updates when it changes
-const position = useTrait(entity, Position)
-
-// Observe a specific relation pair's store data
-const childData = useTrait(entity, ChildOf(parent))
-
-// If position is removed from entity then it will be undefined
-if (!position) return null
-
-// Render the position
-return (
-  <div>
-    Position: {position.x}, {position.y}
-  </div>
-)
-```
-
-The entity passed into `useTrait` can be `undefined` or `null`. This helps with situations where `useTrait` is combined with queries in the same component since hooks cannot be conditionally called. However, this means that result can be `undefined` if the trait is not on the entity or if the target is itself `undefined`. In most cases the distinction will not matter, but if it does you can disambiguate by testing the target.
-
-```js
-// The entity may be undefined if there is no valid result
-const entity = useQueryFirst(Position, Velocity)
-// useTrait handles this by returned undefined if the target passed in does not exist
-const position = useTrait(entity, Position)
-
-// However, undefined here can mean no entity or no component on entity
-// To make the outcome no longer ambiguous you have to test the entity
-if (!entity) return <div>No entity found!</div>
-
-// Now this is narrowed to Position no longer being on the component
-if (!position) return null
-
-return (
-  <div>
-    Position: {position.x}, {position.y}
-  </div>
-)
-```
-
-### `useTag`
-
-Observes an entity, or world, for a tag and reactively updates when it is added or removed. Returns `true` when the tag is present or `false` when absent. Use this instead of `useTrait` for tags. For tracking the presence of non-tag traits, use `useHas`.
-
-```js
-const IsActive = trait()
-
-function ActiveIndicator({ entity }) {
-  // Returns true if the entity has the tag, false otherwise
-  const isActive = useTag(entity, IsActive)
-
-  if (!isActive) return null
-
-  return <div>🟢 Active</div>
-}
-```
-
-### `useHas`
-
-Observes an entity, or world, for any trait and reactively updates when it is added or removed. Returns `true` when the trait is present or `false` when absent. Unlike `useTrait`, this only tracks presence and not the trait's value.
-
-Also accepts relation pairs like `ChildOf(parent)` or `ChildOf('*')` to track the presence of specific or any relation targets.
-
-```js
-const Health = trait({ amount: 100 })
-
-function HealthIndicator({ entity }) {
-  // Returns true if the entity has the trait, false otherwise
-  const hasHealth = useHas(entity, Health)
-
-  // Track a specific relation pair
-  const isChildOfParent = useHas(entity, ChildOf(parent))
-
-  // Track any ChildOf relation
-  const hasAnyParent = useHas(entity, ChildOf('*'))
-
-  if (!hasHealth) return null
-
-  return <div>❤️ Has Health</div>
-}
-```
-
-### `useTraitEffect`
-
-Subscribes a callback to a trait on an entity. This callback fires as an effect whenever it is added, removed or changes value without rerendering. Also accepts relation pairs.
-
-```js
-// Subscribe to position changes on an entity and update a ref without causing a rerender
-useTraitEffect(entity, Position, (position) => {
-  if (!position) return
-  meshRef.current.position.copy(position)
-})
-
-// Subscribe to a specific relation pair
-useTraitEffect(entity, ChildOf(parent), (data) => {
-  console.log('ChildOf data changed:', data)
-})
-
-// Subscribe to world-level traits
-useTraitEffect(world, GameState, (state) => {
-  if (!state) return
-  console.log('Game state changed:', state)
-})
-```
-
-### `useTarget`
-
-Observes an entity, or world, for a relation and reactively returns the first target entity. Returns `undefined` if no target exists.
-
-```js
-const ChildOf = relation()
-
-function ParentDisplay({ entity }) {
-  // Returns the first target of the ChildOf relation
-  const parent = useTarget(entity, ChildOf)
-
-  if (!parent) return <div>No parent</div>
-
-  return <div>Parent: {parent.id()}</div>
-}
-```
-
-### `useTargets`
-
-Observes an entity, or world, for a relation and reactively returns all target entities as an array. Returns an empty array if no targets exist.
-
-```js
-const Contains = relation()
-
-function InventoryDisplay({ entity }) {
-  // Returns all targets of the Contains relation
-  const items = useTargets(entity, Contains)
-
-  return (
-    <ul>
-      {items.map((item) => (
-        <li key={item.id()}>Item {item.id()}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-### `useActions`
-
-Returns actions bound to the world that is in context. Use actions created by `createActions`.
-
-```js
-// Create actions
-const actions = createActions((world) => ({
-    spawnPlayer: () => world.spawn(IsPlayer).
-    destroyAllPlayers: () => {
-        world.query(IsPlayer).forEach((player) => {
-            player.destroy()
-        })
-    }
-}))
-
-// Get actions bound to the world in context
-const { spawnPlayer, destroyAllPlayers } = useActions();
-
-// Call actions to modify the world in an effect or handlers
-useEffect(() => {
-    spawnPlayer()
-    return () => destroyAllPlayers()
-}, [])
-```
+See the [Svelte API documentation](docs/svelte/api.md).

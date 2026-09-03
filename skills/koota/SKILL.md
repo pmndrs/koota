@@ -236,6 +236,8 @@ For React hooks and actions, see [references/react-hooks.md](references/react-ho
 
 For component patterns (App, Startup, Renderer, view sync, input), see [references/react-patterns.md](references/react-patterns.md).
 
+For the public integration API, see the [React API documentation](../../docs/react/api.md).
+
 ## Svelte integration
 
 **Imports:** Core types (`World`, `Entity`) from `'koota'`. Svelte bindings from `'koota/svelte'`.
@@ -255,7 +257,7 @@ Svelte bindings return objects with a reactive `current` property. Call `provide
 </script>
 ```
 
-For the full Svelte API, see [`packages/svelte/README.md`](../../packages/svelte/README.md).
+For the public integration API, see the [Svelte API documentation](../../docs/svelte/api.md).
 
 ## Runtime
 
