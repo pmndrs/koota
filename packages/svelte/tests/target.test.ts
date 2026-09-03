@@ -138,4 +138,26 @@ describe('useTargets', () => {
         await tick();
         expect(getByTestId('count').textContent).toBe('1');
     });
+
+    it('does not loop when a pair is removed inside an effect', async () => {
+        const Likes = relation();
+        const targetA = world.spawn(Marker);
+        const targetB = world.spawn(Marker);
+        const subject = world.spawn(Likes(targetA), Likes(targetB));
+        let runs = 0;
+
+        const { getByTestId } = renderSubject({
+            target: subject,
+            relation: Likes,
+            onEffect: () => {
+                runs++;
+                subject.remove(Likes(targetA));
+            },
+        });
+
+        await tick();
+        await tick();
+        expect(runs).toBe(1);
+        expect(getByTestId('count').textContent).toBe('1');
+    });
 });

@@ -80,6 +80,24 @@ describe('useQuery', () => {
         expect(getByTestId('count').textContent).toBe('1');
     });
 
+    it('does not loop when the world is reset inside an effect', async () => {
+        let runs = 0;
+
+        const { getByTestId } = renderSubject({
+            params: [Position],
+            onEffect: () => {
+                runs++;
+                world.reset();
+                world.spawn(Position);
+            },
+        });
+
+        await tick();
+        await tick();
+        expect(runs).toBe(1);
+        expect(getByTestId('count').textContent).toBe('1');
+    });
+
     it('should define special methods on query result', async () => {
         const { getByTestId } = renderSubject({
             params: [],

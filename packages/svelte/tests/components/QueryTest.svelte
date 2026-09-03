@@ -2,10 +2,15 @@
   import { untrack } from "svelte";
   import { useQuery } from "../../src";
 
-  let { params, onInitial } = $props();
+  let { params, onInitial, onEffect } = $props();
 
   const result = useQuery(() => params);
   untrack(() => onInitial)?.(result.current);
+
+  // Runs test mutations from inside a component effect.
+  $effect(() => {
+    onEffect?.();
+  });
 </script>
 
 <span data-testid="count">

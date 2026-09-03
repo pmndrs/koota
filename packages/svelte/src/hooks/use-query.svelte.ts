@@ -4,6 +4,7 @@ import {
     type QueryParameter,
     type QueryResult,
 } from '@koota/core';
+import { untrack } from 'svelte';
 import { useWorld } from '../world/world-context.js';
 
 export function useQuery<T extends QueryParameter[]>(
@@ -71,9 +72,10 @@ export function useQuery<T extends QueryParameter[]>(
             refresh();
         }
 
+        // Runs inside whatever effect called world.reset(), so the read must not be tracked.
         const handleReset = () => {
             cache = null;
-            resetCount++;
+            untrack(() => resetCount++);
         };
 
         world[internal].resetSubscriptions.add(handleReset);
