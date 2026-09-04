@@ -1,0 +1,94 @@
+.page {
+  padding: 8px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.section {
+  margin-bottom: 14px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.sectionToggle {
+  cursor: pointer;
+}
+
+.sectionCount {
+  font-weight: 400;
+}
+
+.sectionSummary {
+  margin-left: 3px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.properties {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.property {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.propertyLabel {
+  color: var(--text-secondary);
+}
+
+.propertyValue {
+  color: var(--text);
+  text-align: right;
+  word-break: break-all;
+  font-variant-numeric: tabular-nums;
+}

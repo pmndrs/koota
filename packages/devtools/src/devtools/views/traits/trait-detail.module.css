@@ -1,0 +1,10 @@
+.source {
+  color: var(--text-secondary);
+  text-decoration: none;
+  word-break: break-all;
+  transition: color 0.15s;
+}
+
+.source:hover {
+  color: var(--accent);
+}

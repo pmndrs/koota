@@ -1,14 +1,16 @@
-import { Trait } from '@koota/core';
+import type { Trait } from '@koota/core';
 
 export interface SourceInfo {
-	file: string;
-	line: number;
-	column: number;
+  file: string;
+  line: number;
+  column: number;
 }
 
 interface TraitDebugInfo {
-	debugName?: string;
-	debugSource?: SourceInfo;
+  debugName?: string;
+  debugSource?: SourceInfo;
 }
 
 export type TraitWithDebug = Trait & TraitDebugInfo;
+
+export type Editor = 'cursor' | 'vscode' | 'webstorm' | 'idea';

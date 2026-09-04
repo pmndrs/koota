@@ -1,0 +1,12 @@
+.title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}

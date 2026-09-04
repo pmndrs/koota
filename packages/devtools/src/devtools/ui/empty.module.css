@@ -1,0 +1,22 @@
+.empty {
+  padding: 20px;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.inline {
+  padding: 0;
+  text-align: left;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}

@@ -1,0 +1,57 @@
+.button {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.button:hover,
+.active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.icon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+}
+
+.iconSm {
+  width: 18px;
+  height: 18px;
+}
+
+.danger:hover {
+  background: rgba(255, 100, 100, 0.2);
+  color: var(--danger);
+}
+
+.count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 3px;
+  border-radius: 6px;
+  background: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--bg-panel);
+}

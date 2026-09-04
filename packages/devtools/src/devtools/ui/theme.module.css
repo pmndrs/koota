@@ -1,0 +1,35 @@
+/*
+ * Every color, size and radius the devtools use. Components only reference
+ * these tokens so the whole panel can be retuned from this one place.
+ */
+.theme {
+  --font: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+
+  --text-3xs: 7px;
+  --text-2xs: 8px;
+  --text-xs: 9px;
+  --text-sm: 10px;
+  --text-md: 11px;
+  --text-base: 12px;
+  --text-lg: 13px;
+
+  --bg-panel: #181818;
+  --surface-1: rgba(255, 255, 255, 0.05);
+  --surface-2: rgba(255, 255, 255, 0.1);
+  --border: #262626;
+
+  --text: #d6d6dd;
+  --text-secondary: #868686;
+  --text-muted: #4a4a4a;
+
+  --accent: #519aba;
+  --danger: #ff6b6b;
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+
+  --panel-width: 260px;
+  --content-height: 280px;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}

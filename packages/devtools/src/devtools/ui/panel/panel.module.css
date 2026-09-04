@@ -1,0 +1,83 @@
+.root {
+  position: fixed;
+  z-index: 99999;
+  font-family: var(--font);
+  font-size: var(--text-base);
+  color: var(--text);
+  user-select: none;
+  transform-origin: top left;
+}
+
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--panel-width);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 6px 8px;
+  cursor: grab;
+}
+
+.headerDragging {
+  cursor: grabbing;
+}
+
+.scrollRoot {
+  position: relative;
+}
+
+.scroll {
+  position: relative;
+  max-height: var(--content-height);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.scrollLocked {
+  overflow: hidden;
+}
+
+.scrollbar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  right: 0;
+  width: 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.scrollbarVisible {
+  opacity: 1;
+}
+
+.scrollThumb {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.scrollThumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}

@@ -1,0 +1,5 @@
+.chevron {
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}

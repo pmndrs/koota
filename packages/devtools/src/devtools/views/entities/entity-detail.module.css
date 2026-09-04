@@ -1,0 +1,14 @@
+.targetCount {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.targets {
+  margin-left: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.targetArrow {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}

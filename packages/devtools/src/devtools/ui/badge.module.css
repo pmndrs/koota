@@ -1,0 +1,15 @@
+.badge {
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.badgeMd {
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+}

@@ -1,0 +1,12 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+.filters {
+  display: flex;
+  gap: 4px;
+  padding: 0 8px 8px;
+}

@@ -1,0 +1,21 @@
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--text);
+  outline: none;
+  transition: background 0.15s;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input:focus {
+  background: var(--surface-1);
+}

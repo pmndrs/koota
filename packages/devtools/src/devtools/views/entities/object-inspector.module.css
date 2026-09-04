@@ -1,0 +1,59 @@
+.inspector {
+  width: 100%;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--text);
+  user-select: text;
+}
+
+.nested {
+  padding-left: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  border-radius: 2px;
+  cursor: default;
+}
+
+.row:hover {
+  background: var(--surface-1);
+}
+
+.arrow {
+  display: inline-block;
+  width: 12px;
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  text-align: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.name {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.string {
+  color: var(--accent);
+}
+
+.quiet {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.preview {
+  display: inline-block;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-style: italic;
+  color: var(--text-secondary);
+}
