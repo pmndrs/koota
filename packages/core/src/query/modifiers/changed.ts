@@ -14,62 +14,62 @@ import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-w
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createChanged() {
-    const id = createTrackingId();
+  const id = createTrackingId();
 
-    for (const ctx of universe.worlds) {
-        if (!ctx) continue;
-        setTrackingMasks(ctx, id);
-    }
+  for (const ctx of universe.worlds) {
+    if (!ctx) continue;
+    setTrackingMasks(ctx, id);
+  }
 
-    return <T extends TraitOrRelation[]>(
-        ...inputs: T
-    ): Modifier<ExtractTraits<T>, `changed-${number}`> => {
-        const traits = inputs.map((input) =>
-            isRelation(input) ? input[$internal].trait : input
-        ) as ExtractTraits<T>;
-        return createModifier(`changed-${id}`, id, traits);
-    };
+  return <T extends TraitOrRelation[]>(
+    ...inputs: T
+  ): Modifier<ExtractTraits<T>, `changed-${number}`> => {
+    const traits = inputs.map((input) =>
+      isRelation(input) ? input[$internal].trait : input
+    ) as ExtractTraits<T>;
+    return createModifier(`changed-${id}`, id, traits);
+  };
 }
 
 /** @inline */
 function markChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
-    if (!hasTrait(ctx, entity, trait)) return;
+  if (!hasTrait(ctx, entity, trait)) return;
 
-    if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-    const data = getTraitInstance(ctx.traitInstances, trait)!;
+  if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
+  const data = getTraitInstance(ctx.traitInstances, trait)!;
 
-    const eid = getEntityId(entity);
-    const { generationId, bitflag } = data;
-    const pageId = eid >>> 10;
-    const offset = eid & 1023;
+  const eid = getEntityId(entity);
+  const { generationId, bitflag } = data;
+  const pageId = eid >>> 10;
+  const offset = eid & 1023;
 
-    for (const changedMask of ctx.changedMasks.values()) {
-        ensureMaskPage(changedMask[generationId], pageId)[offset] |= bitflag;
-    }
+  for (const changedMask of ctx.changedMasks.values()) {
+    ensureMaskPage(changedMask[generationId], pageId)[offset] |= bitflag;
+  }
 
-    for (const query of data.trackingQueries) {
-        if (!query.hasChangedModifiers) continue;
-        if (!query.changedTraits.has(trait)) continue;
+  for (const query of data.trackingQueries) {
+    if (!query.hasChangedModifiers) continue;
+    if (!query.changedTraits.has(trait)) continue;
 
-        const match =
-            query.relationFilters && query.relationFilters.length > 0
-                ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', generationId, bitflag)
-                : query.checkTracking(ctx, entity, 'change', generationId, bitflag);
-        if (match) query.add(entity);
-        else query.remove(ctx, entity);
-    }
+    const match =
+      query.relationFilters && query.relationFilters.length > 0
+        ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', generationId, bitflag)
+        : query.checkTracking(ctx, entity, 'change', generationId, bitflag);
+    if (match) query.add(entity);
+    else query.remove(ctx, entity);
+  }
 
-    return data;
+  return data;
 }
 
 export function setChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
-    const data = markChanged(ctx, entity, trait);
-    if (!data) return;
-    for (const sub of data.changeSubscriptions) sub(entity);
+  const data = markChanged(ctx, entity, trait);
+  if (!data) return;
+  for (const sub of data.changeSubscriptions) sub(entity);
 }
 
 export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, target: Entity) {
-    const data = markChanged(ctx, entity, trait);
-    if (!data) return;
-    for (const sub of data.changeSubscriptions) sub(entity, target);
+  const data = markChanged(ctx, entity, trait);
+  if (!data) return;
+  for (const sub of data.changeSubscriptions) sub(entity, target);
 }

@@ -4,12 +4,10 @@
  * - SoA: store.key[pageId][offset] = value
  */
 export type Store<T extends Schema = any> = T extends AoSFactory
-    ? ReturnType<T>[][]
-    : {
-          [P in keyof T]: T[P] extends (...args: never[]) => unknown
-              ? ReturnType<T[P]>[][]
-              : T[P][][];
-      };
+  ? ReturnType<T>[][]
+  : {
+      [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]>[][] : T[P][][];
+    };
 
 /**
  * Storage layout type.
@@ -24,11 +22,11 @@ export type StoreType = 'aos' | 'soa' | 'tag';
  * Can be a SoA object schema, an AoS factory function, or an empty object (tag).
  */
 export type Schema =
-    | {
-          [key: string]: number | bigint | string | boolean | null | undefined | (() => unknown);
-      }
-    | AoSFactory
-    | Record<string, never>;
+  | {
+      [key: string]: number | bigint | string | boolean | null | undefined | (() => unknown);
+    }
+  | AoSFactory
+  | Record<string, never>;
 
 /**
  * Factory function for AoS (Array of Structs) storage.
@@ -42,26 +40,26 @@ export type AoSFactory = () => unknown;
  * normalized to their primitive types (boolean, string, etc).
  */
 export type Norm<T extends Schema> =
-    T extends Record<string, never>
-        ? T
-        : T extends AoSFactory
-          ? () => ReturnType<T> extends number
-                ? number
-                : ReturnType<T> extends boolean
-                  ? boolean
-                  : ReturnType<T> extends string
-                    ? string
-                    : ReturnType<T>
-          : {
-                  [K in keyof T]: T[K] extends object
-                      ? T[K] extends (...args: never[]) => unknown
-                          ? T[K]
-                          : never
-                      : T[K] extends boolean
-                        ? boolean
-                        : T[K];
-              }[keyof T] extends never
-            ? never
-            : {
-                  [K in keyof T]: T[K] extends boolean ? boolean : T[K];
-              };
+  T extends Record<string, never>
+    ? T
+    : T extends AoSFactory
+      ? () => ReturnType<T> extends number
+          ? number
+          : ReturnType<T> extends boolean
+            ? boolean
+            : ReturnType<T> extends string
+              ? string
+              : ReturnType<T>
+      : {
+            [K in keyof T]: T[K] extends object
+              ? T[K] extends (...args: never[]) => unknown
+                ? T[K]
+                : never
+              : T[K] extends boolean
+                ? boolean
+                : T[K];
+          }[keyof T] extends never
+        ? never
+        : {
+            [K in keyof T]: T[K] extends boolean ? boolean : T[K];
+          };

@@ -47,6 +47,7 @@ pnpm bench baseline "Name"
 # Compare baseline to a test by name
 pnpm bench compare "Name"
 ```
+
 ## Testing Principles
 
 - Cover the common paths that represent the 80% of real usage. Add edge-case tests only when the edge case is important or guards against a meaningful regression.

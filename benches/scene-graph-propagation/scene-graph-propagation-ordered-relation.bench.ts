@@ -4,10 +4,10 @@ import { createSchedule } from './systems/schedule.ts';
 
 /** @see scene-graph-propagation.bench.ts for description. */
 group('scene graph propagation: OrderedRelation @scene @graph @relation', () => {
-    const ctx = createSceneGraphContext('ordered-relation');
-    const schedule = createSchedule(ctx);
+  const ctx = createSceneGraphContext('ordered-relation');
+  const schedule = createSchedule(ctx);
 
-    bench(() => {
-        schedule.run({ world: ctx.world });
-    }).gc('inner');
+  bench(() => {
+    schedule.run({ world: ctx.world });
+  }).gc('inner');
 });

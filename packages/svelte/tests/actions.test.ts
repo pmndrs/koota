@@ -7,27 +7,27 @@ import { WORLD_KEY } from '../src/world/world-context';
 const Position = trait({ x: 0, y: 0 });
 
 describe('useActions', () => {
-    beforeEach(() => {
-        universe.reset();
+  beforeEach(() => {
+    universe.reset();
+  });
+
+  it('returns actions bound to the world in context', () => {
+    const actions = createActions((world) => ({
+      spawnBody: () => world.spawn(Position),
+    }));
+
+    let spawnedEntity: Entity | undefined;
+
+    render(ActionsTest, {
+      context: new Map([[WORLD_KEY, createWorld()]]),
+      props: {
+        actions,
+        onActions: (boundActions: Record<string, any>) => {
+          spawnedEntity = boundActions.spawnBody();
+        },
+      },
     });
 
-    it('returns actions bound to the world in context', () => {
-        const actions = createActions((world) => ({
-            spawnBody: () => world.spawn(Position),
-        }));
-
-        let spawnedEntity: Entity | undefined;
-
-        render(ActionsTest, {
-            context: new Map([[WORLD_KEY, createWorld()]]),
-            props: {
-                actions,
-                onActions: (boundActions: Record<string, any>) => {
-                    spawnedEntity = boundActions.spawnBody();
-                },
-            },
-        });
-
-        expect(spawnedEntity).toBeDefined();
-    });
+    expect(spawnedEntity).toBeDefined();
+  });
 });

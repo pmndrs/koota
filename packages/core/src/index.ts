@@ -12,20 +12,20 @@ export { createRemoved } from './query/modifiers/removed';
 export { $modifier } from './query/modifier';
 export { createQuery, IsExcluded } from './query/query';
 export type {
-    EventType,
-    InstancesFromParameters,
-    IsNotModifier,
-    Modifier,
-    QueryLayout,
-    Query,
-    QueryModifier,
-    QueryParameter,
-    QueryResult,
-    QueryResultOptions,
-    QuerySubscriber,
-    QueryUnsubscriber,
-    QueryHash,
-    StoresFromParameters,
+  EventType,
+  InstancesFromParameters,
+  IsNotModifier,
+  Modifier,
+  QueryLayout,
+  Query,
+  QueryModifier,
+  QueryParameter,
+  QueryResult,
+  QueryResultOptions,
+  QuerySubscriber,
+  QueryUnsubscriber,
+  QueryHash,
+  StoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
 export { relation } from './relation/relation';
@@ -35,26 +35,26 @@ export { ordered } from './relation/ordered';
 export { OrderedList } from './relation/ordered-list';
 export { $relationPair, $relation } from './relation/symbols';
 export type {
-    /** @experimental This type is experimental and may change or be removed in future versions. */
-    OrderedRelation as OrderedTrait,
-    RelationInputTarget,
-    Relation,
-    RelationPair,
-    RelationTarget,
+  /** @experimental This type is experimental and may change or be removed in future versions. */
+  OrderedRelation as OrderedTrait,
+  RelationInputTarget,
+  Relation,
+  RelationPair,
+  RelationTarget,
 } from './relation/types';
 export { getStore, trait } from './trait/trait';
 export type {
-    ConfigurableTrait,
-    ExtractIsTag,
-    ExtractSchema,
-    ExtractStore,
-    IsTag,
-    SetTraitCallback,
-    TagTrait,
-    Trait,
-    TraitRecord,
-    TraitTuple,
-    TraitValue,
+  ConfigurableTrait,
+  ExtractIsTag,
+  ExtractSchema,
+  ExtractStore,
+  IsTag,
+  SetTraitCallback,
+  TagTrait,
+  Trait,
+  TraitRecord,
+  TraitTuple,
+  TraitValue,
 } from './trait/types';
 export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';

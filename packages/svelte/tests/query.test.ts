@@ -9,142 +9,142 @@ import { WORLD_KEY } from '../src/world/world-context';
 const Position = trait({ x: 0, y: 0 });
 
 describe('useQuery', () => {
-    let world = createWorld();
+  let world = createWorld();
 
-    beforeEach(() => {
-        universe.reset();
-        world = createWorld();
+  beforeEach(() => {
+    universe.reset();
+    world = createWorld();
+  });
+
+  const renderSubject = (props: any) => {
+    return render(QueryTest, {
+      props,
+      context: new Map([[WORLD_KEY, world]]),
+    });
+  };
+
+  it('reactively returns entities matching the query', async () => {
+    const { getByTestId } = renderSubject({
+      params: [Position],
     });
 
-    const renderSubject = (props: any) => {
-        return render(QueryTest, {
-            props,
-            context: new Map([[WORLD_KEY, world]]),
-        });
-    };
+    await tick();
+    expect(getByTestId('count').textContent).toBe('0');
 
-    it('reactively returns entities matching the query', async () => {
-        const { getByTestId } = renderSubject({
-            params: [Position],
-        });
+    world.spawn(Position);
+    await tick();
+    expect(getByTestId('count').textContent).toBe('1');
 
-        await tick();
-        expect(getByTestId('count').textContent).toBe('0');
+    const entityToDestroy = world.spawn(Position);
+    await tick();
+    expect(getByTestId('count').textContent).toBe('2');
 
-        world.spawn(Position);
-        await tick();
-        expect(getByTestId('count').textContent).toBe('1');
+    entityToDestroy.destroy();
+    await tick();
+    expect(getByTestId('count').textContent).toBe('1');
+  });
 
-        const entityToDestroy = world.spawn(Position);
-        await tick();
-        expect(getByTestId('count').textContent).toBe('2');
+  it('returns initial matches synchronously', () => {
+    world.spawn(Position);
+    let initialCount = 0;
 
-        entityToDestroy.destroy();
-        await tick();
-        expect(getByTestId('count').textContent).toBe('1');
+    renderSubject({
+      params: [Position],
+      onInitial: (result: Entity[]) => {
+        initialCount = result.length;
+      },
     });
 
-    it('returns initial matches synchronously', () => {
-        world.spawn(Position);
-        let initialCount = 0;
+    expect(initialCount).toBe(1);
+  });
 
-        renderSubject({
-            params: [Position],
-            onInitial: (result: Entity[]) => {
-                initialCount = result.length;
-            },
-        });
-
-        expect(initialCount).toBe(1);
+  it('reactively updates when the world is reset', async () => {
+    const { getByTestId } = renderSubject({
+      params: [Position],
     });
 
-    it('reactively updates when the world is reset', async () => {
-        const { getByTestId } = renderSubject({
-            params: [Position],
-        });
+    await tick();
+    expect(getByTestId('count').textContent).toBe('0');
 
-        await tick();
-        expect(getByTestId('count').textContent).toBe('0');
+    world.spawn(Position);
+    world.spawn(Position);
+    await tick();
+    expect(getByTestId('count').textContent).toBe('2');
 
-        world.spawn(Position);
-        world.spawn(Position);
-        await tick();
-        expect(getByTestId('count').textContent).toBe('2');
+    world.reset();
+    await tick();
+    expect(getByTestId('count').textContent).toBe('0');
 
+    world.spawn(Position);
+    await tick();
+    expect(getByTestId('count').textContent).toBe('1');
+  });
+
+  it('does not loop when the world is reset inside an effect', async () => {
+    let runs = 0;
+
+    const { getByTestId } = renderSubject({
+      params: [Position],
+      onEffect: () => {
+        runs++;
         world.reset();
-        await tick();
-        expect(getByTestId('count').textContent).toBe('0');
-
         world.spawn(Position);
-        await tick();
-        expect(getByTestId('count').textContent).toBe('1');
+      },
     });
 
-    it('does not loop when the world is reset inside an effect', async () => {
-        let runs = 0;
+    await tick();
+    await tick();
+    expect(runs).toBe(1);
+    expect(getByTestId('count').textContent).toBe('1');
+  });
 
-        const { getByTestId } = renderSubject({
-            params: [Position],
-            onEffect: () => {
-                runs++;
-                world.reset();
-                world.spawn(Position);
-            },
-        });
-
-        await tick();
-        await tick();
-        expect(runs).toBe(1);
-        expect(getByTestId('count').textContent).toBe('1');
+  it('should define special methods on query result', async () => {
+    const { getByTestId } = renderSubject({
+      params: [],
     });
 
-    it('should define special methods on query result', async () => {
-        const { getByTestId } = renderSubject({
-            params: [],
-        });
+    await tick();
+    expect(getByTestId('has-update-each').textContent).toBe('true');
+  });
 
-        await tick();
-        expect(getByTestId('has-update-each').textContent).toBe('true');
+  it('supports variadic arguments', async () => {
+    const { getByTestId } = render(QueryVariadicTest, {
+      context: new Map([[WORLD_KEY, world]]),
+      props: { params: [Position] },
     });
 
-    it('supports variadic arguments', async () => {
-        const { getByTestId } = render(QueryVariadicTest, {
-            context: new Map([[WORLD_KEY, world]]),
-            props: { params: [Position] },
-        });
+    await tick();
+    expect(getByTestId('count').textContent).toBe('0');
 
-        await tick();
-        expect(getByTestId('count').textContent).toBe('0');
+    world.spawn(Position);
+    await tick();
+    expect(getByTestId('count').textContent).toBe('1');
+  });
 
-        world.spawn(Position);
-        await tick();
-        expect(getByTestId('count').textContent).toBe('1');
+  it('should handle relation query when target entity changes', async () => {
+    const ChildOf = relation();
+    const Tag = trait();
+
+    const parent1 = world.spawn(Tag);
+    const parent2 = world.spawn(Tag);
+
+    // Two children of parent1
+    world.spawn(Tag, ChildOf(parent1));
+    world.spawn(Tag, ChildOf(parent1));
+
+    // One child of parent2
+    world.spawn(Tag, ChildOf(parent2));
+
+    const { getByTestId, rerender } = renderSubject({
+      params: [Tag, ChildOf(parent1)],
     });
 
-    it('should handle relation query when target entity changes', async () => {
-        const ChildOf = relation();
-        const Tag = trait();
+    await tick();
+    expect(getByTestId('count').textContent).toBe('2');
 
-        const parent1 = world.spawn(Tag);
-        const parent2 = world.spawn(Tag);
-
-        // Two children of parent1
-        world.spawn(Tag, ChildOf(parent1));
-        world.spawn(Tag, ChildOf(parent1));
-
-        // One child of parent2
-        world.spawn(Tag, ChildOf(parent2));
-
-        const { getByTestId, rerender } = renderSubject({
-            params: [Tag, ChildOf(parent1)],
-        });
-
-        await tick();
-        expect(getByTestId('count').textContent).toBe('2');
-
-        // Change parent - the query should update to reflect children of parent2
-        await rerender({ params: [Tag, ChildOf(parent2)] });
-        await tick();
-        expect(getByTestId('count').textContent).toBe('1');
-    });
+    // Change parent - the query should update to reflect children of parent2
+    await rerender({ params: [Tag, ChildOf(parent2)] });
+    await tick();
+    expect(getByTestId('count').textContent).toBe('1');
+  });
 });

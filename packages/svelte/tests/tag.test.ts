@@ -6,85 +6,85 @@ import TagTest from './components/TagTest.svelte';
 import { WORLD_KEY } from '../src/world/world-context';
 
 describe('useTag', () => {
-    const IsTagged = trait();
-    let world = createWorld();
+  const IsTagged = trait();
+  let world = createWorld();
 
-    const renderSubject = (props: ComponentProps<typeof TagTest>) => {
-        return render(TagTest, {
-            context: new Map([[WORLD_KEY, world]]),
-            props,
-        });
-    };
+  const renderSubject = (props: ComponentProps<typeof TagTest>) => {
+    return render(TagTest, {
+      context: new Map([[WORLD_KEY, world]]),
+      props,
+    });
+  };
 
-    beforeEach(() => {
-        universe.reset();
-        world = createWorld();
+  beforeEach(() => {
+    universe.reset();
+    world = createWorld();
+  });
+
+  it('reactively returns a boolean for a trait', async () => {
+    const entity = world.spawn(IsTagged);
+
+    const { getByTestId } = renderSubject({
+      target: entity,
+      tag: IsTagged,
     });
 
-    it('reactively returns a boolean for a trait', async () => {
-        const entity = world.spawn(IsTagged);
+    await tick();
+    expect(getByTestId('value').textContent).toBe('true');
 
-        const { getByTestId } = renderSubject({
-            target: entity,
-            tag: IsTagged,
-        });
+    entity.remove(IsTagged);
+    await tick();
+    expect(getByTestId('value').textContent).toBe('false');
+  });
 
-        await tick();
-        expect(getByTestId('value').textContent).toBe('true');
+  it('returns false when the target becomes undefined', async () => {
+    let entity = world.spawn(IsTagged);
 
-        entity.remove(IsTagged);
-        await tick();
-        expect(getByTestId('value').textContent).toBe('false');
+    const { getByTestId, rerender } = renderSubject({
+      target: entity,
+      tag: IsTagged,
     });
 
-    it('returns false when the target becomes undefined', async () => {
-        let entity = world.spawn(IsTagged);
+    await tick();
+    expect(getByTestId('value').textContent).toBe('true');
 
-        const { getByTestId, rerender } = renderSubject({
-            target: entity,
-            tag: IsTagged,
-        });
+    await rerender({ target: undefined, tag: IsTagged });
+    await tick();
+    expect(getByTestId('value').textContent).toBe('false');
+  });
 
-        await tick();
-        expect(getByTestId('value').textContent).toBe('true');
+  it('works with a world', async () => {
+    const IsPaused = trait();
 
-        await rerender({ target: undefined, tag: IsTagged });
-        await tick();
-        expect(getByTestId('value').textContent).toBe('false');
+    const { getByTestId } = renderSubject({
+      target: world,
+      tag: IsPaused,
     });
 
-    it('works with a world', async () => {
-        const IsPaused = trait();
+    world.add(IsPaused);
 
-        const { getByTestId } = renderSubject({
-            target: world,
-            tag: IsPaused,
-        });
+    await tick();
+    expect(getByTestId('value').textContent).toBe('true');
 
-        world.add(IsPaused);
+    world.remove(IsPaused);
+    await tick();
+    expect(getByTestId('value').textContent).toBe('false');
+  });
 
-        await tick();
-        expect(getByTestId('value').textContent).toBe('true');
+  it('immediately reflects the correct value when switching entities', async () => {
+    const entityA = world.spawn(IsTagged);
+    const entityB = world.spawn(); // No tag
 
-        world.remove(IsPaused);
-        await tick();
-        expect(getByTestId('value').textContent).toBe('false');
+    const { getByTestId, rerender } = renderSubject({
+      target: entityA,
+      tag: IsTagged,
     });
 
-    it('immediately reflects the correct value when switching entities', async () => {
-        const entityA = world.spawn(IsTagged);
-        const entityB = world.spawn(); // No tag
+    await tick();
+    expect(getByTestId('value').textContent).toBe('true');
 
-        const { getByTestId, rerender } = renderSubject({
-            target: entityA,
-            tag: IsTagged,
-        });
-
-        await tick();
-        expect(getByTestId('value').textContent).toBe('true');
-
-        await rerender({ target: entityB, tag: IsTagged });
-        await tick();
-        expect(getByTestId('value').textContent).toBe('false');
-    });
+    await rerender({ target: entityB, tag: IsTagged });
+    await tick();
+    expect(getByTestId('value').textContent).toBe('false');
+  });
 });
