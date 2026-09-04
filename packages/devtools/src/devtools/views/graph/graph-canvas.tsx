@@ -205,6 +205,19 @@ function lerpPositions(from: LayoutResult, to: LayoutResult, t: number): LayoutR
   return { positions, width: to.width, height: to.height };
 }
 
+function lerpSlots(
+  from: Map<string, number>,
+  to: Map<string, number>,
+  t: number
+): Map<string, number> {
+  const next = new Map<string, number>();
+  for (const [id, slot] of to) {
+    const prev = from.get(id);
+    next.set(id, prev === undefined ? slot : prev + (slot - prev) * t);
+  }
+  return next;
+}
+
 function lerpView(from: View, to: View, t: number): View {
   return {
     x: from.x + (to.x - from.x) * t,
@@ -228,12 +241,10 @@ function fitView(layout: LayoutResult, width: number, height: number): View {
 
 /* Edge geometry ------------------------------------------------------------------------------ */
 
-interface EdgeGeometry {
+interface EdgeCurve {
   d: string;
-  labelX: number;
-  labelY: number;
-  /** Which side of the line the label sits on. */
-  anchor: 'start' | 'end';
+  /** Point on the curve at t in [0, 1]; a self loop always answers with its label spot. */
+  at: (t: number) => { x: number; y: number };
 }
 
 function cubicAt(
@@ -255,17 +266,16 @@ function cubicAt(
   return { x: a * x0 + b * x1 + c * x2 + d * x3, y: a * y0 + b * y1 + c * y2 + d * y3 };
 }
 
-function edgeGeometry(s: NodeBox, t: NodeBox, offset: number, selfLoop: boolean): EdgeGeometry {
+function edgeCurve(s: NodeBox, t: NodeBox, offset: number, selfLoop: boolean): EdgeCurve {
   if (selfLoop) {
     const right = s.x + s.width / 2;
     const reach = 22 + Math.abs(offset) * 2;
     const y0 = s.y - s.height / 4;
     const y1 = s.y + s.height / 4;
+    const label = { x: right + reach * 0.75 + 3, y: s.y };
     return {
       d: `M ${right} ${y0} C ${right + reach} ${y0 - 8}, ${right + reach} ${y1 + 8}, ${right} ${y1}`,
-      labelX: right + reach * 0.75 + 3,
-      labelY: s.y,
-      anchor: 'start',
+      at: () => label,
     };
   }
 
@@ -285,17 +295,95 @@ function edgeGeometry(s: NodeBox, t: NodeBox, offset: number, selfLoop: boolean)
   const c1x = sx + offset;
   const c2x = ex + offset;
 
-  // Label near the source, where converging edges are still apart, on the outer side of
-  // the line so two edges meeting at one node keep their labels apart.
-  const { x: labelX, y: labelY } = cubicAt(sx, sy, c1x, c1y, c2x, c2y, ex, ey, 0.22);
-  const outerLeft = ex > sx + 1;
-
   return {
     d: `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`,
-    labelX: outerLeft ? labelX - 4 : labelX + 4,
-    labelY,
-    anchor: outerLeft ? 'end' : 'start',
+    at: (u) => cubicAt(sx, sy, c1x, c1y, c2x, c2y, ex, ey, u),
   };
+}
+
+/* Label placement ---------------------------------------------------------------------------- */
+
+const LABEL_H = 12;
+/** Candidate spots along an edge, tried in order; near the source first. */
+const LABEL_SLOTS = [0.2, 0.34, 0.48, 0.62, 0.76, 0.1];
+const EDGE_SAMPLES = 12;
+
+interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function rectsOverlap(a: Rect, b: Rect): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+function pointInRect(p: { x: number; y: number }, r: Rect): boolean {
+  return p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+}
+
+function circleMeetsRect(c: NodeBox, r: Rect): boolean {
+  const radius = c.width / 2;
+  const nx = Math.max(r.x, Math.min(c.x, r.x + r.width));
+  const ny = Math.max(r.y, Math.min(c.y, r.y + r.height));
+  return Math.hypot(c.x - nx, c.y - ny) < radius;
+}
+
+/**
+ * Picks where along each edge its label goes. Every label tries the slots in order and takes
+ * the first one that touches no placed label, no other edge and no node; failing that, the
+ * least crowded one. Decided on the settled layout so labels do not hop while nodes tween.
+ */
+function placeLabels(
+  edges: CanvasEdge[],
+  curves: Map<string, EdgeCurve>,
+  nodes: NodeBox[],
+  previous: Map<string, number>
+): Map<string, number> {
+  const samples = new Map<string, { x: number; y: number }[]>();
+  for (const edge of edges) {
+    const curve = curves.get(edge.id);
+    if (!curve) continue;
+    const points: { x: number; y: number }[] = [];
+    for (let i = 0; i <= EDGE_SAMPLES; i++) points.push(curve.at(i / EDGE_SAMPLES));
+    samples.set(edge.id, points);
+  }
+
+  const placed: Rect[] = [];
+  const result = new Map<string, number>();
+
+  for (const edge of edges) {
+    const curve = curves.get(edge.id);
+    if (!curve) continue;
+    const width = edgeText(edge).length * LABEL_CHAR_W + 6;
+    let best: { t: number; rect: Rect; score: number } | null = null;
+
+    // A label that already has a clean spot keeps it; only a conflict makes it move.
+    const kept = previous.get(edge.id);
+    const slots = kept === undefined ? LABEL_SLOTS : [kept, ...LABEL_SLOTS.filter((t) => t !== kept)];
+
+    for (const t of slots) {
+      const c = curve.at(t);
+      const rect = { x: c.x - width / 2, y: c.y - LABEL_H / 2, width, height: LABEL_H };
+      let score = 0;
+      for (const other of placed) if (rectsOverlap(rect, other)) score += 10;
+      for (const [id, points] of samples) {
+        if (id === edge.id) continue;
+        for (const p of points) if (pointInRect(p, rect)) score += 1;
+      }
+      for (const node of nodes) if (circleMeetsRect(node, rect)) score += 5;
+      if (best === null || score < best.score) best = { t, rect, score };
+      if (score === 0) break;
+    }
+
+    if (best) {
+      placed.push(best.rect);
+      result.set(edge.id, best.t);
+    }
+  }
+
+  return result;
 }
 
 /** Spread parallel edges between the same pair of nodes so they never overlap. */
@@ -483,6 +571,27 @@ export function GraphCanvas({
   );
 
   const offsets = useMemo(() => parallelOffsets(edges), [edges]);
+  const previousSlotsRef = useRef(new Map<string, number>());
+  const labelSlots = useMemo(() => {
+    const curves = new Map<string, EdgeCurve>();
+    for (const edge of edges) {
+      const s = layout.positions.get(edge.source);
+      const t = layout.positions.get(edge.target);
+      if (s && t) {
+        curves.set(edge.id, edgeCurve(s, t, offsets.get(edge.id) ?? 0, edge.source === edge.target));
+      }
+    }
+    const slots = placeLabels(
+      edges,
+      curves,
+      [...layout.positions.values()],
+      previousSlotsRef.current
+    );
+    previousSlotsRef.current = slots;
+    return slots;
+  }, [edges, layout, offsets]);
+  // A label that does move slides along its edge rather than jumping.
+  const shownSlots = useTween(labelSlots, lerpSlots);
 
   if (isEmpty) {
     return (
@@ -528,7 +637,8 @@ export function GraphCanvas({
               const s = boxFor(edge.source);
               const t = boxFor(edge.target);
               if (!s || !t) return null;
-              const geo = edgeGeometry(s, t, offsets.get(edge.id) ?? 0, edge.source === edge.target);
+              const curve = edgeCurve(s, t, offsets.get(edge.id) ?? 0, edge.source === edge.target);
+              const label = curve.at(shownSlots.get(edge.id) ?? LABEL_SLOTS[0]);
               const dimmed =
                 connected !== null && edge.source !== hoveredId && edge.target !== hoveredId;
               return (
@@ -538,12 +648,12 @@ export function GraphCanvas({
                     .filter(Boolean)
                     .join(' ')}
                 >
-                  <path d={geo.d} className={styles.edgePath} markerEnd={`url(#${markerId})`} />
+                  <path d={curve.d} className={styles.edgePath} markerEnd={`url(#${markerId})`} />
                   <text
-                    x={geo.labelX}
-                    y={geo.labelY}
+                    x={label.x}
+                    y={label.y}
                     className={styles.edgeLabel}
-                    textAnchor={geo.anchor}
+                    textAnchor="middle"
                     dominantBaseline="central"
                   >
                     {edge.label}

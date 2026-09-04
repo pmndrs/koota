@@ -142,30 +142,26 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
     [graph, labelFor]
   );
 
-  const sheet = useMemo(() => {
-    if (sheetNodeId === null || !graph) return null;
-    const node = graph.nodes.find((n) => n.id === sheetNodeId);
-    if (!node || node.entity !== null) return null;
-    return {
-      title: node.archetype.fullLabel,
-      entities: node.entities,
-    };
-  }, [sheetNodeId, graph]);
-
   const pin = useCallback((entity: Entity) => {
     setPinned((prev) => new Set(prev).add(entity));
     setSheetNodeId(null);
   }, []);
 
+  const sheet = useMemo(() => {
+    if (sheetNodeId === null || !graph) return null;
+    const node = graph.nodes.find((n) => n.id === sheetNodeId);
+    if (!node) return null;
+    return {
+      title: node.archetype.fullLabel,
+      entities: node.entities,
+      // A lone entity has nothing to pin out of; picking it opens the inspector instead.
+      onSelect: node.entity !== null ? onSelectEntity : pin,
+    };
+  }, [sheetNodeId, graph, onSelectEntity, pin]);
+
   const regroup = useCallback(() => setPinned(new Set()), []);
 
-  const handleNodeClick = useCallback(
-    (node: CanvasNode) => {
-      if (node.variant === 'group') setSheetNodeId(node.id);
-      else if (node.entity !== undefined) onSelectEntity(node.entity);
-    },
-    [onSelectEntity]
-  );
+  const handleNodeClick = useCallback((node: CanvasNode) => setSheetNodeId(node.id), []);
 
   const handleNodeHover = useCallback(
     (node: CanvasNode | null) => {
@@ -281,7 +277,7 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
         <GraphEntitiesSheet
           title={sheet.title}
           entities={sheet.entities}
-          onSelect={pin}
+          onSelect={sheet.onSelect}
           onClose={() => setSheetNodeId(null)}
         />
       )}

@@ -47,7 +47,7 @@
   /* Halo so labels stay legible where they cross lines */
   paint-order: stroke;
   stroke: var(--bg-panel);
-  stroke-width: 3px;
+  stroke-width: 4px;
   stroke-linejoin: round;
 }
 
