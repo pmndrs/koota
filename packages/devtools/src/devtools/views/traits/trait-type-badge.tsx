@@ -1,12 +1,12 @@
 import type { TraitType } from '../../model/trait-info';
 import { Badge, type BadgeTone } from '../../ui/badge';
 
-// Each storage type borrows the syntax role it resembles: tags are markup tags,
-// SoA is a storage type, AoS is a class, and relations take the theme's pink.
+// Tags take poimandres' markup tag mint and relations its pink. SoA takes the
+// Cursor number gold for its columns of values, AoS the Cursor property lavender.
 const TONES: Record<TraitType, BadgeTone> = {
   tag: 'mint',
-  soa: 'steel',
-  aos: 'sky',
+  soa: 'gold',
+  aos: 'lavender',
   rel: 'pink',
 };
 

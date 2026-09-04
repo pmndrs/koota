@@ -15,8 +15,8 @@
 }
 
 .mint,
-.steel,
-.sky,
+.gold,
+.lavender,
 .pink {
   color: var(--bg-panel);
 }
@@ -25,12 +25,12 @@
   background: var(--tone-mint);
 }
 
-.steel {
-  background: var(--tone-steel);
+.gold {
+  background: var(--tone-gold);
 }
 
-.sky {
-  background: var(--tone-sky);
+.lavender {
+  background: var(--tone-lavender);
 }
 
 .pink {
