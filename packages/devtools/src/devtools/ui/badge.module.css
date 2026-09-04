@@ -14,25 +14,25 @@
   font-size: var(--text-2xs);
 }
 
-.blue,
-.teal,
-.peach,
-.lavender {
+.mint,
+.steel,
+.sky,
+.pink {
   color: var(--bg-panel);
 }
 
-.blue {
-  background: var(--tone-blue);
+.mint {
+  background: var(--tone-mint);
 }
 
-.teal {
-  background: var(--tone-teal);
+.steel {
+  background: var(--tone-steel);
 }
 
-.peach {
-  background: var(--tone-peach);
+.sky {
+  background: var(--tone-sky);
 }
 
-.lavender {
-  background: var(--tone-lavender);
+.pink {
+  background: var(--tone-pink);
 }

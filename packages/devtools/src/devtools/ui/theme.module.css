@@ -25,11 +25,11 @@
   --accent: #519aba;
   --danger: #ff6b6b;
 
-  /* Cursor Dark syntax colors: classes, storage keywords, types, properties */
-  --tone-blue: #87c3ff;
-  --tone-teal: #82d2ce;
-  --tone-peach: #efb080;
-  --tone-lavender: #aaa0fa;
+  /* Poimandres syntax colors: tags, storage types, classes, and its pink */
+  --tone-mint: #5de4c7;
+  --tone-steel: #91b4d5;
+  --tone-sky: #add7ff;
+  --tone-pink: #f087bd;
 
   --radius-sm: 3px;
   --radius-md: 4px;

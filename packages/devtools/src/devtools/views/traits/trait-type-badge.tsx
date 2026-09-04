@@ -1,13 +1,13 @@
 import type { TraitType } from '../../model/trait-info';
 import { Badge, type BadgeTone } from '../../ui/badge';
 
-// Each storage type borrows the syntax role it resembles: tags read like class
-// names, SoA like storage keywords, AoS like object types, relations like properties.
+// Each storage type borrows the syntax role it resembles: tags are markup tags,
+// SoA is a storage type, AoS is a class, and relations take the theme's pink.
 const TONES: Record<TraitType, BadgeTone> = {
-  tag: 'blue',
-  soa: 'teal',
-  aos: 'peach',
-  rel: 'lavender',
+  tag: 'mint',
+  soa: 'steel',
+  aos: 'sky',
+  rel: 'pink',
 };
 
 /** The colored label for a trait's storage type, the same everywhere a trait is listed. */
