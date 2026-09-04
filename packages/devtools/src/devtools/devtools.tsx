@@ -78,7 +78,12 @@ export function Devtools({
           <Panel.Content scrollKey={screenKey} locked={nav.screen === 'graph'}>
             {nav.screen === 'entity-list' && <WorldEntityList onSelect={openEntity} />}
             {nav.screen === 'entity-detail' && (
-              <EntityDetail key={nav.entity} entity={nav.entity} onSelectTrait={openTrait} />
+              <EntityDetail
+                key={nav.entity}
+                entity={nav.entity}
+                onSelectTrait={openTrait}
+                onSelectEntity={openEntity}
+              />
             )}
             {nav.screen === 'trait-list' && <TraitList traits={traits} onSelect={openTrait} />}
             {nav.screen === 'trait-detail' && (

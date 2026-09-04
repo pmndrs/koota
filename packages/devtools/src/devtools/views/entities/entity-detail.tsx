@@ -14,9 +14,10 @@ import { TraitPicker, type TraitPickerResult } from './trait-picker';
 interface EntityDetailProps {
   entity: Entity;
   onSelectTrait: (trait: Trait) => void;
+  onSelectEntity: (entity: Entity) => void;
 }
 
-export function EntityDetail({ entity, onSelectTrait }: EntityDetailProps) {
+export function EntityDetail({ entity, onSelectTrait, onSelectEntity }: EntityDetailProps) {
   const world = useWorld();
   const info = getEntityInfo(world, entity);
   const traits = useEntityTraits(world, entity);
@@ -69,6 +70,7 @@ export function EntityDetail({ entity, onSelectTrait }: EntityDetailProps) {
                 onToggle={() => setExpandedTraitId(expandedTraitId === id ? null : id)}
                 onRemove={() => entity.remove(trait)}
                 onInspect={() => onSelectTrait(trait)}
+                onSelectEntity={onSelectEntity}
               />
             );
           })
