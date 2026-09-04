@@ -1,0 +1,17 @@
+<script lang="ts">
+  import type { Entity, Relation, Trait, World } from "@koota/core";
+  import { untrack } from "svelte";
+  import { useTarget } from "../../src";
+
+  let {
+    target,
+    relation,
+  }: {
+    target: Entity | World | undefined | null;
+    relation: Relation<Trait>;
+  } = $props();
+
+  const result = useTarget(() => target, untrack(() => relation));
+</script>
+
+<span data-testid="value">{result.current ?? "undefined"}</span>

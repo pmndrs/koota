@@ -1,31 +1,31 @@
 export class Deque<T> {
-    #removed: T[] = [];
-    #removedOut: T[] = [];
+  #removed: T[] = [];
+  #removedOut: T[] = [];
 
-    dequeue(): T {
-        if (this.#removedOut.length === 0) {
-            while (this.#removed.length > 0) {
-                this.#removedOut.push(this.#removed.pop()!);
-            }
-        }
-
-        if (this.#removedOut.length === 0) {
-            throw new Error('Queue is empty');
-        }
-
-        return this.#removedOut.pop()!;
+  dequeue(): T {
+    if (this.#removedOut.length === 0) {
+      while (this.#removed.length > 0) {
+        this.#removedOut.push(this.#removed.pop()!);
+      }
     }
 
-    enqueue(...items: T[]): void {
-        this.#removed.push(...items);
+    if (this.#removedOut.length === 0) {
+      throw new Error('Queue is empty');
     }
 
-    get length(): number {
-        return this.#removed.length + this.#removedOut.length;
-    }
+    return this.#removedOut.pop()!;
+  }
 
-    clear(): void {
-        this.#removed.length = 0;
-        this.#removedOut.length = 0;
-    }
+  enqueue(...items: T[]): void {
+    this.#removed.push(...items);
+  }
+
+  get length(): number {
+    return this.#removed.length + this.#removedOut.length;
+  }
+
+  clear(): void {
+    this.#removed.length = 0;
+    this.#removedOut.length = 0;
+  }
 }

@@ -1,7 +1,7 @@
 ---
 title: Building an App
 description: Think in ECS
-nav: 12
+nav: 13
 ---
 
 This will be a brief introduction to thinking about building an app with Koota along with some patterns.

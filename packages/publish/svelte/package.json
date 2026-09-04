@@ -1,0 +1,6 @@
+{
+  "main": "../dist/svelte/index.js",
+  "module": "../dist/svelte/index.js",
+  "svelte": "../dist/svelte/index.js",
+  "types": "../dist/svelte/index.d.ts"
+}

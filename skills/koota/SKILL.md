@@ -236,6 +236,29 @@ For React hooks and actions, see [references/react-hooks.md](references/react-ho
 
 For component patterns (App, Startup, Renderer, view sync, input), see [references/react-patterns.md](references/react-patterns.md).
 
+For the public integration API, see the [React API documentation](../../docs/react/api.md).
+
+## Svelte integration
+
+**Imports:** Core types (`World`, `Entity`) from `'koota'`. Svelte bindings from `'koota/svelte'`.
+
+Svelte bindings return objects with a reactive `current` property. Call `provideWorld(world)` during component initialization before using bindings in that component or its descendants. Target arguments are getters; pass trait, tag, and relation constants directly, but wrap relation pairs in a getter when their target is reactive.
+
+```svelte
+<script lang="ts">
+  import { createWorld, trait } from 'koota'
+  import { provideWorld, useQuery, useTrait } from 'koota/svelte'
+
+  const Position = trait({ x: 0, y: 0 })
+  const world = createWorld()
+  provideWorld(world)
+  const entities = useQuery(Position)
+  const position = useTrait(() => entities.current[0], Position)
+</script>
+```
+
+For the public integration API, see the [Svelte API documentation](../../docs/svelte/api.md).
+
 ## Runtime
 
 Systems query the world and update entities. Run them via frameloop (continuous) or event handlers (discrete).
