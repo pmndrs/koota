@@ -1,0 +1,5 @@
+{
+  "main": "../../dist/devtools-rollup.cjs",
+  "module": "../../dist/devtools-rollup.js",
+  "types": "../../dist/devtools-rollup.d.ts"
+}

@@ -23,12 +23,41 @@
       "types": "./src/svelte.ts",
       "svelte": "./src/svelte.ts",
       "default": "./src/svelte.ts"
+    },
+    "./devtools": {
+      "types": "./src/devtools.ts",
+      "import": "./src/devtools.ts"
+    },
+    "./devtools/react": {
+      "types": "./src/devtools-react.ts",
+      "import": "./src/devtools-react.ts"
+    },
+    "./devtools/vite": {
+      "types": "./src/devtools-vite.ts",
+      "import": "./src/devtools-vite.ts"
+    },
+    "./devtools/rollup": {
+      "types": "./src/devtools-rollup.ts",
+      "import": "./src/devtools-rollup.ts"
+    },
+    "./devtools/rolldown": {
+      "types": "./src/devtools-rolldown.ts",
+      "import": "./src/devtools-rolldown.ts"
+    },
+    "./devtools/webpack": {
+      "types": "./src/devtools-webpack.ts",
+      "import": "./src/devtools-webpack.ts"
+    },
+    "./devtools/esbuild": {
+      "types": "./src/devtools-esbuild.ts",
+      "import": "./src/devtools-esbuild.ts"
     }
   },
   "files": [
     "dist",
     "react",
     "svelte",
+    "devtools",
     "docs",
     "README.md",
     "LICENSE"
@@ -63,22 +92,99 @@
         "types": "./dist/svelte/index.d.ts",
         "svelte": "./dist/svelte/index.js",
         "default": "./dist/svelte/index.js"
+      },
+      "./devtools": {
+        "import": {
+          "types": "./dist/devtools.d.ts",
+          "default": "./dist/devtools.js"
+        },
+        "require": {
+          "types": "./dist/devtools.d.cts",
+          "default": "./dist/devtools.cjs"
+        }
+      },
+      "./devtools/react": {
+        "import": {
+          "types": "./dist/devtools-react.d.ts",
+          "default": "./dist/devtools-react.js"
+        },
+        "require": {
+          "types": "./dist/devtools-react.d.cts",
+          "default": "./dist/devtools-react.cjs"
+        }
+      },
+      "./devtools/vite": {
+        "import": {
+          "types": "./dist/devtools-vite.d.ts",
+          "default": "./dist/devtools-vite.js"
+        },
+        "require": {
+          "types": "./dist/devtools-vite.d.cts",
+          "default": "./dist/devtools-vite.cjs"
+        }
+      },
+      "./devtools/rollup": {
+        "import": {
+          "types": "./dist/devtools-rollup.d.ts",
+          "default": "./dist/devtools-rollup.js"
+        },
+        "require": {
+          "types": "./dist/devtools-rollup.d.cts",
+          "default": "./dist/devtools-rollup.cjs"
+        }
+      },
+      "./devtools/rolldown": {
+        "import": {
+          "types": "./dist/devtools-rolldown.d.ts",
+          "default": "./dist/devtools-rolldown.js"
+        },
+        "require": {
+          "types": "./dist/devtools-rolldown.d.cts",
+          "default": "./dist/devtools-rolldown.cjs"
+        }
+      },
+      "./devtools/webpack": {
+        "import": {
+          "types": "./dist/devtools-webpack.d.ts",
+          "default": "./dist/devtools-webpack.js"
+        },
+        "require": {
+          "types": "./dist/devtools-webpack.d.cts",
+          "default": "./dist/devtools-webpack.cjs"
+        }
+      },
+      "./devtools/esbuild": {
+        "import": {
+          "types": "./dist/devtools-esbuild.d.ts",
+          "default": "./dist/devtools-esbuild.js"
+        },
+        "require": {
+          "types": "./dist/devtools-esbuild.d.cts",
+          "default": "./dist/devtools-esbuild.cjs"
+        }
       }
     }
   },
   "scripts": {
-    "build": "tsdown && node --no-warnings scripts/build-svelte.ts && node --no-warnings scripts/copy-readme.ts",
+    "build": "tsdown && node --no-warnings scripts/build-devtools.ts && node --no-warnings scripts/build-svelte.ts && node --no-warnings scripts/copy-readme.ts",
     "test": "NODE_OPTIONS=--expose-gc vitest --config vitest-config.ts",
     "generate-tests": "node scripts/generate-tests.ts"
+  },
+  "dependencies": {
+    "unplugin": "^2.3.11"
   },
   "devDependencies": {
     "@config/typescript": "workspace:*",
     "@koota/core": "workspace:*",
+    "@koota/devtools": "workspace:*",
     "@koota/react": "workspace:*",
     "@koota/svelte": "workspace:*",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/svelte": "^5.3.1",
+    "postcss": "^8.5.6",
+    "postcss-modules": "^6.0.1",
+    "preact": "^10.28.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "svelte": "^5.55.2",

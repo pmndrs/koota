@@ -1,0 +1,5 @@
+{
+  "main": "../../dist/devtools-vite.cjs",
+  "module": "../../dist/devtools-vite.js",
+  "types": "../../dist/devtools-vite.d.ts"
+}

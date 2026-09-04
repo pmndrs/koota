@@ -1,0 +1,5 @@
+{
+  "main": "../../dist/devtools-webpack.cjs",
+  "module": "../../dist/devtools-webpack.js",
+  "types": "../../dist/devtools-webpack.d.ts"
+}

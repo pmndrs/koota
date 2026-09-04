@@ -1,5 +1,13 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "./publish/tsconfig.json",
-  "include": ["collections/src", "core/src", "publish/src", "react/src"]
+  "include": [
+    "collections/src",
+    "core/src",
+    "devtools/src",
+    "devtools/plugin",
+    "devtools/css-modules.d.ts",
+    "publish/src",
+    "react/src"
+  ]
 }

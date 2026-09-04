@@ -6,38 +6,34 @@ import styles from './trait-list.module.css';
 import { AllEntityRow } from './all-entity-row';
 
 interface AllEntitiesListProps {
-	onSelect: (entity: Entity) => void;
+  onSelect: (entity: Entity) => void;
 }
 
 export function AllEntitiesList({ onSelect }: AllEntitiesListProps) {
-	const world = useWorld();
-	const [entities, setEntities] = useState<Entity[]>(() => [...world.entities]);
+  const world = useWorld();
+  const [entities, setEntities] = useState<Entity[]>(() => [...world.entities]);
 
-	useEffect(() => {
-		const updateEntities = () => setEntities([...world.entities]);
+  useEffect(() => {
+    const updateEntities = () => setEntities([...world.entities]);
 
-		world[$internal].entitySpawnedSubscriptions.add(updateEntities);
-		world[$internal].entityDestroyedSubscriptions.add(updateEntities);
+    world[$internal].entitySpawnSubscriptions.add(updateEntities);
+    world[$internal].entityDestroySubscriptions.add(updateEntities);
 
-		return () => {
-			world[$internal].entitySpawnedSubscriptions.delete(updateEntities);
-			world[$internal].entityDestroyedSubscriptions.delete(updateEntities);
-		};
-	}, [world]);
+    return () => {
+      world[$internal].entitySpawnSubscriptions.delete(updateEntities);
+      world[$internal].entityDestroySubscriptions.delete(updateEntities);
+    };
+  }, [world]);
 
-	if (entities.length === 0) {
-		return <div className={styles.empty}>No entities</div>;
-	}
+  if (entities.length === 0) {
+    return <div className={styles.empty}>No entities</div>;
+  }
 
-	return (
-		<>
-			{entities.map((entity) => (
-				<AllEntityRow
-					key={entity}
-					entity={entity}
-					onSelect={() => onSelect(entity)}
-				/>
-			))}
-		</>
-	);
+  return (
+    <>
+      {entities.map((entity) => (
+        <AllEntityRow key={entity} entity={entity} onSelect={() => onSelect(entity)} />
+      ))}
+    </>
+  );
 }

@@ -1,0 +1,5 @@
+{
+  "main": "../../dist/devtools-react.cjs",
+  "module": "../../dist/devtools-react.js",
+  "types": "../../dist/devtools-react.d.ts"
+}

@@ -3,7 +3,8 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Not, type Entity } from 'koota';
-import { useQuery, useQueryFirst, useTrait, useTraitEffect } from 'koota/react';
+import { Devtools } from 'koota/devtools/react';
+import { useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Frameloop } from './frameloop';
@@ -11,6 +12,8 @@ import { Startup } from './startup';
 import { Bullet, Explosion, Input, IsEnemy, IsPlayer, IsShieldVisible, Transform } from './traits';
 
 export function App() {
+  const world = useWorld();
+
   return (
     <>
       <Canvas>
@@ -28,6 +31,8 @@ export function App() {
 
       <Frameloop />
       <Startup />
+
+      <Devtools world={world} />
     </>
   );
 }

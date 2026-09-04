@@ -1,0 +1,5 @@
+{
+  "main": "../../dist/devtools-rolldown.cjs",
+  "module": "../../dist/devtools-rolldown.js",
+  "types": "../../dist/devtools-rolldown.d.ts"
+}

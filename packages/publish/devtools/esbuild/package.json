@@ -1,0 +1,5 @@
+{
+  "main": "../../dist/devtools-esbuild.cjs",
+  "module": "../../dist/devtools-esbuild.js",
+  "types": "../../dist/devtools-esbuild.d.ts"
+}
