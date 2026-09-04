@@ -43,8 +43,6 @@ catalogs:
       specifier: ^4.1.10
       version: 4.1.11
 
-packageExtensionsChecksum: sha256-1FgwpQUctEez8ca+xJctuTyHTDZ/S6f/xrVF8CR47aE=
-
 importers:
 
   .:

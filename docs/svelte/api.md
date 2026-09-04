@@ -1,7 +1,7 @@
 ---
 title: API
 description: Svelte integration API
-nav: 9
+nav: 10
 ---
 
 Import Svelte bindings from `koota/svelte`. They require Svelte 5 and return objects whose `current` property is reactive.
