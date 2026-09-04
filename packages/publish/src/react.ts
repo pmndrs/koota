@@ -1,1 +1,1 @@
-export * from '../../react/src';
+export * from '../../react/src/index';
