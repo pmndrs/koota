@@ -12,6 +12,7 @@ dist
 # publish
 packages/publish/publish/
 packages/publish/tests/
+packages/publish/docs/
 
 # svelte-kit
 .svelte-kit

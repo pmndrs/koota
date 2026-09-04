@@ -29,6 +29,7 @@
     "dist",
     "react",
     "svelte",
+    "docs",
     "README.md",
     "LICENSE"
   ],
