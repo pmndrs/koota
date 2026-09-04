@@ -3,7 +3,7 @@
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Not, type Entity } from 'koota';
-import { useQuery, useQueryFirst, useTrait, useTraitEffect } from 'koota/react';
+import { useQuery, useQueryFirst, useTag, useTraitEffect } from 'koota/react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Frameloop } from './frameloop';
@@ -87,7 +87,7 @@ const PlayerView = ({ entity }: { entity: Entity }) => {
     else setIsThrusting(false);
   });
 
-  const isShieldVisible = useTrait(entity, IsShieldVisible);
+  const isShieldVisible = useTag(entity, IsShieldVisible);
 
   const handleInit = useCallback(
     (group: THREE.Group | null) => {

@@ -4,11 +4,12 @@ import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Not, type Entity } from 'koota';
 import { Devtools } from 'koota/devtools/react';
-import { useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
+import { useQuery, useQueryFirst, useTag, useTraitEffect, useWorld } from 'koota/react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Frameloop } from './frameloop';
 import { Startup } from './startup';
+import { useDevtoolsHighlight } from './utils/use-devtools-highlight';
 import { Bullet, Explosion, Input, IsEnemy, IsPlayer, IsShieldVisible, Transform } from './traits';
 
 export function App() {
@@ -44,18 +45,23 @@ function EnemyRenderer() {
 
 const EnemyView = ({ entity }: { entity: Entity }) => {
   const groupRef = useRef<THREE.Group>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
   const scaleRef = useRef(0);
+  const { opacity } = useDevtoolsHighlight(entity);
 
+  // The group carries the position and the mesh the rotation, so the auto-rotation spins
+  // the shape but not the highlight ring beside it.
   const handleInit = useCallback(
     (group: THREE.Group | null) => {
-      if (!entity.isAlive() || !group) return;
+      const mesh = meshRef.current;
+      if (!entity.isAlive() || !group || !mesh) return;
 
       groupRef.current = group;
 
       entity.set(Transform, (prev) => ({
         position: group.position.copy(prev.position),
-        rotation: group.rotation.copy(prev.rotation),
-        quaternion: group.quaternion.copy(prev.quaternion),
+        rotation: mesh.rotation.copy(prev.rotation),
+        quaternion: mesh.quaternion.copy(prev.quaternion),
       }));
     },
     [entity]
@@ -71,10 +77,11 @@ const EnemyView = ({ entity }: { entity: Entity }) => {
 
   return (
     <group ref={handleInit}>
-      <mesh>
+      <mesh ref={meshRef}>
         <dodecahedronGeometry />
-        <meshBasicMaterial color="white" wireframe />
+        <meshBasicMaterial color="white" wireframe transparent opacity={opacity} />
       </mesh>
+      <HighlightView entity={entity} radius={1} />
     </group>
   );
 };
@@ -92,7 +99,8 @@ const PlayerView = ({ entity }: { entity: Entity }) => {
     else setIsThrusting(false);
   });
 
-  const isShieldVisible = useTrait(entity, IsShieldVisible);
+  const isShieldVisible = useTag(entity, IsShieldVisible);
+  const { opacity } = useDevtoolsHighlight(entity);
 
   const handleInit = useCallback(
     (group: THREE.Group | null) => {
@@ -111,8 +119,9 @@ const PlayerView = ({ entity }: { entity: Entity }) => {
     <group ref={handleInit}>
       <mesh>
         <boxGeometry />
-        <meshBasicMaterial color="orange" wireframe />
+        <meshBasicMaterial color="orange" wireframe transparent opacity={opacity} />
       </mesh>
+      <HighlightView entity={entity} radius={1.1} />
       {isThrusting && <ThrusterView />}
       {isShieldVisible && <ShieldView />}
     </group>
@@ -125,6 +134,37 @@ function ShieldView() {
       <sphereGeometry args={[1.1, 8, 8]} />
       <meshBasicMaterial color="blue" wireframe />
     </mesh>
+  );
+}
+
+/**
+ * Flat ring around an entity that is hovered or selected in the devtools. The
+ * ring lies in the play plane facing the camera, and a selected entity also
+ * gets a translucent disc so it stays obvious while the mouse moves on.
+ */
+function HighlightView({ entity, radius }: { entity: Entity; radius: number }) {
+  const { color, isSelected } = useDevtoolsHighlight(entity);
+  if (!color) return null;
+
+  return (
+    <group scale={radius}>
+      <mesh>
+        <ringGeometry args={[1.35, 1.55, 48]} />
+        <meshBasicMaterial color={color} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+      {isSelected && (
+        <mesh>
+          <circleGeometry args={[1.35, 48]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={0.2}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      )}
+    </group>
   );
 }
 
@@ -217,6 +257,8 @@ function BulletRenderer() {
 }
 
 const BulletView = memo(({ entity }: { entity: Entity }) => {
+  const { opacity } = useDevtoolsHighlight(entity);
+
   const handleInit = useCallback(
     (group: THREE.Group | null) => {
       if (!entity.isAlive() || !group) return;
@@ -234,8 +276,9 @@ const BulletView = memo(({ entity }: { entity: Entity }) => {
     <group ref={handleInit}>
       <mesh scale={0.2}>
         <sphereGeometry />
-        <meshBasicMaterial color="red" wireframe />
+        <meshBasicMaterial color="red" wireframe transparent opacity={opacity} />
       </mesh>
+      <HighlightView entity={entity} radius={0.5} />
     </group>
   );
 });
