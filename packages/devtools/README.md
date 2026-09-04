@@ -23,3 +23,10 @@ The UI is split into layers that only depend downward.
 ## Highlighting
 
 `state/use-highlight.ts` mirrors what the panel is doing onto the world as tags an app can query: `IsDevtoolsHovered` and `IsDevtoolsSelected` on entities, and `IsDevtoolsHovering`, `IsDevtoolsSelecting` and `IsDevtoolsHighlighting` on the world. One controller owns the hovered entity so rows can come and go without leaving a stale tag behind.
+
+## Staying out of the app's way
+
+The panel sits next to a real-time loop, so its subscriptions follow two rules.
+
+- Never read membership through `world.query`. A query the devtools create is registered in the world for good, joins the set checked on every spawn, and copies its entity list on every run. `model/trait-membership.ts` reads the bitmasks instead, which costs nothing between reads.
+- Subscription callbacks only schedule. Koota fires events per entity and per trait, thousands of times a frame in a busy app, so every hook in `state/` collapses them through `state/throttle.ts` into at most one read and one render per interval. The work happens in the read, never in the callback.

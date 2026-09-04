@@ -1,6 +1,8 @@
 import { $internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { useCallback, useEffect, useState } from 'react';
 import { getEntityTraits } from '../model/entity-info';
+import { readTraitCounts, readTraitEntities } from '../model/trait-membership';
+import { createThrottle } from './throttle';
 
 type Unsubscribe = () => void;
 type Subscribe = (world: World, notify: () => void) => Unsubscribe;
@@ -17,18 +19,34 @@ function onReset(world: World, notify: () => void): Unsubscribe {
   return () => subscriptions.delete(notify);
 }
 
+/** Add and remove events for every trait in the world, including traits registered later. */
+function onAnyTraitEvent(world: World, callback: (entity: Entity) => void): Unsubscribe {
+  const unsubscribes: Unsubscribe[] = [];
+  const watch = (trait: Trait) => {
+    unsubscribes.push(world.onAdd(trait, callback), world.onRemove(trait, callback));
+  };
+  for (const trait of world.traits) watch(trait);
+  unsubscribes.push(world.onTraitRegistered(watch));
+  return combine(unsubscribes);
+}
+
 /**
- * Reads a value from the world and reads it again whenever the subscription
- * fires. Both callbacks must be referentially stable or the subscription is
- * torn down and rebuilt on every render.
+ * Reads a value from the world and reads it again, throttled, whenever the subscription
+ * fires. The subscription callback must stay cheap since the app pays for it on every
+ * event; all the work happens in `read`, at most once per interval. Both callbacks must be
+ * referentially stable or the subscription is torn down and rebuilt on every render.
  */
 function useWorldValue<T>(world: World, read: (world: World) => T, subscribe: Subscribe): T {
   const [value, setValue] = useState(() => read(world));
 
   useEffect(() => {
-    const notify = () => setValue(read(world));
-    notify();
-    return subscribe(world, notify);
+    setValue(read(world));
+    const refresh = createThrottle(() => setValue(read(world)));
+    const unsubscribe = subscribe(world, refresh.schedule);
+    return () => {
+      refresh.cancel();
+      unsubscribe();
+    };
   }, [world, read, subscribe]);
 
   return value;
@@ -42,8 +60,9 @@ export function useWorldTraits(world: World): Trait[] {
   return useWorldValue(world, readTraits, subscribeTraits);
 }
 
-const readEntities = (world: World) => [...world.entities];
-const readEntityCount = (world: World) => world.entities.length;
+// `world.entities` copies the alive list, so the count is read from the index instead.
+const readEntities = (world: World) => world.entities;
+const readEntityCount = (world: World) => world[$internal].entityIndex.aliveCount;
 const subscribeEntities: Subscribe = (world, notify) =>
   combine([world.onEntitySpawn(notify), world.onEntityDestroy(notify), onReset(world, notify)]);
 
@@ -56,7 +75,7 @@ export function useEntityCount(world: World): number {
 }
 
 export function useTraitEntities(world: World, trait: Trait): Entity[] {
-  const read = useCallback((w: World) => [...w.query(trait)], [trait]);
+  const read = useCallback((w: World) => readTraitEntities(w, trait), [trait]);
   const subscribe = useCallback<Subscribe>(
     (w, notify) => combine([w.onAdd(trait, notify), w.onRemove(trait, notify)]),
     [trait]
@@ -64,51 +83,35 @@ export function useTraitEntities(world: World, trait: Trait): Entity[] {
   return useWorldValue(world, read, subscribe);
 }
 
-export function useTraitEntityCount(world: World, trait: Trait): number {
-  const read = useCallback((w: World) => w.query(trait).length, [trait]);
-  const subscribe = useCallback<Subscribe>(
-    (w, notify) => combine([w.onAdd(trait, notify), w.onRemove(trait, notify)]),
-    [trait]
-  );
-  return useWorldValue(world, read, subscribe);
+const subscribeMemberships: Subscribe = (world, notify) =>
+  combine([onAnyTraitEvent(world, notify), onReset(world, notify)]);
+
+/** How many entities carry each trait, for every trait in the world. */
+export function useTraitCounts(world: World): Map<Trait, number> {
+  return useWorldValue(world, readTraitCounts, subscribeMemberships);
 }
 
 /**
- * The traits on one entity. Koota only emits add and remove events per trait,
- * so every registered trait is watched and events for other entities are
- * ignored. The list is read back from the world after each event because
- * relation events fire once per target.
+ * The traits on one entity. Koota only emits add and remove events per trait, so every
+ * registered trait is watched and events for other entities are ignored. The list is read
+ * back from the world after each event because relation events fire once per target.
  */
 export function useEntityTraits(world: World, entity: Entity): Trait[] {
   const [traits, setTraits] = useState(() => getEntityTraits(world, entity));
 
   useEffect(() => {
-    const unsubscribes: Unsubscribe[] = [];
-    let scheduled = false;
-
-    const refresh = () => {
-      if (scheduled) return;
-      scheduled = true;
-      queueMicrotask(() => {
-        scheduled = false;
-        setTraits(world.has(entity) ? getEntityTraits(world, entity) : []);
-      });
-    };
-
-    const watch = (trait: Trait) => {
-      unsubscribes.push(
-        world.onAdd(trait, (changed) => changed === entity && refresh()),
-        world.onRemove(trait, (changed) => changed === entity && refresh())
-      );
-    };
-
     setTraits(getEntityTraits(world, entity));
-    for (const trait of world.traits) watch(trait);
-    unsubscribes.push(world.onTraitRegistered(watch));
-    unsubscribes.push(world.onEntityDestroy((destroyed) => destroyed === entity && refresh()));
+    const refresh = createThrottle(() => {
+      setTraits(world.has(entity) ? getEntityTraits(world, entity) : []);
+    });
+    const onEvent = (changed: Entity) => {
+      if (changed === entity) refresh.schedule();
+    };
+    const unsubscribe = combine([onAnyTraitEvent(world, onEvent), world.onEntityDestroy(onEvent)]);
 
     return () => {
-      for (const unsubscribe of unsubscribes) unsubscribe();
+      refresh.cancel();
+      unsubscribe();
     };
   }, [world, entity]);
 
@@ -116,40 +119,28 @@ export function useEntityTraits(world: World, entity: Entity): Trait[] {
 }
 
 /**
- * The entities holding a relation to one target. Relation events fire for
- * every target, so the result is recomputed on a short debounce instead of
- * filtering each event.
+ * The entities holding a relation to one target. Relation events fire for every target, so
+ * the result is recomputed on the throttle instead of filtering each event.
  */
 export function useRelationSources(world: World, relation: Relation<Trait>, target: Entity) {
-  const [sources, setSources] = useState<Entity[]>([]);
-
-  useEffect(() => {
-    const update = () => {
-      const result: Entity[] = [];
-      for (const entity of world.query(relation('*'))) {
-        if (entity.targetsFor(relation).includes(target)) result.push(entity);
+  const read = useCallback(
+    (w: World) => {
+      const sources: Entity[] = [];
+      for (const entity of readTraitEntities(w, relation[$internal].trait)) {
+        if (entity.targetsFor(relation).includes(target)) sources.push(entity);
       }
-      setSources(result);
-    };
-
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const schedule = () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(update, 50);
-    };
-
-    update();
-    const unsubscribe = combine([
-      world.onAdd(relation, schedule),
-      world.onRemove(relation, schedule),
-      world.onChange(relation, schedule),
-    ]);
-
-    return () => {
-      clearTimeout(timeout);
-      unsubscribe();
-    };
-  }, [world, relation, target]);
-
-  return sources;
+      return sources;
+    },
+    [relation, target]
+  );
+  const subscribe = useCallback<Subscribe>(
+    (w, notify) =>
+      combine([
+        w.onAdd(relation, notify),
+        w.onRemove(relation, notify),
+        w.onChange(relation, notify),
+      ]),
+    [relation]
+  );
+  return useWorldValue(world, read, subscribe);
 }

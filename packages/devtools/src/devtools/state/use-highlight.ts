@@ -8,6 +8,7 @@ import {
   IsDevtoolsSelected,
   IsDevtoolsSelecting,
 } from '../../traits';
+import { hasTraitEntities } from '../model/trait-membership';
 
 export interface EntityHover {
   hover(entity: Entity): void;
@@ -90,8 +91,8 @@ export function useWorldHighlightTags(world: World) {
     let scheduled = false;
 
     const sync = () => {
-      const hovering = world.query(IsDevtoolsHovered).length > 0;
-      const selecting = world.query(IsDevtoolsSelected).length > 0;
+      const hovering = hasTraitEntities(world, IsDevtoolsHovered);
+      const selecting = hasTraitEntities(world, IsDevtoolsSelected);
       setWorldTag(world, IsDevtoolsHovering, hovering);
       setWorldTag(world, IsDevtoolsSelecting, selecting);
       setWorldTag(world, IsDevtoolsHighlighting, hovering || selecting);

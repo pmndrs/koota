@@ -1,5 +1,5 @@
 import type { Trait, World } from '@koota/core';
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { INITIAL_NAV, transition } from './nav';
 
 /**
@@ -9,8 +9,17 @@ import { INITIAL_NAV, transition } from './nav';
 export function useNav(world: World, traits: Trait[]) {
   const [nav, send] = useReducer(transition, INITIAL_NAV);
 
+  // Destroys arrive per entity, so only the one the detail screen is showing is sent on.
+  const navRef = useRef(nav);
+  navRef.current = nav;
+
   useEffect(() => {
-    return world.onEntityDestroy((entity) => send({ type: 'entity-destroyed', entity }));
+    return world.onEntityDestroy((entity) => {
+      const current = navRef.current;
+      if (current.screen === 'entity-detail' && current.entity === entity) {
+        send({ type: 'entity-destroyed', entity });
+      }
+    });
   }, [world]);
 
   useEffect(() => {

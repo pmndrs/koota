@@ -7,6 +7,7 @@ import {
   matchesTraitFilter,
   type TraitType,
 } from '../../model/trait-info';
+import { useTraitCounts } from '../../state/use-world-data';
 import { useWorld } from '../../state/use-world';
 import { Button, IconButton } from '../../ui/button';
 import { Empty } from '../../ui/empty';
@@ -24,6 +25,7 @@ interface TraitListProps {
 
 export function TraitList({ traits, onSelect }: TraitListProps) {
   const world = useWorld();
+  const counts = useTraitCounts(world);
   const [text, setText] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [hiddenTypes, setHiddenTypes] = useState<Set<TraitType>>(new Set());
@@ -43,11 +45,11 @@ export function TraitList({ traits, onSelect }: TraitListProps) {
     return traits
       .filter((trait) => {
         if (hiddenTypes.has(getTraitType(trait))) return false;
-        if (!showEmpty && world.query(trait).length === 0) return false;
+        if (!showEmpty && (counts.get(trait) ?? 0) === 0) return false;
         return matchesTraitFilter(trait, filter);
       })
       .sort(compareTraitNames);
-  }, [traits, text, hiddenTypes, showEmpty, world]);
+  }, [traits, text, hiddenTypes, showEmpty, counts]);
 
   return (
     <>
@@ -85,7 +87,12 @@ export function TraitList({ traits, onSelect }: TraitListProps) {
       )}
 
       {visibleTraits.map((trait) => (
-        <TraitRow key={getTraitId(trait)} trait={trait} onSelect={onSelect} />
+        <TraitRow
+          key={getTraitId(trait)}
+          trait={trait}
+          count={counts.get(trait) ?? 0}
+          onSelect={onSelect}
+        />
       ))}
     </>
   );

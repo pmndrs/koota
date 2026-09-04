@@ -8,6 +8,7 @@ import {
   IsDevtoolsSelecting,
 } from '../../../traits';
 import { getTraitId, getTraitName, getTraitRelation } from '../../model/trait-info';
+import { readTraitEntities } from '../../model/trait-membership';
 
 /**
  * Traits that never contribute to an entity's archetype. Devtools tags flip on hover and
@@ -182,7 +183,7 @@ export function buildEntityGraph(
   const entities = new Set<Entity>();
 
   for (const rel of relations) {
-    for (const source of world.query(rel.trait)) {
+    for (const source of readTraitEntities(world, rel.trait)) {
       for (const target of source.targetsFor(rel.relation)) {
         if (!world.has(target)) continue;
         pairs.push({ source, relation: rel, target });
@@ -311,7 +312,7 @@ export function buildTree(world: World, relation: RelationRecord): TreeData {
   const sources = new Set<Entity>();
   const dangling: Entity[] = [];
 
-  for (const entity of world.query(relation.trait)) {
+  for (const entity of readTraitEntities(world, relation.trait)) {
     const targets = entity.targetsFor(relation.relation).filter((t) => world.has(t));
     if (targets.length === 0) {
       dangling.push(entity);

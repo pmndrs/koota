@@ -21,6 +21,8 @@ import type {
 } from '../trait/types';
 
 export type WorldContext = {
+  /** The world this context belongs to, so tools can find worlds through the universe. */
+  world: World;
   entityIndex: ReturnType<typeof createEntityIndex>;
   entityMasks: Uint32Array[][];
   entityTraits: Map<number, Set<Trait>>;

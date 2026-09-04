@@ -133,3 +133,14 @@ my-app/
 │
 └── pnpm-workspace.yaml
 ```
+
+## Internal diagnostic tooling
+
+This guidance is only for tooling inside the Koota repository that already has access to
+`$internal`. Application code should use the public query and subscription APIs.
+
+- Read existing entity indexes and trait bitmasks for ad hoc inspection instead of creating
+  `world.query` calls. Each new query remains registered and adds work to later spawns and
+  trait changes.
+- Keep world event callbacks cheap. Schedule a throttled read so a burst of per-entity or
+  per-trait events becomes one inspection pass and one render.

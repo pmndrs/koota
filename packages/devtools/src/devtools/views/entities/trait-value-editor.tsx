@@ -1,6 +1,7 @@
 import type { Entity, Trait } from '@koota/core';
 import { useCallback, useEffect, useState } from 'react';
 import { getTraitType } from '../../model/trait-info';
+import { createThrottle } from '../../state/throttle';
 import { useWorld } from '../../state/use-world';
 import { ObjectInspector, type ValuePath } from './object-inspector';
 import styles from './trait-value-editor.module.css';
@@ -29,10 +30,16 @@ export function TraitValueEditor({ entity, trait }: TraitValueEditorProps) {
   const world = useWorld();
   const [value, setValue] = useState<unknown>(() => entity.get(trait));
 
+  // A trait an app writes every frame would otherwise render the inspector every frame.
   useEffect(() => {
-    return world.onChange(trait, (changed) => {
-      if (changed === entity) setValue(entity.get(trait));
+    const refresh = createThrottle(() => setValue(entity.get(trait)));
+    const unsubscribe = world.onChange(trait, (changed) => {
+      if (changed === entity) refresh.schedule();
     });
+    return () => {
+      refresh.cancel();
+      unsubscribe();
+    };
   }, [world, trait, entity]);
 
   const edit = useCallback(
