@@ -34,10 +34,20 @@ export function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }
 
+/**
+ * Numbers in a preview are rounded to a few significant digits so a value that changes
+ * every frame does not make the line jitter or grow.
+ */
+export function previewNumber(value: number): string {
+  if (!Number.isFinite(value) || Number.isInteger(value)) return String(value);
+  return String(Number(value.toPrecision(4)));
+}
+
 function previewScalar(value: unknown, max: number): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (typeof value === 'string') return `"${truncate(value, max)}"`;
+  if (typeof value === 'number') return previewNumber(value);
   if (typeof value === 'object') return Array.isArray(value) ? '[…]' : '{…}';
   return truncate(String(value), max);
 }

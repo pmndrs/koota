@@ -60,7 +60,7 @@ function Value({
       return <span className={styles.quiet}>ƒ {(data as () => void).name || 'anonymous'}()</span>;
     case 'array':
       return (
-        <span>
+        <span className={styles.value}>
           Array({(data as unknown[]).length})
           {collapsed && (data as unknown[]).length > 0 && (
             <span className={styles.preview}> [{previewChildren(data)}]</span>
@@ -69,7 +69,7 @@ function Value({
       );
     case 'object':
       return (
-        <span>
+        <span className={styles.value}>
           {getConstructorName(data as object)}
           {collapsed && getChildEntries(data).length > 0 && (
             <span className={styles.preview}> {`{${previewChildren(data)}}`}</span>
