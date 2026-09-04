@@ -6,129 +6,64 @@
 }
 
 .controls {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.controlsRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  min-height: 22px;
 }
 
 .stats {
   font-size: var(--text-xs);
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.breadcrumbTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .toolbar {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
+}
+
+.segmented {
+  display: flex;
+  padding: 2px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
 }
 
 .filters {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 10;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
-  padding: 2px 8px 8px;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  white-space: nowrap;
-  scrollbar-width: thin;
-  scrollbar-color: var(--surface-2) transparent;
-}
-
-.viewport {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.svg {
-  display: block;
-  cursor: grab;
-}
-
-.dragging {
-  cursor: grabbing;
-}
-
-.empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.edge {
-  stroke: rgba(200, 200, 200, 0.5);
-  stroke-width: 1.5;
-  fill: none;
-}
-
-.edgeLabel {
-  font-size: var(--text-3xs);
-  font-weight: 500;
-  fill: rgba(255, 255, 255, 0.7);
-  pointer-events: none;
-}
-
-.node {
-  cursor: pointer;
-}
-
-.aggregate {
-  fill: rgba(138, 99, 210, 0.25);
-  stroke: rgba(138, 99, 210, 0.6);
-  stroke-width: 1.5;
-  transition:
-    fill 0.15s,
-    stroke 0.15s;
-}
-
-.node:hover .aggregate {
-  fill: rgba(138, 99, 210, 0.4);
-  stroke: rgba(168, 139, 220, 0.9);
-}
-
-.aggregateLabel {
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  fill: rgba(255, 255, 255, 0.9);
-  pointer-events: none;
-  user-select: none;
-}
-
-.entity {
-  fill: var(--accent);
-  stroke: #6fb4d1;
-  stroke-width: 1.5;
-  transition:
-    fill 0.15s,
-    stroke 0.15s;
-}
-
-.node:hover .entity {
-  fill: #6fb4d1;
-  stroke: #9dd0e6;
-  stroke-width: 2;
-}
-
-.entityLabel {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  fill: #fff;
-  pointer-events: none;
-  user-select: none;
-}
-
-.dimmed {
-  opacity: 0.2;
-  transition: opacity 0.15s;
+  padding-bottom: 2px;
 }

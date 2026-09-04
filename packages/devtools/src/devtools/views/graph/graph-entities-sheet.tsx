@@ -1,39 +1,31 @@
-import type { Entity, Relation, Trait } from '@koota/core';
+import type { Entity } from '@koota/core';
 import { useMemo, useState } from 'react';
 import { getEntityInfo, matchesEntityFilter } from '../../model/entity-info';
 import { useEntityHover } from '../../state/use-highlight';
-import { useRelationSources } from '../../state/use-world-data';
 import { useWorld } from '../../state/use-world';
 import { Sheet } from '../../ui/sheet';
 import { EntityGlyph } from '../entities/entity-glyph';
 
-interface RelationSourcesSheetProps {
+interface GraphEntitiesSheetProps {
   title: string;
-  relation: Relation<Trait>;
-  target: Entity;
+  /** Live list; the parent re-renders with a fresh array when the world changes. */
+  entities: Entity[];
   onSelect: (entity: Entity) => void;
   onClose: () => void;
 }
 
-/** Lists the entities behind an aggregate node so one can be opened. */
-export function RelationSourcesSheet({
-  title,
-  relation,
-  target,
-  onSelect,
-  onClose,
-}: RelationSourcesSheetProps) {
+/** Lists the entities behind a group or aggregate node so one can be focused. */
+export function GraphEntitiesSheet({ title, entities, onSelect, onClose }: GraphEntitiesSheetProps) {
   const world = useWorld();
   const hover = useEntityHover();
-  const sources = useRelationSources(world, relation, target);
   const [filter, setFilter] = useState('');
 
-  const entities = useMemo(
+  const visible = useMemo(
     () =>
-      sources.filter(
+      entities.filter(
         (entity) => world.has(entity) && matchesEntityFilter(getEntityInfo(world, entity), filter)
       ),
-    [sources, filter, world]
+    [entities, filter, world]
   );
 
   return (
@@ -42,16 +34,19 @@ export function RelationSourcesSheet({
       <Sheet.Search
         value={filter}
         onChange={setFilter}
-        placeholder={`Search ${entities.length} entities...`}
+        placeholder={`Search ${visible.length} entities...`}
       />
       <Sheet.List emptyMessage="No entities found">
-        {entities.map((entity) => {
+        {visible.map((entity) => {
           const info = getEntityInfo(world, entity);
           return (
             <Sheet.Item
               key={entity}
               icon={<EntityGlyph isWorld={info.isWorld} />}
-              onClick={() => onSelect(entity)}
+              onClick={() => {
+                hover.unhover(entity);
+                onSelect(entity);
+              }}
               onMouseEnter={() => hover.hover(entity)}
               onMouseLeave={() => hover.unhover(entity)}
             >

@@ -172,7 +172,14 @@ export function buildSchemaGraph(world: World, relations: RelationRecord[]): Sch
         const edgeId = `${sourceId}|${getTraitId(rel.trait)}|${targetId}`;
         const edge = edges.get(edgeId);
         if (edge) edge.count++;
-        else edges.set(edgeId, { id: edgeId, source: sourceId, target: targetId, relation: rel, count: 1 });
+        else
+          edges.set(edgeId, {
+            id: edgeId,
+            source: sourceId,
+            target: targetId,
+            relation: rel,
+            count: 1,
+          });
         pairCount++;
       }
     }
@@ -286,7 +293,13 @@ export function buildFocusGraph(world: World, relations: RelationRecord[], focus
         nodes.push({ id, kind: 'entity', entity });
       }
       const [source, target] = b.direction === 'in' ? [id, focusId] : [focusId, id];
-      edges.push({ id: `${source}|${relId}|${target}`, source, target, relation: b.relation, count: 1 });
+      edges.push({
+        id: `${source}|${relId}|${target}`,
+        source,
+        target,
+        relation: b.relation,
+        count: 1,
+      });
     }
   }
 

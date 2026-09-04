@@ -1,0 +1,159 @@
+.wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--bg-panel);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+.svg {
+  display: block;
+  cursor: grab;
+  font-family: inherit;
+}
+
+.svg.dragging {
+  cursor: grabbing;
+}
+
+.arrow {
+  fill: context-stroke;
+}
+
+/* Edges */
+.edge {
+  transition: opacity 0.15s;
+}
+
+.edgePath {
+  fill: none;
+  stroke: rgba(214, 214, 221, 0.38);
+  stroke-width: 1.2;
+  transition: stroke 0.15s;
+}
+
+.edge:hover .edgePath {
+  stroke: rgba(214, 214, 221, 0.75);
+}
+
+.edgeLabel {
+  font-size: 7.5px;
+  font-weight: 500;
+  fill: var(--text-secondary);
+  pointer-events: none;
+  user-select: none;
+  /* Halo so labels stay legible where they cross lines */
+  paint-order: stroke;
+  stroke: var(--bg-panel);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.edgeCount {
+  fill: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nodes */
+.node {
+  transition: opacity 0.15s;
+  animation: nodeIn 0.25s ease-out;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+@keyframes nodeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+.shape {
+  stroke-width: 1.2;
+  transition:
+    fill 0.15s,
+    stroke 0.15s;
+}
+
+.nodeGroup .shape {
+  fill: rgba(168, 85, 247, 0.16);
+  stroke: rgba(168, 85, 247, 0.55);
+}
+
+.nodeGroup:hover .shape {
+  fill: rgba(168, 85, 247, 0.28);
+  stroke: rgba(196, 139, 250, 0.95);
+}
+
+.nodeAggregate .shape {
+  fill: var(--surface-1);
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-dasharray: 3 2;
+}
+
+.nodeAggregate:hover .shape {
+  fill: var(--surface-2);
+  stroke: rgba(255, 255, 255, 0.6);
+}
+
+.nodeEntity .shape {
+  fill: #2d5f92;
+  stroke: #4a9eff;
+}
+
+.nodeEntity:hover .shape {
+  fill: #3a78b8;
+  stroke: #8ecaff;
+}
+
+.nodeFocus .shape {
+  fill: #4a9eff;
+  stroke: #bfe0ff;
+  stroke-width: 1.6;
+}
+
+.focusRing {
+  fill: none;
+  stroke: rgba(74, 158, 255, 0.35);
+  stroke-width: 1;
+}
+
+.nodeLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  fill: var(--text);
+  pointer-events: none;
+  user-select: none;
+}
+
+.nodeEntity .nodeLabel,
+.nodeFocus .nodeLabel {
+  fill: #fff;
+}
+
+.pill {
+  fill: rgba(0, 0, 0, 0.35);
+}
+
+.pillLabel {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  fill: var(--text);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+.dimmed {
+  opacity: 0.18;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node {
+    animation: none;
+  }
+}
