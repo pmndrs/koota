@@ -12,10 +12,10 @@ import {
 } from '../../model/trait-info';
 import { useTraitEntities } from '../../state/use-world-data';
 import { useWorld } from '../../state/use-world';
-import { Badge } from '../../ui/badge';
 import { Page, PropertyList, Section } from '../../ui/page';
 import { EntityList } from '../entities/entity-list';
 import styles from './trait-detail.module.css';
+import { TraitTypeBadge } from './trait-type-badge';
 
 interface TraitDetailProps {
   trait: Trait;
@@ -55,7 +55,7 @@ export function TraitDetail({ trait, editor, onSelectEntity }: TraitDetailProps)
           )}
         </>
       }
-      actions={<Badge size="md">{getTraitType(trait)}</Badge>}
+      actions={<TraitTypeBadge type={getTraitType(trait)} size="md" />}
     >
       {schemaKeys.length > 0 && (
         <Section label="Schema">

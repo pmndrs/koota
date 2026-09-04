@@ -13,3 +13,26 @@
   border-radius: var(--radius-sm);
   font-size: var(--text-2xs);
 }
+
+.blue,
+.teal,
+.peach,
+.lavender {
+  color: var(--bg-panel);
+}
+
+.blue {
+  background: var(--tone-blue);
+}
+
+.teal {
+  background: var(--tone-teal);
+}
+
+.peach {
+  background: var(--tone-peach);
+}
+
+.lavender {
+  background: var(--tone-lavender);
+}

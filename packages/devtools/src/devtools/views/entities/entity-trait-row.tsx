@@ -8,10 +8,10 @@ import {
   getTraitType,
   hasInspectableData,
 } from '../../model/trait-info';
-import { Badge } from '../../ui/badge';
 import { IconButton } from '../../ui/button';
 import { Chevron } from '../../ui/icons';
 import { Row, RowActions, RowName } from '../../ui/row';
+import { TraitTypeBadge } from '../traits/trait-type-badge';
 import styles from './entity-detail.module.css';
 import { TraitValueEditor } from './trait-value-editor';
 
@@ -45,7 +45,7 @@ export function EntityTraitRow({
         onClick={canExpand ? onToggle : undefined}
         title={source && formatSourceTitle(source)}
       >
-        <Badge>{getTraitType(trait)}</Badge>
+        <TraitTypeBadge type={getTraitType(trait)} />
         <RowName>
           {getTraitName(trait)}
           {targets.length > 0 && (

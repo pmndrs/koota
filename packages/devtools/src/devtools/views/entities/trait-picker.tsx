@@ -12,8 +12,8 @@ import {
 import { useEntityHover } from '../../state/use-highlight';
 import { useWorldEntities, useWorldTraits } from '../../state/use-world-data';
 import { useWorld } from '../../state/use-world';
-import { Badge } from '../../ui/badge';
 import { Sheet } from '../../ui/sheet';
+import { TraitTypeBadge } from '../traits/trait-type-badge';
 import { EntityGlyph } from './entity-glyph';
 
 export type TraitPickerResult =
@@ -123,7 +123,7 @@ export function TraitPicker({ entity, currentTraits, onSelect, onClose }: TraitP
           return (
             <Sheet.Item
               key={getTraitId(trait)}
-              icon={<Badge>{type}</Badge>}
+              icon={<TraitTypeBadge type={type} />}
               hint={type === 'rel' ? '→' : undefined}
               disabled={disabled}
               onClick={() => pickTrait(trait)}

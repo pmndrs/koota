@@ -3,8 +3,8 @@ import { formatSourceTitle } from '../../model/debug-source';
 import { getTraitName, getTraitSource, getTraitType } from '../../model/trait-info';
 import { useTraitEntityCount } from '../../state/use-world-data';
 import { useWorld } from '../../state/use-world';
-import { Badge } from '../../ui/badge';
 import { Row, RowCount, RowName } from '../../ui/row';
+import { TraitTypeBadge } from './trait-type-badge';
 
 interface TraitRowProps {
   trait: Trait;
@@ -18,7 +18,7 @@ export function TraitRow({ trait, onSelect }: TraitRowProps) {
 
   return (
     <Row onClick={() => onSelect(trait)} title={source && formatSourceTitle(source)}>
-      <Badge>{getTraitType(trait)}</Badge>
+      <TraitTypeBadge type={getTraitType(trait)} />
       <RowName>{getTraitName(trait)}</RowName>
       <RowCount>{entityCount}</RowCount>
     </Row>
