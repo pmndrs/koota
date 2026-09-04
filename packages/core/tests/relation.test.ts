@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
-    const world = createWorld();
+  const world = createWorld();
 
   beforeEach(() => {
     world.reset();

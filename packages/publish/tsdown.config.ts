@@ -14,6 +14,6 @@ export default defineConfig({
   // is used in non-conformant environments.
   // See https://262.ecma-international.org/5.1/#sec-C for more details.
   banner: ({ format }) => (format === 'esm' ? { js: '"use strict";' } : undefined),
-  dts: { eager: true },
+  dts: { eager: true, entry: ['src/index.ts', 'src/react.ts'] },
   plugins: [inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'] })],
 });

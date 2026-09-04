@@ -1,24 +1,30 @@
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Use require to resolve the path to installed packages
 const require = createRequire(import.meta.url);
 const currentDir = dirname(fileURLToPath(import.meta.url));
-const PUBLISH_TESTS_DIR = join(currentDir, '../tests');
+const PUBLISH_DIR = join(currentDir, '..');
+const PUBLISH_TESTS_DIR = join(PUBLISH_DIR, 'tests');
 const verbose = process.argv.includes('--verbose') || process.argv.includes('-v');
 
 const PACKAGES = [
   {
     name: 'core',
     package: '@koota/core',
-    importPath: '../../dist',
+    outputPath: 'dist/index.js',
   },
   {
     name: 'react',
     package: '@koota/react',
-    importPath: '../../dist/react.js',
+    outputPath: 'dist/react.js',
+  },
+  {
+    name: 'svelte',
+    package: '@koota/svelte',
+    outputPath: 'dist/svelte/index.js',
   },
 ] as const;
 
@@ -26,15 +32,38 @@ function isTestFile(path: string): boolean {
   return path.endsWith('.test.ts') || path.endsWith('.test.tsx');
 }
 
-function transformImports(content: string, pkg: (typeof PACKAGES)[number]): string {
+function getImportPath(targetPath: string, outputPath: string): string {
+  const path = relative(dirname(targetPath), join(PUBLISH_DIR, outputPath)).replaceAll('\\', '/');
+  return path.startsWith('.') ? path : `./${path}`;
+}
+
+function transformImports(
+  content: string,
+  pkg: (typeof PACKAGES)[number],
+  targetPath: string
+): string {
   // Replace imports from other packages with their publish import paths.
   content = content.replace(/from ['"]@koota\/([^'"]+)['"]/g, (_, pkgName) => {
     const targetPkg = PACKAGES.find((p) => p.name === pkgName);
-    return targetPkg ? `from '${targetPkg.importPath}'` : `from '@koota/${pkgName}'`;
+    return targetPkg
+      ? `from '${getImportPath(targetPath, targetPkg.outputPath)}'`
+      : `from '@koota/${pkgName}'`;
   });
 
-  // Replace local source imports with the built package entrypoint.
-  return content.replace(/from ['"]\.\.\/src['"]/g, `from '${pkg.importPath}'`);
+  // Replace local source imports with the corresponding built module. Most
+  // tests import the public entry; Svelte's context fixture imports one emitted
+  // internal module so it can provide a preconfigured world to public hooks.
+  return content.replace(
+    /from ['"](?:\.\.\/)+src(?:\/([^'"]+))?['"]/g,
+    (_, sourcePath: string | undefined) => {
+      let outputPath: string = pkg.outputPath;
+      if (sourcePath) {
+        const extension = extname(sourcePath) ? '' : '.js';
+        outputPath = join(dirname(pkg.outputPath), `${sourcePath}${extension}`);
+      }
+      return `from '${getImportPath(targetPath, outputPath)}'`;
+    }
+  );
 }
 
 async function getFiles(dir: string, prefix = ''): Promise<string[]> {
@@ -64,7 +93,7 @@ async function processPackage(pkg: (typeof PACKAGES)[number]): Promise<number> {
     await mkdir(dirname(targetPath), { recursive: true });
 
     let content = await readFile(sourcePath, 'utf-8');
-    content = transformImports(content, pkg);
+    content = transformImports(content, pkg, targetPath);
 
     await writeFile(targetPath, content);
     if (verbose) console.log(`  ✓ ${pkg.name}/${file}`);

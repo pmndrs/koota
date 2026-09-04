@@ -4,12 +4,10 @@
  * - SoA: store.key[pageId][offset] = value
  */
 export type Store<T extends Schema = any> = T extends AoSFactory
-    ? ReturnType<T>[][]
-    : {
-          [P in keyof T]: T[P] extends (...args: never[]) => unknown
-              ? ReturnType<T[P]>[][]
-              : T[P][][];
-      };
+  ? ReturnType<T>[][]
+  : {
+      [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]>[][] : T[P][][];
+    };
 
 /**
  * Storage layout type.

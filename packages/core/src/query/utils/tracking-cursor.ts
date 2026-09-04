@@ -12,8 +12,8 @@ export function getTrackingCursor() {
 }
 
 export function setTrackingMasks(ctx: WorldContext, id: number) {
-    const snapshot = cloneMaskGenerations(ctx.entityMasks);
-    ctx.trackingSnapshots.set(id, snapshot);
-    ctx.dirtyMasks.set(id, createZeroedMaskLike(snapshot));
-    ctx.changedMasks.set(id, createZeroedMaskLike(snapshot));
+  const snapshot = cloneMaskGenerations(ctx.entityMasks);
+  ctx.trackingSnapshots.set(id, snapshot);
+  ctx.dirtyMasks.set(id, createZeroedMaskLike(snapshot));
+  ctx.changedMasks.set(id, createZeroedMaskLike(snapshot));
 }

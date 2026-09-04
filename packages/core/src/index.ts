@@ -12,20 +12,20 @@ export { createRemoved } from './query/modifiers/removed';
 export { $modifier } from './query/modifier';
 export { createQuery, IsExcluded } from './query/query';
 export type {
-    EventType,
-    InstancesFromParameters,
-    IsNotModifier,
-    Modifier,
-    QueryLayout,
-    Query,
-    QueryModifier,
-    QueryParameter,
-    QueryResult,
-    QueryResultOptions,
-    QuerySubscriber,
-    QueryUnsubscriber,
-    QueryHash,
-    StoresFromParameters,
+  EventType,
+  InstancesFromParameters,
+  IsNotModifier,
+  Modifier,
+  QueryLayout,
+  Query,
+  QueryModifier,
+  QueryParameter,
+  QueryResult,
+  QueryResultOptions,
+  QuerySubscriber,
+  QueryUnsubscriber,
+  QueryHash,
+  StoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
 export { relation } from './relation/relation';

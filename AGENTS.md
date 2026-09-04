@@ -48,31 +48,15 @@ pnpm bench baseline "Name"
 pnpm bench compare "Name"
 ```
 
-<!-- managed:start -->
+## Testing Principles
 
-## Workspace Tools
+- Cover the common paths that represent the 80% of real usage. Add edge-case tests only when the edge case is important or guards against a meaningful regression.
+- Test observable features and user stories, not implementation details. Test internals only when an exceptionally difficult case cannot be covered reliably through public behavior.
 
-- **Package Manager:** pnpm
-- **Linter:** oxlint
-- **Formatter:** prettier
+## Comments
 
-### After Editing
+Comments are documentation. Keep them concise and explain the algorithm or feature, not the change or its history. Use simple punctuation with no semicolons or em dashes.
 
-✅ After editing files, check the types for errors and then format and lint only the files changed for the current task.
+# Const Policy
 
-```sh
-# Example
-pnpm typecheck
-# Run format and lint for only files modified
-pnpm exec prettier --config .config/prettier.json --ignore-path .config/prettierignore --write src/App.tsx src/core/systems/move-entity.ts
-pnpm lint -- src/App.tsx src/core/systems/move-entity.ts
-```
-
-❌ Avoid unless explicitly approved:
-
-```sh
-pnpm format
-pnpm lint
-```
-
-<!-- managed:end -->
+We want reduce top level const and inline anything that is an explicit hook we need tweak often. Always ask yourself if a const needs to exist before making it. Prefer to inline.

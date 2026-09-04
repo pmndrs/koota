@@ -9,12 +9,11 @@ export const Or = <T extends OrParameter[]>(...params: T): OrModifier<T> => {
   const traits: Trait[] = [];
   const modifiers: Modifier[] = [];
 
-    for (const param of params) {
-        if ((param as Modifier)[$modifier]) {
-            modifiers.push(param as Modifier);
-        } else {
-            traits.push(isRelation(param) ? param[$internal].trait : param as Trait);
-        }
+  for (const param of params) {
+    if ((param as Modifier)[$modifier]) {
+      modifiers.push(param as Modifier);
+    } else {
+      traits.push(isRelation(param) ? param[$internal].trait : (param as Trait));
     }
   }
 

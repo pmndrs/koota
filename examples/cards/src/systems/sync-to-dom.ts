@@ -2,16 +2,16 @@ import type { World } from 'koota';
 import { Card, Dragging, Position, Ref, Rotation, Scale, ZIndex } from '../traits';
 
 export function syncToDOM(world: World) {
-    /**
-     * Use a flat query to sync the DOM elements of all cards.
-     * We could query for OrderedCards and then loop over each hand and then loop over each card,
-     * but this demonstrates how you can flatten the query to get all the cards at once by
-     * using the ZIndex trait to store the relevant data directly on the card entity.
-     */
-    world
-        .query(Card, Position, Rotation, Scale, Ref, ZIndex)
-        .updateEach(([_card, position, rotation, scale, ref, zIndex], entity) => {
-            if (!ref) return;
+  /**
+   * Use a flat query to sync the DOM elements of all cards.
+   * We could query for OrderedCards and then loop over each hand and then loop over each card,
+   * but this demonstrates how you can flatten the query to get all the cards at once by
+   * using the ZIndex trait to store the relevant data directly on the card entity.
+   */
+  world
+    .query(Card, Position, Rotation, Scale, Ref, ZIndex)
+    .updateEach(([_card, position, rotation, scale, ref, zIndex], entity) => {
+      if (!ref) return;
 
       const isDragging = entity.has(Dragging);
 

@@ -74,28 +74,28 @@ export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'ta
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
 export interface TraitInstance<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
-    generationId: number;
-    bitflag: number;
-    trait: Trait;
-    store: Store<S>;
-    /** Non-tracking queries that include this trait */
-    queries: Set<QueryInstance>;
-    /** Tracking queries (Added/Removed/Changed) that include this trait */
-    trackingQueries: Set<QueryInstance>;
-    notQueries: Set<QueryInstance>;
-    /** Queries that filter by this relation (only for relation traits) */
-    relationQueries: Set<QueryInstance>;
-    schema: S;
-    changeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
-    addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
-    removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
-    /**
-     * Paged relation targets.
-     * For exclusive: relationTargets[pageId][offset] = targetId (number)
-     * For non-exclusive: relationTargets[pageId][offset] = [targetId1, targetId2, ...] (number[])
-     */
-    relationTargets?: any[][];
-    relationSourcesByTarget?: Entity[][];
+  generationId: number;
+  bitflag: number;
+  trait: Trait;
+  store: Store<S>;
+  /** Non-tracking queries that include this trait */
+  queries: Set<QueryInstance>;
+  /** Tracking queries (Added/Removed/Changed) that include this trait */
+  trackingQueries: Set<QueryInstance>;
+  notQueries: Set<QueryInstance>;
+  /** Queries that filter by this relation (only for relation traits) */
+  relationQueries: Set<QueryInstance>;
+  schema: S;
+  changeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
+  addSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
+  removeSubscriptions: Set<(entity: Entity, target?: Entity) => void>;
+  /**
+   * Paged relation targets.
+   * For exclusive: relationTargets[pageId][offset] = targetId (number)
+   * For non-exclusive: relationTargets[pageId][offset] = [targetId1, targetId2, ...] (number[])
+   */
+  relationTargets?: any[][];
+  relationSourcesByTarget?: Entity[][];
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;

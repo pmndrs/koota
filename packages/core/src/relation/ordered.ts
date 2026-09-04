@@ -31,40 +31,40 @@ export /* @inline @pure */ function getOrderedTraitRelation(trait: OrderedRelati
 }
 
 export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRelation): void {
-    const relation = getOrderedTraitRelation(orderedTrait);
-    const relationTrait = relation[$internal].trait;
+  const relation = getOrderedTraitRelation(orderedTrait);
+  const relationTrait = relation[$internal].trait;
 
   const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
   if (!orderedInstance) return;
 
-    let relationInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-    if (!relationInstance) {
-        registerTrait(ctx, relationTrait);
-        relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
+  let relationInstance = getTraitInstance(ctx.traitInstances, relationTrait);
+  if (!relationInstance) {
+    registerTrait(ctx, relationTrait);
+    relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
+  }
+
+  const { generationId, bitflag, store } = orderedInstance;
+  const { entityMasks, entityIndex } = ctx;
+  const traitCtx = orderedTrait[$internal];
+
+  const getList = (parent: Entity): OrderedList | undefined => {
+    const eid = getEntityId(parent);
+    return entityMasks[generationId][eid >>> 10][eid & 1023] & bitflag
+      ? (traitCtx.get(eid, store) as OrderedList)
+      : undefined;
+  };
+
+  type RelationSub = (entity: Entity, target: Entity) => void;
+
+  (relationInstance.addSubscriptions as Set<RelationSub>).add((child, parent) => {
+    getList(parent)?._appendWithoutSync(child);
+  });
+
+  (relationInstance.removeSubscriptions as Set<RelationSub>).add((child, parent) => {
+    const eid = getEntityId(parent);
+    const denseIdx = entityIndex.sparse[eid];
+    if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
+      getList(parent)?._removeWithoutSync(child);
     }
-
-    const { generationId, bitflag, store } = orderedInstance;
-    const { entityMasks, entityIndex } = ctx;
-    const traitCtx = orderedTrait[$internal];
-
-    const getList = (parent: Entity): OrderedList | undefined => {
-        const eid = getEntityId(parent);
-        return entityMasks[generationId][eid >>> 10][eid & 1023] & bitflag
-            ? (traitCtx.get(eid, store) as OrderedList)
-            : undefined;
-    };
-
-    type RelationSub = (entity: Entity, target: Entity) => void;
-
-    (relationInstance.addSubscriptions as Set<RelationSub>).add((child, parent) => {
-        getList(parent)?._appendWithoutSync(child);
-    });
-
-    (relationInstance.removeSubscriptions as Set<RelationSub>).add((child, parent) => {
-        const eid = getEntityId(parent);
-        const denseIdx = entityIndex.sparse[eid];
-        if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
-            getList(parent)?._removeWithoutSync(child);
-        }
-    });
+  });
 }

@@ -3,13 +3,13 @@ import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory } from '../storage';
 import type {
-    ExtractSchema,
-    ExtractStore,
-    IsTag,
-    Trait,
-    TraitOrRelation,
-    TraitInstance,
-    TraitRecord,
+  ExtractSchema,
+  ExtractStore,
+  IsTag,
+  Trait,
+  TraitOrRelation,
+  TraitInstance,
+  TraitRecord,
 } from '../trait/types';
 import type { WorldContext } from '../world';
 import { $modifier } from './modifier';
@@ -25,32 +25,32 @@ export type QueryResultOptions = {
 };
 
 export type QueryLayout = {
-    pageCount: number;
-    pageIds: Uint32Array;
-    pageStarts: Uint32Array;
-    pageCounts: Uint16Array;
-    offsets: Uint16Array;
-    entities: readonly Entity[];
+  pageCount: number;
+  pageIds: Uint32Array;
+  pageStarts: Uint32Array;
+  pageCounts: Uint16Array;
+  offsets: Uint16Array;
+  entities: readonly Entity[];
 };
 
 export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
-    version: number;
-    entities: readonly Entity[];
+  version: number;
+  entities: readonly Entity[];
 };
 
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
-    readEach: (
-        callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
-    ) => QueryResult<T>;
-    updateEach: (
-        callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-        options?: QueryResultOptions
-    ) => QueryResult<T>;
-    useStores: (
-        callback: (stores: StoresFromParameters<T>, layout: QueryLayout) => void
-    ) => QueryResult<T>;
-    select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
-    sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
+  readEach: (
+    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
+  ) => QueryResult<T>;
+  updateEach: (
+    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
+    options?: QueryResultOptions
+  ) => QueryResult<T>;
+  useStores: (
+    callback: (stores: StoresFromParameters<T>, layout: QueryLayout) => void
+  ) => QueryResult<T>;
+  select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
+  sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
 
 type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
@@ -142,63 +142,63 @@ type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First
  * Replaces the old separate tracking arrays and OrTrackingGroup.
  */
 export type TrackingGroup = {
-    /** Whether all traits must match (and) or any trait can match (or) */
-    logic: 'and' | 'or';
-    /** The type of tracking event */
-    type: 'add' | 'remove' | 'change';
-    /** Tracking modifier ID for snapshot/mask lookups */
-    id: number;
-    /** Bitmasks indexed by generationId */
-    bitmasks: (number | undefined)[];
-    /** Per-entity tracker state indexed by [generationId][pageId][offset] */
-    trackers: Uint32Array[][];
+  /** Whether all traits must match (and) or any trait can match (or) */
+  logic: 'and' | 'or';
+  /** The type of tracking event */
+  type: 'add' | 'remove' | 'change';
+  /** Tracking modifier ID for snapshot/mask lookups */
+  id: number;
+  /** Bitmasks indexed by generationId */
+  bitmasks: (number | undefined)[];
+  /** Per-entity tracker state indexed by [generationId][pageId][offset] */
+  trackers: Uint32Array[][];
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
-    version: number;
-    ctx: WorldContext;
-    parameters: T;
-    hash: QueryHash;
-    traits: Trait[];
-    /** Static trait instances for non-tracking query matching */
-    traitInstances: {
-        required: TraitInstance[];
-        forbidden: TraitInstance[];
-        or: TraitInstance[];
-        all: TraitInstance[];
-    };
-    /** Static bitmasks for non-tracking query matching (indexed by generationId) */
-    staticBitmasks: {
-        required: number;
-        forbidden: number;
-        or: number;
-    }[];
-    /** Unified tracking groups with explicit AND/OR logic */
-    trackingGroups: TrackingGroup[];
-    generations: number[];
-    entities: SparseSet;
-    isTracking: boolean;
-    hasChangedModifiers: boolean;
-    changedTraits: Set<Trait>;
-    toRemove: SparseSet;
-    cleanup: QueryUnsubscriber[];
-    addSubscriptions: Set<QuerySubscriber>;
-    removeSubscriptions: Set<QuerySubscriber>;
-    layoutCache: QueryLayoutCache | null;
-    /** Relation pairs for target-specific queries */
-    relationFilters?: ResolvedRelationFilter[];
-    run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
-    add: (entity: Entity) => void;
-    remove: (ctx: WorldContext, entity: Entity) => void;
-    check: (ctx: WorldContext, entity: Entity) => boolean;
-    checkTracking: (
-        ctx: WorldContext,
-        entity: Entity,
-        eventType: 'add' | 'remove' | 'change',
-        generationId: number,
-        bitflag: number
-    ) => boolean;
-    resetTrackingBitmasks: (eid: number) => void;
+  version: number;
+  ctx: WorldContext;
+  parameters: T;
+  hash: QueryHash;
+  traits: Trait[];
+  /** Static trait instances for non-tracking query matching */
+  traitInstances: {
+    required: TraitInstance[];
+    forbidden: TraitInstance[];
+    or: TraitInstance[];
+    all: TraitInstance[];
+  };
+  /** Static bitmasks for non-tracking query matching (indexed by generationId) */
+  staticBitmasks: {
+    required: number;
+    forbidden: number;
+    or: number;
+  }[];
+  /** Unified tracking groups with explicit AND/OR logic */
+  trackingGroups: TrackingGroup[];
+  generations: number[];
+  entities: SparseSet;
+  isTracking: boolean;
+  hasChangedModifiers: boolean;
+  changedTraits: Set<Trait>;
+  toRemove: SparseSet;
+  cleanup: QueryUnsubscriber[];
+  addSubscriptions: Set<QuerySubscriber>;
+  removeSubscriptions: Set<QuerySubscriber>;
+  layoutCache: QueryLayoutCache | null;
+  /** Relation pairs for target-specific queries */
+  relationFilters?: ResolvedRelationFilter[];
+  run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
+  add: (entity: Entity) => void;
+  remove: (ctx: WorldContext, entity: Entity) => void;
+  check: (ctx: WorldContext, entity: Entity) => boolean;
+  checkTracking: (
+    ctx: WorldContext,
+    entity: Entity,
+    eventType: 'add' | 'remove' | 'change',
+    generationId: number,
+    bitflag: number
+  ) => boolean;
+  resetTrackingBitmasks: (eid: number) => void;
 };
 
 export type EventType = 'add' | 'remove' | 'change';

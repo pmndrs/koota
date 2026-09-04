@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@config/typescript/base.json",
+  "compilerOptions": {
+    "composite": false,
+    // The rune globals ($state, $effect) come from svelte's ambient types. Name
+    // them explicitly - otherwise they only resolve because a handful of source
+    // files happen to import from 'svelte'.
+    "types": ["svelte"],
+    "declaration": true,
+    "rootDir": "../svelte/src",
+    "outDir": "./dist/svelte"
+  },
+  "include": ["../svelte/src/**/*"]
+}

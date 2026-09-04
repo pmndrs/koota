@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "license": "ISC",
+  "prettier": "./.config/prettier/base.json",
   "scripts": {
     "bench": "pnpm --filter @koota/benches exec labs",
     "build": "pnpm -F koota build",
