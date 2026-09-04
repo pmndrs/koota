@@ -13,9 +13,11 @@
 .row {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
-  border-radius: 2px;
+  min-height: 22px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
   cursor: default;
 }
 
@@ -23,20 +25,23 @@
   background: var(--surface-1);
 }
 
-.arrow {
-  display: inline-block;
-  width: 12px;
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  text-align: center;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-
 .name {
   flex-shrink: 0;
   color: var(--text-secondary);
+}
+
+/* The value sits at the right edge, like every other label/value pair in the panel */
+.slot {
+  display: flex;
+  justify-content: flex-end;
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+.slotStart {
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .string {
@@ -53,6 +58,7 @@
   display: flex;
   align-items: baseline;
   min-width: 0;
+  max-width: 100%;
   white-space: nowrap;
 }
 
@@ -64,5 +70,36 @@
   white-space: pre;
   font-style: italic;
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editable leaves: the whole row is the click target */
+.rowEditable {
+  cursor: text;
+}
+
+.leaf {
+  border-radius: 2px;
+  padding: 0 2px;
+  margin: 0 -2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaf:hover {
+  background: var(--surface-2);
+}
+
+.leafInput {
+  margin: 0 -2px;
+  padding: 0 2px;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 2px 2px 0 0;
+  background: var(--surface-2);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--text);
+  outline: none;
   font-variant-numeric: tabular-nums;
 }
