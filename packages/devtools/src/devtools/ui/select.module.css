@@ -1,0 +1,18 @@
+.select {
+  all: unset;
+  max-width: 120px;
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.select:hover {
+  background: var(--surface-2);
+}

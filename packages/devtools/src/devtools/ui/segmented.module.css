@@ -1,0 +1,6 @@
+.segmented {
+  display: flex;
+  padding: 2px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}

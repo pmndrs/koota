@@ -1,6 +1,6 @@
 import type { Entity } from '@koota/core';
 import type { ReactNode, RefObject } from 'react';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
 import styles from './graph-canvas.module.css';
 import {
   layoutGraph,
@@ -11,18 +11,25 @@ import {
   type NodeBox,
 } from './graph-layout';
 
-export type CanvasNodeVariant = 'group' | 'aggregate' | 'entity' | 'focus';
+export type CanvasNodeVariant = 'single' | 'group';
 
 export interface CanvasNode {
   id: string;
   variant: CanvasNodeVariant;
+  /** Text inside the circle: the entity id for a single, the count for a group. */
   label: string;
-  /** Rendered as a pill on box nodes. */
+  /** Group size; drives the radius. */
   count?: number;
-  /** Tooltip. */
-  title?: string;
+  /** Hover card heading. */
+  title: string;
+  /** Hover card body, e.g. the trait list. */
+  detail?: string;
   /** Hovering the node highlights this entity in the world. */
   entity?: Entity;
+  /** Singled out by the user. */
+  pinned?: boolean;
+  /** Set by the canvas on nodes that just disappeared and are lingering. */
+  ghost?: boolean;
 }
 
 export interface CanvasEdge {
@@ -31,6 +38,8 @@ export interface CanvasEdge {
   target: string;
   label: string;
   count: number;
+  /** Set by the canvas on edges that just disappeared and are lingering. */
+  ghost?: boolean;
 }
 
 interface GraphCanvasProps {
@@ -38,6 +47,8 @@ interface GraphCanvasProps {
   edges: CanvasEdge[];
   /** Bump to re-fit the viewport, e.g. from a toolbar button. */
   fitSignal?: number;
+  /** Identifies what is being shown; when it changes, nothing from the previous view lingers. */
+  epoch?: string;
   onNodeClick?: (node: CanvasNode) => void;
   onNodeHover?: (node: CanvasNode | null) => void;
   /** Shown when there are no nodes. */
@@ -52,49 +63,84 @@ interface View {
 
 /* Sizing ------------------------------------------------------------------------------------- */
 
-const CHAR_W = 5.6; // glyph width of the 9px monospace label font
-const LABEL_CHAR_W = 4.4; // glyph width of the 7.5px edge label font
-const BOX_H = 22;
-const BOX_PAD = 8;
-const PILL_PAD = 5;
-const ENTITY_R = 12;
-const FOCUS_R = 15;
-const MAX_LABEL = 22;
+const LABEL_CHAR_W = 4.7; // glyph width of the 8px edge label font
+const BASE_R = 12;
+/** Extra radius per doubling of the group size, so a bigger group reads as a bigger node. */
+const SIZE_STEP = 3;
+const MAX_SIZE_LEVEL = 5;
 const TWEEN_MS = 320;
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 4;
 const FIT_PAD = 14;
 const DRAG_THRESHOLD = 3;
+/** How long a vanished node or edge stays as a ghost before the structure actually changes. */
+const LINGER_MS = 2500;
 
 interface MeasuredNode {
   node: CanvasNode;
-  width: number;
-  height: number;
-  label: string;
-  pillWidth: number;
+  radius: number;
 }
 
-function isCircle(variant: CanvasNodeVariant): boolean {
-  return variant === 'entity' || variant === 'focus';
-}
-
-function truncate(text: string): string {
-  return text.length > MAX_LABEL ? `${text.slice(0, MAX_LABEL - 1)}…` : text;
+function sizeLevel(count: number | undefined): number {
+  if (count === undefined || count < 2) return 0;
+  return Math.min(MAX_SIZE_LEVEL, Math.round(Math.log2(count)));
 }
 
 function measure(node: CanvasNode): MeasuredNode {
-  if (isCircle(node.variant)) {
-    const r = node.variant === 'focus' ? FOCUS_R : ENTITY_R;
-    return { node, width: r * 2, height: r * 2, label: node.label, pillWidth: 0 };
-  }
-  const label = truncate(node.label);
-  const pillWidth = node.count !== undefined ? String(node.count).length * CHAR_W + PILL_PAD * 2 : 0;
-  const width = BOX_PAD + label.length * CHAR_W + (pillWidth ? 6 + pillWidth : 0) + BOX_PAD;
-  return { node, width, height: BOX_H, label, pillWidth };
+  return { node, radius: BASE_R + sizeLevel(node.count) * SIZE_STEP };
 }
 
 function edgeText(edge: CanvasEdge): string {
-  return edge.count > 1 ? `${edge.label} ×${edge.count}` : edge.label;
+  return edge.count > 1 && !edge.ghost ? `${edge.label} ×${edge.count}` : edge.label;
+}
+
+/* Lingering ---------------------------------------------------------------------------------- */
+
+/**
+ * Keeps items that just left the list around as ghosts for a grace period. Short-lived
+ * entities (bullets, particles) otherwise add and remove whole nodes several times a second,
+ * and every one of those is a structural change that forces a new layout. Ghost edges only
+ * draw while both of their endpoints are still on screen.
+ */
+function useLinger<T extends { id: string; ghost?: boolean }>(
+  items: T[],
+  ms: number,
+  epoch: string,
+  shouldLinger: (item: T) => boolean
+): T[] {
+  const seenRef = useRef({ epoch, entries: new Map<string, { item: T; expires: number }>() });
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+
+  if (seenRef.current.epoch !== epoch) seenRef.current = { epoch, entries: new Map() };
+
+  const now = performance.now();
+  const seen = seenRef.current.entries;
+  const live = new Set<string>();
+  for (const item of items) {
+    live.add(item.id);
+    if (shouldLinger(item)) seen.set(item.id, { item, expires: Infinity });
+  }
+
+  const result = [...items];
+  let nextExpiry = Infinity;
+  for (const [id, entry] of seen) {
+    if (live.has(id)) continue;
+    if (entry.expires === Infinity) entry.expires = now + ms;
+    if (entry.expires <= now) {
+      seen.delete(id);
+      continue;
+    }
+    result.push({ ...entry.item, ghost: true });
+    nextExpiry = Math.min(nextExpiry, entry.expires);
+  }
+
+  useEffect(() => {
+    if (nextExpiry === Infinity) return;
+    const timeout = setTimeout(rerender, Math.max(0, nextExpiry - performance.now()) + 16);
+    return () => clearTimeout(timeout);
+  }, [nextExpiry]);
+
+  return result;
 }
 
 /* Tweening ----------------------------------------------------------------------------------- */
@@ -186,37 +232,70 @@ interface EdgeGeometry {
   d: string;
   labelX: number;
   labelY: number;
+  /** Which side of the line the label sits on. */
+  anchor: 'start' | 'end';
+}
+
+function cubicAt(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
+  t: number
+): { x: number; y: number } {
+  const u = 1 - t;
+  const a = u * u * u;
+  const b = 3 * u * u * t;
+  const c = 3 * u * t * t;
+  const d = t * t * t;
+  return { x: a * x0 + b * x1 + c * x2 + d * x3, y: a * y0 + b * y1 + c * y2 + d * y3 };
 }
 
 function edgeGeometry(s: NodeBox, t: NodeBox, offset: number, selfLoop: boolean): EdgeGeometry {
   if (selfLoop) {
-    const top = s.y - s.height / 2;
-    const rise = 26 + Math.abs(offset) * 2;
-    const x0 = s.x + s.width / 4;
-    const x1 = s.x - s.width / 4;
+    const right = s.x + s.width / 2;
+    const reach = 22 + Math.abs(offset) * 2;
+    const y0 = s.y - s.height / 4;
+    const y1 = s.y + s.height / 4;
     return {
-      d: `M ${x0} ${top} C ${x0 + 10} ${top - rise}, ${x1 - 10} ${top - rise}, ${x1} ${top}`,
-      labelX: s.x,
-      labelY: top - rise * 0.75 - 2,
+      d: `M ${right} ${y0} C ${right + reach} ${y0 - 8}, ${right + reach} ${y1 + 8}, ${right} ${y1}`,
+      labelX: right + reach * 0.75 + 3,
+      labelY: s.y,
+      anchor: 'start',
     };
   }
 
-  const forward = t.x >= s.x;
-  const sx = forward ? s.x + s.width / 2 : s.x - s.width / 2;
-  const ex = forward ? t.x - t.width / 2 : t.x + t.width / 2;
-  const sy = s.y + offset * 0.4;
-  const ey = t.y + offset * 0.4;
-  const reach = Math.max(Math.abs(ex - sx) * 0.5, 24);
-  const c1x = forward ? sx + reach : sx - reach;
-  const c2x = forward ? ex - reach : ex + reach;
-  const c1y = sy + offset;
-  const c2y = ey + offset;
+  // Flow is top to bottom; a back edge simply runs upward. Circles are anchored on their rim
+  // along the line between centers so edges meet them at any angle.
+  const dx = t.x - s.x;
+  const dy = t.y - s.y;
+  const dist = Math.hypot(dx, dy) || 1;
+  const sx = s.x + (dx / dist) * (s.width / 2) + offset * 0.4;
+  const sy = s.y + (dy / dist) * (s.height / 2);
+  const ex = t.x - (dx / dist) * (t.width / 2) + offset * 0.4;
+  const ey = t.y - (dy / dist) * (t.height / 2);
+  const forward = ey >= sy;
+  const reach = Math.max(Math.abs(ey - sy) * 0.5, 16);
+  const c1y = forward ? sy + reach : sy - reach;
+  const c2y = forward ? ey - reach : ey + reach;
+  const c1x = sx + offset;
+  const c2x = ex + offset;
 
-  // Midpoint of the cubic at t = 0.5, lifted so the text sits just above the line.
-  const labelX = (sx + 3 * c1x + 3 * c2x + ex) / 8;
-  const labelY = (sy + 3 * c1y + 3 * c2y + ey) / 8 - 4;
+  // Label near the source, where converging edges are still apart, on the outer side of
+  // the line so two edges meeting at one node keep their labels apart.
+  const { x: labelX, y: labelY } = cubicAt(sx, sy, c1x, c1y, c2x, c2y, ex, ey, 0.22);
+  const outerLeft = ex > sx + 1;
 
-  return { d: `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`, labelX, labelY };
+  return {
+    d: `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${ex} ${ey}`,
+    labelX: outerLeft ? labelX - 4 : labelX + 4,
+    labelY,
+    anchor: outerLeft ? 'end' : 'start',
+  };
 }
 
 /** Spread parallel edges between the same pair of nodes so they never overlap. */
@@ -241,17 +320,22 @@ function parallelOffsets(edges: CanvasEdge[]): Map<string, number> {
 /* Component ---------------------------------------------------------------------------------- */
 
 /**
- * Pannable, zoomable SVG that lays nodes out left to right. Layout only re-runs when the
+ * Pannable, zoomable SVG that lays circles out top to bottom. Layout only re-runs when the
  * structure changes, and every change slides nodes to their new place instead of jumping.
  */
 export function GraphCanvas({
-  nodes,
-  edges,
+  nodes: liveNodes,
+  edges: liveEdges,
   fitSignal = 0,
+  epoch = '',
   onNodeClick,
   onNodeHover,
   children,
 }: GraphCanvasProps) {
+  // Groups stand for many entities and linger so churn underneath them never moves the layout.
+  // Singles stand for one entity each, and their coming and going is information.
+  const nodes = useLinger(liveNodes, LINGER_MS, epoch, (node) => node.variant === 'group');
+  const edges = useLinger(liveEdges, LINGER_MS, epoch, () => true);
   const markerId = useId();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -280,7 +364,7 @@ export function GraphCanvas({
   // Layout, cached by structural signature so count changes keep every node in place.
   const measured = useMemo(() => nodes.map(measure), [nodes]);
   const layoutNodes = useMemo<LayoutNodeInput[]>(
-    () => measured.map((m) => ({ id: m.node.id, width: m.width, height: m.height })),
+    () => measured.map((m) => ({ id: m.node.id, width: m.radius * 2, height: m.radius * 2 })),
     [measured]
   );
   const layoutEdges = useMemo<LayoutEdgeInput[]>(
@@ -314,6 +398,8 @@ export function GraphCanvas({
     if (fitSignal > 0) setAutoFit(true);
   }, [fitSignal]);
 
+  // Lingering keeps the structure steady through churn, so plain auto-fit is calm enough:
+  // it only moves when the graph really changed, and it tweens there.
   useEffect(() => {
     if (!autoFit) return;
     viewImmediateRef.current = false;
@@ -376,7 +462,7 @@ export function GraphCanvas({
     setDragging(false);
   }, []);
 
-  // Hover dims everything that does not touch the hovered node.
+  // Hover dims everything that does not touch the hovered node and shows its card.
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const connected = useMemo(() => {
     if (hoveredId === null) return null;
@@ -407,12 +493,8 @@ export function GraphCanvas({
   }
 
   const boxFor = (id: string) => shownLayout.positions.get(id) ?? layout.positions.get(id);
-  const variantClass: Record<CanvasNodeVariant, string> = {
-    group: styles.nodeGroup,
-    aggregate: styles.nodeAggregate,
-    entity: styles.nodeEntity,
-    focus: styles.nodeFocus,
-  };
+  const hovered = hoveredId !== null ? measured.find((m) => m.node.id === hoveredId) : undefined;
+  const hoveredBox = hovered ? boxFor(hovered.node.id) : undefined;
 
   return (
     <div ref={wrapperRef} className={styles.wrapper}>
@@ -450,16 +532,24 @@ export function GraphCanvas({
               const dimmed =
                 connected !== null && edge.source !== hoveredId && edge.target !== hoveredId;
               return (
-                <g key={edge.id} className={`${styles.edge} ${dimmed ? styles.dimmed : ''}`}>
+                <g
+                  key={edge.id}
+                  className={[styles.edge, dimmed && styles.dimmed, edge.ghost && styles.ghost]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
                   <path d={geo.d} className={styles.edgePath} markerEnd={`url(#${markerId})`} />
                   <text
                     x={geo.labelX}
                     y={geo.labelY}
                     className={styles.edgeLabel}
-                    textAnchor="middle"
+                    textAnchor={geo.anchor}
+                    dominantBaseline="central"
                   >
                     {edge.label}
-                    {edge.count > 1 && <tspan className={styles.edgeCount}> ×{edge.count}</tspan>}
+                    {edge.count > 1 && !edge.ghost && (
+                      <tspan className={styles.edgeCount}> ×{edge.count}</tspan>
+                    )}
                   </text>
                 </g>
               );
@@ -473,8 +563,10 @@ export function GraphCanvas({
               const dimmed = connected !== null && !connected.has(m.node.id);
               const className = [
                 styles.node,
-                variantClass[m.node.variant],
+                m.node.variant === 'group' ? styles.nodeGroup : styles.nodeSingle,
                 dimmed && styles.dimmed,
+                m.node.ghost && styles.ghost,
+                m.node.pinned && styles.pinned,
                 onNodeClick && styles.clickable,
               ]
                 .filter(Boolean)
@@ -491,66 +583,35 @@ export function GraphCanvas({
                   onMouseEnter={() => hoverNode(m.node)}
                   onMouseLeave={() => hoverNode(null)}
                 >
-                  {m.node.title && <title>{m.node.title}</title>}
-                  {isCircle(m.node.variant) ? (
-                    <>
-                      {m.node.variant === 'focus' && (
-                        <circle r={m.width / 2 + 4} className={styles.focusRing} />
-                      )}
-                      <circle r={m.width / 2} className={styles.shape} />
-                      <text
-                        className={styles.nodeLabel}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                      >
-                        {m.label}
-                      </text>
-                    </>
-                  ) : (
-                    <>
-                      <rect
-                        x={-m.width / 2}
-                        y={-m.height / 2}
-                        width={m.width}
-                        height={m.height}
-                        rx={5}
-                        className={styles.shape}
-                      />
-                      <text
-                        x={-m.width / 2 + BOX_PAD}
-                        className={styles.nodeLabel}
-                        dominantBaseline="central"
-                      >
-                        {m.label}
-                      </text>
-                      {m.pillWidth > 0 && (
-                        <>
-                          <rect
-                            x={m.width / 2 - BOX_PAD - m.pillWidth}
-                            y={-7}
-                            width={m.pillWidth}
-                            height={14}
-                            rx={7}
-                            className={styles.pill}
-                          />
-                          <text
-                            x={m.width / 2 - BOX_PAD - m.pillWidth / 2}
-                            className={styles.pillLabel}
-                            textAnchor="middle"
-                            dominantBaseline="central"
-                          >
-                            {m.node.count}
-                          </text>
-                        </>
-                      )}
-                    </>
-                  )}
+                  {m.node.pinned && <circle r={m.radius + 3} className={styles.pinRing} />}
+                  <circle r={m.radius} className={styles.shape} />
+                  <text className={styles.nodeLabel} textAnchor="middle" dominantBaseline="central">
+                    {m.node.ghost && m.node.count !== undefined ? 0 : m.node.label}
+                  </text>
                 </g>
               );
             })}
           </g>
         </g>
       </svg>
+
+      {hovered && hoveredBox && (
+        <div
+          className={`${styles.card} ${
+            view.y + hoveredBox.y * view.scale > size.height / 2 ? styles.cardAbove : ''
+          }`}
+          style={{
+            left: view.x + hoveredBox.x * view.scale,
+            top:
+              view.y + hoveredBox.y * view.scale > size.height / 2
+                ? view.y + (hoveredBox.y - hovered.radius - 6) * view.scale
+                : view.y + (hoveredBox.y + hovered.radius + 6) * view.scale,
+          }}
+        >
+          <div className={styles.cardTitle}>{hovered.node.title}</div>
+          {hovered.node.detail && <div className={styles.cardDetail}>{hovered.node.detail}</div>}
+        </div>
+      )}
     </div>
   );
 }

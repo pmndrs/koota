@@ -5,39 +5,6 @@
   min-height: 0;
 }
 
-.bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.select {
-  all: unset;
-  flex: 1;
-  min-width: 0;
-  padding: 3px 6px;
-  border-radius: var(--radius-md);
-  background: var(--surface-1);
-  color: var(--text);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  appearance: auto;
-}
-
-.select:hover {
-  background: var(--surface-2);
-}
-
-.stats {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 /* The content area is locked while the graph tab is open, so the tree scrolls itself. */
 .rows {
   flex: 1;

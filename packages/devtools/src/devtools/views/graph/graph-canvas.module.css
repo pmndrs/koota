@@ -39,7 +39,7 @@
 }
 
 .edgeLabel {
-  font-size: 7.5px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   fill: var(--text-secondary);
   pointer-events: none;
@@ -73,74 +73,43 @@
 }
 
 .shape {
-  stroke-width: 1.2;
+  stroke-width: 1.4;
   transition:
     fill 0.15s,
     stroke 0.15s;
 }
 
+/* A group: several entities that cannot be told apart */
 .nodeGroup .shape {
-  fill: rgba(168, 85, 247, 0.16);
-  stroke: rgba(168, 85, 247, 0.55);
+  fill: rgba(168, 85, 247, 0.22);
+  stroke: rgba(168, 85, 247, 0.7);
 }
 
 .nodeGroup:hover .shape {
-  fill: rgba(168, 85, 247, 0.28);
-  stroke: rgba(196, 139, 250, 0.95);
+  fill: rgba(168, 85, 247, 0.36);
+  stroke: rgba(196, 139, 250, 1);
 }
 
-.nodeAggregate .shape {
-  fill: var(--surface-1);
-  stroke: rgba(255, 255, 255, 0.28);
-  stroke-dasharray: 3 2;
+/* One entity */
+.nodeSingle .shape {
+  fill: rgba(74, 158, 255, 0.2);
+  stroke: rgba(74, 158, 255, 0.7);
 }
 
-.nodeAggregate:hover .shape {
-  fill: var(--surface-2);
-  stroke: rgba(255, 255, 255, 0.6);
+.nodeSingle:hover .shape {
+  fill: rgba(74, 158, 255, 0.34);
+  stroke: rgba(142, 202, 255, 1);
 }
 
-.nodeEntity .shape {
-  fill: #2d5f92;
-  stroke: #4a9eff;
-}
-
-.nodeEntity:hover .shape {
-  fill: #3a78b8;
-  stroke: #8ecaff;
-}
-
-.nodeFocus .shape {
-  fill: #4a9eff;
-  stroke: #bfe0ff;
-  stroke-width: 1.6;
-}
-
-.focusRing {
+/* Singled out by the user: stays its own node until regrouped */
+.pinRing {
   fill: none;
-  stroke: rgba(74, 158, 255, 0.35);
+  stroke: rgba(191, 224, 255, 0.5);
   stroke-width: 1;
 }
 
 .nodeLabel {
-  font-size: var(--text-xs);
-  font-weight: 600;
-  fill: var(--text);
-  pointer-events: none;
-  user-select: none;
-}
-
-.nodeEntity .nodeLabel,
-.nodeFocus .nodeLabel {
-  fill: #fff;
-}
-
-.pill {
-  fill: rgba(0, 0, 0, 0.35);
-}
-
-.pillLabel {
-  font-size: var(--text-2xs);
+  font-size: var(--text-sm);
   font-weight: 600;
   fill: var(--text);
   font-variant-numeric: tabular-nums;
@@ -150,6 +119,49 @@
 
 .dimmed {
   opacity: 0.18;
+}
+
+/* Just vanished; kept in place for a moment so the layout does not churn */
+.ghost {
+  opacity: 0.3;
+  transition: opacity 0.4s;
+}
+
+.ghost .shape,
+.ghost .edgePath {
+  stroke-dasharray: 3 3;
+}
+
+/* Hover card */
+.card {
+  position: absolute;
+  z-index: 2;
+  transform: translateX(-50%);
+  max-width: 200px;
+  padding: 4px 7px;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.cardAbove {
+  transform: translate(-50%, -100%);
+}
+
+.cardTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.cardDetail {
+  margin-top: 2px;
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  color: var(--text-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

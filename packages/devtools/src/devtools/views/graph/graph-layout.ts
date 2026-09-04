@@ -40,14 +40,15 @@ export function layoutSignature(nodes: LayoutNodeInput[], edges: LayoutEdgeInput
 }
 
 /**
- * Left-to-right layered layout. Inputs are sorted before insertion so the result depends only
+ * Top-to-bottom layered layout, which stacks wide boxes instead of lining them up and so
+ * fits the narrow panel at full size. Inputs are sorted before insertion so the result depends only
  * on graph structure, never on the order the world happened to yield entities.
  */
 export function layoutGraph(nodes: LayoutNodeInput[], edges: LayoutEdgeInput[]): LayoutResult {
   if (nodes.length === 0) return EMPTY_LAYOUT;
 
   const g = new dagre.graphlib.Graph({ multigraph: true });
-  g.setGraph({ rankdir: 'LR', nodesep: 16, ranksep: 48, edgesep: 12, marginx: 8, marginy: 8 });
+  g.setGraph({ rankdir: 'TB', nodesep: 12, ranksep: 40, edgesep: 10, marginx: 8, marginy: 8 });
   g.setDefaultEdgeLabel(() => ({}));
 
   const sortedNodes = [...nodes].sort((a, b) => a.id.localeCompare(b.id));

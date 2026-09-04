@@ -1,19 +1,21 @@
 import type { Entity, Trait } from '@koota/core';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getEntityInfo } from '../../model/entity-info';
-import { getTraitName } from '../../model/trait-info';
+import { getTraitId, getTraitName } from '../../model/trait-info';
 import { useEntityHover } from '../../state/use-highlight';
 import { useWorld } from '../../state/use-world';
 import { Button, IconButton } from '../../ui/button';
 import { Empty } from '../../ui/empty';
 import { FilterIcon, FitIcon } from '../../ui/icons';
+import { Segmented } from '../../ui/segmented';
+import { Select } from '../../ui/select';
+import { Toolbar } from '../../ui/toolbar';
 import { GraphCanvas, type CanvasEdge, type CanvasNode } from './graph-canvas';
 import {
-  buildFocusGraph,
-  buildSchemaGraph,
+  buildEntityGraph,
   resolveRelations,
-  type FocusGraph,
-  type SchemaGraph,
+  type EntityGraph,
+  type RelationRecord,
 } from './graph-data';
 import { GraphEntitiesSheet } from './graph-entities-sheet';
 import styles from './relation-graph.module.css';
@@ -25,54 +27,48 @@ interface RelationGraphProps {
   onSelectEntity: (entity: Entity) => void;
 }
 
-type Mode = 'schema' | 'tree';
+type Mode = 'graph' | 'tree';
+
+const MODES = [
+  { value: 'graph', label: 'Graph', title: 'Entities and how they relate' },
+  { value: 'tree', label: 'Tree', title: 'Hierarchy of one relation' },
+] satisfies { value: Mode; label: string; title: string }[];
+
+/** Exclusive relations form strict trees, so one of those is the natural default. */
+function defaultTreeRelation(relations: RelationRecord[]): RelationRecord | null {
+  return relations.find((r) => r.exclusive) ?? relations[0] ?? null;
+}
 
 interface Canvas {
   nodes: CanvasNode[];
   edges: CanvasEdge[];
 }
 
-const EMPTY_CANVAS: Canvas = { nodes: [], edges: [] };
 const NO_FILTER = new Set<string>();
 
-function schemaToCanvas(graph: SchemaGraph): Canvas {
-  return {
-    nodes: graph.nodes.map((node) => ({
-      id: node.id,
-      variant: 'group',
-      label: node.archetype.label,
-      count: node.entities.length,
-      title: `${node.archetype.fullLabel}\n${node.entities.length} entities`,
-    })),
-    edges: graph.edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      label: edge.relation.name,
-      count: edge.count,
-    })),
-  };
-}
-
-function focusToCanvas(graph: FocusGraph, labelFor: (entity: Entity) => string): Canvas {
+function toCanvas(graph: EntityGraph, labelFor: (entity: Entity) => string): Canvas {
   return {
     nodes: graph.nodes.map((node): CanvasNode => {
-      if (node.kind === 'aggregate') {
+      const { archetype, entities } = node;
+      if (node.entity !== null) {
+        const label = labelFor(node.entity);
         return {
           id: node.id,
-          variant: 'aggregate',
-          label: node.archetype.label,
-          count: node.entities.length,
-          title: `${node.archetype.fullLabel}\n${node.entities.length} entities`,
+          variant: 'single',
+          label: label.startsWith('World') ? 'W' : label.replace('Entity ', ''),
+          title: label,
+          detail: archetype.fullLabel,
+          entity: node.entity,
+          pinned: node.pinned,
         };
       }
-      const label = labelFor(node.entity);
       return {
         id: node.id,
-        variant: node.kind,
-        label: label.startsWith('World') ? 'W' : label.replace('Entity ', ''),
-        title: label,
-        entity: node.entity,
+        variant: 'group',
+        label: String(entities.length),
+        count: entities.length,
+        title: archetype.label,
+        detail: archetype.fullLabel,
       };
     }),
     edges: graph.edges.map((edge) => ({
@@ -86,9 +82,9 @@ function focusToCanvas(graph: FocusGraph, labelFor: (entity: Entity) => string):
 }
 
 /**
- * Three ways to read the same relations. Schema groups entities by archetype, the way an ER
- * diagram groups rows by table. Clicking into a group focuses one entity and shows only its
- * neighbors. Tree lays one relation out as an outliner, which suits parent-child relations.
+ * Entities that relate, drawn as nodes. Entities that cannot be told apart merge into one
+ * group node whose size grows with its count; picking one out of a group pins it as its own
+ * node. Tree lays one relation out as an outliner, which suits parent-child relations.
  */
 export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphProps) {
   const world = useWorld();
@@ -96,16 +92,18 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
   const hover = useEntityHover();
   const hoveredRef = useRef<Entity | null>(null);
 
-  const [mode, setMode] = useState<Mode>('schema');
+  const [mode, setMode] = useState<Mode>('graph');
   const [selectedRelations, setSelectedRelations] = useState<Set<string>>(() => new Set());
   const [showFilter, setShowFilter] = useState(false);
   const [fitSignal, setFitSignal] = useState(0);
 
-  // The focus stack drives the neighborhood view; empty means the schema overview.
-  const [focusStack, setFocusStack] = useState<Entity[]>([]);
-  const focus = focusStack.length > 0 ? focusStack[focusStack.length - 1] : null;
+  // Entities the user singled out; they never merge back into a group until regrouped.
+  const [pinned, setPinned] = useState<Set<Entity>>(() => new Set());
 
-  // The sheet shows the members of a group or aggregate node, resolved live by id.
+  // The relation the tree shows, by trait id; falls back when unset or gone.
+  const [treeRelationId, setTreeRelationId] = useState<string | null>(null);
+
+  // The sheet lists the members of a group node, resolved live by id.
   const [sheetNodeId, setSheetNodeId] = useState<string | null>(null);
 
   const labelFor = useCallback((entity: Entity) => getEntityInfo(world, entity).label, [world]);
@@ -122,83 +120,51 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
 
   const allRelations = useMemo(() => resolveRelations(relationTraits, NO_FILTER), [relationTraits]);
 
-  // Drop focus on entities that no longer exist.
-  useEffect(() => {
-    if (focus !== null && !world.has(focus)) {
-      setFocusStack((prev) => prev.filter((e) => world.has(e)));
-    }
-  }, [focus, world, version]);
+  const treeRelation =
+    allRelations.find((r) => String(getTraitId(r.trait)) === treeRelationId) ??
+    defaultTreeRelation(allRelations);
 
-  const schema = useMemo(
-    () => (mode === 'schema' && focus === null ? buildSchemaGraph(world, relations) : null),
+  // Forget pins on entities that no longer exist.
+  useEffect(() => {
+    if (![...pinned].some((entity) => !world.has(entity))) return;
+    setPinned((prev) => new Set([...prev].filter((entity) => world.has(entity))));
+  }, [pinned, world, version]);
+
+  const graph = useMemo(
+    () => (mode === 'graph' ? buildEntityGraph(world, relations, pinned) : null),
     // version is the change signal for the world
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [world, relations, mode, focus, version]
+    [world, relations, pinned, mode, version]
   );
 
-  const focusGraph = useMemo(
-    () =>
-      mode === 'schema' && focus !== null && world.has(focus)
-        ? buildFocusGraph(world, relations, focus)
-        : null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [world, relations, mode, focus, version]
+  const canvas = useMemo(
+    () => (graph ? toCanvas(graph, labelFor) : { nodes: [], edges: [] }),
+    [graph, labelFor]
   );
 
-  const canvas = useMemo(() => {
-    if (focusGraph) return focusToCanvas(focusGraph, labelFor);
-    if (schema) return schemaToCanvas(schema);
-    return EMPTY_CANVAS;
-  }, [focusGraph, schema, labelFor]);
-
-  // Resolve the sheet's node against the live graph so it tracks changes and closes if gone.
   const sheet = useMemo(() => {
-    if (sheetNodeId === null) return null;
-    if (schema) {
-      const node = schema.nodes.find((n) => n.id === sheetNodeId);
-      return node ? { title: node.archetype.fullLabel, entities: node.entities } : null;
-    }
-    if (focusGraph) {
-      const node = focusGraph.nodes.find((n) => n.id === sheetNodeId);
-      if (!node || node.kind !== 'aggregate') return null;
-      const focusName = labelFor(focusGraph.focus);
-      const title =
-        node.direction === 'in'
-          ? `${node.archetype.label} —${node.relation.name}→ ${focusName}`
-          : `${focusName} —${node.relation.name}→ ${node.archetype.label}`;
-      return { title, entities: node.entities };
-    }
-    return null;
-  }, [sheetNodeId, schema, focusGraph, labelFor]);
+    if (sheetNodeId === null || !graph) return null;
+    const node = graph.nodes.find((n) => n.id === sheetNodeId);
+    if (!node || node.entity !== null) return null;
+    return {
+      title: node.archetype.fullLabel,
+      entities: node.entities,
+    };
+  }, [sheetNodeId, graph]);
 
-  const pushFocus = useCallback((entity: Entity) => {
-    setFocusStack((prev) => (prev[prev.length - 1] === entity ? prev : [...prev, entity]));
+  const pin = useCallback((entity: Entity) => {
+    setPinned((prev) => new Set(prev).add(entity));
     setSheetNodeId(null);
-    setFitSignal((n) => n + 1);
   }, []);
 
-  const popFocus = useCallback(() => {
-    setFocusStack((prev) => prev.slice(0, -1));
-    setSheetNodeId(null);
-    setFitSignal((n) => n + 1);
-  }, []);
+  const regroup = useCallback(() => setPinned(new Set()), []);
 
   const handleNodeClick = useCallback(
     (node: CanvasNode) => {
-      switch (node.variant) {
-        case 'group':
-        case 'aggregate':
-          setSheetNodeId(node.id);
-          break;
-        case 'entity':
-          if (node.entity !== undefined) pushFocus(node.entity);
-          break;
-        case 'focus':
-          if (node.entity !== undefined) onSelectEntity(node.entity);
-          break;
-      }
+      if (node.variant === 'group') setSheetNodeId(node.id);
+      else if (node.entity !== undefined) onSelectEntity(node.entity);
     },
-    [pushFocus, onSelectEntity]
+    [onSelectEntity]
   );
 
   const handleNodeHover = useCallback(
@@ -221,100 +187,72 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
     });
   };
 
-  const stats = (() => {
-    if (focusGraph) {
-      const sum = (pick: (id: string) => boolean) =>
-        focusGraph.edges.filter((e) => pick(e.target)).reduce((s, e) => s + e.count, 0);
-      const incoming = sum((target) => target === focusGraph.focusId);
-      const outgoing = sum((target) => target !== focusGraph.focusId);
-      return `${incoming} in · ${outgoing} out`;
-    }
-    if (schema) {
-      const types = schema.nodes.length;
-      const pairs = schema.pairCount;
-      return `${types} type${types === 1 ? '' : 's'} · ${pairs} link${pairs === 1 ? '' : 's'}`;
-    }
-    return '';
-  })();
-
-  const showCanvas = mode === 'schema';
+  const showCanvas = mode === 'graph';
 
   return (
     <div className={styles.container}>
-      <div className={styles.controls}>
-        <div className={styles.controlsRow}>
-          {focusGraph ? (
-            <div className={styles.breadcrumb}>
-              <IconButton onClick={popFocus} title="Back">
-                ←
-              </IconButton>
-              <span className={styles.breadcrumbTitle}>{labelFor(focusGraph.focus)}</span>
-              <Button onClick={() => onSelectEntity(focusGraph.focus)} title="Open in inspector">
-                Inspect
-              </Button>
-            </div>
-          ) : (
-            <div className={styles.stats}>{stats}</div>
-          )}
-
-          <div className={styles.toolbar}>
-            {!focusGraph && (
-              <div className={styles.segmented} role="tablist">
-                <Button
-                  active={mode === 'schema'}
-                  onClick={() => setMode('schema')}
-                  title="Types and how they relate"
-                >
-                  Schema
+      <Toolbar
+        actions={
+          showCanvas ? (
+            <>
+              {pinned.size > 0 && (
+                <Button onClick={regroup} title="Merge pinned entities back into their groups">
+                  Regroup
                 </Button>
-                <Button
-                  active={mode === 'tree'}
-                  onClick={() => setMode('tree')}
-                  title="Hierarchy of one relation"
-                >
-                  Tree
-                </Button>
-              </div>
-            )}
-            {showCanvas && (
+              )}
               <IconButton onClick={() => setFitSignal((n) => n + 1)} title="Fit to view">
                 <FitIcon />
               </IconButton>
-            )}
-            {showCanvas && relationNames.length > 1 && (
-              <IconButton
-                active={showFilter}
-                count={selectedRelations.size}
-                onClick={() => setShowFilter(!showFilter)}
-                title="Filter relations"
-              >
-                <FilterIcon />
-              </IconButton>
-            )}
-          </div>
-        </div>
-
-        {showCanvas && showFilter && relationNames.length > 1 && (
-          <div className={styles.filters}>
-            {relationNames.map((name) => (
-              <Button
-                key={name}
-                active={selectedRelations.has(name)}
-                onClick={() => toggleRelation(name)}
-                title={`Toggle ${name}`}
-              >
-                {name}
-              </Button>
-            ))}
-          </div>
-        )}
-      </div>
+              {relationNames.length > 1 && (
+                <IconButton
+                  active={showFilter}
+                  count={selectedRelations.size}
+                  onClick={() => setShowFilter(!showFilter)}
+                  title="Filter relations"
+                >
+                  <FilterIcon />
+                </IconButton>
+              )}
+            </>
+          ) : (
+            treeRelation && (
+              <Select
+                value={String(getTraitId(treeRelation.trait))}
+                onChange={setTreeRelationId}
+                title={treeRelation.exclusive ? 'Exclusive relation' : 'Non-exclusive relation'}
+                options={allRelations.map((r) => ({
+                  value: String(getTraitId(r.trait)),
+                  label: r.exclusive ? r.name : `${r.name} (multi)`,
+                }))}
+              />
+            )
+          )
+        }
+        drawer={
+          showCanvas &&
+          showFilter &&
+          relationNames.length > 1 &&
+          relationNames.map((name) => (
+            <Button
+              key={name}
+              active={selectedRelations.has(name)}
+              onClick={() => toggleRelation(name)}
+              title={`Toggle ${name}`}
+            >
+              {name}
+            </Button>
+          ))
+        }
+      >
+        <Segmented options={MODES} value={mode} onChange={setMode} />
+      </Toolbar>
 
       {showCanvas ? (
         <GraphCanvas
           nodes={canvas.nodes}
           edges={canvas.edges}
           fitSignal={fitSignal}
+          epoch="graph"
           onNodeClick={handleNodeClick}
           onNodeHover={handleNodeHover}
         >
@@ -328,15 +266,22 @@ export function RelationGraph({ relationTraits, onSelectEntity }: RelationGraphP
             {relationTraits.length === 0 ? 'No relations defined' : 'No relations in use'}
           </Empty>
         </GraphCanvas>
+      ) : treeRelation ? (
+        <RelationTree
+          key={getTraitId(treeRelation.trait)}
+          relation={treeRelation}
+          version={version}
+          onSelectEntity={onSelectEntity}
+        />
       ) : (
-        <RelationTree relations={allRelations} version={version} onSelectEntity={onSelectEntity} />
+        <Empty>No relations to show</Empty>
       )}
 
       {sheet && (
         <GraphEntitiesSheet
           title={sheet.title}
           entities={sheet.entities}
-          onSelect={pushFocus}
+          onSelect={pin}
           onClose={() => setSheetNodeId(null)}
         />
       )}

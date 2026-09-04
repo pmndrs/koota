@@ -22,11 +22,8 @@ const IGNORED_TRAITS = new Set<Trait>([
   IsExcluded,
 ]);
 
-/** Siblings shown individually before they collapse into one aggregate node. */
-export const AGGREGATION_THRESHOLD = 5;
-
 /** Longest node label that still fits comfortably in the panel. */
-const MAX_LABEL_LENGTH = 22;
+const MAX_LABEL_LENGTH = 14;
 
 export interface RelationRecord {
   trait: Trait;
@@ -56,8 +53,10 @@ export interface Archetype {
   /** Stable identity: sorted ids of the data traits on the entity. */
   key: string;
   traits: Trait[];
-  /** Short label for a node, e.g. "Bullet · Transform +2". */
+  /** Title for a node: the leading trait name, e.g. "Bullet". */
   label: string;
+  /** Traits that did not fit in the title. */
+  hiddenTraits: number;
   /** Every trait name, for tooltips and sheet titles. */
   fullLabel: string;
 }
@@ -89,22 +88,21 @@ export function getArchetype(world: World, entity: Entity): Archetype {
   return archetype;
 }
 
-/** "A · B +2", falling back to "A +3" and finally a hard truncation when names are long. */
-function shortLabel(names: string[]): string {
-  for (let shown = Math.min(2, names.length); shown >= 1; shown--) {
-    const rest = names.length - shown;
-    const head = names.slice(0, shown).join(' · ');
-    const label = rest > 0 ? `${head} +${rest}` : head;
-    if (label.length <= MAX_LABEL_LENGTH) return label;
-  }
-  const rest = names.length - 1;
-  const suffix = rest > 0 ? ` +${rest}` : '';
-  return `${names[0].slice(0, MAX_LABEL_LENGTH - suffix.length - 1)}…${suffix}`;
+/**
+ * One name only: the panel is narrow and two archetypes must sit side by side at full size.
+ * The rest is spelled out on the node's second line and in full in the tooltip and sheet.
+ */
+function shortLabel(names: string[]): { label: string; shown: number } {
+  const first = names[0];
+  const label = first.length <= MAX_LABEL_LENGTH ? first : `${first.slice(0, MAX_LABEL_LENGTH - 1)}…`;
+  return { label, shown: 1 };
 }
 
 function buildArchetype(key: string, traits: Trait[], isWorld: boolean): Archetype {
-  if (isWorld) return { key, traits, label: 'World', fullLabel: 'World entity' };
-  if (traits.length === 0) return { key, traits, label: 'untyped', fullLabel: 'No data traits' };
+  if (isWorld) return { key, traits, label: 'World', hiddenTraits: 0, fullLabel: 'World entity' };
+  if (traits.length === 0) {
+    return { key, traits, label: 'untyped', hiddenTraits: 0, fullLabel: 'No data traits' };
+  }
 
   // Tags read like type names ("Player", "Bullet"), so they lead the label.
   const named = [...traits].sort((a, b) => {
@@ -114,19 +112,30 @@ function buildArchetype(key: string, traits: Trait[], isWorld: boolean): Archety
     return getTraitName(a).localeCompare(getTraitName(b));
   });
   const names = named.map(getTraitName);
-  return { key, traits: named, label: shortLabel(names), fullLabel: names.join(', ') };
+  const { label, shown } = shortLabel(names);
+  return {
+    key,
+    traits: named,
+    label,
+    hiddenTraits: names.length - shown,
+    fullLabel: names.join(', '),
+  };
 }
 
-/* Schema graph: archetype → relation → archetype --------------------------------------------- */
+/* Entity graph: entities that relate, merged when they are structurally identical ---------- */
 
-export interface SchemaNode {
+export interface EntityGroup {
   id: string;
   archetype: Archetype;
-  /** Entities of this archetype that take part in at least one visible relation. */
+  /** Members, sorted. */
   entities: Entity[];
+  /** The member, when the group is a single entity. */
+  entity: Entity | null;
+  /** Singled out by the user; never merged with look-alikes. */
+  pinned: boolean;
 }
 
-export interface SchemaEdge {
+export interface EntityGraphEdge {
   id: string;
   source: string;
   target: string;
@@ -135,175 +144,148 @@ export interface SchemaEdge {
   count: number;
 }
 
-export interface SchemaGraph {
-  nodes: SchemaNode[];
-  edges: SchemaEdge[];
-  /** Total relation pairs shown. */
+export interface EntityGraph {
+  nodes: EntityGroup[];
+  edges: EntityGraphEdge[];
+  entityCount: number;
   pairCount: number;
 }
 
-export function buildSchemaGraph(world: World, relations: RelationRecord[]): SchemaGraph {
-  const nodes = new Map<string, SchemaNode>();
-  const members = new Map<string, Set<Entity>>();
-  const edges = new Map<string, SchemaEdge>();
-  let pairCount = 0;
+/**
+ * How many rounds of neighborhood refinement decide equivalence. One round merges entities
+ * with the same traits and the same relations to the same kinds of entity; a second round
+ * also looks at what those neighbors relate to. More rounds split hairs nobody can see.
+ */
+const REFINEMENT_ROUNDS = 2;
 
-  const touch = (entity: Entity): string => {
-    const archetype = getArchetype(world, entity);
-    const id = `arch:${archetype.key}`;
-    let set = members.get(id);
-    if (!set) {
-      set = new Set();
-      members.set(id, set);
-      nodes.set(id, { id, archetype, entities: [] });
-    }
-    set.add(entity);
-    return id;
-  };
+/** FNV-1a, so group ids stay short and stable across rebuilds. */
+function hash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * Every entity that takes part in a relation is a node. Entities that cannot be told apart
+ * by their traits and their relations collapse into one group node, so a hundred bullets
+ * fired by the player are one node while an enemy chasing something else stands alone.
+ */
+export function buildEntityGraph(
+  world: World,
+  relations: RelationRecord[],
+  pinned: Set<Entity>
+): EntityGraph {
+  const pairs: { source: Entity; relation: RelationRecord; target: Entity }[] = [];
+  const entities = new Set<Entity>();
 
   for (const rel of relations) {
-    for (const entity of world.query(rel.trait)) {
-      const targets = entity.targetsFor(rel.relation);
-      if (targets.length === 0) continue;
-      const sourceId = touch(entity);
-      for (const target of targets) {
+    for (const source of world.query(rel.trait)) {
+      for (const target of source.targetsFor(rel.relation)) {
         if (!world.has(target)) continue;
-        const targetId = touch(target);
-        const edgeId = `${sourceId}|${getTraitId(rel.trait)}|${targetId}`;
-        const edge = edges.get(edgeId);
-        if (edge) edge.count++;
-        else
-          edges.set(edgeId, {
-            id: edgeId,
-            source: sourceId,
-            target: targetId,
-            relation: rel,
-            count: 1,
-          });
-        pairCount++;
+        pairs.push({ source, relation: rel, target });
+        entities.add(source);
+        entities.add(target);
       }
     }
   }
 
-  for (const [id, node] of nodes) {
-    node.entities = [...(members.get(id) ?? [])].sort((a, b) => a - b);
+  // Color refinement: start from the archetype, then fold in the neighbors' colors.
+  let color = new Map<Entity, string>();
+  for (const entity of entities) {
+    color.set(
+      entity,
+      pinned.has(entity) ? `pin:${entity}` : `arch:${getArchetype(world, entity).key}`
+    );
+  }
+
+  for (let round = 0; round < REFINEMENT_ROUNDS; round++) {
+    const outgoing = new Map<Entity, Set<string>>();
+    const incoming = new Map<Entity, Set<string>>();
+    for (const { source, relation, target } of pairs) {
+      const relId = getTraitId(relation.trait);
+      let out = outgoing.get(source);
+      if (!out) outgoing.set(source, (out = new Set()));
+      out.add(`${relId}>${color.get(target)}`);
+      let inc = incoming.get(target);
+      if (!inc) incoming.set(target, (inc = new Set()));
+      inc.add(`${relId}<${color.get(source)}`);
+    }
+
+    const next = new Map<Entity, string>();
+    for (const entity of entities) {
+      const own = color.get(entity)!;
+      if (own.startsWith('pin:')) {
+        next.set(entity, own);
+        continue;
+      }
+      const out = [...(outgoing.get(entity) ?? [])].sort().join(',');
+      const inc = [...(incoming.get(entity) ?? [])].sort().join(',');
+      next.set(entity, `g${hash(`${own}|${out}|${inc}`)}`);
+    }
+    color = next;
+  }
+
+  const groups = new Map<string, Entity[]>();
+  for (const entity of entities) {
+    const key = color.get(entity)!;
+    let members = groups.get(key);
+    if (!members) groups.set(key, (members = []));
+    members.push(entity);
+  }
+
+  // Node ids must survive changes elsewhere in the graph, or lingering shows stale ghosts
+  // and React remounts circles. A lone entity is its own identity: its traits may change
+  // under it (a blinking tag, a temporary state) without it becoming a different node. A
+  // group is defined by what its members share, so it is keyed by archetype; only when one
+  // archetype splits into several groups does the refined signature tell them apart.
+  const groupsPerArchetype = new Map<string, number>();
+  for (const [key, members] of groups) {
+    if (key.startsWith('pin:') || members.length === 1) continue;
+    const arch = getArchetype(world, members[0]).key;
+    groupsPerArchetype.set(arch, (groupsPerArchetype.get(arch) ?? 0) + 1);
+  }
+
+  const nodeIdOf = new Map<Entity, string>();
+  const nodes: EntityGroup[] = [];
+  for (const [key, members] of groups) {
+    members.sort((a, b) => a - b);
+    const isPinned = key.startsWith('pin:');
+    const archetype = getArchetype(world, members[0]);
+    const id =
+      members.length === 1
+        ? `ent:${members[0]}`
+        : (groupsPerArchetype.get(archetype.key) ?? 1) > 1
+          ? `grp:${archetype.key}:${key}`
+          : `grp:${archetype.key}`;
+    for (const entity of members) nodeIdOf.set(entity, id);
+    nodes.push({
+      id,
+      archetype,
+      entities: members,
+      entity: members.length === 1 ? members[0] : null,
+      pinned: isPinned,
+    });
+  }
+
+  const edges = new Map<string, EntityGraphEdge>();
+  for (const { source, relation, target } of pairs) {
+    const sourceId = nodeIdOf.get(source)!;
+    const targetId = nodeIdOf.get(target)!;
+    const id = `${sourceId}|${getTraitId(relation.trait)}|${targetId}`;
+    const edge = edges.get(id);
+    if (edge) edge.count++;
+    else edges.set(id, { id, source: sourceId, target: targetId, relation, count: 1 });
   }
 
   return {
-    nodes: [...nodes.values()].sort((a, b) => a.archetype.key.localeCompare(b.archetype.key)),
+    nodes: nodes.sort((a, b) => a.id.localeCompare(b.id)),
     edges: [...edges.values()].sort((a, b) => a.id.localeCompare(b.id)),
-    pairCount,
+    entityCount: entities.size,
+    pairCount: pairs.length,
   };
-}
-
-/* Focus graph: one entity and its immediate neighbors ---------------------------------------- */
-
-export type FocusNode =
-  | { id: string; kind: 'focus'; entity: Entity }
-  | { id: string; kind: 'entity'; entity: Entity }
-  | {
-      id: string;
-      kind: 'aggregate';
-      archetype: Archetype;
-      relation: RelationRecord;
-      direction: 'in' | 'out';
-      entities: Entity[];
-    };
-
-export interface FocusEdge {
-  id: string;
-  source: string;
-  target: string;
-  relation: RelationRecord;
-  count: number;
-}
-
-export interface FocusGraph {
-  focus: Entity;
-  focusId: string;
-  nodes: FocusNode[];
-  edges: FocusEdge[];
-}
-
-export function buildFocusGraph(world: World, relations: RelationRecord[], focus: Entity) {
-  const focusId = `ent:${focus}`;
-  const nodes: FocusNode[] = [{ id: focusId, kind: 'focus', entity: focus }];
-  const edges: FocusEdge[] = [];
-
-  // (direction, relation, archetype) → neighbors
-  const buckets = new Map<
-    string,
-    { relation: RelationRecord; archetype: Archetype; direction: 'in' | 'out'; entities: Entity[] }
-  >();
-  const bucket = (relation: RelationRecord, direction: 'in' | 'out', neighbor: Entity) => {
-    const archetype = getArchetype(world, neighbor);
-    const key = `${direction}|${getTraitId(relation.trait)}|${archetype.key}`;
-    let b = buckets.get(key);
-    if (!b) {
-      b = { relation, archetype, direction, entities: [] };
-      buckets.set(key, b);
-    }
-    b.entities.push(neighbor);
-  };
-
-  for (const rel of relations) {
-    if (focus.has(rel.trait)) {
-      for (const target of focus.targetsFor(rel.relation)) {
-        if (world.has(target)) bucket(rel, 'out', target);
-      }
-    }
-    for (const entity of world.query(rel.trait)) {
-      if (entity === focus) continue;
-      if (entity.targetsFor(rel.relation).includes(focus)) bucket(rel, 'in', entity);
-    }
-  }
-
-  const seen = new Set<string>();
-  const sorted = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b));
-
-  for (const [key, b] of sorted) {
-    b.entities.sort((x, y) => x - y);
-    const relId = getTraitId(b.relation.trait);
-
-    if (b.entities.length > AGGREGATION_THRESHOLD) {
-      const id = `agg:${key}`;
-      nodes.push({
-        id,
-        kind: 'aggregate',
-        archetype: b.archetype,
-        relation: b.relation,
-        direction: b.direction,
-        entities: b.entities,
-      });
-      const [source, target] = b.direction === 'in' ? [id, focusId] : [focusId, id];
-      edges.push({
-        id: `${source}|${relId}|${target}`,
-        source,
-        target,
-        relation: b.relation,
-        count: b.entities.length,
-      });
-      continue;
-    }
-
-    for (const entity of b.entities) {
-      const id = `ent:${entity}`;
-      if (!seen.has(id)) {
-        seen.add(id);
-        nodes.push({ id, kind: 'entity', entity });
-      }
-      const [source, target] = b.direction === 'in' ? [id, focusId] : [focusId, id];
-      edges.push({
-        id: `${source}|${relId}|${target}`,
-        source,
-        target,
-        relation: b.relation,
-        count: 1,
-      });
-    }
-  }
-
-  return { focus, focusId, nodes, edges } satisfies FocusGraph;
 }
 
 /* Tree: hierarchical view of a single relation ----------------------------------------------- */
