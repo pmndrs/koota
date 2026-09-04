@@ -1,10 +1,11 @@
 import type { Tab } from '../state/nav';
 import { Button } from '../ui/button';
-import { EntityIcon, GraphIcon, TraitIcon } from '../ui/icons';
+import { EntityIcon, GraphIcon, TraitIcon, WorldIcon } from '../ui/icons';
 import { usePanel } from '../ui/panel/panel';
 import styles from './header.module.css';
 
 const TABS = [
+  { tab: 'worlds', title: 'Worlds', Icon: WorldIcon },
   { tab: 'entities', title: 'Entities', Icon: EntityIcon },
   { tab: 'traits', title: 'Traits', Icon: TraitIcon },
   { tab: 'graph', title: 'Relation Graph', Icon: GraphIcon },
@@ -21,7 +22,8 @@ export function Header({ tab, counts, onShowTab }: HeaderProps) {
 
   return (
     <>
-      <span className={styles.title}>Koota</span>
+      {/* Balances the collapse button so the tabs sit in the true center */}
+      <span className={styles.spacer} aria-hidden="true" />
       <div className={styles.tabs}>
         {TABS.map(({ tab: target, title, Icon }) => (
           <Button

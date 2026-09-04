@@ -107,6 +107,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
   const world = {
     [$internal]: {
+      world: null! as World,
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
       entityTraits: new Map(),
@@ -474,6 +475,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
   if (pendingTraits) {
     ensureWorldRegistered(world[$internal], world, id);
   }
+
+  world[$internal].world = world;
 
   return world;
 }

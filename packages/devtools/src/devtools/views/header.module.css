@@ -1,12 +1,11 @@
-.title {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
+.spacer {
+  width: 20px;
+  flex-shrink: 0;
 }
 
 .tabs {
   display: flex;
+  justify-content: center;
   gap: 2px;
+  flex: 1;
 }

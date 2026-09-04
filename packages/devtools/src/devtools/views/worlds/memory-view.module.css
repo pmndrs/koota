@@ -1,0 +1,96 @@
+.memory {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 8px 8px;
+}
+
+/* One bar, three pools, widths by share of the total */
+.bar {
+  display: flex;
+  height: 6px;
+  gap: 2px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.segment {
+  display: block;
+  flex-basis: 0;
+  /* A pool that is present but tiny still shows as a sliver */
+  min-width: 3px;
+  border-radius: 3px;
+}
+
+.masks {
+  background: #a855f7;
+}
+
+.entities {
+  background: #4a9eff;
+}
+
+.stores {
+  background: #f1b367;
+}
+
+.pool {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.swatch {
+  width: 6px;
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.poolBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.poolLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.poolName {
+  font-size: var(--text-md);
+  color: var(--text);
+}
+
+.poolSize {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.poolDetail {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.total {
+  margin-left: auto;
+  color: var(--text);
+}

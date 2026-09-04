@@ -1,9 +1,11 @@
-import type { Entity, Trait } from '@koota/core';
+import type { Entity, Trait, World } from '@koota/core';
 
-export type Tab = 'entities' | 'traits' | 'graph';
+export type Tab = 'worlds' | 'entities' | 'traits' | 'graph';
 
 /** Each screen the devtools can show. Detail screens carry their subject. */
 export type NavState =
+  | { screen: 'world-list' }
+  | { screen: 'world-detail'; world: World }
   | { screen: 'entity-list' }
   | { screen: 'entity-detail'; entity: Entity }
   | { screen: 'trait-list' }
@@ -13,10 +15,14 @@ export type NavState =
 export type NavEvent =
   /** A header tab was picked. */
   | { type: 'show-tab'; tab: Tab }
+  /** A world was picked from the world list. */
+  | { type: 'open-world'; world: World }
   /** An entity was picked anywhere: a list row, a graph node, a sheet item. */
   | { type: 'open-entity'; entity: Entity }
   /** A trait was picked anywhere: a list row or an entity's trait row. */
   | { type: 'open-trait'; trait: Trait }
+  /** A world was destroyed. */
+  | { type: 'world-destroyed'; world: World }
   /** The world destroyed an entity. */
   | { type: 'entity-destroyed'; entity: Entity }
   /** The world no longer has a trait registered, which happens on reset. */
@@ -25,6 +31,7 @@ export type NavEvent =
 export const INITIAL_NAV: NavState = { screen: 'entity-list' };
 
 const TAB_HOME: Record<Tab, NavState> = {
+  worlds: { screen: 'world-list' },
   entities: { screen: 'entity-list' },
   traits: { screen: 'trait-list' },
   graph: { screen: 'graph' },
@@ -34,27 +41,34 @@ const TAB_HOME: Record<Tab, NavState> = {
  * The navigation machine. Every screen accepts every event, so any path a
  * user can take is a walk over this table.
  *
- *   from           | show-tab   | open-entity   | open-trait   | entity-destroyed | trait-unregistered
- *   ---------------|------------|---------------|--------------|------------------|-------------------
- *   entity-list    | tab's home | entity-detail | trait-detail | same             | same
- *   entity-detail  | tab's home | entity-detail | trait-detail | entity-list *    | same
- *   trait-list     | tab's home | entity-detail | trait-detail | same             | same
- *   trait-detail   | tab's home | entity-detail | trait-detail | same             | trait-list *
- *   graph          | tab's home | entity-detail | trait-detail | same             | same
+ *   from           | show-tab   | open-world   | open-entity   | open-trait   | world-destroyed | entity-destroyed | trait-unregistered
+ *   ---------------|------------|--------------|---------------|--------------|-----------------|------------------|-------------------
+ *   world-list     | tab's home | world-detail | entity-detail | trait-detail | same            | same             | same
+ *   world-detail   | tab's home | world-detail | entity-detail | trait-detail | world-list *    | same             | same
+ *   entity-list    | tab's home | world-detail | entity-detail | trait-detail | same            | same             | same
+ *   entity-detail  | tab's home | world-detail | entity-detail | trait-detail | same            | entity-list *    | same
+ *   trait-list     | tab's home | world-detail | entity-detail | trait-detail | same            | same             | same
+ *   trait-detail   | tab's home | world-detail | entity-detail | trait-detail | same            | same             | trait-list *
+ *   graph          | tab's home | world-detail | entity-detail | trait-detail | same            | same             | same
  *
  *   * only when the event names the subject on screen
  *
  * Picking a tab always lands on that tab's home, so it doubles as the way
- * back out of a detail screen.
+ * back out of a detail screen. The world list stands in for the world
+ * detail when there is only one world; the view decides that, not the machine.
  */
 export function transition(state: NavState, event: NavEvent): NavState {
   switch (event.type) {
     case 'show-tab':
       return TAB_HOME[event.tab];
+    case 'open-world':
+      return { screen: 'world-detail', world: event.world };
     case 'open-entity':
       return { screen: 'entity-detail', entity: event.entity };
     case 'open-trait':
       return { screen: 'trait-detail', trait: event.trait };
+    case 'world-destroyed':
+      return state.screen === 'world-detail' && state.world === event.world ? TAB_HOME.worlds : state;
     case 'entity-destroyed':
       return state.screen === 'entity-detail' && state.entity === event.entity
         ? TAB_HOME.entities
@@ -66,6 +80,9 @@ export function transition(state: NavState, event: NavEvent): NavState {
 
 export function getTab(state: NavState): Tab {
   switch (state.screen) {
+    case 'world-list':
+    case 'world-detail':
+      return 'worlds';
     case 'entity-list':
     case 'entity-detail':
       return 'entities';
