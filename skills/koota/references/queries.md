@@ -10,7 +10,7 @@ Complete guide to querying entities in Koota.
 - [Caching queries](#caching-queries) - createQuery for performance
 - [Change detection](#change-detection) - updateEach options
 - [Query + select](#query--select) - Select subset of traits for updates
-- [Direct store access](#direct-store-access) - useStores for performance
+- [Direct store access](#direct-store-access) - getPages for performance
 
 ## Basic queries
 
@@ -233,36 +233,23 @@ world
 
 ## Direct store access
 
-For maximum performance, access the raw stores with a cached page-grouped layout. Stores are paged internally, so the layout tells you which query entities belong to which store page and offset:
+For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
 
 ```typescript
-world.query(Position, Velocity).useStores(([position, velocity], layout) => {
-  for (let p = 0; p < layout.pageCount; p++) {
-    const pageId = layout.pageIds[p] // Physical page in the paged stores
-    const start = layout.pageStarts[p] // First flat query index in this page
-    const end = start + layout.pageCounts[p] // One past the last flat query index
-    const posX = position.x[pageId]
-    const posY = position.y[pageId]
-    const velX = velocity.x[pageId]
-    const velY = velocity.y[pageId]
+const pages = world.query(Position, Velocity).getPages()
 
-    for (let i = start; i < end; i++) {
-      const o = layout.offsets[i] // Offset within the current page
-      posX[o] += velX[o] * delta
-      posY[o] += velY[o] * delta
-    }
+for (const {
+  stores: [position, velocity],
+  indices,
+} of pages) {
+  for (let i = 0; i < indices.length; i++) {
+    const offset = indices[i]
+    position.x[offset] += velocity.x[offset] * delta
+    position.y[offset] += velocity.y[offset] * delta
   }
-})
+}
 ```
 
-**When to use:**
+`page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
 
-- Updating thousands of entities per frame
-- SIMD-style operations
-- When profiling shows `updateEach` as bottleneck
-
-**Tradeoffs:**
-
-- Bypasses safety checks
-- No automatic change detection
-- More verbose code
+Query each frame and finish the loop before adding or removing traits or entities. Direct writes don't notify subscribers. Call `entity.changed(Trait)` when you need notifications.
