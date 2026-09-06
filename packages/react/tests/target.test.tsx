@@ -1,5 +1,5 @@
 import { createWorld, relation, trait, universe, type Entity, type World } from '@koota/core';
-import { render } from '@testing-library/react';
+import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTarget, useTargets, WorldProvider } from '../src';
@@ -106,6 +106,24 @@ describe('useTargets', () => {
   beforeEach(() => {
     universe.reset();
     world = createWorld();
+  });
+
+  it('drops every target when one removal triggers another', async () => {
+    const Likes = relation();
+    const targetA = world.spawn();
+    const targetB = world.spawn();
+    const subject = world.spawn(Likes(targetA), Likes(targetB));
+    const { result } = renderHook(() => useTargets(subject, Likes));
+
+    // Subscribe after the hook so B is removed while A is still awaiting cleanup.
+    subject.onRemove(Likes, (entity, target) => {
+      if (target === targetA) entity.remove(Likes(targetB));
+    });
+
+    await act(async () => {
+      subject.remove(Likes(targetA));
+    });
+    expect(result.current).toEqual([]);
   });
 
   it('reactively returns targets for an entity relation', async () => {
