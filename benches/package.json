@@ -10,6 +10,11 @@
     "math": "1.0.0-canary-37519dcd-20260903"
   },
   "devDependencies": {
-    "@config/typescript": "workspace:*"
+    "@config/typescript": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "^27.2.0",
+    "react": "catalog:",
+    "react-dom": "catalog:"
   }
 }

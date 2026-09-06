@@ -1,62 +1,30 @@
-import { type Entity, type Relation, type Trait, type World } from '@koota/core';
-import { useEffect, useMemo, useReducer, useRef } from 'react';
-import { getTargetEntity } from '../utils/get-target-entity';
+import type { Entity, Relation, Trait, World } from '@koota/core';
+import { useEntityValue } from '../utils/use-entity-value';
+
+function readTarget(entity: Entity, relation: Relation<Trait>) {
+  return entity.targetFor(relation);
+}
+
+function attachTarget(
+  entity: Entity,
+  relation: Relation<Trait>,
+  push: (value: Entity | undefined) => void
+) {
+  const update = () => push(entity.targetFor(relation));
+  const onAdd = entity.onAdd(relation, update);
+  const onChange = entity.onChange(relation, update);
+  const onRemove = entity.onRemove(relation, () => push(undefined));
+
+  return () => {
+    onAdd();
+    onChange();
+    onRemove();
+  };
+}
 
 export function useTarget<T extends Trait>(
   target: Entity | World | undefined | null,
   relation: Relation<T>
 ): Entity | undefined {
-  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-
-  const memo = useMemo(
-    () => (target ? createSubscriptions(target, relation) : undefined),
-    [target, relation]
-  );
-
-  const valueRef = useRef<Entity | undefined>(undefined);
-  const memoRef = useRef(memo);
-
-  // Update cached value when memo changes
-  if (memoRef.current !== memo) {
-    memoRef.current = memo;
-    valueRef.current = memo?.entity.targetFor(relation);
-  }
-
-  useEffect(() => {
-    if (!memo) {
-      valueRef.current = undefined;
-      forceUpdate();
-      return;
-    }
-
-    const unsubscribe = memo.subscribe((value) => {
-      valueRef.current = value;
-      forceUpdate();
-    });
-
-    return () => unsubscribe();
-  }, [memo]);
-
-  return valueRef.current;
-}
-
-function createSubscriptions<T extends Trait>(target: Entity | World, relation: Relation<T>) {
-  const entity = getTargetEntity(target);
-
-  return {
-    entity,
-    subscribe: (setValue: (value: Entity | undefined) => void) => {
-      const onAddUnsub = entity.onAdd(relation, () => setValue(entity.targetFor(relation)));
-      const onRemoveUnsub = entity.onRemove(relation, () => setValue(undefined));
-      const onChangeUnsub = entity.onChange(relation, () => setValue(entity.targetFor(relation)));
-
-      setValue(entity.targetFor(relation));
-
-      return () => {
-        onAddUnsub();
-        onRemoveUnsub();
-        onChangeUnsub();
-      };
-    },
-  };
+  return useEntityValue(target, relation as Relation<Trait>, readTarget, attachTarget);
 }

@@ -177,12 +177,19 @@ useEffect(() => {
 }, [world])
 ```
 
-The same hooks exist on entities and fire only for that entity. Prefer them when subscribing per entity (one per component, for example) since dispatch does not scale with the number of subscribers. The framework hooks use these internally.
+Entities also expose `onAdd`, `onRemove`, and `onChange`. These fire only for the subscribed entity and return an unsubscribe function. Prefer them for individual entity subscriptions, such as a component reading one entity, so events skip subscribers for other entities. The framework hooks use these internally.
 
 ```typescript
+const entity = world.spawn(Position)
+
 const unsub = entity.onChange(Position, (entity) => {
-  // Runs only when this entity's Position changes
+  console.log(`Position changed to ${entity.get(Position).x}`)
 })
+
+entity.onAdd(Position, (entity) => {})
+entity.onRemove(Position, (entity) => {})
+
+unsub() // Stop listening for changes
 ```
 
 **Entity lifecycle events** fire on spawn/destroy (excludes the internal world entity):
@@ -193,7 +200,7 @@ const unsub = world.onEntitySpawn((entity) => {
 })
 
 const unsub2 = world.onEntityDestroy((entity) => {
-  // Fires before traits are removed — entity.has(T) still works
+  // Fires before traits are removed, so entity.has(T) still works
 })
 
 const unsub3 = world.onTraitRegistered((trait) => {
