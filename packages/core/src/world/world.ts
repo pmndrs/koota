@@ -9,7 +9,7 @@ import {
 } from '../entity/utils/entity-index';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
-import { IsExcluded, createQuery, createQueryInstance } from '../query/query';
+import { IsExcluded, createQueryInstance } from '../query/query';
 import { createRelationOnlyQueryResult } from '../query/query-result';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
@@ -17,7 +17,7 @@ import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { getEntitiesWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
-import { isRelation, isRelationPair } from '../relation/utils/is-relation';
+import { isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
@@ -30,6 +30,7 @@ import type {
 } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { World, WorldContext } from './types';
+import { resolveHookCallback, resolveHookTrait } from './utils/resolve-hook';
 
 let nextWorldId = 0;
 
@@ -58,45 +59,6 @@ function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): voi
 
 export function createWorld(...traits: ConfigurableTrait[]): World {
   const id = nextWorldId++;
-  type HookInput = Trait | Relation<Trait> | RelationPair<Trait>;
-  type HookCallback = (entity: Entity, target?: Entity) => void;
-
-  function resolveHookTrait(input: HookInput): Trait {
-    if (isRelationPair(input)) return input.relation[$internal].trait;
-    if (isRelation(input)) return input[$internal].trait;
-    return input;
-  }
-
-  function resolveHookCallback(input: HookInput, callback: HookCallback): HookCallback {
-    if (isRelationPair(input)) {
-      const pairTargetQuery = input.targetQuery;
-      if (pairTargetQuery) {
-        const targetQuery = isQuery(pairTargetQuery)
-          ? pairTargetQuery
-          : createQuery(...pairTargetQuery);
-
-        return (entity: Entity, target?: Entity) => {
-          /**
-           * @todo This should be using the same caching logic as the query system
-           * instead of searching with `includes`.
-           */
-          if (target !== undefined && world.query(targetQuery).includes(target)) {
-            callback(entity, target);
-          }
-        };
-      }
-
-      const pairTarget = input.target;
-      if (pairTarget === '*') return callback;
-
-      return (entity: Entity, target?: Entity) => {
-        if (target === pairTarget) callback(entity, target);
-      };
-    }
-
-    return callback;
-  }
-
   const pendingTraits = traits.length > 0 ? traits : undefined;
 
   const cleanupToken: PageCleanupToken = {
@@ -123,7 +85,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       trackingSnapshots: new Map(),
       changedMasks: new Map(),
       worldEntity: null!,
-      trackedTraits: new Set(),
+      entitySubscribedInstances: new Set(),
       resetSubscriptions: new Set(),
       entitySpawnSubscriptions: new Set(),
       entityDestroySubscriptions: new Set(),
@@ -228,7 +190,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.trackingSnapshots.clear();
       ctx.dirtyMasks.clear();
       ctx.changedMasks.clear();
-      ctx.trackedTraits.clear();
+      ctx.entitySubscribedInstances.clear();
 
       ctx.worldEntity = createEntity(ctx, IsExcluded);
 
@@ -368,7 +330,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx, world, id);
       const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(trait, callback);
+      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
 
       let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
 
@@ -377,9 +339,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
       }
 
-      data.addSubscriptions.add(resolvedCallback);
+      data.addSubscriptions.all.add(resolvedCallback);
 
-      return () => data.addSubscriptions.delete(resolvedCallback);
+      return () => data.addSubscriptions.all.delete(resolvedCallback);
     },
 
     onRemove<T extends Trait>(
@@ -389,7 +351,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx, world, id);
       const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(trait, callback);
+      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
 
       let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
 
@@ -398,31 +360,26 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
       }
 
-      data.removeSubscriptions.add(resolvedCallback);
+      data.removeSubscriptions.all.add(resolvedCallback);
 
-      return () => data.removeSubscriptions.delete(resolvedCallback);
+      return () => data.removeSubscriptions.all.delete(resolvedCallback);
     },
 
     onChange(
       trait: Trait | Relation<Trait> | RelationPair<Trait>,
       callback: (entity: Entity, target?: Entity) => void
-    ) {
+    ): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx, world, id);
       const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(trait, callback);
+      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
 
       if (!hasTraitInstance(ctx.traitInstances, resolvedTrait)) registerTrait(ctx, resolvedTrait);
 
       const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      data.changeSubscriptions.add(resolvedCallback);
+      data.changeSubscriptions.all.add(resolvedCallback);
 
-      ctx.trackedTraits.add(resolvedTrait);
-
-      return () => {
-        data.changeSubscriptions.delete(resolvedCallback);
-        if (data.changeSubscriptions.size === 0) ctx.trackedTraits.delete(resolvedTrait);
-      };
+      return () => data.changeSubscriptions.all.delete(resolvedCallback);
     },
 
     onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {

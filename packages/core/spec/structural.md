@@ -96,7 +96,7 @@ After the entity is structurally committed, trait data is initialized from schem
 **8. Call add hooks**
 
 ```ts
-for (const sub of data.addSubscriptions) sub(entity)
+emit(data.addSubscriptions, entity)
 ```
 
 Fire `onAdd` subscriptions for this trait, letting listeners react to the structural change. Hooks run after values are set so listeners can read the initialized data.

@@ -657,6 +657,21 @@ const unsub = world.onAdd(Likes, (entity, target) => {
 })
 ```
 
+### Per-entity events
+
+The same hooks exist on entities and subscribe to only that entity's events.
+
+```js
+const entity = world.spawn(Position)
+
+const unsub = entity.onChange(Position, (entity) => {
+  console.log(`Position changed to ${entity.get(Position).x}`)
+})
+
+entity.onAdd(Position, (entity) => {})
+entity.onRemove(Position, (entity) => {})
+```
+
 ### Change detection with `updateEach`
 
 By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.

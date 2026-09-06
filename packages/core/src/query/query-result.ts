@@ -8,6 +8,8 @@ import { Store } from '../storage';
 import { getStore } from '../trait/trait';
 import type { Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
+import { hasSubscribers } from '../trait/subscriptions';
+import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
@@ -198,7 +200,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 ) {
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
-    const hasTracked = ctx.trackedTraits.has(trait);
+    const instance = getTraitInstance(ctx.traitInstances, trait);
+    const hasTracked = instance !== undefined && hasSubscribers(instance.changeSubscriptions);
     const hasChanged = query.hasChangedModifiers && query.changedTraits.has(trait);
 
     if (hasTracked || hasChanged) trackedIndices.push(i);

@@ -1,14 +1,11 @@
 import { type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { getTargetEntity } from '../utils/get-target-entity.js';
-import { isWorld } from '../utils/is-world.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
-import { useWorld } from '../world/world-context.js';
 
 export function useTarget<T extends Trait>(
   target: () => Entity | World | undefined | null,
   relation: MaybeGetter<Relation<T>>
 ): { readonly current: Entity | undefined } {
-  const contextWorld = useWorld();
   const initialEntity = getTargetEntity(target());
   let value = $state.raw<Entity | undefined>(initialEntity?.targetFor(resolve(relation)));
 
@@ -21,8 +18,7 @@ export function useTarget<T extends Trait>(
     }
 
     const resolvedRelation = resolve(relation);
-    const world = isWorld(t) ? t : contextWorld;
-    let entity: Entity;
+    const entity = getTargetEntity(t)!;
     let targets: Entity[];
 
     const update = () => {
@@ -30,17 +26,9 @@ export function useTarget<T extends Trait>(
       value = targets[0];
     };
 
-    /**
-     * Subscribe before reading worldEntity: world.onAdd triggers lazy
-     * registration so worldEntity is guaranteed to exist after this.
-     */
-    const onAddUnsub = world.onAdd(resolvedRelation, (e) => {
-      if (e === entity) update();
-    });
+    const onAddUnsub = entity.onAdd(resolvedRelation, update);
 
-    const onRemoveUnsub = world.onRemove(resolvedRelation, (e, removedTarget) => {
-      if (e !== entity) return;
-
+    const onRemoveUnsub = entity.onRemove(resolvedRelation, (_, removedTarget) => {
       // onRemove fires before core removes the target, so mirror its swap-and-pop.
       const index = targets.indexOf(removedTarget);
       if (index === -1) return;
@@ -50,11 +38,8 @@ export function useTarget<T extends Trait>(
       value = targets[0];
     });
 
-    const onChangeUnsub = world.onChange(resolvedRelation, (e) => {
-      if (e === entity) update();
-    });
+    const onChangeUnsub = entity.onChange(resolvedRelation, update);
 
-    entity = getTargetEntity(t)!;
     update();
 
     return () => {

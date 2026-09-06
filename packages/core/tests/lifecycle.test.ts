@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createQuery, createWorld, relation, trait, type Entity, type TraitRecord } from '../src';
+import {
+  $internal,
+  createQuery,
+  createWorld,
+  relation,
+  trait,
+  type Entity,
+  type TraitRecord,
+} from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -141,6 +149,246 @@ describe('Lifecycle Subscriptions', () => {
       const entityB = world.spawn();
       entityB.add(Position({ x: 1, y: 2 }));
       expect(cb).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('entity.onAdd / onRemove / onChange', () => {
+    it('only fires for the subscribed entity', () => {
+      const entityA = world.spawn();
+      const entityB = world.spawn();
+
+      const addCb = vi.fn();
+      const removeCb = vi.fn();
+      const changeCb = vi.fn();
+      entityA.onAdd(Position, addCb);
+      entityA.onRemove(Position, removeCb);
+      entityA.onChange(Position, changeCb);
+
+      entityB.add(Position);
+      entityB.set(Position, { x: 1, y: 1 });
+      entityB.remove(Position);
+      expect(addCb).not.toHaveBeenCalled();
+      expect(changeCb).not.toHaveBeenCalled();
+      expect(removeCb).not.toHaveBeenCalled();
+
+      entityA.add(Position);
+      entityA.set(Position, { x: 1, y: 1 });
+      entityA.remove(Position);
+      expect(addCb).toHaveBeenCalledWith(entityA);
+      expect(changeCb).toHaveBeenCalledWith(entityA);
+      expect(removeCb).toHaveBeenCalledWith(entityA);
+    });
+
+    it('fires alongside world subscribers and stops after unsubscribe', () => {
+      const entity = world.spawn(Position);
+      const worldCb = vi.fn();
+      const entityCb = vi.fn();
+      world.onChange(Position, worldCb);
+      const unsub = entity.onChange(Position, entityCb);
+
+      entity.set(Position, { x: 1, y: 1 });
+      expect(worldCb).toHaveBeenCalledTimes(1);
+      expect(entityCb).toHaveBeenCalledTimes(1);
+
+      unsub();
+      unsub();
+      entity.set(Position, { x: 2, y: 2 });
+      expect(worldCb).toHaveBeenCalledTimes(2);
+      expect(entityCb).toHaveBeenCalledTimes(1);
+    });
+
+    it('enables change detection in updateEach', () => {
+      const entity = world.spawn(Position);
+      const cb = vi.fn();
+      const unsub = entity.onChange(Position, cb);
+
+      world.query(Position).updateEach(([position]) => {
+        position.x = 5;
+      });
+      expect(cb).toHaveBeenCalledTimes(1);
+
+      unsub();
+      world.query(Position).updateEach(([position]) => {
+        position.x = 6;
+      });
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops subscribers when the entity is destroyed so a recycled id is clean', () => {
+      const entity = world.spawn(Position);
+      const cb = vi.fn();
+      const unsub = entity.onChange(Position, cb);
+      entity.destroy();
+
+      const recycled = world.spawn(Position);
+      expect(recycled.id()).toBe(entity.id());
+      recycled.set(Position, { x: 1, y: 1 });
+      expect(cb).not.toHaveBeenCalled();
+
+      // Late unsubscribe after destroy is a safe no-op.
+      unsub();
+      const again = vi.fn();
+      recycled.onChange(Position, again);
+      recycled.set(Position, { x: 2, y: 2 });
+      expect(again).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps tracking for new subscribers when a stale unsubscribe runs after reset', () => {
+      const stale = world.spawn(Position).onChange(Position, vi.fn());
+      world.reset();
+
+      const entity = world.spawn(Position);
+      const cb = vi.fn();
+      entity.onChange(Position, cb);
+      stale();
+
+      world.query(Position).updateEach(([position]) => {
+        position.x = 1;
+      });
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    it('counts a callback registered twice once', () => {
+      const entity = world.spawn(Position);
+      const cb = vi.fn();
+      const unsubA = entity.onChange(Position, cb);
+      const unsubB = entity.onChange(Position, cb);
+
+      entity.set(Position, { x: 1, y: 1 });
+      expect(cb).toHaveBeenCalledTimes(1);
+
+      unsubA();
+      unsubB();
+      world.query(Position).updateEach(([position]) => {
+        position.x = 2;
+      });
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    it('supports several subscribers on one entity and removes them independently', () => {
+      const entity = world.spawn(Position);
+      const a = vi.fn();
+      const b = vi.fn();
+      const c = vi.fn();
+      const unsubA = entity.onChange(Position, a);
+      const unsubB = entity.onChange(Position, b);
+      const unsubC = entity.onChange(Position, c);
+
+      entity.set(Position, { x: 1, y: 1 });
+      expect(a).toHaveBeenCalledTimes(1);
+      expect(b).toHaveBeenCalledTimes(1);
+      expect(c).toHaveBeenCalledTimes(1);
+
+      unsubB();
+      entity.set(Position, { x: 2, y: 2 });
+      expect(a).toHaveBeenCalledTimes(2);
+      expect(b).toHaveBeenCalledTimes(1);
+      expect(c).toHaveBeenCalledTimes(2);
+
+      unsubA();
+      unsubC();
+      world.query(Position).updateEach(([position]) => {
+        position.x = 3;
+      });
+      expect(a).toHaveBeenCalledTimes(2);
+      expect(c).toHaveBeenCalledTimes(2);
+    });
+
+    it('ignores a late unsubscribe that shares a callback with a recycled id', () => {
+      const cb = vi.fn();
+      const stale = world.spawn(Position);
+      const unsub = stale.onChange(Position, cb);
+      stale.destroy();
+
+      const recycled = world.spawn(Position);
+      expect(recycled.id()).toBe(stale.id());
+      recycled.onChange(Position, cb);
+      unsub();
+
+      recycled.set(Position, { x: 1, y: 1 });
+      expect(cb).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not invoke a listener removed or destroyed during dispatch', () => {
+      const entity = world.spawn(Position);
+      const removed = vi.fn();
+      const unsub = entity.onChange(Position, removed);
+      const worldUnsub = world.onChange(Position, () => unsub());
+
+      entity.set(Position, { x: 1, y: 1 });
+      expect(removed).not.toHaveBeenCalled();
+      worldUnsub();
+
+      const victim = world.spawn(Position);
+      const late = vi.fn();
+      victim.onChange(Position, () => victim.destroy());
+      victim.onChange(Position, late);
+
+      victim.set(Position, { x: 1, y: 1 });
+      expect(late).not.toHaveBeenCalled();
+    });
+
+    it('registers nothing for a destroyed handle', () => {
+      const dead = world.spawn();
+      dead.destroy();
+
+      const cb = vi.fn();
+      const unsub = dead.onAdd(Position, cb);
+
+      const recycled = world.spawn();
+      expect(recycled.id()).toBe(dead.id());
+      recycled.add(Position);
+      expect(cb).not.toHaveBeenCalled();
+      unsub();
+    });
+
+    it('does not deliver a dead generation event to a replacement on the same id', () => {
+      const original = world.spawn(Position);
+      const replacementCb = vi.fn();
+      const worldUnsub = world.onChange(Position, (e) => {
+        if (e !== original) return;
+        e.destroy();
+        const replacement = world.spawn(Position);
+        expect(replacement.id()).toBe(original.id());
+        replacement.onChange(Position, replacementCb);
+      });
+
+      original.set(Position, { x: 1, y: 1 });
+      expect(replacementCb).not.toHaveBeenCalled();
+      worldUnsub();
+    });
+
+    it('filters relation pairs by target', () => {
+      const ChildOf = relation({ store: { priority: 0 } });
+      const parentA = world.spawn();
+      const parentB = world.spawn();
+      const child = world.spawn();
+
+      const pairCb = vi.fn();
+      const relationCb = vi.fn();
+      child.onAdd(ChildOf(parentA), pairCb);
+      child.onChange(ChildOf, relationCb);
+
+      child.add(ChildOf(parentB));
+      expect(pairCb).not.toHaveBeenCalled();
+
+      child.add(ChildOf(parentA));
+      expect(pairCb).toHaveBeenCalledWith(child, parentA);
+
+      child.set(ChildOf(parentB), { priority: 1 });
+      expect(relationCb).toHaveBeenCalledWith(child, parentB);
+    });
+
+    it('works on the world entity', () => {
+      const TimeOfDay = trait({ hour: 0 });
+      const localWorld = createWorld(TimeOfDay);
+      const cb = vi.fn();
+      localWorld[$internal].worldEntity.onChange(TimeOfDay, cb);
+
+      localWorld.set(TimeOfDay, { hour: 1 });
+      expect(cb).toHaveBeenCalledTimes(1);
+
+      localWorld.destroy();
     });
   });
 

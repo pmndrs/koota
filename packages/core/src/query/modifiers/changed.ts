@@ -3,6 +3,7 @@ import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { ensureMaskPage } from '../../entity/utils/paged-mask';
 import { isRelation } from '../../relation/utils/is-relation';
+import { emit, hasSubscribers } from '../../trait/subscriptions';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
 import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
@@ -64,12 +65,12 @@ function markChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
 
 export function setChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
   const data = markChanged(ctx, entity, trait);
-  if (!data) return;
-  for (const sub of data.changeSubscriptions) sub(entity);
+  if (data && hasSubscribers(data.changeSubscriptions)) emit(data.changeSubscriptions, entity);
 }
 
 export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, target: Entity) {
   const data = markChanged(ctx, entity, trait);
-  if (!data) return;
-  for (const sub of data.changeSubscriptions) sub(entity, target);
+  if (data && hasSubscribers(data.changeSubscriptions)) {
+    emit(data.changeSubscriptions, entity, target);
+  }
 }
