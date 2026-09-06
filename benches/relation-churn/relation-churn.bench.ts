@@ -7,5 +7,5 @@ group('relation churn @relation', () => {
   init({ world });
   bench(() => {
     schedule.run({ world });
-  }).gc('inner');
+  });
 });

@@ -1,4 +1,4 @@
-import { bench, group } from '@pmndrs/labs';
+import { assert, bench, group } from '@pmndrs/labs';
 import { createChanged, createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
@@ -16,14 +16,16 @@ group('change detection 50k @change @query', () => {
       world.query(Changed(Position));
 
       const step = Math.floor(50_000 / changeCount);
-      yield () => {
+      const result = yield () => {
         for (let i = 0; i < changeCount; i++) {
           entities[i * step].set(Position, { x: i, y: i, z: i });
         }
-        world.query(Changed(Position));
+        return world.query(Changed(Position));
       };
 
       world.destroy();
-    }).gc('inner');
+      assert.equal(result.length, changeCount);
+      return result.length;
+    });
   }
 });

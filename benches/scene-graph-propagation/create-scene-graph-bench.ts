@@ -2,14 +2,8 @@ import { createChanged, createWorld, ordered, relation, trait, type Entity, type
 import { CONFIG } from './config.ts';
 
 /**
- * Builds a large synthetic scene graph and benchmarks the common propagation pattern:
- * dirty a fixed subset of nodes, walk upward to collect ancestor state, then push
- * updated totals downward through each dirty node's descendants.
- *
- * To keep runs comparable, the dirty system precomputes deterministic batches whose
- * estimated traversal cost is balanced by depth and subtree size. That preserves the
- * same mixed leaf/group propagation case without the large per-iteration swings that
- * come from dirtying entities in raw creation order.
+ * Dirties a mix of leaves and groups, then propagates ancestor totals to descendants.
+ * Fixed batches balance estimated traversal cost by depth and subtree size.
  */
 export type SceneGraphVariant = 'child-of-exclusive' | 'child-of-not-exclusive' | 'ordered-relation';
 
@@ -17,15 +11,8 @@ export type SceneGraphContext = {
   world: World;
   dirty: (ctx: { world: World }) => void;
   propagate: (ctx: { world: World }) => void;
+  snapshot: () => number;
 };
-
-type SceneGraphBuild = {
-  allEntities: Entity[];
-  depthByEntityId: number[];
-  subtreeSizeByEntityId: number[];
-};
-
-const deterministicValue = (index: number) => (index * 37) % 65;
 
 function createTraits(variant: SceneGraphVariant) {
   const ChildOf = variant === 'child-of-not-exclusive' ? relation() : relation({ exclusive: true });
@@ -40,101 +27,68 @@ function createTraits(variant: SceneGraphVariant) {
 
 type Traits = ReturnType<typeof createTraits>;
 
-function analyzeGraph(root: Entity, childrenByEntityId: Entity[][]) {
-  const depthByEntityId: number[] = [];
-  const subtreeSizeByEntityId: number[] = [];
-
-  const visit = (entity: Entity, depth: number): number => {
-    depthByEntityId[entity.id()] = depth;
-
-    let subtreeSize = 1;
-    const children = childrenByEntityId[entity.id()];
-    if (children) {
-      for (let i = 0; i < children.length; i++) {
-        subtreeSize += visit(children[i], depth + 1);
-      }
-    }
-
-    subtreeSizeByEntityId[entity.id()] = subtreeSize;
-    return subtreeSize;
-  };
-
-  visit(root, 0);
-
-  return { depthByEntityId, subtreeSizeByEntityId };
-}
-
-function buildGraph(world: World, traits: Traits): SceneGraphBuild {
+function buildGraph(world: World, traits: Traits) {
   const { ChildOf, OrderedChildren, IsGroup, IsObject, Value, TotalValue } = traits;
   const { targetEntityCount, bottomLeafFraction, groupChildrenCycle, objectChildrenCycle } = CONFIG;
-  const cap = targetEntityCount;
   const allEntities: Entity[] = [];
-  const childrenByEntityId: Entity[][] = [];
 
-  const spawnGroup = (index: number) => {
+  const spawnGroup = () => {
+    const value = Value({ value: (allEntities.length * 37) % 65 });
     const group = OrderedChildren
-      ? world.spawn(IsGroup, OrderedChildren, Value({ value: deterministicValue(index) }))
-      : world.spawn(IsGroup, Value({ value: deterministicValue(index) }));
+      ? world.spawn(IsGroup, OrderedChildren, value)
+      : world.spawn(IsGroup, value);
     allEntities.push(group);
     return group;
   };
 
-  const spawnLeaf = (index: number) => {
-    const leaf = world.spawn(IsObject, Value({ value: deterministicValue(index) }), TotalValue);
+  const spawnLeaf = () => {
+    const leaf = world.spawn(IsObject, Value({ value: (allEntities.length * 37) % 65 }), TotalValue);
     allEntities.push(leaf);
     return leaf;
   };
 
-  const linkChildToParent = (child: Entity, parent: Entity) => {
-    child.add(ChildOf(parent));
-    (childrenByEntityId[parent.id()] ??= []).push(child);
-  };
-
   let groupCycle = 0;
   let objectCycle = 0;
-  let created = 0;
   let pending: Entity[] = [];
 
-  const nextGroupCount = (remaining: number) => {
-    const count = groupChildrenCycle[groupCycle++ % groupChildrenCycle.length];
-    return Math.min(count, remaining);
-  };
-
-  const nextObjectCount = (remaining: number) => {
-    const count = objectChildrenCycle[objectCycle++ % objectChildrenCycle.length];
-    return Math.min(count, remaining);
-  };
-
-  const bottomLeafCount = Math.floor(cap * bottomLeafFraction);
-  for (let i = 0; i < bottomLeafCount && created < cap; i++) {
-    pending.push(spawnLeaf(created++));
+  const bottomLeafCount = Math.min(
+    targetEntityCount,
+    Math.floor(targetEntityCount * bottomLeafFraction)
+  );
+  for (let i = 0; i < bottomLeafCount; i++) {
+    pending.push(spawnLeaf());
   }
 
-  while (pending.length > 1 && created < cap) {
+  while (pending.length > 1 && allEntities.length < targetEntityCount) {
     const nextPending: Entity[] = [];
     let pendingIndex = 0;
 
-    while (pendingIndex < pending.length && created < cap) {
-      const adoptCount = nextGroupCount(pending.length - pendingIndex);
-      const group = spawnGroup(created++);
+    while (pendingIndex < pending.length && allEntities.length < targetEntityCount) {
+      const adoptCount = Math.min(
+        groupChildrenCycle[groupCycle++ % groupChildrenCycle.length],
+        pending.length - pendingIndex
+      );
+      const group = spawnGroup();
 
-      for (let i = 0; i < adoptCount && pendingIndex < pending.length; i++) {
-        linkChildToParent(pending[pendingIndex++], group);
+      for (let i = 0; i < adoptCount; i++) {
+        pending[pendingIndex++].add(ChildOf(group));
       }
 
-      const sprinkleCount = created < cap ? nextObjectCount(cap - created) : 0;
-      for (let i = 0; i < sprinkleCount && created < cap; i++) {
-        linkChildToParent(spawnLeaf(created++), group);
+      const sprinkleCount =
+        allEntities.length < targetEntityCount
+          ? Math.min(
+              objectChildrenCycle[objectCycle++ % objectChildrenCycle.length],
+              targetEntityCount - allEntities.length
+            )
+          : 0;
+      for (let i = 0; i < sprinkleCount; i++) {
+        spawnLeaf().add(ChildOf(group));
       }
 
       nextPending.push(group);
     }
 
-    for (; pendingIndex < pending.length; pendingIndex++) {
-      nextPending.push(pending[pendingIndex]);
-    }
-
-    pending = nextPending;
+    pending = nextPending.concat(pending.slice(pendingIndex));
   }
 
   const root =
@@ -145,103 +99,73 @@ function buildGraph(world: World, traits: Traits): SceneGraphBuild {
         : world.spawn(IsGroup, Value({ value: 0 }));
 
   if (pending.length > 1) {
-    for (let i = 0; i < pending.length; i++) {
-      linkChildToParent(pending[i], root);
+    for (const child of pending) {
+      child.add(ChildOf(root));
     }
   }
 
-  if (created < cap) {
+  if (allEntities.length < targetEntityCount) {
     const groups = world.query(IsGroup);
-    let groupIndex = 0;
-    while (created < cap) {
-      linkChildToParent(spawnLeaf(created++), groups[groupIndex++ % groups.length]);
+    for (let i = 0; allEntities.length < targetEntityCount; i++) {
+      spawnLeaf().add(ChildOf(groups[i % groups.length]));
     }
   }
 
-  const { depthByEntityId, subtreeSizeByEntityId } = analyzeGraph(root, childrenByEntityId);
-
-  return { allEntities, depthByEntityId, subtreeSizeByEntityId };
+  return allEntities;
 }
 
-function getEntityTraversalCost(
-  entity: Entity,
-  depthByEntityId: number[],
-  subtreeSizeByEntityId: number[]
-) {
-  return subtreeSizeByEntityId[entity.id()] + depthByEntityId[entity.id()];
-}
+function createDirtySystem(allEntities: Entity[], { ChildOf, Value }: Traits) {
+  const dirtyCount = Math.max(1, Math.floor(allEntities.length * CONFIG.dirtyFraction));
+  const candidatesByEntity = new Map(allEntities.map((entity) => [entity, { entity, cost: 1 }]));
 
-function selectLightestBatch(
-  dirtyBatches: Entity[][],
-  dirtyBatchCosts: number[],
-  dirtyCount: number
-) {
-  let bestBatchIndex = 0;
-
-  for (let i = 1; i < dirtyBatches.length; i++) {
-    if (dirtyBatches[i].length >= dirtyCount) continue;
-    if (dirtyBatches[bestBatchIndex].length >= dirtyCount) {
-      bestBatchIndex = i;
-      continue;
-    }
-    if (dirtyBatchCosts[i] < dirtyBatchCosts[bestBatchIndex]) {
-      bestBatchIndex = i;
+  // Each ancestor step adds an upward visit here and a descendant visit at the ancestor.
+  for (const candidate of candidatesByEntity.values()) {
+    for (
+      let parent = candidate.entity.targetFor(ChildOf);
+      parent;
+      parent = parent.targetFor(ChildOf)
+    ) {
+      candidate.cost++;
+      const ancestor = candidatesByEntity.get(parent);
+      if (ancestor) ancestor.cost++;
     }
   }
 
-  return bestBatchIndex;
-}
+  const candidates = [...candidatesByEntity.values()].sort(
+    (a, b) => b.cost - a.cost || a.entity - b.entity
+  );
+  const batches = Array.from(
+    { length: Math.max(1, Math.ceil(allEntities.length / dirtyCount)) },
+    () => ({
+      entities: [] as Entity[],
+      cost: 0,
+    })
+  );
 
-function createDirtyBatches(
-  allEntities: Entity[],
-  dirtyCount: number,
-  depthByEntityId: number[],
-  subtreeSizeByEntityId: number[]
-) {
-  const batchCount = Math.max(1, Math.ceil(allEntities.length / dirtyCount));
-  const dirtyBatches = Array.from({ length: batchCount }, () => [] as Entity[]);
-  const dirtyBatchCosts = Array.from({ length: batchCount }, () => 0);
-  const candidates = allEntities
-    .map((entity) => ({
-      entity,
-      cost: getEntityTraversalCost(entity, depthByEntityId, subtreeSizeByEntityId),
-    }))
-    .sort((a, b) => b.cost - a.cost || a.entity - b.entity);
-
-  // Greedy bin packing keeps each frame's total propagation cost close,
-  // while cycling through fixed precomputed batches preserves determinism.
-  for (let i = 0; i < candidates.length; i++) {
-    const candidate = candidates[i];
-    const batchIndex = selectLightestBatch(dirtyBatches, dirtyBatchCosts, dirtyCount);
-    dirtyBatches[batchIndex].push(candidate.entity);
-    dirtyBatchCosts[batchIndex] += candidate.cost;
+  // Assign expensive nodes first to the lightest batch that still has room.
+  for (const candidate of candidates) {
+    let lightest = batches[0];
+    for (const batch of batches) {
+      if (
+        batch.entities.length < dirtyCount &&
+        (lightest.entities.length >= dirtyCount || batch.cost < lightest.cost)
+      ) {
+        lightest = batch;
+      }
+    }
+    lightest.entities.push(candidate.entity);
+    lightest.cost += candidate.cost;
   }
 
-  // Top up any short batch with the cheapest entities so each frame dirties the same count.
+  // Fill short batches with cheap nodes so every frame dirties the same count.
   let fillerIndex = candidates.length - 1;
-  for (let i = 0; i < dirtyBatches.length; i++) {
-    while (dirtyBatches[i].length < dirtyCount) {
-      dirtyBatches[i].push(candidates[fillerIndex].entity);
+  for (const batch of batches) {
+    while (batch.entities.length < dirtyCount) {
+      batch.entities.push(candidates[fillerIndex].entity);
       fillerIndex = fillerIndex > 0 ? fillerIndex - 1 : candidates.length - 1;
     }
   }
-
-  return dirtyBatches;
-}
-
-function createDirtySystem(
-  allEntities: Entity[],
-  Value: Traits['Value'],
-  depthByEntityId: number[],
-  subtreeSizeByEntityId: number[]
-) {
-  const dirtyCount = Math.max(1, Math.floor(allEntities.length * CONFIG.dirtyFraction));
-  const dirtyBatches = createDirtyBatches(
-    allEntities,
-    dirtyCount,
-    depthByEntityId,
-    subtreeSizeByEntityId
-  );
+  const dirtyBatches = batches.map((batch) => batch.entities);
 
   let dirtyBatchIndex = 0;
   let frame = 0;
@@ -320,19 +244,17 @@ function createPropagateSystem(
 export function createSceneGraphContext(variant: SceneGraphVariant): SceneGraphContext {
   const world = createWorld();
   const traits = createTraits(variant);
-  const { allEntities, depthByEntityId, subtreeSizeByEntityId } = buildGraph(world, traits);
-
-  const dirtyImpl = createDirtySystem(
-    allEntities,
-    traits.Value,
-    depthByEntityId,
-    subtreeSizeByEntityId
-  );
+  const allEntities = buildGraph(world, traits);
+  const dirty = createDirtySystem(allEntities, traits);
   const propagate = createPropagateSystem(traits);
 
   return {
     world,
-    dirty: () => dirtyImpl(),
+    dirty,
     propagate,
+    snapshot: () =>
+      world
+        .query(traits.TotalValue)
+        .reduce((sum, entity) => sum + entity.get(traits.TotalValue)!.value, 0),
   };
 }

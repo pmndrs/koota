@@ -16,12 +16,11 @@ group('query selectivity 50k @query', () => {
     const world = createWorld();
     for (let i = 0; i < 50_000; i++) world.spawn(Velocity);
 
-    yield () => {
-      world.query(Velocity);
-    };
+    const result = yield () => world.query(Velocity);
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
   bench('1 trait, ~1% match', function* () {
     const world = createWorld();
     for (let i = 0; i < 50_000; i++) {
@@ -30,12 +29,11 @@ group('query selectivity 50k @query', () => {
       } else world.spawn();
     }
 
-    yield () => {
-      world.query(Velocity);
-    };
+    const result = yield () => world.query(Velocity);
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
   bench('1 trait, ~0.1% match', function* () {
     const world = createWorld();
     for (let i = 0; i < 50_000; i++) {
@@ -44,12 +42,11 @@ group('query selectivity 50k @query', () => {
       } else world.spawn();
     }
 
-    yield () => {
-      world.query(Velocity);
-    };
+    const result = yield () => world.query(Velocity);
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 });
 
 group('n-way intersection 100k @query', () => {
@@ -70,59 +67,53 @@ group('n-way intersection 100k @query', () => {
 
   bench('1 trait, 100% match', function* () {
     const world = buildNWay();
-    yield () => {
-      world.query(Position);
-    };
+    const result = yield () => world.query(Position);
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('2 traits, 50% match', function* () {
     const world = buildNWay();
-    yield () => {
-      world.query(Position, Velocity);
-    };
+    const result = yield () => world.query(Position, Velocity);
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('3 traits, ~16% match)', function* () {
     const world = buildNWay();
-    yield () => {
-      world.query(Position, Velocity, Health);
-    };
+    const result = yield () => world.query(Position, Velocity, Health);
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('4 traits, ~3.3% match)', function* () {
     const world = buildNWay();
-    yield () => {
-      world.query(Position, Velocity, Health, HasRender);
-    };
+    const result = yield () => world.query(Position, Velocity, Health, HasRender);
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('5 traits, ~0.476% match)', function* () {
     const world = buildNWay();
-    yield () => {
-      world.query(Position, Velocity, Health, HasRender, HasPhysics);
-    };
+    const result = yield () => world.query(Position, Velocity, Health, HasRender, HasPhysics);
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('6 traits, ~0.043% match', function* () {
     const world = buildNWay();
-    yield () => {
-      world.query(Position, Velocity, Health, HasRender, HasPhysics, HasAI);
-    };
+    const result = yield () => world.query(Position, Velocity, Health, HasRender, HasPhysics, HasAI);
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('7 traits, ~0.003% match', function* () {
     const world = buildNWay();
-    yield () => {
+    const result = yield () =>
       world.query(Position, Velocity, Health, HasRender, HasPhysics, HasAI, HasCollider);
-    };
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 });
 
 group('not exclusion 50k @query', () => {
@@ -134,12 +125,11 @@ group('not exclusion 50k @query', () => {
       } else world.spawn(Position);
     }
 
-    yield () => {
-      world.query(Position, Not(IsStatic));
-    };
+    const result = yield () => world.query(Position, Not(IsStatic));
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('2 traits, 50% entities excluded', function* () {
     const world = createWorld();
@@ -149,12 +139,11 @@ group('not exclusion 50k @query', () => {
       } else world.spawn(Position);
     }
 
-    yield () => {
-      world.query(Position, Not(IsStatic));
-    };
+    const result = yield () => world.query(Position, Not(IsStatic));
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 });
 
 group('query throughput 50k @query', () => {
@@ -168,12 +157,11 @@ group('query throughput 50k @query', () => {
     }
     world.query(Position, Velocity);
 
-    yield () => {
-      world.query(Position, Velocity);
-    };
+    const result = yield () => world.query(Position, Velocity);
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('3 traits, query 3 - 10% match', function* () {
     const world = createWorld();
@@ -185,15 +173,14 @@ group('query throughput 50k @query', () => {
     }
     world.query(Position, Velocity, Health);
 
-    yield () => {
-      world.query(Position, Velocity, Health);
-    };
+    const result = yield () => world.query(Position, Velocity, Health);
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 });
 
-group('query maintenance 10k @query', () => {
+group('query maintenance 10k @query @maintenance', () => {
   const buildWithQueries = () => {
     const world = createWorld();
     const traitSubsets = [
@@ -224,13 +211,21 @@ group('query maintenance 10k @query', () => {
 
   bench('spawn when 20 queries active', function* () {
     const world = buildWithQueries();
-    yield () => {
-      for (let i = 0; i < 10_000; i++) {
-        world.spawn(Position, Velocity, Health);
-      }
+    yield {
+      bench: () => {
+        for (let i = 0; i < 10_000; i++) {
+          world.spawn(Position, Velocity, Health);
+        }
+      },
+      snapshot: () => world.query(Position, Velocity, Health).length,
+      after: () => {
+        for (const entity of world.query(Position)) entity.destroy();
+        // Commit removals while the world is empty.
+        world.query(Position);
+      },
     };
     world.destroy();
-  }).gc('inner');
+  });
 
   bench('add trait when 20 queries active', function* () {
     const world = buildWithQueries();
@@ -239,14 +234,22 @@ group('query maintenance 10k @query', () => {
       entities.push(world.spawn(Position, Velocity));
     }
 
-    yield () => {
-      for (let i = 0; i < entities.length; i++) {
-        entities[i].add(HasRender);
-      }
+    yield {
+      bench: () => {
+        for (let i = 0; i < entities.length; i++) {
+          entities[i].add(HasRender);
+        }
+      },
+      snapshot: () => world.query(Position, HasRender).length,
+      after: () => {
+        for (const entity of entities) entity.remove(HasRender);
+        // Commit removals before the next add.
+        world.query(HasRender);
+      },
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 
   bench('remove trait when 20 queries active', function* () {
     const world = buildWithQueries();
@@ -255,12 +258,20 @@ group('query maintenance 10k @query', () => {
       entities.push(world.spawn(Position, Velocity, Health, HasRender));
     }
 
-    yield () => {
-      for (let i = 0; i < entities.length; i++) {
-        entities[i].remove(Velocity);
-      }
+    yield {
+      bench: () => {
+        for (let i = 0; i < entities.length; i++) {
+          entities[i].remove(Velocity);
+        }
+      },
+      snapshot: () => world.query(Position, Velocity).length,
+      after: () => {
+        // Commit removals before restoring Velocity.
+        world.query(Velocity);
+        for (const entity of entities) entity.add(Velocity);
+      },
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 });

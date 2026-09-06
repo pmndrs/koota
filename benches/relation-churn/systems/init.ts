@@ -1,12 +1,13 @@
 import type { Entity, World } from 'koota';
+import { mulberry32 } from 'math/random';
 import { CONFIG } from '../config';
 import { Position, Velocity } from '../traits';
 
 export const allEntities: Entity[] = [];
 
-const randomRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
 export const init = ({ world }: { world: World }) => {
+  const rng = mulberry32.create(42);
+  const randomRange = (min: number, max: number) => mulberry32.sample(rng) * (max - min) + min;
   const { entityCount } = CONFIG;
   const spread = 500;
 
