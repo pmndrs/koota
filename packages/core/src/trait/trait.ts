@@ -35,6 +35,7 @@ import {
 } from '../storage';
 import type { World, WorldContext } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
+import { createSubscriptions, emit } from './subscriptions';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
 import type {
   ConfigurableTrait,
@@ -103,9 +104,9 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     notQueries: new Set(),
     relationQueries: new Set(),
     schema: trait.schema,
-    changeSubscriptions: new Set(),
-    addSubscriptions: new Set(),
-    removeSubscriptions: new Set(),
+    changeSubscriptions: createSubscriptions(),
+    addSubscriptions: createSubscriptions(),
+    removeSubscriptions: createSubscriptions(),
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
@@ -162,7 +163,7 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
       setTrait(ctx, entity, trait, params, false);
     }
 
-    for (const sub of data.addSubscriptions) sub(entity);
+    emit(data.addSubscriptions, entity);
   }
 }
 
@@ -182,9 +183,7 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
     const oldTarget = getFirstRelationTarget(ctx, relation, entity);
     if (oldTarget !== undefined && oldTarget !== target) {
       const instance = getTraitInstance(ctx.traitInstances, relationTrait);
-      if (instance) {
-        for (const sub of instance.removeSubscriptions) sub(entity, oldTarget);
-      }
+      if (instance) emit(instance.removeSubscriptions, entity, oldTarget);
       removeRelationTarget(ctx, relation, entity, oldTarget);
     }
   }
@@ -204,7 +203,7 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
   }
 
   instance = instance ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
-  for (const sub of instance.addSubscriptions) sub(entity, target);
+  emit(instance.addSubscriptions, entity, target);
 }
 
 export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait | RelationPair)[]) {
@@ -224,16 +223,12 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
       const instance = getTraitInstance(ctx.traitInstances, trait);
       if (instance) {
         const targets = getRelationTargets(ctx, traitCtx.relation, entity);
-        for (const t of targets) {
-          for (const sub of instance.removeSubscriptions) sub(entity, t);
-        }
+        for (const t of targets) emit(instance.removeSubscriptions, entity, t);
       }
       removeAllRelationTargets(ctx, traitCtx.relation, entity);
     } else {
       const instance = getTraitInstance(ctx.traitInstances, trait);
-      if (instance) {
-        for (const sub of instance.removeSubscriptions) sub(entity);
-      }
+      if (instance) emit(instance.removeSubscriptions, entity);
     }
 
     removeTraitFromEntity(ctx, entity, trait);
@@ -252,9 +247,7 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
   if (target === '*') {
     if (instance) {
       const targets = getRelationTargets(ctx, relation, entity);
-      for (const t of targets) {
-        for (const sub of instance.removeSubscriptions) sub(entity, t);
-      }
+      for (const t of targets) emit(instance.removeSubscriptions, entity, t);
     }
     removeAllRelationTargets(ctx, relation, entity);
     removeTraitFromEntity(ctx, entity, relationTrait);
@@ -262,9 +255,7 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
   }
 
   if (typeof target === 'number') {
-    if (instance) {
-      for (const sub of instance.removeSubscriptions) sub(entity, target);
-    }
+    if (instance) emit(instance.removeSubscriptions, entity, target);
 
     const { removedIndex, wasLastTarget } = removeRelationTarget(ctx, relation, entity, target);
     if (removedIndex === -1) return;
@@ -282,9 +273,7 @@ export function cleanupRelationTarget(
   const relationTrait = relation[$internal].trait;
 
   const instance = getTraitInstance(ctx.traitInstances, relationTrait);
-  if (instance) {
-    for (const sub of instance.removeSubscriptions) sub(entity, target);
-  }
+  if (instance) emit(instance.removeSubscriptions, entity, target);
 
   const { removedIndex, wasLastTarget } = removeRelationTarget(ctx, relation, entity, target);
   if (removedIndex === -1) return;

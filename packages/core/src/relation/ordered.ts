@@ -56,11 +56,11 @@ export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRe
 
   type RelationSub = (entity: Entity, target: Entity) => void;
 
-  (relationInstance.addSubscriptions as Set<RelationSub>).add((child, parent) => {
+  (relationInstance.addSubscriptions.all as Set<RelationSub>).add((child, parent) => {
     getList(parent)?._appendWithoutSync(child);
   });
 
-  (relationInstance.removeSubscriptions as Set<RelationSub>).add((child, parent) => {
+  (relationInstance.removeSubscriptions.all as Set<RelationSub>).add((child, parent) => {
     const eid = getEntityId(parent);
     const denseIdx = entityIndex.sparse[eid];
     if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {

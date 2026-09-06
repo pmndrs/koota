@@ -1,16 +1,11 @@
-import { $internal, type Entity, type TagTrait, type World } from '@koota/core';
+import { type Entity, type TagTrait, type World } from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
-import { isWorld } from '../utils/is-world';
-import { useWorld } from '../world/use-world';
+import { getTargetEntity } from '../utils/get-target-entity';
 
 export function useTag(target: Entity | World | undefined | null, tag: TagTrait): boolean {
-  const contextWorld = useWorld();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
-  const memo = useMemo(
-    () => (target ? createSubscriptions(target, tag, contextWorld) : undefined),
-    [target, tag, contextWorld]
-  );
+  const memo = useMemo(() => (target ? createSubscriptions(target, tag) : undefined), [target, tag]);
 
   const valueRef = useRef<boolean>(false);
   const memoRef = useRef(memo);
@@ -39,20 +34,14 @@ export function useTag(target: Entity | World | undefined | null, tag: TagTrait)
   return valueRef.current;
 }
 
-function createSubscriptions(target: Entity | World, tag: TagTrait, contextWorld: World) {
-  const world = isWorld(target) ? target : contextWorld;
-  const entity = isWorld(target) ? target[$internal].worldEntity : target;
+function createSubscriptions(target: Entity | World, tag: TagTrait) {
+  const entity = getTargetEntity(target);
 
   return {
     entity,
     subscribe: (setValue: (value: boolean) => void) => {
-      const onAddUnsub = world.onAdd(tag, (e) => {
-        if (e === entity) setValue(true);
-      });
-
-      const onRemoveUnsub = world.onRemove(tag, (e) => {
-        if (e === entity) setValue(false);
-      });
+      const onAddUnsub = entity.onAdd(tag, () => setValue(true));
+      const onRemoveUnsub = entity.onRemove(tag, () => setValue(false));
 
       setValue(entity.has(tag));
 

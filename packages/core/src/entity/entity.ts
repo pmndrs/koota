@@ -3,10 +3,19 @@ import { IsExcluded, queryInternal } from '../query/query';
 import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { addTrait, cleanupRelationTarget, hasTrait, removeTrait } from '../trait/trait';
+import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
+import {
+  addTrait,
+  cleanupRelationTarget,
+  hasTrait,
+  registerTrait,
+  removeTrait,
+} from '../trait/trait';
+import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
+import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
 import type { Entity } from './types';
 import { allocateEntity, isEntityAlive, releaseEntity } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
@@ -90,6 +99,21 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 
     ctx.entityTraits.delete(currentEntity);
 
+    // Drop entity subscribers so a recycled id never inherits them. Instances
+    // that no longer hold any are pruned from the index here.
+    for (const instance of ctx.entitySubscribedInstances) {
+      clearEntity(instance.addSubscriptions, currentEntity);
+      clearEntity(instance.removeSubscriptions, currentEntity);
+      clearEntity(instance.changeSubscriptions, currentEntity);
+      if (
+        instance.addSubscriptions.entityCount === 0 &&
+        instance.removeSubscriptions.entityCount === 0 &&
+        instance.changeSubscriptions.entityCount === 0
+      ) {
+        ctx.entitySubscribedInstances.delete(instance);
+      }
+    }
+
     const eid = getEntityId(currentEntity);
     const pageId = eid >>> 10;
     const offset = eid & 1023;
@@ -115,4 +139,24 @@ export function entityHas(ctx: WorldContext, entity: Entity, trait: Trait | Rela
     );
   }
   return hasRelationPair(ctx, entity, trait);
+}
+
+/**
+ * Subscribe to a trait event for one entity. The instance is indexed on the
+ * world so destroy only visits traits that hold entity subscribers.
+ * A dead handle registers nothing, since its id may already belong to another entity.
+ */
+export function subscribeEntityEvent(
+  ctx: WorldContext,
+  entity: Entity,
+  event: 'addSubscriptions' | 'removeSubscriptions' | 'changeSubscriptions',
+  input: HookInput,
+  callback: Subscriber
+) {
+  if (!isEntityAlive(ctx.entityIndex, entity)) return () => {};
+  const trait = resolveHookTrait(input);
+  if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
+  const instance = getTraitInstance(ctx.traitInstances, trait)!;
+  ctx.entitySubscribedInstances.add(instance);
+  return subscribeEntity(instance[event], entity, resolveHookCallback(ctx, input, callback));
 }

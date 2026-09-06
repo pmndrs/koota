@@ -177,6 +177,14 @@ useEffect(() => {
 }, [world])
 ```
 
+The same hooks exist on entities and fire only for that entity. Prefer them when subscribing per entity (one per component, for example) since dispatch does not scale with the number of subscribers. The framework hooks use these internally.
+
+```typescript
+const unsub = entity.onChange(Position, (entity) => {
+  // Runs only when this entity's Position changes
+})
+```
+
 **Entity lifecycle events** fire on spawn/destroy (excludes the internal world entity):
 
 ```typescript
