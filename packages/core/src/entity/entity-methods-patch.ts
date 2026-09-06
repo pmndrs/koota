@@ -4,7 +4,9 @@ import type { Relation, RelationPair } from '../relation/types';
 import { addTrait, getTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
-import { destroyEntity, entityHas, getEntityContext } from './entity';
+import type { Subscriber } from '../trait/subscriptions';
+import type { HookInput } from '../world/utils/resolve-hook';
+import { destroyEntity, entityHas, getEntityContext, subscribeEntityEvent } from './entity';
 import type { Entity } from './types';
 import { getEntityGeneration, getEntityId } from './utils/pack-entity';
 
@@ -46,6 +48,21 @@ Number.prototype.set = function (
   triggerChanged = true
 ) {
   setTrait(getEntityContext(this), this, trait, value, triggerChanged);
+};
+
+// @ts-expect-error
+Number.prototype.onAdd = function (this: Entity, input: HookInput, callback: Subscriber) {
+  return subscribeEntityEvent(getEntityContext(this), this, 'addSubscriptions', input, callback);
+};
+
+// @ts-expect-error
+Number.prototype.onRemove = function (this: Entity, input: HookInput, callback: Subscriber) {
+  return subscribeEntityEvent(getEntityContext(this), this, 'removeSubscriptions', input, callback);
+};
+
+// @ts-expect-error
+Number.prototype.onChange = function (this: Entity, input: HookInput, callback: Subscriber) {
+  return subscribeEntityEvent(getEntityContext(this), this, 'changeSubscriptions', input, callback);
 };
 
 //@ts-expect-error

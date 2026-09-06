@@ -37,16 +37,13 @@ export type WorldContext = {
   trackingSnapshots: Map<number, Uint32Array[][]>;
   changedMasks: Map<number, Uint32Array[][]>;
   worldEntity: Entity;
-  trackedTraits: Set<Trait>;
+  entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
   entityDestroySubscriptions: Set<(entity: Entity) => void>;
   traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
-  /** Whether this world has been lazily registered in the universe. */
   isRegistered: boolean;
-  /** Pending initial traits to apply on first registration. */
   pendingTraits: ConfigurableTrait[] | undefined;
-  /** FR cleanup token (shared ownedPages with entityIndex). */
   cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
 };
 

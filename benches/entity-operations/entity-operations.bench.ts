@@ -123,6 +123,47 @@ group('entity.destroy 10k @entity', () => {
   });
 });
 
+group('entity.destroy subscription cleanup 10k @entity @subscription @cleanup', () => {
+  for (const traitCount of [8, 128, 1024]) {
+    for (const subscribed of [false, true]) {
+      bench(
+        `${traitCount} traits, ${subscribed ? 'with subscriptions' : 'no subscriptions'}`,
+        function* () {
+          const Position = trait({ x: 0 });
+          const world = createWorld();
+          world.spawn(Position, ...Array.from({ length: traitCount - 1 }, () => trait())).destroy();
+
+          const entities: Entity[] = [];
+          const notify = () => {};
+          const spawn = () => {
+            for (let i = 0; i < 10_000; i++) {
+              const entity = world.spawn(Position);
+              entities[i] = entity;
+              if (subscribed) {
+                // Framework hooks subscribe to all three lifecycle events.
+                entity.onAdd(Position, notify);
+                entity.onRemove(Position, notify);
+                entity.onChange(Position, notify);
+              }
+            }
+          };
+          spawn();
+
+          yield {
+            bench: () => {
+              for (let i = 0; i < entities.length; i++) entities[i].destroy();
+            },
+            snapshot: () => entities.filter((entity) => world.has(entity)).length,
+            after: spawn,
+          };
+
+          world.destroy();
+        }
+      );
+    }
+  }
+});
+
 group('entity get set 10k @entity', () => {
   bench('entity.get', function* () {
     const world = createWorld();

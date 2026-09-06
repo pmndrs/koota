@@ -1,5 +1,4 @@
 import {
-  $internal,
   type Entity,
   type RelationPair,
   type Trait,
@@ -7,9 +6,8 @@ import {
   type World,
 } from '@koota/core';
 import { useEffect, useMemo, useRef } from 'react';
-import { isWorld } from '../utils/is-world';
+import { getTargetEntity } from '../utils/get-target-entity';
 import { useStableTrait } from '../utils/use-stable-pair';
-import { useWorld } from '../world/use-world';
 
 export function useTraitEffect<T extends Trait>(
   target: Entity | World,
@@ -26,26 +24,22 @@ export function useTraitEffect<T extends Trait>(
   trait: T | RelationPair<T>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
-  const contextWorld = useWorld();
-  const world = useMemo(() => (isWorld(target) ? target : contextWorld), [target, contextWorld]);
-  const entity = useMemo(() => (isWorld(target) ? target[$internal].worldEntity : target), [target]);
+  const entity = useMemo(() => getTargetEntity(target), [target]);
   const stableTrait = useStableTrait(trait);
 
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
   useEffect(() => {
-    const onChangeUnsub = world.onChange(stableTrait, (e) => {
-      if (e === entity) callbackRef.current(e.get(stableTrait));
+    const onChangeUnsub = entity.onChange(stableTrait, () => {
+      callbackRef.current(entity.get(stableTrait));
     });
 
-    const onAddUnsub = world.onAdd(stableTrait, (e) => {
-      if (e === entity) callbackRef.current(e.get(stableTrait));
+    const onAddUnsub = entity.onAdd(stableTrait, () => {
+      callbackRef.current(entity.get(stableTrait));
     });
 
-    const onRemoveUnsub = world.onRemove(stableTrait, (e) => {
-      if (e === entity) callbackRef.current(undefined);
-    });
+    const onRemoveUnsub = entity.onRemove(stableTrait, () => callbackRef.current(undefined));
 
     callbackRef.current(entity.has(stableTrait) ? entity.get(stableTrait) : undefined);
 
@@ -54,5 +48,5 @@ export function useTraitEffect<T extends Trait>(
       onAddUnsub();
       onRemoveUnsub();
     };
-  }, [stableTrait, world, entity]);
+  }, [stableTrait, entity]);
 }

@@ -1,5 +1,4 @@
 import {
-  $internal,
   shallowEqual,
   type Entity,
   type RelationPair,
@@ -8,9 +7,8 @@ import {
   type World,
 } from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
-import { isWorld } from '../utils/is-world';
+import { getTargetEntity } from '../utils/get-target-entity';
 import { useStableTrait } from '../utils/use-stable-pair';
-import { useWorld } from '../world/use-world';
 
 /**
  * Making sure the values are never stale requires syncing at each boundary.
@@ -25,15 +23,14 @@ export function useTrait<T extends Trait>(
   target: Entity | World | undefined | null,
   trait: T | RelationPair<T>
 ): TraitRecord<T> | undefined {
-  const contextWorld = useWorld();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   const valueRef = useRef<TraitRecord<T> | undefined>(undefined);
   const memoRef = useRef<ReturnType<typeof createSubscriptions<T>> | undefined>(undefined);
   const stableTrait = useStableTrait(trait);
 
   const memo = useMemo(
-    () => (target ? createSubscriptions(target, stableTrait, contextWorld) : undefined),
-    [target, stableTrait, contextWorld]
+    () => (target ? createSubscriptions(target, stableTrait) : undefined),
+    [target, stableTrait]
   );
 
   // Reads the trait value synchronously
@@ -63,29 +60,15 @@ export function useTrait<T extends Trait>(
   return valueRef.current;
 }
 
-function createSubscriptions<T extends Trait>(
-  target: Entity | World,
-  trait: T | RelationPair<T>,
-  contextWorld: World
-) {
-  // Use the context world unless the target is a world itself
-  const world = isWorld(target) ? target : contextWorld;
-  const entity = isWorld(target) ? target[$internal].worldEntity : target;
+function createSubscriptions<T extends Trait>(target: Entity | World, trait: T | RelationPair<T>) {
+  const entity = getTargetEntity(target);
 
   return {
     entity,
     subscribe: (setValue: (value: TraitRecord<T> | undefined) => void) => {
-      const onChangeUnsub = world.onChange(trait, (e) => {
-        if (e === entity) setValue(e.get(trait));
-      });
-
-      const onAddUnsub = world.onAdd(trait, (e) => {
-        if (e === entity) setValue(e.get(trait));
-      });
-
-      const onRemoveUnsub = world.onRemove(trait, (e) => {
-        if (e === entity) setValue(undefined);
-      });
+      const onChangeUnsub = entity.onChange(trait, () => setValue(entity.get(trait)));
+      const onAddUnsub = entity.onAdd(trait, () => setValue(entity.get(trait)));
+      const onRemoveUnsub = entity.onRemove(trait, () => setValue(undefined));
 
       // Set initial value
       setValue(entity.has(trait) ? entity.get(trait) : undefined);
