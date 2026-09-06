@@ -3,9 +3,8 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
-import type { Relation } from '../relation/types';
 import { Store } from '../storage';
-import { getStore } from '../trait/trait';
+import { registerTrait } from '../trait/trait';
 import type { Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import { hasSubscribers } from '../trait/subscriptions';
@@ -13,15 +12,16 @@ import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
 import { setChanged } from './modifiers/changed';
+import { getQueryPages } from './query-pages';
 import type {
   InstancesFromParameters,
   QueryInstance,
   QueryLayout,
   QueryLayoutCache,
   QueryParameter,
+  QueryPage,
   QueryResult,
   QueryResultOptions,
-  StoresFromParameters,
 } from './types';
 
 export function createQueryResult<T extends QueryParameter[]>(
@@ -35,6 +35,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 
   getQueryStores(params, traits, stores, ctx);
   let usesCustomOrder = false;
+  const version = query.version;
+  let layout: QueryLayout | undefined;
 
   const results = Object.assign(entities, {
     readEach(callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) {
@@ -164,12 +166,12 @@ export function createQueryResult<T extends QueryParameter[]>(
       return results;
     },
 
-    useStores(callback: (stores: StoresFromParameters<T>, layout: QueryLayout) => void) {
-      const layout = usesCustomOrder
-        ? createQueryLayout(entities)
-        : getCachedQueryLayout(query, entities);
-      callback(stores as unknown as StoresFromParameters<T>, layout);
-      return results;
+    getPages() {
+      layout ??=
+        usesCustomOrder || query.isTracking || query.version !== version
+          ? createQueryLayout(entities)
+          : getCachedQueryLayout(query, entities);
+      return getQueryPages(stores, layout) as QueryPage<T>[];
     },
 
     select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
@@ -183,6 +185,7 @@ export function createQueryResult<T extends QueryParameter[]>(
       callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
     ): QueryResult<T> {
       usesCustomOrder = true;
+      layout = undefined;
       Array.prototype.sort.call(entities, callback);
       return results;
     },
@@ -248,32 +251,31 @@ export function createQueryResult<T extends QueryParameter[]>(
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
 
-    if (isRelationPair(param)) {
-      const relation = param.relation as Relation<Trait>;
-      const baseTrait = relation[$internal].trait;
-      if (baseTrait[$internal].type !== 'tag') {
-        traits.push(baseTrait);
-        stores.push(getStore(ctx, baseTrait));
-      }
-      continue;
-    }
+    if (isRelationPair(param)) continue;
 
     if (isModifier(param)) {
       if (param.type === 'not') continue;
 
       const modifierTraits = param.traits;
       for (const trait of modifierTraits) {
-        if (trait[$internal].type === 'tag') continue;
+        if (trait[$internal].type === 'tag' || trait[$internal].relation) continue;
         traits.push(trait);
-        stores.push(getStore(ctx, trait));
+        stores.push(getQueryStore(ctx, trait));
       }
     } else {
       const trait = param as Trait;
       if (trait[$internal].type === 'tag') continue;
       traits.push(trait);
-      stores.push(getStore(ctx, trait));
+      stores.push(getQueryStore(ctx, trait));
     }
   }
+}
+
+function getQueryStore(ctx: WorldContext, trait: Trait): Store<any> {
+  const instance = getTraitInstance(ctx.traitInstances, trait);
+  if (instance) return instance.store;
+  registerTrait(ctx, trait);
+  return getTraitInstance(ctx.traitInstances, trait)!.store;
 }
 
 type QueryPageBuilder = {
@@ -371,15 +373,23 @@ export function createEmptyQueryResult(): QueryResult<QueryParameter[]> {
   const results = Object.assign([], {
     readEach: () => results,
     updateEach: () => results,
-    useStores: (callback: any) => {
-      callback([], EMPTY_LAYOUT_CACHE);
-      return results;
-    },
+    getPages: () => [],
     select: () => results,
     sort: () => results,
   }) as QueryResult<QueryParameter[]>;
 
   return results;
+}
+
+const relationOnlyLayouts = new WeakMap<QueryResult<any>, QueryLayout>();
+
+function getRelationOnlyLayout(results: QueryResult<any>) {
+  let layout = relationOnlyLayouts.get(results);
+  if (!layout) {
+    layout = createQueryLayout(results);
+    relationOnlyLayouts.set(results, layout);
+  }
+  return layout;
 }
 
 // Shared methods for relation-only query snapshots.
@@ -396,9 +406,8 @@ const relationOnlyMethods = {
     }
     return this;
   },
-  useStores(this: QueryResult<any>, callback: any) {
-    callback([], createQueryLayout(this as unknown as Entity[]));
-    return this;
+  getPages(this: QueryResult<any>) {
+    return getQueryPages([], getRelationOnlyLayout(this));
   },
   select(this: QueryResult<any>) {
     return this;
@@ -408,6 +417,7 @@ const relationOnlyMethods = {
     callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
   ) {
     Array.prototype.sort.call(this, callback);
+    relationOnlyLayouts.delete(this);
     return this;
   },
 };

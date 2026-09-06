@@ -17,6 +17,7 @@ export type {
   IsNotModifier,
   Modifier,
   QueryLayout,
+  QueryPage,
   Query,
   QueryModifier,
   QueryParameter,
@@ -26,6 +27,7 @@ export type {
   QueryUnsubscriber,
   QueryHash,
   StoresFromParameters,
+  PageStoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
 export { relation } from './relation/relation';

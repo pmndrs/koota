@@ -170,7 +170,7 @@ const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
 
 ## Accessing the store directly
 
-The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`useStores` API](#modifying-trait-stores-direclty) instead.
+The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`getPages` API](../advanced/performance.md#modifying-trait-stores-directly) instead.
 
 ```js
 // Returns SoA or AoS depending on the trait

@@ -11,28 +11,26 @@ Performance, safety and readability are all tradeoffs. The standard patterns are
 
 ## Modifying trait stores directly
 
-For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. Stores are paged internally, and `useStores` returns the raw stores plus a cached page-grouped layout so your loops can stay cache-friendly without manual page math.
+For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
 
 ```js
-// Returns the raw stores plus a page-grouped query layout
-world.query(Position, Velocity).useStores(([position, velocity], layout) => {
-  for (let p = 0; p < layout.pageCount; p++) {
-    const pageId = layout.pageIds[p]
-    const start = layout.pageStarts[p]
-    const end = start + layout.pageCounts[p]
-    const posX = position.x[pageId]
-    const posY = position.y[pageId]
-    const velX = velocity.x[pageId]
-    const velY = velocity.y[pageId]
+const pages = world.query(Position, Velocity).getPages()
 
-    for (let i = start; i < end; i++) {
-      const o = layout.offsets[i]
-      posX[o] += velX[o] * delta
-      posY[o] += velY[o] * delta
-    }
+for (const {
+  stores: [position, velocity],
+  indices,
+} of pages) {
+  for (let i = 0; i < indices.length; i++) {
+    const offset = indices[i]
+    position.x[offset] += velocity.x[offset] * delta
+    position.y[offset] += velocity.y[offset] * delta
   }
-})
+}
 ```
+
+`page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
+
+Query each frame and finish the loop before adding or removing traits or entities. Direct writes don't notify subscribers. Call `entity.changed(Trait)` when you need notifications.
 
 ## Query optimization
 

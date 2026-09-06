@@ -55,7 +55,7 @@ entities.includes(entity) // This will always be false
 
 ## Select traits on queries for updates
 
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStores`. This can be useful if your query is wider than the data you want to modify.
+Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
@@ -68,3 +68,7 @@ world.query(Position, Velocity, Mass)
     mass.value += 1
   });
 ```
+
+## Direct page access
+
+Use `query.getPages()` to iterate cached page views and read or write trait arrays directly. See [Modifying trait stores directly](../advanced/performance.md#modifying-trait-stores-directly) for the page shape, iteration pattern, and change notification behavior.

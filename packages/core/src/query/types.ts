@@ -38,6 +38,15 @@ export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
   entities: readonly Entity[];
 };
 
+export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
+  /** Page ordinal in this query result */
+  readonly index: number;
+  readonly stores: PageStoresFromParameters<T>;
+  /** Store offsets for the matching entities in this page */
+  readonly indices: Uint16Array;
+  readonly entities: readonly Entity[];
+};
+
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
   readEach: (
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
@@ -46,9 +55,8 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
     options?: QueryResultOptions
   ) => QueryResult<T>;
-  useStores: (
-    callback: (stores: StoresFromParameters<T>, layout: QueryLayout) => void
-  ) => QueryResult<T>;
+  /** Returns cached page views with direct access to trait data, without change detection */
+  getPages: () => readonly QueryPage<T>[];
   select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
   sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
 };
@@ -58,13 +66,27 @@ type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
 export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
   ? [
       ...(First extends Trait
-        ? [ExtractStore<First>]
+        ? IsTag<First> extends true
+          ? []
+          : [ExtractStore<First>]
         : First extends Modifier
-          ? StoresFromParameters<UnwrapModifierData<First>>
+          ? IsNotModifier<First> extends true
+            ? []
+            : StoresFromParameters<UnwrapModifierData<First>>
           : []),
       ...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : []),
     ]
   : [];
+
+type PageStores<T extends unknown[]> = {
+  [K in keyof T]: T[K] extends unknown[][]
+    ? T[K][number]
+    : { [P in keyof T[K]]: T[K][P] extends unknown[] ? T[K][P][number] : never };
+};
+
+export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
+  StoresFromParameters<T>
+>;
 
 export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
   infer First,

@@ -705,7 +705,7 @@ world.set(Time, { current: performance.now() })
 
 ### Select traits on queries for updates
 
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `useStores`. This can be useful if your query is wider than the data you want to modify.
+Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
@@ -721,31 +721,26 @@ world.query(Position, Velocity, Mass)
 
 ### Modifying trait stores directly
 
-For performance-critical operations, you can modify trait stores directly using the `useStores` hook. This approach bypasses some of the safety checks and event triggers, so use it with caution. Stores are paged internally, so `useStores` gives you the raw paged stores plus a layout describing which query entities live in which pages and offsets.
+For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
 
 ```js
-// Returns the raw stores plus a page-grouped query layout
-world.query(Position, Velocity).useStores(([position, velocity], layout) => {
-  // Loop over all the pages
-  for (let p = 0; p < layout.pageCount; p++) {
-    const pageId = layout.pageIds[p] // Physical page in the paged stores
-    const start = layout.pageStarts[p] // First flat query index in this page
-    const end = start + layout.pageCounts[p] // One past the last flat query index
+const pages = world.query(Position, Velocity).getPages()
 
-    const posX = position.x[pageId]
-    const posY = position.y[pageId]
-    const velX = velocity.x[pageId]
-    const velY = velocity.y[pageId]
-
-    // For each entity in the page, updates its data
-    for (let i = start; i < end; i++) {
-      const o = layout.offsets[i] // Offset within the current page
-      posX[o] += velX[o] * delta
-      posY[o] += velY[o] * delta
-    }
+for (const {
+  stores: [position, velocity],
+  indices,
+} of pages) {
+  for (let i = 0; i < indices.length; i++) {
+    const offset = indices[i]
+    position.x[offset] += velocity.x[offset] * delta
+    position.y[offset] += velocity.y[offset] * delta
   }
-})
+}
 ```
+
+`page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
+
+Query each frame and finish the loop before adding or removing traits or entities. Direct writes don't notify subscribers. Call `entity.changed(Trait)` when you need notifications.
 
 ### Query tips for the curious
 
@@ -1076,7 +1071,7 @@ const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
 
 #### Accessing the store directly
 
-The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`useStores` API](#modifying-trait-stores-direclty) instead.
+The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`getPages` API](#modifying-trait-stores-directly) instead.
 
 ```js
 // Returns SoA or AoS depending on the trait
