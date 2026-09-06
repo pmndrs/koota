@@ -15,12 +15,11 @@ group('relation queries 10k @relation', () => {
       world.spawn(Position, ChildOf(parent));
     }
 
-    yield () => {
-      world.query(ChildOf(parent));
-    };
+    const result = yield () => world.query(ChildOf(parent));
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('100 parents, ChildOf(*)', function* () {
     const world = createWorld();
@@ -32,12 +31,11 @@ group('relation queries 10k @relation', () => {
       world.spawn(Position, ChildOf(parents[i % 100]));
     }
 
-    yield () => {
-      world.query(ChildOf('*'));
-    };
+    const result = yield () => world.query(ChildOf('*'));
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 });
 
 group('many targets single relation 10k @relation', () => {
@@ -54,12 +52,11 @@ group('many targets single relation 10k @relation', () => {
       }
 
       const queryTarget = targets[0];
-      yield () => {
-        world.query(Rel(queryTarget));
-      };
+      const result = yield () => world.query(Rel(queryTarget));
 
       world.destroy();
-    }).gc('inner');
+      return result.length;
+    });
   }
 });
 
@@ -84,12 +81,11 @@ group('many targets multiple relations 5k @relation', () => {
     }
 
     const queryTarget = targets[0];
-    yield () => {
-      world.query(RelA(queryTarget));
-    };
+    const result = yield () => world.query(RelA(queryTarget));
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('5 rels, 200 targets, query wildcard*', function* () {
     const world = createWorld();
@@ -103,12 +99,11 @@ group('many targets multiple relations 5k @relation', () => {
       world.spawn(Position, rel(target));
     }
 
-    yield () => {
-      world.query(RelA('*'));
-    };
+    const result = yield () => world.query(RelA('*'));
 
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 });
 
 group('relation target filters 10k @relation @query', () => {
@@ -134,49 +129,47 @@ group('relation target filters 10k @relation @query', () => {
 
   bench('100 parents, query ChildOf(parent)', function* () {
     const { world, parents } = buildWorld();
-    yield () => {
-      world.query(ChildOf(parents[0]));
-    };
+    const result = yield () => world.query(ChildOf(parents[0]));
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('100 parents, query ChildOf(IsPlayer)', function* () {
     const { world } = buildWorld();
-    yield () => {
-      world.query(ChildOf(IsPlayer));
-    };
+    const result = yield () => world.query(ChildOf(IsPlayer));
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('100 parents, manual ChildOf(*) filter IsPlayer', function* () {
     const { world } = buildWorld();
-    yield () => {
+    const result = yield () =>
       world.query(ChildOf('*')).filter((child) => child.targetFor(ChildOf)?.has(IsPlayer));
-    };
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('100 parents, query ChildOf(IsPlayer, IsActive)', function* () {
     const { world } = buildWorld();
-    yield () => {
-      world.query(ChildOf(IsPlayer, IsActive));
-    };
+    const result = yield () => world.query(ChildOf(IsPlayer, IsActive));
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 
   bench('100 parents, manual ChildOf(*) filter IsPlayer+IsActive', function* () {
     const { world } = buildWorld();
-    yield () => {
-      world.query(ChildOf('*')).filter((child) => {
+    const result = yield () => {
+      return world.query(ChildOf('*')).filter((child) => {
         const parent = child.targetFor(ChildOf);
         return parent?.has(IsPlayer) && parent?.has(IsActive);
       });
     };
     world.destroy();
-  }).gc('inner');
+    return result.length;
+  });
 });
 
-group('relation target filter maintenance 2k @relation @query', () => {
+group('relation target filter maintenance 2k @relation @query @toggle', () => {
   const ChildOf = relation();
 
   bench('toggle parents with ChildOf(IsPlayer) active', function* () {
@@ -194,15 +187,25 @@ group('relation target filter maintenance 2k @relation @query', () => {
 
     world.query(ChildOf(IsPlayer));
 
-    let enabled = false;
-    yield () => {
-      enabled = !enabled;
-      for (let i = 0; i < parents.length; i++) {
-        if ((i % 2 === 0) === enabled) parents[i].add(IsPlayer);
-        else parents[i].remove(IsPlayer);
-      }
+    let enabled = true;
+    yield {
+      bench: () => {
+        enabled = !enabled;
+        for (let i = 0; i < parents.length; i++) {
+          if ((i % 2 === 0) === enabled) parents[i].add(IsPlayer);
+          else parents[i].remove(IsPlayer);
+        }
+      },
+      snapshot: () => {
+        const matches = world.query(ChildOf(IsPlayer));
+        return [
+          matches.length,
+          matches.some((child) => child.targetFor(ChildOf) === parents[0]),
+          matches.some((child) => child.targetFor(ChildOf) === parents[1]),
+        ];
+      },
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 });
