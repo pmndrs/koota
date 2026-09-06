@@ -4,9 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
-    "@pmndrs/labs": "^0.6.0",
+    "@pmndrs/labs": "^0.9.0",
     "directed": "catalog:",
-    "koota": "workspace:*"
+    "koota": "workspace:*",
+    "math": "1.0.0-canary-37519dcd-20260903"
   },
   "devDependencies": {
     "@config/typescript": "workspace:*"

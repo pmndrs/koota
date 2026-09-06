@@ -14,11 +14,12 @@ group('spawn throughput 10k @entity', () => {
           world.spawn();
         }
       },
+      snapshot: () => world.entities.length,
       after: () => world.reset(),
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 
   bench('spawn with 1 trait', function* () {
     const world = createWorld();
@@ -29,11 +30,12 @@ group('spawn throughput 10k @entity', () => {
           world.spawn(Position);
         }
       },
+      snapshot: () => world.query(Position).length,
       after: () => world.reset(),
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 });
 
 group('entity.has dispatch 10k @entity', () => {
@@ -44,14 +46,17 @@ group('entity.has dispatch 10k @entity', () => {
       entities.push(world.spawn(Position));
     }
 
-    yield () => {
+    const result = yield () => {
+      let matches = 0;
       for (let i = 0; i < entities.length; i++) {
-        entities[i].has(Position);
+        if (entities[i].has(Position)) matches++;
       }
+      return matches;
     };
 
     world.destroy();
-  }).gc('inner');
+    return result;
+  });
 
   bench('entity.has (false)', function* () {
     const world = createWorld();
@@ -60,14 +65,17 @@ group('entity.has dispatch 10k @entity', () => {
       entities.push(world.spawn(Position));
     }
 
-    yield () => {
+    const result = yield () => {
+      let matches = 0;
       for (let i = 0; i < entities.length; i++) {
-        entities[i].has(Velocity);
+        if (entities[i].has(Velocity)) matches++;
       }
+      return matches;
     };
 
     world.destroy();
-  }).gc('inner');
+    return result;
+  });
 });
 
 group('entity.destroy 10k @entity', () => {
@@ -85,11 +93,12 @@ group('entity.destroy 10k @entity', () => {
           entities[i].destroy();
         }
       },
+      snapshot: () => entities.filter((entity) => world.has(entity)).length,
       after: spawn,
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 
   bench('destroy entities with 3 traits', function* () {
     const world = createWorld();
@@ -106,11 +115,12 @@ group('entity.destroy 10k @entity', () => {
           entities[i].destroy();
         }
       },
+      snapshot: () => entities.filter((entity) => world.has(entity)).length,
       after: spawn,
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 });
 
 group('entity get set 10k @entity', () => {
@@ -118,17 +128,20 @@ group('entity get set 10k @entity', () => {
     const world = createWorld();
     const entities: Entity[] = [];
     for (let i = 0; i < 10_000; i++) {
-      entities.push(world.spawn(Position));
+      entities.push(world.spawn(Position({ x: i })));
     }
 
-    yield () => {
+    const result = yield () => {
+      let sum = 0;
       for (let i = 0; i < entities.length; i++) {
-        entities[i].get(Position);
+        sum += entities[i].get(Position)!.x;
       }
+      return sum;
     };
 
     world.destroy();
-  }).gc('inner');
+    return result;
+  });
 
   bench('entity.set', function* () {
     const world = createWorld();
@@ -137,12 +150,15 @@ group('entity get set 10k @entity', () => {
       entities.push(world.spawn(Position));
     }
 
-    yield () => {
-      for (let i = 0; i < entities.length; i++) {
-        entities[i].set(Position, { x: i, y: i, z: i });
-      }
+    yield {
+      bench: () => {
+        for (let i = 0; i < entities.length; i++) {
+          entities[i].set(Position, { x: i, y: i, z: i });
+        }
+      },
+      snapshot: () => entities[entities.length - 1].get(Position),
     };
 
     world.destroy();
-  }).gc('inner');
+  });
 });

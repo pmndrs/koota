@@ -12,7 +12,7 @@
     "bench": "labs"
   },
   "dependencies": {
-    "@pmndrs/labs": "^0.6.0"
+    "@pmndrs/labs": "^0.9.0"
   },
   "devDependencies": {
     "@config/oxlint": "workspace:*",
