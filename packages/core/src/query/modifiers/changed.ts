@@ -38,6 +38,7 @@ function markChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
 
   if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
   const data = getTraitInstance(ctx.traitInstances, trait)!;
+  data.version++;
 
   const eid = getEntityId(entity);
   const { generationId, bitflag } = data;
