@@ -8,7 +8,7 @@ import {
   type World,
 } from '@koota/core';
 import { render } from '@testing-library/react';
-import { act, StrictMode, useEffect, useState } from 'react';
+import { act, StrictMode, useEffect, useLayoutEffect, useState } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useHas, useTag, useTrait, useTraitEffect, WorldProvider } from '../src';
 
@@ -285,68 +285,179 @@ describe('useTrait', () => {
     expect(renderCount).toBe(1);
   });
 
-  it('does not spuriously re-render on mount for AoS traits', async () => {
+  it('does not re-render on mount for AoS writes in another world', () => {
     const AoSTrait = trait(() => ({ value: 42 }));
     const entity = world.spawn(AoSTrait);
+    const otherWorld = createWorld();
+    const other = otherWorld.spawn(AoSTrait);
     let renderCount = 0;
 
     function Test() {
       renderCount++;
-      useTrait(entity, AoSTrait);
-      return null;
+      const value = useTrait(entity, AoSTrait);
+      useLayoutEffect(() => other.set(AoSTrait, { value: 10 }), []);
+      return <span>{value?.value}</span>;
     }
 
-    await act(async () => {
-      render(
-        <WorldProvider world={world}>
-          <Test />
-        </WorldProvider>
-      );
-    });
-
+    expect(render(<Test />).container.textContent).toBe('42');
     expect(renderCount).toBe(1);
+    otherWorld.destroy();
   });
 
-  it('immediately reflects the new entity value when switching entities', async () => {
-    const entityA = world.spawn(Position({ x: 1, y: 1 }));
-    const entityB = world.spawn(Position({ x: 99, y: 99 }));
+  it.each([false, true])(
+    'catches an atomic position changed before subscribing with strict mode %s',
+    async (strict) => {
+      const CameraPosition = trait(() => ({ x: 0 }));
+      const entity = world.spawn(CameraPosition);
+      let renders = 0;
+      const tick = () => {
+        world.query(CameraPosition).updateEach(([position]) => {
+          position.x = 10;
+        });
+      };
 
-    let position: TraitRecord<typeof Position> | undefined;
-    const positions: { x: number; y: number }[] = [];
+      function System() {
+        useLayoutEffect(tick, []);
+        return null;
+      }
 
-    function Test({ entity }: { entity: Entity }) {
-      position = useTrait(entity, Position);
-      // Track all position values seen during render
-      if (position) positions.push({ x: position.x, y: position.y });
-      return null;
+      function CameraView() {
+        const position = useTrait(entity, CameraPosition);
+        renders++;
+        return <span>{position?.x}</span>;
+      }
+
+      const scene = (
+        <>
+          <System />
+          <CameraView />
+        </>
+      );
+      const view = render(strict ? <StrictMode>{scene}</StrictMode> : scene);
+
+      expect(entity.get(CameraPosition)!.x).toBe(10);
+      expect(view.container.textContent).toBe('10');
+
+      const initialRenders = renders;
+      await act(async () => tick());
+      expect(view.container.textContent).toBe('10');
+      expect(renders).toBe(initialRenders);
+    }
+  );
+
+  it.each(['set', 'silent set', 'add', 'remove'] as const)(
+    'catches %s before the trait subscription attaches',
+    (operation) => {
+      const Atomic = trait(() => ({ x: 0 }));
+      const entity = operation === 'add' ? world.spawn() : world.spawn(Atomic);
+
+      function View() {
+        const value = useTrait(entity, Atomic);
+        useLayoutEffect(() => {
+          switch (operation) {
+            case 'set':
+              entity.set(Atomic, { x: 10 });
+              break;
+            case 'silent set':
+              entity.set(Atomic, { x: 10 }, false);
+              break;
+            case 'add':
+              entity.add(Atomic({ x: 10 }));
+              break;
+            case 'remove':
+              entity.remove(Atomic);
+              break;
+          }
+        }, []);
+        return <span>{value?.x ?? 'missing'}</span>;
+      }
+
+      const view = render(<View />);
+      expect(view.container.textContent).toBe(operation === 'remove' ? 'missing' : '10');
+    }
+  );
+
+  it('catches a nested mutation signaled before subscribing', () => {
+    const Atomic = trait(() => ({ position: { x: 0 } }));
+    const entity = world.spawn(Atomic);
+
+    function View() {
+      const value = useTrait(entity, Atomic);
+      useLayoutEffect(() => {
+        entity.get(Atomic)!.position.x = 10;
+        entity.changed(Atomic);
+      }, []);
+      return <span>{value?.position.x}</span>;
     }
 
-    const { rerender } = render(
+    expect(render(<View />).container.textContent).toBe('10');
+  });
+
+  it('catches relation pair writes before subscribing', () => {
+    const ChildOf = relation({ store: { order: 0 } });
+    const parent = world.spawn();
+    const child = world.spawn(ChildOf(parent));
+
+    function View() {
+      const value = useTrait(child, ChildOf(parent));
+      useLayoutEffect(() => child.set(ChildOf(parent), { order: 10 }), []);
+      return <span>{value?.order}</span>;
+    }
+
+    expect(render(<View />).container.textContent).toBe('10');
+  });
+
+  it('catches a world trait replaced by reset before subscribing', () => {
+    const Atomic = trait(() => ({ x: 0 }));
+    world.add(Atomic);
+
+    function View() {
+      const value = useTrait(world, Atomic);
+      useLayoutEffect(() => {
+        world.reset();
+        world.add(Atomic({ x: 10 }));
+      }, []);
+      return <span>{value?.x}</span>;
+    }
+
+    expect(render(<View />).container.textContent).toBe('10');
+  });
+
+  it('immediately switches targets and ignores updates from the previous entity', async () => {
+    const previous = world.spawn(Position({ x: 1 }));
+    const next = world.spawn(Position({ x: 99 }));
+    const positions: (number | undefined)[] = [];
+
+    function View({ entity }: { entity: Entity }) {
+      const position = useTrait(entity, Position);
+      positions.push(position?.x);
+      useLayoutEffect(() => {
+        if (entity === next) previous.set(Position, { x: 2 });
+      }, [entity]);
+      return <span>{position?.x}</span>;
+    }
+
+    const view = render(
       <StrictMode>
-        <WorldProvider world={world}>
-          <Test entity={entityA} />
-        </WorldProvider>
+        <View entity={previous} />
       </StrictMode>
     );
+    expect(view.container.textContent).toBe('1');
+    positions.length = 0;
 
-    expect(position).toEqual({ x: 1, y: 1 });
-    positions.length = 0; // Clear initial renders
+    view.rerender(
+      <StrictMode>
+        <View entity={next} />
+      </StrictMode>
+    );
+    expect(view.container.textContent).toBe('99');
+    expect(positions.every((x) => x === 99)).toBe(true);
 
-    // Switch to entity B
     await act(async () => {
-      rerender(
-        <StrictMode>
-          <WorldProvider world={world}>
-            <Test entity={entityB} />
-          </WorldProvider>
-        </StrictMode>
-      );
+      next.set(Position, { x: 100 });
+      previous.set(Position, { x: 3 });
     });
-
-    // Should immediately have entity B's value, never see entity A's stale value
-    expect(position).toEqual({ x: 99, y: 99 });
-    // Every render after the switch should show entity B's value
-    expect(positions.every((p) => p.x === 99 && p.y === 99)).toBe(true);
+    expect(view.container.textContent).toBe('100');
   });
 
   it('reactively returns relation pair store data', async () => {

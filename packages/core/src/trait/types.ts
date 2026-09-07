@@ -75,6 +75,8 @@ export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'ta
 export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
 export interface TraitInstance<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
+  /** Revision for possible writes and membership changes, even without change events. */
+  version: number;
   generationId: number;
   bitflag: number;
   trait: Trait;

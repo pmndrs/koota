@@ -1,8 +1,22 @@
-import type { Entity, RelationPair, Trait, TraitRecord, World } from '@koota/core';
+import {
+  $internal,
+  $relationPair,
+  universe,
+  type Entity,
+  type RelationPair,
+  type Trait,
+  type TraitRecord,
+  type World,
+} from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
 
 export function readTrait(entity: Entity, trait: Trait | RelationPair) {
   return entity.has(trait) ? entity.get(trait) : undefined;
+}
+
+function getTraitVersionSource(entity: Entity, trait: Trait | RelationPair) {
+  if ($relationPair in trait) trait = trait.relation[$internal].trait;
+  return universe.pageOwners[entity.id() >>> 10]?.traitInstances[trait.id];
 }
 
 export function attachTrait(
@@ -26,5 +40,6 @@ export function useTrait<T extends Trait>(
   target: Entity | World | undefined | null,
   trait: T | RelationPair<T>
 ): TraitRecord<T> | undefined {
-  return useEntityValue(target, trait, readTrait, attachTrait) as TraitRecord<T> | undefined;
+  return useEntityValue(target, trait, readTrait, attachTrait, getTraitVersionSource) as
+    TraitRecord<T> | undefined;
 }

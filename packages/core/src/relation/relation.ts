@@ -249,6 +249,7 @@ export function addRelationTarget(
     entityTargets.push(target);
   }
 
+  traitData.version++;
   updateQueriesForRelationChange(ctx, relation, entity);
   addToRelationSources(traitData, entity, target);
 
@@ -300,7 +301,10 @@ export function removeRelationTarget(
     }
   }
 
-  if (removedIndex !== -1) updateQueriesForRelationChange(ctx, relation, entity);
+  if (removedIndex !== -1) {
+    data.version++;
+    updateQueriesForRelationChange(ctx, relation, entity);
+  }
 
   const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
   return { removedIndex, wasLastTarget };
@@ -436,6 +440,7 @@ export function setRelationDataAtIndex(
   const baseTrait = relationCtx.trait;
   const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
   if (!traitData) return;
+  traitData.version++;
 
   const store = traitData.store;
   const eid = getEntityId(entity);
