@@ -14,6 +14,10 @@ const RELATION_QUERY_OFFSET = 9000000;
 
 // Reusable buffer — avoids allocation per call.
 const sortBuf = new Float64Array(1024);
+// Where the current call starts writing. A relation filter given as inline parameters
+// recurses into createQueryHash, so the nested call has to claim the slice after the
+// entries its caller has already written instead of starting over at 0.
+let sortBufBase = 0;
 
 // Maps a sub-query hash string to a stable numeric id for encoding in the Float64Array.
 let nextQueryId = 1;
@@ -29,7 +33,8 @@ function queryHashNumericId(hash: string): number {
 }
 
 export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
-  let cursor = 0;
+  const base = sortBufBase;
+  let cursor = base;
 
   for (let i = 0; i < parameters.length; i++) {
     const param = parameters[i];
@@ -38,9 +43,14 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
       const relationId = (param.relation as Relation<Trait>)[$internal].trait.id;
 
       if (param.targetQuery) {
-        const subHash = isQuery(param.targetQuery)
-          ? param.targetQuery.hash
-          : createQueryHash([...param.targetQuery]);
+        let subHash: string;
+        if (isQuery(param.targetQuery)) {
+          subHash = param.targetQuery.hash;
+        } else {
+          sortBufBase = cursor;
+          subHash = createQueryHash([...param.targetQuery]);
+          sortBufBase = base;
+        }
         sortBuf[cursor++] =
           relationId * RELATION_FACTOR + queryHashNumericId(subHash) + RELATION_QUERY_OFFSET;
         continue;
@@ -62,7 +72,7 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
     sortBuf[cursor++] = (param as Trait).id;
   }
 
-  const filled = sortBuf.subarray(0, cursor);
+  const filled = sortBuf.subarray(base, cursor);
   filled.sort();
   return filled.join(',');
 };
