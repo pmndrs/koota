@@ -200,8 +200,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   generations: number[];
   entities: SparseSet;
   isTracking: boolean;
-  hasChangedModifiers: boolean;
-  changedTraits: Set<Trait>;
   toRemove: SparseSet;
   cleanup: QueryUnsubscriber[];
   addSubscriptions: Set<QuerySubscriber>;

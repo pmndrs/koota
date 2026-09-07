@@ -26,9 +26,9 @@ import './entity-methods-patch';
 
 export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
+  // Tracking queries only gain entities through tracking events.
   for (const query of ctx.notQueries) {
-    const match = query.check(ctx, entity);
-    if (match) query.add(entity);
+    if (!query.isTracking && query.check(ctx, entity)) query.add(entity);
     query.resetTrackingBitmasks(getEntityId(entity));
   }
 

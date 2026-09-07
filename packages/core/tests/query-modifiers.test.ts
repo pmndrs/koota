@@ -795,6 +795,65 @@ describe('Query modifiers', () => {
     });
   });
 
+  it('should not report entities that only spawned to tracking queries', () => {
+    const Removed = createRemoved();
+    const Added = createAdded();
+    world.query(Removed(Foo));
+    world.query(Added(Foo));
+
+    world.spawn();
+    world.spawn(Bar);
+
+    expect(world.query(Removed(Foo)).length).toBe(0);
+    expect(world.query(Added(Foo)).length).toBe(0);
+  });
+
+  it('should report destroyed entities as removed and keep recycled ids clean', () => {
+    const Removed = createRemoved();
+    world.query(Removed(Foo));
+
+    const entity = world.spawn(Foo);
+    entity.destroy();
+
+    // The destroyed entity is reported even though its id is reused.
+    const recycled = world.spawn();
+    expect(recycled.id()).toBe(entity.id());
+    expect([...world.query(Removed(Foo))]).toEqual([entity]);
+
+    // The new entity inherits nothing from the destroyed one.
+    recycled.add(Bar);
+    recycled.remove(Bar);
+    expect(world.query(Removed(Foo)).length).toBe(0);
+  });
+
+  it('should not report a change on a trait that was removed and added back', () => {
+    const Changed = createChanged();
+    const entity = world.spawn(Position);
+    world.query(Changed(Position));
+
+    entity.changed(Position);
+    entity.remove(Position);
+    entity.add(Position);
+    expect(world.query(Changed(Position)).length).toBe(0);
+
+    entity.changed(Position);
+    expect([...world.query(Changed(Position))]).toEqual([entity]);
+  });
+
+  it('should keep pending events until every tracked trait matches', () => {
+    const Added = createAdded();
+    const entity = world.spawn();
+    world.query(Added(Foo, Bar));
+
+    entity.add(Foo);
+    expect(world.query(Added(Foo, Bar)).length).toBe(0);
+    expect(world.query(Added(Foo, Bar)).length).toBe(0);
+
+    entity.add(Bar);
+    expect([...world.query(Added(Foo, Bar))]).toEqual([entity]);
+    expect(world.query(Added(Foo, Bar)).length).toBe(0);
+  });
+
   // @internal Tests internal implementation edge case with generation overflow
   it('[internal] should handle Changed modifier when trait registration causes generation overflow', () => {
     // Create a fresh world to control trait registration count

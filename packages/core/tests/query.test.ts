@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { $internal, createQuery, createWorld, IsExcluded, Not, Or, relation, trait } from '../src';
+import {
+  $internal,
+  createChanged,
+  createQuery,
+  createWorld,
+  IsExcluded,
+  Not,
+  Or,
+  relation,
+  trait,
+} from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -160,6 +170,90 @@ describe('Query', () => {
     expect(cb).toHaveBeenCalledTimes(9);
   });
 
+  it('updateEach writes structured and atomic values with change detection disabled', () => {
+    const Mass = trait(() => ({ value: 0 }));
+    const Changed = createChanged();
+    const entity = world.spawn(Position, Mass);
+    const onChange = vi.fn();
+    world.onChange(Position, onChange);
+    world.onChange(Mass, onChange);
+    world.query(Changed(Position));
+    world.query(Changed(Mass));
+
+    world.query(Position, Mass).updateEach(
+      (state) => {
+        state[0].x = 42;
+        state[1] = { value: 10 };
+      },
+      { changeDetection: 'never' }
+    );
+
+    expect(entity.get(Position)).toEqual({ x: 42, y: 0 });
+    expect(entity.get(Mass)).toEqual({ value: 10 });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(world.query(Changed(Position))).toHaveLength(0);
+    expect(world.query(Changed(Mass))).toHaveLength(0);
+  });
+
+  it('updateEach auto picks up observers added between passes on the same result', () => {
+    const entity = world.spawn(Position);
+    const result = world.query(Position);
+    result.updateEach(([position]) => position.x++);
+    expect(entity.get(Position)!.x).toBe(1);
+
+    const onChange = vi.fn();
+    world.onChange(Position, onChange);
+    result.updateEach(([position]) => position.x++);
+
+    expect(entity.get(Position)!.x).toBe(2);
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(entity);
+  });
+
+  it.each(['auto', 'always'] as const)(
+    'updateEach %s only records unobserved changes in always mode',
+    (changeDetection) => {
+      const Changed = createChanged();
+      const entity = world.spawn(Position);
+
+      world.query(Position).updateEach(([position]) => position.x++, { changeDetection });
+
+      expect(entity.get(Position)!.x).toBe(1);
+      expect([...world.query(Changed(Position))]).toEqual(
+        changeDetection === 'always' ? [entity] : []
+      );
+    }
+  );
+
+  it.each(['auto', 'always'] as const)(
+    'updateEach %s notifies observers after all writes in entity and trait order',
+    (changeDetection) => {
+      const first = world.spawn(Position, Name);
+      const second = world.spawn(Position, Name);
+      const events: string[] = [];
+      world.onChange(Position, (entity) => {
+        expect(first.get(Name)!.name).toBe('updated');
+        expect(second.get(Position)!.x).toBe(1);
+        events.push(`position:${entity}`);
+      });
+      world.onChange(Name, (entity) => events.push(`name:${entity}`));
+
+      world.query(Position, Name).updateEach(
+        ([position, name]) => {
+          position.x = 1;
+          name.name = 'updated';
+        },
+        { changeDetection }
+      );
+
+      expect(events).toEqual([
+        `position:${first}`,
+        `name:${first}`,
+        `position:${second}`,
+        `name:${second}`,
+      ]);
+    }
+  );
+
   it('should read trait data with readEach without modifying stores', () => {
     for (let i = 0; i < 5; i++) {
       world.spawn(Position({ x: i, y: i * 2 }), Name({ name: `Entity${i}` }));
@@ -319,6 +413,31 @@ describe('Query', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['auto', 'always'] as const)(
+    'updateEach %s detects atomic mutations alongside structured writes',
+    (changeDetection) => {
+      const Mass = trait(() => ({ value: 0 }));
+      const entity = world.spawn(Position, Mass);
+      const onChange = vi.fn();
+      world.onChange(Mass, onChange);
+
+      world.query(Position, Mass).updateEach(
+        ([position, mass]) => {
+          position.x = 1;
+          mass.value = 10;
+        },
+        { changeDetection }
+      );
+
+      expect(entity.get(Position)!.x).toBe(1);
+      expect(entity.get(Mass)!.value).toBe(10);
+      expect(onChange).toHaveBeenCalledExactlyOnceWith(entity);
+
+      world.query(Position, Mass).updateEach(() => {}, { changeDetection });
+      expect(onChange).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it('updateEach automatically tracks changes for traits observed with onChange', () => {
     const cb = vi.fn();
     world.onChange(Position, cb);
@@ -340,6 +459,21 @@ describe('Query', () => {
     });
 
     expect(cb).toHaveBeenCalledTimes(1);
+  });
+
+  it('updateEach automatically tracks changes for traits observed with Changed', () => {
+    const Changed = createChanged();
+    world.spawn(Position);
+    world.spawn(Position);
+    // Consume once so only changes made after this point are reported.
+    world.query(Changed(Position));
+
+    world.query(Position).updateEach(([position], _entity, index) => {
+      if (index === 0) position.x = 1;
+    });
+
+    expect(world.query(Changed(Position)).length).toBe(1);
+    expect(world.query(Changed(Position)).length).toBe(0);
   });
 
   it.fails('updateEach does not overwrite when a trait is set instead of mutated', () => {
