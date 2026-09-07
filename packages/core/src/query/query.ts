@@ -54,7 +54,8 @@ export function runQuery<T extends QueryParameter[]>(
 ): QueryResult<T> {
   commitQueryRemovals(ctx);
 
-  const entities = query.entities.dense.slice() as Entity[];
+  // The dense getter already returns a copy.
+  const entities = query.entities.dense as Entity[];
 
   if (query.isTracking) {
     query.entities.clear();
@@ -71,8 +72,8 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   query.toRemove.remove(entity);
   query.entities.add(entity);
 
-  for (const sub of query.addSubscriptions) {
-    sub(entity);
+  if (query.addSubscriptions.size !== 0) {
+    for (const sub of query.addSubscriptions) sub(entity);
   }
 
   query.version++;
@@ -84,8 +85,8 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
   query.toRemove.add(entity);
   ctx.dirtyQueries.add(query);
 
-  for (const sub of query.removeSubscriptions) {
-    sub(entity);
+  if (query.removeSubscriptions.size !== 0) {
+    for (const sub of query.removeSubscriptions) sub(entity);
   }
 
   query.version++;
@@ -95,11 +96,11 @@ export function commitQueryRemovals(ctx: WorldContext) {
   if (!ctx.dirtyQueries.size) return;
 
   for (const query of ctx.dirtyQueries) {
-    for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
-      const eid = query.toRemove.dense[i];
-      query.toRemove.remove(eid);
-      query.entities.remove(eid);
-    }
+    const toRemove = query.toRemove;
+    const pending = toRemove.rawDense;
+    const count = toRemove.length;
+    for (let i = 0; i < count; i++) query.entities.remove(pending[i]);
+    toRemove.clear();
   }
 
   ctx.dirtyQueries.clear();
@@ -156,9 +157,8 @@ function processTrackingModifier(
     const genId = instance.generationId;
     group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
 
-    if (trackingType === 'change') {
-      query.changedTraits.add(trait);
-      query.hasChangedModifiers = true;
+    if (trackingType === 'change' && !instance.changedQueries.includes(query)) {
+      instance.changedQueries.push(query);
     }
   }
 
@@ -186,8 +186,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     generations: [],
     entities: new SparseSet(),
     isTracking: false,
-    hasChangedModifiers: false,
-    changedTraits: new Set<Trait>(),
     toRemove: new SparseSet(),
     cleanup: [],
     addSubscriptions: new Set<QuerySubscriber>(),

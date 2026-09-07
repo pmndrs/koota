@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { setChanged, setPairChanged } from '../query/modifiers/changed';
+import { setChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
@@ -101,6 +101,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     store: traitCtx.createStore(),
     queries: new Set(),
     trackingQueries: new Set(),
+    changedQueries: [],
     notQueries: new Set(),
     relationQueries: new Set(),
     schema: trait.schema,
@@ -351,7 +352,7 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   if (typeof target !== 'number') return;
 
   setRelationData(ctx, entity, relation, target, value);
-  if (triggerChanged) setPairChanged(ctx, entity, relation[$internal].trait, target);
+  if (triggerChanged) setChanged(ctx, entity, relation[$internal].trait, target);
 }
 
 /* @inline */ function setTraitForTrait(

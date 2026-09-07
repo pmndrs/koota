@@ -5,13 +5,13 @@ import { isEntityAlive } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { Store } from '../storage';
 import { registerTrait } from '../trait/trait';
-import type { Trait } from '../trait/types';
+import type { Trait, TraitInstance } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import { hasSubscribers } from '../trait/subscriptions';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
-import { setChanged } from './modifiers/changed';
+import { setChangedForInstance } from './modifiers/changed';
 import { getQueryPages } from './query-pages';
 import type {
   InstancesFromParameters,
@@ -23,6 +23,8 @@ import type {
   QueryResult,
   QueryResultOptions,
 } from './types';
+
+type TraitContext = Trait[typeof $internal];
 
 export function createQueryResult<T extends QueryParameter[]>(
   ctx: WorldContext,
@@ -41,12 +43,13 @@ export function createQueryResult<T extends QueryParameter[]>(
   const results = Object.assign(entities, {
     readEach(callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) {
       const state = Array.from({ length: traits.length }) as InstancesFromParameters<T>;
+      const traitCtxs = traits.map((trait) => trait[$internal]);
 
       for (let i = 0; i < entities.length; i++) {
         const entity = entities[i];
         const eid = getEntityId(entity);
 
-        createSnapshots(eid, traits, stores, state);
+        createSnapshots(eid, traitCtxs, stores, state);
 
         callback(state, entity, i);
       }
@@ -58,109 +61,84 @@ export function createQueryResult<T extends QueryParameter[]>(
       callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
       options: QueryResultOptions = { changeDetection: 'auto' }
     ) {
-      const state = Array.from({ length: traits.length });
+      const state = Array.from({ length: traits.length }) as InstancesFromParameters<T>;
+      const traitCtxs = traits.map((trait) => trait[$internal]);
+      const mode = options.changeDetection;
 
-      if (options.changeDetection === 'auto') {
-        const changedPairs: [Entity, Trait][] = [];
-        const atomicSnapshots: any[] = [];
-        const trackedIndices: number[] = [];
-        const untrackedIndices: number[] = [];
+      // Traits that emit change events and the instances that receive them.
+      const trackedIndices: number[] = [];
+      const untrackedIndices: number[] = [];
+      const trackedInstances: TraitInstance[] = [];
+      for (let i = 0; mode !== 'never' && i < traits.length; i++) {
+        const instance = getTraitInstance(ctx.traitInstances, traits[i])!;
+        const isTracked =
+          mode === 'always' ||
+          instance.changedQueries.length !== 0 ||
+          hasSubscribers(instance.changeSubscriptions);
 
-        getTrackedTraits(traits, ctx, query, trackedIndices, untrackedIndices);
+        if (isTracked) {
+          trackedIndices.push(i);
+          trackedInstances.push(instance);
+        } else {
+          untrackedIndices.push(i);
+        }
+      }
 
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          const eid = getEntityId(entity);
+      if (trackedIndices.length === 0) {
+        updateUntracked(ctx, entities, traitCtxs, stores, state, callback);
+        return results;
+      }
 
-          createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
-          callback(state as unknown as InstancesFromParameters<T>, entity, i);
+      // Atomic traits are compared against a copy since the callback mutates the stored object.
+      const atomicIndices: number[] = [];
+      for (let i = 0; i < trackedIndices.length; i++) {
+        if (traitCtxs[trackedIndices[i]].type === 'aos') atomicIndices.push(trackedIndices[i]);
+      }
 
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
+      // Changes are recorded as parallel arrays and flushed after the loop so
+      // subscribers observe every store write from this pass.
+      const changedEntities: Entity[] = [];
+      const changedSlots: number[] = [];
+      const atomicSnapshots: any[] = [];
 
-          for (let j = 0; j < trackedIndices.length; j++) {
-            const index = trackedIndices[j];
-            const trait = traits[index];
-            const traitCtx = trait[$internal];
-            const newValue = state[index];
-            const store = stores[index];
+      for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        const eid = getEntityId(entity);
 
-            let changed = false;
-            if (traitCtx.type === 'aos') {
-              changed = traitCtx.fastSetWithChangeDetection(eid, store, newValue);
-              if (!changed) {
-                changed = !shallowEqual(newValue, atomicSnapshots[index]);
-              }
-            } else {
-              changed = traitCtx.fastSetWithChangeDetection(eid, store, newValue);
-            }
-
-            if (changed) changedPairs.push([entity, trait] as const);
-          }
-
-          for (let j = 0; j < untrackedIndices.length; j++) {
-            const index = untrackedIndices[j];
-            const trait = traits[index];
-            const traitCtx = trait[$internal];
-            const store = stores[index];
-            traitCtx.fastSet(eid, store, state[index]);
-          }
+        createSnapshots(eid, traitCtxs, stores, state);
+        for (let j = 0; j < atomicIndices.length; j++) {
+          const index = atomicIndices[j];
+          atomicSnapshots[index] = { ...state[index] };
         }
 
-        for (let i = 0; i < changedPairs.length; i++) {
-          const [entity, trait] = changedPairs[i];
-          setChanged(ctx, entity, trait);
-        }
-      } else if (options.changeDetection === 'always') {
-        const changedPairs: [Entity, Trait][] = [];
-        const atomicSnapshots: any[] = [];
+        callback(state, entity, i);
 
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          const eid = getEntityId(entity);
+        if (!isEntityAlive(ctx.entityIndex, entity)) continue;
 
-          createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
-          callback(state as unknown as InstancesFromParameters<T>, entity, i);
+        for (let j = 0; j < trackedIndices.length; j++) {
+          const index = trackedIndices[j];
+          const traitCtx = traitCtxs[index];
+          const newValue = state[index];
 
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
+          let changed = traitCtx.fastSetWithChangeDetection(eid, stores[index], newValue);
+          if (!changed && traitCtx.type === 'aos') {
+            changed = !shallowEqual(newValue, atomicSnapshots[index]);
+          }
 
-          for (let j = 0; j < traits.length; j++) {
-            const trait = traits[j];
-            const traitCtx = trait[$internal];
-            const newValue = state[j];
-
-            let changed = false;
-            if (traitCtx.type === 'aos') {
-              changed = traitCtx.fastSetWithChangeDetection(eid, stores[j], newValue);
-              if (!changed) {
-                changed = !shallowEqual(newValue, atomicSnapshots[j]);
-              }
-            } else {
-              changed = traitCtx.fastSetWithChangeDetection(eid, stores[j], newValue);
-            }
-
-            if (changed) changedPairs.push([entity, trait] as const);
+          if (changed) {
+            changedEntities.push(entity);
+            changedSlots.push(j);
           }
         }
 
-        for (let i = 0; i < changedPairs.length; i++) {
-          const [entity, trait] = changedPairs[i];
-          setChanged(ctx, entity, trait);
+        for (let j = 0; j < untrackedIndices.length; j++) {
+          const index = untrackedIndices[j];
+          traitCtxs[index].fastSet(eid, stores[index], state[index]);
         }
-      } else if (options.changeDetection === 'never') {
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          const eid = getEntityId(entity);
-          createSnapshots(eid, traits, stores, state);
-          callback(state as unknown as InstancesFromParameters<T>, entity, i);
+      }
 
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-
-          for (let j = 0; j < traits.length; j++) {
-            const trait = traits[j];
-            const traitCtx = trait[$internal];
-            traitCtx.fastSet(eid, stores[j], state[j]);
-          }
-        }
+      for (let i = 0; i < changedEntities.length; i++) {
+        setChangedForInstance(ctx, changedEntities[i], trackedInstances[changedSlots[i]]);
       }
 
       return results;
@@ -194,51 +172,38 @@ export function createQueryResult<T extends QueryParameter[]>(
   return results;
 }
 
-/* @inline */ function getTrackedTraits(
-  traits: Trait[],
+// Keep unobserved writeback separate so it can optimize independently of change detection.
+function updateUntracked<T extends unknown[]>(
   ctx: WorldContext,
-  query: QueryInstance,
-  trackedIndices: number[],
-  untrackedIndices: number[]
+  entities: Entity[],
+  traitCtxs: TraitContext[],
+  stores: Store<any>[],
+  state: T,
+  callback: (state: T, entity: Entity, index: number) => void
 ) {
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    const hasTracked = instance !== undefined && hasSubscribers(instance.changeSubscriptions);
-    const hasChanged = query.hasChangedModifiers && query.changedTraits.has(trait);
+  for (let i = 0; i < entities.length; i++) {
+    const entity = entities[i];
+    const eid = getEntityId(entity);
 
-    if (hasTracked || hasChanged) trackedIndices.push(i);
-    else untrackedIndices.push(i);
+    createSnapshots(eid, traitCtxs, stores, state);
+    callback(state, entity, i);
+
+    if (!isEntityAlive(ctx.entityIndex, entity)) continue;
+
+    for (let j = 0; j < traitCtxs.length; j++) {
+      traitCtxs[j].fastSet(eid, stores[j], state[j]);
+    }
   }
 }
 
 /* @inline */ function createSnapshots(
   entityId: number,
-  traits: Trait[],
+  traitCtxs: TraitContext[],
   stores: Store<any>[],
   state: any[]
 ) {
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-    const ctx = trait[$internal];
-    const value = ctx.get(entityId, stores[i]);
-    state[i] = value;
-  }
-}
-
-/* @inline */ function createSnapshotsWithAtomic(
-  entityId: number,
-  traits: Trait[],
-  stores: Store<any>[],
-  state: any[],
-  atomicSnapshots: any[]
-) {
-  for (let j = 0; j < traits.length; j++) {
-    const trait = traits[j];
-    const ctx = trait[$internal];
-    const value = ctx.get(entityId, stores[j]);
-    state[j] = value;
-    atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
+  for (let i = 0; i < traitCtxs.length; i++) {
+    state[i] = traitCtxs[i].get(entityId, stores[i]);
   }
 }
 
