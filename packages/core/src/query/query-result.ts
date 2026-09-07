@@ -60,6 +60,13 @@ export function createQueryResult<T extends QueryParameter[]>(
     ) {
       const state = Array.from({ length: traits.length });
 
+      // Invalidate once per trait even when auto or never skips change detection.
+      if (entities.length !== 0) {
+        for (let i = 0; i < traits.length; i++) {
+          getTraitInstance(ctx.traitInstances, traits[i])!.version++;
+        }
+      }
+
       if (options.changeDetection === 'auto') {
         const changedPairs: [Entity, Trait][] = [];
         const atomicSnapshots: any[] = [];

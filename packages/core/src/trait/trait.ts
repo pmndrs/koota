@@ -95,6 +95,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
   const traitCtx = trait[$internal];
 
   const data: TraitInstance = {
+    version: 0,
     generationId: ctx.entityMasks.length - 1,
     bitflag: ctx.bitflag,
     trait,
@@ -362,13 +363,15 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   triggerChanged: boolean
 ) {
   const traitCtx = trait[$internal];
-  const store = getStore(ctx, trait);
+  const data = getTraitInstance(ctx.traitInstances, trait)!;
+  const store = data.store;
   const index = getEntityId(entity);
 
   value instanceof Function && (value = value(traitCtx.get(index, store)));
 
   traitCtx.set(index, store, value);
-  triggerChanged && setChanged(ctx, entity, trait);
+  if (triggerChanged) setChanged(ctx, entity, trait);
+  else data.version++;
 }
 
 /* @inline */ function addTraitToEntity(
@@ -387,6 +390,7 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   const pageId = eid >>> 10;
   const offset = eid & 1023;
   ensureMaskPage(ctx.entityMasks[generationId], pageId)[offset] |= bitflag;
+  instance.version++;
 
   for (const dirtyMask of ctx.dirtyMasks.values()) {
     ensureMaskPage(dirtyMask[generationId], pageId)[offset] |= bitflag;
@@ -427,6 +431,7 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
   const pageId = eid >>> 10;
   const offset = eid & 1023;
   ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
+  instance.version++;
 
   for (const dirtyMask of ctx.dirtyMasks.values()) {
     ensureMaskPage(dirtyMask[generationId], pageId)[offset] |= bitflag;
