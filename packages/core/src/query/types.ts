@@ -1,3 +1,4 @@
+import type { Archetype } from '../archetype/archetype-graph';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
@@ -131,10 +132,13 @@ export type ResolvedRelationFilter = RelationPair & {
 
 export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = string> = {
   [$modifier]: true;
+  /** Dense id used to key the query shape cache. See query/utils/query-token */
+  queryToken: number;
   type: TType;
   id: number;
   traits: TTrait;
   traitIds: number[];
+  modifiers?: Modifier[] | undefined;
 };
 
 /** Parameter types that can be passed to Or modifier */
@@ -177,6 +181,8 @@ export type TrackingGroup = {
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
+  /** Canonical set of traits required by this query, excluding conditional modifiers. */
+  requiredArchetype: Archetype;
   version: number;
   ctx: WorldContext;
   parameters: T;

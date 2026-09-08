@@ -1,5 +1,8 @@
+import { createArchetypeGraph } from '../archetype/archetype-graph';
 import { createPageAllocator } from '../entity/utils/page-allocator';
+import { resetModifiers } from '../query/modifier';
 import type { Query } from '../query/types';
+import { resetQueryFilters } from '../query/utils/create-query-hash';
 import type { WorldContext } from '../world';
 
 function createInitialState() {
@@ -9,7 +12,8 @@ function createInitialState() {
   return {
     worlds: [] as (WorldContext | null)[],
     pageOwners: allocator.pageOwners,
-    cachedQueries: new Map<string, Query<any>>(),
+    archetypes: createArchetypeGraph(),
+    cachedQueries: new Map<string, Query<any>[]>(),
     pageAllocator: allocator,
   };
 }
@@ -20,7 +24,10 @@ export const universe = {
     const fresh = createInitialState();
     universe.worlds = fresh.worlds;
     universe.pageOwners = fresh.pageOwners;
+    universe.archetypes = fresh.archetypes;
     universe.cachedQueries = fresh.cachedQueries;
+    resetQueryFilters();
+    resetModifiers();
     universe.pageAllocator = fresh.pageAllocator;
   },
 };

@@ -11,6 +11,8 @@ export type RelationInputTarget =
 
 export interface ConcreteRelationPair<T extends Trait = Trait> {
   readonly [$relationPair]: true;
+  /** Always 0: a concrete target is not interned, so the pair has no token of its own */
+  readonly queryToken: 0;
   readonly relation: Relation<T>;
   readonly target: RelationTarget;
   readonly targetQuery?: undefined;
@@ -19,6 +21,8 @@ export interface ConcreteRelationPair<T extends Trait = Trait> {
 
 export interface QueryRelationPair<T extends Trait = Trait> {
   readonly [$relationPair]: true;
+  /** Dense id used to key the query shape cache. See query/utils/query-token */
+  readonly queryToken: number;
   readonly relation: Relation<T>;
   readonly target?: undefined;
   readonly targetQuery: Query<QueryParameter[]> | readonly QueryParameter[];

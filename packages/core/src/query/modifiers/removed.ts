@@ -1,10 +1,12 @@
-import { $internal } from '../../common';
-import { isRelation } from '../../relation/utils/is-relation';
 import type { ExtractTraits, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
-import { createModifier } from '../modifier';
+import { createModifier, internModifier } from '../modifier';
 import type { Modifier } from '../types';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
+
+function buildRemoved(id: number, inputs: readonly TraitOrRelation[]): Modifier {
+  return createModifier(`removed-${id}`, id, inputs);
+}
 
 export function createRemoved() {
   const id = createTrackingId();
@@ -16,10 +18,6 @@ export function createRemoved() {
 
   return <T extends TraitOrRelation[]>(
     ...inputs: T
-  ): Modifier<ExtractTraits<T>, `removed-${number}`> => {
-    const traits = inputs.map((input) =>
-      isRelation(input) ? input[$internal].trait : input
-    ) as ExtractTraits<T>;
-    return createModifier(`removed-${id}`, id, traits);
-  };
+  ): Modifier<ExtractTraits<T>, `removed-${number}`> =>
+    internModifier(id, inputs, buildRemoved) as Modifier<ExtractTraits<T>, `removed-${number}`>;
 }

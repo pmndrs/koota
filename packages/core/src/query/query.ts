@@ -28,7 +28,7 @@ import {
 import { checkQuery } from './utils/check-query';
 import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
-import { createQueryHash } from './utils/create-query-hash';
+import { createQueryHash, getQueryArchetype } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
 
 export const IsExcluded: TagTrait = trait();
@@ -181,6 +181,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
       or: [],
       all: [],
     },
+    requiredArchetype: getQueryArchetype(parameters),
     staticBitmasks: [],
     trackingGroups: [],
     generations: [],
@@ -450,10 +451,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 export function resolveQueryInstance(ctx: WorldContext, params: QueryParameter[]): QueryInstance {
   const hash = createQueryHash(params);
   let query = ctx.queriesHashMap.get(hash);
-  if (!query) {
-    query = createQueryInstance(ctx, params);
-    ctx.queriesHashMap.set(hash, query);
-  }
+  if (!query) query = createQueryInstance(ctx, params);
   return query;
 }
 
@@ -471,11 +469,8 @@ export function resolveQueryInstanceFromRef(
   if (!query) {
     query = createQueryInstance(ctx, queryRef.parameters);
     ctx.queriesHashMap.set(queryRef.hash, query);
-    if (queryRef.id >= ctx.queryInstances.length) {
-      ctx.queryInstances.length = queryRef.id + 1;
-    }
-    ctx.queryInstances[queryRef.id] = query;
   }
+  ctx.queryInstances[queryRef.id] = query;
   return query;
 }
 
@@ -533,21 +528,34 @@ export function subscribeQueryRemove(
 
 let queryId = 0;
 
+/** Reuse query membership by hash while preserving each ordered result layout. */
 export function createQuery<T extends QueryParameter[]>(...parameters: T): Query<T> {
   const hash = createQueryHash(parameters);
+  const layouts = universe.cachedQueries.get(hash);
+  if (layouts) {
+    for (const layout of layouts) {
+      if (layout.parameters.length !== parameters.length) continue;
+      let i = 0;
+      for (; i < parameters.length; i++) {
+        const previous = layout.parameters[i];
+        const parameter = parameters[i];
+        // The hash already identifies relation filters, which contribute no result values.
+        if (previous !== parameter && !(isRelationPair(previous) && isRelationPair(parameter))) {
+          break;
+        }
+      }
+      if (i === parameters.length) return layout as Query<T>;
+    }
+  }
 
-  const existing = universe.cachedQueries.get(hash);
-  if (existing) return existing as Query<T>;
-
-  const id = queryId++;
   const queryRef = Object.freeze({
     [$queryRef]: true,
-    id,
+    id: layouts?.[0].id ?? queryId++,
     hash,
-    parameters,
+    parameters: [...parameters],
   }) as Query<T>;
 
-  universe.cachedQueries.set(hash, queryRef);
-
+  if (layouts) layouts.push(queryRef);
+  else universe.cachedQueries.set(hash, [queryRef]);
   return queryRef;
 }

@@ -646,6 +646,21 @@ describe('Query modifiers', () => {
     expect(entities.length).toBe(1);
   });
 
+  it('should not confuse an Or of only modifiers with an unfiltered query', () => {
+    const Added = createAdded();
+
+    const entityA = world.spawn();
+    world.spawn();
+
+    // Warms the unfiltered query, which the Or must not be hashed as.
+    expect(world.query().length).toBe(2);
+
+    expect(world.query(Or(Added(Position), Added(Foo))).length).toBe(0);
+
+    entityA.add(Position);
+    expect(Array.from(world.query(Or(Added(Position), Added(Foo))))).toEqual([entityA]);
+  });
+
   it('should combine Or with Added modifiers to match ANY added trait', () => {
     const Added = createAdded();
 

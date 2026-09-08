@@ -1,18 +1,20 @@
-import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { ensureMaskPage } from '../../entity/utils/paged-mask';
-import { isRelation } from '../../relation/utils/is-relation';
 import { emit, hasSubscribers } from '../../trait/subscriptions';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
 import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { WorldContext } from '../../world';
-import { createModifier } from '../modifier';
+import { createModifier, internModifier } from '../modifier';
 import type { Modifier } from '../types';
 import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
+
+function buildChanged(id: number, inputs: readonly TraitOrRelation[]): Modifier {
+  return createModifier(`changed-${id}`, id, inputs);
+}
 
 export function createChanged() {
   const id = createTrackingId();
@@ -24,12 +26,8 @@ export function createChanged() {
 
   return <T extends TraitOrRelation[]>(
     ...inputs: T
-  ): Modifier<ExtractTraits<T>, `changed-${number}`> => {
-    const traits = inputs.map((input) =>
-      isRelation(input) ? input[$internal].trait : input
-    ) as ExtractTraits<T>;
-    return createModifier(`changed-${id}`, id, traits);
-  };
+  ): Modifier<ExtractTraits<T>, `changed-${number}`> =>
+    internModifier(id, inputs, buildChanged) as Modifier<ExtractTraits<T>, `changed-${number}`>;
 }
 
 /** @inline */

@@ -5,6 +5,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import type { QueryParameter } from '../query/types';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isQuery } from '../query/utils/is-query';
+import { nextQueryToken } from '../query/utils/query-token';
 import { Schema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
@@ -48,6 +49,16 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
     autoDestroy,
   };
 
+  // Pairs built from a target query are immutable filters over stable identities, so repeat
+  // calls hand back one shared instance. Inline queries stop allocating a pair per call and
+  // the query shape cache keys the pair as a single token. Concrete entity targets are never
+  // interned: they range over every entity and carry per call data in `params`, so they take
+  // token 0 and expand to the relation and the target instead.
+  type PairNode = { children: WeakMap<object, PairNode>; pair: RelationPair<Trait<S>> | undefined };
+  const pairRoot: PairNode = { children: new WeakMap(), pair: undefined };
+
+  // Both pair kinds list the same fields so they share one shape and the shape cache reads
+  // their token from a single place.
   function relationFn(...args: any[]): RelationPair<Trait<S>> {
     const firstArg = args[0];
     if (firstArg === undefined) throw Error('Relation target is undefined');
@@ -55,26 +66,36 @@ function createRelation<S extends Schema = Record<string, never>>(definition?: {
     if (firstArg === '*' || typeof firstArg === 'number') {
       return {
         [$relationPair]: true,
+        queryToken: 0,
         relation: relationFn as unknown as Relation<Trait<S>>,
         target: firstArg,
+        targetQuery: undefined,
         params: args[1],
       };
     }
 
-    if (isQuery(firstArg)) {
-      if (args.length > 1) throw Error('Query relations do not accept additional parameters.');
-      return {
-        [$relationPair]: true,
-        relation: relationFn as unknown as Relation<Trait<S>>,
-        targetQuery: firstArg,
-      };
+    if (isQuery(firstArg) && args.length > 1) {
+      throw Error('Query relations do not accept additional parameters.');
     }
 
-    return {
+    let node = pairRoot;
+    for (let i = 0; i < args.length; i++) {
+      let next = node.children.get(args[i]);
+      if (next === undefined) {
+        next = { children: new WeakMap(), pair: undefined };
+        node.children.set(args[i], next);
+      }
+      node = next;
+    }
+
+    return (node.pair ??= {
       [$relationPair]: true,
+      queryToken: nextQueryToken(),
       relation: relationFn as unknown as Relation<Trait<S>>,
-      targetQuery: args as QueryParameter[],
-    };
+      target: undefined,
+      targetQuery: isQuery(firstArg) ? firstArg : (args as QueryParameter[]),
+      params: undefined,
+    });
   }
 
   const relation = Object.assign(relationFn, {

@@ -61,6 +61,30 @@ group('world.query inline cache hit @query @query-api', () => {
     world.destroy();
   });
 
+  bench('3 traits, alternating order', function* () {
+    const { world, entity } = setupWorld();
+    const orders = [
+      [Position, Velocity, Health],
+      [Health, Position, Velocity],
+      [Velocity, Health, Position],
+      [Position, Health, Velocity],
+      [Health, Velocity, Position],
+      [Velocity, Position, Health],
+    ];
+    for (const parameters of orders) {
+      assert.deepEqual(Array.from(world.query(...parameters)), [entity]);
+    }
+    let index = 0;
+
+    yield () => {
+      const result = world.query(...orders[index]);
+      index = (index + 1) % orders.length;
+      return result;
+    };
+
+    world.destroy();
+  });
+
   bench('2 traits', function* () {
     const { world, entity } = setupWorld();
     assert.deepEqual(Array.from(world.query(Position, Velocity)), [entity]);

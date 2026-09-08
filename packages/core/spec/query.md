@@ -17,7 +17,7 @@ world.query(Position, Velocity)
 ```mermaid
 flowchart TD
     A["world.query(Position, Velocity)"] --> B[Ensure world registered]
-    B --> C[Compute hash from params]
+    B --> C[Resolve required trait-set graph node and filters]
     C --> D{Cached instance?}
     D -- hit --> E[Run query]
     D -- miss --> F[Create & populate instance]
@@ -36,7 +36,7 @@ flowchart TD
 world.query(Position, Velocity)
 ```
 
-Trait refs are passed as arguments to `world.query`. Each ref carries a stable numeric ID used for hashing.
+Trait refs are passed as arguments to `world.query`. Each ref carries a stable numeric ID used to traverse the archetype graph.
 
 **2. Ensure world registered**
 
@@ -53,7 +53,9 @@ Querying is also a registration point. If the world has not been used yet, this 
 const hash = createQueryHash(params)
 ```
 
-Trait IDs are sorted and joined into a canonical string key. Parameter order doesn't matter — `query(A, B)` and `query(B, A)` produce the same hash.
+Trait IDs follow cached add edges in the shared archetype graph. Different orders converge on the same node, so `query(A, B)` and `query(B, A)` reuse its canonical key. Sorting and key construction happen only when a new transition needs a destination set.
+
+Modifiers and relation targets use a bounded cache keyed by the filters and required trait set. They retain their own matching rules and do not create entity-target nodes in the graph. See [archetype-graph.md](./archetype-graph.md).
 
 **4. Get cached instance**
 
@@ -66,7 +68,7 @@ if (!query) {
 }
 ```
 
-The hash looks up an existing `QueryInstance`. On a miss a new instance is created: it processes the parameters, builds bitmasks, and populates matching entities via bitmask checks against all live entities. The instance is then cached for future calls.
+The hash looks up an existing `QueryInstance`. On a miss a new instance records its required archetype, processes the parameters, builds bitmasks, and populates matching entities via bitmask checks against all live entities. The instance is then cached for future calls.
 
 **5. Run**
 
@@ -87,6 +89,7 @@ The entity snapshot is wrapped in a `QueryResult` — an array with additional m
 ## Important details
 
 - Query instances are cached two ways: by canonical hash in `ctx.queriesHashMap`, and for pre-built query refs by numeric `queryRef.id` in `ctx.queryInstances`. The second path avoids recomputing the same hash lookup for shared query refs.
+- Explicit query refs share a membership ID while retaining separate ordered parameter layouts. Reversing trait order therefore preserves the caller's tuple order without duplicating the world's matching entity set.
 - Query matching is incremental after creation. Structural changes do not rebuild every query from scratch; they update only the queries affected by the touched trait or relation.
 
 ## Fast paths
