@@ -28,8 +28,8 @@ function queryHashNumericId(hash: string): number {
   return id;
 }
 
-export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
-  let cursor = 0;
+export const createQueryHash = (parameters: QueryParameter[], base = 0): QueryHash => {
+  let cursor = base;
 
   for (let i = 0; i < parameters.length; i++) {
     const param = parameters[i];
@@ -38,9 +38,10 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
       const relationId = (param.relation as Relation<Trait>)[$internal].trait.id;
 
       if (param.targetQuery) {
+        // Hash inline filters after the entries already written by this query.
         const subHash = isQuery(param.targetQuery)
           ? param.targetQuery.hash
-          : createQueryHash([...param.targetQuery]);
+          : createQueryHash([...param.targetQuery], cursor);
         sortBuf[cursor++] =
           relationId * RELATION_FACTOR + queryHashNumericId(subHash) + RELATION_QUERY_OFFSET;
         continue;
@@ -62,7 +63,7 @@ export const createQueryHash = (parameters: QueryParameter[]): QueryHash => {
     sortBuf[cursor++] = (param as Trait).id;
   }
 
-  const filled = sortBuf.subarray(0, cursor);
+  const filled = sortBuf.subarray(base, cursor);
   filled.sort();
   return filled.join(',');
 };
