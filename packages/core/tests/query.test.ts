@@ -261,6 +261,22 @@ describe('Query', () => {
     expect(onRemove).toHaveBeenCalledWith(child);
   });
 
+  it('keeps queries distinct when they share a relation filter', () => {
+    const parent = world.spawn(IsPlayer, IsActive);
+    const positioned = world.spawn(Position, ChildOf(parent));
+    const named = world.spawn(Name, ChildOf(parent));
+
+    // Parameters listed before a relation filter have to survive into the query hash,
+    // otherwise these two queries share a cache entry and the second returns the first's
+    // entities.
+    expect(Array.from(world.query(Position, ChildOf(IsPlayer)))).toEqual([positioned]);
+    expect(Array.from(world.query(Name, ChildOf(IsPlayer)))).toEqual([named]);
+
+    // The same holds when the filter itself takes several parameters.
+    expect(Array.from(world.query(Position, ChildOf(IsPlayer, IsActive)))).toEqual([positioned]);
+    expect(Array.from(world.query(Name, ChildOf(IsPlayer, IsActive)))).toEqual([named]);
+  });
+
   it('should select traits', () => {
     world.spawn(Position, Name);
 
