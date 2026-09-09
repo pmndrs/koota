@@ -1,4 +1,11 @@
-import { removeSparse } from '@koota/collections';
+import {
+  firstMembership,
+  eraseMembership,
+  findMembership,
+  insertMembership,
+  reserveMemberships,
+} from '../../entity/membership';
+import { isEntityAlive } from '../../entity/entity-index';
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/pack-entity';
@@ -9,17 +16,14 @@ import { checkQueryWithRelations } from '../../query/check-query-with-relations'
 import {
   addRelationTarget,
   getFirstRelationTarget,
-  getRelationTargets,
   getRelationData,
   hasRelationToTarget,
   removeAllRelationTargets,
   removeRelationTarget,
   setRelationData,
-  setRelationDataAtIndex,
 } from '../../relation/relation';
 import type { Relation } from '../../relation/types';
 import { isRelationPair } from '../../relation/is-relation';
-import { getSchemaDefaults } from '../../storage';
 import { hasTrait, registerTrait } from '../../trait/trait';
 import { emit } from '../../trait/subscriptions';
 import { getTraitInstance, hasTraitInstance } from '../../trait/trait';
@@ -28,14 +32,19 @@ import type { RelationPair } from '../../relation/types';
 import type { KernelContext } from '../../context';
 import { invokeTraitHook, publishQueryNotifications } from '../lifecycle';
 
-export function applyAddTrait(ctx: KernelContext, entity: Entity, config: ConfigurableTrait) {
+export function applyAddTrait(
+  ctx: KernelContext,
+  entity: Entity,
+  config: ConfigurableTrait,
+  initial?: any
+) {
   if (isRelationPair(config)) {
-    addRelationPair(ctx, entity, config);
+    addRelationPair(ctx, entity, config, initial);
     return;
   }
 
   let trait: Trait;
-  let params: Record<string, any> | undefined;
+  let params: Record<string, any> | undefined = initial;
 
   if (Array.isArray(config)) {
     [trait, params] = config as [Trait, Record<string, any>];
@@ -43,35 +52,47 @@ export function applyAddTrait(ctx: KernelContext, entity: Entity, config: Config
     trait = config as Trait;
   }
 
-  const data = addTraitToEntity(ctx, entity, trait);
-  if (!data) return;
+  let instance = getTraitInstance(ctx.traitInstances, trait);
+  if (!instance || instance.entity < 0) instance = registerTrait(ctx, trait);
+  applyAddPreparedTrait(ctx, entity, instance, params);
+}
 
+/** Prepared callers resolve the definition once, outside the entity loop. */
+export function applyAddPreparedTrait(
+  ctx: KernelContext,
+  entity: Entity,
+  instance: TraitInstance,
+  params?: any
+): boolean {
+  const data = addPreparedTraitToEntity(ctx, entity, instance);
+  if (!data) return false;
+
+  const trait = instance.trait;
   const traitCtx = trait[$internal];
 
-  const defaults = traitCtx.initialize
-    ? traitCtx.initialize(ctx, entity)
-    : getSchemaDefaults(data.schema, traitCtx.type);
-
-  if (traitCtx.type === 'aos') {
-    traitCtx.set(getEntityId(entity), data.store, params ?? defaults);
-  } else if (defaults) {
-    traitCtx.set(getEntityId(entity), data.store, { ...defaults, ...params });
-  } else if (params) {
-    traitCtx.set(getEntityId(entity), data.store, params);
-  }
+  if (traitCtx.initialize) {
+    const defaults = traitCtx.initialize(ctx, entity);
+    traitCtx.init(getEntityId(entity), data.store, params ?? defaults);
+  } else traitCtx.init(getEntityId(entity), data.store, params);
 
   if (traitCtx.hooks?.onAdd) invokeTraitHook(ctx, entity, trait, 'onAdd');
   emit(data.addSubscriptions, entity);
   publishQueryNotifications(ctx);
+  return true;
 }
 
-/* @inline */ function addRelationPair(ctx: KernelContext, entity: Entity, pair: RelationPair) {
+export function addRelationPair(
+  ctx: KernelContext,
+  entity: Entity,
+  pair: RelationPair,
+  initial?: any
+) {
   const relation = pair.relation;
   const target = pair.target;
 
-  if (typeof target !== 'number') return;
+  if (typeof target !== 'number' || !isEntityAlive(ctx.entityIndex, target)) return;
 
-  const params = pair.params;
+  const params = initial ?? pair.params;
   const relationCtx = relation[$internal];
   const relationTrait = relationCtx.trait;
 
@@ -91,14 +112,11 @@ export function applyAddTrait(ctx: KernelContext, entity: Entity, config: Config
   const targetIndex = addRelationTarget(ctx, relation, entity, target);
   if (targetIndex === -1) return;
 
-  const schema = instance?.schema ?? getTraitInstance(ctx.traitInstances, relationTrait)!.schema;
-  const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
-
-  if (defaults) {
-    setRelationDataAtIndex(ctx, entity, relation, targetIndex, { ...defaults, ...params });
-  } else if (params) {
-    setRelationDataAtIndex(ctx, entity, relation, targetIndex, params);
-  }
+  relationTrait[$internal].init(
+    targetIndex,
+    (instance ?? getTraitInstance(ctx.traitInstances, relationTrait)!).store,
+    params
+  );
 
   instance = instance ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
   invokeTraitHook(ctx, entity, relationTrait, 'onAdd', target);
@@ -112,23 +130,18 @@ export function applyRemoveTrait(ctx: KernelContext, entity: Entity, trait: Trai
     return;
   }
 
-  if (!hasTrait(ctx, entity, trait)) return;
-
-  const traitCtx = trait[$internal];
-
-  if (traitCtx.relation) {
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    if (instance) {
-      const targets = getRelationTargets(ctx, traitCtx.relation, entity);
-      for (const t of targets) notifyRemove(ctx, entity, trait, t);
-    }
-    removeAllRelationTargets(ctx, traitCtx.relation, entity);
-  } else {
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    if (instance) notifyRemove(ctx, entity, trait);
+  if (!isEntityAlive(ctx.entityIndex, entity)) return;
+  const instance = getTraitInstance(ctx.traitInstances, trait);
+  if (!instance) return;
+  const relation = trait[$internal].relation;
+  if (!relation) {
+    applyRemovePreparedTrait(ctx, entity, instance);
+    return;
   }
-
-  removeTraitFromEntity(ctx, entity, trait);
+  if (!hasTrait(ctx, entity, trait)) return;
+  notifyRelationRemovals(ctx, entity, relation);
+  removeAllRelationTargets(ctx, relation, entity);
+  removePreparedTraitFromEntity(ctx, entity, instance);
 }
 
 /* @inline */ function removeRelationPair(ctx: KernelContext, entity: Entity, pair: RelationPair) {
@@ -142,8 +155,7 @@ export function applyRemoveTrait(ctx: KernelContext, entity: Entity, trait: Trai
 
   if (target === '*') {
     if (instance) {
-      const targets = getRelationTargets(ctx, relation, entity);
-      for (const t of targets) notifyRemove(ctx, entity, relationTrait, t);
+      notifyRelationRemovals(ctx, entity, relation);
     }
     removeAllRelationTargets(ctx, relation, entity);
     removeTraitFromEntity(ctx, entity, relationTrait);
@@ -154,10 +166,10 @@ export function applyRemoveTrait(ctx: KernelContext, entity: Entity, trait: Trai
     if (instance && hasRelationToTarget(ctx, relation, entity, target))
       notifyRemove(ctx, entity, relationTrait, target);
 
-    const { removedIndex, wasLastTarget } = removeRelationTarget(ctx, relation, entity, target);
-    if (removedIndex === -1) return;
+    const status = removeRelationTarget(ctx, relation, entity, target);
+    if (status === 0) return;
 
-    if (wasLastTarget) removeTraitFromEntity(ctx, entity, relationTrait);
+    if (status === 2) removeTraitFromEntity(ctx, entity, relationTrait);
   }
 }
 
@@ -173,10 +185,10 @@ export function cleanupRelationTarget(
   if (instance && hasRelationToTarget(ctx, relation, entity, target))
     notifyRemove(ctx, entity, relationTrait, target);
 
-  const { removedIndex, wasLastTarget } = removeRelationTarget(ctx, relation, entity, target);
-  if (removedIndex === -1) return;
+  const status = removeRelationTarget(ctx, relation, entity, target);
+  if (status === 0) return;
 
-  if (wasLastTarget) removeTraitFromEntity(ctx, entity, relationTrait);
+  if (status === 2) removeTraitFromEntity(ctx, entity, relationTrait);
 }
 
 export function applySetTrait(
@@ -238,15 +250,29 @@ export function applySetTrait(
 ): TraitInstance | undefined {
   if (hasTrait(ctx, entity, trait)) return undefined;
 
-  if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
+  if (
+    !hasTraitInstance(ctx.traitInstances, trait) ||
+    getTraitInstance(ctx.traitInstances, trait)!.entity < 0
+  )
+    registerTrait(ctx, trait);
 
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
+  return addPreparedTraitToEntity(ctx, entity, instance);
+}
+
+function addPreparedTraitToEntity(
+  ctx: KernelContext,
+  entity: Entity,
+  instance: TraitInstance
+): TraitInstance | undefined {
   const { generationId, bitflag, queries, trackingQueries } = instance;
 
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const offset = eid & 1023;
-  ensureMaskPage(ctx.entityMasks[generationId], pageId)[offset] |= bitflag;
+  const mask = ensureMaskPage(ctx.entityMasks[generationId], pageId);
+  if (mask[offset] & bitflag) return undefined;
+  mask[offset] |= bitflag;
   instance.version++;
 
   for (const dirtyMask of ctx.dirtyMasks.values()) {
@@ -254,7 +280,6 @@ export function applySetTrait(
   }
 
   for (const query of queries) {
-    removeSparse(query.toRemove, entity);
     const match =
       query.relationFilters && query.relationFilters.length > 0
         ? checkQueryWithRelations(ctx, query, entity)
@@ -264,7 +289,6 @@ export function applySetTrait(
   }
 
   for (const query of trackingQueries) {
-    removeSparse(query.toRemove, entity);
     const match =
       query.relationFilters && query.relationFilters.length > 0
         ? checkQueryTrackingWithRelations(ctx, query, entity, 'add', generationId, bitflag)
@@ -273,7 +297,9 @@ export function applySetTrait(
     else query.remove(ctx, entity);
   }
 
-  ctx.entityTraits.get(entity)!.add(trait);
+  const edges = ctx.memberships;
+  if (edges.count === edges.capacity) reserveMemberships(edges, Math.max(256, edges.capacity * 2));
+  insertMembership(edges, entity, instance.entity);
 
   return instance;
 }
@@ -282,6 +308,30 @@ function removeTraitFromEntity(ctx: KernelContext, entity: Entity, trait: Trait)
   if (!hasTrait(ctx, entity, trait)) return;
 
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
+  removePreparedTraitFromEntity(ctx, entity, instance);
+}
+
+export function applyRemovePreparedTrait(
+  ctx: KernelContext,
+  entity: Entity,
+  instance: TraitInstance
+): boolean {
+  const id = getEntityId(entity);
+  if (!(ctx.entityMasks[instance.generationId][id >>> 10][id & 1023] & instance.bitflag))
+    return false;
+  emit(instance.removeSubscriptions, entity);
+  if (instance.trait[$internal].hooks?.onRemove)
+    invokeTraitHook(ctx, entity, instance.trait, 'onRemove');
+  removePreparedTraitFromEntity(ctx, entity, instance);
+  return true;
+}
+
+function removePreparedTraitFromEntity(
+  ctx: KernelContext,
+  entity: Entity,
+  instance: TraitInstance
+): void {
+  const trait = instance.trait;
   const { generationId, bitflag, queries, trackingQueries } = instance;
 
   const eid = getEntityId(entity);
@@ -312,11 +362,22 @@ function removeTraitFromEntity(ctx: KernelContext, entity: Entity, trait: Trait)
     else query.remove(ctx, entity);
   }
 
-  ctx.entityTraits.get(entity)!.delete(trait);
+  const edge = findMembership(ctx.memberships, entity, instance.entity);
+  if (edge) eraseMembership(ctx.memberships, edge);
+  if (!trait[$internal].relation) trait[$internal].clear(eid, instance.store);
 }
 
 function notifyRemove(ctx: KernelContext, entity: Entity, trait: Trait, target?: Entity): void {
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
   emit(instance.removeSubscriptions, entity, target);
   invokeTraitHook(ctx, entity, trait, 'onRemove', target);
+}
+
+function notifyRelationRemovals(ctx: KernelContext, entity: Entity, relation: Relation<Trait>): void {
+  const edges = ctx.memberships;
+  for (let edge = firstMembership(edges, entity); edge; edge = edges.next[edge]) {
+    const pair = ctx.pairs.get(edges.predicates[edge]);
+    if (pair?.relation === relation)
+      notifyRemove(ctx, entity, relation[$internal].trait, pair.target);
+  }
 }

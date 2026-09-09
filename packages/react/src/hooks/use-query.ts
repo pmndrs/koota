@@ -1,4 +1,10 @@
-import { $internal, createQuery, type QueryParameter, type QueryResult } from '@koota/core';
+import {
+  $internal,
+  createQuery,
+  getQueryVersion,
+  type QueryParameter,
+  type QueryResult,
+} from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useWorld } from '../world/use-world';
 
@@ -11,19 +17,19 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 
   // Compute result: uses cache if valid, otherwise recomputes
   const getResult = (): QueryResult<T> => {
-    const query = world[$internal].kernel.queriesHashMap.get(queryRef.hash);
+    const version = getQueryVersion(world, queryRef);
 
     if (
-      query &&
+      version !== undefined &&
       cacheRef.current?.hash === queryRef.hash &&
-      cacheRef.current.version === query.version
+      cacheRef.current.version === version
     ) {
       return cacheRef.current.result;
     }
 
     const result = world.query(queryRef).sort();
-    const registeredQuery = world[$internal].kernel.queriesHashMap.get(queryRef.hash)!;
-    cacheRef.current = { hash: queryRef.hash, version: registeredQuery.version, result };
+    const registeredVersion = getQueryVersion(world, queryRef)!;
+    cacheRef.current = { hash: queryRef.hash, version: registeredVersion, result };
 
     return result;
   };
@@ -41,8 +47,8 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
       unsubRemove = world.onQueryRemove(queryRef, update);
 
       // Check if query changed between render and effect
-      const query = world[$internal].kernel.queriesHashMap.get(queryRef.hash)!;
-      if (cacheRef.current && query.version !== cacheRef.current.version) {
+      const version = getQueryVersion(world, queryRef);
+      if (cacheRef.current && version !== cacheRef.current.version) {
         update();
       }
     };

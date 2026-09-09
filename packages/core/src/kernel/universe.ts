@@ -13,7 +13,7 @@ function createInitialState() {
 }
 
 export const universe = {
-  ...createInitialState(),
+  .../* @__PURE__ */ createInitialState(),
   reset: () => {
     const fresh = createInitialState();
     universe.contexts = fresh.contexts;

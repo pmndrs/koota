@@ -1,3 +1,7 @@
+import { createMembershipIndex } from './entity/membership';
+import type { PairRecord } from './entity/definitions';
+import type { PreparedAccess } from './entity/prepared-access';
+import type { KernelContext as ContextHandle, PageCleanupToken as CleanupHandle } from './handles';
 import { createKernelError } from './errors';
 import { destroyEntity } from './commands/operations';
 import { clearBuffer } from './commands/buffer-state';
@@ -11,31 +15,39 @@ import type { CommandBufferState } from './commands/buffer-state';
 import type { Entity } from './entity/types';
 import { createEntityIndex } from './entity/entity-index';
 import type { QueryInstance } from './query/types';
-import type { Relation } from './relation/types';
 import type { Trait, TraitInstance } from './trait/types';
 
-export type KernelContext = {
+export type KernelContext = ContextHandle & {
   mutationDepth: number;
+  iterationDepth: number;
   flushing: boolean;
   commandEpoch: number;
   pendingCommands: CommandBufferState | null;
-  queryNotifications: [Set<(entity: Entity) => void>, Entity][];
+  spareCommands: CommandBufferState | null;
+  queryNotifications: (Set<(entity: Entity) => void> | undefined)[];
+  queryNotificationEntities: Entity[];
+  queryNotificationCount: number;
   entityIndex: ReturnType<typeof createEntityIndex>;
   entityMasks: Uint32Array[][];
-  entityTraits: Map<number, Set<Trait>>;
+  memberships: ReturnType<typeof createMembershipIndex>;
+  definitions: Map<Entity, TraitInstance>;
+  preparedAccesses: Map<Entity, PreparedAccess>;
+  pairs: Map<Entity, PairRecord>;
+  targetPairs: Map<Entity, PairRecord>;
+  implicitEntities: Set<Entity>;
+  destroyQueue: Entity[];
+  destroyCount: number;
   bitflag: number;
   traitInstances: (TraitInstance | undefined)[];
   traits: Set<Trait>;
-  relations: Set<Relation<Trait>>;
   queriesHashMap: Map<string, QueryInstance>;
   queryInstances: (QueryInstance | undefined)[];
   notQueries: Set<QueryInstance>;
-  dirtyQueries: Set<QueryInstance>;
   dirtyMasks: Map<number, Uint32Array[][]>;
   trackingSnapshots: Map<number, Uint32Array[][]>;
   changedMasks: Map<number, Uint32Array[][]>;
   /** Default forbidden traits for queries in this context. */
-  readonly queryExclusions?: readonly Trait[];
+  readonly queryExclusions: readonly Trait[] | undefined;
   entitySubscribedInstances: Set<TraitInstance>;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
   entityDestroySubscriptions: Set<(entity: Entity) => void>;
@@ -53,24 +65,33 @@ export function createKernelContext(queryExclusions?: readonly Trait[]): KernelC
     ownedPages: [],
     registered: false,
     contextId: nextContextId++,
-  };
+  } satisfies Omit<PageCleanupToken, keyof CleanupHandle> as unknown as PageCleanupToken;
   const ctx: KernelContext = {
     mutationDepth: 0,
+    iterationDepth: 0,
     flushing: false,
     commandEpoch: 0,
     pendingCommands: null,
+    spareCommands: null,
     queryNotifications: [],
+    queryNotificationEntities: [],
+    queryNotificationCount: 0,
     entityIndex: null! as ReturnType<typeof createEntityIndex>,
     entityMasks: [createEmptyMaskGeneration()],
-    entityTraits: new Map(),
+    memberships: createMembershipIndex(),
+    definitions: new Map(),
+    preparedAccesses: new Map(),
+    pairs: new Map(),
+    targetPairs: new Map(),
+    implicitEntities: new Set(),
+    destroyQueue: [],
+    destroyCount: 0,
     bitflag: 1,
     traitInstances: [],
     traits: new Set<Trait>(),
-    relations: new Set(),
     queriesHashMap: new Map(),
     queryInstances: [],
     notQueries: new Set(),
-    dirtyQueries: new Set(),
     dirtyMasks: new Map(),
     trackingSnapshots: new Map(),
     changedMasks: new Map(),
@@ -81,7 +102,7 @@ export function createKernelContext(queryExclusions?: readonly Trait[]): KernelC
     traitRegisteredSubscriptions: new Set(),
     isRegistered: false,
     cleanupToken,
-  };
+  } satisfies Omit<KernelContext, keyof ContextHandle> as unknown as KernelContext;
   ctx.entityIndex = createEntityIndex(ctx.cleanupToken.allocator, ctx);
   ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
   return ctx;
@@ -104,6 +125,7 @@ export function resetKernel(ctx: KernelContext): void {
   if (ctx.mutationDepth > 0 || ctx.flushing) throw createKernelError('CONTEXT_RESET_DURING_MUTATION');
   if (ctx.pendingCommands) clearBuffer(ctx.pendingCommands);
   ctx.pendingCommands = null;
+  ctx.spareCommands = null;
   ctx.commandEpoch++;
   if (!ctx.isRegistered) return;
 
@@ -118,7 +140,13 @@ export function resetKernel(ctx: KernelContext): void {
   // Re-link shared ownedPages for the cleanup token.
   ctx.entityIndex.ownedPages = ctx.cleanupToken.ownedPages;
 
-  ctx.entityTraits.clear();
+  ctx.memberships = createMembershipIndex();
+  ctx.definitions.clear();
+  ctx.preparedAccesses.clear();
+  ctx.pairs.clear();
+  ctx.targetPairs.clear();
+  ctx.implicitEntities.clear();
+  ctx.destroyCount = 0;
   ctx.entityMasks = [createEmptyMaskGeneration()];
   ctx.bitflag = 1;
 
@@ -130,11 +158,9 @@ export function resetKernel(ctx: KernelContext): void {
 
   clearTraitInstance(ctx.traitInstances);
   ctx.traits.clear();
-  ctx.relations.clear();
 
   ctx.queriesHashMap.clear();
   ctx.queryInstances.length = 0;
-  ctx.dirtyQueries.clear();
   ctx.notQueries.clear();
 
   ctx.trackingSnapshots.clear();
@@ -170,4 +196,48 @@ export function releaseKernelResources(token: PageCleanupToken): void {
       delete token.contexts[token.contextId];
     }
   }
+}
+
+export function getKernelId(ctx: KernelContext): number {
+  return ctx.cleanupToken.contextId!;
+}
+
+export function getKernelCleanupToken(ctx: KernelContext): PageCleanupToken {
+  return ctx.cleanupToken;
+}
+
+export function isKernelInitialized(ctx: KernelContext): boolean {
+  return ctx.isRegistered;
+}
+
+export function getKernelTraits(ctx: KernelContext): Set<Trait> {
+  return ctx.traits;
+}
+
+export function getKernelEntities(ctx: KernelContext, includeDefinitions = false): Entity[] {
+  const result: Entity[] = [];
+  for (let i = 0; i < ctx.entityIndex.aliveCount; i++) {
+    const entity = ctx.entityIndex.dense[i];
+    if (includeDefinitions || !ctx.implicitEntities.has(entity)) result.push(entity);
+  }
+  return result;
+}
+
+export function subscribeEntityLifecycle(
+  ctx: KernelContext,
+  event: 'spawn' | 'destroy',
+  callback: (entity: Entity) => void
+): () => void {
+  const subscriptions =
+    event === 'spawn' ? ctx.entitySpawnSubscriptions : ctx.entityDestroySubscriptions;
+  subscriptions.add(callback);
+  return () => subscriptions.delete(callback);
+}
+
+export function subscribeTraitRegistered(
+  ctx: KernelContext,
+  callback: (trait: Trait) => void
+): () => void {
+  ctx.traitRegisteredSubscriptions.add(callback);
+  return () => ctx.traitRegisteredSubscriptions.delete(callback);
 }

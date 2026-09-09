@@ -1,6 +1,7 @@
 import {
   $internal as internal,
   createQuery,
+  getQueryVersion,
   type QueryParameter,
   type QueryResult,
 } from '@koota/core';
@@ -32,27 +33,23 @@ export function useQuery<T extends QueryParameter[]>(
     const queryRef = createQuery(...getParams());
 
     const refresh = () => {
-      const query = world[internal].kernel.queriesHashMap.get(queryRef.hash);
+      const version = getQueryVersion(world, queryRef);
 
-      if (query && cache?.hash === queryRef.hash && cache.version === query.version) {
+      if (version !== undefined && cache?.hash === queryRef.hash && cache.version === version) {
         result = cache.result;
         return;
       }
 
       const next = world.query(queryRef).sort();
-      const registered = world[internal].kernel.queriesHashMap.get(queryRef.hash);
+      const registeredVersion = getQueryVersion(world, queryRef);
 
-      if (registered) {
-        cache = { hash: queryRef.hash, version: registered.version, result: next };
+      if (registeredVersion !== undefined) {
+        cache = { hash: queryRef.hash, version: registeredVersion, result: next };
       }
       result = next;
     };
 
-    /**
-     * Cache invalidation: addEntityToQuery fires subscriptions before
-     * bumping query.version, so the cache version check would incorrectly
-     * hit on the stale (pre-bump) version. Force a fresh recompute.
-     */
+    // Subscription updates always refresh the cached result.
     const onChange = () => {
       cache = null;
       refresh();
@@ -67,8 +64,8 @@ export function useQuery<T extends QueryParameter[]>(
      * Catch query updates that happened between the initial read and
      * subscription attachment
      */
-    const queryNow = world[internal].kernel.queriesHashMap.get(queryRef.hash);
-    if (queryNow && cache && queryNow.version !== cache.version) {
+    const versionNow = getQueryVersion(world, queryRef);
+    if (versionNow !== undefined && cache && versionNow !== cache.version) {
       refresh();
     }
 

@@ -1,8 +1,16 @@
-import { createSparseSet, addSparse, removeSparse, hasSparse, clearSparse } from '@koota/collections';
+import {
+  createSparseSet,
+  addSparse,
+  removeSparse,
+  hasSparse,
+  clearSparse,
+} from '../entity/entity-set';
+import type { QueryInstance as QueryHandle } from '../handles';
 import { $internal } from '../common';
 import { notifyQuery } from '../commands/lifecycle';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/pack-entity';
+import { countUsers, firstUser } from '../entity/membership';
 import { EMPTY_MASK_PAGE } from '../entity/paged-mask';
 import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
@@ -31,7 +39,8 @@ import { createQueryHash } from './create-query-hash';
 import { isQuery } from './is-query';
 
 function resolveRelationFilter(filter: ResolvedRelationFilter): ResolvedRelationFilter {
-  if (!filter.targetQuery) return filter;
+  if (!filter.targetQuery)
+    return { ...filter, targetQueryRef: undefined, targetQueryMatches: undefined };
 
   const targetQueryRef = isQuery(filter.targetQuery)
     ? filter.targetQuery
@@ -48,9 +57,7 @@ export function runQuery<T extends QueryParameter[]>(
   ctx: KernelContext,
   query: QueryInstance<T>
 ): Entity[] {
-  commitQueryRemovals(ctx);
-
-  const entities = query.entities.dense.slice() as Entity[];
+  const entities = query.entities.dense.slice(0, query.entities.size) as Entity[];
 
   if (query.isTracking) {
     clearSparse(query.entities);
@@ -64,37 +71,17 @@ export function runQuery<T extends QueryParameter[]>(
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
-  removeSparse(query.toRemove, entity);
-  addSparse(query.entities, entity);
-
+  if (!addSparse(query.entities, entity)) return;
   query.version++;
   for (const sub of query.internalAddSubscriptions) sub(entity);
   notifyQuery(query.ctx, query.addSubscriptions, entity);
 }
 
 export function removeEntityFromQuery(ctx: KernelContext, query: QueryInstance, entity: Entity) {
-  if (!hasSparse(query.entities, entity) || hasSparse(query.toRemove, entity)) return;
-
-  addSparse(query.toRemove, entity);
-  ctx.dirtyQueries.add(query);
-
+  if (!removeSparse(query.entities, entity)) return;
   query.version++;
   for (const sub of query.internalRemoveSubscriptions) sub(entity);
   notifyQuery(ctx, query.removeSubscriptions, entity);
-}
-
-export function commitQueryRemovals(ctx: KernelContext) {
-  if (!ctx.dirtyQueries.size) return;
-
-  for (const query of ctx.dirtyQueries) {
-    for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
-      const eid = query.toRemove.dense[i];
-      removeSparse(query.toRemove, eid);
-      removeSparse(query.entities, eid);
-    }
-  }
-
-  ctx.dirtyQueries.clear();
 }
 
 export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
@@ -159,12 +146,14 @@ function processTrackingModifier(
 
 export function createQueryInstance<T extends QueryParameter[]>(
   ctx: KernelContext,
-  parameters: T
+  parameters: T,
+  identities: readonly Entity[] | null = null
 ): QueryInstance {
   const query: QueryInstance = {
     version: 0,
     ctx,
     parameters,
+    identities,
     hash: '',
     traits: [],
     traitInstances: {
@@ -180,13 +169,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
     isTracking: false,
     hasChangedModifiers: false,
     changedTraits: new Set<Trait>(),
-    toRemove: createSparseSet(),
     cleanup: [],
     addSubscriptions: new Set<QuerySubscriber>(),
     removeSubscriptions: new Set<QuerySubscriber>(),
     internalAddSubscriptions: new Set<QuerySubscriber>(),
     internalRemoveSubscriptions: new Set<QuerySubscriber>(),
-    layoutCache: null,
     relationFilters: [],
 
     run: (ctx: KernelContext) => runQuery(ctx, query),
@@ -201,7 +188,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
       bitflag: number
     ) => checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag),
     resetTrackingBitmasks: (eid: number) => resetQueryTrackingBitmasks(query, eid),
-  };
+  } satisfies Omit<QueryInstance<T>, keyof QueryHandle> as unknown as QueryInstance<T>;
 
   const trackingGroupsMap = new Map<string, TrackingGroup>();
 
@@ -291,7 +278,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     return { required, forbidden, or };
   });
 
-  query.hash = createQueryHash(parameters);
+  query.hash = identities ? 'entities:' + identities.join(',') : createQueryHash(parameters);
 
   ctx.queriesHashMap.set(query.hash, query);
 
@@ -361,7 +348,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
       const dirtyMask = ctx.dirtyMasks.get(id)!;
       const changedMask = ctx.changedMasks.get(id)!;
 
-      for (const entity of ctx.entityIndex.dense) {
+      for (let i = 0; i < ctx.entityIndex.aliveCount; i++) {
+        const entity = ctx.entityIndex.dense[i];
+        if (ctx.implicitEntities.has(entity)) continue;
         if (hasSparse(query.entities, entity)) continue;
 
         const eid = getEntityId(entity);
@@ -432,12 +421,44 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   } else {
     const entities = ctx.entityIndex.dense;
-    for (let i = 0; i < ctx.entityIndex.aliveCount; i++) {
-      const entity = entities[i];
-      const match = hasRelationFilters
-        ? checkQueryWithRelations(ctx, query, entity)
-        : query.check(ctx, entity);
-      if (match) query.add(entity);
+    let candidate = -1;
+    let count = ctx.entityIndex.aliveCount;
+    const required = query.traitInstances.required;
+    if (!ctx.mutationDepth) {
+      for (let i = 0; i < required.length; i++) {
+        const predicate = identities?.[i] ?? required[i].entity;
+        const users = countUsers(ctx.memberships, predicate);
+        if (users < count) {
+          candidate = predicate;
+          count = users;
+        }
+      }
+    }
+    if (candidate !== -1 && count * 4 < ctx.entityIndex.aliveCount) {
+      // Sort dense row indices to preserve existing cached-query iteration order.
+      const rows = new Uint32Array(count);
+      const edges = ctx.memberships;
+      let size = 0;
+      for (let edge = firstUser(edges, candidate); edge; edge = edges.nextUser[edge]) {
+        const id = getEntityId(edges.subjects[edge]);
+        rows[size++] = ctx.entityIndex.sparse[id >>> 10]![id & 1023] - 1;
+      }
+      rows.sort();
+      for (let i = 0; i < size; i++) {
+        const entity = entities[rows[i]];
+        const match = hasRelationFilters
+          ? checkQueryWithRelations(ctx, query, entity)
+          : query.check(ctx, entity);
+        if (match) query.add(entity);
+      }
+    } else {
+      for (let i = 0; i < ctx.entityIndex.aliveCount; i++) {
+        const entity = entities[i];
+        const match = hasRelationFilters
+          ? checkQueryWithRelations(ctx, query, entity)
+          : query.check(ctx, entity);
+        if (match) query.add(entity);
+      }
     }
   }
 
@@ -471,11 +492,8 @@ export function resolveQueryInstanceFromRef(
   if (!query) {
     query = createQueryInstance(ctx, queryRef.parameters);
     ctx.queriesHashMap.set(queryRef.hash, query);
-    if (queryRef.id >= ctx.queryInstances.length) {
-      ctx.queryInstances.length = queryRef.id + 1;
-    }
-    ctx.queryInstances[queryRef.id] = query;
   }
+  ctx.queryInstances[queryRef.id] = query;
   return query;
 }
 
@@ -550,4 +568,20 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
   universe.cachedQueries.set(hash, queryRef);
 
   return queryRef;
+}
+
+/** Return the required size and copy only the caller capacity. Tracking is consumed on success. */
+export function collectQueryInto(
+  ctx: KernelContext,
+  query: QueryInstance,
+  output: number[] | Uint32Array
+): number {
+  const count = query.entities.size;
+  const end = Math.min(count, output.length);
+  for (let i = 0; i < end; i++) output[i] = query.entities.dense[i];
+  if (query.isTracking && output.length >= count) {
+    for (let i = 0; i < count; i++) query.resetTrackingBitmasks(getEntityId(query.entities.dense[i]));
+    clearSparse(query.entities);
+  }
+  return count;
 }

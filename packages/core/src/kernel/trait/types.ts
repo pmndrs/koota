@@ -1,4 +1,4 @@
-import type { KernelContext } from '../context';
+import type { KernelContext } from '../handles';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
@@ -23,6 +23,11 @@ export type TraitHooks<S extends Schema = any> = {
 export type Trait<TSchema extends Schema = any> = {
   (params?: TraitValue<TSchema>): [Trait<TSchema>, TraitValue<TSchema>];
   [$internal]: {
+    fieldCount: number;
+    readValues: (index: number, store: any, output: any[] | Float64Array) => void;
+    writeValues: (index: number, store: any, input: any[] | Float64Array) => void;
+    init: (index: number, store: any, value: any) => void;
+    clear: (index: number, store: any) => void;
     set: (index: number, store: any, value: TraitValue<TSchema>) => void;
     fastSet: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
     fastSetWithChangeDetection: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
@@ -86,6 +91,8 @@ export type IsTag<T extends Trait> = ExtractIsTag<T>;
 
 export interface TraitInstance<T extends Trait = Trait, S extends Schema = ExtractSchema<T>> {
   /** Revision for possible writes and membership changes, even without change events. */
+  entity: Entity;
+  pairs: Map<Entity, Entity>;
   version: number;
   generationId: number;
   bitflag: number;
@@ -95,20 +102,11 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   queries: Set<QueryInstance>;
   /** Tracking queries (Added/Removed/Changed) that include this trait */
   trackingQueries: Set<QueryInstance>;
-  notQueries: Set<QueryInstance>;
   /** Queries that filter by this relation (only for relation traits) */
   relationQueries: Set<QueryInstance>;
-  schema: S;
   changeSubscriptions: Subscriptions;
   addSubscriptions: Subscriptions;
   removeSubscriptions: Subscriptions;
-  /**
-   * Paged relation targets.
-   * For exclusive: relationTargets[pageId][offset] = targetId (number)
-   * For non-exclusive: relationTargets[pageId][offset] = [targetId1, targetId2, ...] (number[])
-   */
-  relationTargets?: any[][];
-  relationSourcesByTarget?: Entity[][];
 }
 
 export type TraitOrRelation = Trait | Relation<Trait>;

@@ -1,12 +1,4 @@
-import {
-  $internal,
-  $modifier,
-  createModifier,
-  createTrackingId,
-  isRelation,
-  setTrackingMasks,
-  universe,
-} from '../../kernel';
+import { $internal, $modifier, createModifier, createTrackingId, isRelation } from '../../kernel';
 import type { ExtractTraits, Trait, TraitOrRelation } from '../trait/types';
 import type { Modifier, OrModifier, OrParameter } from './types';
 
@@ -23,11 +15,6 @@ function resolveTraits<T extends TraitOrRelation[]>(inputs: T): ExtractTraits<T>
  */
 function createTrackingModifier<TName extends string>(name: TName) {
   const id = createTrackingId();
-
-  for (const ctx of universe.contexts) {
-    if (!ctx) continue;
-    setTrackingMasks(ctx, id);
-  }
 
   return <T extends TraitOrRelation[]>(
     ...inputs: T

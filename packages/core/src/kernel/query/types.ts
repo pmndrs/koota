@@ -1,4 +1,5 @@
-import type { SparseSet } from '@koota/collections';
+import type { QueryInstance as QueryHandle } from '../handles';
+import type { SparseSet } from '../entity/entity-set';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import type { Trait, TraitOrRelation, TraitInstance } from '../trait/types';
@@ -9,20 +10,6 @@ import { $parameters, $queryRef } from './symbols';
 export type QueryParameter = Trait | RelationPair | Modifier;
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryUnsubscriber = () => void;
-
-export type QueryLayout = {
-  pageCount: number;
-  pageIds: Uint32Array;
-  pageStarts: Uint32Array;
-  pageCounts: Uint16Array;
-  offsets: Uint16Array;
-  entities: readonly Entity[];
-};
-
-export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
-  version: number;
-  entities: readonly Entity[];
-};
 
 export type QueryHash = string;
 
@@ -48,6 +35,7 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
   id: number;
   traits: TTrait;
   traitIds: number[];
+  modifiers: Modifier[] | null;
 };
 
 /** Parameter types that can be passed to Or modifier */
@@ -89,10 +77,11 @@ export type TrackingGroup = {
   trackers: Uint32Array[][];
 };
 
-export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
+export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = QueryHandle & {
   version: number;
   ctx: KernelContext;
   parameters: T;
+  identities: readonly Entity[] | null;
   hash: QueryHash;
   traits: Trait[];
   /** Static trait instances for non-tracking query matching */
@@ -115,13 +104,11 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   isTracking: boolean;
   hasChangedModifiers: boolean;
   changedTraits: Set<Trait>;
-  toRemove: SparseSet;
   cleanup: QueryUnsubscriber[];
   addSubscriptions: Set<QuerySubscriber>;
   removeSubscriptions: Set<QuerySubscriber>;
   internalAddSubscriptions: Set<QuerySubscriber>;
   internalRemoveSubscriptions: Set<QuerySubscriber>;
-  layoutCache: QueryLayoutCache | null;
   /** Relation pairs for target-specific queries */
   relationFilters?: ResolvedRelationFilter[];
   run: (ctx: KernelContext) => Entity[];

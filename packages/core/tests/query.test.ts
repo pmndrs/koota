@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { $internal, createQuery, createWorld, IsExcluded, Not, Or, relation, trait } from '../src';
+import {
+  createQuery,
+  getQueryVersion,
+  createWorld,
+  IsExcluded,
+  Not,
+  Or,
+  relation,
+  trait,
+} from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -42,8 +51,7 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('should only create one hash indpendent of the order of the parameters', () => {
-    const ctx = world[$internal].kernel;
+  it('should reuse query hashes regardless of parameter order', () => {
     let entities: any = world.query(Position, Name, Not(IsActive));
     expect(entities.length).toBe(0);
 
@@ -56,13 +64,13 @@ describe('Query', () => {
     entities = world.query(Name, Not(IsActive), Position);
     expect(entities.length).toBe(1);
 
-    expect(ctx.queriesHashMap.size).toBe(1);
+    expect(createQuery(Position, Name, Not(IsActive)).hash).toBe(
+      createQuery(Name, Not(IsActive), Position).hash
+    );
 
     // Test various permutations of modifiers.
     entities = world.query(IsActive, Not(Position, Name));
     expect(entities.length).toBe(0);
-
-    expect(ctx.queriesHashMap.size).toBe(2);
 
     entities = world.query(Not(Name, Position), IsActive);
     expect(entities.length).toBe(0);
@@ -70,7 +78,12 @@ describe('Query', () => {
     entities = world.query(Not(Position), IsActive, Not(Name));
     expect(entities.length).toBe(0);
 
-    expect(ctx.queriesHashMap.size).toBe(2);
+    expect(createQuery(IsActive, Not(Position, Name)).hash).toBe(
+      createQuery(Not(Name, Position), IsActive).hash
+    );
+    expect(createQuery(IsActive, Not(Position, Name)).hash).toBe(
+      createQuery(Not(Position), IsActive, Not(Name)).hash
+    );
   });
 
   it('should return all queryable entities when parameters are empty', () => {
@@ -112,6 +125,43 @@ describe('Query', () => {
     world.spawn(Position, IsExcluded);
     const entities = world.query(Position);
     expect(entities.length).toBe(0);
+  });
+
+  it('excludes hidden entities from inline and cached relation queries', () => {
+    const target = world.spawn();
+    const visible = world.spawn(ChildOf(target));
+    const hidden = world.spawn(ChildOf(target), IsExcluded);
+    world.add(ChildOf(target));
+    const query = createQuery(ChildOf(target));
+
+    expect([...world.query(ChildOf(target))]).toEqual([visible]);
+    expect([...world.query(query)]).toEqual([visible]);
+    hidden.remove(IsExcluded);
+    expect(world.query(ChildOf(target))).toHaveLength(2);
+    expect(world.query(query)).toHaveLength(2);
+  });
+
+  it('reads cached query revisions without initializing a world or consuming results', () => {
+    const fresh = createWorld();
+    const query = createQuery(Position);
+    expect(getQueryVersion(fresh, query)).toBeUndefined();
+    expect(fresh.isRegistered).toBe(false);
+    fresh.destroy();
+
+    world.query(Position);
+    const initial = getQueryVersion(world, query)!;
+    const onAdd = vi.fn();
+    const unsubscribe = world.onQueryAdd(query, onAdd);
+    const entity = world.spawn(Position);
+    expect(getQueryVersion(world, query)).toBeGreaterThan(initial);
+    expect([...world.query(query)]).toEqual([entity]);
+    expect(onAdd).toHaveBeenCalledExactlyOnceWith(entity);
+
+    unsubscribe();
+    world.spawn(Position);
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    world.reset();
+    expect(getQueryVersion(world, query)).toBeUndefined();
   });
 
   it('should update stores with updateEach', () => {
@@ -417,9 +467,8 @@ describe('Query', () => {
     entities.sort();
 
     // Test the entity.id() are in ascending order.
-    // [1, 2, 3, 4]
-    for (let i = 0; i < entities.length; i++) {
-      expect(entities[i].id()).toBe(i + 1);
+    for (let i = 1; i < entities.length; i++) {
+      expect(entities[i].id()).toBeGreaterThan(entities[i - 1].id());
     }
   });
 

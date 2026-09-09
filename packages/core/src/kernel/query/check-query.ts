@@ -1,9 +1,15 @@
+import { isEntityAlive } from '../entity/entity-index';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/pack-entity';
 import type { KernelContext } from '../context';
 import type { QueryInstance } from './types';
 
 export function checkQuery(ctx: KernelContext, query: QueryInstance, entity: Entity): boolean {
+  if (ctx.implicitEntities.has(entity)) return false;
+  const identities = query.identities;
+  if (identities)
+    for (let i = 0; i < identities.length; i++)
+      if (!isEntityAlive(ctx.entityIndex, identities[i])) return false;
   const staticBitmasks = query.staticBitmasks;
   const generations = query.generations;
   const eid = getEntityId(entity);

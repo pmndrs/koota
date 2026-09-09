@@ -1,23 +1,29 @@
 import { rethrowPublicError } from '../errors';
 import {
   $internal,
+  resolveDefinition,
+  pairEntity,
+  resolveQuery,
+  subscribeQuery,
+  subscribeTrait,
+  subscribeEntityLifecycle,
+  subscribeTraitRegistered,
+  getKernelId,
+  getKernelCleanupToken,
+  isKernelInitialized,
+  getKernelTraits,
+  getKernelEntities,
+  hasEntity,
+  queryRelation,
   addTrait,
   createEntity,
   createKernelContext,
-  createQueryHash,
-  createQueryInstance,
   destroyKernel,
   flushCommands,
-  getAliveEntities,
-  getEntitiesWithRelationTo,
   getTrait,
-  getTraitInstance,
   hasTrait,
-  hasTraitInstance,
-  isEntityAlive,
   isQuery,
   isRelationPair,
-  registerTrait,
   removeTrait,
   resetKernel,
   setTrait,
@@ -27,7 +33,7 @@ import '../entity/entity-methods-patch';
 import type { Entity } from '../entity/types';
 import { IsExcluded, runQueryResult } from '../query/query';
 import { createRelationOnlyQueryResult } from '../query/query-result';
-import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
+import type { Query, QueryParameter, QueryUnsubscriber } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
   ConfigurableTrait,
@@ -44,8 +50,8 @@ import { resolveHookCallback, resolveHookTrait } from './resolve-hook';
 
 export function createWorld(...traits: ConfigurableTrait[]): World {
   const kernel = createKernelContext([IsExcluded]);
-  const id = kernel.cleanupToken.contextId!;
-  const cleanupToken = kernel.cleanupToken;
+  const id = getKernelId(kernel);
+  const cleanupToken = getKernelCleanupToken(kernel);
 
   const world = {
     [$internal]: {
@@ -77,14 +83,26 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       return createEntity(ctx, ...spawnTraits) as Entity;
     },
 
+    entity(definition: Trait | Relation<Trait> | RelationPair): Entity {
+      const ctx = world[$internal].kernel;
+      initializeWorld(world[$internal]);
+      if (isRelationPair(definition)) {
+        if (typeof definition.target !== 'number')
+          throw new Error('Koota: Expected a concrete pair.');
+        return pairEntity(
+          ctx,
+          resolveDefinition(ctx, definition.relation),
+          definition.target
+        ) as Entity;
+      }
+      return resolveDefinition(ctx, definition) as Entity;
+    },
+
     has(target: Entity | Trait): boolean {
       const ctx = world[$internal].kernel;
-      if (!ctx.isRegistered) {
-        if (typeof target === 'number') return false;
-        return false;
-      }
+      if (!isKernelInitialized(ctx)) return false;
       return typeof target === 'number'
-        ? isEntityAlive(ctx.entityIndex, target)
+        ? hasEntity(ctx, target)
         : hasTrait(ctx, world[$internal].worldEntity!, target);
     },
 
@@ -96,13 +114,13 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     remove(...removeTraits: Trait[]) {
       const ctx = world[$internal].kernel;
-      if (!ctx.isRegistered) return;
+      if (!isKernelInitialized(ctx)) return;
       removeTrait(ctx, world[$internal].worldEntity!, ...removeTraits);
     },
 
     get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
       const ctx = world[$internal].kernel;
-      if (!ctx.isRegistered) return undefined;
+      if (!isKernelInitialized(ctx)) return undefined;
       return getTrait(ctx, world[$internal].worldEntity!, trait);
     },
 
@@ -115,7 +133,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     destroy() {
       try {
         const ctx = world[$internal].kernel;
-        const registered = ctx.isRegistered;
+        const registered = isKernelInitialized(ctx);
         destroyKernel(ctx);
         world[$internal].worldEntity = undefined;
         world[$internal].actionInstances.length = 0;
@@ -129,7 +147,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     reset() {
       try {
         const ctx = world[$internal].kernel;
-        const registered = ctx.isRegistered;
+        const registered = isKernelInitialized(ctx);
         resetKernel(ctx);
         if (registered) world[$internal].worldEntity = createEntity(ctx, IsExcluded) as Entity;
         world[$internal].actionInstances.length = 0;
@@ -142,50 +160,19 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     query(...args: any[]) {
       const ctx = world[$internal].kernel;
       initializeWorld(world[$internal]);
-
       if (args.length === 1 && isQuery(args[0])) {
-        const queryRef = args[0];
-        let query = ctx.queryInstances[queryRef.id];
-        if (query) return runQueryResult(ctx, query, queryRef.parameters);
-
-        query = ctx.queriesHashMap.get(queryRef.hash);
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-        }
-        return runQueryResult(ctx, query, queryRef.parameters);
-      } else {
-        const params = args as QueryParameter[];
-
-        if (params.length === 1 && isRelationPair(params[0])) {
-          const relation = params[0].relation;
-          const target = params[0].target;
-
-          // Only use fast path for specific targets
-          if (!params[0].targetQuery && typeof target === 'number') {
-            const entities = getEntitiesWithRelationTo(
-              ctx,
-              relation as Relation<Trait>,
-              target as Entity
-            );
-            return createRelationOnlyQueryResult(entities as Entity[]);
-          }
-        }
-
-        const hash = createQueryHash(params);
-        let query = ctx.queriesHashMap.get(hash);
-
-        if (!query) {
-          query = createQueryInstance(ctx, params);
-          ctx.queriesHashMap.set(hash, query);
-        }
-
-        return runQueryResult(ctx, query, params);
+        return runQueryResult(ctx, resolveQuery(ctx, args[0]), args[0].parameters);
       }
+      const params = args as QueryParameter[];
+      if (
+        params.length === 1 &&
+        isRelationPair(params[0]) &&
+        !params[0].targetQuery &&
+        typeof params[0].target === 'number'
+      ) {
+        return createRelationOnlyQueryResult(queryRelation(ctx, params[0]) as Entity[]);
+      }
+      return runQueryResult(ctx, resolveQuery(ctx, params), params);
     },
 
     queryFirst(...args: [string] | QueryParameter[]) {
@@ -199,33 +186,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal].kernel;
       initializeWorld(world[$internal]);
-      let query: QueryInstance;
-
-      if (isQuery(args)) {
-        const queryRef = args;
-        query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-        }
-      } else {
-        const hash = createQueryHash(args as QueryParameter[]);
-        query = ctx.queriesHashMap.get(hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, args as QueryParameter[]);
-          ctx.queriesHashMap.set(hash, query);
-        }
-      }
-
-      query.addSubscriptions.add(callback as (entity: number) => void);
-
-      return () => query.addSubscriptions.delete(callback as (entity: number) => void);
+      return subscribeQuery(ctx, args, 'add', callback as (entity: number) => void);
     },
 
     onQueryRemove(
@@ -234,33 +195,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal].kernel;
       initializeWorld(world[$internal]);
-      let query: QueryInstance;
-
-      if (isQuery(args)) {
-        const queryRef = args;
-        query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-        }
-      } else {
-        const hash = createQueryHash(args as QueryParameter[]);
-        query = ctx.queriesHashMap.get(hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, args as QueryParameter[]);
-          ctx.queriesHashMap.set(hash, query);
-        }
-      }
-
-      query.removeSubscriptions.add(callback as (entity: number) => void);
-
-      return () => query.removeSubscriptions.delete(callback as (entity: number) => void);
+      return subscribeQuery(ctx, args, 'remove', callback as (entity: number) => void);
     },
 
     onAdd<T extends Trait>(
@@ -269,19 +204,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal].kernel;
       initializeWorld(world[$internal]);
-      const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
-
-      let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
-
-      if (!data) {
-        registerTrait(ctx, resolvedTrait);
-        data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      }
-
-      data.addSubscriptions.all.add(resolvedCallback);
-
-      return () => data.addSubscriptions.all.delete(resolvedCallback);
+      return subscribeTrait(
+        ctx,
+        resolveHookTrait(trait),
+        'add',
+        resolveHookCallback(ctx, trait, callback)
+      );
     },
 
     onRemove<T extends Trait>(
@@ -290,19 +218,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal].kernel;
       initializeWorld(world[$internal]);
-      const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
-
-      let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
-
-      if (!data) {
-        registerTrait(ctx, resolvedTrait);
-        data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      }
-
-      data.removeSubscriptions.all.add(resolvedCallback);
-
-      return () => data.removeSubscriptions.all.delete(resolvedCallback);
+      return subscribeTrait(
+        ctx,
+        resolveHookTrait(trait),
+        'remove',
+        resolveHookCallback(ctx, trait, callback)
+      );
     },
 
     onChange(
@@ -311,15 +232,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal].kernel;
       initializeWorld(world[$internal]);
-      const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
-
-      if (!hasTraitInstance(ctx.traitInstances, resolvedTrait)) registerTrait(ctx, resolvedTrait);
-
-      const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      data.changeSubscriptions.all.add(resolvedCallback);
-
-      return () => data.changeSubscriptions.all.delete(resolvedCallback);
+      return subscribeTrait(
+        ctx,
+        resolveHookTrait(trait),
+        'change',
+        resolveHookCallback(ctx, trait, callback)
+      );
     },
 
     onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
@@ -327,8 +245,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       const resolved = (entity: number) => {
         if (!hasTrait(ctx, entity, IsExcluded)) callback(entity as Entity);
       };
-      ctx.entitySpawnSubscriptions.add(resolved);
-      return () => ctx.entitySpawnSubscriptions.delete(resolved);
+      return subscribeEntityLifecycle(ctx, 'spawn', resolved);
     },
 
     onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
@@ -337,19 +254,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       const resolved = (entity: number) => {
         if (entity !== state.worldEntity) callback(entity as Entity);
       };
-      ctx.entityDestroySubscriptions.add(resolved);
-      return () => ctx.entityDestroySubscriptions.delete(resolved);
+      return subscribeEntityLifecycle(ctx, 'destroy', resolved);
     },
 
     onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber {
       const ctx = world[$internal].kernel;
-      ctx.traitRegisteredSubscriptions.add(
-        callback as (trait: import('../../kernel/trait/types').Trait) => void
-      );
-      return () =>
-        ctx.traitRegisteredSubscriptions.delete(
-          callback as (trait: import('../../kernel/trait/types').Trait) => void
-        );
+      return subscribeTraitRegistered(ctx, callback);
     },
   } as unknown as World;
 
@@ -357,7 +267,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
   worldFinalizer.register(world, cleanupToken, world);
 
   Object.defineProperty(world, 'traits', {
-    get: () => world[$internal].kernel.traits,
+    get: () => getKernelTraits(world[$internal].kernel),
     enumerable: true,
   });
 
@@ -367,12 +277,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
   });
 
   Object.defineProperty(world, 'isRegistered', {
-    get: () => world[$internal].kernel.isRegistered,
+    get: () => isKernelInitialized(world[$internal].kernel),
     enumerable: true,
   });
 
   Object.defineProperty(world, 'entities', {
-    get: () => getAliveEntities(world[$internal].kernel.entityIndex),
+    get: () => getKernelEntities(world[$internal].kernel),
     enumerable: true,
   });
 

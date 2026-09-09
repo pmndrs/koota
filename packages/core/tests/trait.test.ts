@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createWorld, type Entity, getStore, trait } from '../src';
+import { createWorld, type Entity, getStore, getTraitVersionSource, trait } from '../src';
 
 class TestClass {
   public name: string;
@@ -35,6 +35,22 @@ describe('Trait', () => {
 
   beforeEach(() => {
     world.reset();
+  });
+
+  it('provides a stable trait revision source until its world resets', () => {
+    const entity = world.spawn();
+    expect(getTraitVersionSource(entity, Position)).toBeUndefined();
+    entity.add(Position);
+    const source = getTraitVersionSource(entity, Position)!;
+    expectTypeOf(source).toEqualTypeOf<{ readonly version: number }>();
+    const initial = source.version;
+    entity.set(Position, { x: 10 });
+    expect(getTraitVersionSource(entity, Position)).toBe(source);
+    expect(source.version).toBeGreaterThan(initial);
+
+    world.reset();
+    const replacement = world.spawn(Position);
+    expect(getTraitVersionSource(replacement, Position)).not.toBe(source);
   });
 
   it('should throw an error if the schema contains an object or array', () => {

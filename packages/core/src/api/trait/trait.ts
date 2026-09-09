@@ -1,6 +1,12 @@
+import type { Entity } from '../entity/types';
+import type { RelationPair } from '../relation/types';
 import {
   $internal,
   createTrait,
+  getEntityContext,
+  getTraitVersionSource as getVersionSource,
+  isRelationPair,
+  type VersionSource,
   getStore as getKernelStore,
   type KernelContext,
   type Norm,
@@ -24,7 +30,17 @@ export function getStore<C extends Trait = Trait>(
   trait: C
 ): ExtractStore<C> {
   return getKernelStore(
-    'entityIndex' in world ? world : world[$internal].kernel,
+    $internal in world ? world[$internal].kernel : world,
     trait
   ) as ExtractStore<C>;
+}
+
+/** Stable revision source for one trait registration, replaced when the world resets. */
+export function getTraitVersionSource(
+  entity: Entity,
+  trait: Trait | RelationPair
+): VersionSource | undefined {
+  const ctx = getEntityContext(entity);
+  if (!ctx) return undefined;
+  return getVersionSource(ctx, isRelationPair(trait) ? trait.relation[$internal].trait : trait);
 }

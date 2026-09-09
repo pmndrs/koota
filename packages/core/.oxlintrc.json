@@ -1,3 +1,43 @@
 {
-  "extends": ["node_modules/@config/oxlint/base.json"]
+  "extends": ["node_modules/@config/oxlint/base.json"],
+  "overrides": [
+    {
+      "files": ["src/api/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/kernel/*", "**/kernel/**"],
+                "message": "Use the kernel barrel and its opaque operation contract."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/api/**/*.ts"],
+      "excludeFiles": ["src/api/index.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/kernel/*", "**/kernel/**"],
+                "message": "Use the kernel barrel and its opaque operation contract."
+              },
+              {
+                "importNames": ["universe"],
+                "message": "Use kernel operations instead of the legacy diagnostic registry.",
+                "regex": ".*"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

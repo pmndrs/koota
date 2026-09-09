@@ -15,6 +15,7 @@ export function createModifier<TTrait extends Trait[] = Trait[], TType extends s
     id,
     traits,
     traitIds: traits.map((trait) => trait[$internal].id),
+    modifiers: null,
   } as const;
 }
 

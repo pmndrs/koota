@@ -27,6 +27,7 @@ export type World = {
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
   spawn(...traits: ConfigurableTrait[]): Entity;
+  entity(definition: Trait | Relation<Trait> | RelationPair): Entity;
   createCommandBuffer(): CommandBuffer;
   flush(...buffers: CommandBuffer[]): void;
   has(entity: Entity): boolean;

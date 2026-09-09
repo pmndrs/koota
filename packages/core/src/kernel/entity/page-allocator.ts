@@ -1,17 +1,18 @@
+import type { PageCleanupToken as CleanupHandle } from '../handles';
 import type { KernelContext } from '../context';
 import { GENERATION_MASK, MAX_PAGES, PAGE_SIZE } from './pack-entity';
 
-export type PageCleanupToken = {
+export type PageCleanupToken = CleanupHandle & {
   readonly allocator: PageAllocator;
   readonly contexts: (KernelContext | null)[];
   ownedPages: number[];
   registered: boolean;
-  contextId?: number;
+  contextId: number;
 };
 
 export type PageAllocator = {
-  /** Per-page generation values (pageId -> Uint8Array(PAGE_SIZE)). */
-  generations: (Uint8Array | null)[];
+  /** Low eight bits hold the generation, bit eight marks live, and 512 means retired. */
+  slots: (Uint16Array | null)[];
   /** Per-page alive entity count. O(1) emptiness check for reclamation. */
   pageAliveCounts: number[];
   /** Stack of released page IDs available for leasing. */
@@ -23,12 +24,20 @@ export type PageAllocator = {
 };
 
 export function createPageAllocator(): PageAllocator {
+  const slots: (Uint16Array | null)[] = [];
+  const pageAliveCounts: number[] = [];
+  const pageOwners: (KernelContext | null)[] = [];
+  for (let i = 0; i < MAX_PAGES; i++) {
+    slots[i] = null;
+    pageAliveCounts[i] = 0;
+    pageOwners[i] = null;
+  }
   return {
-    generations: new Array(MAX_PAGES).fill(null),
-    pageAliveCounts: new Array(MAX_PAGES).fill(0),
+    slots,
+    pageAliveCounts,
     freePages: [],
     pageCursor: 0,
-    pageOwners: new Array(MAX_PAGES).fill(null),
+    pageOwners,
   };
 }
 
@@ -50,8 +59,8 @@ export function leasePage(allocator: PageAllocator, owner: KernelContext): numbe
   }
 
   allocator.pageOwners[pageId] = owner;
-  if (!allocator.generations[pageId]) {
-    allocator.generations[pageId] = new Uint8Array(PAGE_SIZE);
+  if (!allocator.slots[pageId]) {
+    allocator.slots[pageId] = new Uint16Array(PAGE_SIZE);
   }
   return pageId;
 }
@@ -59,14 +68,16 @@ export function leasePage(allocator: PageAllocator, owner: KernelContext): numbe
 export function releasePage(allocator: PageAllocator, pageId: number): void {
   if (allocator.pageOwners[pageId] == null) return;
   allocator.pageAliveCounts[pageId] = 0;
-  const generations = allocator.generations[pageId];
-  if (generations) {
-    for (let i = 0; i < generations.length; i++) {
-      generations[i] = (generations[i] + 1) & GENERATION_MASK;
+  const slots = allocator.slots[pageId];
+  if (slots) {
+    for (let i = 0; i < slots.length; i++) {
+      if (slots[i] === 512) continue;
+      const next = (slots[i] & GENERATION_MASK) + 1;
+      slots[i] = next > GENERATION_MASK ? 512 : next;
     }
   }
   allocator.pageOwners[pageId] = null;
-  allocator.freePages.push(pageId);
+  if (slots?.some((slot) => slot <= GENERATION_MASK)) allocator.freePages.push(pageId);
 }
 
 function reclaimEmptyPages(allocator: PageAllocator, needed: number): number {
@@ -75,13 +86,28 @@ function reclaimEmptyPages(allocator: PageAllocator, needed: number): number {
     if (allocator.pageOwners[pageId] === null) continue;
     if (allocator.pageAliveCounts[pageId] === 0) {
       revokePageFromOwner(allocator, pageId);
-      allocator.freePages.push(pageId);
-      reclaimed++;
+      releasePage(allocator, pageId);
+      if (allocator.freePages.length) reclaimed++;
     }
   }
   return reclaimed;
 }
 
-function revokePageFromOwner(allocator: PageAllocator, _pageId: number): void {
-  allocator.pageOwners[_pageId] = null;
+function revokePageFromOwner(allocator: PageAllocator, pageId: number): void {
+  const owner = allocator.pageOwners[pageId]!;
+  const index = owner.entityIndex;
+  index.sparse[pageId] = undefined;
+  // Empty pages contain only recycled slots, never alive or reserved identities.
+  let count = index.aliveCount;
+  for (let i = count; i < index.dense.length; i++) {
+    const entity = index.dense[i];
+    if ((entity & 0x3fffff) >>> 10 !== pageId) index.dense[count++] = entity;
+  }
+  index.dense.length = count;
+  const position = index.ownedPages.indexOf(pageId);
+  if (position >= 0) {
+    index.ownedPages.splice(position, 1);
+    index.pageCursors.splice(position, 1);
+    index.currentPageIdx = index.ownedPages.length - 1;
+  }
 }

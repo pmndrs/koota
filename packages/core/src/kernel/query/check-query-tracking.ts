@@ -12,6 +12,7 @@ export function checkQueryTracking(
   eventGenerationId: number,
   eventBitflag: number
 ): boolean {
+  if (ctx.implicitEntities.has(entity)) return false;
   const staticBitmasks = query.staticBitmasks;
   const trackingGroups = query.trackingGroups;
   const generations = query.generations;

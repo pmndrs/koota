@@ -9,7 +9,7 @@ import {
   removeTrait,
   setChanged,
   setTrait,
-  universe,
+  isEntityHandleAlive,
 } from '../../kernel';
 import type { Relation, RelationPair } from '../relation/types';
 import type { ConfigurableTrait, Trait } from '../trait/types';
@@ -63,7 +63,7 @@ Number.prototype.onAdd = function (
   input: HookInput,
   callback: (entity: Entity, target?: Entity) => void
 ) {
-  return subscribeEntityEvent(getEntityContext(this), this, 'addSubscriptions', input, callback);
+  return subscribeEntityEvent(getEntityContext(this), this, 'add', input, callback);
 };
 
 // @ts-expect-error
@@ -72,7 +72,7 @@ Number.prototype.onRemove = function (
   input: HookInput,
   callback: (entity: Entity, target?: Entity) => void
 ) {
-  return subscribeEntityEvent(getEntityContext(this), this, 'removeSubscriptions', input, callback);
+  return subscribeEntityEvent(getEntityContext(this), this, 'remove', input, callback);
 };
 
 // @ts-expect-error
@@ -81,7 +81,7 @@ Number.prototype.onChange = function (
   input: HookInput,
   callback: (entity: Entity, target?: Entity) => void
 ) {
-  return subscribeEntityEvent(getEntityContext(this), this, 'changeSubscriptions', input, callback);
+  return subscribeEntityEvent(getEntityContext(this), this, 'change', input, callback);
 };
 
 //@ts-expect-error
@@ -106,11 +106,5 @@ Number.prototype.generation = function (this: Entity) {
 
 //@ts-expect-error
 Number.prototype.isAlive = function (this: Entity) {
-  const eid = getEntityId(this);
-  const owner = universe.pageAllocator.pageOwners[eid >>> 10];
-  if (!owner) return false;
-  const idx = owner.entityIndex;
-  const denseIdx = idx.sparse[eid];
-  if (denseIdx === undefined || denseIdx >= idx.aliveCount) return false;
-  return idx.dense[denseIdx] === (this as unknown as number);
+  return isEntityHandleAlive(this);
 };

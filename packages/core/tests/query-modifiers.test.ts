@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  $internal,
+  createQuery,
   createAdded,
   createChanged,
   createRemoved,
   createWorld,
   getStore,
+  getQueryVersion,
   Not,
   Or,
   relation,
@@ -80,7 +81,6 @@ describe('Query modifiers', () => {
   });
 
   it('should correctly populate Not queries when relations are added and removed', () => {
-    const ctx = world[$internal].kernel;
     const ChildOf = relation();
     const parent = world.spawn();
     const child = world.spawn();
@@ -114,7 +114,6 @@ describe('Query modifiers', () => {
   });
 
   it('modifiers can be added as one call or separately', () => {
-    const ctx = world[$internal].kernel;
     const entity = world.spawn();
     entity.add(Position, IsActive);
 
@@ -125,7 +124,7 @@ describe('Query modifiers', () => {
     expect(entities.length).toBe(1);
 
     // These queries should be hashed the same.
-    expect(ctx.queriesHashMap.size).toBe(1);
+    expect(createQuery(Not(Foo), Not(Bar)).hash).toBe(createQuery(Not(Foo, Bar)).hash);
   });
 
   it('should correctly populate Added queries when traits are added', () => {
@@ -180,6 +179,21 @@ describe('Query modifiers', () => {
     expect(entities.length).toBe(0); // Fails for Added
     entities = world.query(Foo, Bar);
     expect(entities[0]).toBe(entityA); // But matches static query
+  });
+
+  it('can read a tracking query revision without draining its pending entities', () => {
+    const Changed = createChanged();
+    const query = createQuery(Changed(Position));
+    const entity = world.spawn(Position);
+    world.query(query);
+    const initial = getQueryVersion(world, query)!;
+
+    entity.set(Position, { x: 10 });
+    const changed = getQueryVersion(world, query);
+    expect(changed).toBeGreaterThan(initial);
+    expect(getQueryVersion(world, query)).toBe(changed);
+    expect([...world.query(query)]).toEqual([entity]);
+    expect(world.query(query)).toHaveLength(0);
   });
 
   it('should properly populate Added queries with mulitple tracked traits', () => {
