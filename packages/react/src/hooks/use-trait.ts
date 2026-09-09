@@ -16,7 +16,7 @@ export function readTrait(entity: Entity, trait: Trait | RelationPair) {
 
 function getTraitVersionSource(entity: Entity, trait: Trait | RelationPair) {
   if ($relationPair in trait) trait = trait.relation[$internal].trait;
-  return universe.pageOwners[entity.id() >>> 10]?.traitInstances[trait.id];
+  return universe.pageOwners[entity.id() >>> 10]?.traitInstances[trait[$internal].id];
 }
 
 export function attachTrait(

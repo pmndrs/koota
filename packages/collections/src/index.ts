@@ -1,5 +1,13 @@
 export { Deque } from './deque';
-export { SparseSet } from './sparse-set';
+export {
+  createSparseSet,
+  hasSparse,
+  addSparse,
+  removeSparse,
+  clearSparse,
+  sortSparse,
+} from './sparse-set';
+export type { SparseSet } from './sparse-set';
 export {
   HiSparseBitSet,
   ctz32,

@@ -80,7 +80,7 @@ describe('Query modifiers', () => {
   });
 
   it('should correctly populate Not queries when relations are added and removed', () => {
-    const ctx = world[$internal];
+    const ctx = world[$internal].kernel;
     const ChildOf = relation();
     const parent = world.spawn();
     const child = world.spawn();
@@ -114,7 +114,7 @@ describe('Query modifiers', () => {
   });
 
   it('modifiers can be added as one call or separately', () => {
-    const ctx = world[$internal];
+    const ctx = world[$internal].kernel;
     const entity = world.spawn();
     entity.add(Position, IsActive);
 

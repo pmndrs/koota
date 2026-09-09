@@ -32,7 +32,7 @@ export function App() {
     spawnCentralMasses(1);
     spawnBodies(CONSTANTS.NBODIES - 1);
 
-    console.log(universe.worldIndex, universe.worlds);
+    console.log(universe.contexts);
 
     return () => {
       destroyAllBodies();

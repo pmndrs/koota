@@ -13,7 +13,7 @@ export function resolveEntity(target: Entity | World | undefined | null): Entity
   if (typeof target === 'number') return target;
   if (!target) return undefined;
   if (!target.isRegistered) target.add();
-  return target[$internal].worldEntity;
+  return target[$internal].worldEntity as Entity;
 }
 
 /** Relation pairs are equal when their relation and target match. */

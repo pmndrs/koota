@@ -184,7 +184,7 @@ describe('Ordered relations', () => {
     const child3 = world.spawn(ChildOf(parent));
 
     const children = parent.get(OrderedChildren)!;
-    children.sort((a, b) => b - a); // Reverse sort
+    children.sort((a, b) => b.id() - a.id());
 
     expect(children).toHaveLength(3);
     expect(children[0]).toBe(child3);

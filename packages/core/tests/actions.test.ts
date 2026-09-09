@@ -50,4 +50,24 @@ describe('Actions', () => {
     // Should be different functions
     expect(spawnPlayer1).not.toBe(spawnPlayer2);
   });
+
+  it('keeps caches per world and recreates actions after reset', () => {
+    const first = createWorld();
+    const second = createWorld();
+    const actions = createActions((world) => ({ spawn: () => world.spawn(IsPlayer) }));
+    try {
+      const original = actions(first);
+      const other = actions(second);
+      expect(original).not.toBe(other);
+      first.reset();
+      const replacement = actions(first);
+      expect(replacement).not.toBe(original);
+      expect(actions(first)).toBe(replacement);
+      expect(actions(second)).toBe(other);
+      expect(replacement.spawn().has(IsPlayer)).toBe(true);
+    } finally {
+      first.destroy();
+      second.destroy();
+    }
+  });
 });

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src/kernel",
+    "composite": false,
+    "types": []
+  },
+  "include": ["src/kernel/**/*.ts"]
+}
