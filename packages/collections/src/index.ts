@@ -15,4 +15,5 @@ export {
   forEachQuery,
   collectIntersection,
   collectQuery,
+  collectQueryInto,
 } from './hi-sparse-bitset';
