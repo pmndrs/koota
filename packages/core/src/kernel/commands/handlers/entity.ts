@@ -23,8 +23,8 @@ export function beginSpawnEntity(ctx: KernelContext, reserved?: Entity): Entity 
       : activateReservedEntity(ctx.entityIndex, reserved);
   const id = getEntityId(entity);
   for (const query of ctx.notQueries) {
-    if (query.check(ctx, entity)) query.add(entity);
-    query.resetTrackingBitmasks(id);
+    if (query.isTracking) query.resetTrackingBitmasks(id);
+    else if (query.check(ctx, entity)) query.add(entity);
   }
   return entity;
 }
@@ -132,6 +132,13 @@ export function applyDestroyEntity(ctx: KernelContext, entity: Entity): void {
           ctx.entitySubscribedInstances.delete(instance);
       }
       const id = getEntityId(current);
+      for (const query of ctx.trackingQueries) {
+        query.remove(ctx, current);
+        query.resetTrackingBitmasks(id);
+      }
+      for (const masks of ctx.trackingSnapshots.values()) clearHistory(masks, id);
+      for (const masks of ctx.dirtyMasks.values()) clearHistory(masks, id);
+      for (const masks of ctx.changedMasks.values()) clearHistory(masks, id);
       for (let i = 0; i < ctx.entityMasks.length; i++) {
         const page = ctx.entityMasks[i][id >>> 10];
         if (page !== EMPTY_MASK_PAGE) page[id & 1023] = 0;
@@ -143,5 +150,15 @@ export function applyDestroyEntity(ctx: KernelContext, entity: Entity): void {
       edges.pages[id >>> 10]![3072 + (id & 1023)] = 0;
     }
     ctx.destroyCount = 0;
+  }
+}
+
+/** Slot-indexed history belongs to one entity lifetime. Clearing never materializes pages. */
+function clearHistory(generations: Uint32Array[][], id: number): void {
+  const pageId = id >>> 10;
+  const offset = id & 1023;
+  for (let i = 0; i < generations.length; i++) {
+    const page = generations[i][pageId];
+    if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
   }
 }
