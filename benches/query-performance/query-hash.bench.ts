@@ -1,6 +1,6 @@
 import { bench, group } from '@pmndrs/labs';
 import { Not, Or, relation, trait, type Entity, type QueryParameter } from 'koota';
-import { createQueryHash } from '../../packages/core/src/query/utils/create-query-hash';
+import { createQueryHash } from '../../packages/core/src/kernel/query/create-query-hash';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ vx: 0, vy: 0, vz: 0 });

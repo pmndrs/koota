@@ -43,7 +43,7 @@ describe('Query', () => {
   });
 
   it('should only create one hash indpendent of the order of the parameters', () => {
-    const ctx = world[$internal];
+    const ctx = world[$internal].kernel;
     let entities: any = world.query(Position, Name, Not(IsActive));
     expect(entities.length).toBe(0);
 

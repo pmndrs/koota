@@ -1,68 +1,55 @@
-export class SparseSet {
-  _dense: number[] = [];
-  _sparse: number[] = [];
-  _cursor: number = 0;
-  _denseRaw: { array: number[]; length: number } = { array: this._dense, length: 0 };
+/**
+ * Sparse set of non-negative integers.
+ *
+ * Exposed as plain data plus free functions rather than a class: hot loops in
+ * the ECS kernel read `dense` directly, so it has to be a field. A `dense`
+ * getter that returns a copy turns an indexed loop into one allocation per
+ * iteration.
+ */
+export type SparseSet = {
+  /** Packed values, in insertion order. Safe to read directly; do not mutate. */
+  dense: number[];
+  /** value -> index into `dense`. Entries for absent values are meaningless. */
+  sparse: number[];
+};
 
-  has(val: number): boolean {
-    const index = this._sparse[val];
-    return index < this._cursor && this._dense[index] === val;
+export function createSparseSet(): SparseSet {
+  return { dense: [], sparse: [] };
+}
+
+export function hasSparse(set: SparseSet, value: number): boolean {
+  const index = set.sparse[value];
+  return index < set.dense.length && set.dense[index] === value;
+}
+
+export function addSparse(set: SparseSet, value: number): void {
+  if (hasSparse(set, value)) return;
+  set.sparse[value] = set.dense.length;
+  set.dense.push(value);
+}
+
+export function removeSparse(set: SparseSet, value: number): void {
+  if (!hasSparse(set, value)) return;
+  const index = set.sparse[value];
+  const last = set.dense.pop()!;
+  if (last !== value) {
+    set.dense[index] = last;
+    set.sparse[last] = index;
   }
+}
 
-  add(val: number): void {
-    if (this.has(val)) return;
-    this._sparse[val] = this._cursor;
-    this._dense[this._cursor++] = val;
-  }
+/**
+ * Stale `sparse` entries are left behind deliberately: `hasSparse` bounds-checks
+ * against `dense.length`, so they can never read as present, and skipping the
+ * cleanup keeps this O(1) instead of O(size).
+ */
+export function clearSparse(set: SparseSet): void {
+  set.dense.length = 0;
+}
 
-  remove(val: number): void {
-    if (!this.has(val)) return;
-    const index = this._sparse[val];
-    this._cursor--;
-    const swapped = this._dense[this._cursor];
-    if (swapped !== val) {
-      this._dense[index] = swapped;
-      this._sparse[swapped] = index;
-    }
-  }
-
-  clear(): void {
-    // Clear the sparse array entries for all active values
-    for (let i = 0; i < this._cursor; i++) {
-      this._sparse[this._dense[i]] = 0;
-    }
-    this._cursor = 0;
-  }
-
-  sort(): void {
-    this._dense.sort((a, b) => a - b);
-    for (let i = 0; i < this._dense.length; i++) {
-      this._sparse[this._dense[i]] = i;
-    }
-  }
-
-  getIndex(val: number): number {
-    return this._sparse[val];
-  }
-
-  get dense(): number[] {
-    return this._dense.slice(0, this._cursor);
-  }
-
-  get denseRaw(): { array: number[]; length: number } {
-    this._denseRaw.length = this._cursor;
-    return this._denseRaw;
-  }
-
-  get rawDense(): readonly number[] {
-    return this._dense;
-  }
-
-  get length(): number {
-    return this._cursor;
-  }
-
-  get sparse(): number[] {
-    return this._sparse;
+export function sortSparse(set: SparseSet): void {
+  set.dense.sort((a, b) => a - b);
+  for (let i = 0; i < set.dense.length; i++) {
+    set.sparse[set.dense[i]] = i;
   }
 }

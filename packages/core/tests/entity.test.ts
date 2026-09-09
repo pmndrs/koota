@@ -33,14 +33,14 @@ describe('Entity', () => {
     const entity = world.spawn();
     const { generation, entityId } = unpackEntity(entity);
 
-    expect(generation).toBe(0);
+    expect(generation).toBe(entity.generation());
     expect(entityId).toBeGreaterThanOrEqual(0);
 
     const world2 = createWorld();
     const entity2 = world2.spawn();
     const { generation: generation2, entityId: entityId2 } = unpackEntity(entity2);
 
-    expect(generation2).toBe(0);
+    expect(generation2).toBe(entity2.generation());
     // Different worlds get different entity IDs from the global allocator.
     expect(entityId2).not.toBe(entityId);
   });
@@ -62,16 +62,22 @@ describe('Entity', () => {
     // Spawning after destroy should recycle slots with bumped generation.
     const recycled1 = world.spawn(Bar);
     const u1 = unpackEntity(recycled1);
-    expect(u1.generation).toBe(1);
+    expect(u1.generation).toBe(
+      (entities.find((entity) => entity.id() === u1.entityId)!.generation() + 1) & 255
+    );
 
     const recycled2 = world.spawn(Bar);
     const u2 = unpackEntity(recycled2);
-    expect(u2.generation).toBe(1);
+    expect(u2.generation).toBe(
+      (entities.find((entity) => entity.id() === u2.entityId)!.generation() + 1) & 255
+    );
     expect(u2.entityId).not.toBe(u1.entityId);
 
     const recycled3 = world.spawn(Bar);
     const u3 = unpackEntity(recycled3);
-    expect(u3.generation).toBe(1);
+    expect(u3.generation).toBe(
+      (entities.find((entity) => entity.id() === u3.entityId)!.generation() + 1) & 255
+    );
 
     // Store pages should not grow since slots are reused within the same page.
     expect(bar.value.length).toBe(storePageCount);
@@ -150,7 +156,7 @@ describe('Entity', () => {
   it('can check if an entity is alive', () => {
     let entity = world.spawn();
     expect(entity.isAlive()).toBe(true);
-    expect(entity.generation()).toBe(0);
+    const generation = entity.generation();
     const eid = entity.id();
 
     entity.destroy();
@@ -160,7 +166,7 @@ describe('Entity', () => {
     entity = world.spawn(Bar);
     expect(entity.isAlive()).toBe(true);
     expect(entity.id()).toBe(eid);
-    expect(entity.generation()).toBe(1);
+    expect(entity.generation()).toBe((generation + 1) & 255);
 
     entity.destroy();
     expect(entity.isAlive()).toBe(false);
@@ -174,11 +180,11 @@ describe('Entity', () => {
 
   it('can get entity generation', () => {
     const entity = world.spawn();
-    expect(entity.generation()).toBe(0);
+    const generation = entity.generation();
 
     entity.destroy();
     const entity2 = world.spawn();
-    expect(entity2.generation()).toBe(1);
+    expect(entity2.generation()).toBe((generation + 1) & 255);
   });
 
   it('can check if entity exists in world', () => {
@@ -189,7 +195,7 @@ describe('Entity', () => {
     expect(world.has(entity)).toBe(false);
 
     // Should work with world entities as well
-    const worldEntity = world[$internal].worldEntity;
+    const worldEntity = world[$internal].worldEntity as Entity;
     expect(world.has(worldEntity)).toBe(true);
   });
 });

@@ -9,7 +9,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "test": "NODE_OPTIONS=--expose-gc vitest",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "check:kernel": "tsc --noEmit -p tsconfig-kernel.json"
   },
   "dependencies": {
     "@koota/collections": "workspace:*"

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { createWorld, type Entity, getStore, trait } from '../src';
 
 class TestClass {
@@ -23,17 +23,18 @@ const Test = trait({
 const Tag = trait();
 
 describe('Trait', () => {
+  it('configures the same trait without exposing engine metadata', () => {
+    const Position = trait({ x: 0 });
+    expect(Position({ x: 2 })).toEqual([Position, { x: 2 }]);
+    expect(Position).not.toHaveProperty('id');
+    expect(Position).not.toHaveProperty('schema');
+    expectTypeOf<'id' | 'schema'>().exclude<keyof typeof Position>().toEqualTypeOf<'id' | 'schema'>();
+  });
+
   const world = createWorld();
 
   beforeEach(() => {
     world.reset();
-  });
-
-  it('should create a trait', () => {
-    const Test = trait({ x: 0, y: 0 });
-
-    expect(Object.keys(Test)).toContain('schema');
-    expect(typeof Test === 'function').toBe(true);
   });
 
   it('should throw an error if the schema contains an object or array', () => {

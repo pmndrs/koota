@@ -1,4 +1,7 @@
 {
   "extends": "@config/typescript/base.json",
-  "include": ["src/**/*", "tests"]
+  "include": ["src/**/*", "tests", "kernel-tests", "scripts"],
+  "compilerOptions": {
+    "types": ["node"]
+  }
 }

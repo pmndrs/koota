@@ -309,7 +309,7 @@ describe('Lifecycle Subscriptions', () => {
       expect(cb).toHaveBeenCalledTimes(1);
     });
 
-    it('does not invoke a listener removed or destroyed during dispatch', () => {
+    it('honors unsubscription immediately and defers destruction until dispatch completes', () => {
       const entity = world.spawn(Position);
       const removed = vi.fn();
       const unsub = entity.onChange(Position, removed);
@@ -325,7 +325,8 @@ describe('Lifecycle Subscriptions', () => {
       victim.onChange(Position, late);
 
       victim.set(Position, { x: 1, y: 1 });
-      expect(late).not.toHaveBeenCalled();
+      expect(late).toHaveBeenCalledOnce();
+      expect(victim.isAlive()).toBe(false);
     });
 
     it('registers nothing for a destroyed handle', () => {
@@ -342,19 +343,23 @@ describe('Lifecycle Subscriptions', () => {
       unsub();
     });
 
-    it('does not deliver a dead generation event to a replacement on the same id', () => {
+    it('finishes dispatch before applying callback destruction and spawning', () => {
       const original = world.spawn(Position);
       const replacementCb = vi.fn();
       const worldUnsub = world.onChange(Position, (e) => {
         if (e !== original) return;
         e.destroy();
         const replacement = world.spawn(Position);
-        expect(replacement.id()).toBe(original.id());
-        replacement.onChange(Position, replacementCb);
+        expect(e.isAlive()).toBe(true);
+        expect(replacement.isAlive()).toBe(false);
+        world.onChange(Position, (changed) => {
+          if (changed === replacement) replacementCb(changed);
+        });
       });
 
       original.set(Position, { x: 1, y: 1 });
       expect(replacementCb).not.toHaveBeenCalled();
+      expect(original.isAlive()).toBe(false);
       worldUnsub();
     });
 
@@ -383,7 +388,7 @@ describe('Lifecycle Subscriptions', () => {
       const TimeOfDay = trait({ hour: 0 });
       const localWorld = createWorld(TimeOfDay);
       const cb = vi.fn();
-      localWorld[$internal].worldEntity.onChange(TimeOfDay, cb);
+      (localWorld[$internal].worldEntity as Entity).onChange(TimeOfDay, cb);
 
       localWorld.set(TimeOfDay, { hour: 1 });
       expect(cb).toHaveBeenCalledTimes(1);

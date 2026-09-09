@@ -6,5 +6,5 @@ export function getTargetEntity(target: Entity | World | undefined | null): Enti
   if (!isWorld(target)) return target;
   // Adding no traits registers a lazy world so its entity exists.
   if (!target.isRegistered) target.add();
-  return target[internal].worldEntity;
+  return target[internal].worldEntity as Entity;
 }

@@ -32,7 +32,7 @@ export function useQuery<T extends QueryParameter[]>(
     const queryRef = createQuery(...getParams());
 
     const refresh = () => {
-      const query = world[internal].queriesHashMap.get(queryRef.hash);
+      const query = world[internal].kernel.queriesHashMap.get(queryRef.hash);
 
       if (query && cache?.hash === queryRef.hash && cache.version === query.version) {
         result = cache.result;
@@ -40,7 +40,7 @@ export function useQuery<T extends QueryParameter[]>(
       }
 
       const next = world.query(queryRef).sort();
-      const registered = world[internal].queriesHashMap.get(queryRef.hash);
+      const registered = world[internal].kernel.queriesHashMap.get(queryRef.hash);
 
       if (registered) {
         cache = { hash: queryRef.hash, version: registered.version, result: next };
@@ -67,7 +67,7 @@ export function useQuery<T extends QueryParameter[]>(
      * Catch query updates that happened between the initial read and
      * subscription attachment
      */
-    const queryNow = world[internal].queriesHashMap.get(queryRef.hash);
+    const queryNow = world[internal].kernel.queriesHashMap.get(queryRef.hash);
     if (queryNow && cache && queryNow.version !== cache.version) {
       refresh();
     }

@@ -11,7 +11,7 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
 
   // Compute result: uses cache if valid, otherwise recomputes
   const getResult = (): QueryResult<T> => {
-    const query = world[$internal].queriesHashMap.get(queryRef.hash);
+    const query = world[$internal].kernel.queriesHashMap.get(queryRef.hash);
 
     if (
       query &&
@@ -22,7 +22,7 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
     }
 
     const result = world.query(queryRef).sort();
-    const registeredQuery = world[$internal].queriesHashMap.get(queryRef.hash)!;
+    const registeredQuery = world[$internal].kernel.queriesHashMap.get(queryRef.hash)!;
     cacheRef.current = { hash: queryRef.hash, version: registeredQuery.version, result };
 
     return result;
@@ -41,7 +41,7 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
       unsubRemove = world.onQueryRemove(queryRef, update);
 
       // Check if query changed between render and effect
-      const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
+      const query = world[$internal].kernel.queriesHashMap.get(queryRef.hash)!;
       if (cacheRef.current && query.version !== cacheRef.current.version) {
         update();
       }

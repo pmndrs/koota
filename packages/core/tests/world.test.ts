@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait, universe, IsExcluded } from '../src';
+import { $internal, createWorld, relation, trait, universe, IsExcluded, type Entity } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 describe('World', () => {
@@ -11,7 +11,7 @@ describe('World', () => {
     const world = createWorld();
 
     expect(world.isRegistered).toBe(false);
-    expect(universe.worlds[world.id]).toBeUndefined();
+    expect(universe.contexts[world.id]).toBeUndefined();
   });
 
   it('should auto-register on first mutation', () => {
@@ -42,21 +42,28 @@ describe('World', () => {
       async () => {
         let worldId = -1;
         let ownedPages: number[] = [];
+        let removed = 0;
+        const Resource = trait(undefined, {
+          onRemove() {
+            removed++;
+          },
+        });
 
         await expect(
           waitForFinalization((registry) => {
             (() => {
               const world = createWorld();
-              world.spawn();
+              world.spawn(Resource);
               world.query(IsExcluded);
               worldId = world.id;
-              ownedPages = [...world[$internal].entityIndex.ownedPages];
+              ownedPages = [...world[$internal].kernel.entityIndex.ownedPages];
               registry.register(world, 'world');
             })();
           })
         ).resolves.toBe(true);
 
-        expect(universe.worlds[worldId]).toBeUndefined();
+        await expect.poll(() => universe.contexts[worldId]).toBeUndefined();
+        expect(removed).toBe(0);
         for (const pageId of ownedPages) {
           expect(universe.pageAllocator.pageOwners[pageId]).toBeNull();
           expect(universe.pageAllocator.pageAliveCounts[pageId]).toBe(0);
@@ -74,6 +81,51 @@ describe('World', () => {
 
     // Always has one entity that is the world itself.
     expect(world.entities.length).toBe(1);
+  });
+
+  it('keeps its backing entity out of queries and entity lifecycle notifications', () => {
+    const world = createWorld();
+    const spawned: Entity[] = [];
+    const destroyed: Entity[] = [];
+    world.onEntitySpawn((entity) => spawned.push(entity));
+    world.onEntityDestroy((entity) => destroyed.push(entity));
+    expect(world.isRegistered).toBe(false);
+
+    const first = world.spawn();
+    expect([...world.query()]).toEqual([first]);
+    world.reset();
+    expect([...world.query()]).toEqual([]);
+    const second = world.spawn();
+    world.destroy();
+
+    expect(world.entities).toEqual([]);
+    expect(spawned).toEqual([first, second]);
+    expect(destroyed).toEqual([first, second]);
+  });
+
+  it('recreates world trait storage and the command buffer default target after reset', () => {
+    const Time = trait({ value: 0 });
+    const world = createWorld(Time({ value: 1 }));
+    try {
+      expect(world.get(Time)).toEqual({ value: 1 });
+      const oldCommands = world.createCommandBuffer();
+      oldCommands.set(Time, { value: 2 });
+      world.reset();
+      expect(world.has(Time)).toBe(false);
+      expect(() => world.flush(oldCommands)).toThrow('reset or destroyed');
+
+      const commands = world.createCommandBuffer();
+      commands.add(Time({ value: 3 }));
+      commands.set(Time, { value: 4 });
+      world.flush(commands);
+      expect(world.get(Time)).toEqual({ value: 4 });
+      expect([...world.query(Time)]).toEqual([]);
+      commands.remove(Time);
+      world.flush(commands);
+      expect(world.has(Time)).toBe(false);
+    } finally {
+      world.destroy();
+    }
   });
 
   it('reset should remove entities with auto-destroy relations', () => {
