@@ -43,6 +43,7 @@ export type KernelContext = ContextHandle & {
   queriesHashMap: Map<string, QueryInstance>;
   queryInstances: (QueryInstance | undefined)[];
   notQueries: Set<QueryInstance>;
+  trackingQueries: Set<QueryInstance>;
   dirtyMasks: Map<number, Uint32Array[][]>;
   trackingSnapshots: Map<number, Uint32Array[][]>;
   changedMasks: Map<number, Uint32Array[][]>;
@@ -92,6 +93,7 @@ export function createKernelContext(queryExclusions?: readonly Trait[]): KernelC
     queriesHashMap: new Map(),
     queryInstances: [],
     notQueries: new Set(),
+    trackingQueries: new Set(),
     dirtyMasks: new Map(),
     trackingSnapshots: new Map(),
     changedMasks: new Map(),
@@ -162,6 +164,7 @@ export function resetKernel(ctx: KernelContext): void {
   ctx.queriesHashMap.clear();
   ctx.queryInstances.length = 0;
   ctx.notQueries.clear();
+  ctx.trackingQueries.clear();
 
   ctx.trackingSnapshots.clear();
   ctx.dirtyMasks.clear();

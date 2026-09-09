@@ -24,11 +24,39 @@ export function checkQuery(ctx: KernelContext, query: QueryInstance, entity: Ent
     const or = bitmask.or;
     const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
 
-    if (!forbidden && !required && !or) return false;
+    if (!query.isTracking && !forbidden && !required && !or) return false;
     if (forbidden && (entityMask & forbidden) !== 0) return false;
     if (required && (entityMask & required) !== required) return false;
     if (or !== 0 && (entityMask & or) === 0) return false;
   }
 
-  return true;
+  return !query.isTracking || matchesTrackingGroups(query, eid);
+}
+
+/** Every AND group must match and at least one OR group must match when present. */
+function matchesTrackingGroups(query: QueryInstance, eid: number): boolean {
+  let hasOrGroup = false;
+  let anyOrMatched = false;
+  const pageId = eid >>> 10;
+  const offset = eid & 1023;
+  for (let i = 0; i < query.trackingGroups.length; i++) {
+    const group = query.trackingGroups[i];
+    let matches = group.logic === 'and';
+    for (let generation = 0; generation < group.bitmasks.length; generation++) {
+      const mask = group.bitmasks[generation];
+      if (!mask) continue;
+      const tracker = group.trackers[generation][pageId][offset];
+      if (group.logic === 'and') {
+        if ((tracker & mask) !== mask) return false;
+      } else if (tracker & mask) {
+        matches = true;
+        break;
+      }
+    }
+    if (group.logic === 'or') {
+      hasOrGroup = true;
+      anyOrMatched ||= matches;
+    }
+  }
+  return !hasOrGroup || anyOrMatched;
 }

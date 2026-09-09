@@ -1,9 +1,11 @@
-import { Entity } from '../entity/types';
+import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/pack-entity';
-import { createEmptyMaskGeneration, ensureMaskPage } from '../entity/paged-mask';
-import { KernelContext } from '../context';
-import { EventType, QueryInstance } from './types';
+import { EMPTY_MASK_PAGE, ensureMaskPage } from '../entity/paged-mask';
+import type { KernelContext } from '../context';
+import type { EventType, QueryInstance } from './types';
+import { checkQuery } from './check-query';
 
+/** Record every affected group before applying static or tracking match conditions. */
 export function checkQueryTracking(
   ctx: KernelContext,
   query: QueryInstance,
@@ -13,99 +15,61 @@ export function checkQueryTracking(
   eventBitflag: number
 ): boolean {
   if (ctx.implicitEntities.has(entity)) return false;
-  const staticBitmasks = query.staticBitmasks;
-  const trackingGroups = query.trackingGroups;
-  const generations = query.generations;
-  const traitInstancesAll = query.traitInstances.all;
-  const entityMasks = ctx.entityMasks;
-  const eid = getEntityId(entity);
-
-  const generationsLen = generations.length;
-  const trackingGroupsLen = trackingGroups.length;
-
-  if (traitInstancesAll.length === 0) return false;
-
-  for (let i = 0; i < generationsLen; i++) {
-    const generationId = generations[i];
-    const bitmask = staticBitmasks[i];
-    if (!bitmask) continue;
-
-    const required = bitmask.required;
-    const forbidden = bitmask.forbidden;
-    const or = bitmask.or;
-
-    const entityMask = entityMasks[generationId][eid >>> 10][eid & 1023];
-
-    if (forbidden && (entityMask & forbidden) !== 0) return false;
-    if (required && (entityMask & required) !== required) return false;
-    if (or !== 0 && (entityMask & or) === 0) return false;
-  }
-
-  let hasOrGroup = false;
-  let anyOrMatched = false;
-
-  for (let i = 0; i < trackingGroupsLen; i++) {
-    const group = trackingGroups[i];
-    const groupType = group.type;
-    const groupLogic = group.logic;
-    const groupBitmasks = group.bitmasks;
-    const groupBitmask = groupBitmasks[eventGenerationId];
-
-    if (groupBitmask && groupBitmask & eventBitflag) {
-      if (eventType === 'remove') {
-        if (groupType === 'add' || groupType === 'change') return false;
-      } else if (eventType === 'add') {
-        if (groupType === 'remove' || groupType === 'change') return false;
-      }
-
-      if (groupType === eventType) {
-        if (eventType === 'change') {
-          const entityMask = entityMasks[eventGenerationId][eid >>> 10][eid & 1023];
-          if (!(entityMask & eventBitflag)) return false;
-        }
-
-        const groupTrackers = group.trackers;
-        if (!groupTrackers[eventGenerationId]) {
-          groupTrackers[eventGenerationId] = createEmptyMaskGeneration();
-        }
-        ensureMaskPage(groupTrackers[eventGenerationId], eid >>> 10)[eid & 1023] |= eventBitflag;
-      }
+  const id = getEntityId(entity);
+  const pageId = id >>> 10;
+  const offset = id & 1023;
+  let invalidated = false;
+  for (let i = 0; i < query.trackingGroups.length; i++) {
+    const group = query.trackingGroups[i];
+    if (!(group.bitmasks[eventGenerationId]! & eventBitflag)) continue;
+    const masks = group.trackers[eventGenerationId];
+    if (group.type === eventType) {
+      if (eventType !== 'change' || ctx.entityMasks[eventGenerationId][pageId][offset] & eventBitflag)
+        ensureMaskPage(masks, pageId)[offset] |= eventBitflag;
+    } else if (eventType !== 'change') {
+      invalidated ||= group.logic === 'and';
+      const page = masks[pageId];
+      if (page !== EMPTY_MASK_PAGE) page[offset] &= ~eventBitflag;
     }
+  }
+  return !invalidated && checkQuery(ctx, query, entity);
+}
 
-    if (groupLogic === 'or') {
-      hasOrGroup = true;
-      if (!anyOrMatched) {
-        const groupTrackers = group.trackers;
-        const bitmaskLen = groupBitmasks.length;
-        for (let genId = 0; genId < bitmaskLen; genId++) {
-          const mask = groupBitmasks[genId];
-          if (!mask) continue;
-          const trackerGen = groupTrackers[genId];
-          const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-          if (tracker & mask) {
-            anyOrMatched = true;
-            break;
-          }
-        }
-      }
-    } else {
-      const groupTrackers = group.trackers;
-      const bitmaskLen = groupBitmasks.length;
-      for (let genId = 0; genId < bitmaskLen; genId++) {
-        const mask = groupBitmasks[genId];
-        if (!mask) continue;
-        const trackerGen = groupTrackers[genId];
-        const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-        if ((tracker & mask) !== mask) {
-          return false;
-        }
+/** Seed complete and partial groups from history so first reads use the live matcher. */
+export function seedQueryTracking(ctx: KernelContext, query: QueryInstance): void {
+  const entities = ctx.entityIndex.dense;
+  const count = ctx.entityIndex.aliveCount;
+  for (let i = 0; i < query.trackingGroups.length; i++) {
+    const group = query.trackingGroups[i];
+    const snapshot = ctx.trackingSnapshots.get(group.id)!;
+    const dirty = ctx.dirtyMasks.get(group.id)!;
+    const changed = ctx.changedMasks.get(group.id)!;
+    for (let generation = 0; generation < group.bitmasks.length; generation++) {
+      const mask = group.bitmasks[generation];
+      if (!mask) continue;
+      const currentMasks = ctx.entityMasks[generation];
+      const oldMasks = snapshot[generation];
+      const dirtyMasks = dirty[generation];
+      const changedMasks = changed[generation];
+      const trackers = group.trackers[generation];
+      for (let j = 0; j < count; j++) {
+        const entity = entities[j];
+        if (ctx.implicitEntities.has(entity)) continue;
+        const id = getEntityId(entity);
+        const pageId = id >>> 10;
+        const offset = id & 1023;
+        const current = currentMasks[pageId][offset];
+        const previous = oldMasks[pageId][offset];
+        const mutations = dirtyMasks[pageId][offset];
+        const bits =
+          mask &
+          (group.type === 'add'
+            ? current & (~previous | mutations)
+            : group.type === 'remove'
+              ? ~current & (previous | mutations)
+              : current & changedMasks[pageId][offset]);
+        if (bits) ensureMaskPage(trackers, pageId)[offset] = bits;
       }
     }
   }
-
-  if (hasOrGroup && !anyOrMatched) {
-    return false;
-  }
-
-  return true;
 }

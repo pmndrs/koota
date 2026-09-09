@@ -9,7 +9,7 @@ import { isEntityAlive } from '../../entity/entity-index';
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/pack-entity';
-import { ensureMaskPage } from '../../entity/paged-mask';
+import { EMPTY_MASK_PAGE, ensureMaskPage } from '../../entity/paged-mask';
 import { publishChanged, applyPairChanged } from './changed';
 import { checkQueryTrackingWithRelations } from '../../query/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../../query/check-query-with-relations';
@@ -339,6 +339,10 @@ function removePreparedTraitFromEntity(
   const offset = eid & 1023;
   ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
   instance.version++;
+  for (const masks of ctx.changedMasks.values()) {
+    const page = masks[generationId][pageId];
+    if (page !== EMPTY_MASK_PAGE) page[offset] &= ~bitflag;
+  }
 
   for (const dirtyMask of ctx.dirtyMasks.values()) {
     ensureMaskPage(dirtyMask[generationId], pageId)[offset] |= bitflag;
