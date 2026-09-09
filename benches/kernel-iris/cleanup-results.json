@@ -1,0 +1,3195 @@
+{
+  "method": "Labs 0.9.0, eight fresh-process blocks per case, serial round-robin case execution. Timings cover a full 10k-entity invocation. Summary uses the median of block medians, not pooled sample averages. Heap deltas are Labs per-invocation p50, not retained memory or proof of zero allocation. Retained memory is recorded separately in cleanup-memory-results.json. Source fingerprints hash sorted relative path, NUL, file SHA256 and newline.",
+  "decision": "Kept separate numeric and prepared value-write hot paths after a shared row-write helper regressed prepared throughput by about 10%. Kept consolidated change publication, spawn initialization, ordinary trait removal, storage preparation and borrowed entity iteration. Query plans own matching, visits own workspaces and borrow lifetimes. No contract or storage-layout changes.",
+  "limitations": [
+    "The initial 35-case runs had clock drift and several apparent slowdowns also appeared in unchanged Iris controls. Focused before/after cases therefore ran within the same Labs schedule.",
+    "All four final focused comparisons are neutral at the Labs 5% minimum-effect threshold. One after tag-toggle run has high tail latency, so this is not a tail-latency equivalence claim.",
+    "The full 35-case candidate uses the initial cleanup source. The final source only restores separate scalar write paths. These writes were remeasured in the focused run.",
+    "Retained plan-only heap readings varied substantially across fresh processes. Do not interpret their median difference as a memory saving. ArrayBuffer retention was identical for every before/after shape."
+  ],
+  "sources": {
+    "before": {
+      "files": 93,
+      "sha256": "b575ec008d49f68739de7383c6c824aa2e348c6b1552ec87546f2286cf7e3bac",
+      "fileHashes": {
+        "api/actions/create-actions.ts": "bd22349658957001fbc0a4c156149a814d359412aad621a24201651f25ab1fd8",
+        "api/actions/types.ts": "6c2b42f1b6de14a32742ed4d65c78bcca6ad365e9836b26f62b6c314b7c118dd",
+        "api/commands/command-buffer.ts": "2d2318da9921f0e34e527ce8fb42d551dda04c5e98e062ddf9affd5c3d11739b",
+        "api/entity/entity-methods-patch.ts": "44950b0b2ecbef87a5c187a0386247ceffd3d65dd04d470cd138860c252af9fe",
+        "api/entity/entity.ts": "f0d661717261084edb9717d358a0ec643ffd9c333784de3ad3746038311e1cd3",
+        "api/entity/types.ts": "9475f29b83874e99a51595decb8d9ed67b72d99abb9d6ebe7ec8aca860bedfd9",
+        "api/errors.ts": "035f21893b0f4d765d60b90749f37bc685f66a893d38957940ff6ee5822feb9e",
+        "api/index.ts": "57e8c63845127c72164e296b7d9f6ad6733e4237a2fbcb4c8e55bd2e1cc42a0d",
+        "api/query/modifiers.ts": "3b31671067f3a40ea74b17b7fee35564080b53b7c40cde2b8182eb4a3671212e",
+        "api/query/query-pages.ts": "3c55ff24a8d0b3fff5d457b4abf0fd134b47574cad333febd27889b7561a7868",
+        "api/query/query-result.ts": "ad72a0291c70a149eceae7ad5d43548ec06f8adf87846e7bc0cc44e2a0e4b1e7",
+        "api/query/query.ts": "f54b1d782c26295d21973e118996d53a66a2e66c1e6dbc34ba3c13a4db8190c6",
+        "api/query/types.ts": "b73593dc24654e401dd1997ac84c38d8457f3723e96ce51fa35f5a250c587499",
+        "api/relation/ordered-list.ts": "3ff0e402a6070465d6554ba0f966b016e24609a4691f367d9cb77cbb26b4f1b9",
+        "api/relation/ordered.ts": "3bdfc65f690715d939903d00e6f2c376e45bc8461f31e8f8a674b253e77a54d2",
+        "api/relation/relation.ts": "eb24804ed3dfe0bb26c0a266ceffb7f6decd4b22e9f92def95f02cb95e83d5c8",
+        "api/relation/symbols.ts": "51d233fdb5a0f3016ed0223ff4d0c21a7564a4b276c5482d2056cc335b48450f",
+        "api/relation/types.ts": "95ee6ce5b8aa3a9e4b5fdb5e54b4adf397664bdb50f4bee744b651f1549f6853",
+        "api/trait/trait.ts": "f7725e7e043f9b022b4a3dc560212443ab3fd261f29583af75c0efb9f679f537",
+        "api/trait/types.ts": "f25ee27457f7f2a047c5b344471bfd345d4ad54404211fc066c7d37c243dfd4a",
+        "api/utils/shallow-equal.ts": "31ff5e28e78c125274b04c9d664980309f053c4d5209b9c01fc6508a1bd27eec",
+        "api/utils/types.ts": "83e7419d870ea9059fc30b4d8818daa741ac7b9769b3626f0e80df66a0832656",
+        "api/world/finalization.ts": "1662c7e8ab1104ceea45bdb1f50d0c1b45e46c603a6f4173b9eaba0a7be1bdbb",
+        "api/world/index.ts": "f10481ff0ac9f39e06fea5381d2570db0b4ae7f41993db3f3278b1dacae52886",
+        "api/world/lifecycle.ts": "750ff5f5ef93bdfd1f65249fa3e8523a9e68e09d83865195541e6c3b9b24c47d",
+        "api/world/resolve-hook.ts": "2edb1ea64775809f682636a6e0cb7552a2d189b036edd3443efba72c182eacbd",
+        "api/world/types.ts": "d2cbf9bdc3ee4bdfd463f0e43b39ee781cdfe6bd6d7dda3e860d5645602b23cd",
+        "api/world/world.ts": "671b3c97d99f57870c30e294c08547ccbed05a3def354c18fc16832dfdec2b9f",
+        "index.ts": "dcc390f6690437e874bc53640815938dbc46246123087a515b7d3906559d89cf",
+        "kernel/commands/buffer-state.ts": "e89f4b3a19c99a2e15c20723f540f22671670bc9f7dadf3101430f3080577884",
+        "kernel/commands/handlers/changed.ts": "96fae1420b97171d79734992e3df8beb462de56c63e9a2da0c9c8c72a9d29e4b",
+        "kernel/commands/handlers/entity.ts": "bdd92c3a5b6174da9510a9b4905d35acf30f3c582c031535f9fc95b7770df29e",
+        "kernel/commands/handlers/trait.ts": "0a9f0ead64c9289eed1eb997f62c7e9e778288e13b6918082b27ffbe09fa55ba",
+        "kernel/commands/interpreter.ts": "a79216efc86a60437f301fa7d4b25889347cb63731ba9f14534796e6ae95e52b",
+        "kernel/commands/lifecycle.ts": "29d7b93c77ad2fc9bb8bc969d3a4fb6495d0abd0a9b2805bdbe21c4dabded24b",
+        "kernel/commands/operations.ts": "15c14310ae6320bb5c0a1d84adf621a43bdbbf205965984e781226ad56bec13c",
+        "kernel/commands/recording.ts": "271c50982f10dd8636852422e21c5fb7ea2e47e343d4a66e6bed8cfc408a1aa9",
+        "kernel/common.ts": "aea1b7bf850c5748aa725280cf80d110cce1e50da5c69bdf5baf9392d757cef7",
+        "kernel/context.ts": "02823a1abb0171d643845fef672f48f456b428eef3d04b2aa737235bcc6fb945",
+        "kernel/entity/access.ts": "be648ed81f8a748b83c8f330d8b4cbec7d234526b02c181eb5f8b36377865c44",
+        "kernel/entity/capacity.ts": "728d3eba2c130f270ed16f3424d908e9607b876c000f23590ef41ab54a990278",
+        "kernel/entity/definitions.ts": "99cb1e1f2ca3f3477923a1c966f38e6c0ca9544c646532005c3cb19902f14ee3",
+        "kernel/entity/entity-index.ts": "669c87cab6b6e51e71dd07733d7053e525f04db15e118caf6913df1fcd18bf04",
+        "kernel/entity/entity-set.ts": "04adc0e761173d2b6cdffb80776cedc953e7ac895ae4fc4fc69c540698269d45",
+        "kernel/entity/membership.ts": "b64a232133d08873b3f3e5fa3a94cb14ecbe23ddce41a3f79923bcb3c7a59da4",
+        "kernel/entity/operations.ts": "43d7f1754a367868bce2dab50eee3537e7ceb8b4bf05a5ad5be7c08369d7e665",
+        "kernel/entity/pack-entity.ts": "5c77b43346e98443bb86ee14f53739b354fd5ea0901be3d21de8470ef112a4e6",
+        "kernel/entity/page-allocator.ts": "15b0b55d425eb6294ee862440547b5c108db42fbeb8f2082a8ae77820517fc39",
+        "kernel/entity/paged-mask.ts": "13004b3542ec9643aa03f838079935bcf9f3ee7ce91d4d7d450b8e3d11c154ed",
+        "kernel/entity/prepared-access.ts": "3b77158bc59ec3a8a9ff3e4b00d195bcce798c75f931908394fb0cd9ff7c9f1c",
+        "kernel/entity/spawn-plan.ts": "e8f7b76974f162a19aae0f7d153f0ce20499b5569f3b00db8c71f5cf69489007",
+        "kernel/entity/types.ts": "25f7482cf414859468bc922f2c30d81ea77c075cf90037ac72f4535d3a4b1c96",
+        "kernel/entity/values.ts": "b46f9984682c97c6c23ef0f7216d3bc51339ee8affad6e8478d76a8b1e1bc9a1",
+        "kernel/errors.ts": "75c7ce3a00c6e8eba1dfe1c5bc2c9283011a1743b133272d968b6e12dccf3f66",
+        "kernel/experimental/entity-kernel.ts": "3c0620d4ff4b2de690b3ac3ee01627a1e19429e2183cac25c7c2411858b7cb27",
+        "kernel/handles.ts": "dd23288588216de4bf20e3325499ddf916623c943ba8c48bca8e99edb1f77575",
+        "kernel/index.ts": "fcff71247bf1cf769f4c08b53d1ddf7974bf1b313d321ccad8c21119ff61ee45",
+        "kernel/interface.ts": "10a0065cfa147227d2bea91033e24f4ed907fabd919f265f81a57596c2e472b7",
+        "kernel/query/check-query-tracking-with-relations.ts": "5dbfe5e91e18ae809d871673cad4794363a0023dfd256cedcfa28fbefa40c5f4",
+        "kernel/query/check-query-tracking.ts": "159a0c836d68ff5bfec43a1fac00bfb23c782dca8e7badddba973f1940d2d11a",
+        "kernel/query/check-query-with-relations.ts": "301b4ea3ceb69f0d2861d960f5bc4ac0801872d37ea3b3752aada13548134b25",
+        "kernel/query/check-query.ts": "650806545b11eee405cd466a11bcbdfeb90c144bfc4ff6df60fd907c26e78b0b",
+        "kernel/query/create-binary-string.ts": "e6ac520cfd3f50ec81a6ed73522d8cf2755eae30660cbd8a4afa50938058b1d8",
+        "kernel/query/create-query-hash.ts": "0926904b6644b7f3938badae5ce5bebf7478b55410c4317a304c3e97c60572c8",
+        "kernel/query/is-query.ts": "bbe3e1433721276b74be9c2297f584dddd08b39327e00c04941915f70ca9fb7c",
+        "kernel/query/iteration.ts": "6bc6da8f01d1df69fafb7ae9c49be756af2d1db1a6bb5bf526f087b8c7fcc780",
+        "kernel/query/modifier.ts": "35ed8d0749515c29711758190390070a4561cbb9e817331d8b5092e4926750e0",
+        "kernel/query/observe.ts": "7babe56b19584fafd33df9e753f2273c010bf0f7c86f41d724a82e85e28b9683",
+        "kernel/query/query-plan.ts": "9dbf9d51526d8d3503b318b4eca979800654280f0b83a695f850809d9fecab11",
+        "kernel/query/query.ts": "859407923d21762f35194a566cdd6c2d8062ed6864b41a0eacbd252b49e61957",
+        "kernel/query/symbols.ts": "bd8e3a500ae611e67638e47ba7dab43aa4a084bfbe2043b924943ec99512cd2b",
+        "kernel/query/tracking-cursor.ts": "675414d90b155fa8a2db3307816f0d4cb2ac98ce677caa6a94d3dff85c3a2134",
+        "kernel/query/types.ts": "439ac68492e56e7bc7294fbef9c1995a5bbd80e7b8781e0f9a9e65f8be2fd603",
+        "kernel/query/visit.ts": "4457308e3f4dc9fa2752a6b64603d0a52a04d9e92ad78d62c3269f3f86c868c3",
+        "kernel/relation/create-relation.ts": "339a8f743eb7c9bd2c0a5d9d2c31c303d4476a244a2e31eb553bc5239393c1fd",
+        "kernel/relation/is-relation.ts": "4805fa053e7d7878ea571927a5be49dd69a514fdb11de726071b4bb1ab4e459d",
+        "kernel/relation/relation.ts": "f3c5dcb84d0833dd93e798ff8e2be5fac202613e62d71ca3699441decfb44741",
+        "kernel/relation/symbols.ts": "2a0a41b341e201147f8a6cd86efc2ea6f60d39324d11ad1e973e7d6d1003e15e",
+        "kernel/relation/types.ts": "ab05752f8f32804890e642be774719d555d682d14395f69b24ffafc63b5a87d5",
+        "kernel/storage/accessors.ts": "694d8dd19fc1ef38d36badf515f12dff1c9d25bc12b7728c9546638d97ed5c61",
+        "kernel/storage/index.ts": "fe43163e9deeffc1723451834594e89cab56dab7dbf0c0d9f5aa45ac10869318",
+        "kernel/storage/initialize.ts": "2fb49e8039308f953ae8db89f0f829ddd56baf34d7dc22d2d95eab3e3347dcd3",
+        "kernel/storage/schema.ts": "ee62e20f8f76d463a401d7e91f08b0566e82518323afaf82d53f64bd4f7fbaed",
+        "kernel/storage/stores.ts": "eb7c2a2e9635ba412459c7ae1b0d4d95d2d1b096b2e7c96b9964383a6313dd00",
+        "kernel/storage/types.ts": "8e5e16528056b1c30c9f468557a300ef5856d2494db77f2eac52f6f3edbed815",
+        "kernel/storage/values.ts": "73388bb5f6ce025e49b6b789648013fe0ea2b359ba5858e7712473474322e820",
+        "kernel/trait/create-trait.ts": "db1087252ccc4fec2266cdd2957aaa0b50e0be4061bde97efb410bf8b2731b2d",
+        "kernel/trait/observe.ts": "7cb3488f2a67df2dad2559b0ff87191bbbe431580eb61a8dd69339405102bbcb",
+        "kernel/trait/subscriptions.ts": "1634cba278a9cca7c036511f502dcbb1d87bf2694c295ba3079a490b670bad0c",
+        "kernel/trait/trait.ts": "ae7776c145e6137a272f5f85f46970c079d0b917690c046795bf20691c4fc44b",
+        "kernel/trait/types.ts": "6e07655fe02338857075034fa3f58bf8b999a06831050f765c2917c15ec0f776",
+        "kernel/universe.ts": "95c99231bdbccc7197d6e38fdd3b17b3f2f103699469bbbb0d8f4d308d544807",
+        "kernel/utils/shallow-equal.ts": "656a2fb3acc7194867186a5dc1314aa73ac5711ba501faa7140e2f4a467c8bd7"
+      }
+    },
+    "sharedWriteCandidate": {
+      "files": 93,
+      "sha256": "eb829ee9b67bca80b433c5ed0d15a5adeca6d50bfd9a75e440522ad158f231ff",
+      "fileHashes": {
+        "api/actions/create-actions.ts": "bd22349658957001fbc0a4c156149a814d359412aad621a24201651f25ab1fd8",
+        "api/actions/types.ts": "6c2b42f1b6de14a32742ed4d65c78bcca6ad365e9836b26f62b6c314b7c118dd",
+        "api/commands/command-buffer.ts": "2d2318da9921f0e34e527ce8fb42d551dda04c5e98e062ddf9affd5c3d11739b",
+        "api/entity/entity-methods-patch.ts": "44950b0b2ecbef87a5c187a0386247ceffd3d65dd04d470cd138860c252af9fe",
+        "api/entity/entity.ts": "f0d661717261084edb9717d358a0ec643ffd9c333784de3ad3746038311e1cd3",
+        "api/entity/types.ts": "9475f29b83874e99a51595decb8d9ed67b72d99abb9d6ebe7ec8aca860bedfd9",
+        "api/errors.ts": "035f21893b0f4d765d60b90749f37bc685f66a893d38957940ff6ee5822feb9e",
+        "api/index.ts": "57e8c63845127c72164e296b7d9f6ad6733e4237a2fbcb4c8e55bd2e1cc42a0d",
+        "api/query/modifiers.ts": "3b31671067f3a40ea74b17b7fee35564080b53b7c40cde2b8182eb4a3671212e",
+        "api/query/query-pages.ts": "3c55ff24a8d0b3fff5d457b4abf0fd134b47574cad333febd27889b7561a7868",
+        "api/query/query-result.ts": "ad72a0291c70a149eceae7ad5d43548ec06f8adf87846e7bc0cc44e2a0e4b1e7",
+        "api/query/query.ts": "f54b1d782c26295d21973e118996d53a66a2e66c1e6dbc34ba3c13a4db8190c6",
+        "api/query/types.ts": "b73593dc24654e401dd1997ac84c38d8457f3723e96ce51fa35f5a250c587499",
+        "api/relation/ordered-list.ts": "3ff0e402a6070465d6554ba0f966b016e24609a4691f367d9cb77cbb26b4f1b9",
+        "api/relation/ordered.ts": "3bdfc65f690715d939903d00e6f2c376e45bc8461f31e8f8a674b253e77a54d2",
+        "api/relation/relation.ts": "eb24804ed3dfe0bb26c0a266ceffb7f6decd4b22e9f92def95f02cb95e83d5c8",
+        "api/relation/symbols.ts": "51d233fdb5a0f3016ed0223ff4d0c21a7564a4b276c5482d2056cc335b48450f",
+        "api/relation/types.ts": "95ee6ce5b8aa3a9e4b5fdb5e54b4adf397664bdb50f4bee744b651f1549f6853",
+        "api/trait/trait.ts": "f7725e7e043f9b022b4a3dc560212443ab3fd261f29583af75c0efb9f679f537",
+        "api/trait/types.ts": "f25ee27457f7f2a047c5b344471bfd345d4ad54404211fc066c7d37c243dfd4a",
+        "api/utils/shallow-equal.ts": "31ff5e28e78c125274b04c9d664980309f053c4d5209b9c01fc6508a1bd27eec",
+        "api/utils/types.ts": "83e7419d870ea9059fc30b4d8818daa741ac7b9769b3626f0e80df66a0832656",
+        "api/world/finalization.ts": "1662c7e8ab1104ceea45bdb1f50d0c1b45e46c603a6f4173b9eaba0a7be1bdbb",
+        "api/world/index.ts": "f10481ff0ac9f39e06fea5381d2570db0b4ae7f41993db3f3278b1dacae52886",
+        "api/world/lifecycle.ts": "750ff5f5ef93bdfd1f65249fa3e8523a9e68e09d83865195541e6c3b9b24c47d",
+        "api/world/resolve-hook.ts": "2edb1ea64775809f682636a6e0cb7552a2d189b036edd3443efba72c182eacbd",
+        "api/world/types.ts": "d2cbf9bdc3ee4bdfd463f0e43b39ee781cdfe6bd6d7dda3e860d5645602b23cd",
+        "api/world/world.ts": "671b3c97d99f57870c30e294c08547ccbed05a3def354c18fc16832dfdec2b9f",
+        "index.ts": "dcc390f6690437e874bc53640815938dbc46246123087a515b7d3906559d89cf",
+        "kernel/commands/buffer-state.ts": "e89f4b3a19c99a2e15c20723f540f22671670bc9f7dadf3101430f3080577884",
+        "kernel/commands/handlers/changed.ts": "f86b68d36bffcd3f7ac3dd273e7eb30e8df72c7143fde0d4374bd9b23556088d",
+        "kernel/commands/handlers/entity.ts": "1fe6b948365c96abc823e3b33337edf8a4a2fbbef7002d4026867c3bef8ea475",
+        "kernel/commands/handlers/trait.ts": "6608460a8ec5bccc5df1b67a7e012ce188d85438862f0458d8bfec769d64f620",
+        "kernel/commands/interpreter.ts": "a79216efc86a60437f301fa7d4b25889347cb63731ba9f14534796e6ae95e52b",
+        "kernel/commands/lifecycle.ts": "29d7b93c77ad2fc9bb8bc969d3a4fb6495d0abd0a9b2805bdbe21c4dabded24b",
+        "kernel/commands/operations.ts": "15c14310ae6320bb5c0a1d84adf621a43bdbbf205965984e781226ad56bec13c",
+        "kernel/commands/recording.ts": "271c50982f10dd8636852422e21c5fb7ea2e47e343d4a66e6bed8cfc408a1aa9",
+        "kernel/common.ts": "aea1b7bf850c5748aa725280cf80d110cce1e50da5c69bdf5baf9392d757cef7",
+        "kernel/context.ts": "02823a1abb0171d643845fef672f48f456b428eef3d04b2aa737235bcc6fb945",
+        "kernel/entity/access.ts": "be648ed81f8a748b83c8f330d8b4cbec7d234526b02c181eb5f8b36377865c44",
+        "kernel/entity/capacity.ts": "728d3eba2c130f270ed16f3424d908e9607b876c000f23590ef41ab54a990278",
+        "kernel/entity/definitions.ts": "99cb1e1f2ca3f3477923a1c966f38e6c0ca9544c646532005c3cb19902f14ee3",
+        "kernel/entity/entity-index.ts": "7b664288fc1f3996ab9ca011faf2f6a615360c9a49388363aecc7261ab12f72b",
+        "kernel/entity/entity-set.ts": "04adc0e761173d2b6cdffb80776cedc953e7ac895ae4fc4fc69c540698269d45",
+        "kernel/entity/membership.ts": "b64a232133d08873b3f3e5fa3a94cb14ecbe23ddce41a3f79923bcb3c7a59da4",
+        "kernel/entity/operations.ts": "43d7f1754a367868bce2dab50eee3537e7ceb8b4bf05a5ad5be7c08369d7e665",
+        "kernel/entity/pack-entity.ts": "5c77b43346e98443bb86ee14f53739b354fd5ea0901be3d21de8470ef112a4e6",
+        "kernel/entity/page-allocator.ts": "15b0b55d425eb6294ee862440547b5c108db42fbeb8f2082a8ae77820517fc39",
+        "kernel/entity/paged-mask.ts": "13004b3542ec9643aa03f838079935bcf9f3ee7ce91d4d7d450b8e3d11c154ed",
+        "kernel/entity/prepared-access.ts": "e1ee88561899caf8a7c2d34b85163a8726198ef2309e76037a286305cdfa3907",
+        "kernel/entity/spawn-plan.ts": "07b102c2f519ff2f1183a20e6ec0e5bb12f16ba7b9c8ad2086fd98ec9f999ab9",
+        "kernel/entity/types.ts": "25f7482cf414859468bc922f2c30d81ea77c075cf90037ac72f4535d3a4b1c96",
+        "kernel/entity/values.ts": "0328910e31e327bf52feccf56e4da4a6406a6693e68664f2928692b5873709ef",
+        "kernel/errors.ts": "75c7ce3a00c6e8eba1dfe1c5bc2c9283011a1743b133272d968b6e12dccf3f66",
+        "kernel/experimental/entity-kernel.ts": "3c0620d4ff4b2de690b3ac3ee01627a1e19429e2183cac25c7c2411858b7cb27",
+        "kernel/handles.ts": "dd23288588216de4bf20e3325499ddf916623c943ba8c48bca8e99edb1f77575",
+        "kernel/index.ts": "fcff71247bf1cf769f4c08b53d1ddf7974bf1b313d321ccad8c21119ff61ee45",
+        "kernel/interface.ts": "33b00b958500be2621b3a4f33a3a36ed1430870d198d7ff9d5d9e3200d285e3d",
+        "kernel/query/check-query-tracking-with-relations.ts": "5dbfe5e91e18ae809d871673cad4794363a0023dfd256cedcfa28fbefa40c5f4",
+        "kernel/query/check-query-tracking.ts": "159a0c836d68ff5bfec43a1fac00bfb23c782dca8e7badddba973f1940d2d11a",
+        "kernel/query/check-query-with-relations.ts": "301b4ea3ceb69f0d2861d960f5bc4ac0801872d37ea3b3752aada13548134b25",
+        "kernel/query/check-query.ts": "650806545b11eee405cd466a11bcbdfeb90c144bfc4ff6df60fd907c26e78b0b",
+        "kernel/query/create-binary-string.ts": "e6ac520cfd3f50ec81a6ed73522d8cf2755eae30660cbd8a4afa50938058b1d8",
+        "kernel/query/create-query-hash.ts": "0926904b6644b7f3938badae5ce5bebf7478b55410c4317a304c3e97c60572c8",
+        "kernel/query/is-query.ts": "bbe3e1433721276b74be9c2297f584dddd08b39327e00c04941915f70ca9fb7c",
+        "kernel/query/iteration.ts": "6bc6da8f01d1df69fafb7ae9c49be756af2d1db1a6bb5bf526f087b8c7fcc780",
+        "kernel/query/modifier.ts": "35ed8d0749515c29711758190390070a4561cbb9e817331d8b5092e4926750e0",
+        "kernel/query/observe.ts": "7babe56b19584fafd33df9e753f2273c010bf0f7c86f41d724a82e85e28b9683",
+        "kernel/query/query-plan.ts": "57bce6c0fe809eaa20d67d0798b58475edb106dde9c533db6ddc9f3b06b7a18d",
+        "kernel/query/query.ts": "859407923d21762f35194a566cdd6c2d8062ed6864b41a0eacbd252b49e61957",
+        "kernel/query/symbols.ts": "bd8e3a500ae611e67638e47ba7dab43aa4a084bfbe2043b924943ec99512cd2b",
+        "kernel/query/tracking-cursor.ts": "675414d90b155fa8a2db3307816f0d4cb2ac98ce677caa6a94d3dff85c3a2134",
+        "kernel/query/types.ts": "439ac68492e56e7bc7294fbef9c1995a5bbd80e7b8781e0f9a9e65f8be2fd603",
+        "kernel/query/visit.ts": "95df12500bc182198490fe049e8052fc8021639f4e16a6c5a7db3a6656529199",
+        "kernel/relation/create-relation.ts": "339a8f743eb7c9bd2c0a5d9d2c31c303d4476a244a2e31eb553bc5239393c1fd",
+        "kernel/relation/is-relation.ts": "4805fa053e7d7878ea571927a5be49dd69a514fdb11de726071b4bb1ab4e459d",
+        "kernel/relation/relation.ts": "f3c5dcb84d0833dd93e798ff8e2be5fac202613e62d71ca3699441decfb44741",
+        "kernel/relation/symbols.ts": "2a0a41b341e201147f8a6cd86efc2ea6f60d39324d11ad1e973e7d6d1003e15e",
+        "kernel/relation/types.ts": "ab05752f8f32804890e642be774719d555d682d14395f69b24ffafc63b5a87d5",
+        "kernel/storage/accessors.ts": "694d8dd19fc1ef38d36badf515f12dff1c9d25bc12b7728c9546638d97ed5c61",
+        "kernel/storage/index.ts": "fe43163e9deeffc1723451834594e89cab56dab7dbf0c0d9f5aa45ac10869318",
+        "kernel/storage/initialize.ts": "2fb49e8039308f953ae8db89f0f829ddd56baf34d7dc22d2d95eab3e3347dcd3",
+        "kernel/storage/schema.ts": "ee62e20f8f76d463a401d7e91f08b0566e82518323afaf82d53f64bd4f7fbaed",
+        "kernel/storage/stores.ts": "eb7c2a2e9635ba412459c7ae1b0d4d95d2d1b096b2e7c96b9964383a6313dd00",
+        "kernel/storage/types.ts": "8e5e16528056b1c30c9f468557a300ef5856d2494db77f2eac52f6f3edbed815",
+        "kernel/storage/values.ts": "73388bb5f6ce025e49b6b789648013fe0ea2b359ba5858e7712473474322e820",
+        "kernel/trait/create-trait.ts": "db1087252ccc4fec2266cdd2957aaa0b50e0be4061bde97efb410bf8b2731b2d",
+        "kernel/trait/observe.ts": "7cb3488f2a67df2dad2559b0ff87191bbbe431580eb61a8dd69339405102bbcb",
+        "kernel/trait/subscriptions.ts": "1634cba278a9cca7c036511f502dcbb1d87bf2694c295ba3079a490b670bad0c",
+        "kernel/trait/trait.ts": "ae7776c145e6137a272f5f85f46970c079d0b917690c046795bf20691c4fc44b",
+        "kernel/trait/types.ts": "6e07655fe02338857075034fa3f58bf8b999a06831050f765c2917c15ec0f776",
+        "kernel/universe.ts": "95c99231bdbccc7197d6e38fdd3b17b3f2f103699469bbbb0d8f4d308d544807",
+        "kernel/utils/shallow-equal.ts": "656a2fb3acc7194867186a5dc1314aa73ac5711ba501faa7140e2f4a467c8bd7"
+      }
+    },
+    "final": {
+      "files": 93,
+      "sha256": "5a5a044f911c5d143547d7d9d8b149f705159d5f97a2eff386ce01216f3d1206",
+      "fileHashes": {
+        "api/actions/create-actions.ts": "bd22349658957001fbc0a4c156149a814d359412aad621a24201651f25ab1fd8",
+        "api/actions/types.ts": "6c2b42f1b6de14a32742ed4d65c78bcca6ad365e9836b26f62b6c314b7c118dd",
+        "api/commands/command-buffer.ts": "2d2318da9921f0e34e527ce8fb42d551dda04c5e98e062ddf9affd5c3d11739b",
+        "api/entity/entity-methods-patch.ts": "44950b0b2ecbef87a5c187a0386247ceffd3d65dd04d470cd138860c252af9fe",
+        "api/entity/entity.ts": "f0d661717261084edb9717d358a0ec643ffd9c333784de3ad3746038311e1cd3",
+        "api/entity/types.ts": "9475f29b83874e99a51595decb8d9ed67b72d99abb9d6ebe7ec8aca860bedfd9",
+        "api/errors.ts": "035f21893b0f4d765d60b90749f37bc685f66a893d38957940ff6ee5822feb9e",
+        "api/index.ts": "57e8c63845127c72164e296b7d9f6ad6733e4237a2fbcb4c8e55bd2e1cc42a0d",
+        "api/query/modifiers.ts": "3b31671067f3a40ea74b17b7fee35564080b53b7c40cde2b8182eb4a3671212e",
+        "api/query/query-pages.ts": "3c55ff24a8d0b3fff5d457b4abf0fd134b47574cad333febd27889b7561a7868",
+        "api/query/query-result.ts": "ad72a0291c70a149eceae7ad5d43548ec06f8adf87846e7bc0cc44e2a0e4b1e7",
+        "api/query/query.ts": "f54b1d782c26295d21973e118996d53a66a2e66c1e6dbc34ba3c13a4db8190c6",
+        "api/query/types.ts": "b73593dc24654e401dd1997ac84c38d8457f3723e96ce51fa35f5a250c587499",
+        "api/relation/ordered-list.ts": "3ff0e402a6070465d6554ba0f966b016e24609a4691f367d9cb77cbb26b4f1b9",
+        "api/relation/ordered.ts": "3bdfc65f690715d939903d00e6f2c376e45bc8461f31e8f8a674b253e77a54d2",
+        "api/relation/relation.ts": "eb24804ed3dfe0bb26c0a266ceffb7f6decd4b22e9f92def95f02cb95e83d5c8",
+        "api/relation/symbols.ts": "51d233fdb5a0f3016ed0223ff4d0c21a7564a4b276c5482d2056cc335b48450f",
+        "api/relation/types.ts": "95ee6ce5b8aa3a9e4b5fdb5e54b4adf397664bdb50f4bee744b651f1549f6853",
+        "api/trait/trait.ts": "f7725e7e043f9b022b4a3dc560212443ab3fd261f29583af75c0efb9f679f537",
+        "api/trait/types.ts": "f25ee27457f7f2a047c5b344471bfd345d4ad54404211fc066c7d37c243dfd4a",
+        "api/utils/shallow-equal.ts": "31ff5e28e78c125274b04c9d664980309f053c4d5209b9c01fc6508a1bd27eec",
+        "api/utils/types.ts": "83e7419d870ea9059fc30b4d8818daa741ac7b9769b3626f0e80df66a0832656",
+        "api/world/finalization.ts": "1662c7e8ab1104ceea45bdb1f50d0c1b45e46c603a6f4173b9eaba0a7be1bdbb",
+        "api/world/index.ts": "f10481ff0ac9f39e06fea5381d2570db0b4ae7f41993db3f3278b1dacae52886",
+        "api/world/lifecycle.ts": "750ff5f5ef93bdfd1f65249fa3e8523a9e68e09d83865195541e6c3b9b24c47d",
+        "api/world/resolve-hook.ts": "2edb1ea64775809f682636a6e0cb7552a2d189b036edd3443efba72c182eacbd",
+        "api/world/types.ts": "d2cbf9bdc3ee4bdfd463f0e43b39ee781cdfe6bd6d7dda3e860d5645602b23cd",
+        "api/world/world.ts": "671b3c97d99f57870c30e294c08547ccbed05a3def354c18fc16832dfdec2b9f",
+        "index.ts": "dcc390f6690437e874bc53640815938dbc46246123087a515b7d3906559d89cf",
+        "kernel/commands/buffer-state.ts": "e89f4b3a19c99a2e15c20723f540f22671670bc9f7dadf3101430f3080577884",
+        "kernel/commands/handlers/changed.ts": "f86b68d36bffcd3f7ac3dd273e7eb30e8df72c7143fde0d4374bd9b23556088d",
+        "kernel/commands/handlers/entity.ts": "1fe6b948365c96abc823e3b33337edf8a4a2fbbef7002d4026867c3bef8ea475",
+        "kernel/commands/handlers/trait.ts": "6608460a8ec5bccc5df1b67a7e012ce188d85438862f0458d8bfec769d64f620",
+        "kernel/commands/interpreter.ts": "a79216efc86a60437f301fa7d4b25889347cb63731ba9f14534796e6ae95e52b",
+        "kernel/commands/lifecycle.ts": "29d7b93c77ad2fc9bb8bc969d3a4fb6495d0abd0a9b2805bdbe21c4dabded24b",
+        "kernel/commands/operations.ts": "15c14310ae6320bb5c0a1d84adf621a43bdbbf205965984e781226ad56bec13c",
+        "kernel/commands/recording.ts": "271c50982f10dd8636852422e21c5fb7ea2e47e343d4a66e6bed8cfc408a1aa9",
+        "kernel/common.ts": "aea1b7bf850c5748aa725280cf80d110cce1e50da5c69bdf5baf9392d757cef7",
+        "kernel/context.ts": "02823a1abb0171d643845fef672f48f456b428eef3d04b2aa737235bcc6fb945",
+        "kernel/entity/access.ts": "be648ed81f8a748b83c8f330d8b4cbec7d234526b02c181eb5f8b36377865c44",
+        "kernel/entity/capacity.ts": "728d3eba2c130f270ed16f3424d908e9607b876c000f23590ef41ab54a990278",
+        "kernel/entity/definitions.ts": "99cb1e1f2ca3f3477923a1c966f38e6c0ca9544c646532005c3cb19902f14ee3",
+        "kernel/entity/entity-index.ts": "7b664288fc1f3996ab9ca011faf2f6a615360c9a49388363aecc7261ab12f72b",
+        "kernel/entity/entity-set.ts": "04adc0e761173d2b6cdffb80776cedc953e7ac895ae4fc4fc69c540698269d45",
+        "kernel/entity/membership.ts": "b64a232133d08873b3f3e5fa3a94cb14ecbe23ddce41a3f79923bcb3c7a59da4",
+        "kernel/entity/operations.ts": "43d7f1754a367868bce2dab50eee3537e7ceb8b4bf05a5ad5be7c08369d7e665",
+        "kernel/entity/pack-entity.ts": "5c77b43346e98443bb86ee14f53739b354fd5ea0901be3d21de8470ef112a4e6",
+        "kernel/entity/page-allocator.ts": "15b0b55d425eb6294ee862440547b5c108db42fbeb8f2082a8ae77820517fc39",
+        "kernel/entity/paged-mask.ts": "13004b3542ec9643aa03f838079935bcf9f3ee7ce91d4d7d450b8e3d11c154ed",
+        "kernel/entity/prepared-access.ts": "68752b48c6ea09da670faebf60b664187d6f0a6de37e79681fc9712e2d51cdfe",
+        "kernel/entity/spawn-plan.ts": "07b102c2f519ff2f1183a20e6ec0e5bb12f16ba7b9c8ad2086fd98ec9f999ab9",
+        "kernel/entity/types.ts": "25f7482cf414859468bc922f2c30d81ea77c075cf90037ac72f4535d3a4b1c96",
+        "kernel/entity/values.ts": "de926ccf337afed55593d1d0f081e7a85fef2de18f40c11c5bfdeb918d89cc35",
+        "kernel/errors.ts": "75c7ce3a00c6e8eba1dfe1c5bc2c9283011a1743b133272d968b6e12dccf3f66",
+        "kernel/experimental/entity-kernel.ts": "3c0620d4ff4b2de690b3ac3ee01627a1e19429e2183cac25c7c2411858b7cb27",
+        "kernel/handles.ts": "dd23288588216de4bf20e3325499ddf916623c943ba8c48bca8e99edb1f77575",
+        "kernel/index.ts": "fcff71247bf1cf769f4c08b53d1ddf7974bf1b313d321ccad8c21119ff61ee45",
+        "kernel/interface.ts": "33b00b958500be2621b3a4f33a3a36ed1430870d198d7ff9d5d9e3200d285e3d",
+        "kernel/query/check-query-tracking-with-relations.ts": "5dbfe5e91e18ae809d871673cad4794363a0023dfd256cedcfa28fbefa40c5f4",
+        "kernel/query/check-query-tracking.ts": "159a0c836d68ff5bfec43a1fac00bfb23c782dca8e7badddba973f1940d2d11a",
+        "kernel/query/check-query-with-relations.ts": "301b4ea3ceb69f0d2861d960f5bc4ac0801872d37ea3b3752aada13548134b25",
+        "kernel/query/check-query.ts": "650806545b11eee405cd466a11bcbdfeb90c144bfc4ff6df60fd907c26e78b0b",
+        "kernel/query/create-binary-string.ts": "e6ac520cfd3f50ec81a6ed73522d8cf2755eae30660cbd8a4afa50938058b1d8",
+        "kernel/query/create-query-hash.ts": "0926904b6644b7f3938badae5ce5bebf7478b55410c4317a304c3e97c60572c8",
+        "kernel/query/is-query.ts": "bbe3e1433721276b74be9c2297f584dddd08b39327e00c04941915f70ca9fb7c",
+        "kernel/query/iteration.ts": "6bc6da8f01d1df69fafb7ae9c49be756af2d1db1a6bb5bf526f087b8c7fcc780",
+        "kernel/query/modifier.ts": "35ed8d0749515c29711758190390070a4561cbb9e817331d8b5092e4926750e0",
+        "kernel/query/observe.ts": "7babe56b19584fafd33df9e753f2273c010bf0f7c86f41d724a82e85e28b9683",
+        "kernel/query/query-plan.ts": "57bce6c0fe809eaa20d67d0798b58475edb106dde9c533db6ddc9f3b06b7a18d",
+        "kernel/query/query.ts": "859407923d21762f35194a566cdd6c2d8062ed6864b41a0eacbd252b49e61957",
+        "kernel/query/symbols.ts": "bd8e3a500ae611e67638e47ba7dab43aa4a084bfbe2043b924943ec99512cd2b",
+        "kernel/query/tracking-cursor.ts": "675414d90b155fa8a2db3307816f0d4cb2ac98ce677caa6a94d3dff85c3a2134",
+        "kernel/query/types.ts": "439ac68492e56e7bc7294fbef9c1995a5bbd80e7b8781e0f9a9e65f8be2fd603",
+        "kernel/query/visit.ts": "95df12500bc182198490fe049e8052fc8021639f4e16a6c5a7db3a6656529199",
+        "kernel/relation/create-relation.ts": "339a8f743eb7c9bd2c0a5d9d2c31c303d4476a244a2e31eb553bc5239393c1fd",
+        "kernel/relation/is-relation.ts": "4805fa053e7d7878ea571927a5be49dd69a514fdb11de726071b4bb1ab4e459d",
+        "kernel/relation/relation.ts": "f3c5dcb84d0833dd93e798ff8e2be5fac202613e62d71ca3699441decfb44741",
+        "kernel/relation/symbols.ts": "2a0a41b341e201147f8a6cd86efc2ea6f60d39324d11ad1e973e7d6d1003e15e",
+        "kernel/relation/types.ts": "ab05752f8f32804890e642be774719d555d682d14395f69b24ffafc63b5a87d5",
+        "kernel/storage/accessors.ts": "694d8dd19fc1ef38d36badf515f12dff1c9d25bc12b7728c9546638d97ed5c61",
+        "kernel/storage/index.ts": "fe43163e9deeffc1723451834594e89cab56dab7dbf0c0d9f5aa45ac10869318",
+        "kernel/storage/initialize.ts": "2fb49e8039308f953ae8db89f0f829ddd56baf34d7dc22d2d95eab3e3347dcd3",
+        "kernel/storage/schema.ts": "ee62e20f8f76d463a401d7e91f08b0566e82518323afaf82d53f64bd4f7fbaed",
+        "kernel/storage/stores.ts": "eb7c2a2e9635ba412459c7ae1b0d4d95d2d1b096b2e7c96b9964383a6313dd00",
+        "kernel/storage/types.ts": "8e5e16528056b1c30c9f468557a300ef5856d2494db77f2eac52f6f3edbed815",
+        "kernel/storage/values.ts": "73388bb5f6ce025e49b6b789648013fe0ea2b359ba5858e7712473474322e820",
+        "kernel/trait/create-trait.ts": "db1087252ccc4fec2266cdd2957aaa0b50e0be4061bde97efb410bf8b2731b2d",
+        "kernel/trait/observe.ts": "7cb3488f2a67df2dad2559b0ff87191bbbe431580eb61a8dd69339405102bbcb",
+        "kernel/trait/subscriptions.ts": "1634cba278a9cca7c036511f502dcbb1d87bf2694c295ba3079a490b670bad0c",
+        "kernel/trait/trait.ts": "ae7776c145e6137a272f5f85f46970c079d0b917690c046795bf20691c4fc44b",
+        "kernel/trait/types.ts": "6e07655fe02338857075034fa3f58bf8b999a06831050f765c2917c15ec0f776",
+        "kernel/universe.ts": "95c99231bdbccc7197d6e38fdd3b17b3f2f103699469bbbb0d8f4d308d544807",
+        "kernel/utils/shallow-equal.ts": "656a2fb3acc7194867186a5dc1314aa73ac5711ba501faa7140e2f4a467c8bd7"
+      }
+    },
+    "iris": {
+      "commit": "001e47c93705d35612a70cd827761c4e5cac31f4",
+      "path": "/Users/krisbaumgartner/Dev/iris"
+    }
+  },
+  "benchmarkSources": {
+    "benches/kernel-iris/check-semantics.ts": "1dfb1a795f239b0e82782c8bead689ef3f8393c487ad3845a464a38defac1503",
+    "benches/kernel-iris/cleanup.bench.ts": "0966d7c712b39e7af90fe822cab5e91ad3f2a54aaa0a165a694c8425a6aa5e86",
+    "benches/kernel-iris/comparison.bench.ts": "d0d8394be4063fb93e13e2ac8a6115b0c82d54e2febfe589bb385ebf0bc23bc5",
+    "benches/kernel-iris/fixtures.ts": "359ec191d720a5526e21de71b08c6d945e1271ea510e0dacfab656eef2552d54",
+    "benches/kernel-iris/measure-prepared-memory.ts": "833bc26167810004a7b238ec57cf26b1aaed5052c0c17f12035ebebd2b2faf5b",
+    "benches/kernel-iris/measure-retained-blocks.ts": "a51813405a326f8831da50982ef9ddb50a05e32ca8af63cf9def8453a9d3d98b",
+    "benches/kernel-iris/measure-retained.ts": "b59ae6c82197d8a40061a67e5495b7d0a485bafcb6b744f297cb982dbba4f4ab",
+    "benches/kernel-iris/prepared.bench.ts": "e59562b9aef69c2a6be477c62b89781c41b7abc0480ba088bae0eeacba077cf2",
+    "benches/kernel-iris/search.bench.ts": "6f273f08a4938aa38ff13393b256d4fa55724c3914afb4de24a4c671a543f35e"
+  },
+  "finalComparisons": [
+    {
+      "name": "numeric values",
+      "beforeMedianNs": 636396.0,
+      "afterMedianNs": 642312.5,
+      "deltaPercent": 0.9296884329882626,
+      "beforeHeapBytes": 152,
+      "afterHeapBytes": 152
+    },
+    {
+      "name": "prepared values",
+      "beforeMedianNs": 414375.0,
+      "afterMedianNs": 409208.5,
+      "deltaPercent": -1.2468174962292577,
+      "beforeHeapBytes": 152,
+      "afterHeapBytes": 152
+    },
+    {
+      "name": "prepared tag toggle no queries",
+      "beforeMedianNs": 1253146.0,
+      "afterMedianNs": 1269417.0,
+      "deltaPercent": 1.298412156285056,
+      "beforeHeapBytes": 152,
+      "afterHeapBytes": 152
+    },
+    {
+      "name": "prepared tag toggle 20 queries",
+      "beforeMedianNs": 19623479.5,
+      "afterMedianNs": 19657625.0,
+      "deltaPercent": 0.17400329029313433,
+      "beforeHeapBytes": 200,
+      "afterHeapBytes": 200
+    }
+  ],
+  "runs": [
+    {
+      "name": "kernel-cleanup-before",
+      "source": "before",
+      "timestamp": "2026-09-09T12:42:24.252Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.420560127495289
+      },
+      "runtime": "26.1.0",
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "comparison.bench.ts",
+            "runFreq": 4.420560127495289,
+            "postFreq": 4.0196876007974005
+          },
+          {
+            "file": "prepared.bench.ts",
+            "runFreq": 4.024787926635993,
+            "postFreq": 4.025818051548303
+          },
+          {
+            "file": "search.bench.ts",
+            "runFreq": 4.051794287382368,
+            "postFreq": 4.0790151961136765
+          }
+        ]
+      },
+      "cases": [
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota has present",
+          "medianNs": 111104.5,
+          "p99Ns": 161209,
+          "averageNs": 114024.332692308,
+          "heapBytes": {
+            "min": 0,
+            "max": 1082888,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2251334,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [112792, 113375, 113916, 110625, 108333, 109000, 111167, 111042],
+            "freqs": [
+              4.277270942117797, 4.10538099527711, 4.030910116182875, 3.88337495957713,
+              3.7886799395062396, 3.792173697954274, 3.7194130432635304, 3.710802229223907
+            ],
+            "spreads": [
+              0.02108267225602325, 0.018248671715880332, 0.034418104038329914, 0.03713703593220339,
+              0.023653307743057638, 0.021819940195008297, 0.035002203475195164, 0.025041122278056948
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris has present",
+          "medianNs": 60500.5,
+          "p99Ns": 125958,
+          "averageNs": 65140.48487903226,
+          "heapBytes": {
+            "min": 0,
+            "max": 316208,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2065666,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [63333, 63584, 64000, 58458, 60084, 58417, 60917, 58250.000000059605],
+            "freqs": [
+              4.271919517426334, 4.122447667232268, 3.980813298098997, 4.024947748244349,
+              3.8422547692685463, 3.8696796990231146, 3.716043527165612, 3.750641981524449
+            ],
+            "spreads": [
+              0.013659391948968555, 0.015535896045091148, 0.03859315219343804, 0.044367208741599544,
+              0.06168863590972638, 0.02537959840457401, 0.06690707692307692, 0.023853193297525745
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota scalar write and read",
+          "medianNs": 636625.5,
+          "p99Ns": 716000,
+          "averageNs": 640325.4417372884,
+          "heapBytes": {
+            "min": 0,
+            "max": 4648488,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4571333,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [611166, 623125, 633959, 633375, 655834, 651709, 639292, 645416],
+            "freqs": [
+              4.275401741042197, 4.152408915558607, 4.075624240559657, 3.920530708481942,
+              3.89442730670178, 3.8150693438904826, 3.7280446964262466, 3.7247151801677165
+            ],
+            "spreads": [
+              0.015361167154398666, 0.017447391454327634, 0.010475585882508819, 0.01189824899851998,
+              0.009135770279640245, 0.013126715361169649, 0.013091477759702631, 0.008277413752232982
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris scalar write and read",
+          "medianNs": 305812.5,
+          "p99Ns": 368791,
+          "averageNs": 311238.44103773654,
+          "heapBytes": {
+            "min": 0,
+            "max": 2984744,
+            "p50": 320152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2814959,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [302959, 305667, 306917, 305958, 316041, 308541, 303417, 300416],
+            "freqs": [
+              4.276300421781459, 4.160442958668714, 4.122503639504294, 3.8535338741213074,
+              3.881161687718567, 3.7530307804033667, 3.7715538408141445, 3.715734883114955
+            ],
+            "spreads": [
+              0.01600522970282447, 0.02535917516195984, 0.023743331921824103, 0.03880445150722121,
+              0.019640331979348568, 0.03862270811534013, 0.019545378142951778, 0.022202033614179675
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota tag toggle without queries",
+          "medianNs": 1939875.0,
+          "p99Ns": 2213834,
+          "averageNs": 1942738.0192307692,
+          "heapBytes": {
+            "min": 0,
+            "max": 14137056,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4479584,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1861250, 1912750, 1969291, 1941750, 1938000, 1944375, 1928958, 1959541],
+            "freqs": [
+              4.242453447966068, 4.114217659146863, 3.9611250541318896, 3.9150727930186306,
+              3.8091812687418947, 3.817979259560489, 3.7242451435545907, 3.7141724303611894
+            ],
+            "spreads": [
+              0.010985313818242916, 0.010735513039060602, 0.010791377090047597, 0.008462493063750664,
+              0.010438525805067591, 0.00856110876285797, 0.009526992379471228, 0.008193230798898268
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris tag toggle without queries",
+          "medianNs": 2059791.5,
+          "p99Ns": 2482625,
+          "averageNs": 2104688.9548611105,
+          "heapBytes": {
+            "min": 1397344,
+            "max": 6157272,
+            "p50": 1520224
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 9896291,
+            "p50": 2331583.5
+          },
+          "blocks": {
+            "medians": [2036041, 2060875, 2058708, 2128958, 2036375, 2030417, 2097500, 2074666],
+            "freqs": [
+              4.27196730555731, 4.165118280503013, 4.022959775582308, 3.8884106102618947,
+              3.805105604306186, 3.771316865778298, 3.698703368986715, 3.7432202594053283
+            ],
+            "spreads": [
+              0.031027100844204094, 0.028229156989865948, 0.028780979911800807, 0.028791947179104823,
+              0.03183722614577055, 0.03218748377890332, 0.026147964616003598, 0.03381937951938306
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota tag toggle with 20 queries",
+          "medianNs": 20397687.5,
+          "p99Ns": 22106334,
+          "averageNs": 20341540.486111112,
+          "heapBytes": {
+            "min": 0,
+            "max": 796072,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2124584,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              19637667, 20382125, 20413250, 20687209, 20456292, 19833708, 20522583, 20365041
+            ],
+            "freqs": [
+              4.28256679914867, 4.17936260206589, 3.9739595217973624, 3.9974050805157235,
+              3.86379473920098, 3.80646407719621, 3.7064751462956083, 3.732271855759481
+            ],
+            "spreads": [
+              0.055816933961596614, 0.022276510878034162, 0.0250960524909701, 0.022539397613649446,
+              0.04400441545387022, 0.024988815720012467, 0.014235350790998198, 0.02028691897174466
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris tag toggle with 20 queries",
+          "medianNs": 4330958.0,
+          "p99Ns": 4779292,
+          "averageNs": 4366941.676470587,
+          "heapBytes": {
+            "min": 1397344,
+            "max": 6157272,
+            "p50": 1520224
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 9708166,
+            "p50": 1572708
+          },
+          "blocks": {
+            "medians": [
+              4242250, 4309208, 4352708, 4248082.99999994, 4355458, 4430500, 4383500, 4263749.99999994
+            ],
+            "freqs": [
+              4.275422998678494, 4.0585427655876, 4.0378122574469, 4.038487934556332,
+              3.6954612548522783, 3.7805966289582966, 3.731767828166429, 3.7225105831350325
+            ],
+            "spreads": [
+              0.016645553544991733, 0.019799320920783254, 0.021431313682287834, 0.01939024398677969,
+              0.025207725106112768, 0.018637372439179185, 0.016498493919929358, 0.017260018259585428
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota shared pair toggle",
+          "medianNs": 4404771.0,
+          "p99Ns": 4675875,
+          "averageNs": 4431936.105263158,
+          "heapBytes": {
+            "min": 0,
+            "max": 10122936,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2022584,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [4300416, 4447042, 4403875, 4405667, 4558000, 4393041, 4478375, 4374416],
+            "freqs": [
+              4.170772461715537, 4.144415286448144, 4.106324080167835, 3.9007648394742267,
+              3.842953632183268, 3.806784744128852, 3.759220513502816, 3.7247323653597757
+            ],
+            "spreads": [
+              0.01024170643026163, 0.009890352193660416, 0.007252287860123186, 0.01371289918189459,
+              0.006979734708205353, 0.00909767247790312, 0.010869613598682557, 0.014955415214282317
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris shared pair toggle",
+          "medianNs": 5342250.0,
+          "p99Ns": 5909167,
+          "averageNs": 5417146.339285715,
+          "heapBytes": {
+            "min": 2840160,
+            "max": 12234064,
+            "p50": 2960224
+          },
+          "gcNs": {
+            "min": 19750,
+            "max": 22981709,
+            "p50": 4961978.5
+          },
+          "blocks": {
+            "medians": [
+              5344042, 5340458, 5480375, 5251958, 5316666.99999997, 5328542, 5480708, 5391375
+            ],
+            "freqs": [
+              4.280339714977231, 4.115602252602329, 4.012418768681151, 3.9765041609156104,
+              3.8375007335382243, 3.791133079180857, 3.75366859550192, 3.7324102115258926
+            ],
+            "spreads": [
+              0.02934992262411111, 0.026535708809993445, 0.02935238920692683, 0.016337806776063325,
+              0.015151241520306733, 0.01876962092069463, 0.016568890369638375, 0.02114022396883912
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "cold population 10k three scalar traits",
+          "name": "Koota prepare and populate",
+          "medianNs": 2977979.0000000047,
+          "p99Ns": 8302916.000000039,
+          "averageNs": 3241087.144531248,
+          "heapBytes": {
+            "min": 2842424,
+            "max": 24018616,
+            "p50": 3340544
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2902583,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              2875666.0000000237, 2928875.000000005, 2918708.999999922, 2994291.999999973,
+              2969832.999999994, 2994750.0000000102, 3004624.999999919, 2986125.0000000154
+            ],
+            "freqs": [
+              4.283054696951326, 4.083212588679711, 4.0325340507258245, 3.884719834496853,
+              3.8818597573286793, 3.7744287635855818, 3.669568147171449, 3.718567335654663
+            ],
+            "spreads": [
+              0.04137126615289363, 0.041101699494322866, 0.04236755135297466, 0.03722564894349157,
+              0.04746506755236278, 0.03250677437590118, 0.03840866398602667, 0.039362446897201336
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "cold population 10k three scalar traits",
+          "name": "Iris create and populate",
+          "medianNs": 1469583.4999999988,
+          "p99Ns": 3073084.000000023,
+          "averageNs": 1601648.719827585,
+          "heapBytes": {
+            "min": 962960,
+            "max": 10769000,
+            "p50": 2555608
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3607209,
+            "p50": 202458
+          },
+          "blocks": {
+            "medians": [
+              1452709.000000027, 1467332.9999999965, 1466165.999999987, 1471834.0000000012,
+              1462125.0000000144, 1472874.9999999308, 1474208.0000000328, 1506875.0000000363
+            ],
+            "freqs": [
+              4.27729872401417, 4.195116136038455, 4.054008356455192, 3.8165731289944778,
+              3.7838802297079326, 3.7788616322033595, 3.742995599252137, 3.732335917678417
+            ],
+            "spreads": [
+              0.02406926535186384, 0.024923650050828867, 0.02207873351313489, 0.02283280193283931,
+              0.021040574506304466, 0.022983760196886235, 0.02002937278866609, 0.03201776471177146
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "query output 10k",
+          "name": "Koota collect into prepared output",
+          "medianNs": 3574.218749999734,
+          "p99Ns": 3997.401785714286,
+          "averageNs": 3565.2722207303846,
+          "heapBytes": {
+            "min": 0,
+            "max": 148.07142857142858,
+            "p50": 1.3571428571428572
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1622417,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              3492.5535714285716, 3530.8839285714284, 3574.7767857137537, 3574.776785714286,
+              3573.660714285714, 3573.285714285714, 3574.776785714818, 3578.125
+            ],
+            "freqs": [
+              4.127299816335837, 4.116110365819311, 3.952500380904784, 3.930898748546223,
+              3.8430443441876263, 3.760187869478676, 3.723143954368315, 3.729424495327204
+            ],
+            "spreads": [
+              0.0028426550364808135, 0.015307416950935576, 0.01264954505107476, 0.005247191258195468,
+              0.0029337144284821443, 0.004938196637748397, 0.00216256859216542, 0.0038549449781659926
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "query output 10k",
+          "name": "Iris collect into prepared output through callback",
+          "medianNs": 11479.0,
+          "p99Ns": 49083,
+          "averageNs": 14262.234090908922,
+          "heapBytes": {
+            "min": 0,
+            "max": 428304,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2699375,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [16583, 12083, 11582.999999940395, 11458, 10417, 11334, 11500, 10541],
+            "freqs": [
+              4.192152773015427, 4.068478915827147, 3.960123414899218, 3.9222349070694285,
+              3.74902992372447, 3.733048748899806, 3.7252829884237264, 3.7449055653276457
+            ],
+            "spreads": [
+              0.4304710462287104, 0.17902121989572123, 0.19730028920777873, 0.2013757565217391,
+              0.041558913314773925, 0.19003347692696132, 0.1903276972485027, 0.10246410207760175
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Koota paged columns without change publication",
+          "medianNs": 19616.53125,
+          "p99Ns": 20235.6875,
+          "averageNs": 19520.23744877049,
+          "heapBytes": {
+            "min": 0,
+            "max": 29033.5,
+            "p50": 4.75
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2203833,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              18973.96875, 19783.84375, 19675.78125, 19613.28125, 19723.9375, 19619.78125,
+              19555.96875, 19242.1875
+            ],
+            "freqs": [
+              4.051978360733476, 4.071955689028434, 3.905586617844428, 3.85752912080053,
+              3.7871507323216367, 3.821308098060608, 3.741713761198833, 3.7216389191787322
+            ],
+            "spreads": [
+              0.019376163856199356, 0.0109272716934733, 0.0077998056048999, 0.0052170039435778665,
+              0.004011800864374342, 0.00432840405571996, 0.0034564907671952596, 0.0036633386951435763
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Iris dense columns without change publication",
+          "medianNs": 12521.105263157895,
+          "p99Ns": 13069.078947367636,
+          "averageNs": 11446.435655034315,
+          "heapBytes": {
+            "min": 0,
+            "max": 13074.736842105263,
+            "p50": 186
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1608333,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              11883.223684209743, 12222.03947368421, 12418.302631578947, 12470.394736842105,
+              12577.855263157895, 12651.315789473685, 12577.855263157895, 12571.815789473685
+            ],
+            "freqs": [
+              4.232190366427189, 4.076852700028798, 3.976909942931553, 3.819336545489789,
+              3.856440202803785, 3.709534650561992, 3.7284622282247635, 3.7205985032023676
+            ],
+            "spreads": [
+              0.02154643598606287, 0.01968500153411402, 0.0138097699596626, 0.012123608546557682,
+              0.012148759568037697, 0.02826885678627128, 0.006269026704201204, 0.001550164842410836
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Koota paged columns with explicit change publication",
+          "medianNs": 411458.5,
+          "p99Ns": 471625,
+          "averageNs": 412856.18367347075,
+          "heapBytes": {
+            "min": 0,
+            "max": 5120944,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4447292,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [399000, 402542, 411167, 405999.9999999404, 411750, 413250, 417250, 415000],
+            "freqs": [
+              4.1826231721437495, 4.0110063135269645, 4.089223624315456, 3.818324030763733,
+              3.8438180053736524, 3.7129906688913397, 3.751019958107688, 3.7276709558507917
+            ],
+            "spreads": [
+              0.01284786369337525, 0.018027787319813863, 0.012994114664458541, 0.020767809881594098,
+              0.015076025149658435, 0.022423521853591987, 0.01605469365269461, 0.011981067917304654
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Iris dense columns with explicit change publication",
+          "medianNs": 193249.5,
+          "p99Ns": 265291,
+          "averageNs": 197660.79724409428,
+          "heapBytes": {
+            "min": 0,
+            "max": 2344504,
+            "p50": 336
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2670416,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [199708, 190375, 199291, 185459, 196166, 193166, 193333, 187125],
+            "freqs": [
+              4.1818818246017955, 4.018337131270228, 3.89284092135807, 3.981003700145301,
+              3.7578233807205343, 3.7176906191868015, 3.7268473695812765, 3.7339793670684007
+            ],
+            "spreads": [
+              0.04361505297734693, 0.040239496782665786, 0.0322348013708597, 0.035981983079818175,
+              0.040616072102199155, 0.037416910843523186, 0.045053224229696945, 0.05348056112224449
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared has present",
+          "medianNs": 60063.0000000298,
+          "p99Ns": 158125,
+          "averageNs": 64236.999074074076,
+          "heapBytes": {
+            "min": 0,
+            "max": 411536,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2462624,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              60209.00000011921, 59875, 59792, 59792, 60250, 60500, 60333, 59916.999999940395
+            ],
+            "freqs": [
+              3.7593248707125815, 3.729774561379415, 3.7083134260280786, 3.730915747371149,
+              3.723312070771394, 3.71872922737473, 3.7343105260875387, 3.7253512253068988
+            ],
+            "spreads": [
+              0.008224491358032176, 0.006190396659707724, 0.0051823554990634195, 0.007215624163767728,
+              0.007185380912863071, 0.00713118347107438, 0.006143404107205012, 0.005146799738170085
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared scalar write and read",
+          "medianNs": 415437.5,
+          "p99Ns": 495375,
+          "averageNs": 421790.95068807364,
+          "heapBytes": {
+            "min": 0,
+            "max": 4703064,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4456125,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [415708, 412292, 415167, 419791, 414875, 424375, 426542, 411250],
+            "freqs": [
+              3.726029016399746, 3.727590360999697, 3.71359819746098, 3.7259428626082345,
+              3.7224965299247144, 3.6226324629569744, 3.7279315743742956, 3.715864720639734
+            ],
+            "spreads": [
+              0.01441557343135085, 0.013484981517953295, 0.01056329332533655, 0.016482712111503102,
+              0.00848731545646279, 0.03391594886597938, 0.011296542896127462, 0.014571839999999999
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle none queries",
+          "medianNs": 1298332.999999985,
+          "p99Ns": 1705625,
+          "averageNs": 1330195.7888888891,
+          "heapBytes": {
+            "min": 0,
+            "max": 11635464,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4811417,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              1295083, 1283916, 1301582.9999999702, 1281458, 1338375, 1364542, 1293458, 1306917
+            ],
+            "freqs": [
+              3.6858834409798393, 3.727787096066134, 3.7135094671033717, 3.7241576259809963,
+              3.7027519871537105, 3.6676653841446463, 3.7702844723879654, 3.7277195985673837
+            ],
+            "spreads": [
+              0.017934010425855625, 0.016378691146605534, 0.022655920522778684, 0.017351333656581182,
+              0.05292877850545759, 0.04445368557120308, 0.013873964519914832, 0.02346431653388374
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle cached queries",
+          "medianNs": 19781416.5,
+          "p99Ns": 21912709,
+          "averageNs": 19924686.25,
+          "heapBytes": {
+            "min": 0,
+            "max": 52280,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1647208,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              19547083, 19640000, 20093959, 19233584, 20463792, 20101791, 19806375, 19756458
+            ],
+            "freqs": [
+              3.7266200266317, 3.6855874429534703, 3.61822185581134, 3.7261314105559995,
+              3.7011314070104797, 3.6457534074140674, 3.7190941279656773, 3.71599708632813
+            ],
+            "spreads": [
+              0.027791862560771853, 0.015553862993890019, 0.011513230747609269, 0.032606497052239454,
+              0.02967432616594226, 0.03421594929526429, 0.019240798439896244, 0.024417456691882722
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle cached queries and materialize 20 results",
+          "medianNs": 19790063.0,
+          "p99Ns": 21591292,
+          "averageNs": 19900016.522058822,
+          "heapBytes": {
+            "min": 0,
+            "max": 303640,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1621292,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              19395750, 20160625, 20019542, 19241542, 19704584, 19875542, 19426500, 20894833
+            ],
+            "freqs": [
+              3.7351234526973207, 3.7421617122753856, 3.720284021425304, 3.4742964049556426,
+              3.7334856968090064, 3.7134237021229533, 3.7269225470222573, 3.7157459004525157
+            ],
+            "spreads": [
+              0.013985204531920653, 0.029241098676260697, 0.01433941021228158, 0.032117831606219505,
+              0.043824940978203046, 0.0203081942318856, 0.024218356667438806, 0.04636044590545423
+            ]
+          },
+          "snapshot": 210000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle streaming queries",
+          "medianNs": 1415666.5,
+          "p99Ns": 1657916,
+          "averageNs": 1431927.5612499998,
+          "heapBytes": {
+            "min": 0,
+            "max": 10781224,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4567416,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1383000, 1415875, 1428333, 1402833, 1390208, 1415458, 1419000, 1439042],
+            "freqs": [
+              3.7253028515574416, 3.7327909350014057, 3.7436248361814806, 3.723663213456871,
+              3.7185793230631132, 3.654628252487436, 3.745734417073568, 3.7923333293675494
+            ],
+            "spreads": [
+              0.013644475661997288, 0.017251549302736098, 0.034511234069543734, 0.00994969727359133,
+              0.013482397914638514, 0.0395717562977015, 0.012276979199039337, 0.038929721504906555
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle streaming queries and materialize 20 results",
+          "medianNs": 3053625.0,
+          "p99Ns": 3367166,
+          "averageNs": 3076748.697635134,
+          "heapBytes": {
+            "min": 0,
+            "max": 9463368,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4596291,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [3034167, 3048000, 3061959, 3036625, 3023666, 3153791, 3059250, 3070416],
+            "freqs": [
+              3.7069652153643977, 3.7272660898184338, 3.7200435097201794, 3.7213207150020633,
+              3.7295832703771326, 3.739764222203222, 3.6850552504364305, 3.7176844633399995
+            ],
+            "spreads": [
+              0.013060698506820265, 0.017581439960654123, 0.011691332331809273, 0.013247837781657184,
+              0.014527768410861836, 0.042770948592678874, 0.013293315205038885, 0.017661215960971397
+            ]
+          },
+          "snapshot": 210000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared shared pair toggle",
+          "medianNs": 4080625.0,
+          "p99Ns": 4468458.00000006,
+          "averageNs": 4111844.736363637,
+          "heapBytes": {
+            "min": 0,
+            "max": 10230000,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4645250,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              4103875, 4036750, 4113875.00000003, 4057375, 4125000, 4267041, 4009750, 4036042
+            ],
+            "freqs": [
+              3.7278342055000255, 3.736639066112763, 3.7224586158129336, 3.651151361497384,
+              3.530536606799114, 3.6200891689838426, 3.7260082090590045, 3.733573942945278
+            ],
+            "spreads": [
+              0.010085527507538607, 0.011416029181891373, 0.014956190939188811, 0.014494300280353676,
+              0.01109703636361494, 0.02249763946493328, 0.012063052559386495, 0.013300649695871167
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared columns 10k",
+          "name": "paged columns silent",
+          "medianNs": 12963.91071428465,
+          "p99Ns": 13710.57142857143,
+          "averageNs": 12873.97218555901,
+          "heapBytes": {
+            "min": 0,
+            "max": 17356.428571428572,
+            "p50": 2.7142857142857144
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1321124,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              12903.285714286778, 13019.339285714286, 12952.392857142857, 12962.05357142857,
+              12978.410714285714, 12982.892857142857, 12886.892857142857, 12965.767857140729
+            ],
+            "freqs": [
+              3.723487114766536, 3.724960167538558, 3.740865919688159, 3.7177973308114542,
+              3.7236663398121106, 3.635240349436896, 3.7360520318365498, 3.803516820684653
+            ],
+            "spreads": [
+              0.004448308847259246, 0.007286078265437571, 0.005195908643466291, 0.003658118271052,
+              0.0028885354936975787, 0.006627471315274711, 0.0012819537015738285, 0.003403872835718617
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared columns 10k",
+          "name": "paged columns changed",
+          "medianNs": 67041.4999999702,
+          "p99Ns": 110875,
+          "averageNs": 69562.51759259249,
+          "heapBytes": {
+            "min": 0,
+            "max": 865336,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2257792,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [66875, 66750, 66917, 67165.9999999404, 68041, 68167, 67458, 66750],
+            "freqs": [
+              3.7561887413242165, 3.726320439814975, 3.716022014405104, 3.724027357628919,
+              3.7264356992873022, 3.7211124028057068, 3.7184727509223845, 3.721443520674481
+            ],
+            "spreads": [
+              0.007404686355140186, 0.005552808988764045, 0.008308426857151397, 0.007372605188470494,
+              0.027237254008612453, 0.02444646823242918, 0.010065978831272792, 0.008329213483146069
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared columns 10k",
+          "name": "paged columns observed",
+          "medianNs": 263250.0,
+          "p99Ns": 392041,
+          "averageNs": 268720.5376984119,
+          "heapBytes": {
+            "min": 0,
+            "max": 1857832,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2249291,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [272167, 261292, 263875, 262625, 266500, 262000, 265208, 260375],
+            "freqs": [
+              3.720771157309159, 3.7313995666578768, 3.7258958653857017, 3.7183530374356413,
+              3.65546156912284, 3.7246878475292524, 3.7636281835800314, 3.725558041643328
+            ],
+            "spreads": [
+              0.02178124001454433, 0.02186910601462614, 0.02317475444872222, 0.01423072011513618,
+              0.025035330424244242, 0.026167706260267935, 0.016532474346289752, 0.027506356238003838
+            ]
+          },
+          "snapshot": 50010000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared query discovery",
+          "name": "compile and count 20 plans 100 matches among 10k",
+          "medianNs": 26603.500000078384,
+          "p99Ns": 57000.00000001637,
+          "averageNs": 30996.586776862343,
+          "heapBytes": {
+            "min": 0,
+            "max": 264272,
+            "p50": 31320
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2597876,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              25667.00000011224, 27041.000000053828, 26166.00000010294, 27500.00000014552,
+              31040.99999995924, 30666.999999994005, 25832.999999920503, 26042.000000188636
+            ],
+            "freqs": [
+              3.723156336755869, 3.724617005753142, 3.715266537933631, 3.5316251946171366,
+              3.73300249590903, 3.7991173182272613, 3.723305632061373, 3.7145642868552415
+            ],
+            "spreads": [
+              0.08185000973669719, 0.13706963501389116, 0.1109428571586326, 0.13030706182560278,
+              0.16712146514451032, 0.1893678611970139, 0.0884980141535509, 0.11864443593442843
+            ]
+          },
+          "snapshot": 2000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared bulk creation",
+          "name": "cold prepare and populate 10k three scalars",
+          "medianNs": 2495250.0000000554,
+          "p99Ns": 6686167.000000012,
+          "averageNs": 2729953.6535714283,
+          "heapBytes": {
+            "min": 3099032,
+            "max": 20195008,
+            "p50": 3281328
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3048375,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              2499584.000000027, 2514708.0000000414, 2452540.9999999967, 2580375.0000000037,
+              2628625.0000000563, 2490916.000000084, 2410250.000000019, 2469875.000000002
+            ],
+            "freqs": [
+              3.748901132862838, 3.72381851725014, 3.7173561288462293, 3.7503127013415285,
+              3.668600341053676, 3.7178560819203135, 3.719792533979313, 3.782394142446072
+            ],
+            "spreads": [
+              0.023917379347104965, 0.02692942178320071, 0.024254246204597173, 0.0630798566049562,
+              0.05698486958253814, 0.03893181308022115, 0.016821131019324323, 0.036220953187459125
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared bulk creation",
+          "name": "warm prepared spawn 10k three scalars",
+          "medianNs": 1629083.0000000368,
+          "p99Ns": 2621750.00000002,
+          "averageNs": 1673301.322443182,
+          "heapBytes": {
+            "min": 0,
+            "max": 12932472,
+            "p50": 376
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2314499,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              1651499.9999999418, 1628125.0000000682, 1653209.0000000608, 1637916.0000000184,
+              1622958.0000000396, 1630041.0000000056, 1606500.0000000964, 1626709.0000000054
+            ],
+            "freqs": [
+              3.735512237984767, 3.705466203619124, 3.6513004026399267, 3.7014793607868253,
+              3.7600736046587926, 3.7464583346581617, 3.7370773383549327, 3.7283135544648855
+            ],
+            "spreads": [
+              0.00856582494065283, 0.01777276668966359, 0.00765941815158292, 0.010219805683675334,
+              0.017925239690441058, 0.0134725013527659, 0.00932437449524569, 0.006759392326781721
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared bulk creation",
+          "name": "Iris spawn 10k three scalars into empty world",
+          "medianNs": 1455791.4999999753,
+          "p99Ns": 1588792.000000012,
+          "averageNs": 1469092.337797619,
+          "heapBytes": {
+            "min": 1323448,
+            "max": 9568112,
+            "p50": 2555424
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 6242459,
+            "p50": 66499.5
+          },
+          "blocks": {
+            "medians": [
+              1462791.9999999222, 1448916.9999999944, 1445082.9999999541, 1478833.0000000086,
+              1512916.999999959, 1432582.9999999655, 1448791.0000000284, 1462665.999999956
+            ],
+            "freqs": [
+              3.7340225047522573, 3.719379780886002, 3.7289027081287047, 3.720310584276938,
+              3.7179907685303224, 3.715763018035574, 3.739299370877985, 3.7292518274017845
+            ],
+            "spreads": [
+              0.01567705992793795, 0.020009791587648592, 0.009532686510533177, 0.011841921893403612,
+              0.016838909807234355, 0.012891269606676883, 0.015678636417555868, 0.019127328240527073
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "search.bench.ts",
+          "group": "cold search 20 queries 100 matches among 10k",
+          "name": "Koota compile and count",
+          "medianNs": 180937.5000000273,
+          "p99Ns": 374291.99999996857,
+          "averageNs": 194572.27219626153,
+          "heapBytes": {
+            "min": 0,
+            "max": 1236656,
+            "p50": 0
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4943749.999999762,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              194875.00000002456, 197957.99999997142, 174250.0000000291, 172707.99999982957,
+              175541.99999995035, 173541.99999999764, 190583.99999994435, 186333.00000010422
+            ],
+            "freqs": [
+              3.653501347508431, 3.565471639286311, 3.719359011859674, 3.72506431094185,
+              3.729082537788333, 3.787607225401697, 3.73115912006091, 3.772145231789815
+            ],
+            "spreads": [
+              0.09636234304101547, 0.09393290091793681, 0.04715391219407255, 0.045780773327037005,
+              0.07284538742814782, 0.04306615459183927, 0.0952957750930525, 0.09447812464802859
+            ]
+          },
+          "snapshot": 2000
+        },
+        {
+          "file": "search.bench.ts",
+          "group": "cold search 20 queries 100 matches among 10k",
+          "name": "Iris compile and count",
+          "medianNs": 65270.4999999969,
+          "p99Ns": 169290.999999987,
+          "averageNs": 71502.44021739392,
+          "heapBytes": {
+            "min": 0,
+            "max": 408608,
+            "p50": 121480
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5005542,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              85667.00000005767, 82125.00000001909, 55042.000000014465, 67625.00000002093,
+              51832.999999987805, 56540.99999992468, 62915.99999997288, 68417.00000006767
+            ],
+            "freqs": [
+              3.784478886943479, 3.7201080520384333, 3.7234414028111034, 3.781189196603653,
+              3.77585806416317, 3.7439989104653337, 3.7976375944314174, 3.7263872558576066
+            ],
+            "spreads": [
+              0.15514064617538104, 0.18045488363525422, 0.139529209248113, 0.1506905995921488,
+              0.10188530858606344, 0.1307576463724818, 0.17602442294901635, 0.21443348307468776
+            ]
+          },
+          "snapshot": 2000
+        }
+      ]
+    },
+    {
+      "name": "kernel-cleanup-after",
+      "source": "sharedWriteCandidate",
+      "timestamp": "2026-09-09T12:47:03.177Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.274133779987657
+      },
+      "runtime": "26.1.0",
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "comparison.bench.ts",
+            "runFreq": 4.274133779987657,
+            "postFreq": 3.913124683479353
+          },
+          {
+            "file": "prepared.bench.ts",
+            "runFreq": 3.8987491825594844,
+            "postFreq": 3.8984093194241636
+          },
+          {
+            "file": "search.bench.ts",
+            "runFreq": 3.8947155914715106,
+            "postFreq": 4.011509337730774
+          }
+        ]
+      },
+      "cases": [
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota has present",
+          "medianNs": 122812.0,
+          "p99Ns": 238208,
+          "averageNs": 124487.44672131188,
+          "heapBytes": {
+            "min": 0,
+            "max": 536072,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3239917,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [112708, 111415.9999999404, 124250, 124542, 122083, 123541, 123667, 113208],
+            "freqs": [
+              4.047787003728676, 3.7366822159778046, 3.6832745595800676, 3.7120238525961633,
+              3.61454587851523, 3.602376186412372, 3.5823300224062278, 3.644623117762461
+            ],
+            "spreads": [
+              0.05449097050752938, 0.03714582409793073, 0.09121966991494396, 0.08300357512413067,
+              0.09561910338729974, 0.08097237241366197, 0.09408570424412827, 0.05807598801100022
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris has present",
+          "medianNs": 64167.0,
+          "p99Ns": 146083,
+          "averageNs": 72667.85613207593,
+          "heapBytes": {
+            "min": 0,
+            "max": 357400,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3971959,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [61333, 58459, 65417, 70542, 62917, 66500, 71708, 62750],
+            "freqs": [
+              3.800949096542637, 3.7988033436480038, 3.736796862992883, 3.7225483023015133,
+              3.625095182403725, 3.634313129968045, 3.579096402055648, 3.623701062050892
+            ],
+            "spreads": [
+              0.07500717801610327, 0.03697658324712079, 0.14397792706333973, 0.21948549245534069,
+              0.11529514839210249, 0.1870093697673376, 0.27077702663276787, 0.08696894708301484
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota scalar write and read",
+          "medianNs": 700166.0,
+          "p99Ns": 845917,
+          "averageNs": 706852.2692307694,
+          "heapBytes": {
+            "min": 0,
+            "max": 4826392,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4873583,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [667375, 673791, 686542.0000000596, 720083, 712041, 733834, 715291, 688291],
+            "freqs": [
+              3.813677208860985, 3.7969036682726807, 3.8344261345027326, 3.6748804339188235,
+              3.6583816886709504, 3.5977730217482167, 3.5936729919336203, 3.6202288217952794
+            ],
+            "spreads": [
+              0.015362073513715942, 0.016090307609995077, 0.022445595121441918, 0.05129091289020575,
+              0.043758025298043186, 0.03320201847086118, 0.04589076968878676, 0.027140105548370038
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris scalar write and read",
+          "medianNs": 315125.0,
+          "p99Ns": 432000,
+          "averageNs": 326749.2500000003,
+          "heapBytes": {
+            "min": 0,
+            "max": 2988840,
+            "p50": 320152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4245875,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [307416, 325625, 305417, 312250, 319875, 327500, 314125, 316125],
+            "freqs": [
+              3.956116161929473, 3.8635944429851565, 3.7991744588826375, 3.6478492261739572,
+              3.6226735336919353, 3.692751119342625, 3.5842919085873404, 3.6503345506204847
+            ],
+            "spreads": [
+              0.03526652994511079, 0.06984289544235925, 0.03518681286305627, 0.06831748515203262,
+              0.07873237016790316, 0.07900721158536585, 0.08003988624797749, 0.054261286255784566
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota tag toggle without queries",
+          "medianNs": 1660520.5,
+          "p99Ns": 2136667,
+          "averageNs": 1669545.9485294125,
+          "heapBytes": {
+            "min": 0,
+            "max": 14444800,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4995667,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1603041, 1612458, 1670584, 1647208, 1673833, 1670833, 1664458, 1656583],
+            "freqs": [
+              3.9471584511127555, 3.755067873404575, 3.8032705252760497, 3.7062094953588898,
+              3.5705593599408747, 3.6069506053825227, 3.625559130217964, 3.6278263187557087
+            ],
+            "spreads": [
+              0.008555946229697181, 0.017622481701848977, 0.02562581408657092, 0.02718926862909845,
+              0.018416544063834323, 0.028948639630651293, 0.031398599423956626, 0.034680272585194946
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris tag toggle without queries",
+          "medianNs": 2121229.5,
+          "p99Ns": 2506375,
+          "averageNs": 2160763.2357142856,
+          "heapBytes": {
+            "min": 1321368,
+            "max": 6281656,
+            "p50": 1520224
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 10464208,
+            "p50": 2165188.000000015
+          },
+          "blocks": {
+            "medians": [2050042, 2131959, 2099208, 2181917, 2176458, 2092208, 2120584, 2121875],
+            "freqs": [
+              3.971313321746342, 3.7619886995512792, 3.8007606696172394, 3.7074292855582915,
+              3.65271372460261, 3.6480664773578244, 3.5994256531798854, 3.752365901670067
+            ],
+            "spreads": [
+              0.02983219368188554, 0.04633214100271159, 0.026896741914093313, 0.04221357870166464,
+              0.030653252853948938, 0.04051021418520529, 0.032597031006552916, 0.04119523101022598
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota tag toggle with 20 queries",
+          "medianNs": 22469145.5,
+          "p99Ns": 24396458,
+          "averageNs": 22078492.203125,
+          "heapBytes": {
+            "min": 0,
+            "max": 825592,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2177501,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              20223708, 20387459, 21744250, 23370959, 22753500, 22586208, 22613083.99999994, 22352083
+            ],
+            "freqs": [
+              3.9973569446976454, 3.7618513501122006, 3.8408384913352553, 3.6700267607042805,
+              3.6310737209507518, 3.614658108982815, 3.5969851653224585, 3.5759538746581847
+            ],
+            "spreads": [
+              0.020046767872973374, 0.02747610551233244, 0.04581765855560042, 0.026861873309056854,
+              0.044111113801952484, 0.031128591484943142, 0.02525851862843028, 0.04575527452216788
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris tag toggle with 20 queries",
+          "medianNs": 4385708.5,
+          "p99Ns": 4906458,
+          "averageNs": 4426703.408088235,
+          "heapBytes": {
+            "min": 1397344,
+            "max": 6157232,
+            "p50": 1520224
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 10036958,
+            "p50": 2087729.4999999702
+          },
+          "blocks": {
+            "medians": [
+              4290333.00000006, 4379459, 4290500, 4421708, 4391958, 4394583, 4374958, 4446000
+            ],
+            "freqs": [
+              3.940511680727384, 3.886721309370926, 3.8254593772625727, 3.651182294332494,
+              3.6555684083212863, 3.605482284155243, 3.5982643295910384, 3.62632544192328
+            ],
+            "spreads": [
+              0.023316337402048675, 0.020629421365701436, 0.018663495213994116, 0.016024807206747746,
+              0.03521916282502637, 0.020589916371880315, 0.02326764912561207, 0.01936308009665451
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Koota shared pair toggle",
+          "medianNs": 4569854.0,
+          "p99Ns": 4956166,
+          "averageNs": 4588518.936363637,
+          "heapBytes": {
+            "min": 0,
+            "max": 10226560,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1611958,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [4428167, 4369000, 4579000, 4645917, 4774791, 4705000, 4557833, 4560708],
+            "freqs": [
+              3.918336934328029, 3.9495337954571377, 3.802770384176534, 3.6695320959599,
+              3.6157039460953833, 3.621108711094583, 3.6161097853910023, 3.6205903977343015
+            ],
+            "spreads": [
+              0.008886559427410935, 0.013291140810254062, 0.012857078707141298, 0.013881672875344092,
+              0.019936952381790114, 0.01397015693942614, 0.018703954269496052, 0.01637596070610089
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "matched valid-entity operations 10k",
+          "name": "Iris shared pair toggle",
+          "medianNs": 5429291.50000006,
+          "p99Ns": 5950083,
+          "averageNs": 5469160.631578949,
+          "heapBytes": {
+            "min": 2840160,
+            "max": 9142528,
+            "p50": 2960224
+          },
+          "gcNs": {
+            "min": 113292,
+            "max": 25271709,
+            "p50": 4473458
+          },
+          "blocks": {
+            "medians": [
+              5413875, 5280875, 5315791, 5599792, 5505500, 5436958, 5460833, 5421625.000000119
+            ],
+            "freqs": [
+              3.7229087594968897, 3.7822651620497587, 3.80623204588592, 3.7896298654722678,
+              3.6079420956648987, 3.599364225485078, 3.593069664219919, 3.5433353017780926
+            ],
+            "spreads": [
+              0.0237339233358731, 0.011721267782327738, 0.009261594031819535, 0.014815695547263185,
+              0.026626478067387153, 0.021587989864920786, 0.013936757597238371, 0.025807829755870912
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "cold population 10k three scalar traits",
+          "name": "Koota prepare and populate",
+          "medianNs": 3187499.5000000014,
+          "p99Ns": 8688375.000000007,
+          "averageNs": 3475572.635964912,
+          "heapBytes": {
+            "min": 3074824,
+            "max": 23995552,
+            "p50": 3340544
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4295792,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              2990583.000000015, 3011083.0000000987, 3092708.000000016, 3186165.9999999576,
+              3188833.000000045, 3256583.0000000913, 3208541.999999966, 3208084.000000042
+            ],
+            "freqs": [
+              3.878541893006663, 3.869865792038342, 3.791109209359222, 3.674340903097353,
+              3.5975885131932457, 3.620113052700264, 3.4801105779198878, 3.5947557293998753
+            ],
+            "spreads": [
+              0.03086082212061113, 0.04119603949801927, 0.031299571960884204, 0.03871869224637172,
+              0.035587053069265344, 0.06170672959975131, 0.04110608912082204, 0.05020096344111313
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "cold population 10k three scalar traits",
+          "name": "Iris create and populate",
+          "medianNs": 1559645.5000000447,
+          "p99Ns": 3211707.9999999874,
+          "averageNs": 1704652.3230519486,
+          "heapBytes": {
+            "min": 1083664,
+            "max": 10794928,
+            "p50": 2555608
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 9874917,
+            "p50": 218479
+          },
+          "blocks": {
+            "medians": [
+              1498292.000000106, 1564582.9999999704, 1536665.9999999683, 1553375.0000000168,
+              1582792.0000000403, 1559166.0000000047, 1560125.0000000845, 1606249.9999999886
+            ],
+            "freqs": [
+              3.9581264445387907, 3.473043511182349, 3.843107807876222, 3.644589211086972,
+              3.567167741588046, 3.601558902198733, 3.5852181657574347, 3.631212870000771
+            ],
+            "spreads": [
+              0.024985550213202177, 0.04197018413206438, 0.03143563611084189, 0.040165610879527386,
+              0.032316122396406625, 0.03442993292566766, 0.04121962983742909, 0.02684509783658681
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "query output 10k",
+          "name": "Koota collect into prepared output",
+          "medianNs": 3592.085,
+          "p99Ns": 4987.91,
+          "averageNs": 3702.106776785719,
+          "heapBytes": {
+            "min": 0,
+            "max": 2159.36,
+            "p50": 1.52
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3335249,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [3588.34, 3622.08, 3597.5, 3588.34, 3595.83, 3588.33, 3587.92, 3674.59],
+            "freqs": [
+              3.9529255167202293, 3.747157863328499, 3.7412813448635633, 3.672657444054328,
+              3.5997751910789555, 3.6181708064701352, 3.522676522439799, 3.3910182670349562
+            ],
+            "spreads": [
+              0.002925254574538614, 0.027019221524663663, 0.00935868816552753, 0.00766182867986889,
+              0.011423801459854029, 0.011533041013894213, 0.009729262915561135, 0.03869004219386362
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "query output 10k",
+          "name": "Iris collect into prepared output through callback",
+          "medianNs": 12021.0,
+          "p99Ns": 53250,
+          "averageNs": 16846.341000000237,
+          "heapBytes": {
+            "min": 152,
+            "max": 430264,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 9753542,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [10292, 16708, 11333, 12042, 12417, 12000, 13875, 10667],
+            "freqs": [
+              3.908074458705228, 3.7488930000555327, 3.4664331600094753, 3.6455682981434143,
+              3.6000811567800834, 3.6545967997724937, 3.568370395312164, 3.5695867717816485
+            ],
+            "spreads": [
+              0.07217087057909055, 0.5139585348336126, 0.13069067325509573, 0.21041051320378673,
+              0.22387654022710798, 0.20583430000736413, 0.3784770594594595, 0.09840449985937938
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Koota paged columns without change publication",
+          "medianNs": 19628.921875,
+          "p99Ns": 22652.34375,
+          "averageNs": 19808.547289299237,
+          "heapBytes": {
+            "min": 0,
+            "max": 30829,
+            "p50": 4.75
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2278459,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              19733.0625, 19600.28125, 19579.4375, 19666.65625, 19328.125, 19778.625, 19630.21875,
+              19627.625
+            ],
+            "freqs": [
+              3.9354628280167883, 3.7888621739269674, 3.727826570745852, 3.644334457784172,
+              3.5752355760987395, 3.5923538128453507, 3.5768178904392856, 3.616242905839513
+            ],
+            "spreads": [
+              0.005770374235105689, 0.018809366428077758, 0.022330369255639932, 0.01698023814895909,
+              0.014181665369347873, 0.014247492770531412, 0.01184782190390928, 0.01626676191665679
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Iris dense columns without change publication",
+          "medianNs": 12638.980263157895,
+          "p99Ns": 13761.513157894737,
+          "averageNs": 12046.899305555573,
+          "heapBytes": {
+            "min": 0,
+            "max": 19390.842105263157,
+            "p50": 186
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1856208,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              12510.96052631579, 12641.447368421053, 12618.97368421131, 12742.328947368422,
+              12675.986842105263, 12683.65789473645, 12617.315789473685, 12636.513157894737
+            ],
+            "freqs": [
+              3.87606982217753, 3.8546971200816085, 3.6320608101054375, 3.6109604546309138,
+              3.5898469371691313, 3.6122591648058826, 3.628758837486257, 3.617057905475563
+            ],
+            "spreads": [
+              0.018158791570525044, 0.018325136612021748, 0.014006061190435069, 0.01739923612694492,
+              0.013527943646623757, 0.01928174008265839, 0.009727766179540642, 0.014084941167238687
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Koota paged columns with explicit change publication",
+          "medianNs": 413917.0,
+          "p99Ns": 500500,
+          "averageNs": 420105.1192748084,
+          "heapBytes": {
+            "min": 0,
+            "max": 5086128,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4926167,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [405500, 411875, 414084, 413750, 420709, 424500, 415917, 408792],
+            "freqs": [
+              3.7899169787512235, 3.863555702742981, 3.6881997534307494, 3.6254358698991926,
+              3.562626051668746, 3.605123828593111, 3.6608233346338346, 3.621831191761053
+            ],
+            "spreads": [
+              0.014167879161528976, 0.017098270106221548, 0.022678462340974294, 0.02538067867069486,
+              0.024372337173675866, 0.029397041696113072, 0.03015340416477326, 0.029315289438149473
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "comparison.bench.ts",
+          "group": "borrowed scalar columns 10k",
+          "name": "Iris dense columns with explicit change publication",
+          "medianNs": 210875.0,
+          "p99Ns": 299875,
+          "averageNs": 217563.41565040706,
+          "heapBytes": {
+            "min": 0,
+            "max": 2303544,
+            "p50": 336
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2678250,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [203125, 206083, 220125, 208250, 218625, 213500, 203958, 220583],
+            "freqs": [
+              3.803644052620126, 3.682383348103489, 3.7052023679608737, 3.663374871953319,
+              3.5564884697478565, 3.5947369282723876, 3.661380367922973, 3.645831124479471
+            ],
+            "spreads": [
+              0.0474432, 0.12409256173483499, 0.09766132879045995, 0.11272031596638656,
+              0.12460960548885076, 0.13164932459016393, 0.08087649221898625, 0.1125814319326512
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared has present",
+          "medianNs": 61124.5,
+          "p99Ns": 164250,
+          "averageNs": 66510.4967948723,
+          "heapBytes": {
+            "min": 0,
+            "max": 358576,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2776416,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [61250, 61333, 61083, 61458, 60917, 61166, 60542, 61000],
+            "freqs": [
+              3.60011062604001, 3.632082724972247, 3.5959087828657883, 3.624227265442713,
+              3.623773573063387, 3.6201204747564293, 3.628463229026158, 3.595531109709399
+            ],
+            "spreads": [
+              0.01612100571428571, 0.016123362626970797, 0.017184499778989244, 0.01908191935956263,
+              0.02127144146954052, 0.028286861982146944, 0.019395117439133164, 0.01115595737704918
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared scalar write and read",
+          "medianNs": 460229.0,
+          "p99Ns": 547500,
+          "averageNs": 469045.56249999994,
+          "heapBytes": {
+            "min": 0,
+            "max": 4635328,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4683167,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [478542, 457708.0000000298, 456833, 460833, 459625, 461875, 459291, 465875],
+            "freqs": [
+              3.5909694545976927, 3.605833093091537, 3.6382217444095124, 3.620993184710023,
+              3.613950488363697, 3.75704979314316, 3.61899016668626, 3.615587052247548
+            ],
+            "spreads": [
+              0.03547403214894257, 0.019358257236853686, 0.017833354217167825, 0.018278962561013547,
+              0.021366225952126134, 0.02225544214227752, 0.01889520826665447, 0.022405854647887323
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle none queries",
+          "medianNs": 1473041.5,
+          "p99Ns": 1723333,
+          "averageNs": 1479582.314560439,
+          "heapBytes": {
+            "min": 0,
+            "max": 11798224,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5233583,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1557959, 1432083, 1485792, 1492542, 1464542, 1428041, 1481541, 1445666],
+            "freqs": [
+              3.6177427271533484, 3.6562183052714263, 3.615703148171789, 3.7189409191872693,
+              3.614810737570566, 3.626754323245562, 3.640813503634831, 3.597958258200822
+            ],
+            "spreads": [
+              0.06514571192181565, 0.07337512909517116, 0.045943085707824516, 0.07089956262537335,
+              0.07512299462903761, 0.06869390416661707, 0.05779228020014296, 0.05311621204344572
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle cached queries",
+          "medianNs": 22259437.5,
+          "p99Ns": 24606708,
+          "averageNs": 22374619.7421875,
+          "heapBytes": {
+            "min": 0,
+            "max": 52280,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1553417,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              22239875, 22651000, 22279000, 22236209, 23433250, 21670791, 22609208.00000006, 20843583
+            ],
+            "freqs": [
+              3.7522822273363583, 3.5713290483789715, 3.620014067197423, 3.6192116338428018,
+              3.6153087736827296, 3.6212281172384766, 3.6148071933372763, 3.527567409991514
+            ],
+            "spreads": [
+              0.02491697265990516, 0.021649462220813407, 0.03078211456800832, 0.0227902315798827,
+              0.022566214560992722, 0.018303640999124408, 0.028122841604443814, 0.04731588464548444
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle cached queries and materialize 20 results",
+          "medianNs": 22158333.5,
+          "p99Ns": 23888624.99999997,
+          "averageNs": 22253324.28125,
+          "heapBytes": {
+            "min": 0,
+            "max": 188664,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1497792,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              22057292, 21816709, 22395250, 22662666, 21912750, 22259375, 22264209, 21933042
+            ],
+            "freqs": [
+              3.6489957179333676, 3.601100383480918, 3.410024461110712, 3.6021523804036386,
+              3.6110735730933317, 3.6157485191922234, 3.5618728782474447, 3.577456122736908
+            ],
+            "spreads": [
+              0.03287792330094634, 0.014864860538535089, 0.023878950248687025, 0.031246895217495862,
+              0.017645796409178773, 0.017947796214022923, 0.05693176587517589, 0.022154448299510958
+            ]
+          },
+          "snapshot": 210000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle streaming queries",
+          "medianNs": 1593979.0,
+          "p99Ns": 2132208,
+          "averageNs": 1610181.479938272,
+          "heapBytes": {
+            "min": 0,
+            "max": 10809896,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5197250,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1626833, 1602750, 1621750, 1573209, 1584875, 1585208, 1632708, 1580167],
+            "freqs": [
+              3.6140825540816386, 3.6220160233327965, 3.604496869532423, 3.6368033452957187,
+              3.640842858433761, 3.6285312670428813, 3.5647690451487692, 3.5834150104948552
+            ],
+            "spreads": [
+              0.0632242983760472, 0.042706095273748246, 0.05256636349622321, 0.07735637057759012,
+              0.06427414199858032, 0.07373026492422445, 0.04975453002006482, 0.06282369572330013
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared tag toggle streaming queries and materialize 20 results",
+          "medianNs": 3272250.0,
+          "p99Ns": 3749916,
+          "averageNs": 3278619.998134328,
+          "heapBytes": {
+            "min": 0,
+            "max": 9498624,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 8785667,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [3243875, 3282667, 3255792, 3285000, 3261833, 3233583, 3308916, 3290375],
+            "freqs": [
+              3.6180970332454816, 3.5822621669537456, 3.617283224306258, 3.6298216026531915,
+              3.596276078260969, 3.734323117115034, 3.6356147277307604, 3.518666557019218
+            ],
+            "spreads": [
+              0.023842717182382178, 0.023843240633302124, 0.022142515553819162, 0.02395764255707762,
+              0.025566841527447908, 0.036584227650875205, 0.0398027045110846, 0.033530877665919535
+            ]
+          },
+          "snapshot": 210000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared entity operations 10k",
+          "name": "prepared shared pair toggle",
+          "medianNs": 4254749.5,
+          "p99Ns": 4556124.99999994,
+          "averageNs": 4281613.379464285,
+          "heapBytes": {
+            "min": 0,
+            "max": 9875968,
+            "p50": 168
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4960250,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [4241041, 4231792, 4268458, 4233584, 4268750, 4232334, 4409417, 4295125],
+            "freqs": [
+              3.6210026241345603, 3.6307626343105577, 3.6449320833991865, 3.633976617184733,
+              3.6194807281518435, 3.6146644788734767, 3.5810755030206534, 3.552059745679204
+            ],
+            "spreads": [
+              0.013693710970947948, 0.015932478667821017, 0.01609349091212682, 0.01955611120058907,
+              0.01742212251095312, 0.02812252841879564, 0.017003113118889045, 0.024895414696613223
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared columns 10k",
+          "name": "paged columns silent",
+          "medianNs": 12982.151785714286,
+          "p99Ns": 14130.94642857143,
+          "averageNs": 12984.479699045538,
+          "heapBytes": {
+            "min": 0,
+            "max": 17356.428571428572,
+            "p50": 2.7142857142857144
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1253917,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              13011.160714285714, 12925.607142857143, 12934.535714285714, 12949.392857142857,
+              12980.660714285714, 13027.517857142857, 13148.82142857143, 12983.642857142857
+            ],
+            "freqs": [
+              3.604874861723456, 3.6083940129898275, 3.6176956284732027, 3.636543836583799,
+              3.707747112415157, 3.7284600920776243, 3.577822069039255, 3.5898623115010846
+            ],
+            "spreads": [
+              0.01725250039113648, 0.010830038967008484, 0.0073340315039542294, 0.010390682924508721,
+              0.009136265488357007, 0.015579943273822833, 0.024531078282367155, 0.011978717314643209
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared columns 10k",
+          "name": "paged columns changed",
+          "medianNs": 69895.5,
+          "p99Ns": 104250,
+          "averageNs": 72273.11538461439,
+          "heapBytes": {
+            "min": 0,
+            "max": 857232,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1824291,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [70417, 70541, 70250, 69958, 69833, 69334, 67875, 69375],
+            "freqs": [
+              3.615311995282196, 3.6128401970918964, 3.615690837536321, 3.720841182154254,
+              3.5149947133301196, 3.623131481941855, 3.6389073625800497, 3.6271018965145627
+            ],
+            "spreads": [
+              0.05351529714074789, 0.03459491076111765, 0.04922237907529422, 0.04500749999999999,
+              0.03492453259655854, 0.043639195675675674, 0.017289032201068952, 0.030702174555040946
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared columns 10k",
+          "name": "paged columns observed",
+          "medianNs": 256895.5,
+          "p99Ns": 399459,
+          "averageNs": 264303.17559523805,
+          "heapBytes": {
+            "min": 0,
+            "max": 1899584,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2288791,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [255708, 259000, 256750, 257041, 265208, 264500, 254959, 255500],
+            "freqs": [
+              3.608048127683917, 3.6524979121890184, 3.6126270641196334, 3.6222035890161957,
+              3.6501199129489295, 3.6229124419660113, 3.5597708297365775, 3.616175332952331
+            ],
+            "spreads": [
+              0.02149144989113992, 0.03219155609185098, 0.022249463713798975, 0.018383807439824942,
+              0.028648168186903335, 0.025328767894665233, 0.020109742547930323, 0.02332991506849315
+            ]
+          },
+          "snapshot": 50010000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared query discovery",
+          "name": "compile and count 20 plans 100 matches among 10k",
+          "medianNs": 30124.99999999818,
+          "p99Ns": 61709.00000000757,
+          "averageNs": 33613.441885965425,
+          "heapBytes": {
+            "min": 0,
+            "max": 231504,
+            "p50": 31304
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2467375,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              30166.99999989214, 30083.00000010422, 29958.000000078755, 29667.00000001765,
+              30375.000000049113, 30624.99999987267, 26665.99999997743, 30708.000000004176
+            ],
+            "freqs": [
+              3.6186287027564843, 3.6019867638545273, 3.622932638621154, 3.6315066114839425,
+              3.620318115215481, 3.6076586717789536, 3.7111981574406325, 3.6074086618510774
+            ],
+            "spreads": [
+              0.13662610259897182, 0.15801628022684808, 0.14260125896976678, 0.12158427124912108,
+              0.13718519188693415, 0.15680464707533578, 0.10522196719714083, 0.1528325069205047
+            ]
+          },
+          "snapshot": 2000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared bulk creation",
+          "name": "cold prepare and populate 10k three scalars",
+          "medianNs": 2622375.0000000335,
+          "p99Ns": 6986541.999999986,
+          "averageNs": 2833832.7658730135,
+          "heapBytes": {
+            "min": 3001648,
+            "max": 21629360,
+            "p50": 3281328
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2984416,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              2630458.9999999735, 2608749.9999999865, 2625499.9999999884, 2619250.000000079,
+              2608374.99999991, 2636624.999999981, 2514415.999999983, 2636334.0000000335
+            ],
+            "freqs": [
+              3.616167174986965, 3.596537698111178, 3.6090776213480704, 3.6003398361972314,
+              3.6191902553513606, 3.607802739118892, 3.729003791828458, 3.6116545615210436
+            ],
+            "spreads": [
+              0.030177199720655058, 0.03132853857209948, 0.05731628261286062, 0.03082596674624194,
+              0.026596566521292435, 0.03645622938416818, 0.029751460458443013, 0.030695942092302638
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared bulk creation",
+          "name": "warm prepared spawn 10k three scalars",
+          "medianNs": 1699542.0000000081,
+          "p99Ns": 3044582.999999989,
+          "averageNs": 1734328.0683139549,
+          "heapBytes": {
+            "min": 0,
+            "max": 14086968,
+            "p50": 376
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3086791,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              1689041.999999972, 1727625.0000001027, 1663000.000000011, 1706249.9999999546,
+              1692834.0000000617, 1678750.0000000363, 1727125.000000001, 1707709.0000000226
+            ],
+            "freqs": [
+              3.6139423221823375, 3.6122955715603977, 3.6228244975285544, 3.609497688634294,
+              3.609522979564556, 3.619261042830788, 3.7190762051542254, 3.5547428609043017
+            ],
+            "spreads": [
+              0.026121649729478603, 0.036341819237762515, 0.020950487095433217, 0.023903706270520905,
+              0.02216783959283051, 0.0280807006649494, 0.05159901380782155, 0.023996749300185315
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "prepared.bench.ts",
+          "group": "prepared bulk creation",
+          "name": "Iris spawn 10k three scalars into empty world",
+          "medianNs": 1516083.0000000088,
+          "p99Ns": 1674832.9999999783,
+          "averageNs": 1528196.3795731717,
+          "heapBytes": {
+            "min": 1098784,
+            "max": 9598160,
+            "p50": 2555424
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 6128041,
+            "p50": 80958.5
+          },
+          "blocks": {
+            "medians": [
+              1512667.0000000217, 1532541.0000000375, 1503125.0000000114, 1510290.9999999383,
+              1522375.000000011, 1512958.000000026, 1558708.0000000242, 1519207.9999999919
+            ],
+            "freqs": [
+              3.636004796614131, 3.609939353759101, 3.642670803393515, 3.6135904416782463,
+              3.6264327686892233, 3.623254945317779, 2.9422311823083382, 3.1492006973545346
+            ],
+            "spreads": [
+              0.021962651897766774, 0.025737176591511642, 0.01676275378124045, 0.021021419868077776,
+              0.027512034525752734, 0.022158696699045008, 0.029185591657682395, 0.017423047545828706
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "search.bench.ts",
+          "group": "cold search 20 queries 100 matches among 10k",
+          "name": "Koota compile and count",
+          "medianNs": 195749.9999999186,
+          "p99Ns": 400457.9999998441,
+          "averageNs": 206566.43269231168,
+          "heapBytes": {
+            "min": 0,
+            "max": 1228464,
+            "p50": 0
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4207333,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              198874.9999998163, 198667.00000011406, 186791.99999996854, 173416.99999997218,
+              197707.9999999205, 193791.9999999167, 207584.00000022448, 187415.99999975733
+            ],
+            "freqs": [
+              3.6063759475403283, 3.558569842051746, 3.716654877467811, 3.6915126897973773,
+              3.7043380178192815, 3.7305390853768494, 3.667067283233738, 3.547844688326173
+            ],
+            "spreads": [
+              0.07378771844439541, 0.07938493036156265, 0.08864878984653886, 0.06933839676101021,
+              0.0841700244969042, 0.09250201237080623, 0.10917439554859311, 0.13609008673180478
+            ]
+          },
+          "snapshot": 2000
+        },
+        {
+          "file": "search.bench.ts",
+          "group": "cold search 20 queries 100 matches among 10k",
+          "name": "Iris compile and count",
+          "medianNs": 69686.99999998762,
+          "p99Ns": 158457.99999999598,
+          "averageNs": 73790.48324742448,
+          "heapBytes": {
+            "min": 0,
+            "max": 373384,
+            "p50": 121480
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3261041,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              75499.99999991996, 54249.99999991087, 86999.99999998909, 67040.99999990375,
+              59582.99999997507, 72333.00000007148, 77541.999999994, 54541.99999996945
+            ],
+            "freqs": [
+              3.601595361211915, 3.6791452046790853, 3.6446788977988875, 3.7223150088053316,
+              3.566167719430232, 3.70660007080094, 3.6537080495590395, 3.72011186493859
+            ],
+            "spreads": [
+              0.1407389960251553, 0.12524895483649431, 0.20378081379397514, 0.19534025148776527,
+              0.18453185640293518, 0.15202527476903094, 0.13783579737629864, 0.1415676139500157
+            ]
+          },
+          "snapshot": 2000
+        }
+      ]
+    },
+    {
+      "name": "kernel-cleanup-paired",
+      "source": {
+        "before": "before",
+        "after": "sharedWriteCandidate"
+      },
+      "timestamp": "2026-09-09T12:49:00.103Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.156646935534783
+      },
+      "runtime": "26.1.0",
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "cleanup.bench.ts",
+            "runFreq": 4.156646935534783,
+            "postFreq": 4.080195279318263
+          }
+        ]
+      },
+      "cases": [
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "numeric values before",
+          "medianNs": 654083.5,
+          "p99Ns": 854916,
+          "averageNs": 671448.9509345784,
+          "heapBytes": {
+            "min": 0,
+            "max": 4889848,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5765167,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [656500, 642542, 685083, 665833, 651667, 657625, 636250, 641333],
+            "freqs": [
+              3.9958234546928164, 3.6694511008890713, 3.9034646137958386, 3.778048602768325,
+              3.757258925633334, 3.5139177256869836, 3.8086365017155215, 3.8905368676834664
+            ],
+            "spreads": [
+              0.0342499795887281, 0.020764272841308426, 0.079258633479447, 0.05028744204627887,
+              0.014790349365550196, 0.03363002349363239, 0.011942357563850687, 0.01464029731824185
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared values before",
+          "medianNs": 417750.0,
+          "p99Ns": 496750,
+          "averageNs": 422524.615909092,
+          "heapBytes": {
+            "min": 0,
+            "max": 4654496,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4580584,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [420541, 421541, 415583, 418167, 417333, 419709, 416959, 416667],
+            "freqs": [
+              3.9681048326266763, 2.9751544463571746, 3.7103695289462606, 3.8585436973471223,
+              3.8129640873208066, 3.702326072440039, 3.7663521383739065, 3.701700892322105
+            ],
+            "spreads": [
+              0.018872601661586164, 0.026881983133570167, 0.017464844773394054, 0.016319454235768714,
+              0.014353018148539887, 0.018692799052723242, 0.014955850762262178, 0.012524895165808996
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle no queries before",
+          "medianNs": 1290896.0,
+          "p99Ns": 1682042,
+          "averageNs": 1306709.9065934063,
+          "heapBytes": {
+            "min": 0,
+            "max": 11651696,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4888458,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1258042, 1325750, 1343125, 1259250, 1309834, 1287250, 1294542, 1270209],
+            "freqs": [
+              3.916323910968345, 3.8272404708526535, 3.7931171852297103, 3.744414022739632,
+              3.744499243427357, 3.69440878635649, 3.7282410413606133, 3.738606265622699
+            ],
+            "spreads": [
+              0.009526977954631085, 0.03555332392985103, 0.0334839932247557, 0.00941893984514592,
+              0.009101601118920413, 0.021210768382210136, 0.011214482959996662, 0.009630645507943968
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle 20 queries before",
+          "medianNs": 19811375.0,
+          "p99Ns": 21304666,
+          "averageNs": 19900490.102941178,
+          "heapBytes": {
+            "min": 0,
+            "max": 50536,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2297291,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              19605291, 20019875, 20421375, 19629458, 19556125, 19993292, 19499208, 20040834
+            ],
+            "freqs": [
+              3.9929321024882234, 3.741839383836371, 3.8170863825280734, 3.7854737909127203,
+              3.797903976740653, 3.7952901836992705, 3.793288081441535, 3.721486828155451
+            ],
+            "spreads": [
+              0.022144822456346094, 0.021275739064304845, 0.03223762695704868, 0.009365638113900038,
+              0.020981127396148266, 0.02663086824320877, 0.021869238227521855, 0.011833600008861906
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "numeric values after",
+          "medianNs": 686583.4999999702,
+          "p99Ns": 857083,
+          "averageNs": 706904.6959459455,
+          "heapBytes": {
+            "min": 0,
+            "max": 4809920,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4691834,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [675167, 713375, 691292, 681874.9999999404, 754625, 713709, 680000, 674667],
+            "freqs": [
+              3.9084647449774965, 3.8112285755805924, 3.8173735037641077, 3.809238715914087,
+              3.7488086795914812, 3.7457627887271605, 3.786670144532616, 3.8149401100768054
+            ],
+            "spreads": [
+              0.010705018165745112, 0.0232934722971789, 0.021536874721535905, 0.013952475453843009,
+              0.07154594878250786, 0.030642506399667088, 0.012626083235294117, 0.014283935630466585
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared values after",
+          "medianNs": 462062.5,
+          "p99Ns": 538083,
+          "averageNs": 465525.2619047615,
+          "heapBytes": {
+            "min": 0,
+            "max": 4799144,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4784542,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [448375, 455625, 477167, 455458, 468875, 460583, 463542, 464125],
+            "freqs": [
+              3.9622700664822577, 3.8332244310087575, 3.8446857636747387, 3.7822717881073116,
+              3.7276196770005874, 3.7601463869317717, 3.8296644600426046, 3.737801026928109
+            ],
+            "spreads": [
+              0.01529305826635459, 0.018980533991769546, 0.03275492479572142, 0.01423817871241695,
+              0.016733498693681684, 0.017166733900295928, 0.013324599712647397, 0.014639926312954485
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle no queries after",
+          "medianNs": 1269562.5,
+          "p99Ns": 1699292,
+          "averageNs": 1287612.1994047626,
+          "heapBytes": {
+            "min": 0,
+            "max": 11780552,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5139417,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1263875, 1293542, 1258042, 1249125, 1275250, 1289833, 1258875, 1282000],
+            "freqs": [
+              3.923931775937528, 3.8831197145560017, 3.8218390763935544, 3.889391137622366,
+              3.7945505399880832, 3.6620109495870543, 3.7253645029167815, 3.7326916439667586
+            ],
+            "spreads": [
+              0.012610180192886126, 0.026385343032813948, 0.01202712017956784, 0.009099149632975269,
+              0.024898098447980414, 0.019437838650586573, 0.010573917867712118, 0.010310697396899679
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle 20 queries after",
+          "medianNs": 19744146.0,
+          "p99Ns": 22097666,
+          "averageNs": 20110778.76470588,
+          "heapBytes": {
+            "min": 0,
+            "max": 50536,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1715792,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              19634082.99999994, 19660417, 21443708, 19576708, 20426541, 19994500, 19827875, 19475250
+            ],
+            "freqs": [
+              3.8995088156371716, 3.8027228974348017, 3.7898184984104453, 3.8680278319504975,
+              3.7638108123345546, 3.6812813631619368, 3.7116126472657105, 3.743233548384244
+            ],
+            "spreads": [
+              0.01853174205283296, 0.029193328279863037, 0.0307525461174905, 0.019971435616243545,
+              0.026897742422468885, 0.022986621320863238, 0.032619947926845416, 0.049295607840720915
+            ]
+          },
+          "snapshot": 10000
+        }
+      ]
+    },
+    {
+      "name": "kernel-cleanup-final-paired",
+      "source": {
+        "before": "before",
+        "after": "final"
+      },
+      "timestamp": "2026-09-09T12:51:48.442Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.388483051596031
+      },
+      "runtime": "26.1.0",
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "cleanup.bench.ts",
+            "runFreq": 4.388483051596031,
+            "postFreq": 4.224931160234709
+          }
+        ]
+      },
+      "cases": [
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "numeric values before",
+          "medianNs": 636396.0,
+          "p99Ns": 741458,
+          "averageNs": 645550.6926605507,
+          "heapBytes": {
+            "min": 0,
+            "max": 4980384,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4723041,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [627708, 631000, 635709, 637083, 632666.0000000298, 657916, 655542, 654792],
+            "freqs": [
+              4.148334124950212, 4.072179904323398, 4.054733645836727, 3.996095284709813,
+              3.9635782737273497, 3.892857658562559, 3.9526681604533507, 3.77014918697632
+            ],
+            "spreads": [
+              0.026770072071727616, 0.019581598098256735, 0.015546439644554348, 0.015610651673329846,
+              0.01376757246326462, 0.015679708047835896, 0.03694162753873893, 0.026416776930689435
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared values before",
+          "medianNs": 414375.0,
+          "p99Ns": 484167,
+          "averageNs": 417463.17934782675,
+          "heapBytes": {
+            "min": 0,
+            "max": 4697096,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4821500,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [408666.0000000596, 413708, 414625, 414125, 412667, 416959, 421375, 415334],
+            "freqs": [
+              4.142886696702824, 4.018458631640621, 4.105110158535027, 4.014719084042272,
+              4.061915917858106, 3.9884243419572933, 3.944790265027729, 3.879977628752903
+            ],
+            "spreads": [
+              0.01299514322230769, 0.021054161389192378, 0.01907311040107129, 0.01819753890733474,
+              0.020805483840481552, 0.017625829398094296, 0.023162161495105308, 0.019033412145405864
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle no queries before",
+          "medianNs": 1253146.0,
+          "p99Ns": 1649916,
+          "averageNs": 1273867.8909313725,
+          "heapBytes": {
+            "min": 0,
+            "max": 12159600,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4924667,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1232084, 1253292, 1249625, 1249292, 1253000, 1278625, 1299625, 1281750],
+            "freqs": [
+              4.142436578736743, 3.950214245168705, 4.044181720383959, 3.904511679526173,
+              4.034499504615239, 3.906160260081921, 3.9079726697199173, 3.868763288210177
+            ],
+            "spreads": [
+              0.016289901769511915, 0.017612065471638075, 0.017545941171175673, 0.010822438878056097,
+              0.014023331657690005, 0.011545439530791788, 0.01349875720000355, 0.023953518314803978
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle 20 queries before",
+          "medianNs": 19623479.5,
+          "p99Ns": 21301834,
+          "averageNs": 19700714.779411763,
+          "heapBytes": {
+            "min": 0,
+            "max": 50536,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1227708,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              19506292, 19202333, 19378292, 19827625, 19118375, 19769000, 20944125, 19740667
+            ],
+            "freqs": [
+              4.006822762742669, 4.03056457810551, 4.01907692980146, 3.9987667923517822,
+              4.00627744033916, 3.9303951553062006, 3.92755618097164, 3.8399877888497453
+            ],
+            "spreads": [
+              0.025129640610322045, 0.019395688190596425, 0.024422058497209142, 0.03695727804010818,
+              0.012255909260070481, 0.030695347220395564, 0.020561041857800215, 0.026139217413474428
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "numeric values after",
+          "medianNs": 642312.5,
+          "p99Ns": 745000,
+          "averageNs": 650039.0373831787,
+          "heapBytes": {
+            "min": 0,
+            "max": 4796168,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5135042,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [666291, 631666, 640667, 647542, 642542, 642083, 658875, 640959],
+            "freqs": [
+              4.062486161750729, 4.068163877524148, 4.061693255444001, 4.034565827016087,
+              3.80920615199411, 3.9035396671602673, 3.8515213306187763, 3.819446379576791
+            ],
+            "spreads": [
+              0.02438101099969833, 0.017112899222057228, 0.02160028283023786, 0.01402139536894904,
+              0.013364448082771242, 0.01375730365077412, 0.03525387091633466, 0.021879579505085348
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared values after",
+          "medianNs": 409208.5,
+          "p99Ns": 478542,
+          "averageNs": 411445.9280000004,
+          "heapBytes": {
+            "min": 0,
+            "max": 4725056,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4414166,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [402375, 413625, 404625, 406833, 412416, 406166, 411584, 417000],
+            "freqs": [
+              4.125390615400962, 3.995288165980057, 4.013645491211231, 3.9007870478232656,
+              3.8437877578671378, 3.909604204107226, 3.8976672868724704, 3.8394794817708715
+            ],
+            "spreads": [
+              0.015969154147250697, 0.01821953653671804, 0.015114550509731232, 0.018221235740463533,
+              0.013182549173649907, 0.016583002516212583, 0.027019958501788212, 0.0284431654676259
+            ]
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle no queries after",
+          "medianNs": 1269417.0,
+          "p99Ns": 4599416,
+          "averageNs": 1445856.4166666667,
+          "heapBytes": {
+            "min": 0,
+            "max": 11977160,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 10680084,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1253958, 1994375, 1244625, 1264000, 1251333, 1281000, 1274834, 1309458],
+            "freqs": [
+              4.1551720253886755, 3.9450574768274302, 3.9907069728474163, 4.018467508231315,
+              3.9546734327764916, 3.888703971531931, 3.8450243646343325, 3.7752959906995875
+            ],
+            "spreads": [
+              0.01807248859666884, 0.5543504430370277, 0.014266545155136057, 0.014973637568967621,
+              0.011551384034863478, 0.008221605425184174, 0.01758512410886623, 0.0418280986183748
+            ]
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "cleanup.bench.ts",
+          "group": "kernel cleanup 10k",
+          "name": "prepared tag toggle 20 queries after",
+          "medianNs": 19657625.0,
+          "p99Ns": 21235000,
+          "averageNs": 19859464.118055556,
+          "heapBytes": {
+            "min": 0,
+            "max": 50536,
+            "p50": 200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1193790.9999999702,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              18919375, 19538917, 19776333, 20094958, 19480375, 20422042, 20618500.00000003, 19526000
+            ],
+            "freqs": [
+              4.140554979996871, 4.035724145665207, 4.030385834122303, 3.9924439450191533,
+              3.88850173469079, 3.9051283245045623, 3.788918567534744, 3.8457087224453734
+            ],
+            "spreads": [
+              0.01608092350540057, 0.017482517399360107, 0.023195066484699132, 0.027764347286943648,
+              0.01890733210262027, 0.03375274852000813, 0.016351003182376807, 0.012183357308751924
+            ]
+          },
+          "snapshot": 10000
+        }
+      ]
+    }
+  ],
+  "labsComparisons": {
+    "fullInitial": "\n\u2501\u2501 compare kernel-cleanup-before (fresh-start@36033ff*) -> kernel-cleanup-after (fresh-start@36033ff*)\nApple M4 Pro\nMann-Whitney U on block medians  \u03b1=0.05  min\u0394=5%\n\n\u26a0 baseline CPU clock drifted 9.5% during its run\n\u26a0 candidate CPU clock drifted 9.3% during its run\n\ncomparison.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 matched valid-entity operations 10k\n  -------------------------------------------------------------------------------------------------\n  \u25a0 Iris has present                        60.50\u00b5s    64.17\u00b5s   +6.1%  +16.0%  .065   -0.7..+13.2%\n                                         \u2585\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2584\u2588\u2583\u2582\u2582\u2581\u2581\u2581\u2581\u2581                               \u26a0 ~\u00b18%\n\n  \u25a0 Iris scalar write and read             305.81\u00b5s   315.13\u00b5s   +3.0%  +17.1%  .015    +0.7..+6.1%\n                                         \u2582\u2588\u2583\u2582\u2581\u2581\u2581\u2581\u2581\u2581 \u2582\u2588\u2585\u2584\u2583\u2582\u2581\u2581\u2581\u2581\n\n  \u25b2 Koota tag toggle without queries         1.94ms     1.66ms  -14.4%   -3.5% <.001  -16.2..-13.4%\n                                         \u2581\u2581\u2581\u2581\u2582\u2588\u2583\u2581\u2581\u2581 \u2583\u2588\u2585\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25a0 Iris tag toggle without queries          2.06ms     2.12ms   +3.0%   +1.0%  .021    +0.7..+4.7%\n                                         \u2581\u2586\u2588\u2585\u2583\u2582\u2582\u2581\u2581\u2581 \u2581\u2583\u2587\u2588\u2585\u2583\u2583\u2582\u2582\u2581\n\n  \u25a0 Iris tag toggle with 20 queries          4.33ms     4.39ms   +1.3%   +2.7%  .130    -0.4..+3.1%\n                                         \u2581\u2584\u2588\u2586\u2584\u2583\u2582\u2582\u2581\u2581 \u2581\u2582\u2587\u2588\u2587\u2582\u2582\u2582\u2582\u2581\n\n  \u25a0 Koota shared pair toggle                 4.40ms     4.57ms   +3.7%   +6.0%  .028    +0.5..+6.5%\n                                         \u2581\u2584\u2588\u2586\u2584\u2582\u2581\u2581\u2581\u2581 \u2581\u2582\u2585\u2587\u2588\u2587\u2586\u2584\u2582\u2581\n\n  \u25a0 Iris shared pair toggle                  5.34ms     5.43ms   +1.6%   +0.7%  .328    -0.8..+3.1%\n                                         \u2581\u2583\u2588\u2587\u2586\u2583\u2582\u2582\u2582\u2581 \u2581\u2581\u2588\u2587\u2588\u2586\u2583\u2583\u2582\u2581\n\n  \u2022 query output 10k\n  -------------------------------------------------------------------------------------------------\n  \u25a0 Iris collect into prepared output t\u2026    11.48\u00b5s    12.02\u00b5s   +4.7%   +8.5%  .574   -7.9..+19.2%\n                                         \u2588\u2588\u2583\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2588\u2586\u2582\u2582\u2582\u2581\u2581\u2582\u2581\u2581                              \u26a0 ~\u00b118%\n\n  \u2022 borrowed scalar columns 10k\n  -------------------------------------------------------------------------------------------------\n  \u25a0 Koota paged columns without change \u2026    19.62\u00b5s    19.63\u00b5s   +0.1%  +11.9%  .645    -0.5..+1.9%\n                                         \u2581\u2581\u2582\u2588\u2586\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2588\u2587\u2583\u2581\u2581\u2581\u2581\n\n  \u25a0 Iris dense columns without change p\u2026    12.52\u00b5s    12.64\u00b5s   +0.9%   +5.3%  .009    +0.3..+3.2%\n                                         \u2584\u2581\u2581\u2581\u2581\u2581\u2582\u2588\u2588\u2581 \u2582\u2582\u2581\u2581\u2581\u2581\u2581\u2583\u2588\u2581\n\n  \u25a0 Koota paged columns with explicit c\u2026   411.46\u00b5s   413.92\u00b5s   +0.6%   +6.1%  .195    -0.6..+2.9%\n                                         \u2581\u2581\u2583\u2588\u2583\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2582\u2588\u2585\u2582\u2582\u2581\u2581\u2581\n\n\nprepared.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 prepared entity operations 10k\n  -------------------------------------------------------------------------------------------------\n  \u25a0 prepared has present                    60.06\u00b5s    61.12\u00b5s   +1.8%   +3.9% <.001    +1.2..+2.2%\n                                         \u2581\u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25bc prepared scalar write and read         415.44\u00b5s   460.23\u00b5s  +10.8%  +10.5% <.001   +9.0..+12.1%\n                                         \u2581\u2588\u2583\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2585\u2588\u2583\u2582\u2581\u2581\u2581\n\n  \u25bc prepared tag toggle none queries         1.30ms     1.47ms  +13.5%   +1.0% <.001   +9.7..+15.4%\n                                         \u2582\u2588\u2583\u2583\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2582\u2585\u2587\u2586\u2588\u2586\u2583\u2582\u2581\n\n  \u25bc prepared tag toggle cached queries      19.78ms    22.26ms  +12.5%  +12.3% <.001   +8.9..+15.6%\n                                         \u2581\u2583\u2588\u2584\u2583\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2582\u2583\u2585\u2588\u2584\u2582\u2581\n\n  \u25bc prepared tag toggle cached queries \u2026    19.79ms    22.16ms  +12.0%  +10.6% <.001   +9.5..+14.6%\n                                         \u2582\u2586\u2588\u2588\u2583\u2582\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2581\u2581\u2584\u2588\u2586\u2582\u2582\n\n  \u25bc prepared tag toggle streaming queri\u2026     1.42ms     1.59ms  +12.6%  +28.6% <.001  +11.6..+15.1%\n                                         \u2582\u2588\u2583\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2582\u2587\u2588\u2586\u2582\u2581\u2581\u2581\u2581\n\n  \u25a0 prepared shared pair toggle              4.08ms     4.25ms   +4.3%   +2.0%  .002    +2.9..+5.8%\n                                         \u2581\u2585\u2588\u2586\u2583\u2582\u2582\u2581\u2581\u2581 \u2581\u2581\u2582\u2583\u2587\u2588\u2586\u2583\u2582\u2581\n\n  \u2022 prepared columns 10k\n  -------------------------------------------------------------------------------------------------\n  \u25a0 paged columns silent                    12.96\u00b5s    12.98\u00b5s   +0.1%   +3.1%  .328    -0.2..+0.7%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2585\u2588\u2581\u2581 \u2581\u2581\u2581\u2581\u2581\u2581\u2587\u2588\u2583\u2581\n\n  \u25a0 paged columns changed                   67.04\u00b5s    69.90\u00b5s   +4.3%   -6.0% <.001    +2.6..+4.8%\n                                         \u2581\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2586\u2588\u2582\u2582\u2581\u2581\u2581\u2581\u2581\n\n  \u25a0 paged columns observed                 263.25\u00b5s   256.90\u00b5s   -2.4%   +1.9%  .022    -3.5..-0.5%\n                                         \u2581\u2588\u2583\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2583\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u2022 prepared query discovery\n  -------------------------------------------------------------------------------------------------\n  \u25a0 compile and count 20 plans 100 matc\u2026    26.60\u00b5s    30.12\u00b5s  +13.2%   +8.3%  .130   -1.3..+16.7%\n                                         \u2588\u2588\u2585\u2583\u2583\u2582\u2582\u2581\u2581\u2581 \u2582\u2588\u2584\u2583\u2582\u2582\u2581\u2581\u2581\u2581                               \u26a0 ~\u00b17%\n\n  \u2022 prepared bulk creation\n  -------------------------------------------------------------------------------------------------\n  \u25a0 cold prepare and populate 10k three\u2026     2.50ms     2.62ms   +5.1%   +4.5%  .007    +1.1..+6.7%\n                                         \u2588\u2583\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2587\u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25a0 warm prepared spawn 10k three scala\u2026     1.63ms     1.70ms   +4.3%  +16.1% <.001    +2.5..+5.4%\n                                         \u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2584\u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25a0 Iris spawn 10k three scalars into e\u2026     1.46ms     1.52ms   +4.1%   +5.4%  .001    +2.8..+5.6%\n                                         \u2582\u2588\u2588\u2584\u2583\u2582\u2581\u2581\u2581\u2581 \u2581\u2581\u2583\u2588\u2588\u2585\u2583\u2582\u2581\u2581\n\n\nsearch.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 cold search 20 queries 100 matches among 10k\n  -------------------------------------------------------------------------------------------------\n  \u25a0 Koota compile and count                180.94\u00b5s   195.75\u00b5s   +8.2%   +7.0%  .105   -0.5..+13.3%\n                                         \u2586\u2588\u2583\u2582\u2581\u2581\u2581\u2581\u2581\u2581 \u2583\u2588\u2584\u2583\u2581\u2581\u2581\u2581\u2581\u2581                               \u26a0 ~\u00b19%\n\n  \u25a0 Iris compile and count                  65.27\u00b5s    69.69\u00b5s   +6.8%   -6.4%  .798  -13.8..+28.7%\n                                         \u2584\u2588\u2587\u2584\u2582\u2582\u2581\u2581\u2581\u2581 \u2584\u2587\u2588\u2584\u2582\u2582\u2581\u2581\u2581\u2581                              \u26a0 ~\u00b130%\n\n\u26a0 Limited resolution: Neutral results are inconclusive at the shown resolution.\n\n\nskipped (8)\n  clock-confounded\n  \u00b7 Koota has present                     slower\u2192neutral \u00b7 3.84\u21923.66\n  \u00b7 Koota scalar write and read           slower\u2192neutral \u00b7 3.91\u21923.67\n  \u00b7 Koota tag toggle with 20 queries      slower\u2192neutral \u00b7 3.92\u21923.65\n  \u00b7 Koota prepare and populate            slower\u2192neutral \u00b7 3.88\u21923.65\n  \u00b7 Iris create and populate              slower\u2192neutral \u00b7 3.80\u21923.62\n  \u00b7 Koota collect into prepared output    neutral\u2192faster \u00b7 3.89\u21923.65\n  \u00b7 Iris dense columns with explicit ch\u2026  slower\u2192neutral \u00b7 3.83\u21923.66\n  \u00b7 prepared tag toggle streaming queri\u2026  slower\u2192neutral \u00b7 3.72\u21923.62\n\nsummary  1 faster  5 slower  21 neutral  8 skipped\ncompared: 27  matched: 35\n\n",
+    "focusedInitial": "\u2714 Baseline set to \"kernel-cleanup-paired-before\"\n\n\u2501\u2501 compare kernel-cleanup-paired-before (fresh-start@36033ff*) -> kernel-cleanup-paired-after (fresh-start@36033ff*)\nApple M4 Pro\nMann-Whitney U on block medians  \u03b1=0.05  min\u0394=5%\n\ncleanup.bench.ts\n  bench                              baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------\n  \u2022 kernel cleanup 10k\n  -------------------------------------------------------------------------------------------\n  \u25bc numeric values                   654.08\u00b5s   686.58\u00b5s   +5.0%   +0.3%  .002   +3.4..+10.2%\n                                   \u2581\u2588\u2585\u2583\u2582\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2585\u2588\u2585\u2583\u2582\u2582\u2581\u2581\n\n  \u25bc prepared values                  417.75\u00b5s   462.06\u00b5s  +10.6%   +8.3% <.001   +8.6..+11.7%\n                                   \u2581\u2582\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2582\u2588\u2587\u2582\u2582\u2581\u2581\n\n  \u25a0 prepared tag toggle no queries     1.29ms     1.27ms   -1.7%   +1.0%  .136    -3.9..+0.4%\n                                   \u2582\u2588\u2584\u2582\u2581\u2581\u2581\u2581\u2581\u2581 \u2583\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25a0 prepared tag toggle 20 queries    19.81ms    19.74ms   -0.3%   +3.7%  .798    -1.9..+2.2%\n                                   \u2581\u2583\u2588\u2588\u2585\u2584\u2582\u2581\u2581\u2581 \u2583\u2586\u2588\u2588\u2588\u2585\u2583\u2585\u2582\u2582\n\n\nsummary  2 slower  2 neutral\ncompared: 4  matched: 4\n\n",
+    "focusedFinal": "\u2714 Baseline set to \"kernel-cleanup-final-paired-before\"\n\n\u2501\u2501 compare kernel-cleanup-final-paired-before (fresh-start@36033ff*) -> kernel-cleanup-final-paired-after (fresh-start@36033ff*)\nApple M4 Pro\nMann-Whitney U on block medians  \u03b1=0.05  min\u0394=5%\n\ncleanup.bench.ts\n  bench                              baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------\n  \u2022 kernel cleanup 10k\n  -------------------------------------------------------------------------------------------\n  \u25a0 numeric values                   636.40\u00b5s   642.31\u00b5s   +0.9%   +0.5%  .279    -1.9..+2.4%\n                                   \u2581\u2582\u2585\u2588\u2585\u2582\u2582\u2581\u2581\u2581 \u2581\u2581\u2583\u2588\u2585\u2583\u2582\u2581\u2581\u2581\n\n  \u25a0 prepared values                  414.38\u00b5s   409.21\u00b5s   -1.2%   -1.2%  .028    -2.4..-0.1%\n                                   \u2581\u2581\u2581\u2582\u2588\u2583\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2586\u2588\u2582\u2581\u2581\u2581\u2581\n\n  \u25a0 prepared tag toggle no queries     1.25ms     1.27ms   +1.3% +178.8%  .382    -1.1..+4.0%\n                                   \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25a0 prepared tag toggle 20 queries    19.62ms    19.66ms   +0.2%   -0.3%  .574    -1.6..+3.7%\n                                   \u2581\u2582\u2585\u2588\u2585\u2585\u2583\u2583\u2582\u2582 \u2581\u2582\u2584\u2585\u2588\u2585\u2584\u2584\u2583\u2582\n\n\nsummary  4 neutral\ncompared: 4  matched: 4\n\n"
+  },
+  "comparisonMethod": "Focused Labs comparisons use derived views of the same raw interleaved measurement: select each before/after variant and remove its suffix to match names. Original blocks, frequencies, samples and GC/heap statistics are unmodified. These views are not additional measurements. Baseline marker restored to boundary-before.",
+  "reproduce": {
+    "focused": "KOOTA_BEFORE_SOURCE=<frozen-before>/packages/core/src/kernel/index.ts pnpm bench @kernel-cleanup -n kernel-cleanup-final-paired",
+    "retained": "KOOTA_KERNEL_SOURCE=<source> node --expose-gc --import tsx benches/kernel-iris/measure-retained.ts koota <scalars|queries|plans|workspaces>"
+  }
+}

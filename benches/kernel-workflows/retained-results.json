@@ -1,0 +1,130 @@
+{
+  "runtime": "v26.1.0",
+  "workload": "10,000 ordinary entities, three scalar traits, fresh context, no queries, full GC, heapUsed plus arrayBuffers",
+  "samples": [
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 3945824,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4119904
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1311944,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2749664
+    },
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 4207696,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4381776
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1309136,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2746856
+    },
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 3944976,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4119056
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1311728,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2749448
+    },
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 3945800,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4119880
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1309000,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2746720
+    },
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 3948552,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4122632
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1308456,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2746176
+    },
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 3944984,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4119064
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1309072,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2746792
+    },
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 3945376,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4119456
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1308816,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2746536
+    },
+    {
+      "source": "before",
+      "count": 10000,
+      "heapBytes": 3944448,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4118528
+    },
+    {
+      "source": "after",
+      "count": 10000,
+      "heapBytes": 1308312,
+      "arrayBufferBytes": 1437720,
+      "retainedBytes": 2746032
+    }
+  ],
+  "medians": {
+    "before": {
+      "heapBytes": 3945588.0,
+      "arrayBufferBytes": 174080.0,
+      "retainedBytes": 4119668.0
+    },
+    "after": {
+      "heapBytes": 1309036.0,
+      "arrayBufferBytes": 1437720.0,
+      "retainedBytes": 2746756.0
+    }
+  }
+}

@@ -1,0 +1,1606 @@
+{
+  "retainedSamples": [
+    {
+      "mode": "current",
+      "entities": 10000,
+      "heapBytes": 3969568,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4143648,
+      "bytesPerEntity": 414.3648
+    },
+    {
+      "mode": "current",
+      "entities": 10000,
+      "heapBytes": 3969552,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4143632,
+      "bytesPerEntity": 414.3632
+    },
+    {
+      "mode": "current",
+      "entities": 10000,
+      "heapBytes": 3973384,
+      "arrayBufferBytes": 174080,
+      "retainedBytes": 4147464,
+      "bytesPerEntity": 414.7464
+    },
+    {
+      "mode": "packed",
+      "entities": 10000,
+      "heapBytes": 3588048,
+      "arrayBufferBytes": 0,
+      "retainedBytes": 3588048,
+      "bytesPerEntity": 358.8048
+    },
+    {
+      "mode": "packed",
+      "entities": 10000,
+      "heapBytes": 3588664,
+      "arrayBufferBytes": 0,
+      "retainedBytes": 3588664,
+      "bytesPerEntity": 358.8664
+    },
+    {
+      "mode": "packed",
+      "entities": 10000,
+      "heapBytes": 3590280,
+      "arrayBufferBytes": 0,
+      "retainedBytes": 3590280,
+      "bytesPerEntity": 359.028
+    },
+    {
+      "mode": "typed",
+      "entities": 10000,
+      "heapBytes": 52784,
+      "arrayBufferBytes": 1772260,
+      "retainedBytes": 1825044,
+      "bytesPerEntity": 182.5044
+    },
+    {
+      "mode": "typed",
+      "entities": 10000,
+      "heapBytes": 50304,
+      "arrayBufferBytes": 1772260,
+      "retainedBytes": 1822564,
+      "bytesPerEntity": 182.2564
+    },
+    {
+      "mode": "typed",
+      "entities": 10000,
+      "heapBytes": 52576,
+      "arrayBufferBytes": 1772260,
+      "retainedBytes": 1824836,
+      "bytesPerEntity": 182.4836
+    }
+  ],
+  "comparisons": [
+    {
+      "baseline": "entity-model-current-verified",
+      "candidate": "entity-model-packed-buffered",
+      "output": "\n\u2501\u2501 compare entity-model-current-verified (fresh-start@36033ff*) -> entity-model-packed-buffered (fresh-start@36033ff*)\nApple M4 Pro\nMann-Whitney U on block medians  \u03b1=0.05  min\u0394=5%\n\n\u26a0 candidate CPU clock drifted 6.9% during its run\n\nentity-model.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 entity model foundation 10k\n  -------------------------------------------------------------------------------------------------\n  \u25b2 cold create and populate scalar mem\u2026     2.90ms   925.15\u00b5s  -68.1%  -68.4% <.001  -68.5..-66.6%\n                                         \u2581\u2581\u2581\u2581\u2588\u2585\u2581\u2581\u2581\u2581 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm entity recycling with three me\u2026    13.23ms     1.27ms  -90.4%  -91.7% <.001  -90.5..-90.3%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\u2582\u2581 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm membership detach and attach        2.24ms   405.17\u00b5s  -81.9%  -79.0% <.001  -82.4..-81.7%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2582\u2588\u2581 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm scalar write and read             760.69\u00b5s   199.71\u00b5s  -73.7%  -64.5% <.001  -74.5..-73.4%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\u2581 \u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25bc collect intersection into caller bu\u2026     2.42\u00b5s    23.21\u00b5s +860.0% +694.8% <.001 +855.1..+891.1%\n                                         \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\u2583\n\n  \u25b2 warm relation membership churn with\u2026    10.23ms   407.81\u00b5s  -96.0%  -95.1% <.001  -96.1..-96.0%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\u2587 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n\nnew in candidate (not in baseline)\n  \u00b7 entity identity lifecycle 10k > intern existing pairs\n  \u00b7 entity identity lifecycle 10k > recycle pair identities\n  \u00b7 entity identity lifecycle 10k > delete target with ten thousand incoming memberships\n  \u00b7 entity identity lifecycle 10k > write and read fractional scalar values\n\nsummary  5 faster  1 slower\ncompared: 6  matched: 10\n\n",
+      "exitCode": 0
+    },
+    {
+      "baseline": "entity-model-current-verified",
+      "candidate": "entity-model-typed-buffered",
+      "output": "\n\u2501\u2501 compare entity-model-current-verified (fresh-start@36033ff*) -> entity-model-typed-buffered (fresh-start@36033ff*)\nApple M4 Pro\nMann-Whitney U on block medians  \u03b1=0.05  min\u0394=5%\n\nentity-model.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 entity model foundation 10k\n  -------------------------------------------------------------------------------------------------\n  \u25b2 cold create and populate scalar mem\u2026     2.90ms   280.27\u00b5s  -90.3%  -67.0% <.001  -90.6..-90.0%\n                                         \u2581\u2581\u2581\u2581\u2583\u2588\u2582\u2581\u2581\u2581 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm entity recycling with three me\u2026    13.23ms     1.12ms  -91.5%  -92.4% <.001  -91.6..-91.3%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\u2582\u2581 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm membership detach and attach        2.24ms   413.79\u00b5s  -81.6%  -78.5% <.001  -82.2..-81.4%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2582\u2588\u2581 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm scalar write and read             760.69\u00b5s   182.44\u00b5s  -76.0%  -65.4% <.001  -76.6..-75.8%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\u2582 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25bc collect intersection into caller bu\u2026     2.42\u00b5s    21.94\u00b5s +807.6% +612.1% <.001 +797.7..+822.9%\n                                         \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\n\n  \u25b2 warm relation membership churn with\u2026    10.23ms   420.27\u00b5s  -95.9%  -94.8% <.001  -96.0..-95.8%\n                                         \u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2588\u2587 \u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n\nnew in candidate (not in baseline)\n  \u00b7 entity identity lifecycle 10k > intern existing pairs\n  \u00b7 entity identity lifecycle 10k > recycle pair identities\n  \u00b7 entity identity lifecycle 10k > delete target with ten thousand incoming memberships\n  \u00b7 entity identity lifecycle 10k > write and read fractional scalar values\n\nsummary  5 faster  1 slower\ncompared: 6  matched: 10\n\n",
+      "exitCode": 0
+    },
+    {
+      "baseline": "entity-model-packed-buffered",
+      "candidate": "entity-model-typed-buffered",
+      "output": "\n\u2501\u2501 compare entity-model-packed-buffered (fresh-start@36033ff*) -> entity-model-typed-buffered (fresh-start@36033ff*)\nApple M4 Pro\nMann-Whitney U on block medians  \u03b1=0.05  min\u0394=5%\n\n\u26a0 baseline CPU clock drifted 6.9% during its run\n\u26a0 CPU clock speeds differ between runs (4.35 GHz vs 4.07 GHz \u2014 6.8% apart)\n\nentity-lifecycle.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 entity identity lifecycle 10k\n  -------------------------------------------------------------------------------------------------\n  \u25b2 intern existing pairs                   80.02\u00b5s    46.50\u00b5s  -41.9%   -1.8% <.001  -43.0..-41.3%\n                                         \u2581\u2581\u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 recycle pair identities                660.29\u00b5s   576.96\u00b5s  -12.6%  -11.7% <.001   -16.6..-8.9%\n                                         \u2581\u2581\u2581\u2586\u2588\u2588\u2585\u2583\u2582\u2581 \u2581\u2586\u2588\u2586\u2584\u2583\u2582\u2581\u2581\u2581                               \u26a0 ~\u00b18%\n\n  \u25bc delete target with ten thousand inc\u2026   139.35\u00b5s   187.25\u00b5s  +34.4%   -9.5%  .010  +25.1..+43.7%\n                                         \u2581\u2586\u2588\u2584\u2582\u2582\u2582\u2583\u2582\u2581 \u2581\u2581\u2581\u2585\u2588\u2585\u2584\u2588\u2581\u2581                              \u26a0 ~\u00b114%\n\n  \u25b2 write and read fractional scalar va\u2026   116.81\u00b5s    68.29\u00b5s  -41.5%   -1.8% <.001  -42.0..-41.0%\n                                         \u2581\u2581\u2588\u2581\u2581\u2581\u2581\u2581\u2581\u2581 \u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n\nentity-model.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 entity model foundation 10k\n  -------------------------------------------------------------------------------------------------\n  \u25b2 cold create and populate scalar mem\u2026   925.15\u00b5s   280.27\u00b5s  -69.7%   +4.6% <.001  -70.7..-69.2%\n                                         \u2581\u2581\u2581\u2581\u2588\u2583\u2581\u2581\u2581\u2581 \u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm entity recycling with three me\u2026     1.27ms     1.12ms  -11.5%   -9.2% <.001   -11.9..-9.5%\n                                         \u2581\u2581\u2581\u2581\u2582\u2586\u2588\u2585\u2582\u2581 \u2581\u2582\u2585\u2588\u2586\u2583\u2582\u2581\u2581\u2581\n\n  \u25a0 warm membership detach and attach      405.17\u00b5s   413.79\u00b5s   +2.1%   +2.4%  .105    -2.3..+2.9%\n                                         \u2581\u2581\u2588\u2583\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2584\u2588\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 warm scalar write and read             199.71\u00b5s   182.44\u00b5s   -8.6%   -2.5% <.001    -9.8..-6.7%\n                                         \u2581\u2581\u2588\u2584\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25b2 collect intersection into caller bu\u2026    23.21\u00b5s    21.94\u00b5s   -5.5%  -10.4% <.001    -8.5..-5.2%\n                                         \u2581\u2581\u2581\u2582\u2588\u2587\u2583\u2582\u2583\u2581 \u2581\u2584\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581\n\n  \u25a0 warm relation membership churn with\u2026   407.81\u00b5s   420.27\u00b5s   +3.1%   +5.6%  .234    -0.5..+4.0%\n                                         \u2581\u2581\u2588\u2582\u2581\u2581\u2581\u2581\u2581\u2581 \u2581\u2581\u2585\u2588\u2581\u2581\u2581\u2581\u2581\u2581\n\n\u26a0 Limited resolution: Neutral results are inconclusive at the shown resolution.\n\n\nsummary  7 faster  1 slower  2 neutral\ncompared: 10  matched: 10\n\n",
+      "exitCode": 0
+    },
+    {
+      "baseline": "entity-lifecycle-packed",
+      "candidate": "entity-model-packed-buffered",
+      "output": "\n\u2501\u2501 compare entity-lifecycle-packed (fresh-start@36033ff*) -> entity-model-packed-buffered (fresh-start@36033ff*)\nApple M4 Pro\nMann-Whitney U on block medians  \u03b1=0.05  min\u0394=5%\n\n\u26a0 candidate CPU clock drifted 6.9% during its run\n\nentity-lifecycle.bench.ts\n  bench                                    baseline  candidate    \u0394p50    \u0394p99     p       \u0394 95% CI\n---------------------------------------------------------------------------------------------------\n  \u2022 entity identity lifecycle 10k\n  -------------------------------------------------------------------------------------------------\n  \u25a0 recycle pair identities                658.94\u00b5s   660.29\u00b5s   +0.2%   -1.9%  .959    -3.7..+4.8%\n                                         \u2581\u2583\u2588\u2586\u2584\u2583\u2582\u2582\u2581\u2581 \u2582\u2586\u2587\u2588\u2587\u2584\u2583\u2582\u2581\u2581                               \u26a0 ~\u00b18%\n\n  \u25a0 delete target with ten thousand inc\u2026   133.77\u00b5s   139.35\u00b5s   +4.2%   +0.1%  .574   -5.5..+13.0%\n                                         \u2582\u2587\u2588\u2583\u2581\u2581\u2582\u2583\u2582\u2581 \u2581\u2586\u2588\u2584\u2582\u2582\u2582\u2583\u2582\u2581                              \u26a0 ~\u00b114%\n\n\u26a0 Limited resolution: Neutral results are inconclusive at the shown resolution.\n\n\nskipped (2)\n  clock-confounded\n  \u00b7 intern existing pairs                 neutral\u2192slower \u00b7 3.91\u21924.14\n  \u00b7 write and read fractional scalar va\u2026  neutral\u2192slower \u00b7 3.91\u21924.11\n\nnew in candidate (not in baseline)\n  \u00b7 entity model foundation 10k > cold create and populate scalar memberships\n  \u00b7 entity model foundation 10k > warm entity recycling with three memberships\n  \u00b7 entity model foundation 10k > warm membership detach and attach\n  \u00b7 entity model foundation 10k > warm scalar write and read\n  \u00b7 entity model foundation 10k > collect intersection into caller buffer\n  \u00b7 entity model foundation 10k > warm relation membership churn with shared pair\n\nsummary  2 neutral  2 skipped\ncompared: 2  matched: 10\n\n",
+      "exitCode": 0
+    }
+  ],
+  "units": {
+    "timing": "nanoseconds",
+    "memory": "bytes"
+  },
+  "caveats": [
+    "Prototype and current do not implement equivalent features.",
+    "Factory heap deltas undercount typed backing allocation. Use retained samples and the backing-store formula.",
+    "Packed buffered run had clock drift. Deletion is noisy. Consult comparison warnings."
+  ],
+  "runs": [
+    {
+      "name": "entity-model-current-verified",
+      "timestamp": "2026-09-09T03:18:52.728Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.184736363223976
+      },
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "entity-model.bench.ts",
+            "runFreq": 4.184736363223976,
+            "postFreq": 4.095187919169912
+          }
+        ]
+      },
+      "nodeVersion": "26.1.0",
+      "benchmarks": [
+        {
+          "file": "entity-model.bench.ts",
+          "name": "cold create and populate scalar memberships",
+          "medianNs": 2902312.5,
+          "meanNs": 2994358.5634615375,
+          "p99Ns": 5030000,
+          "heapDeltaBytes": {
+            "min": 5269712,
+            "max": 15879208,
+            "p50": 8194176
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3275792,
+            "p50": 490333.5
+          },
+          "blocks": {
+            "medians": [2756458, 2771708, 2900500, 2873291, 2904125, 2938750, 2972042, 2944291],
+            "freqs": [
+              3.732272506359004, 3.8059445386530792, 4.051365886587766, 4.0886611894751175,
+              4.033618197049522, 3.829560764862508, 3.9534551807840637, 3.7124369822758174
+            ],
+            "spreads": [
+              0.0906973460143416, 0.11259693207220962, 0.07277544388898466, 0.07572258869707245,
+              0.10365603037059354, 0.12932005301573798, 0.0706489822149216, 0.06273436912316072
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 69
+          },
+          "snapshot": "b5bea41b6c623f7c"
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm entity recycling with three memberships",
+          "medianNs": 13227604.0,
+          "meanNs": 13529499.511363637,
+          "p99Ns": 16939208,
+          "heapDeltaBytes": {
+            "min": 10150296,
+            "max": 29803832,
+            "p50": 11535584
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5311916,
+            "p50": 730250
+          },
+          "blocks": {
+            "medians": [
+              13026291, 13288292, 13214583, 13240625, 13145333, 12837375, 13783583, 13299417
+            ],
+            "freqs": [
+              4.0537354355982975, 3.841001889719243, 3.990704275427171, 3.912545937084825,
+              4.050194425984009, 3.948557142606549, 3.7663302976335564, 3.8057883798390812
+            ],
+            "spreads": [
+              0.032975222747734984, 0.03710514120836803, 0.03030977298396853, 0.04592271066289237,
+              0.044657040710449916, 0.030955690936343393, 0.04646957100054219, 0.06579856616323872
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 26
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm membership detach and attach",
+          "medianNs": 2243375.0,
+          "meanNs": 2265391.527027026,
+          "p99Ns": 2535875,
+          "heapDeltaBytes": {
+            "min": 2757600,
+            "max": 13439984,
+            "p50": 2880424
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 5638126,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [2226750, 2286000, 2253500, 2233250, 2217625, 2207250, 2299167, 2302000],
+            "freqs": [
+              4.145473449212023, 4.040586614086359, 3.9179660584645912, 3.9572180850989747,
+              4.0552336448598005, 3.9152688376037434, 3.724717964088666, 3.8022863688440336
+            ],
+            "spreads": [
+              0.015188914725757952, 0.04027153759044672, 0.04698945176507855, 0.02088413988948599,
+              0.033466299085638994, 0.016979388911883796, 0.030245249514906106, 0.031448588396924305
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 78
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm scalar write and read",
+          "medianNs": 760687.5,
+          "meanNs": 774540.4856770834,
+          "p99Ns": 847208.0000000298,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 5264576,
+            "p50": 320152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4963667,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [777792, 764500, 756375, 756375, 776625, 801000, 752459, 756875],
+            "freqs": [
+              4.036813358827617, 4.0060385196864425, 3.79969052044377, 3.9066940405675057,
+              4.012856488488565, 3.808564432127206, 3.87443250268458, 3.884076182291438
+            ],
+            "spreads": [
+              0.014568912198128248, 0.014461382362634775, 0.021966810869333872, 0.021596955751902448,
+              0.017775925588557354, 0.015152971040454547, 0.01194486029187506, 0.018154445567054072
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 100
+          },
+          "snapshot": 49995000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "collect intersection into caller buffer",
+          "medianNs": 2417.96875,
+          "meanNs": 2444.1254348754846,
+          "p99Ns": 3185.546875,
+          "heapDeltaBytes": {
+            "min": 42665.1875,
+            "max": 45388.5625,
+            "p50": 43625.1875
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2660083,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              2368.484375, 2423.171875, 2416.9921875, 2418.9453125, 2450.5234375, 2386.390625,
+              2358.3984375, 2445.640625
+            ],
+            "freqs": [
+              4.066139223500078, 4.000352322725878, 3.8185715388800237, 3.8369419679084475,
+              3.7685528185006056, 4.044658749577116, 3.9272922325081003, 3.9809614430659854
+            ],
+            "spreads": [
+              0.014364525853681061, 0.03803903638863016, 0.028246958755806906, 0.037899504823410694,
+              0.03455919269002911, 0.031143734654191412, 0.02209629476298903, 0.045780935755639844
+            ]
+          },
+          "plan": {
+            "batch": true,
+            "batch_samples": 128,
+            "batch_unroll": 4,
+            "samples": 132
+          },
+          "snapshot": 5000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm relation membership churn with shared pair",
+          "medianNs": 10233729.0,
+          "meanNs": 10289895.342741933,
+          "p99Ns": 10836708,
+          "heapDeltaBytes": {
+            "min": 1642880,
+            "max": 5365632,
+            "p50": 1920232
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2644667,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              10067917, 10218458, 10191584, 10313334, 10384000, 10338000, 10108208, 10249000
+            ],
+            "freqs": [
+              4.079984187743543, 4.043091371213171, 4.019014516322569, 3.968684513293621,
+              3.726220132808445, 3.896725733849574, 3.858696901004042, 3.7272462594228104
+            ],
+            "spreads": [
+              0.013455722012805628, 0.007363191921912288, 0.010540825979553324, 0.015885142728820766,
+              0.022487432588602096, 0.021517921183981426, 0.012021016069317133, 0.014236807903218691
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 35
+          },
+          "snapshot": 10000
+        }
+      ]
+    },
+    {
+      "name": "entity-model-packed-buffered",
+      "timestamp": "2026-09-09T03:25:55.195Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.433859692633914
+      },
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "entity-lifecycle.bench.ts",
+            "runFreq": 4.433859692633914,
+            "postFreq": 4.3316609588006
+          },
+          {
+            "file": "entity-model.bench.ts",
+            "runFreq": 4.3679215710746915,
+            "postFreq": 4.139684630267565
+          }
+        ]
+      },
+      "nodeVersion": "26.1.0",
+      "benchmarks": [
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "intern existing pairs",
+          "medianNs": 80021.0,
+          "meanNs": 87638.65709459479,
+          "p99Ns": 267291,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 425408,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1988541,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [79125, 79709, 81083, 79625, 79292, 80333, 81542, 81250],
+            "freqs": [
+              4.176682008423543, 4.143744149873993, 4.136551656216199, 4.153848958219459,
+              4.140987320107148, 4.0305013893300305, 4.0677523576090175, 4.060545100409717
+            ],
+            "spreads": [
+              0.028893133649289096, 0.02557521735312198, 0.0285611188540654, 0.03101256944836808,
+              0.024157786409726077, 0.02690837887294138, 0.034091327168820976, 0.03647621783908159
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 152
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "recycle pair identities",
+          "medianNs": 660291.5,
+          "meanNs": 672564.2817982454,
+          "p99Ns": 839500,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1988232,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4355083.999999985,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [630292, 683625, 628292, 637875, 692542, 706750, 667041, 653542],
+            "freqs": [
+              4.136387409535242, 4.163344935175729, 4.138069978735883, 4.146551564994266,
+              4.10093216956603, 4.101941639129496, 4.032130005627327, 4.0048907593381795
+            ],
+            "spreads": [
+              0.06677495185272, 0.05886238304942455, 0.05631992840095465, 0.07895586319053334,
+              0.08121598611694414, 0.05085041137391959, 0.06476520005748704, 0.07221785740226634
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 118
+          },
+          "snapshot": 20001
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "delete target with ten thousand incoming memberships",
+          "medianNs": 139354.50000002448,
+          "meanNs": 156204.46523178814,
+          "p99Ns": 265749.99999991176,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1008472,
+            "p50": 376
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2341582.999999985,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              147833.9999999889, 138084.00000004895, 129500.00000000728, 130292.00000002561,
+              219708.99999996618, 149457.99999998143, 129874.99999997, 140625
+            ],
+            "freqs": [
+              4.151465934578936, 4.147529385723895, 4.1442846214911295, 4.109412903768024,
+              4.049902966767831, 3.971967760828159, 4.078541798627539, 4.079982545079293
+            ],
+            "spreads": [
+              0.23525596818116554, 0.1919335882511843, 0.11162432432363083, 0.1147464034627154,
+              0.21452619874472503, 0.2269164246812004, 0.11938426025059079, 0.2060300032000135
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 155
+          },
+          "snapshot": 10001
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "write and read fractional scalar values",
+          "medianNs": 116813.0,
+          "meanNs": 122063.1467741942,
+          "p99Ns": 286291,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1202472,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2314833,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [116083, 116583, 117208, 116917, 117041, 115541, 116917.0000000596, 116709],
+            "freqs": [
+              4.156701840601912, 4.151569760857717, 4.1166515098501275, 4.1082489611064394,
+              4.134920821842333, 4.096085902006017, 4.0066289622815985, 3.9695694064828735
+            ],
+            "spreads": [
+              0.0026693262579361317, 0.002657878078278994, 0.003174976110845676, 0.004222703285236535,
+              0.0036862005621961535, 0.003734056309015847, 0.0031575168701851904, 0.00424293242242132
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 159
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "cold create and populate scalar memberships",
+          "medianNs": 925146.0,
+          "meanNs": 965551.2909292035,
+          "p99Ns": 1587666,
+          "heapDeltaBytes": {
+            "min": 10511912,
+            "max": 14611024,
+            "p50": 11368880
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 3540000,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [904042, 924416, 924666, 925417, 924875, 944458, 954583, 956125],
+            "freqs": [
+              4.120088428757424, 4.0332487611870365, 4.018334716595977, 4.010724423575668,
+              3.999219913965949, 3.9871462605876906, 4.023063005473846, 3.8928567407094703
+            ],
+            "spreads": [
+              0.025622860884781898, 0.031807025408474104, 0.02111183302943982, 0.019290748495002792,
+              0.02043859981078524, 0.02766910503166896, 0.0254326496491138, 0.025844418041574058
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 117
+          },
+          "snapshot": "b5bea41b6c623f7c"
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm entity recycling with three memberships",
+          "medianNs": 1269250.0,
+          "meanNs": 1264480.3788659796,
+          "p99Ns": 1412041,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 753624,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2321917,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1237833, 1257541, 1276375, 1266750, 1271750, 1272292, 1272375, 1264792],
+            "freqs": [
+              4.057710510941605, 4.108348608144373, 4.076243136596671, 4.0062359804806595,
+              3.95091361131685, 4.028210929587938, 4.035567425563685, 3.776053759839683
+            ],
+            "spreads": [
+              0.03752873432845949, 0.04902500658030235, 0.03794503511898933, 0.03891568975739233,
+              0.04085179414193041, 0.03597975747705715, 0.03699581491305629, 0.033945987482526765
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 101
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm membership detach and attach",
+          "medianNs": 405167.0,
+          "meanNs": 408806.9698275862,
+          "p99Ns": 533250,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 935416,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2615917,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [404750, 405584, 405833.0000000596, 399417, 408125, 405750, 404084, 402959],
+            "freqs": [
+              4.205554423504912, 4.015599652631226, 4.0292177522071695, 3.9950869175410544,
+              4.010222898324706, 3.8853457874589554, 3.9408681276948734, 3.9671200211643702
+            ],
+            "spreads": [
+              0.01327770922041106, 0.014929238176593926, 0.0185683910963042, 0.015154951150054764,
+              0.010822706345327813, 0.012556774865239487, 0.011689626022213783, 0.01027439640261168
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 120
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm scalar write and read",
+          "medianNs": 199708.5,
+          "meanNs": 203017.46138211366,
+          "p99Ns": 300916,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1020800,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4204875,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [201125, 203541, 200750, 203459, 198667, 196833, 193833, 198041],
+            "freqs": [
+              4.055394464425284, 4.118984421833953, 4.084701967961549, 3.994257404062252,
+              4.001295908225588, 3.9152969540702447, 3.952238280905605, 3.924872189373859
+            ],
+            "spreads": [
+              0.013209790926041019, 0.028830215042669534, 0.020929954669987545, 0.01882953518890784,
+              0.017410570452063, 0.01819797290088552, 0.01530535357756419, 0.01060064128135083
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 127
+          },
+          "snapshot": 49995000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "collect intersection into caller buffer",
+          "medianNs": 23212.666666666664,
+          "meanNs": 23490.75939685316,
+          "p99Ns": 25319.458333333332,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 349.6666666666667,
+            "p50": 6.333333333333333
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1578250,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              23251.708333333332, 23104.166666666668, 23189.25, 23173.583333333332, 23234.375,
+              24015.625, 23190.958333333332, 24862.833333333332
+            ],
+            "freqs": [
+              4.105684636782117, 4.141310595818259, 4.0912535563758405, 3.991164916487883,
+              3.9474774365701513, 3.994123394963095, 3.8552519665001137, 3.857380516625981
+            ],
+            "spreads": [
+              0.015167637144940963, 0.011363480613165167, 0.014097622820919175, 0.009108870732838757,
+              0.01052343564223276, 0.013290989720234297, 0.013875492783646002, 0.009732304912955896
+            ]
+          },
+          "plan": {
+            "batch": true,
+            "batch_samples": 24,
+            "batch_unroll": 4,
+            "samples": 147
+          },
+          "snapshot": 5000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm relation membership churn with shared pair",
+          "medianNs": 407812.5,
+          "meanNs": 410654.5125899288,
+          "p99Ns": 532708,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1104880,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2902917,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              406375, 409917, 404959, 407583, 408666.0000000596, 403000, 408042, 408292.0000000596
+            ],
+            "freqs": [
+              4.151743875171713, 4.0817363616522675, 4.011725451205716, 3.8934580804325853,
+              4.01062894724746, 3.9640125951647462, 3.917381982440249, 3.9692422157483285
+            ],
+            "spreads": [
+              0.011703920762842202, 0.013863308425636482, 0.01449433992083149, 0.013335226444675071,
+              0.013307142752053846, 0.012725343424317618, 0.011656105989089359, 0.013769604106646245
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 143
+          },
+          "snapshot": 10000
+        }
+      ]
+    },
+    {
+      "name": "entity-model-typed-buffered",
+      "timestamp": "2026-09-09T03:26:59.283Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.204994958732205
+      },
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "entity-lifecycle.bench.ts",
+            "runFreq": 4.204994958732205,
+            "postFreq": 4.061588892524656
+          },
+          {
+            "file": "entity-model.bench.ts",
+            "runFreq": 4.0691187573200835,
+            "postFreq": 4.011004446903104
+          }
+        ]
+      },
+      "nodeVersion": "26.1.0",
+      "benchmarks": [
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "intern existing pairs",
+          "medianNs": 46500.0,
+          "meanNs": 54638.157258064726,
+          "p99Ns": 262375,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 454512,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2031333,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [46833, 46666, 46208, 46832.9999999702, 46042, 46334, 45250.0000000298, 46750],
+            "freqs": [
+              3.8341837062136825, 3.910683483286111, 3.8410565767352116, 3.774313353331266,
+              3.7712024063310956, 3.763722218139615, 3.732064738667204, 3.73250150132798
+            ],
+            "spreads": [
+              0.06266535776055344, 0.06813284854550913, 0.06417001201077724, 0.07241328530429564,
+              0.03823872768339473, 0.0753062097530984, 0.04981190165839423, 0.03302947379679144
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 128
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "recycle pair identities",
+          "medianNs": 576958.5,
+          "meanNs": 585539.544014085,
+          "p99Ns": 741000,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1502392,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2812916.000000015,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [569750, 581417, 574000, 569958, 575709, 584166, 584083, 578208],
+            "freqs": [
+              3.857457600221037, 3.8275532582726273, 3.781594554374237, 3.804145926872046,
+              3.79203721214407, 3.7539645297301605, 3.7188246874822966, 3.7425935042715026
+            ],
+            "spreads": [
+              0.08222578110213037, 0.10239190755917466, 0.0982555649286622, 0.07174311114928707,
+              0.07977661342884493, 0.096834543615685, 0.08872014510510966, 0.08572872839896865
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 146
+          },
+          "snapshot": 20001
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "delete target with ten thousand incoming memberships",
+          "medianNs": 187249.49999997875,
+          "meanNs": 193113.32580645126,
+          "p99Ns": 240458.00000001804,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 827912,
+            "p50": 376
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2538333,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              187207.9999999414, 177374.99999998364, 195375.00000001275, 189541.99999998877,
+              187291.0000000161, 184916.99999992762, 182542.0000000122, 187832.99999995506
+            ],
+            "freqs": [
+              3.891754181799667, 3.9005009743525836, 3.799617428333224, 3.7477841963513234,
+              3.8134712281624363, 3.81253838115493, 3.7224576785812196, 3.802435676503938
+            ],
+            "spreads": [
+              0.16136049207259928, 0.16368572684953012, 0.17295672015339733, 0.17827932173352803,
+              0.1932776353377489, 0.23117293596657296, 0.15296099418192602, 0.19403808595898842
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 159
+          },
+          "snapshot": 10001
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "write and read fractional scalar values",
+          "medianNs": 68291.5,
+          "meanNs": 76039.03311258218,
+          "p99Ns": 281208,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1113648,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2639041,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [68250, 68333, 68833, 66916, 68333, 67792, 67916, 69208],
+            "freqs": [
+              3.872258034398338, 3.834293431631141, 3.820308672410021, 3.7537255835667054,
+              3.8887495817467697, 3.767270999685041, 3.7924502045851196, 3.8290193134288675
+            ],
+            "spreads": [
+              0.0353, 0.029832950404636117, 0.040385788793166066, 0.012939183453882478,
+              0.017183779433070406, 0.028233959759263627, 0.027265554508510512, 0.03213356837359843
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 155
+          },
+          "snapshot": 50000000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "cold create and populate scalar memberships",
+          "medianNs": 280271.0000000149,
+          "meanNs": 339843.427570094,
+          "p99Ns": 1660334,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 4397724,
+            "p50": 10200
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2443584,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              288417, 274042, 260625, 279709, 288584, 284791, 277167.0000000596, 280833.0000000298
+            ],
+            "freqs": [
+              3.8704075580364754, 3.7997912174640573, 3.804655594947476, 3.8299536479672804,
+              3.7815289642719616, 3.8318551880816556, 3.8377369015466893, 3.828729216924523
+            ],
+            "spreads": [
+              0.0439099262526134, 0.029079392939768356, 0.02678777323741007, 0.04351187627141064,
+              0.06207639993901255, 0.04142873475636519, 0.07087586184532842, 0.030577671427657268
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 111
+          },
+          "snapshot": "b5bea41b6c623f7c"
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm entity recycling with three memberships",
+          "medianNs": 1123625.0,
+          "meanNs": 1125336.0664414407,
+          "p99Ns": 1281708,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1173232,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2398084,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [1120209, 1121000, 1131334, 1123333, 1156208, 1123917, 1120708, 1125834],
+            "freqs": [
+              3.8386092852321365, 3.8512567810118066, 3.8142798218588636, 3.7963289637723845,
+              3.842575122905301, 3.835213991372988, 3.8395237424792366, 3.830473893852882
+            ],
+            "spreads": [
+              0.04913372629571803, 0.05196506387154326, 0.05149039682357288, 0.04306052399422077,
+              0.04493290705478599, 0.0427070459829329, 0.05484668031272341, 0.043951217497428564
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 115
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm membership detach and attach",
+          "medianNs": 413792.0,
+          "meanNs": 414404.9786821711,
+          "p99Ns": 545958,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 903784,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2869208,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [393500, 411667, 415208, 413209, 414375, 393666, 414792, 418083],
+            "freqs": [
+              3.8259565517449885, 3.8536544724448167, 3.896789201193089, 3.8054680402486434,
+              3.8230118897286953, 3.837373841602047, 3.8350330819398155, 3.7901481948408406
+            ],
+            "spreads": [
+              0.012557829224904702, 0.007350568784964546, 0.005652482129438739, 0.005834112035313848,
+              0.008497556561085973, 0.011614765816707564, 0.013103462940461724, 0.00857113109119481
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 133
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm scalar write and read",
+          "medianNs": 182438.0,
+          "meanNs": 186784.41007194214,
+          "p99Ns": 293250,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 914304,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2728792,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [181500, 185292, 180917, 184875, 181458, 182834, 184083, 182042],
+            "freqs": [
+              3.859728668963061, 3.852768188330168, 3.803097384492203, 3.8056924916467576,
+              3.811826318129588, 3.827288824580262, 3.7946397876341726, 3.813570533840336
+            ],
+            "spreads": [
+              0.008168595041322314, 0.01033784081341882, 0.010243647639525308, 0.008019472616632859,
+              0.014976500347187779, 0.015885521292538587, 0.016784485259366697, 0.009504368222717835
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 143
+          },
+          "snapshot": 49995000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "collect intersection into caller buffer",
+          "medianNs": 21944.458333333336,
+          "meanNs": 21924.050623421714,
+          "p99Ns": 22684.041666666668,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 691,
+            "p50": 6.333333333333333
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1302917,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              21984.375, 22003.458333333332, 21934.041666666668, 21954.875, 22036.458333333332,
+              21689.25, 21765.625, 21904.5
+            ],
+            "freqs": [
+              3.831593735534608, 3.798238442698792, 3.833043869270016, 3.8089577660406775,
+              3.8193555264397716, 3.8299665619006253, 3.826876820349106, 3.8630311820004133
+            ],
+            "spreads": [
+              0.005795522388059701, 0.005965728341387138, 0.008565791677824815, 0.006622989096864282,
+              0.006601530357575024, 0.007356862270479615, 0.0066226586944182686, 0.0072839863052781735
+            ]
+          },
+          "plan": {
+            "batch": true,
+            "batch_samples": 24,
+            "batch_unroll": 4,
+            "samples": 136
+          },
+          "snapshot": 5000
+        },
+        {
+          "file": "entity-model.bench.ts",
+          "name": "warm relation membership churn with shared pair",
+          "medianNs": 420270.5,
+          "meanNs": 420916.9765625008,
+          "p99Ns": 562792,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1388200,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4247792,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [406458, 421125, 420125, 420416, 400875, 404917, 424250, 424458],
+            "freqs": [
+              3.8741109192041745, 3.8308259764523105, 3.796935639803571, 3.8307675845752107,
+              3.828847585124514, 3.825193723485366, 3.8022735149479767, 3.8009197455815715
+            ],
+            "spreads": [
+              0.012691201021454983, 0.0074069097177700835, 0.011981931826700317, 0.010214017557921876,
+              0.011475023286726628, 0.010832521479710658, 0.010554712810530829, 0.006983412720848056
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 116
+          },
+          "snapshot": 10000
+        }
+      ]
+    },
+    {
+      "name": "entity-model-packed-verified",
+      "timestamp": "2026-09-09T03:19:55.800Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.082719394071956
+      },
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "entity-capacity.bench.ts",
+            "runFreq": 4.082719394071956,
+            "postFreq": 4.00741452552594
+          },
+          {
+            "file": "entity-model.bench.ts",
+            "runFreq": 3.994153145487484,
+            "postFreq": 4.031269620716912
+          }
+        ]
+      },
+      "nodeVersion": "26.1.0",
+      "benchmarks": [
+        {
+          "file": "entity-capacity.bench.ts",
+          "name": "128 identities and 384 memberships",
+          "medianNs": 9523.4375,
+          "meanNs": 9530.718258647828,
+          "p99Ns": 10309.375,
+          "heapDeltaBytes": {
+            "min": 95536.6,
+            "max": 157556.6,
+            "p50": 133799.4
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1812584,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [9594.8, 9455.2, 9723.95, 9523.95, 9420.825, 9522.925, 9589.57500000149, 9500],
+            "freqs": [
+              3.89457736312941, 3.8415287204911306, 3.7389882352802584, 3.6599995345876386,
+              3.853271865747861, 3.8769227562074238, 3.770172153533861, 3.83697808158451
+            ],
+            "spreads": [
+              0.034126006795347254, 0.021234992913951995, 0.03462568812079548, 0.04215951837210412,
+              0.020985923207362183, 0.03292011330552308, 0.03655644488982713, 0.017557105263157895
+            ]
+          },
+          "plan": {
+            "batch": true,
+            "batch_samples": 40,
+            "batch_unroll": 4,
+            "samples": 163
+          },
+          "snapshot": 128
+        },
+        {
+          "file": "entity-capacity.bench.ts",
+          "name": "10016 identities and 30048 memberships",
+          "medianNs": 826541.5,
+          "meanNs": 834731.3024999998,
+          "p99Ns": 996333,
+          "heapDeltaBytes": {
+            "min": 11045720,
+            "max": 11741704,
+            "p50": 11368904
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2538791,
+            "p50": 2479
+          },
+          "blocks": {
+            "medians": [830291, 814750, 825250, 817791.9999999404, 812417, 828666, 836667, 827833],
+            "freqs": [
+              3.7412473932460797, 3.919222954421648, 3.602905522554455, 3.843098043271222,
+              3.817766460703536, 3.627534958298128, 3.753918652826712, 3.8296716299352602
+            ],
+            "spreads": [
+              0.03866912669674542, 0.03582258188233489, 0.03419775892550526, 0.029949903739522415,
+              0.027664255778546712, 0.04142518064224333, 0.06691940590322606, 0.037113448700804
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 104
+          },
+          "snapshot": 10016
+        },
+        {
+          "file": "entity-capacity.bench.ts",
+          "name": "100016 identities and 300048 memberships",
+          "medianNs": 11467458.5,
+          "meanNs": 11506161.06,
+          "p99Ns": 13214208,
+          "heapDeltaBytes": {
+            "min": 51151536,
+            "max": 51485568,
+            "p50": 51469184
+          },
+          "gcNs": {
+            "min": 362709,
+            "max": 4168417,
+            "p50": 1045770.5
+          },
+          "blocks": {
+            "medians": [
+              11563541.99999994, 11271083, 11688666, 11514042, 11420875, 11545291, 10967417, 11224042
+            ],
+            "freqs": [
+              3.889811591586808, 3.8322932616833794, 3.8194394919472154, 3.7991524387791604,
+              3.84282345853766, 3.5988207062012387, 3.8549845004562764, 3.7851446107884494
+            ],
+            "spreads": [
+              0.06797985110443804, 0.01868961978187899, 0.04600618075664066, 0.01674479467766402,
+              0.03062009478258014, 0.04521308781216515, 0.023921578873129377, 0.022048308817803782
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 29
+          },
+          "snapshot": 100016
+        }
+      ]
+    },
+    {
+      "name": "entity-model-typed-verified",
+      "timestamp": "2026-09-09T03:21:17.773Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.249976412937759
+      },
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "entity-capacity.bench.ts",
+            "runFreq": 4.249976412937759,
+            "postFreq": 4.176657609628092
+          },
+          {
+            "file": "entity-model.bench.ts",
+            "runFreq": 4.1898698854796965,
+            "postFreq": 4.092275089607391
+          }
+        ]
+      },
+      "nodeVersion": "26.1.0",
+      "benchmarks": [
+        {
+          "file": "entity-capacity.bench.ts",
+          "name": "128 identities and 384 memberships",
+          "medianNs": 2964.226973684211,
+          "meanNs": 3006.366041021664,
+          "p99Ns": 3734.1052631578946,
+          "heapDeltaBytes": {
+            "min": 20945.026315789473,
+            "max": 35093.02631578947,
+            "p50": 28301.394736842107
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1026417,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              2955.315789473684, 2982.184210526316, 3010.690789473684, 2970.3947368421054,
+              2958.059210526316, 2945.1710526315787, 2915.5723684210525, 2975.059210526316
+            ],
+            "freqs": [
+              4.004163663277011, 3.933900278713075, 3.873275346413664, 3.9574949335427116,
+              3.830493248740094, 3.9389562186201585, 3.788025603840698, 3.952540356194275
+            ],
+            "spreads": [
+              0.025850678154919995, 0.024251263017215034, 0.0327997024033876, 0.024280780195945772,
+              0.02507239681037621, 0.025799866672672245, 0.01999994155972345, 0.02254080350795338
+            ]
+          },
+          "plan": {
+            "batch": true,
+            "batch_samples": 152,
+            "batch_unroll": 4,
+            "samples": 174
+          },
+          "snapshot": 128
+        },
+        {
+          "file": "entity-capacity.bench.ts",
+          "name": "10016 identities and 30048 memberships",
+          "medianNs": 7751.953125,
+          "meanNs": 7749.977055521848,
+          "p99Ns": 8799.46875,
+          "heapDeltaBytes": {
+            "min": 1688739.125,
+            "max": 1779990.75,
+            "p50": 1723681.625
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1063250,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              7791.687500000931, 7576.84375, 7759.125, 7725.25, 7752.59375, 7751.3125, 7609.375,
+              7796.875
+            ],
+            "freqs": [
+              3.902141027074658, 3.9140540624598166, 3.8352494558075443, 3.8433833643156095,
+              3.9133134832062733, 3.8189001830689553, 3.911241671630907, 3.9394075315430266
+            ],
+            "spreads": [
+              0.01560368779994855, 0.014008592657955394, 0.02885152393051062, 0.02386154294196878,
+              0.024772346677199884, 0.023285299471074793, 0.021183870351777365, 0.02129063542537013
+            ]
+          },
+          "plan": {
+            "batch": true,
+            "batch_samples": 32,
+            "batch_unroll": 4,
+            "samples": 210
+          },
+          "snapshot": 10016
+        },
+        {
+          "file": "entity-capacity.bench.ts",
+          "name": "100016 identities and 300048 memberships",
+          "medianNs": 136497.375,
+          "meanNs": 168896.80364947548,
+          "p99Ns": 288802.125,
+          "heapDeltaBytes": {
+            "min": 6550851.5,
+            "max": 10938778.5,
+            "p50": 8728877
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 1426750,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              133197.875, 135973.875, 168354.125, 207505.25, 136239.625, 136145.875, 136755.125,
+              207291.75
+            ],
+            "freqs": [
+              4.028097142625046, 3.922621478096762, 3.871237881243196, 3.9048238003056714,
+              3.8500224585784273, 3.8545680135129095, 3.8347128340231427, 3.7909781030686127
+            ],
+            "spreads": [
+              0.036176518018774695, 0.021578155362565053, 0.2646521463314308, 0.1826784919899617,
+              0.022047532793781542, 0.03147966069482457, 0.03489671100077602, 0.14677108278549433
+            ]
+          },
+          "plan": {
+            "batch": true,
+            "batch_samples": 8,
+            "batch_unroll": 4,
+            "samples": 147
+          },
+          "snapshot": 100016
+        }
+      ]
+    },
+    {
+      "name": "entity-lifecycle-packed",
+      "timestamp": "2026-09-09T03:22:31.066Z",
+      "git": {
+        "commit": "36033ff841513d277022127c043a114d6b289f3b",
+        "branch": "fresh-start",
+        "dirty": true
+      },
+      "hardware": {
+        "cpu": "Apple M4 Pro",
+        "arch": "arm64-darwin",
+        "runtime": "node",
+        "freq": 4.245523903502171
+      },
+      "blocks": 8,
+      "environment": {
+        "freqs": [
+          {
+            "file": "entity-lifecycle.bench.ts",
+            "runFreq": 4.245523903502171,
+            "postFreq": 4.211227042591679
+          }
+        ]
+      },
+      "nodeVersion": "26.1.0",
+      "benchmarks": [
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "intern existing pairs",
+          "medianNs": 79041.5,
+          "meanNs": 85841.16339869349,
+          "p99Ns": 265875,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 392640,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2258624.999999985,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [80583, 79000, 79708, 79083, 80459, 78459, 77833, 76917],
+            "freqs": [
+              4.101361031627003, 4.025442015737985, 3.9414766931722136, 3.97209977873545,
+              3.87007036078222, 3.8670723676590515, 3.7933004701888393, 3.8474913193113514
+            ],
+            "spreads": [
+              0.029143099661218867, 0.03205418734177215, 0.02711937070306619, 0.04608108948825917,
+              0.04761479014156278, 0.057483133866095666, 0.059507437719219354, 0.049807433986136095
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 157
+          },
+          "snapshot": 10000
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "recycle pair identities",
+          "medianNs": 658937.5,
+          "meanNs": 677137.8041044776,
+          "p99Ns": 856000,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 2880280,
+            "p50": 152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 4072373.999999985,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [651916, 665625, 678333, 644291.9999999404, 674291, 655667, 652583, 662208],
+            "freqs": [
+              3.997041509853132, 3.98347057636482, 3.9558258315208032, 4.055582229130425,
+              3.9039776218543216, 3.8930796653215958, 3.945444162776321, 3.873128106535743
+            ],
+            "spreads": [
+              0.09236050546001287, 0.0653334440232689, 0.08556618003420292, 0.0637297580855841,
+              0.07374276430085296, 0.06654109416737101, 0.06408942877290341, 0.06941178620574276
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 138
+          },
+          "snapshot": 20001
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "delete target with ten thousand incoming memberships",
+          "medianNs": 133770.50000002555,
+          "meanNs": 152532.7120253145,
+          "p99Ns": 265582.9999999924,
+          "heapDeltaBytes": {
+            "min": 0,
+            "max": 1106776,
+            "p50": 376
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2727833,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [
+              204833.0000000078, 132207.99999999144, 127708.99999998164, 150750.00000001636,
+              135333.00000005966, 137375.00000002002, 126208.00000001965, 130666.00000001927
+            ],
+            "freqs": [
+              4.015024412508643, 4.0456908163743055, 3.956023459534777, 3.973130735690843,
+              4.026398881440073, 3.877938935666977, 3.964350905308592, 3.7745401354195534
+            ],
+            "spreads": [
+              0.33412671561184765, 0.1256937711788474, 0.11002599556093008, 0.25942318643271806,
+              0.17734211263313446, 0.1745835120527031, 0.13606170668038747, 0.13520988853249719
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 162
+          },
+          "snapshot": 10001
+        },
+        {
+          "file": "entity-lifecycle.bench.ts",
+          "name": "write and read fractional scalar values",
+          "medianNs": 113958.5,
+          "meanNs": 119294.7828947369,
+          "p99Ns": 271250,
+          "heapDeltaBytes": {
+            "min": 9752,
+            "max": 1132056,
+            "p50": 160152
+          },
+          "gcNs": {
+            "min": 0,
+            "max": 2227625,
+            "p50": 0
+          },
+          "blocks": {
+            "medians": [116500, 115541, 116375, 112834, 115083, 111917, 112541, 112209],
+            "freqs": [
+              4.025767363705993, 3.9922113069513525, 3.937501940933451, 3.903076764876645,
+              3.9130935146971377, 3.899218969220017, 3.893565978882544, 3.8978721601120965
+            ],
+            "spreads": [
+              0.005828590557939915, 0.004824760041889892, 0.009019813533834586, 0.03886710388712622,
+              0.0327482703787701, 0.012704177202748466, 0.031841232972872106, 0.01759950806163828
+            ]
+          },
+          "plan": {
+            "batch": false,
+            "batch_samples": 0,
+            "batch_unroll": 4,
+            "samples": 137
+          },
+          "snapshot": 50000000
+        }
+      ]
+    }
+  ],
+  "finalSourceSha256": {
+    "packages/core/src/kernel/experimental/entity-kernel.ts": "3c0620d4ff4b2de690b3ac3ee01627a1e19429e2183cac25c7c2411858b7cb27",
+    "benches/kernel-entity-model/entity-model.bench.ts": "f79d288a3617a9392050608a83ed69fe089fbf372d886f90889919273fce03eb",
+    "benches/kernel-entity-model/entity-lifecycle.bench.ts": "21a94abf0b2a3cf4a92ea77f5091babde77d0d5afec2260bd5adf36c54d98e16",
+    "benches/kernel-entity-model/create-model.ts": "2ea2b849b25c49ada570a63d9489f57d9473a15f2e500d19a110887e139d3f65",
+    "benches/kernel-entity-model/entity-capacity.bench.ts": "22f3309099fcbadd579960ace43717499615ab5d95746c8be77ec85200e4e81a",
+    "benches/kernel-entity-model/measure-retained.ts": "f6c76d0a7c62f0802400b52ffb700f320e60dfecb0bb68bddde858c34c16b3f3"
+  }
+}

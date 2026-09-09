@@ -1,0 +1,578 @@
+{
+  "runtime": "v26.1.0",
+  "cpu": "Apple M4 Pro",
+  "blocks": 8,
+  "method": "Fresh process, full GC, heapUsed plus arrayBuffers. Includes context, component registration and a common 40kB caller entity buffer. Imported module state and Iris global definitions excluded.",
+  "samples": [
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1403864,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2938032
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1122568,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2342216
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 2825992,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5277664
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1439912,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2659560
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1493816,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3770128
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1503560,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3510792
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5510120,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8810432
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86648752,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107068400
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1369168,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2588816
+    },
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1410968,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2945136
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1423232,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2642880
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 2865008,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5316680
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1508056,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3515288
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1493656,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3769968
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86631880,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107051528
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5516056,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8816368
+    },
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1411480,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2945648
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1378216,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2597864
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 2825448,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5277120
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1453240,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2672888
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1492032,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3768344
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1508512,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3515744
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5509832,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8810144
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86617648,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107037296
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1343208,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2562856
+    },
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1411192,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2945360
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1908624,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 3128272
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 2865416,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5317088
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1515512,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3522744
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1492224,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3768536
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86632800,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107052448
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5510088,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8810400
+    },
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1410864,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2945032
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1341952,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2561600
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 2865328,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5317000
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1436584,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2656232
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1493352,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3769664
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1505320,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3512552
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5510784,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8811096
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86693200,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107112848
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1345216,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2564864
+    },
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1410808,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2944976
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1632592,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2852240
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 2825120,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5276792
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1515512,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3522744
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1492904,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3769216
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86695560,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107115208
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5510432,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8810744
+    },
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1412432,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2946600
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1375016,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2594664
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 2826448,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5278120
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1448000,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2667648
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1493184,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3769496
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1515904,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3523136
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5510560,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8810872
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86631040,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107050688
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1365616,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2585264
+    },
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "count": 10000,
+      "heapBytes": 1410872,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2945040
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 1445904,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2665552
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "count": 10000,
+      "heapBytes": 3012304,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5463976
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1284392,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3291624
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "count": 10000,
+      "heapBytes": 1492128,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3768440
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 86630072,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107049720
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "count": 10000,
+      "heapBytes": 5510432,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8810744
+    }
+  ],
+  "medians": [
+    {
+      "engine": "koota",
+      "shape": "scalars",
+      "heapBytes": 1410920,
+      "arrayBufferBytes": 1534168,
+      "retainedBytes": 2945088
+    },
+    {
+      "engine": "iris",
+      "shape": "scalars",
+      "heapBytes": 1355416,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2575064
+    },
+    {
+      "engine": "koota",
+      "shape": "queries",
+      "heapBytes": 2845728,
+      "arrayBufferBytes": 2451672,
+      "retainedBytes": 5297400
+    },
+    {
+      "engine": "iris",
+      "shape": "queries",
+      "heapBytes": 1446952,
+      "arrayBufferBytes": 1219648,
+      "retainedBytes": 2666600
+    },
+    {
+      "engine": "koota",
+      "shape": "pairs",
+      "heapBytes": 1493044,
+      "arrayBufferBytes": 2276312,
+      "retainedBytes": 3769356
+    },
+    {
+      "engine": "iris",
+      "shape": "pairs",
+      "heapBytes": 1508284,
+      "arrayBufferBytes": 2007232,
+      "retainedBytes": 3515516
+    },
+    {
+      "engine": "koota",
+      "shape": "unique-pairs",
+      "heapBytes": 5510432,
+      "arrayBufferBytes": 3300312,
+      "retainedBytes": 8810744
+    },
+    {
+      "engine": "iris",
+      "shape": "unique-pairs",
+      "heapBytes": 86632340,
+      "arrayBufferBytes": 20419648,
+      "retainedBytes": 107051988
+    }
+  ]
+}
