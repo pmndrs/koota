@@ -1,0 +1,436 @@
+{
+  "runtime": "v26.1.0",
+  "workload": "100 sets per density, capacity 2^20, full GC, heapUsed plus arrayBuffers, eight fresh processes per version",
+  "samples": [
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 517.76,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2612.08,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204810.24,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 11051.76,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206547.6,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 517.6,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2615.2,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204812.56,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 10911.44,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206547.6,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 657.92,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2613.44,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204808.24,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 10981.6,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206547.6,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 657.92,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2613.44,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204753.28,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 10981.6,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206547.6,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 587.76,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2613.44,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204809.52,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 10911.44,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206546.48,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 657.92,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2615.2,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204756.32,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 10911.44,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206547.6,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 587.76,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2613.44,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204809.52,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 10981.6,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206547.6,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 587.76,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 2615.2,
+          "arrayBufferBytesPerSet": 1408
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 204812.56,
+          "arrayBufferBytesPerSet": 125184
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "before"
+    },
+    {
+      "results": [
+        {
+          "name": "empty",
+          "count": 100,
+          "heapBytesPerSet": 10911.44,
+          "arrayBufferBytesPerSet": 128
+        },
+        {
+          "name": "dense 10k",
+          "count": 100,
+          "heapBytesPerSet": 13016.96,
+          "arrayBufferBytesPerSet": 1448
+        },
+        {
+          "name": "sparse 10k across 1m",
+          "count": 100,
+          "heapBytesPerSet": 206547.6,
+          "arrayBufferBytesPerSet": 129092
+        }
+      ],
+      "sets": 300,
+      "checksum": 2000000,
+      "source": "after"
+    }
+  ],
+  "medians": {
+    "before": {
+      "empty": {
+        "heapBytesPerSet": 587.76,
+        "arrayBufferBytesPerSet": 128.0
+      },
+      "dense 10k": {
+        "heapBytesPerSet": 2613.44,
+        "arrayBufferBytesPerSet": 1408.0
+      },
+      "sparse 10k across 1m": {
+        "heapBytesPerSet": 204809.52,
+        "arrayBufferBytesPerSet": 125184.0
+      }
+    },
+    "after": {
+      "empty": {
+        "heapBytesPerSet": 10946.52,
+        "arrayBufferBytesPerSet": 128.0
+      },
+      "dense 10k": {
+        "heapBytesPerSet": 13016.96,
+        "arrayBufferBytesPerSet": 1448.0
+      },
+      "sparse 10k across 1m": {
+        "heapBytesPerSet": 206547.6,
+        "arrayBufferBytesPerSet": 129092.0
+      }
+    }
+  }
+}

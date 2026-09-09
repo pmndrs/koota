@@ -1,4 +1,7 @@
-import { createChanged, createWorld, ordered, relation, trait, type Entity, type World } from 'koota';
+import type { Entity, World } from 'koota';
+const { createChanged, createWorld, ordered, relation, trait }: typeof import('koota') = await import(
+  process.env.KOOTA_API_SOURCE ?? 'koota'
+);
 import { CONFIG } from './config.ts';
 
 /**
@@ -116,7 +119,9 @@ function buildGraph(world: World, traits: Traits) {
 
 function createDirtySystem(allEntities: Entity[], { ChildOf, Value }: Traits) {
   const dirtyCount = Math.max(1, Math.floor(allEntities.length * CONFIG.dirtyFraction));
-  const candidatesByEntity = new Map(allEntities.map((entity) => [entity, { entity, cost: 1 }]));
+  const candidatesByEntity = new Map(
+    allEntities.map((entity, ordinal) => [entity, { entity, ordinal, cost: 1 }])
+  );
 
   // Each ancestor step adds an upward visit here and a descendant visit at the ancestor.
   for (const candidate of candidatesByEntity.values()) {
@@ -132,7 +137,7 @@ function createDirtySystem(allEntities: Entity[], { ChildOf, Value }: Traits) {
   }
 
   const candidates = [...candidatesByEntity.values()].sort(
-    (a, b) => b.cost - a.cost || a.entity - b.entity
+    (a, b) => b.cost - a.cost || a.ordinal - b.ordinal
   );
   const batches = Array.from(
     { length: Math.max(1, Math.ceil(allEntities.length / dirtyCount)) },
@@ -175,7 +180,8 @@ function createDirtySystem(allEntities: Entity[], { ChildOf, Value }: Traits) {
 
     for (let i = 0; i < dirtyBatch.length; i++) {
       const entity = dirtyBatch[i];
-      entity.set(Value, { value: (frame + entity.id()) % 65 });
+      // Values must not depend on the allocator's handle layout.
+      entity.set(Value, { value: (frame + i) % 65 });
     }
 
     dirtyBatchIndex = (dirtyBatchIndex + 1) % dirtyBatches.length;
