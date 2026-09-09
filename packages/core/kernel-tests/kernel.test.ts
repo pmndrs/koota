@@ -118,7 +118,7 @@ describe('Standalone kernel', () => {
     recordSet(buffer, entity, Position, { x: 7 });
     flushCommands(ctx, buffer);
     expect(getTrait(ctx, entity, Position)).toEqual({ x: 7 });
-    expect(buffer.words).toHaveLength(0);
+    expect(buffer.count).toBe(0);
   });
 
   it('keeps numeric subscription lifetimes separate from recycled entities', () => {

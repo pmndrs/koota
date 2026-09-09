@@ -1,3 +1,28 @@
 {
-  "extends": ["node_modules/@config/oxlint/react.json"]
+  "extends": ["node_modules/@config/oxlint/react.json"],
+  "overrides": [
+    {
+      "files": ["src/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "@koota/core",
+                "importNames": ["universe", "TraitInstance", "QueryInstance"],
+                "message": "Use core query and trait revision operations instead of engine records."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["**/core/src/kernel", "**/core/src/kernel/**"],
+                "message": "Framework bindings depend on the public core API."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

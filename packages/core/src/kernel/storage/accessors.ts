@@ -1,118 +1,75 @@
 import type { Schema } from './types';
+import { createStoragePage } from './initialize';
+
+function compileSet(schema: Schema, mode: 'partial' | 'full' | 'changed') {
+  const body = Object.keys(schema)
+    .map((key) => {
+      const name = JSON.stringify(key);
+      const numeric = typeof (schema as Record<string, unknown>)[key] === 'number';
+      const write =
+        mode === 'changed'
+          ? `if (page[o] !== value[${name}]) { page[o] = value[${name}]; changed = true; }`
+          : `page[o] = value[${name}];`;
+      return `${mode === 'partial' ? `if (${name} in value) {` : ''}
+      var column = store[${name}];
+      var page = column[p] || (column[p] = makePage(${numeric}));
+      ${write}
+      ${mode === 'partial' ? '}' : ''}`;
+    })
+    .join('\n');
+  return new Function(
+    'makePage',
+    `return function(index, store, value) {
+    var p = index >>> 10, o = index & 1023, changed = false;
+    ${body}
+    return changed;
+  }`
+  )(createStoragePage);
+}
 
 function createSoASetFunction(schema: Schema) {
-  const keys = Object.keys(schema);
-
-  const setFunctionBody = keys
-    .map(
-      (key) =>
-        `if ('${key}' in value) { if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key}; }`
-    )
-    .join('\n    ');
-
-  const set = new Function(
-    'index',
-    'store',
-    'value',
-    `
-        var p = index >>> 10, o = index & 1023;
-        ${setFunctionBody}
-        `
-  );
-
-  return set;
+  return compileSet(schema, 'partial');
 }
-
 function createSoAFastSetFunction(schema: Schema) {
-  const keys = Object.keys(schema);
-
-  const setFunctionBody = keys
-    .map((key) => `if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key};`)
-    .join('\n    ');
-
-  const set = new Function(
-    'index',
-    'store',
-    'value',
-    `
-        var p = index >>> 10, o = index & 1023;
-        ${setFunctionBody}
-        `
-  );
-
-  return set;
+  return compileSet(schema, 'full');
 }
-
 function createSoAFastSetChangeFunction(schema: Schema) {
-  const keys = Object.keys(schema);
-
-  const setFunctionBody = keys
-    .map(
-      (key) =>
-        `if (!store.${key}[p]) store.${key}[p] = [];
-        if (store.${key}[p][o] !== value.${key}) { store.${key}[p][o] = value.${key}; changed = true; }`
-    )
-    .join('\n    ');
-
-  const set = new Function(
-    'index',
-    'store',
-    'value',
-    `
-        var p = index >>> 10, o = index & 1023;
-        var changed = false;
-        ${setFunctionBody}
-        return changed;
-        `
-  );
-
-  return set;
+  return compileSet(schema, 'changed');
 }
 
 function createSoAGetFunction(schema: Schema) {
-  const keys = Object.keys(schema);
-
-  const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[p][o]`).join(', ')} }`;
-
-  const get = new Function(
+  const fields = Object.keys(schema)
+    .map((key) => {
+      const name = JSON.stringify(key);
+      return `[${name}]: store[${name}][p][o]`;
+    })
+    .join(',');
+  return new Function(
     'index',
     'store',
-    `
-        var p = index >>> 10, o = index & 1023;
-        return ${objectLiteral};
-        `
+    `var p = index >>> 10, o = index & 1023; return {${fields}};`
   );
-
-  return get;
 }
 
 function createAoSSetFunction(_schema: Schema) {
   return (index: number, store: any, value: any) => {
-    const p = index >>> 10;
-    if (!store[p]) store[p] = [];
-    store[p][index & 1023] = value;
+    const page = (store[index >>> 10] ??= createStoragePage(false));
+    page[index & 1023] = value;
   };
 }
 
 function createAoSFastSetChangeFunction(_schema: Schema) {
   return (index: number, store: any, value: any) => {
-    const p = index >>> 10,
-      o = index & 1023;
-    if (!store[p]) store[p] = [];
-    let changed = false;
-    if (value !== store[p][o]) {
-      store[p][o] = value;
-      changed = true;
-    }
-    return changed;
+    const page = (store[index >>> 10] ??= createStoragePage(false));
+    const offset = index & 1023;
+    if (page[offset] === value) return false;
+    page[offset] = value;
+    return true;
   };
 }
 
 function createAoSGetFunction(_schema: Schema) {
-  return (index: number, store: any) => {
-    const page = store[index >>> 10];
-    return page ? page[index & 1023] : undefined;
-  };
+  return (index: number, store: any) => store[index >>> 10]?.[index & 1023];
 }
 
 const noop = () => {};
@@ -123,19 +80,16 @@ export const createSetFunction = {
   aos: createAoSSetFunction,
   tag: createTagNoop,
 };
-
 export const createFastSetFunction = {
   soa: createSoAFastSetFunction,
   aos: createAoSSetFunction,
   tag: createTagNoop,
 };
-
 export const createFastSetChangeFunction = {
   soa: createSoAFastSetChangeFunction,
   aos: createAoSFastSetChangeFunction,
   tag: createTagNoop,
 };
-
 export const createGetFunction = {
   soa: createSoAGetFunction,
   aos: createAoSGetFunction,

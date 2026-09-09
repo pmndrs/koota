@@ -1,12 +1,12 @@
 import { MAX_PAGES, PAGE_SIZE } from './pack-entity';
 
 /** Shared sentinel for unallocated mask pages. Always reads as 0. Never write to it directly. */
-export const EMPTY_MASK_PAGE: Uint32Array = new Uint32Array(PAGE_SIZE);
+export const EMPTY_MASK_PAGE: Uint32Array = /* @__PURE__ */ new Uint32Array(PAGE_SIZE);
 
 /** Create a new mask generation array pre-filled with sentinels. */
 export function createEmptyMaskGeneration(): Uint32Array[] {
-  const gen = new Array<Uint32Array>(MAX_PAGES);
-  gen.fill(EMPTY_MASK_PAGE);
+  const gen: Uint32Array[] = [];
+  for (let i = 0; i < MAX_PAGES; i++) gen[i] = EMPTY_MASK_PAGE;
   return gen;
 }
 
@@ -22,10 +22,10 @@ export function ensureMaskPage(gen: Uint32Array[], pageId: number): Uint32Array 
 
 /** Deep-clone a paged mask array, preserving sentinel references for untouched pages. */
 export function cloneMaskGenerations(src: Uint32Array[][]): Uint32Array[][] {
-  const dst = new Array<Uint32Array[]>(src.length);
+  const dst: Uint32Array[][] = [];
   for (let g = 0; g < src.length; g++) {
     const srcGen = src[g];
-    const dstGen = new Array<Uint32Array>(srcGen.length);
+    const dstGen: Uint32Array[] = [];
     for (let p = 0; p < srcGen.length; p++) {
       const page = srcGen[p];
       dstGen[p] = page === EMPTY_MASK_PAGE ? EMPTY_MASK_PAGE : page.slice();
@@ -37,7 +37,7 @@ export function cloneMaskGenerations(src: Uint32Array[][]): Uint32Array[][] {
 
 /** Create a zeroed paged mask array matching the shape of src. */
 export function createZeroedMaskLike(src: Uint32Array[][]): Uint32Array[][] {
-  const dst = new Array<Uint32Array[]>(src.length);
+  const dst: Uint32Array[][] = [];
   for (let g = 0; g < src.length; g++) {
     dst[g] = createEmptyMaskGeneration();
   }

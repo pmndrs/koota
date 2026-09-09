@@ -2,6 +2,7 @@ import { rethrowPublicError } from '../errors';
 import {
   $internal,
   clearBuffer,
+  getCommandCount,
   createBufferState,
   recordAdd,
   recordChanged,
@@ -54,7 +55,7 @@ export function createCommandBuffer(context: KernelContext, worldEntity: Entity)
   return {
     [$internal]: state,
     get size() {
-      return state.words.length / 5;
+      return getCommandCount(state);
     },
     spawn(...traits: ConfigurableTrait[]) {
       try {

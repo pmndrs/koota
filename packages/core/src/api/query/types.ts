@@ -1,4 +1,3 @@
-import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { $modifier, $parameters, $queryRef, AoSFactory } from '../../kernel';
@@ -120,17 +119,13 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
   readonly [$parameters]: T;
 };
 
-export type ResolvedRelationFilter = RelationPair & {
-  targetQueryRef?: Query<QueryParameter[]>;
-  targetQueryMatches?: SparseSet;
-};
-
 export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = string> = {
   [$modifier]: true;
   type: TType;
   id: number;
   traits: TTrait;
   traitIds: number[];
+  modifiers: Modifier[] | null;
 };
 
 /** Parameter types that can be passed to Or modifier */
@@ -154,23 +149,6 @@ type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First
       ? ExtractTraitsFromOrParams<Rest>
       : []
   : [];
-
-/**
- * Unified tracking group that supports both AND and OR logic.
- * Replaces the old separate tracking arrays and OrTrackingGroup.
- */
-export type TrackingGroup = {
-  /** Whether all traits must match (and) or any trait can match (or) */
-  logic: 'and' | 'or';
-  /** The type of tracking event */
-  type: 'add' | 'remove' | 'change';
-  /** Tracking modifier ID for snapshot/mask lookups */
-  id: number;
-  /** Bitmasks indexed by generationId */
-  bitmasks: (number | undefined)[];
-  /** Per-entity tracker state indexed by [generationId][pageId][offset] */
-  trackers: Uint32Array[][];
-};
 
 export type { QueryInstance } from '../../kernel';
 

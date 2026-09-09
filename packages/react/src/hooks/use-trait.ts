@@ -1,7 +1,5 @@
 import {
-  $internal,
-  $relationPair,
-  universe,
+  getTraitVersionSource,
   type Entity,
   type RelationPair,
   type Trait,
@@ -12,11 +10,6 @@ import { useEntityValue } from '../utils/use-entity-value';
 
 export function readTrait(entity: Entity, trait: Trait | RelationPair) {
   return entity.has(trait) ? entity.get(trait) : undefined;
-}
-
-function getTraitVersionSource(entity: Entity, trait: Trait | RelationPair) {
-  if ($relationPair in trait) trait = trait.relation[$internal].trait;
-  return universe.pageOwners[entity.id() >>> 10]?.traitInstances[trait[$internal].id];
 }
 
 export function attachTrait(

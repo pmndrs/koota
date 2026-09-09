@@ -1,17 +1,12 @@
 import {
   $internal,
-  getEntityId,
+  getEntityContext as findContext,
+  subscribeTrait,
   getRelationTargets,
-  getTraitInstance,
   hasRelationPair,
   hasTrait,
-  hasTraitInstance,
-  isEntityAlive,
   isRelationPair,
   queryInternal,
-  registerTrait,
-  subscribeEntity,
-  universe,
   type KernelContext,
 } from '../../kernel';
 import type { RelationPair } from '../relation/types';
@@ -19,9 +14,9 @@ import type { Trait } from '../trait/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/resolve-hook';
 import type { Entity } from './types';
 
-/** Resolve KernelContext directly from pageOwners. Used by entity methods. */
+/** Resolve the engine that owns an entity. */
 export function getEntityContext(entity: Entity): KernelContext {
-  return universe.pageOwners[getEntityId(entity) >>> 10]!;
+  return findContext(entity)!;
 }
 
 export function entityHas(ctx: KernelContext, entity: Entity, trait: Trait | RelationPair): boolean {
@@ -42,14 +37,15 @@ export function entityHas(ctx: KernelContext, entity: Entity, trait: Trait | Rel
 export function subscribeEntityEvent(
   ctx: KernelContext,
   entity: Entity,
-  event: 'addSubscriptions' | 'removeSubscriptions' | 'changeSubscriptions',
+  event: 'add' | 'remove' | 'change',
   input: HookInput,
   callback: (entity: Entity, target?: Entity) => void
 ) {
-  if (!isEntityAlive(ctx.entityIndex, entity)) return () => {};
-  const trait = resolveHookTrait(input);
-  if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-  const instance = getTraitInstance(ctx.traitInstances, trait)!;
-  ctx.entitySubscribedInstances.add(instance);
-  return subscribeEntity(instance[event], entity, resolveHookCallback(ctx, input, callback));
+  return subscribeTrait(
+    ctx,
+    resolveHookTrait(input),
+    event,
+    resolveHookCallback(ctx, input, callback),
+    entity
+  );
 }

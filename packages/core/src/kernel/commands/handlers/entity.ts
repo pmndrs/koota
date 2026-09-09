@@ -6,111 +6,142 @@ import {
   isEntityAlive,
   releaseEntity,
 } from '../../entity/entity-index';
+import { forgetRelationPair, type PairRecord } from '../../entity/definitions';
+import { firstMembership, firstUser } from '../../entity/membership';
 import { getEntityId } from '../../entity/pack-entity';
 import { EMPTY_MASK_PAGE } from '../../entity/paged-mask';
-import { getEntitiesWithRelationTo, getRelationTargets } from '../../relation/relation';
 import { clearEntity } from '../../trait/subscriptions';
 import type { ConfigurableTrait } from '../../trait/types';
 import type { KernelContext } from '../../context';
 import { applyAddTrait, applyRemoveTrait, cleanupRelationTarget } from './trait';
+
+/** Publish identity to initial negative queries before applying the spawn's traits. */
+export function beginSpawnEntity(ctx: KernelContext, reserved?: Entity): Entity {
+  const entity =
+    reserved === undefined
+      ? allocateEntity(ctx.entityIndex)
+      : activateReservedEntity(ctx.entityIndex, reserved);
+  const id = getEntityId(entity);
+  for (const query of ctx.notQueries) {
+    if (query.check(ctx, entity)) query.add(entity);
+    query.resetTrackingBitmasks(id);
+  }
+  return entity;
+}
 
 export function applySpawnEntity(
   ctx: KernelContext,
   traits: ConfigurableTrait[],
   reserved?: Entity
 ): Entity {
-  const entity =
-    reserved === undefined
-      ? allocateEntity(ctx.entityIndex)
-      : activateReservedEntity(ctx.entityIndex, reserved);
-  for (const query of ctx.notQueries) {
-    const match = query.check(ctx, entity);
-    if (match) query.add(entity);
-    query.resetTrackingBitmasks(getEntityId(entity));
-  }
-
-  ctx.entityTraits.set(entity, new Set());
+  const entity = beginSpawnEntity(ctx, reserved);
   for (const trait of traits) applyAddTrait(ctx, entity, trait);
-
-  if (ctx.entitySpawnSubscriptions.size > 0) {
-    for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
-  }
-
+  for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
   return entity;
 }
 
-export function applyDestroyEntity(ctx: KernelContext, entity: Entity) {
+function enqueueDestroy(ctx: KernelContext, entity: Entity): void {
+  if (!isEntityAlive(ctx.entityIndex, entity)) return;
+  const id = getEntityId(entity);
+  const page = ctx.memberships.pages[id >>> 10]!;
+  const offset = 3072 + (id & 1023);
+  if (page[offset]) return;
+  page[offset] = 1;
+  ctx.destroyQueue[ctx.destroyCount++] = entity;
+}
+
+function removePairUsers(ctx: KernelContext, pair: PairRecord): void {
+  const edges = ctx.memberships;
+  let edge = firstUser(edges, pair.entity);
+  while (edge) {
+    const source = edges.subjects[edge];
+    cleanupRelationTarget(ctx, pair.relation, source, pair.target);
+    if (pair.relation[$internal].autoDestroy === 'source') enqueueDestroy(ctx, source);
+    edge = firstUser(edges, pair.entity);
+  }
+}
+
+export function applyDestroyEntity(ctx: KernelContext, entity: Entity): void {
   if (!isEntityAlive(ctx.entityIndex, entity))
     throw new Error('Koota: The entity being destroyed does not exist.');
-
-  const entityQueue = [entity];
-  const processedEntities = new Set<Entity>();
-
-  while (entityQueue.length > 0) {
-    const currentEntity = entityQueue.pop()!;
-    if (processedEntities.has(currentEntity)) continue;
-
-    processedEntities.add(currentEntity);
-
-    for (const relation of ctx.relations) {
-      const relationCtx = relation[$internal];
-
-      // Cleanup removes entries from the reverse bucket while it is traversed.
-      const sources = getEntitiesWithRelationTo(ctx, relation, currentEntity).slice();
-      for (const source of sources) {
-        if (!isEntityAlive(ctx.entityIndex, source)) continue;
-        cleanupRelationTarget(ctx, relation, source, currentEntity);
-        if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
+  ctx.destroyCount = 0;
+  enqueueDestroy(ctx, entity);
+  const edges = ctx.memberships;
+  try {
+    for (let cursor = 0; cursor < ctx.destroyCount; cursor++) {
+      const current = ctx.destroyQueue[cursor];
+      if (!isEntityAlive(ctx.entityIndex, current)) continue;
+      let dependent = ctx.targetPairs.get(current);
+      while (dependent) {
+        removePairUsers(ctx, dependent);
+        enqueueDestroy(ctx, dependent.entity);
+        dependent = dependent.next ?? undefined;
       }
-
-      if (relationCtx.autoDestroy === 'target') {
-        const targets = getRelationTargets(ctx, relation, currentEntity);
-        for (const target of targets) {
-          if (!isEntityAlive(ctx.entityIndex, target)) continue;
-          if (!processedEntities.has(target)) entityQueue.push(target);
+      const definition = ctx.definitions.get(current);
+      if (definition) {
+        for (const pairId of definition.pairs.values()) {
+          const pair = ctx.pairs.get(pairId)!;
+          removePairUsers(ctx, pair);
+          enqueueDestroy(ctx, pairId);
         }
       }
-    }
-
-    if (ctx.entityDestroySubscriptions.size > 0) {
-      for (const sub of ctx.entityDestroySubscriptions) sub(currentEntity);
-    }
-
-    const entityTraits = ctx.entityTraits.get(currentEntity);
-    if (entityTraits) {
-      for (const trait of entityTraits) {
-        applyRemoveTrait(ctx, currentEntity, trait);
+      const ownPair = ctx.pairs.get(current);
+      if (ownPair) removePairUsers(ctx, ownPair);
+      for (let edge = firstMembership(edges, current); edge; edge = edges.next[edge]) {
+        const pair = ctx.pairs.get(edges.predicates[edge]);
+        if (pair?.relation[$internal].autoDestroy === 'target') enqueueDestroy(ctx, pair.target);
+      }
+      if (!ctx.implicitEntities.has(current)) {
+        for (const sub of ctx.entityDestroySubscriptions) sub(current);
+      }
+      let edge = firstMembership(edges, current);
+      while (edge) {
+        const predicate = edges.predicates[edge];
+        const trait = ctx.definitions.get(predicate);
+        if (trait) applyRemoveTrait(ctx, current, trait.trait);
+        else {
+          const pair = ctx.pairs.get(predicate)!;
+          cleanupRelationTarget(ctx, pair.relation, current, pair.target);
+        }
+        edge = firstMembership(edges, current);
+      }
+      if (definition) {
+        let user = firstUser(edges, current);
+        while (user) {
+          applyRemoveTrait(ctx, edges.subjects[user], definition.trait);
+          user = firstUser(edges, current);
+        }
+        definition.entity = -1;
+        ctx.definitions.delete(current);
+      }
+      if (ownPair) forgetRelationPair(ctx, ownPair);
+      if (ctx.preparedAccesses.size) ctx.preparedAccesses.delete(current);
+      ctx.implicitEntities.delete(current);
+      releaseEntity(ctx.entityIndex, current);
+      // Negative queries can still contain an entity after its final trait is removed.
+      for (const query of ctx.notQueries) query.remove(ctx, current);
+      for (const instance of ctx.entitySubscribedInstances) {
+        clearEntity(instance.addSubscriptions, current);
+        clearEntity(instance.removeSubscriptions, current);
+        clearEntity(instance.changeSubscriptions, current);
+        if (
+          instance.addSubscriptions.entityCount === 0 &&
+          instance.removeSubscriptions.entityCount === 0 &&
+          instance.changeSubscriptions.entityCount === 0
+        )
+          ctx.entitySubscribedInstances.delete(instance);
+      }
+      const id = getEntityId(current);
+      for (let i = 0; i < ctx.entityMasks.length; i++) {
+        const page = ctx.entityMasks[i][id >>> 10];
+        if (page !== EMPTY_MASK_PAGE) page[id & 1023] = 0;
       }
     }
-
-    releaseEntity(ctx.entityIndex, currentEntity);
-
-    const allQuery = ctx.queriesHashMap.get('');
-    if (allQuery) allQuery.remove(ctx, currentEntity);
-
-    ctx.entityTraits.delete(currentEntity);
-
-    // Drop entity subscribers so a recycled id never inherits them. Instances
-    // that no longer hold any are pruned from the index here.
-    for (const instance of ctx.entitySubscribedInstances) {
-      clearEntity(instance.addSubscriptions, currentEntity);
-      clearEntity(instance.removeSubscriptions, currentEntity);
-      clearEntity(instance.changeSubscriptions, currentEntity);
-      if (
-        instance.addSubscriptions.entityCount === 0 &&
-        instance.removeSubscriptions.entityCount === 0 &&
-        instance.changeSubscriptions.entityCount === 0
-      ) {
-        ctx.entitySubscribedInstances.delete(instance);
-      }
+  } finally {
+    for (let i = 0; i < ctx.destroyCount; i++) {
+      const id = getEntityId(ctx.destroyQueue[i]);
+      edges.pages[id >>> 10]![3072 + (id & 1023)] = 0;
     }
-
-    const eid = getEntityId(currentEntity);
-    const pageId = eid >>> 10;
-    const offset = eid & 1023;
-    for (let i = 0; i < ctx.entityMasks.length; i++) {
-      const page = ctx.entityMasks[i][pageId];
-      if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
-    }
+    ctx.destroyCount = 0;
   }
 }

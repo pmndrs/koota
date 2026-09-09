@@ -1,3 +1,5 @@
+import { createInitializeFunction, createClearFunction } from '../storage/initialize';
+import { createReadValues, createWriteValues } from '../storage/values';
 import { $internal } from '../common';
 import {
   createFastSetChangeFunction,
@@ -9,7 +11,7 @@ import {
 } from '../storage';
 import type { Norm, Schema, StoreType } from '../storage';
 import type { TagTrait, Trait, TraitHooks, TraitValue } from './types';
-const tagSchema = Object.freeze({});
+const tagSchema = /* @__PURE__ */ Object.freeze({});
 let traitId = 0;
 
 export function createTrait(
@@ -31,6 +33,11 @@ export function createTrait<S extends Schema>(
   Trait[$internal] = {
     id: traitId++,
     schema,
+    fieldCount: isAoS ? 1 : Object.keys(schema).length,
+    readValues: createReadValues(schema, traitType),
+    writeValues: createWriteValues(schema, traitType),
+    init: createInitializeFunction(schema, traitType),
+    clear: createClearFunction(schema, traitType),
     set: createSetFunction[traitType](schema),
     fastSet: createFastSetFunction[traitType](schema),
     fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
@@ -39,6 +46,8 @@ export function createTrait<S extends Schema>(
     relation: null,
     type: traitType,
     hooks: hooks ? Object.freeze({ ...hooks }) : undefined,
+    initialize: undefined,
+    onRegister: undefined,
   } as Trait<Norm<S>>[typeof $internal];
 
   return Trait;

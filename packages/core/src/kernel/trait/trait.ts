@@ -1,3 +1,5 @@
+import { allocateEntity, isEntityAlive } from '../entity/entity-index';
+import { prepareMembershipEntity } from '../entity/membership';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/pack-entity';
@@ -9,10 +11,22 @@ import { createEmptyMaskGeneration } from '../entity/paged-mask';
 import { createSubscriptions } from './subscriptions';
 import type { ExtractStore, Trait, TraitInstance } from './types';
 
-export function registerTrait(ctx: KernelContext, trait: Trait) {
+export function registerTrait(ctx: KernelContext, trait: Trait, identity?: Entity): TraitInstance {
   const traitCtx = trait[$internal];
+  const existing = getTraitInstance(ctx.traitInstances, trait);
+  if (existing && existing.entity >= 0) return existing;
+  const entity = identity ?? allocateEntity(ctx.entityIndex);
+  prepareMembershipEntity(ctx.memberships, entity);
+  if (identity === undefined) ctx.implicitEntities.add(entity);
+  if (existing) {
+    existing.entity = entity;
+    ctx.definitions.set(entity, existing);
+    return existing;
+  }
 
   const data: TraitInstance = {
+    entity,
+    pairs: new Map(),
     version: 0,
     generationId: ctx.entityMasks.length - 1,
     bitflag: ctx.bitflag,
@@ -20,18 +34,15 @@ export function registerTrait(ctx: KernelContext, trait: Trait) {
     store: traitCtx.createStore(),
     queries: new Set(),
     trackingQueries: new Set(),
-    notQueries: new Set(),
     relationQueries: new Set(),
-    schema: traitCtx.schema,
     changeSubscriptions: createSubscriptions(),
     addSubscriptions: createSubscriptions(),
     removeSubscriptions: createSubscriptions(),
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
+  ctx.definitions.set(entity, data);
   ctx.traits.add(trait);
-
-  if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
 
   incrementTraitBitflag(ctx);
 
@@ -40,9 +51,11 @@ export function registerTrait(ctx: KernelContext, trait: Trait) {
   if (ctx.traitRegisteredSubscriptions.size > 0) {
     for (const sub of ctx.traitRegisteredSubscriptions) sub(trait);
   }
+  return data;
 }
 
 export function hasTrait(ctx: KernelContext, entity: Entity, trait: Trait): boolean {
+  if (!ctx || !isEntityAlive(ctx.entityIndex, entity)) return false;
   const instance = getTraitInstance(ctx.traitInstances, trait);
   if (!instance) return false;
 
@@ -141,7 +154,7 @@ export /* @inline */ function clearTraitInstance(traitData: TraitInstanceArray):
 export /* @inline */ function incrementTraitBitflag(ctx: KernelContext) {
   ctx.bitflag *= 2;
 
-  if (ctx.bitflag >= 2 ** 31) {
+  if (ctx.bitflag >= 2 ** 30) {
     ctx.bitflag = 1;
     ctx.entityMasks.push(createEmptyMaskGeneration());
 

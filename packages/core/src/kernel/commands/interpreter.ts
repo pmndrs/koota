@@ -21,15 +21,17 @@ export function flushCommands(ctx: KernelContext, ...buffers: CommandBufferState
   for (const buffer of buffers) buffer.playing = true;
   try {
     for (const buffer of buffers) interpretBuffer(ctx, buffer);
-    while (ctx.pendingCommands?.words.length) {
+    while (ctx.pendingCommands?.count) {
       const pending = ctx.pendingCommands;
-      ctx.pendingCommands = null;
+      ctx.pendingCommands = ctx.spareCommands;
+      ctx.spareCommands = null;
       pending.playing = true;
       try {
         interpretBuffer(ctx, pending);
       } finally {
         pending.playing = false;
         clearBuffer(pending);
+        ctx.spareCommands = pending;
       }
     }
   } finally {
@@ -45,10 +47,11 @@ export function flushCommands(ctx: KernelContext, ...buffers: CommandBufferState
 function interpretBuffer(ctx: KernelContext, buffer: CommandBufferState): void {
   const words = buffer.words;
   const payloads = buffer.payloads;
-  for (let i = 0; i < words.length; i += 5) {
+  for (let i = 0; i < buffer.count * 5; i += 5) {
     const kind = words[i];
     const entity = words[i + 1] as Entity;
     if (kind !== CommandKind.Spawn && !isEntityAlive(ctx.entityIndex, entity)) continue;
+    if (kind >= CommandKind.AttachIdentity && !isEntityAlive(ctx.entityIndex, words[i + 4])) continue;
     const operand = payloads[words[i + 2]];
     const value = payloads[words[i + 3]];
     ctx.mutationDepth++;
@@ -61,13 +64,22 @@ function interpretBuffer(ctx: KernelContext, buffer: CommandBufferState): void {
           applyDestroyEntity(ctx, entity);
           break;
         case CommandKind.Add:
-          applyAddTrait(ctx, entity, operand);
+        case CommandKind.AttachIdentity:
+          applyAddTrait(ctx, entity, operand, value);
           break;
         case CommandKind.Remove:
+        case CommandKind.DetachIdentity:
           applyRemoveTrait(ctx, entity, operand);
           break;
         case CommandKind.Set:
-          applySetTrait(ctx, entity, operand, value, words[i + 4] !== 0);
+        case CommandKind.WriteIdentity:
+          applySetTrait(
+            ctx,
+            entity,
+            operand,
+            value,
+            kind === CommandKind.WriteIdentity || words[i + 4] !== 0
+          );
           break;
         case CommandKind.Changed:
           if (value === undefined) applyChanged(ctx, entity, operand);

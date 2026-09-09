@@ -7,7 +7,7 @@ export { unpackEntity } from '../kernel';
 export { shallowEqual } from './utils/shallow-equal';
 export { createAdded, createChanged, createRemoved, Not, Or } from './query/modifiers';
 export { $modifier } from '../kernel';
-export { createQuery, IsExcluded } from './query/query';
+export { createQuery, IsExcluded, getQueryVersion } from './query/query';
 export type {
   EventType,
   InstancesFromParameters,
@@ -41,7 +41,7 @@ export type {
   RelationPair,
   RelationTarget,
 } from './relation/types';
-export { getStore, trait } from './trait/trait';
+export { getStore, trait, getTraitVersionSource } from './trait/trait';
 export type {
   ConfigurableTrait,
   ExtractIsTag,

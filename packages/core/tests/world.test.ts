@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait, universe, IsExcluded, type Entity } from '../src';
+import { createWorld, relation, trait, universe, IsExcluded, type Entity } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 describe('World', () => {
@@ -56,7 +56,7 @@ describe('World', () => {
               world.spawn(Resource);
               world.query(IsExcluded);
               worldId = world.id;
-              ownedPages = [...world[$internal].kernel.entityIndex.ownedPages];
+              ownedPages = [...universe.contexts[world.id]!.entityIndex.ownedPages];
               registry.register(world, 'world');
             })();
           })

@@ -19,22 +19,29 @@ export function notifyQuery(
   entity: Entity
 ): void {
   if (subscribers.size === 0) return;
-  if (ctx.mutationDepth > 0) ctx.queryNotifications.push([subscribers, entity]);
-  else for (const callback of subscribers) callback(entity);
+  if (ctx.mutationDepth > 0) {
+    const count = ctx.queryNotificationCount++;
+    ctx.queryNotifications[count] = subscribers;
+    ctx.queryNotificationEntities[count] = entity;
+  } else for (const callback of subscribers) callback(entity);
 }
 
 export function publishQueryNotifications(ctx: KernelContext): void {
-  const notifications = ctx.queryNotifications;
-  if (notifications.length === 0) return;
-  for (let i = 0; i < notifications.length; i++) {
-    const [subscribers, entity] = notifications[i];
-    for (const callback of subscribers) callback(entity);
+  if (ctx.queryNotificationCount === 0) return;
+  try {
+    for (let i = 0; i < ctx.queryNotificationCount; i++) {
+      const subscribers = ctx.queryNotifications[i]!;
+      const entity = ctx.queryNotificationEntities[i];
+      for (const callback of subscribers) callback(entity);
+    }
+  } finally {
+    for (let i = 0; i < ctx.queryNotificationCount; i++) ctx.queryNotifications[i] = undefined;
+    ctx.queryNotificationCount = 0;
   }
-  notifications.length = 0;
 }
 
 export function finishMutation(ctx: KernelContext): void {
-  if (ctx.queryNotifications.length > 0) {
+  if (ctx.queryNotificationCount > 0) {
     try {
       publishQueryNotifications(ctx);
     } catch (error) {
@@ -43,14 +50,15 @@ export function finishMutation(ctx: KernelContext): void {
     }
   }
   ctx.mutationDepth--;
-  if (ctx.mutationDepth === 0 && !ctx.flushing && ctx.pendingCommands?.words.length) {
+  if (ctx.mutationDepth === 0 && !ctx.flushing && ctx.pendingCommands?.count) {
     flushCommands(ctx);
   }
 }
 
 export function abortMutation(ctx: KernelContext): void {
   ctx.mutationDepth--;
-  ctx.queryNotifications.length = 0;
+  for (let i = 0; i < ctx.queryNotificationCount; i++) ctx.queryNotifications[i] = undefined;
+  ctx.queryNotificationCount = 0;
   if (ctx.pendingCommands && !ctx.pendingCommands.playing) clearBuffer(ctx.pendingCommands);
 }
 

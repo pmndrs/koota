@@ -1,10 +1,4 @@
-import {
-  $internal,
-  getEntityId,
-  getTraitInstance,
-  registerTrait,
-  type KernelContext,
-} from '../../kernel';
+import { $internal, getTrait, hasEntity, subscribeTrait, type KernelContext } from '../../kernel';
 import type { Entity } from '../entity/types';
 import { trait } from '../trait/trait';
 import type { Trait } from '../trait/types';
@@ -41,37 +35,13 @@ export function setupOrderedTraitSync(ctx: KernelContext, orderedTrait: OrderedR
   const relation = getOrderedTraitRelation(orderedTrait);
   const relationTrait = relation[$internal].trait;
 
-  const orderedInstance = getTraitInstance(ctx.traitInstances, orderedTrait);
-  if (!orderedInstance) return;
+  const getList = (parent: number): OrderedList | undefined =>
+    getTrait(ctx, parent, orderedTrait) as OrderedList | undefined;
 
-  let relationInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-  if (!relationInstance) {
-    registerTrait(ctx, relationTrait);
-    relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
-  }
-
-  const { generationId, bitflag, store } = orderedInstance;
-  const { entityMasks, entityIndex } = ctx;
-  const traitCtx = orderedTrait[$internal];
-
-  const getList = (parent: Entity): OrderedList | undefined => {
-    const eid = getEntityId(parent);
-    return entityMasks[generationId][eid >>> 10][eid & 1023] & bitflag
-      ? (traitCtx.get(eid, store) as OrderedList)
-      : undefined;
-  };
-
-  type RelationSub = (entity: Entity, target: Entity) => void;
-
-  (relationInstance.addSubscriptions.all as Set<RelationSub>).add((child, parent) => {
-    getList(parent)?._appendWithoutSync(child);
+  subscribeTrait(ctx, relationTrait, 'add', (child, parent) => {
+    getList(parent!)?._appendWithoutSync(child as Entity);
   });
-
-  (relationInstance.removeSubscriptions.all as Set<RelationSub>).add((child, parent) => {
-    const eid = getEntityId(parent);
-    const denseIdx = entityIndex.sparse[eid];
-    if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
-      getList(parent)?._removeWithoutSync(child);
-    }
+  subscribeTrait(ctx, relationTrait, 'remove', (child, parent) => {
+    if (hasEntity(ctx, parent!)) getList(parent!)?._removeWithoutSync(child as Entity);
   });
 }

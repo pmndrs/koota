@@ -1,69 +1,119 @@
 import { $internal } from '../common';
-import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/is-relation';
-import type { Trait } from '../trait/types';
-import { isModifier } from './modifier';
+import { isModifier, isOrWithModifiers } from './modifier';
 import { isQuery } from './is-query';
 import type { QueryHash, QueryParameter } from './types';
 
-const MODIFIER_FACTOR = 100000;
-const RELATION_FACTOR = 10000000;
-const RELATION_OFFSET = 5000000;
-// Offset for target-query relation pairs so they don't collide with concrete target encodings.
-const RELATION_QUERY_OFFSET = 9000000;
+export function createQueryHashWorkspace(capacity = 1024) {
+  return { values: new Float64Array(capacity), size: 0, busy: false };
+}
 
-// Reusable buffer — avoids allocation per call.
-const sortBuf = new Float64Array(1024);
+// Only the nonrecursive entry point borrows this workspace.
+const _query_hashWorkspace = /* @__PURE__ */ createQueryHashWorkspace();
+const _query_termIds = /* @__PURE__ */ new Map<string, number>();
+const _query_descriptorIds = /* @__PURE__ */ new WeakMap<object, number | number[]>();
 
-// Maps a sub-query hash string to a stable numeric id for encoding in the Float64Array.
-let nextQueryId = 1;
-const queryHashToId = new Map<string, number>();
+/** Plain traits use nonnegative IDs. Structured terms occupy a separate negative namespace. */
+function termId(parameter: QueryParameter): number | number[] {
+  if (!isRelationPair(parameter) && !isModifier(parameter)) return parameter[$internal].id;
+  let id = _query_descriptorIds.get(parameter);
+  if (id !== undefined) return id;
+  if (isModifier(parameter) && parameter.type !== 'or') {
+    const ids: number[] = [];
+    for (let i = 0; i < parameter.traitIds.length; i++)
+      ids[i] = internTerm(`m${parameter.type}:${parameter.id}:${parameter.traitIds[i]}`);
+    id = ids.length === 1 ? ids[0] : ids;
+    _query_descriptorIds.set(parameter, id);
+    return id;
+  }
+  let key: string;
+  if (isRelationPair(parameter)) {
+    const relation = parameter.relation[$internal].trait[$internal].id;
+    if (parameter.targetQuery) {
+      const target = parameter.targetQuery;
+      const hash = isQuery(target)
+        ? target.hash
+        : createQueryHash(target, createQueryHashWorkspace(target.length));
+      key = `r${relation}?${hash}`;
+    } else key = `r${relation}>${parameter.target}`;
+  } else {
+    const terms: QueryParameter[] = parameter.traits.slice();
+    if (isOrWithModifiers(parameter))
+      for (const modifier of parameter.modifiers) terms[terms.length] = modifier;
+    key = `m${parameter.type}:${parameter.id}(${createQueryHash(terms, createQueryHashWorkspace(terms.length))})`;
+  }
+  id = internTerm(key);
+  _query_descriptorIds.set(parameter, id);
+  return id;
+}
 
-function queryHashNumericId(hash: string): number {
-  let id = queryHashToId.get(hash);
+function internTerm(key: string): number {
+  let id = _query_termIds.get(key);
   if (id === undefined) {
-    id = nextQueryId++;
-    queryHashToId.set(hash, id);
+    if (_query_termIds.size >= 0x3ffffffe)
+      throw new RangeError('Koota: Query term capacity exhausted.');
+    id = -_query_termIds.size - 1;
+    _query_termIds.set(key, id);
   }
   return id;
 }
 
-export const createQueryHash = (parameters: QueryParameter[], base = 0): QueryHash => {
-  let cursor = base;
-
-  for (let i = 0; i < parameters.length; i++) {
-    const param = parameters[i];
-
-    if (isRelationPair(param)) {
-      const relationId = (param.relation as Relation<Trait>)[$internal].trait[$internal].id;
-
-      if (param.targetQuery) {
-        // Hash inline filters after the entries already written by this query.
-        const subHash = isQuery(param.targetQuery)
-          ? param.targetQuery.hash
-          : createQueryHash([...param.targetQuery], cursor);
-        sortBuf[cursor++] =
-          relationId * RELATION_FACTOR + queryHashNumericId(subHash) + RELATION_QUERY_OFFSET;
-        continue;
-      }
-
-      const target = param.target;
-      const targetId = typeof target === 'number' ? target : -1;
-      sortBuf[cursor++] = relationId * RELATION_FACTOR + targetId + RELATION_OFFSET;
-      continue;
+/** Descriptors are immutable definitions. Compile once and reuse query handles in hot loops. */
+export function createQueryHash(
+  parameters: readonly QueryParameter[],
+  workspace = _query_hashWorkspace
+): QueryHash {
+  let capacity = parameters.length;
+  for (const parameter of parameters)
+    if (isModifier(parameter) && parameter.type !== 'or') capacity += parameter.traitIds.length - 1;
+  if (workspace.busy || workspace.values.length < capacity)
+    workspace = createQueryHashWorkspace(capacity);
+  workspace.busy = true;
+  workspace.size = 0;
+  const values = workspace.values;
+  try {
+    for (let i = 0; i < parameters.length; i++) {
+      const ids = termId(parameters[i]);
+      if (typeof ids === 'number') values[workspace.size++] = ids;
+      else for (let j = 0; j < ids.length; j++) values[workspace.size++] = ids[j];
     }
-
-    if (isModifier(param)) {
-      for (let j = 0; j < param.traitIds.length; j++) {
-        sortBuf[cursor++] = param.id * MODIFIER_FACTOR + param.traitIds[j];
+    const count = workspace.size;
+    // Small queries avoid sort views and temporary arrays. Larger queries use bounded heap sort.
+    if (count <= 16) {
+      for (let i = 1; i < count; i++) {
+        const value = values[i];
+        let j = i;
+        while (j > 0 && values[j - 1] > value) {
+          values[j] = values[j - 1];
+          j--;
+        }
+        values[j] = value;
       }
-      continue;
+    } else {
+      for (let i = (count >>> 1) - 1; i >= 0; i--) sift(values, i, count);
+      for (let end = count - 1; end > 0; end--) {
+        const value = values[0];
+        values[0] = values[end];
+        values[end] = value;
+        sift(values, 0, end);
+      }
     }
-
-    sortBuf[cursor++] = (param as Trait)[$internal].id;
+    let hash = count ? String(values[0]) : '';
+    for (let i = 1; i < count; i++) hash += ',' + values[i];
+    return hash;
+  } finally {
+    workspace.size = 0;
+    workspace.busy = false;
   }
+}
 
-  const filled = sortBuf.subarray(base, cursor);
-  filled.sort();
-  return filled.join(',');
-};
+function sift(values: Float64Array, root: number, count: number): void {
+  const value = values[root];
+  for (let child = root * 2 + 1; child < count; child = root * 2 + 1) {
+    if (child + 1 < count && values[child] < values[child + 1]) child++;
+    if (value >= values[child]) break;
+    values[root] = values[child];
+    root = child;
+  }
+  values[root] = value;
+}

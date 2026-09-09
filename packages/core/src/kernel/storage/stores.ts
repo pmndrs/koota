@@ -8,8 +8,13 @@ export function createStore(schema: Schema): unknown {
   } else {
     const store: Record<string, unknown[]> = {};
 
-    for (const key in schema) {
-      store[key] = [];
+    for (const key of Object.keys(schema)) {
+      Object.defineProperty(store, key, {
+        value: [],
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
     }
 
     return store;

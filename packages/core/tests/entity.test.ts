@@ -14,19 +14,35 @@ describe('Entity', () => {
 
   it('should create and destroy an entity', () => {
     const entityA = world.spawn();
-    expect(entityA).toBe(1);
+    expect(entityA.isAlive()).toBe(true);
 
     const entityB = world.spawn();
-    expect(entityB).toBe(2);
+    expect(entityB).not.toBe(entityA);
 
     const entityC = world.spawn();
-    expect(entityC).toBe(3);
+    expect(new Set([entityA, entityB, entityC]).size).toBe(3);
 
     entityA.destroy();
     entityC.destroy();
     entityB.destroy();
 
     expect(world.entities.length).toBe(1);
+  });
+
+  it('reports entities as dead after their world releases its pages', () => {
+    const temporary = createWorld();
+    const entity = temporary.spawn();
+    temporary.destroy();
+    expect(entity.isAlive()).toBe(false);
+
+    const replacement = createWorld();
+    try {
+      const next = replacement.spawn();
+      expect(next.isAlive()).toBe(true);
+      expect(entity.isAlive()).toBe(false);
+    } finally {
+      replacement.destroy();
+    }
   });
 
   it('should encode generation and entity ID', () => {
