@@ -5,5 +5,6 @@
     "composite": false,
     "types": []
   },
-  "include": ["src/kernel/**/*.ts"]
+  "include": ["src/kernel/**/*.ts"],
+  "exclude": ["src/kernel/tests", "src/kernel/benches"]
 }

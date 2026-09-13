@@ -1,35 +1,146 @@
-/** The API depends on these operations and opaque handles, not engine record layouts. */
-export * from './interface';
-export type { KernelContext, QueryInstance, CommandBufferState, PageCleanupToken } from './handles';
-export type { PreparedAccess, QueryPlan, QueryWorkspace, SpawnPlan } from './handles';
-export { isKernelError } from './errors';
-export type { KernelError, KernelErrorCode } from './errors';
-export { getEntityGeneration, getEntityId, unpackEntity } from './entity/pack-entity';
-export { createTrait } from './trait/create-trait';
-export type {
-  Trait,
-  TagTrait,
-  TraitHooks,
-  TraitInstance,
-  TraitRecord,
-  TraitType,
-  TraitValue,
-} from './trait/types';
-export type { Subscriber } from './trait/subscriptions';
-export type { VersionSource } from './trait/observe';
-export { isRelation, isRelationPair } from './relation/is-relation';
-export { $relation, $relationPair } from './relation/symbols';
-export type { Relation } from './relation/types';
-export { createQuery } from './query/query';
-export { $modifier, createModifier, isModifier } from './query/modifier';
-export { isQuery } from './query/is-query';
-export { createQueryHash } from './query/create-query-hash';
-export { createTrackingId } from './query/tracking-cursor';
-export { $parameters, $queryRef } from './query/symbols';
-export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
-export { shallowEqual } from './utils/shallow-equal';
-export { $internal } from './common';
-/** Legacy diagnostic access. Runtime adapters must use operations instead. */
-export { universe } from './universe';
+export {
+  Any,
+  encodeEntity,
+  entityGeneration,
+  entityIndex,
+  encodePair,
+  isPair,
+  isWildcardPair,
+  pairRelationIndex,
+  pairTargetIndex,
+  INDEX_BITS,
+  INDEX_MASK,
+  GENERATION_MASK,
+  ENTITY_MASK,
+  PAIR_FLAG,
+  MAX_INDEX,
+  MAX_GENERATION,
+  MAX_RELATIONS,
+} from './id';
+export type { TraitId, Entity, PairId, TypeId } from './id';
 
-export { createRelation } from './relation/create-relation';
+export { revision, advanceRevision } from './revision';
+
+export { compilePlan, readRecord, writeRecord } from './schema';
+export type { Column, ColumnPlan, Factory, Schema } from './schema';
+
+export {
+  defineTrait,
+  defineRelation,
+  getDefinition,
+  isRelation,
+  isSparseTrait,
+  pair,
+  pairRelation,
+  relationDefinition,
+  setTraitHooks,
+  typePlan,
+  Wildcard,
+} from './registry';
+export type { AutoDestroy, Definition, RelationOptions, TargetDestroyHook, TraitHook, TraitHooks, TraitOptions } from './registry';
+
+export type { Archetype, TypeRecord } from './archetype';
+export { addedStamp, changedStamp } from './archetype';
+
+export type { Store } from './store';
+export { storeRow } from './store';
+
+export {
+  createWorld,
+  archetypeAt,
+  bumpVersion,
+  getTypeVersion,
+  registerArchetype,
+  destroyArchetype,
+  resetWorld,
+  destroyWorld,
+} from './world';
+export type { World, WorldOptions } from './world';
+
+
+export {
+  createEntity,
+  createEntityNow,
+  createReserved,
+  createReservedNow,
+  reserveEntity,
+  releaseReservation,
+  destroyEntity,
+  destroyEntityNow,
+  isAlive,
+  entityAt,
+  getArchetype,
+  entityCount,
+  getEntities,
+} from './entity';
+export type { EntityEntry } from './entity';
+
+export {
+  addTrait,
+  addTraitNow,
+  addTraits,
+  addTraitsNow,
+  removeTrait,
+  removeTraitNow,
+  hasTrait,
+  hasTraitUnchecked,
+  getTrait,
+  getTraitUnchecked,
+  setTrait,
+  setTraitNow,
+  setTraitUnchecked,
+  setTraitUncheckedNow,
+  getValue,
+  setValue,
+  setValueNow,
+  markChanged,
+  markChangedNow,
+  getColumns,
+} from './trait';
+
+export { beginMutation, endMutation, abortMutation, flush, discardCommands } from './commands';
+export type { CommandQueue } from './commands';
+
+export { addPair, removePair, getTargets, getFirstTarget, getSources, setSources, targetOf } from './relation';
+
+export { ensureFilter, filterMatches, matchesTerms } from './filter';
+export type { Filter } from './filter';
+
+export {
+  ADDED,
+  CHANGED,
+  REMOVED,
+  createTracker,
+  hasTrackers,
+  not,
+  or,
+  added,
+  changed,
+  removed,
+  targets,
+  queryKey,
+  peekQuery,
+  resolveQuery,
+  collect,
+  first,
+  count,
+  visitArchetypes,
+  entityInQuery,
+  observeQuery,
+  getQueryVersion,
+  subscribeQuery,
+} from './query';
+export type {
+  NotTerm,
+  OrTerm,
+  Query,
+  QuerySubscriber,
+  TargetTerm,
+  Term,
+  TrackEvent,
+  Tracker,
+  TrackTerm,
+} from './query';
+
+export { observe } from './observer';
+export type { EventName, Events, Observer } from './observer';
