@@ -1,0 +1,266 @@
+import type { Entity, World } from 'koota';
+const { createChanged, createWorld, ordered, relation, trait }: typeof import('koota') = await import(
+  process.env.KOOTA_API_SOURCE ?? 'koota'
+);
+import { CONFIG } from './config.ts';
+
+/**
+ * Dirties a mix of leaves and groups, then propagates ancestor totals to descendants.
+ * Fixed batches balance estimated traversal cost by depth and subtree size.
+ */
+export type SceneGraphVariant = 'child-of-exclusive' | 'child-of-not-exclusive' | 'ordered-relation';
+
+export type SceneGraphContext = {
+  world: World;
+  dirty: (ctx: { world: World }) => void;
+  propagate: (ctx: { world: World }) => void;
+  snapshot: () => number;
+};
+
+function createTraits(variant: SceneGraphVariant) {
+  const ChildOf = variant === 'child-of-not-exclusive' ? relation() : relation({ exclusive: true });
+  const OrderedChildren = variant === 'ordered-relation' ? ordered(ChildOf) : null;
+  const IsGroup = trait();
+  const IsObject = trait();
+  const Value = trait({ value: 0 });
+  const TotalValue = trait({ value: 0 });
+
+  return { ChildOf, OrderedChildren, IsGroup, IsObject, Value, TotalValue };
+}
+
+type Traits = ReturnType<typeof createTraits>;
+
+function buildGraph(world: World, traits: Traits) {
+  const { ChildOf, OrderedChildren, IsGroup, IsObject, Value, TotalValue } = traits;
+  const { targetEntityCount, bottomLeafFraction, groupChildrenCycle, objectChildrenCycle } = CONFIG;
+  const allEntities: Entity[] = [];
+
+  const spawnGroup = () => {
+    const value = Value({ value: (allEntities.length * 37) % 65 });
+    const group = OrderedChildren
+      ? world.spawn(IsGroup, OrderedChildren, value)
+      : world.spawn(IsGroup, value);
+    allEntities.push(group);
+    return group;
+  };
+
+  const spawnLeaf = () => {
+    const leaf = world.spawn(IsObject, Value({ value: (allEntities.length * 37) % 65 }), TotalValue);
+    allEntities.push(leaf);
+    return leaf;
+  };
+
+  let groupCycle = 0;
+  let objectCycle = 0;
+  let pending: Entity[] = [];
+
+  const bottomLeafCount = Math.min(
+    targetEntityCount,
+    Math.floor(targetEntityCount * bottomLeafFraction)
+  );
+  for (let i = 0; i < bottomLeafCount; i++) {
+    pending.push(spawnLeaf());
+  }
+
+  while (pending.length > 1 && allEntities.length < targetEntityCount) {
+    const nextPending: Entity[] = [];
+    let pendingIndex = 0;
+
+    while (pendingIndex < pending.length && allEntities.length < targetEntityCount) {
+      const adoptCount = Math.min(
+        groupChildrenCycle[groupCycle++ % groupChildrenCycle.length],
+        pending.length - pendingIndex
+      );
+      const group = spawnGroup();
+
+      for (let i = 0; i < adoptCount; i++) {
+        pending[pendingIndex++].add(ChildOf(group));
+      }
+
+      const sprinkleCount =
+        allEntities.length < targetEntityCount
+          ? Math.min(
+              objectChildrenCycle[objectCycle++ % objectChildrenCycle.length],
+              targetEntityCount - allEntities.length
+            )
+          : 0;
+      for (let i = 0; i < sprinkleCount; i++) {
+        spawnLeaf().add(ChildOf(group));
+      }
+
+      nextPending.push(group);
+    }
+
+    pending = nextPending.concat(pending.slice(pendingIndex));
+  }
+
+  const root =
+    pending.length === 1
+      ? pending[0]
+      : OrderedChildren
+        ? world.spawn(IsGroup, OrderedChildren, Value({ value: 0 }))
+        : world.spawn(IsGroup, Value({ value: 0 }));
+
+  if (pending.length > 1) {
+    for (const child of pending) {
+      child.add(ChildOf(root));
+    }
+  }
+
+  if (allEntities.length < targetEntityCount) {
+    const groups = world.query(IsGroup);
+    for (let i = 0; allEntities.length < targetEntityCount; i++) {
+      spawnLeaf().add(ChildOf(groups[i % groups.length]));
+    }
+  }
+
+  return allEntities;
+}
+
+function createDirtySystem(allEntities: Entity[], { ChildOf, Value }: Traits) {
+  const dirtyCount = Math.max(1, Math.floor(allEntities.length * CONFIG.dirtyFraction));
+  const candidatesByEntity = new Map(
+    allEntities.map((entity, ordinal) => [entity, { entity, ordinal, cost: 1 }])
+  );
+
+  // Each ancestor step adds an upward visit here and a descendant visit at the ancestor.
+  for (const candidate of candidatesByEntity.values()) {
+    for (
+      let parent = candidate.entity.targetFor(ChildOf);
+      parent;
+      parent = parent.targetFor(ChildOf)
+    ) {
+      candidate.cost++;
+      const ancestor = candidatesByEntity.get(parent);
+      if (ancestor) ancestor.cost++;
+    }
+  }
+
+  const candidates = [...candidatesByEntity.values()].sort(
+    (a, b) => b.cost - a.cost || a.ordinal - b.ordinal
+  );
+  const batches = Array.from(
+    { length: Math.max(1, Math.ceil(allEntities.length / dirtyCount)) },
+    () => ({
+      entities: [] as Entity[],
+      cost: 0,
+    })
+  );
+
+  // Assign expensive nodes first to the lightest batch that still has room.
+  for (const candidate of candidates) {
+    let lightest = batches[0];
+    for (const batch of batches) {
+      if (
+        batch.entities.length < dirtyCount &&
+        (lightest.entities.length >= dirtyCount || batch.cost < lightest.cost)
+      ) {
+        lightest = batch;
+      }
+    }
+    lightest.entities.push(candidate.entity);
+    lightest.cost += candidate.cost;
+  }
+
+  // Fill short batches with cheap nodes so every frame dirties the same count.
+  let fillerIndex = candidates.length - 1;
+  for (const batch of batches) {
+    while (batch.entities.length < dirtyCount) {
+      batch.entities.push(candidates[fillerIndex].entity);
+      fillerIndex = fillerIndex > 0 ? fillerIndex - 1 : candidates.length - 1;
+    }
+  }
+  const dirtyBatches = batches.map((batch) => batch.entities);
+
+  let dirtyBatchIndex = 0;
+  let frame = 0;
+
+  return () => {
+    const dirtyBatch = dirtyBatches[dirtyBatchIndex];
+
+    for (let i = 0; i < dirtyBatch.length; i++) {
+      const entity = dirtyBatch[i];
+      // Values must not depend on the allocator's handle layout.
+      entity.set(Value, { value: (frame + i) % 65 });
+    }
+
+    dirtyBatchIndex = (dirtyBatchIndex + 1) % dirtyBatches.length;
+    frame++;
+  };
+}
+
+function createPropagateSystem(
+  traits: Pick<Traits, 'ChildOf' | 'OrderedChildren' | 'Value' | 'TotalValue'>
+) {
+  const { ChildOf, OrderedChildren, Value, TotalValue } = traits;
+  const Changed = createChanged();
+
+  const collectAncestorSum = (entity: Entity) => {
+    let sum = 0;
+    let current = entity.targetFor(ChildOf);
+    while (current) {
+      sum += current.get(Value)!.value;
+      current = current.targetFor(ChildOf);
+    }
+    return sum;
+  };
+
+  const propagateUnordered = (world: World, entity: Entity, ancestorSum: number) => {
+    const total = ancestorSum + entity.get(Value)!.value;
+
+    if (entity.has(TotalValue)) {
+      entity.set(TotalValue, { value: total });
+    }
+
+    const children = world.query(ChildOf(entity));
+    for (let i = 0; i < children.length; i++) {
+      propagateUnordered(world, children[i], total);
+    }
+  };
+
+  const propagateOrdered = (entity: Entity, ancestorSum: number) => {
+    const total = ancestorSum + entity.get(Value)!.value;
+
+    if (entity.has(TotalValue)) {
+      entity.set(TotalValue, { value: total });
+    }
+
+    const children = entity.get(OrderedChildren!);
+    if (!children) return;
+
+    for (let i = 0; i < children.length; i++) {
+      propagateOrdered(children[i], total);
+    }
+  };
+
+  return ({ world }: { world: World }) => {
+    const dirtyEntities = world.query(Changed(Value));
+    for (let i = 0; i < dirtyEntities.length; i++) {
+      const entity = dirtyEntities[i];
+      const ancestorSum = collectAncestorSum(entity);
+      if (OrderedChildren) {
+        propagateOrdered(entity, ancestorSum);
+      } else {
+        propagateUnordered(world, entity, ancestorSum);
+      }
+    }
+  };
+}
+
+export function createSceneGraphContext(variant: SceneGraphVariant): SceneGraphContext {
+  const world = createWorld();
+  const traits = createTraits(variant);
+  const allEntities = buildGraph(world, traits);
+  const dirty = createDirtySystem(allEntities, traits);
+  const propagate = createPropagateSystem(traits);
+
+  return {
+    world,
+    dirty,
+    propagate,
+    snapshot: () =>
+      world
+        .query(traits.TotalValue)
+        .reduce((sum, entity) => sum + entity.get(traits.TotalValue)!.value, 0),
+  };
+}
