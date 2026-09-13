@@ -1,9 +1,9 @@
-import { type $internal, type KernelContext } from '../../kernel';
-import { ActionInstance } from '../actions/types';
+import type { ActionInstance } from '../actions/types';
 import type { CommandBuffer } from '../commands/command-buffer';
 import type { Entity } from '../entity/types';
 import type { Query, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
+import type { $internal } from '../symbols';
 import type {
   ConfigurableTrait,
   ExtractSchema,
@@ -13,11 +13,11 @@ import type {
   TraitValue,
 } from '../trait/types';
 
+/** The parts of the world state that framework bindings may read. */
 export type WorldContext = {
-  kernel: KernelContext;
-  worldEntity: Entity | undefined;
-  actionInstances: (ActionInstance | undefined)[];
-  resetSubscriptions: Set<() => void>;
+  readonly worldEntity: Entity | undefined;
+  readonly actionInstances: (ActionInstance | undefined)[];
+  readonly resetSubscriptions: Set<() => void>;
 };
 
 export type World = {
@@ -27,7 +27,7 @@ export type World = {
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
   spawn(...traits: ConfigurableTrait[]): Entity;
-  entity(definition: Trait | Relation<Trait> | RelationPair): Entity;
+  entity(definition: Trait | Relation<Trait>): Entity;
   createCommandBuffer(): CommandBuffer;
   flush(...buffers: CommandBuffer[]): void;
   has(entity: Entity): boolean;
@@ -43,31 +43,13 @@ export type World = {
   query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
   queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
-  onQueryAdd<T extends QueryParameter[]>(
-    key: Query<T>,
-    callback: (entity: Entity) => void
-  ): QueryUnsubscriber;
-  onQueryAdd<T extends QueryParameter[]>(
-    parameters: T,
-    callback: (entity: Entity) => void
-  ): QueryUnsubscriber;
-  onQueryRemove<T extends QueryParameter[]>(
-    key: Query<T>,
-    callback: (entity: Entity) => void
-  ): QueryUnsubscriber;
-  onQueryRemove<T extends QueryParameter[]>(
-    parameters: T,
-    callback: (entity: Entity) => void
-  ): QueryUnsubscriber;
+  onQueryAdd<T extends QueryParameter[]>(key: Query<T>, callback: (entity: Entity) => void): QueryUnsubscriber;
+  onQueryAdd<T extends QueryParameter[]>(parameters: T, callback: (entity: Entity) => void): QueryUnsubscriber;
+  onQueryRemove<T extends QueryParameter[]>(key: Query<T>, callback: (entity: Entity) => void): QueryUnsubscriber;
+  onQueryRemove<T extends QueryParameter[]>(parameters: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
-  onAdd<T extends Trait>(
-    relation: Relation<T>,
-    callback: (entity: Entity, target: Entity) => void
-  ): QueryUnsubscriber;
-  onAdd<T extends Trait>(
-    pair: RelationPair<T>,
-    callback: (entity: Entity, target: Entity) => void
-  ): QueryUnsubscriber;
+  onAdd<T extends Trait>(relation: Relation<T>, callback: (entity: Entity, target: Entity) => void): QueryUnsubscriber;
+  onAdd<T extends Trait>(pair: RelationPair<T>, callback: (entity: Entity, target: Entity) => void): QueryUnsubscriber;
   onAdd(
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void

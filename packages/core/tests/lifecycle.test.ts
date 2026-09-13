@@ -136,19 +136,20 @@ describe('Lifecycle Subscriptions', () => {
       localWorld.destroy();
     });
 
-    it('does not fire onChange when a trait is added without or with initial data', () => {
+    it('fires onChange only when a trait is added with initial data', () => {
       const cb = vi.fn();
       world.onChange(Position, cb);
 
-      // Plain add — no initial data
+      // Plain add: nothing is set, so nothing changed.
       const entityA = world.spawn();
       entityA.add(Position);
       expect(cb).not.toHaveBeenCalled();
 
-      // Add with inline initial data via trait ref
+      // Initial data is applied as a set, so it counts as a change and fires after the add.
       const entityB = world.spawn();
       entityB.add(Position({ x: 1, y: 2 }));
-      expect(cb).not.toHaveBeenCalled();
+      expect(cb).toHaveBeenCalledTimes(1);
+      expect(cb).toHaveBeenCalledWith(entityB);
     });
   });
 

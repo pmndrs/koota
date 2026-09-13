@@ -5,7 +5,6 @@ import {
   createChanged,
   createRemoved,
   createWorld,
-  getStore,
   getQueryVersion,
   Not,
   Or,
@@ -63,8 +62,9 @@ describe('Query modifiers', () => {
     expect(entities[0]).toBe(entityC);
 
     entities = world.query(Not(Foo));
-    expect(entities[0]).toBe(entityB);
-    expect(entities[1]).toBe(entityA);
+    expect(entities).toHaveLength(2);
+    expect(entities).toContain(entityB);
+    expect(entities).toContain(entityA);
 
     entities = world.query(Not(Foo), Not(Bar));
     expect(entities[0]).toBe(entityA);
@@ -466,10 +466,9 @@ describe('Query modifiers', () => {
     entities = world.query(Changed(Position));
     expect(entities.length).toBe(0);
 
-    const positions = getStore(world, Position);
-    const eidA = entityA & 0xfffff;
-    positions.x[eidA >>> 10][eidA & 1023] = 10;
-    positions.y[eidA >>> 10][eidA & 1023] = 20;
+    const [{ stores: [positions], indices: [rowA] }] = world.query(Position).getPages();
+    positions.x[rowA] = 10;
+    positions.y[rowA] = 20;
 
     // Set changed should populate the query.
     entityA.changed(Position);
@@ -492,10 +491,9 @@ describe('Query modifiers', () => {
 
     const entity = world.spawn(Position);
 
-    const positions = getStore(world, Position);
-    const eid = entity & 0xfffff;
-    positions.x[eid >>> 10][eid & 1023] = 10;
-    positions.y[eid >>> 10][eid & 1023] = 20;
+    const [{ stores: [positions], indices: [row] }] = world.query(Position).getPages();
+    positions.x[row] = 10;
+    positions.y[row] = 20;
     entity.changed(Position);
 
     let entities = world.query(Changed(Position));
@@ -506,8 +504,8 @@ describe('Query modifiers', () => {
     let entities2 = world.query(LaterChanged(Position));
     expect(entities2.length).toBe(0);
 
-    positions.x[eid >>> 10][eid & 1023] = 30;
-    positions.y[eid >>> 10][eid & 1023] = 40;
+    positions.x[row] = 30;
+    positions.y[row] = 40;
     entity.changed(Position);
 
     entities = world.query(Changed(Position));
@@ -618,10 +616,9 @@ describe('Query modifiers', () => {
 
     entity.remove(Position);
 
-    // Removed modifier includes the removed trait in stores, plus any other queried traits
+    // A removed trait has no storage anymore, so its state entry is undefined.
     world.query(Removed(Position), Name).updateEach(([position, name]) => {
-      // Position data may still be accessible (stale) even after removal
-      expect(position).toHaveProperty('x');
+      expect(position).toBeUndefined();
       expect(name).toHaveProperty('name', 'keep');
       name.name = 'modified';
     });

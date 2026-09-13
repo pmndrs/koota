@@ -1,13 +1,11 @@
+import type { TraitId } from '../../kernel';
 import type { Entity } from '../entity/types';
 import type { Query, QueryParameter } from '../query/types';
-import type { Trait } from '../trait/types';
-import type { OrderedList } from './ordered-list';
-import { $orderedTargetsTrait } from './symbols';
-import { $relationPair, type Relation as KernelRelation } from '../../kernel';
+import type { $internal, $relation, $relationPair } from '../symbols';
+import type { Trait, TraitRecord } from '../trait/types';
 
 export type RelationTarget = Entity | '*';
-export type RelationInputTarget =
-  RelationTarget | Query<QueryParameter[]> | readonly QueryParameter[];
+export type RelationInputTarget = RelationTarget | Query<QueryParameter[]> | readonly QueryParameter[];
 
 export interface ConcreteRelationPair<T extends Trait = Trait> {
   readonly [$relationPair]: true;
@@ -29,19 +27,31 @@ export interface QueryRelationPair<T extends Trait = Trait> {
 export type RelationPair<T extends Trait = Trait> = ConcreteRelationPair<T> | QueryRelationPair<T>;
 
 type RelationCall<T extends Trait = Trait> = {
-  (target: RelationTarget, params?: Record<string, unknown>): ConcreteRelationPair<T>;
   (targetQuery: Query<QueryParameter[]>): QueryRelationPair<T>;
   (...targetQuery: [QueryParameter, ...QueryParameter[]]): QueryRelationPair<T>;
+  (target: RelationTarget, params?: Record<string, unknown>): ConcreteRelationPair<T>;
 };
 
-/**
- * The public relation. The kernel owns the `[$internal]` shape; the API adds
- * the call signatures that turn a relation into a pair (`ChildOf(parent)`).
- */
-export type Relation<T extends Trait = Trait> = KernelRelation<T> & RelationCall<T>;
+export type RelationInternal<T extends Trait = Trait> = {
+  /** Kernel relation id. */
+  readonly id: TraitId;
+  readonly trait: T;
+  readonly exclusive: boolean;
+  readonly autoDestroy: 'source' | 'target' | false;
+};
 
-export interface OrderedRelation<T extends Trait = Trait> extends Trait<() => OrderedList> {
-  [$orderedTargetsTrait]: {
-    relation: Relation<T>;
-  };
-}
+/** Relation hooks always receive the pair's target. */
+export type RelationHook<T extends Trait = Trait> = (value: TraitRecord<T>, entity: Entity, target: Entity) => void;
+
+export type Relation<T extends Trait = Trait> = {
+  readonly [$relation]: true;
+  readonly [$internal]: RelationInternal<T>;
+  /** Runs once a pair is constructed on a source, before observers. */
+  onAdd(hook: RelationHook<T>): Relation<T>;
+  /** Runs before pair data is written, including data supplied at add time. */
+  onSet(hook: RelationHook<T>): Relation<T>;
+  /** Runs after remove observers, while the pair data is still readable. */
+  onRemove(hook: RelationHook<T>): Relation<T>;
+  /** Runs per source when the target is destroyed, before the pair is removed and before any cascade. */
+  onTargetDestroy(hook: RelationHook<T>): Relation<T>;
+} & RelationCall<T>;

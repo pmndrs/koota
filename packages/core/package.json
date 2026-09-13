@@ -8,6 +8,7 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
+    "bench": "labs",
     "test": "NODE_OPTIONS=--expose-gc vitest",
     "lint": "oxlint",
     "check:kernel": "tsc --noEmit -p tsconfig-kernel.json"
@@ -16,6 +17,7 @@
     "@koota/collections": "workspace:*"
   },
   "devDependencies": {
+    "@pmndrs/labs": "^0.9.0",
     "@config/oxlint": "workspace:*",
     "@config/typescript": "workspace:*",
     "vitest": "catalog:"

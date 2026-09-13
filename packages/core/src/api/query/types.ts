@@ -1,7 +1,9 @@
+import type { Tracker } from '../../kernel';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
-import { $modifier, $parameters, $queryRef, AoSFactory } from '../../kernel';
+import type { $modifier, $parameters, $queryRef } from '../symbols';
 import type {
+  AoSFactory,
   ExtractSchema,
   ExtractStore,
   IsTag,
@@ -19,38 +21,23 @@ export type QueryResultOptions = {
   changeDetection?: 'always' | 'auto' | 'never';
 };
 
-export type QueryLayout = {
-  pageCount: number;
-  pageIds: Uint32Array;
-  pageStarts: Uint32Array;
-  pageCounts: Uint16Array;
-  offsets: Uint16Array;
-  entities: readonly Entity[];
-};
-
-export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
-  version: number;
-  entities: readonly Entity[];
-};
-
 export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
   /** Page ordinal in this query result */
   readonly index: number;
-  readonly stores: PageStoresFromParameters<T>;
-  /** Store offsets for the matching entities in this page */
-  readonly indices: Uint16Array;
+  /** Column views for the selected traits, one per data-bearing trait. */
+  readonly stores: StoresFromParameters<T>;
+  /** Row of each entity inside the page's columns. */
+  readonly indices: Uint32Array;
   readonly entities: readonly Entity[];
 };
 
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
-  readEach: (
-    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
-  ) => QueryResult<T>;
+  readEach: (callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) => QueryResult<T>;
   updateEach: (
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
     options?: QueryResultOptions
   ) => QueryResult<T>;
-  /** Returns cached page views with direct access to trait data, without change detection */
+  /** Page views with direct access to trait columns, without change detection */
   getPages: () => readonly QueryPage<T>[];
   select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
   sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
@@ -73,20 +60,9 @@ export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer 
     ]
   : [];
 
-type PageStores<T extends unknown[]> = {
-  [K in keyof T]: T[K] extends unknown[][]
-    ? T[K][number]
-    : { [P in keyof T[K]]: T[K][P] extends unknown[] ? T[K][P][number] : never };
-};
+export type PageStoresFromParameters<T extends QueryParameter[]> = StoresFromParameters<T>;
 
-export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
-  StoresFromParameters<T>
->;
-
-export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
-  infer First,
-  ...infer Rest,
-]
+export type InstancesFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
   ? [
       ...(First extends Trait
         ? IsTag<First> extends false
@@ -103,8 +79,7 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
     ]
   : [];
 
-export type IsNotModifier<T> =
-  T extends Modifier<Trait[], infer TType> ? (TType extends 'not' ? true : false) : false;
+export type IsNotModifier<T> = T extends Modifier<Trait[], infer TType> ? (TType extends 'not' ? true : false) : false;
 
 export type QueryHash = string;
 
@@ -124,7 +99,8 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
   type: TType;
   id: number;
   traits: TTrait;
-  traitIds: number[];
+  /** Set for Added, Changed, and Removed modifiers. */
+  tracker: Tracker | null;
   modifiers: Modifier[] | null;
 };
 
@@ -132,10 +108,7 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
 export type OrParameter = TraitOrRelation | Modifier;
 
 /** Or modifier that can contain both traits and nested modifiers */
-export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
-  ExtractTraitsFromOrParams<T>,
-  'or'
-> & {
+export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<ExtractTraitsFromOrParams<T>, 'or'> & {
   modifiers: Modifier[];
 };
 
@@ -149,7 +122,5 @@ type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First
       ? ExtractTraitsFromOrParams<Rest>
       : []
   : [];
-
-export type { QueryInstance } from '../../kernel';
 
 export type EventType = 'add' | 'remove' | 'change';

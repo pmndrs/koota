@@ -37,14 +37,12 @@ describe('Query', () => {
     let entities: any = world.query(Position, Name, IsActive);
     expect(entities[0]).toBe(entityA);
 
+    // Iteration order follows storage, not join order, so compare as sets.
     entities = world.query(Position, Name);
-    expect(entities[0]).toBe(entityA);
-    expect(entities[1]).toBe(entityB);
+    expect(new Set(entities)).toEqual(new Set([entityA, entityB]));
 
     entities = world.query(Position);
-    expect(entities[0]).toBe(entityA);
-    expect(entities[1]).toBe(entityB);
-    expect(entities[2]).toBe(entityC);
+    expect(new Set(entities)).toEqual(new Set([entityA, entityB, entityC]));
 
     entityA.remove(IsActive);
     entities = world.query(Position, Name, IsActive);

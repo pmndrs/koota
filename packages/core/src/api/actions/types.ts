@@ -1,4 +1,4 @@
-import type { World } from '../world';
+import type { World } from '../world/types';
 
 export type ActionRecord = Record<string, (...args: any[]) => void>;
 export type ActionsInitializer<T extends ActionRecord> = (world: World) => T;

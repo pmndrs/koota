@@ -11,7 +11,7 @@ describe('World', () => {
     const world = createWorld();
 
     expect(world.isRegistered).toBe(false);
-    expect(universe.contexts[world.id]).toBeUndefined();
+    expect(universe.worlds[world.id]).toBeUndefined();
   });
 
   it('should auto-register on first mutation', () => {
@@ -43,10 +43,8 @@ describe('World', () => {
         let worldId = -1;
         let ownedPages: number[] = [];
         let removed = 0;
-        const Resource = trait(undefined, {
-          onRemove() {
-            removed++;
-          },
+        const Resource = trait().onRemove(() => {
+          removed++;
         });
 
         await expect(
@@ -56,18 +54,18 @@ describe('World', () => {
               world.spawn(Resource);
               world.query(IsExcluded);
               worldId = world.id;
-              ownedPages = [...universe.contexts[world.id]!.entityIndex.ownedPages];
+              ownedPages = [...universe.worlds[world.id]!.pages];
               registry.register(world, 'world');
             })();
           })
         ).resolves.toBe(true);
 
-        await expect.poll(() => universe.contexts[worldId]).toBeUndefined();
+        await expect.poll(() => universe.worlds[worldId]).toBeUndefined();
         expect(removed).toBe(0);
+        expect(ownedPages.length).toBeGreaterThan(0);
         for (const pageId of ownedPages) {
-          expect(universe.pageAllocator.pageOwners[pageId]).toBeNull();
-          expect(universe.pageAllocator.pageAliveCounts[pageId]).toBe(0);
-          expect(universe.pageAllocator.freePages).toContain(pageId);
+          expect(universe.pageOwners[pageId]).toBeNull();
+          expect(universe.freePages).toContain(pageId);
         }
       },
       20_000

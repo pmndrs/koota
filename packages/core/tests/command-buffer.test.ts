@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, getStore, relation, trait, type World } from '../src';
+import { createWorld, relation, trait, type World } from '../src';
 
 describe('Command buffers', () => {
   const worlds: World[] = [];
@@ -18,15 +18,10 @@ describe('Command buffers', () => {
       const world = create();
       const observations: string[] = [];
       const Velocity = trait({ x: 0 });
-      const Position = trait(
-        { x: 0 },
-        {
-          onAdd(value, entity) {
-            observations.push(`hook:${value.x}:${entity.has(Velocity)}`);
-            value.x++;
-          },
-        }
-      );
+      const Position = trait({ x: 0 }).onAdd((value, entity) => {
+        observations.push(`hook:${value.x}:${entity.has(Velocity)}`);
+        value.x++;
+      });
       world.onAdd(Position, (entity) => observations.push(`observer:${entity.get(Position)!.x}`));
       world.onAdd(Velocity, () => observations.push('velocity'));
       if (deferred) {
@@ -38,8 +33,9 @@ describe('Command buffers', () => {
         world.flush(commands);
         expect(commands.size).toBe(0);
       } else world.add(Position({ x: 3 }), Velocity);
-      expect(observations).toEqual(['hook:3:false', 'observer:4', 'velocity']);
-      expect(world.get(Position)).toEqual({ x: 4 });
+      // The add hook sees constructed defaults; observers see the supplied value applied.
+      expect(observations).toEqual(['hook:0:false', 'observer:3', 'velocity']);
+      expect(world.get(Position)).toEqual({ x: 3 });
     }
   });
 
@@ -195,10 +191,8 @@ describe('Command buffers', () => {
     { message: 'Application failure', code: 'BUFFER_CONTEXT_MISMATCH' },
   ])('preserves exceptions thrown by hooks during playback: %s', (failure) => {
     const world = create();
-    const Failing = trait(undefined, {
-      onAdd() {
-        throw failure;
-      },
+    const Failing = trait().onAdd(() => {
+      throw failure;
     });
     const commands = world.createCommandBuffer();
     commands.spawn(Failing);
@@ -230,10 +224,8 @@ describe('Command buffers', () => {
   it('invalidates reserved handles across reset and can queue callback work again', () => {
     const world = create();
     const B = trait();
-    const A = trait(undefined, {
-      onAdd(_value, entity) {
-        entity.add(B);
-      },
+    const A = trait().onAdd((_value, entity) => {
+      entity.add(B);
     });
     world.add(A);
     const commands = world.createCommandBuffer();
@@ -260,12 +252,10 @@ describe('Command buffers', () => {
     const order: string[] = [];
     const C = trait();
     const B = trait();
-    const A = trait(undefined, {
-      onAdd(_value, entity) {
-        order.push('a');
-        entity.add(C);
-        expect(entity.has(C)).toBe(false);
-      },
+    const A = trait().onAdd((_value, entity) => {
+      order.push('a');
+      entity.add(C);
+      expect(entity.has(C)).toBe(false);
     });
     world.onAdd(B, () => order.push('b'));
     world.onAdd(C, () => order.push('c'));
@@ -279,7 +269,7 @@ describe('Command buffers', () => {
   it('applies remove and destroy lifecycles, including relation cascades', () => {
     const world = create();
     const removed = vi.fn();
-    const Position = trait({ x: 0 }, { onRemove: removed });
+    const Position = trait({ x: 0 }).onRemove(removed);
     const ChildOf = relation({ autoDestroy: 'source' });
     const parent = world.spawn(Position);
     const children = Array.from({ length: 3 }, () => world.spawn(Position, ChildOf(parent)));
@@ -294,9 +284,10 @@ describe('Command buffers', () => {
   it('publishes raw writes only when a changed command is flushed', () => {
     const world = create();
     const changed = vi.fn();
-    const Position = trait({ x: 0 }, { onSet: changed });
+    const Position = trait({ x: 0 }).onSet(changed);
     const entity = world.spawn(Position);
-    getStore(world, Position).x[entity.id() >>> 10][entity.id() & 1023] = 5;
+    const [{ stores: [positions], indices: [row] }] = world.query(Position).getPages();
+    positions.x[row] = 5;
     const commands = world.createCommandBuffer();
     commands.changed(entity, Position);
     expect(changed).not.toHaveBeenCalled();
@@ -308,10 +299,8 @@ describe('Command buffers', () => {
   it('leaves the world usable after a failing hook and discards remaining commands', () => {
     const world = create();
     const Tag = trait();
-    const Broken = trait(undefined, {
-      onAdd() {
-        throw new Error('hook failed');
-      },
+    const Broken = trait().onAdd(() => {
+      throw new Error('hook failed');
     });
     const commands = world.createCommandBuffer();
     commands.add(Broken);

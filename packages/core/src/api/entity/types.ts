@@ -14,18 +14,9 @@ import type {
  */
 type EntityHook = {
   <T extends Trait>(trait: T, callback: (entity: Entity) => void): () => void;
-  <T extends Trait>(
-    relation: Relation<T>,
-    callback: (entity: Entity, target: Entity) => void
-  ): () => void;
-  <T extends Trait>(
-    pair: RelationPair<T>,
-    callback: (entity: Entity, target: Entity) => void
-  ): () => void;
-  (
-    input: Trait | Relation<Trait> | RelationPair,
-    callback: (entity: Entity, target?: Entity) => void
-  ): () => void;
+  <T extends Trait>(relation: Relation<T>, callback: (entity: Entity, target: Entity) => void): () => void;
+  <T extends Trait>(pair: RelationPair<T>, callback: (entity: Entity, target: Entity) => void): () => void;
+  (input: Trait | Relation<Trait> | RelationPair, callback: (entity: Entity, target?: Entity) => void): () => void;
 };
 
 export type Entity = number & {
@@ -42,6 +33,10 @@ export type Entity = number & {
   get: <T extends Trait | RelationPair>(trait: T) => TraitRecord<ExtractSchema<T>> | undefined;
   targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
   targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
+  /** Entities holding the relation to this one, in insertion order for ordered relations. */
+  sourcesFor: <T extends Trait>(relation: Relation<T>) => Entity[];
+  /** Reorders the sources of an ordered relation. Takes every current source exactly once. */
+  orderSources: <T extends Trait>(relation: Relation<T>, sources: readonly Entity[]) => void;
   onAdd: EntityHook;
   onRemove: EntityHook;
   onChange: EntityHook;

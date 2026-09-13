@@ -1,12 +1,26 @@
-import { isKernelError, type KernelErrorCode } from '../kernel';
+const $kootaError = Symbol('kootaError');
 
-/** Translate engine failures while preserving exceptions from application code. */
-export function rethrowPublicError(error: unknown): never {
-  if (!isKernelError(error)) throw error;
-  throw new Error(formatKernelError(error.code), { cause: error });
+export type ErrorCode =
+  | 'CONTEXT_RESET_DURING_MUTATION'
+  | 'CONTEXT_DESTROY_DURING_MUTATION'
+  | 'BUFFER_CONTEXT_MISMATCH'
+  | 'BUFFER_CONTEXT_EXPIRED'
+  | 'FLUSH_DURING_MUTATION'
+  | 'BUFFER_DUPLICATED'
+  | 'BUFFER_RECORD_DURING_PLAYBACK'
+  | 'BUFFER_CLEAR_DURING_PLAYBACK';
+
+export type InternalError = Error & { readonly [$kootaError]: true; readonly code: ErrorCode };
+
+export function createInternalError(code: ErrorCode): InternalError {
+  return Object.assign(new Error(code), { [$kootaError]: true as const, code });
 }
 
-function formatKernelError(code: KernelErrorCode): string {
+export function isInternalError(error: unknown): error is InternalError {
+  return error instanceof Error && $kootaError in error;
+}
+
+function formatError(code: ErrorCode): string {
   switch (code) {
     case 'CONTEXT_RESET_DURING_MUTATION':
       return 'Koota: Cannot reset a world during a mutation.';
@@ -25,4 +39,14 @@ function formatKernelError(code: KernelErrorCode): string {
     case 'BUFFER_CLEAR_DURING_PLAYBACK':
       return 'Koota: Cannot clear a command buffer during playback.';
   }
+}
+
+/** Translate lifecycle failures while preserving exceptions from application code. */
+export function rethrowPublicError(error: unknown): never {
+  if (!isInternalError(error)) throw error;
+  throw new Error(formatError(error.code), { cause: error });
+}
+
+export function throwPublicError(code: ErrorCode): never {
+  rethrowPublicError(createInternalError(code));
 }

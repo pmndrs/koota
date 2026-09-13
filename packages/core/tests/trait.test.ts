@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createWorld, type Entity, getStore, getTraitVersionSource, trait } from '../src';
+import { createWorld, type Entity, getTraitVersionSource, trait } from '../src';
 
 class TestClass {
   public name: string;
@@ -91,17 +91,18 @@ describe('Trait', () => {
     expect(entity.has(Tag)).toBe(false);
   });
 
-  it('should create SoA stores when registered by adding', () => {
+  it('exposes SoA columns through query pages', () => {
     const entity = world.spawn();
 
     entity.add(Position);
-    const store = getStore(world, Position);
+    const [{ stores, indices, entities }] = world.query(Position).getPages();
+    const [store] = stores;
 
     expect(store.x).toBeDefined();
     expect(store.y).toBeDefined();
-    const eid = entity & 0xfffff;
-    expect(store.x[eid >>> 10][eid & 1023]).toBe(0);
-    expect(store.y[eid >>> 10][eid & 1023]).toBe(0);
+    expect(entities[0]).toBe(entity);
+    expect(store.x[indices[0]]).toBe(0);
+    expect(store.y[indices[0]]).toBe(0);
   });
 
   it('should set defaults based on the schema', () => {
@@ -157,15 +158,15 @@ describe('Trait', () => {
     });
   });
 
-  it('should create tags with empty stores', () => {
+  it('should create tags without stores', () => {
     const IsTag = trait();
     const entity = world.spawn();
 
     entity.add(IsTag);
     expect(entity.has(IsTag)).toBe(true);
 
-    const store = getStore(world, IsTag);
-    expect(store).toMatchObject({});
+    const [{ stores }] = world.query(IsTag).getPages();
+    expect(stores).toEqual([]);
   });
 
   // This tests for the trait bitmask limit of 32.

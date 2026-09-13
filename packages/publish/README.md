@@ -623,7 +623,7 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
-- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
+- `onChange` triggers when an entity's trait value has been set with `entity.set()`, when a trait is added with initial data, or when it is manually flagged with `entity.changed()`.
 
 ```js
 // Subscribe to Position changes
@@ -736,7 +736,7 @@ world.query(Position, Velocity, Mass)
 
 ### Modifying trait stores directly
 
-For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
+For performance-critical operations, `getPages()` returns cached page views with direct access to trait columns. Every archetype the query matches is one page. Each page contains a `stores` tuple in query or `select()` order, `indices` for the rows of the matching entities inside that page's columns, and an `entities` array aligned with those indices. Every field is a plain array column. The returned array supports both `for...of` and indexed loops.
 
 ```js
 const pages = world.query(Position, Velocity).getPages()
@@ -1016,6 +1016,13 @@ const store = [
 const Mesh = trait(() => new THREE.Mesh())
 ```
 
+A factory that declares a parameter receives the entity it constructs for. Schema factories receive it too.
+
+```js
+const Body = trait((entity) => new Body(entity))
+const Inventory = trait({ items: () => [], owner: (entity) => entity })
+```
+
 #### Trait record
 
 The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state while when it is AoS the record is a ref to the object inserted there.
@@ -1043,6 +1050,31 @@ Use `TraitRecord` to type this state.
 ```ts
 const PositionRecord = TraitRecord<typeof Position>
 ```
+
+#### Trait hooks
+
+Hooks belong to the trait definition and run from the mutation path itself, so a trait without hooks pays nothing for them. Chain them on the trait before it is used in a world.
+
+```js
+const Position = trait({ x: 0, y: 0 }).onSet((value) => {
+  // Runs before the value is written, so edits to value are what gets stored
+  if (value.x < 0) value.x = 0
+  if (value.y < 0) value.y = 0
+})
+
+const Mesh = trait(() => new THREE.Mesh())
+  .onAdd((mesh) => scene.add(mesh))
+  .onRemove((mesh) => {
+    scene.remove(mesh)
+    mesh.geometry.dispose()
+  })
+```
+
+- `onAdd(value, entity)` runs once the trait is constructed on an entity, with its schema defaults, before any listeners. Edits to `value` are kept.
+- `onSet(value, entity)` runs before a value is written, including a value supplied at add time such as `Position({ x: 1 })`. `value` is the full record and edits to it are what gets written. A throw leaves the previous value in place.
+- `onRemove(value, entity)` runs after remove listeners, while the value is still readable.
+
+Adding a trait with a value is a create followed by a set: `onAdd` sees the defaults, then `onSet` and change events see the supplied value. Each hook can be installed once, and only before the trait is used in a world. Relations take the same hooks, with the target as a third argument, plus `onTargetDestroy`.
 
 #### Typing traits
 
@@ -1084,14 +1116,9 @@ const Attacker = trait<Pick<AttackerSchema, keyof AttackerSchema>>({
 })
 ```
 
-#### Accessing the store directly
+#### Accessing trait storage directly
 
-The store can be accessed with `getStore`, but this low-level access is risky as it bypasses Koota's guard rails. However, this can be useful for debugging where direct introspection of the store is needed. For direct store mutations, use the [`getPages` API](#modifying-trait-stores-directly) instead.
-
-```js
-// Returns SoA or AoS depending on the trait
-const positions = getStore(world, Position)
-```
+Trait data lives in per-archetype columns, so there is no single store per trait. Use the [`getPages` API](#modifying-trait-stores-directly) to reach the columns of the entities a query matches. Every field is a plain array column.
 
 ### Query
 

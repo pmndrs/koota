@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { $internal, createWorld, type Entity, getStore, trait, unpackEntity } from '../src';
+import { $internal, createWorld, type Entity, trait, unpackEntity } from '../src';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
@@ -68,9 +68,6 @@ describe('Entity', () => {
       entities.push(world.spawn(Bar));
     }
 
-    const bar = getStore(world, Bar);
-    const storePageCount = bar.value.length;
-
     for (const entity of entities) {
       entity.destroy();
     }
@@ -94,9 +91,6 @@ describe('Entity', () => {
     expect(u3.generation).toBe(
       (entities.find((entity) => entity.id() === u3.entityId)!.generation() + 1) & 255
     );
-
-    // Store pages should not grow since slots are reused within the same page.
-    expect(bar.value.length).toBe(storePageCount);
   });
 
   it('should add entities with spawn', () => {

@@ -35,7 +35,8 @@ describe('Query pages', () => {
       }
     }
 
-    expect(pages.length).toBeGreaterThan(1);
+    // Every matching entity shares one archetype, so there is one page.
+    expect(pages.length).toBe(1);
     expect(visited).toEqual(entities);
     expect(entities.map((entity) => entity.get(Position)!.x)).toEqual(
       entities.map((_, i) => i * 3 + 2)

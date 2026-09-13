@@ -1,144 +1,118 @@
-import { rethrowPublicError } from '../errors';
-import {
-  $internal,
-  resolveDefinition,
-  pairEntity,
-  resolveQuery,
-  subscribeQuery,
-  subscribeTrait,
-  subscribeEntityLifecycle,
-  subscribeTraitRegistered,
-  getKernelId,
-  getKernelCleanupToken,
-  isKernelInitialized,
-  getKernelTraits,
-  getKernelEntities,
-  hasEntity,
-  queryRelation,
-  addTrait,
-  createEntity,
-  createKernelContext,
-  destroyKernel,
-  flushCommands,
-  getTrait,
-  hasTrait,
-  isQuery,
-  isRelationPair,
-  removeTrait,
-  resetKernel,
-  setTrait,
-} from '../../kernel';
+import { collect, first, getEntities, subscribeQuery } from '../../kernel';
 import { createCommandBuffer, type CommandBuffer } from '../commands/command-buffer';
 import '../entity/entity-methods-patch';
 import type { Entity } from '../entity/types';
-import { IsExcluded, runQueryResult } from '../query/query';
-import { createRelationOnlyQueryResult } from '../query/query-result';
+import { rethrowPublicError } from '../errors';
+import { createOwnerState, isHandleAlive, registry, resolveOwner, toPublic } from '../handles';
+import { hashParameters, IsExcluded, isQuery, resolveQuery } from '../query/query';
+import { createQueryResult, emptyResult } from '../query/query-result';
 import type { Query, QueryParameter, QueryUnsubscriber } from '../query/types';
-import type { Relation, RelationPair } from '../relation/types';
-import type {
-  ConfigurableTrait,
-  ExtractSchema,
-  SetTraitCallback,
-  Trait,
-  TraitRecord,
-  TraitValue,
-} from '../trait/types';
-import type { World } from './types';
+import { isRelation } from '../relation/relation';
+import type { Relation } from '../relation/types';
+import { $internal } from '../symbols';
+import type { ConfigurableTrait, ExtractSchema, SetTraitCallback, Trait, TraitRecord, TraitValue } from '../trait/types';
 import { worldFinalizer } from './finalization';
-import { initializeWorld } from './lifecycle';
-import { resolveHookCallback, resolveHookTrait } from './resolve-hook';
+import {
+  addToEntity,
+  destroyState,
+  ensureKernel,
+  entityHas,
+  flushBuffers,
+  readTrait,
+  registerTrait,
+  removeFromEntity,
+  resetState,
+  setOnEntity,
+  spawnEntity,
+} from './lifecycle';
+import type { WorldState } from './state';
+import { resolveHookTrait, subscribeTrait, type HookInput } from './subscriptions';
+import type { World } from './types';
 
 export function createWorld(...traits: ConfigurableTrait[]): World {
-  const kernel = createKernelContext([IsExcluded]);
-  const id = getKernelId(kernel);
-  const cleanupToken = getKernelCleanupToken(kernel);
+  const id = registry.nextWorldId++;
+  const state = {
+    id,
+    worldRef: null! as WeakRef<World>,
+    kernel: null,
+    epoch: 0,
+    worldEntity: undefined,
+    initialTraits: traits,
+    actionInstances: [],
+    resetSubscriptions: new Set<() => void>(),
+    traits: new Set<Trait>(),
+    traitRegisteredSubscribers: new Set<(trait: Trait) => void>(),
+    spawnSubscribers: new Set<(entity: Entity) => void>(),
+    destroySubscribers: new Set<(entity: Entity) => void>(),
+    traitSubscriptions: new Map(),
+    traitObserversAttached: false,
+    versionSources: new Map(),
+    queries: new Map(),
+    definitionEntities: new Map(),
+    hidden: new Set<Entity>(),
+    ...createOwnerState(),
+  } as WorldState;
 
   const world = {
-    [$internal]: {
-      kernel,
-      worldEntity: undefined,
-      actionInstances: [],
-      resetSubscriptions: new Set(),
-    },
+    [$internal]: state,
 
-    traits: null! as Set<Trait>,
-
-    createCommandBuffer() {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      return createCommandBuffer(ctx, world[$internal].worldEntity!);
+    createCommandBuffer(): CommandBuffer {
+      ensureKernel(state);
+      return createCommandBuffer(state, state.worldEntity!);
     },
 
     flush(...buffers: CommandBuffer[]) {
       try {
-        flushCommands(world[$internal].kernel, ...buffers.map((buffer) => buffer[$internal]));
+        flushBuffers(state, buffers);
       } catch (error) {
         rethrowPublicError(error);
       }
     },
 
     spawn(...spawnTraits: ConfigurableTrait[]): Entity {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      return createEntity(ctx, ...spawnTraits) as Entity;
+      return spawnEntity(state, spawnTraits);
     },
 
-    entity(definition: Trait | Relation<Trait> | RelationPair): Entity {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      if (isRelationPair(definition)) {
-        if (typeof definition.target !== 'number')
-          throw new Error('Koota: Expected a concrete pair.');
-        return pairEntity(
-          ctx,
-          resolveDefinition(ctx, definition.relation),
-          definition.target
-        ) as Entity;
-      }
-      return resolveDefinition(ctx, definition) as Entity;
+    entity(definition: Trait | Relation<Trait>): Entity {
+      ensureKernel(state);
+      const existing = state.definitionEntities.get(definition);
+      if (existing !== undefined && resolveOwner(existing) === state) return existing;
+      registerTrait(state, isRelation(definition) ? definition[$internal].trait : definition);
+      const entity = spawnEntity(state, [IsExcluded]);
+      state.definitionEntities.set(definition, entity);
+      state.hidden.add(entity);
+      return entity;
     },
 
     has(target: Entity | Trait): boolean {
-      const ctx = world[$internal].kernel;
-      if (!isKernelInitialized(ctx)) return false;
-      return typeof target === 'number'
-        ? hasEntity(ctx, target)
-        : hasTrait(ctx, world[$internal].worldEntity!, target);
+      if (!state.kernel) return false;
+      if (typeof target === 'number') return isHandleAlive(target);
+      return entityHas(state, state.worldEntity!, target);
     },
 
-    add(...addTraits: ConfigurableTrait[]) {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      addTrait(ctx, world[$internal].worldEntity!, ...addTraits);
+    add(...traits: ConfigurableTrait[]) {
+      ensureKernel(state);
+      addToEntity(state, state.worldEntity!, traits);
     },
 
-    remove(...removeTraits: Trait[]) {
-      const ctx = world[$internal].kernel;
-      if (!isKernelInitialized(ctx)) return;
-      removeTrait(ctx, world[$internal].worldEntity!, ...removeTraits);
+    remove(...traits: Trait[]) {
+      if (!state.kernel) return;
+      removeFromEntity(state, state.worldEntity!, traits);
     },
 
     get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
-      const ctx = world[$internal].kernel;
-      if (!isKernelInitialized(ctx)) return undefined;
-      return getTrait(ctx, world[$internal].worldEntity!, trait);
+      if (!state.kernel) return undefined;
+      return readTrait(state, state.worldEntity!, trait) as TraitRecord<ExtractSchema<T>> | undefined;
     },
 
     set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      setTrait(ctx, world[$internal].worldEntity!, trait, value, true);
+      ensureKernel(state);
+      setOnEntity(state, state.worldEntity!, trait, value, true);
     },
 
     destroy() {
       try {
-        const ctx = world[$internal].kernel;
-        const registered = isKernelInitialized(ctx);
-        destroyKernel(ctx);
-        world[$internal].worldEntity = undefined;
-        world[$internal].actionInstances.length = 0;
-        if (registered) for (const sub of world[$internal].resetSubscriptions) sub();
-        worldFinalizer.unregister(world);
+        destroyState(state);
       } catch (error) {
         rethrowPublicError(error);
       }
@@ -146,150 +120,128 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     reset() {
       try {
-        const ctx = world[$internal].kernel;
-        const registered = isKernelInitialized(ctx);
-        resetKernel(ctx);
-        if (registered) world[$internal].worldEntity = createEntity(ctx, IsExcluded) as Entity;
-        world[$internal].actionInstances.length = 0;
-        if (registered) for (const sub of world[$internal].resetSubscriptions) sub();
+        resetState(state);
       } catch (error) {
         rethrowPublicError(error);
       }
     },
 
-    query(...args: any[]) {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      if (args.length === 1 && isQuery(args[0])) {
-        return runQueryResult(ctx, resolveQuery(ctx, args[0]), args[0].parameters);
+    query(...args: unknown[]) {
+      ensureKernel(state);
+      const [parameters, hash] = queryInput(args);
+      const query = resolveQuery(state, parameters, hash);
+      if (query === null) return emptyResult;
+      const entities = collect(state.kernel!, query) as unknown as Entity[];
+      if (entities.length === 0) return emptyResult;
+      const localToPublic = state.localToPublic;
+      for (let i = 0; i < entities.length; i++) entities[i] = localToPublic[(entities[i] as number) & 0x1fffff] as Entity;
+      return createQueryResult(state, entities, query, parameters);
+    },
+
+    queryFirst(...args: unknown[]) {
+      ensureKernel(state);
+      const [parameters, hash] = queryInput(args);
+      const query = resolveQuery(state, parameters, hash);
+      if (query === null) return undefined;
+      if (query.dynamic) {
+        const entities = collect(state.kernel!, query);
+        return entities.length === 0 ? undefined : toPublic(state, entities[0]);
       }
-      const params = args as QueryParameter[];
-      if (
-        params.length === 1 &&
-        isRelationPair(params[0]) &&
-        !params[0].targetQuery &&
-        typeof params[0].target === 'number'
-      ) {
-        return createRelationOnlyQueryResult(queryRelation(ctx, params[0]) as Entity[]);
-      }
-      return runQueryResult(ctx, resolveQuery(ctx, params), params);
+      const local = first(state.kernel!, query);
+      return local === undefined ? undefined : toPublic(state, local);
     },
 
-    queryFirst(...args: [string] | QueryParameter[]) {
-      // @ts-expect-error
-      return world.query(...args)[0];
+    onQueryAdd(args: Query<QueryParameter[]> | QueryParameter[], callback: (entity: Entity) => void): QueryUnsubscriber {
+      return subscribeQueryEvent(state, args, 'add', callback);
     },
 
-    onQueryAdd(
-      args: Query<QueryParameter[]> | QueryParameter[],
-      callback: (entity: Entity) => void
-    ): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      return subscribeQuery(ctx, args, 'add', callback as (entity: number) => void);
+    onQueryRemove(args: Query<QueryParameter[]> | QueryParameter[], callback: (entity: Entity) => void): QueryUnsubscriber {
+      return subscribeQueryEvent(state, args, 'remove', callback);
     },
 
-    onQueryRemove(
-      args: Query<QueryParameter[]> | QueryParameter[],
-      callback: (entity: Entity) => void
-    ): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      return subscribeQuery(ctx, args, 'remove', callback as (entity: number) => void);
+    onAdd(input: HookInput, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber {
+      return subscribeWorldTrait(state, input, 'add', callback);
     },
 
-    onAdd<T extends Trait>(
-      trait: T | Relation<T> | RelationPair<T>,
-      callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      return subscribeTrait(
-        ctx,
-        resolveHookTrait(trait),
-        'add',
-        resolveHookCallback(ctx, trait, callback)
-      );
+    onRemove(input: HookInput, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber {
+      return subscribeWorldTrait(state, input, 'remove', callback);
     },
 
-    onRemove<T extends Trait>(
-      trait: T | Relation<T> | RelationPair<T>,
-      callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      return subscribeTrait(
-        ctx,
-        resolveHookTrait(trait),
-        'remove',
-        resolveHookCallback(ctx, trait, callback)
-      );
-    },
-
-    onChange(
-      trait: Trait | Relation<Trait> | RelationPair<Trait>,
-      callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      initializeWorld(world[$internal]);
-      return subscribeTrait(
-        ctx,
-        resolveHookTrait(trait),
-        'change',
-        resolveHookCallback(ctx, trait, callback)
-      );
+    onChange(input: HookInput, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber {
+      return subscribeWorldTrait(state, input, 'change', callback);
     },
 
     onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      const resolved = (entity: number) => {
-        if (!hasTrait(ctx, entity, IsExcluded)) callback(entity as Entity);
+      state.spawnSubscribers.add(callback);
+      return () => {
+        state.spawnSubscribers.delete(callback);
       };
-      return subscribeEntityLifecycle(ctx, 'spawn', resolved);
     },
 
     onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      const state = world[$internal];
-      const resolved = (entity: number) => {
-        if (entity !== state.worldEntity) callback(entity as Entity);
+      state.destroySubscribers.add(callback);
+      return () => {
+        state.destroySubscribers.delete(callback);
       };
-      return subscribeEntityLifecycle(ctx, 'destroy', resolved);
     },
 
     onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber {
-      const ctx = world[$internal].kernel;
-      return subscribeTraitRegistered(ctx, callback);
+      state.traitRegisteredSubscribers.add(callback);
+      return () => {
+        state.traitRegisteredSubscribers.delete(callback);
+      };
     },
   } as unknown as World;
 
-  // Register FR (only unobservable side effect of createWorld).
-  worldFinalizer.register(world, cleanupToken, world);
+  state.worldRef = new WeakRef(world);
+  worldFinalizer.register(world, { id, owner: state }, world);
 
-  Object.defineProperty(world, 'traits', {
-    get: () => getKernelTraits(world[$internal].kernel),
-    enumerable: true,
-  });
-
-  Object.defineProperty(world, 'id', {
-    get: () => id,
-    enumerable: true,
-  });
-
-  Object.defineProperty(world, 'isRegistered', {
-    get: () => isKernelInitialized(world[$internal].kernel),
-    enumerable: true,
-  });
-
+  Object.defineProperty(world, 'traits', { get: () => state.traits, enumerable: true });
+  Object.defineProperty(world, 'id', { get: () => id, enumerable: true });
+  Object.defineProperty(world, 'isRegistered', { get: () => state.kernel !== null, enumerable: true });
   Object.defineProperty(world, 'entities', {
-    get: () => getKernelEntities(world[$internal].kernel),
+    get: () => {
+      if (!state.kernel) return [];
+      const locals = getEntities(state.kernel);
+      const result: Entity[] = [];
+      for (let i = 0; i < locals.length; i++) {
+        const entity = toPublic(state, locals[i]);
+        if (!state.hidden.has(entity)) result.push(entity);
+      }
+      return result;
+    },
     enumerable: true,
   });
 
-  // Auto-register when traits are passed. No-arg createWorld() stays pure.
-  if (traits.length > 0) {
-    initializeWorld(world[$internal], traits);
-  }
-
+  if (traits.length > 0) ensureKernel(state);
   return world;
+}
+
+function queryInput(args: unknown[]): [readonly QueryParameter[], string | undefined] {
+  if (args.length === 1 && isQuery(args[0])) return [args[0].parameters, args[0].hash];
+  return [args as QueryParameter[], undefined];
+}
+
+function subscribeWorldTrait(
+  state: WorldState,
+  input: HookInput,
+  event: 'add' | 'remove' | 'change',
+  callback: (entity: Entity, target?: Entity) => void
+): QueryUnsubscriber {
+  ensureKernel(state);
+  registerTrait(state, resolveHookTrait(input));
+  return subscribeTrait(state, input, event, callback);
+}
+
+function subscribeQueryEvent(
+  state: WorldState,
+  args: Query<QueryParameter[]> | QueryParameter[],
+  event: 'add' | 'remove',
+  callback: (entity: Entity) => void
+): QueryUnsubscriber {
+  ensureKernel(state);
+  const parameters = isQuery(args) ? args.parameters : args;
+  const query = resolveQuery(state, parameters, isQuery(args) ? args.hash : hashParameters(parameters));
+  if (query === null) return () => {};
+  return subscribeQuery(state.kernel!, query, event, (local) => callback(toPublic(state, local)));
 }
