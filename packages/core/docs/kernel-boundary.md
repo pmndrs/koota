@@ -169,10 +169,10 @@ source files. Oxlint restricts API imports to the kernel barrel and prevents
 runtime adapters from importing the legacy registry. Framework bindings cannot
 import engine modules or the legacy engine record exports from core.
 
-`kernel-tests/interface.test.ts` checks opaque handle types and interoperability
+`src/kernel/tests/interface.test.ts` checks opaque handle types and interoperability
 with engine records. Typechecking API code catches direct record access.
 
-`kernel-tests/kernel.test.ts` exercises the engine without importing the public
+`src/kernel/tests/kernel.test.ts` exercises the engine without importing the public
 package entry. `trait-identity.test.ts` checks interoperability between the layers.
 Public behavior remains covered by `tests/`, which also runs against the built
 package. Kernel-only tests are not copied into the published-package test suite.

@@ -55,11 +55,11 @@ query workspaces. ArrayBuffer retention was identical for each before/after
 shape. Plan-only heap readings varied substantially across processes, so their
 median difference is not evidence of a memory saving.
 
-[Timing results](../../../benches/kernel-iris/cleanup-results.json) retain source
+[Timing results](../src/kernel/benches/archive/cleanup/cleanup-results.json) retain source
 fingerprints, block medians, heap statistics, and Labs comparisons, including the
-rejected shared-write candidate. [Retained-memory results](../../../benches/kernel-iris/cleanup-memory-results.json)
+rejected shared-write candidate. [Retained-memory results](../src/kernel/benches/archive/cleanup/cleanup-memory-results.json)
 include all 64 fresh-process samples. Reproduce the focused suite with
-`KOOTA_BEFORE_SOURCE=<frozen-before>/packages/core/src/kernel/index.ts pnpm bench @kernel-cleanup -n cleanup`.
+`KOOTA_BEFORE_SOURCE=<frozen-before>/packages/core/src/kernel/index.ts pnpm --filter @koota/core bench @kernel-cleanup -n cleanup`.
 The source snapshot must include the core source tree and its package dependencies.
 
 ## Query lifecycle corrections
@@ -96,7 +96,7 @@ unnecessary pass. Changed-value timings were noisy and do not establish a speedu
 Full-GC retained memory was about 2.68 MB for one scalar and one tag per entity in
 both versions. With one populated Added query and reserved tracker pages it rose
 from 3.11 MB to 3.22 MB. Initial population now retains tracker state, including
-partial groups that were previously lost. [Results and reproducible measurements](../../../benches/kernel-iris/query-lifecycle-results.json)
+partial groups that were previously lost. [Results and reproducible measurements](../src/kernel/benches/archive/query-lifecycle/query-lifecycle-results.json)
 include all block medians, heap samples, source fingerprints, and limitations.
 
 ## Larger decisions

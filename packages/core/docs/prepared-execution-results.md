@@ -61,21 +61,21 @@ The memory runner measures full-GC `heapUsed` plus `arrayBuffers`, with eight fr
 | Iris, no queries                               |         2.60 MB |
 | Iris, seven queries                            |         2.69 MB |
 
-Totals use decimal MB and include definitions, prepared capacity, and a common entity buffer. Imported modules and Iris's global definitions are outside the window. Predicate counts add 40,960 backing-store bytes for ten leased pages. Small heap differences between equivalent populations include runtime noise. [All 64 samples and exact medians](../../../benches/kernel-iris/prepared-memory-results.json) are retained.
+Totals use decimal MB and include definitions, prepared capacity, and a common entity buffer. Imported modules and Iris's global definitions are outside the window. Predicate counts add 40,960 backing-store bytes for ten leased pages. Small heap differences between equivalent populations include runtime noise. [All 64 samples and exact medians](../src/kernel/benches/archive/iris/prepared-memory-results.json) are retained.
 
 Seven plans use about **44% less total retained memory** than seven eager caches. Keeping seven complete workspaces still uses about **33% less**. One workspace can instead serve multiple plans. Iris retains less in this shared-schema fixture. The separate [Iris comparison](iris-comparison.md) covers distinct-target relationships, where the storage tradeoff differs.
 
 ## Reproduction and limits
 
 ```sh
-IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts pnpm bench '@kernel-iris @kernel-prepared' -n prepared-current
-pnpm bench '@kernel-prepared-columns' -n prepared-columns
-IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts pnpm bench '@kernel-prepared-population' -n prepared-population
-KOOTA_KERNEL_SOURCE=/path/to/frozen/core/src/kernel/index.ts IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts pnpm bench '@kernel-iris-search' -n prepared-search-before
-IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts KOOTA_BEFORE_SOURCE=/path/to/frozen/core/src/kernel/index.ts node --import tsx benches/kernel-iris/measure-prepared-memory.ts
+IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts pnpm --filter @koota/core bench '@kernel-iris @kernel-prepared' -n prepared-current
+pnpm --filter @koota/core bench '@kernel-prepared-columns' -n prepared-columns
+IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts pnpm --filter @koota/core bench '@kernel-prepared-population' -n prepared-population
+KOOTA_KERNEL_SOURCE=/path/to/frozen/core/src/kernel/index.ts IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts pnpm --filter @koota/core bench '@kernel-iris-search' -n prepared-search-before
+IRIS_SOURCE=/path/to/iris/packages/ecs/src/index.ts KOOTA_BEFORE_SOURCE=/path/to/frozen/core/src/kernel/index.ts node --import tsx packages/core/src/kernel/benches/support/measure-prepared-memory.ts /tmp/koota-prepared-memory-results.json
 ```
 
-[prepared-results.json](../../../benches/kernel-iris/prepared-results.json) preserves source fingerprints, 35 selected cases, block medians, heap deltas, snapshots, and Labs comparisons. Saved runs are `kernel-prepared-search-before`, `kernel-prepared-pass-1`, `kernel-prepared-pass-2`, and `kernel-prepared-population-warm`. The initial warm-spawn experiment recreated schemas before each sample. Its warm result is excluded and replaced by the persistent-context case.
+[prepared-results.json](../src/kernel/benches/archive/iris/prepared-results.json) preserves source fingerprints, 35 selected cases, block medians, heap deltas, snapshots, and Labs comparisons. Saved runs are `kernel-prepared-search-before`, `kernel-prepared-pass-1`, `kernel-prepared-pass-2`, and `kernel-prepared-population-warm`. The initial warm-spawn experiment recreated schemas before each sample. Its warm result is excluded and replaced by the persistent-context case.
 
 The full first pass had 8.2% clock drift. Column callbacks use warmed workspace rows. The mutation-plus-materialization test includes refresh cost. Net heap deltas may be clamped to zero when collection occurs, so the cached cold-search zero-byte median is not evidence of allocation-free compilation. Values near the measurement floor do not prove literal zero allocation. Retained memory is measured separately.
 

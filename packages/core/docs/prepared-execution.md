@@ -1,6 +1,6 @@
 # Prepared kernel execution
 
-See [measurements against Iris](prepared-execution-results.md) for timing, allocation, retained memory, and remaining tradeoffs.
+See the latest [scalar access measurements](scalar-access-results.md) and the earlier [measurements against Iris](prepared-execution-results.md) for timing, allocation, retained memory, and remaining tradeoffs.
 
 Prepared operations resolve numeric definitions once, reuse caller storage, and keep the global paged entity store. Definitions and concrete relation pairs remain entity identities. Adding or removing a predicate never moves the subject's other columns.
 
@@ -37,7 +37,9 @@ visitQueryColumns(
 
 Create definitions, intern pairs, prepare accesses and plans, register observers and trackers, then reserve. Repeat reservation after adding schemas, eager queries, or trackers. Handles are opaque type views of engine records, without wrapper allocation.
 
-`prepareEntityAccess` caches one access record per predicate in its context. It resolves the schema, mask generation, and columns. `hasPreparedTrait`, `readPreparedValues`, `writePreparedValues`, `tryAttachPrepared`, and `detachPrepared` bypass descriptor parsing and definition lookup. They still validate subject ownership, generation, and predicate lifetime. A bare relation supports presence checks and query terms. Data and attachments require a concrete pair.
+Definition and pair creation prepare one execution record per predicate lifetime, including its schema, mask generation, and column references. `prepareEntityAccess` validates the predicate and returns that existing record from its descriptor page. Prepare once and retain the access for repeated operations on that predicate. Numeric value operations resolve the same record and use the same read and write functions. `hasPreparedTrait`, `readPreparedValues`, `writePreparedValues`, `tryAttachPrepared`, and `detachPrepared` bypass descriptor parsing and definition lookup. They still validate subject ownership, generation, and predicate lifetime. A bare relation supports presence checks and query terms. Data and attachments require a concrete pair.
+
+Typed-buffer writes without hooks, tracking queries, change subscribers, or pending publication work use a short path that still advances versions and records history. Plain buffers and typed-array proxies keep the general mutation boundary because their input getters can execute application code. Both paths retain per-write publication behavior and check current subscribers after preparation.
 
 Reads return the required field count, write only the output capacity, and return `-1` for absent or invalid data. Writes require the complete row and return false before writing if input is short or invalid. Schema order determines field order. Tags have zero fields and reference traits have one. Numeric values retain double precision, including NaN and infinities. No tolerance applies to integer identity or membership checks.
 

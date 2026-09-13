@@ -92,6 +92,21 @@ container.destroy()
 world.has(itemA) // False, items are destroyed with container
 ```
 
+## Relation hooks
+
+Relations take the same definition hooks as traits, `onAdd`, `onSet`, and `onRemove`, with the target as a third argument, plus `onTargetDestroy`. `onTargetDestroy` runs for each source when the target is destroyed, while the target is still readable and before the pair is removed. Once the hook returns, the pair is removed if the source still holds it, and any `autoDestroy` policy applies after the hook.
+
+```js
+const Follows = relation({ store: { distance: 0 } })
+  .onSet((value) => {
+    value.distance = Math.max(0, value.distance)
+  })
+  .onTargetDestroy((value, follower, leader) => {
+    // The leader is still alive here; the pair leaves once this returns
+    follower.add(Idle)
+  })
+```
+
 ## Exclusive relations
 
 Exclusive relations ensure each entity can only have one target.
@@ -112,51 +127,23 @@ hero.has(Targeting(goblin)) // True
 
 ## Ordered relations
 
-> [!CAUTION]
-> This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
-
-Ordered relations maintain a list of related entities with
-bidirectional sync.
-
-A query like `world.query(ChildOf(parent))` returns a flat list of children without any ordering. If you need an ordered list, you'd have to store an order field and sort every time you query.
-
-An ordered relation solves this by caching the order on the target. It's a trait added to the parent that maintains a view of all entities targeting it.
-
-```mermaid
-flowchart BT
-    subgraph Parent
-        OC["OrderedChildren → [Child B, Child A]"]
-    end
-    subgraph childA["Child A"]
-        COA["ChildOf(Parent)"]
-    end
-    subgraph childB["Child B"]
-        COB["ChildOf(Parent)"]
-    end
-    COA ==> Parent
-    COB ==> Parent
-```
+By default the sources of a target have no defined order: `world.query(ChildOf(parent))` returns children in storage order, and removing one can move another. A relation created with `ordered: true` keeps each target's sources in insertion order, the way Flecs's `OrderedChildren` does.
 
 ```js
-import { relation, ordered } from 'koota'
+const ChildOf = relation({ ordered: true })
 
-const ChildOf = relation()
-const OrderedChildren = ordered(ChildOf)
+const parent = world.spawn()
+const a = world.spawn(ChildOf(parent))
+const b = world.spawn(ChildOf(parent))
 
-const parent = world.spawn(OrderedChildren)
-const children = parent.get(OrderedChildren)
+parent.sourcesFor(ChildOf) // [a, b]
+world.query(ChildOf(parent)) // [a, b], the same order
 
-children.push(child1) // adds ChildOf(parent) to child1
-children.splice(0, 1) // removes ChildOf(parent) from child1
-
-// Bidirectional sync works both ways
-child2.add(ChildOf(parent)) // child2 automatically added to list
+parent.orderSources(ChildOf, [b, a]) // reorder without touching the relation
+parent.sourcesFor(ChildOf) // [b, a]
 ```
 
-Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa, as well as emit change events.
-
-> [!CAUTION]
-> Ordered relations requires additional bookkeeping where the cost of ordering is paid during structural changes (add, remove, move) instead of at query time. Use ordered relations only when entity order is essential or when hierarchical search (looping over children) is necessary.
+Adding a pair appends to the end and removing one keeps the rest in place. `orderSources` takes the complete set of current sources in the new order and throws when the set does not match. Ordering costs one list append per add and one list splice per remove on that relation, and nothing on relations without the flag.
 
 ## Querying relations
 
@@ -259,7 +246,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 
 - `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
 - `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
-- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` or supplied when the pair is added (only for relations created with a `store`).
 
 ```js
 const ChildOf = relation({ store: { priority: 0 } })

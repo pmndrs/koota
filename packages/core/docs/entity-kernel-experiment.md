@@ -67,19 +67,11 @@ Float32. No module-level factory calls or scratch allocations are introduced.
 
 ## Measurement
 
-`benches/kernel-entity-model` contains shared workloads and factory-capacity
-measurements. Select only these suites:
+`packages/core/src/kernel/benches/experiments/entity-model` contains shared workloads and factory-capacity
+measurements. Each file registers its comparison variants together so Labs interleaves them. Select only these suites:
 
 ```sh
-KOOTA_ENTITY_MODEL=current pnpm bench '@entity-model' -n entity-model-current
-KOOTA_ENTITY_MODEL=packed pnpm bench '@entity-model @entity-capacity' -n entity-model-packed
-KOOTA_ENTITY_MODEL=typed pnpm bench '@entity-model @entity-capacity' -n entity-model-typed
-KOOTA_ENTITY_MODEL=packed pnpm bench '@entity-lifecycle' -n entity-lifecycle-packed
-KOOTA_ENTITY_MODEL=typed pnpm bench '@entity-lifecycle' -n entity-lifecycle-typed
-pnpm bench baseline entity-model-current
-pnpm bench compare entity-model-packed
-pnpm bench baseline entity-model-packed
-pnpm bench compare entity-model-typed
+pnpm --filter @koota/core bench '@entity-model @entity-capacity @entity-lifecycle' -n entity-model-comparison
 ```
 
 The current adapter calls the current kernel operations, uses cached query handles,
@@ -114,7 +106,7 @@ buffers). Imported module state and the entity input buffer predate the baseline
 The model remains live after the second GC. Run each sample in a fresh process:
 
 ```sh
-KOOTA_ENTITY_MODEL=typed pnpm --filter @koota/benches exec node --expose-gc --import tsx kernel-entity-model/measure-retained.ts
+KOOTA_ENTITY_MODEL=typed pnpm exec node --expose-gc --import tsx packages/core/src/kernel/benches/experiments/entity-model/measure-retained.ts
 ```
 
 Three fresh-process samples on Node 26.1.0, Apple M4 Pro, 2026-09-09:
@@ -130,7 +122,8 @@ operations, not just identity bytes. The prototype reserves 10,016 identities an
 30,000 memberships. Typed backing stores alone account for 1,772,260 bytes. The
 typed model retained about 49% less than the identical packed model in this case.
 This is a concrete footprint reason to prefer typed storage for this experiment,
-independent of timing. Typed storage is the factory and benchmark default. It does
+independent of timing. Typed storage is the factory default. Timing suites register
+all applicable models together. Typed storage does
 not imply a 56% memory reduction for a feature-complete replacement of the current
 kernel.
 
@@ -207,7 +200,7 @@ no explicit allocations in these operations. Cold packed construction still
 allocates about 10.84 MiB in the population workload, more than current, because
 sequentially creating packed arrays incurs backing-store growth.
 
-[Recorded results](../../../benches/kernel-entity-model/benchmark-results.json)
+[Recorded results](../src/kernel/benches/archive/entity-model/benchmark-results.json)
 include block medians, clocks, memory observations, retained samples, final source
 hashes, and comparison output with warnings. Raw Labs results remain in
 `benches/.labs/results`. The original benchmark baseline selection was restored.

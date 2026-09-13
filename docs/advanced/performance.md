@@ -11,7 +11,7 @@ Performance, safety and readability are all tradeoffs. The standard patterns are
 
 ## Modifying trait stores directly
 
-For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
+For performance-critical operations, `getPages()` returns cached page views with direct access to trait columns. Every archetype the query matches is one page. Each page contains a `stores` tuple in query or `select()` order, `indices` for the rows of the matching entities inside that page's columns, and an `entities` array aligned with those indices. Every field is a plain array column. The returned array supports both `for...of` and indexed loops.
 
 ```js
 const pages = world.query(Position, Velocity).getPages()

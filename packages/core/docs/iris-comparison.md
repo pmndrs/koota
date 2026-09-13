@@ -1,6 +1,8 @@
 # Iris comparison
 
-This records the original comparison. The subsequent [prepared execution results](prepared-execution-results.md) implement and measure prepared access, indexed discovery, lazy query plans, batch publication, and bulk spawning.
+The subsequent [eager-query optimization](eager-query-results.md) addresses the 20-query mutation gap on the current kernel.
+
+This records the original comparison. The latest [metadata layout comparison](metadata-iris-results.md) measures the current source against Iris. The subsequent [prepared execution results](prepared-execution-results.md) implement and measure prepared access, indexed discovery, lazy query plans, batch publication, and bulk spawning.
 
 Iris is a useful reference for fast scalar access and indexed query discovery. It is not uniformly leaner. Koota's prepared mutations allocate much less, and its paged relation storage avoids a large memory cost when subjects have different targets. Keep the global paged allocator and entity-valued definitions and pairs. The next optimization targets should be query candidate selection, prepared data access, and query cache maintenance.
 
@@ -10,7 +12,7 @@ This comparison leaves production code and the kernel contract unchanged.
 
 The reference is the clean `/Users/krisbaumgartner/Dev/iris` checkout at commit `001e47c93705d35612a70cd827761c4e5cac31f4`, package `iris-ecs` 0.0.14. Both engines run from TypeScript source through the same Labs 0.9.0 workers on Node 26.1.0, Apple M4 Pro. Iris numeric fields use `Type.f64()` to match Koota's double precision.
 
-Each timing has eight fresh-process blocks. Tables report the median of block medians. Allocation is Labs p50 bytes for the entire batch, including backing stores. Retained storage is measured separately after full GC in eight fresh processes per engine and workload. Source hashes, block distributions, snapshots and allocation samples are preserved in [comparison-results.json](../../../benches/kernel-iris/comparison-results.json) and [retained-results.json](../../../benches/kernel-iris/retained-results.json).
+Each timing has eight fresh-process blocks. Tables report the median of block medians. Allocation is Labs p50 bytes for the entire batch, including backing stores. Retained storage is measured separately after full GC in eight fresh processes per engine and workload. Source hashes, block distributions, snapshots and allocation samples are preserved in [comparison-results.json](../src/kernel/benches/archive/iris/comparison-results.json) and [retained-results.json](../src/kernel/benches/archive/iris/retained-results.json).
 
 Definitions, population, query compilation and capacity preparation are outside warm measurements. Callbacks and output buffers are reused. No user observers, lifecycle hooks, tracking queries or scheduler systems are installed. Both normal write paths still execute their built-in change-publication machinery. Matching checksums and membership assertions validate every timing case.
 
@@ -79,7 +81,7 @@ These totals include the context, local schema registration, prepared capacity a
 | Adopt Iris's world-local IDs and wrapped generations                            | Simpler direct metadata lookup and recycling                 | Breaks global ownership and permanent stale-handle rejection. Not justified by the access benchmark without isolating those validation costs.                                                                                       |
 | Adopt Iris's bit-packed pairs                                                   | Compute a pair without interning an entity record            | Breaks generation-stable targets and nested pair targets, limits relation definitions to 256 globally, and exceeds the requested portable 30-bit Smi range for relation and some pair IDs. No isolated speedup is claimed.          |
 
-The identity differences are executable observations in [check-semantics.ts](../../../benches/kernel-iris/check-semantics.ts): ordinary Iris IDs alias across worlds, the original handle becomes live again after 256 recycle operations, old pairs resolve to replacement targets, and pairs cannot be targets. Koota rejects foreign and exhausted handles, invalidates dependent pair identities, and supports nested pair targets.
+The identity differences are executable observations in [check-semantics.ts](../src/kernel/benches/support/check-semantics.ts): ordinary Iris IDs alias across worlds, the original handle becomes live again after 256 recycle operations, old pairs resolve to replacement targets, and pairs cannot be targets. Koota rejects foreign and exhausted handles, invalidates dependent pair identities, and supports nested pair targets.
 
 The measured Node build has pointer compression disabled and accepts Iris's larger signed IDs as Smis. Their encoding therefore does not establish a heap-allocation penalty on this machine. It still fails the requested portable `[-2^30, 2^30)` constraint.
 
@@ -105,9 +107,9 @@ Koota's corresponding paths are [membership](../src/kernel/entity/membership.ts)
 From the Koota root, with Iris checked out beside it:
 
 ```sh
-IRIS_SOURCE="$PWD/../iris/packages/ecs/src/index.ts" pnpm bench '@kernel-iris' -n kernel-iris
-IRIS_SOURCE="$PWD/../iris/packages/ecs/src/index.ts" node --import tsx benches/kernel-iris/measure-retained-blocks.ts
-IRIS_SOURCE="$PWD/../iris/packages/ecs/src/index.ts" node --import tsx benches/kernel-iris/check-semantics.ts
+IRIS_SOURCE="$PWD/../iris/packages/ecs/src/index.ts" pnpm --filter @koota/core bench '@kernel-iris' -n kernel-iris
+IRIS_SOURCE="$PWD/../iris/packages/ecs/src/index.ts" node --import tsx packages/core/src/kernel/benches/support/measure-retained-blocks.ts /tmp/koota-retained-results.json
+IRIS_SOURCE="$PWD/../iris/packages/ecs/src/index.ts" node --import tsx packages/core/src/kernel/benches/support/check-semantics.ts
 pnpm --filter @koota/benches exec tsc --noEmit -p kernel-iris/tsconfig.json
 ```
 

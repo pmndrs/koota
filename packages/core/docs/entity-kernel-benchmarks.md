@@ -8,7 +8,7 @@ The [Iris reference comparison](iris-comparison.md) measures matching workflows 
 
 Measurements ran on an Apple M4 Pro with Node 26.1.0. Labs records eight fresh-process blocks. The tables use the median of those block medians, rather than selecting the fastest sample. Heap figures are Labs p50 bytes per complete workload invocation. A 10,000-entity row reports the whole batch, not a single entity.
 
-The baseline is the kernel contract implementation present before this rewrite, including the workspace's uncommitted contract work. Source hashes, block timings, clock estimates, and intermediate passes are preserved in [production-results.json](../../../benches/kernel-workflows/production-results.json). The final review extended the cold tag-promotion guard to lifecycle callbacks. That rejection path is outside the measured prepared-predicate workloads, and both source hashes are recorded. The historical flat entity prototype and tag-only archetype graph have narrower semantics and are not used as the production baseline.
+The baseline is the kernel contract implementation present before this rewrite, including the workspace's uncommitted contract work. Source hashes, block timings, clock estimates, and intermediate passes are preserved in [production-results.json](../src/kernel/benches/archive/workflows/production-results.json). The final review extended the cold tag-promotion guard to lifecycle callbacks. That rejection path is outside the measured prepared-predicate workloads, and both source hashes are recorded. The historical flat entity prototype and tag-only archetype graph have narrower semantics and are not used as the production baseline.
 
 Labs reports allocation during a workload, which is different from retained storage. Small values such as 152 bytes reflect harness and measurement overhead, not proof that every execution allocates exactly that amount. ArrayBuffer backing stores also need separate accounting. The retained-memory script measures `heapUsed + arrayBuffers` after full GC across eight fresh processes for each version.
 
@@ -48,7 +48,7 @@ Clock and sample spread are included in the result artifact. Labs reported 10.0%
 | ArrayBuffer backing stores | 174.1 kB | 1.44 MB |
 | Combined                   |  4.12 MB | 2.75 MB |
 
-Combined retained storage fell 33.3%. Samples are in [retained-results.json](../../../benches/kernel-workflows/retained-results.json).
+Combined retained storage fell 33.3%. Samples are in [retained-results.json](../src/kernel/benches/archive/workflows/retained-results.json).
 
 This is 10,000 ordinary entities with three scalar traits and no queries. The measurement includes context creation and schema registration. The caller's output array is created before measurement. Numeric column pages are packed plain double arrays. Integer membership, liveness, and reverse-row pages use typed arrays for bounded layout and footprint.
 
@@ -83,7 +83,7 @@ These rows use preallocated identities, memberships, columns, buffers, and exist
 | disjoint page ranges 10k   |          8.5 ns |           7.9 ns |                8.4 ns |    42.63 µs |      2.0 ns |
 | sparse 10k across 4m slots |     Unsupported |         70.15 µs |              73.21 µs |    25.04 µs |     1.02 µs |
 
-The dense case returns 30,000 indices, and the scattered cases return 3,000. Full results, including primitive insert/remove/drain regressions and intermediate passes, are in [sparse-results.json](../../../benches/kernel-workflows/sparse-results.json).
+The dense case returns 30,000 indices, and the scattered cases return 3,000. Full results, including primitive insert/remove/drain regressions and intermediate passes, are in [sparse-results.json](../src/kernel/benches/archive/workflows/sparse-results.json).
 
 | Retained storage per bitset, capacity 2^20 |   Before |    Final |
 | ------------------------------------------ | -------: | -------: |
@@ -91,7 +91,7 @@ The dense case returns 30,000 indices, and the scattered cases return 3,000. Ful
 | dense 10k                                  |   4.0 kB |  14.5 kB |
 | sparse 10k across 1m                       | 330.0 kB | 335.6 kB |
 
-Fixed directories increase empty-set memory. Choosing the smallest sufficient capacity avoids paying for unused address space. Leaf summaries add four bytes per allocated leaf. These [retained samples](../../../benches/kernel-workflows/sparse-retained-results.json) include V8 heap and ArrayBuffer backing stores.
+Fixed directories increase empty-set memory. Choosing the smallest sufficient capacity avoids paying for unused address space. Leaf summaries add four bytes per allocated leaf. These [retained samples](../src/kernel/benches/archive/workflows/sparse-retained-results.json) include V8 heap and ArrayBuffer backing stores.
 
 Prepared filtering reuses its input arrays, callback, and output. The older collection microbenchmarks also measure their caller-created arrays, callbacks, and checksum arithmetic, so their total heap figures are not the bitset implementation alone. Prepared filtering is compared separately from index construction and cache maintenance. A cached copy pays its query-maintenance cost when entities change. A bitset recomputes the intersection on each read. These are different workload choices, so the table is not a claim that one representation wins universally.
 
@@ -110,14 +110,14 @@ Coverage includes real definition and pair identities, nested pair cleanup, stal
 Run the relevant suites separately from tests and other CPU-heavy work:
 
 ```sh
-pnpm bench '@entity @relation @query @kernel-workflows @kernel-native @kernel-addressing' -n kernel-optimized-final
-pnpm bench '@kernel-sparse' -n kernel-sparse-after
-pnpm bench '@scene' -n kernel-scene-after
+pnpm --filter @koota/core bench '@entity @relation @query @kernel-workflows @kernel-native @kernel-addressing' -n kernel-optimized-final
+pnpm --filter @koota/core bench '@kernel-sparse' -n kernel-sparse-after
+pnpm --filter @koota/core bench '@scene' -n kernel-scene-after
 pnpm --filter @koota/collections exec labs '@bitset' -n kernel-bitset-optimized
-pnpm bench baseline kernel-production-before
-pnpm bench compare kernel-optimized-final
-node --expose-gc --import tsx benches/kernel-workflows/measure-retained.ts
-node --expose-gc --import tsx benches/kernel-workflows/measure-sparse-retained.ts
+pnpm --filter @koota/core bench baseline kernel-production-before
+pnpm --filter @koota/core bench compare kernel-optimized-final
+node --expose-gc --import tsx packages/core/src/kernel/benches/workflows/measure-retained.ts
+node --expose-gc --import tsx packages/core/src/kernel/benches/workflows/measure-sparse-retained.ts
 ```
 
 `KOOTA_KERNEL_SOURCE` selects a kernel source checkout for the compatibility workflows and retained-memory script. `KOOTA_API_SOURCE` selects a public API source checkout for scene-graph comparisons. `KOOTA_BITSET_SOURCE` selects a bitset source module for its retained-memory script. Timings are machine-specific observations, not API guarantees.
