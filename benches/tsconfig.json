@@ -1,4 +1,7 @@
 {
   "extends": "@config/typescript/node.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  },
   "include": ["**/*.ts"]
 }
