@@ -574,6 +574,103 @@ describe('Lifecycle Subscriptions', () => {
       world.reset();
       expect(cb.mock.calls.length).toBeGreaterThanOrEqual(3);
     });
+
+    it('should finish the cascade when a subscriber destroys another entity', () => {
+      const ChildOf = relation({ autoDestroy: 'orphan' });
+
+      const parent = world.spawn();
+      const childA = world.spawn(ChildOf(parent));
+      const childB = world.spawn(ChildOf(parent));
+      const unrelated = world.spawn();
+
+      const unsub = world.onEntityDestroy((entity) => {
+        if (entity === parent && world.has(unrelated)) unrelated.destroy();
+      });
+
+      parent.destroy();
+      unsub();
+
+      expect(world.has(parent)).toBe(false);
+      expect(world.has(unrelated)).toBe(false);
+      expect(world.has(childA)).toBe(false);
+      expect(world.has(childB)).toBe(false);
+    });
+
+    it('should finish the cascade when an onRemove subscriber destroys another entity', () => {
+      const ChildOf = relation({ autoDestroy: 'orphan' });
+
+      const parent = world.spawn(Position);
+      const childA = world.spawn(ChildOf(parent));
+      const childB = world.spawn(ChildOf(parent));
+      const unrelated = world.spawn();
+
+      const unsub = world.onRemove(Position, () => {
+        if (world.has(unrelated)) unrelated.destroy();
+      });
+
+      parent.destroy();
+      unsub();
+
+      expect(world.has(unrelated)).toBe(false);
+      expect(world.has(childA)).toBe(false);
+      expect(world.has(childB)).toBe(false);
+    });
+
+    it('should fire once per entity when a subscriber destroys a queued entity', () => {
+      const ChildOf = relation({ autoDestroy: 'orphan' });
+
+      const parent = world.spawn();
+      const childA = world.spawn(ChildOf(parent));
+      const childB = world.spawn(ChildOf(parent));
+
+      const cb = vi.fn((entity: Entity) => {
+        if (entity === parent && world.has(childA)) childA.destroy();
+      });
+      const unsub = world.onEntityDestroy(cb);
+
+      parent.destroy();
+      unsub();
+
+      const destroyed = cb.mock.calls.map((c: any) => c[0]);
+      expect(destroyed).toHaveLength(3);
+      expect(destroyed).toContain(parent);
+      expect(destroyed).toContain(childA);
+      expect(destroyed).toContain(childB);
+      expect(world.has(childA)).toBe(false);
+      expect(world.has(childB)).toBe(false);
+    });
+
+    it('should not recurse when a subscriber destroys the entity being destroyed', () => {
+      const cb = vi.fn((entity: Entity) => {
+        entity.destroy();
+      });
+      const unsub = world.onEntityDestroy(cb);
+
+      const entity = world.spawn(Position);
+      try {
+        entity.destroy();
+      } finally {
+        unsub();
+      }
+
+      expect(cb).toHaveBeenCalledOnce();
+      expect(world.has(entity)).toBe(false);
+      expect(world.spawn().id()).toBe(entity.id());
+    });
+
+    it('should leave an entity destroyable after a subscriber throws', () => {
+      const unsub = world.onEntityDestroy(() => {
+        throw new Error('boom');
+      });
+
+      const entity = world.spawn(Position);
+      expect(() => entity.destroy()).toThrow('boom');
+      unsub();
+
+      expect(world.has(entity)).toBe(true);
+      entity.destroy();
+      expect(world.has(entity)).toBe(false);
+    });
   });
 
   describe('onTraitRegistered', () => {
