@@ -44,83 +44,96 @@ export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]):
 
 const cachedSet = new Set<Entity>();
 const cachedQueue = [] as Entity[];
+let isDestroying = false;
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
   if (!isEntityAlive(ctx.entityIndex, entity))
     throw new Error('Koota: The entity being destroyed does not exist.');
 
-  const entityQueue = cachedQueue;
+  // Subscribers run inside the loop below and may destroy entities themselves. A nested
+  // call takes its own queue so it cannot wipe the cascade the outer call is still
+  // walking, and shares the processed set so neither call destroys the same entity twice.
+  const nested = isDestroying;
+  const entityQueue = nested ? [entity] : cachedQueue;
   const processedEntities = cachedSet;
 
-  entityQueue.length = 0;
-  entityQueue.push(entity);
-  processedEntities.clear();
+  if (!nested) {
+    entityQueue.length = 0;
+    entityQueue.push(entity);
+    processedEntities.clear();
+  }
 
-  while (entityQueue.length > 0) {
-    const currentEntity = entityQueue.pop()!;
-    if (processedEntities.has(currentEntity)) continue;
+  isDestroying = true;
 
-    processedEntities.add(currentEntity);
+  try {
+    while (entityQueue.length > 0) {
+      const currentEntity = entityQueue.pop()!;
+      if (processedEntities.has(currentEntity)) continue;
 
-    for (const relation of ctx.relations) {
-      const relationCtx = relation[$internal];
+      processedEntities.add(currentEntity);
 
-      const sources = getEntitiesWithRelationTo(ctx, relation, currentEntity);
-      for (const source of sources) {
-        if (!isEntityAlive(ctx.entityIndex, source)) continue;
-        cleanupRelationTarget(ctx, relation, source, currentEntity);
-        if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
-      }
+      for (const relation of ctx.relations) {
+        const relationCtx = relation[$internal];
 
-      if (relationCtx.autoDestroy === 'target') {
-        const targets = getRelationTargets(ctx, relation, currentEntity);
-        for (const target of targets) {
-          if (!isEntityAlive(ctx.entityIndex, target)) continue;
-          if (!processedEntities.has(target)) entityQueue.push(target);
+        const sources = getEntitiesWithRelationTo(ctx, relation, currentEntity);
+        for (const source of sources) {
+          if (!isEntityAlive(ctx.entityIndex, source)) continue;
+          cleanupRelationTarget(ctx, relation, source, currentEntity);
+          if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
+        }
+
+        if (relationCtx.autoDestroy === 'target') {
+          const targets = getRelationTargets(ctx, relation, currentEntity);
+          for (const target of targets) {
+            if (!isEntityAlive(ctx.entityIndex, target)) continue;
+            if (!processedEntities.has(target)) entityQueue.push(target);
+          }
         }
       }
-    }
 
-    if (ctx.entityDestroySubscriptions.size > 0 && currentEntity !== ctx.worldEntity) {
-      for (const sub of ctx.entityDestroySubscriptions) sub(currentEntity);
-    }
+      if (ctx.entityDestroySubscriptions.size > 0 && currentEntity !== ctx.worldEntity) {
+        for (const sub of ctx.entityDestroySubscriptions) sub(currentEntity);
+      }
 
-    const entityTraits = ctx.entityTraits.get(currentEntity);
-    if (entityTraits) {
-      for (const trait of entityTraits) {
-        removeTrait(ctx, currentEntity, trait);
+      const entityTraits = ctx.entityTraits.get(currentEntity);
+      if (entityTraits) {
+        for (const trait of entityTraits) {
+          removeTrait(ctx, currentEntity, trait);
+        }
+      }
+
+      releaseEntity(ctx.entityIndex, currentEntity);
+
+      const allQuery = ctx.queriesHashMap.get('');
+      if (allQuery) allQuery.remove(ctx, currentEntity);
+
+      ctx.entityTraits.delete(currentEntity);
+
+      // Drop entity subscribers so a recycled id never inherits them. Instances
+      // that no longer hold any are pruned from the index here.
+      for (const instance of ctx.entitySubscribedInstances) {
+        clearEntity(instance.addSubscriptions, currentEntity);
+        clearEntity(instance.removeSubscriptions, currentEntity);
+        clearEntity(instance.changeSubscriptions, currentEntity);
+        if (
+          instance.addSubscriptions.entityCount === 0 &&
+          instance.removeSubscriptions.entityCount === 0 &&
+          instance.changeSubscriptions.entityCount === 0
+        ) {
+          ctx.entitySubscribedInstances.delete(instance);
+        }
+      }
+
+      const eid = getEntityId(currentEntity);
+      const pageId = eid >>> 10;
+      const offset = eid & 1023;
+      for (let i = 0; i < ctx.entityMasks.length; i++) {
+        const page = ctx.entityMasks[i][pageId];
+        if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
       }
     }
-
-    releaseEntity(ctx.entityIndex, currentEntity);
-
-    const allQuery = ctx.queriesHashMap.get('');
-    if (allQuery) allQuery.remove(ctx, currentEntity);
-
-    ctx.entityTraits.delete(currentEntity);
-
-    // Drop entity subscribers so a recycled id never inherits them. Instances
-    // that no longer hold any are pruned from the index here.
-    for (const instance of ctx.entitySubscribedInstances) {
-      clearEntity(instance.addSubscriptions, currentEntity);
-      clearEntity(instance.removeSubscriptions, currentEntity);
-      clearEntity(instance.changeSubscriptions, currentEntity);
-      if (
-        instance.addSubscriptions.entityCount === 0 &&
-        instance.removeSubscriptions.entityCount === 0 &&
-        instance.changeSubscriptions.entityCount === 0
-      ) {
-        ctx.entitySubscribedInstances.delete(instance);
-      }
-    }
-
-    const eid = getEntityId(currentEntity);
-    const pageId = eid >>> 10;
-    const offset = eid & 1023;
-    for (let i = 0; i < ctx.entityMasks.length; i++) {
-      const page = ctx.entityMasks[i][pageId];
-      if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
-    }
+  } finally {
+    isDestroying = nested;
   }
 }
 
