@@ -13,7 +13,7 @@
     "test:build": "pnpm build && pnpm -F koota generate-tests && pnpm -F koota test run",
     "lint": "oxlint .",
     "format": "prettier --config .config/prettier/base.json --ignore-path .config/prettier/prettierignore --write .",
-    "typecheck": "pnpm -r --filter './packages/*' --filter '!./packages/publish' exec tsc --noEmit"
+    "typecheck": "pnpm -r --filter './packages/*' --filter './benches' --filter '!./packages/publish' exec tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
