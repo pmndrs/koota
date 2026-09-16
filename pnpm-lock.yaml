@@ -395,6 +395,49 @@ importers:
         specifier: workspace:*
         version: link:../../../.config/typescript
 
+  examples/tower-defense:
+    dependencies:
+      '@react-three/drei':
+        specifier: 'catalog:'
+        version: 10.7.7(@react-three/fiber@9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1))(@types/react@19.2.18)(@types/three@0.185.4)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1)
+      '@react-three/fiber':
+        specifier: 'catalog:'
+        version: 9.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(three@0.185.1)
+      koota:
+        specifier: workspace:*
+        version: link:../../packages/publish
+      math:
+        specifier: 0.0.0-canary-20260911-a1f682a9
+        version: 0.0.0-canary-20260911-a1f682a9
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.8(react@19.2.8)
+      three:
+        specifier: 'catalog:'
+        version: 0.185.1
+    devDependencies:
+      '@config/typescript':
+        specifier: workspace:*
+        version: link:../../.config/typescript
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.5(@types/react@19.2.18)
+      '@types/three':
+        specifier: 'catalog:'
+        version: 0.185.4
+      '@vitejs/plugin-react':
+        specifier: ^5.1.1
+        version: 5.1.2(supports-color@8.1.1)(vite@8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.22.4))
+      vite:
+        specifier: 'catalog:'
+        version: 8.2.2(@types/node@24.13.3)(esbuild@0.28.2)(tsx@4.22.4)
+
   packages/collections:
     dependencies:
       '@pmndrs/labs':
@@ -2244,6 +2287,9 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  math@0.0.0-canary-20260911-a1f682a9:
+    resolution: {integrity: sha512-iS4hF0ZbnYtJJbhiIsN+3w+pTUdU7jjxSD/q0bkAbnjDiOwquKzdcQkHw/y07fHD2SPiwyDNY7e0ezP+Dr7eFg==}
 
   math@1.0.0-canary-37519dcd-20260903:
     resolution: {integrity: sha512-aul1nzD8ob5wKMKVQqOXe5ufT/xmiTHxObL81J2ImgNRwpRg+r7IeWOQ2WnD5W/cvpZc7gySwXs0YjVpDtahTQ==}
@@ -4286,6 +4332,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  math@0.0.0-canary-20260911-a1f682a9: {}
 
   math@1.0.0-canary-37519dcd-20260903: {}
 

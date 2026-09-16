@@ -1,0 +1,29 @@
+{
+  "name": "@examples/tower-defense",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-three/drei": "catalog:",
+    "@react-three/fiber": "catalog:",
+    "koota": "workspace:*",
+    "math": "0.0.0-canary-20260911-a1f682a9",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@config/typescript": "workspace:*",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "catalog:"
+  }
+}
