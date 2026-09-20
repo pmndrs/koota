@@ -3,6 +3,7 @@ import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type { AoSFactory, Schema, Store, StoreType } from '../storage';
+import type { WorldContext } from '../world';
 import type { Subscriptions } from './subscriptions';
 
 // Backwards-compatible alias (the trait "type" is the storage layout).
@@ -17,13 +18,12 @@ export type Trait<TSchema extends Schema = any> = {
   readonly id: number;
   readonly schema: TSchema;
   [$internal]: {
-    set: (index: number, store: any, value: TraitValue<TSchema>) => void;
-    fastSet: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
-    fastSetWithChangeDetection: (index: number, store: any, value: TraitValue<TSchema>) => boolean;
-    get: (index: number, store: any) => TraitRecord<TSchema>;
     id: number;
-    createStore: () => Store<TSchema>;
-    /** Reference to parent relation if this trait is owned by a relation */
+    createStore(): Store<TSchema>;
+    add(ctx: WorldContext, index: number, store: Store<TSchema>, value?: TraitValue<TSchema>): void;
+    set(ctx: WorldContext, index: number, store: Store<TSchema>, value: TraitValue<TSchema>): boolean;
+    get(ctx: WorldContext, index: number, store: Store<TSchema>): TraitRecord<TSchema>;
+    remove(ctx: WorldContext, index: number, store: Store<TSchema>): void;
     relation: Relation<any> | null;
     type: StoreType;
   };
@@ -33,7 +33,11 @@ export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'ta
 
 export type TraitTuple<T extends Trait = Trait> = [
   T,
-  T extends Trait<infer S> ? (S extends AoSFactory ? ReturnType<S> : Partial<TraitRecord<S>>) : never,
+  T extends Trait<infer S extends Schema>
+    ? S extends AoSFactory
+      ? ReturnType<S>
+      : Partial<TraitRecord<S>>
+    : never,
 ];
 
 export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair<T>;
@@ -64,10 +68,12 @@ export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> =
     ? ExtractSchema<R>
     : T extends Relation<infer R>
       ? ExtractSchema<R>
-      : T extends Trait<infer S>
+      : T extends Trait<infer S extends Schema>
         ? S
         : never;
-export type ExtractStore<T extends Trait> = T extends { [$internal]: { createStore(): infer Store } }
+export type ExtractStore<T extends Trait> = T extends {
+  [$internal]: { createStore(): infer Store };
+}
   ? Store
   : never;
 export type ExtractIsTag<T extends Trait> = T extends { [$internal]: { type: 'tag' } } ? true : false;

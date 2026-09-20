@@ -46,7 +46,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         const entity = entities[i];
         const eid = getEntityId(entity);
 
-        createSnapshots(eid, traits, stores, state);
+        createSnapshots(ctx, eid, traits, stores, state);
 
         callback(state, entity, i);
       }
@@ -79,7 +79,7 @@ export function createQueryResult<T extends QueryParameter[]>(
           const entity = entities[i];
           const eid = getEntityId(entity);
 
-          createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
+          createSnapshotsWithAtomic(ctx, eid, traits, stores, state, atomicSnapshots);
           callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
           if (!isEntityAlive(ctx.entityIndex, entity)) continue;
@@ -91,14 +91,10 @@ export function createQueryResult<T extends QueryParameter[]>(
             const newValue = state[index];
             const store = stores[index];
 
-            let changed = false;
-            if (traitCtx.type === 'aos') {
-              changed = traitCtx.fastSetWithChangeDetection(eid, store, newValue);
-              if (!changed) {
-                changed = !shallowEqual(newValue, atomicSnapshots[index]);
-              }
-            } else {
-              changed = traitCtx.fastSetWithChangeDetection(eid, store, newValue);
+            let changed = traitCtx.set(ctx, eid, store, newValue);
+            // An atomic value mutated in place is the same reference, so compare its snapshot.
+            if (!changed && traitCtx.type === 'aos') {
+              changed = !shallowEqual(newValue, atomicSnapshots[index]);
             }
 
             if (changed) changedPairs.push([entity, trait] as const);
@@ -109,7 +105,7 @@ export function createQueryResult<T extends QueryParameter[]>(
             const trait = traits[index];
             const traitCtx = trait[$internal];
             const store = stores[index];
-            traitCtx.fastSet(eid, store, state[index]);
+            traitCtx.set(ctx, eid, store, state[index]);
           }
         }
 
@@ -125,7 +121,7 @@ export function createQueryResult<T extends QueryParameter[]>(
           const entity = entities[i];
           const eid = getEntityId(entity);
 
-          createSnapshotsWithAtomic(eid, traits, stores, state, atomicSnapshots);
+          createSnapshotsWithAtomic(ctx, eid, traits, stores, state, atomicSnapshots);
           callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
           if (!isEntityAlive(ctx.entityIndex, entity)) continue;
@@ -135,14 +131,9 @@ export function createQueryResult<T extends QueryParameter[]>(
             const traitCtx = trait[$internal];
             const newValue = state[j];
 
-            let changed = false;
-            if (traitCtx.type === 'aos') {
-              changed = traitCtx.fastSetWithChangeDetection(eid, stores[j], newValue);
-              if (!changed) {
-                changed = !shallowEqual(newValue, atomicSnapshots[j]);
-              }
-            } else {
-              changed = traitCtx.fastSetWithChangeDetection(eid, stores[j], newValue);
+            let changed = traitCtx.set(ctx, eid, stores[j], newValue);
+            if (!changed && traitCtx.type === 'aos') {
+              changed = !shallowEqual(newValue, atomicSnapshots[j]);
             }
 
             if (changed) changedPairs.push([entity, trait] as const);
@@ -157,7 +148,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         for (let i = 0; i < entities.length; i++) {
           const entity = entities[i];
           const eid = getEntityId(entity);
-          createSnapshots(eid, traits, stores, state);
+          createSnapshots(ctx, eid, traits, stores, state);
           callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
           if (!isEntityAlive(ctx.entityIndex, entity)) continue;
@@ -165,7 +156,7 @@ export function createQueryResult<T extends QueryParameter[]>(
           for (let j = 0; j < traits.length; j++) {
             const trait = traits[j];
             const traitCtx = trait[$internal];
-            traitCtx.fastSet(eid, stores[j], state[j]);
+            traitCtx.set(ctx, eid, stores[j], state[j]);
           }
         }
       }
@@ -220,6 +211,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 }
 
 /* @inline */ function createSnapshots(
+  ctx: WorldContext,
   entityId: number,
   traits: Trait[],
   stores: Store<any>[],
@@ -227,13 +219,14 @@ export function createQueryResult<T extends QueryParameter[]>(
 ) {
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
-    const ctx = trait[$internal];
-    const value = ctx.get(entityId, stores[i]);
+    const traitCtx = trait[$internal];
+    const value = traitCtx.get(ctx, entityId, stores[i]);
     state[i] = value;
   }
 }
 
 /* @inline */ function createSnapshotsWithAtomic(
+  ctx: WorldContext,
   entityId: number,
   traits: Trait[],
   stores: Store<any>[],
@@ -242,10 +235,10 @@ export function createQueryResult<T extends QueryParameter[]>(
 ) {
   for (let j = 0; j < traits.length; j++) {
     const trait = traits[j];
-    const ctx = trait[$internal];
-    const value = ctx.get(entityId, stores[j]);
+    const traitCtx = trait[$internal];
+    const value = traitCtx.get(ctx, entityId, stores[j]);
     state[j] = value;
-    atomicSnapshots[j] = ctx.type === 'aos' ? { ...value } : null;
+    atomicSnapshots[j] = traitCtx.type === 'aos' ? { ...value } : null;
   }
 }
 

@@ -1,10 +1,6 @@
 export { createStore } from './stores';
-export {
-  createSetFunction,
-  createFastSetFunction,
-  createFastSetChangeFunction,
-  createGetFunction,
-} from './accessors';
+export { createAddFunction, createSetFunction, createGetFunction } from './accessors';
+export type { AddAccessor, SetAccessor, GetAccessor, RemoveAccessor } from './accessors';
 
 export { validateSchema, getSchemaDefaults } from './schema';
 

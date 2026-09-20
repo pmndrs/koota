@@ -1,143 +1,121 @@
-import type { Schema } from './types';
+import type { WorldContext } from '../world';
+import type { Schema, StoreType } from './types';
 
-function createSoASetFunction(schema: Schema) {
+// Accessors share the (ctx, index, store) prefix so a trait with custom storage can replace any of them.
+export type AddAccessor = (ctx: WorldContext, index: number, store: any, value?: any) => void;
+export type SetAccessor = (ctx: WorldContext, index: number, store: any, value: any) => boolean;
+export type GetAccessor = (ctx: WorldContext, index: number, store: any) => any;
+export type RemoveAccessor = (ctx: WorldContext, index: number, store: any) => void;
+
+function createSoASetFunction(schema: Schema): SetAccessor {
   const keys = Object.keys(schema);
-
-  const setFunctionBody = keys
+  // Pages for every key are created together, so the first key stands in for all of them.
+  const ensurePages = keys.map((key) => `store.${key}[p] = [];`).join(' ');
+  const writes = keys
     .map(
       (key) =>
-        `if ('${key}' in value) { if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key}; }`
+        `if ('${key}' in value && store.${key}[p][o] !== value.${key}) { store.${key}[p][o] = value.${key}; changed = true; }`
     )
     .join('\n    ');
 
-  const set = new Function(
+  return new Function(
+    'ctx',
     'index',
     'store',
     'value',
     `
         var p = index >>> 10, o = index & 1023;
-        ${setFunctionBody}
-        `
-  );
-
-  return set;
-}
-
-function createSoAFastSetFunction(schema: Schema) {
-  const keys = Object.keys(schema);
-
-  const setFunctionBody = keys
-    .map((key) => `if (!store.${key}[p]) store.${key}[p] = []; store.${key}[p][o] = value.${key};`)
-    .join('\n    ');
-
-  const set = new Function(
-    'index',
-    'store',
-    'value',
-    `
-        var p = index >>> 10, o = index & 1023;
-        ${setFunctionBody}
-        `
-  );
-
-  return set;
-}
-
-function createSoAFastSetChangeFunction(schema: Schema) {
-  const keys = Object.keys(schema);
-
-  const setFunctionBody = keys
-    .map(
-      (key) =>
-        `if (!store.${key}[p]) store.${key}[p] = [];
-        if (store.${key}[p][o] !== value.${key}) { store.${key}[p][o] = value.${key}; changed = true; }`
-    )
-    .join('\n    ');
-
-  const set = new Function(
-    'index',
-    'store',
-    'value',
-    `
-        var p = index >>> 10, o = index & 1023;
+        if (!store.${keys[0]}[p]) { ${ensurePages} }
         var changed = false;
-        ${setFunctionBody}
+        ${writes}
         return changed;
         `
-  );
-
-  return set;
+  ) as SetAccessor;
 }
 
-function createSoAGetFunction(schema: Schema) {
+/** Writes every key from value, falling back to the schema default. */
+function createSoAAddFunction(schema: Schema): AddAccessor {
   const keys = Object.keys(schema);
+  const ensurePages = keys.map((key) => `store.${key}[p] = [];`).join(' ');
+  const writes = keys
+    .map((key) => {
+      const fallback =
+        typeof (schema as Record<string, unknown>)[key] === 'function'
+          ? `schema.${key}()`
+          : `schema.${key}`;
+      return `store.${key}[p][o] = value != null && '${key}' in value ? value.${key} : ${fallback};`;
+    })
+    .join('\n    ');
 
+  return new Function(
+    'schema',
+    `
+      return function (ctx, index, store, value) {
+        var p = index >>> 10, o = index & 1023;
+        if (!store.${keys[0]}[p]) { ${ensurePages} }
+        ${writes}
+      };
+      `
+  )(schema) as AddAccessor;
+}
+
+function createSoAGetFunction(schema: Schema): GetAccessor {
+  const keys = Object.keys(schema);
   const objectLiteral = `{ ${keys.map((key) => `${key}: store.${key}[p][o]`).join(', ')} }`;
 
-  const get = new Function(
+  return new Function(
+    'ctx',
     'index',
     'store',
     `
         var p = index >>> 10, o = index & 1023;
         return ${objectLiteral};
         `
-  );
-
-  return get;
+  ) as GetAccessor;
 }
 
-function createAoSSetFunction(_schema: Schema) {
-  return (index: number, store: any, value: any) => {
-    const p = index >>> 10;
-    if (!store[p]) store[p] = [];
-    store[p][index & 1023] = value;
-  };
-}
-
-function createAoSFastSetChangeFunction(_schema: Schema) {
-  return (index: number, store: any, value: any) => {
+function createAoSSetFunction(_schema: Schema): SetAccessor {
+  return (_ctx, index, store, value) => {
     const p = index >>> 10,
       o = index & 1023;
     if (!store[p]) store[p] = [];
-    let changed = false;
-    if (value !== store[p][o]) {
-      store[p][o] = value;
-      changed = true;
-    }
-    return changed;
+    if (value === store[p][o]) return false;
+    store[p][o] = value;
+    return true;
   };
 }
 
-function createAoSGetFunction(_schema: Schema) {
-  return (index: number, store: any) => {
+function createAoSAddFunction(schema: Schema): AddAccessor {
+  return (_ctx, index, store, value) => {
+    const p = index >>> 10;
+    if (!store[p]) store[p] = [];
+    store[p][index & 1023] = value ?? (schema as () => unknown)();
+  };
+}
+
+function createAoSGetFunction(_schema: Schema): GetAccessor {
+  return (_ctx, index, store) => {
     const page = store[index >>> 10];
     return page ? page[index & 1023] : undefined;
   };
 }
 
 const noop = () => {};
-const createTagNoop = () => noop;
 
-export const createSetFunction = {
+export const createAddFunction: Record<StoreType, (schema: Schema) => AddAccessor> = {
+  soa: createSoAAddFunction,
+  aos: createAoSAddFunction,
+  tag: () => noop,
+};
+
+export const createSetFunction: Record<StoreType, (schema: Schema) => SetAccessor> = {
   soa: createSoASetFunction,
   aos: createAoSSetFunction,
-  tag: createTagNoop,
+  tag: () => () => false,
 };
 
-export const createFastSetFunction = {
-  soa: createSoAFastSetFunction,
-  aos: createAoSSetFunction,
-  tag: createTagNoop,
-};
-
-export const createFastSetChangeFunction = {
-  soa: createSoAFastSetChangeFunction,
-  aos: createAoSFastSetChangeFunction,
-  tag: createTagNoop,
-};
-
-export const createGetFunction = {
+export const createGetFunction: Record<StoreType, (schema: Schema) => GetAccessor> = {
   soa: createSoAGetFunction,
   aos: createAoSGetFunction,
-  tag: createTagNoop,
+  tag: () => noop,
 };

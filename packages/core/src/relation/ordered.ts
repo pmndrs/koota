@@ -1,16 +1,30 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { registerTrait, trait } from '../trait/trait';
+import { createTraitContext, defineTraitProperties, registerTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
-import type { Trait } from '../trait/types';
+import type { Trait, TraitValue } from '../trait/types';
 import type { WorldContext } from '../world';
 import { OrderedList } from './ordered-list';
 import { $orderedTargetsTrait } from './symbols';
 import type { OrderedRelation, Relation } from './types';
 
 export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation<T> {
-  const orderedTrait = trait(() => [] as Entity[]);
+  const schema = () => [] as Entity[];
+  const context = createTraitContext(schema, {
+    // Each entity gets a list bound to itself, so the default is built per add.
+    add: (ctx, index, store, value) => {
+      const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[index]];
+      const list = value ?? new OrderedList(ctx, entity, relation, orderedTrait);
+      context.set(ctx, index, store, list);
+    },
+  });
+
+  const orderedTrait = Object.assign((params?: TraitValue<any>) => [orderedTrait, params], {
+    [$internal]: context,
+  }) as unknown as OrderedRelation<T>;
+
+  defineTraitProperties(orderedTrait, context.id, schema);
 
   Object.defineProperty(orderedTrait, $orderedTargetsTrait, {
     value: { relation },
@@ -19,7 +33,7 @@ export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation
     configurable: false,
   });
 
-  return orderedTrait as unknown as OrderedRelation<T>;
+  return orderedTrait;
 }
 
 export /* @inline @pure */ function isOrderedTrait(trait: Trait): trait is OrderedRelation {
@@ -50,7 +64,7 @@ export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRe
   const getList = (parent: Entity): OrderedList | undefined => {
     const eid = getEntityId(parent);
     return entityMasks[generationId][eid >>> 10][eid & 1023] & bitflag
-      ? (traitCtx.get(eid, store) as OrderedList)
+      ? (traitCtx.get(ctx, eid, store) as OrderedList)
       : undefined;
   };
 
