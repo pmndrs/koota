@@ -163,7 +163,7 @@ const entity = world.spawn(Position, Velocity)
 
 // Read/write traits
 entity.get(Position) // Read trait data
-entity.set(Position, { x: 10 }) // Write (triggers change events)
+entity.set(Position, { x: 10 }) // Write (triggers change events, throws if the trait is missing)
 entity.add(IsPlayer) // Add trait
 entity.remove(Velocity) // Remove trait
 entity.has(Position) // Check if has trait

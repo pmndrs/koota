@@ -376,10 +376,19 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   value: any,
   triggerChanged: boolean
 ) {
-  const traitCtx = trait[$internal];
-  const data = getTraitInstance(ctx.traitInstances, trait)!;
-  const store = data.store;
+  const data = getTraitInstance(ctx.traitInstances, trait);
   const index = getEntityId(entity);
+
+  // Membership is read from the instance mask so a missing trait throws before any write.
+  if (
+    data === undefined ||
+    (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0
+  ) {
+    throw new Error('Koota: Add the trait before setting it.');
+  }
+
+  const traitCtx = trait[$internal];
+  const store = data.store;
 
   value instanceof Function && (value = value(traitCtx.get(ctx, index, store)));
 
