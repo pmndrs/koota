@@ -74,6 +74,15 @@ describe('Trait', () => {
     expect(entity.has(Tag)).toBe(false);
   });
 
+  it('should throw when setting a trait the entity does not have', () => {
+    const entity = world.spawn(Position);
+    expect(() => entity.set(Test, { current: 2 })).toThrow(/Add the trait/);
+
+    entity.add(Test);
+    entity.set(Test, { current: 2 });
+    expect(entity.get(Test)?.current).toBe(2);
+  });
+
   it('should create SoA stores when registered by adding', () => {
     const entity = world.spawn();
 

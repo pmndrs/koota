@@ -22,6 +22,7 @@ const result = entity.has(Position)
 const position = entity.get(Position)
 
 // Sets the trait and triggers a change event
+// Throws if the entity does not have the trait
 entity.set(Position, { x: 10, y: 10 })
 // Can take a callback with the previous state passed in
 entity.set(Position, (prev) => ({
