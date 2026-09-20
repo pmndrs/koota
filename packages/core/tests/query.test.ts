@@ -483,6 +483,40 @@ describe('Query', () => {
     expect(world.query(ChildOf(IsPlayer))).not.toContain(childC);
   });
 
+  it('keeps concrete, wildcard and cached target queries distinct', () => {
+    const parent = world.spawn(IsPlayer);
+    const other = world.spawn();
+    const first = world.spawn(Position, ChildOf(parent));
+    const second = world.spawn(Position, ChildOf(other));
+    const concrete = createQuery(Position, ChildOf(parent));
+    const wildcard = createQuery(Position, ChildOf('*'));
+    const filtered = createQuery(Position, ChildOf(createQuery(IsPlayer)));
+
+    expect(new Set([concrete, wildcard, filtered]).size).toBe(3);
+    expect([...world.query(concrete)]).toEqual([first]);
+    expect([...world.query(wildcard)]).toEqual([first, second]);
+    expect([...world.query(filtered)]).toEqual([first]);
+    expect(createQuery(ChildOf(parent), Position)).toBe(concrete);
+    expect(createQuery(ChildOf(IsPlayer), Position)).toBe(filtered);
+  });
+
+  it('reuses nested target queries without losing surrounding filters', () => {
+    const OwnedBy = relation();
+    const group = world.spawn(IsActive);
+    const parent = world.spawn(IsPlayer, ChildOf(group));
+    const owner = world.spawn(Foo);
+    const positioned = world.spawn(Position, ChildOf(parent), OwnedBy(owner));
+    const named = world.spawn(Name, ChildOf(parent), OwnedBy(owner));
+    world.spawn(Position, ChildOf(parent));
+
+    const target = createQuery(IsPlayer, ChildOf(IsActive));
+    const query = createQuery(Position, ChildOf(IsPlayer, ChildOf(IsActive)), OwnedBy(Foo));
+    expect(createQuery(OwnedBy(Foo), ChildOf(target), Position)).toBe(query);
+    expect([...world.query(query)]).toEqual([positioned]);
+    expect([...world.query(Name, ChildOf(target), OwnedBy(Foo))]).toEqual([named]);
+    expect([...world.query(query)]).toEqual([positioned]);
+  });
+
   it('updates relation target filters when target query membership changes', () => {
     const onAdd = vi.fn();
     const onRemove = vi.fn();

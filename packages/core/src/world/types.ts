@@ -25,6 +25,7 @@ export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   entityMasks: Uint32Array[][];
   entityTraits: Map<number, Set<Trait>>;
+  names: Map<string, Entity>;
   bitflag: number;
   traitInstances: (TraitInstance | undefined)[];
   traits: Set<Trait>;
@@ -58,6 +59,7 @@ export type World = {
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
   spawn(...traits: ConfigurableTrait[]): Entity;
+  lookup(name: string): Entity | undefined;
   has(entity: Entity): boolean;
   has(trait: Trait): boolean;
   has(target: Entity | Trait): boolean;

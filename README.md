@@ -515,6 +515,29 @@ world.onAdd(ChildOf(parent), (entity, target) => {})
 world.onAdd(ChildOf('*'), (entity, target) => {})
 ```
 
+### Named entities
+
+Koota exports a `Name` trait that gives an entity a unique name within its world. An entity can then be filtered by name with `Name('name')` or looked up directly with `world.lookup('name')`.
+
+```js
+import { createQuery, Name } from 'koota'
+
+// Only matches an entity named 'player' with a Position trait
+const player = world.spawn(Name('player'), Position)
+
+world.lookup('player') // Returns player, or undefined if no entity has the name
+player.name() // 'player'
+player.has(Name('player')) // true
+```
+
+Spawning or renaming to a name another entity holds throws, and the name is freed again when the trait is removed or the entity is destroyed. Rename through `set` or `updateEach`. Both keep name lookups and query subscriptions current. Reading the `Name` column through `getPages()` is safe, but writing it there bypasses these updates and desyncs the index.
+
+```js
+player.set(Name, { value: 'hero' })
+world.lookup('player') // undefined
+world.lookup('hero') // player
+```
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -837,6 +860,11 @@ const entities = world.query(Position)
 // Return Entity
 const entity = world.queryFirst(Position)
 
+// Get the entity with a unique name, see Named entities
+// Accepts a string
+// Return Entity | undefined
+const player = world.lookup('player')
+
 // The trait API is identical to entity's
 
 // Add a trait to the world
@@ -947,6 +975,10 @@ const id = entity.id()
 // Get the entity generation
 // Return number
 const generation = entity.generation()
+
+// Get the entity's name if it has the Name trait
+// Return string | undefined
+const name = entity.name()
 
 // Destroys the entity making its number no longer valid
 entity.destroy()

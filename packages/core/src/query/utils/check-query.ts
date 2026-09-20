@@ -4,6 +4,10 @@ import type { WorldContext } from '../../world';
 import type { QueryInstance } from '../types';
 
 export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Entity): boolean {
+  if (query.name !== undefined && (query.name === null || ctx.names.get(query.name) !== entity)) {
+    return false;
+  }
+
   const staticBitmasks = query.staticBitmasks;
   const generations = query.generations;
   const eid = getEntityId(entity);

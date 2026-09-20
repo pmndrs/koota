@@ -591,8 +591,7 @@ function markDirty(
 
 /**
  * Re-evaluate the queries that include a trait after its membership bit changed.
- * An add clears any pending removal first so the entity cannot be dropped by a
- * removal queued before it rejoined.
+ * Named queries keep pending removals until the entity matches again.
  */
 export function reconcileTraitQueries(
   ctx: WorldContext,
@@ -616,7 +615,7 @@ function reconcileQueries(
   adding: boolean
 ) {
   for (const query of queries) {
-    if (adding) query.toRemove.remove(entity);
+    if (adding && query.name === undefined) query.toRemove.remove(entity);
     const match = query.relationFilters?.length
       ? checkQueryWithRelations(ctx, query, entity)
       : query.check(ctx, entity);
@@ -635,7 +634,7 @@ function reconcileTrackingQueries(
   adding: boolean
 ) {
   for (const query of instance.trackingQueries) {
-    if (adding) query.toRemove.remove(entity);
+    if (adding && query.name === undefined) query.toRemove.remove(entity);
     const match = query.relationFilters?.length
       ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
       : query.checkTracking(ctx, entity, eventType, generationId, bitflag);

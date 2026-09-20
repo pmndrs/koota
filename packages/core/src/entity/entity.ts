@@ -3,6 +3,8 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import { dropQuery, IsExcluded, queryInternal } from '../query/query';
 import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
+import { isNameConfig } from '../name/name-index';
+import type { NameConfig } from '../name/types';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
@@ -35,7 +37,14 @@ export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]):
   }
 
   ctx.entityTraits.set(entity, new Set());
-  addTraitsToAliveEntity(ctx, entity, traits);
+
+  // A trait that rejects its value must not leave a half-built entity in the world.
+  try {
+    addTraitsToAliveEntity(ctx, entity, traits);
+  } catch (error) {
+    destroyEntity(ctx, entity);
+    throw error;
+  }
 
   /* @cold */ if (
     ctx.entitySpawnSubscriptions.size > 0 &&
@@ -161,12 +170,13 @@ export /* @inline @pure */ function getEntityContext(entity: Entity): WorldConte
 export /* @inline */ function entityHas(
   ctx: WorldContext,
   entity: Entity,
-  trait: Trait | RelationPair
+  trait: Trait | RelationPair | NameConfig
 ): boolean {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
+  if (isNameConfig(trait)) return ctx.names.get(trait[1].value) === entity;
   if (!isRelationPair(trait)) return hasTrait(ctx, entity, trait);
   return hasEntityRelationPair(ctx, entity, trait);
 }

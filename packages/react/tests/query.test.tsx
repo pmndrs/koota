@@ -1,5 +1,6 @@
 import {
   createWorld,
+  Name,
   type Entity,
   type QueryResult,
   relation,
@@ -67,6 +68,35 @@ describe('useQuery', () => {
     });
 
     expect(entities.length).toBe(1);
+  });
+
+  it('follows a named entity through rename, replacement and reset', async () => {
+    const { result, unmount } = renderHook(() => useQuery(Name('player'), Position), {
+      wrapper: ({ children }) => <WorldProvider world={world}>{children}</WorldProvider>,
+    });
+    expect(result.current).toHaveLength(0);
+    let player: Entity;
+    await act(async () => {
+      player = world.spawn(Name('player'), Position);
+    });
+    expect([...result.current]).toEqual([player!]);
+    await act(async () => {
+      player!.set(Name, { value: 'hero' });
+    });
+    expect(result.current).toHaveLength(0);
+    await act(async () => {
+      player = world.spawn(Name('player'), Position);
+    });
+    expect([...result.current]).toEqual([player!]);
+    await act(async () => {
+      world.reset();
+    });
+    expect(result.current).toHaveLength(0);
+    await act(async () => {
+      player = world.spawn(Name('player'), Position);
+    });
+    expect([...result.current]).toEqual([player!]);
+    unmount();
   });
 
   it.fails('captures entities added before useEffect runs', async () => {

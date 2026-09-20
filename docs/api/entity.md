@@ -49,6 +49,10 @@ const id = entity.id()
 // Return number
 const generation = entity.generation()
 
+// Get the entity's name if it has the Name trait
+// Return string | undefined
+const name = entity.name()
+
 // Destroys the entity making its number no longer valid
 entity.destroy()
 ```
@@ -60,3 +64,27 @@ const { entityId, generation, worldId } = unpackEntity(entity)
 ```
 
 See [assertion configuration](asserts.md) for development checks and production overrides.
+
+## Named entities
+
+The built-in `Name` trait gives an entity a unique name within its world. `Name('player')` works in `spawn`, `add`, `has` and `query`, and `world.lookup` resolves a name through an index.
+
+```js
+import { Name } from 'koota'
+
+const player = world.spawn(Name('player'), Position)
+
+world.lookup('player') // player
+player.name() // 'player'
+player.has(Name('player')) // true
+
+// Rename through set or updateEach
+player.set(Name, { value: 'hero' })
+
+// Name filters compose with other query parameters
+world.query(Name('hero'), Position)
+```
+
+Names are unique per world. Taking a name another entity holds throws. The name is freed when the trait is removed or the entity is destroyed. Names can also be changed through `world.query(Name).updateEach`, which keeps the index current. Reading the `Name` column through `getPages()` is safe. Writing it there bypasses the index and query updates, so rename through `set` or `updateEach` instead. Name filters work in `world.query`, `world.queryFirst`, cached queries and query subscriptions. Cached queries follow the current owner of the name in each world. Subscriptions react to renaming, destruction and changes to the other queried traits.
+
+Names are non-empty strings. Each world stores a Map from name to entity, with no global name registry. Look up an entity by name when needed, or cache the entity itself for repeated access.

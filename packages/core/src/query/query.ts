@@ -2,6 +2,7 @@ import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { isNameConfig } from '../name/name-index';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
@@ -85,6 +86,13 @@ export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity |
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
+  if (
+    query.name !== undefined &&
+    !query.isTracking &&
+    query.entities.has(entity) &&
+    !query.toRemove.has(entity)
+  )
+    return;
   query.toRemove.remove(entity);
   query.entities.add(entity);
 
@@ -191,6 +199,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     version: 0,
     ctx,
     parameters,
+    name: undefined,
     hash: '',
     refId: -1,
     traits: [],
@@ -233,6 +242,15 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
   for (let i = 0; i < parameters.length; i++) {
     const parameter = parameters[i];
+
+    if (isNameConfig(parameter)) {
+      const [trait, { value }] = parameter;
+      if (query.name === undefined) query.name = value;
+      else if (query.name !== value) query.name = null;
+      if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
+      query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, trait)!);
+      continue;
+    }
 
     if (isRelationPair(parameter)) {
       const relation = parameter.relation;
@@ -326,7 +344,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
     });
   }
 
-  if (query.traitInstances.forbidden.length > 0) ctx.notQueries.add(query);
+  if (query.name === undefined && query.traitInstances.forbidden.length > 0)
+    ctx.notQueries.add(query);
 
   const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
 
@@ -380,6 +399,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
+  // A named query can only match the current owner, including on its first run.
+  const namedEntity = typeof query.name === 'string' ? ctx.names.get(query.name) : undefined;
+  const candidates =
+    query.name === undefined ? ctx.entityIndex.dense : namedEntity === undefined ? [] : [namedEntity];
+
   if (query.trackingGroups.length > 0) {
     for (const group of query.trackingGroups) {
       const { type, id, logic, bitmasks } = group;
@@ -387,7 +411,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
       const dirtyMask = ctx.dirtyMasks.get(id)!;
       const changedMask = ctx.changedMasks.get(id)!;
 
-      for (const entity of ctx.entityIndex.dense) {
+      for (const entity of candidates) {
+        if (query.name !== undefined && !query.check(ctx, entity)) continue;
         if (query.entities.has(entity)) continue;
 
         const eid = getEntityId(entity);
@@ -458,9 +483,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
       }
     }
   } else {
-    const entities = ctx.entityIndex.dense;
-    for (let i = 0; i < entities.length; i++) {
-      const entity = entities[i];
+    for (let i = 0; i < candidates.length; i++) {
+      const entity = candidates[i];
       const match = hasRelationFilters
         ? checkQueryWithRelations(ctx, query, entity)
         : query.check(ctx, entity);

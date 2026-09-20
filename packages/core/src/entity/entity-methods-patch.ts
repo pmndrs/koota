@@ -1,6 +1,8 @@
 import { setChanged } from '../query/modifiers/changed';
 import { getFirstRelationTarget, getRelationTargets } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
+import { Name } from '../name/name';
+import type { NameConfig } from '../name/types';
 import { addTrait, getTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
@@ -21,7 +23,7 @@ Number.prototype.remove = function (this: Entity, ...traits: (Trait | RelationPa
 };
 
 // @ts-expect-error
-Number.prototype.has = function (this: Entity, trait: Trait | RelationPair) {
+Number.prototype.has = function (this: Entity, trait: Trait | RelationPair | NameConfig) {
   return entityHas(getEntityContext(this), this, trait);
 };
 
@@ -82,6 +84,11 @@ Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
 //@ts-expect-error
 Number.prototype.id = function (this: Entity) {
   return getEntityId(this);
+};
+
+// @ts-expect-error
+Number.prototype.name = function (this: Entity) {
+  return getTrait(getEntityContext(this), this, Name)?.value;
 };
 
 // @ts-expect-error

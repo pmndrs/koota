@@ -34,6 +34,10 @@ const rareInventories = world.query(Contains(IsRare))
 // Return Entity
 const entity = world.queryFirst(Position)
 
+// Get the entity with a unique name
+// Return Entity | undefined
+const player = world.lookup('player')
+
 // Subscribe to add, remove or change events for entity traits
 // Return unsub function
 const unsub = world.onAdd(Position, (entity) => {})

@@ -183,6 +183,23 @@ entity.id() // Just the entity ID (reused after destroy)
 entity // Full packed number (unique forever)
 ```
 
+**Named entities**
+
+The built-in `Name` trait gives an entity a unique name per world. Use `world.lookup` to address one entity by name. `Name('x')` also works in cached queries and query subscriptions. Cached queries follow the current owner in each world, and subscriptions react to name and trait membership changes.
+
+```typescript
+const player = world.spawn(Name('player'), Position)
+world.lookup('player') // player or undefined
+player.name() // 'player'
+player.set(Name, { value: 'hero' }) // Rename, throws if the name is taken
+world.query(Name('hero'), Position) // Name filter plus normal params
+const Hero = createQuery(Name('hero'), Position)
+world.onQueryAdd(Hero, (entity) => {})
+world.query(Hero)
+```
+
+Names are non-empty strings stored in a per-world Map from name to entity. Cache the entity itself for repeated access. Renaming through `set` or `updateEach`, removal and destruction update the Map, and names can be reused across worlds. To rename in `updateEach`, include the `Name` trait in the query and assign `name.value`. Reading the `Name` column through `getPages()` is safe, but writing it there bypasses the index and desyncs lookups.
+
 **Typing**
 
 Use `TraitRecord` to get the type that `entity.get()` returns

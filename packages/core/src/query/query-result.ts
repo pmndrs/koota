@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import { isNameConfig } from '../name/name-index';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
@@ -28,7 +29,7 @@ import type {
 export function createQueryResult<T extends QueryParameter[]>(
   ctx: WorldContext,
   entities: Entity[],
-  query: QueryInstance,
+  query: QueryInstance | null,
   params: QueryParameter[]
 ): QueryResult<T> {
   const traits: Trait[] = [];
@@ -36,7 +37,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
   getQueryStores(params, traits, stores, ctx);
   let usesCustomOrder = false;
-  const version = query.version;
+  const version = query?.version;
   let layout: QueryLayout | undefined;
 
   const results = Object.assign(entities, {
@@ -73,7 +74,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 
     getPages() {
       layout ??=
-        usesCustomOrder || query.isTracking || query.version !== version
+        !query || usesCustomOrder || query.isTracking || query.version !== version
           ? createQueryLayout(entities)
           : getCachedQueryLayout(query, entities);
       return getQueryPages(traits, stores, layout) as QueryPage<T>[];
@@ -119,13 +120,13 @@ function createIterationBuffers(): QueryIterationBuffers {
  */
 function takeIterationBuffers(
   ctx: WorldContext,
-  query: QueryInstance,
+  query: QueryInstance | null,
   entities: Entity[],
   traits: Trait[],
   stores: Store<any>[]
 ): QueryIterationBuffers {
-  const buffers = query.iterationBuffers ?? createIterationBuffers();
-  query.iterationBuffers = buffers.next;
+  const buffers = query?.iterationBuffers ?? createIterationBuffers();
+  if (query) query.iterationBuffers = buffers.next;
   const prepared = buffers.traits;
   let matches = buffers.iterators !== undefined && prepared.length === traits.length;
   for (let i = 0; matches && i < traits.length; i++) matches = prepared[i] === traits[i];
@@ -158,7 +159,7 @@ function prepareIterationBuffers(
 }
 
 /** Releases references to user objects, then returns the buffers to the pool. */
-function releaseIterationBuffers(query: QueryInstance, buffers: QueryIterationBuffers) {
+function releaseIterationBuffers(query: QueryInstance | null, buffers: QueryIterationBuffers) {
   buffers.iterators!.release(buffers);
   for (const snapshot of buffers.atomicSnapshots) {
     if (snapshot === undefined) continue;
@@ -169,14 +170,16 @@ function releaseIterationBuffers(query: QueryInstance, buffers: QueryIterationBu
       }
     }
   }
-  buffers.next = query.iterationBuffers;
-  query.iterationBuffers = buffers;
+  if (query) {
+    buffers.next = query.iterationBuffers;
+    query.iterationBuffers = buffers;
+  }
 }
 
 /** Bumps trait versions and fills modes. Returns how many traits are tracked. */
 function trackTraits(
   ctx: WorldContext,
-  query: QueryInstance,
+  query: QueryInstance | null,
   traits: Trait[],
   modes: number[],
   changeDetection: QueryResultOptions['changeDetection']
@@ -190,7 +193,7 @@ function trackTraits(
       changeDetection === 'always' ||
       (changeDetection !== 'never' &&
         (hasSubscribers(instance.changeSubscriptions) ||
-          (query.hasChangedModifiers && query.changedTraits.has(trait))));
+          (query?.hasChangedModifiers && query.changedTraits.has(trait))));
     modes[i] = tracked ? (trait[$internal].type === 'aos' ? 2 : 1) : 0;
     if (tracked) trackedCount++;
   }
@@ -215,7 +218,7 @@ export function getQueryStores<T extends QueryParameter[]>(
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
 
-    if (isRelationPair(param)) continue;
+    if (isNameConfig(param) || isRelationPair(param)) continue;
 
     if (isModifier(param)) {
       if (param.type === 'not') continue;
