@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createChanged, createWorld, ordered, relation } from '../src';
 
 describe('Ordered relations', () => {
@@ -6,6 +6,44 @@ describe('Ordered relations', () => {
 
   beforeEach(() => {
     world.reset();
+  });
+
+  it('initializes ordered lists before query add observers run', () => {
+    const ChildOf = relation();
+    const OrderedChildren = ordered(ChildOf);
+    const added = vi.fn((parent) => {
+      expect(parent.get(OrderedChildren)).toHaveLength(0);
+    });
+    world.onQueryAdd([OrderedChildren], added);
+
+    const parent = world.spawn(OrderedChildren);
+    const child = world.spawn();
+    expect(added).toHaveBeenCalledExactlyOnceWith(parent);
+
+    parent.get(OrderedChildren)!.push(child);
+    expect(child.has(ChildOf(parent))).toBe(true);
+  });
+
+  it('creates a fresh owner-bound list when an ordered trait is re-added', () => {
+    const ChildOf = relation();
+    const OrderedChildren = ordered(ChildOf);
+    const parent = world.spawn(OrderedChildren);
+    const previous = parent.get(OrderedChildren);
+
+    parent.remove(OrderedChildren);
+    parent.add(OrderedChildren);
+    const children = parent.get(OrderedChildren)!;
+    expect(children).not.toBe(previous);
+    expect(children).toHaveLength(0);
+
+    const child = world.spawn();
+    world.query(OrderedChildren).updateEach(([list]) => list.push(child));
+    expect(child.has(ChildOf(parent))).toBe(true);
+    world.query(OrderedChildren).readEach(([list], entity) => {
+      expect(entity).toBe(parent);
+      expect(list).toBe(children);
+      expect(list).toEqual(expect.arrayContaining([child]));
+    });
   });
 
   it('should maintain ordered list when adding children via relation', () => {

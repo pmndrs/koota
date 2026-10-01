@@ -5,11 +5,11 @@ export type TraitInstanceArray = (TraitInstance | undefined)[];
 /**
  * Get TraitInstance by trait ID
  */
-export /* @inline @pure */ function getTraitInstance(
+export /* @inline @pure */ function getTraitInstance<T extends Trait>(
   traitData: TraitInstanceArray,
-  trait: Trait
-): TraitInstance | undefined {
-  return traitData[trait.id];
+  trait: T
+): TraitInstance<T> | undefined {
+  return traitData[trait.id] as TraitInstance<T> | undefined;
 }
 
 /**

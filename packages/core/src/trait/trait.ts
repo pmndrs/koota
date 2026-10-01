@@ -4,8 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { setChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { getOrderedTraitRelation, isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
-import { OrderedList } from '../relation/ordered-list';
+import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
   getFirstRelationTarget,
@@ -18,12 +17,11 @@ import {
   setRelationData,
   setRelationDataAtIndex,
 } from '../relation/relation';
-import type { OrderedRelation, Relation, RelationPair } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { ensureMaskPage } from '../entity/utils/paged-mask';
 import {
-  createFastSetChangeFunction,
-  createFastSetFunction,
+  createAddFunction,
   createGetFunction,
   createSetFunction,
   createStore,
@@ -42,6 +40,8 @@ import type {
   ExtractStore,
   TagTrait,
   Trait,
+  TraitAccessors,
+  TraitContext,
   TraitInstance,
   TraitValue,
 } from './types';
@@ -49,42 +49,67 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+/**
+ * Create standard paged storage accessors, then allow typed overrides to delegate to them.
+ * Storage layout and allocation stay with the core.
+ */
+export function createTraitContext<S extends Schema>(
+  schema: S,
+  customize?: (defaults: Readonly<TraitAccessors<S>>) => Partial<TraitAccessors<S>>
+): TraitContext<S> {
   const isAoS = typeof schema === 'function';
   const isTag = !isAoS && Object.keys(schema).length === 0;
-  const traitType: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
+  const type: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
   validateSchema(schema);
 
-  const id = traitId++;
-  const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
-    [$internal]: {
-      id: id,
-      set: createSetFunction[traitType](schema),
-      fastSet: createFastSetFunction[traitType](schema),
-      fastSetWithChangeDetection: createFastSetChangeFunction[traitType](schema),
-      get: createGetFunction[traitType](schema),
-      createStore: () => createStore<S>(schema),
-      relation: null,
-      type: traitType,
-    },
-  }) as Trait<Norm<S>>;
+  const defaults: TraitAccessors<S> = {
+    add: createAddFunction[type](schema),
+    set: createSetFunction[type](schema),
+    get: createGetFunction[type](schema),
+    remove: () => {},
+  };
+  const accessors = customize?.(defaults);
 
-  Object.defineProperty(Trait, 'id', {
+  return {
+    id: traitId++,
+    createStore: () => createStore(schema),
+    add: accessors?.add ?? defaults.add,
+    set: accessors?.set ?? defaults.set,
+    get: accessors?.get ?? defaults.get,
+    remove: accessors?.remove ?? defaults.remove,
+    relation: null,
+    type,
+  };
+}
+
+/** Define the public id and schema as read-only properties on a trait object. */
+export function defineTraitProperties(target: object, id: number, schema: Schema) {
+  Object.defineProperty(target, 'id', {
     value: id,
     writable: false,
     enumerable: true,
     configurable: false,
   });
 
-  Object.defineProperty(Trait, 'schema', {
+  Object.defineProperty(target, 'schema', {
     value: schema,
     writable: false,
     enumerable: true,
     configurable: false,
   });
+}
+
+function createTrait(schema?: undefined | Record<string, never>): TagTrait;
+function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
+function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+  const context = createTraitContext(schema);
+  const Trait = Object.assign(
+    (params: TraitValue<Norm<S>>): [Trait<Norm<S>>, TraitValue<Norm<S>>] => [Trait, params],
+    { [$internal]: context }
+  ) as Trait<Norm<S>>;
+
+  defineTraitProperties(Trait, context.id, schema);
 
   return Trait;
 }
@@ -124,11 +149,6 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
   }
 }
 
-function getOrderedTrait(ctx: WorldContext, entity: Entity, trait: OrderedRelation): OrderedList {
-  const relation = getOrderedTraitRelation(trait);
-  return new OrderedList(ctx, entity, relation, trait);
-}
-
 export function addTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
@@ -147,24 +167,14 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
       trait = config as Trait;
     }
 
-    const data = addTraitToEntity(ctx, entity, trait);
-    if (!data) continue;
+    if (hasTrait(ctx, entity, trait)) continue;
+    if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
 
-    const traitCtx = trait[$internal];
-
-    const defaults = isOrderedTrait(trait)
-      ? getOrderedTrait(ctx, entity, trait)
-      : getSchemaDefaults(data.schema, traitCtx.type);
-
-    if (traitCtx.type === 'aos') {
-      setTrait(ctx, entity, trait, params ?? defaults, false);
-    } else if (defaults) {
-      setTrait(ctx, entity, trait, { ...defaults, ...params }, false);
-    } else if (params) {
-      setTrait(ctx, entity, trait, params, false);
-    }
-
-    emit(data.addSubscriptions, entity);
+    // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
+    const instance = getTraitInstance(ctx.traitInstances, trait)!;
+    trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
+    grantTraitMembership(ctx, entity, instance);
+    emit(instance.addSubscriptions, entity);
   }
 }
 
@@ -229,7 +239,10 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
       removeAllRelationTargets(ctx, traitCtx.relation, entity);
     } else {
       const instance = getTraitInstance(ctx.traitInstances, trait);
-      if (instance) emit(instance.removeSubscriptions, entity);
+      if (instance) {
+        emit(instance.removeSubscriptions, entity);
+        traitCtx.remove(ctx, getEntityId(entity), instance.store);
+      }
     }
 
     removeTraitFromEntity(ctx, entity, trait);
@@ -293,6 +306,7 @@ export function hasTrait(ctx: WorldContext, entity: Entity, trait: Trait): boole
   return (mask & bitflag) === bitflag;
 }
 
+/** Raw writes bypass accessors. Callers must preserve any trait-owned invariants. */
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(
   ctxOrWorld: WorldContext | World,
   trait: C
@@ -334,7 +348,7 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
 
   const traitCtx = trait[$internal];
   const store = getStore(ctx, trait);
-  const data = traitCtx.get(getEntityId(entity), store);
+  const data = traitCtx.get(ctx, getEntityId(entity), store);
 
   return data;
 }
@@ -367,9 +381,10 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   const store = data.store;
   const index = getEntityId(entity);
 
-  value instanceof Function && (value = value(traitCtx.get(index, store)));
+  value instanceof Function && (value = value(traitCtx.get(ctx, index, store)));
 
-  traitCtx.set(index, store, value);
+  traitCtx.set(ctx, index, store, value);
+
   if (triggerChanged) setChanged(ctx, entity, trait);
   else data.version++;
 }
@@ -384,6 +399,16 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
 
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
+  grantTraitMembership(ctx, entity, instance);
+  return instance;
+}
+
+/** Flip the membership bit and reconcile every query that includes the trait. */
+/* @inline */ function grantTraitMembership(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance
+) {
   const { generationId, bitflag, queries, trackingQueries } = instance;
 
   const eid = getEntityId(entity);
@@ -416,9 +441,7 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
     else query.remove(ctx, entity);
   }
 
-  ctx.entityTraits.get(entity)!.add(trait);
-
-  return instance;
+  ctx.entityTraits.get(entity)!.add(instance.trait);
 }
 
 function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait): void {

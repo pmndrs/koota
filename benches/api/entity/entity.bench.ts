@@ -164,7 +164,7 @@ group('entity.destroy subscription cleanup 10k @entity @subscription @cleanup', 
   }
 });
 
-group('entity get set 10k @entity', () => {
+group('entity get set 10k @entity @accessor', () => {
   bench('entity.get', function* () {
     const world = createWorld();
     const entities: Entity[] = [];
