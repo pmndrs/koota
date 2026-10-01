@@ -11,14 +11,14 @@ import type { OrderedRelation, Relation } from './types';
 
 export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation<T> {
   const schema = () => [] as Entity[];
-  const context = createTraitContext(schema, {
+  const context = createTraitContext(schema, (defaults) => ({
     // Each entity gets a list bound to itself, so the default is built per add.
     add: (ctx, index, store, value) => {
       const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[index]];
       const list = value ?? new OrderedList(ctx, entity, relation, orderedTrait);
-      context.set(ctx, index, store, list);
+      defaults.set(ctx, index, store, list);
     },
-  });
+  }));
 
   const orderedTrait = Object.assign((params?: TraitValue<any>) => [orderedTrait, params], {
     [$internal]: context,

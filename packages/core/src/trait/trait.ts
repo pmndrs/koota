@@ -40,6 +40,8 @@ import type {
   ExtractStore,
   TagTrait,
   Trait,
+  TraitAccessors,
+  TraitContext,
   TraitInstance,
   TraitValue,
 } from './types';
@@ -47,27 +49,35 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-type TraitContext = Trait[typeof $internal];
-type TraitAccessors = Partial<Pick<TraitContext, 'add' | 'set' | 'get' | 'remove'>>;
-
 /**
- * Mint the internal context for a trait. A trait with custom storage passes accessors that
- * replace the generated ones, so every trait shares one id space and one shape.
+ * Create standard paged storage accessors, then allow typed overrides to delegate to them.
+ * Storage layout and allocation stay with the core.
  */
-export function createTraitContext(schema: Schema, accessors?: TraitAccessors): TraitContext {
+export function createTraitContext<S extends Schema>(
+  schema: S,
+  customize?: (defaults: Readonly<TraitAccessors<S>>) => Partial<TraitAccessors<S>>
+): TraitContext<S> {
   const isAoS = typeof schema === 'function';
   const isTag = !isAoS && Object.keys(schema).length === 0;
   const type: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
   validateSchema(schema);
 
+  const defaults: TraitAccessors<S> = {
+    add: createAddFunction[type](schema),
+    set: createSetFunction[type](schema),
+    get: createGetFunction[type](schema),
+    remove: () => {},
+  };
+  const accessors = customize?.(defaults);
+
   return {
     id: traitId++,
     createStore: () => createStore(schema),
-    add: accessors?.add ?? createAddFunction[type](schema),
-    set: accessors?.set ?? createSetFunction[type](schema),
-    get: accessors?.get ?? createGetFunction[type](schema),
-    remove: accessors?.remove ?? (() => {}),
+    add: accessors?.add ?? defaults.add,
+    set: accessors?.set ?? defaults.set,
+    get: accessors?.get ?? defaults.get,
+    remove: accessors?.remove ?? defaults.remove,
     relation: null,
     type,
   };
@@ -94,9 +104,10 @@ function createTrait(schema?: undefined | Record<string, never>): TagTrait;
 function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
 function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
   const context = createTraitContext(schema);
-  const Trait = Object.assign((params: TraitValue<Norm<S>>) => [Trait, params], {
-    [$internal]: context,
-  }) as unknown as Trait<Norm<S>>;
+  const Trait = Object.assign(
+    (params: TraitValue<Norm<S>>): [Trait<Norm<S>>, TraitValue<Norm<S>>] => [Trait, params],
+    { [$internal]: context }
+  ) as Trait<Norm<S>>;
 
   defineTraitProperties(Trait, context.id, schema);
 
@@ -159,7 +170,7 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
     if (hasTrait(ctx, entity, trait)) continue;
     if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
 
-    // The value is written before membership so a throwing accessor leaves the entity untouched.
+    // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
     trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
     grantTraitMembership(ctx, entity, instance);
@@ -295,6 +306,7 @@ export function hasTrait(ctx: WorldContext, entity: Entity, trait: Trait): boole
   return (mask & bitflag) === bitflag;
 }
 
+/** Raw writes bypass accessors. Callers must preserve any trait-owned invariants. */
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(
   ctxOrWorld: WorldContext | World,
   trait: C

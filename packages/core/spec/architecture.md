@@ -80,6 +80,14 @@ Structural changes are updates that change the structure and layout of memory as
 
 See [structural.md](./structural.md) for detailed code path documentation.
 
+### Trait Accessors
+
+Traits use core-owned paged SoA or AoS storage. `createTraitContext` allows overrides of `add`, `get`, `set`, and `remove` typed to the schema, with default accessors for delegation.
+
+Accessors own values and auxiliary indexes. The core owns membership, queries, revisions, and events. `set` returns whether it changed the value.
+
+This is a type-time contract. Accessors preserve invariants and handle failures. Raw writes bypass hooks. Defer removal or replacement of selected custom traits until query iteration finishes.
+
 ### Queries
 
 Calling `world.query(...)` hashes the parameters, retrieves or creates a cached `QueryInstance`, and returns a fresh `QueryResult` built from the instance's incrementally-maintained entity set.

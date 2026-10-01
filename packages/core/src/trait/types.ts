@@ -13,20 +13,33 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
   ? ReturnType<TSchema>
   : Partial<TraitRecord<TSchema>>;
 
+/**
+ * Accessors preserve the schema's paged store and maintain only trait-owned state.
+ * The core owns membership, queries, revisions and events. Accessors must not re-enter it.
+ */
+export type TraitAccessors<S extends Schema = any> = {
+  /** Initialize while membership is absent. On failure, undo any partial writes or indexes. */
+  add(ctx: WorldContext, index: number, store: Store<S>, value?: TraitValue<S>): void;
+  /** Validate before writing and preserve state on failure. Return whether this call changed it. */
+  set(ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
+  /** Read without side effects. SoA returns a shallow snapshot and AoS returns the stored value. */
+  get(ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;
+  /** Release auxiliary state before membership is removed. Cleanup must not throw. */
+  remove(ctx: WorldContext, index: number, store: Store<S>): void;
+};
+
+export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> & {
+  readonly id: number;
+  readonly createStore: () => Store<S>;
+  readonly type: StoreType;
+  relation: Relation<any> | null;
+};
+
 export type Trait<TSchema extends Schema = any> = {
   /** Public read-only ID for fast array lookups */
   readonly id: number;
   readonly schema: TSchema;
-  [$internal]: {
-    id: number;
-    createStore(): Store<TSchema>;
-    add(ctx: WorldContext, index: number, store: Store<TSchema>, value?: TraitValue<TSchema>): void;
-    set(ctx: WorldContext, index: number, store: Store<TSchema>, value: TraitValue<TSchema>): boolean;
-    get(ctx: WorldContext, index: number, store: Store<TSchema>): TraitRecord<TSchema>;
-    remove(ctx: WorldContext, index: number, store: Store<TSchema>): void;
-    relation: Relation<any> | null;
-    type: StoreType;
-  };
+  readonly [$internal]: TraitContext<TSchema>;
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 
 export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
