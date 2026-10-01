@@ -335,6 +335,36 @@ describe('Query', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
+  it('updateEach tracks mixed atomic traits when subscriptions change between calls', () => {
+    const Position = trait(() => ({ x: 0 }));
+    const Velocity = trait(() => ({ x: 0 }));
+    const positionChanged = vi.fn();
+    const velocityChanged = vi.fn();
+    world.onChange(Position, positionChanged);
+    const entity = world.spawn(Position, Velocity);
+    const query = world.query(Velocity, Position);
+
+    query.updateEach(([velocity, position]) => {
+      velocity.x++;
+      position.x++;
+    });
+
+    expect(entity.get(Position)).toEqual({ x: 1 });
+    expect(entity.get(Velocity)).toEqual({ x: 1 });
+    expect(positionChanged).toHaveBeenCalledExactlyOnceWith(entity);
+
+    world.onChange(Velocity, velocityChanged);
+    query.updateEach(([velocity, position]) => {
+      velocity.x++;
+      position.x++;
+    });
+
+    expect(entity.get(Position)).toEqual({ x: 2 });
+    expect(entity.get(Velocity)).toEqual({ x: 2 });
+    expect(positionChanged).toHaveBeenCalledTimes(2);
+    expect(velocityChanged).toHaveBeenCalledExactlyOnceWith(entity);
+  });
+
   it('updateEach automatically tracks changes for traits observed with onChange', () => {
     const cb = vi.fn();
     world.onChange(Position, cb);

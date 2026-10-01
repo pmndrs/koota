@@ -79,7 +79,11 @@ export function createQueryResult<T extends QueryParameter[]>(
           const entity = entities[i];
           const eid = getEntityId(entity);
 
-          createSnapshotsWithAtomic(ctx, eid, traits, stores, state, atomicSnapshots);
+          if (trackedIndices.length === 0) {
+            createSnapshots(ctx, eid, traits, stores, state);
+          } else {
+            createSnapshotsWithAtomic(ctx, eid, traits, stores, state, atomicSnapshots);
+          }
           callback(state as unknown as InstancesFromParameters<T>, entity, i);
 
           if (!isEntityAlive(ctx.entityIndex, entity)) continue;
