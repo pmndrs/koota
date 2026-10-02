@@ -261,6 +261,15 @@ describe('Query modifiers', () => {
     expect(entities2.length).toBe(1);
   });
 
+  it('should populate Added queries for every trait in a world with many traits', () => {
+    const Added = createAdded();
+    // More traits than one mask generation holds, so every bit of a generation is tracked.
+    const traits = Array.from({ length: 40 }, () => trait());
+    const entity = world.spawn(...traits);
+
+    for (const tracked of traits) expect(world.query(Added(tracked))).toContain(entity);
+  });
+
   it('should combine Not and Added modifiers with logical AND', () => {
     const Added = createAdded();
 

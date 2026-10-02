@@ -375,7 +375,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
           const oldMask = snapshot[genId][pageId][offset];
           const currentMask = ctx.entityMasks[genId][pageId][offset];
 
-          for (let bit = 1; bit <= mask; bit <<= 1) {
+          // A generation's highest bit is 2^30, and shifting past it wraps negative, so the walk stops there.
+          for (let bit = 1; bit > 0 && bit <= mask; bit <<= 1) {
             if (!(mask & bit)) continue;
 
             let traitMatches = false;
