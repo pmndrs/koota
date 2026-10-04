@@ -45,6 +45,8 @@ export type WorldContext = {
   isRegistered: boolean;
   pendingTraits: ConfigurableTrait[] | undefined;
   cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
+  /** Tracks structural mutations in assertion builds without resetting between world resets. */
+  structuralRevision: number;
 };
 
 export type World = {

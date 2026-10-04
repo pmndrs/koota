@@ -163,7 +163,7 @@ const entity = world.spawn(Position, Velocity)
 
 // Read/write traits
 entity.get(Position) // Read trait data
-entity.set(Position, { x: 10 }) // Write (triggers change events, throws if the trait is missing)
+entity.set(Position, { x: 10 }) // Write
 entity.add(IsPlayer) // Add trait
 entity.remove(Velocity) // Remove trait
 entity.has(Position) // Check if has trait
@@ -188,6 +188,10 @@ Use `TraitRecord` to get the type that `entity.get()` returns
 ```typescript
 type PositionRecord = TraitRecord<typeof Position>
 ```
+
+**Assertions**
+
+Development builds assert entity lifetime, trait membership for `set` and `changed`, concrete live relation targets in the same world, existing relation pairs before setting, and relation index consistency. Missing-trait reads, duplicate adds, absent-trait removals, lifetime probes, and Removed query history remain valid. Setter callbacks must preserve their entity and trait or pair before writeback. Query accessors leave snapshot validity and selected trait membership to the caller. Raw `getStore` and `getPages` writes require the caller to preserve invariants. Assertions default to off when `NODE_ENV` is `'production'`. Consumers can define `__KOOTA_ASSERTS__` as `true` to retain them in production or `false` to remove them through dead code elimination. Keep each assertion condition inside the flagged block so its work is also removed. See [assertion configuration](../../docs/api/asserts.md).
 
 ## Queries
 

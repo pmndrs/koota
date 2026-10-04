@@ -902,7 +902,7 @@ const result = entity.has(Position)
 const position = entity.get(Position)
 
 // Sets the trait and triggers a change event
-// Throws if the entity does not have the trait
+// With assertions enabled, throws if the entity does not have the trait
 entity.set(Position, { x: 10, y: 10 })
 // Can take a callback with the previous state passed in
 entity.set(Position, (prev) => ({
@@ -935,6 +935,12 @@ For introspection, `unpackEntity` can be used to get all of the encoded values. 
 ```js
 const { entityId, generation } = unpackEntity(entity)
 ```
+
+### Assertions
+
+Development builds assert that the various API contracts hold such as entity lifetime, trait membership, relation consistency. They cost about 10% overhead on the various call paths, but are compiled out of production builds by default.
+
+Define `__KOOTA_ASSERTS__` as `true` to retain them in production, or `false` to remove them completely from the application bundle.
 
 ### Trait
 

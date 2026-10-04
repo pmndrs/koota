@@ -5,7 +5,7 @@
   "license": "ISC",
   "prettier": "./.config/prettier/base.json",
   "scripts": {
-    "bench": "pnpm --filter @koota/benches exec labs",
+    "bench": "node scripts/run-bench.mts",
     "build": "pnpm -F koota build",
     "examples": "tsx ./scripts/examples.ts",
     "release": "pnpm test:build && pnpm -F koota publish",

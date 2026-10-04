@@ -1,9 +1,64 @@
-import { bench, group } from '@pmndrs/labs';
+import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, relation, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const IsPlayer = trait();
 const IsActive = trait();
+
+group('relation mutations 10k @relation @mutation', () => {
+  bench('relation add + remove', function* () {
+    const Link = relation();
+    const world = createWorld();
+    const target = world.spawn();
+    const pair = Link(target);
+    const sources = Array.from({ length: 10_000 }, () => world.spawn());
+
+    yield {
+      bench: () => {
+        for (let i = 0; i < sources.length; i++) {
+          sources[i].add(pair);
+          sources[i].remove(pair);
+        }
+      },
+      snapshot: () => {
+        assert.equal(sources[9999].has(pair), false);
+        assert.equal(world.query(Link('*')).length, 0);
+        return sources.length;
+      },
+    };
+    world.destroy();
+  });
+
+  for (const mode of ['value', 'callback'] as const) {
+    bench(mode === 'value' ? 'relation set' : 'relation set callback', function* () {
+      const Link = relation({ store: { weight: 0 } });
+      const world = createWorld();
+      const target = world.spawn();
+      const pair = Link(target);
+      const sources = Array.from({ length: 10_000 }, () => world.spawn(pair));
+      let frame = 0;
+
+      yield {
+        bench: () => {
+          frame ^= 1;
+          for (let i = 0; i < sources.length; i++) {
+            sources[i].set(
+              pair,
+              mode === 'callback'
+                ? (previous) => ({ weight: previous.weight ^ 1 })
+                : { weight: frame }
+            );
+          }
+        },
+        snapshot: () => {
+          assert.equal(sources[9999].get(pair), { weight: frame });
+          return sources.length;
+        },
+      };
+      world.destroy();
+    });
+  }
+});
 
 group('relation queries 10k @relation', () => {
   const ChildOf = relation();

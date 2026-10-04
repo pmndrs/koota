@@ -83,6 +83,22 @@ describe('Trait', () => {
     expect(entity.get(Test)?.current).toBe(2);
   });
 
+  it('rejects setting an absent or removed trait before invoking its callback', () => {
+    const sibling = world.spawn(Position({ x: 5 }));
+    const entity = world.spawn();
+    const update = vi.fn(() => ({ x: 10 }));
+
+    expect(() => entity.set(Position, update)).toThrow(/Add the trait/);
+    entity.add(Position);
+    entity.set(Position, { x: 1 });
+    entity.remove(Position);
+    expect(() => entity.set(Position, update)).toThrow(/Add the trait/);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(entity.has(Position)).toBe(false);
+    expect(sibling.get(Position)).toEqual({ x: 5, y: 0 });
+  });
+
   it('should create SoA stores when registered by adding', () => {
     const entity = world.spawn();
 

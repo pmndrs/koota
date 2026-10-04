@@ -1,7 +1,9 @@
 import { $internal } from '../common';
+import { assertsEnabled } from '../assert-config';
+import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { setChanged, setPairChanged } from '../query/modifiers/changed';
+import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
@@ -10,6 +12,7 @@ import {
   getFirstRelationTarget,
   getRelationData,
   getRelationTargets,
+  getTargetIndex,
   hasRelationPair,
   hasRelationToTarget,
   removeAllRelationTargets,
@@ -150,6 +153,18 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
 }
 
 export function addTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+  addTraitsToAliveEntity(ctx, entity, traits);
+}
+
+/** The caller must establish entity liveness before adding traits. */
+export /* @inline */ function addTraitsToAliveEntity(
+  ctx: WorldContext,
+  entity: Entity,
+  traits: ConfigurableTrait[]
+) {
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
 
@@ -182,6 +197,9 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
   const relation = pair.relation;
   const target = pair.target;
 
+  if (assertsEnabled) {
+    assertRelationTarget(ctx, target);
+  }
   if (typeof target !== 'number') return;
 
   const params = pair.params;
@@ -218,6 +236,10 @@ export function addTrait(ctx: WorldContext, entity: Entity, ...traits: Configura
 }
 
 export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait | RelationPair)[]) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
 
@@ -324,11 +346,19 @@ export function setTrait(
   value: any,
   triggerChanged = true
 ) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
   if (isRelationPair(trait)) return setTraitForPair(ctx, entity, trait, value, triggerChanged);
   return setTraitForTrait(ctx, entity, trait, value, triggerChanged);
 }
 
 export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | RelationPair) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
   if (isRelationPair(trait)) return getTraitForPair(ctx, entity, trait);
   return getTraitForTrait(ctx, entity, trait);
 }
@@ -344,13 +374,14 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
 }
 
 /* @inline @pure */ function getTraitForTrait(ctx: WorldContext, entity: Entity, trait: Trait) {
-  if (!hasTrait(ctx, entity, trait)) return undefined;
-
-  const traitCtx = trait[$internal];
-  const store = getStore(ctx, trait);
-  const data = traitCtx.get(ctx, getEntityId(entity), store);
-
-  return data;
+  const data = getTraitInstance(ctx.traitInstances, trait);
+  const index = getEntityId(entity);
+  if (
+    data === undefined ||
+    (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0
+  )
+    return undefined;
+  return trait[$internal].get(ctx, index, data.store);
 }
 
 /* @inline */ function setTraitForPair(
@@ -360,12 +391,58 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   value: any,
   triggerChanged: boolean
 ) {
+  if (assertsEnabled) {
+    setTraitForPairWithAsserts(ctx, entity, pair, value, triggerChanged);
+  } else {
+    const relation = pair.relation as Relation<Trait>;
+    const target = pair.target;
+    if (typeof target !== 'number') return;
+    if (typeof value === 'function') {
+      value = value(getRelationData(ctx, entity, relation, target));
+    }
+    setRelationData(ctx, entity, relation, target, value);
+    if (triggerChanged) setPairChanged(ctx, entity, relation[$internal].trait, target);
+  }
+}
+
+function setTraitForPairWithAsserts(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: RelationPair,
+  value: any,
+  triggerChanged: boolean
+) {
   const relation = pair.relation as Relation<Trait>;
   const target = pair.target;
 
-  if (typeof target !== 'number') return;
+  assertRelationTarget(ctx, target);
+  let targetIndex = getTargetIndex(ctx, relation, entity, target);
+  if (targetIndex === -1) {
+    throw new Error(
+      `Koota: [RELATION_PRESENT] Add the relation pair before setting it. Entity ${entity}, target ${target}, trait ${relation[$internal].trait.id}.`
+    );
+  }
 
-  setRelationData(ctx, entity, relation, target, value);
+  if (typeof value === 'function') {
+    // An unchanged revision preserves the validated pair and its target index.
+    const structuralRevision = ctx.structuralRevision;
+    value = value(getRelationData(ctx, entity, relation, target));
+    if (
+      structuralRevision !== ctx.structuralRevision ||
+      structuralRevision >= Number.MAX_SAFE_INTEGER
+    ) {
+      assertEntityAlive(ctx, entity);
+      assertRelationTarget(ctx, target);
+      targetIndex = getTargetIndex(ctx, relation, entity, target);
+      if (targetIndex === -1) {
+        throw new Error(
+          `Koota: [RELATION_PRESENT] The relation pair was removed during its set callback. Entity ${entity}, target ${target}, trait ${relation[$internal].trait.id}.`
+        );
+      }
+    }
+  }
+
+  setRelationDataAtIndex(ctx, entity, relation, targetIndex, value);
   if (triggerChanged) setPairChanged(ctx, entity, relation[$internal].trait, target);
 }
 
@@ -376,26 +453,56 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   value: any,
   triggerChanged: boolean
 ) {
-  const data = getTraitInstance(ctx.traitInstances, trait);
+  const data = getTraitInstance(ctx.traitInstances, trait)!;
   const index = getEntityId(entity);
 
-  // Membership is read from the instance mask so a missing trait throws before any write.
   if (
-    data === undefined ||
-    (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0
+    assertsEnabled &&
+    (data === undefined ||
+      (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0)
   ) {
-    throw new Error('Koota: Add the trait before setting it.');
+    throw createTraitNotPresentError(entity, trait, true);
   }
 
   const traitCtx = trait[$internal];
   const store = data.store;
 
-  value instanceof Function && (value = value(traitCtx.get(ctx, index, store)));
+  if (typeof value === 'function') {
+    value = resolveTraitSetCallback(ctx, entity, trait, value, data, index);
+  }
 
   traitCtx.set(ctx, index, store, value);
 
-  if (triggerChanged) setChanged(ctx, entity, trait);
-  else data.version++;
+  if (triggerChanged) {
+    notifyTraitChanged(ctx, entity, data);
+  } else data.version++;
+}
+
+/**
+ * An unchanged revision preserves validated liveness and membership.
+ * Keep callback work separate so ordinary value writes can inline.
+ */
+function resolveTraitSetCallback(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait,
+  callback: (previous: any) => any,
+  data: TraitInstance,
+  index: number
+) {
+  const structuralRevision = assertsEnabled ? ctx.structuralRevision : 0;
+  const value = callback(trait[$internal].get(ctx, index, data.store));
+  if (
+    assertsEnabled &&
+    (structuralRevision !== ctx.structuralRevision || structuralRevision >= Number.MAX_SAFE_INTEGER)
+  ) {
+    assertEntityAlive(ctx, entity);
+    // Trait removal retains the instance. Read membership again after the callback.
+    if ((ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) {
+      throw createTraitNotPresentError(entity, trait);
+    }
+  }
+  return value;
 }
 
 /* @inline */ function addTraitToEntity(
@@ -423,6 +530,7 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const offset = eid & 1023;
+  if (assertsEnabled) ctx.structuralRevision++;
   ensureMaskPage(ctx.entityMasks[generationId], pageId)[offset] |= bitflag;
   instance.version++;
 
@@ -462,6 +570,15 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const offset = eid & 1023;
+  if (assertsEnabled && trait[$internal].relation) {
+    const targets = instance.relationTargets?.[pageId]?.[offset];
+    if (typeof targets === 'number' || (targets !== undefined && targets.length > 0)) {
+      throw new Error(
+        `Koota: [RELATION_INDEX] Remove relation targets before removing their trait membership. Entity ${entity}, trait ${trait.id}.`
+      );
+    }
+  }
+  if (assertsEnabled) ctx.structuralRevision++;
   ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
   instance.version++;
 

@@ -90,6 +90,12 @@ export function useEntityValue<T, I>(
   const { value, version } = binding;
 
   useEffect(() => {
+    // A reset between render and subscribe replaces the world's entity as well as its storage.
+    const currentEntity = resolveEntity(target);
+    if (binding.entity !== currentEntity) {
+      dispatch({ replace: createBinding(currentEntity, binding.input, read, getVersionSource) });
+      return;
+    }
     const entity = binding.entity;
     if (entity === undefined) return;
 

@@ -75,7 +75,7 @@ describe('Lifecycle Subscriptions', () => {
 
       expect(cb).toHaveBeenCalledTimes(1);
 
-      entityA.changed(Name);
+      expect(() => entityA.changed(Name)).toThrow(/\[TRAIT_PRESENT\]/);
 
       expect(cb).toHaveBeenCalledTimes(1);
 
