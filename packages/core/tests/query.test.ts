@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { $internal, createQuery, createWorld, IsExcluded, Not, Or, relation, trait } from '../src';
+import {
+  $internal,
+  createQuery,
+  createRemoved,
+  createWorld,
+  IsExcluded,
+  Not,
+  Or,
+  relation,
+  trait,
+} from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -159,6 +169,105 @@ describe('Query', () => {
 
     expect(cb).toHaveBeenCalledTimes(9);
   });
+
+  it.each(['auto', 'always', 'never'] as const)(
+    'allows destruction inside a query callback with %s detection',
+    (changeDetection) => {
+      const entity = world.spawn(Position);
+      let replacement = entity;
+      expect(() =>
+        world.query(Position).updateEach(
+          ([position], current) => {
+            position.x = 99;
+            current.destroy();
+            replacement = world.spawn(Position({ x: 7 }));
+          },
+          { changeDetection }
+        )
+      ).not.toThrow();
+      expect(replacement.get(Position)?.x).toBe(7);
+    }
+  );
+
+  it.each(['auto', 'always'] as const)(
+    'skips deferred changes for a trait removed by a later callback with %s detection',
+    (changeDetection) => {
+      const first = world.spawn(Position);
+      const second = world.spawn(Position);
+      const changed = vi.fn();
+      world.onChange(Position, changed);
+
+      world.query(Position).updateEach(
+        ([position], current) => {
+          position.x++;
+          if (current === second) first.remove(Position);
+        },
+        { changeDetection }
+      );
+
+      expect(changed).toHaveBeenCalledExactlyOnceWith(second);
+      expect(first.has(Position)).toBe(false);
+    }
+  );
+
+  it.each(['auto', 'always'] as const)(
+    'skips deferred changes for an entity recycled by a later callback with %s detection',
+    (changeDetection) => {
+      const first = world.spawn(Position);
+      const second = world.spawn(Position);
+      let replacement = first;
+      const changed = vi.fn();
+      world.onChange(Position, changed);
+
+      world.query(Position).updateEach(
+        ([position], current) => {
+          position.x++;
+          if (current === second) {
+            first.destroy();
+            replacement = world.spawn(Position({ x: 7 }));
+          }
+        },
+        { changeDetection }
+      );
+
+      expect(changed).toHaveBeenCalledExactlyOnceWith(second);
+      expect(replacement.get(Position)?.x).toBe(7);
+    }
+  );
+
+  it('keeps Removed query history available after destroying an entity', () => {
+    const Removed = createRemoved();
+    const entity = world.spawn(Position({ x: 7 }));
+    world.query(Removed(Position));
+    entity.destroy();
+    let historical = 0;
+    world.query(Removed(Position)).readEach(([position]) => {
+      historical = position.x;
+    });
+    expect(historical).toBe(7);
+  });
+
+  it.each(['readEach', 'updateEach'] as const)(
+    'lets callers guard stale snapshot entries during %s',
+    (operation) => {
+      const stale = world.spawn(Position);
+      const alive = world.spawn(Position({ x: 1 }));
+      const query = world.query(Position);
+      stale.destroy();
+      const replacement = world.spawn(Position({ x: 7 }));
+      const seen: [number, number][] = [];
+
+      query[operation](([position], entity) => {
+        if (!entity.isAlive()) return;
+        seen.push([entity, position.x]);
+        if (operation === 'updateEach') position.x++;
+      });
+
+      expect(seen).toEqual([[alive, 1]]);
+      expect(alive.get(Position)?.x).toBe(operation === 'updateEach' ? 2 : 1);
+      expect(replacement.get(Position)?.x).toBe(7);
+    }
+  );
 
   it('should read trait data with readEach without modifying stores', () => {
     for (let i = 0; i < 5; i++) {

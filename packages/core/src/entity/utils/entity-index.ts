@@ -1,4 +1,5 @@
 import type { WorldContext } from '../../world/types';
+import { assertsEnabled } from '../../assert-config';
 import type { Entity } from '../types';
 import {
   GENERATION_MASK,
@@ -41,6 +42,7 @@ export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext)
 });
 
 export const allocateEntity = (index: EntityIndex): Entity => {
+  if (assertsEnabled) index.owner.structuralRevision++;
   const allocator = index.allocator;
   let entity: Entity;
   let entityId: number;
@@ -86,6 +88,7 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
   const denseIdx = index.sparse[entityId];
   if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
 
+  if (assertsEnabled) index.owner.structuralRevision++;
   const allocator = index.allocator;
   const pageId = entityId >>> 10;
   const offset = entityId & 1023;
@@ -127,8 +130,7 @@ export function releaseOwnedPages(index: EntityIndex): void {
   const allocator = index.allocator;
   for (const pageId of index.ownedPages) {
     allocator.pageAliveCounts[pageId] = 0;
-    const gens = allocator.generations[pageId];
-    if (gens) gens.fill(0);
+    // Preserve bumped generations so old handles stay invalid when a page is leased again.
     allocator.pageOwners[pageId] = null;
     allocator.freePages.push(pageId);
   }

@@ -35,9 +35,10 @@ export function useTraitEffect<T extends Trait>(
   const pairTarget = pair[$relationPair] ? pair.target : undefined;
 
   useEffect(() => {
+    const currentEntity = resolveEntity(target)!;
     const notify = (value: unknown) => callbackRef.current(value as TraitRecord<T> | undefined);
-    const detach = attachTrait(entity, trait, notify);
-    notify(readTrait(entity, trait));
+    const detach = attachTrait(currentEntity, trait, notify);
+    notify(readTrait(currentEntity, trait));
     return detach;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity, relation, pairTarget]);

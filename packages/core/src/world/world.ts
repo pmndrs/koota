@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import {
@@ -93,6 +94,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       isRegistered: false,
       pendingTraits,
       cleanupToken,
+      ...(assertsEnabled ? { structuralRevision: 0 } : {}),
     } as WorldContext,
 
     traits: null! as Set<Trait>,
@@ -154,6 +156,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       const ctx = world[$internal];
       if (!ctx.isRegistered) return;
 
+      if (assertsEnabled) ctx.structuralRevision++;
       ctx.pendingTraits = undefined;
 
       world.entities.forEach((entity) => {

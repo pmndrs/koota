@@ -1,5 +1,7 @@
 import type { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
+import { assertsEnabled } from '../assert-config';
+import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import type { QueryParameter } from '../query/types';
@@ -105,9 +107,23 @@ function addToRelationSources(traitData: TraitInstance, entity: Entity, target: 
 
 function removeFromRelationSources(traitData: TraitInstance, entity: Entity, target: Entity): void {
   const bucket = traitData.relationSourcesByTarget?.[getEntityId(target)];
-  if (!bucket) return;
+  if (!bucket) {
+    if (assertsEnabled) {
+      throw new Error(
+        `Koota: [RELATION_INDEX] A forward relation has no reverse source bucket. Entity ${entity}, target ${target}, trait ${traitData.trait.id}.`
+      );
+    }
+    return;
+  }
   const idx = bucket.indexOf(entity);
-  if (idx === -1) return;
+  if (idx === -1) {
+    if (assertsEnabled) {
+      throw new Error(
+        `Koota: [RELATION_INDEX] A forward relation is missing its reverse source. Entity ${entity}, target ${target}, trait ${traitData.trait.id}.`
+      );
+    }
+    return;
+  }
   const last = bucket.length - 1;
   if (idx !== last) bucket[idx] = bucket[last];
   bucket.pop();
@@ -122,6 +138,10 @@ export /* @inline */ function getRelationTargets(
   relation: Relation<Trait>,
   entity: Entity
 ): readonly Entity[] {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
   const relationCtx = relation[$internal];
 
   const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
@@ -147,6 +167,10 @@ export /* @inline */ function getFirstRelationTarget(
   relation: Relation<Trait>,
   entity: Entity
 ): Entity | undefined {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
   const relationCtx = relation[$internal];
 
   const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
@@ -221,6 +245,7 @@ export function addRelationTarget(
   const baseTrait = relationCtx.trait;
 
   const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+  if (assertsEnabled) assertRelationMembership(ctx, entity, traitData);
   if (!traitData) return -1;
 
   if (!traitData.relationTargets) {
@@ -236,6 +261,7 @@ export function addRelationTarget(
 
   if (relationCtx.exclusive) {
     if (page[o] === target) return -1;
+    if (assertsEnabled) ctx.structuralRevision++;
     page[o] = target;
     targetIndex = 0;
   } else {
@@ -246,6 +272,7 @@ export function addRelationTarget(
     if (existingIndex !== -1) return -1;
 
     targetIndex = entityTargets.length;
+    if (assertsEnabled) ctx.structuralRevision++;
     entityTargets.push(target);
   }
 
@@ -279,6 +306,7 @@ export function removeRelationTarget(
 
   if (relationCtx.exclusive) {
     if (page[o] === target) {
+      if (assertsEnabled) ctx.structuralRevision++;
       removeFromRelationSources(data, entity, target);
       page[o] = undefined;
       removedIndex = 0;
@@ -290,6 +318,7 @@ export function removeRelationTarget(
     if (entityTargets) {
       const idx = entityTargets.indexOf(target);
       if (idx !== -1) {
+        if (assertsEnabled) ctx.structuralRevision++;
         const lastIdx = entityTargets.length - 1;
         removeFromRelationSources(data, entity, target);
         if (idx !== lastIdx) entityTargets[idx] = entityTargets[lastIdx];
@@ -308,6 +337,23 @@ export function removeRelationTarget(
 
   const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
   return { removedIndex, wasLastTarget };
+}
+
+/** Forward edges require base trait membership until their final removal. */
+/* @inline */ function assertRelationMembership(
+  ctx: WorldContext,
+  entity: Entity,
+  data: TraitInstance | undefined
+) {
+  const eid = getEntityId(entity);
+  if (
+    data === undefined ||
+    (ctx.entityMasks[data.generationId][eid >>> 10][eid & 1023] & data.bitflag) === 0
+  ) {
+    throw new Error(
+      `Koota: [RELATION_INDEX] Relation targets require their base trait membership. Entity ${entity}, trait ${data?.trait.id}.`
+    );
+  }
 }
 
 function updateQueriesForRelationChange(

@@ -477,7 +477,7 @@ describe('Query modifiers', () => {
 
     // Should not populate the query if the trait is removed.
     entityA.remove(Position);
-    entityA.changed(Position);
+    expect(() => entityA.changed(Position)).toThrow(/\[TRAIT_PRESENT\]/);
     entities = world.query(Changed(Position));
     expect(entities.length).toBe(0);
   });

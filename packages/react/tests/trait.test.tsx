@@ -410,9 +410,13 @@ describe('useTrait', () => {
   it('catches a world trait replaced by reset before subscribing', () => {
     const Atomic = trait(() => ({ x: 0 }));
     world.add(Atomic);
+    let effectValue: number | undefined;
 
     function View() {
       const value = useTrait(world, Atomic);
+      useTraitEffect(world, Atomic, (value) => {
+        effectValue = value?.x;
+      });
       useLayoutEffect(() => {
         world.reset();
         world.add(Atomic({ x: 10 }));
@@ -421,6 +425,7 @@ describe('useTrait', () => {
     }
 
     expect(render(<View />).container.textContent).toBe('10');
+    expect(effectValue).toBe(10);
   });
 
   it('immediately switches targets and ignores updates from the previous entity', async () => {

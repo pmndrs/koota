@@ -93,3 +93,7 @@ This is a type-time contract. Accessors preserve invariants and handle failures.
 Calling `world.query(...)` hashes the parameters, retrieves or creates a cached `QueryInstance`, and returns a fresh `QueryResult` built from the instance's incrementally-maintained entity set.
 
 See [query.md](./query.md) for detailed code path documentation.
+
+### Assertions
+
+There is an assertion layer that can be compiled in or out that validates design contracts are held at runtime. This is a compositional layer.

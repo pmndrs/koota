@@ -6,6 +6,8 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
+Query results are snapshots of entity handles. `readEach` and `updateEach` leave snapshot validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining snapshots, and preserve selected traits until update callbacks finish writing back.
+
 ## Defining queries
 
 Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.

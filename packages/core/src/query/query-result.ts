@@ -11,7 +11,7 @@ import { hasSubscribers } from '../trait/subscriptions';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
-import { setChanged } from './modifiers/changed';
+import { notifyChanged } from './modifiers/changed';
 import { getQueryPages } from './query-pages';
 import type {
   InstancesFromParameters,
@@ -115,7 +115,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 
         for (let i = 0; i < changedPairs.length; i++) {
           const [entity, trait] = changedPairs[i];
-          setChanged(ctx, entity, trait);
+          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
+          notifyChanged(ctx, entity, trait);
         }
       } else if (options.changeDetection === 'always') {
         const changedPairs: [Entity, Trait][] = [];
@@ -146,7 +147,8 @@ export function createQueryResult<T extends QueryParameter[]>(
 
         for (let i = 0; i < changedPairs.length; i++) {
           const [entity, trait] = changedPairs[i];
-          setChanged(ctx, entity, trait);
+          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
+          notifyChanged(ctx, entity, trait);
         }
       } else if (options.changeDetection === 'never') {
         for (let i = 0; i < entities.length; i++) {

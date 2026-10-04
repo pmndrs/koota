@@ -98,6 +98,45 @@ for (const layout of ['soa', 'aos'] as const) {
   });
 }
 
+group('callback and subscribed writes 10k @trait @accessor @set', () => {
+  for (const mode of ['callback', 'subscribed'] as const) {
+    bench(`entity.set ${mode}`, function* () {
+      const Position = trait({ x: 0, y: 0, z: 0 });
+      const world = createWorld();
+      const entities = Array.from({ length: 10_000 }, () => world.spawn(Position));
+      let frame = 0;
+      let notifications = 0;
+      if (mode === 'subscribed') world.onChange(Position, () => notifications++);
+
+      yield {
+        bench: () => {
+          frame++;
+          notifications = 0;
+          for (let i = 0; i < entities.length; i++) {
+            entities[i].set(
+              Position,
+              mode === 'callback'
+                ? (position) => ({
+                    x: position.x + 1,
+                    y: position.y + 1,
+                    z: position.z + 1,
+                  })
+                : { x: frame, y: frame, z: frame }
+            );
+          }
+        },
+        snapshot: () => {
+          assert.equal(entities[9999].get(Position), { x: frame, y: frame, z: frame });
+          if (mode === 'subscribed') assert.equal(notifications, entities.length);
+          return entities.length;
+        },
+      };
+
+      world.destroy();
+    });
+  }
+});
+
 group('partial and unchanged writes 10k @trait @accessor', () => {
   const Position = trait({ x: 0, y: 0, z: 0 });
 

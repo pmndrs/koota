@@ -1,10 +1,33 @@
-import { bench, group } from '@pmndrs/labs';
+import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ x: 0, y: 0, z: 0 });
 
-group('spawn throughput 10k @entity', () => {
+group('entity mutations 10k @entity @mutation', () => {
+  bench('entity.add + remove', function* () {
+    const Tag = trait();
+    const world = createWorld();
+    const entities = Array.from({ length: 10_000 }, () => world.spawn());
+
+    yield {
+      bench: () => {
+        for (let i = 0; i < entities.length; i++) {
+          entities[i].add(Tag);
+          entities[i].remove(Tag);
+        }
+      },
+      snapshot: () => {
+        assert.equal(entities[9999].has(Tag), false);
+        return entities.length;
+      },
+    };
+
+    world.destroy();
+  });
+});
+
+group('spawn throughput 10k @entity @lifecycle', () => {
   bench('spawn with no traits', function* () {
     const world = createWorld();
 
@@ -78,7 +101,7 @@ group('entity.has dispatch 10k @entity', () => {
   });
 });
 
-group('entity.destroy 10k @entity', () => {
+group('entity.destroy 10k @entity @lifecycle', () => {
   bench('destroy entities', function* () {
     const world = createWorld();
     const entities: Entity[] = [];
@@ -164,7 +187,7 @@ group('entity.destroy subscription cleanup 10k @entity @subscription @cleanup', 
   }
 });
 
-group('entity get set 10k @entity @accessor', () => {
+group('entity get set 10k @entity @accessor @set', () => {
   bench('entity.get', function* () {
     const world = createWorld();
     const entities: Entity[] = [];

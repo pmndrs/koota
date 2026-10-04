@@ -1,11 +1,13 @@
 import { $internal } from '../common';
+import { assertsEnabled } from '../assert-config';
+import { assertEntityAlive } from '../asserts';
 import { IsExcluded, queryInternal } from '../query/query';
 import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
-  addTrait,
+  addTraitsToAliveEntity,
   cleanupRelationTarget,
   hasTrait,
   registerTrait,
@@ -33,7 +35,7 @@ export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]):
   }
 
   ctx.entityTraits.set(entity, new Set());
-  addTrait(ctx, entity, ...traits);
+  addTraitsToAliveEntity(ctx, entity, traits);
 
   if (ctx.entitySpawnSubscriptions.size > 0 && !ctx.entityTraits.get(entity)!.has(IsExcluded)) {
     for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
@@ -46,8 +48,9 @@ const cachedSet = new Set<Entity>();
 const cachedQueue = [] as Entity[];
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
-  if (!isEntityAlive(ctx.entityIndex, entity))
-    throw new Error('Koota: The entity being destroyed does not exist.');
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
 
   const entityQueue = cachedQueue;
   const processedEntities = cachedSet;
@@ -130,6 +133,10 @@ export function getEntityContext(entity: Entity): WorldContext {
 }
 
 export function entityHas(ctx: WorldContext, entity: Entity, trait: Trait | RelationPair): boolean {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
   if (!isRelationPair(trait)) return hasTrait(ctx, entity, trait);
   if (!hasTrait(ctx, entity, trait.relation[$internal].trait)) return false;
   if (trait.targetQuery) {

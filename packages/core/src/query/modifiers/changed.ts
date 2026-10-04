@@ -1,18 +1,18 @@
 import { $internal } from '../../common';
+import { assertsEnabled } from '../../assert-config';
+import { assertEntityAlive, assertTraitPresent } from '../../asserts';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { ensureMaskPage } from '../../entity/utils/paged-mask';
 import { isRelation } from '../../relation/utils/is-relation';
 import { emit, hasSubscribers } from '../../trait/subscriptions';
-import { hasTrait, registerTrait } from '../../trait/trait';
-import { getTraitInstance, hasTraitInstance } from '../../trait/trait-instance';
-import type { ExtractTraits, Trait, TraitOrRelation } from '../../trait/types';
+import { getTraitInstance } from '../../trait/trait-instance';
+import type { ExtractTraits, Trait, TraitInstance, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
 import type { WorldContext } from '../../world';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
-import { checkQueryTrackingWithRelations } from '../utils/check-query-tracking-with-relations';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
+import { markTrackedTraitChanged, markTraitChanged } from '../utils/mark-tracked-trait-changed';
 
 export function createChanged() {
   const id = createTrackingId();
@@ -34,39 +34,43 @@ export function createChanged() {
 
 /** @inline */
 function markChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
-  if (!hasTrait(ctx, entity, trait)) return;
-
-  if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-  const data = getTraitInstance(ctx.traitInstances, trait)!;
-  data.version++;
-
-  const eid = getEntityId(entity);
-  const { generationId, bitflag } = data;
-  const pageId = eid >>> 10;
-  const offset = eid & 1023;
-
-  for (const changedMask of ctx.changedMasks.values()) {
-    ensureMaskPage(changedMask[generationId], pageId)[offset] |= bitflag;
-  }
-
-  for (const query of data.trackingQueries) {
-    if (!query.hasChangedModifiers) continue;
-    if (!query.changedTraits.has(trait)) continue;
-
-    const match =
-      query.relationFilters && query.relationFilters.length > 0
-        ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', generationId, bitflag)
-        : query.checkTracking(ctx, entity, 'change', generationId, bitflag);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
-  }
-
+  const data = getTraitInstance(ctx.traitInstances, trait);
+  if (data === undefined) return;
+  const index = getEntityId(entity);
+  if ((ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) return;
+  markTraitChanged(ctx, entity, data);
   return data;
 }
 
 export function setChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+  const data = markChanged(ctx, entity, trait);
+  if (!data) {
+    if (assertsEnabled) {
+      assertTraitPresent(ctx, entity, trait);
+    }
+    return;
+  }
+  if (hasSubscribers(data.changeSubscriptions)) emit(data.changeSubscriptions, entity);
+}
+
+/** Notify after a validated write. A removed trait has no change to publish. */
+export function notifyChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
   const data = markChanged(ctx, entity, trait);
   if (data && hasSubscribers(data.changeSubscriptions)) emit(data.changeSubscriptions, entity);
+}
+
+/** The caller must validate membership and finish the write without reentering the core. */
+export /* @inline */ function notifyTraitChanged(
+  ctx: WorldContext,
+  entity: Entity,
+  data: TraitInstance
+) {
+  if (ctx.changedMasks.size === 0 && data.trackingQueries.size === 0) data.version++;
+  else markTrackedTraitChanged(ctx, entity, data);
+  if (hasSubscribers(data.changeSubscriptions)) emit(data.changeSubscriptions, entity);
 }
 
 export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, target: Entity) {
