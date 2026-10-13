@@ -53,6 +53,8 @@ export type WorldState = HandleOwner & {
   traitRegisteredSubscribers: Set<(trait: Trait) => void>;
   spawnSubscribers: Set<(entity: Entity) => void>;
   destroySubscribers: Set<(entity: Entity) => void>;
+  destroyObserverAttached: boolean;
+  createdObserverAttached: boolean;
   traitSubscriptions: Map<TypeId, TraitSubscriptions>;
   /** Kernel trait observers attach on the first subscription, so unobserved worlds pay nothing. */
   traitObserversAttached: boolean;

@@ -26,7 +26,13 @@ import {
   spawnEntity,
 } from './lifecycle';
 import type { WorldState } from './state';
-import { resolveHookTrait, subscribeTrait, type HookInput } from './subscriptions';
+import {
+  attachCreatedObserver,
+  attachDestroyObserver,
+  resolveHookTrait,
+  subscribeTrait,
+  type HookInput,
+} from './subscriptions';
 import type { World } from './types';
 
 export function createWorld(...traits: ConfigurableTrait[]): World {
@@ -44,6 +50,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     traitRegisteredSubscribers: new Set<(trait: Trait) => void>(),
     spawnSubscribers: new Set<(entity: Entity) => void>(),
     destroySubscribers: new Set<(entity: Entity) => void>(),
+    destroyObserverAttached: false,
+    createdObserverAttached: false,
     traitSubscriptions: new Map(),
     traitObserversAttached: false,
     versionSources: new Map(),
@@ -173,6 +181,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
       state.spawnSubscribers.add(callback);
+      if (state.kernel) attachCreatedObserver(state, state.kernel);
       return () => {
         state.spawnSubscribers.delete(callback);
       };
@@ -180,6 +189,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
       state.destroySubscribers.add(callback);
+      if (state.kernel) attachDestroyObserver(state, state.kernel);
       return () => {
         state.destroySubscribers.delete(callback);
       };

@@ -8,6 +8,10 @@ import {
   beginMutation,
   createReserved,
   createReservedNow,
+  createInArchetypeNow,
+  isQuietSpawn,
+  isSparseTrait,
+  traverseAdd,
   createWorld as createKernel,
   destroyEntity,
   destroyEntityNow,
@@ -41,7 +45,7 @@ import { $internal } from '../symbols';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import { worldFinalizer } from './finalization';
 import { CommandKind, type Command, type WorldState } from './state';
-import { attachObservers, attachTraitObservers } from './subscriptions';
+import { attachCreatedObserver, attachObservers, attachTraitObservers } from './subscriptions';
 
 // ---------------------------------------------------------------------------
 // Registration
@@ -108,6 +112,8 @@ function observed(state: WorldState, traits: readonly ConfigurableTrait[]): bool
 
 /** Kernel type for a trait or pair, or 0 when a pair targets a dead entity. */
 function resolveType(state: WorldState, input: Trait | RelationPair): TypeId {
+  const internal = (input as Trait)[$internal];
+  if (internal !== undefined) return internal.id;
   if (isRelationPair(input)) {
     const relation = input.relation[$internal].id;
     if (input.target === '*') return pair(relation, Any);
@@ -210,9 +216,37 @@ export function spawnEntity(state: WorldState, traits: readonly ConfigurableTrai
     releaseReservation(kernel, local);
     throw error;
   }
+  if (traits.length > 0 && isQuietSpawn(kernel)) {
+    // Fast path: plain valueless archetype traits resolve to one archetype and create in one pass.
+    let archetype = kernel.root;
+    let i = 0;
+    for (; i < traits.length; i++) {
+      const config = traits[i];
+      if (Array.isArray(config) || isRelationPair(config)) break;
+      const trait = config as Trait;
+      registerTrait(state, trait);
+      const id = trait[$internal].id;
+      if (isSparseTrait(id)) break;
+      archetype = traverseAdd(kernel, archetype, id);
+    }
+    if (i === traits.length) {
+      beginMutation(kernel);
+      try {
+        createInArchetypeNow(kernel, local, archetype);
+      } catch (error) {
+        abortMutation(kernel);
+        throw error;
+      }
+      endMutation(kernel);
+      return entity;
+    }
+  }
   const entries = traits.length > 0 ? toEntries(state, traits) : undefined;
   // Inside a mutation the reservation outlives this call, so reset can release its handle.
-  if (kernel.depth > 0) state.reserved.add(handleIndex(entity));
+  if (kernel.depth > 0) {
+    attachCreatedObserver(state, kernel);
+    state.reserved.add(handleIndex(entity));
+  }
   createReserved(kernel, local, entries !== undefined && entries.length > 0 ? entries : undefined);
   return entity;
 }

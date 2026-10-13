@@ -504,6 +504,17 @@ export function publishValue(world: World, entity: Entity, type: TypeId): void {
   publishChange(world, entity, type, null, -1);
 }
 
+/** `publishChange` for data stored in the entity's archetype. Without change observers or tracking queries it is a stamp and a version bump. */
+function publishRow(world: World, entity: Entity, type: TypeId, archetype: Archetype, row: number, slot: number): void {
+  if (world.observers.traitChanged.length === 0 && world.trackingByType.size === 0) {
+    archetype.changed[slot * archetype.capacity + row] = revision;
+    if (revision > archetype.maxChanged[slot]) archetype.maxChanged[slot] = revision;
+    bumpVersion(world, type);
+    return;
+  }
+  publishChange(world, entity, type, archetype, row);
+}
+
 /**
  * Stamps, versions, observers, and query events for a change. Callers that
  * still hold the entity's archetype and row pass them; after a hook ran, they
@@ -587,7 +598,10 @@ export function setTraitUncheckedNow(world: World, entity: Entity, type: TypeId,
     return true;
   }
   writeRecord(columns, plan, row, value, !plan.aos);
-  if (notify) publishChange(world, entity, type, archetype, row);
+  if (notify) {
+    if (record !== undefined) publishRow(world, entity, type, archetype, row, record.slot);
+    else publishChange(world, entity, type, archetype, row);
+  }
   else bumpTypeVersion(world, type);
   return true;
 }
@@ -655,7 +669,10 @@ export function setValueNow(
     return true;
   }
   columns[position][row] = value;
-  if (notify) publishChange(world, entity, type, archetype, row);
+  if (notify) {
+    if (record !== undefined) publishRow(world, entity, type, archetype, row, record.slot);
+    else publishChange(world, entity, type, archetype, row);
+  }
   else bumpTypeVersion(world, type);
   return true;
 }

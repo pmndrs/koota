@@ -1,5 +1,5 @@
 import { getFirstTarget, getSources, getTargets, setSources } from '../../kernel';
-import { handleGeneration, handleIndex, isHandleAlive, locate, locatedLocal, toLocal, toPublic } from '../handles';
+import { handleGeneration, handleIndex, isHandleAlive, locate, locateIndex, locatedLocal, toLocal, toPublic } from '../handles';
 import type { Relation, RelationPair } from '../relation/types';
 import { $internal } from '../symbols';
 import type { ConfigurableTrait, Trait } from '../trait/types';
@@ -61,7 +61,7 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 
 // @ts-expect-error
 Number.prototype.get = function (this: Entity, trait: Trait | RelationPair) {
-  const state = locate(this) as WorldState | undefined;
+  const state = locateIndex(this) as WorldState | undefined;
   return state !== undefined && locatedLocal !== 0 ? readTrait(state, this, trait, locatedLocal) : undefined;
 };
 
