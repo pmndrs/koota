@@ -46,7 +46,8 @@ function hasListeners(state: WorldState, trait: Trait): boolean {
   if (internal.hooks?.onSet) return true;
   const subscriptions = state.traitSubscriptions.get(internal.id);
   if (subscriptions && (subscriptions.change.size > 0 || subscriptions.byEntity.size > 0)) return true;
-  return state.kernel!.trackingByType.has(internal.id);
+  // A destroyed world has no kernel and nothing left to detect.
+  return state.kernel?.trackingByType.has(internal.id) === true;
 }
 
 type PageCache = { version: number; traits: Trait[]; pages: QueryPage<any>[] };

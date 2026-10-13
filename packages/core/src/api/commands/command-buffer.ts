@@ -91,7 +91,15 @@ export function createCommandBuffer(state: WorldState, worldEntity: Entity): Com
     spawn(...traits: ConfigurableTrait[]) {
       try {
         assertWritable(buffer);
-        const entity = allocateHandle(state, reserveEntity(state.kernel!));
+        const local = reserveEntity(state.kernel!);
+        let entity: Entity;
+        try {
+          entity = allocateHandle(state, local);
+        } catch (error) {
+          // The reservation was never handed out, so it retires instead of holding its slot.
+          releaseReservation(state.kernel!, local);
+          throw error;
+        }
         state.reserved.add(handleIndex(entity));
         record(CommandKind.Spawn, entity, traits.map(captureTrait));
         return entity;
