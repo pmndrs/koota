@@ -86,7 +86,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     has(target: Entity | Trait): boolean {
       if (!state.kernel) return false;
-      if (typeof target === 'number') return isHandleAlive(target);
+      if (typeof target === 'number') return resolveOwner(target) === state && isHandleAlive(target);
       return entityHas(state, state.worldEntity!, target);
     },
 

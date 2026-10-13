@@ -218,8 +218,10 @@ export function resetWorld(world: World): void {
     abortMutation(world);
     throw error;
   }
-  endMutation(world);
+  // Work that destroy observers and hooks queued is dropped with the rest of
+  // the world, so a spawn they made cannot outlive the archetypes it lands in.
   discardCommands(world);
+  endMutation(world);
   // Reservations never created retire, so their handles stay dead.
   for (let index = 1; index < world.next; index++) {
     if (world.archetypeOf[index] === RESERVED) retireSlot(world, index);

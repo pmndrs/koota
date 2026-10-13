@@ -22,6 +22,7 @@ import {
   pair,
   removeTrait,
   removeTraitNow,
+  releaseReservation,
   reserveEntity,
   resetWorld as resetKernel,
   setTraitUnchecked,
@@ -201,7 +202,14 @@ export function spawnEntity(state: WorldState, traits: readonly ConfigurableTrai
   ensureKernel(state);
   const kernel = state.kernel!;
   const local = reserveEntity(kernel);
-  const entity = allocateHandle(state, local);
+  let entity: Entity;
+  try {
+    entity = allocateHandle(state, local);
+  } catch (error) {
+    // The reservation was never handed out, so it retires instead of holding its slot.
+    releaseReservation(kernel, local);
+    throw error;
+  }
   const entries = traits.length > 0 ? toEntries(state, traits) : undefined;
   // Inside a mutation the reservation outlives this call, so reset can release its handle.
   if (kernel.depth > 0) state.reserved.add(handleIndex(entity));
