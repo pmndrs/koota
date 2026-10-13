@@ -434,6 +434,24 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
+  it('shares a result until membership changes and sorts a copy', () => {
+    const a = world.spawn(Position);
+    const b = world.spawn(Position);
+    const first = world.query(Position);
+    expect(world.query(Position)).toBe(first);
+
+    const sorted = first.sort((x, y) => y - x);
+    expect(sorted).not.toBe(first);
+    expect([...first]).toEqual([a, b]);
+    expect([...sorted]).toEqual([a, b].sort((x, y) => y - x));
+
+    const c = world.spawn(Position);
+    const second = world.query(Position);
+    expect(second).not.toBe(first);
+    expect([...second]).toContain(c);
+    expect([...first]).toEqual([a, b]);
+  });
+
   it('can sort query results', () => {
     const entityA = world.spawn(Position);
     const entityB = world.spawn(Position);
@@ -462,7 +480,7 @@ describe('Query', () => {
     expect(entities[2]).toBe(entityD);
     expect(entities[3]).toBe(entityE);
 
-    entities.sort();
+    entities = entities.sort();
 
     // Test the entity.id() are in ascending order.
     for (let i = 1; i < entities.length; i++) {

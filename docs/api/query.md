@@ -40,6 +40,10 @@ const allEntities = world.query()
 
 This differs from `world.entities` which includes all entities, even system ones. Koota excludes its internal system entities from queries to keep userland queries from being polluted.
 
+## Query results
+
+Reading the same query again returns the same result until an entity enters or leaves it, so do not mutate the returned array. Entity order is not guaranteed. `sort()` returns a sorted copy and leaves the shared result unchanged. `select()` also returns a new result.
+
 ## Excluding entities from queries
 
 Any entity can be excluded from queries by adding the built-in tag `IsExcluded` to it. System entities get this tag added to them so that they do not interfere with the app.

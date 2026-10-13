@@ -167,6 +167,10 @@ function updateMovement(world: World) {
 - Startup/cleanup code
 - Infrequent operations
 
+## Query results are shared
+
+Reading a query again returns the same result until an entity enters or leaves it. Do not mutate the array. Entity order is not guaranteed. `sort()` and `select()` return new results and leave the shared one unchanged, so use the returned value.
+
 ## Change detection
 
 `updateEach` automatically detects changes for traits tracked via `onChange` or `Changed` modifier.

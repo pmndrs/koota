@@ -95,10 +95,12 @@ export function createQueryResult<T extends QueryParameter[]>(
   state: WorldState,
   entities: Entity[],
   query: KernelQuery | null,
-  parameters: readonly QueryParameter[]
+  parameters: readonly QueryParameter[],
+  selected?: Trait[],
+  sorted = false
 ): QueryResult<T> {
-  let traits = selectTraits(parameters);
-  let customOrder = false;
+  const traits = selected ?? selectTraits(parameters);
+  const customOrder = sorted;
   const kernel = state.kernel!;
 
   const results = Object.assign(entities, {
@@ -231,14 +233,23 @@ export function createQueryResult<T extends QueryParameter[]>(
     },
 
     select<U extends QueryParameter[]>(...selection: U): QueryResult<U> {
-      traits = selectTraits(selection);
-      return results as unknown as QueryResult<U>;
+      return createQueryResult<U>(
+        state,
+        entities.slice(),
+        query,
+        parameters,
+        selectTraits(selection),
+        customOrder
+      );
     },
 
-    sort(callback: (a: Entity, b: Entity) => number = (a, b) => handleIndex(a) - handleIndex(b)): QueryResult<T> {
-      customOrder = true;
-      Array.prototype.sort.call(entities, callback);
-      return results;
+    /** Returns a sorted copy and leaves a cached result untouched. */
+    sort(
+      callback: (a: Entity, b: Entity) => number = (a, b) => handleIndex(a) - handleIndex(b)
+    ): QueryResult<T> {
+      const copy = Array.prototype.slice.call(entities) as Entity[];
+      copy.sort(callback);
+      return createQueryResult<T>(state, copy, query, parameters, traits, true);
     },
   });
 
