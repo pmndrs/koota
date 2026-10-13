@@ -1,4 +1,11 @@
-import { collect, first, getEntities, subscribeQuery } from '../../kernel';
+import {
+  collect,
+  first,
+  getEntities,
+  getQueryVersion,
+  subscribeQuery,
+  type Query as KernelQuery,
+} from '../../kernel';
 import { createCommandBuffer, type CommandBuffer } from '../commands/command-buffer';
 import '../entity/entity-methods-patch';
 import type { Entity } from '../entity/types';
@@ -6,11 +13,18 @@ import { rethrowPublicError } from '../errors';
 import { createOwnerState, isHandleAlive, registry, resolveOwner, toPublic } from '../handles';
 import { hashParameters, IsExcluded, isQuery, resolveQuery } from '../query/query';
 import { createQueryResult, emptyResult } from '../query/query-result';
-import type { Query, QueryParameter, QueryUnsubscriber } from '../query/types';
+import type { Query, QueryParameter, QueryResult, QueryUnsubscriber } from '../query/types';
 import { isRelation } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { $internal } from '../symbols';
-import type { ConfigurableTrait, ExtractSchema, SetTraitCallback, Trait, TraitRecord, TraitValue } from '../trait/types';
+import type {
+  ConfigurableTrait,
+  ExtractSchema,
+  SetTraitCallback,
+  Trait,
+  TraitRecord,
+  TraitValue,
+} from '../trait/types';
 import { worldFinalizer } from './finalization';
 import {
   addToEntity,
@@ -139,10 +153,23 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       const [parameters, hash] = queryInput(args);
       const query = resolveQuery(state, parameters, hash);
       if (query === null) return emptyResult;
-      const entities = collect(state.kernel!, query) as unknown as Entity[];
+      if (!query.dynamic) {
+        // A static query only changes membership when its version does, so its result is reused until then.
+        const version = getQueryVersion(state.kernel!, query);
+        const cached = results.get(query);
+        if (cached !== undefined && cached.version === version) {
+          if (cached.result.length === 0) return emptyResult;
+          if (sameParameters(cached.parameters, parameters)) return cached.result;
+          return createQueryResult(state, cached.result.slice(), query, parameters);
+        }
+        const entities = publicSnapshot(state, query);
+        const result =
+          entities.length === 0 ? emptyResult : createQueryResult(state, entities, query, parameters);
+        results.set(query, { version, parameters, result });
+        return result;
+      }
+      const entities = publicSnapshot(state, query);
       if (entities.length === 0) return emptyResult;
-      const localToPublic = state.localToPublic;
-      for (let i = 0; i < entities.length; i++) entities[i] = localToPublic[(entities[i] as number) & 0x1fffff] as Entity;
       return createQueryResult(state, entities, query, parameters);
     },
 
@@ -159,11 +186,17 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       return local === undefined ? undefined : toPublic(state, local);
     },
 
-    onQueryAdd(args: Query<QueryParameter[]> | QueryParameter[], callback: (entity: Entity) => void): QueryUnsubscriber {
+    onQueryAdd(
+      args: Query<QueryParameter[]> | QueryParameter[],
+      callback: (entity: Entity) => void
+    ): QueryUnsubscriber {
       return subscribeQueryEvent(state, args, 'add', callback);
     },
 
-    onQueryRemove(args: Query<QueryParameter[]> | QueryParameter[], callback: (entity: Entity) => void): QueryUnsubscriber {
+    onQueryRemove(
+      args: Query<QueryParameter[]> | QueryParameter[],
+      callback: (entity: Entity) => void
+    ): QueryUnsubscriber {
       return subscribeQueryEvent(state, args, 'remove', callback);
     },
 
@@ -171,11 +204,17 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       return subscribeWorldTrait(state, input, 'add', callback);
     },
 
-    onRemove(input: HookInput, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber {
+    onRemove(
+      input: HookInput,
+      callback: (entity: Entity, target?: Entity) => void
+    ): QueryUnsubscriber {
       return subscribeWorldTrait(state, input, 'remove', callback);
     },
 
-    onChange(input: HookInput, callback: (entity: Entity, target?: Entity) => void): QueryUnsubscriber {
+    onChange(
+      input: HookInput,
+      callback: (entity: Entity, target?: Entity) => void
+    ): QueryUnsubscriber {
       return subscribeWorldTrait(state, input, 'change', callback);
     },
 
@@ -208,7 +247,10 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
   Object.defineProperty(world, 'traits', { get: () => state.traits, enumerable: true });
   Object.defineProperty(world, 'id', { get: () => id, enumerable: true });
-  Object.defineProperty(world, 'isRegistered', { get: () => state.kernel !== null, enumerable: true });
+  Object.defineProperty(world, 'isRegistered', {
+    get: () => state.kernel !== null,
+    enumerable: true,
+  });
   Object.defineProperty(world, 'entities', {
     get: () => {
       if (!state.kernel) return [];
@@ -225,6 +267,27 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
   if (traits.length > 0) ensureKernel(state);
   return world;
+}
+
+const results = new WeakMap<
+  KernelQuery,
+  { version: number; parameters: readonly QueryParameter[]; result: QueryResult<QueryParameter[]> }
+>();
+
+function sameParameters(a: readonly QueryParameter[], b: readonly QueryParameter[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** Matching entities as public handles, in a fresh array. */
+function publicSnapshot(state: WorldState, query: KernelQuery): Entity[] {
+  const entities = collect(state.kernel!, query) as unknown as Entity[];
+  const localToPublic = state.localToPublic;
+  for (let i = 0; i < entities.length; i++)
+    entities[i] = localToPublic[(entities[i] as number) & 0x1fffff] as Entity;
+  return entities;
 }
 
 function queryInput(args: unknown[]): [readonly QueryParameter[], string | undefined] {
@@ -251,7 +314,11 @@ function subscribeQueryEvent(
 ): QueryUnsubscriber {
   ensureKernel(state);
   const parameters = isQuery(args) ? args.parameters : args;
-  const query = resolveQuery(state, parameters, isQuery(args) ? args.hash : hashParameters(parameters));
+  const query = resolveQuery(
+    state,
+    parameters,
+    isQuery(args) ? args.hash : hashParameters(parameters)
+  );
   if (query === null) return () => {};
   return subscribeQuery(state.kernel!, query, event, (local) => callback(toPublic(state, local)));
 }
