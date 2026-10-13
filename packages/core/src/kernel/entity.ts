@@ -136,20 +136,24 @@ export function createReservedNow(world: World, entity: Entity, entries?: readon
       constructTrait(world, entity, type, typeof entry === 'number' ? undefined : entry[1]);
       bumpVersion(world, type);
     }
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
-      const type = typeof entry === 'number' ? entry : entry[0];
-      if (isExternal(type)) continue;
-      fire(world, 'traitAdded', type, entity);
-      if (!isAlive(world, entity)) return entity;
+    if (world.observers.traitAdded.length > 0) {
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const type = typeof entry === 'number' ? entry : entry[0];
+        if (isExternal(type)) continue;
+        fire(world, 'traitAdded', type, entity);
+        if (!isAlive(world, entity)) return entity;
+      }
     }
   }
   notifyTransition(world, entity, null, archetypeAt(world, index));
   if (entries) {
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
-      const type = typeof entry === 'number' ? entry : entry[0];
-      if (!isExternal(type)) notifyEvent(world, type, entity, ADDED);
+    if (world.trackingByType.size > 0) {
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const type = typeof entry === 'number' ? entry : entry[0];
+        if (!isExternal(type)) notifyEvent(world, type, entity, ADDED);
+      }
     }
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
@@ -163,6 +167,32 @@ export function createReservedNow(world: World, entity: Entity, entries?: readon
       if (isExternal(type)) addTraitNow(world, entity, type, typeof entry === 'number' ? undefined : entry[1]);
     }
   }
+  if (isAlive(world, entity)) fire(world, 'entityCreated', entity);
+  return entity;
+}
+
+/** Whether a spawn into a plain archetype can skip observer, tracking and external passes. */
+export function isQuietSpawn(world: World): boolean {
+  return world.depth === 0 && world.observers.traitAdded.length === 0 && world.trackingByType.size === 0;
+}
+
+/**
+ * Creates a reserved entity in a known archetype of valueless, non-external
+ * traits in one pass. Callers check `isQuietSpawn` first. Traits construct in
+ * type id order.
+ */
+export function createInArchetypeNow(world: World, entity: Entity, archetype: Archetype): Entity {
+  const index = entity & INDEX_MASK;
+  world.archetypeOf[index] = archetype.id;
+  const row = appendEntity(archetype, entity, revision);
+  world.rowOf[index] = row;
+  world.aliveCount++;
+  const types = archetype.types;
+  for (let i = 0; i < types.length; i++) {
+    constructTrait(world, entity, types[i], undefined);
+    bumpVersion(world, types[i]);
+  }
+  notifyTransition(world, entity, null, archetype);
   if (isAlive(world, entity)) fire(world, 'entityCreated', entity);
   return entity;
 }
@@ -214,9 +244,41 @@ export function createReserved(world: World, entity: Entity, entries?: readonly 
  */
 export function destroyEntityNow(world: World, entity: Entity): boolean {
   if (!isAlive(world, entity) || world.destroying.has(entity & INDEX_MASK)) return false;
+  // Quiet fast path: no pairs, no sparse traits, no destroy-side observers and no remove hooks.
+  const quickIndex = entity & INDEX_MASK;
+  const quickList = world.externals[quickIndex];
+  if (
+    (quickList === undefined || quickList.length === 0) &&
+    world.observers.entityDestroying.length === 0 &&
+    world.observers.traitRemoving.length === 0 &&
+    !world.pairsByTarget.has(quickIndex)
+  ) {
+    const archetype = archetypeAt(world, quickIndex);
+    const own = archetype.slotRecords;
+    let hooked = false;
+    for (let i = 0; i < own.length; i++) {
+      if (own[i].onRemove !== null) {
+        hooked = true;
+        break;
+      }
+    }
+    if (!hooked) {
+      const row = world.rowOf[quickIndex];
+      const swapped = removeRow(archetype, row);
+      if (swapped !== 0) world.rowOf[swapped & INDEX_MASK] = row;
+      world.aliveCount--;
+      retireSlot(world, quickIndex);
+      notifyTransition(world, entity, archetype, null);
+      fire(world, 'entityDestroyed', entity);
+      return true;
+    }
+  }
   const queue: Entity[] = [entity];
   const marks = world.destroying;
-  marks.add(entity & INDEX_MASK);
+  // Only a relation cascade can reach the entity again, so an entity without pairs needs no mark.
+  const rootList = world.externals[entity & INDEX_MASK];
+  const marked = (rootList !== undefined && rootList.length > 0) || world.pairsByTarget.has(entity & INDEX_MASK);
+  if (marked) marks.add(entity & INDEX_MASK);
   try {
     for (let cursor = 0; cursor < queue.length; cursor++) {
       const current = queue[cursor];
@@ -272,7 +334,7 @@ export function destroyEntityNow(world: World, entity: Entity): boolean {
       fire(world, 'entityDestroyed', current);
     }
   } finally {
-    for (let i = 0; i < queue.length; i++) marks.delete(entityIndex(queue[i]));
+    if (marked || queue.length > 1) for (let i = 0; i < queue.length; i++) marks.delete(entityIndex(queue[i]));
   }
   return true;
 }

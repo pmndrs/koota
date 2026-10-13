@@ -5,8 +5,15 @@ import { allocateHandle, handleIndex, releaseHandle, toLocal } from '../handles'
 import { isRelationPair } from '../relation/relation';
 import type { RelationPair } from '../relation/types';
 import { $internal } from '../symbols';
-import type { ConfigurableTrait, ExtractSchema, SetTraitCallback, Trait, TraitValue } from '../trait/types';
+import type {
+  ConfigurableTrait,
+  ExtractSchema,
+  SetTraitCallback,
+  Trait,
+  TraitValue,
+} from '../trait/types';
 import { CommandKind, type Command, type WorldState } from '../world/state';
+import { attachCreatedObserver } from '../world/subscriptions';
 
 export type CommandBufferState = {
   readonly state: WorldState;
@@ -44,14 +51,19 @@ export interface CommandBuffer {
 
 /** SoA records are copied when recorded. Instances and nested objects stay references. */
 export function captureValue(trait: Trait, value: unknown): unknown {
-  return trait[$internal].type === 'soa' && value !== undefined && value !== null && typeof value !== 'function'
+  return trait[$internal].type === 'soa' &&
+    value !== undefined &&
+    value !== null &&
+    typeof value !== 'function'
     ? { ...(value as object) }
     : value;
 }
 
 export function captureTrait(config: ConfigurableTrait): ConfigurableTrait {
-  if (Array.isArray(config)) return [config[0], captureValue(config[0], config[1])] as ConfigurableTrait;
-  if (isRelationPair(config)) return { ...config, params: config.params ? { ...config.params } : undefined } as RelationPair;
+  if (Array.isArray(config))
+    return [config[0], captureValue(config[0], config[1])] as ConfigurableTrait;
+  if (isRelationPair(config))
+    return { ...config, params: config.params ? { ...config.params } : undefined } as RelationPair;
   return config;
 }
 
@@ -100,6 +112,7 @@ export function createCommandBuffer(state: WorldState, worldEntity: Entity): Com
           releaseReservation(state.kernel!, local);
           throw error;
         }
+        attachCreatedObserver(state, state.kernel!);
         state.reserved.add(handleIndex(entity));
         record(CommandKind.Spawn, entity, traits.map(captureTrait));
         return entity;
@@ -129,7 +142,8 @@ export function createCommandBuffer(state: WorldState, worldEntity: Entity): Com
       try {
         const hasEntity = typeof inputs[0] === 'number';
         const entity = hasEntity ? (inputs[0] as Entity) : worldEntity;
-        for (let i = hasEntity ? 1 : 0; i < inputs.length; i++) record(CommandKind.Remove, entity, inputs[i]);
+        for (let i = hasEntity ? 1 : 0; i < inputs.length; i++)
+          record(CommandKind.Remove, entity, inputs[i]);
       } catch (error) {
         rethrowPublicError(error);
       }
@@ -139,9 +153,17 @@ export function createCommandBuffer(state: WorldState, worldEntity: Entity): Com
         const hasEntity = typeof first === 'number';
         const target = (hasEntity ? second : first) as Trait | RelationPair;
         const value = hasEntity ? third : second;
-        const flag: boolean = hasEntity ? ((fourth as boolean | undefined) ?? true) : ((third as boolean | undefined) ?? true);
+        const flag: boolean = hasEntity
+          ? ((fourth as boolean | undefined) ?? true)
+          : ((third as boolean | undefined) ?? true);
         const resolved = isRelationPair(target) ? target.relation[$internal].trait : target;
-        record(CommandKind.Set, hasEntity ? (first as Entity) : worldEntity, target, captureValue(resolved, value), flag);
+        record(
+          CommandKind.Set,
+          hasEntity ? (first as Entity) : worldEntity,
+          target,
+          captureValue(resolved, value),
+          flag
+        );
       } catch (error) {
         rethrowPublicError(error);
       }

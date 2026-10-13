@@ -178,6 +178,20 @@ export function locate(handle: number): HandleOwner | undefined {
   return owner;
 }
 
+/** Like `locate` but leaves the kernel generation unread; `locatedLocal` holds the bare kernel index. */
+export function locateIndex(handle: number): HandleOwner | undefined {
+  locatedLocal = 0;
+  if (handle !== (handle & 0x3fffffff)) return undefined;
+  const publicIndex = handle & ENTITY_ID_MASK;
+  const pageId = publicIndex >>> PAGE_BITS;
+  const owner = registry.owners[pageId];
+  if (owner === null || owner === undefined) return undefined;
+  const offset = publicIndex & (PAGE_SIZE - 1);
+  if (registry.generations[pageId]![offset] !== ((handle >>> GENERATION_SHIFT) & GENERATION_MASK)) return undefined;
+  if (owner.kernel !== null) locatedLocal = registry.locals[pageId]![offset];
+  return owner;
+}
+
 /** Kernel entity for a live, bound handle owned by `owner`, or 0. */
 export function toLocal(owner: HandleOwner, handle: number): LocalEntity {
   if (handle !== (handle & 0x3fffffff)) return 0;

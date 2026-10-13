@@ -54,8 +54,13 @@ export function resolveHookCallback(
     const parameters = isQuery(targetQuery) ? targetQuery.parameters : targetQuery;
     return (entity, target) => {
       if (target === undefined || !state.kernel) return;
-      const query = resolveQuery(state, parameters, isQuery(targetQuery) ? targetQuery.hash : undefined);
-      if (query && entityInQuery(state.kernel, query, toLocal(state, target))) callback(entity, target);
+      const query = resolveQuery(
+        state,
+        parameters,
+        isQuery(targetQuery) ? targetQuery.hash : undefined
+      );
+      if (query && entityInQuery(state.kernel, query, toLocal(state, target)))
+        callback(entity, target);
     };
   }
   const pairTarget = input.target;
@@ -124,20 +129,38 @@ function pairTarget(state: WorldState, kernel: Kernel, type: TypeId): Entity | u
   return toPublic(state, entityAt(kernel, targetIndex));
 }
 
-/** Registers the entity observers every world needs: handle release and destroy subscribers. */
-export function attachObservers(state: WorldState, kernel: Kernel): void {
+/** Registers the created observer on the first spawn subscriber or queued spawn, so quiet spawns fire nothing. */
+export function attachCreatedObserver(state: WorldState, kernel: Kernel): void {
+  if (state.createdObserverAttached) return;
+  state.createdObserverAttached = true;
   observe(kernel, 'entityCreated', (local) => {
     const entity = toPublic(state, local);
     if (state.reserved.size > 0) state.reserved.delete(handleIndex(entity));
-    if (state.spawnSubscribers.size === 0 || hasTraitUnchecked(kernel, local, IsExcluded[$internal].id)) return;
+    if (
+      state.spawnSubscribers.size === 0 ||
+      hasTraitUnchecked(kernel, local, IsExcluded[$internal].id)
+    )
+      return;
     for (const subscriber of state.spawnSubscribers) subscriber(entity);
   });
+}
 
+/** Registers the destroy observer on the first destroy subscriber, so unobserved worlds take the kernel's quiet destroy path. */
+export function attachDestroyObserver(state: WorldState, kernel: Kernel): void {
+  if (state.destroyObserverAttached) return;
+  state.destroyObserverAttached = true;
   observe(kernel, 'entityDestroying', (local) => {
     const entity = toPublic(state, local);
     if (entity === state.worldEntity || state.destroySubscribers.size === 0) return;
     for (const subscriber of state.destroySubscribers) subscriber(entity);
   });
+}
+
+/** Registers the entity observers every world needs: handle release and destroy subscribers. */
+export function attachObservers(state: WorldState, kernel: Kernel): void {
+  if (state.spawnSubscribers.size > 0) attachCreatedObserver(state, kernel);
+
+  if (state.destroySubscribers.size > 0) attachDestroyObserver(state, kernel);
 
   observe(kernel, 'entityDestroyed', (local) => {
     const entity = toPublic(state, local);
