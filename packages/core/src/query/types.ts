@@ -181,6 +181,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   ctx: WorldContext;
   parameters: T;
   hash: QueryHash;
+  refId: number;
   traits: Trait[];
   /** Static trait instances for non-tracking query matching */
   traitInstances: {

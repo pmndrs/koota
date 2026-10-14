@@ -32,6 +32,8 @@ export type WorldContext = {
   queryInstances: (QueryInstance | undefined)[];
   actionInstances: (ActionInstance | undefined)[];
   notQueries: Set<QueryInstance>;
+  /** Queries indexed by target entity page and offset. */
+  targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
   dirtyMasks: Map<number, Uint32Array[][]>;
   trackingSnapshots: Map<number, Uint32Array[][]>;

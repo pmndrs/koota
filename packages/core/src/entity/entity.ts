@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
-import { IsExcluded, queryInternal } from '../query/query';
+import { dropQuery, IsExcluded, queryInternal } from '../query/query';
 import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -97,6 +97,19 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 
     releaseEntity(ctx.entityIndex, currentEntity);
 
+    const eid = getEntityId(currentEntity);
+    const pageId = eid >>> 10;
+    const offset = eid & 1023;
+    const targetQueries = ctx.targetQueries[pageId]?.[offset];
+    if (targetQueries) {
+      for (let i = targetQueries.length - 1; i >= 0; i--) {
+        const query = targetQueries[i];
+        if (query.relationFilters!.some((pair) => pair.target === currentEntity)) {
+          dropQuery(ctx, query);
+        }
+      }
+    }
+
     const allQuery = ctx.queriesHashMap.get('');
     if (allQuery) allQuery.remove(ctx, currentEntity);
 
@@ -117,9 +130,6 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       }
     }
 
-    const eid = getEntityId(currentEntity);
-    const pageId = eid >>> 10;
-    const offset = eid & 1023;
     for (let i = 0; i < ctx.entityMasks.length; i++) {
       const page = ctx.entityMasks[i][pageId];
       if (page !== EMPTY_MASK_PAGE) page[offset] = 0;

@@ -1,5 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, relation, trait, type Entity } from 'koota';
+import { createQuery, createWorld, relation, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const IsPlayer = trait();
@@ -263,4 +263,92 @@ group('relation target filter maintenance 2k @relation @query @toggle', () => {
 
     world.destroy();
   });
+});
+
+group('spawn after target query churn 1k @relation @graph @lifecycle @target-query-churn', () => {
+  for (const targetCount of [0, 100, 1000]) {
+    bench(`${targetCount} destroyed targets`, function* () {
+      const ChildOf = relation({ autoDestroy: 'orphan' });
+      const Mesh = trait();
+      const world = createWorld();
+
+      // Distinct targets keep handle reuse from capping the number of cached queries.
+      const targets = Array.from({ length: targetCount }, () => world.spawn());
+      for (const target of targets) {
+        world.spawn(Mesh, ChildOf(target));
+        world.query(Mesh, ChildOf(target));
+        target.destroy();
+      }
+
+      const root = world.spawn();
+      const pair = ChildOf(root);
+      world.spawn(Mesh, pair).destroy();
+      world.query(Mesh, pair);
+      const entities: Entity[] = [];
+
+      yield {
+        bench: () => {
+          for (let i = 0; i < 1000; i++) entities[i] = world.spawn(Mesh, pair);
+        },
+        snapshot: () => {
+          const count = world.query(Mesh, pair).length;
+          assert.equal(count, 1000);
+          return count;
+        },
+        after: () => {
+          for (const entity of entities) entity.destroy();
+          world.query(Mesh, pair);
+        },
+      };
+
+      world.destroy();
+    });
+  }
+});
+
+group('target query cleanup 1k @relation @lifecycle @target-query-cleanup', () => {
+  for (const queryCount of [0, 100, 1000]) {
+    for (const queried of [false, true]) {
+      bench(
+        `${queryCount} unrelated queries, ${queried ? 'queried targets' : 'unqueried entities'}`,
+        function* () {
+          const ChildOf = relation();
+          const Mesh = trait();
+          const world = createWorld();
+          world.query(Mesh, ChildOf('*'));
+
+          const targets = Array.from({ length: queryCount }, () => world.spawn());
+          for (const target of targets) world.query(createQuery(Mesh, ChildOf(target)));
+
+          const entities: Entity[] = [];
+          const spawn = () => {
+            for (let i = 0; i < 1000; i++) {
+              const entity = world.spawn();
+              entities[i] = entity;
+              if (queried) world.query(Mesh, ChildOf(entity));
+            }
+          };
+          spawn();
+
+          yield {
+            bench: () => {
+              for (const entity of entities) entity.destroy();
+            },
+            snapshot: () => {
+              assert.equal(
+                entities.every((entity) => !world.has(entity)),
+                true
+              );
+              const count = world.entities.length;
+              assert.equal(count, queryCount + 1);
+              return count;
+            },
+            after: spawn,
+          };
+
+          world.destroy();
+        }
+      );
+    }
+  }
 });
