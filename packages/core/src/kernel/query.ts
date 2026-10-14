@@ -869,6 +869,20 @@ export function getQueryVersion(world: World, query: Query): number {
   return query.version;
 }
 
+/**
+ * Layout of a static query: the sum of its archetypes' row versions. Row versions only
+ * grow and matched archetypes are never dropped, so an equal sum means no matched row moved.
+ */
+export function getQueryLayout(query: Query): number {
+  const branches = query.branches;
+  let layout = 0;
+  for (let b = 0; b < branches.length; b++) {
+    const archetypes = branches[b].archetypes;
+    for (let a = 0; a < archetypes.length; a++) layout += archetypes[a].rowVersion;
+  }
+  return layout;
+}
+
 export function subscribeQuery(
   world: World,
   query: Query,

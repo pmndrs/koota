@@ -1,6 +1,8 @@
 import {
   bumpVersion,
-  getQueryVersion as getKernelQueryVersion,
+  collect,
+  getQueryLayout,
+  getQueryVersion,
   isAlive,
   markChanged,
   readRecord,
@@ -16,8 +18,15 @@ import { $internal } from '../symbols';
 import type { Trait } from '../trait/types';
 import { shallowEqual } from '../utils/shallow-equal';
 import type { WorldState } from '../world/state';
+import { compileEach, eachLayout, type EachLayout, type EachLoop } from './compile-each';
 import { isModifier } from './modifiers';
-import type { InstancesFromParameters, QueryPage, QueryParameter, QueryResult, QueryResultOptions } from './types';
+import type {
+  InstancesFromParameters,
+  QueryPage,
+  QueryParameter,
+  QueryResult,
+  QueryResultOptions,
+} from './types';
 
 /** Data-bearing traits a parameter list selects, in caller order. */
 function selectTraits(parameters: readonly QueryParameter[]): Trait[] {
@@ -45,12 +54,13 @@ function hasListeners(state: WorldState, trait: Trait): boolean {
   const internal = trait[$internal];
   if (internal.hooks?.onSet) return true;
   const subscriptions = state.traitSubscriptions.get(internal.id);
-  if (subscriptions && (subscriptions.change.size > 0 || subscriptions.byEntity.size > 0)) return true;
+  if (subscriptions && (subscriptions.change.size > 0 || subscriptions.byEntity.size > 0))
+    return true;
   // A destroyed world has no kernel and nothing left to detect.
   return state.kernel?.trackingByType.has(internal.id) === true;
 }
 
-type PageCache = { version: number; traits: Trait[]; pages: QueryPage<any>[] };
+type PageCache = { layout: number; traits: Trait[]; pages: QueryPage<any>[] };
 const pageCaches = new WeakMap<KernelQuery, PageCache>();
 
 function pageStore(archetype: Archetype, trait: Trait): unknown {
@@ -64,7 +74,11 @@ function pageStore(archetype: Archetype, trait: Trait): unknown {
   return store;
 }
 
-function buildPages(state: WorldState, entities: readonly Entity[], traits: Trait[]): QueryPage<any>[] {
+function buildPages(
+  state: WorldState,
+  entities: readonly Entity[],
+  traits: Trait[]
+): QueryPage<any>[] {
   const kernel = state.kernel!;
   const pages: QueryPage<any>[] = [];
   const byArchetype = new Map<number, { rows: number[]; entities: Entity[] }>();
@@ -97,149 +111,205 @@ export function createQueryResult<T extends QueryParameter[]>(
   query: KernelQuery | null,
   parameters: readonly QueryParameter[],
   selected?: Trait[],
-  sorted = false
+  layout = -1,
+  version = -1
 ): QueryResult<T> {
   const traits = selected ?? selectTraits(parameters);
-  const customOrder = sorted;
   const kernel = state.kernel!;
+  // The order each loops and pages visit. It is the result itself until rows move between
+  // matched archetypes, then a private copy kept in row order, so the result never reorders.
+  let order: Entity[] = entities;
+  // Each loops running on this result. A refresh while one runs would rewrite the order it walks.
+  let active = 0;
+
+  /**
+   * Returns the matched archetypes when `order` lists their rows in order, or null.
+   * When rows moved but no entity entered or left, `order` is rewritten in the current
+   * row order, so a static query keeps the archetype walk.
+   */
+  const archetypeBranches = () => {
+    if (layout < 0) return null;
+    const now = getQueryLayout(query!);
+    if (now !== layout) {
+      if (active > 0 || getQueryVersion(kernel, query!) !== version) return null;
+      const locals = collect(kernel, query!);
+      const localToPublic = state.localToPublic;
+      if (order === entities) order = entities.slice();
+      for (let i = 0; i < locals.length; i++)
+        order[i] = localToPublic[locals[i] & 0x1fffff] as Entity;
+      layout = now;
+    }
+    return query!.branches;
+  };
+
+  let eachLoops: EachLayout | undefined;
+  // Which traits publish changes in the current updateEach call, reused across calls.
+  const detect = traits.map(() => false);
+  type Callback = (state: InstancesFromParameters<T>, entity: Entity, index: number) => void;
+
+  // Runs a generated loop, or the generic one when code generation is unavailable.
+  // Both visit `order`, refreshed first when rows moved.
+  const run = (
+    loop: EachLoop | null,
+    callback: Callback,
+    entity: boolean,
+    generic: (callback: Callback) => void
+  ) => {
+    const branches = archetypeBranches();
+    active++;
+    try {
+      if (loop !== null) loop(state, kernel, order, callback as never, branches);
+      else generic(entity ? callback : (values) => (callback as (values: unknown) => void)(values));
+    } finally {
+      active--;
+    }
+    return results;
+  };
+
+  // Points `columns` and `plans` at the selected traits of one archetype, undefined where absent.
+  const viewArchetype = (
+    archetypeId: number,
+    columns: (Column[] | undefined)[],
+    plans: (ColumnPlan | undefined)[]
+  ) => {
+    const archetype = kernel.archetypes[archetypeId]!;
+    for (let t = 0; t < traits.length; t++) {
+      const record = archetype.records.get(eachLoops!.ids[t]);
+      columns[t] = record?.columns ?? undefined;
+      plans[t] = record?.plan ?? undefined;
+    }
+    return archetypeId;
+  };
+
+  const readGeneric = (callback: Callback) => {
+    const values: unknown[] = traits.map(() => undefined);
+    const columns: (Column[] | undefined)[] = traits.map(() => undefined);
+    const plans: (ColumnPlan | undefined)[] = traits.map(() => undefined);
+    let viewed = -1;
+    for (let i = 0; i < order.length; i++) {
+      const local = toLocal(state, order[i]);
+      for (let t = 0; t < traits.length; t++) values[t] = undefined;
+      if (local !== 0) {
+        const index = local & 0x1fffff;
+        if (kernel.archetypeOf[index] !== viewed)
+          viewed = viewArchetype(kernel.archetypeOf[index], columns, plans);
+        const row = kernel.rowOf[index];
+        for (let t = 0; t < traits.length; t++) {
+          if (columns[t] !== undefined) values[t] = readRecord(columns[t]!, plans[t]!, row);
+        }
+      }
+      callback(values as InstancesFromParameters<T>, order[i], i);
+    }
+  };
+
+  const updateGeneric = (callback: Callback) => {
+    const ids = eachLoops!.ids;
+    const flags = detect.slice();
+    const values: unknown[] = traits.map(() => undefined);
+    const columns: (Column[] | undefined)[] = traits.map(() => undefined);
+    const plans: (ColumnPlan | undefined)[] = traits.map(() => undefined);
+    const reads: unknown[] = traits.map(() => undefined);
+    const copies: Record<string, unknown>[] = traits.map(() => ({}));
+    const marked = traits.map(() => false);
+    let viewed = -1;
+    for (let i = 0; i < order.length; i++) {
+      const entity = order[i];
+      const local = toLocal(state, entity);
+      for (let t = 0; t < traits.length; t++) values[t] = reads[t] = undefined;
+      if (local !== 0) {
+        const index = local & 0x1fffff;
+        if (kernel.archetypeOf[index] !== viewed)
+          viewed = viewArchetype(kernel.archetypeOf[index], columns, plans);
+        const row = kernel.rowOf[index];
+        for (let t = 0; t < traits.length; t++) {
+          if (columns[t] === undefined) continue;
+          values[t] = reads[t] = readRecord(columns[t]!, plans[t]!, row);
+          copies[t] = { ...(reads[t] as object) };
+        }
+      }
+      callback(values as InstancesFromParameters<T>, entity, i);
+      if (local === 0 || !isAlive(kernel, local)) continue;
+      // The callback may have moved the entity, so the column views follow it.
+      const index = local & 0x1fffff;
+      if (kernel.archetypeOf[index] !== viewed)
+        viewed = viewArchetype(kernel.archetypeOf[index], columns, plans);
+      const row = kernel.rowOf[index];
+      for (let t = 0; t < traits.length; t++) {
+        const traitColumns = columns[t];
+        const value = values[t];
+        marked[t] = false;
+        if (traitColumns === undefined || value === undefined || reads[t] === undefined) continue;
+        let changed = false;
+        if (plans[t]!.aos) {
+          if (value !== reads[t]) {
+            traitColumns[0][row] = value;
+            changed = true;
+          } else if (flags[t] && !shallowEqual(value, copies[t])) {
+            changed = true;
+          }
+        } else {
+          // Only fields the callback changed from the value read are stored.
+          const fields = plans[t]!.fields;
+          for (let f = 0; f < fields.length; f++) {
+            const next = (value as Record<string, unknown>)[fields[f]];
+            if (next === copies[t][fields[f]]) continue;
+            traitColumns[f][row] = next;
+            changed = true;
+          }
+        }
+        marked[t] = changed && flags[t];
+      }
+      // Changes publish after every trait is stored, since an observer may move or destroy the entity.
+      for (let t = 0; t < traits.length; t++) if (marked[t]) markChanged(kernel, local, ids[t]);
+    }
+  };
 
   const results = Object.assign(entities, {
-    readEach(callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) {
-      const values: unknown[] = Array.from({ length: traits.length });
-      const columns: (Column[] | undefined)[] = Array.from({ length: traits.length });
-      const plans: (ColumnPlan | undefined)[] = Array.from({ length: traits.length });
-      let cachedArchetype = -1;
-      for (let i = 0; i < entities.length; i++) {
-        const local = toLocal(state, entities[i]);
-        if (local === 0) {
-          for (let t = 0; t < traits.length; t++) values[t] = undefined;
-          callback(values as InstancesFromParameters<T>, entities[i], i);
-          continue;
-        }
-        const index = local & 0x1fffff;
-        const archetypeId = kernel.archetypeOf[index];
-        if (archetypeId !== cachedArchetype) {
-          cachedArchetype = archetypeId;
-          const archetype = kernel.archetypes[archetypeId]!;
-          for (let t = 0; t < traits.length; t++) {
-            const id = traits[t][$internal].id;
-            const record = archetype.records.get(id);
-            columns[t] = record?.columns ?? undefined;
-            plans[t] = record?.plan ?? undefined;
-          }
-        }
-        const row = kernel.rowOf[index];
-        for (let t = 0; t < traits.length; t++) {
-          const traitColumns = columns[t];
-          values[t] = traitColumns === undefined ? undefined : readRecord(traitColumns, plans[t]!, row);
-        }
-        callback(values as InstancesFromParameters<T>, entities[i], i);
-      }
-      return results;
+    readEach(callback: Callback, options?: { entity?: boolean }) {
+      const entity = options?.entity ?? true;
+      eachLoops ??= eachLayout(traits.map((trait) => trait[$internal].id));
+      return run(
+        compileEach(eachLoops, false, entity, null, callback, entities.length),
+        callback,
+        entity,
+        readGeneric
+      );
     },
 
-    updateEach(
-      callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-      options: QueryResultOptions = { changeDetection: 'auto' }
-    ) {
-      const mode = options.changeDetection ?? 'auto';
-      const detect: boolean[] = traits.map((trait) => mode === 'always' || (mode === 'auto' && hasListeners(state, trait)));
-      const values: unknown[] = Array.from({ length: traits.length });
-      const copies: unknown[] = Array.from({ length: traits.length });
-      const columns: (Column[] | undefined)[] = Array.from({ length: traits.length });
-      const plans: (ColumnPlan | undefined)[] = Array.from({ length: traits.length });
-      const aos: boolean[] = traits.map((trait) => trait[$internal].type === 'aos');
-      const ids: number[] = traits.map((trait) => trait[$internal].id);
-      let cachedArchetype = -1;
-      const cacheArchetype = (archetypeId: number) => {
-        cachedArchetype = archetypeId;
-        const archetype = kernel.archetypes[archetypeId]!;
-        for (let t = 0; t < traits.length; t++) {
-          const record = archetype.records.get(ids[t]);
-          columns[t] = record?.columns ?? undefined;
-          plans[t] = record?.plan ?? undefined;
-        }
-      };
-      // Every visited trait may have been written, so its revision advances even without detection.
-      if (entities.length > 0) for (let t = 0; t < traits.length; t++) bumpVersion(kernel, ids[t]);
-      for (let i = 0; i < entities.length; i++) {
-        const entity = entities[i];
-        const local = toLocal(state, entity);
-        if (local === 0) {
-          for (let t = 0; t < traits.length; t++) values[t] = undefined;
-          callback(values as InstancesFromParameters<T>, entity, i);
-          continue;
-        }
-        const index = local & 0x1fffff;
-        if (kernel.archetypeOf[index] !== cachedArchetype) cacheArchetype(kernel.archetypeOf[index]);
-        const row = kernel.rowOf[index];
-        for (let t = 0; t < traits.length; t++) {
-          const traitColumns = columns[t];
-          if (traitColumns === undefined) {
-            values[t] = undefined;
-            copies[t] = undefined;
-            continue;
-          }
-          const value = readRecord(traitColumns, plans[t]!, row);
-          values[t] = value;
-          copies[t] = aos[t] && detect[t] ? { ...(value as object) } : undefined;
-        }
-        callback(values as InstancesFromParameters<T>, entity, i);
-        if (!isAlive(kernel, local)) continue;
-        // The callback may have moved the entity, so refresh the column views when it did.
-        if (kernel.archetypeOf[index] !== cachedArchetype) cacheArchetype(kernel.archetypeOf[index]);
-        const currentRow = kernel.rowOf[index];
-        for (let t = 0; t < traits.length; t++) {
-          const traitColumns = columns[t];
-          if (traitColumns === undefined || values[t] === undefined) continue;
-          let changed = false;
-          if (aos[t]) {
-            const stored = traitColumns[0][currentRow];
-            if (stored !== values[t]) {
-              traitColumns[0][currentRow] = values[t];
-              changed = true;
-            } else if (detect[t] && !shallowEqual(values[t], copies[t])) {
-              changed = true;
-            }
-          } else {
-            const fields = plans[t]!.fields;
-            const record = values[t] as Record<string, unknown>;
-            for (let f = 0; f < fields.length; f++) {
-              const next = record[fields[f]];
-              if (traitColumns[f][currentRow] !== next) {
-                traitColumns[f][currentRow] = next;
-                changed = true;
-              }
-            }
-          }
-          if (!changed) continue;
-          if (detect[t]) markChanged(kernel, local, ids[t]);
-          else bumpVersion(kernel, ids[t]);
-        }
+    updateEach(callback: Callback, options?: QueryResultOptions) {
+      const mode = options?.changeDetection ?? 'auto';
+      eachLoops ??= eachLayout(traits.map((trait) => trait[$internal].id));
+      for (let t = 0; t < traits.length; t++) {
+        detect[t] = mode === 'always' || (mode === 'auto' && hasListeners(state, traits[t]));
       }
-      return results;
+      const entity = options?.entity ?? true;
+      const loop = compileEach(eachLoops, true, entity, detect, callback, entities.length);
+      // Every visited trait may have been written, so its revision advances even without detection.
+      if (entities.length > 0)
+        for (let t = 0; t < traits.length; t++) bumpVersion(kernel, eachLoops.ids[t]);
+      return run(loop, callback, entity, updateGeneric);
     },
 
     getPages() {
-      if (query !== null && !customOrder && !query.dynamic) {
-        const version = getKernelQueryVersion(kernel, query);
-        const cache = pageCaches.get(query);
-        if (cache && cache.version === version && sameTraits(cache.traits, traits)) return cache.pages;
-        const pages = buildPages(state, entities, traits);
-        pageCaches.set(query, { version, traits: traits.slice(), pages });
+      if (archetypeBranches() !== null) {
+        const cache = pageCaches.get(query!);
+        if (cache && cache.layout === layout && sameTraits(cache.traits, traits)) return cache.pages;
+        const pages = buildPages(state, order, traits);
+        pageCaches.set(query!, { layout, traits: traits.slice(), pages });
         return pages as QueryPage<T>[];
       }
-      return buildPages(state, entities, traits) as QueryPage<T>[];
+      return buildPages(state, order, traits) as QueryPage<T>[];
     },
 
     select<U extends QueryParameter[]>(...selection: U): QueryResult<U> {
       return createQueryResult<U>(
         state,
-        entities.slice(),
+        order.slice(),
         query,
         parameters,
         selectTraits(selection),
-        customOrder
+        layout,
+        version
       );
     },
 
@@ -249,7 +319,7 @@ export function createQueryResult<T extends QueryParameter[]>(
     ): QueryResult<T> {
       const copy = Array.prototype.slice.call(entities) as Entity[];
       copy.sort(callback);
-      return createQueryResult<T>(state, copy, query, parameters, traits, true);
+      return createQueryResult<T>(state, copy, query, parameters, traits);
     },
   });
 
@@ -281,4 +351,6 @@ const emptyMethods = {
 };
 
 /** Shared empty result, so callers can compare empty snapshots by reference. */
-export const emptyResult = Object.freeze(Object.assign([] as Entity[], emptyMethods)) as unknown as QueryResult<any>;
+export const emptyResult = Object.freeze(
+  Object.assign([] as Entity[], emptyMethods)
+) as unknown as QueryResult<any>;

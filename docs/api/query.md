@@ -42,7 +42,9 @@ This differs from `world.entities` which includes all entities, even system ones
 
 ## Query results
 
-Reading the same query again returns the same result until an entity enters or leaves it, so do not mutate the returned array. Entity order is not guaranteed. `sort()` returns a sorted copy and leaves the shared result unchanged. `select()` also returns a new result.
+Reading the same query again returns the same result until an entity enters or leaves it, so do not mutate the returned array. Entity order is not guaranteed, but a returned result is never reordered, so you can iterate it while you change the world. `readEach`, `updateEach` and `getPages` visit every entity of the result once in storage order. That order can differ from the array order after entities move between archetypes the query matches, for example when one gains a tag. `sort()` returns a sorted copy and leaves the shared result unchanged. `select()` also returns a new result.
+
+`updateEach` and `readEach` pass the entity as the second argument and its position in the visit order as the third. SoA records (traits defined with a schema object) are scratch objects reused for every entity, so use them inside the callback and copy what you want to keep. AoS records (traits defined with a factory function) are the stored objects themselves, so changes to them persist even in `readEach`. Treat `readEach` records as read-only. `updateEach` stores the fields you changed when the callback returns, so a trait set with `entity.set` inside the callback is not overwritten. Replacing a record in the values array with a new object, as in `values[0] = { x: 1, y: 2 }`, stores the new record's fields the same way. Adding or removing traits or entities from inside the callback works, and the rest of the loop then runs on a slower path.
 
 ## Excluding entities from queries
 

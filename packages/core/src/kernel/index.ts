@@ -131,6 +131,7 @@ export {
   entityInQuery,
   observeQuery,
   getQueryVersion,
+  getQueryLayout,
   subscribeQuery,
 } from './query';
 export type {

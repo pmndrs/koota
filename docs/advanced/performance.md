@@ -50,6 +50,24 @@ function updateMovement(world) {
 }
 ```
 
+### Skip the entity argument in hot loops
+
+To pass the entity, `updateEach` and `readEach` look up its handle for every row. A callback that only needs the trait records can opt out with `{ entity: false }`. The callback then receives only the records, and in TypeScript declaring an entity or index parameter is a type error. Use it for hot loops that run every frame over many entities. The option works together with `changeDetection`.
+
+```js
+world.query(Position, Velocity).updateEach(
+  ([position, velocity]) => {
+    position.x += velocity.x * delta
+    position.y += velocity.y * delta
+  },
+  { entity: false }
+)
+```
+
+### Callbacks with the same source share a loop
+
+For a result of 256 or more entities, `updateEach` and `readEach` build a loop specialized to the callback's source text so the engine can inline the callback. Callbacks with identical text share that loop, for example the same arrow function written at two call sites. That is correct even when they capture different values, but a loop shared by several callbacks can run slower than one used by a single callback. At most 256 specialized loops are built, and later callbacks use a shared loop.
+
 ### You can use `for of` instead of `forEach` on query results
 
 A query result is just an array of entities with some extra methods. This means you can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.

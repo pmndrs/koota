@@ -169,7 +169,29 @@ function updateMovement(world: World) {
 
 ## Query results are shared
 
-Reading a query again returns the same result until an entity enters or leaves it. Do not mutate the array. Entity order is not guaranteed. `sort()` and `select()` return new results and leave the shared one unchanged, so use the returned value.
+Reading a query again returns the same result until an entity enters or leaves it. Do not mutate the array. Entity order is not guaranteed, but a returned result is never reordered, so iterating it while changing the world is safe. `readEach`, `updateEach` and `getPages` visit every entity once in storage order, which can differ from the array order after entities move between archetypes the query matches, for example when one gains a tag. `sort()` and `select()` return new results and leave the shared one unchanged, so use the returned value.
+
+## Records are reused
+
+`updateEach` and `readEach` pass the entity as the second argument and its position in the visit order as the third, unless `{ entity: false }` is set. SoA records (schema traits) are the same scratch objects for every entity. Use them inside the callback and copy what you keep, for example `{ ...pos }`. AoS records (factory traits) are the stored objects, so mutating them persists even in `readEach`. Treat `readEach` records as read-only. `updateEach` stores the fields the callback changed when it returns, so a trait set through `entity.set` inside the callback is not overwritten. Replacing a record in the values array with a new object, for example `values[0] = { x: 1, y: 2 }`, stores the new record's fields the same way. Adding or removing traits or entities inside the callback is allowed, and the rest of the loop then runs on a slower path.
+
+## Skip the entity argument in hot loops
+
+To pass the entity, `updateEach` and `readEach` look up its handle for every row. A callback that only needs the trait records can opt out with `{ entity: false }`. The callback then receives only the records, and in TypeScript declaring an entity or index parameter is a type error. Use it for hot loops that run every frame over many entities. The option works together with `changeDetection`.
+
+```js
+world.query(Position, Velocity).updateEach(
+  ([position, velocity]) => {
+    position.x += velocity.x * delta
+    position.y += velocity.y * delta
+  },
+  { entity: false }
+)
+```
+
+## Callbacks with the same source share a loop
+
+For a result of 256 or more entities, `updateEach` and `readEach` build a loop specialized to the callback's source text so the engine can inline the callback. Callbacks with identical text share that loop, for example the same arrow function written at two call sites. That is correct even when they capture different values, but a loop shared by several callbacks can run slower than one used by a single callback. At most 256 specialized loops are built, and later callbacks use a shared loop.
 
 ## Change detection
 

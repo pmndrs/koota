@@ -8,6 +8,7 @@ import {
   Or,
   relation,
   trait,
+  type Entity,
 } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
@@ -406,7 +407,234 @@ describe('Query', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it.fails('updateEach does not overwrite when a trait is set instead of mutated', () => {
+  it('updateEach visits each entity once while the callback changes the layout', () => {
+    const entities = Array.from({ length: 12 }, (_, i) =>
+      i % 2 === 0 ? world.spawn(Position({ x: i })) : world.spawn(Position({ x: i }), Foo)
+    );
+    const visited: number[] = [];
+
+    world.query(Position).updateEach(([position], entity) => {
+      visited.push(position.x);
+      // Moves this entity to another archetype, destroys a visited one, spawns a new one.
+      if (position.x === 2) entity.add(Bar);
+      if (position.x === 4) entities[0].destroy();
+      if (position.x === 6) world.spawn(Position({ x: 100 }));
+      position.y = position.x + 1;
+    });
+
+    expect([...visited].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(new Set(visited).size).toBe(visited.length);
+    for (const index of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) {
+      expect(entities[index].get(Position)).toEqual({ x: index, y: index + 1 });
+    }
+    expect(entities[2].has(Bar)).toBe(true);
+  });
+
+  it('updateEach and readEach agree across callbacks on a large result', () => {
+    for (let i = 0; i < 300; i++) world.spawn(Position({ x: i }));
+    const query = world.query(Position);
+
+    query.updateEach(([position]) => {
+      position.y += 1;
+    });
+    query.updateEach(([position]) => {
+      position.y += position.x;
+    });
+    let sum = 0;
+    query.readEach(([position], _entity, index) => {
+      sum += position.y;
+      expect(index).toBeLessThan(300);
+    });
+
+    expect(sum).toBe(300 + (299 * 300) / 2);
+  });
+
+  it('updateEach survives a change observer that moves the next entity', () => {
+    const entities = Array.from({ length: 6 }, (_, i) => world.spawn(Position({ x: i })));
+    world.onChange(Position, (entity) => {
+      if (entity === entities[2]) entities[3].add(Foo);
+    });
+    const visited: number[] = [];
+
+    world.query(Position).updateEach(([position]) => {
+      visited.push(position.x);
+      position.y = 5;
+    });
+
+    expect(visited).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(entities[3].has(Foo)).toBe(true);
+    for (const entity of entities) expect(entity.get(Position)!.y).toBe(5);
+  });
+
+  it('passes the entity to every callback shape', () => {
+    for (const count of [3, 300]) {
+      world.reset();
+      const entities = Array.from({ length: count }, () => world.spawn(Position));
+      const received: unknown[][] = [];
+      const query = world.query(Position);
+
+      query.updateEach(([position], entity = entities[0]) => {
+        received.push([entity]);
+        position.x = 1;
+      });
+      query.readEach(function () {
+        // oxlint-disable-next-line prefer-rest-params -- Checks what `arguments` forwards.
+        received.push([arguments[1]]);
+      });
+      query.readEach((...args) => received.push([args[1]]));
+
+      expect(received).toEqual([...entities, ...entities, ...entities].map((entity) => [entity]));
+    }
+  });
+
+  it('passes only the records when entity is false', () => {
+    for (const count of [3, 300]) {
+      world.reset();
+      const entities = Array.from({ length: count }, (_, i) => world.spawn(Position({ x: i })));
+      const changed: number[] = [];
+      world.onChange(Position, () => changed.push(1));
+      const query = world.query(Position);
+      const lengths = new Set<number>();
+
+      query.updateEach(
+        (...args) => {
+          lengths.add(args.length);
+          args[0][0].y = args[0][0].x * 2;
+        },
+        { entity: false }
+      );
+      query.readEach((...args) => lengths.add(args.length), { entity: false });
+
+      expect([...lengths]).toEqual([1]);
+      entities.forEach((entity, i) => expect(entity.get(Position)!.y).toBe(i * 2));
+      expect(changed.length).toBe(count - 1);
+      // @ts-expect-error The callback cannot declare an entity when entity is false.
+      query.readEach((_state, _entity) => {}, { entity: false });
+      // @ts-expect-error The callback cannot declare an entity when entity is false.
+      query.updateEach((_state, _entity) => {}, { entity: false, changeDetection: 'never' });
+    }
+  });
+
+  it('updateEach stores the writes of an entity that moved after many spawns', () => {
+    const Other = trait();
+    const entities = Array.from({ length: 4 }, (_, i) => world.spawn(Position({ x: i })));
+
+    world.query(Position).updateEach(([position], entity) => {
+      if (position.x === 0) {
+        for (let i = 0; i < 5000; i++) world.spawn(Other);
+        entity.add(Foo);
+      }
+      position.y = 7;
+    });
+
+    for (const entity of entities) expect(entity.get(Position)!.y).toBe(7);
+  });
+
+  it('updateEach stores every trait of an entity a change observer destroys', () => {
+    const Velocity = trait({ x: 0, y: 0 });
+    const entities = Array.from({ length: 4 }, (_, i) =>
+      world.spawn(Position({ x: i }), Velocity({ x: i * 10 }))
+    );
+    world.onChange(Position, (entity) => {
+      if (entity === entities[0]) entity.destroy();
+    });
+
+    world.query(Position, Velocity).updateEach(([position, velocity]) => {
+      if (position.x === 0) {
+        position.y = 1;
+        velocity.x = 999;
+      }
+    });
+
+    expect(entities[0].isAlive()).toBe(false);
+    for (const index of [1, 2, 3]) {
+      expect(entities[index].get(Velocity)!.x).toBe(index * 10);
+      expect(entities[index].get(Position)!.y).toBe(0);
+    }
+  });
+
+  it('updateEach gives undefined for a trait an Or branch lacks and stores the others', () => {
+    const both = world.spawn(Position({ x: 1 }), Name({ name: 'both' }));
+    const onlyPosition = world.spawn(Position({ x: 2 }));
+    const onlyName = world.spawn(Name({ name: 'only' }));
+    const seen: [number | undefined, string | undefined][] = [];
+
+    world.query(Or(Position, Name)).updateEach(([position, name]) => {
+      seen.push([position?.x, name?.name]);
+      if (position) position.y = 9;
+      if (name) name.name += '!';
+    });
+
+    expect(seen).toHaveLength(3);
+    expect(seen).toContainEqual([1, 'both']);
+    expect(seen).toContainEqual([2, undefined]);
+    expect(seen).toContainEqual([undefined, 'only']);
+    expect(both.get(Position)!.y).toBe(9);
+    expect(both.get(Name)!.name).toBe('both!');
+    expect(onlyPosition.get(Position)!.y).toBe(9);
+    expect(onlyName.get(Name)!.name).toBe('only!');
+  });
+
+  it('getPages follows rows that moved between matched archetypes', () => {
+    const entities = Array.from({ length: 4 }, (_, i) => world.spawn(Position({ x: i })));
+    const rows = () =>
+      world
+        .query(Position)
+        .getPages()
+        .flatMap(({ stores: [position], indices }) => Array.from(indices, (row) => position.x[row]));
+    expect(rows().sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+
+    entities[1].add(Foo);
+    expect(rows().sort((a, b) => a - b)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('keeps one result while entities move between matched archetypes', () => {
+    const entities = Array.from({ length: 300 }, (_, i) => world.spawn(Position({ x: i })));
+    const result = world.query(Position);
+
+    for (let frame = 0; frame < 3; frame++) {
+      const moved = entities[frame * 7];
+      if (moved.has(Foo)) moved.remove(Foo);
+      else moved.add(Foo);
+      expect(world.query(Position)).toBe(result);
+
+      const seen: number[] = [];
+      result.updateEach(([position], entity) => {
+        expect(entity.get(Position)!.x).toBe(position.x);
+        seen.push(position.x);
+        position.y += 1;
+      });
+      expect(seen.sort((a, b) => a - b)).toEqual(entities.map((_, i) => i));
+      // The loops follow storage without reordering the shared array.
+      expect([...result]).toEqual(entities);
+    }
+    for (const entity of entities) expect(entity.get(Position)!.y).toBe(3);
+  });
+
+  it('iterates a cached result once per entity while loops run on it and entities move', () => {
+    const entities = Array.from({ length: 6 }, (_, i) =>
+      i % 2 === 0 ? world.spawn(Position) : world.spawn(Position, Foo)
+    );
+    const before = [...world.query(Position)];
+    const visited: Entity[] = [];
+
+    for (const entity of world.query(Position)) {
+      visited.push(entity);
+      if (entity.has(Foo)) entity.remove(Foo);
+      else entity.add(Foo);
+      world.query(Position).readEach(() => {});
+      world.query(Position).updateEach(([position]) => {
+        position.x += 1;
+      });
+      world.query(Position).getPages();
+    }
+
+    expect(visited).toEqual(before);
+    expect(new Set(visited)).toEqual(new Set(entities));
+    for (const entity of entities) expect(entity.get(Position)!.x).toBe(6);
+  });
+
+  it('updateEach does not overwrite when a trait is set instead of mutated', () => {
     const entity = world.spawn(Position);
 
     world.query(Position).updateEach((_, entity) => {
