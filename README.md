@@ -66,6 +66,8 @@ world.query(Position, Velocity).readEach(([position, velocity]) => {
 })
 ```
 
+`updateEach` and `readEach` pass the entity as the second argument and its position in the visit order as the third. Pass `{ entity: false }` as the last argument to receive only the records, which is faster in hot loops. SoA records (traits defined with a schema object) are scratch objects reused for every entity, so use them inside the callback and copy what you want to keep. AoS records (traits defined with a factory function) are the stored objects themselves, so changes to them persist even in `readEach`. Treat `readEach` records as read-only. `updateEach` stores the fields you changed when the callback returns, so a trait set with `entity.set` inside the callback is not overwritten. Replacing a record in the values array with a new object, as in `values[0] = { x: 1, y: 2 }`, stores the new record's fields the same way. Adding or removing traits or entities from inside the callback works, and the rest of the loop then runs on a slower path.
+
 ### Use in your favorite reactive components
 
 Traits can be used reactively inside of React or Svelte components.
@@ -747,6 +749,24 @@ function updateMovement(world) {
 }
 ```
 
+#### Skip the entity argument in hot loops
+
+To pass the entity, `updateEach` and `readEach` look up its handle for every row. A callback that only needs the trait records can opt out with `{ entity: false }`. The callback then receives only the records, and in TypeScript declaring an entity or index parameter is a type error. Use it for hot loops that run every frame over many entities. The option works together with `changeDetection`.
+
+```js
+world.query(Position, Velocity).updateEach(
+  ([position, velocity]) => {
+    position.x += velocity.x * delta
+    position.y += velocity.y * delta
+  },
+  { entity: false }
+)
+```
+
+#### Callbacks with the same source share a loop
+
+For a result of 256 or more entities, `updateEach` and `readEach` build a loop specialized to the callback's source text so the engine can inline the callback. Callbacks with identical text share that loop, for example the same arrow function written at two call sites. That is correct even when they capture different values, but a loop shared by several callbacks can run slower than one used by a single callback. At most 256 specialized loops are built, and later callbacks use a shared loop.
+
 #### You can use `for of` instead of `forEach` on query results
 
 A query result is just an array of entities with some extra methods. This means you can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.
@@ -1129,6 +1149,10 @@ const allEntities = world.query()
 ```
 
 This differs from `world.entities` which includes all entities, even system ones. Koota excludes its internal system entities from queries to keep userland queries from being polluted.
+
+#### Query results
+
+Reading the same query again returns the same result until an entity enters or leaves it, so do not mutate the returned array. Entity order is not guaranteed, but a returned result is never reordered, so you can iterate it while you change the world. `readEach`, `updateEach` and `getPages` visit every entity of the result once in storage order. That order can differ from the array order after entities move between archetypes the query matches, for example when one gains a tag. `sort()` returns a sorted copy and leaves the shared result unchanged. `select()` also returns a new result.
 
 #### Excluding entities from queries
 

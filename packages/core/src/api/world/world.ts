@@ -2,6 +2,7 @@ import {
   collect,
   first,
   getEntities,
+  getQueryLayout,
   getQueryVersion,
   subscribeQuery,
   type Query as KernelQuery,
@@ -155,16 +156,27 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       if (query === null) return emptyResult;
       if (!query.dynamic) {
         // A static query only changes membership when its version does, so its result is reused until then.
+        // The result refreshes its own row order when entities only moved between matched archetypes.
         const version = getQueryVersion(state.kernel!, query);
         const cached = results.get(query);
         if (cached !== undefined && cached.version === version) {
           if (cached.result.length === 0) return emptyResult;
           if (sameParameters(cached.parameters, parameters)) return cached.result;
-          return createQueryResult(state, cached.result.slice(), query, parameters);
+          return cached.result.select(...parameters);
         }
         const entities = publicSnapshot(state, query);
         const result =
-          entities.length === 0 ? emptyResult : createQueryResult(state, entities, query, parameters);
+          entities.length === 0
+            ? emptyResult
+            : createQueryResult(
+                state,
+                entities,
+                query,
+                parameters,
+                undefined,
+                getQueryLayout(query),
+                version
+              );
         results.set(query, { version, parameters, result });
         return result;
       }

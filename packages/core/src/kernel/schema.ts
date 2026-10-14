@@ -18,12 +18,55 @@ export type ColumnPlan = {
   readonly numeric: readonly boolean[];
   readonly defaults: readonly unknown[];
   readonly factories: readonly (Factory | null)[];
+  /** Reads one row into a record with constant keys. Null for AoS plans or when code generation is unavailable. */
+  readonly read: ((columns: readonly Column[], row: number) => Record<string, unknown>) | null;
+  /** Writes only the fields present in the record. Null like `read`. */
+  readonly put: ((columns: readonly Column[], row: number, record: Record<string, unknown>) => void) | null;
+  /** Writes the record's fields that differ from the row and returns whether any did. Null like `read`. */
+  readonly write:
+    ((columns: readonly Column[], row: number, record: Record<string, unknown>) => boolean) | null;
 };
+
+/** Generated accessors give every field a constant key, so V8 keeps record shapes monomorphic. */
+function compileAccessors(fields: readonly string[]): Pick<ColumnPlan, 'read' | 'write' | 'put'> {
+  try {
+    const keys = fields.map((field) => JSON.stringify(field));
+    const read = new Function(
+      'c',
+      'r',
+      `return {${keys.map((key, i) => `${key}:c[${i}][r]`).join(',')}}`
+    ) as ColumnPlan['read'];
+    const write = new Function(
+      'c',
+      'r',
+      'v',
+      `let h=false,n;${keys.map((key, i) => `n=v[${key}];if(c[${i}][r]!==n){c[${i}][r]=n;h=true}`).join('')}return h`
+    ) as ColumnPlan['write'];
+    const put = new Function(
+      'c',
+      'r',
+      'v',
+      keys.map((key, i) => `if(${key} in v)c[${i}][r]=v[${key}];`).join('')
+    ) as ColumnPlan['put'];
+    return { read, write, put };
+  } catch {
+    return { read: null, write: null, put: null };
+  }
+}
 
 export function compilePlan(schema: Schema | undefined | null): ColumnPlan | null {
   if (schema === undefined || schema === null) return null;
   if (typeof schema === 'function') {
-    return { aos: true, fields: ['value'], numeric: [false], defaults: [undefined], factories: [schema] };
+    return {
+      aos: true,
+      fields: ['value'],
+      numeric: [false],
+      defaults: [undefined],
+      factories: [schema],
+      read: null,
+      write: null,
+      put: null,
+    };
   }
   const fields = Object.keys(schema);
   if (fields.length === 0) return null;
@@ -40,7 +83,7 @@ export function compilePlan(schema: Schema | undefined | null): ColumnPlan | nul
     factories[i] = typeof value === 'function' ? (value as Factory) : null;
     defaults[i] = typeof value === 'function' ? undefined : value;
   }
-  return { aos: false, fields, numeric, defaults, factories };
+  return { aos: false, fields, numeric, defaults, factories, ...compileAccessors(fields) };
 }
 
 const CHUNK = 4096;
@@ -88,6 +131,7 @@ export function clearSlot(column: Column, row: number, numeric: boolean): void {
 
 export function readRecord(columns: readonly Column[], plan: ColumnPlan, row: number): unknown {
   if (plan.aos) return columns[0][row];
+  if (plan.read !== null) return plan.read(columns, row);
   const record: Record<string, unknown> = {};
   const fields = plan.fields;
   for (let i = 0; i < fields.length; i++) record[fields[i]] = columns[i][row];
@@ -95,7 +139,12 @@ export function readRecord(columns: readonly Column[], plan: ColumnPlan, row: nu
 }
 
 /** The current record with the supplied fields overlaid. AoS values replace the instance. */
-export function mergeRecord(columns: readonly Column[], plan: ColumnPlan, row: number, value: unknown): unknown {
+export function mergeRecord(
+  columns: readonly Column[],
+  plan: ColumnPlan,
+  row: number,
+  value: unknown
+): unknown {
   if (plan.aos) return value;
   const source = value as Record<string, unknown>;
   const record: Record<string, unknown> = {};
@@ -120,6 +169,10 @@ export function writeRecord(
     return;
   }
   const source = value as Record<string, unknown>;
+  if (partial && plan.put !== null) {
+    plan.put(columns, row, source);
+    return;
+  }
   const fields = plan.fields;
   for (let i = 0; i < fields.length; i++) {
     const field = fields[i];
@@ -153,7 +206,12 @@ export function constructRow(
 }
 
 /** The record `constructRow` would write, as an object for an add hook to edit. */
-export function constructRecord(plan: ColumnPlan, world: World, entity: Entity, instance: unknown): unknown {
+export function constructRecord(
+  plan: ColumnPlan,
+  world: World,
+  entity: Entity,
+  instance: unknown
+): unknown {
   if (plan.aos) return instance === undefined ? plan.factories[0]!(world, entity) : instance;
   const record: Record<string, unknown> = {};
   const fields = plan.fields;

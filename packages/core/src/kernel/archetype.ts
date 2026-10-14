@@ -40,6 +40,8 @@ export type Archetype = {
   /** Membership bits for the world's observed static queries, valid for `observedEpoch`. */
   observedMask: Uint32Array | null;
   observedEpoch: number;
+  /** Advances on every row append and removal, so an iteration can tell that its rows shifted. */
+  rowVersion: number;
 };
 
 const INITIAL_CAPACITY = 4;
@@ -83,6 +85,7 @@ export function createArchetype(id: number, types: readonly TypeId[]): Archetype
     edges: null,
     observedMask: null,
     observedEpoch: -1,
+    rowVersion: 0,
   };
 }
 
@@ -128,6 +131,7 @@ function ensureCapacity(archetype: Archetype, required: number): void {
 export function appendEntity(archetype: Archetype, entity: Entity, revision: number): number {
   const row = archetype.entities.length;
   ensureCapacity(archetype, row + 1);
+  archetype.rowVersion++;
   archetype.entities.push(entity);
   const capacity = archetype.capacity;
   const slots = archetype.types.length;
@@ -142,6 +146,7 @@ export function appendEntity(archetype: Archetype, entity: Entity, revision: num
 
 /** Swap-removes a row and returns the entity moved into it, or 0. */
 export function removeRow(archetype: Archetype, row: number): Entity {
+  archetype.rowVersion++;
   const entities = archetype.entities;
   const last = entities.length - 1;
   const capacity = archetype.capacity;

@@ -236,10 +236,21 @@ transition in both modes.
 
 **Queries.** `createQuery` keys are hashed from trait ids, tracker ids, and
 target handles, and each world resolves them lazily to a kernel query.
-`updateEach` snapshots records, runs the callback, and writes changed fields
-back through the columns; traits with an `onSet` hook, change subscribers, or
-Changed trackers get change detection in `auto` mode. `getPages` returns one
-page per archetype with the trait's columns and row indices.
+`readEach` and `updateEach` run a loop generated per trait list. Each result
+keeps the order its loops visit. While that order lists a static query's
+archetype rows in order, the loop walks those archetypes row by row without
+resolving handles. Each archetype counts row appends and removals in a row
+version, and a callback that changes the rows of a matched archetype sends the
+rest of the call to a handle-resolving loop. When rows only moved between
+matched archetypes, the visit order is rewritten in row order before the next
+walk. It is a private copy, so the shared result array never reorders. SoA
+records are scratch objects reused per entity, and AoS
+records are the stored objects. `updateEach` writes back the fields that changed
+from what it read and publishes changes after every trait is stored. Traits with
+an `onSet` hook, change subscribers, or Changed trackers get change detection in
+`auto` mode. Results of 256 or more entities get a loop copy per callback source
+text, at most 256 copies, so the engine can inline the callback. `getPages`
+returns one page per archetype with the trait's columns and row indices.
 
 **What changed for users.** `getStore` and `useStore` are gone: storage is per
 archetype, and `getPages` is the column interface. Query iteration order

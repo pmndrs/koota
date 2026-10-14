@@ -214,7 +214,9 @@ world.query(Position, Not(Velocity)) // Has Position but not Velocity
 world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 ```
 
-Prefer `updateEach`/`readEach` over `for...of` + `entity.get()` for data-bearing queries. `readEach` still gives you the entity as the second argument.
+Prefer `updateEach`/`readEach` over `for...of` + `entity.get()` for data-bearing queries. Both pass the entity as the second argument and its position in the visit order as the third. In hot loops that do not need them, pass `{ entity: false }` to receive only the records. See [queries](references/queries.md#skip-the-entity-argument-in-hot-loops).
+
+SoA records `updateEach`/`readEach` pass are reused for every entity, so copy anything you keep past the callback. AoS records are the stored objects, so do not mutate them in `readEach`. In `updateEach`, a record replaced with a new object in the values array is stored too. A query result is shared until membership changes and is never reordered. Each loops visit in storage order, which can differ from the array order. See [queries](references/queries.md#records-are-reused).
 
 **Note:** `updateEach`/`readEach` only return data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
 

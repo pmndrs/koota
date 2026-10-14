@@ -19,7 +19,21 @@ export type QueryUnsubscriber = () => void;
 
 export type QueryResultOptions = {
   changeDetection?: 'always' | 'auto' | 'never';
+  /**
+   * Whether the callback receives the entity and its index after the trait records.
+   * `false` passes only the records, which skips a per-entity handle lookup in hot loops.
+   * Defaults to `true`.
+   */
+  entity?: boolean;
 };
+
+type EachCallback<T extends QueryParameter[]> = (
+  state: InstancesFromParameters<T>,
+  entity: Entity,
+  index: number
+) => void;
+
+type RecordsCallback<T extends QueryParameter[]> = (state: InstancesFromParameters<T>) => void;
 
 export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
   /** Page ordinal in this query result */
@@ -32,11 +46,34 @@ export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
 };
 
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
-  readEach: (callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) => QueryResult<T>;
-  updateEach: (
-    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-    options?: QueryResultOptions
-  ) => QueryResult<T>;
+  /**
+   * Calls `callback` once for each entity of this result with its trait records, the entity and
+   * its position in the visit order. The visit order follows storage, so it can differ from the
+   * order of this result after entities moved between matched archetypes. This result is never reordered.
+   * Pass `{ entity: false }` to receive only the records, which is faster in hot loops.
+   * SoA records are scratch objects reused for every entity and writes to them are discarded,
+   * so copy what you keep. AoS records are the stored objects, so treat them as read-only.
+   */
+  readEach: {
+    (callback: EachCallback<T>, options?: { entity?: true }): QueryResult<T>;
+    /** With `entity: false` the callback receives only the trait records. */
+    (callback: RecordsCallback<T>, options?: { entity?: boolean }): QueryResult<T>;
+  };
+  /**
+   * Calls `callback` once for each entity of this result with its trait records, the entity and
+   * its position in the visit order, then stores the fields the callback changed. The visit order
+   * is the one `readEach` uses. Pass `{ entity: false }` to receive only the
+   * records, which is faster in hot loops. SoA records are scratch objects reused for every
+   * entity, so copy what you keep. AoS records are the stored objects. A trait set with
+   * `entity.set` during the callback is not overwritten. A record replaced with a new object in
+   * the values array is stored the same way. Change detection follows
+   * `options.changeDetection`, and `auto` detects traits that are observed or tracked.
+   */
+  updateEach: {
+    (callback: EachCallback<T>, options?: QueryResultOptions & { entity?: true }): QueryResult<T>;
+    /** With `entity: false` the callback receives only the trait records. */
+    (callback: RecordsCallback<T>, options?: QueryResultOptions): QueryResult<T>;
+  };
   /** Page views with direct access to trait columns, without change detection */
   getPages: () => readonly QueryPage<T>[];
   select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
@@ -62,7 +99,10 @@ export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer 
 
 export type PageStoresFromParameters<T extends QueryParameter[]> = StoresFromParameters<T>;
 
-export type InstancesFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
+export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
+  infer First,
+  ...infer Rest,
+]
   ? [
       ...(First extends Trait
         ? IsTag<First> extends false
@@ -79,7 +119,8 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [inf
     ]
   : [];
 
-export type IsNotModifier<T> = T extends Modifier<Trait[], infer TType> ? (TType extends 'not' ? true : false) : false;
+export type IsNotModifier<T> =
+  T extends Modifier<Trait[], infer TType> ? (TType extends 'not' ? true : false) : false;
 
 export type QueryHash = string;
 
@@ -108,7 +149,10 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
 export type OrParameter = TraitOrRelation | Modifier;
 
 /** Or modifier that can contain both traits and nested modifiers */
-export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<ExtractTraitsFromOrParams<T>, 'or'> & {
+export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
+  ExtractTraitsFromOrParams<T>,
+  'or'
+> & {
   modifiers: Modifier[];
 };
 
