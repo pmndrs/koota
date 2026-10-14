@@ -43,12 +43,6 @@ function admit(filter: Filter, archetype: Archetype): void {
   filter.matched[archetype.id] = 1;
 }
 
-function evict(filter: Filter, archetype: Archetype): void {
-  const index = filter.archetypes.indexOf(archetype);
-  if (index >= 0) filter.archetypes.splice(index, 1);
-  if (archetype.id < filter.matched.length) filter.matched[archetype.id] = 0;
-}
-
 /** Terms must be sorted and deduplicated. */
 export function ensureFilter(world: World, include: readonly TypeId[], exclude: readonly TypeId[]): Filter {
   const key = filterKey(include, exclude);
@@ -114,15 +108,4 @@ export function filterArchetypeCreated(world: World, archetype: Archetype): void
   for (let i = 0; i < all.length; i++) {
     if (matchesTerms(archetype, all[i].include, all[i].exclude)) admit(all[i], archetype);
   }
-}
-
-export function filterArchetypeDestroyed(world: World, archetype: Archetype): void {
-  const types = archetype.types;
-  for (let i = 0; i < types.length; i++) {
-    const filters = world.filtersByType.get(types[i]);
-    if (!filters) continue;
-    for (let j = 0; j < filters.length; j++) evict(filters[j], archetype);
-  }
-  const all = world.filtersAll;
-  for (let i = 0; i < all.length; i++) evict(all[i], archetype);
 }

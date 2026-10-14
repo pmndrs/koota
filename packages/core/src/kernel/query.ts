@@ -1,4 +1,5 @@
 import { addedStamp, changedStamp, type Archetype } from './archetype';
+import { beginMutation, abortMutation, endMutation } from './commands';
 import { entityAt, isAlive } from './entity';
 import { ensureFilter, filterMatches, type Filter } from './filter';
 import {
@@ -12,6 +13,7 @@ import {
   type Entity,
   type TypeId,
 } from './id';
+import { refreshQuiet } from './observer';
 import { hasAnyPair, hasTargetPair } from './pairs';
 import { getDefinition, sparseFlags } from './registry';
 import { storeRow, type Store } from './store';
@@ -842,9 +844,11 @@ function refreshSources(world: World, query: Query, relationIndex: number, targe
 /** Starts maintaining version and membership events for the query. */
 export function observeQuery(world: World, query: Query): void {
   if (query.observed) return;
+  reconcileFlips(world);
   query.observed = true;
   if (query.dynamic) {
     world.observedDynamic.push(query);
+    refreshQuiet(world);
     query.members = new Set(collect(world, query, false));
   } else {
     world.observedStatic.push(query);
@@ -857,15 +861,18 @@ export function observeQuery(world: World, query: Query): void {
     const refresh = (entity: Entity) => refreshSources(world, query, target.relationIndex, entity);
     target.query.addSubscribers.add(refresh);
     target.query.removeSubscribers.add(refresh);
+    refreshSubscribed(world);
     target.unsubscribe = () => {
       target.query.addSubscribers.delete(refresh);
       target.query.removeSubscribers.delete(refresh);
+      refreshSubscribed(world);
     };
   }
 }
 
 export function getQueryVersion(world: World, query: Query): number {
   observeQuery(world, query);
+  reconcileFlips(world);
   return query.version;
 }
 
@@ -890,15 +897,18 @@ export function subscribeQuery(
   callback: QuerySubscriber
 ): () => void {
   observeQuery(world, query);
+  reconcileFlips(world);
   const subscribers = event === 'add' ? query.addSubscribers : query.removeSubscribers;
   subscribers.add(callback);
+  refreshSubscribed(world);
   return () => {
     subscribers.delete(callback);
+    refreshSubscribed(world);
   };
 }
 
 /** Membership bits of the observed static queries for an archetype, recomputed when the list changes. */
-function observedMaskOf(world: World, archetype: Archetype): Uint32Array {
+export function observedMaskOf(world: World, archetype: Archetype): Uint32Array {
   const statics = world.observedStatic;
   const words = (statics.length + 31) >>> 5;
   let mask = archetype.observedMask;
@@ -911,6 +921,98 @@ function observedMaskOf(world: World, archetype: Archetype): Uint32Array {
   archetype.observedMask = mask;
   archetype.observedEpoch = world.observedEpoch;
   return mask;
+}
+
+/**
+ * Observed static queries whose membership flips across one archetype
+ * transition, in the order `notifyTransition` reports them. Valid for one
+ * `observedEpoch`, so a fused mutation re-derives it when the observed list
+ * changes and otherwise pays one comparison.
+ */
+export type Flips = {
+  epoch: number;
+  queries: Query[];
+  adds: boolean[];
+  /** Mutations counted since the last `reconcileFlips`, while nothing subscribes to query membership. */
+  pending: number;
+};
+
+export function createFlips(): Flips {
+  return { epoch: -1, queries: [], adds: [], pending: 0 };
+}
+
+/**
+ * Applies the version bumps that fused mutations counted instead of making
+ * one by one: a quiet world with no query subscribers only counts mutations
+ * per transition, and every reader of a version, and every change to the
+ * observed list or to the subscribers, settles the count first.
+ */
+export function reconcileFlips(world: World): void {
+  const dirty = world.dirtyFlips;
+  for (let i = 0; i < dirty.length; i++) {
+    const flips = dirty[i];
+    const count = flips.pending;
+    flips.pending = 0;
+    const queries = flips.queries;
+    for (let q = 0; q < queries.length; q++) queries[q].version += count;
+  }
+  dirty.length = 0;
+}
+
+/** Whether any observed static query has a membership subscriber, which makes fused mutations notify one by one. */
+export function refreshSubscribed(world: World): void {
+  const statics = world.observedStatic;
+  let any = false;
+  for (let i = 0; i < statics.length && !any; i++) {
+    any = statics[i].addSubscribers.size > 0 || statics[i].removeSubscribers.size > 0;
+  }
+  world.subscribed = any;
+}
+
+export function refreshFlips(world: World, flips: Flips, from: Archetype | null, to: Archetype | null): void {
+  const statics = world.observedStatic;
+  const queries: Query[] = [];
+  const adds: boolean[] = [];
+  const fromMask = from === null ? null : observedMaskOf(world, from);
+  const toMask = to === null ? null : observedMaskOf(world, to);
+  const words = (statics.length + 31) >>> 5;
+  for (let w = 0; w < words; w++) {
+    const before = fromMask === null ? 0 : fromMask[w];
+    const after = toMask === null ? 0 : toMask[w];
+    let diff = before ^ after;
+    while (diff !== 0) {
+      const bit = diff & -diff;
+      diff ^= bit;
+      queries.push(statics[(w << 5) + (31 - Math.clz32(bit))]);
+      adds.push((after & bit) !== 0);
+    }
+  }
+  flips.queries = queries;
+  flips.adds = adds;
+  flips.epoch = world.observedEpoch;
+}
+
+/** Bumps the flipped queries and tells their subscribers, all inside one mutation scope so subscriber work queues until every subscriber has heard. */
+export function applyFlips(world: World, flips: Flips, entity: Entity): void {
+  const queries = flips.queries;
+  let opened = false;
+  try {
+    for (let i = 0; i < queries.length; i++) {
+      const query = queries[i];
+      query.version++;
+      const subscribers = flips.adds[i] ? query.addSubscribers : query.removeSubscribers;
+      if (subscribers.size === 0) continue;
+      if (!opened) {
+        beginMutation(world);
+        opened = true;
+      }
+      notify(subscribers, entity);
+    }
+  } catch (error) {
+    if (opened) abortMutation(world);
+    throw error;
+  }
+  if (opened) endMutation(world);
 }
 
 /** Called after an entity moved between archetypes, or was created (`from` null) or destroyed (`to` null). */

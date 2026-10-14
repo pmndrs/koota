@@ -1,4 +1,4 @@
-import { getFirstTarget, getSources, getTargets, setSources } from '../../kernel';
+import { entityAt, getFirstTarget, getSources, getTargets, setSources } from '../../kernel';
 import { handleGeneration, handleIndex, isHandleAlive, locate, locateIndex, locatedLocal, toLocal, toPublic } from '../handles';
 import type { Relation, RelationPair } from '../relation/types';
 import { $internal } from '../symbols';
@@ -8,6 +8,9 @@ import {
   changedOnEntity,
   destroyPublicEntity,
   entityHas,
+  fastAddConfigs,
+  fastDestroy,
+  fastRemove,
   readTrait,
   registerTrait,
   removeFromEntity,
@@ -31,14 +34,24 @@ function subscribe(
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-  const state = locate(this) as WorldState | undefined;
-  if (state) addToEntity(state, this, traits);
+  const state = locateIndex(this) as WorldState | undefined;
+  if (!state) return;
+  const index = locatedLocal;
+  // One transition needs no mutation scope, so a quiet add skips addToEntity.
+  if (index !== 0 && fastAddConfigs(state, index, traits, false)) return;
+  addToEntity(state, this, traits, index === 0 ? undefined : entityAt(state.kernel!, index), index === 0);
 };
 
 // @ts-expect-error
 Number.prototype.remove = function (this: Entity, ...traits: (Trait | RelationPair)[]) {
-  const state = locate(this) as WorldState | undefined;
-  if (state) removeFromEntity(state, this, traits);
+  const state = locateIndex(this) as WorldState | undefined;
+  if (!state) return;
+  const index = locatedLocal;
+  // One remove needs no mutation scope. Several share one in removeFromEntity so queued work waits for all.
+  const only = traits.length === 1 ? traits[0] : undefined;
+  const tried = index !== 0 && typeof only === 'function';
+  if (tried && fastRemove(state, index, only as Trait, false)) return;
+  removeFromEntity(state, this, traits, index === 0 ? undefined : entityAt(state.kernel!, index), !tried);
 };
 
 // @ts-expect-error
@@ -49,8 +62,11 @@ Number.prototype.has = function (this: Entity, trait: Trait | RelationPair) {
 
 // @ts-expect-error
 Number.prototype.destroy = function (this: Entity) {
-  const state = locate(this) as WorldState | undefined;
-  if (state) destroyPublicEntity(state, this);
+  const state = locateIndex(this) as WorldState | undefined;
+  if (!state) return;
+  const index = locatedLocal;
+  if (index !== 0 && fastDestroy(state, this, index)) return;
+  destroyPublicEntity(state, this, index === 0 ? undefined : entityAt(state.kernel!, index));
 };
 
 // @ts-expect-error

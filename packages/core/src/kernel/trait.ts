@@ -1,4 +1,4 @@
-import { copyRow, removeRow, stampChanged, type Archetype } from './archetype';
+import { moveRow, movedSwapped, stampChanged, type Archetype } from './archetype';
 import { abortMutation, beginMutation, endMutation, enqueueAdd, enqueueAddEntries, enqueueChanged, enqueueRemove, enqueueSet, enqueueSetValue } from './commands';
 import { isAlive, type EntityEntry } from './entity';
 import {
@@ -72,8 +72,8 @@ function hasPair(world: World, index: number, archetype: Archetype, pair: TypeId
 function moveEntity(world: World, entity: Entity, from: Archetype, to: Archetype): void {
   const index = entity & INDEX_MASK;
   const row = world.rowOf[index];
-  const toRow = copyRow(from, row, to, revision);
-  const swapped = removeRow(from, row);
+  const toRow = moveRow(from, row, to, revision);
+  const swapped = movedSwapped;
   if (swapped !== 0) world.rowOf[swapped & INDEX_MASK] = row;
   world.archetypeOf[index] = to.id;
   world.rowOf[index] = toRow;
@@ -189,7 +189,7 @@ function constructStorage(
 /** Constructs a trait in the entity's current archetype row and applies its value. */
 export function constructTrait(world: World, entity: Entity, type: TypeId, value: unknown): boolean {
   const index = entity & INDEX_MASK;
-  const record = archetypeAt(world, index).records.get(type);
+  const record = archetypeAt(world, index).byType[type];
   return constructStorage(
     world,
     entity,
@@ -217,12 +217,12 @@ export function addTraitNow(world: World, entity: Entity, type: TypeId, value?: 
   if (isPair(type)) return addPair(world, entity, type, value);
   const index = entity & INDEX_MASK;
   const from = archetypeAt(world, index);
-  if (from.records.has(type)) return false;
+  if (from.byType[type] !== undefined) return false;
   if (sparseFlags[type] === 1) return addSparse(world, entity, type, value);
   const to = traverseAdd(world, from, type);
   moveEntity(world, entity, from, to);
   const applied = constructTrait(world, entity, type, value);
-  world.removed.get(type)?.delete(entity);
+  if (world.removed.size > 0) world.removed.get(type)?.delete(entity);
   bumpVersion(world, type);
   fire(world, 'traitAdded', type, entity);
   if (!isAlive(world, entity)) return true;
@@ -345,7 +345,7 @@ function addSparse(world: World, entity: Entity, type: TypeId, value: unknown): 
   const row = insertRow(world, entity, type, revision);
   const store = world.stores.get(type)!;
   const applied = constructStorage(world, entity, type, store.columns, store.plan, row, value);
-  world.removed.get(type)?.delete(entity);
+  if (world.removed.size > 0) world.removed.get(type)?.delete(entity);
   bumpVersion(world, type);
   fire(world, 'traitAdded', type, entity);
   if (!isAlive(world, entity)) return true;
@@ -369,17 +369,17 @@ export function removeTraitNow(world: World, entity: Entity, type: TypeId): bool
   if (isPair(type)) return removePair(world, entity, type);
   const index = entity & INDEX_MASK;
   const from = archetypeAt(world, index);
-  if (!from.records.has(type)) return sparseFlags[type] === 1 ? removeSparse(world, entity, type) : false;
+  if (from.byType[type] === undefined) return sparseFlags[type] === 1 ? removeSparse(world, entity, type) : false;
   fire(world, 'traitRemoving', type, entity);
   if (!isAlive(world, entity)) return true;
   let current = archetypeAt(world, index);
-  if (!current.records.has(type)) return true;
+  if (current.byType[type] === undefined) return true;
   const hooks = definitions[type]!.hooks;
   if (hooks !== null && hooks.onRemove !== null) {
     hooks.onRemove(world, entity, type, traitValue(current, type, world.rowOf[index]));
     if (!isAlive(world, entity)) return true;
     current = archetypeAt(world, index);
-    if (!current.records.has(type)) return true;
+    if (current.byType[type] === undefined) return true;
   }
   recordRemoved(world, type, entity);
   const to = traverseRemove(world, current, type);

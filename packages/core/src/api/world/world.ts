@@ -73,6 +73,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     queries: new Map(),
     definitionEntities: new Map(),
     hidden: new Set<Entity>(),
+    spawnMemo: { traits: [], count: 0, archetype: null, perm: [], valued: false },
+    addMemo: { from: null, traits: [], count: 0, epoch: 0, fused: null, perm: [] },
     ...createOwnerState(),
   } as WorldState;
 

@@ -141,7 +141,7 @@ export function releaseHandle(owner: HandleOwner, handle: Entity): void {
   const localIndex = registry.locals[pageId]![offset];
   if (localIndex > 0) owner.localToPublic[localIndex] = 0;
   registry.locals[pageId]![offset] = 0;
-  owner.reserved.delete(publicIndex);
+  if (owner.reserved.size > 0) owner.reserved.delete(publicIndex);
   if (generations[offset] < MAX_GENERATION) {
     generations[offset]++;
     owner.free.push(publicIndex);

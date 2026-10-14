@@ -39,7 +39,7 @@ export {
 } from './registry';
 export type { AutoDestroy, Definition, RelationOptions, TargetDestroyHook, TraitHook, TraitHooks, TraitOptions } from './registry';
 
-export type { Archetype, TypeRecord } from './archetype';
+export type { Archetype, Fused, FusedDestroy, FusedMany, FusedMove, FusedSpawn, TypeRecord } from './archetype';
 export { addedStamp, changedStamp } from './archetype';
 
 export type { Store } from './store';
@@ -52,7 +52,6 @@ export {
   traverseAdd,
   getTypeVersion,
   registerArchetype,
-  destroyArchetype,
   resetWorld,
   destroyWorld,
 } from './world';
@@ -71,6 +70,8 @@ export {
   destroyEntity,
   destroyEntityNow,
   isAlive,
+  allocateIndex,
+  isReservedIndex,
   entityAt,
   getArchetype,
   entityCount,
@@ -146,5 +147,15 @@ export type {
   TrackTerm,
 } from './query';
 
-export { observe } from './observer';
+export {
+  isWatched,
+  noopFused,
+  prepareDestroyer,
+  prepareFusedAdd,
+  prepareFusedAddMany,
+  prepareFusedRemove,
+  prepareSpawner,
+  tier,
+} from './fused';
+export { observe, observeTyped, watchType } from './observer';
 export type { EventName, Events, Observer } from './observer';

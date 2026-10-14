@@ -125,10 +125,6 @@ export function growColumn(column: Column, capacity: number, numeric: boolean): 
   }
 }
 
-export function clearSlot(column: Column, row: number, numeric: boolean): void {
-  column[row] = numeric ? 0 : undefined;
-}
-
 export function readRecord(columns: readonly Column[], plan: ColumnPlan, row: number): unknown {
   if (plan.aos) return columns[0][row];
   if (plan.read !== null) return plan.read(columns, row);

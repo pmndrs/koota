@@ -165,8 +165,8 @@ value does, because the value is applied as a set.
 
 The kernel fires a fixed set of observer events synchronously after state is
 consistent: `entityCreated`, `entityDestroying`, `entityDestroyed`,
-`traitAdded`, `traitRemoving`, `traitChanged`, `archetypeCreated`,
-`archetypeDestroyed`. Query add and remove subscriptions and query versions are
+`traitAdded`, `traitRemoving`, `traitChanged`, `archetypeCreated` and
+`worldReset`. Query add and remove subscriptions and query versions are
 maintained only for observed queries by comparing filter membership of the
 source and destination archetype on each transition. Queries with relation-target
 terms keep an explicit member set while observed.

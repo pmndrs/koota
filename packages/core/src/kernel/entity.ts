@@ -27,6 +27,9 @@ export type EntityEntry = TypeId | readonly [TypeId, unknown];
 /** `archetypeOf` value of a reserved slot: allocated, dead to `isAlive`, and not free. */
 export const RESERVED = -2;
 
+/** `archetypeOf` value of a slot that holds no entity. */
+export const VACANT = -1;
+
 /** Types stored outside archetypes: concrete pairs and sparse traits. */
 function isExternal(type: TypeId): boolean {
   return isPair(type) || sparseFlags[type] === 1;
@@ -55,7 +58,7 @@ export function getArchetype(world: World, entity: Entity): Archetype | undefine
 // Slots
 // ---------------------------------------------------------------------------
 
-function allocateIndex(world: World): number {
+export function allocateIndex(world: World): number {
   if (world.free.length > 0) return world.free.pop()!;
   const index = world.next++;
   if (index > MAX_INDEX) throw new Error('Koota: Entity limit exceeded.');
@@ -65,7 +68,7 @@ function allocateIndex(world: World): number {
 
 /** Frees a slot for its next generation, or retires it once the generations run out. */
 export function retireSlot(world: World, index: number): void {
-  world.archetypeOf[index] = -1;
+  world.archetypeOf[index] = VACANT;
   const generation = world.generations[index];
   if (generation < MAX_GENERATION) {
     world.generations[index] = generation + 1;
@@ -82,6 +85,11 @@ export function reserveEntity(world: World): Entity {
   const index = allocateIndex(world);
   world.archetypeOf[index] = RESERVED;
   return encodeEntity(world.generations[index], index);
+}
+
+/** Whether an entity slot holds a reservation that has not been created. */
+export function isReservedIndex(world: World, index: number): boolean {
+  return world.archetypeOf[index] === RESERVED;
 }
 
 function isReserved(world: World, entity: Entity): boolean {
@@ -269,6 +277,7 @@ export function destroyEntityNow(world: World, entity: Entity): boolean {
       world.aliveCount--;
       retireSlot(world, quickIndex);
       notifyTransition(world, entity, archetype, null);
+      if (world.onDestroyed !== null) world.onDestroyed(entity);
       fire(world, 'entityDestroyed', entity);
       return true;
     }
@@ -331,6 +340,7 @@ export function destroyEntityNow(world: World, entity: Entity): boolean {
       retireSlot(world, index);
       // Query subscribers see the entity gone, matching trait removal.
       notifyTransition(world, current, archetype, null);
+      if (world.onDestroyed !== null) world.onDestroyed(current);
       fire(world, 'entityDestroyed', current);
     }
   } finally {
