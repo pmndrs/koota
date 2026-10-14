@@ -174,6 +174,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     ctx,
     parameters,
     hash: '',
+    refId: -1,
     traits: [],
     traitInstances: {
       required: [],
@@ -318,6 +319,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
         relationTraitInstance.relationQueries.add(query);
       }
 
+      if (typeof pair.target === 'number') {
+        const eid = getEntityId(pair.target);
+        const page = (ctx.targetQueries[eid >>> 10] ??= []);
+        const targetQueries = (page[eid & 1023] ??= []);
+        if (!targetQueries.includes(query)) targetQueries.push(query);
+      }
+
       if (pair.targetQueryRef && pair.targetQueryMatches) {
         const matchingTargets = queryInternal(ctx, pair.targetQueryRef);
         for (let i = 0; i < matchingTargets.length; i++) {
@@ -445,8 +453,45 @@ export function createQueryInstance<T extends QueryParameter[]>(
 }
 
 /**
+ * Remove a cached query and its subscriptions when its relation target is destroyed.
+ */
+export function dropQuery(ctx: WorldContext, query: QueryInstance) {
+  for (let i = 0; i < query.cleanup.length; i++) {
+    query.cleanup[i]();
+  }
+  query.cleanup.length = 0;
+
+  for (const instance of query.traitInstances.all) {
+    instance.queries.delete(query);
+    instance.trackingQueries.delete(query);
+    instance.relationQueries.delete(query);
+  }
+
+  for (const pair of query.relationFilters!) {
+    if (typeof pair.target !== 'number') continue;
+    const eid = getEntityId(pair.target);
+    const page = ctx.targetQueries[eid >>> 10];
+    const targetQueries = page?.[eid & 1023];
+    if (!targetQueries) continue;
+    const index = targetQueries.indexOf(query);
+    if (index === -1) continue;
+    const last = targetQueries.pop()!;
+    if (index < targetQueries.length) targetQueries[index] = last;
+    if (targetQueries.length === 0) page[eid & 1023] = undefined;
+  }
+
+  ctx.notQueries.delete(query);
+  ctx.dirtyQueries.delete(query);
+  if (ctx.queriesHashMap.get(query.hash) === query) ctx.queriesHashMap.delete(query.hash);
+
+  if (query.refId >= 0 && ctx.queryInstances[query.refId] === query) {
+    ctx.queryInstances[query.refId] = undefined;
+  }
+}
+
+/**
  * Resolve or create a QueryInstance for the given parameters.
- * Internal equivalent of the first half of world.query().
+ * Internal equivalent of world.query().
  */
 export function resolveQueryInstance(ctx: WorldContext, params: QueryParameter[]): QueryInstance {
   const hash = createQueryHash(params);
@@ -476,6 +521,7 @@ export function resolveQueryInstanceFromRef(
       ctx.queryInstances.length = queryRef.id + 1;
     }
     ctx.queryInstances[queryRef.id] = query;
+    query.refId = queryRef.id;
   }
   return query;
 }

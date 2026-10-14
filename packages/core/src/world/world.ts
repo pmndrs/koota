@@ -81,6 +81,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       queryInstances: [],
       actionInstances: [],
       notQueries: new Set(),
+      targetQueries: [],
       dirtyQueries: new Set(),
       dirtyMasks: new Map(),
       trackingSnapshots: new Map(),
@@ -189,6 +190,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();
       ctx.notQueries.clear();
+      ctx.targetQueries.length = 0;
 
       ctx.trackingSnapshots.clear();
       ctx.dirtyMasks.clear();
@@ -219,6 +221,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             ctx.queryInstances.length = queryRef.id + 1;
           }
           ctx.queryInstances[queryRef.id] = query;
+          query.refId = queryRef.id;
         }
         return query.run(ctx, queryRef.parameters);
       } else {
@@ -275,6 +278,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             ctx.queryInstances.length = queryRef.id + 1;
           }
           ctx.queryInstances[queryRef.id] = query;
+          query.refId = queryRef.id;
         }
       } else {
         const hash = createQueryHash(args as QueryParameter[]);
@@ -310,6 +314,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
             ctx.queryInstances.length = queryRef.id + 1;
           }
           ctx.queryInstances[queryRef.id] = query;
+          query.refId = queryRef.id;
         }
       } else {
         const hash = createQueryHash(args as QueryParameter[]);

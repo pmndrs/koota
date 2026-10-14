@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, Not, relation, trait } from '../src';
+import { createQuery, createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
   const world = createWorld();
@@ -228,6 +228,72 @@ describe('Relation', () => {
     expect(world.has(durian)).toBe(false);
     expect(world.has(apple)).toBe(true);
     expect(world.has(cherry)).toBe(true);
+  });
+
+  it('should keep target queries working after a target is destroyed', () => {
+    const ChildOf = relation();
+    const Mesh = trait();
+
+    const kept = world.spawn();
+    const dropped = world.spawn();
+    const keptChild = world.spawn(Mesh, ChildOf(kept));
+    const droppedChild = world.spawn(Mesh, ChildOf(dropped));
+    const keptQuery = createQuery(Mesh, ChildOf(kept));
+    const droppedQuery = createQuery(Mesh, ChildOf(dropped));
+    const onRemove = vi.fn();
+    world.onQueryRemove(droppedQuery, onRemove);
+
+    expect([...world.query(keptQuery)]).toEqual([keptChild]);
+    expect([...world.query(droppedQuery)]).toEqual([droppedChild]);
+    expect(world.query(Mesh, ChildOf(kept), ChildOf(dropped)).length).toBe(0);
+
+    dropped.destroy();
+    expect(onRemove).toHaveBeenCalledOnce();
+    expect(onRemove).toHaveBeenCalledWith(droppedChild);
+    expect(world.query(droppedQuery)).toHaveLength(0);
+
+    const recycled = world.spawn();
+    expect(recycled.id()).toBe(dropped.id());
+    const recycledChild = world.spawn(Mesh, ChildOf(recycled));
+    expect([...world.query(Mesh, ChildOf(recycled))]).toEqual([recycledChild]);
+    expect(world.query(droppedQuery)).toHaveLength(0);
+
+    const lateChild = world.spawn(Mesh, ChildOf(kept));
+    expect([...world.query(keptQuery)]).toEqual([keptChild, lateChild]);
+  });
+
+  it('should update queries with multiple relations when a target is destroyed', () => {
+    const Likes = relation();
+    const Follows = relation();
+    const Mesh = trait();
+    const target = world.spawn();
+    const otherTarget = world.spawn();
+    const subject = world.spawn(Mesh, Likes(target), Follows(target), Likes(otherTarget));
+    const combined = createQuery(Mesh, Likes(target), Follows(target));
+    const shared = createQuery(Mesh, Likes(target), Likes(otherTarget));
+    const kept = createQuery(Mesh, Likes(otherTarget));
+    const wildcard = createQuery(Mesh, Likes('*'));
+    const onRemove = vi.fn();
+    world.onQueryRemove(combined, onRemove);
+
+    expect([...world.query(combined)]).toEqual([subject]);
+    expect([...world.query(shared)]).toEqual([subject]);
+    expect([...world.query(kept)]).toEqual([subject]);
+    expect([...world.query(wildcard)]).toEqual([subject]);
+
+    target.destroy();
+
+    expect(onRemove).toHaveBeenCalledOnce();
+    expect(onRemove).toHaveBeenCalledWith(subject);
+    expect(world.query(combined)).toHaveLength(0);
+    expect(world.query(shared)).toHaveLength(0);
+    expect([...world.query(kept)]).toEqual([subject]);
+    expect([...world.query(wildcard)]).toEqual([subject]);
+
+    otherTarget.destroy();
+
+    expect(world.query(kept)).toHaveLength(0);
+    expect(world.query(wildcard)).toHaveLength(0);
   });
 
   it('should update exclusive relation queries when switching targets', () => {
