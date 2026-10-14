@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { createWorld, Not, Or, trait, type Entity, type QueryParameter } from '../src';
+import { tier } from '../src/kernel';
 import { withoutEachCodegen } from './utils/each-codegen';
+
+/** Runs `body` with fused mutations compiling on first use, as `fused.test.ts` does. */
+function withFusedPaths<T>(body: () => T): T {
+  const uses = tier.uses;
+  tier.uses = 0;
+  try {
+    return body();
+  } finally {
+    tier.uses = uses;
+  }
+}
 
 function mulberry32(seed: number) {
   return () => {
@@ -199,6 +211,61 @@ describe('readEach and updateEach loops', () => {
       const [generic, blocked] = withoutEachCodegen(() => workload(seed));
       expect(blocked).toBeGreaterThan(0);
       expect(generic, `seed ${seed}`).toEqual(compiled);
+      // Fused mutations change the same rows as the general path, so the run matches it too.
+      const [fused, fusedGeneric] = withFusedPaths(() => [
+        workload(seed),
+        withoutEachCodegen(() => workload(seed))[0],
+      ]);
+      expect(fused, `fused seed ${seed}`).toEqual(compiled);
+      expect(fusedGeneric, `fused generic seed ${seed}`).toEqual(compiled);
     }
+  });
+
+  it('visits each entity once when the callback adds, removes, spawns and destroys on fused paths', () => {
+    withFusedPaths(() => {
+      const Position = trait({ x: 0 });
+      const Tag = trait();
+      const world = createWorld();
+      // Two archetypes, so mutations shift rows of the walked one and of the one still ahead.
+      const entities = Array.from({ length: 60 }, (_, i) =>
+        i % 2 === 0 ? world.spawn(Position({ x: i })) : world.spawn(Position({ x: i }), Tag)
+      );
+      const result = world.query(Position);
+      const snapshot = [...result];
+      const destroyed = new Set<Entity>();
+      const visits: [Entity, number | undefined][] = [];
+      const expected = snapshot.map((entity, index) => [
+        entity,
+        index % 5 === 4 ? undefined : entities.indexOf(entity),
+      ]);
+
+      result.updateEach(([position], entity, index) => {
+        visits.push([entity, position?.x]);
+        if (position === undefined) return;
+        position.x += 1000;
+        if (index % 5 === 0 && index + 4 < snapshot.length) {
+          result[index + 4].destroy();
+          destroyed.add(result[index + 4]);
+        } else if (index % 5 === 1) {
+          world.spawn(Position({ x: -1 }), Tag);
+          world.spawn(Position({ x: -1 }));
+        } else if (index % 5 === 2) {
+          if (entity.has(Tag)) entity.remove(Tag);
+          else entity.add(Tag);
+        } else if (index % 5 === 3) {
+          entity.destroy();
+          destroyed.add(entity);
+        }
+      });
+
+      expect(visits).toEqual(expected);
+      for (const entity of entities) {
+        if (destroyed.has(entity)) expect(entity.isAlive()).toBe(false);
+        else expect(entity.get(Position)!.x).toBe(entities.indexOf(entity) + 1000);
+      }
+      const spawned = world.query(Position).filter((entity) => !entities.includes(entity));
+      expect(spawned.map((entity) => entity.get(Position)!.x)).toEqual(Array(24).fill(-1));
+      world.destroy();
+    });
   });
 });

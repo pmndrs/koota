@@ -1,11 +1,18 @@
 import { archetypeKey, createArchetype, insertType, type Archetype } from './archetype';
-import { abortMutation, beginMutation, createCommandQueue, discardCommands, endMutation, type CommandQueue } from './commands';
-import { destroyEntityNow, getEntities, RESERVED, retireSlot } from './entity';
-import { filterArchetypeCreated, filterArchetypeDestroyed, type Filter } from './filter';
+import {
+  abortMutation,
+  beginMutation,
+  createCommandQueue,
+  discardCommands,
+  endMutation,
+  type CommandQueue,
+} from './commands';
+import { destroyEntityNow, getEntities, RESERVED, retireSlot, VACANT } from './entity';
+import { filterArchetypeCreated, type Filter } from './filter';
 import { PAIR_FLAG, type Entity, type TypeId } from './id';
-import { createObserverState, fire, type ObserverState } from './observer';
+import { createObserverState, fire, refreshQuiet, type ObserverState } from './observer';
 import type { Store } from './store';
-import type { Query } from './query';
+import type { Flips, Query } from './query';
 
 export type World = {
   alive: boolean;
@@ -52,6 +59,10 @@ export type World = {
   observedDynamic: Query[];
   /** Bumped whenever the observed static list changes, invalidating archetype bitsets. */
   observedEpoch: number;
+  /** Fused transitions with mutations counted but not yet applied to query versions. */
+  dirtyFlips: Flips[];
+  /** An observed static query has a membership subscriber. */
+  subscribed: boolean;
   /** Tracking queries by tracked type. */
   trackingByType: Map<TypeId, Query[]>;
   /** Removal revisions by type, for `removed()` terms. */
@@ -63,6 +74,13 @@ export type World = {
   /** Default exclusions applied to every query. */
   readonly exclude: readonly TypeId[];
   observers: ObserverState;
+  /** Called first when an entity is destroyed. The layer above owns it, so its release work is not an observer that would block fused destruction. */
+  onDestroyed: ((entity: Entity) => void) | null;
+  /** Plain traits with a typed trait observer listening, by id, and a counter that advances when the set changes. */
+  watched: (boolean | undefined)[];
+  watchEpoch: number;
+  /** No trait observers and no observed dynamic queries, so fused mutations may skip every notification pass. See `refreshQuiet`. */
+  quiet: boolean;
 };
 
 export type WorldOptions = { exclude?: readonly TypeId[] };
@@ -74,7 +92,7 @@ export function createWorld(options?: WorldOptions): World {
     alive: true,
     context: null,
     generations: new Uint8Array(INITIAL_ENTITY_CAPACITY),
-    archetypeOf: new Int32Array(INITIAL_ENTITY_CAPACITY).fill(-1),
+    archetypeOf: new Int32Array(INITIAL_ENTITY_CAPACITY).fill(VACANT),
     rowOf: new Int32Array(INITIAL_ENTITY_CAPACITY),
     next: 1,
     free: [],
@@ -97,12 +115,18 @@ export function createWorld(options?: WorldOptions): World {
     observedStatic: [],
     observedDynamic: [],
     observedEpoch: 0,
+    dirtyFlips: [],
+    subscribed: false,
     trackingByType: new Map(),
     removed: new Map(),
     traitVersions: [],
     pairVersions: new Map(),
     exclude: options?.exclude ? [...new Set(options.exclude)].sort((a, b) => a - b) : [],
     observers: createObserverState(),
+    onDestroyed: null,
+    watched: [],
+    watchEpoch: 0,
+    quiet: true,
   };
   world.root = registerArchetype(world, []);
   return world;
@@ -115,7 +139,7 @@ export function ensureEntityCapacity(world: World, index: number): void {
   while (capacity <= index) capacity *= 2;
   const generations = new Uint8Array(capacity);
   generations.set(world.generations);
-  const archetypeOf = new Int32Array(capacity).fill(-1);
+  const archetypeOf = new Int32Array(capacity).fill(VACANT);
   archetypeOf.set(world.archetypeOf);
   const rowOf = new Int32Array(capacity);
   rowOf.set(world.rowOf);
@@ -142,46 +166,31 @@ export function registerArchetype(world: World, types: readonly TypeId[]): Arche
   return archetype;
 }
 
-export function destroyArchetype(world: World, archetype: Archetype): void {
-  if (archetype === world.root || world.archetypes[archetype.id] !== archetype) return;
-  filterArchetypeDestroyed(world, archetype);
-  fire(world, 'archetypeDestroyed', archetype);
-  world.archetypeByKey.delete(archetype.key);
-  world.archetypes[archetype.id] = null;
-  const types = archetype.types;
-  for (let i = 0; i < types.length; i++) {
-    const records = world.recordsByType.get(types[i]);
-    if (!records) continue;
-    const index = records.indexOf(archetype);
-    if (index >= 0) records.splice(index, 1);
-    if (records.length === 0) world.recordsByType.delete(types[i]);
-  }
-  if (archetype.edges) {
-    for (const [type, other] of archetype.edges) other.edges?.delete(type);
-    archetype.edges = null;
-  }
-}
-
 export function ensureArchetype(world: World, types: readonly TypeId[]): Archetype {
   return world.archetypeByKey.get(archetypeKey(types)) ?? registerArchetype(world, types);
 }
 
 function link(from: Archetype, to: Archetype, type: TypeId): Archetype {
-  (from.edges ??= new Map()).set(type, to);
-  (to.edges ??= new Map()).set(type, from);
+  if (type < PAIR_FLAG) {
+    from.edges[type] = to;
+    to.edges[type] = from;
+  } else {
+    (from.pairEdges ??= new Map()).set(type, to);
+    (to.pairEdges ??= new Map()).set(type, from);
+  }
   return to;
 }
 
 export function traverseAdd(world: World, from: Archetype, type: TypeId): Archetype {
-  if (from.records.has(type)) return from;
-  const cached = from.edges?.get(type);
+  if (type < PAIR_FLAG ? from.byType[type] !== undefined : from.records.has(type)) return from;
+  const cached = type < PAIR_FLAG ? from.edges[type] : from.pairEdges?.get(type);
   if (cached) return cached;
   return link(from, ensureArchetype(world, insertType(from.types, type)), type);
 }
 
 export function traverseRemove(world: World, from: Archetype, type: TypeId): Archetype {
-  if (!from.records.has(type)) return from;
-  const cached = from.edges?.get(type);
+  if (type < PAIR_FLAG ? from.byType[type] === undefined : !from.records.has(type)) return from;
+  const cached = type < PAIR_FLAG ? from.edges[type] : from.pairEdges?.get(type);
   if (cached) return cached;
   return link(
     from,
@@ -209,7 +218,8 @@ export function getTypeVersion(world: World, type: TypeId): number {
  * so old handles stay dead.
  */
 export function resetWorld(world: World): void {
-  if (world.depth > 0 || world.flushing) throw new Error('Koota: Cannot reset a world during a mutation.');
+  if (world.depth > 0 || world.flushing)
+    throw new Error('Koota: Cannot reset a world during a mutation.');
   beginMutation(world);
   try {
     const entities = getEntities(world);
@@ -232,7 +242,9 @@ export function resetWorld(world: World): void {
   const archetypes = world.archetypes;
   for (let i = 0; i < archetypes.length; i++) {
     const archetype = archetypes[i];
-    if (archetype) archetype.edges = null;
+    if (!archetype) continue;
+    archetype.edges.length = 0;
+    archetype.pairEdges = null;
   }
   archetypes.length = 0;
   world.archetypeByKey.clear();
@@ -247,11 +259,16 @@ export function resetWorld(world: World): void {
   world.observedStatic.length = 0;
   world.observedDynamic.length = 0;
   world.observedEpoch++;
+  world.dirtyFlips.length = 0;
+  world.subscribed = false;
   world.trackingByType.clear();
   world.removed.clear();
   world.traitVersions.length = 0;
   world.pairVersions.clear();
   world.destroying.clear();
+  world.watched.length = 0;
+  world.watchEpoch++;
+  refreshQuiet(world);
   world.root = registerArchetype(world, []);
   fire(world, 'worldReset');
 }

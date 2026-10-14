@@ -6,7 +6,9 @@ import {
   isPair,
   isWildcardPair,
   observe,
+  observeTyped,
   pairTargetIndex,
+  watchType,
   type TypeId,
   type World as Kernel,
 } from '../../kernel';
@@ -33,6 +35,31 @@ function ensureSubscriptions(state: WorldState, type: TypeId): TraitSubscription
     state.traitSubscriptions.set(type, subscriptions);
   }
   return subscriptions;
+}
+
+function hasSubscribers(subscriptions: TraitSubscriptions): boolean {
+  return (
+    subscriptions.add.size > 0 ||
+    subscriptions.remove.size > 0 ||
+    subscriptions.change.size > 0 ||
+    subscriptions.byEntity.size > 0
+  );
+}
+
+/**
+ * Marks the trait watched in the kernel while it has any subscriber, so its
+ * fused mutations take the general path that fires them, and clears the mark
+ * once the last one leaves.
+ */
+function refreshWatch(state: WorldState, type: TypeId, subscriptions: TraitSubscriptions): void {
+  if (state.kernel) watchType(state.kernel, type, hasSubscribers(subscriptions));
+}
+
+/** Marks every subscribed trait watched, for a kernel created after the subscriptions. */
+export function watchSubscribedTraits(state: WorldState, kernel: Kernel): void {
+  for (const [type, subscriptions] of state.traitSubscriptions) {
+    if (hasSubscribers(subscriptions)) watchType(kernel, type, true);
+  }
 }
 
 /** The trait backing a hook input. Relations and pairs resolve to the relation trait. */
@@ -79,12 +106,15 @@ export function subscribeTrait(
 ): () => void {
   if (!state.traitObserversAttached && state.kernel) attachTraitObservers(state, state.kernel);
   const trait = resolveHookTrait(input);
-  const subscriptions = ensureSubscriptions(state, trait[$internal].id);
+  const type = trait[$internal].id;
+  const subscriptions = ensureSubscriptions(state, type);
   const subscriber = resolveHookCallback(state, input, callback);
   if (entity === undefined) {
     subscriptions[event].add(subscriber);
+    refreshWatch(state, type, subscriptions);
     return () => {
       subscriptions[event].delete(subscriber);
+      refreshWatch(state, type, subscriptions);
     };
   }
   if (!isHandleAlive(entity)) return () => {};
@@ -93,12 +123,14 @@ export function subscribeTrait(
   // Plain callbacks dedupe by identity. Pair filters dedupe by callback as well.
   const key = subscriber === callback ? callback : subscriber;
   scoped[event].add(key);
+  refreshWatch(state, type, subscriptions);
   return () => {
     const current = subscriptions.byEntity.get(entity);
     if (!current || current !== scoped) return;
     current[event].delete(key);
     if (current.add.size === 0 && current.remove.size === 0 && current.change.size === 0) {
       subscriptions.byEntity.delete(entity);
+      refreshWatch(state, type, subscriptions);
     }
   };
 }
@@ -127,6 +159,18 @@ function pairTarget(state: WorldState, kernel: Kernel, type: TypeId): Entity | u
   const targetIndex = pairTargetIndex(type);
   if (targetIndex === Any) return undefined;
   return toPublic(state, entityAt(kernel, targetIndex));
+}
+
+/** Frees a destroyed entity's public handle and drops what the world kept for it. */
+export function releaseEntity(state: WorldState, entity: Entity): void {
+  releaseHandle(state, entity);
+  if (state.hidden.size > 0) state.hidden.delete(entity);
+  if (state.traitSubscriptions.size === 0) return;
+  for (const [type, subscriptions] of state.traitSubscriptions) {
+    if (subscriptions.byEntity.size > 0 && subscriptions.byEntity.delete(entity)) {
+      refreshWatch(state, type, subscriptions);
+    }
+  }
 }
 
 /** Registers the created observer on the first spawn subscriber or queued spawn, so quiet spawns fire nothing. */
@@ -162,15 +206,7 @@ export function attachObservers(state: WorldState, kernel: Kernel): void {
 
   if (state.destroySubscribers.size > 0) attachDestroyObserver(state, kernel);
 
-  observe(kernel, 'entityDestroyed', (local) => {
-    const entity = toPublic(state, local);
-    releaseHandle(state, entity);
-    if (state.hidden.size > 0) state.hidden.delete(entity);
-    if (state.traitSubscriptions.size === 0) return;
-    for (const subscriptions of state.traitSubscriptions.values()) {
-      if (subscriptions.byEntity.size > 0) subscriptions.byEntity.delete(entity);
-    }
-  });
+  kernel.onDestroyed = (local) => releaseEntity(state, toPublic(state, local));
 }
 
 /**
@@ -183,7 +219,7 @@ export function attachTraitObservers(state: WorldState, kernel: Kernel): void {
   if (state.traitObserversAttached) return;
   state.traitObserversAttached = true;
 
-  observe(kernel, 'traitAdded', (type, local) => {
+  observeTyped(kernel, 'traitAdded', (type, local) => {
     if (isPair(type) && isWildcardPair(type)) return;
     const trait = traitOfType(type);
     if (!trait) return;
@@ -192,7 +228,7 @@ export function attachTraitObservers(state: WorldState, kernel: Kernel): void {
     dispatch(subscriptions, 'add', toPublic(state, local), pairTarget(state, kernel, type));
   });
 
-  observe(kernel, 'traitRemoving', (type, local) => {
+  observeTyped(kernel, 'traitRemoving', (type, local) => {
     if (isPair(type) && isWildcardPair(type)) return;
     const trait = traitOfType(type);
     if (!trait) return;
@@ -201,7 +237,7 @@ export function attachTraitObservers(state: WorldState, kernel: Kernel): void {
     dispatch(subscriptions, 'remove', toPublic(state, local), pairTarget(state, kernel, type));
   });
 
-  observe(kernel, 'traitChanged', (type, local) => {
+  observeTyped(kernel, 'traitChanged', (type, local) => {
     if (isPair(type) && isWildcardPair(type)) return;
     const trait = traitOfType(type);
     if (!trait) return;

@@ -1,4 +1,11 @@
-import type { Query as KernelQuery, TypeId, World as Kernel } from '../../kernel';
+import type {
+  Archetype,
+  Fused,
+  FusedMany,
+  Query as KernelQuery,
+  TypeId,
+  World as Kernel,
+} from '../../kernel';
 import type { ActionInstance } from '../actions/types';
 import type { Entity } from '../entity/types';
 import type { HandleOwner } from '../handles';
@@ -64,4 +71,27 @@ export type WorldState = HandleOwner & {
   /** Entities that stand in for definitions, hidden from `world.entities`. */
   definitionEntities: Map<object, Entity>;
   hidden: Set<Entity>;
+  /** The last plain spawn, so a repeated spawn compares trait identities instead of walking archetypes. */
+  spawnMemo: SpawnMemo;
+  /** The last fused add of several traits, so a repeated add reuses its transition. */
+  addMemo: AddMemo;
+};
+
+/** A resolved plain spawn: its trait list, archetype, slot to argument index, and whether any argument carried a value. */
+export type SpawnMemo = {
+  traits: Trait[];
+  count: number;
+  archetype: Archetype | null;
+  perm: number[];
+  valued: boolean;
+};
+
+/** A resolved multiple add: source archetype, trait list, watch epoch, transition and slot to argument index. */
+export type AddMemo = {
+  from: Archetype | null;
+  traits: Trait[];
+  count: number;
+  epoch: number;
+  fused: Fused<FusedMany> | null;
+  perm: number[];
 };

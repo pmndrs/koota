@@ -84,6 +84,8 @@ For detailed patterns and monorepo structures, see [references/architecture.md](
 | **AoS (Callback)** | `trait(() => new Thing())` | Complex objects/instances | `Ref` (DOM), `Keyboard` (Set)    |
 | **Tag**            | `trait()`                  | No data, just a flag      | `IsPlayer`, `IsEnemy`, `IsDead`  |
 
+A factory that declares a parameter receives the entity it constructs for: `trait((entity) => new Body(entity))`. Factories run while the entity is being built, so a subscription a factory creates applies from the next operation and can miss the running spawn or add.
+
 ## Trait naming conventions
 
 | Type          | Pattern         | Examples                         |

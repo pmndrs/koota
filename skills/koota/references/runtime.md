@@ -7,6 +7,7 @@ How and when to run logic in a Koota application.
 - [Systems](#systems)
 - [Frameloop](#frameloop)
 - [Event-driven systems](#event-driven-systems)
+  - [Subscriptions and mutation speed](#subscriptions-and-mutation-speed)
 - [Time management](#time-management)
 
 ## Systems
@@ -207,6 +208,16 @@ const unsub3 = world.onTraitRegistered((trait) => {
   // Fires when a trait is first used on this world
 })
 ```
+
+### Subscriptions and mutation speed
+
+Adding and removing plain traits, spawning, and destroying take compiled fast paths once the same kind of change repeats and while nothing listens to it. Subscriptions decide which operations slow down:
+
+- A trait subscription (`world.onAdd`, `onRemove`, `onChange`, the entity forms, and React `useTrait`) moves only that trait to the slower general path. Unsubscribing the last listener restores the fast path.
+- Observing membership of a query with tracking (`Added`, `Removed`, `Changed`) or relation terms, through `onQueryAdd`, `onQueryRemove`, or `useQuery`, moves every mutation in the world to the general path until `world.reset()`. Prefer reading such queries in a system each frame.
+- `onQueryAdd` and `onQueryRemove` on plain trait queries keep the fast paths.
+- Traits with `onAdd`, `onSet`, or `onRemove` hooks, relations, and adds of several traits with factories always take the general path.
+- A subscription created inside a trait factory applies from the next operation and can miss the spawn or add that runs the factory.
 
 ## Time management
 

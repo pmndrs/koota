@@ -1015,6 +1015,8 @@ const Body = trait((entity) => new Body(entity))
 const Inventory = trait({ items: () => [], owner: (entity) => entity })
 ```
 
+Factories run while the entity is being built. A subscription that a factory creates, such as `world.onAdd`, applies from the next operation and can miss the spawn or add that is running.
+
 #### Trait record
 
 The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state while when it is AoS the record is a ref to the object inserted there.
