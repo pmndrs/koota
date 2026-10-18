@@ -686,7 +686,7 @@ world
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
 ```
 
-Change detection shallowly compares the scalar values just like React. This means objects and arrays will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually flag that a change has occurred.
+Change detection shallowly compares the scalar values just like React. Tuples are stored by value and compared per element, so mutating one in place is detected. Other objects and arrays (created by an initializer) will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually mark that a change has occurred.
 
 ```js
 // ❌ This change will not be detected since the array is mutated and will pass the comparison
@@ -754,6 +754,25 @@ for (const {
 ```
 
 `page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
+
+A tuple field's components start at the offset times the tuple's length. Write them in place.
+
+```js
+const Transform = trait({ position: [0, 0, 0] })
+const Velocity = trait({ value: [0, 0, 0] })
+
+for (const {
+  stores: [transform, velocity],
+  indices,
+} of world.query(Transform, Velocity).getPages()) {
+  for (let i = 0; i < indices.length; i++) {
+    const offset = indices[i] * 3
+    transform.position[offset] += velocity.value[offset] * delta
+    transform.position[offset + 1] += velocity.value[offset + 1] * delta
+    transform.position[offset + 2] += velocity.value[offset + 2] * delta
+  }
+}
+```
 
 Query each frame and finish the loop before adding or removing traits or entities. Direct writes don't notify subscribers. Call `entity.changed(Trait)` when you need notifications.
 
@@ -942,6 +961,12 @@ Development builds assert that the various API contracts hold such as entity lif
 
 Define `__KOOTA_ASSERTS__` as `true` to retain them in production, or `false` to remove them completely from the application bundle.
 
+### Warnings
+
+Development builds warn about patterns that work but are slow, such as a tuple that mixes numbers with other values. Warnings are separate from assertions and compiled out of production builds by default.
+
+Define `__KOOTA_WARNINGS__` as `true` to retain them in production, or `false` to remove them completely from the application bundle.
+
 ### Trait
 
 Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React, Svelte, or web components.
@@ -952,20 +977,20 @@ A trait can be created with a schema that describes the kind of data it will hol
 const Position = trait({ x: 0, y: 0, z: 0 })
 ```
 
-A schema supports primitive values with **no** nested objects or arrays. In cases where the data needs to initialized for each instance of the trait, or complex structures are required, a callback initializer can be used.
+A schema supports primitive values and [tuples](#tuples) with **no** nested objects or other arrays. In cases where the data needs to initialized for each instance of the trait, or complex structures are required, a callback initializer can be used.
 
 ```js
-// ❌ Arrays and objects are not allowed in trait schemas
+// ❌ Objects, and arrays that are not tuples, are not allowed in trait schemas
 const Inventory = trait({
   items: [],
-  vec3: { x: 0, y: 0, z: 0}
+  vec3: { x: 0, y: 0, z: 0 },
   max: 10,
 })
 
 // ✅ Use a callback initializer for arrays and objects
 const Inventory = trait({
   items: () => [],
-  vec3: () => ({ x: 0, y: 0, z: 0})
+  vec3: () => ({ x: 0, y: 0, z: 0 }),
   max: 10,
 })
 ```
@@ -989,6 +1014,33 @@ Both schema-based and callback-based traits are used similarly, but they have di
 
 [Learn more about AoS and SoA here](https://en.wikipedia.org/wiki/AoS_and_SoA).
 
+#### Tuples
+
+A tuple is a fixed-size field such as a vector, quaternion, matrix or Euler. Its default sets its length, and the field is stored by value like any other primitive. This works directly with math libraries built on plain arrays, like [pmndrs/math](https://github.com/pmndrs/math).
+
+```js
+import { mat4, quat, vec3 } from 'math'
+
+const Transform = trait({
+  position: vec3.create(),
+  rotation: quat.create(),
+  scale: vec3.fromValues(1, 1, 1),
+  matrix: mat4.create(),
+})
+
+entity.set(Transform, { position: [1, 2, 3] })
+
+// Tuples are copied in and out, so this array never aliases the store
+const { position } = entity.get(Transform)
+
+// Mutating a tuple in updateEach is detected per component
+world.query(Transform, Velocity).updateEach(([transform, velocity]) => {
+  vec3.scaleAndAdd(transform.position, transform.position, velocity.value, delta)
+})
+```
+
+A tuple holds at least one value and only primitives. Use a callback initializer for anything else, such as a list that grows.
+
 #### Structure of Arrays (SoA) - Schema-based traits
 
 When using a schema, each property is stored in its own array. This can lead to better cache locality when accessing a single property across many entities. This is always the fastest option for data that has intensive operations.
@@ -1001,6 +1053,18 @@ const store = {
   x: [0, 0, 0, ...], // Array for x values
   y: [0, 0, 0, ...], // Array for y values
   z: [0, 0, 0, ...], // Array for z values
+}
+```
+
+A tuple field is one array with each entity's components side by side.
+
+```js
+const Body = trait({ velocity: [0, 0, 0], mass: 1 })
+
+// Internally, this creates a store structure like:
+const store = {
+  velocity: [x0, y0, z0, x1, y1, z1, ...], // Three values per entity
+  mass: [1, 1, ...],
 }
 ```
 

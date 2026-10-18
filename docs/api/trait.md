@@ -7,6 +7,7 @@ nav: 4
 Traits are self-contained slices of data you attach to an entity to define its state. They serve the same purpose as components in a traditional ECS. We call them traits to avoid confusion with React or web components.
 
 - [Basic Usage](#Basic-Usage)
+- [Tuples](#Tuples)
 - [Structure of Arrays](#Structure-of-Arrays)
 - [Array of Structures](#Array-of-Structures)
 - [Trait record](#Trait-record)
@@ -21,14 +22,14 @@ A trait can be created with a schema that describes the kind of data it will hol
 const Position = trait({ x: 0, y: 0, z: 0 })
 ```
 
-A schema supports primitive values with **no** nested objects or arrays. In cases where the data needs to initialized for each instance of the trait, or complex structures are required, a callback initializer can be used.
+A schema supports primitive values and [tuples](#Tuples) with **no** nested objects or other arrays. In cases where the data needs to initialized for each instance of the trait, or complex structures are required, a callback initializer can be used.
 
 > [!TIP]
 > Take note of the difference between schema-based and
 > callback-based traits as shown below
 
 ```js
-// ❌ Arrays and objects are not allowed in trait schemas
+// ❌ Objects, and arrays that are not tuples, are not allowed in trait schemas
 const Inventory = trait({
   items: [],
   vec3: { x: 0, y: 0, z: 0 },
@@ -62,6 +63,35 @@ Both schema-based and callback-based traits are used similarly, but they have di
 
 [Learn more about AoS and SoA here](https://en.wikipedia.org/wiki/AoS_and_SoA).
 
+## Tuples
+
+A tuple is a fixed-size field such as a vector, quaternion, matrix or Euler. Its default sets its length, and the field is stored by value like any other primitive. This works directly with math libraries built on plain arrays, like [pmndrs/math](https://github.com/pmndrs/math).
+
+```js
+import { mat4, quat, vec3 } from 'math'
+
+const Transform = trait({
+  position: vec3.create(),
+  rotation: quat.create(),
+  scale: vec3.fromValues(1, 1, 1),
+  matrix: mat4.create(),
+})
+
+entity.set(Transform, { position: [1, 2, 3] })
+
+// Tuples are copied in and out, so this array never aliases the store
+const { position } = entity.get(Transform)
+
+// Mutating a tuple in updateEach is detected per component
+world.query(Transform, Velocity).updateEach(([transform, velocity]) => {
+  vec3.scaleAndAdd(transform.position, transform.position, velocity.value, delta)
+})
+```
+
+A tuple holds at least one value and only primitives. Use a callback initializer for anything else, such as a list that grows.
+
+A tuple can mix numbers with other values, such as an Euler with its rotation order, `[0, 0, 0, 'xyz']`. Its pages then store values generically, so every number written to them allocates. This is fine for data read and set through entities, but slow in tight loops over `getPages`. Development builds [warn](warnings.md) when a trait has a mixed tuple. To keep it fast, move the other values to their own field, like `{ rotation: [0, 0, 0], order: 'xyz' }`.
+
 ## Structure of Arrays
 
 Structure of Arrays (SoA) are schema-based traits.
@@ -76,6 +106,18 @@ const store = {
   x: [0, 0, 0, ...], // Array for x values
   y: [0, 0, 0, ...], // Array for y values
   z: [0, 0, 0, ...], // Array for z values
+};
+```
+
+A tuple field is one array with each entity's components side by side.
+
+```js
+const Body = trait({ velocity: [0, 0, 0], mass: 1 });
+
+// Internally, this creates a store structure like:
+const store = {
+  velocity: [x0, y0, z0, x1, y1, z1, ...], // Three values per entity
+  mass: [1, 1, ...],
 };
 ```
 
