@@ -81,6 +81,7 @@ For detailed patterns and monorepo structures, see [references/architecture.md](
 | Type               | Syntax                     | Use when                  | Examples                         |
 | ------------------ | -------------------------- | ------------------------- | -------------------------------- |
 | **SoA (Schema)**   | `trait({ x: 0 })`          | Simple primitive data     | `Position`, `Velocity`, `Health` |
+| **SoA tuple**      | `trait({ p: [0, 0, 0] })`  | Vectors, quats, matrices  | `Transform` with `vec3.create()` |
 | **AoS (Callback)** | `trait(() => new Thing())` | Complex objects/instances | `Ref` (DOM), `Keyboard` (Set)    |
 | **Tag**            | `trait()`                  | No data, just a flag      | `IsPlayer`, `IsEnemy`, `IsDead`  |
 
@@ -192,6 +193,8 @@ type PositionRecord = TraitRecord<typeof Position>
 **Assertions**
 
 Development builds assert entity lifetime, trait membership for `set` and `changed`, concrete live relation targets in the same world, existing relation pairs before setting, and relation index consistency. Missing-trait reads, duplicate adds, absent-trait removals, lifetime probes, and Removed query history remain valid. Setter callbacks must preserve their entity and trait or pair before writeback. Query accessors leave snapshot validity and selected trait membership to the caller. Raw `getStore` and `getPages` writes require the caller to preserve invariants. Assertions default to off when `NODE_ENV` is `'production'`. Consumers can define `__KOOTA_ASSERTS__` as `true` to retain them in production or `false` to remove them through dead code elimination. Keep each assertion condition inside the flagged block so its work is also removed. See [assertion configuration](../../docs/api/asserts.md).
+
+Development builds also warn about valid but slow patterns, such as a tuple that mixes numbers with other values. Warnings use their own flag, `__KOOTA_WARNINGS__`, with the same `NODE_ENV` default. See [warning configuration](../../docs/api/warnings.md).
 
 ## Queries
 

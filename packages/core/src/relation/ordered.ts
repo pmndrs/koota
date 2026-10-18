@@ -16,7 +16,7 @@ export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation
     add: (ctx, index, store, value) => {
       const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[index]];
       const list = value ?? new OrderedList(ctx, entity, relation, orderedTrait);
-      defaults.set(ctx, index, store, list);
+      defaults.add(ctx, index, store, list);
     },
   }));
 

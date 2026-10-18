@@ -175,7 +175,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         usesCustomOrder || query.isTracking || query.version !== version
           ? createQueryLayout(entities)
           : getCachedQueryLayout(query, entities);
-      return getQueryPages(stores, layout) as QueryPage<T>[];
+      return getQueryPages(traits, stores, layout) as QueryPage<T>[];
     },
 
     select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
@@ -413,7 +413,7 @@ const relationOnlyMethods = {
     return this;
   },
   getPages(this: QueryResult<any>) {
-    return getQueryPages([], getRelationOnlyLayout(this));
+    return getQueryPages([], [], getRelationOnlyLayout(this));
   },
   select(this: QueryResult<any>) {
     return this;

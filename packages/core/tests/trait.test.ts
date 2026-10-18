@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, type Entity, getStore, trait } from '../src';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { createChanged, createWorld, type Entity, getStore, relation, trait } from '../src';
 
 class TestClass {
   public name: string;
@@ -22,6 +22,8 @@ const Test = trait({
 
 const Tag = trait();
 
+type Vec3 = [x: number, y: number, z: number];
+
 describe('Trait', () => {
   const world = createWorld();
 
@@ -36,11 +38,9 @@ describe('Trait', () => {
     expect(typeof Test === 'function').toBe(true);
   });
 
-  it('should throw an error if the schema contains an object or array', () => {
+  it('should throw an error if the schema contains an object', () => {
     // @ts-expect-error - we want to test the error case
     expect(() => trait({ object: { a: 1, b: 2 } })).toThrow();
-    // @ts-expect-error - we want to test the error case
-    expect(() => trait({ array: [1, 2, 3] })).toThrow();
   });
 
   it('should add and remove traits to an entity', () => {
@@ -267,5 +267,137 @@ describe('Trait', () => {
 
     // Getting a tag trait should not throw
     expect(entity.get(IsTag)).toBeUndefined();
+  });
+
+  describe('tuples', () => {
+    it('stores tuples by value', () => {
+      const scale: Vec3 = [1, 1, 1];
+      const Transform = trait({ position: [0, 0, 0], rotation: [0, 0, 0, 1], scale, mass: 1 });
+      const a = world.spawn(Transform({ position: [1, 2, 3] }));
+      const b = world.spawn(Transform);
+
+      const transform = a.get(Transform)!;
+      expectTypeOf(transform.position).toEqualTypeOf<[number, number, number]>();
+      expectTypeOf(transform.scale).toEqualTypeOf<Vec3>();
+      expectTypeOf(trait({ value: [0, 0] as const }).schema.value).toEqualTypeOf<[number, number]>();
+      expect(transform).toEqual({
+        position: [1, 2, 3],
+        rotation: [0, 0, 0, 1],
+        scale: [1, 1, 1],
+        mass: 1,
+      });
+
+      // Neither the snapshot nor the value passed to set aliases storage.
+      transform.position[0] = 100;
+      const next: Vec3 = [4, 5, 6];
+      a.set(Transform, { position: next });
+      next[0] = 100;
+      expect(a.get(Transform)!.position).toEqual([4, 5, 6]);
+
+      expect(b.get(Transform)!.position).toEqual([0, 0, 0]);
+      expect(b.get(Transform)!.scale).not.toBe(scale);
+    });
+
+    it('writes tuples mutated in updateEach back and detects changes per component', () => {
+      const Position = trait({ value: [0, 0, 0] });
+      const Velocity = trait({ value: [0, 0, 0] });
+      const Changed = createChanged();
+      const changed = vi.fn();
+      world.onChange(Position, changed);
+      world.query(Changed(Position));
+      const moving = world.spawn(Position, Velocity({ value: [0, 2, 0] }));
+      world.spawn(Position, Velocity);
+
+      world.query(Position, Velocity).updateEach(([position, velocity]) => {
+        for (let i = 0; i < 3; i++) position.value[i] += velocity.value[i];
+      });
+
+      expect(moving.get(Position)!.value).toEqual([0, 2, 0]);
+      expect(changed.mock.calls).toEqual([[moving]]);
+      expect([...world.query(Changed(Position))]).toEqual([moving]);
+    });
+
+    it('exposes interleaved columns through pages', () => {
+      const Position = trait({ value: [0, 0, 0], mass: 1 });
+      const entities = Array.from({ length: 1500 }, (_, i) =>
+        i % 2 === 0 ? world.spawn(Position({ value: [i, i, i] })) : world.spawn()
+      ).filter((entity) => entity.has(Position));
+
+      const pages = world.query(Position).getPages();
+      expectTypeOf(pages[0].stores).toEqualTypeOf<[{ value: number[]; mass: number[] }]>();
+
+      for (const {
+        stores: [position],
+        indices,
+      } of pages) {
+        // Every slot is filled with the default, so a column holds 1024 tuples.
+        expect(position.value).toHaveLength(1024 * 3);
+        for (let i = 0; i < indices.length; i++) {
+          const o = indices[i] * 3;
+          position.value[o + 1] += position.mass[indices[i]];
+        }
+      }
+
+      expect(pages.length).toBeGreaterThan(1);
+      expect(entities.map((entity) => entity.get(Position)!.value[1])).toEqual(
+        entities.map((_, i) => i * 2 + 1)
+      );
+    });
+
+    it('copies tuples in relation data', () => {
+      const Attached = relation({ store: { offset: [0, 0, 0] } });
+      const parent = world.spawn();
+      const child = world.spawn(Attached(parent));
+      const offset: Vec3 = [1, 2, 3];
+
+      expect(child.get(Attached(parent))!.offset).toEqual([0, 0, 0]);
+
+      child.set(Attached(parent), { offset });
+      offset[0] = 100;
+      child.get(Attached(parent))!.offset[1] = 100;
+      expect(child.get(Attached(parent))!.offset).toEqual([1, 2, 3]);
+    });
+
+    it('stores tuples that mix numbers with other values and warns about their cost', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const euler: [x: number, y: number, z: number, order?: 'xyz' | 'zyx'] = [0, 0, 0, 'xyz'];
+      const Rotation = trait({ value: euler, flags: [true, false] });
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn.mock.calls[0][0]).toMatch(/value is a tuple that mixes numbers/);
+      warn.mockRestore();
+
+      const entity = world.spawn(Rotation({ value: [1, 2, 3, 'zyx'] }));
+      const rotation = entity.get(Rotation)!;
+      expectTypeOf(rotation.value).toEqualTypeOf(euler);
+      expectTypeOf(rotation.flags).toEqualTypeOf<[boolean, boolean]>();
+      expect(rotation).toEqual({ value: [1, 2, 3, 'zyx'], flags: [true, false] });
+    });
+
+    it('preserves declared element types in tuples with booleans', () => {
+      type Value = [value: number, mode: 'local' | 'world', enabled: boolean];
+      const value: Value = [0, 'local', true];
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const State = trait({ value });
+      warn.mockRestore();
+
+      const entity = world.spawn(State);
+      expectTypeOf(entity.get(State)!.value).toEqualTypeOf<Value>();
+
+      entity.set(State, (previous) => {
+        expectTypeOf(previous.value).toEqualTypeOf<Value>();
+        return { value: [previous.value[0] + 1, 'world', false] satisfies Value };
+      });
+
+      expect(entity.get(State)!.value).toEqual([1, 'world', false]);
+    });
+
+    it('rejects arrays that are not tuples', () => {
+      // @ts-expect-error - a tuple needs a fixed stride
+      expect(() => trait({ value: [] })).toThrow(/not a valid tuple/);
+      // @ts-expect-error - tuples cannot nest
+      expect(() => trait({ value: [[0, 0]] })).toThrow(/not a valid tuple/);
+      // @ts-expect-error - tuples cannot hold objects
+      expect(() => trait({ value: [0, { order: 'xyz' }] })).toThrow(/not a valid tuple/);
+    });
   });
 });

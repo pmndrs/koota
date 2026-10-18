@@ -20,9 +20,9 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
 export type TraitAccessors<S extends Schema = any> = {
   /** Initialize while membership is absent. On failure, undo any partial writes or indexes. */
   add(ctx: WorldContext, index: number, store: Store<S>, value?: TraitValue<S>): void;
-  /** Validate before writing and preserve state on failure. Return whether this call changed it. */
+  /** Runs only for members, whose pages add created. Validate before writing and preserve state on failure. Return whether this call changed it. */
   set(ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
-  /** Read without side effects. SoA returns a shallow snapshot and AoS returns the stored value. */
+  /** Runs only for members. Read without side effects. SoA returns a snapshot with copied tuples and AoS returns the stored value. */
   get(ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;
   /** Release auxiliary state before membership is removed. Cleanup must not throw. */
   remove(ctx: WorldContext, index: number, store: Store<S>): void;

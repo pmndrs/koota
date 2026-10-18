@@ -1,4 +1,4 @@
-export { createStore } from './stores';
+export { createPage, createStore } from './stores';
 export { createAddFunction, createSetFunction, createGetFunction } from './accessors';
 export type { AddAccessor, SetAccessor, GetAccessor, RemoveAccessor } from './accessors';
 

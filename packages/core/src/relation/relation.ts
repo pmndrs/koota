@@ -504,15 +504,15 @@ export function setRelationDataAtIndex(
   }
 
   const storeRec = store as Record<string, any[]>;
-  if (relationCtx.exclusive) {
-    for (const key in value) {
-      ensureRelPage(storeRec[key], p)[o] = (value as Record<string, unknown>)[key];
-    }
-  } else {
-    for (const key in value) {
-      const kPage = ensureRelPage(storeRec[key], p);
-      (kPage[o] ??= [])[targetIndex] = (value as Record<string, unknown>)[key];
-    }
+  const schema = traitData.schema as Record<string, unknown>;
+  for (const key in value) {
+    // Relation data keeps one array per tuple, copied so it never aliases the caller's array.
+    const field = Array.isArray(schema[key])
+      ? Array.from(value[key] as ArrayLike<unknown>)
+      : value[key];
+    const kPage = ensureRelPage(storeRec[key], p);
+    if (relationCtx.exclusive) kPage[o] = field;
+    else (kPage[o] ??= [])[targetIndex] = field;
   }
 }
 
@@ -559,14 +559,14 @@ export function getRelationData(
   } else {
     const result: Record<string, unknown> = {};
     const storeRecord = store as Record<string, any[]>;
+    const schema = traitData.schema as Record<string, unknown>;
     for (const key in store) {
       const kPage = storeRecord[key][p];
       if (!kPage) continue;
-      if (relationCtx.exclusive) {
-        result[key] = kPage[o];
-      } else {
-        result[key] = (kPage[o] as unknown[] | undefined)?.[targetIndex];
-      }
+      const field = relationCtx.exclusive
+        ? kPage[o]
+        : (kPage[o] as unknown[] | undefined)?.[targetIndex];
+      result[key] = Array.isArray(schema[key]) ? (field as unknown[]).slice() : field;
     }
     return result;
   }

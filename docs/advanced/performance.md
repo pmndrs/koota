@@ -30,6 +30,25 @@ for (const {
 
 `page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
 
+A tuple field's components start at the offset times the tuple's length. Write them in place, or read and write with a math library's buffer helpers such as `vec3.fromBuffer` and `vec3.toBuffer`.
+
+```js
+const Transform = trait({ position: [0, 0, 0] })
+const Velocity = trait({ value: [0, 0, 0] })
+
+for (const {
+  stores: [transform, velocity],
+  indices,
+} of world.query(Transform, Velocity).getPages()) {
+  for (let i = 0; i < indices.length; i++) {
+    const offset = indices[i] * 3
+    transform.position[offset] += velocity.value[offset] * delta
+    transform.position[offset + 1] += velocity.value[offset + 1] * delta
+    transform.position[offset + 2] += velocity.value[offset + 2] * delta
+  }
+}
+```
+
 Query each frame and finish the loop before adding or removing traits or entities. Direct writes don't notify subscribers. Call `entity.changed(Trait)` when you need notifications.
 
 ## Query optimization

@@ -2,11 +2,16 @@
  * Paged storage type for trait data.
  * - AoS: store[pageId][offset] = instance
  * - SoA: store.key[pageId][offset] = value
+ * - SoA tuple: store.key[pageId][offset * stride + element] = value
  */
 export type Store<T extends Schema = any> = T extends AoSFactory
   ? ReturnType<T>[][]
   : {
-      [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]>[][] : T[P][][];
+      [P in keyof T]: T[P] extends (...args: never[]) => unknown
+        ? ReturnType<T[P]>[][]
+        : T[P] extends Tuple
+          ? T[P][number][][]
+          : T[P][][];
     };
 
 /**
@@ -23,10 +28,31 @@ export type StoreType = 'aos' | 'soa' | 'tag';
  */
 export type Schema =
   | {
-      [key: string]: number | bigint | string | boolean | null | undefined | (() => unknown);
+      [key: string]: number | bigint | string | boolean | null | undefined | Tuple | (() => unknown);
     }
   | AoSFactory
   | Record<string, never>;
+
+/**
+ * A fixed-length list of primitives, such as a vector, quaternion, matrix or Euler.
+ * Its length is the stride of the column that stores it.
+ */
+export type Tuple = readonly [TupleElement, ...TupleElement[]];
+
+type TupleElement = number | bigint | string | boolean | null | undefined;
+
+/** Widens boolean defaults, and number and string literals in readonly tuples. */
+type WidenTuple<T extends Tuple> = {
+  -readonly [I in keyof T]: T[I] extends boolean
+    ? boolean
+    : T extends unknown[]
+      ? T[I]
+      : T[I] extends number
+        ? number
+        : T[I] extends string
+          ? string
+          : T[I];
+};
 
 /**
  * Factory function for AoS (Array of Structs) storage.
@@ -52,7 +78,7 @@ export type Norm<T extends Schema> =
               : ReturnType<T>
       : {
             [K in keyof T]: T[K] extends object
-              ? T[K] extends (...args: never[]) => unknown
+              ? T[K] extends ((...args: never[]) => unknown) | Tuple
                 ? T[K]
                 : never
               : T[K] extends boolean
@@ -61,5 +87,9 @@ export type Norm<T extends Schema> =
           }[keyof T] extends never
         ? never
         : {
-            [K in keyof T]: T[K] extends boolean ? boolean : T[K];
+            [K in keyof T]: T[K] extends boolean
+              ? boolean
+              : T[K] extends Tuple
+                ? WidenTuple<T[K]>
+                : T[K];
           };
