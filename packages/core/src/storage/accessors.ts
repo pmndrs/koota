@@ -14,24 +14,13 @@ function getStride(schema: Schema, key: string): number {
   return Array.isArray(field) ? field.length : 0;
 }
 
-/** Pages for every key are created together, so the first key stands in for all of them. */
-function ensurePages(schema: Schema, keys: string[]): string {
-  const pages = keys
-    .map((key) =>
-      getStride(schema, key)
-        ? `store.${key}[p] = createPage(schema.${key});`
-        : `store.${key}[p] = [];`
-    )
-    .join(' ');
-  return `if (!store.${keys[0]}[p]) { ${pages} }`;
-}
-
 /** Unrolls a statement for each tuple element, since the stride is fixed per trait. */
 function unroll(stride: number, statement: (c: number) => string): string {
   return Array.from({ length: stride }, (_, c) => statement(c)).join(' ');
 }
 
 // Locals are suffixed with the key index. Keys only appear as property names, so they cannot collide.
+// Set runs only for members, so add has already created their pages.
 function createSoASetFunction(schema: Schema): SetAccessor {
   const keys = Object.keys(schema);
   const writes = keys
@@ -50,23 +39,30 @@ function createSoASetFunction(schema: Schema): SetAccessor {
     .join('\n    ');
 
   return new Function(
-    'schema',
-    'createPage',
+    'ctx',
+    'index',
+    'store',
+    'value',
     `
-      return function (ctx, index, store, value) {
         var p = index >>> 10, o = index & 1023;
-        ${ensurePages(schema, keys)}
         var changed = false;
         ${writes}
         return changed;
-      };
-      `
-  )(schema, createPage) as SetAccessor;
+        `
+  ) as SetAccessor;
 }
 
-/** Writes every key from value, falling back to the schema default. */
+/** Creates the entity's pages if needed, then writes every key from value or its schema default. */
 function createSoAAddFunction(schema: Schema): AddAccessor {
   const keys = Object.keys(schema);
+  // Pages for every key are created together, so the first key stands in for all of them.
+  const pages = keys
+    .map((key) =>
+      getStride(schema, key)
+        ? `store.${key}[p] = createPage(schema.${key});`
+        : `store.${key}[p] = [];`
+    )
+    .join(' ');
   const writes = keys
     .map((key, k) => {
       const field = (schema as Record<string, unknown>)[key];
@@ -89,7 +85,7 @@ function createSoAAddFunction(schema: Schema): AddAccessor {
     `
       return function (ctx, index, store, value) {
         var p = index >>> 10, o = index & 1023;
-        ${ensurePages(schema, keys)}
+        if (!store.${keys[0]}[p]) { ${pages} }
         ${writes}
       };
       `
@@ -125,11 +121,10 @@ function createSoAGetFunction(schema: Schema): GetAccessor {
 
 function createAoSSetFunction(_schema: Schema): SetAccessor {
   return (_ctx, index, store, value) => {
-    const p = index >>> 10,
+    const page = store[index >>> 10],
       o = index & 1023;
-    if (!store[p]) store[p] = [];
-    if (value === store[p][o]) return false;
-    store[p][o] = value;
+    if (value === page[o]) return false;
+    page[o] = value;
     return true;
   };
 }
@@ -143,10 +138,7 @@ function createAoSAddFunction(schema: Schema): AddAccessor {
 }
 
 function createAoSGetFunction(_schema: Schema): GetAccessor {
-  return (_ctx, index, store) => {
-    const page = store[index >>> 10];
-    return page ? page[index & 1023] : undefined;
-  };
+  return (_ctx, index, store) => store[index >>> 10][index & 1023];
 }
 
 const noop = () => {};

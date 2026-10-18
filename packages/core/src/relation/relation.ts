@@ -566,7 +566,7 @@ export function getRelationData(
       const field = relationCtx.exclusive
         ? kPage[o]
         : (kPage[o] as unknown[] | undefined)?.[targetIndex];
-      result[key] = Array.isArray(schema[key]) ? (field as unknown[] | undefined)?.slice() : field;
+      result[key] = Array.isArray(schema[key]) ? (field as unknown[]).slice() : field;
     }
     return result;
   }
