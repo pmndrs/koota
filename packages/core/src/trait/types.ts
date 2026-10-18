@@ -22,7 +22,7 @@ export type TraitAccessors<S extends Schema = any> = {
   add(ctx: WorldContext, index: number, store: Store<S>, value?: TraitValue<S>): void;
   /** Validate before writing and preserve state on failure. Return whether this call changed it. */
   set(ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
-  /** Read without side effects. SoA returns a shallow snapshot and AoS returns the stored value. */
+  /** Read without side effects. SoA returns a snapshot with copied tuples and AoS returns the stored value. */
   get(ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;
   /** Release auxiliary state before membership is removed. Cleanup must not throw. */
   remove(ctx: WorldContext, index: number, store: Store<S>): void;

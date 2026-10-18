@@ -1,10 +1,15 @@
-import type { Store } from '../storage';
+import { createPage, type Store } from '../storage';
+import type { Trait } from '../trait/types';
 import type { QueryLayout, QueryPage } from './types';
 
 // Each layout can serve multiple query parameter orders and selections.
 const pageCaches = new WeakMap<QueryLayout, { stores: Store<any>[]; pages: QueryPage<any>[] }[]>();
 
-export function getQueryPages(stores: Store<any>[], layout: QueryLayout): QueryPage<any>[] {
+export function getQueryPages(
+  traits: Trait[],
+  stores: Store<any>[],
+  layout: QueryLayout
+): QueryPage<any>[] {
   if (layout.pageCount === 0) return [];
 
   let cache = pageCaches.get(layout);
@@ -23,11 +28,12 @@ export function getQueryPages(stores: Store<any>[], layout: QueryLayout): QueryP
     const id = layout.pageIds[p];
     const start = layout.pageStarts[p];
     const end = start + layout.pageCounts[p];
-    const pageStores = stores.map((store) => {
+    const pageStores = stores.map((store, i) => {
       // Materialize missing pages so later trait additions use the same arrays.
       if (Array.isArray(store)) return (store[id] ??= []);
+      const schema = traits[i].schema as Record<string, unknown>;
       const page: Record<string, unknown[]> = {};
-      for (const key in store) page[key] = store[key][id] ??= [];
+      for (const key in store) page[key] = store[key][id] ??= createPage(schema[key]);
       return page;
     });
     pages.push({
