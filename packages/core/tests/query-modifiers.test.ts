@@ -561,6 +561,30 @@ describe('Query modifiers', () => {
     expect(world.queryFirst(Changed(Bar))).toBe(entity);
   });
 
+  it('should keep tracking after the world is reset', () => {
+    const Added = createAdded();
+    const Removed = createRemoved();
+    const Changed = createChanged();
+
+    world.spawn(Foo, Position);
+
+    // Modifiers usually live at module level, so they outlive a reset.
+    world.reset();
+
+    expect(world.query(Added(Foo)).length).toBe(0);
+    expect(world.query(Removed(Foo)).length).toBe(0);
+    expect(world.query(Changed(Position)).length).toBe(0);
+
+    const entity = world.spawn(Foo, Position);
+    expect(world.query(Added(Foo))[0]).toBe(entity);
+
+    entity.changed(Position);
+    expect(world.query(Changed(Position))[0]).toBe(entity);
+
+    entity.remove(Foo);
+    expect(world.query(Removed(Foo))[0]).toBe(entity);
+  });
+
   it('updateEach should work with Added modifier', () => {
     const Added = createAdded();
     const entity = world.spawn(Position({ x: 10, y: 20 }));

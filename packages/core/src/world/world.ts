@@ -192,9 +192,11 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.notQueries.clear();
       ctx.targetQueries.length = 0;
 
-      ctx.trackingSnapshots.clear();
-      ctx.dirtyMasks.clear();
-      ctx.changedMasks.clear();
+      // Tracking modifiers outlive a reset, so give each one fresh masks like a new world does.
+      const cursor = getTrackingCursor();
+      for (let i = 0; i < cursor; i++) {
+        setTrackingMasks(ctx, i);
+      }
       ctx.entitySubscribedInstances.clear();
 
       ctx.worldEntity = createEntity(ctx, IsExcluded);
