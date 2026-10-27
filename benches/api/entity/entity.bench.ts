@@ -214,7 +214,7 @@ group('entity get set 10k @entity @accessor @set', () => {
     for (let i = 0; i < 10_000; i++) {
       entities.push(world.spawn(Position({ x: i })));
     }
-    
+
     const out = entities[0].get(Position)!;
 
     const result = yield () => {
