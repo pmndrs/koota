@@ -506,13 +506,18 @@ export function setRelationDataAtIndex(
   const storeRec = store as Record<string, any[]>;
   const schema = traitData.schema as Record<string, unknown>;
   for (const key in value) {
-    // Relation data keeps one array per tuple, copied so it never aliases the caller's array.
-    const field = Array.isArray(schema[key])
-      ? Array.from(value[key] as ArrayLike<unknown>)
-      : value[key];
     const kPage = ensureRelPage(storeRec[key], p);
-    if (relationCtx.exclusive) kPage[o] = field;
-    else (kPage[o] ??= [])[targetIndex] = field;
+    const slots: unknown[] = relationCtx.exclusive ? kPage : (kPage[o] ??= []);
+    const slot = relationCtx.exclusive ? o : targetIndex;
+    const field = value[key];
+    if (!Array.isArray(schema[key])) {
+      slots[slot] = field;
+      continue;
+    }
+    // Each pair keeps one array per tuple. Writes copy into it, so it never aliases the caller's array.
+    const stored = slots[slot] as unknown[] | undefined;
+    if (stored === undefined) slots[slot] = Array.from(field as ArrayLike<unknown>);
+    else for (let i = 0; i < stored.length; i++) stored[i] = (field as ArrayLike<unknown>)[i];
   }
 }
 
