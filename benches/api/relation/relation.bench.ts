@@ -352,3 +352,37 @@ group('target query cleanup 1k @relation @lifecycle @target-query-cleanup', () =
     }
   }
 });
+
+group('relation data 10k @relation @accessor', () => {
+  const Attached = relation({ store: { offset: [0, 0, 0], weight: 1 } });
+
+  function setup() {
+    const world = createWorld();
+    const pair = Attached(world.spawn());
+    const children = Array.from({ length: 10_000 }, () => world.spawn(pair));
+    return { world, pair, children };
+  }
+
+  bench('relation get', function* () {
+    const { world, pair, children } = setup();
+    const sum = yield () => {
+      let sum = 0;
+      for (let i = 0; i < children.length; i++) sum += children[i].get(pair)!.weight;
+      return sum;
+    };
+    assert.equal(sum, 10_000);
+    world.destroy();
+  }).baseline();
+
+  bench('relation get out', function* () {
+    const { world, pair, children } = setup();
+    const out = children[0].get(pair)!;
+    const sum = yield () => {
+      let sum = 0;
+      for (let i = 0; i < children.length; i++) sum += children[i].get(pair, out)!.weight;
+      return sum;
+    };
+    assert.equal(sum, 10_000);
+    world.destroy();
+  });
+});

@@ -506,13 +506,18 @@ export function setRelationDataAtIndex(
   const storeRec = store as Record<string, any[]>;
   const schema = traitData.schema as Record<string, unknown>;
   for (const key in value) {
-    // Relation data keeps one array per tuple, copied so it never aliases the caller's array.
-    const field = Array.isArray(schema[key])
-      ? Array.from(value[key] as ArrayLike<unknown>)
-      : value[key];
     const kPage = ensureRelPage(storeRec[key], p);
-    if (relationCtx.exclusive) kPage[o] = field;
-    else (kPage[o] ??= [])[targetIndex] = field;
+    const slots: unknown[] = relationCtx.exclusive ? kPage : (kPage[o] ??= []);
+    const slot = relationCtx.exclusive ? o : targetIndex;
+    const field = value[key];
+    if (!Array.isArray(schema[key])) {
+      slots[slot] = field;
+      continue;
+    }
+    // Each pair keeps one array per tuple. Writes copy into it, so it never aliases the caller's array.
+    const stored = slots[slot] as unknown[] | undefined;
+    if (stored === undefined) slots[slot] = Array.from(field as ArrayLike<unknown>);
+    else for (let i = 0; i < stored.length; i++) stored[i] = (field as ArrayLike<unknown>)[i];
   }
 }
 
@@ -532,7 +537,8 @@ export function getRelationData(
   ctx: WorldContext,
   entity: Entity,
   relation: Relation<Trait>,
-  target: Entity
+  target: Entity,
+  out?: Record<string, unknown>
 ): unknown {
   const baseTrait = relation[$internal].trait;
   const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
@@ -557,7 +563,7 @@ export function getRelationData(
       return page[o]?.[targetIndex];
     }
   } else {
-    const result: Record<string, unknown> = {};
+    const result: Record<string, unknown> = out ?? {};
     const storeRecord = store as Record<string, any[]>;
     const schema = traitData.schema as Record<string, unknown>;
     for (const key in store) {
@@ -566,7 +572,15 @@ export function getRelationData(
       const field = relationCtx.exclusive
         ? kPage[o]
         : (kPage[o] as unknown[] | undefined)?.[targetIndex];
-      result[key] = Array.isArray(schema[key]) ? (field as unknown[]).slice() : field;
+      if (!Array.isArray(schema[key])) {
+        result[key] = field;
+      } else if (out) {
+        // With out, tuples are copied into the arrays it already holds.
+        const into = out[key] as unknown[];
+        for (let i = 0; i < into.length; i++) into[i] = (field as unknown[])[i];
+      } else {
+        result[key] = (field as unknown[]).slice();
+      }
     }
     return result;
   }

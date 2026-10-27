@@ -129,10 +129,10 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       removeTrait(ctx, ctx.worldEntity, ...removeTraits);
     },
 
-    get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined {
+    get<T extends Trait>(trait: T, out?: Record<string, unknown>) {
       const ctx = world[$internal];
       if (!ctx.isRegistered) return undefined;
-      return getTrait(ctx, ctx.worldEntity, trait);
+      return getTrait(ctx, ctx.worldEntity, trait, out) as TraitRecord<ExtractSchema<T>> | undefined;
     },
 
     set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {

@@ -36,8 +36,12 @@ Number.prototype.changed = function (this: Entity, trait: Trait) {
 };
 
 // @ts-expect-error
-Number.prototype.get = function (this: Entity, trait: Trait | RelationPair) {
-  return getTrait(getEntityContext(this), this, trait);
+Number.prototype.get = function (
+  this: Entity,
+  trait: Trait | RelationPair,
+  out?: Record<string, unknown>
+) {
+  return getTrait(getEntityContext(this), this, trait, out);
 };
 
 // @ts-expect-error

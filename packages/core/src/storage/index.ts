@@ -1,6 +1,17 @@
 export { createPage, createStore } from './stores';
-export { createAddFunction, createSetFunction, createGetFunction } from './accessors';
-export type { AddAccessor, SetAccessor, GetAccessor, RemoveAccessor } from './accessors';
+export {
+  createAddFunction,
+  createSetFunction,
+  createGetFunction,
+  createGetIntoFunction,
+} from './accessors';
+export type {
+  AddAccessor,
+  SetAccessor,
+  GetAccessor,
+  GetIntoAccessor,
+  RemoveAccessor,
+} from './accessors';
 
 export { validateSchema, getSchemaDefaults } from './schema';
 

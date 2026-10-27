@@ -400,4 +400,51 @@ describe('Trait', () => {
       expect(() => trait({ value: [0, { order: 'xyz' }] })).toThrow(/not a valid tuple/);
     });
   });
+
+  describe('get with out', () => {
+    it('reads into a caller-owned record without allocating', () => {
+      const Transform = trait({ position: [0, 0, 0], mass: 1 });
+      const entity = world.spawn(Transform({ position: [1, 2, 3] }));
+      const out = entity.get(Transform)!;
+      const position = out.position;
+
+      entity.set(Transform, { position: [4, 5, 6], mass: 2 });
+      expect(entity.get(Transform, out)).toBe(out);
+      expect(out).toEqual({ position: [4, 5, 6], mass: 2 });
+      expect(out.position).toBe(position);
+
+      // out is a copy, so writing to it leaves storage alone.
+      out.position[0] = 100;
+      expect(entity.get(Transform)!.position).toEqual([4, 5, 6]);
+
+      // A missing trait leaves out untouched.
+      entity.remove(Transform);
+      expect(entity.get(Transform, out)).toBeUndefined();
+      expect(out.mass).toBe(2);
+
+      const Mesh = trait(() => ({ visible: true }));
+      // @ts-expect-error - AoS traits return their stored value, so they take no out
+      entity.get(Mesh, { visible: false });
+    });
+
+    it('reads relation data and world traits into out', () => {
+      const Attached = relation({ store: { offset: [0, 0, 0], weight: 1 } });
+      const parent = world.spawn();
+      const child = world.spawn(Attached(parent, { offset: [1, 2, 3] }));
+      const offset: Vec3 = [0, 0, 0];
+      const attached = { offset, weight: 0 };
+
+      expect(child.get(Attached(parent), attached)).toBe(attached);
+      expect(attached).toEqual({ offset: [1, 2, 3], weight: 1 });
+      expect(attached.offset).toBe(offset);
+      offset[0] = 100;
+      expect(child.get(Attached(parent))!.offset).toEqual([1, 2, 3]);
+
+      const Time = trait({ delta: 0 });
+      world.add(Time({ delta: 0.016 }));
+      const time = { delta: 0 };
+      expect(world.get(Time, time)).toBe(time);
+      expect(time.delta).toBe(0.016);
+    });
+  });
 });

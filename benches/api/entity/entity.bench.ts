@@ -207,6 +207,28 @@ group('entity get set 10k @entity @accessor @set', () => {
     return result;
   });
 
+  bench('entity.get out', function* () {
+    const world = createWorld();
+    const entities: Entity[] = [];
+
+    for (let i = 0; i < 10_000; i++) {
+      entities.push(world.spawn(Position({ x: i })));
+    }
+
+    const out = entities[0].get(Position)!;
+
+    const result = yield () => {
+      let sum = 0;
+      for (let i = 0; i < entities.length; i++) {
+        sum += entities[i].get(Position, out)!.x;
+      }
+      return sum;
+    };
+
+    world.destroy();
+    return result;
+  });
+
   bench('entity.set', function* () {
     const world = createWorld();
     const entities: Entity[] = [];
