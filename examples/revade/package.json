@@ -22,8 +22,8 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/three": "catalog:",
-    "@vitejs/plugin-react": "^5.2.0",
-    "@vitejs/plugin-react-swc": "^4.3.1",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitejs/plugin-react-swc": "catalog:",
     "vite": "catalog:"
   }
 }

@@ -24,15 +24,15 @@
   "devDependencies": {
     "@config/oxlint": "workspace:*",
     "@config/typescript": "workspace:*",
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
-    "@testing-library/svelte": "^5.3.1",
-    "jsdom": "^29.0.2",
-    "svelte": "^5.55.2",
-    "svelte-check": "^4.4.6",
-    "typescript": "^6.0.2",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
+    "@testing-library/svelte": "catalog:",
+    "jsdom": "catalog:",
+    "svelte": "catalog:",
+    "svelte-check": "^4.7.7",
+    "typescript": "catalog:typescript6",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "svelte": ">=5"
+    "svelte": "catalog:peers"
   }
 }

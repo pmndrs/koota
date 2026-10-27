@@ -12,8 +12,8 @@
   "dependencies": {
     "@examples/app-tools": "workspace:*",
     "@examples/bench-tools": "workspace:*",
-    "@react-three/fiber": "catalog:",
     "@examples/n-body": "workspace:*",
+    "@react-three/fiber": "catalog:",
     "directed": "catalog:",
     "koota": "workspace:*",
     "react": "catalog:",
@@ -25,8 +25,8 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/three": "catalog:",
-    "@vitejs/plugin-react": "^5.2.0",
-    "@vitejs/plugin-react-swc": "^4.3.1",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitejs/plugin-react-swc": "catalog:",
     "vite": "catalog:"
   }
 }
