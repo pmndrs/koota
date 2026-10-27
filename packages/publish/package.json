@@ -76,21 +76,21 @@
     "@koota/core": "workspace:*",
     "@koota/react": "workspace:*",
     "@koota/svelte": "workspace:*",
-    "@sveltejs/vite-plugin-svelte": "^7.0.0",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/svelte": "^5.3.1",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/svelte": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "svelte": "^5.55.2",
-    "tsdown": "^0.22.14",
-    "typescript": "7.0.2",
+    "svelte": "catalog:",
+    "tsdown": "^0.23.2",
+    "typescript": "catalog:typescript6",
     "unplugin-inline-functions": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@types/react": ">=18.0.0",
-    "react": ">=18.0.0",
-    "svelte": ">=5.0.0"
+    "@types/react": "catalog:peers",
+    "react": "catalog:peers",
+    "svelte": "catalog:peers"
   },
   "peerDependenciesMeta": {
     "@types/react": {

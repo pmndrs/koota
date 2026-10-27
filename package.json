@@ -16,12 +16,12 @@
     "typecheck": "pnpm -r --filter './packages/*' --filter './benches' --filter '!./packages/publish' exec tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "^24.13.3",
-    "oxlint": "^1.77.0",
-    "oxlint-tsgolint": "^7.0.2001",
-    "prettier": "3.9.4",
-    "tsx": "4.22.4",
-    "typescript": "7.0.2"
+    "@types/node": "^24.19.2",
+    "oxlint": "^1.89.0",
+    "oxlint-tsgolint": "^7.0.2005",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "catalog:"
   },
   "engines": {
     "node": ">=24.11.0",

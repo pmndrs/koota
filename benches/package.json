@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
-    "@pmndrs/labs": "^0.9.0",
+    "@pmndrs/labs": "catalog:",
     "directed": "catalog:",
     "koota": "workspace:*",
     "math": "1.0.0-canary-37519dcd-20260903"
@@ -13,7 +13,7 @@
     "@config/typescript": "workspace:*",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "jsdom": "^27.2.0",
+    "jsdom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   }
