@@ -26,6 +26,7 @@ import { ensureMaskPage } from '../entity/utils/paged-mask';
 import {
   createAddFunction,
   createGetFunction,
+  createGetIntoFunction,
   createSetFunction,
   createStore,
   getSchemaDefaults,
@@ -70,16 +71,24 @@ export function createTraitContext<S extends Schema>(
     add: createAddFunction[type](schema),
     set: createSetFunction[type](schema),
     get: createGetFunction[type](schema),
+    getInto: createGetIntoFunction[type](schema),
     remove: () => {},
   };
   const accessors = customize?.(defaults);
+  const get = accessors?.get;
 
   return {
     id: traitId++,
     createStore: () => createStore(schema),
     add: accessors?.add ?? defaults.add,
     set: accessors?.set ?? defaults.set,
-    get: accessors?.get ?? defaults.get,
+    get: get ?? defaults.get,
+    // A custom get owns how values are read, so without a custom getInto, out is filled from its record.
+    getInto:
+      accessors?.getInto ??
+      (get
+        ? (ctx, index, store, out) => Object.assign(out, get(ctx, index, store))
+        : defaults.getInto),
     remove: accessors?.remove ?? defaults.remove,
     relation: null,
     type,
@@ -354,26 +363,41 @@ export function setTrait(
   return setTraitForTrait(ctx, entity, trait, value, triggerChanged);
 }
 
-export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | RelationPair) {
+export function getTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait | RelationPair,
+  out?: Record<string, unknown>
+) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
-  if (isRelationPair(trait)) return getTraitForPair(ctx, entity, trait);
-  return getTraitForTrait(ctx, entity, trait);
+  if (isRelationPair(trait)) return getTraitForPair(ctx, entity, trait, out);
+  return getTraitForTrait(ctx, entity, trait, out);
 }
 
-/* @inline @pure */ function getTraitForPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
+/* @inline @pure */ function getTraitForPair(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: RelationPair,
+  out: Record<string, unknown> | undefined
+) {
   const relation = pair.relation as Relation<Trait>;
   const target = pair.target;
 
   if (!hasRelationPair(ctx, entity, pair)) return undefined;
   if (typeof target !== 'number') return undefined;
 
-  return getRelationData(ctx, entity, relation, target);
+  return getRelationData(ctx, entity, relation, target, out);
 }
 
-/* @inline @pure */ function getTraitForTrait(ctx: WorldContext, entity: Entity, trait: Trait) {
+/* @inline @pure */ function getTraitForTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait,
+  out: Record<string, unknown> | undefined
+) {
   const data = getTraitInstance(ctx.traitInstances, trait);
   const index = getEntityId(entity);
   if (
@@ -381,7 +405,10 @@ export function getTrait(ctx: WorldContext, entity: Entity, trait: Trait | Relat
     (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0
   )
     return undefined;
-  return trait[$internal].get(ctx, index, data.store);
+  const traitCtx = trait[$internal];
+  return out === undefined
+    ? traitCtx.get(ctx, index, data.store)
+    : traitCtx.getInto(ctx, index, data.store, out);
 }
 
 /* @inline */ function setTraitForPair(

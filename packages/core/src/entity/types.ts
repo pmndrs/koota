@@ -4,6 +4,7 @@ import type {
   ExtractSchema,
   SetTraitCallback,
   Trait,
+  TraitOut,
   TraitRecord,
   TraitValue,
 } from '../trait/types';
@@ -39,7 +40,11 @@ export type Entity = number & {
     value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>,
     flagChanged?: boolean
   ) => void;
-  get: <T extends Trait | RelationPair>(trait: T) => TraitRecord<ExtractSchema<T>> | undefined;
+  get: {
+    <T extends Trait | RelationPair>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
+    /** Fills out in place and returns it, without allocating. */
+    <T extends Trait | RelationPair, O extends TraitOut<T>>(trait: T, out: O): O | undefined;
+  };
   targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
   targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
   onAdd: EntityHook;

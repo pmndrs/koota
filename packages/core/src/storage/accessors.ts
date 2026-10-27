@@ -6,6 +6,7 @@ import type { Schema, StoreType } from './types';
 export type AddAccessor = (ctx: WorldContext, index: number, store: any, value?: any) => void;
 export type SetAccessor = (ctx: WorldContext, index: number, store: any, value: any) => boolean;
 export type GetAccessor = (ctx: WorldContext, index: number, store: any) => any;
+export type GetIntoAccessor = (ctx: WorldContext, index: number, store: any, out: any) => any;
 export type RemoveAccessor = (ctx: WorldContext, index: number, store: any) => void;
 
 /** A tuple field stores `stride` interleaved values per entity. Scalar fields have stride 0. */
@@ -119,6 +120,35 @@ function createSoAGetFunction(schema: Schema): GetAccessor {
   ) as GetAccessor;
 }
 
+/**
+ * Fills a caller-owned record and returns it. Tuples are copied into the arrays it already holds,
+ * so nothing is allocated. Kept apart from get so snapshot reads stay as small as possible.
+ */
+function createSoAGetIntoFunction(schema: Schema): GetIntoAccessor {
+  const writes = Object.keys(schema)
+    .map((key, k) => {
+      const stride = getStride(schema, key);
+      if (stride === 0) return `out.${key} = store.${key}[p][o];`;
+      return `var c${k} = store.${key}[p], b${k} = o * ${stride}, d${k} = out.${key}; ${unroll(
+        stride,
+        (c) => `d${k}[${c}] = c${k}[b${k} + ${c}];`
+      )}`;
+    })
+    .join(' ');
+
+  return new Function(
+    'ctx',
+    'index',
+    'store',
+    'out',
+    `
+        var p = index >>> 10, o = index & 1023;
+        ${writes}
+        return out;
+        `
+  ) as GetIntoAccessor;
+}
+
 function createAoSSetFunction(_schema: Schema): SetAccessor {
   return (_ctx, index, store, value) => {
     const page = store[index >>> 10],
@@ -157,6 +187,13 @@ export const createSetFunction: Record<StoreType, (schema: Schema) => SetAccesso
 
 export const createGetFunction: Record<StoreType, (schema: Schema) => GetAccessor> = {
   soa: createSoAGetFunction,
+  aos: createAoSGetFunction,
+  tag: () => noop,
+};
+
+// AoS records are the stored values themselves, so they have nothing to copy into out.
+export const createGetIntoFunction: Record<StoreType, (schema: Schema) => GetIntoAccessor> = {
+  soa: createSoAGetIntoFunction,
   aos: createAoSGetFunction,
   tag: () => noop,
 };

@@ -16,6 +16,7 @@ import type {
   SetTraitCallback,
   Trait,
   TraitInstance,
+  TraitOut,
   TraitRecord,
   TraitValue,
 } from '../trait/types';
@@ -63,6 +64,7 @@ export type World = {
   add(...traits: ConfigurableTrait[]): void;
   remove(...traits: Trait[]): void;
   get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
+  get<T extends Trait, O extends TraitOut<T>>(trait: T, out: O): O | undefined;
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
   destroy(): void;
   reset(): void;

@@ -24,6 +24,8 @@ export type TraitAccessors<S extends Schema = any> = {
   set(ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
   /** Runs only for members. Read without side effects. SoA returns a snapshot with copied tuples and AoS returns the stored value. */
   get(ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;
+  /** Runs only for members. Read like get, but fill a caller-owned record and return it without allocating. */
+  getInto(ctx: WorldContext, index: number, store: Store<S>, out: TraitRecord<S>): TraitRecord<S>;
   /** Release auxiliary state before membership is removed. Cleanup must not throw. */
   remove(ctx: WorldContext, index: number, store: Store<S>): void;
 };
@@ -73,6 +75,13 @@ type TraitRecordFromSchema<T extends Schema> = T extends AoSFactory
 export type TraitRecord<T extends Trait | Schema> = T extends Trait
   ? TraitRecordFromSchema<T['schema']>
   : TraitRecordFromSchema<T>;
+
+/**
+ * A caller-owned record that get fills in place, such as one returned by an earlier get.
+ * AoS traits return their stored value, so they take none.
+ */
+export type TraitOut<T extends Trait | RelationPair> =
+  ExtractSchema<T> extends AoSFactory ? never : TraitRecord<ExtractSchema<T>>;
 
 // Type Utils
 

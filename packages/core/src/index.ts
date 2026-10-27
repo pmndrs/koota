@@ -54,6 +54,7 @@ export type {
   SetTraitCallback,
   TagTrait,
   Trait,
+  TraitOut,
   TraitRecord,
   TraitTuple,
   TraitValue,
