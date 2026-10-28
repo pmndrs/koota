@@ -6,16 +6,17 @@ import { isRelationPair } from '../relation/utils/is-relation';
 import { Store } from '../storage';
 import { registerTrait } from '../trait/trait';
 import type { Trait } from '../trait/types';
-import { shallowEqual } from '../utils/shallow-equal';
 import { hasSubscribers } from '../trait/subscriptions';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
 import { notifyChanged } from './modifiers/changed';
 import { getQueryPages } from './query-pages';
+import { getQueryIterators } from './utils/compile-iterators';
 import type {
   InstancesFromParameters,
   QueryInstance,
+  QueryIterationBuffers,
   QueryLayout,
   QueryLayoutCache,
   QueryParameter,
@@ -40,133 +41,33 @@ export function createQueryResult<T extends QueryParameter[]>(
 
   const results = Object.assign(entities, {
     readEach(callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) {
-      const state = Array.from({ length: traits.length }) as InstancesFromParameters<T>;
-
-      for (let i = 0; i < entities.length; i++) {
-        const entity = entities[i];
-        const eid = getEntityId(entity);
-
-        createSnapshots(ctx, eid, traits, stores, state);
-
-        callback(state, entity, i);
-      }
-
+      if (entities.length === 0) return results;
+      const buffers = takeIterationBuffers(ctx, query, entities, traits, stores);
+      buffers.iterators!.readEach(ctx, entities, callback, buffers, stores);
+      releaseIterationBuffers(query, buffers);
       return results;
     },
 
     updateEach(
       callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-      options: QueryResultOptions = { changeDetection: 'auto' }
+      options?: QueryResultOptions
     ) {
-      const state = Array.from({ length: traits.length });
+      if (entities.length === 0) return results;
+      const buffers = takeIterationBuffers(ctx, query, entities, traits, stores);
+      const iterators = buffers.iterators!;
 
-      // Invalidate once per trait even when auto or never skips change detection.
-      if (entities.length !== 0) {
-        for (let i = 0; i < traits.length; i++) {
-          getTraitInstance(ctx.traitInstances, traits[i])!.version++;
+      if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
+        iterators.updateEach(ctx, entities, callback, buffers, stores);
+      } else {
+        const changedCount = iterators.trackEach(ctx, entities, callback, buffers, stores);
+        const { changedEntities, changedTraits } = buffers;
+        for (let i = 0; i < changedCount; i++) {
+          const entity = changedEntities[i];
+          if (isEntityAlive(ctx.entityIndex, entity)) notifyChanged(ctx, entity, changedTraits[i]);
         }
       }
 
-      if (options.changeDetection === 'auto') {
-        const changedPairs: [Entity, Trait][] = [];
-        const atomicSnapshots: any[] = [];
-        const trackedIndices: number[] = [];
-        const untrackedIndices: number[] = [];
-
-        getTrackedTraits(traits, ctx, query, trackedIndices, untrackedIndices);
-
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          const eid = getEntityId(entity);
-
-          if (trackedIndices.length === 0) {
-            createSnapshots(ctx, eid, traits, stores, state);
-          } else {
-            createSnapshotsWithAtomic(ctx, eid, traits, stores, state, atomicSnapshots);
-          }
-          callback(state as unknown as InstancesFromParameters<T>, entity, i);
-
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-
-          for (let j = 0; j < trackedIndices.length; j++) {
-            const index = trackedIndices[j];
-            const trait = traits[index];
-            const traitCtx = trait[$internal];
-            const newValue = state[index];
-            const store = stores[index];
-
-            let changed = traitCtx.set(ctx, eid, store, newValue);
-            // An atomic value mutated in place is the same reference, so compare its snapshot.
-            if (!changed && traitCtx.type === 'aos') {
-              changed = !shallowEqual(newValue, atomicSnapshots[index]);
-            }
-
-            if (changed) changedPairs.push([entity, trait] as const);
-          }
-
-          for (let j = 0; j < untrackedIndices.length; j++) {
-            const index = untrackedIndices[j];
-            const trait = traits[index];
-            const traitCtx = trait[$internal];
-            const store = stores[index];
-            traitCtx.set(ctx, eid, store, state[index]);
-          }
-        }
-
-        for (let i = 0; i < changedPairs.length; i++) {
-          const [entity, trait] = changedPairs[i];
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-          notifyChanged(ctx, entity, trait);
-        }
-      } else if (options.changeDetection === 'always') {
-        const changedPairs: [Entity, Trait][] = [];
-        const atomicSnapshots: any[] = [];
-
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          const eid = getEntityId(entity);
-
-          createSnapshotsWithAtomic(ctx, eid, traits, stores, state, atomicSnapshots);
-          callback(state as unknown as InstancesFromParameters<T>, entity, i);
-
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-
-          for (let j = 0; j < traits.length; j++) {
-            const trait = traits[j];
-            const traitCtx = trait[$internal];
-            const newValue = state[j];
-
-            let changed = traitCtx.set(ctx, eid, stores[j], newValue);
-            if (!changed && traitCtx.type === 'aos') {
-              changed = !shallowEqual(newValue, atomicSnapshots[j]);
-            }
-
-            if (changed) changedPairs.push([entity, trait] as const);
-          }
-        }
-
-        for (let i = 0; i < changedPairs.length; i++) {
-          const [entity, trait] = changedPairs[i];
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-          notifyChanged(ctx, entity, trait);
-        }
-      } else if (options.changeDetection === 'never') {
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          const eid = getEntityId(entity);
-          createSnapshots(ctx, eid, traits, stores, state);
-          callback(state as unknown as InstancesFromParameters<T>, entity, i);
-
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-
-          for (let j = 0; j < traits.length; j++) {
-            const trait = traits[j];
-            const traitCtx = trait[$internal];
-            traitCtx.set(ctx, eid, stores[j], state[j]);
-          }
-        }
-      }
-
+      releaseIterationBuffers(query, buffers);
       return results;
     },
 
@@ -198,54 +99,111 @@ export function createQueryResult<T extends QueryParameter[]>(
   return results;
 }
 
-/* @inline */ function getTrackedTraits(
-  traits: Trait[],
+function createIterationBuffers(): QueryIterationBuffers {
+  return {
+    state: [],
+    traits: [],
+    records: [],
+    iterators: undefined,
+    modes: [],
+    atomicSnapshots: [],
+    changedEntities: [],
+    changedTraits: [],
+    next: undefined,
+  };
+}
+
+/**
+ * Checks out buffers from the query's pool. A callback that throws never returns its buffers, so
+ * the pool simply allocates new ones next time.
+ */
+function takeIterationBuffers(
   ctx: WorldContext,
   query: QueryInstance,
-  trackedIndices: number[],
-  untrackedIndices: number[]
-) {
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    const hasTracked = instance !== undefined && hasSubscribers(instance.changeSubscriptions);
-    const hasChanged = query.hasChangedModifiers && query.changedTraits.has(trait);
-
-    if (hasTracked || hasChanged) trackedIndices.push(i);
-    else untrackedIndices.push(i);
-  }
+  entities: Entity[],
+  traits: Trait[],
+  stores: Store<any>[]
+): QueryIterationBuffers {
+  const buffers = query.iterationBuffers ?? createIterationBuffers();
+  query.iterationBuffers = buffers.next;
+  const prepared = buffers.traits;
+  let matches = buffers.iterators !== undefined && prepared.length === traits.length;
+  for (let i = 0; matches && i < traits.length; i++) matches = prepared[i] === traits[i];
+  if (!matches) prepareIterationBuffers(ctx, buffers, entities, traits, stores);
+  return buffers;
 }
 
-/* @inline */ function createSnapshots(
+/** Points the buffers at a new trait list. Records already built for the same trait are kept. */
+function prepareIterationBuffers(
   ctx: WorldContext,
-  entityId: number,
+  buffers: QueryIterationBuffers,
+  entities: Entity[],
   traits: Trait[],
-  stores: Store<any>[],
-  state: any[]
+  stores: Store<any>[]
 ) {
+  const { state, records } = buffers;
+  const prepared = buffers.traits;
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
-    const traitCtx = trait[$internal];
-    const value = traitCtx.get(ctx, entityId, stores[i]);
-    state[i] = value;
+    state[i] = undefined;
+    if (prepared[i] === trait) continue;
+    prepared[i] = trait;
+    records[i] =
+      trait[$internal].type === 'soa'
+        ? createIterationRecord(ctx, getEntityId(entities[0]), trait, stores[i])
+        : undefined;
   }
+  state.length = prepared.length = records.length = traits.length;
+  buffers.iterators = getQueryIterators(traits);
 }
 
-/* @inline */ function createSnapshotsWithAtomic(
-  ctx: WorldContext,
-  entityId: number,
-  traits: Trait[],
-  stores: Store<any>[],
-  state: any[],
-  atomicSnapshots: any[]
-) {
-  for (let j = 0; j < traits.length; j++) {
-    const trait = traits[j];
-    const traitCtx = trait[$internal];
-    const value = traitCtx.get(ctx, entityId, stores[j]);
-    state[j] = value;
-    atomicSnapshots[j] = traitCtx.type === 'aos' ? { ...value } : null;
+/** Releases references to user objects, then returns the buffers to the pool. */
+function releaseIterationBuffers(query: QueryInstance, buffers: QueryIterationBuffers) {
+  buffers.iterators!.release(buffers);
+  for (const snapshot of buffers.atomicSnapshots) {
+    if (snapshot === undefined) continue;
+    for (let i = 0; i < snapshot.values.length; i++) {
+      const value = snapshot.values[i];
+      if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
+        snapshot.values[i] = undefined;
+      }
+    }
   }
+  buffers.next = query.iterationBuffers;
+  query.iterationBuffers = buffers;
+}
+
+/** Bumps trait versions and fills modes. Returns how many traits are tracked. */
+function trackTraits(
+  ctx: WorldContext,
+  query: QueryInstance,
+  traits: Trait[],
+  modes: number[],
+  changeDetection: QueryResultOptions['changeDetection']
+) {
+  let trackedCount = 0;
+  for (let i = 0; i < traits.length; i++) {
+    const trait = traits[i];
+    const instance = getTraitInstance(ctx.traitInstances, trait)!;
+    instance.version++;
+    const tracked =
+      changeDetection === 'always' ||
+      (changeDetection !== 'never' &&
+        (hasSubscribers(instance.changeSubscriptions) ||
+          (query.hasChangedModifiers && query.changedTraits.has(trait))));
+    modes[i] = tracked ? (trait[$internal].type === 'aos' ? 2 : 1) : 0;
+    if (tracked) trackedCount++;
+  }
+  return trackedCount;
+}
+
+function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait, store: Store<any>) {
+  const value = trait[$internal].get(ctx, entityId, store);
+  let tuples: Record<string, unknown[]> | undefined;
+  for (const key in trait.schema) {
+    if (Array.isArray(trait.schema[key])) (tuples ??= {})[key] = value[key];
+  }
+  return { value, tuples };
 }
 
 /* @inline */ export function getQueryStores<T extends QueryParameter[]>(
@@ -401,14 +359,16 @@ function getRelationOnlyLayout(results: QueryResult<any>) {
 // Shared methods for relation-only query snapshots.
 const relationOnlyMethods = {
   readEach(this: QueryResult<any>, callback: any) {
+    const state: [] = [];
     for (let i = 0; i < this.length; i++) {
-      callback([], this[i], i);
+      callback(state, this[i], i);
     }
     return this;
   },
   updateEach(this: QueryResult<any>, callback: any) {
+    const state: [] = [];
     for (let i = 0; i < this.length; i++) {
-      callback([], this[i], i);
+      callback(state, this[i], i);
     }
     return this;
   },

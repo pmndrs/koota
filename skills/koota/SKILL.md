@@ -224,6 +224,8 @@ world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 
 Prefer `updateEach`/`readEach` over `for...of` + `entity.get()` for data-bearing queries. `readEach` still gives you the entity as the second argument.
 
+The callback's state array, SoA records and tuple arrays are reused and only valid during the callback. Copy records and tuple arrays before retaining them, or call `entity.get(Trait)` for an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
+
 **Note:** `updateEach`/`readEach` only return data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
 
 ```typescript

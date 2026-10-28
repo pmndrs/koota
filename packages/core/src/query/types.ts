@@ -2,6 +2,7 @@ import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory } from '../storage';
+import type { QueryIterators } from './utils/compile-iterators';
 import type {
   ExtractSchema,
   ExtractStore,
@@ -24,6 +25,21 @@ export type QueryResultOptions = {
   changeDetection?: 'always' | 'auto' | 'never';
 };
 
+export type QueryIterationBuffers = {
+  state: any[];
+  /** Traits the records and iterators were prepared for. */
+  traits: Trait[];
+  /** SoA records with their owned tuple arrays, undefined for other traits. */
+  records: ({ value: any; tuples: Record<string, unknown[]> | undefined } | undefined)[];
+  iterators: QueryIterators | undefined;
+  /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic. */
+  modes: number[];
+  atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
+  changedEntities: Entity[];
+  changedTraits: Trait[];
+  next: QueryIterationBuffers | undefined;
+};
+
 export type QueryLayout = {
   pageCount: number;
   pageIds: Uint32Array;
@@ -39,10 +55,8 @@ export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
 };
 
 export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
-  /** Page ordinal in this query result */
   readonly index: number;
   readonly stores: PageStoresFromParameters<T>;
-  /** Store offsets for the matching entities in this page */
   readonly indices: Uint16Array;
   readonly entities: readonly Entity[];
 };
@@ -55,7 +69,6 @@ export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonl
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
     options?: QueryResultOptions
   ) => QueryResult<T>;
-  /** Returns cached page views with direct access to trait data, without change detection */
   getPages: () => readonly QueryPage<T>[];
   select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
   sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
@@ -208,6 +221,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   addSubscriptions: Set<QuerySubscriber>;
   removeSubscriptions: Set<QuerySubscriber>;
   layoutCache: QueryLayoutCache | null;
+  iterationBuffers: QueryIterationBuffers | undefined;
   /** Relation pairs for target-specific queries */
   relationFilters?: ResolvedRelationFilter[];
   run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
