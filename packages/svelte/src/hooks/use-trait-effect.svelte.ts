@@ -17,9 +17,9 @@ export function useTraitEffect<T extends Trait>(
   const notify = (value: TraitRecord<T> | undefined) => untrack(() => callback(value));
 
   $effect(() => {
-    const t = target();
+    const entity = getTargetEntity(target());
+    if (entity === undefined) return;
     const resolvedTrait = resolve(trait);
-    const entity = getTargetEntity(t)!;
 
     const onChangeUnsub = entity.onChange(resolvedTrait, () => notify(entity.get(resolvedTrait)));
     const onAddUnsub = entity.onAdd(resolvedTrait, () => notify(entity.get(resolvedTrait)));

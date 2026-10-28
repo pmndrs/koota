@@ -10,15 +10,14 @@ export function useTargets<T extends Trait>(
   let value = $state.raw<Entity[]>(initialEntity?.targetsFor(resolve(relation)) ?? []);
 
   $effect(() => {
-    const t = target();
+    const entity = getTargetEntity(target());
 
-    if (!t) {
+    if (entity === undefined) {
       value = [];
       return;
     }
 
     const resolvedRelation = resolve(relation);
-    const entity = getTargetEntity(t)!;
 
     // Callbacks run inside whatever effect mutated the world, so they read
     // this plain list instead of the signal.

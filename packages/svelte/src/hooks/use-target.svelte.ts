@@ -10,15 +10,14 @@ export function useTarget<T extends Trait>(
   let value = $state.raw<Entity | undefined>(initialEntity?.targetFor(resolve(relation)));
 
   $effect(() => {
-    const t = target();
+    const entity = getTargetEntity(target());
 
-    if (!t) {
+    if (entity === undefined) {
       value = undefined;
       return;
     }
 
     const resolvedRelation = resolve(relation);
-    const entity = getTargetEntity(t)!;
     let targets: Entity[];
 
     const update = () => {
