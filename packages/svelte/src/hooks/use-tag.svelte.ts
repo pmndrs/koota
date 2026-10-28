@@ -10,15 +10,14 @@ export function useTag(
   let value = $state(initialEntity?.has(resolve(tag)) ?? false);
 
   $effect(() => {
-    const t = target();
+    const entity = getTargetEntity(target());
 
-    if (!t) {
+    if (entity === undefined) {
       value = false;
       return;
     }
 
     const resolvedTag = resolve(tag);
-    const entity = getTargetEntity(t)!;
 
     const onAddUnsub = entity.onAdd(resolvedTag, () => {
       value = true;

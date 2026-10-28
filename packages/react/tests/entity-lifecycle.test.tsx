@@ -1,12 +1,13 @@
 import { createWorld, relation, trait, universe, type Entity, type World } from '@koota/core';
 import { renderHook } from '@testing-library/react';
-import { StrictMode, useLayoutEffect } from 'react';
+import { act, StrictMode, useLayoutEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useHas, useTarget, useTargets, useTrait, useTraitEffect } from '../src';
+import { useHas, useTag, useTarget, useTargets, useTrait, useTraitEffect } from '../src';
 
 describe('entity lifecycle', () => {
   let world: World;
   const Position = trait({ x: 0 });
+  const IsTagged = trait();
   const ChildOf = relation({ exclusive: true });
 
   beforeEach(() => {
@@ -26,6 +27,11 @@ describe('entity lifecycle', () => {
       empty: false,
     },
     {
+      name: 'useTag',
+      useValue: (entity: Entity) => useTag(entity, IsTagged),
+      empty: false,
+    },
+    {
       name: 'useTarget',
       useValue: (entity: Entity) => useTarget(entity, ChildOf),
       empty: undefined,
@@ -36,17 +42,27 @@ describe('entity lifecycle', () => {
       empty: [],
     },
   ])('$name', ({ useValue, empty }) => {
-    it('returns an empty value for an entity destroyed before render', () => {
-      const entity = world.spawn(Position, ChildOf(world.spawn()));
+    it('treats a destroyed target as empty and can switch to a live entity', async () => {
+      const entity = world.spawn(Position, IsTagged, ChildOf(world.spawn()));
       entity.destroy();
 
-      const { result } = renderHook(() => useValue(entity), { wrapper: StrictMode });
+      const { result, rerender } = renderHook(({ entity }) => useValue(entity), {
+        initialProps: { entity },
+        wrapper: StrictMode,
+      });
 
+      expect(result.current).toEqual(empty);
+
+      const next = world.spawn(Position, IsTagged, ChildOf(world.spawn()));
+      rerender({ entity: next });
+      expect(result.current).not.toEqual(empty);
+
+      await act(async () => next.destroy());
       expect(result.current).toEqual(empty);
     });
 
     it('skips an entity destroyed between render and subscription', () => {
-      const entity = world.spawn(Position, ChildOf(world.spawn()));
+      const entity = world.spawn(Position, IsTagged, ChildOf(world.spawn()));
 
       const { unmount } = renderHook(
         () => {

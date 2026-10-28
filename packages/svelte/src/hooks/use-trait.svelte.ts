@@ -25,15 +25,14 @@ export function useTrait<T extends Trait>(
   let version = $state(0);
 
   $effect(() => {
-    const t = target();
+    const entity = getTargetEntity(target());
 
-    if (!t) {
+    if (entity === undefined) {
       value = undefined;
       return;
     }
 
     const resolvedTrait = resolve(trait);
-    const entity = getTargetEntity(t)!;
 
     const onChangeUnsub = entity.onChange(resolvedTrait, () => {
       value = entity.get(resolvedTrait);

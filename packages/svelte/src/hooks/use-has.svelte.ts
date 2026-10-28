@@ -16,15 +16,14 @@ export function useHas(
   let value = $state(initialEntity?.has(resolve(trait)) ?? false);
 
   $effect(() => {
-    const t = target();
+    const entity = getTargetEntity(target());
 
-    if (!t) {
+    if (entity === undefined) {
       value = false;
       return;
     }
 
     const resolvedTrait = resolve(trait);
-    const entity = getTargetEntity(t)!;
 
     // Wildcard pairs like ChildOf('*') fire on every pair removal, but the entity
     // may still have other pairs. Since onRemove fires before state cleanup,
