@@ -16,6 +16,8 @@ Complete guide to querying entities in Koota.
 
 Queries fetch entities that share specific traits (archetypes).
 
+`readEach` and `updateEach` reuse the callback's state array, SoA records and tuple arrays. Treat these values as temporary and copy records and tuple arrays before retaining them. `entity.get(Trait)` provides an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
+
 ```typescript
 // Returns QueryResult (Entity[] with extra methods)
 const entities = world.query(Position, Velocity)

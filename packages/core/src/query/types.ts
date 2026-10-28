@@ -1,7 +1,7 @@
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { RelationPair } from '../relation/types';
-import { AoSFactory } from '../storage';
+import { AoSFactory, type GetIntoAccessor } from '../storage';
 import type {
   ExtractSchema,
   ExtractStore,
@@ -22,6 +22,25 @@ export type QueryUnsubscriber = () => void;
 
 export type QueryResultOptions = {
   changeDetection?: 'always' | 'auto' | 'never';
+};
+
+export type QueryIterationBuffers = {
+  state: any[];
+  readers: GetIntoAccessor[];
+  values: any[];
+  tuples: { record: any; key: string; value: unknown[] }[];
+  tupleCount: number;
+  records: {
+    trait: Trait;
+    value: any;
+    tuples: Record<string, unknown[]> | undefined;
+  }[];
+  atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
+  trackedIndices: number[];
+  untrackedIndices: number[];
+  changedEntities: Entity[];
+  changedTraits: Trait[];
+  next?: QueryIterationBuffers;
 };
 
 export type QueryLayout = {
@@ -48,9 +67,11 @@ export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
 };
 
 export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
+  /** Callback state, SoA records and tuple arrays are temporary. Copy values before retaining them. */
   readEach: (
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
   ) => QueryResult<T>;
+  /** Reuses temporary callback data and writes mutations back before notifying subscribers. */
   updateEach: (
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
     options?: QueryResultOptions
@@ -208,6 +229,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   addSubscriptions: Set<QuerySubscriber>;
   removeSubscriptions: Set<QuerySubscriber>;
   layoutCache: QueryLayoutCache | null;
+  iterationBuffers?: QueryIterationBuffers;
   /** Relation pairs for target-specific queries */
   relationFilters?: ResolvedRelationFilter[];
   run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;

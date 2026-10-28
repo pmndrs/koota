@@ -1182,6 +1182,8 @@ const positions = getStore(world, Position)
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
+`readEach` and `updateEach` reuse the callback's state array, SoA records and tuple arrays to reduce allocation. These values are only valid during the callback. Copy records and tuple arrays before retaining them, or call `entity.get(Trait)` for an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
+
 #### Defining queries
 
 Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
