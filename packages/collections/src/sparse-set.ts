@@ -1,68 +1,98 @@
 export class SparseSet {
-  _dense: number[] = [];
-  _sparse: number[] = [];
-  _cursor: number = 0;
-  _denseRaw: { array: number[]; length: number } = { array: this._dense, length: 0 };
+  /** Zero-copy backing storage. Only entries below length are live. */
+  readonly dense: number[] = [];
+  /** Low 24 bits select a bucket. Full values remain distinct in dense. */
+  readonly sparse: number[] = [];
+  length = 0;
+  /** Dense indices link colliding values only after the first collision. */
+  private links: number[] | undefined;
 
   has(val: number): boolean {
-    const index = this._sparse[val];
-    return index < this._cursor && this._dense[index] === val;
+    if (this.links) return this.getIndex(val) !== -1;
+    const index = this.sparse[val & 0xffffff];
+    return index < this.length && this.dense[index] === val;
   }
 
   add(val: number): void {
-    if (this.has(val)) return;
-    this._sparse[val] = this._cursor;
-    this._dense[this._cursor++] = val;
+    const key = val & 0xffffff;
+    const head = this.sparse[key];
+
+    if (head < this.length && (this.dense[head] & 0xffffff) === key) {
+      if (this.has(val)) return;
+      this.links ??= Array.from({ length: this.length }, () => -1);
+      this.links[this.length] = head;
+    } else if (this.links) {
+      this.links[this.length] = -1;
+    }
+
+    this.sparse[key] = this.length;
+    this.dense[this.length++] = val;
   }
 
   remove(val: number): void {
-    if (!this.has(val)) return;
-    const index = this._sparse[val];
-    this._cursor--;
-    const swapped = this._dense[this._cursor];
+    const index = this.getIndex(val);
+    if (index === -1) return;
+
+    const links = this.links;
+    if (links) {
+      const key = val & 0xffffff;
+      let previous = this.sparse[key];
+      if (previous === index) {
+        this.sparse[key] = links[index] === -1 ? this.length : links[index];
+      } else {
+        while (links[previous] !== index) previous = links[previous];
+        links[previous] = links[index];
+      }
+    }
+
+    this.length--;
+    const swapped = this.dense[this.length];
     if (swapped !== val) {
-      this._dense[index] = swapped;
-      this._sparse[swapped] = index;
+      const key = swapped & 0xffffff;
+      if (!links || this.sparse[key] === this.length) {
+        this.sparse[key] = index;
+      } else {
+        let previous = this.sparse[key];
+        while (links[previous] !== this.length) previous = links[previous];
+        links[previous] = index;
+      }
+      this.dense[index] = swapped;
+      if (links) links[index] = links[this.length];
     }
   }
 
   clear(): void {
-    // Clear the sparse array entries for all active values
-    for (let i = 0; i < this._cursor; i++) {
-      this._sparse[this._dense[i]] = 0;
-    }
-    this._cursor = 0;
+    this.length = 0;
   }
 
   sort(): void {
-    this._dense.sort((a, b) => a - b);
-    for (let i = 0; i < this._dense.length; i++) {
-      this._sparse[this._dense[i]] = i;
+    this.dense.length = this.length;
+    this.dense.sort((a, b) => a - b);
+    this.length = 0;
+    for (let i = 0; i < this.dense.length; i++) {
+      this.add(this.dense[i]);
     }
   }
 
+  /** Returns the live dense index, or -1 when absent. */
   getIndex(val: number): number {
-    return this._sparse[val];
+    const index = this.sparse[val & 0xffffff];
+    if (!(index < this.length)) return -1;
+    if (this.dense[index] === val) return index;
+    return this.links ? this.findCollision(val, index) : -1;
   }
 
-  get dense(): number[] {
-    return this._dense.slice(0, this._cursor);
+  private findCollision(val: number, index: number): number {
+    if ((this.dense[index] & 0xffffff) !== (val & 0xffffff)) return -1;
+    const links = this.links!;
+    for (index = links[index]; index >= 0; index = links[index]) {
+      if (this.dense[index] === val) return index;
+    }
+    return -1;
   }
 
-  get denseRaw(): { array: number[]; length: number } {
-    this._denseRaw.length = this._cursor;
-    return this._denseRaw;
-  }
-
-  get rawDense(): readonly number[] {
-    return this._dense;
-  }
-
-  get length(): number {
-    return this._cursor;
-  }
-
-  get sparse(): number[] {
-    return this._sparse;
+  /** Copies the current contents into an independent array. */
+  toArray(): number[] {
+    return this.dense.slice(0, this.length);
   }
 }

@@ -71,6 +71,23 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
+  it('keeps replacements and removed entities distinct when ids are recycled before querying', () => {
+    const Removed = createRemoved();
+    world.query(Removed(Position));
+    const first = world.spawn(Position);
+    world.query(Position);
+
+    first.destroy();
+    const second = world.spawn(Position);
+    second.destroy();
+    const replacement = world.spawn(Position);
+
+    expect(replacement.id()).toBe(first.id());
+    expect(Array.from(world.query(Position))).toEqual([replacement]);
+    expect(Array.from(world.query(Removed(Position)))).toEqual([first, second]);
+    expect(world.query(Removed(Position)).length).toBe(0);
+  });
+
   it('should only create one hash indpendent of the order of the parameters', () => {
     const ctx = world[$internal];
     let entities: any = world.query(Position, Name, Not(IsActive));
