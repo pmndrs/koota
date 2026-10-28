@@ -45,6 +45,36 @@ for (const count of [2, 8]) {
   }
 }
 
+group('iterator cache selection @query @query-iterator-cache', () => {
+  for (const count of [2, 8]) {
+    bench(`${count} traits`, function* () {
+      const traits = Array.from({ length: count }, (_, value) => trait({ value }));
+      const world = createWorld();
+      world.spawn(...traits);
+      const forward = world.query(...traits);
+      const reverse = world.query(...traits.toReversed());
+      let sum = 0;
+      const read = (state: { value: number }[]) => {
+        for (let i = 0; i < state.length; i++) sum += state[i].value * (i + 1);
+      };
+
+      yield {
+        bench: () => {
+          sum = 0;
+          forward.readEach(read);
+          reverse.readEach(read);
+          return sum;
+        },
+        snapshot: () => {
+          assert.equal(sum, ((count - 1) * count * (count + 1)) / 2);
+          return sum;
+        },
+      };
+      world.destroy();
+    });
+  }
+});
+
 group('tuple iteration 10k @query @tuple @iteration-allocation', () => {
   const Position = trait({ value: [0, 0, 0] });
 

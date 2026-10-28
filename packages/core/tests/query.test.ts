@@ -10,6 +10,7 @@ import {
   relation,
   trait,
 } from '../src';
+import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -25,6 +26,24 @@ describe('Query', () => {
   beforeEach(() => {
     world.reset();
   });
+
+  it.skipIf(!hasNativeGc()).each(['first', 'last'] as const)(
+    'releases a dynamic trait in the %s query position after resetting the world',
+    async (position) => {
+      await expect(
+        waitForFinalization((registry) => {
+          const Dynamic = trait({ value: 0 });
+          world.spawn(Position, Dynamic);
+          const query =
+            position === 'first' ? world.query(Dynamic, Position) : world.query(Position, Dynamic);
+          query.readEach(() => {});
+          registry.register(Dynamic, 'trait');
+          world.reset();
+        })
+      ).resolves.toBe(true);
+    },
+    20_000
+  );
 
   it('should query entities that match the parameters', () => {
     const entityA = world.spawn();
@@ -374,6 +393,19 @@ describe('Query', () => {
     query.updateEach(([position]) => position.x++);
     expect(entity.get(Position)).toEqual({ x: 2, y: 0 });
   });
+
+  it.each(['readEach', 'updateEach'] as const)(
+    '%s visits entities of a tag-only query',
+    (operation) => {
+      const first = world.spawn(IsPlayer);
+      const second = world.spawn(IsPlayer);
+      const visited: unknown[] = [];
+
+      world.query(IsPlayer)[operation]((state, entity) => visited.push(state.length, entity));
+
+      expect(visited).toEqual([0, first, 0, second]);
+    }
+  );
 
   it('updateEach should return values in caller parameter order regardless of cache', () => {
     // Create entity with both traits

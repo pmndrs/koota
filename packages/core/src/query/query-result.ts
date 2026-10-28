@@ -12,6 +12,7 @@ import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
 import { notifyChanged } from './modifiers/changed';
 import { getQueryPages } from './query-pages';
+import { getQueryIterators } from './utils/compile-iterators';
 import type {
   InstancesFromParameters,
   QueryInstance,
@@ -41,32 +42,9 @@ export function createQueryResult<T extends QueryParameter[]>(
   const results = Object.assign(entities, {
     readEach(callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) {
       if (entities.length === 0) return results;
-      const buffers = query.iterationBuffers ?? createIterationBuffers();
-      query.iterationBuffers = buffers.next;
-
-      try {
-        prepareIterationBuffers(ctx, getEntityId(entities[0]), traits, stores, buffers);
-        const { state, readers, values, tuples, tupleCount } = buffers;
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          createSnapshots(
-            ctx,
-            getEntityId(entity),
-            stores,
-            state,
-            readers,
-            values,
-            tuples,
-            tupleCount
-          );
-          callback(state as InstancesFromParameters<T>, entity, i);
-        }
-      } finally {
-        clearIterationBuffers(buffers);
-        buffers.next = query.iterationBuffers;
-        query.iterationBuffers = buffers;
-      }
-
+      const buffers = takeIterationBuffers(ctx, query, entities, traits, stores);
+      buffers.iterators!.readEach(ctx, entities, callback, buffers, stores);
+      releaseIterationBuffers(query, buffers);
       return results;
     },
 
@@ -75,102 +53,21 @@ export function createQueryResult<T extends QueryParameter[]>(
       options?: QueryResultOptions
     ) {
       if (entities.length === 0) return results;
-      const buffers = query.iterationBuffers ?? createIterationBuffers();
-      query.iterationBuffers = buffers.next;
+      const buffers = takeIterationBuffers(ctx, query, entities, traits, stores);
+      const iterators = buffers.iterators!;
 
-      // Invalidate once per trait even when auto or never skips change detection.
-      try {
-        prepareIterationBuffers(ctx, getEntityId(entities[0]), traits, stores, buffers);
-        const {
-          state,
-          readers,
-          values,
-          tuples,
-          tupleCount,
-          trackedIndices,
-          untrackedIndices,
-          atomicSnapshots,
-          changedEntities,
-          changedTraits,
-        } = buffers;
-        for (let i = 0; i < traits.length; i++) {
-          getTraitInstance(ctx.traitInstances, traits[i])!.version++;
-        }
-
-        const trackedCount = getTrackedTraits(
-          traits,
-          ctx,
-          query,
-          trackedIndices,
-          untrackedIndices,
-          options?.changeDetection ?? 'auto'
-        );
-        const untrackedCount = traits.length - trackedCount;
-        let changedCount = 0;
-
-        if (trackedCount === 0) {
-          for (let i = 0; i < entities.length; i++) {
-            const entity = entities[i];
-            const eid = getEntityId(entity);
-            createSnapshots(ctx, eid, stores, state, readers, values, tuples, tupleCount);
-            callback(state as InstancesFromParameters<T>, entity, i);
-            if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-            for (let j = 0; j < traits.length; j++) {
-              traits[j][$internal].set(ctx, eid, stores[j], state[j]);
-            }
-          }
-          return results;
-        }
-
-        for (let i = 0; i < entities.length; i++) {
-          const entity = entities[i];
-          const eid = getEntityId(entity);
-
-          createSnapshots(ctx, eid, stores, state, readers, values, tuples, tupleCount);
-          createAtomicSnapshots(traits, state, atomicSnapshots, trackedIndices, trackedCount);
-          callback(state as InstancesFromParameters<T>, entity, i);
-
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-
-          for (let j = 0; j < trackedCount; j++) {
-            const index = trackedIndices[j];
-            const trait = traits[index];
-            const traitCtx = trait[$internal];
-            const newValue = state[index];
-            const store = stores[index];
-
-            let changed = traitCtx.set(ctx, eid, store, newValue);
-            // An atomic value mutated in place is the same reference, so compare its snapshot.
-            if (!changed && traitCtx.type === 'aos') {
-              changed = atomicChanged(newValue, atomicSnapshots[index]);
-            }
-
-            if (changed) {
-              changedEntities[changedCount] = entity;
-              changedTraits[changedCount++] = trait;
-            }
-          }
-
-          for (let j = 0; j < untrackedCount; j++) {
-            const index = untrackedIndices[j];
-            const trait = traits[index];
-            const traitCtx = trait[$internal];
-            const store = stores[index];
-            traitCtx.set(ctx, eid, store, state[index]);
-          }
-        }
-
+      if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
+        iterators.updateEach(ctx, entities, callback, buffers, stores);
+      } else {
+        const changedCount = iterators.trackEach(ctx, entities, callback, buffers, stores);
+        const { changedEntities, changedTraits } = buffers;
         for (let i = 0; i < changedCount; i++) {
           const entity = changedEntities[i];
-          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-          notifyChanged(ctx, entity, changedTraits[i]);
+          if (isEntityAlive(ctx.entityIndex, entity)) notifyChanged(ctx, entity, changedTraits[i]);
         }
-      } finally {
-        clearIterationBuffers(buffers);
-        buffers.next = query.iterationBuffers;
-        query.iterationBuffers = buffers;
       }
 
+      releaseIterationBuffers(query, buffers);
       return results;
     },
 
@@ -205,33 +102,66 @@ export function createQueryResult<T extends QueryParameter[]>(
 function createIterationBuffers(): QueryIterationBuffers {
   return {
     state: [],
-    readers: [],
-    values: [],
-    tuples: [],
-    tupleCount: 0,
+    traits: [],
     records: [],
+    iterators: undefined,
+    modes: [],
     atomicSnapshots: [],
-    trackedIndices: [],
-    untrackedIndices: [],
     changedEntities: [],
     changedTraits: [],
+    next: undefined,
   };
 }
 
-/** Release references to user objects while keeping numeric scratch and buffer capacity. */
-function clearIterationBuffers(buffers: QueryIterationBuffers) {
-  buffers.state.fill(undefined);
-  for (const record of buffers.records) {
-    if (!record) continue;
-    for (const key in record.value) {
-      const value = record.value[key];
-      if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
-        if (record.tuples?.[key] !== value) record.value[key] = undefined;
-      }
-    }
+/**
+ * Checks out buffers from the query's pool. A callback that throws never returns its buffers, so
+ * the pool simply allocates new ones next time.
+ */
+function takeIterationBuffers(
+  ctx: WorldContext,
+  query: QueryInstance,
+  entities: Entity[],
+  traits: Trait[],
+  stores: Store<any>[]
+): QueryIterationBuffers {
+  const buffers = query.iterationBuffers ?? createIterationBuffers();
+  query.iterationBuffers = buffers.next;
+  const prepared = buffers.traits;
+  let matches = buffers.iterators !== undefined && prepared.length === traits.length;
+  for (let i = 0; matches && i < traits.length; i++) matches = prepared[i] === traits[i];
+  if (!matches) prepareIterationBuffers(ctx, buffers, entities, traits, stores);
+  return buffers;
+}
+
+/** Points the buffers at a new trait list. Records already built for the same trait are kept. */
+function prepareIterationBuffers(
+  ctx: WorldContext,
+  buffers: QueryIterationBuffers,
+  entities: Entity[],
+  traits: Trait[],
+  stores: Store<any>[]
+) {
+  const { state, records } = buffers;
+  const prepared = buffers.traits;
+  for (let i = 0; i < traits.length; i++) {
+    const trait = traits[i];
+    state[i] = undefined;
+    if (prepared[i] === trait) continue;
+    prepared[i] = trait;
+    records[i] =
+      trait[$internal].type === 'soa'
+        ? createIterationRecord(ctx, getEntityId(entities[0]), trait, stores[i])
+        : undefined;
   }
+  state.length = prepared.length = records.length = traits.length;
+  buffers.iterators = getQueryIterators(traits);
+}
+
+/** Releases references to user objects, then returns the buffers to the pool. */
+function releaseIterationBuffers(query: QueryInstance, buffers: QueryIterationBuffers) {
+  buffers.iterators!.release(buffers);
   for (const snapshot of buffers.atomicSnapshots) {
-    if (!snapshot) continue;
+    if (snapshot === undefined) continue;
     for (let i = 0; i < snapshot.values.length; i++) {
       const value = snapshot.values[i];
       if (value !== null && (typeof value === 'object' || typeof value === 'function')) {
@@ -239,96 +169,32 @@ function clearIterationBuffers(buffers: QueryIterationBuffers) {
       }
     }
   }
+  buffers.next = query.iterationBuffers;
+  query.iterationBuffers = buffers;
 }
 
-/* @inline */ function getTrackedTraits(
-  traits: Trait[],
+/** Bumps trait versions and fills modes. Returns how many traits are tracked. */
+function trackTraits(
   ctx: WorldContext,
   query: QueryInstance,
-  trackedIndices: number[],
-  untrackedIndices: number[],
-  changeDetection: NonNullable<QueryResultOptions['changeDetection']>
+  traits: Trait[],
+  modes: number[],
+  changeDetection: QueryResultOptions['changeDetection']
 ) {
   let trackedCount = 0;
-  let untrackedCount = 0;
   for (let i = 0; i < traits.length; i++) {
-    if (changeDetection === 'always') {
-      trackedIndices[trackedCount++] = i;
-      continue;
-    }
-    if (changeDetection === 'never') {
-      untrackedIndices[untrackedCount++] = i;
-      continue;
-    }
     const trait = traits[i];
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    const hasTracked = instance !== undefined && hasSubscribers(instance.changeSubscriptions);
-    const hasChanged = query.hasChangedModifiers && query.changedTraits.has(trait);
-
-    if (hasTracked || hasChanged) trackedIndices[trackedCount++] = i;
-    else untrackedIndices[untrackedCount++] = i;
+    const instance = getTraitInstance(ctx.traitInstances, trait)!;
+    instance.version++;
+    const tracked =
+      changeDetection === 'always' ||
+      (changeDetection !== 'never' &&
+        (hasSubscribers(instance.changeSubscriptions) ||
+          (query.hasChangedModifiers && query.changedTraits.has(trait))));
+    modes[i] = tracked ? (trait[$internal].type === 'aos' ? 2 : 1) : 0;
+    if (tracked) trackedCount++;
   }
   return trackedCount;
-}
-
-function prepareIterationBuffers(
-  ctx: WorldContext,
-  entityId: number,
-  traits: Trait[],
-  stores: Store<any>[],
-  buffers: QueryIterationBuffers
-) {
-  buffers.state.length = traits.length;
-  buffers.tupleCount = 0;
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-    const traitCtx = trait[$internal];
-    if (traitCtx.type !== 'soa') {
-      buffers.readers[i] = traitCtx.get;
-      buffers.values[i] = undefined;
-      continue;
-    }
-
-    let record = buffers.records[i];
-    if (!record || record.trait !== trait) {
-      record = buffers.records[i] = createIterationRecord(ctx, entityId, trait, stores[i]);
-    }
-    buffers.readers[i] = traitCtx.getInto;
-    buffers.values[i] = record.value;
-    if (record.tuples) {
-      for (const key in record.tuples) {
-        const index = buffers.tupleCount++;
-        const tuple = buffers.tuples[index];
-        if (tuple) {
-          tuple.record = record.value;
-          tuple.key = key;
-          tuple.value = record.tuples[key];
-        } else {
-          buffers.tuples[index] = { record: record.value, key, value: record.tuples[key] };
-        }
-      }
-    }
-  }
-}
-
-/* @inline */ function createSnapshots(
-  ctx: WorldContext,
-  entityId: number,
-  stores: Store<any>[],
-  state: any[],
-  readers: QueryIterationBuffers['readers'],
-  values: any[],
-  tuples: QueryIterationBuffers['tuples'],
-  tupleCount: number
-) {
-  // Restore owned tuple arrays if the previous callback replaced a field.
-  for (let i = 0; i < tupleCount; i++) {
-    const tuple = tuples[i];
-    tuple.record[tuple.key] = tuple.value;
-  }
-  for (let i = 0; i < stores.length; i++) {
-    state[i] = readers[i](ctx, entityId, stores[i], values[i]);
-  }
 }
 
 function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait, store: Store<any>) {
@@ -337,44 +203,7 @@ function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait
   for (const key in trait.schema) {
     if (Array.isArray(trait.schema[key])) (tuples ??= {})[key] = value[key];
   }
-  return { trait, value, tuples };
-}
-
-/* @inline */ function createAtomicSnapshots(
-  traits: Trait[],
-  state: any[],
-  snapshots: QueryIterationBuffers['atomicSnapshots'],
-  trackedIndices: number[],
-  trackedCount: number
-) {
-  for (let j = 0; j < trackedCount; j++) {
-    const index = trackedIndices[j];
-    if (traits[index][$internal].type !== 'aos') continue;
-    const value = state[index];
-    const snapshot = (snapshots[index] ??= { keys: [], values: [], count: 0 });
-    let count = 0;
-    for (const key in value) {
-      if (!Object.hasOwn(value, key)) continue;
-      snapshot.keys[count] = key;
-      snapshot.values[count++] = value[key];
-    }
-    snapshot.count = count;
-  }
-}
-
-function atomicChanged(value: any, snapshot: QueryIterationBuffers['atomicSnapshots'][number]) {
-  if (typeof value !== 'object' || value === null) return true;
-  let count = 0;
-  for (const key in value) {
-    if (!Object.hasOwn(value, key)) continue;
-    let index = count++;
-    if (snapshot.keys[index] !== key) {
-      index = snapshot.keys.indexOf(key);
-      if (index === -1 || index >= snapshot.count) return true;
-    }
-    if (value[key] !== snapshot.values[index]) return true;
-  }
-  return count !== snapshot.count;
+  return { value, tuples };
 }
 
 /* @inline */ export function getQueryStores<T extends QueryParameter[]>(
