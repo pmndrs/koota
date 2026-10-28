@@ -8,7 +8,7 @@ packages:
   - .config/*
 
 catalog:
-  '@pmndrs/labs': ^0.10.0
+  '@pmndrs/labs': ^0.11.0
   '@react-three/drei': ^10.7.9
   '@react-three/fiber': ^9.8.2
   '@sveltejs/vite-plugin-svelte': ^7.3.1
@@ -49,5 +49,6 @@ onlyBuiltDependencies:
   - esbuild
 
 minimumReleaseAgeExclude:
+  - '@pmndrs/labs@0.11.0'
   - prettier@3.9.4
   - vite@8.1.2

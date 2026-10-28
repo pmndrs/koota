@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     '@pmndrs/labs':
-      specifier: ^0.10.0
-      version: 0.10.0
+      specifier: ^0.11.0
+      version: 0.11.0
     '@react-three/drei':
       specifier: ^10.7.9
       version: 10.7.9
@@ -111,7 +111,7 @@ importers:
     dependencies:
       '@pmndrs/labs':
         specifier: 'catalog:'
-        version: 0.10.0
+        version: 0.11.0
       directed:
         specifier: 'catalog:'
         version: 0.1.6(@types/react@19.3.0)(react@19.3.1)
@@ -434,7 +434,7 @@ importers:
     dependencies:
       '@pmndrs/labs':
         specifier: 'catalog:'
-        version: 0.10.0
+        version: 0.11.0
     devDependencies:
       '@config/oxlint':
         specifier: workspace:*
@@ -1037,8 +1037,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@pmndrs/labs@0.10.0':
-    resolution: {integrity: sha512-LkmQHn4OHhKyHgr1HJgmWssYXHJUxU6Sl3g2e5KTjFEZ99AIK7GMI0wtSRAWQ6tF/ui2BxfUEH0W8QnS+E4lhw==}
+  '@pmndrs/labs@0.11.0':
+    resolution: {integrity: sha512-pI4nagAcFWKTlp/m1z+xkB7UXLD7FPRVS2RW2myHATcC3T39UfqPSVYsrJUNoXGlyZ3hkvXqZOBogjVmdRzP4g==}
     engines: {node: '>=22.12.0'}
     hasBin: true
 
@@ -2877,7 +2877,7 @@ snapshots:
   '@oxlint/binding-win32-x64-msvc@1.89.0':
     optional: true
 
-  '@pmndrs/labs@0.10.0':
+  '@pmndrs/labs@0.11.0':
     dependencies:
       '@clack/prompts': 1.8.1
       fast-string-width: 3.0.2
