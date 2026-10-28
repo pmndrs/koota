@@ -1,25 +1,32 @@
 <script lang="ts">
-  import type { Entity } from '@koota/core';
-  import { untrack } from 'svelte';
+  import type { Entity, Trait } from '@koota/core';
+  import { useTrait, useTraitEffect } from '../../src';
 
   let {
     target,
-    bind,
+    trait,
     beforeEffects,
-    onInitial,
+    onChange,
   }: {
     target: Entity;
-    bind: (target: () => Entity) => { readonly current: unknown } | undefined;
+    trait: Trait;
     beforeEffects?: () => void;
-    onInitial?: (value: unknown) => void;
+    onChange: (value: unknown) => void;
   } = $props();
 
-  const result = untrack(() => bind)(() => target);
-  untrack(() => onInitial?.(result?.current));
+  const result = useTrait(
+    () => target,
+    () => trait
+  );
+  useTraitEffect(
+    () => target,
+    () => trait,
+    (value) => onChange(value)
+  );
 
   $effect.pre(() => {
     beforeEffects?.();
   });
 </script>
 
-<span data-testid="value">{JSON.stringify(result?.current) ?? 'undefined'}</span>
+<span data-testid="value">{JSON.stringify(result.current) ?? 'undefined'}</span>
