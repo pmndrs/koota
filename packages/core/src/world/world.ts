@@ -10,13 +10,19 @@ import {
 } from '../entity/utils/entity-index';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
-import { IsExcluded, createQueryInstance } from '../query/query';
+import {
+  IsExcluded,
+  createQueryInstance,
+  resolveQueryInstance,
+  resolveQueryInstanceFromRef,
+  runQueryFirst,
+} from '../query/query';
 import { createRelationOnlyQueryResult } from '../query/query-result';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
-import { getEntitiesWithRelationTo } from '../relation/relation';
+import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
@@ -256,9 +262,23 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       }
     },
 
-    queryFirst(...args: [string] | QueryParameter[]) {
-      // @ts-expect-error
-      return world.query(...args)[0];
+    queryFirst(...args: [Query<QueryParameter[]>] | QueryParameter[]) {
+      const ctx = world[$internal];
+      ensureWorldRegistered(ctx, world, id);
+
+      if (args.length === 1) {
+        const arg = args[0];
+        if (isQuery(arg)) return runQueryFirst(ctx, resolveQueryInstanceFromRef(ctx, arg));
+        if (isRelationPair(arg) && !arg.targetQuery && typeof arg.target === 'number') {
+          return getFirstEntityWithRelationTo(
+            ctx,
+            arg.relation as Relation<Trait>,
+            arg.target as Entity
+          );
+        }
+      }
+
+      return runQueryFirst(ctx, resolveQueryInstance(ctx, args as QueryParameter[]));
     },
 
     onQueryAdd(

@@ -446,6 +446,15 @@ export function getEntitiesWithRelationTo(
   return traitData.relationSourcesByTarget[getEntityId(target)]?.slice() ?? EMPTY_ENTITY_ARRAY;
 }
 
+export function getFirstEntityWithRelationTo(
+  ctx: WorldContext,
+  relation: Relation<Trait>,
+  target: Entity
+): Entity | undefined {
+  const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
+  return traitData?.relationSourcesByTarget?.[getEntityId(target)]?.[0];
+}
+
 export function hasRelationTargetInSet(
   ctx: WorldContext,
   relation: Relation<Trait>,

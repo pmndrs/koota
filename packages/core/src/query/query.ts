@@ -67,6 +67,23 @@ export function runQuery<T extends QueryParameter[]>(
   return createQueryResult(ctx, entities, query, params);
 }
 
+export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity | undefined {
+  commitQueryRemovals(ctx);
+
+  const { array, length } = query.entities.denseRaw;
+  const entity = length > 0 ? (array[0] as Entity) : undefined;
+
+  if (query.isTracking) {
+    // Reading one entity still consumes the entire tracking batch.
+    query.entities.clear();
+    for (let i = 0; i < length; i++) {
+      query.resetTrackingBitmasks(getEntityId(array[i] as Entity));
+    }
+  }
+
+  return entity;
+}
+
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   query.toRemove.remove(entity);
   query.entities.add(entity);
