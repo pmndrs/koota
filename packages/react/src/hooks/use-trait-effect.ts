@@ -35,7 +35,8 @@ export function useTraitEffect<T extends Trait>(
   const pairTarget = pair[$relationPair] ? pair.target : undefined;
 
   useEffect(() => {
-    const currentEntity = resolveEntity(target)!;
+    const currentEntity = resolveEntity(target);
+    if (currentEntity === undefined || !currentEntity.isAlive()) return;
     const notify = (value: unknown) => callbackRef.current(value as TraitRecord<T> | undefined);
     const detach = attachTrait(currentEntity, trait, notify);
     notify(readTrait(currentEntity, trait));

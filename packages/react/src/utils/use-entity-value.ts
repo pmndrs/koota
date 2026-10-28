@@ -52,8 +52,9 @@ function createBinding<T, I>(
   read: (entity: Entity, input: I) => T,
   getVersionSource?: GetVersionSource<I>
 ): Binding<T, I> {
-  const value = entity === undefined ? undefined : read(entity, input);
-  const versionSource = entity === undefined ? undefined : getVersionSource?.(entity, input);
+  const alive = entity !== undefined && entity.isAlive();
+  const value = alive ? read(entity, input) : undefined;
+  const versionSource = alive ? getVersionSource?.(entity, input) : undefined;
   return { entity, input, value, version: versionSource?.version ?? 0, versionSource };
 }
 
@@ -97,7 +98,7 @@ export function useEntityValue<T, I>(
       return;
     }
     const entity = binding.entity;
-    if (entity === undefined) return;
+    if (entity === undefined || !entity.isAlive()) return;
 
     const push = (value: T) => {
       binding.value = value;
