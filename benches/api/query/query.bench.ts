@@ -1,5 +1,5 @@
-import { bench, group } from '@pmndrs/labs';
-import { createWorld, Entity, Not, trait } from 'koota';
+import { assert, bench, group } from '@pmndrs/labs';
+import { createChanged, createQuery, createWorld, type Entity, Not, relation, trait } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ vx: 0, vy: 0, vz: 0 });
@@ -177,6 +177,69 @@ group('query throughput 50k @query', () => {
 
     world.destroy();
     return result.length;
+  });
+});
+
+for (const count of [1, 10_000]) {
+  group(`queryFirst ${count} matches @query @query-first`, () => {
+    for (const mode of ['inline', 'cached', 'relation'] as const) {
+      bench(mode, function* () {
+        const world = createWorld();
+        const Position = trait({ x: 0 });
+        const ChildOf = relation();
+        const parent = world.spawn();
+        const entities: Entity[] = [];
+        for (let i = 0; i < count; i++) {
+          entities.push(world.spawn(Position, ChildOf(parent)));
+        }
+        const query = createQuery(Position);
+        const first =
+          mode === 'cached'
+            ? () => world.queryFirst(query)
+            : mode === 'relation'
+              ? () => world.queryFirst(ChildOf(parent))
+              : () => world.queryFirst(Position);
+        let result = first();
+        assert.equal(result, entities[0]);
+
+        yield {
+          bench: () => (result = first()),
+          snapshot: () => {
+            assert.equal(result, entities[0]);
+            return result;
+          },
+        };
+
+        world.destroy();
+      });
+    }
+  });
+}
+
+group('queryFirst tracking @query @query-first', () => {
+  bench('change and consume 10k matches', function* () {
+    const world = createWorld();
+    const Position = trait({ x: 0 });
+    const Changed = createChanged();
+    const query = createQuery(Changed(Position));
+    const entities: Entity[] = [];
+    for (let i = 0; i < 10_000; i++) entities.push(world.spawn(Position));
+    let result = world.queryFirst(query);
+    assert.equal(result, undefined);
+
+    yield {
+      bench: () => {
+        for (const entity of entities) entity.changed(Position);
+        return (result = world.queryFirst(query));
+      },
+      snapshot: () => {
+        assert.equal(result, entities[0]);
+        assert.equal(world.queryFirst(query), undefined);
+        return result;
+      },
+    };
+
+    world.destroy();
   });
 });
 
