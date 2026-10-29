@@ -6,7 +6,6 @@ import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '
 import { isNameConfig } from '../name/name-index';
 import type { NameConfig } from '../name/types';
 import type { RelationPair } from '../relation/types';
-import { isRelationPair } from '../relation/utils/is-relation';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
   addTraitsToAliveEntity,
@@ -171,9 +170,11 @@ export /* @inline */ function entityHas(
     assertEntityAlive(ctx, entity);
   }
 
-  if (isNameConfig(trait)) return ctx.names.get(trait[1]) === entity;
-  if (!isRelationPair(trait)) return hasTrait(ctx, entity, trait);
-  return hasEntityRelationPair(ctx, entity, trait);
+  if (typeof trait !== 'function') /* @cold */ {
+    if (isNameConfig(trait)) return ctx.names.get(trait[1]) === entity;
+    return hasEntityRelationPair(ctx, entity, trait);
+  }
+  return hasTrait(ctx, entity, trait);
 }
 
 /**

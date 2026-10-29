@@ -190,7 +190,8 @@ export /* @inline */ function addTraitsToAliveEntity(
       let params: Record<string, any> | undefined;
 
       if (Array.isArray(config)) {
-        [trait, params] = config as [Trait, Record<string, any>];
+        trait = config[0];
+        params = config[1];
       } else {
         trait = config as Trait;
       }
@@ -370,7 +371,7 @@ export /* @inline */ function setTrait(
     assertEntityAlive(ctx, entity);
   }
 
-  /* @cold */ if (isRelationPair(trait)) {
+  if (isRelationPair(trait)) /* @cold */ {
     return setTraitForPair(ctx, entity, trait, value, triggerChanged);
   }
   return setTraitForTrait(ctx, entity, trait, value, triggerChanged);
@@ -513,14 +514,13 @@ export /* @inline */ function setTraitForTrait(
     value = resolveTraitSetCallback(ctx, entity, trait, value, data, index);
   }
 
-  if (traitCtx.validate) {
-    setValidatedTrait(ctx, entity, trait, data, index, value, triggerChanged);
-  } else {
-    traitCtx.set(ctx, index, store, value);
-    if (triggerChanged) {
-      notifyTraitChanged(ctx, entity, data);
-    } else data.version++;
+  if (traitCtx.validate) /* @cold */ {
+    return setValidatedTrait(ctx, entity, trait, data, index, value, triggerChanged);
   }
+  traitCtx.set(ctx, index, store, value);
+  if (triggerChanged) {
+    notifyTraitChanged(ctx, entity, data);
+  } else data.version++;
 }
 
 /** Keep validation and query callbacks outside the ordinary setter path. */
