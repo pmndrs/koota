@@ -10,7 +10,7 @@ import {
 } from '../entity/utils/entity-index';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
-import { queryByName } from '../name/query-by-name';
+import { findNamedEntity } from '../name/find-named-entity';
 import {
   IsExcluded,
   createQueryInstance,
@@ -18,7 +18,7 @@ import {
   resolveQueryInstanceFromRef,
   runQueryFirst,
 } from '../query/query';
-import { createRelationOnlyQueryResult } from '../query/query-result';
+import { createQueryResult, createRelationOnlyQueryResult } from '../query/query-result';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
@@ -87,6 +87,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       relations: new Set(),
       queriesHashMap: new Map(),
       queryInstances: [],
+      iterationBuffers: undefined,
       actionInstances: [],
       notQueries: new Set(),
       targetQueries: [],
@@ -198,6 +199,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
       ctx.queriesHashMap.clear();
       ctx.queryInstances.length = 0;
+      ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();
       ctx.notQueries.clear();
@@ -255,8 +257,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
           }
         }
 
-        const named = queryByName(ctx, params);
-        if (named) return named;
+        const named = findNamedEntity(ctx, params);
+        if (named !== null) {
+          return named === undefined
+            ? createRelationOnlyQueryResult([])
+            : createQueryResult(ctx, [named], null, params);
+        }
 
         const hash = createQueryHash(params);
         let query = ctx.queriesHashMap.get(hash);
@@ -286,8 +292,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         }
       }
 
-      const named = queryByName(ctx, args as QueryParameter[]);
-      if (named) return named[0];
+      const named = findNamedEntity(ctx, args as QueryParameter[]);
+      if (named !== null) return named;
 
       return runQueryFirst(ctx, resolveQueryInstance(ctx, args as QueryParameter[]));
     },

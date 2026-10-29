@@ -5,6 +5,7 @@ import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
   Query,
   QueryInstance,
+  QueryIterationBuffers,
   QueryParameter,
   QueryResult,
   QueryUnsubscriber,
@@ -32,6 +33,7 @@ export type WorldContext = {
   relations: Set<Relation<Trait>>;
   queriesHashMap: Map<string, QueryInstance>;
   queryInstances: (QueryInstance | undefined)[];
+  iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];
   notQueries: Set<QueryInstance>;
   /** Queries indexed by target entity page and offset. */

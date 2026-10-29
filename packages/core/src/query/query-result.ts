@@ -34,6 +34,7 @@ export function createQueryResult<T extends QueryParameter[]>(
 ): QueryResult<T> {
   const traits: Trait[] = [];
   const stores: Store<any>[] = [];
+  const pool = query ?? ctx;
 
   getQueryStores(params, traits, stores, ctx);
   let usesCustomOrder = false;
@@ -43,9 +44,9 @@ export function createQueryResult<T extends QueryParameter[]>(
   const results = Object.assign(entities, {
     readEach(callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) {
       if (entities.length === 0) return results;
-      const buffers = takeIterationBuffers(ctx, query, entities, traits, stores);
+      const buffers = takeIterationBuffers(ctx, pool, entities, traits, stores);
       buffers.iterators!.readEach(ctx, entities, callback, buffers, stores);
-      releaseIterationBuffers(query, buffers);
+      releaseIterationBuffers(pool, buffers);
       return results;
     },
 
@@ -54,7 +55,7 @@ export function createQueryResult<T extends QueryParameter[]>(
       options?: QueryResultOptions
     ) {
       if (entities.length === 0) return results;
-      const buffers = takeIterationBuffers(ctx, query, entities, traits, stores);
+      const buffers = takeIterationBuffers(ctx, pool, entities, traits, stores);
       const iterators = buffers.iterators!;
 
       if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
@@ -68,7 +69,7 @@ export function createQueryResult<T extends QueryParameter[]>(
         }
       }
 
-      releaseIterationBuffers(query, buffers);
+      releaseIterationBuffers(pool, buffers);
       return results;
     },
 
@@ -115,18 +116,18 @@ function createIterationBuffers(): QueryIterationBuffers {
 }
 
 /**
- * Checks out buffers from the query's pool. A callback that throws never returns its buffers, so
+ * Checks out buffers from the pool. A callback that throws never returns its buffers, so
  * the pool simply allocates new ones next time.
  */
 function takeIterationBuffers(
   ctx: WorldContext,
-  query: QueryInstance | null,
+  pool: QueryInstance | WorldContext,
   entities: Entity[],
   traits: Trait[],
   stores: Store<any>[]
 ): QueryIterationBuffers {
-  const buffers = query?.iterationBuffers ?? createIterationBuffers();
-  if (query) query.iterationBuffers = buffers.next;
+  const buffers = pool.iterationBuffers ?? createIterationBuffers();
+  pool.iterationBuffers = buffers.next;
   const prepared = buffers.traits;
   let matches = buffers.iterators !== undefined && prepared.length === traits.length;
   for (let i = 0; matches && i < traits.length; i++) matches = prepared[i] === traits[i];
@@ -159,7 +160,7 @@ function prepareIterationBuffers(
 }
 
 /** Releases references to user objects, then returns the buffers to the pool. */
-function releaseIterationBuffers(query: QueryInstance | null, buffers: QueryIterationBuffers) {
+function releaseIterationBuffers(pool: QueryInstance | WorldContext, buffers: QueryIterationBuffers) {
   buffers.iterators!.release(buffers);
   for (const snapshot of buffers.atomicSnapshots) {
     if (snapshot === undefined) continue;
@@ -170,10 +171,8 @@ function releaseIterationBuffers(query: QueryInstance | null, buffers: QueryIter
       }
     }
   }
-  if (query) {
-    buffers.next = query.iterationBuffers;
-    query.iterationBuffers = buffers;
-  }
+  buffers.next = pool.iterationBuffers;
+  pool.iterationBuffers = buffers;
 }
 
 /** Bumps trait versions and fills modes. Returns how many traits are tracked. */

@@ -26,7 +26,7 @@ export function validateName(value: unknown): asserts value is string {
 export type NameStore = string[][];
 
 /** Validate ownership without changing the column or name index. */
-export function validateNameAssignment(ctx: WorldContext, eid: number, name: string): boolean {
+export function validateNameAssignment(ctx: WorldContext, eid: number, name: unknown): boolean {
   const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[eid]];
   validateName(name);
   const owner = ctx.names.get(name);
@@ -38,12 +38,12 @@ export function validateNameAssignment(ctx: WorldContext, eid: number, name: str
 }
 
 /** Rename an attached trait in the column and lookup index together. */
-export function renameName(ctx: WorldContext, store: NameStore, eid: number, name: string): boolean {
-  const page = (store[eid >>> 10] ??= []);
+export function renameName(ctx: WorldContext, eid: number, store: NameStore, name: string): boolean {
+  const page = store[eid >>> 10];
   const previous = page[eid & 1023];
   if (previous === name) return false;
   const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[eid]];
-  if (previous !== undefined) ctx.names.delete(previous);
+  ctx.names.delete(previous);
   ctx.names.set(name, entity);
   page[eid & 1023] = name;
   return true;

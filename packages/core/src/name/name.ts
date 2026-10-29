@@ -12,7 +12,7 @@ const context = createTraitContext(schema, (defaults) => ({
     defaults.add(ctx, eid, store, value);
     ctx.names.set(value!, ctx.entityIndex.dense[ctx.entityIndex.sparse[eid]]);
   },
-  set: (ctx, eid, store, value) => renameName(ctx, store, eid, value),
+  set: renameName,
   remove: releaseName,
 }));
 
