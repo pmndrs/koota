@@ -140,7 +140,7 @@ group('named query scenarios @name @name-query', () => {
       world.destroy();
     });
 
-    bench(`apply 1k named query updates among ${count} entities`, function* () {
+    bench(`apply 1k named query updates among ${count} entities @name-query-repeat`, function* () {
       const world = createWorld();
       for (let i = 0; i < count; i++) world.spawn(Name(`object-${i}`), Position);
       const updates = Array.from({ length: 1_000 }, (_, i) => ({
@@ -165,7 +165,7 @@ group('named query scenarios @name @name-query', () => {
       world.destroy();
     });
 
-    bench(`check an absent boss 1k times among ${count} entities`, function* () {
+    bench(`check an absent boss 1k times among ${count} entities @name-query-repeat`, function* () {
       const world = createWorld();
       for (let i = 0; i < count; i++) world.spawn(Position);
       world.query(Name('boss'), Position);
@@ -178,6 +178,27 @@ group('named query scenarios @name @name-query', () => {
 
       world.destroy();
       return result;
+    });
+  }
+});
+
+group('named queryFirst @name @name-first', () => {
+  for (const name of ['player', 'missing']) {
+    bench(`find ${name} 1k times`, function* () {
+      const world = createWorld();
+      for (let i = 0; i < 1_000; i++) world.spawn(Position);
+      world.spawn(Name('player'), Position);
+
+      const matches = yield () => {
+        let matches = 0;
+        for (let i = 0; i < 1_000; i++) {
+          if (world.queryFirst(Name(name), Position) !== undefined) matches++;
+        }
+        return matches;
+      };
+
+      world.destroy();
+      return matches;
     });
   }
 });
