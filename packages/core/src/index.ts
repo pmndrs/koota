@@ -30,6 +30,9 @@ export type {
   PageStoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
+export { Name } from './name/name';
+export { $name } from './name/symbols';
+export type { NameConfig, NameTrait } from './name/types';
 export { relation } from './relation/relation';
 /** @experimental This API is experimental and may change or be removed in future versions. */
 export { ordered } from './relation/ordered';

@@ -4,6 +4,10 @@ import type { WorldContext } from '../../world';
 import type { QueryInstance } from '../types';
 
 export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Entity): boolean {
+  if (query.name !== undefined && (query.name === null || ctx.names.get(query.name) !== entity)) {
+    return false;
+  }
+
   const staticBitmasks = query.staticBitmasks;
   const generations = query.generations;
   const eid = getEntityId(entity);
@@ -20,7 +24,6 @@ export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Enti
     const or = bitmask.or;
     const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
 
-    if (!forbidden && !required && !or) return false;
     if (forbidden && (entityMask & forbidden) !== 0) return false;
     if (required && (entityMask & required) !== required) return false;
     if (or !== 0 && (entityMask & or) === 0) return false;

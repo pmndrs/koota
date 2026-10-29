@@ -1,5 +1,6 @@
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
+import type { NameConfig } from '../name/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory } from '../storage';
 import type { QueryIterators } from './utils/compile-iterators';
@@ -17,7 +18,7 @@ import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
 export type QueryModifier = (...components: Trait[]) => Modifier;
-export type QueryParameter = Trait | RelationPair | ReturnType<QueryModifier>;
+export type QueryParameter = Trait | RelationPair | NameConfig | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryUnsubscriber = () => void;
 
@@ -32,7 +33,7 @@ export type QueryIterationBuffers = {
   /** SoA records with their owned tuple arrays, undefined for other traits. */
   records: ({ value: any; tuples: Record<string, unknown[]> | undefined } | undefined)[];
   iterators: QueryIterators | undefined;
-  /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic. */
+  /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
   modes: number[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
   changedEntities: Entity[];
@@ -193,6 +194,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   version: number;
   ctx: WorldContext;
   parameters: T;
+  /** Undefined for ordinary queries, null for conflicting name filters. */
+  name: string | null | undefined;
   hash: QueryHash;
   refId: number;
   traits: Trait[];

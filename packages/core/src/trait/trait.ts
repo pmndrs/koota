@@ -4,6 +4,8 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { isEntityAlive } from '../entity/utils/entity-index';
+import { isNameTrait, refreshNamedQueries } from '../name/name-index';
 import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
@@ -81,6 +83,7 @@ export function createTraitContext<S extends Schema>(
   return {
     id: traitId++,
     createStore: () => createStore(schema),
+    validate: accessors?.validate,
     add: accessors?.add ?? defaults.add,
     set: accessors?.set ?? defaults.set,
     get: get ?? defaults.get,
@@ -187,7 +190,8 @@ export /* @inline */ function addTraitsToAliveEntity(
       let params: Record<string, any> | undefined;
 
       if (Array.isArray(config)) {
-        [trait, params] = config as [Trait, Record<string, any>];
+        trait = config[0];
+        params = config[1];
       } else {
         trait = config as Trait;
       }
@@ -195,9 +199,12 @@ export /* @inline */ function addTraitsToAliveEntity(
       if (hasTrait(ctx, entity, trait)) continue;
       if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
 
-      // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
       const instance = getTraitInstance(ctx.traitInstances, trait)!;
-      trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
+      const traitCtx = trait[$internal];
+      const eid = getEntityId(entity);
+      if (traitCtx.validate?.(ctx, eid, params) === false) continue;
+      // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
+      traitCtx.add(ctx, eid, instance.store, params);
       grantTraitMembership(ctx, entity, instance);
       emit(instance.addSubscriptions, entity);
     }
@@ -364,7 +371,7 @@ export /* @inline */ function setTrait(
     assertEntityAlive(ctx, entity);
   }
 
-  /* @cold */ if (isRelationPair(trait)) {
+  if (isRelationPair(trait)) /* @cold */ {
     return setTraitForPair(ctx, entity, trait, value, triggerChanged);
   }
   return setTraitForTrait(ctx, entity, trait, value, triggerChanged);
@@ -507,8 +514,32 @@ export /* @inline */ function setTraitForTrait(
     value = resolveTraitSetCallback(ctx, entity, trait, value, data, index);
   }
 
+  if (traitCtx.validate) /* @cold */ {
+    return setValidatedTrait(ctx, entity, trait, data, index, value, triggerChanged);
+  }
   traitCtx.set(ctx, index, store, value);
+  if (triggerChanged) {
+    notifyTraitChanged(ctx, entity, data);
+  } else data.version++;
+}
 
+/** Keep validation and query callbacks outside the ordinary setter path. */
+export function setValidatedTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait,
+  data: TraitInstance,
+  index: number,
+  value: any,
+  triggerChanged: boolean
+) {
+  const traitCtx = trait[$internal];
+  if (traitCtx.validate!(ctx, index, value) === false) return;
+  const changed = traitCtx.set(ctx, index, data.store, value);
+  if (changed && isNameTrait(trait)) {
+    refreshNamedQueries(ctx, entity, data);
+    if (!isEntityAlive(ctx.entityIndex, entity) || !hasTrait(ctx, entity, trait)) return;
+  }
   if (triggerChanged) {
     notifyTraitChanged(ctx, entity, data);
   } else data.version++;
@@ -591,8 +622,7 @@ function markDirty(
 
 /**
  * Re-evaluate the queries that include a trait after its membership bit changed.
- * An add clears any pending removal first so the entity cannot be dropped by a
- * removal queued before it rejoined.
+ * Named queries keep pending removals until the entity matches again.
  */
 export function reconcileTraitQueries(
   ctx: WorldContext,
@@ -616,7 +646,7 @@ function reconcileQueries(
   adding: boolean
 ) {
   for (const query of queries) {
-    if (adding) query.toRemove.remove(entity);
+    if (adding && query.name === undefined) query.toRemove.remove(entity);
     const match = query.relationFilters?.length
       ? checkQueryWithRelations(ctx, query, entity)
       : query.check(ctx, entity);
@@ -635,7 +665,7 @@ function reconcileTrackingQueries(
   adding: boolean
 ) {
   for (const query of instance.trackingQueries) {
-    if (adding) query.toRemove.remove(entity);
+    if (adding && query.name === undefined) query.toRemove.remove(entity);
     const match = query.relationFilters?.length
       ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
       : query.checkTracking(ctx, entity, eventType, generationId, bitflag);

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { $internal, createWorld, type Entity, getStore, trait, unpackEntity } from '../src';
+import { $internal, createWorld, type Entity, getStore, Name, trait, unpackEntity } from '../src';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
@@ -151,6 +151,81 @@ describe('Entity', () => {
     const entity = world.spawn(Bar);
     entity.set(Bar, (prev) => ({ value: prev.value + 1 }));
     expect(entity.get(Bar)!.value).toBe(1);
+  });
+
+  describe('named entities', () => {
+    it('names entities on spawn or add and looks them up', () => {
+      const player = world.spawn(Name('player'), Bar);
+      const boss = world.spawn(Bar);
+
+      expect(world.lookup('player')).toBe(player);
+      expect(player.name()).toBe('player');
+      expect(player.get(Name)).toBe('player');
+      expectTypeOf(player.get(Name)).toEqualTypeOf<string | undefined>();
+      expect(player.has(Name('player'))).toBe(true);
+      expect(boss.name()).toBeUndefined();
+      expect(world.lookup('boss')).toBeUndefined();
+
+      boss.add(Name('boss'));
+      expect(world.lookup('boss')).toBe(boss);
+    });
+
+    it('renames an entity and makes its previous name available', () => {
+      const player = world.spawn(Name('player'));
+      player.set(Name, (name) => `${name}-renamed`);
+
+      expect(player.name()).toBe('player-renamed');
+      expect(world.lookup('player')).toBeUndefined();
+      expect(world.lookup('player-renamed')).toBe(player);
+
+      const replacement = world.spawn(Name('player'));
+      expect(world.lookup('player')).toBe(replacement);
+    });
+
+    it('preserves existing names when a name is already taken', () => {
+      const player = world.spawn(Name('player'));
+      const hero = world.spawn(Name('hero'));
+      const unnamed = world.spawn();
+
+      expect(() => world.spawn(Name('player'))).toThrow(/NAME_TAKEN/);
+      expect(() => unnamed.add(Name('player'))).toThrow(/NAME_TAKEN/);
+      expect(() => hero.set(Name, 'player')).toThrow(/NAME_TAKEN/);
+
+      expect(world.lookup('player')).toBe(player);
+      expect(world.lookup('hero')).toBe(hero);
+      expect(hero.name()).toBe('hero');
+      expect(unnamed.has(Name)).toBe(false);
+    });
+
+    it('frees a name when its trait is removed or its entity is destroyed', () => {
+      const player = world.spawn(Name('player'));
+      player.remove(Name);
+      expect(world.lookup('player')).toBeUndefined();
+
+      const replacement = world.spawn(Name('player'));
+      replacement.destroy();
+      expect(world.lookup('player')).toBeUndefined();
+
+      const next = world.spawn(Name('player'));
+      expect(world.lookup('player')).toBe(next);
+    });
+
+    it('keeps names local to each world and clears them on reset', () => {
+      const other = createWorld();
+      const player = world.spawn(Name('player'));
+      const otherPlayer = other.spawn(Name('player'));
+
+      expect(world.lookup('player')).toBe(player);
+      expect(other.lookup('player')).toBe(otherPlayer);
+
+      world.reset();
+      expect(world.lookup('player')).toBeUndefined();
+      expect(other.lookup('player')).toBe(otherPlayer);
+
+      const replacement = world.spawn(Name('player'));
+      expect(world.lookup('player')).toBe(replacement);
+      other.destroy();
+    });
   });
 
   it.each(['set', 'add', 'remove', 'changed', 'destroy'] as const)(

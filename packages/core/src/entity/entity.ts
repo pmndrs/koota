@@ -3,8 +3,9 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import { dropQuery, IsExcluded, queryInternal } from '../query/query';
 import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
+import { isNameConfig } from '../name/name-index';
+import type { NameConfig } from '../name/types';
 import type { RelationPair } from '../relation/types';
-import { isRelationPair } from '../relation/utils/is-relation';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
   addTraitsToAliveEntity,
@@ -26,15 +27,17 @@ import { EMPTY_MASK_PAGE } from './utils/paged-mask';
 // Ensure entity methods are patched.
 import './entity-methods-patch';
 
-export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]): Entity {
+export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
+  ctx.entityTraits.set(entity, new Set());
+
+  // Tracking queries enter on trait events. Static exclusion queries need an initial match.
   for (const query of ctx.notQueries) {
-    const match = query.check(ctx, entity);
-    if (match) query.add(entity);
     query.resetTrackingBitmasks(getEntityId(entity));
+    if (!query.isTracking && query.check(ctx, entity)) query.add(entity);
   }
 
-  ctx.entityTraits.set(entity, new Set());
+  // Spawn is create then add in argument order. A trait that throws leaves the earlier ones in place.
   addTraitsToAliveEntity(ctx, entity, traits);
 
   /* @cold */ if (
@@ -161,14 +164,17 @@ export /* @inline @pure */ function getEntityContext(entity: Entity): WorldConte
 export /* @inline */ function entityHas(
   ctx: WorldContext,
   entity: Entity,
-  trait: Trait | RelationPair
+  trait: Trait | RelationPair | NameConfig
 ): boolean {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
-  if (!isRelationPair(trait)) return hasTrait(ctx, entity, trait);
-  return hasEntityRelationPair(ctx, entity, trait);
+  if (typeof trait !== 'function') /* @cold */ {
+    if (isNameConfig(trait)) return ctx.names.get(trait[1]) === entity;
+    return hasEntityRelationPair(ctx, entity, trait);
+  }
+  return hasTrait(ctx, entity, trait);
 }
 
 /**

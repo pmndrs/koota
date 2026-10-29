@@ -49,6 +49,10 @@ const id = entity.id()
 // Return number
 const generation = entity.generation()
 
+// Get the entity's name if it has the Name trait
+// Return string | undefined
+const name = entity.name()
+
 // Destroys the entity making its number no longer valid
 entity.destroy()
 ```
@@ -60,3 +64,44 @@ const { entityId, generation, worldId } = unpackEntity(entity)
 ```
 
 See [assertion configuration](asserts.md) for development checks and production overrides.
+
+## Named entities
+
+`Name` holds a non-empty string, unique within its world.
+
+```js
+import { createQuery, Name } from 'koota'
+
+const player = world.spawn(Name('player'), Position)
+player.get(Name) // 'player'
+player.name() // 'player'
+player.has(Name('player')) // true
+world.lookup('player') // player
+
+player.set(Name, 'hero')
+world.lookup('player') // undefined
+world.lookup('hero') // player
+
+world.query(Name, Position) // All named entities with Position
+world.queryFirst(Name('hero'), Position) // player
+
+const Hero = createQuery(Name('hero'), Position)
+world.query(Hero)
+world.onQueryAdd(Hero, (entity) => {})
+```
+
+Taken names are refused and throw `[NAME_TAKEN]` with [assertions](./asserts.md) enabled. Guard expected conflicts:
+
+```js
+const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
+```
+
+In `updateEach`, replace the string in the callback tuple:
+
+```js
+world.query(Name('hero'), Name).updateEach((state) => {
+  state[0] = 'champion'
+})
+```
+
+Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Direct store or page writes bypass name lookups and query updates, so use `set` or `updateEach` to rename.

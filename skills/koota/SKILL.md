@@ -183,6 +183,35 @@ entity.id() // Just the entity ID (reused after destroy)
 entity // Full packed number (unique forever)
 ```
 
+**Named entities**
+
+`Name` is an atomic trait holding a non-empty string, unique per world.
+
+```typescript
+const player = world.spawn(Name('player'), Position)
+player.get(Name) // 'player'
+player.name() // 'player'
+player.has(Name('player')) // true
+world.lookup('player') // player
+
+player.set(Name, 'hero')
+world.lookup('player') // undefined
+world.lookup('hero') // player
+
+// Find or create
+const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
+
+const Hero = createQuery(Name('hero'), Position)
+world.query(Hero)
+world.onQueryAdd(Hero, (entity) => {})
+
+world.query(Name('hero'), Name).updateEach((state) => {
+  state[0] = 'champion' // Replace the tuple entry
+})
+```
+
+Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Prefer `set` to rename. Direct store or page writes bypass the name index and query updates.
+
 **Typing**
 
 Use `TraitRecord` to get the type that `entity.get()` returns
@@ -225,6 +254,8 @@ world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 Prefer `updateEach`/`readEach` over `for...of` + `entity.get()` for data-bearing queries. `readEach` still gives you the entity as the second argument.
 
 The callback's state array, SoA records and tuple arrays are reused and only valid during the callback. Copy records and tuple arrays before retaining them, or call `entity.get(Trait)` for an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
+
+A thrown error aborts `updateEach` without rollback or guaranteed delivery of pending change notifications.
 
 **Note:** `updateEach`/`readEach` only return data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
 

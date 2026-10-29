@@ -515,6 +515,35 @@ world.onAdd(ChildOf(parent), (entity, target) => {})
 world.onAdd(ChildOf('*'), (entity, target) => {})
 ```
 
+### Named entities
+
+`Name` is an atomic trait holding a non-empty string, unique within its world.
+
+```js
+import { Name } from 'koota'
+
+const player = world.spawn(Name('player'), Position)
+world.lookup('player') // player, or undefined if absent
+player.get(Name) // 'player'
+player.name() // 'player'
+player.has(Name('player')) // true
+
+player.set(Name, 'hero')
+world.lookup('player') // undefined
+world.lookup('hero') // player
+
+world.query(Name('hero'), Position) // Filter by name
+world.query(Name, Position) // All named entities with Position
+```
+
+Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Look up first to find or create:
+
+```js
+const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
+```
+
+Removing `Name` or destroying the entity frees its name. Use `set` or `updateEach` to rename so lookups and subscriptions stay current.
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
@@ -680,7 +709,7 @@ By default, `updateEach` will automatically turn on change detection for traits 
 // Setting changeDetection to 'never' will silence it, triggering no change events
 world.query(Position, Velocity).updateEach(([position, velocity]) => {}, { changeDetection: 'never' })
 
-// Setting changeDetection to 'always' will ignore selective tracking and always emit change events for all traits that are mutated
+// Setting changeDetection to 'always' emits change events for every accepted write, even unchanged values
 world
   .query(Position, Velocity)
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
@@ -837,6 +866,11 @@ const entities = world.query(Position)
 // Return Entity
 const entity = world.queryFirst(Position)
 
+// Get the entity with a unique name, see Named entities
+// Accepts a string
+// Return Entity | undefined
+const player = world.lookup('player')
+
 // The trait API is identical to entity's
 
 // Add a trait to the world
@@ -947,6 +981,10 @@ const id = entity.id()
 // Get the entity generation
 // Return number
 const generation = entity.generation()
+
+// Get the entity's name if it has the Name trait
+// Return string | undefined
+const name = entity.name()
 
 // Destroys the entity making its number no longer valid
 entity.destroy()

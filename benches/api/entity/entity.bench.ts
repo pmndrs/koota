@@ -1,5 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait, type Entity } from 'koota';
+import { createWorld, Name, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ x: 0, y: 0, z: 0 });
@@ -27,7 +27,7 @@ group('entity mutations 10k @entity @mutation', () => {
   });
 });
 
-group('spawn throughput 10k @entity @lifecycle', () => {
+group('spawn throughput 10k @entity @lifecycle @spawn', () => {
   bench('spawn with no traits', function* () {
     const world = createWorld();
 
@@ -59,9 +59,41 @@ group('spawn throughput 10k @entity @lifecycle', () => {
 
     world.destroy();
   });
+
+  bench('spawn with 8 traits', function* () {
+    const world = createWorld();
+    const traits = Array.from({ length: 8 }, () => trait({ value: 0 }));
+
+    yield {
+      bench: () => {
+        for (let i = 0; i < 10_000; i++) world.spawn(...traits);
+      },
+      snapshot: () => world.query(...traits).length,
+      after: () => world.reset(),
+    };
+
+    world.destroy();
+  });
 });
 
-group('entity.has dispatch 10k @entity', () => {
+group('entity.has dispatch 10k @entity @has', () => {
+  bench('entity.has Name', function* () {
+    const world = createWorld();
+    const names = Array.from({ length: 10_000 }, (_, i) => Name(`object-${i}`));
+    const entities = names.map((name) => world.spawn(name));
+
+    const result = yield () => {
+      let matches = 0;
+      for (let i = 0; i < entities.length; i++) {
+        if (entities[i].has(names[i])) matches++;
+      }
+      return matches;
+    };
+
+    world.destroy();
+    return result;
+  });
+
   bench('entity.has (true)', function* () {
     const world = createWorld();
     const entities: Entity[] = [];

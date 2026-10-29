@@ -10,6 +10,7 @@ import {
 } from '../entity/utils/entity-index';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
+import { findNamedEntity } from '../name/find-named-entity';
 import {
   IsExcluded,
   createQueryInstance,
@@ -17,7 +18,7 @@ import {
   resolveQueryInstanceFromRef,
   runQueryFirst,
 } from '../query/query';
-import { createRelationOnlyQueryResult } from '../query/query-result';
+import { createQueryResult, createRelationOnlyQueryResult } from '../query/query-result';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
@@ -61,7 +62,7 @@ function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): voi
 
   const pending = ctx.pendingTraits;
   ctx.pendingTraits = undefined;
-  ctx.worldEntity = createEntity(ctx, IsExcluded, ...(pending || []));
+  ctx.worldEntity = createEntity(ctx, [IsExcluded, ...(pending || [])]);
 }
 
 export function createWorld(...traits: ConfigurableTrait[]): World {
@@ -79,12 +80,14 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
       entityTraits: new Map(),
+      names: new Map(),
       bitflag: 1,
       traitInstances: [],
       traits: new Set<Trait>(),
       relations: new Set(),
       queriesHashMap: new Map(),
       queryInstances: [],
+      iterationBuffers: undefined,
       actionInstances: [],
       notQueries: new Set(),
       targetQueries: [],
@@ -104,12 +107,14 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ...(assertsEnabled ? { structuralRevision: 0 } : {}),
     } as WorldContext,
 
-    traits: null! as Set<Trait>,
-
     spawn(...spawnTraits: ConfigurableTrait[]): Entity {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx, world, id);
-      return createEntity(ctx, ...spawnTraits);
+      return createEntity(ctx, spawnTraits);
+    },
+
+    lookup(name: string): Entity | undefined {
+      return world[$internal].names.get(name);
     },
 
     has(target: Entity | Trait): boolean {
@@ -178,6 +183,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
 
       ctx.entityTraits.clear();
+      ctx.names.clear();
       ctx.entityMasks = [createEmptyMaskGeneration()];
       ctx.bitflag = 1;
 
@@ -193,6 +199,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
       ctx.queriesHashMap.clear();
       ctx.queryInstances.length = 0;
+      ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();
       ctx.notQueries.clear();
@@ -205,7 +212,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       }
       ctx.entitySubscribedInstances.clear();
 
-      ctx.worldEntity = createEntity(ctx, IsExcluded);
+      ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 
       for (const sub of ctx.resetSubscriptions) {
         sub();
@@ -250,6 +257,13 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
           }
         }
 
+        const named = findNamedEntity(ctx, params);
+        if (named !== null) {
+          return named === undefined
+            ? createRelationOnlyQueryResult([])
+            : createQueryResult(ctx, [named], null, params);
+        }
+
         const hash = createQueryHash(params);
         let query = ctx.queriesHashMap.get(hash);
 
@@ -277,6 +291,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
           );
         }
       }
+
+      const named = findNamedEntity(ctx, args as QueryParameter[]);
+      if (named !== null) return named;
 
       return runQueryFirst(ctx, resolveQueryInstance(ctx, args as QueryParameter[]));
     },
@@ -439,6 +456,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
   // Register FR (only unobservable side effect of createWorld).
   universe.pageAllocator.worldFinalizer.register(world, cleanupToken, world);
 
+  // Accessors are added after the literal. Redefining a literal data property
+  // as a getter would drop the world into V8 dictionary mode.
   Object.defineProperty(world, 'traits', {
     get: () => world[$internal].traits,
     enumerable: true,

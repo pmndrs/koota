@@ -1,3 +1,4 @@
+import type { NameConfig } from '../name/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
   ConfigurableTrait,
@@ -32,7 +33,7 @@ type EntityHook = {
 export type Entity = number & {
   add: (...traits: ConfigurableTrait[]) => void;
   remove: (...traits: (Trait | RelationPair)[]) => void;
-  has: (trait: Trait | RelationPair) => boolean;
+  has: (trait: Trait | RelationPair | NameConfig) => boolean;
   destroy: () => void;
   changed: (trait: Trait) => void;
   set: <T extends Trait | RelationPair>(
@@ -51,6 +52,7 @@ export type Entity = number & {
   onRemove: EntityHook;
   onChange: EntityHook;
   id: () => number;
+  name: () => string | undefined;
   generation: () => number;
   isAlive: () => boolean;
 };

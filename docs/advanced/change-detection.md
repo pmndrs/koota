@@ -9,14 +9,16 @@ nav: 12
 By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.
 
 ```js
-// Setting changeDetection to 'never' will silence it, triggering no change events
+// Suppress change notifications
 world.query(Position, Velocity).updateEach(([position, velocity]) => {}, { changeDetection: 'never' })
 
-// Setting changeDetection to 'always' will ignore selective tracking and always emit change events for all traits that are mutated
+// Notify for every accepted write, including unchanged values
 world
   .query(Position, Velocity)
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
 ```
+
+A thrown error aborts `updateEach`. Earlier writes remain committed, and pending change notifications are not guaranteed.
 
 Change detection shallowly compares the scalar values just like React. Tuples are stored by value and compared per element, so mutating one in place is detected. Other objects and arrays will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually flag that a change has occurred.
 

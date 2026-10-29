@@ -5,6 +5,7 @@ import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
   Query,
   QueryInstance,
+  QueryIterationBuffers,
   QueryParameter,
   QueryResult,
   QueryUnsubscriber,
@@ -25,12 +26,14 @@ export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   entityMasks: Uint32Array[][];
   entityTraits: Map<number, Set<Trait>>;
+  names: Map<string, Entity>;
   bitflag: number;
   traitInstances: (TraitInstance | undefined)[];
   traits: Set<Trait>;
   relations: Set<Relation<Trait>>;
   queriesHashMap: Map<string, QueryInstance>;
   queryInstances: (QueryInstance | undefined)[];
+  iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];
   notQueries: Set<QueryInstance>;
   /** Queries indexed by target entity page and offset. */
@@ -58,6 +61,7 @@ export type World = {
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
   spawn(...traits: ConfigurableTrait[]): Entity;
+  lookup(name: string): Entity | undefined;
   has(entity: Entity): boolean;
   has(trait: Trait): boolean;
   has(target: Entity | Trait): boolean;
