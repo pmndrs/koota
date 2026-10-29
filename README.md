@@ -517,26 +517,32 @@ world.onAdd(ChildOf('*'), (entity, target) => {})
 
 ### Named entities
 
-Koota exports a `Name` trait that gives an entity a unique name within its world. An entity can then be filtered by name with `Name('name')` or looked up directly with `world.lookup('name')`.
+`Name` is an atomic trait holding a non-empty string, unique within its world.
 
 ```js
-import { createQuery, Name } from 'koota'
+import { Name } from 'koota'
 
-// Only matches an entity named 'player' with a Position trait
 const player = world.spawn(Name('player'), Position)
-
-world.lookup('player') // Returns player, or undefined if no entity has the name
+world.lookup('player') // player, or undefined if absent
+player.get(Name) // 'player'
 player.name() // 'player'
 player.has(Name('player')) // true
-```
 
-Spawning or renaming to a name another entity holds throws, and the name is freed again when the trait is removed or the entity is destroyed. Rename through `set` or `updateEach`. Both keep name lookups and query subscriptions current. Reading the `Name` column through `getPages()` is safe, but writing it there bypasses these updates and desyncs the index.
-
-```js
-player.set(Name, { value: 'hero' })
+player.set(Name, 'hero')
 world.lookup('player') // undefined
 world.lookup('hero') // player
+
+world.query(Name('hero'), Position) // Filter by name
+world.query(Name, Position) // All named entities with Position
 ```
+
+Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Look up first to find or create:
+
+```js
+const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
+```
+
+Removing `Name` or destroying the entity frees its name. Use `set` or `updateEach` to rename so lookups and subscriptions stay current.
 
 ### Query modifiers
 
@@ -703,7 +709,7 @@ By default, `updateEach` will automatically turn on change detection for traits 
 // Setting changeDetection to 'never' will silence it, triggering no change events
 world.query(Position, Velocity).updateEach(([position, velocity]) => {}, { changeDetection: 'never' })
 
-// Setting changeDetection to 'always' will ignore selective tracking and always emit change events for all traits that are mutated
+// Setting changeDetection to 'always' emits change events for every accepted write, even unchanged values
 world
   .query(Position, Velocity)
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })

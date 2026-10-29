@@ -67,24 +67,41 @@ See [assertion configuration](asserts.md) for development checks and production 
 
 ## Named entities
 
-The built-in `Name` trait gives an entity a unique name within its world. `Name('player')` works in `spawn`, `add`, `has` and `query`, and `world.lookup` resolves a name through an index.
+`Name` holds a non-empty string, unique within its world.
 
 ```js
-import { Name } from 'koota'
+import { createQuery, Name } from 'koota'
 
 const player = world.spawn(Name('player'), Position)
-
-world.lookup('player') // player
+player.get(Name) // 'player'
 player.name() // 'player'
 player.has(Name('player')) // true
+world.lookup('player') // player
 
-// Rename through set or updateEach
-player.set(Name, { value: 'hero' })
+player.set(Name, 'hero')
+world.lookup('player') // undefined
+world.lookup('hero') // player
 
-// Name filters compose with other query parameters
-world.query(Name('hero'), Position)
+world.query(Name, Position) // All named entities with Position
+world.queryFirst(Name('hero'), Position) // player
+
+const Hero = createQuery(Name('hero'), Position)
+world.query(Hero)
+world.onQueryAdd(Hero, (entity) => {})
 ```
 
-Names are unique per world. Taking a name another entity holds throws. The name is freed when the trait is removed or the entity is destroyed. Names can also be changed through `world.query(Name).updateEach`, which keeps the index current. Reading the `Name` column through `getPages()` is safe. Writing it there bypasses the index and query updates, so rename through `set` or `updateEach` instead. Name filters work in `world.query`, `world.queryFirst`, cached queries and query subscriptions. Cached queries follow the current owner of the name in each world. Subscriptions react to renaming, destruction and changes to the other queried traits.
+Taken names are refused and throw `[NAME_TAKEN]` with [assertions](./asserts.md) enabled. Guard expected conflicts:
 
-Names are non-empty strings. Each world stores a Map from name to entity, with no global name registry. Look up an entity by name when needed, or cache the entity itself for repeated access.
+```js
+const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
+```
+
+In `updateEach`, replace the string in the callback tuple:
+
+```js
+world.query(Name('hero'), Name).updateEach((state) => {
+  state[0] = 'champion'
+})
+```
+
+Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Direct store or page writes bypass name lookups and query updates, so use `set` or `updateEach` to rename.

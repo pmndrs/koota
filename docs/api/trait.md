@@ -125,7 +125,7 @@ const store = {
 
 Array of Structures (AoS) are callback-based traits.
 
-When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibility with third party libraries like Three, or class instances in general.
+When using a callback, each entity's trait data is stored as a single value in an array. This is useful for compatibility with third party libraries like Three, class instances, or atomic primitive values.
 
 ```js
 const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }))
@@ -142,9 +142,24 @@ const store = [
 const Mesh = trait(() => new THREE.Mesh())
 ```
 
+Callbacks can also return primitives, as with `Name`:
+
+```js
+const Status = trait(() => 'idle')
+entity.add(Status('ready'))
+entity.get(Status) // 'ready'
+entity.set(Status, 'done')
+
+world.query(Status).updateEach((state) => {
+  state[0] = 'idle' // Replace the tuple entry
+})
+```
+
+Reassigning a destructured string only changes the local variable. See [change detection](../advanced/change-detection.md).
+
 ## Trait record
 
-The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state while when it is AoS the record is a ref to the object inserted there.
+The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state. For AoS, it is the stored value, which can be an object reference or a primitive.
 
 ```js
 // SoA store

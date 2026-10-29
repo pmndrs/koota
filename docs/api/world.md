@@ -19,6 +19,10 @@ World's can also have their own traits, which function as singletons.
 // Return Entity
 const entity = world.spawn()
 
+// Spawn always creates an entity then adds each trait in order
+// A taken name is refused, so look up first to find or create
+const player = world.lookup('player') ?? world.spawn(Name('player'), Position)
+
 // Checks if the world has the entity
 // Return boolean
 const result = world.has(entity)
