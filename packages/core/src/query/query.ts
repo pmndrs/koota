@@ -140,6 +140,7 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
     const trackers = groups[i].trackers;
     const trackersLen = trackers.length;
     for (let j = 0; j < trackersLen; j++) {
+      if (!trackers[j]) continue;
       const page = trackers[j][pageId];
       if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
     }
@@ -244,7 +245,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     const parameter = parameters[i];
 
     if (isNameConfig(parameter)) {
-      const [trait, { value }] = parameter;
+      const [trait, value] = parameter;
       if (query.name === undefined) query.name = value;
       else if (query.name !== value) query.name = null;
       if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);

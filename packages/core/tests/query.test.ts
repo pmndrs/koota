@@ -619,7 +619,7 @@ describe('Query', () => {
     (changeDetection) => {
       const State = trait(() => ({}) as Record<string, number>);
       const first = world.spawn(State({ x: 0, removed: 1 }));
-      world.spawn(State({ x: 0 }));
+      const second = world.spawn(State({ x: 0 }));
       const third = world.spawn(State({ x: 0, kept: 1 }));
       const changed = vi.fn();
       world.onChange(State, changed);
@@ -632,12 +632,17 @@ describe('Query', () => {
         },
         { changeDetection }
       );
-      expect(changed.mock.calls).toEqual([[first], [third]]);
+      expect(changed.mock.calls).toEqual(
+        changeDetection === 'always' ? [[first], [second], [third]] : [[first], [third]]
+      );
 
       changed.mockClear();
       query.updateEach(() => {}, { changeDetection });
-      expect(changed).not.toHaveBeenCalled();
+      expect(changed.mock.calls).toEqual(
+        changeDetection === 'always' ? [[first], [second], [third]] : []
+      );
 
+      changed.mockClear();
       query.updateEach(
         ([state]) => {
           const x = state.x;
@@ -646,7 +651,9 @@ describe('Query', () => {
         },
         { changeDetection }
       );
-      expect(changed).not.toHaveBeenCalled();
+      expect(changed.mock.calls).toEqual(
+        changeDetection === 'always' ? [[first], [second], [third]] : []
+      );
     }
   );
 
@@ -667,6 +674,43 @@ describe('Query', () => {
     expect(notified).toEqual([first, second]);
     expect(first.get(Position)!.x).toBe(11);
     expect(second.get(Position)!.x).toBe(11);
+  });
+
+  it.each([
+    { type: 'string', initial: 'idle', next: 'ready' },
+    { type: 'number', initial: 0, next: 1 },
+    { type: 'boolean', initial: false, next: true },
+    { type: 'nullable', initial: null, next: 'ready' },
+    { type: 'optional', initial: undefined, next: 'ready' },
+  ])('updateEach detects changes to $type atomic values', ({ initial, next }) => {
+    const Value = trait(() => initial);
+    const Position = trait(() => ({ x: 0 }));
+    const entity = world.spawn(Value, Position);
+    const valueChanged = vi.fn();
+    const positionChanged = vi.fn();
+    world.onChange(Value, valueChanged);
+    world.onChange(Position, positionChanged);
+    const query = world.query(Value, Position);
+
+    query.updateEach(([, position]) => {
+      position.x++;
+    });
+
+    expect(entity.get(Value)).toBe(initial);
+    expect(valueChanged).not.toHaveBeenCalled();
+    expect(positionChanged).toHaveBeenCalledExactlyOnceWith(entity);
+
+    query.updateEach((state) => {
+      state[0] = next;
+    });
+
+    expect(entity.get(Value)).toBe(next);
+    expect(valueChanged).toHaveBeenCalledExactlyOnceWith(entity);
+    expect(positionChanged).toHaveBeenCalledTimes(1);
+
+    query.updateEach(() => {});
+    expect(valueChanged).toHaveBeenCalledTimes(1);
+    expect(positionChanged).toHaveBeenCalledTimes(1);
   });
 
   it('updateEach tracks mixed atomic traits when subscriptions change between calls', () => {

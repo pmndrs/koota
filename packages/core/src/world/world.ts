@@ -62,7 +62,7 @@ function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): voi
 
   const pending = ctx.pendingTraits;
   ctx.pendingTraits = undefined;
-  ctx.worldEntity = createEntity(ctx, IsExcluded, ...(pending || []));
+  ctx.worldEntity = createEntity(ctx, [IsExcluded, ...(pending || [])]);
 }
 
 export function createWorld(...traits: ConfigurableTrait[]): World {
@@ -109,7 +109,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     spawn(...spawnTraits: ConfigurableTrait[]): Entity {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx, world, id);
-      return createEntity(ctx, ...spawnTraits);
+      return createEntity(ctx, spawnTraits);
     },
 
     lookup(name: string): Entity | undefined {
@@ -210,7 +210,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       }
       ctx.entitySubscribedInstances.clear();
 
-      ctx.worldEntity = createEntity(ctx, IsExcluded);
+      ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 
       for (const sub of ctx.resetSubscriptions) {
         sub();

@@ -28,23 +28,18 @@ import { EMPTY_MASK_PAGE } from './utils/paged-mask';
 // Ensure entity methods are patched.
 import './entity-methods-patch';
 
-export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]): Entity {
+export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
-  for (const query of ctx.notQueries) {
-    const match = query.check(ctx, entity);
-    if (match) query.add(entity);
-    query.resetTrackingBitmasks(getEntityId(entity));
-  }
-
   ctx.entityTraits.set(entity, new Set());
 
-  // A trait that rejects its value must not leave a half-built entity in the world.
-  try {
-    addTraitsToAliveEntity(ctx, entity, traits);
-  } catch (error) {
-    destroyEntity(ctx, entity);
-    throw error;
+  // Tracking queries enter on trait events. Static exclusion queries need an initial match.
+  for (const query of ctx.notQueries) {
+    query.resetTrackingBitmasks(getEntityId(entity));
+    if (!query.isTracking && query.check(ctx, entity)) query.add(entity);
   }
+
+  // Spawn is create then add in argument order. A trait that throws leaves the earlier ones in place.
+  addTraitsToAliveEntity(ctx, entity, traits);
 
   /* @cold */ if (
     ctx.entitySpawnSubscriptions.size > 0 &&
@@ -176,7 +171,7 @@ export /* @inline */ function entityHas(
     assertEntityAlive(ctx, entity);
   }
 
-  if (isNameConfig(trait)) return ctx.names.get(trait[1].value) === entity;
+  if (isNameConfig(trait)) return ctx.names.get(trait[1]) === entity;
   if (!isRelationPair(trait)) return hasTrait(ctx, entity, trait);
   return hasEntityRelationPair(ctx, entity, trait);
 }

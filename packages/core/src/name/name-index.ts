@@ -1,3 +1,5 @@
+import { assertsEnabled } from '../assert-config';
+import { createNameTakenError } from '../asserts';
 import type { Brand } from '../common';
 import type { Entity } from '../entity/types';
 import type { TraitInstance } from '../trait/types';
@@ -21,36 +23,38 @@ export function validateName(value: unknown): asserts value is string {
   }
 }
 
-export type NameStore = {
-  value: (string | undefined)[][];
-};
+export type NameStore = string[][];
 
-/** Claims the new name before releasing the old one so collisions leave it intact. */
-export function claimName(ctx: WorldContext, store: NameStore, eid: number, name: unknown): boolean {
+/** Validate ownership without changing the column or name index. */
+export function validateNameAssignment(ctx: WorldContext, eid: number, name: string): boolean {
   const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[eid]];
   validateName(name);
   const owner = ctx.names.get(name);
-  if (owner === entity) return false;
-  if (owner !== undefined) {
-    throw new Error(`Koota: The name "${name}" is already taken by another entity.`);
+  if (owner !== undefined && owner !== entity) {
+    if (assertsEnabled) throw createNameTakenError(name, owner);
+    return false;
   }
+  return true;
+}
 
-  const page = (store.value[eid >>> 10] ??= []);
+/** Rename an attached trait in the column and lookup index together. */
+export function renameName(ctx: WorldContext, store: NameStore, eid: number, name: string): boolean {
+  const page = (store[eid >>> 10] ??= []);
   const previous = page[eid & 1023];
+  if (previous === name) return false;
+  const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[eid]];
   if (previous !== undefined) ctx.names.delete(previous);
   ctx.names.set(name, entity);
   page[eid & 1023] = name;
   return true;
 }
 
-/** Frees the entity's name on removal or destruction. */
+/** Release ownership while retaining stored data for Removed queries. */
 export function releaseName(ctx: WorldContext, eid: number, store: NameStore): void {
-  const page = store.value[eid >>> 10];
+  const page = store[eid >>> 10];
   const name = page?.[eid & 1023];
   if (name === undefined) return;
   ctx.names.delete(name);
-  // Assigning keeps the page array dense where delete would make it holey.
-  page[eid & 1023] = undefined;
 }
 
 /** Renaming changes query membership even though the Name trait stays attached. */

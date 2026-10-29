@@ -25,8 +25,8 @@ export function queryByName<T extends QueryParameter[]>(
     const param = params[i];
     if (!isNameConfig(param)) continue;
     // Two different names can never match the same entity.
-    if (name !== undefined && name !== param[1].value) return createRelationOnlyQueryResult([]);
-    name = param[1].value;
+    if (name !== undefined && name !== param[1]) return createRelationOnlyQueryResult([]);
+    name = param[1];
   }
 
   if (name === undefined) return undefined;

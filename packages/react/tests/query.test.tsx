@@ -81,7 +81,7 @@ describe('useQuery', () => {
     });
     expect([...result.current]).toEqual([player!]);
     await act(async () => {
-      player!.set(Name, { value: 'hero' });
+      player!.set(Name, 'hero');
     });
     expect(result.current).toHaveLength(0);
     await act(async () => {

@@ -18,9 +18,13 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
  * The core owns membership, queries, revisions and events. Accessors must not re-enter it.
  */
 export type TraitAccessors<S extends Schema = any> = {
-  /** Initialize while membership is absent. On failure, undo any partial writes or indexes. */
+  /** Check complete candidate state before any storage or membership changes. */
+  validate?(ctx: WorldContext, index: number, value: TraitRecord<S>): boolean | void;
+  /**
+   * Initialize while membership is absent. On failure, undo any partial writes or indexes.
+   */
   add(ctx: WorldContext, index: number, store: Store<S>, value?: TraitValue<S>): void;
-  /** Runs only for members, whose pages add created. Validate before writing and preserve state on failure. Return whether this call changed it. */
+  /** Runs only for members. Commit validated state and return whether this call changed it. */
   set(ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
   /** Runs only for members. Read without side effects. SoA returns a snapshot with copied tuples and AoS returns the stored value. */
   get(ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;

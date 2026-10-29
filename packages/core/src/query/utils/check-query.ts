@@ -24,7 +24,6 @@ export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Enti
     const or = bitmask.or;
     const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
 
-    if (!forbidden && !required && !or) return false;
     if (forbidden && (entityMask & forbidden) !== 0) return false;
     if (required && (entityMask & required) !== required) return false;
     if (or !== 0 && (entityMask & or) === 0) return false;

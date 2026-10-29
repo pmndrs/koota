@@ -2,7 +2,10 @@ import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { isEntityAlive } from '../../entity/utils/entity-index';
 import { ENTITY_ID_MASK } from '../../entity/utils/pack-entity';
+import { isNameTrait, refreshNamedQueries } from '../../name/name-index';
 import type { Store } from '../../storage';
+import { hasTrait } from '../../trait/trait';
+import { getTraitInstance } from '../../trait/trait-instance';
 import type { Trait } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import type { QueryIterationBuffers } from '../types';
@@ -95,16 +98,22 @@ function compileQueryIterators(traits: Trait[]): QueryIterators {
       read.push(`state[${j}] = g${j}(ctx, eid, s${j});`);
     }
 
-    write.push(`w${j}(ctx, eid, s${j}, state[${j}]);`);
+    const writeCall = traitCtx.validate
+      ? `writeValidatedTrait(ctx, entity, eid, T${j}, s${j}, state[${j}])`
+      : `w${j}(ctx, eid, s${j}, state[${j}])`;
+    write.push(`${writeCall};`);
+    const accepted = traitCtx.validate ? `c${j} !== undefined && ` : '';
+    const result = traitCtx.validate ? `c${j}` : writeCall;
+    if (traitCtx.validate) track.push(`var c${j} = ${writeCall};`);
     if (isSoA) {
       track.push(
-        `if (w${j}(ctx, eid, s${j}, state[${j}]) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+        `if (${accepted}(${result} || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
       );
     } else {
       // An atomic value mutated in place is the same reference, so compare its snapshot.
       snapshot.push(`if (m${j} === 2) snapshotAtomic(state[${j}], snapshots, ${j});`);
       track.push(
-        `if (w${j}(ctx, eid, s${j}, state[${j}]) ? m${j} !== 0 : m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}])) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+        `if (${accepted}(${result} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}]))) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
       );
     }
   }
@@ -125,6 +134,7 @@ function compileQueryIterators(traits: Trait[]): QueryIterators {
     'isEntityAlive',
     'snapshotAtomic',
     'atomicChanged',
+    'writeValidatedTrait',
     `'use strict';
   ${bind.join('\n  ')}
   return {
@@ -150,7 +160,37 @@ function compileQueryIterators(traits: Trait[]): QueryIterators {
       ${release.join('\n      ')}
     },
   };`
-  )(accessors, traits.slice(), isEntityAlive, snapshotAtomic, atomicChanged) as QueryIterators;
+  )(
+    accessors,
+    traits.slice(),
+    isIterationEntityAlive,
+    snapshotAtomic,
+    atomicChanged,
+    writeValidatedTrait
+  ) as QueryIterators;
+}
+
+function isIterationEntityAlive(index: WorldContext['entityIndex'], entity: Entity): boolean {
+  return isEntityAlive(index, entity);
+}
+
+/** Validate before writeback, then reconcile queries outside the storage accessor. */
+function writeValidatedTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  eid: number,
+  trait: Trait,
+  store: Store<any>,
+  value: any
+): boolean | undefined {
+  const traitCtx = trait[$internal];
+  if (!isEntityAlive(ctx.entityIndex, entity) || !hasTrait(ctx, entity, trait)) return;
+  if (traitCtx.validate!(ctx, eid, value) === false) return;
+  const changed = traitCtx.set(ctx, eid, store, value);
+  if (changed && isNameTrait(trait)) {
+    refreshNamedQueries(ctx, entity, getTraitInstance(ctx.traitInstances, trait)!);
+  }
+  return changed;
 }
 
 // hasOwnProperty.call inside for-in hits a V8 fast path that Object.hasOwn does not.
@@ -159,6 +199,7 @@ function snapshotAtomic(
   snapshots: QueryIterationBuffers['atomicSnapshots'],
   index: number
 ) {
+  if (typeof value !== 'object' || value === null) return;
   const snapshot = (snapshots[index] ??= { keys: [], values: [], count: 0 });
   let count = 0;
   for (const key in value) {
@@ -170,7 +211,7 @@ function snapshotAtomic(
 }
 
 function atomicChanged(value: any, snapshot: QueryIterationBuffers['atomicSnapshots'][number]) {
-  if (typeof value !== 'object' || value === null) return true;
+  if (typeof value !== 'object' || value === null) return false;
   let count = 0;
   for (const key in value) {
     if (!Object.prototype.hasOwnProperty.call(value, key)) continue;

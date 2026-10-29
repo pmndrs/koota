@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import {
+  createAdded,
   createChanged,
   createQuery,
+  createRemoved,
   createWorld,
   IsExcluded,
   Name,
@@ -9,6 +11,9 @@ import {
   relation,
   trait,
   type Entity,
+  type NameConfig,
+  type Trait,
+  type TraitRecord,
 } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
@@ -29,7 +34,7 @@ describe('Name', () => {
     expect(player.has(Name)).toBe(true);
     expect(player.has(Name('player'))).toBe(true);
     expect(player.has(Name('enemy'))).toBe(false);
-    expect(player.get(Name)).toEqual({ value: 'player' });
+    expect(player.get(Name)).toBe('player');
   });
 
   it('names an entity after spawn with add', () => {
@@ -39,6 +44,38 @@ describe('Name', () => {
     expect(world.lookup('boss')).toBe(entity);
   });
 
+  it('uses the string atomic trait constructor and setter contract', () => {
+    const construct = (Value: Trait<() => string>, value: string) => Value(value);
+    const player = world.spawn(construct(Name, 'player'));
+
+    expectTypeOf<TraitRecord<typeof Name>>().toEqualTypeOf<string>();
+    expectTypeOf<ReturnType<typeof Name>>().toEqualTypeOf<NameConfig>();
+    expectTypeOf(player.get(Name)).toEqualTypeOf<string | undefined>();
+    expect(player.get(Name)).toBe('player');
+
+    player.set(Name, (name) => {
+      expectTypeOf(name).toEqualTypeOf<string>();
+      return `${name}-renamed`;
+    });
+
+    expect(player.get(Name)).toBe('player-renamed');
+    expect(world.lookup('player')).toBeUndefined();
+    expect(world.lookup('player-renamed')).toBe(player);
+  });
+
+  it('sets string names on the world entity', () => {
+    world.add(Name('scene'));
+    const scene = world.lookup('scene');
+    expect(scene).toBeDefined();
+
+    world.set(Name, 'level');
+
+    expect(world.get(Name)).toBe('level');
+    expect(world.lookup('scene')).toBeUndefined();
+    expect(world.lookup('level')).toBe(scene);
+    expect(() => world.spawn(Name('level'))).toThrow(/NAME_TAKEN/);
+  });
+
   it('returns undefined for unknown names and unnamed entities', () => {
     const entity = world.spawn();
 
@@ -46,22 +83,44 @@ describe('Name', () => {
     expect(entity.name()).toBeUndefined();
   });
 
-  it('throws when a name is already taken', () => {
+  it('throws when spawning with a taken name', () => {
     const first = world.spawn(Name('player'));
 
-    expect(() => world.spawn(Name('player'))).toThrow(/already taken/);
+    expect(() => world.spawn(Name('player'))).toThrow(/NAME_TAKEN/);
     expect(world.lookup('player')).toBe(first);
-    expect(world.entities.filter((e) => e.has(Name)).length).toBe(1);
+    expect([...world.query(Name)]).toEqual([first]);
+  });
+
+  it('adds spawn traits in order and keeps the ones before a taken name', () => {
+    const first = world.spawn(Name('player'));
+
+    expect(() => world.spawn(Position, Name('player'), IsEnemy)).toThrow(/NAME_TAKEN/);
+    expect(world.lookup('player')).toBe(first);
+    expect(world.query(Position).length).toBe(1);
+    expect(world.query(IsEnemy).length).toBe(0);
+  });
+
+  it('rejects adding a taken name to a different entity', () => {
+    const player = world.spawn(Name('player'));
+    const other = world.spawn();
+
+    expect(() => other.add(Name('player'))).toThrow(/NAME_TAKEN/);
+    expect(other.has(Name)).toBe(false);
+    expect(world.lookup('player')).toBe(player);
   });
 
   it('throws on an empty name', () => {
     expect(() => world.spawn(Name(''))).toThrow(/non-empty/);
     expect(() => world.spawn(Name)).toThrow(/non-empty/);
+    const player = world.spawn(Name('player'));
+    expect(() => player.set(Name, '')).toThrow(/non-empty/);
+    expect(player.get(Name)).toBe('player');
+    expect(world.lookup('player')).toBe(player);
   });
 
   it('renames through set', () => {
     const entity = world.spawn(Name('player'));
-    entity.set(Name, { value: 'hero' });
+    entity.set(Name, 'hero');
 
     expect(world.lookup('player')).toBeUndefined();
     expect(world.lookup('hero')).toBe(entity);
@@ -71,17 +130,33 @@ describe('Name', () => {
   it('throws when setting Name on an entity without the trait', () => {
     const entity = world.spawn();
 
-    expect(() => entity.set(Name, { value: 'ghost' })).toThrow(/Add the trait/);
+    expect(() => entity.set(Name, 'ghost')).toThrow(/Add the trait/);
     expect(world.lookup('ghost')).toBeUndefined();
   });
 
+  it.each(['remove', 'destroy'] as const)(
+    'does not notify a name change after a query callback performs %s',
+    (action) => {
+      const entity = world.spawn(Name('player'));
+      const changed: Entity[] = [];
+      world.onQueryAdd([Name('hero')], (entity) => {
+        if (action === 'remove') entity.remove(Name);
+        else entity.destroy();
+      });
+      world.onChange(Name, (entity) => changed.push(entity));
+      entity.set(Name, 'hero');
+      expect(changed).toEqual([]);
+      expect(world.lookup('hero')).toBeUndefined();
+    }
+  );
+
   it('frees the old name so another entity can take it', () => {
     const first = world.spawn(Name('player'));
-    first.set(Name, { value: 'hero' });
+    first.set(Name, 'hero');
     const second = world.spawn(Name('player'));
 
     expect(world.lookup('player')).toBe(second);
-    expect(() => second.set(Name, { value: 'hero' })).toThrow(/already taken/);
+    expect(() => second.set(Name, 'hero')).toThrow(/NAME_TAKEN/);
     expect(second.name()).toBe('player');
     expect(world.lookup('player')).toBe(second);
     expect(world.lookup('hero')).toBe(first);
@@ -100,13 +175,68 @@ describe('Name', () => {
     expect(world.lookup('player')).toBe(third);
   });
 
-  it('destroys the entity when spawn fails on a taken name', () => {
-    world.spawn(Name('player'));
-    const count = world.entities.length;
-    expect(() => world.spawn(Position, Name('player'))).toThrow(/already taken/);
-    expect(world.query(Position).length).toBe(0);
-    expect(world.entities.length).toBe(count);
+  it.each(['remove', 'destroy'] as const)(
+    'retains name data for Removed queries after %s',
+    (action) => {
+      const Removed = createRemoved();
+      const player = world.spawn(Name('player'));
+      world.query(Removed(Name));
+      const beforeRemoval: string[] = [];
+      player.onRemove(Name, (entity) => {
+        expect(entity.has(Name)).toBe(true);
+        expect(world.lookup('player')).toBe(entity);
+        beforeRemoval.push(entity.get(Name)!);
+      });
+
+      if (action === 'remove') player.remove(Name);
+      else player.destroy();
+
+      expect(beforeRemoval).toEqual(['player']);
+      expect(world.lookup('player')).toBeUndefined();
+      if (action === 'remove') {
+        expect(player.get(Name)).toBeUndefined();
+        expect(player.has(Name)).toBe(false);
+      }
+      const removed = world.query(Removed(Name));
+      expect([...removed]).toEqual([player]);
+      const names: string[] = [];
+      removed.readEach(([name]) => names.push(name));
+      expect(names).toEqual(['player']);
+    }
+  );
+
+  it('reclaims the same name when the trait is reattached', () => {
+    const player = world.spawn(Name('player'));
+    player.remove(Name);
+    player.add(Name('player'));
+
+    expect(player.get(Name)).toBe('player');
+    expect(world.lookup('player')).toBe(player);
+    expect(world.queryFirst(Name('player'))).toBe(player);
   });
+
+  it.each(['remove', 'destroy'] as const)(
+    'preserves a reassigned name when initializing storage after %s',
+    (action) => {
+      const first = world.spawn(Name('player'));
+      const owner = world.spawn();
+      if (action === 'remove') first.remove(Name);
+      else first.destroy();
+      owner.add(Name('player'));
+
+      let next = first;
+      if (action === 'remove') next.add(Name('hero'));
+      else next = world.spawn(Name('hero'));
+
+      expect(next.id()).toBe(first.id());
+      expect(owner.get(Name)).toBe('player');
+      expect(world.lookup('player')).toBe(owner);
+      expect(next.get(Name)).toBe('hero');
+      expect(world.lookup('hero')).toBe(next);
+      expect(() => next.set(Name, 'player')).toThrow(/NAME_TAKEN/);
+      expect(world.lookup('hero')).toBe(next);
+    }
+  );
 
   it('excludes IsExcluded entities from name-only queries', () => {
     world.spawn(Name('player'), Position, IsExcluded);
@@ -249,6 +379,44 @@ describe('Name', () => {
     unsubscribe();
   });
 
+  it('does not inherit tracked changes when a named entity is replaced', () => {
+    const Changed = createChanged();
+    const player = world.spawn(Name('player'), Position);
+    world.query(Name('player'), Changed(Position));
+    player.set(Position, { x: 1 });
+    player.destroy();
+
+    const replacement = world.spawn(Name('player'), Position);
+
+    expect(world.lookup('player')).toBe(replacement);
+    expect([...world.query(Name('player'), Changed(Position))]).toEqual([]);
+  });
+
+  it.each([
+    { event: 'added', createTracking: createAdded },
+    { event: 'changed', createTracking: createChanged },
+    { event: 'removed', createTracking: createRemoved },
+  ])('filters $event events by name after many traits are registered', ({ createTracking }) => {
+    const player = world.spawn(Name('player'));
+    world.spawn(...Array.from({ length: 31 }, () => trait()));
+    const Track = createTracking();
+
+    player.add(Position);
+    player.set(Position, { x: 1 });
+    if (createTracking === createRemoved) player.remove(Position);
+
+    expect([...world.query(Name('player'), Track(Position))]).toEqual([player]);
+    expect([...world.query(Name('player'), Track(Position))]).toEqual([]);
+
+    player.remove(Position);
+    player.add(Position);
+    player.set(Position, { x: 2 });
+    if (createTracking === createRemoved) player.remove(Position);
+
+    expect([...world.query(Name('player'), Track(Position))]).toEqual([player]);
+    expect([...world.query(Name('player'), Track(Position))]).toEqual([]);
+  });
+
   it('queries all named entities with the bare trait', () => {
     world.spawn(Name('a'));
     world.spawn(Name('b'));
@@ -293,28 +461,30 @@ describe('Name', () => {
       world.onQueryRemove(query, () => events.push('remove'));
       world.onQueryAdd([Name('hero')], () => events.push('add'));
       world.onChange(Name, (entity) => {
-        expect(world.lookup('hero')).toBe(entity);
+        expect(world.lookup(entity.name()!)).toBe(entity);
         events.push('change');
       });
 
       world.query(Name, Position).updateEach(
         ([name, position]) => {
-          expect(name.value).toBe('player');
+          expect(name).toBe('player');
           position.x = 1;
         },
         { changeDetection }
       );
-      expect(events).toEqual([]);
+      expect(events).toEqual(changeDetection === 'always' ? ['change'] : []);
+      events.length = 0;
+      world.query(Changed(Name));
 
       world.query(Name).updateEach(
-        ([name]) => {
-          name.value = 'hero';
+        (state) => {
+          state[0] = 'hero';
         },
         { changeDetection }
       );
 
       expect(player.name()).toBe('hero');
-      expect(player.get(Name)).toEqual({ value: 'hero' });
+      expect(player.get(Name)).toBe('hero');
       expect(player.get(Position)?.x).toBe(1);
       expect(world.lookup('player')).toBeUndefined();
       expect(world.lookup('hero')).toBe(player);
@@ -329,8 +499,8 @@ describe('Name', () => {
 
   it('renames through updateEach without change subscribers', () => {
     const entity = world.spawn(Name('player'));
-    world.query(Name).updateEach(([name]) => {
-      name.value = 'hero';
+    world.query(Name).updateEach((state) => {
+      state[0] = 'hero';
     });
     expect(world.lookup('player')).toBeUndefined();
     expect(world.lookup('hero')).toBe(entity);
@@ -347,12 +517,12 @@ describe('Name', () => {
 
       expect(() =>
         world.query(Name('player'), Name).updateEach(
-          ([name]) => {
-            name.value = 'hero';
+          (state) => {
+            state[0] = 'hero';
           },
           { changeDetection }
         )
-      ).toThrow(/already taken/);
+      ).toThrow(/NAME_TAKEN/);
 
       expect(player.name()).toBe('player');
       expect(hero.name()).toBe('hero');
@@ -366,8 +536,8 @@ describe('Name', () => {
     const other = createWorld();
     const first = world.spawn(Name('player'));
     const second = other.spawn(Name('player'));
-    world.query(Name).updateEach(([name]) => {
-      name.value = 'hero';
+    world.query(Name).updateEach((state) => {
+      state[0] = 'hero';
     });
     expect(other.lookup('player')).toBe(second);
     expect(other.lookup('hero')).toBeUndefined();
@@ -375,8 +545,8 @@ describe('Name', () => {
     expect(world.lookup('hero')).toBeUndefined();
     world.reset();
     const replacement = world.spawn(Name('player'));
-    world.query(Name).updateEach(([name]) => {
-      name.value = 'hero';
+    world.query(Name).updateEach((state) => {
+      state[0] = 'hero';
     });
     expect(world.lookup('hero')).toBe(replacement);
     expect(other.lookup('player')).toBe(second);
@@ -385,9 +555,9 @@ describe('Name', () => {
 
   it('does not restore a name removed inside updateEach', () => {
     const player = world.spawn(Name('player'));
-    world.query(Name).updateEach(([name], entity) => {
+    world.query(Name).updateEach((state, entity) => {
       entity.remove(Name);
-      name.value = 'hero';
+      state[0] = 'hero';
     });
     expect(player.has(Name)).toBe(false);
     expect(world.lookup('player')).toBeUndefined();
@@ -397,7 +567,8 @@ describe('Name', () => {
   it('exposes name pages for reading alongside other traits', () => {
     const player = world.spawn(Name('player'), Position({ x: 10 }));
     const [namePage] = world.query(Name).getPages();
-    expect(namePage.stores[0].value[namePage.indices[0]]).toBe('player');
+    expectTypeOf(namePage.stores[0]).toEqualTypeOf<string[]>();
+    expect(namePage.stores[0][namePage.indices[0]]).toBe('player');
     expect(world.query(Name, Position).getPages()).toHaveLength(1);
 
     const [page] = world.query(Name('player'), Position).getPages();
@@ -410,6 +581,8 @@ describe('Name', () => {
   it('requires string names', () => {
     // @ts-expect-error names must be strings
     expect(() => Name(42)).toThrow(/non-empty string/);
+    // @ts-expect-error names are atomic strings
+    expect(() => Name({ value: 'player' })).toThrow(/non-empty string/);
   });
 
   it('resolves cached queries independently in each world and after reset', () => {
@@ -420,7 +593,7 @@ describe('Name', () => {
     const otherPlayer = other.spawn(Name('player'), Position);
     expect(world.queryFirst(query)).toBe(player);
     expect(other.queryFirst(query)).toBe(otherPlayer);
-    player.set(Name, { value: 'hero' });
+    player.set(Name, 'hero');
     expect(world.query(query)).toHaveLength(0);
     const replacement = world.spawn(Name('player'), Position);
     expect(world.queryFirst(query)).toBe(replacement);
@@ -460,13 +633,13 @@ describe('Name', () => {
         : world.onQueryRemove([...params], onRemove);
       const player = world.spawn(Name('player'), Position);
       world.spawn(Name('enemy'), Position);
-      player.set(Name, { value: 'player' });
+      player.set(Name, 'player');
       player.remove(Position);
       player.add(Position);
       player.add(IsEnemy);
       player.remove(IsEnemy);
-      player.set(Name, { value: 'hero' }, false);
-      player.set(Name, { value: 'player' });
+      player.set(Name, 'hero', false);
+      player.set(Name, 'player');
       player.remove(Name);
       player.add(Name('player'));
       player.destroy();
@@ -497,9 +670,9 @@ describe('Name', () => {
     world.onQueryAdd(query, () => events.push('add'));
     world.onQueryRemove(query, () => events.push('remove'));
     const entity = world.spawn(Name('hero'));
-    entity.set(Name, { value: 'player' });
+    entity.set(Name, 'player');
     entity.add(Position);
-    entity.set(Name, { value: 'hero' });
+    entity.set(Name, 'hero');
     expect(events).toEqual(['add', 'remove']);
     expect(world.query(query)).toHaveLength(0);
   });
@@ -528,9 +701,9 @@ describe('Name', () => {
     const events: string[] = [];
     world.onQueryAdd(query, () => events.push('add'));
     world.onQueryRemove(query, () => events.push('remove'));
-    player.set(Name, { value: 'hero' });
+    player.set(Name, 'hero');
     expect(world.query(query)).toHaveLength(0);
-    player.set(Name, { value: 'player' });
+    player.set(Name, 'player');
     expect([...world.query(query)]).toEqual([source]);
     expect(events).toEqual(['remove', 'add']);
   });

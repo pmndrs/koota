@@ -194,7 +194,8 @@ function trackTraits(
       (changeDetection !== 'never' &&
         (hasSubscribers(instance.changeSubscriptions) ||
           (query?.hasChangedModifiers && query.changedTraits.has(trait))));
-    modes[i] = tracked ? (trait[$internal].type === 'aos' ? 2 : 1) : 0;
+    modes[i] =
+      changeDetection === 'always' ? 3 : tracked ? (trait[$internal].type === 'aos' ? 2 : 1) : 0;
     if (tracked) trackedCount++;
   }
   return trackedCount;

@@ -53,6 +53,12 @@ export const createTraitNotPresentError = (entity: Entity, trait: Trait, setting
   );
 };
 
+export const createNameTakenError = (name: string, owner: Entity): Error => {
+  return new Error(
+    `Koota: [NAME_TAKEN] The name "${name}" belongs to another entity. Look it up before claiming it. Entity ${owner}.`
+  );
+};
+
 export const createRelationTargetError = (ctx: WorldContext, target: unknown): Error => {
   if (typeof target !== 'number') {
     return new Error(

@@ -88,7 +88,7 @@ Number.prototype.id = function (this: Entity) {
 
 // @ts-expect-error
 Number.prototype.name = function (this: Entity) {
-  return getTrait(getEntityContext(this), this, Name)?.value;
+  return getTrait(getEntityContext(this), this, Name);
 };
 
 // @ts-expect-error

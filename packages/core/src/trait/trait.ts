@@ -4,6 +4,8 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { isEntityAlive } from '../entity/utils/entity-index';
+import { isNameTrait, refreshNamedQueries } from '../name/name-index';
 import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
@@ -40,6 +42,7 @@ import type { World, WorldContext } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { createSubscriptions, emit } from './subscriptions';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
+import { resolveTraitValue } from './resolve-trait-value';
 import type {
   ConfigurableTrait,
   ExtractStore,
@@ -81,7 +84,9 @@ export function createTraitContext<S extends Schema>(
   return {
     id: traitId++,
     createStore: () => createStore(schema),
-    add: accessors?.add ?? defaults.add,
+    validate: accessors?.validate,
+    // Validated atomic defaults are resolved before initialization, including null and undefined.
+    add: accessors?.add ?? (accessors?.validate && isAoS ? defaults.set : defaults.add),
     set: accessors?.set ?? defaults.set,
     get: get ?? defaults.get,
     // A custom get owns how values are read, so without a custom getInto, out is filled from its record.
@@ -195,9 +200,18 @@ export /* @inline */ function addTraitsToAliveEntity(
       if (hasTrait(ctx, entity, trait)) continue;
       if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
 
-      // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
       const instance = getTraitInstance(ctx.traitInstances, trait)!;
-      trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
+      const traitCtx = trait[$internal];
+      const eid = getEntityId(entity);
+      if (traitCtx.validate) {
+        params =
+          traitCtx.type === 'aos'
+            ? (params ?? (trait.schema as () => any)())
+            : resolveTraitValue(trait, params);
+        if (traitCtx.validate(ctx, eid, params) === false) continue;
+      }
+      // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
+      traitCtx.add(ctx, eid, instance.store, params);
       grantTraitMembership(ctx, entity, instance);
       emit(instance.addSubscriptions, entity);
     }
@@ -507,8 +521,34 @@ export /* @inline */ function setTraitForTrait(
     value = resolveTraitSetCallback(ctx, entity, trait, value, data, index);
   }
 
-  traitCtx.set(ctx, index, store, value);
+  if (traitCtx.validate) {
+    setValidatedTrait(ctx, entity, trait, data, index, value, triggerChanged);
+  } else {
+    traitCtx.set(ctx, index, store, value);
+    if (triggerChanged) {
+      notifyTraitChanged(ctx, entity, data);
+    } else data.version++;
+  }
+}
 
+/** Keep candidate resolution and query callbacks outside the ordinary setter path. */
+function setValidatedTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait,
+  data: TraitInstance,
+  index: number,
+  value: any,
+  triggerChanged: boolean
+) {
+  const traitCtx = trait[$internal];
+  value = resolveTraitValue(trait, value, traitCtx.get(ctx, index, data.store));
+  if (traitCtx.validate!(ctx, index, value) === false) return;
+  const changed = traitCtx.set(ctx, index, data.store, value);
+  if (changed && isNameTrait(trait)) {
+    refreshNamedQueries(ctx, entity, data);
+    if (!isEntityAlive(ctx.entityIndex, entity) || !hasTrait(ctx, entity, trait)) return;
+  }
   if (triggerChanged) {
     notifyTraitChanged(ctx, entity, data);
   } else data.version++;

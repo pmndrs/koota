@@ -43,7 +43,7 @@ export const createQueryHash = (parameters: readonly QueryParameter[], base = 0)
     }
 
     if (isNameConfig(param)) {
-      const value = param[1].value;
+      const value = param[1];
       if (name === undefined) name = value;
       else (names ??= [name]).push(value);
       continue;
