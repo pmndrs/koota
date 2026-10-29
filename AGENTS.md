@@ -78,5 +78,3 @@ The publish build runs `unplugin-inline-functions`, which splices `@inline` func
 - Inline an entry function into the entity methods only if the callees under it stay small. If the method's tree exceeds the pool, make the next level a call again.
 - Declare every field of a hot object in its literal so instances share one hidden class.
 - Never lower the global budget. Fix the function the log names.
-
-Verify every change with the plugin's `debug: true` output (budget decisions and the functions over 460 bytes), `node --print-bytecode --print-bytecode-filter='*'` for sizes, `--trace-turbo-inlining` for what TurboFan actually inlined, `--log-ic` for shape splits, and `NODE_V8_COVERAGE` for hotness. Benchmark against the previous build in fresh interleaved processes at the default tier and `--max-opt=0`, take medians, and reject any change that regresses a scenario.
