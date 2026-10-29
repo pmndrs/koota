@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsdown';
 import inlineFunctions from 'unplugin-inline-functions/rolldown';
 
-export default defineConfig({
+export default defineConfig((options) => ({
   entry: ['src/index.ts', 'src/react.ts'],
   tsconfig: '../tsconfig-publish.json',
   format: ['esm', 'cjs'],
@@ -15,5 +15,5 @@ export default defineConfig({
   // See https://262.ecma-international.org/5.1/#sec-C for more details.
   banner: () => ({ js: '"use strict";' }),
   dts: { tsc: { eager: true }, entry: ['src/index.ts', 'src/react.ts'] },
-  plugins: [inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'] })],
-});
+  plugins: [inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'], define: options.define })],
+}));
