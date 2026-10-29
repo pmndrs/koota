@@ -19,26 +19,10 @@ export function checkQueryTracking(
   const entityMasks = ctx.entityMasks;
   const eid = getEntityId(entity);
 
-  const generationsLen = generations.length;
   const trackingGroupsLen = trackingGroups.length;
 
   if (traitInstancesAll.length === 0) return false;
-
-  for (let i = 0; i < generationsLen; i++) {
-    const generationId = generations[i];
-    const bitmask = staticBitmasks[i];
-    if (!bitmask) continue;
-
-    const required = bitmask.required;
-    const forbidden = bitmask.forbidden;
-    const or = bitmask.or;
-
-    const entityMask = entityMasks[generationId][eid >>> 10][eid & 1023];
-
-    if (forbidden && (entityMask & forbidden) !== 0) return false;
-    if (required && (entityMask & required) !== required) return false;
-    if (or !== 0 && (entityMask & or) === 0) return false;
-  }
+  if (!passesStaticBitmasks(staticBitmasks, generations, entityMasks, eid)) return false;
 
   let hasOrGroup = false;
   let anyOrMatched = false;
@@ -58,47 +42,20 @@ export function checkQueryTracking(
       }
 
       if (groupType === eventType) {
-        if (eventType === 'change') {
-          const entityMask = entityMasks[eventGenerationId][eid >>> 10][eid & 1023];
-          if (!(entityMask & eventBitflag)) return false;
-        }
-
-        const groupTrackers = group.trackers;
-        if (!groupTrackers[eventGenerationId]) {
-          groupTrackers[eventGenerationId] = createEmptyMaskGeneration();
-        }
-        ensureMaskPage(groupTrackers[eventGenerationId], eid >>> 10)[eid & 1023] |= eventBitflag;
+        if (
+          eventType === 'change' &&
+          !(entityMasks[eventGenerationId][eid >>> 10][eid & 1023] & eventBitflag)
+        )
+          return false;
+        recordTrackerHit(group.trackers, eventGenerationId, eid, eventBitflag);
       }
     }
 
     if (groupLogic === 'or') {
       hasOrGroup = true;
-      if (!anyOrMatched) {
-        const groupTrackers = group.trackers;
-        const bitmaskLen = groupBitmasks.length;
-        for (let genId = 0; genId < bitmaskLen; genId++) {
-          const mask = groupBitmasks[genId];
-          if (!mask) continue;
-          const trackerGen = groupTrackers[genId];
-          const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-          if (tracker & mask) {
-            anyOrMatched = true;
-            break;
-          }
-        }
-      }
-    } else {
-      const groupTrackers = group.trackers;
-      const bitmaskLen = groupBitmasks.length;
-      for (let genId = 0; genId < bitmaskLen; genId++) {
-        const mask = groupBitmasks[genId];
-        if (!mask) continue;
-        const trackerGen = groupTrackers[genId];
-        const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-        if ((tracker & mask) !== mask) {
-          return false;
-        }
-      }
+      if (!anyOrMatched && trackersMatchAny(group.trackers, groupBitmasks, eid)) anyOrMatched = true;
+    } else if (!trackersMatchAll(group.trackers, groupBitmasks, eid)) {
+      return false;
     }
   }
 
@@ -107,4 +64,70 @@ export function checkQueryTracking(
   }
 
   return true;
+}
+
+/** Every tracked bit of the group has fired for the entity. */
+function trackersMatchAll(
+  trackers: Uint32Array[][],
+  bitmasks: (number | undefined)[],
+  eid: number
+): boolean {
+  for (let genId = 0; genId < bitmasks.length; genId++) {
+    const mask = bitmasks[genId];
+    if (!mask) continue;
+    const trackerGen = trackers[genId];
+    const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
+    if ((tracker & mask) !== mask) return false;
+  }
+  return true;
+}
+
+/** At least one tracked bit of the group has fired for the entity. */
+function trackersMatchAny(
+  trackers: Uint32Array[][],
+  bitmasks: (number | undefined)[],
+  eid: number
+): boolean {
+  for (let genId = 0; genId < bitmasks.length; genId++) {
+    const mask = bitmasks[genId];
+    if (!mask) continue;
+    const trackerGen = trackers[genId];
+    const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
+    if (tracker & mask) return true;
+  }
+  return false;
+}
+
+/** The entity satisfies every static required, forbidden and or mask of the query. */
+function passesStaticBitmasks(
+  staticBitmasks: QueryInstance['staticBitmasks'],
+  generations: number[],
+  entityMasks: Uint32Array[][],
+  eid: number
+): boolean {
+  for (let i = 0; i < generations.length; i++) {
+    const bitmask = staticBitmasks[i];
+    if (!bitmask) continue;
+
+    const required = bitmask.required;
+    const forbidden = bitmask.forbidden;
+    const or = bitmask.or;
+    const entityMask = entityMasks[generations[i]][eid >>> 10][eid & 1023];
+
+    if (forbidden && (entityMask & forbidden) !== 0) return false;
+    if (required && (entityMask & required) !== required) return false;
+    if (or !== 0 && (entityMask & or) === 0) return false;
+  }
+  return true;
+}
+
+/** Remember that the tracked event fired for the entity, allocating the tracker lazily. */
+function recordTrackerHit(
+  trackers: Uint32Array[][],
+  generationId: number,
+  eid: number,
+  bitflag: number
+) {
+  if (!trackers[generationId]) trackers[generationId] = createEmptyMaskGeneration();
+  ensureMaskPage(trackers[generationId], eid >>> 10)[eid & 1023] |= bitflag;
 }
