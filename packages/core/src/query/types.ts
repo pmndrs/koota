@@ -2,7 +2,7 @@ import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { NameConfig } from '../name/types';
 import type { RelationPair } from '../relation/types';
-import { AoSFactory } from '../storage';
+import { AoSFactory, type Store } from '../storage';
 import type { QueryIterators } from './utils/compile-iterators';
 import type {
   ExtractSchema,
@@ -24,6 +24,12 @@ export type QueryUnsubscriber = () => void;
 
 export type QueryResultOptions = {
   changeDetection?: 'always' | 'auto' | 'never';
+};
+
+export type QueryResultBinding = {
+  params: QueryParameter[];
+  traits: Trait[];
+  stores: Store<any>[];
 };
 
 export type QueryIterationBuffers = {
@@ -225,6 +231,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   removeSubscriptions: Set<QuerySubscriber>;
   layoutCache: QueryLayoutCache | null;
   iterationBuffers: QueryIterationBuffers | undefined;
+  resultBindings: QueryResultBinding[];
   /** Relation pairs for target-specific queries */
   relationFilters?: ResolvedRelationFilter[];
   run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;

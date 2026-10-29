@@ -223,6 +223,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     removeSubscriptions: new Set<QuerySubscriber>(),
     layoutCache: null,
     iterationBuffers: undefined,
+    resultBindings: [],
     relationFilters: [],
 
     run: (ctx: WorldContext, params: QueryParameter[]) => runQuery(ctx, query, params),

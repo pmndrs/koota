@@ -23,6 +23,7 @@ import type {
   QueryParameter,
   QueryPage,
   QueryResult,
+  QueryResultBinding,
   QueryResultOptions,
 } from './types';
 
@@ -32,73 +33,158 @@ export function createQueryResult<T extends QueryParameter[]>(
   query: QueryInstance | null,
   params: QueryParameter[]
 ): QueryResult<T> {
-  const traits: Trait[] = [];
-  const stores: Store<any>[] = [];
+  let binding = getQueryBinding(ctx, query, params);
   const pool = query ?? ctx;
-
-  getQueryStores(params, traits, stores, ctx);
-  let usesCustomOrder = false;
-  const version = query?.version;
+  let version = query?.version;
   let layout: QueryLayout | undefined;
 
-  const results = Object.assign(entities, {
-    readEach(callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void) {
-      if (entities.length === 0) return results;
-      const buffers = takeIterationBuffers(ctx, pool, entities, traits, stores);
-      buffers.iterators!.readEach(ctx, entities, callback, buffers, stores);
-      releaseIterationBuffers(pool, buffers);
-      return results;
-    },
+  const results = entities as Entity[] & QueryResult<T>;
+  results.readEach = (
+    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
+  ) => {
+    if (results.length === 0) return results;
+    const { traits, stores } = binding;
+    const buffers = takeIterationBuffers(ctx, pool, results, traits, stores);
+    buffers.iterators!.readEach(ctx, results, callback, buffers, stores);
+    releaseIterationBuffers(pool, buffers);
+    return results;
+  };
 
-    updateEach(
-      callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-      options?: QueryResultOptions
-    ) {
-      if (entities.length === 0) return results;
-      const buffers = takeIterationBuffers(ctx, pool, entities, traits, stores);
-      const iterators = buffers.iterators!;
+  results.updateEach = (
+    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
+    options?: QueryResultOptions
+  ) => {
+    if (results.length === 0) return results;
+    const { traits, stores } = binding;
+    const buffers = takeIterationBuffers(ctx, pool, results, traits, stores);
+    const iterators = buffers.iterators!;
 
-      if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
-        iterators.updateEach(ctx, entities, callback, buffers, stores);
-      } else {
-        const changedCount = iterators.trackEach(ctx, entities, callback, buffers, stores);
-        const { changedEntities, changedTraits } = buffers;
-        for (let i = 0; i < changedCount; i++) {
-          const entity = changedEntities[i];
-          if (isEntityAlive(ctx.entityIndex, entity)) notifyChanged(ctx, entity, changedTraits[i]);
-        }
+    if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
+      iterators.updateEach(ctx, results, callback, buffers, stores);
+    } else {
+      const changedCount = iterators.trackEach(ctx, results, callback, buffers, stores);
+      const { changedEntities, changedTraits } = buffers;
+      for (let i = 0; i < changedCount; i++) {
+        const entity = changedEntities[i];
+        if (isEntityAlive(ctx.entityIndex, entity)) notifyChanged(ctx, entity, changedTraits[i]);
       }
+    }
 
-      releaseIterationBuffers(pool, buffers);
-      return results;
-    },
+    releaseIterationBuffers(pool, buffers);
+    return results;
+  };
 
-    getPages() {
-      layout ??=
-        !query || usesCustomOrder || query.isTracking || query.version !== version
-          ? createQueryLayout(entities)
-          : getCachedQueryLayout(query, entities);
-      return getQueryPages(traits, stores, layout) as QueryPage<T>[];
-    },
+  results.getPages = () => {
+    layout ??=
+      !query || query.isTracking || query.version !== version
+        ? createQueryLayout(results)
+        : getCachedQueryLayout(query, results);
+    return getQueryPages(binding.traits, binding.stores, layout) as QueryPage<T>[];
+  };
 
-    select<U extends QueryParameter[]>(...params: U): QueryResult<U> {
-      traits.length = 0;
-      stores.length = 0;
-      getQueryStores(params, traits, stores, ctx);
-      return results as unknown as QueryResult<U>;
-    },
+  results.select = <U extends QueryParameter[]>(...params: U): QueryResult<U> => {
+    binding = getQueryBinding(ctx, query, params);
+    return results as unknown as QueryResult<U>;
+  };
 
-    sort(
-      callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
-    ): QueryResult<T> {
-      usesCustomOrder = true;
-      layout = undefined;
-      Array.prototype.sort.call(entities, callback);
-      return results;
-    },
-  });
+  results.sort = (
+    callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)
+  ) => {
+    // A custom order never matches the query's cached layout, so force a private one.
+    version = -1;
+    layout = undefined;
+    Array.prototype.sort.call(results, callback);
+    return results;
+  };
 
   return results;
+}
+
+/**
+ * Finds or builds the trait and store lists for a parameter list. Bindings are cached on the query
+ * and never mutated, so results share them and select swaps references. A query ref passes the
+ * same parameters array every run, so identity settles the common case before any walk.
+ */
+function getQueryBinding(
+  ctx: WorldContext,
+  query: QueryInstance | null,
+  params: QueryParameter[]
+): QueryResultBinding {
+  const cache = query?.resultBindings;
+  if (cache) {
+    for (let i = 0; i < cache.length; i++) {
+      const binding = cache[i];
+      if (binding.params === params || matchesQueryBinding(ctx, params, binding)) return binding;
+    }
+  }
+  const binding: QueryResultBinding = { params, traits: [], stores: [] };
+  fillQueryBinding(ctx, params, binding);
+  if (cache) {
+    // Bound so queries that select dynamically do not retain every selection.
+    if (cache.length === 4) cache.shift();
+    cache.push(binding);
+  }
+  return binding;
+}
+
+/** Mirrors fillQueryBinding, comparing each stored trait and its current store in order. */
+function matchesQueryBinding(
+  ctx: WorldContext,
+  params: QueryParameter[],
+  { traits, stores }: QueryResultBinding
+): boolean {
+  let index = 0;
+  for (let i = 0; i < params.length; i++) {
+    const param = params[i];
+    if (isNameConfig(param) || isRelationPair(param)) continue;
+    if (isModifier(param)) {
+      if (param.type === 'not') continue;
+      for (const trait of param.traits) {
+        if (trait[$internal].type === 'tag' || trait[$internal].relation) continue;
+        if (
+          traits[index] !== trait ||
+          getTraitInstance(ctx.traitInstances, trait)?.store !== stores[index]
+        )
+          return false;
+        index++;
+      }
+    } else {
+      const trait = param as Trait;
+      if (trait[$internal].type === 'tag') continue;
+      if (
+        traits[index] !== trait ||
+        getTraitInstance(ctx.traitInstances, trait)?.store !== stores[index]
+      )
+        return false;
+      index++;
+    }
+  }
+  return index === traits.length;
+}
+
+/** Collects the stored traits of a parameter list in order, registering any that are new. */
+function fillQueryBinding(
+  ctx: WorldContext,
+  params: QueryParameter[],
+  { traits, stores }: QueryResultBinding
+) {
+  for (let i = 0; i < params.length; i++) {
+    const param = params[i];
+    if (isNameConfig(param) || isRelationPair(param)) continue;
+    if (isModifier(param)) {
+      if (param.type === 'not') continue;
+      for (const trait of param.traits) {
+        if (trait[$internal].type === 'tag' || trait[$internal].relation) continue;
+        traits.push(trait);
+        stores.push(getQueryStore(ctx, trait));
+      }
+    } else {
+      const trait = param as Trait;
+      if (trait[$internal].type === 'tag') continue;
+      traits.push(trait);
+      stores.push(getQueryStore(ctx, trait));
+    }
+  }
 }
 
 function createIterationBuffers(): QueryIterationBuffers {
@@ -207,35 +293,6 @@ function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait
     if (Array.isArray(trait.schema[key])) (tuples ??= {})[key] = value[key];
   }
   return { value, tuples };
-}
-
-export function getQueryStores<T extends QueryParameter[]>(
-  params: T,
-  traits: Trait[],
-  stores: Store<any>[],
-  ctx: WorldContext
-) {
-  for (let i = 0; i < params.length; i++) {
-    const param = params[i];
-
-    if (isNameConfig(param) || isRelationPair(param)) continue;
-
-    if (isModifier(param)) {
-      if (param.type === 'not') continue;
-
-      const modifierTraits = param.traits;
-      for (const trait of modifierTraits) {
-        if (trait[$internal].type === 'tag' || trait[$internal].relation) continue;
-        traits.push(trait);
-        stores.push(getQueryStore(ctx, trait));
-      }
-    } else {
-      const trait = param as Trait;
-      if (trait[$internal].type === 'tag') continue;
-      traits.push(trait);
-      stores.push(getQueryStore(ctx, trait));
-    }
-  }
 }
 
 function getQueryStore(ctx: WorldContext, trait: Trait): Store<any> {
