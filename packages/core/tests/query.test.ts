@@ -651,8 +651,15 @@ describe('Query', () => {
       expect(name.name).toBeDefined();
     });
 
+    const otherResults = world.query(Position, Name);
+
     // Select only Name.
     results.select(Name).updateEach(([name]) => {
+      expect(name.name).toBeDefined();
+    });
+
+    otherResults.readEach(([position, name]) => {
+      expect(position.x).toBeDefined();
       expect(name.name).toBeDefined();
     });
 
