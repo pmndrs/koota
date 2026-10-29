@@ -15,7 +15,7 @@ export /* @inline @pure */ function getTraitInstance<T extends Trait>(
 /**
  * Set TraitInstance by trait ID
  */
-export /* @inline */ function setTraitInstance(
+export function setTraitInstance(
   traitData: TraitInstanceArray,
   trait: Trait,
   data: TraitInstance
@@ -42,6 +42,6 @@ export /* @inline @pure */ function hasTraitInstance(
 /**
  * Clear all trait data
  */
-export /* @inline */ function clearTraitInstance(traitData: TraitInstanceArray): void {
+export function clearTraitInstance(traitData: TraitInstanceArray): void {
   traitData.length = 0;
 }

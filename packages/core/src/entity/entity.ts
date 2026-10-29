@@ -37,7 +37,10 @@ export function createEntity(ctx: WorldContext, ...traits: ConfigurableTrait[]):
   ctx.entityTraits.set(entity, new Set());
   addTraitsToAliveEntity(ctx, entity, traits);
 
-  if (ctx.entitySpawnSubscriptions.size > 0 && !ctx.entityTraits.get(entity)!.has(IsExcluded)) {
+  /* @cold */ if (
+    ctx.entitySpawnSubscriptions.size > 0 &&
+    !ctx.entityTraits.get(entity)!.has(IsExcluded)
+  ) {
     for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
   }
 
@@ -151,24 +154,40 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 }
 
 /** Resolve WorldContext directly from pageOwners. Used by entity methods. */
-export function getEntityContext(entity: Entity): WorldContext {
+export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
   return universe.pageOwners[getEntityId(entity) >>> 10]!;
 }
 
-export function entityHas(ctx: WorldContext, entity: Entity, trait: Trait | RelationPair): boolean {
+export /* @inline */ function entityHas(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait | RelationPair
+): boolean {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
   if (!isRelationPair(trait)) return hasTrait(ctx, entity, trait);
-  if (!hasTrait(ctx, entity, trait.relation[$internal].trait)) return false;
-  if (trait.targetQuery) {
-    const targets = getRelationTargets(ctx, trait.relation, entity);
-    return queryInternal(ctx, ...(trait.targetQuery as any)).some((match: Entity) =>
+  return hasEntityRelationPair(ctx, entity, trait);
+}
+
+/**
+ * Relation pairs including target queries. Kept out of line so the plain trait path
+ * stays small, and kept thin so the optimizer can still inline the whole check.
+ */
+export function hasEntityRelationPair(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: RelationPair
+): boolean {
+  /* @cold */ if (pair.targetQuery) {
+    if (!hasTrait(ctx, entity, pair.relation[$internal].trait)) return false;
+    const targets = getRelationTargets(ctx, pair.relation, entity);
+    return queryInternal(ctx, ...(pair.targetQuery as any)).some((match: Entity) =>
       targets.includes(match)
     );
   }
-  return hasRelationPair(ctx, entity, trait);
+  return hasRelationPair(ctx, entity, pair);
 }
 
 /**

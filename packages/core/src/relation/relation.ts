@@ -187,7 +187,7 @@ export /* @inline */ function getFirstRelationTarget(
   }
 }
 
-export /* @inline */ function getTargetIndex(
+export /* @inline @pure */ function getTargetIndex(
   ctx: WorldContext,
   relation: Relation<Trait>,
   entity: Entity,
@@ -211,7 +211,7 @@ export /* @inline */ function getTargetIndex(
   }
 }
 
-export /* @inline */ function hasRelationToTarget(
+export /* @inline @pure */ function hasRelationToTarget(
   ctx: WorldContext,
   relation: Relation<Trait>,
   entity: Entity,

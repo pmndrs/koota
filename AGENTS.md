@@ -64,3 +64,17 @@ Comments are documentation. Keep them concise and explain the algorithm or featu
 # Const Policy
 
 We want reduce top level const and inline anything that is an explicit hook we need tweak often. Always ask yourself if a const needs to exist before making it. Prefer to inline.
+
+# Inlining and the V8 Budget
+
+The publish build runs `unplugin-inline-functions`, which splices `@inline` functions into their callers and measures the result against V8's inlining limit. These rules keep the hot paths in the shape TurboFan can still optimize.
+
+- A function TurboFan inlines must be at most 460 bytes of bytecode. Every byte of a callee, cold branches included, is also charged against a 920 byte pool per optimized caller, so a hot function with a large rare region costs the callers that inline it.
+- Annotate `@inline` by hotness, not size. Helpers on the set, get, has, add, remove, spawn and destroy paths qualify. Registration and setup code does not, remove the flag there.
+- Mark rare branches of hot functions `@cold`: relation pair dispatch, subscription loops, assertions that do more than throw. Throw only branches are outlined automatically. A cold branch may not write enclosing locals or `continue` out of a loop, restructure to if/else first.
+- When a function is over budget for structural reasons, keep the hot body and move the rest into an exported helper. A check that is usually false stays inline, the work it guards goes out of line, see `emit`.
+- `@pure` only on read only helpers whose unused call is safe to drop. Never on assertions.
+- Cross module inlining needs every free binding of the callee exported and no default or rest parameters. The plugin refuses silently otherwise.
+- Inline an entry function into the entity methods only if the callees under it stay small. If the method's tree exceeds the pool, make the next level a call again.
+- Declare every field of a hot object in its literal so instances share one hidden class.
+- Never lower the global budget. Fix the function the log names.

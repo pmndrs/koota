@@ -1,3 +1,4 @@
+import type { QueryInstance } from '../query/types';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
@@ -145,6 +146,8 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     changeSubscriptions: createSubscriptions(),
     addSubscriptions: createSubscriptions(),
     removeSubscriptions: createSubscriptions(),
+    // Declared up front so relation and plain trait instances share one hidden class.
+    relationTargets: undefined,
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
@@ -177,28 +180,27 @@ export /* @inline */ function addTraitsToAliveEntity(
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
 
-    if (isRelationPair(config)) {
+    /* @cold */ if (isRelationPair(config)) {
       addRelationPair(ctx, entity, config);
-      continue;
-    }
-
-    let trait: Trait;
-    let params: Record<string, any> | undefined;
-
-    if (Array.isArray(config)) {
-      [trait, params] = config as [Trait, Record<string, any>];
     } else {
-      trait = config as Trait;
+      let trait: Trait;
+      let params: Record<string, any> | undefined;
+
+      if (Array.isArray(config)) {
+        [trait, params] = config as [Trait, Record<string, any>];
+      } else {
+        trait = config as Trait;
+      }
+
+      if (hasTrait(ctx, entity, trait)) continue;
+      if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
+
+      // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
+      const instance = getTraitInstance(ctx.traitInstances, trait)!;
+      trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
+      grantTraitMembership(ctx, entity, instance);
+      emit(instance.addSubscriptions, entity);
     }
-
-    if (hasTrait(ctx, entity, trait)) continue;
-    if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-
-    // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
-    const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
-    grantTraitMembership(ctx, entity, instance);
-    emit(instance.addSubscriptions, entity);
   }
 }
 
@@ -252,31 +254,30 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
 
-    if (isRelationPair(trait)) {
+    /* @cold */ if (isRelationPair(trait)) {
       removeRelationPair(ctx, entity, trait);
-      continue;
-    }
-
-    if (!hasTrait(ctx, entity, trait)) continue;
-
-    const traitCtx = trait[$internal];
-
-    if (traitCtx.relation) {
-      const instance = getTraitInstance(ctx.traitInstances, trait);
-      if (instance) {
-        const targets = getRelationTargets(ctx, traitCtx.relation, entity);
-        for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-      }
-      removeAllRelationTargets(ctx, traitCtx.relation, entity);
     } else {
-      const instance = getTraitInstance(ctx.traitInstances, trait);
-      if (instance) {
-        emit(instance.removeSubscriptions, entity);
-        traitCtx.remove(ctx, getEntityId(entity), instance.store);
-      }
-    }
+      if (!hasTrait(ctx, entity, trait)) continue;
 
-    removeTraitFromEntity(ctx, entity, trait);
+      const traitCtx = trait[$internal];
+
+      /* @cold */ if (traitCtx.relation) {
+        const instance = getTraitInstance(ctx.traitInstances, trait);
+        if (instance) {
+          const targets = getRelationTargets(ctx, traitCtx.relation, entity);
+          for (const t of targets) emit(instance.removeSubscriptions, entity, t);
+        }
+        removeAllRelationTargets(ctx, traitCtx.relation, entity);
+      } else {
+        const instance = getTraitInstance(ctx.traitInstances, trait);
+        if (instance) {
+          emit(instance.removeSubscriptions, entity);
+          traitCtx.remove(ctx, getEntityId(entity), instance.store);
+        }
+      }
+
+      removeTraitFromEntity(ctx, entity, trait);
+    }
   }
 }
 
@@ -326,7 +327,11 @@ export function cleanupRelationTarget(
   if (wasLastTarget) removeTraitFromEntity(ctx, entity, relationTrait);
 }
 
-export function hasTrait(ctx: WorldContext, entity: Entity, trait: Trait): boolean {
+export /* @inline @pure */ function hasTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait
+): boolean {
   const instance = getTraitInstance(ctx.traitInstances, trait);
   if (!instance) return false;
 
@@ -348,22 +353,24 @@ export /* @inline @pure */ function getStore<C extends Trait = Trait>(
   return instance.store as ExtractStore<C>;
 }
 
-export function setTrait(
+export /* @inline */ function setTrait(
   ctx: WorldContext,
   entity: Entity,
   trait: Trait | RelationPair,
   value: any,
-  triggerChanged = true
+  triggerChanged: boolean
 ) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
-  if (isRelationPair(trait)) return setTraitForPair(ctx, entity, trait, value, triggerChanged);
+  /* @cold */ if (isRelationPair(trait)) {
+    return setTraitForPair(ctx, entity, trait, value, triggerChanged);
+  }
   return setTraitForTrait(ctx, entity, trait, value, triggerChanged);
 }
 
-export function getTrait(
+export /* @inline */ function getTrait(
   ctx: WorldContext,
   entity: Entity,
   trait: Trait | RelationPair,
@@ -373,11 +380,13 @@ export function getTrait(
     assertEntityAlive(ctx, entity);
   }
 
-  if (isRelationPair(trait)) return getTraitForPair(ctx, entity, trait, out);
+  /* @cold */ if (isRelationPair(trait)) {
+    return getTraitForPair(ctx, entity, trait, out);
+  }
   return getTraitForTrait(ctx, entity, trait, out);
 }
 
-/* @inline @pure */ function getTraitForPair(
+export /* @inline @pure */ function getTraitForPair(
   ctx: WorldContext,
   entity: Entity,
   pair: RelationPair,
@@ -392,7 +401,7 @@ export function getTrait(
   return getRelationData(ctx, entity, relation, target, out);
 }
 
-/* @inline @pure */ function getTraitForTrait(
+export /* @inline @pure */ function getTraitForTrait(
   ctx: WorldContext,
   entity: Entity,
   trait: Trait,
@@ -411,7 +420,7 @@ export function getTrait(
     : traitCtx.getInto(ctx, index, data.store, out);
 }
 
-/* @inline */ function setTraitForPair(
+export /* @inline */ function setTraitForPair(
   ctx: WorldContext,
   entity: Entity,
   pair: RelationPair,
@@ -432,7 +441,7 @@ export function getTrait(
   }
 }
 
-function setTraitForPairWithAsserts(
+export function setTraitForPairWithAsserts(
   ctx: WorldContext,
   entity: Entity,
   pair: RelationPair,
@@ -473,7 +482,7 @@ function setTraitForPairWithAsserts(
   if (triggerChanged) setPairChanged(ctx, entity, relation[$internal].trait, target);
 }
 
-/* @inline */ function setTraitForTrait(
+export /* @inline */ function setTraitForTrait(
   ctx: WorldContext,
   entity: Entity,
   trait: Trait,
@@ -509,7 +518,7 @@ function setTraitForPairWithAsserts(
  * An unchanged revision preserves validated liveness and membership.
  * Keep callback work separate so ordinary value writes can inline.
  */
-function resolveTraitSetCallback(
+export function resolveTraitSetCallback(
   ctx: WorldContext,
   entity: Entity,
   trait: Trait,
@@ -552,7 +561,7 @@ function resolveTraitSetCallback(
   entity: Entity,
   instance: TraitInstance
 ) {
-  const { generationId, bitflag, queries, trackingQueries } = instance;
+  const { generationId, bitflag } = instance;
 
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
@@ -561,43 +570,90 @@ function resolveTraitSetCallback(
   ensureMaskPage(ctx.entityMasks[generationId], pageId)[offset] |= bitflag;
   instance.version++;
 
-  for (const dirtyMask of ctx.dirtyMasks.values()) {
-    ensureMaskPage(dirtyMask[generationId], pageId)[offset] |= bitflag;
-  }
-
-  for (const query of queries) {
-    query.toRemove.remove(entity);
-    const match =
-      query.relationFilters && query.relationFilters.length > 0
-        ? checkQueryWithRelations(ctx, query, entity)
-        : query.check(ctx, entity);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
-  }
-
-  for (const query of trackingQueries) {
-    query.toRemove.remove(entity);
-    const match =
-      query.relationFilters && query.relationFilters.length > 0
-        ? checkQueryTrackingWithRelations(ctx, query, entity, 'add', generationId, bitflag)
-        : query.checkTracking(ctx, entity, 'add', generationId, bitflag);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
-  }
+  if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
+  reconcileTraitQueries(ctx, entity, instance, 'add', generationId, bitflag);
 
   ctx.entityTraits.get(entity)!.add(instance.trait);
+}
+
+/** Record a membership change in every dirty mask snapshot. */
+function markDirty(
+  masks: Map<unknown, Uint32Array[][]>,
+  generationId: number,
+  pageId: number,
+  offset: number,
+  bitflag: number
+) {
+  for (const mask of masks.values()) {
+    ensureMaskPage(mask[generationId], pageId)[offset] |= bitflag;
+  }
+}
+
+/**
+ * Re-evaluate the queries that include a trait after its membership bit changed.
+ * An add clears any pending removal first so the entity cannot be dropped by a
+ * removal queued before it rejoined.
+ */
+export function reconcileTraitQueries(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance,
+  eventType: 'add' | 'remove',
+  generationId: number,
+  bitflag: number
+) {
+  const adding = eventType === 'add';
+  if (instance.queries.size !== 0) reconcileQueries(ctx, entity, instance.queries, adding);
+  if (instance.trackingQueries.size !== 0) {
+    reconcileTrackingQueries(ctx, entity, instance, eventType, generationId, bitflag, adding);
+  }
+}
+
+function reconcileQueries(
+  ctx: WorldContext,
+  entity: Entity,
+  queries: Set<QueryInstance>,
+  adding: boolean
+) {
+  for (const query of queries) {
+    if (adding) query.toRemove.remove(entity);
+    const match = query.relationFilters?.length
+      ? checkQueryWithRelations(ctx, query, entity)
+      : query.check(ctx, entity);
+    if (match) query.add(entity);
+    else query.remove(ctx, entity);
+  }
+}
+
+function reconcileTrackingQueries(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance,
+  eventType: 'add' | 'remove',
+  generationId: number,
+  bitflag: number,
+  adding: boolean
+) {
+  for (const query of instance.trackingQueries) {
+    if (adding) query.toRemove.remove(entity);
+    const match = query.relationFilters?.length
+      ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
+      : query.checkTracking(ctx, entity, eventType, generationId, bitflag);
+    if (match) query.add(entity);
+    else query.remove(ctx, entity);
+  }
 }
 
 function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait): void {
   if (!hasTrait(ctx, entity, trait)) return;
 
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
-  const { generationId, bitflag, queries, trackingQueries } = instance;
+  const { generationId, bitflag } = instance;
 
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const offset = eid & 1023;
-  if (assertsEnabled && trait[$internal].relation) {
+  /* @cold */ if (assertsEnabled && trait[$internal].relation) {
     const targets = instance.relationTargets?.[pageId]?.[offset];
     if (typeof targets === 'number' || (targets !== undefined && targets.length > 0)) {
       throw new Error(
@@ -609,27 +665,8 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
   ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
   instance.version++;
 
-  for (const dirtyMask of ctx.dirtyMasks.values()) {
-    ensureMaskPage(dirtyMask[generationId], pageId)[offset] |= bitflag;
-  }
-
-  for (const query of queries) {
-    const match =
-      query.relationFilters && query.relationFilters.length > 0
-        ? checkQueryWithRelations(ctx, query, entity)
-        : query.check(ctx, entity);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
-  }
-
-  for (const query of trackingQueries) {
-    const match =
-      query.relationFilters && query.relationFilters.length > 0
-        ? checkQueryTrackingWithRelations(ctx, query, entity, 'remove', generationId, bitflag)
-        : query.checkTracking(ctx, entity, 'remove', generationId, bitflag);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
-  }
+  if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
+  reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
 
   ctx.entityTraits.get(entity)!.delete(trait);
 }
