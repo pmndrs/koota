@@ -11,7 +11,7 @@ export function createEmptyMaskGeneration(): Uint32Array[] {
 }
 
 /** Materialize a mask page on first write. Returns the writable page. */
-export function ensureMaskPage(gen: Uint32Array[], pageId: number): Uint32Array {
+export /* @inline */ function ensureMaskPage(gen: Uint32Array[], pageId: number): Uint32Array {
   let page = gen[pageId];
   if (page === EMPTY_MASK_PAGE) {
     page = new Uint32Array(PAGE_SIZE);

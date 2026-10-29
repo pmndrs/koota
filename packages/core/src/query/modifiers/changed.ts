@@ -4,7 +4,7 @@ import { assertEntityAlive, assertTraitPresent } from '../../asserts';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { isRelation } from '../../relation/utils/is-relation';
-import { emit, hasSubscribers } from '../../trait/subscriptions';
+import { emit } from '../../trait/subscriptions';
 import { getTraitInstance } from '../../trait/trait-instance';
 import type { ExtractTraits, Trait, TraitInstance, TraitOrRelation } from '../../trait/types';
 import { universe } from '../../universe/universe';
@@ -53,13 +53,13 @@ export function setChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
     }
     return;
   }
-  if (hasSubscribers(data.changeSubscriptions)) emit(data.changeSubscriptions, entity);
+  emit(data.changeSubscriptions, entity);
 }
 
 /** Notify after a validated write. A removed trait has no change to publish. */
 export function notifyChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
   const data = markChanged(ctx, entity, trait);
-  if (data && hasSubscribers(data.changeSubscriptions)) emit(data.changeSubscriptions, entity);
+  if (data) emit(data.changeSubscriptions, entity);
 }
 
 /** The caller must validate membership and finish the write without reentering the core. */
@@ -70,12 +70,10 @@ export /* @inline */ function notifyTraitChanged(
 ) {
   if (ctx.changedMasks.size === 0 && data.trackingQueries.size === 0) data.version++;
   else markTrackedTraitChanged(ctx, entity, data);
-  if (hasSubscribers(data.changeSubscriptions)) emit(data.changeSubscriptions, entity);
+  emit(data.changeSubscriptions, entity);
 }
 
 export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, target: Entity) {
   const data = markChanged(ctx, entity, trait);
-  if (data && hasSubscribers(data.changeSubscriptions)) {
-    emit(data.changeSubscriptions, entity, target);
-  }
+  if (data) emit(data.changeSubscriptions, entity, target);
 }

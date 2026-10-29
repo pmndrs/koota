@@ -23,7 +23,7 @@ export function createSubscriptions(): Subscriptions {
   return { all: new Set(), byEntity: [], entityCount: 0 };
 }
 
-/** @inline */
+/** @inline @pure */
 export function hasSubscribers(subs: Subscriptions): boolean {
   return subs.all.size !== 0 || subs.entityCount !== 0;
 }
@@ -86,7 +86,13 @@ export function clearEntity(subs: Subscriptions, entity: Entity) {
  * after the world subscribers run so one of them can unsubscribe it. Plain
  * traits call with the entity alone so callbacks keep their one argument arity.
  */
+/** @inline */
 export function emit(subs: Subscriptions, entity: Entity, target?: Entity) {
+  if (hasSubscribers(subs)) emitSubscribers(subs, entity, target);
+}
+
+/** Exported so the inline guard in emit can expand in other modules. */
+export function emitSubscribers(subs: Subscriptions, entity: Entity, target?: Entity) {
   if (target === undefined) {
     for (const sub of subs.all) sub(entity);
     const slot = getSlot(subs, entity);
@@ -106,7 +112,7 @@ export function emit(subs: Subscriptions, entity: Entity, target?: Entity) {
  * A world subscriber may have destroyed the entity and spawned a replacement on
  * the same id, so the slot is only read for the generation the event belongs to.
  */
-/** @inline */
+/** @inline @pure */
 function getSlot(subs: Subscriptions, entity: Entity): Slot | undefined {
   if (subs.entityCount === 0 || !entity.isAlive()) return undefined;
   const eid = getEntityId(entity);

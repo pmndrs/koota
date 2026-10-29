@@ -206,7 +206,7 @@ function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait
   return { value, tuples };
 }
 
-/* @inline */ export function getQueryStores<T extends QueryParameter[]>(
+export function getQueryStores<T extends QueryParameter[]>(
   params: T,
   traits: Trait[],
   stores: Store<any>[],
