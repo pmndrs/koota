@@ -436,6 +436,18 @@ describe('Lifecycle Subscriptions', () => {
       entity.remove(Position);
       expect(staticCb).toHaveBeenCalledTimes(4);
     });
+
+    it('calls onQueryAdd after the traits are added with data', () => {
+      const values: number[] = [];
+      world.onQueryAdd([Position], (entity) => values.push(entity.get(Position)!.x));
+      world.onQueryAdd([Position, Value], (entity) => values.push(entity.get(Value)!.value));
+
+      world.spawn(Position({ x: 10, y: 20 }), Value({ value: 5 }));
+      const entity = world.spawn();
+      entity.add(Position({ x: 11, y: 21 }));
+
+      expect(values).toEqual([10, 5, 11]);
+    });
   });
 
   describe('onEntitySpawn', () => {
