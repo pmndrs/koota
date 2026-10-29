@@ -54,7 +54,7 @@ export function runQuery<T extends QueryParameter[]>(
 ): QueryResult<T> {
   commitQueryRemovals(ctx);
 
-  const entities = query.entities.dense.slice() as Entity[];
+  const entities = query.entities.toArray() as Entity[];
 
   if (query.isTracking) {
     query.entities.clear();
@@ -70,14 +70,14 @@ export function runQuery<T extends QueryParameter[]>(
 export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity | undefined {
   commitQueryRemovals(ctx);
 
-  const { array, length } = query.entities.denseRaw;
-  const entity = length > 0 ? (array[0] as Entity) : undefined;
+  const { dense, length } = query.entities;
+  const entity = length > 0 ? (dense[0] as Entity) : undefined;
 
   if (query.isTracking) {
     // Reading one entity still consumes the entire tracking batch.
     query.entities.clear();
     for (let i = 0; i < length; i++) {
-      query.resetTrackingBitmasks(getEntityId(array[i] as Entity));
+      query.resetTrackingBitmasks(getEntityId(dense[i] as Entity));
     }
   }
 
@@ -112,8 +112,9 @@ export function commitQueryRemovals(ctx: WorldContext) {
   if (!ctx.dirtyQueries.size) return;
 
   for (const query of ctx.dirtyQueries) {
-    for (let i = query.toRemove.dense.length - 1; i >= 0; i--) {
-      const eid = query.toRemove.dense[i];
+    const { dense, length } = query.toRemove;
+    for (let i = length - 1; i >= 0; i--) {
+      const eid = dense[i];
       query.toRemove.remove(eid);
       query.entities.remove(eid);
     }

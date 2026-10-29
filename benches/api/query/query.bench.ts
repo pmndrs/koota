@@ -314,7 +314,7 @@ group('query maintenance 10k @query @maintenance', () => {
     world.destroy();
   });
 
-  bench('remove trait when 20 queries active', function* () {
+  bench('remove trait and query when 20 queries active', function* () {
     const world = buildWithQueries();
     const entities: Entity[] = [];
     for (let i = 0; i < 10_000; i++) {
@@ -326,11 +326,10 @@ group('query maintenance 10k @query @maintenance', () => {
         for (let i = 0; i < entities.length; i++) {
           entities[i].remove(Velocity);
         }
+        return world.query(Position, Velocity).length;
       },
       snapshot: () => world.query(Position, Velocity).length,
       after: () => {
-        // Commit removals before restoring Velocity.
-        world.query(Velocity);
         for (const entity of entities) entity.add(Velocity);
       },
     };
