@@ -27,7 +27,7 @@ group('entity mutations 10k @entity @mutation', () => {
   });
 });
 
-group('spawn throughput 10k @entity @lifecycle', () => {
+group('spawn throughput 10k @entity @lifecycle @spawn', () => {
   bench('spawn with no traits', function* () {
     const world = createWorld();
 
@@ -54,6 +54,21 @@ group('spawn throughput 10k @entity @lifecycle', () => {
         }
       },
       snapshot: () => world.query(Position).length,
+      after: () => world.reset(),
+    };
+
+    world.destroy();
+  });
+
+  bench('spawn with 8 traits', function* () {
+    const world = createWorld();
+    const traits = Array.from({ length: 8 }, () => trait({ value: 0 }));
+
+    yield {
+      bench: () => {
+        for (let i = 0; i < 10_000; i++) world.spawn(...traits);
+      },
+      snapshot: () => world.query(...traits).length,
       after: () => world.reset(),
     };
 

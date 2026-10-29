@@ -206,12 +206,12 @@ group('named write scenarios @name @name-write @accessor', () => {
             bench: () => {
               prefix = prefix ? '' : 'scene/';
               if (useQuery) {
-                world.query(query).updateEach(([name], _entity, i) => {
-                  name.value = `${prefix}object-${i * (count / 1_000)}`;
+                world.query(query).updateEach((state, _entity, i) => {
+                  state[0] = `${prefix}object-${i * (count / 1_000)}`;
                 });
               } else {
                 for (let i = 0; i < selected.length; i++) {
-                  selected[i].set(Name, { value: `${prefix}object-${i * (count / 1_000)}` });
+                  selected[i].set(Name, `${prefix}object-${i * (count / 1_000)}`);
                 }
               }
             },
