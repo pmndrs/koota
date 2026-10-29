@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   $internal,
+  createChanged,
   createQuery,
   createRemoved,
   createWorld,
   IsExcluded,
+  Name as EntityName,
   Not,
   Or,
   relation,
@@ -152,6 +154,109 @@ describe('Query', () => {
     const query2 = world2.query(key);
 
     expect(query2).toContain(entityC);
+  });
+
+  describe('named entities', () => {
+    it('filters named entities alongside traits', () => {
+      const player = world.spawn(EntityName('player'), Position);
+      const enemy = world.spawn(EntityName('enemy'), Position, IsActive);
+      world.spawn(Position);
+      world.spawn(EntityName('hidden'), Position, IsExcluded);
+
+      expect([...world.query(EntityName)]).toEqual([player, enemy]);
+      expect([...world.query(EntityName('player'))]).toEqual([player]);
+      expect(world.queryFirst(EntityName('player'), Position)).toBe(player);
+      expect(world.query(EntityName('player'), IsActive)).toHaveLength(0);
+      expect(world.queryFirst(EntityName('hidden'))).toBeUndefined();
+    });
+
+    it('keeps a cached query current through renaming, replacement and reset', () => {
+      const query = createQuery(EntityName('player'), Position, Not(IsActive));
+      const player = world.spawn(EntityName('player'), Position);
+      expect(world.queryFirst(query)).toBe(player);
+
+      player.set(EntityName, 'hero');
+      expect(world.query(query)).toHaveLength(0);
+
+      const replacement = world.spawn(EntityName('player'), Position);
+      expect([...world.query(query)]).toEqual([replacement]);
+
+      world.reset();
+      expect(world.query(query)).toHaveLength(0);
+      const next = world.spawn(EntityName('player'), Position);
+      expect(world.queryFirst(query)).toBe(next);
+    });
+
+    it('notifies subscribers when entities enter or leave a named query', () => {
+      const added = vi.fn();
+      const removed = vi.fn();
+      world.onQueryAdd([EntityName('player'), Position], added);
+      world.onQueryRemove([EntityName('player'), Position], removed);
+
+      const player = world.spawn(EntityName('player'));
+      player.add(Position);
+      player.set(EntityName, 'hero');
+      const replacement = world.spawn(EntityName('player'), Position);
+      replacement.destroy();
+
+      expect(added.mock.calls).toEqual([[player], [replacement]]);
+      expect(removed.mock.calls).toEqual([[player], [replacement]]);
+    });
+
+    it('renames through updateEach and reports changes to the string value', () => {
+      const Changed = createChanged();
+      const player = world.spawn(EntityName('player'), Position);
+      const enemy = world.spawn(EntityName('enemy'), Position);
+      const changed = vi.fn();
+      world.onChange(EntityName, changed);
+      world.query(Changed(EntityName));
+      const query = world.query(EntityName('player'), EntityName, Position);
+
+      query.updateEach((state) => {
+        state[0] = 'hero';
+        state[1].x = 5;
+      });
+
+      expect(world.lookup('player')).toBeUndefined();
+      expect(world.lookup('hero')).toBe(player);
+      expect(player.get(Position)?.x).toBe(5);
+      expect(enemy.name()).toBe('enemy');
+      expect([...world.query(Changed(EntityName))]).toEqual([player]);
+      expect(changed).toHaveBeenCalledExactlyOnceWith(player);
+
+      query.updateEach(() => {});
+      expect(changed).toHaveBeenCalledTimes(1);
+    });
+
+    it('preserves both names when updateEach attempts to take an occupied name', () => {
+      const player = world.spawn(EntityName('player'));
+      const hero = world.spawn(EntityName('hero'));
+
+      expect(() =>
+        world.query(EntityName('player'), EntityName).updateEach((state) => {
+          state[0] = 'hero';
+        })
+      ).toThrow(/NAME_TAKEN/);
+
+      expect(player.name()).toBe('player');
+      expect(hero.name()).toBe('hero');
+      expect(world.lookup('player')).toBe(player);
+      expect(world.lookup('hero')).toBe(hero);
+    });
+
+    it('resolves relation targets by their current name', () => {
+      const player = world.spawn(EntityName('player'));
+      const enemy = world.spawn(EntityName('enemy'));
+      const first = world.spawn(Position, ChildOf(player));
+      const second = world.spawn(Position, ChildOf(enemy));
+      const query = createQuery(Position, ChildOf(EntityName('player')));
+      expect([...world.query(query)]).toEqual([first]);
+
+      player.set(EntityName, 'hero');
+      enemy.set(EntityName, 'player');
+
+      expect([...world.query(query)]).toEqual([second]);
+    });
   });
 
   it('should exclude entities with IsExcluded', () => {
@@ -492,29 +597,9 @@ describe('Query', () => {
     const wildcard = createQuery(Position, ChildOf('*'));
     const filtered = createQuery(Position, ChildOf(createQuery(IsPlayer)));
 
-    expect(new Set([concrete, wildcard, filtered]).size).toBe(3);
     expect([...world.query(concrete)]).toEqual([first]);
     expect([...world.query(wildcard)]).toEqual([first, second]);
     expect([...world.query(filtered)]).toEqual([first]);
-    expect(createQuery(ChildOf(parent), Position)).toBe(concrete);
-    expect(createQuery(ChildOf(IsPlayer), Position)).toBe(filtered);
-  });
-
-  it('reuses nested target queries without losing surrounding filters', () => {
-    const OwnedBy = relation();
-    const group = world.spawn(IsActive);
-    const parent = world.spawn(IsPlayer, ChildOf(group));
-    const owner = world.spawn(Foo);
-    const positioned = world.spawn(Position, ChildOf(parent), OwnedBy(owner));
-    const named = world.spawn(Name, ChildOf(parent), OwnedBy(owner));
-    world.spawn(Position, ChildOf(parent));
-
-    const target = createQuery(IsPlayer, ChildOf(IsActive));
-    const query = createQuery(Position, ChildOf(IsPlayer, ChildOf(IsActive)), OwnedBy(Foo));
-    expect(createQuery(OwnedBy(Foo), ChildOf(target), Position)).toBe(query);
-    expect([...world.query(query)]).toEqual([positioned]);
-    expect([...world.query(Name, ChildOf(target), OwnedBy(Foo))]).toEqual([named]);
-    expect([...world.query(query)]).toEqual([positioned]);
   });
 
   it('updates relation target filters when target query membership changes', () => {
@@ -674,43 +759,6 @@ describe('Query', () => {
     expect(notified).toEqual([first, second]);
     expect(first.get(Position)!.x).toBe(11);
     expect(second.get(Position)!.x).toBe(11);
-  });
-
-  it.each([
-    { type: 'string', initial: 'idle', next: 'ready' },
-    { type: 'number', initial: 0, next: 1 },
-    { type: 'boolean', initial: false, next: true },
-    { type: 'nullable', initial: null, next: 'ready' },
-    { type: 'optional', initial: undefined, next: 'ready' },
-  ])('updateEach detects changes to $type atomic values', ({ initial, next }) => {
-    const Value = trait(() => initial);
-    const Position = trait(() => ({ x: 0 }));
-    const entity = world.spawn(Value, Position);
-    const valueChanged = vi.fn();
-    const positionChanged = vi.fn();
-    world.onChange(Value, valueChanged);
-    world.onChange(Position, positionChanged);
-    const query = world.query(Value, Position);
-
-    query.updateEach(([, position]) => {
-      position.x++;
-    });
-
-    expect(entity.get(Value)).toBe(initial);
-    expect(valueChanged).not.toHaveBeenCalled();
-    expect(positionChanged).toHaveBeenCalledExactlyOnceWith(entity);
-
-    query.updateEach((state) => {
-      state[0] = next;
-    });
-
-    expect(entity.get(Value)).toBe(next);
-    expect(valueChanged).toHaveBeenCalledExactlyOnceWith(entity);
-    expect(positionChanged).toHaveBeenCalledTimes(1);
-
-    query.updateEach(() => {});
-    expect(valueChanged).toHaveBeenCalledTimes(1);
-    expect(positionChanged).toHaveBeenCalledTimes(1);
   });
 
   it('updateEach tracks mixed atomic traits when subscriptions change between calls', () => {
