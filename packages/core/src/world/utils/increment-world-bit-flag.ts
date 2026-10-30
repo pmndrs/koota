@@ -7,6 +7,7 @@ export function incrementWorldBitflag(ctx: WorldContext) {
   if (ctx.bitflag >= 2 ** 31) {
     ctx.bitflag = 1;
     ctx.entityMasks.push(createEmptyMaskGeneration());
+    ctx.traitsByBit.push([]);
 
     for (const m of ctx.dirtyMasks.values()) m.push(createEmptyMaskGeneration());
     for (const m of ctx.changedMasks.values()) m.push(createEmptyMaskGeneration());

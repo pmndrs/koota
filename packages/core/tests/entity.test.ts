@@ -29,6 +29,19 @@ describe('Entity', () => {
     expect(world.entities.length).toBe(1);
   });
 
+  it('removes every trait on destroy across mask generations', () => {
+    const traits = Array.from({ length: 40 }, () => trait());
+    const removed = new Set<number>();
+    traits.forEach((t, i) => world.onRemove(t, () => removed.add(i)));
+
+    const entity = world.spawn(...traits);
+    entity.destroy();
+
+    expect(removed.size).toBe(traits.length);
+    const recycled = world.spawn();
+    for (const t of traits) expect(recycled.has(t)).toBe(false);
+  });
+
   it('should encode generation and entity ID', () => {
     const entity = world.spawn();
     const { generation, entityId } = unpackEntity(entity);
