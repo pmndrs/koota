@@ -80,12 +80,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     [$internal]: {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
-      entityTraits: new Map(),
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
+      traitsByBit: [[]],
       traits: new Set<Trait>(),
-      relations: new Set(),
+      relations: [],
       queriesHashMap: new Map(),
       queryInstances: [],
       iterationBuffers: undefined,
@@ -183,9 +183,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       // Re-link shared ownedPages for the cleanup token.
       ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
 
-      ctx.entityTraits.clear();
       ctx.names.clear();
       ctx.entityMasks = [createEmptyMaskGeneration()];
+      ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
 
       for (const query of ctx.queriesHashMap.values()) {
@@ -196,7 +196,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
       clearTraitInstance(ctx.traitInstances);
       ctx.traits.clear();
-      ctx.relations.clear();
+      ctx.relations.length = 0;
 
       ctx.queriesHashMap.clear();
       ctx.queryInstances.length = 0;

@@ -25,12 +25,13 @@ import type {
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   entityMasks: Uint32Array[][];
-  entityTraits: Map<number, Set<Trait>>;
   names: Map<string, Entity>;
   bitflag: number;
   traitInstances: (TraitInstance | undefined)[];
+  /** Trait instances by mask generation and bit index, so a mask word can be walked back to its traits. */
+  traitsByBit: TraitInstance[][];
   traits: Set<Trait>;
-  relations: Set<Relation<Trait>>;
+  relations: Relation<Trait>[];
   queriesHashMap: Map<string, QueryInstance>;
   queryInstances: (QueryInstance | undefined)[];
   iterationBuffers: QueryIterationBuffers | undefined;

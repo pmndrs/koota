@@ -284,34 +284,33 @@ export function addRelationTarget(
   return targetIndex;
 }
 
+/** Returns how many targets remain on the entity, or -1 when the pair was not present. */
 export function removeRelationTarget(
   ctx: WorldContext,
   relation: Relation<Trait>,
   entity: Entity,
   target: Entity
-): { removedIndex: number; wasLastTarget: boolean } {
+): number {
   const relationCtx = relation[$internal];
   const relationTrait = relationCtx.trait;
 
   const data = getTraitInstance(ctx.traitInstances, relationTrait);
-  if (!data || !data.relationTargets) return { removedIndex: -1, wasLastTarget: false };
+  if (!data || !data.relationTargets) return -1;
 
   const eid = getEntityId(entity);
   const p = eid >>> 10,
     o = eid & 1023;
   const page = data.relationTargets[p];
-  if (!page) return { removedIndex: -1, wasLastTarget: false };
+  if (!page) return -1;
 
-  let removedIndex = -1;
-  let hasRemainingTargets = false;
+  let remaining = -1;
 
   if (relationCtx.exclusive) {
     if (page[o] === target) {
       if (assertsEnabled) ctx.structuralRevision++;
       removeFromRelationSources(data, entity, target);
       page[o] = undefined;
-      removedIndex = 0;
-      hasRemainingTargets = false;
+      remaining = 0;
       clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
     }
   } else {
@@ -325,19 +324,17 @@ export function removeRelationTarget(
         if (idx !== lastIdx) entityTargets[idx] = entityTargets[lastIdx];
         entityTargets.pop();
         swapAndPopRelationData(data.store, relationTrait[$internal].type, eid, idx, lastIdx);
-        removedIndex = idx;
-        hasRemainingTargets = entityTargets.length > 0;
+        remaining = entityTargets.length;
       }
     }
   }
 
-  if (removedIndex !== -1) {
+  if (remaining !== -1) {
     data.version++;
     updateQueriesForRelationChange(ctx, relation, entity);
   }
 
-  const wasLastTarget = removedIndex !== -1 && !hasRemainingTargets;
-  return { removedIndex, wasLastTarget };
+  return remaining;
 }
 
 /** Forward edges require base trait membership until their final removal. */
@@ -515,19 +512,76 @@ export function setRelationDataAtIndex(
 
   const storeRec = store as Record<string, any[]>;
   const schema = traitData.schema as Record<string, unknown>;
+  const exclusive = relationCtx.exclusive;
   for (const key in value) {
-    const kPage = ensureRelPage(storeRec[key], p);
-    const slots: unknown[] = relationCtx.exclusive ? kPage : (kPage[o] ??= []);
-    const slot = relationCtx.exclusive ? o : targetIndex;
-    const field = value[key];
-    if (!Array.isArray(schema[key])) {
-      slots[slot] = field;
-      continue;
-    }
-    // Each pair keeps one array per tuple. Writes copy into it, so it never aliases the caller's array.
-    const stored = slots[slot] as unknown[] | undefined;
-    if (stored === undefined) slots[slot] = Array.from(field as ArrayLike<unknown>);
-    else for (let i = 0; i < stored.length; i++) stored[i] = (field as ArrayLike<unknown>)[i];
+    writeRelationField(storeRec, schema, key, value[key], exclusive, p, o, targetIndex);
+  }
+}
+
+/** Writes one field of a pair record. Tuples copy into the array the pair already holds. */
+function writeRelationField(
+  store: Record<string, any[]>,
+  schema: Record<string, unknown>,
+  key: string,
+  field: unknown,
+  exclusive: boolean,
+  p: number,
+  o: number,
+  targetIndex: number
+) {
+  const kPage = ensureRelPage(store[key], p);
+  const slots: unknown[] = exclusive ? kPage : (kPage[o] ??= []);
+  const slot = exclusive ? o : targetIndex;
+  if (!Array.isArray(schema[key])) {
+    slots[slot] = field;
+    return;
+  }
+  // Each pair keeps one array per tuple. Writes copy into it, so it never aliases the caller's array.
+  const stored = slots[slot] as unknown[] | undefined;
+  if (stored === undefined) slots[slot] = Array.from(field as ArrayLike<unknown>);
+  else for (let i = 0; i < stored.length; i++) stored[i] = (field as ArrayLike<unknown>)[i];
+}
+
+/**
+ * Fills a new pair's record from the schema defaults and the given params. SoA fields are
+ * resolved one at a time so no defaults object is built. Tag relations store nothing.
+ */
+export function initRelationData(
+  ctx: WorldContext,
+  entity: Entity,
+  relation: Relation<Trait>,
+  traitData: TraitInstance,
+  targetIndex: number,
+  params: Record<string, unknown> | undefined
+): void {
+  const type = traitData.trait[$internal].type;
+  if (type === 'tag') return;
+  if (type === 'aos') {
+    // An AoS record is fresh per pair, so the params are laid over the factory result.
+    const record = (traitData.schema as () => Record<string, unknown>)();
+    setRelationDataAtIndex(
+      ctx,
+      entity,
+      relation,
+      targetIndex,
+      params === undefined ? record : Object.assign(record, params)
+    );
+    return;
+  }
+
+  traitData.version++;
+  const store = traitData.store as Record<string, any[]>;
+  const schema = traitData.schema as Record<string, unknown>;
+  const exclusive = relation[$internal].exclusive;
+  const eid = getEntityId(entity);
+  const p = eid >>> 10,
+    o = eid & 1023;
+  for (const key in schema) {
+    let field: unknown;
+    if (params !== undefined && key in params) field = params[key];
+    else if (typeof schema[key] === 'function') field = (schema[key] as () => unknown)();
+    else field = schema[key];
+    writeRelationField(store, schema, key, field, exclusive, p, o, targetIndex);
   }
 }
 

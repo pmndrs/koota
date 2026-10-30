@@ -21,6 +21,7 @@ import {
   getTargetIndex,
   hasRelationPair,
   hasRelationToTarget,
+  initRelationData,
   removeAllRelationTargets,
   removeRelationTarget,
   setRelationData,
@@ -35,7 +36,6 @@ import {
   createGetIntoFunction,
   createSetFunction,
   createStore,
-  getSchemaDefaults,
   Norm,
   Schema,
   StoreType,
@@ -157,9 +157,10 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
+  ctx.traitsByBit[data.generationId][31 - Math.clz32(ctx.bitflag)] = data;
   ctx.traits.add(trait);
 
-  if (traitCtx.relation) ctx.relations.add(traitCtx.relation);
+  if (traitCtx.relation) ctx.relations.push(traitCtx.relation);
 
   incrementWorldBitflag(ctx);
 
@@ -243,16 +244,8 @@ export /* @inline */ function addTraitsToAliveEntity(
   const targetIndex = addRelationTarget(ctx, relation, entity, target);
   if (targetIndex === -1) return;
 
-  const schema = instance?.schema ?? getTraitInstance(ctx.traitInstances, relationTrait)!.schema;
-  const defaults = getSchemaDefaults(schema, relationTrait[$internal].type);
-
-  if (defaults) {
-    setRelationDataAtIndex(ctx, entity, relation, targetIndex, { ...defaults, ...params });
-  } else if (params) {
-    setRelationDataAtIndex(ctx, entity, relation, targetIndex, params);
-  }
-
   instance = instance ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
+  initRelationData(ctx, entity, relation, instance, targetIndex, params);
   emit(instance.addSubscriptions, entity, target);
 }
 
@@ -267,28 +260,33 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
     /* @cold */ if (isRelationPair(trait)) {
       removeRelationPair(ctx, entity, trait);
     } else {
-      if (!hasTrait(ctx, entity, trait)) continue;
-
-      const traitCtx = trait[$internal];
-
-      /* @cold */ if (traitCtx.relation) {
-        const instance = getTraitInstance(ctx.traitInstances, trait);
-        if (instance) {
-          const targets = getRelationTargets(ctx, traitCtx.relation, entity);
-          for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-        }
-        removeAllRelationTargets(ctx, traitCtx.relation, entity);
-      } else {
-        const instance = getTraitInstance(ctx.traitInstances, trait);
-        if (instance) {
-          emit(instance.removeSubscriptions, entity);
-          traitCtx.remove(ctx, getEntityId(entity), instance.store);
-        }
-      }
-
-      removeTraitFromEntity(ctx, entity, trait);
+      removeTraitFromAliveEntity(ctx, entity, trait);
     }
   }
+}
+
+/** The caller must establish entity liveness before removing a trait. */
+export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, trait: Trait) {
+  if (!hasTrait(ctx, entity, trait)) return;
+
+  const traitCtx = trait[$internal];
+
+  /* @cold */ if (traitCtx.relation) {
+    const instance = getTraitInstance(ctx.traitInstances, trait);
+    if (instance) {
+      const targets = getRelationTargets(ctx, traitCtx.relation, entity);
+      for (const t of targets) emit(instance.removeSubscriptions, entity, t);
+    }
+    removeAllRelationTargets(ctx, traitCtx.relation, entity);
+  } else {
+    const instance = getTraitInstance(ctx.traitInstances, trait);
+    if (instance) {
+      emit(instance.removeSubscriptions, entity);
+      traitCtx.remove(ctx, getEntityId(entity), instance.store);
+    }
+  }
+
+  removeTraitFromEntity(ctx, entity, trait);
 }
 
 /* @inline */ function removeRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
@@ -313,10 +311,8 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
   if (typeof target === 'number') {
     if (instance) emit(instance.removeSubscriptions, entity, target);
 
-    const { removedIndex, wasLastTarget } = removeRelationTarget(ctx, relation, entity, target);
-    if (removedIndex === -1) return;
-
-    if (wasLastTarget) removeTraitFromEntity(ctx, entity, relationTrait);
+    const remaining = removeRelationTarget(ctx, relation, entity, target);
+    if (remaining === 0) removeTraitFromEntity(ctx, entity, relationTrait);
   }
 }
 
@@ -331,10 +327,8 @@ export function cleanupRelationTarget(
   const instance = getTraitInstance(ctx.traitInstances, relationTrait);
   if (instance) emit(instance.removeSubscriptions, entity, target);
 
-  const { removedIndex, wasLastTarget } = removeRelationTarget(ctx, relation, entity, target);
-  if (removedIndex === -1) return;
-
-  if (wasLastTarget) removeTraitFromEntity(ctx, entity, relationTrait);
+  const remaining = removeRelationTarget(ctx, relation, entity, target);
+  if (remaining === 0) removeTraitFromEntity(ctx, entity, relationTrait);
 }
 
 export /* @inline @pure */ function hasTrait(
@@ -606,8 +600,6 @@ export function resolveTraitSetCallback(
 
   if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
   reconcileTraitQueries(ctx, entity, instance, 'add', generationId, bitflag);
-
-  ctx.entityTraits.get(entity)!.add(instance.trait);
 }
 
 /** Record a membership change in every dirty mask snapshot. */
@@ -700,6 +692,4 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
 
   if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
   reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
-
-  ctx.entityTraits.get(entity)!.delete(trait);
 }
