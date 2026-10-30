@@ -15,7 +15,7 @@ import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 import { markTrackedTraitChanged, markTraitChanged } from '../utils/mark-tracked-trait-changed';
 
 export function createChanged() {
-  const id = createTrackingId();
+  const id = createTrackingId('change');
 
   for (const ctx of universe.worlds) {
     if (!ctx) continue;

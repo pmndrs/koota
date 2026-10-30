@@ -7,7 +7,7 @@ import type { Modifier } from '../types';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createRemoved() {
-  const id = createTrackingId();
+  const id = createTrackingId('remove');
 
   for (const ctx of universe.worlds) {
     if (!ctx) continue;

@@ -749,6 +749,18 @@ describe('Query', () => {
     }
   );
 
+  it('feeds Changed trackers of other queries with always detection', () => {
+    const Changed = createChanged();
+    const entity = world.spawn(Position);
+    world.query(Changed(Position));
+
+    world.query(Position).updateEach(() => {}, { changeDetection: 'auto' });
+    expect(world.query(Changed(Position))).toHaveLength(0);
+
+    world.query(Position).updateEach(() => {}, { changeDetection: 'always' });
+    expect([...world.query(Changed(Position))]).toEqual([entity]);
+  });
+
   it('preserves deferred notifications when a subscriber iterates the same result', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);

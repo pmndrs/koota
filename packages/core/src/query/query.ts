@@ -411,8 +411,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
           const pageId = eid >>> 10;
           const offset = eid & 1023;
-          const oldMask = snapshot[genId][pageId][offset];
           const currentMask = ctx.entityMasks[genId][pageId][offset];
+          // Only add and remove trackers keep a snapshot of the masks they compare against.
+          const oldMask = type === 'change' ? 0 : snapshot[genId][pageId][offset];
 
           // A generation's highest bit is 2^30, and shifting past it wraps negative, so the walk stops there.
           for (let bit = 1; bit > 0 && bit <= mask; bit <<= 1) {
