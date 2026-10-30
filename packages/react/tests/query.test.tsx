@@ -1,13 +1,4 @@
-import {
-  createWorld,
-  Name,
-  type Entity,
-  type QueryResult,
-  relation,
-  trait,
-  universe,
-  type World,
-} from '@koota/core';
+import { createWorld, Name, type Entity, relation, trait, universe, type World } from '@koota/core';
 import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -31,7 +22,7 @@ describe('useQuery', () => {
   });
 
   it('reactively returns entities matching the query', async () => {
-    let entities: QueryResult<[typeof Position]> = null!;
+    let entities: Entity[] = null!;
 
     function Test() {
       entities = useQuery(Position);
@@ -95,7 +86,7 @@ describe('useQuery', () => {
     // Spawn an initial entity
     world.spawn(Position);
 
-    let entities: QueryResult<[typeof Position]> = null!;
+    let entities: Entity[] = null!;
 
     function Test() {
       entities = useQuery(Position);
@@ -191,7 +182,7 @@ describe('useQuery', () => {
   });
 
   it('reactively updates when the world is reset', async () => {
-    let entities: QueryResult<[typeof Position]> = null!;
+    let entities: Entity[] = null!;
 
     function Test() {
       entities = useQuery(Position);
@@ -241,7 +232,7 @@ describe('useQuery', () => {
       { wrapper: Wrapper }
     );
 
-    expect(result.current.updateEach).toBeDefined();
+    expect(Array.isArray(result.current)).toBe(true);
   });
 
   it('should handle relation query when target entity changes', async () => {
@@ -257,7 +248,7 @@ describe('useQuery', () => {
     // One child of parent2
     world.spawn(Tag, ChildOf(parent2));
 
-    let entities: QueryResult<[typeof Tag, ReturnType<typeof ChildOf>]> = null!;
+    let entities: Entity[] = null!;
 
     function Test({ parent }: { parent: Entity }) {
       entities = useQuery(Tag, ChildOf(parent));

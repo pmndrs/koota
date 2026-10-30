@@ -3,5 +3,5 @@ import { useQuery } from './use-query';
 
 export function useQueryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined {
   const query = useQuery(...parameters);
-  return query.at(0);
+  return query[0];
 }

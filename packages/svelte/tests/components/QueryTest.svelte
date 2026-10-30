@@ -17,6 +17,6 @@
   {result.current.length}
 </span>
 
-<span data-testid="has-update-each">
-  {typeof result.current.updateEach === "function"}
+<span data-testid="is-array">
+  {Array.isArray(result.current)}
 </span>
