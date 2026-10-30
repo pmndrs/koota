@@ -240,6 +240,21 @@ describe('Live query results', () => {
     expect(world.query(Position).first).toBe(first);
   });
 
+  it('visits every entity with forEach while destroying inside the callback', () => {
+    const first = world.spawn(Position({ x: 1 }));
+    const second = world.spawn(Position({ x: 2 }));
+    const third = world.spawn(Position({ x: 3 }));
+    const visited: number[] = [];
+
+    world.query(Position).forEach((entity, index) => {
+      visited.push(entity);
+      if (index === 0) second.destroy();
+    });
+
+    expect(visited).toEqual([first, second, third]);
+    expect(world.query(Position).toArray()).toEqual([first, third]);
+  });
+
   const runtime = globalThis as unknown as {
     gc?: () => void;
     process: { memoryUsage(): { heapUsed: number } };

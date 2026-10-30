@@ -102,6 +102,17 @@ class View implements QueryView<any> {
     return this.source.dense.slice(0, this.source.length) as Entity[];
   }
 
+  forEach(callback: (entity: Entity, index: number) => void) {
+    const { dense, length } = this.source;
+    const guard = this.live ? this.query : null;
+    if (guard) guard.iterating++;
+    try {
+      for (let i = 0; i < length; i++) callback(dense[i] as Entity, i);
+    } finally {
+      if (guard) guard.iterating--;
+    }
+  }
+
   readEach(callback: Callback) {
     const { dense, length } = this.source;
     if (length === 0) return this;

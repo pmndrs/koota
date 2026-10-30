@@ -81,6 +81,7 @@ export type QueryView<T extends QueryParameter[] = QueryParameter[]> = {
   [Symbol.iterator](): IterableIterator<Entity>;
   /** Copies the entities into a plain array. */
   toArray(): Entity[];
+  forEach(callback: (entity: Entity, index: number) => void): void;
   readEach(
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
   ): QueryView<T>;
