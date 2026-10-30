@@ -3,6 +3,9 @@ import { createNameTakenError } from '../asserts';
 import type { Brand } from '../common';
 import type { Entity } from '../entity/types';
 import type { TraitInstance } from '../trait/types';
+import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
+import { checkQuery } from '../query/utils/check-query';
+import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import type { WorldContext } from '../world';
@@ -63,9 +66,9 @@ export function refreshNamedQueries(ctx: WorldContext, entity: Entity, data: Tra
     if (query.name === undefined) continue;
     const matches = query.relationFilters?.length
       ? checkQueryWithRelations(ctx, query, entity)
-      : query.check(ctx, entity);
-    if (matches) query.add(entity);
-    else query.remove(ctx, entity);
+      : checkQuery(ctx, query, entity);
+    if (matches) addEntityToQuery(query, entity);
+    else removeEntityFromQuery(ctx, query, entity);
   }
 
   for (const query of data.trackingQueries) {
@@ -73,8 +76,8 @@ export function refreshNamedQueries(ctx: WorldContext, entity: Entity, data: Tra
     // Recheck membership without recording an additional tracking event.
     const matches = query.relationFilters?.length
       ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', -1, 0)
-      : query.checkTracking(ctx, entity, 'change', -1, 0);
-    if (matches) query.add(entity);
-    else query.remove(ctx, entity);
+      : checkQueryTracking(ctx, query, entity, 'change', -1, 0);
+    if (matches) addEntityToQuery(query, entity);
+    else removeEntityFromQuery(ctx, query, entity);
   }
 }

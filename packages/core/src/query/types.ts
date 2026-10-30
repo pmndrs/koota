@@ -233,19 +233,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   iterationBuffers: QueryIterationBuffers | undefined;
   resultBindings: QueryResultBinding[];
   /** Relation pairs for target-specific queries */
-  relationFilters?: ResolvedRelationFilter[];
-  run: (ctx: WorldContext, params: QueryParameter[]) => QueryResult<T>;
-  add: (entity: Entity) => void;
-  remove: (ctx: WorldContext, entity: Entity) => void;
-  check: (ctx: WorldContext, entity: Entity) => boolean;
-  checkTracking: (
-    ctx: WorldContext,
-    entity: Entity,
-    eventType: 'add' | 'remove' | 'change',
-    generationId: number,
-    bitflag: number
-  ) => boolean;
-  resetTrackingBitmasks: (eid: number) => void;
+  relationFilters: ResolvedRelationFilter[];
 };
 
 export type EventType = 'add' | 'remove' | 'change';

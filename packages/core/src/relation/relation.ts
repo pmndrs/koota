@@ -5,6 +5,7 @@ import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import type { QueryParameter } from '../query/types';
+import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isQuery } from '../query/utils/is-query';
 import { Schema } from '../storage';
@@ -368,9 +369,9 @@ function updateQueriesForRelationChange(
   for (const query of traitData.relationQueries) {
     const match = checkQueryWithRelations(ctx, query, entity);
     if (match) {
-      query.add(entity);
+      addEntityToQuery(query, entity);
     } else {
-      query.remove(ctx, entity);
+      removeEntityFromQuery(ctx, query, entity);
     }
   }
 }

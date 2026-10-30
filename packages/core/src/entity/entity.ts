@@ -1,7 +1,15 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
-import { dropQuery, IsExcluded, queryInternal } from '../query/query';
+import {
+  addEntityToQuery,
+  dropQuery,
+  IsExcluded,
+  queryInternal,
+  removeEntityFromQuery,
+  resetQueryTrackingBitmasks,
+} from '../query/query';
+import { checkQuery } from '../query/utils/check-query';
 import { getEntitiesWithRelationTo, getRelationTargets, hasRelationPair } from '../relation/relation';
 import { isNameConfig } from '../name/name-index';
 import type { NameConfig } from '../name/types';
@@ -33,8 +41,8 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
 
   // Tracking queries enter on trait events. Static exclusion queries need an initial match.
   for (const query of ctx.notQueries) {
-    query.resetTrackingBitmasks(getEntityId(entity));
-    if (!query.isTracking && query.check(ctx, entity)) query.add(entity);
+    resetQueryTrackingBitmasks(query, getEntityId(entity));
+    if (!query.isTracking && checkQuery(ctx, query, entity)) addEntityToQuery(query, entity);
   }
 
   // Spawn is create then add in argument order. A trait that throws leaves the earlier ones in place.
@@ -127,7 +135,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       }
 
       const allQuery = ctx.queriesHashMap.get('');
-      if (allQuery) allQuery.remove(ctx, currentEntity);
+      if (allQuery) removeEntityFromQuery(ctx, allQuery, currentEntity);
 
       ctx.entityTraits.delete(currentEntity);
 

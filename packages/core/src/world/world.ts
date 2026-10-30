@@ -16,6 +16,7 @@ import {
   createQueryInstance,
   resolveQueryInstance,
   resolveQueryInstanceFromRef,
+  runQuery,
   runQueryFirst,
 } from '../query/query';
 import { createQueryResult, createRelationOnlyQueryResult } from '../query/query-result';
@@ -226,7 +227,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       if (args.length === 1 && isQuery(args[0])) {
         const queryRef = args[0];
         let query = ctx.queryInstances[queryRef.id];
-        if (query) return query.run(ctx, queryRef.parameters);
+        if (query) return runQuery(ctx, query, queryRef.parameters);
 
         query = ctx.queriesHashMap.get(queryRef.hash);
         if (!query) {
@@ -238,7 +239,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
           ctx.queryInstances[queryRef.id] = query;
           query.refId = queryRef.id;
         }
-        return query.run(ctx, queryRef.parameters);
+        return runQuery(ctx, query, queryRef.parameters);
       } else {
         const params = args as QueryParameter[];
 
@@ -272,7 +273,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
           ctx.queriesHashMap.set(hash, query);
         }
 
-        return query.run(ctx, params);
+        return runQuery(ctx, query, params);
       }
     },
 
