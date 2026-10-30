@@ -274,14 +274,21 @@ function trackTraits(
     const trait = traits[i];
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
     instance.version++;
+    // Notifying costs a deferred pass per entity, so skip it when nothing can observe the change.
     const tracked =
-      changeDetection === 'always' ||
-      (changeDetection !== 'never' &&
-        (hasSubscribers(instance.changeSubscriptions) ||
-          (query?.hasChangedModifiers && query.changedTraits.has(trait))));
-    modes[i] =
-      changeDetection === 'always' ? 3 : tracked ? (trait[$internal].type === 'aos' ? 2 : 1) : 0;
-    if (tracked) trackedCount++;
+      changeDetection === 'always'
+        ? hasSubscribers(instance.changeSubscriptions) ||
+          ctx.changedMasks.size !== 0 ||
+          instance.trackingQueries.size !== 0
+        : changeDetection !== 'never' &&
+          (hasSubscribers(instance.changeSubscriptions) ||
+            (query?.hasChangedModifiers && query.changedTraits.has(trait)));
+    if (!tracked) {
+      modes[i] = 0;
+      continue;
+    }
+    modes[i] = changeDetection === 'always' ? 3 : trait[$internal].type === 'aos' ? 2 : 1;
+    trackedCount++;
   }
   return trackedCount;
 }

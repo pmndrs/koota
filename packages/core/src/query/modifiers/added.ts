@@ -7,7 +7,7 @@ import type { Modifier } from '../types';
 import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
 
 export function createAdded() {
-  const id = createTrackingId();
+  const id = createTrackingId('add');
 
   for (const ctx of universe.worlds) {
     if (!ctx) continue;
