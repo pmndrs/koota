@@ -749,7 +749,7 @@ world.set(Time, { current: performance.now() })
 
 ### Select traits on queries for updates
 
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify.
+Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify. `select` returns a view over the same entities bound to the selected traits, cached per trait list, so selecting every frame allocates nothing.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
@@ -823,9 +823,29 @@ function updateMovement(world) {
 }
 ```
 
+#### Query results are live views
+
+A query result is an array like view over the query's own entity list. It has `length`, `at(index)`, `for of`, `forEach`, `map`, `filter`, `find`, `some`, `every`, `includes` and `indexOf`, but it is not an `Array`, so there is no `result[0]`. Every run returns the same view, so running a query and iterating it allocates nothing. Treat the result as borrowed. It is current until the next structural change, and the next run of the same query commits pending removals, which can move entries, or swaps in the next batch for tracking queries. Copy it when you need to keep it.
+
+```js
+const entities = world.query(Position)
+
+const first = entities.at(0)
+
+// Keeps working after entities are spawned or destroyed
+for (const entity of entities) {
+}
+
+// Copies for anything that outlives the frame
+const kept = entities.toArray()
+const sorted = entities.sort()
+```
+
+Structural changes inside a loop are safe. Entities destroyed during a walk stay in the view until the walk ends and are skipped by `updateEach`, while entities spawned during a walk are visited on the next run.
+
 #### You can use `for of` instead of `forEach` on query results
 
-A query result is just an array of entities with some extra methods. This means you can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.
+You can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.
 
 ```js
 // This is nice and ergonomic but will cost some overhead since we are

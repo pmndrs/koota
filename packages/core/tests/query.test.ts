@@ -57,16 +57,16 @@ describe('Query', () => {
     entityC.add(Position);
 
     let entities: any = world.query(Position, Name, IsActive);
-    expect(entities[0]).toBe(entityA);
+    expect(entities.at(0)!).toBe(entityA);
 
     entities = world.query(Position, Name);
-    expect(entities[0]).toBe(entityA);
-    expect(entities[1]).toBe(entityB);
+    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.at(1)!).toBe(entityB);
 
     entities = world.query(Position);
-    expect(entities[0]).toBe(entityA);
-    expect(entities[1]).toBe(entityB);
-    expect(entities[2]).toBe(entityC);
+    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.at(1)!).toBe(entityB);
+    expect(entities.at(2)!).toBe(entityC);
 
     entityA.remove(IsActive);
     entities = world.query(Position, Name, IsActive);
@@ -278,10 +278,10 @@ describe('Query', () => {
     });
 
     expect(query.length).toBe(10);
-    expect(query[0].get(Position)!.x).toBe(0);
+    expect(query.at(0)!.get(Position)!.x).toBe(0);
 
     for (let i = 1; i < 10; i++) {
-      expect(query[i].get(Position)!.x).toBe(10);
+      expect(query.at(i)!.get(Position)!.x).toBe(10);
     }
   });
 
@@ -389,7 +389,7 @@ describe('Query', () => {
   });
 
   it.each(['readEach', 'updateEach'] as const)(
-    'lets callers guard stale snapshot entries during %s',
+    'walks the live membership and lets callers guard destroyed entries during %s',
     (operation) => {
       const stale = world.spawn(Position);
       const alive = world.spawn(Position({ x: 1 }));
@@ -398,15 +398,20 @@ describe('Query', () => {
       const replacement = world.spawn(Position({ x: 7 }));
       const seen: [number, number][] = [];
 
+      // The result is live, so the replacement is visited and the destroyed entity is stale.
       query[operation](([position], entity) => {
         if (!entity.isAlive()) return;
         seen.push([entity, position.x]);
         if (operation === 'updateEach') position.x++;
       });
 
-      expect(seen).toEqual([[alive, 1]]);
-      expect(alive.get(Position)?.x).toBe(operation === 'updateEach' ? 2 : 1);
-      expect(replacement.get(Position)?.x).toBe(7);
+      const bump = operation === 'updateEach' ? 1 : 0;
+      expect(seen).toEqual([
+        [alive, 1],
+        [replacement, 7],
+      ]);
+      expect(alive.get(Position)?.x).toBe(1 + bump);
+      expect(replacement.get(Position)?.x).toBe(7 + bump);
     }
   );
 
@@ -425,8 +430,8 @@ describe('Query', () => {
     });
 
     expect(results).toHaveLength(5);
-    expect(results[0]).toEqual({ x: 0, name: 'Entity0', index: 0 });
-    expect(results[2]).toEqual({ x: 2, name: 'Entity2', index: 2 });
+    expect(results.at(0)!).toEqual({ x: 0, name: 'Entity0', index: 0 });
+    expect(results.at(2)!).toEqual({ x: 2, name: 'Entity2', index: 2 });
   });
 
   it.each(['readEach', 'updateEach'] as const)(
@@ -651,19 +656,17 @@ describe('Query', () => {
       expect(name.name).toBeDefined();
     });
 
-    const otherResults = world.query(Position, Name);
-
-    // Select only Name.
-    results.select(Name).updateEach(([name]) => {
+    // Select only Name. The selection leaves the result itself bound to every trait.
+    const selection = results.select(Name);
+    selection.updateEach(([name]) => {
       expect(name.name).toBeDefined();
     });
+    expect(results.select(Name)).toBe(selection);
 
-    otherResults.readEach(([position, name]) => {
-      expect(position.x).toBeDefined();
-      expect(name.name).toBeDefined();
+    results.readEach((state) => {
+      expect(state).toHaveLength(2);
     });
 
-    // Running query again should reset the selection.
     results = world.query(Position, Name);
     results.updateEach(([position, name]) => {
       expect(position.x).toBeDefined();
@@ -868,33 +871,36 @@ describe('Query', () => {
     const entityD = world.spawn(Position);
 
     let entities = world.query(Position);
-    expect(entities[0]).toBe(entityA);
-    expect(entities[1]).toBe(entityB);
-    expect(entities[2]).toBe(entityC);
-    expect(entities[3]).toBe(entityD);
+    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.at(1)!).toBe(entityB);
+    expect(entities.at(2)!).toBe(entityC);
+    expect(entities.at(3)!).toBe(entityD);
 
     entityC.destroy();
 
     entities = world.query(Position);
-    expect(entities[0]).toBe(entityA);
-    expect(entities[1]).toBe(entityB);
-    expect(entities[2]).toBe(entityD);
+    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.at(1)!).toBe(entityB);
+    expect(entities.at(2)!).toBe(entityD);
 
     // Recycles the entity id from entityC (3).
     const entityE = world.spawn(Position);
 
     entities = world.query(Position);
-    expect(entities[0]).toBe(entityA);
-    expect(entities[1]).toBe(entityB);
-    expect(entities[2]).toBe(entityD);
-    expect(entities[3]).toBe(entityE);
+    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.at(1)!).toBe(entityB);
+    expect(entities.at(2)!).toBe(entityD);
+    expect(entities.at(3)!).toBe(entityE);
 
-    entities.sort();
+    // Sorting copies, so the live result keeps the query's order.
+    const sorted = entities.sort();
+    expect(sorted).not.toBe(entities);
+    expect(entities.at(2)!).toBe(entityD);
 
     // Test the entity.id() are in ascending order.
     // [1, 2, 3, 4]
-    for (let i = 0; i < entities.length; i++) {
-      expect(entities[i].id()).toBe(i + 1);
+    for (let i = 0; i < sorted.length; i++) {
+      expect(sorted.at(i)!.id()).toBe(i + 1);
     }
   });
 

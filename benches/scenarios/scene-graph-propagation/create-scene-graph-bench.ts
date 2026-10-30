@@ -107,7 +107,7 @@ function buildGraph(world: World, traits: Traits) {
   if (allEntities.length < targetEntityCount) {
     const groups = world.query(IsGroup);
     for (let i = 0; allEntities.length < targetEntityCount; i++) {
-      spawnLeaf().add(ChildOf(groups[i % groups.length]));
+      spawnLeaf().add(ChildOf(groups.at(i % groups.length)!));
     }
   }
 
@@ -208,7 +208,7 @@ function createPropagateSystem(
 
     const children = world.query(ChildOf(entity));
     for (let i = 0; i < children.length; i++) {
-      propagateUnordered(world, children[i], total);
+      propagateUnordered(world, children.at(i)!, total);
     }
   };
 
@@ -230,7 +230,7 @@ function createPropagateSystem(
   return ({ world }: { world: World }) => {
     const dirtyEntities = world.query(Changed(Value));
     for (let i = 0; i < dirtyEntities.length; i++) {
-      const entity = dirtyEntities[i];
+      const entity = dirtyEntities.at(i)!;
       const ancestorSum = collectAncestorSum(entity);
       if (OrderedChildren) {
         propagateOrdered(entity, ancestorSum);
@@ -255,6 +255,7 @@ export function createSceneGraphContext(variant: SceneGraphVariant): SceneGraphC
     snapshot: () =>
       world
         .query(traits.TotalValue)
+        .toArray()
         .reduce((sum, entity) => sum + entity.get(traits.TotalValue)!.value, 0),
   };
 }

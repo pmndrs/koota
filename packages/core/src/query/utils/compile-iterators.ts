@@ -14,6 +14,7 @@ type Callback = (state: any, entity: Entity, index: number) => void;
 type Iterate<R = void> = (
   ctx: WorldContext,
   entities: readonly Entity[],
+  length: number,
   callback: Callback,
   buffers: QueryIterationBuffers,
   stores: Store<any>[]
@@ -122,7 +123,7 @@ function compileQueryIterators(traits: Trait[]): QueryIterators {
     var state = buffers.state, records = buffers.records;
     ${hoist.join('\n    ')}`;
   const loop = (body: string) => `
-    for (var i = 0; i < entities.length; i++) {
+    for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
       ${read.join('\n      ')}
       ${body}
@@ -138,15 +139,15 @@ function compileQueryIterators(traits: Trait[]): QueryIterators {
     `'use strict';
   ${bind.join('\n  ')}
   return {
-    readEach: function read(ctx, entities, callback, buffers, stores) {${setup}${loop(
+    readEach: function read(ctx, entities, length, callback, buffers, stores) {${setup}${loop(
       'callback(state, entity, i);'
     )}
     },
-    updateEach: function update(ctx, entities, callback, buffers, stores) {${setup}${loop(`callback(state, entity, i);
+    updateEach: function update(ctx, entities, length, callback, buffers, stores) {${setup}${loop(`callback(state, entity, i);
       if (!isEntityAlive(ctx.entityIndex, entity)) continue;
       ${write.join('\n      ')}`)}
     },
-    trackEach: function track(ctx, entities, callback, buffers, stores) {${setup}
+    trackEach: function track(ctx, entities, length, callback, buffers, stores) {${setup}
     var modes = buffers.modes${modes.length ? ', ' + modes.join(', ') : ''};
     var snapshots = buffers.atomicSnapshots, changedEntities = buffers.changedEntities;
     var changedTraits = buffers.changedTraits, changed = 0;${loop(`${snapshot.join('\n      ')}

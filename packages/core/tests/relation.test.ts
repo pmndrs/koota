@@ -430,22 +430,21 @@ describe('Relation', () => {
     expect(visited).toContain(child3);
   });
 
-  it('should return a new reference for each query', () => {
+  it('copies the sources of a concrete target on each query', () => {
     const ChildOf = relation();
 
     const parent = world.spawn();
     const otherParent = world.spawn();
-    world.spawn(ChildOf(parent));
+    const child = world.spawn(ChildOf(parent));
 
-    // A unique reference so each query passes an immutability test
+    // The relation index is copied, so the result does not change under the caller.
     const first = world.query(ChildOf(parent));
     const second = world.query(ChildOf(parent));
     expect(first).not.toBe(second);
+    child.remove(ChildOf(parent));
+    expect([...first]).toEqual([child]);
 
-    // Expect if it is empty!
-    const emptyFirst = world.query(ChildOf(otherParent));
-    const emptySecond = world.query(ChildOf(otherParent));
-    expect(emptyFirst).toBe(emptySecond);
+    expect(world.query(ChildOf(otherParent))).toHaveLength(0);
   });
 
   it('relation-only queries should tolerate relation removal during iteration', () => {

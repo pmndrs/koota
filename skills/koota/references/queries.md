@@ -18,9 +18,13 @@ Queries fetch entities that share specific traits (archetypes).
 
 `readEach` and `updateEach` reuse the callback's state array, SoA records and tuple arrays. Treat these values as temporary and copy records and tuple arrays before retaining them. `entity.get(Trait)` provides an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
 
+A result is an array like view over the query's own entity list with `length`, `at(index)`, `for of`, `forEach`, `map`, `filter`, `find`, `some`, `every`, `includes` and `indexOf`. It is not an `Array`, so use `at(0)` instead of `[0]`. Every run returns the same view, so a run allocates nothing. It is current until the next structural change, and the next run commits pending removals, which can move entries, or swaps in the next batch for tracking queries. Call `toArray()` or `sort()` to copy it. Entities destroyed during a walk stay in the view until the walk ends and are skipped by `updateEach`. Entities spawned during a walk are visited on the next run.
+
 ```typescript
-// Returns QueryResult (Entity[] with extra methods)
+// Returns QueryResult, a live borrowed view
 const entities = world.query(Position, Velocity)
+const first = entities.at(0)
+const kept = entities.toArray()
 
 // Relation filters can target entities that match a query
 const playerChildren = world.query(ChildOf(IsPlayer))
@@ -220,7 +224,7 @@ world.query(Inventory).updateEach(([inv], entity) => {
 
 ## Query + select
 
-Use `select()` when query filter is wider than traits needed for update:
+Use `select()` when query filter is wider than traits needed for update. It returns a view over the same entities bound to the selected traits, cached per trait list, so selecting every frame allocates nothing.
 
 ```typescript
 // Query filters by Position + Velocity + Mass

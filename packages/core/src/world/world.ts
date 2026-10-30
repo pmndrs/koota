@@ -19,7 +19,7 @@ import {
   runQuery,
   runQueryFirst,
 } from '../query/query';
-import { createQueryResult, createRelationOnlyQueryResult } from '../query/query-result';
+import { createQueryResult } from '../query/query-result';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
@@ -254,15 +254,13 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
               relation as Relation<Trait>,
               target as Entity
             );
-            return createRelationOnlyQueryResult(entities as Entity[]);
+            return createQueryResult(ctx, entities as Entity[], null, params);
           }
         }
 
         const named = findNamedEntity(ctx, params);
         if (named !== null) {
-          return named === undefined
-            ? createRelationOnlyQueryResult([])
-            : createQueryResult(ctx, [named], null, params);
+          return createQueryResult(ctx, named === undefined ? [] : [named], null, params);
         }
 
         const hash = createQueryHash(params);

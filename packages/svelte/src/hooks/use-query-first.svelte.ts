@@ -8,7 +8,7 @@ export function useQueryFirst<T extends QueryParameter[]>(
 
   return {
     get current() {
-      return query.current[0];
+      return query.current.at(0);
     },
   };
 }
