@@ -28,7 +28,7 @@ const player = world.lookup('player') ?? world.spawn(Name('player'), Position)
 const result = world.has(entity)
 
 // Get all entities that match the query parameters
-// Return QueryResult (which is Entity[] with extras)
+// Returns a QueryView, a live view over the matching entities
 const entities = world.query(Position)
 
 // Relation filters can use any legal query

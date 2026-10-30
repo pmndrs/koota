@@ -22,14 +22,16 @@ export type QueryParameter = Trait | RelationPair | NameConfig | ReturnType<Quer
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryUnsubscriber = () => void;
 
-export type QueryResultOptions = {
+export type UpdateEachOptions = {
   changeDetection?: 'always' | 'auto' | 'never';
 };
 
-export type QueryResultBinding = {
+export type QueryViewBinding = {
   params: QueryParameter[];
   traits: Trait[];
   stores: Store<any>[];
+  /** Live view over the query for these traits, created on first use. */
+  view: QueryView<any> | null;
 };
 
 export type QueryIterationBuffers = {
@@ -56,10 +58,7 @@ export type QueryLayout = {
   entities: readonly Entity[];
 };
 
-export type QueryLayoutCache = Omit<QueryLayout, 'entities'> & {
-  version: number;
-  entities: readonly Entity[];
-};
+export type QueryLayoutCache = QueryLayout & { version: number };
 
 export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
   readonly index: number;
@@ -68,17 +67,31 @@ export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
   readonly entities: readonly Entity[];
 };
 
-export type QueryResult<T extends QueryParameter[] = QueryParameter[]> = readonly Entity[] & {
-  readEach: (
+/**
+ * Live view over the entities matching a query. A view returned by a world query reads the query's
+ * own entity list, so it reflects later changes and allocates nothing per run. Read it before the
+ * next run or structural change, and call toArray for a copy you own.
+ */
+export type QueryView<T extends QueryParameter[] = QueryParameter[]> = {
+  readonly length: number;
+  /** The first entity, if any. */
+  readonly first: Entity | undefined;
+  /** The entity at an index without copying. Negative indices count from the end. */
+  at(index: number): Entity | undefined;
+  [Symbol.iterator](): IterableIterator<Entity>;
+  /** Copies the entities into a plain array. */
+  toArray(): Entity[];
+  forEach(callback: (entity: Entity, index: number) => void): void;
+  readEach(
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
-  ) => QueryResult<T>;
-  updateEach: (
+  ): QueryView<T>;
+  updateEach(
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-    options?: QueryResultOptions
-  ) => QueryResult<T>;
-  getPages: () => readonly QueryPage<T>[];
-  select<U extends QueryParameter[]>(...params: U): QueryResult<U>;
-  sort(callback?: (a: Entity, b: Entity) => number): QueryResult<T>;
+    options?: UpdateEachOptions
+  ): QueryView<T>;
+  getPages(): readonly QueryPage<T>[];
+  /** A view over the same entities with only the given traits. Cached per trait list. */
+  select<U extends QueryParameter[]>(...params: U): QueryView<U>;
 };
 
 type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
@@ -221,7 +234,14 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   /** Unified tracking groups with explicit AND/OR logic */
   trackingGroups: TrackingGroup[];
   generations: number[];
+  /** Entities matching the query. A tracking query accumulates its next batch here. */
   entities: SparseSet;
+  /** The batch a tracking query currently exposes. Swapped with entities on each run. */
+  batch: SparseSet | undefined;
+  /** The set results read. entities for plain queries, the exposed batch for tracking ones. */
+  exposed: SparseSet;
+  /** Walks in progress over the results. Removals stay pending while it is nonzero. */
+  iterating: number;
   isTracking: boolean;
   hasChangedModifiers: boolean;
   changedTraits: Set<Trait>;
@@ -231,7 +251,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   removeSubscriptions: Set<QuerySubscriber>;
   layoutCache: QueryLayoutCache | null;
   iterationBuffers: QueryIterationBuffers | undefined;
-  resultBindings: QueryResultBinding[];
+  viewBindings: QueryViewBinding[];
   /** Relation pairs for target-specific queries */
   relationFilters: ResolvedRelationFilter[];
 };

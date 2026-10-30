@@ -34,8 +34,12 @@ export function resolveHookCallback(
        * @todo This should be using the same caching logic as the query system
        * instead of searching with `includes`.
        */
-      if (target !== undefined && queryInternal(ctx, targetQuery).includes(target)) {
-        callback(entity, target);
+      if (target === undefined) return;
+      for (const match of queryInternal(ctx, targetQuery)) {
+        if (match === target) {
+          callback(entity, target);
+          return;
+        }
       }
     };
   }

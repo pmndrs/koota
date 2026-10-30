@@ -71,15 +71,13 @@ function updateMovement(world) {
 
 ### You can use `for of` instead of `forEach` on query results
 
-A query result is just an array of entities with some extra methods. This means you can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.
+A query returns a live view over its entities, not an array. Every run returns the same view and iterating it with `for of` allocates nothing, so a system can run a query every frame for free. Call `toArray()` when you need a plain array you own.
 
 ```js
-// This is nice and ergonomic but will cost some overhead since we are
-// creating a fresh function for each entity and then calling it
-world.query().forEach((entity) => {})
-
-// By contrast, this compiles down to a for loop and will have a
-// single block of code executed for each entity
+// Allocates nothing per frame
 for (const entity of world.query()) {
 }
+
+// Copies, so only do this when the list has to outlive the frame
+const kept = world.query().toArray()
 ```

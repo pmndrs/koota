@@ -185,7 +185,7 @@ Returns the world from the nearest Koota context. It throws if no world has been
 
 ### `useQuery`
 
-Returns an object whose reactive `current` property contains a `QueryResult`, an array-like collection of entities matching the query. It updates when entities enter or leave the query.
+Returns an object whose reactive `current` property contains a plain array of entities matching the query, sorted by id. It updates when entities enter or leave the query.
 
 Pass query parameters variadically, or pass a getter when the parameters depend on reactive state:
 

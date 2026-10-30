@@ -98,13 +98,13 @@ describe('useQuery', () => {
     expect(getByTestId('count').textContent).toBe('1');
   });
 
-  it('should define special methods on query result', async () => {
+  it('returns a plain array', async () => {
     const { getByTestId } = renderSubject({
       params: [],
     });
 
     await tick();
-    expect(getByTestId('has-update-each').textContent).toBe('true');
+    expect(getByTestId('is-array').textContent).toBe('true');
   });
 
   it('supports variadic arguments', async () => {

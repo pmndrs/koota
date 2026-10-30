@@ -197,9 +197,10 @@ export function hasEntityRelationPair(
   /* @cold */ if (pair.targetQuery) {
     if (!hasTrait(ctx, entity, pair.relation[$internal].trait)) return false;
     const targets = getRelationTargets(ctx, pair.relation, entity);
-    return queryInternal(ctx, ...(pair.targetQuery as any)).some((match: Entity) =>
-      targets.includes(match)
-    );
+    for (const match of queryInternal(ctx, ...(pair.targetQuery as any))) {
+      if (targets.includes(match)) return true;
+    }
+    return false;
   }
   return hasRelationPair(ctx, entity, pair);
 }

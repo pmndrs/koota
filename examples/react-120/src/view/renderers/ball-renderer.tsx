@@ -1,4 +1,4 @@
-import { type Entity, type QueryParameter, type QueryResult } from 'koota';
+import { type Entity, type QueryParameter, type QueryView } from 'koota';
 import { useActions, useTrait, useQuery } from 'koota/react';
 import { actions, traits } from '../../sim';
 

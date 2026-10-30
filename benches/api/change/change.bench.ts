@@ -38,16 +38,17 @@ group('change detection 50k @change @query', () => {
       world.query(Changed(Position));
 
       const step = Math.floor(50_000 / changeCount);
+      // The batch is live until the next run, so take its size now.
       const result = yield () => {
         for (let i = 0; i < changeCount; i++) {
           entities[i * step].set(Position, { x: i, y: i, z: i });
         }
-        return world.query(Changed(Position));
+        return world.query(Changed(Position)).length;
       };
 
       world.destroy();
-      assert.equal(result.length, changeCount);
-      return result.length;
+      assert.equal(result, changeCount);
+      return result;
     });
   }
 });

@@ -6,7 +6,7 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-Query results are snapshots of entity handles. `readEach` and `updateEach` leave snapshot validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining snapshots, and preserve selected traits until update callbacks finish writing back.
+Query results are live views of entity handles, and `toArray()` copies them. `readEach` and `updateEach` leave handle validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
 
 `readEach` and `updateEach` reuse the callback's state array, SoA records and tuple arrays to reduce allocation. These values are only valid during the callback. Copy records and tuple arrays before retaining them, or call `entity.get(Trait)` for an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
 

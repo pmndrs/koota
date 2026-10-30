@@ -90,7 +90,7 @@ This is a type-time contract. Accessors preserve invariants and handle failures.
 
 ### Queries
 
-Calling `world.query(...)` hashes the parameters, retrieves or creates a cached `QueryInstance`, and returns a fresh `QueryResult` built from the instance's incrementally-maintained entity set.
+Calling `world.query(...)` hashes the parameters, retrieves or creates a cached `QueryInstance`, and returns a live `QueryView` over the instance's incrementally-maintained entity set.
 
 See [query.md](./query.md) for detailed code path documentation.
 

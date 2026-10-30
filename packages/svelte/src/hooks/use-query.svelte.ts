@@ -1,29 +1,30 @@
-import {
-  $internal as internal,
-  createQuery,
-  type QueryParameter,
-  type QueryResult,
-} from '@koota/core';
+import { $internal as internal, createQuery, type Entity, type QueryParameter } from '@koota/core';
 import { untrack } from 'svelte';
 import { useWorld } from '../world/world-context.js';
 
+// Sorted by id so the array order is stable across versions and the DOM stays stable.
+const byId = (a: Entity, b: Entity) => a.id() - b.id();
+
 export function useQuery<T extends QueryParameter[]>(
   ...args: [...T] | [() => [...T]]
-): { readonly current: QueryResult<T> } {
+): { readonly current: Entity[] } {
   const getParams =
     args.length === 1 && typeof args[0] === 'function' && !(internal in args[0])
       ? (args[0] as () => [...T])
       : () => args as unknown as [...T];
 
   const world = useWorld();
-  let result = $state.raw<QueryResult<T>>(
+  let result = $state.raw<Entity[]>(
     world.isRegistered
-      ? world.query(createQuery(...getParams())).sort()
-      : ([] as unknown as QueryResult<T>)
+      ? world
+          .query(createQuery(...getParams()))
+          .toArray()
+          .sort(byId)
+      : []
   );
   let resetCount = $state(0);
 
-  let cache: { hash: string; version: number; result: QueryResult<T> } | null = null;
+  let cache: { hash: string; version: number; result: Entity[] } | null = null;
 
   $effect(() => {
     // Track resetCount so the effect re-runs on world reset
@@ -39,7 +40,7 @@ export function useQuery<T extends QueryParameter[]>(
         return;
       }
 
-      const next = world.query(queryRef).sort();
+      const next = world.query(queryRef).toArray().sort(byId);
       const registered = world[internal].queriesHashMap.get(queryRef.hash);
 
       if (registered) {

@@ -1,16 +1,19 @@
-import { $internal, createQuery, type QueryParameter, type QueryResult } from '@koota/core';
+import { $internal, createQuery, type Entity, type QueryParameter } from '@koota/core';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useWorld } from '../world/use-world';
 
-export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryResult<T> {
+// Sorted by id so the array order is stable across versions and the DOM stays stable.
+const byId = (a: Entity, b: Entity) => a.id() - b.id();
+
+export function useQuery<T extends QueryParameter[]>(...parameters: T): Entity[] {
   const world = useWorld();
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
 
   const queryRef = useMemo(() => createQuery(...parameters), parameters);
-  const cacheRef = useRef<{ hash: string; version: number; result: QueryResult<T> } | null>(null);
+  const cacheRef = useRef<{ hash: string; version: number; result: Entity[] } | null>(null);
 
   // Compute result: uses cache if valid, otherwise recomputes
-  const getResult = (): QueryResult<T> => {
+  const getResult = (): Entity[] => {
     const query = world[$internal].queriesHashMap.get(queryRef.hash);
 
     if (
@@ -21,7 +24,7 @@ export function useQuery<T extends QueryParameter[]>(...parameters: T): QueryRes
       return cacheRef.current.result;
     }
 
-    const result = world.query(queryRef).sort();
+    const result = world.query(queryRef).toArray().sort(byId);
     const registeredQuery = world[$internal].queriesHashMap.get(queryRef.hash)!;
     cacheRef.current = { hash: queryRef.hash, version: registeredQuery.version, result };
 
