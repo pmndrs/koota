@@ -10,7 +10,7 @@ import {
   Or,
   relation,
   trait,
-  type QueryResult,
+  type QueryView,
 } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
@@ -34,9 +34,9 @@ describe('Query modifiers', () => {
     expect(entities.length).toBe(0);
 
     entities = world.query(Not(Foo));
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
-    expect(entities.at(2)!).toBe(entityC);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
+    expect(entities.at(2)).toBe(entityC);
 
     // Add
     entityA.add(Foo);
@@ -44,14 +44,14 @@ describe('Query modifiers', () => {
     entityC.add(Foo, Bar);
 
     entities = world.query(Foo);
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityC);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityC);
 
     entities = world.query(Foo, Bar);
-    expect(entities.at(0)!).toBe(entityC);
+    expect(entities.first!).toBe(entityC);
 
     entities = world.query(Not(Foo));
-    expect(entities.at(0)!).toBe(entityB);
+    expect(entities.first!).toBe(entityB);
 
     // entities = world.query(Not(Foo), Or(Foo));
     // expect(entities.length).toBe(3);
@@ -60,14 +60,14 @@ describe('Query modifiers', () => {
     entityA.remove(Foo);
 
     entities = world.query(Foo);
-    expect(entities.at(0)!).toBe(entityC);
+    expect(entities.first!).toBe(entityC);
 
     entities = world.query(Not(Foo));
-    expect(entities.at(0)!).toBe(entityB);
-    expect(entities.at(1)!).toBe(entityA);
+    expect(entities.first!).toBe(entityB);
+    expect(entities.at(1)).toBe(entityA);
 
     entities = world.query(Not(Foo), Not(Bar));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // Remove more so entity A and C have no traits
     entityC.remove(Foo);
@@ -95,11 +95,11 @@ describe('Query modifiers', () => {
     child.add(ChildOf(parent));
 
     entities = world.query(ChildOf('*'));
-    expect(entities.at(0)!).toEqual(child);
+    expect(entities.first!).toEqual(child);
     expect(entities.length).toBe(1);
 
     entities = world.query(Not(ChildOf));
-    expect(entities.at(0)!).toEqual(parent);
+    expect(entities.first!).toEqual(parent);
     expect(entities.length).toBe(1);
 
     // entities = world.query(Not(ChildOf), Or(ChildOf));
@@ -136,14 +136,14 @@ describe('Query modifiers', () => {
     const entityB = world.spawn();
     const entityC = world.spawn();
 
-    let entities: QueryResult<any>;
+    let entities: QueryView<any>;
 
     entities = world.query(Added(Foo));
     expect(entities.length).toBe(0);
 
     entityA.add(Foo);
     entities = world.query(Added(Foo));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // The query gets drained and should be empty when run again.
     entities = world.query(Added(Foo));
@@ -151,12 +151,12 @@ describe('Query modifiers', () => {
 
     entityB.add(Foo);
     entities = world.query(Added(Foo));
-    expect(entities.at(0)!).toBe(entityB);
+    expect(entities.first!).toBe(entityB);
 
     // And a static query should give both entities.
     entities = world.query(Foo);
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
 
     // Should not be added to the query if the trait is removed before it is read.
     entityC.add(Foo);
@@ -168,7 +168,7 @@ describe('Query modifiers', () => {
     entityA.remove(Foo);
     entityA.add(Foo);
     entities = world.query(Added(Foo));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // Should only populate the query if tracked trait is added,
     // even if it matches the query otherwise.
@@ -180,7 +180,7 @@ describe('Query modifiers', () => {
     entities = world.query(Added(Foo));
     expect(entities.length).toBe(0); // Fails for Added
     entities = world.query(Foo, Bar);
-    expect(entities.at(0)!).toBe(entityA); // But matches static query
+    expect(entities.first!).toBe(entityA); // But matches static query
   });
 
   it('should properly populate Added queries with mulitple tracked traits', () => {
@@ -198,7 +198,7 @@ describe('Query modifiers', () => {
 
     entityA.add(Bar);
     entities = world.query(Added(Foo, Bar));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     entityB.add(Foo);
     entities = world.query(Added(Foo, Bar));
@@ -206,7 +206,7 @@ describe('Query modifiers', () => {
 
     entityB.add(Bar);
     entities = world.query(Added(Foo, Bar));
-    expect(entities.at(0)!).toBe(entityB);
+    expect(entities.first!).toBe(entityB);
   });
 
   it('should track multiple Added modifiers independently', () => {
@@ -242,11 +242,11 @@ describe('Query modifiers', () => {
     const entityB = world.spawn(Foo, Bar);
 
     let entities: any = world.query(Added(Foo));
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
 
     entities = world.query(Added(Foo, Bar));
-    expect(entities.at(0)!).toBe(entityB);
+    expect(entities.first!).toBe(entityB);
 
     const LaterAdded = createAdded();
 
@@ -285,7 +285,7 @@ describe('Query modifiers', () => {
     // Adding Foo to entityA should match the query as it has Foo added and not Bar.
     entityA.add(Foo);
     entities = world.query(Added(Foo), Not(Bar));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // Adding Foo and Bar to entityB should not match the query as it has Bar.
     entityB.add(Foo, Bar);
@@ -309,13 +309,13 @@ describe('Query modifiers', () => {
 
     entityA.remove(Foo);
     entities = world.query(Removed(Foo));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // Should work with traits added and removed in the same frame.
     entityA.add(Foo);
     entityA.remove(Foo);
     entities = world.query(Removed(Foo));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
     // Should track between Removed modifiers independently.
     const Removed2 = createRemoved();
 
@@ -343,7 +343,7 @@ describe('Query modifiers', () => {
     entity.remove(Foo);
 
     let entities = world.query(Removed(Foo));
-    expect(entities.at(0)!).toBe(entity);
+    expect(entities.first!).toBe(entity);
 
     entity.add(Foo); // Reset
 
@@ -386,7 +386,7 @@ describe('Query modifiers', () => {
     // it does not have Bar.
     entityA.remove(Foo);
     entities = world.query(Removed(Foo), Not(Bar));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // Remove Foo from entityB, it should still not match as it has Bar.
     entityB.remove(Foo);
@@ -423,7 +423,7 @@ describe('Query modifiers', () => {
     entityA.add(Foo, Bar);
     entityA.remove(Bar);
     entities = world.query(Added(Foo), Removed(Bar));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // Resets and can fill again.
     entityA.remove(Foo);
@@ -436,7 +436,7 @@ describe('Query modifiers', () => {
     entityB.add(Foo, Bar);
     entityB.remove(Bar);
     entities = world.query(Added(Foo), Removed(Bar));
-    expect(entities.at(0)!).toBe(entityB);
+    expect(entities.first!).toBe(entityB);
 
     // Make sure changes in one entity do not leak to the other.
     const entityC = world.spawn();
@@ -470,7 +470,7 @@ describe('Query modifiers', () => {
     // Set changed should populate the query.
     entityA.changed(Position);
     entities = world.query(Changed(Position));
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     // Querying again should not return the entity.
     entities = world.query(Changed(Position));
@@ -577,13 +577,13 @@ describe('Query modifiers', () => {
     expect(world.query(Changed(Position)).length).toBe(0);
 
     const entity = world.spawn(Foo, Position);
-    expect(world.query(Added(Foo)).at(0)).toBe(entity);
+    expect(world.query(Added(Foo)).first).toBe(entity);
 
     entity.changed(Position);
-    expect(world.query(Changed(Position)).at(0)).toBe(entity);
+    expect(world.query(Changed(Position)).first).toBe(entity);
 
     entity.remove(Foo);
-    expect(world.query(Removed(Foo)).at(0)).toBe(entity);
+    expect(world.query(Removed(Foo)).first).toBe(entity);
   });
 
   it('updateEach should work with Added modifier', () => {

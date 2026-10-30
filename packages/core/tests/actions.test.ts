@@ -14,7 +14,7 @@ describe('Actions', () => {
     const actions = createActions((world) => ({
       spawnPlayer: () => world.spawn(IsPlayer),
       destroyPlayers: () => {
-        world.query(IsPlayer).forEach((e) => e.destroy());
+        for (const e of world.query(IsPlayer)) e.destroy();
       },
     }));
 
@@ -33,14 +33,14 @@ describe('Actions', () => {
     const actions1 = createActions((world) => ({
       spawnPlayer: () => world.spawn(IsPlayer),
       destroyPlayers: () => {
-        world.query(IsPlayer).forEach((e) => e.destroy());
+        for (const e of world.query(IsPlayer)) e.destroy();
       },
     }));
 
     const actions2 = createActions((world) => ({
       spawnPlayer: () => world.spawn(IsPlayer),
       destroyPlayers: () => {
-        world.query(IsPlayer).forEach((e) => e.destroy());
+        for (const e of world.query(IsPlayer)) e.destroy();
       },
     }));
 

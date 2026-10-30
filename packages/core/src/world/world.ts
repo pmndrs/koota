@@ -19,7 +19,7 @@ import {
   runQuery,
   runQueryFirst,
 } from '../query/query';
-import { createQueryResult } from '../query/query-result';
+import { createOwnedView } from '../query/query-view';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
@@ -254,13 +254,13 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
               relation as Relation<Trait>,
               target as Entity
             );
-            return createQueryResult(ctx, entities as Entity[], null, params);
+            return createOwnedView(ctx, entities as Entity[], null, params);
           }
         }
 
         const named = findNamedEntity(ctx, params);
         if (named !== null) {
-          return createQueryResult(ctx, named === undefined ? [] : [named], null, params);
+          return createOwnedView(ctx, named === undefined ? [] : [named], null, params);
         }
 
         const hash = createQueryHash(params);

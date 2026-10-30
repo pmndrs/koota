@@ -57,16 +57,16 @@ describe('Query', () => {
     entityC.add(Position);
 
     let entities: any = world.query(Position, Name, IsActive);
-    expect(entities.at(0)!).toBe(entityA);
+    expect(entities.first!).toBe(entityA);
 
     entities = world.query(Position, Name);
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
 
     entities = world.query(Position);
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
-    expect(entities.at(2)!).toBe(entityC);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
+    expect(entities.at(2)).toBe(entityC);
 
     entityA.remove(IsActive);
     entities = world.query(Position, Name, IsActive);
@@ -278,7 +278,7 @@ describe('Query', () => {
     });
 
     expect(query.length).toBe(10);
-    expect(query.at(0)!.get(Position)!.x).toBe(0);
+    expect(query.first!.get(Position)!.x).toBe(0);
 
     for (let i = 1; i < 10; i++) {
       expect(query.at(i)!.get(Position)!.x).toBe(10);
@@ -430,8 +430,8 @@ describe('Query', () => {
     });
 
     expect(results).toHaveLength(5);
-    expect(results.at(0)!).toEqual({ x: 0, name: 'Entity0', index: 0 });
-    expect(results.at(2)!).toEqual({ x: 2, name: 'Entity2', index: 2 });
+    expect(results[0]).toEqual({ x: 0, name: 'Entity0', index: 0 });
+    expect(results[2]).toEqual({ x: 2, name: 'Entity2', index: 2 });
   });
 
   it.each(['readEach', 'updateEach'] as const)(
@@ -858,7 +858,7 @@ describe('Query', () => {
     entities = world.query();
     expect(entities.length).toBe(2);
 
-    entities.forEach((entity) => entity.destroy());
+    for (const entity of entities) entity.destroy();
 
     entities = world.query();
     expect(entities.length).toBe(0);
@@ -871,36 +871,36 @@ describe('Query', () => {
     const entityD = world.spawn(Position);
 
     let entities = world.query(Position);
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
-    expect(entities.at(2)!).toBe(entityC);
-    expect(entities.at(3)!).toBe(entityD);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
+    expect(entities.at(2)).toBe(entityC);
+    expect(entities.at(3)).toBe(entityD);
 
     entityC.destroy();
 
     entities = world.query(Position);
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
-    expect(entities.at(2)!).toBe(entityD);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
+    expect(entities.at(2)).toBe(entityD);
 
     // Recycles the entity id from entityC (3).
     const entityE = world.spawn(Position);
 
     entities = world.query(Position);
-    expect(entities.at(0)!).toBe(entityA);
-    expect(entities.at(1)!).toBe(entityB);
-    expect(entities.at(2)!).toBe(entityD);
-    expect(entities.at(3)!).toBe(entityE);
+    expect(entities.first!).toBe(entityA);
+    expect(entities.at(1)).toBe(entityB);
+    expect(entities.at(2)).toBe(entityD);
+    expect(entities.at(3)).toBe(entityE);
 
-    // Sorting copies, so the live result keeps the query's order.
-    const sorted = entities.sort();
+    // Sorting a copy leaves the live view in the query's order.
+    const sorted = entities.toArray().sort((a, b) => a.id() - b.id());
     expect(sorted).not.toBe(entities);
-    expect(entities.at(2)!).toBe(entityD);
+    expect(entities.at(2)).toBe(entityD);
 
     // Test the entity.id() are in ascending order.
     // [1, 2, 3, 4]
     for (let i = 0; i < sorted.length; i++) {
-      expect(sorted.at(i)!.id()).toBe(i + 1);
+      expect(sorted[i].id()).toBe(i + 1);
     }
   });
 

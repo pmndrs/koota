@@ -7,7 +7,7 @@ import type {
   QueryInstance,
   QueryIterationBuffers,
   QueryParameter,
-  QueryResult,
+  QueryView,
   QueryUnsubscriber,
 } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
@@ -72,8 +72,8 @@ export type World = {
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
   destroy(): void;
   reset(): void;
-  query<T extends QueryParameter[]>(key: Query<T>): QueryResult<T>;
-  query<T extends QueryParameter[]>(...parameters: T): QueryResult<T>;
+  query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
+  query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
   queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
   onQueryAdd<T extends QueryParameter[]>(

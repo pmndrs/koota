@@ -22,19 +22,18 @@ import type {
   QueryLayoutCache,
   QueryParameter,
   QueryPage,
-  QueryResult,
-  QueryResultBinding,
-  QueryResultOptions,
+  QueryView,
+  QueryViewBinding,
+  UpdateEachOptions,
 } from './types';
 
-/** The entity list behind a result. A live result reads its query's sparse set in place. */
+/** The entity list behind a view. A live view reads its query's sparse set in place. */
 type EntitySource = { readonly dense: readonly number[]; readonly length: number };
 
 type Callback = (state: any, entity: Entity, index: number) => void;
-type EntityCallback<R> = (entity: Entity, index: number) => R;
 
-/** An entity array a result owns, such as a sorted copy or a lookup. */
-class Snapshot implements EntitySource {
+/** An entity array a view owns, such as a lookup or a nested run's copy. */
+class EntityList implements EntitySource {
   dense: Entity[];
   length: number;
 
@@ -45,26 +44,26 @@ class Snapshot implements EntitySource {
 }
 
 /**
- * Array like view over a query's entities. Views are not arrays, so they can read the sparse set
- * in place without disturbing V8's array fast paths, and every walk holds the query's iteration
- * guard so pending removals wait until the walk ends.
+ * View over a query's entities. Views are not arrays, so they can read the sparse set in place
+ * without disturbing V8's array fast paths, and every walk holds the query's iteration guard so
+ * pending removals wait until the walk ends. toArray copies into a plain array the caller owns.
  */
-class QueryResultView implements QueryResult<any> {
+class View implements QueryView<any> {
   ctx: WorldContext;
   /** Null for lookups that bypass a query instance, such as named and relation fast paths. */
   query: QueryInstance | null;
-  binding: QueryResultBinding;
+  binding: QueryViewBinding;
   source: EntitySource;
   live: boolean;
-  /** Snapshots memoize their page layout. Live views use the query's versioned cache. */
+  /** Owned views memoize their page layout. Live views use the query's versioned cache. */
   layout: QueryLayout | undefined;
   /** Pooled iterator so for..of allocates nothing in steady state. */
-  iterator: ResultIterator | undefined;
+  iterator: ViewIterator | undefined;
 
   constructor(
     ctx: WorldContext,
     query: QueryInstance | null,
-    binding: QueryResultBinding,
+    binding: QueryViewBinding,
     source: EntitySource,
     live: boolean
   ) {
@@ -81,106 +80,26 @@ class QueryResultView implements QueryResult<any> {
     return this.source.length;
   }
 
+  get first(): Entity | undefined {
+    const { dense, length } = this.source;
+    return length !== 0 ? (dense[0] as Entity) : undefined;
+  }
+
   at(index: number): Entity | undefined {
     const { dense, length } = this.source;
+    index = Math.trunc(index) || 0;
     if (index < 0) index += length;
     return index >= 0 && index < length ? (dense[index] as Entity) : undefined;
   }
 
   [Symbol.iterator](): IterableIterator<Entity> {
-    const iterator = this.iterator ?? new ResultIterator(this);
+    const iterator = this.iterator ?? new ViewIterator(this);
     this.iterator = undefined;
     return iterator.start() as unknown as IterableIterator<Entity>;
   }
 
-  forEach(callback: EntityCallback<void>) {
-    const { dense, length } = this.source;
-    const guard = this.live ? this.query! : null;
-    if (guard) guard.iterating++;
-    try {
-      for (let i = 0; i < length; i++) callback(dense[i] as Entity, i);
-    } finally {
-      if (guard) guard.iterating--;
-    }
-  }
-
-  map<U>(callback: EntityCallback<U>): U[] {
-    const { dense, length } = this.source;
-    const out = new Array<U>(length);
-    const guard = this.live ? this.query! : null;
-    if (guard) guard.iterating++;
-    try {
-      for (let i = 0; i < length; i++) out[i] = callback(dense[i] as Entity, i);
-    } finally {
-      if (guard) guard.iterating--;
-    }
-    return out;
-  }
-
-  filter(callback: EntityCallback<unknown>): Entity[] {
-    const { dense, length } = this.source;
-    const out: Entity[] = [];
-    const guard = this.live ? this.query! : null;
-    if (guard) guard.iterating++;
-    try {
-      for (let i = 0; i < length; i++) {
-        const entity = dense[i] as Entity;
-        if (callback(entity, i)) out.push(entity);
-      }
-    } finally {
-      if (guard) guard.iterating--;
-    }
-    return out;
-  }
-
-  find(callback: EntityCallback<unknown>): Entity | undefined {
-    const { dense, length } = this.source;
-    const guard = this.live ? this.query! : null;
-    if (guard) guard.iterating++;
-    try {
-      for (let i = 0; i < length; i++) {
-        const entity = dense[i] as Entity;
-        if (callback(entity, i)) return entity;
-      }
-      return undefined;
-    } finally {
-      if (guard) guard.iterating--;
-    }
-  }
-
-  some(callback: EntityCallback<unknown>): boolean {
-    return this.find(callback) !== undefined;
-  }
-
-  every(callback: EntityCallback<unknown>): boolean {
-    const { dense, length } = this.source;
-    const guard = this.live ? this.query! : null;
-    if (guard) guard.iterating++;
-    try {
-      for (let i = 0; i < length; i++) if (!callback(dense[i] as Entity, i)) return false;
-      return true;
-    } finally {
-      if (guard) guard.iterating--;
-    }
-  }
-
-  indexOf(entity: Entity): number {
-    const { dense, length } = this.source;
-    for (let i = 0; i < length; i++) if (dense[i] === entity) return i;
-    return -1;
-  }
-
-  includes(entity: Entity): boolean {
-    return this.indexOf(entity) !== -1;
-  }
-
   toArray(): Entity[] {
     return this.source.dense.slice(0, this.source.length) as Entity[];
-  }
-
-  sort(callback: (a: Entity, b: Entity) => number = (a, b) => getEntityId(a) - getEntityId(b)) {
-    const copy = this.toArray().sort(callback);
-    return new QueryResultView(this.ctx, this.query, this.binding, new Snapshot(copy), false);
   }
 
   readEach(callback: Callback) {
@@ -200,7 +119,7 @@ class QueryResultView implements QueryResult<any> {
     return this;
   }
 
-  updateEach(callback: Callback, options?: QueryResultOptions) {
+  updateEach(callback: Callback, options?: UpdateEachOptions) {
     const { dense, length } = this.source;
     if (length === 0) return this;
     const { ctx, query, live } = this;
@@ -233,31 +152,32 @@ class QueryResultView implements QueryResult<any> {
     const { dense, length } = this.source;
     let layout: QueryLayout;
     if (!this.live) layout = this.layout ??= createQueryLayout(dense, length);
-    else if (query!.isTracking) layout = createQueryLayout(dense, length);
     else layout = getCachedQueryLayout(query!, dense, length);
     return getQueryPages(binding.traits, binding.stores, layout) as QueryPage<any>[];
   }
 
   /** Views are cached per binding on the query, so selecting every frame allocates nothing. */
-  select(...params: QueryParameter[]): QueryResult<any> {
+  select<U extends QueryParameter[]>(...params: U): QueryView<U> {
     const binding = getQueryBinding(this.ctx, this.query, params);
-    if (binding === this.binding) return this;
-    if (this.live) return getLiveView(this.ctx, this.query!, binding);
-    return new QueryResultView(this.ctx, this.query, binding, this.source, false);
+    if (binding === this.binding) return this as unknown as QueryView<U>;
+    const view = this.live
+      ? getLiveView(this.ctx, this.query!, binding)
+      : new View(this.ctx, this.query, binding, this.source, false);
+    return view as unknown as QueryView<U>;
   }
 }
 
-/** Walks the membership present when the loop started and doubles as its own result object. */
-class ResultIterator {
+/** Walks the membership present when the loop started and doubles as its own iterator result. */
+class ViewIterator {
   value: Entity = 0 as Entity;
-  done = false;
+  done = true;
   private index = 0;
   private length = 0;
   private dense: readonly number[] = [];
-  private active = false;
-  private view: QueryResultView;
+  private guard: QueryInstance | null = null;
+  private view: View;
 
-  constructor(view: QueryResultView) {
+  constructor(view: View) {
     this.view = view;
   }
 
@@ -267,8 +187,8 @@ class ResultIterator {
     this.length = length;
     this.index = 0;
     this.done = false;
-    this.active = true;
-    if (this.view.live) this.view.query!.iterating++;
+    this.guard = this.view.live ? this.view.query : null;
+    if (this.guard) this.guard.iterating++;
     return this;
   }
 
@@ -291,90 +211,94 @@ class ResultIterator {
   }
 
   private finish() {
-    if (!this.active) return;
-    this.active = false;
+    if (this.done) return;
     this.done = true;
-    if (this.view.live) this.view.query!.iterating--;
+    if (this.guard) this.guard.iterating--;
+    this.guard = null;
     this.view.iterator = this;
   }
 }
 
 /** Creates the view a query exposes for a binding. Live views follow the exposed set on each run. */
-function getLiveView(ctx: WorldContext, query: QueryInstance, binding: QueryResultBinding) {
-  let view = binding.view as QueryResultView | null;
+function getLiveView(ctx: WorldContext, query: QueryInstance, binding: QueryViewBinding) {
+  let view = binding.view as View | null;
   if (view === null) {
-    view = new QueryResultView(ctx, query, binding, query.exposed, true);
+    view = new View(ctx, query, binding, query.exposed, true);
     binding.view = view;
-    query.views.push(view);
   }
   return view;
 }
 
 /** Resolves the live view for this run's parameters. */
-export function bindQueryResult(
+export function bindQueryView(
   ctx: WorldContext,
   query: QueryInstance,
   params: QueryParameter[]
-): QueryResult<any> {
+): QueryView<any> {
   return getLiveView(ctx, query, getQueryBinding(ctx, query, params));
 }
 
 /** Points every live view of a tracking query at the batch it now exposes. */
 export function exposeQuerySet(query: QueryInstance, set: SparseSet) {
+  // Batch sets are reused, so array identity cannot identify their contents.
+  query.layoutCache = null;
   query.exposed = set;
-  const views = query.views as QueryResultView[];
-  for (let i = 0; i < views.length; i++) views[i].source = set;
+  const bindings = query.viewBindings;
+  for (let i = 0; i < bindings.length; i++) {
+    const view = bindings[i].view as View | null;
+    if (view !== null) view.source = set;
+  }
 }
 
-/** Wraps an entity array the caller owns, such as a lookup result. */
-export function createQueryResult<T extends QueryParameter[]>(
+/** Wraps an entity array the caller owns, such as a lookup result, as a view that never changes. */
+export function createOwnedView<T extends QueryParameter[]>(
   ctx: WorldContext,
   entities: Entity[],
   query: QueryInstance | null,
   params: QueryParameter[]
-): QueryResult<T> {
+): QueryView<T> {
   const binding = getQueryBinding(ctx, query, params);
-  return new QueryResultView(ctx, query, binding, new Snapshot(entities), false);
+  return new View(ctx, query, binding, new EntityList(entities), false) as unknown as QueryView<T>;
 }
 
 /**
  * Finds or builds the trait and store lists for a parameter list. Bindings are cached on the query
- * and never mutated, so results share them and select swaps references. A query ref passes the
- * same parameters array every run, so identity settles the common case before any walk.
+ * and never mutated, so views share them and select swaps references. A query ref passes the
+ * same parameters array every run, so identity settles the common case before any walk. The cache
+ * holds one binding per distinct trait list, which stays small since trait lists are static code.
  */
 function getQueryBinding(
   ctx: WorldContext,
   query: QueryInstance | null,
   params: QueryParameter[]
-): QueryResultBinding {
-  const cache = query?.resultBindings;
+): QueryViewBinding {
+  const cache = query?.viewBindings;
   if (cache) {
     for (let i = 0; i < cache.length; i++) {
       const binding = cache[i];
-      if (binding.params === params || matchesQueryBinding(ctx, params, binding)) return binding;
+      if (sameParams(binding.params, params) || matchesQueryBinding(ctx, params, binding))
+        return binding;
     }
   }
-  const binding: QueryResultBinding = { params, traits: [], stores: [], view: null };
+  const binding: QueryViewBinding = { params, traits: [], stores: [], view: null };
   fillQueryBinding(ctx, params, binding);
-  if (cache) {
-    // Bound so queries that select dynamically do not retain every selection.
-    if (cache.length === 4) dropQueryBinding(query!, cache.shift()!);
-    cache.push(binding);
-  }
+  if (cache) cache.push(binding);
   return binding;
 }
 
-function dropQueryBinding(query: QueryInstance, binding: QueryResultBinding) {
-  if (binding.view === null) return;
-  const index = query.views.indexOf(binding.view);
-  if (index !== -1) query.views.splice(index, 1);
+/** Inline parameters arrive in a fresh array each run, so compare the entries by identity. */
+function sameParams(a: QueryParameter[], b: QueryParameter[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 /** Mirrors fillQueryBinding, comparing each stored trait and its current store in order. */
 function matchesQueryBinding(
   ctx: WorldContext,
   params: QueryParameter[],
-  { traits, stores }: QueryResultBinding
+  { traits, stores }: QueryViewBinding
 ): boolean {
   let index = 0;
   for (let i = 0; i < params.length; i++) {
@@ -409,7 +333,7 @@ function matchesQueryBinding(
 function fillQueryBinding(
   ctx: WorldContext,
   params: QueryParameter[],
-  { traits, stores }: QueryResultBinding
+  { traits, stores }: QueryViewBinding
 ) {
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
@@ -509,7 +433,7 @@ function trackTraits(
   query: QueryInstance | null,
   traits: Trait[],
   modes: number[],
-  changeDetection: QueryResultOptions['changeDetection']
+  changeDetection: UpdateEachOptions['changeDetection']
 ) {
   let trackedCount = 0;
   for (let i = 0; i < traits.length; i++) {
@@ -572,6 +496,7 @@ function getCachedQueryLayout(
   entities: readonly number[],
   length: number
 ): QueryLayout {
+  // Membership changes bump the version and a tracking batch swap clears the cache.
   const cache = query.layoutCache;
   if (cache && cache.version === query.version) return cache;
 

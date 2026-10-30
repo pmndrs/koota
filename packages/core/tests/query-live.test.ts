@@ -29,6 +29,29 @@ describe('Live query results', () => {
     expect(copy).toEqual([second]);
   });
 
+  it('reads indexed entities with array at semantics and respects the live length', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const result = world.query(Position);
+    const expected = [first, second];
+
+    for (const index of [0, 1, -1, -2, 2, -3, 1.9, -1.9, NaN, Infinity, -Infinity]) {
+      expect(result.at(index)).toBe(expected.at(index));
+    }
+
+    second.destroy();
+    world.query(Position);
+    expect(result.at(0)).toBe(first);
+    expect(result.at(-1)).toBe(first);
+    expect(result.at(1)).toBeUndefined();
+    expect(result.at(-2)).toBeUndefined();
+
+    first.destroy();
+    world.query(Position);
+    expect(result.at(0)).toBeUndefined();
+    expect(result.at(-1)).toBeUndefined();
+  });
+
   it('keeps the outer walk stable when a callback runs the same query', () => {
     const first = world.spawn(Position({ x: 1 }));
     const second = world.spawn(Position({ x: 2 }));
@@ -42,15 +65,31 @@ describe('Live query results', () => {
       if (index !== 0) return;
       second.destroy();
       replacement = world.spawn(Position({ x: 7 }));
-      inner = [...world.query(Position)].filter((entity) => entity.isAlive());
+      inner = [...world.query(Position)];
     });
 
-    // The starting membership is walked once and the replacement waits for the next run.
+    // The starting membership is walked once, the nested run skips the pending removal and the
+    // replacement waits for the next run.
     expect(visited).toEqual([first, second]);
     expect(inner).toEqual([first, replacement]);
     expect(first.get(Position)?.x).toBe(11);
     expect(replacement.get(Position)?.x).toBe(7);
     expect([...world.query(Position)]).toEqual([first, replacement]);
+  });
+
+  it('excludes an entity whose trait was removed from a nested run', () => {
+    const first = world.spawn(Position({ x: 1 }));
+    const second = world.spawn(Position({ x: 2 }));
+    const inner: [Entity, number][] = [];
+
+    world.query(Position).updateEach((_, entity) => {
+      if (entity !== first) return;
+      second.remove(Position);
+      world.query(Position).readEach(([position], entity) => inner.push([entity, position.x]));
+    });
+
+    expect(inner).toEqual([[first, 1]]);
+    expect([...world.query(Position)]).toEqual([first]);
   });
 
   it('walks the membership present when a for of loop starts', () => {
@@ -136,6 +175,38 @@ describe('Live query results', () => {
     expect(world.query(Added(Position))).toHaveLength(0);
   });
 
+  it('pages each tracking batch as it is exposed', () => {
+    const Added = createAdded();
+    const first = world.spawn(Position);
+    const batch = world.query(Added(Position));
+    expect(batch.getPages()[0].entities).toEqual([first]);
+    expect(batch.getPages()[0].entities).toEqual([first]);
+
+    const second = world.spawn(Position);
+    world.query(Added(Position));
+    expect(batch.getPages()[0].entities).toEqual([second]);
+    world.query(Added(Position));
+    expect(batch.getPages()).toHaveLength(0);
+  });
+
+  it('discards tracking pages when a cleared batch is reused', () => {
+    const Added = createAdded();
+    const query = createQuery(Added(Position));
+    const first = world.spawn(Position);
+    const batch = world.query(query);
+    const pages = batch.getPages();
+    expect(pages[0].entities).toEqual([first]);
+    expect(batch.getPages()).toBe(pages);
+
+    world.query(query);
+    const empty = world.query(query);
+    expect(empty).toHaveLength(0);
+    expect(empty.getPages()).toHaveLength(0);
+
+    const second = world.spawn(Position);
+    expect(world.query(query).getPages()[0].entities).toEqual([second]);
+  });
+
   it('keeps the tracking batch when a callback runs the same tracking query', () => {
     const Added = createAdded();
     const first = world.spawn(Position);
@@ -153,14 +224,20 @@ describe('Live query results', () => {
     expect(world.query(Added(Position))).toHaveLength(0);
   });
 
-  it('sorts into a copy that keeps the iteration methods', () => {
+  it('copies into a plain array that does not follow the query', () => {
     const first = world.spawn(Position({ x: 1 }));
     const second = world.spawn(Position({ x: 2 }));
-    const sorted = world.query(Position).sort((a, b) => b - a);
-    expect([...sorted]).toEqual([second, first]);
-    sorted.updateEach(([position]) => position.x++);
-    expect(first.get(Position)?.x).toBe(2);
-    expect(second.get(Position)?.x).toBe(3);
+    const copy = world.query(Position).toArray();
+    expect(Array.isArray(copy)).toBe(true);
+    expect(copy).toEqual([first, second]);
+
+    world.spawn(Position({ x: 3 }));
+    expect(copy).toHaveLength(2);
+    expect(world.query(Position)).toHaveLength(3);
+
+    // Sorting the copy leaves the live view in the query's order.
+    expect(copy.sort((a, b) => b - a)).toEqual([second, first]);
+    expect(world.query(Position).first).toBe(first);
   });
 
   const runtime = globalThis as unknown as {

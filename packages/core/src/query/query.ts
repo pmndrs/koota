@@ -13,14 +13,14 @@ import type { TagTrait, Trait } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
-import { bindQueryResult, exposeQuerySet } from './query-result';
+import { bindQueryView, createOwnedView, exposeQuerySet } from './query-view';
 import { $queryRef } from './symbols';
 import {
   type Modifier,
   type Query,
   type QueryInstance,
   type QueryParameter,
-  type QueryResult,
+  type QueryView,
   type QuerySubscriber,
   type ResolvedRelationFilter,
   type TrackingGroup,
@@ -50,10 +50,26 @@ export function runQuery<T extends QueryParameter[]>(
   ctx: WorldContext,
   query: QueryInstance<T>,
   params: QueryParameter[]
-): QueryResult<T> {
+): QueryView<T> {
   if (ctx.dirtyQueries.size !== 0) commitQueryRemovals(ctx);
   if (query.isTracking) consumeTrackingBatch(query);
-  return bindQueryResult(ctx, query, params) as QueryResult<T>;
+  if (query.iterating !== 0 && query.toRemove.length !== 0) return retained(ctx, query, params);
+  return bindQueryView(ctx, query, params) as QueryView<T>;
+}
+
+/** A run nested in a walk cannot commit removals, so it gets a copy without the pending ones. */
+function retained<T extends QueryParameter[]>(
+  ctx: WorldContext,
+  query: QueryInstance,
+  params: QueryParameter[]
+): QueryView<T> {
+  const { dense, length } = query.exposed;
+  const toRemove = query.toRemove;
+  const entities: Entity[] = [];
+  for (let i = 0; i < length; i++) {
+    if (!toRemove.has(dense[i])) entities.push(dense[i] as Entity);
+  }
+  return createOwnedView<T>(ctx, entities, query, params);
 }
 
 export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity | undefined {
@@ -62,7 +78,7 @@ export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity |
   if (query.isTracking) consumeTrackingBatch(query);
   const { dense, length } = query.exposed;
   if (length === 0) return undefined;
-  if (query.toRemove.length !== 0 && query.iterating !== 0) return firstRetained(query);
+  if (query.iterating !== 0 && query.toRemove.length !== 0) return firstRetained(query);
   return dense[0] as Entity;
 }
 
@@ -229,7 +245,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     entities: new SparseSet(),
     batch: undefined,
     exposed: null!,
-    views: [],
     iterating: 0,
     isTracking: false,
     hasChangedModifiers: false,
@@ -240,7 +255,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     removeSubscriptions: new Set<QuerySubscriber>(),
     layoutCache: null,
     iterationBuffers: undefined,
-    resultBindings: [],
+    viewBindings: [],
     relationFilters: [],
   };
 
@@ -375,9 +390,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
       }
 
       if (pair.targetQueryRef && pair.targetQueryMatches) {
-        const matchingTargets = queryInternal(ctx, pair.targetQueryRef);
-        for (let i = 0; i < matchingTargets.length; i++) {
-          pair.targetQueryMatches.add(matchingTargets.at(i)!);
+        for (const target of queryInternal(ctx, pair.targetQueryRef)) {
+          pair.targetQueryMatches.add(target);
         }
 
         const refreshSourcesForTarget = (target: Entity) => {
@@ -586,14 +600,14 @@ export function resolveQueryInstanceFromRef(
 export function queryInternal<T extends QueryParameter[]>(
   ctx: WorldContext,
   ...args: [Query<T>] | T
-): QueryResult<T> {
+): QueryView<T> {
   if (args.length === 1 && isQuery(args[0])) {
     const instance = resolveQueryInstanceFromRef(ctx, args[0]);
-    return runQuery(ctx, instance, args[0].parameters) as QueryResult<T>;
+    return runQuery(ctx, instance, args[0].parameters) as QueryView<T>;
   }
   const params = args as unknown as QueryParameter[];
   const instance = resolveQueryInstance(ctx, params);
-  return runQuery(ctx, instance, params) as QueryResult<T>;
+  return runQuery(ctx, instance, params) as QueryView<T>;
 }
 
 /**
