@@ -198,10 +198,15 @@ group('relation target filters 10k @relation @query', () => {
 
   bench('100 parents, manual ChildOf(*) filter IsPlayer', function* () {
     const { world } = buildWorld();
-    const result = yield () =>
-      world.query(ChildOf('*')).filter((child) => child.targetFor(ChildOf)?.has(IsPlayer));
+    const result = yield () => {
+      let count = 0;
+      for (const child of world.query(ChildOf('*'))) {
+        if (child.targetFor(ChildOf)?.has(IsPlayer)) count++;
+      }
+      return count;
+    };
     world.destroy();
-    return result.length;
+    return result;
   });
 
   bench('100 parents, query ChildOf(IsPlayer, IsActive)', function* () {
@@ -214,13 +219,15 @@ group('relation target filters 10k @relation @query', () => {
   bench('100 parents, manual ChildOf(*) filter IsPlayer+IsActive', function* () {
     const { world } = buildWorld();
     const result = yield () => {
-      return world.query(ChildOf('*')).filter((child) => {
+      let count = 0;
+      for (const child of world.query(ChildOf('*'))) {
         const parent = child.targetFor(ChildOf);
-        return parent?.has(IsPlayer) && parent?.has(IsActive);
-      });
+        if (parent?.has(IsPlayer) && parent.has(IsActive)) count++;
+      }
+      return count;
     };
     world.destroy();
-    return result.length;
+    return result;
   });
 });
 
@@ -253,11 +260,14 @@ group('relation target filter maintenance 2k @relation @query @toggle', () => {
       },
       snapshot: () => {
         const matches = world.query(ChildOf(IsPlayer));
-        return [
-          matches.length,
-          matches.some((child) => child.targetFor(ChildOf) === parents[0]),
-          matches.some((child) => child.targetFor(ChildOf) === parents[1]),
-        ];
+        let hasFirst = false;
+        let hasSecond = false;
+        for (const child of matches) {
+          const parent = child.targetFor(ChildOf);
+          if (parent === parents[0]) hasFirst = true;
+          if (parent === parents[1]) hasSecond = true;
+        }
+        return [matches.length, hasFirst, hasSecond];
       },
     };
 

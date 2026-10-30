@@ -30,9 +30,9 @@ for (const count of [2, 8]) {
               return sum;
             },
             snapshot: () => {
-              const expected = query.at(0)!.get(traits[0])!;
+              const expected = query.first!.get(traits[0])!;
               for (const trait of traits) {
-                assert.equal(query.at(0)!.get(trait), expected);
+                assert.equal(query.first!.get(trait), expected);
                 assert.equal(query.at(9999)!.get(trait), { value: expected.value + 9999 });
               }
               return query.length * traits.length;
@@ -99,7 +99,7 @@ group('tuple iteration 10k @query @tuple @iteration-allocation', () => {
           return sum;
         },
         snapshot: () => {
-          const x = query.at(0)!.get(Position)!.value[0];
+          const x = query.first!.get(Position)!.value[0];
           assert.equal(query.at(9999)!.get(Position)!.value, [x + 9999, 0, 0]);
           if (mode === 'auto') assert.equal(notifications, x * query.length);
           return query.length;
@@ -124,7 +124,7 @@ group('tracked atomic iteration 10k @query @iteration-allocation', () => {
       yield {
         bench: () => query.updateEach(([position]) => position.x++, { changeDetection }),
         snapshot: () => {
-          const x = query.at(0)!.get(Position)!.x;
+          const x = query.first!.get(Position)!.x;
           assert.equal(query.at(9999)!.get(Position), { x, y: 0 });
           assert.equal(notifications, x * query.length);
           return query.length;
@@ -162,7 +162,7 @@ for (const layout of ['soa', 'aos'] as const) {
             return sum[0];
           },
           snapshot: () => {
-            const x = query.at(0)!.get(Position)!.x;
+            const x = query.first!.get(Position)!.x;
             assert.equal(query.at(9999)!.get(Position), { x, y: x * 0.5 });
             if (mode === 'updateEach') {
               assert.equal(notifications, (x - 0.5) * 2 * query.length);

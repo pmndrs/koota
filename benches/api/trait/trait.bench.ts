@@ -86,7 +86,7 @@ for (const layout of ['soa', 'aos'] as const) {
             query.updateEach(([position]) => position.x++, options);
           },
           snapshot: () => {
-            const x = query.at(0)!.get(Position)!.x;
+            const x = query.first!.get(Position)!.x;
             assert.equal(query.at(9999)!.get(Position), { x, y: 0, z: 0 });
             if (mode === 'auto tracked') assert.equal(notifications, x * query.length);
             return query.length;
