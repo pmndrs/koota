@@ -25,7 +25,7 @@ flowchart TD
     G --> E
     E --> H[Flush pending removals]
     H --> I[Snapshot matching entities]
-    I --> J["Return QueryResult (Entity[] + helpers)"]
+    I --> J["Return the live QueryView"]
 ```
 
 ### Steps
@@ -79,10 +79,10 @@ Flushes any deferred removals, then snapshots the instance's entity set. For tra
 **6. Return result**
 
 ```ts
-return createQueryResult(ctx, entities, query, params)
+return bindQueryView(ctx, query, params)
 ```
 
-The entity snapshot is wrapped in a `QueryResult` — an array with additional methods for iterating with trait data — and returned to the caller.
+The caller receives a `QueryView`, a live view over the instance's entity set with methods for iterating with trait data. The view is cached per trait list, so a run allocates nothing.
 
 ## Important details
 
