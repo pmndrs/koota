@@ -50,7 +50,7 @@ export const world = createWorld(Time, Pointer, Viewport)
 
 ## useQuery
 
-Reactively updates when entities matching the query change (added/removed).
+Reactively updates when entities matching the query change (added/removed). Returns a plain array of entities sorted by id, copied when membership changes, so array methods work and the reference is stable between changes.
 
 ```typescript
 import { useQuery } from 'koota/react'

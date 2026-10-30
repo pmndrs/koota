@@ -44,7 +44,7 @@ Returns the world from the nearest Koota context. It throws if no world has been
 
 ## `useQuery`
 
-Returns an object whose reactive `current` property contains a `QueryResult`. It updates when entities enter or leave the result.
+Returns an object whose reactive `current` property contains an array of matching entities sorted by id. It updates when entities enter or leave the query. To read or update trait data in bulk, run `world.query` inside an effect instead.
 
 Pass query parameters variadically, or pass a getter when they depend on reactive state:
 
@@ -231,7 +231,7 @@ Calls an action initializer with the world from context and returns the bound ac
   const playerActions = createActions((world) => ({
     spawnPlayer: () => world.spawn(IsPlayer),
     destroyAllPlayers: () => {
-      world.query(IsPlayer).forEach((player) => player.destroy())
+      for (const player of world.query(IsPlayer)) player.destroy()
     },
   }))
 

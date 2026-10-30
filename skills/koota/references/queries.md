@@ -18,13 +18,14 @@ Queries fetch entities that share specific traits (archetypes).
 
 `readEach` and `updateEach` reuse the callback's state array, SoA records and tuple arrays. Treat these values as temporary and copy records and tuple arrays before retaining them. `entity.get(Trait)` provides an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
 
-A result is an array like view over the query's own entity list with `length`, `at(index)`, `for of`, `forEach`, `map`, `filter`, `find`, `some`, `every`, `includes` and `indexOf`. It is not an `Array`, so use `at(0)` instead of `[0]`. Every run returns the same view, so a run allocates nothing. It is current until the next structural change, and the next run commits pending removals, which can move entries, or swaps in the next batch for tracking queries. Call `toArray()` or `sort()` to copy it. Entities destroyed during a walk stay in the view until the walk ends and are skipped by `updateEach`. Entities spawned during a walk are visited on the next run.
+A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Use `at(index)` for random access, negative indices count from the end. Call `toArray()` for a copy you own. Structural changes inside a loop are safe. Entities destroyed during a walk stay in the view until the walk ends and are skipped by `updateEach`, entities spawned during a walk show up on the next run. Finish every `for of` loop you start, a suspended iterator keeps the query's removals pending.
 
 ```typescript
-// Returns QueryResult, a live borrowed view
+// Returns a QueryView, a live borrowed view
 const entities = world.query(Position, Velocity)
-const first = entities.at(0)
-const kept = entities.toArray()
+const first = entities.first
+const last = entities.at(-1)
+const kept = entities.toArray() // A plain array you own
 
 // Relation filters can target entities that match a query
 const playerChildren = world.query(ChildOf(IsPlayer))
@@ -224,7 +225,7 @@ world.query(Inventory).updateEach(([inv], entity) => {
 
 ## Query + select
 
-Use `select()` when query filter is wider than traits needed for update. It returns a view over the same entities bound to the selected traits, cached per trait list, so selecting every frame allocates nothing.
+Use `select()` when query filter is wider than traits needed for update.
 
 ```typescript
 // Query filters by Position + Velocity + Mass

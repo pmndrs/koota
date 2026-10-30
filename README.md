@@ -749,7 +749,7 @@ world.set(Time, { current: performance.now() })
 
 ### Select traits on queries for updates
 
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify. `select` returns a view over the same entities bound to the selected traits, cached per trait list, so selecting every frame allocates nothing.
+`select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
@@ -825,23 +825,25 @@ function updateMovement(world) {
 
 #### Query results are live views
 
-A query result is an array like view over the query's own entity list. It has `length`, `at(index)`, `for of`, `forEach`, `map`, `filter`, `find`, `some`, `every`, `includes` and `indexOf`, but it is not an `Array`, so there is no `result[0]`. Every run returns the same view, so running a query and iterating it allocates nothing. Treat the result as borrowed. It is current until the next structural change, and the next run of the same query commits pending removals, which can move entries, or swaps in the next batch for tracking queries. Copy it when you need to keep it.
+A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Call `toArray()` for a copy you own. Structural changes inside a loop are safe.
 
 ```js
 const entities = world.query(Position)
 
-const first = entities.at(0)
+entities.length
+entities.first
+// Negative indices count from the end
+entities.at(-1)
 
-// Keeps working after entities are spawned or destroyed
+// Entities destroyed during the loop stay until it ends
+// Entities spawned during the loop show up on the next run
 for (const entity of entities) {
+  if (entity.has(IsDead)) entity.destroy()
 }
 
-// Copies for anything that outlives the frame
+// The view changes with the world, copy it to keep it
 const kept = entities.toArray()
-const sorted = entities.sort()
 ```
-
-Structural changes inside a loop are safe. Entities destroyed during a walk stay in the view until the walk ends and are skipped by `updateEach`, while entities spawned during a walk are visited on the next run.
 
 #### You can use `for of` instead of `forEach` on query results
 
@@ -879,7 +881,7 @@ const entity = world.spawn()
 const result = world.has(entity)
 
 // Get all entities that match the query parameters
-// Return QueryResult (which is Entity[] with extras)
+// Returns a QueryView, a live view over the matching entities
 const entities = world.query(Position)
 
 // Return the first entity that matches the query
@@ -1285,7 +1287,7 @@ const entity = world.spawn(Position)
 // This entity can no longer be queried
 entity.add(IsExcluded)
 
-const entities = world.query(Position)
+const entities = world.query(Position).toArray()
 entities.includes(entity) // This will always be false
 ```
 

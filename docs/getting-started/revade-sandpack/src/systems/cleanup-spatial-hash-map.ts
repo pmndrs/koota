@@ -5,7 +5,7 @@ const Removed = createRemoved();
 
 export function cleanupSpatialHashMap(world: World) {
   const spatialHashMap = world.get(SpatialHashMap)!;
-  world.query(Removed(Transform)).forEach((entity) => {
+  for (const entity of world.query(Removed(Transform))) {
     spatialHashMap.removeEntity(entity);
-  });
+  }
 }

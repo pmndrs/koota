@@ -52,8 +52,8 @@ export const actions = createActions((world) => ({
     return bullet;
   },
   destroyAllEnemies: () => {
-    world.query(IsEnemy).forEach((enemy) => {
+    for (const enemy of world.query(IsEnemy)) {
       enemy.destroy();
-    });
+    }
   },
 }));

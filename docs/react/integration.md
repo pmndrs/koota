@@ -46,9 +46,9 @@ import { useActions } from 'koota/react'
 const actions = createActions((world) => ({
   spawnShip: (position) => world.spawn(Position(position), Velocity),
   destroyAllShips: () => {
-    world.query(Position, Velocity).forEach((entity) => {
+    for (const entity of world.query(Position, Velocity)) {
       entity.destroy()
-    })
+    }
   },
 }))
 

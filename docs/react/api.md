@@ -49,7 +49,7 @@ function SpawnOnMount() {
 
 ## `useQuery`
 
-Returns a `QueryResult` containing entities that match the query. The component rerenders when entities enter or leave the result.
+Returns an array of the entities that match the query, sorted by id. The component rerenders when entities enter or leave the query, and the array is replaced only then. To read or update trait data in bulk, run `world.query` inside an effect or frame callback instead.
 
 ```jsx
 import { useQuery } from 'koota/react'
@@ -211,7 +211,7 @@ import { useActions } from 'koota/react'
 const playerActions = createActions((world) => ({
   spawnPlayer: () => world.spawn(IsPlayer),
   destroyAllPlayers: () => {
-    world.query(IsPlayer).forEach((player) => player.destroy())
+    for (const player of world.query(IsPlayer)) player.destroy()
   },
 }))
 
