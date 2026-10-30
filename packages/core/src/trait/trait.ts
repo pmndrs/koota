@@ -7,6 +7,9 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { isNameTrait, refreshNamedQueries } from '../name/name-index';
 import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
+import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
+import { checkQuery } from '../query/utils/check-query';
+import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
@@ -649,9 +652,9 @@ function reconcileQueries(
     if (adding && query.name === undefined) query.toRemove.remove(entity);
     const match = query.relationFilters?.length
       ? checkQueryWithRelations(ctx, query, entity)
-      : query.check(ctx, entity);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
+      : checkQuery(ctx, query, entity);
+    if (match) addEntityToQuery(query, entity);
+    else removeEntityFromQuery(ctx, query, entity);
   }
 }
 
@@ -668,9 +671,9 @@ function reconcileTrackingQueries(
     if (adding && query.name === undefined) query.toRemove.remove(entity);
     const match = query.relationFilters?.length
       ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
-      : query.checkTracking(ctx, entity, eventType, generationId, bitflag);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
+      : checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
+    if (match) addEntityToQuery(query, entity);
+    else removeEntityFromQuery(ctx, query, entity);
   }
 }
 

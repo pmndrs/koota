@@ -3,6 +3,8 @@ import { getEntityId } from '../../entity/utils/pack-entity';
 import { ensureMaskPage } from '../../entity/utils/paged-mask';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
+import { addEntityToQuery, removeEntityFromQuery } from '../query';
+import { checkQueryTracking } from './check-query-tracking';
 import { checkQueryTrackingWithRelations } from './check-query-tracking-with-relations';
 
 /** Keep tracked work outside the inlined setter notification path. */
@@ -41,8 +43,8 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
     const match =
       query.relationFilters && query.relationFilters.length > 0
         ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', generationId, bitflag)
-        : query.checkTracking(ctx, entity, 'change', generationId, bitflag);
-    if (match) query.add(entity);
-    else query.remove(ctx, entity);
+        : checkQueryTracking(ctx, query, entity, 'change', generationId, bitflag);
+    if (match) addEntityToQuery(query, entity);
+    else removeEntityFromQuery(ctx, query, entity);
   }
 }

@@ -16,7 +16,6 @@ import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } fr
 import { createQueryResult } from './query-result';
 import { $queryRef } from './symbols';
 import {
-  type EventType,
   type Modifier,
   type Query,
   type QueryInstance,
@@ -27,7 +26,6 @@ import {
   type TrackingGroup,
 } from './types';
 import { checkQuery } from './utils/check-query';
-import { checkQueryTracking } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
@@ -61,7 +59,7 @@ export function runQuery<T extends QueryParameter[]>(
     query.entities.clear();
     const len = entities.length;
     for (let i = 0; i < len; i++) {
-      query.resetTrackingBitmasks(getEntityId(entities[i]));
+      resetQueryTrackingBitmasks(query, getEntityId(entities[i]));
     }
   }
 
@@ -78,7 +76,7 @@ export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity |
     // Reading one entity still consumes the entire tracking batch.
     query.entities.clear();
     for (let i = 0; i < length; i++) {
-      query.resetTrackingBitmasks(getEntityId(dense[i] as Entity));
+      resetQueryTrackingBitmasks(query, getEntityId(dense[i] as Entity));
     }
   }
 
@@ -225,19 +223,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     iterationBuffers: undefined,
     resultBindings: [],
     relationFilters: [],
-
-    run: (ctx: WorldContext, params: QueryParameter[]) => runQuery(ctx, query, params),
-    add: (entity: Entity) => addEntityToQuery(query, entity),
-    remove: (ctx: WorldContext, entity: Entity) => removeEntityFromQuery(ctx, query, entity),
-    check: (ctx: WorldContext, entity: Entity) => checkQuery(ctx, query, entity),
-    checkTracking: (
-      ctx: WorldContext,
-      entity: Entity,
-      eventType: EventType,
-      generationId: number,
-      bitflag: number
-    ) => checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag),
-    resetTrackingBitmasks: (eid: number) => resetQueryTrackingBitmasks(query, eid),
   };
 
   const trackingGroupsMap = new Map<string, TrackingGroup>();
@@ -378,9 +363,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
             const source = sources[i];
             const match = checkQueryWithRelations(ctx, query, source);
             if (match) {
-              query.add(source);
+              addEntityToQuery(query, source);
             } else {
-              query.remove(ctx, source);
+              removeEntityFromQuery(ctx, query, source);
             }
           }
         };
@@ -414,7 +399,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
       const changedMask = ctx.changedMasks.get(id)!;
 
       for (const entity of candidates) {
-        if (query.name !== undefined && !query.check(ctx, entity)) continue;
+        if (query.name !== undefined && !checkQuery(ctx, query, entity)) continue;
         if (query.entities.has(entity)) continue;
 
         const eid = getEntityId(entity);
@@ -477,9 +462,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
                 break;
               }
             }
-            if (relationMatch) query.add(entity);
+            if (relationMatch) addEntityToQuery(query, entity);
           } else {
-            query.add(entity);
+            addEntityToQuery(query, entity);
           }
         }
       }
@@ -489,8 +474,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
       const entity = candidates[i];
       const match = hasRelationFilters
         ? checkQueryWithRelations(ctx, query, entity)
-        : query.check(ctx, entity);
-      if (match) query.add(entity);
+        : checkQuery(ctx, query, entity);
+      if (match) addEntityToQuery(query, entity);
     }
   }
 
@@ -580,11 +565,11 @@ export function queryInternal<T extends QueryParameter[]>(
 ): QueryResult<T> {
   if (args.length === 1 && isQuery(args[0])) {
     const instance = resolveQueryInstanceFromRef(ctx, args[0]);
-    return instance.run(ctx, args[0].parameters) as QueryResult<T>;
+    return runQuery(ctx, instance, args[0].parameters) as QueryResult<T>;
   }
   const params = args as unknown as QueryParameter[];
   const instance = resolveQueryInstance(ctx, params);
-  return instance.run(ctx, params) as QueryResult<T>;
+  return runQuery(ctx, instance, params) as QueryResult<T>;
 }
 
 /**
