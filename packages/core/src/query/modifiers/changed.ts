@@ -68,7 +68,7 @@ export /* @inline */ function notifyTraitChanged(
   entity: Entity,
   data: TraitInstance
 ) {
-  if (ctx.changedMasks.size === 0 && data.trackingQueries.size === 0) data.version++;
+  if (ctx.changedMasks.size === 0 && data.trackingQueries.length === 0) data.version++;
   else markTrackedTraitChanged(ctx, entity, data);
   emit(data.changeSubscriptions, entity);
 }

@@ -36,7 +36,8 @@ export type WorldContext = {
   queryInstances: (QueryInstance | undefined)[];
   iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];
-  notQueries: Set<QueryInstance>;
+  notQueries: QueryInstance[];
+  queryCallbackDepth: number;
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;

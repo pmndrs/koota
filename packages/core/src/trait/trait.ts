@@ -144,10 +144,9 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     bitflag: ctx.bitflag,
     trait,
     store: traitCtx.createStore(),
-    queries: new Set(),
-    trackingQueries: new Set(),
-    notQueries: new Set(),
-    relationQueries: new Set(),
+    queries: [],
+    trackingQueries: [],
+    relationQueries: [],
     schema: trait.schema,
     changeSubscriptions: createSubscriptions(),
     addSubscriptions: createSubscriptions(),
@@ -615,10 +614,7 @@ function markDirty(
   }
 }
 
-/**
- * Re-evaluate the queries that include a trait after its membership bit changed.
- * Named queries keep pending removals until the entity matches again.
- */
+/** Re-evaluate the queries that include a trait after its membership bit changed. */
 export function reconcileTraitQueries(
   ctx: WorldContext,
   entity: Entity,
@@ -627,21 +623,15 @@ export function reconcileTraitQueries(
   generationId: number,
   bitflag: number
 ) {
-  const adding = eventType === 'add';
-  if (instance.queries.size !== 0) reconcileQueries(ctx, entity, instance.queries, adding);
-  if (instance.trackingQueries.size !== 0) {
-    reconcileTrackingQueries(ctx, entity, instance, eventType, generationId, bitflag, adding);
+  if (instance.queries.length !== 0) reconcileQueries(ctx, entity, instance.queries);
+  if (instance.trackingQueries.length !== 0) {
+    reconcileTrackingQueries(ctx, entity, instance, eventType, generationId, bitflag);
   }
 }
 
-function reconcileQueries(
-  ctx: WorldContext,
-  entity: Entity,
-  queries: Set<QueryInstance>,
-  adding: boolean
-) {
-  for (const query of queries) {
-    if (adding && query.name === undefined) query.toRemove.remove(entity);
+function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
     const match = query.relationFilters?.length
       ? checkQueryWithRelations(ctx, query, entity)
       : checkQuery(ctx, query, entity);
@@ -656,11 +646,11 @@ function reconcileTrackingQueries(
   instance: TraitInstance,
   eventType: 'add' | 'remove',
   generationId: number,
-  bitflag: number,
-  adding: boolean
+  bitflag: number
 ) {
-  for (const query of instance.trackingQueries) {
-    if (adding && query.name === undefined) query.toRemove.remove(entity);
+  const queries = instance.trackingQueries;
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
     const match = query.relationFilters?.length
       ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
       : checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);

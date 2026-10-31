@@ -39,7 +39,9 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
   const entity = allocateEntity(ctx.entityIndex);
 
   // Tracking queries enter on trait events. Static exclusion queries need an initial match.
-  for (const query of ctx.notQueries) {
+  const notQueries = ctx.notQueries;
+  for (let i = 0; i < notQueries.length; i++) {
+    const query = notQueries[i];
     resetQueryTrackingBitmasks(query, getEntityId(entity));
     if (!query.isTracking && checkQuery(ctx, query, entity)) addEntityToQuery(query, entity);
   }

@@ -114,12 +114,11 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   trait: Trait;
   store: Store<S>;
   /** Non-tracking queries that include this trait */
-  queries: Set<QueryInstance>;
+  queries: QueryInstance[];
   /** Tracking queries (Added/Removed/Changed) that include this trait */
-  trackingQueries: Set<QueryInstance>;
-  notQueries: Set<QueryInstance>;
+  trackingQueries: QueryInstance[];
   /** Queries that filter by this relation (only for relation traits) */
-  relationQueries: Set<QueryInstance>;
+  relationQueries: QueryInstance[];
   schema: S;
   changeSubscriptions: Subscriptions;
   addSubscriptions: Subscriptions;

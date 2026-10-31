@@ -9,7 +9,7 @@ import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
-import type { TagTrait, Trait } from '../trait/types';
+import type { TagTrait, Trait, TraitInstance } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
@@ -111,6 +111,7 @@ function consumeTrackingBatch(query: QueryInstance) {
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
+  if (query.dropped) return;
   if (
     query.name !== undefined &&
     !query.isTracking &&
@@ -118,27 +119,42 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
     !query.toRemove.has(entity)
   )
     return;
-  query.toRemove.remove(entity);
+  if (query.toRemove.length !== 0) query.toRemove.remove(entity);
   query.entities.add(entity);
 
-  for (const sub of query.addSubscriptions) {
-    sub(entity);
+  if (query.addSubscriptions.size !== 0) {
+    emitQuerySubscribers(query.ctx, query.addSubscriptions, entity);
   }
 
   query.version++;
 }
 
+/** Removes at once unless a walk is in progress, which keeps the removal pending until it ends. */
 export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, entity: Entity) {
-  if (!query.entities.has(entity) || query.toRemove.has(entity)) return;
+  if (query.dropped || !query.entities.has(entity) || query.toRemove.has(entity)) return;
 
-  query.toRemove.add(entity);
-  ctx.dirtyQueries.add(query);
+  if (query.iterating === 0) {
+    query.entities.remove(entity);
+  } else {
+    query.toRemove.add(entity);
+    ctx.dirtyQueries.add(query);
+  }
 
-  for (const sub of query.removeSubscriptions) {
-    sub(entity);
+  if (query.removeSubscriptions.size !== 0) {
+    emitQuerySubscribers(ctx, query.removeSubscriptions, entity);
   }
 
   query.version++;
+}
+
+/** A callback can drop queries from any list its caller is still walking. */
+function emitQuerySubscribers(ctx: WorldContext, subscribers: Set<QuerySubscriber>, entity: Entity) {
+  ctx.queryCallbackDepth++;
+  try {
+    for (const sub of subscribers) sub(entity);
+  } finally {
+    ctx.queryCallbackDepth--;
+  }
 }
 
 export function commitQueryRemovals(ctx: WorldContext) {
@@ -250,6 +266,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
     hasChangedModifiers: false,
     changedTraits: new Set<Trait>(),
     toRemove: new SparseSet(),
+    notIndex: -1,
+    dropped: false,
+    listSlots: [],
     cleanup: [],
     addSubscriptions: new Set<QuerySubscriber>(),
     removeSubscriptions: new Set<QuerySubscriber>(),
@@ -355,31 +374,32 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
   ctx.queriesHashMap.set(query.hash, query);
 
-  if (query.isTracking) {
-    query.traitInstances.all.forEach((instance) => {
-      instance.trackingQueries.add(query);
-    });
-  } else {
-    query.traitInstances.all.forEach((instance) => {
-      instance.queries.add(query);
-    });
+  const all = query.traitInstances.all;
+  query.listSlots = Array.from({ length: all.length + query.relationFilters!.length }, () => -1);
+  for (let i = 0; i < all.length; i++) {
+    const instance = all[i];
+    if (all.indexOf(instance) !== i) continue;
+    joinList(query.isTracking ? instance.trackingQueries : instance.queries, query, i);
   }
 
   // A tracking query exposes one set while it collects the next batch in the other.
   query.exposed = query.entities;
   if (query.isTracking) query.exposed = query.batch = new SparseSet();
 
-  if (query.name === undefined && query.traitInstances.forbidden.length > 0)
-    ctx.notQueries.add(query);
+  if (query.name === undefined && query.traitInstances.forbidden.length > 0) {
+    query.notIndex = ctx.notQueries.length;
+    ctx.notQueries.push(query);
+  }
 
   const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
 
   if (hasRelationFilters) {
-    for (const pair of query.relationFilters!) {
+    for (let k = 0; k < query.relationFilters!.length; k++) {
+      const pair = query.relationFilters![k];
       const relationTrait = pair.relation[$internal].trait;
       const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-      if (relationTraitInstance) {
-        relationTraitInstance.relationQueries.add(query);
+      if (relationTraitInstance && relationSlot(query, relationTraitInstance) === all.length + k) {
+        joinList(relationTraitInstance.relationQueries, query, all.length + k);
       }
 
       if (typeof pair.target === 'number') {
@@ -521,18 +541,88 @@ export function createQueryInstance<T extends QueryParameter[]>(
 }
 
 /**
- * Remove a cached query and its subscriptions when its relation target is destroyed.
+ * A query records its position in every trait list it joins, so leaving is a swap with the last
+ * entry instead of a scan. Trait slots come first, then one slot per relation filter.
  */
+function joinList(list: QueryInstance[], query: QueryInstance, slot: number) {
+  query.listSlots[slot] = list.length;
+  list.push(query);
+}
+
+function leaveList(
+  list: QueryInstance[],
+  query: QueryInstance,
+  slot: number,
+  instance: TraitInstance,
+  relation: boolean
+) {
+  const index = query.listSlots[slot];
+  if (index === -1) return;
+  // A dispatch keeps its old array when a callback removes a query.
+  if (query.ctx.queryCallbackDepth !== 0) {
+    list = list.slice();
+    if (relation) instance.relationQueries = list;
+    else if (query.isTracking) instance.trackingQueries = list;
+    else instance.queries = list;
+  }
+  query.listSlots[slot] = -1;
+  const last = list.pop()!;
+  if (index < list.length) {
+    list[index] = last;
+    last.listSlots[relation ? relationSlot(last, instance) : traitSlot(last, instance)] = index;
+  }
+}
+
+/** A trait repeated in a query joins its list once, under the first occurrence. */
+function traitSlot(query: QueryInstance, instance: TraitInstance): number {
+  return query.traitInstances.all.indexOf(instance);
+}
+
+function relationSlot(query: QueryInstance, instance: TraitInstance): number {
+  const filters = query.relationFilters!;
+  for (let k = 0; k < filters.length; k++) {
+    if (filters[k].relation[$internal].trait === instance.trait) {
+      return query.traitInstances.all.length + k;
+    }
+  }
+  return -1;
+}
+
+/** Remove a cached query and its subscriptions when its relation target is destroyed. */
 export function dropQuery(ctx: WorldContext, query: QueryInstance) {
+  if (query.dropped) return;
+  query.dropped = true;
   for (let i = 0; i < query.cleanup.length; i++) {
     query.cleanup[i]();
   }
   query.cleanup.length = 0;
 
-  for (const instance of query.traitInstances.all) {
-    instance.queries.delete(query);
-    instance.trackingQueries.delete(query);
-    instance.relationQueries.delete(query);
+  const all = query.traitInstances.all;
+  for (let i = 0; i < all.length; i++) {
+    const instance = all[i];
+    leaveList(
+      query.isTracking ? instance.trackingQueries : instance.queries,
+      query,
+      i,
+      instance,
+      false
+    );
+  }
+  for (let k = 0; k < query.relationFilters!.length; k++) {
+    const trait = query.relationFilters![k].relation[$internal].trait;
+    const instance = getTraitInstance(ctx.traitInstances, trait);
+    if (instance) leaveList(instance.relationQueries, query, all.length + k, instance, true);
+  }
+
+  if (query.notIndex !== -1) {
+    if (ctx.queryCallbackDepth !== 0) ctx.notQueries = ctx.notQueries.slice();
+    const notQueries = ctx.notQueries;
+    const last = notQueries.pop()!;
+    if (query.notIndex < notQueries.length) {
+      notQueries[query.notIndex] = last;
+      last.notIndex = query.notIndex;
+    }
+    query.notIndex = -1;
   }
 
   for (const pair of query.relationFilters!) {
@@ -548,7 +638,6 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     if (targetQueries.length === 0) page[eid & 1023] = undefined;
   }
 
-  ctx.notQueries.delete(query);
   ctx.dirtyQueries.delete(query);
   if (ctx.queriesHashMap.get(query.hash) === query) ctx.queriesHashMap.delete(query.hash);
 

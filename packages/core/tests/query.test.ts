@@ -914,13 +914,11 @@ describe('Query', () => {
     };
 
     spawnEntities();
-    const resultsBefore = world.query(movementQuery);
+    const countBefore = world.query(movementQuery).length;
 
     world.reset();
     spawnEntities();
 
-    const resultsAfter = world.query(movementQuery);
-
-    expect(resultsAfter.length).toBe(resultsBefore.length);
+    expect(world.query(movementQuery).length).toBe(countBefore);
   });
 });
