@@ -100,6 +100,34 @@ describe('useTarget', () => {
     expect(target).toBeUndefined();
     expect(targets.every((t) => t === undefined)).toBe(true);
   });
+
+  it('keeps a remaining target when another target is removed', async () => {
+    const Likes = relation();
+    const targetA = world.spawn();
+    const targetB = world.spawn();
+    const targetC = world.spawn();
+    const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC));
+    const { result } = renderHook(() => useTarget(subject, Likes));
+
+    expect(result.current).toBe(targetA);
+
+    await act(async () => {
+      subject.remove(Likes(targetB));
+    });
+    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(targetA);
+
+    await act(async () => {
+      subject.remove(Likes(targetA));
+    });
+    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(targetC);
+
+    await act(async () => {
+      subject.remove(Likes(targetC));
+    });
+    expect(result.current).toBeUndefined();
+  });
 });
 
 describe('useTargets', () => {
