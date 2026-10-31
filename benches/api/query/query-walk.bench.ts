@@ -1,17 +1,16 @@
 import { bench, group } from '@pmndrs/labs';
-import { createQuery, createWorld, trait, type Entity } from 'koota';
+import { createQuery, createWorld, trait } from 'koota';
 
 const Position = trait({ x: 0, y: 0 });
 const Velocity = trait({ x: 0, y: 0 });
 
-/** Walks 10k entities with the view iterator and with the native array forms over a copy. */
+/** Walks 10k entities with the view iterator and with readEach. */
 group('entity walk 10k @query @query-walk', () => {
   const setup = () => {
     const world = createWorld();
     for (let i = 0; i < 10_000; i++) world.spawn(Position({ x: i }), Velocity);
     const query = createQuery(Position, Velocity);
-    const entities = world.query(query).toArray();
-    return { world, query, entities };
+    return { world, query };
   };
 
   bench('view for of', function* () {
@@ -19,54 +18,6 @@ group('entity walk 10k @query @query-walk', () => {
     let sum = 0;
     yield () => {
       for (const entity of world.query(query)) sum = (sum + entity) | 0;
-    };
-    world.destroy();
-    return sum;
-  });
-
-  bench('view at loop', function* () {
-    const { world, query } = setup();
-    let sum = 0;
-    yield () => {
-      const view = world.query(query);
-      for (let i = 0; i < view.length; i++) sum = (sum + view.at(i)!) | 0;
-    };
-    world.destroy();
-    return sum;
-  });
-
-  bench('array for of', function* () {
-    const { world, entities } = setup();
-    let sum = 0;
-    yield () => {
-      for (const entity of entities) sum = (sum + entity) | 0;
-    };
-    world.destroy();
-    return sum;
-  });
-
-  bench('array forEach', function* () {
-    const { world, entities } = setup();
-    let sum = 0;
-    yield () => {
-      entities.forEach((entity: Entity) => {
-        sum = (sum + entity) | 0;
-      });
-    };
-    world.destroy();
-    return sum;
-  });
-
-  bench('view readEach no traits', function* () {
-    const { world, query } = setup();
-    let sum = 0;
-    yield () => {
-      world
-        .query(query)
-        .select()
-        .readEach((_, entity) => {
-          sum = (sum + entity) | 0;
-        });
     };
     world.destroy();
     return sum;
@@ -103,7 +54,7 @@ group('movement 10k @query @query-walk @movement', () => {
     return { world, query, checksum };
   };
 
-  bench('for of + get + set object', function* () {
+  bench('for of + get + set', function* () {
     const { world, query, checksum } = setup();
     yield () => {
       for (const entity of world.query(query)) {
@@ -115,56 +66,13 @@ group('movement 10k @query @query-walk @movement', () => {
     return checksum();
   });
 
-  bench('for of + get + set callback', function* () {
-    const { world, query, checksum } = setup();
-    yield () => {
-      for (const entity of world.query(query)) {
-        const velocity = entity.get(Velocity)!;
-        entity.set(Position, (position) => {
-          position.x += velocity.x;
-          position.y += velocity.y;
-          return position;
-        });
-      }
-    };
-    return checksum();
-  });
-
-  bench('updateEach auto', function* () {
+  bench('updateEach', function* () {
     const { world, query, checksum } = setup();
     yield () => {
       world.query(query).updateEach(([position, velocity]) => {
         position.x += velocity.x;
         position.y += velocity.y;
       });
-    };
-    return checksum();
-  });
-
-  bench('updateEach never', function* () {
-    const { world, query, checksum } = setup();
-    yield () => {
-      world.query(query).updateEach(
-        ([position, velocity]) => {
-          position.x += velocity.x;
-          position.y += velocity.y;
-        },
-        { changeDetection: 'never' }
-      );
-    };
-    return checksum();
-  });
-
-  bench('updateEach always', function* () {
-    const { world, query, checksum } = setup();
-    yield () => {
-      world.query(query).updateEach(
-        ([position, velocity]) => {
-          position.x += velocity.x;
-          position.y += velocity.y;
-        },
-        { changeDetection: 'always' }
-      );
     };
     return checksum();
   });

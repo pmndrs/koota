@@ -28,27 +28,26 @@ group('manual change notifications 10k @change @notification', () => {
 });
 
 group('change detection 50k @change @query', () => {
-  for (const changeCount of [10, 100, 1000]) {
-    bench(`${changeCount} changed`, function* () {
-      const world = createWorld();
-      const entities: Entity[] = [];
-      for (let i = 0; i < 50_000; i++) {
-        entities.push(world.spawn(Position, Velocity));
+  bench('100 changed', function* () {
+    const changeCount = 100;
+    const world = createWorld();
+    const entities: Entity[] = [];
+    for (let i = 0; i < 50_000; i++) {
+      entities.push(world.spawn(Position, Velocity));
+    }
+    world.query(Changed(Position));
+
+    const step = Math.floor(50_000 / changeCount);
+    // The batch is live until the next run, so take its size now.
+    const result = yield () => {
+      for (let i = 0; i < changeCount; i++) {
+        entities[i * step].set(Position, { x: i, y: i, z: i });
       }
-      world.query(Changed(Position));
+      return world.query(Changed(Position)).length;
+    };
 
-      const step = Math.floor(50_000 / changeCount);
-      // The batch is live until the next run, so take its size now.
-      const result = yield () => {
-        for (let i = 0; i < changeCount; i++) {
-          entities[i * step].set(Position, { x: i, y: i, z: i });
-        }
-        return world.query(Changed(Position)).length;
-      };
-
-      world.destroy();
-      assert.equal(result, changeCount);
-      return result;
-    });
-  }
+    world.destroy();
+    assert.equal(result, changeCount);
+    return result;
+  });
 });

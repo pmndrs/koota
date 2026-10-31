@@ -1,24 +1,53 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, Name, trait, type Entity } from 'koota';
+import { createQuery, createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ x: 0, y: 0, z: 0 });
 
 group('entity mutations 10k @entity @mutation', () => {
-  bench('entity.add + remove', function* () {
-    const Tag = trait();
+  for (const queries of [0, 1]) {
+    bench(`entity.add + remove, ${queries} queries`, function* () {
+      const Tag = trait();
+      const world = createWorld();
+      const entities = Array.from({ length: 10_000 }, () => world.spawn());
+      const refs = Array.from({ length: queries }, (_, i) =>
+        createQuery(Tag, ...(i % 2 ? [Position] : []))
+      );
+      for (const ref of refs) world.query(ref);
+
+      yield {
+        bench: () => {
+          for (let i = 0; i < entities.length; i++) {
+            entities[i].add(Tag);
+            entities[i].remove(Tag);
+          }
+        },
+        snapshot: () => {
+          assert.equal(entities[9999].has(Tag), false);
+          for (const ref of refs) assert.equal(world.query(ref).length, 0);
+          return entities.length;
+        },
+      };
+
+      world.destroy();
+    });
+  }
+
+  bench('entity.add + remove 4 traits, 1 query', function* () {
+    const traits = Array.from({ length: 4 }, () => trait({ value: 0 }));
     const world = createWorld();
     const entities = Array.from({ length: 10_000 }, () => world.spawn());
+    world.query(...traits);
 
     yield {
       bench: () => {
         for (let i = 0; i < entities.length; i++) {
-          entities[i].add(Tag);
-          entities[i].remove(Tag);
+          entities[i].add(...traits);
+          entities[i].remove(...traits);
         }
       },
       snapshot: () => {
-        assert.equal(entities[9999].has(Tag), false);
+        assert.equal(world.query(...traits).length, 0);
         return entities.length;
       },
     };
@@ -77,24 +106,7 @@ group('spawn throughput 10k @entity @lifecycle @spawn', () => {
 });
 
 group('entity.has dispatch 10k @entity @has', () => {
-  bench('entity.has Name', function* () {
-    const world = createWorld();
-    const names = Array.from({ length: 10_000 }, (_, i) => Name(`object-${i}`));
-    const entities = names.map((name) => world.spawn(name));
-
-    const result = yield () => {
-      let matches = 0;
-      for (let i = 0; i < entities.length; i++) {
-        if (entities[i].has(names[i])) matches++;
-      }
-      return matches;
-    };
-
-    world.destroy();
-    return result;
-  });
-
-  bench('entity.has (true)', function* () {
+  bench('entity.has', function* () {
     const world = createWorld();
     const entities: Entity[] = [];
     for (let i = 0; i < 10_000; i++) {
@@ -105,25 +117,6 @@ group('entity.has dispatch 10k @entity @has', () => {
       let matches = 0;
       for (let i = 0; i < entities.length; i++) {
         if (entities[i].has(Position)) matches++;
-      }
-      return matches;
-    };
-
-    world.destroy();
-    return result;
-  });
-
-  bench('entity.has (false)', function* () {
-    const world = createWorld();
-    const entities: Entity[] = [];
-    for (let i = 0; i < 10_000; i++) {
-      entities.push(world.spawn(Position));
-    }
-
-    const result = yield () => {
-      let matches = 0;
-      for (let i = 0; i < entities.length; i++) {
-        if (entities[i].has(Velocity)) matches++;
       }
       return matches;
     };
@@ -176,47 +169,6 @@ group('entity.destroy 10k @entity @lifecycle', () => {
 
     world.destroy();
   });
-});
-
-group('entity.destroy subscription cleanup 10k @entity @subscription @cleanup', () => {
-  for (const traitCount of [8, 128, 1024]) {
-    for (const subscribed of [false, true]) {
-      bench(
-        `${traitCount} traits, ${subscribed ? 'with subscriptions' : 'no subscriptions'}`,
-        function* () {
-          const Position = trait({ x: 0 });
-          const world = createWorld();
-          world.spawn(Position, ...Array.from({ length: traitCount - 1 }, () => trait())).destroy();
-
-          const entities: Entity[] = [];
-          const notify = () => {};
-          const spawn = () => {
-            for (let i = 0; i < 10_000; i++) {
-              const entity = world.spawn(Position);
-              entities[i] = entity;
-              if (subscribed) {
-                // Framework hooks subscribe to all three lifecycle events.
-                entity.onAdd(Position, notify);
-                entity.onRemove(Position, notify);
-                entity.onChange(Position, notify);
-              }
-            }
-          };
-          spawn();
-
-          yield {
-            bench: () => {
-              for (let i = 0; i < entities.length; i++) entities[i].destroy();
-            },
-            snapshot: () => entities.filter((entity) => world.has(entity)).length,
-            after: spawn,
-          };
-
-          world.destroy();
-        }
-      );
-    }
-  }
 });
 
 group('entity get set 10k @entity @accessor @set', () => {

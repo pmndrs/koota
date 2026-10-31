@@ -91,70 +91,19 @@ group('relation queries 10k @relation', () => {
     world.destroy();
     return result.length;
   });
-});
 
-group('many targets single relation 10k @relation', () => {
-  for (const targetCount of [10, 100, 1000]) {
-    bench(`${targetCount} targets, query specific`, function* () {
-      const Rel = relation();
-      const world = createWorld();
-      const targets: Entity[] = [];
-      for (let i = 0; i < targetCount; i++) {
-        targets.push(world.spawn(Position));
-      }
-      for (let i = 0; i < 10_000; i++) {
-        world.spawn(Position, Rel(targets[i % targetCount]));
-      }
-
-      const queryTarget = targets[0];
-      const result = yield () => world.query(Rel(queryTarget));
-
-      world.destroy();
-      return result.length;
-    });
-  }
-});
-
-group('many targets multiple relations 5k @relation', () => {
-  const RelA = relation();
-  const RelB = relation();
-  const RelC = relation();
-  const RelD = relation();
-  const RelE = relation();
-  const allRels = [RelA, RelB, RelC, RelD, RelE];
-
-  bench('5 rels, 200 targets, query specific', function* () {
+  bench('100 parents, ChildOf(parent)', function* () {
     const world = createWorld();
-    const targets: Entity[] = [];
-    for (let i = 0; i < 200; i++) {
-      targets.push(world.spawn(Position));
+    const parents: Entity[] = [];
+    for (let i = 0; i < 100; i++) {
+      parents.push(world.spawn(Position));
     }
-    for (let i = 0; i < 5_000; i++) {
-      const rel = allRels[i % 5];
-      const target = targets[i % 200];
-      world.spawn(Position, rel(target));
+    for (let i = 0; i < 10_000; i++) {
+      world.spawn(Position, ChildOf(parents[i % 100]));
     }
 
-    const queryTarget = targets[0];
-    const result = yield () => world.query(RelA(queryTarget));
-
-    world.destroy();
-    return result.length;
-  });
-
-  bench('5 rels, 200 targets, query wildcard*', function* () {
-    const world = createWorld();
-    const targets: Entity[] = [];
-    for (let i = 0; i < 200; i++) {
-      targets.push(world.spawn(Position));
-    }
-    for (let i = 0; i < 5_000; i++) {
-      const rel = allRels[i % 5];
-      const target = targets[i % 200];
-      world.spawn(Position, rel(target));
-    }
-
-    const result = yield () => world.query(RelA('*'));
+    const queryTarget = parents[0];
+    const result = yield () => world.query(ChildOf(queryTarget));
 
     world.destroy();
     return result.length;
@@ -182,13 +131,6 @@ group('relation target filters 10k @relation @query', () => {
     return { world, parents };
   };
 
-  bench('100 parents, query ChildOf(parent)', function* () {
-    const { world, parents } = buildWorld();
-    const result = yield () => world.query(ChildOf(parents[0]));
-    world.destroy();
-    return result.length;
-  });
-
   bench('100 parents, query ChildOf(IsPlayer)', function* () {
     const { world } = buildWorld();
     const result = yield () => world.query(ChildOf(IsPlayer));
@@ -209,32 +151,7 @@ group('relation target filters 10k @relation @query', () => {
     return result;
   });
 
-  bench('100 parents, query ChildOf(IsPlayer, IsActive)', function* () {
-    const { world } = buildWorld();
-    const result = yield () => world.query(ChildOf(IsPlayer, IsActive));
-    world.destroy();
-    return result.length;
-  });
-
-  bench('100 parents, manual ChildOf(*) filter IsPlayer+IsActive', function* () {
-    const { world } = buildWorld();
-    const result = yield () => {
-      let count = 0;
-      for (const child of world.query(ChildOf('*'))) {
-        const parent = child.targetFor(ChildOf);
-        if (parent?.has(IsPlayer) && parent.has(IsActive)) count++;
-      }
-      return count;
-    };
-    world.destroy();
-    return result;
-  });
-});
-
-group('relation target filter maintenance 2k @relation @query @toggle', () => {
-  const ChildOf = relation();
-
-  bench('toggle parents with ChildOf(IsPlayer) active', function* () {
+  bench('toggle 200 parents with ChildOf(IsPlayer) active', function* () {
     const world = createWorld();
     const parents: Entity[] = [];
 
@@ -275,121 +192,93 @@ group('relation target filter maintenance 2k @relation @query @toggle', () => {
   });
 });
 
-group('spawn after target query churn 1k @relation @graph @lifecycle @target-query-churn', () => {
-  for (const targetCount of [0, 100, 1000]) {
-    bench(`${targetCount} destroyed targets`, function* () {
-      const ChildOf = relation({ autoDestroy: 'orphan' });
-      const Mesh = trait();
-      const world = createWorld();
+group('relation target lifecycle 1k @relation @lifecycle', () => {
+  bench('spawn after 100 destroyed targets', function* () {
+    const ChildOf = relation({ autoDestroy: 'orphan' });
+    const Mesh = trait();
+    const world = createWorld();
 
-      // Distinct targets keep handle reuse from capping the number of cached queries.
-      const targets = Array.from({ length: targetCount }, () => world.spawn());
-      for (const target of targets) {
-        world.spawn(Mesh, ChildOf(target));
-        world.query(Mesh, ChildOf(target));
-        target.destroy();
-      }
-
-      const root = world.spawn();
-      const pair = ChildOf(root);
-      world.spawn(Mesh, pair).destroy();
-      world.query(Mesh, pair);
-      const entities: Entity[] = [];
-
-      yield {
-        bench: () => {
-          for (let i = 0; i < 1000; i++) entities[i] = world.spawn(Mesh, pair);
-        },
-        snapshot: () => {
-          const count = world.query(Mesh, pair).length;
-          assert.equal(count, 1000);
-          return count;
-        },
-        after: () => {
-          for (const entity of entities) entity.destroy();
-          world.query(Mesh, pair);
-        },
-      };
-
-      world.destroy();
-    });
-  }
-});
-
-group('target query cleanup 1k @relation @lifecycle @target-query-cleanup', () => {
-  for (const queryCount of [0, 100, 1000]) {
-    for (const queried of [false, true]) {
-      bench(
-        `${queryCount} unrelated queries, ${queried ? 'queried targets' : 'unqueried entities'}`,
-        function* () {
-          const ChildOf = relation();
-          const Mesh = trait();
-          const world = createWorld();
-          world.query(Mesh, ChildOf('*'));
-
-          const targets = Array.from({ length: queryCount }, () => world.spawn());
-          for (const target of targets) world.query(createQuery(Mesh, ChildOf(target)));
-
-          const entities: Entity[] = [];
-          const spawn = () => {
-            for (let i = 0; i < 1000; i++) {
-              const entity = world.spawn();
-              entities[i] = entity;
-              if (queried) world.query(Mesh, ChildOf(entity));
-            }
-          };
-          spawn();
-
-          yield {
-            bench: () => {
-              for (const entity of entities) entity.destroy();
-            },
-            snapshot: () => {
-              assert.equal(
-                entities.every((entity) => !world.has(entity)),
-                true
-              );
-              const count = world.entities.length;
-              assert.equal(count, queryCount + 1);
-              return count;
-            },
-            after: spawn,
-          };
-
-          world.destroy();
-        }
-      );
+    // Distinct targets keep handle reuse from capping the number of cached queries.
+    const targets = Array.from({ length: 100 }, () => world.spawn());
+    for (const target of targets) {
+      world.spawn(Mesh, ChildOf(target));
+      world.query(Mesh, ChildOf(target));
+      target.destroy();
     }
-  }
+
+    const root = world.spawn();
+    const pair = ChildOf(root);
+    world.spawn(Mesh, pair).destroy();
+    world.query(Mesh, pair);
+    const entities: Entity[] = [];
+
+    yield {
+      bench: () => {
+        for (let i = 0; i < 1000; i++) entities[i] = world.spawn(Mesh, pair);
+      },
+      snapshot: () => {
+        const count = world.query(Mesh, pair).length;
+        assert.equal(count, 1000);
+        return count;
+      },
+      after: () => {
+        for (const entity of entities) entity.destroy();
+        world.query(Mesh, pair);
+      },
+    };
+
+    world.destroy();
+  });
+
+  bench('destroy queried targets among 100 unrelated queries', function* () {
+    const ChildOf = relation();
+    const Mesh = trait();
+    const world = createWorld();
+    world.query(Mesh, ChildOf('*'));
+
+    const targets = Array.from({ length: 100 }, () => world.spawn());
+    for (const target of targets) world.query(createQuery(Mesh, ChildOf(target)));
+
+    const entities: Entity[] = [];
+    const spawn = () => {
+      for (let i = 0; i < 1000; i++) {
+        const entity = world.spawn();
+        entities[i] = entity;
+        world.query(Mesh, ChildOf(entity));
+      }
+    };
+    spawn();
+
+    yield {
+      bench: () => {
+        for (const entity of entities) entity.destroy();
+      },
+      snapshot: () => {
+        assert.equal(
+          entities.every((entity) => !world.has(entity)),
+          true
+        );
+        const count = world.entities.length;
+        assert.equal(count, targets.length + 1);
+        return count;
+      },
+      after: spawn,
+    };
+
+    world.destroy();
+  });
 });
 
 group('relation data 10k @relation @accessor', () => {
   const Attached = relation({ store: { offset: [0, 0, 0], weight: 1 } });
 
-  function setup() {
+  bench('relation get', function* () {
     const world = createWorld();
     const pair = Attached(world.spawn());
     const children = Array.from({ length: 10_000 }, () => world.spawn(pair));
-    return { world, pair, children };
-  }
-
-  bench('relation get', function* () {
-    const { world, pair, children } = setup();
     const sum = yield () => {
       let sum = 0;
       for (let i = 0; i < children.length; i++) sum += children[i].get(pair)!.weight;
-      return sum;
-    };
-    assert.equal(sum, 10_000);
-    world.destroy();
-  }).baseline();
-
-  bench('relation get out', function* () {
-    const { world, pair, children } = setup();
-    const out = children[0].get(pair)!;
-    const sum = yield () => {
-      let sum = 0;
-      for (let i = 0; i < children.length; i++) sum += children[i].get(pair, out)!.weight;
       return sum;
     };
     assert.equal(sum, 10_000);
