@@ -19,7 +19,7 @@ export /* @inline */ function markTraitChanged(
 ) {
   data.version++;
   if (ctx.changedMasks.size !== 0) markChangedMasks(ctx, entity, data);
-  if (data.trackingQueries.size !== 0) notifyChangedTrackingQueries(ctx, entity, data);
+  if (data.trackingQueries.length !== 0) notifyChangedTrackingQueries(ctx, entity, data);
 }
 
 /** Record the change in every changed mask snapshot. */
@@ -36,7 +36,9 @@ export function markChangedMasks(ctx: WorldContext, entity: Entity, data: TraitI
 /** Re-evaluate the tracking queries that watch this trait for changes. */
 export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, data: TraitInstance) {
   const { generationId, bitflag } = data;
-  for (const query of data.trackingQueries) {
+  const queries = data.trackingQueries;
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
     if (!query.hasChangedModifiers) continue;
     if (!query.changedTraits.has(data.trait)) continue;
 

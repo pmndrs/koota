@@ -456,7 +456,7 @@ function trackTraits(
       changeDetection === 'always'
         ? hasSubscribers(instance.changeSubscriptions) ||
           ctx.changedMasks.size !== 0 ||
-          instance.trackingQueries.size !== 0
+          instance.trackingQueries.length !== 0
         : changeDetection !== 'never' &&
           (hasSubscribers(instance.changeSubscriptions) ||
             (query?.hasChangedModifiers && query.changedTraits.has(trait)));

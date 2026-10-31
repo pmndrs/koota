@@ -363,7 +363,9 @@ function updateQueriesForRelationChange(
   const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
   if (!traitData) return;
 
-  for (const query of traitData.relationQueries) {
+  const queries = traitData.relationQueries;
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
     const match = checkQueryWithRelations(ctx, query, entity);
     if (match) {
       addEntityToQuery(query, entity);

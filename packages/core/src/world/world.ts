@@ -90,7 +90,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       queryInstances: [],
       iterationBuffers: undefined,
       actionInstances: [],
-      notQueries: new Set(),
+      notQueries: [],
+      queryCallbackDepth: 0,
       targetQueries: [],
       dirtyQueries: new Set(),
       dirtyMasks: new Map(),
@@ -203,7 +204,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();
-      ctx.notQueries.clear();
+      ctx.notQueries.length = 0;
       ctx.targetQueries.length = 0;
 
       // Tracking modifiers outlive a reset, so give each one fresh masks like a new world does.

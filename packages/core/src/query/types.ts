@@ -246,6 +246,12 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   hasChangedModifiers: boolean;
   changedTraits: Set<Trait>;
   toRemove: SparseSet;
+  /** Position in the world's exclusion query list, or -1 when not listed. */
+  notIndex: number;
+  /** An active dispatch may still hold a list containing a dropped query. */
+  dropped: boolean;
+  /** Position in each trait list the query joined, trait lists first, then one per relation filter. */
+  listSlots: number[];
   cleanup: QueryUnsubscriber[];
   addSubscriptions: Set<QuerySubscriber>;
   removeSubscriptions: Set<QuerySubscriber>;

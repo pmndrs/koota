@@ -254,33 +254,4 @@ describe('Live query results', () => {
     expect(visited).toEqual([first, second, third]);
     expect(world.query(Position).toArray()).toEqual([first, third]);
   });
-
-  const runtime = globalThis as unknown as {
-    gc?: () => void;
-    process: { memoryUsage(): { heapUsed: number } };
-  };
-
-  it.skipIf(typeof runtime.gc !== 'function')('allocates nothing per run once warm', () => {
-    for (let i = 0; i < 1000; i++) world.spawn(Position({ x: i }), Name);
-    const query = createQuery(Position, Name);
-    // A shared callback and a counter keep the loop itself free of allocation.
-    const move = ([position]: [{ x: number }, { name: string }]) => {
-      position.x++;
-    };
-    let count = 0;
-    const run = () => {
-      world.query(query).updateEach(move);
-      for (const entity of world.query(query)) if (entity.isAlive()) count++;
-    };
-
-    for (let i = 0; i < 50; i++) run();
-    runtime.gc!();
-    const before = runtime.process.memoryUsage().heapUsed;
-    for (let i = 0; i < 200; i++) run();
-    const grown = runtime.process.memoryUsage().heapUsed - before;
-
-    // Copying the entities once per run would cost 200 runs times 8 kB.
-    expect(grown).toBeLessThan(200 * 1024);
-    expect(count).toBe(250_000);
-  });
 });

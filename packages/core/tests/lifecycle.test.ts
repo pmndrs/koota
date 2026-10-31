@@ -393,6 +393,26 @@ describe('Lifecycle Subscriptions', () => {
   });
 
   describe('onQueryAdd / onQueryRemove', () => {
+    it.each(['add', 'remove'] as const)(
+      'updates every query when a subscriber destroys its relation target during %s',
+      (event) => {
+        const Tag = trait();
+        const ChildOf = relation();
+        const parent = world.spawn();
+        const child = world.spawn(ChildOf(parent));
+        if (event === 'remove') child.add(Tag);
+        const subscribe = event === 'add' ? world.onQueryAdd : world.onQueryRemove;
+        const notified = vi.fn();
+        subscribe([Tag, ChildOf(parent)], () => parent.destroy());
+        subscribe([Tag], notified);
+
+        child[event](Tag);
+
+        expect(world.query(Tag).toArray()).toEqual(event === 'add' ? [child] : []);
+        expect(notified.mock.calls).toEqual([[child]]);
+      }
+    );
+
     it('can be subscribed to for a stream of updates', () => {
       const event = { entity: 0 };
       const staticCb = vi.fn((entity) => {
