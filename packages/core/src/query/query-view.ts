@@ -492,6 +492,32 @@ type QueryPageBuilder = {
   entities: Entity[];
 };
 
+/** Sort keys for one page, the offset above the position in the page's entity list. */
+const pageSortScratch = new Uint32Array(1024);
+
+/**
+ * Orders a page's entities by store offset. Ascending offsets walk memory forward and let a
+ * full page be detected as one contiguous range.
+ */
+function sortPageByOffset(page: QueryPageBuilder) {
+  const { offsets, entities } = page;
+  const count = offsets.length;
+  let sorted = true;
+  for (let j = 1; j < count && sorted; j++) sorted = offsets[j - 1] < offsets[j];
+  if (sorted) return;
+
+  const keys = pageSortScratch.subarray(0, count);
+  for (let j = 0; j < count; j++) keys[j] = (offsets[j] << 10) | j;
+  keys.sort();
+  const sortedEntities = new Array<Entity>(count);
+  for (let j = 0; j < count; j++) {
+    const key = keys[j];
+    offsets[j] = key >>> 10;
+    sortedEntities[j] = entities[key & 1023];
+  }
+  page.entities = sortedEntities;
+}
+
 const EMPTY_LAYOUT_CACHE: QueryLayoutCache = {
   version: -1,
   pageCount: 0,
@@ -546,6 +572,7 @@ function createQueryLayout(
 
   const orderedPages = Array.from(pagesById.values()).sort((a, b) => a.pageId - b.pageId);
   const pageCount = orderedPages.length;
+  for (let i = 0; i < pageCount; i++) sortPageByOffset(orderedPages[i]);
   const pageIds = new Uint32Array(pageCount);
   const pageStarts = new Uint32Array(pageCount);
   const pageCounts = new Uint16Array(pageCount);

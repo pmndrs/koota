@@ -63,8 +63,15 @@ export type QueryLayoutCache = QueryLayout & { version: number };
 export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
   readonly index: number;
   readonly stores: PageStoresFromParameters<T>;
+  /** Matching store offsets in ascending order. */
   readonly indices: Uint16Array;
   readonly entities: readonly Entity[];
+  /** First matching offset. */
+  readonly start: number;
+  /** One past the last matching offset. */
+  readonly end: number;
+  /** True when every offset from start to end matches, so a loop can skip indices. */
+  readonly contiguous: boolean;
 };
 
 /**

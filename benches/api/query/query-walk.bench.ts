@@ -77,7 +77,7 @@ group('movement 10k @query @query-walk @movement', () => {
     return checksum();
   });
 
-  bench('getPages loop', function* () {
+  bench('getPages indices', function* () {
     const { world, query, checksum } = setup();
     yield () => {
       for (const { stores, indices } of world.query(query).getPages()) {
@@ -86,6 +86,30 @@ group('movement 10k @query @query-walk @movement', () => {
           const offset = indices[i];
           position.x[offset] += velocity.x[offset];
           position.y[offset] += velocity.y[offset];
+        }
+      }
+    };
+    return checksum();
+  });
+
+  bench('getPages contiguous', function* () {
+    const { world, query, checksum } = setup();
+    yield () => {
+      const pages = world.query(query).getPages();
+      for (let p = 0; p < pages.length; p++) {
+        const { stores, indices, start, end, contiguous } = pages[p];
+        const [position, velocity] = stores;
+        if (contiguous) {
+          for (let offset = start; offset < end; offset++) {
+            position.x[offset] += velocity.x[offset];
+            position.y[offset] += velocity.y[offset];
+          }
+        } else {
+          for (let i = 0; i < indices.length; i++) {
+            const offset = indices[i];
+            position.x[offset] += velocity.x[offset];
+            position.y[offset] += velocity.y[offset];
+          }
         }
       }
     };

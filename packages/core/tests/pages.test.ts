@@ -43,6 +43,29 @@ describe('Query pages', () => {
     expect(changed).not.toHaveBeenCalled();
   });
 
+  it('orders each page by offset and marks full ranges contiguous', () => {
+    const Position = trait({ x: 0 });
+    for (let i = 0; i < 2100; i++) world.spawn(Position);
+    const pages = world.query(Position).getPages();
+    const full = pages.find((page) => page.indices.length === 1024)!;
+    for (const page of pages) {
+      expect(page.contiguous).toBe(true);
+      expect(page.end - page.start).toBe(page.indices.length);
+    }
+    expect([full.start, full.end]).toEqual([0, 1024]);
+
+    // Removing and re-adding moves entities to the back of the membership list.
+    const [first, , , , , sixth] = full.entities;
+    first.remove(Position);
+    first.add(Position);
+    sixth.remove(Position);
+    const page = world.query(Position).getPages()[full.index];
+    expect(Array.from(page.indices)).toEqual(Array.from(page.indices).sort((a, b) => a - b));
+    expect(page.entities[0]).toBe(first);
+    expect(page.contiguous).toBe(false);
+    expect([page.start, page.end]).toEqual([0, 1024]);
+  });
+
   it('keeps caller and selection order while excluding tags, Not, and relation filters', () => {
     const Position = trait({ x: 1 });
     const Name = trait({ value: 'ball' });

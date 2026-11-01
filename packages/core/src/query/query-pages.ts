@@ -36,11 +36,16 @@ export function getQueryPages(
       for (const key in store) page[key] = store[key][id] ??= createPage(schema[key]);
       return page;
     });
+    const first = layout.offsets[start];
+    const last = layout.offsets[end - 1] + 1;
     pages.push({
       index: p,
       stores: pageStores as QueryPage<any>['stores'],
       indices: layout.offsets.subarray(start, end),
       entities: layout.entities.slice(start, end),
+      start: first,
+      end: last,
+      contiguous: last - first === end - start,
     });
   }
 

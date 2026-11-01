@@ -11,15 +11,14 @@ Performance, safety and readability are all tradeoffs. The standard patterns are
 
 ## Modifying trait stores directly
 
-For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
+For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets in ascending order, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
 
 ```js
 const pages = world.query(Position, Velocity).getPages()
 
-for (const {
-  stores: [position, velocity],
-  indices,
-} of pages) {
+for (let p = 0; p < pages.length; p++) {
+  const { stores, indices } = pages[p]
+  const [position, velocity] = stores
   for (let i = 0; i < indices.length; i++) {
     const offset = indices[i]
     position.x[offset] += velocity.x[offset] * delta
@@ -29,6 +28,25 @@ for (const {
 ```
 
 `page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
+
+A page also carries `start`, `end` and `contiguous`. When `contiguous` is true every offset from `start` to `end` matches, so the loop can walk the range directly and skip the indices lookup. Pages are contiguous whenever their entities were spawned together and none left the query, which is the common case. Walk the pages with a counted loop as above, a `for of` with destructuring costs about 20% more on a large walk.
+
+```js
+for (let p = 0; p < pages.length; p++) {
+  const { stores, indices, start, end, contiguous } = pages[p]
+  const [position, velocity] = stores
+  if (contiguous) {
+    for (let offset = start; offset < end; offset++) {
+      position.x[offset] += velocity.x[offset] * delta
+    }
+  } else {
+    for (let i = 0; i < indices.length; i++) {
+      const offset = indices[i]
+      position.x[offset] += velocity.x[offset] * delta
+    }
+  }
+}
+```
 
 A tuple field's components start at the offset times the tuple's length. Write them in place, or read and write with a math library's buffer helpers such as `vec3.fromBuffer` and `vec3.toBuffer`.
 
