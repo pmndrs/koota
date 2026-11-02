@@ -493,20 +493,6 @@ describe('Query', () => {
     }
   );
 
-  it('allows callbacks to replace a selected record', () => {
-    const first = world.spawn(Position({ x: 1 }));
-    const second = world.spawn(Position({ x: 2 }));
-    const query = world.query(Position);
-
-    query.updateEach((state, _entity, index) => {
-      state[0] = { x: index + 10, y: 5 };
-    });
-    query.updateEach(([position]) => position.x++);
-
-    expect(first.get(Position)).toEqual({ x: 11, y: 5 });
-    expect(second.get(Position)).toEqual({ x: 12, y: 5 });
-  });
-
   it('can iterate again after a callback throws', () => {
     const entity = world.spawn(Position({ x: 1 }));
     const query = world.query(Position);
@@ -517,8 +503,9 @@ describe('Query', () => {
       })
     ).toThrow('stop');
 
+    // Cursor writes land as they happen, so the write before the throw is kept.
     query.updateEach(([position]) => position.x++);
-    expect(entity.get(Position)).toEqual({ x: 2, y: 0 });
+    expect(entity.get(Position)).toEqual({ x: 101, y: 0 });
   });
 
   it.each(['readEach', 'updateEach'] as const)(
@@ -836,7 +823,7 @@ describe('Query', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
-  it.fails('updateEach does not overwrite when a trait is set instead of mutated', () => {
+  it('updateEach does not overwrite when a trait is set instead of mutated', () => {
     const entity = world.spawn(Position);
 
     world.query(Position).updateEach((_, entity) => {

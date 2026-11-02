@@ -52,7 +52,7 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently.
 
 ```js
-// updateEach mutates and writes back to stores
+// updateEach mutates the stores in place
 // Run this in a loop
 world.query(Position, Velocity).updateEach(([position, velocity]) => {
   position.x += velocity.x * delta
@@ -835,8 +835,9 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// Entities destroyed during the loop stay until it ends
-// Entities spawned during the loop show up on the next run
+// Entities destroyed during a walk stay in the view until it ends and are
+// skipped by readEach and updateEach, entities spawned show up on the next run.
+// Finish every for of loop you start, a suspended iterator keeps removals pending.
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
@@ -1242,7 +1243,7 @@ const positions = getStore(world, Position)
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-`readEach` and `updateEach` reuse the callback's state array, SoA records and tuple arrays to reduce allocation. These values are only valid during the callback. Copy records and tuple arrays before retaining them, or call `entity.get(Trait)` for an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
+`readEach` and `updateEach` are zero-copy interfaces for reading and writing trait data. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
 #### Defining queries
 

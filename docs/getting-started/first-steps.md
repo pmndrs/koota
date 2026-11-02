@@ -42,7 +42,7 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently.
 
 ```js
-// updateEach mutates and writes back to stores
+// updateEach mutates the stores in place
 // Run this in a loop
 world.query(Position, Velocity).updateEach(([position, velocity]) => {
   position.x += velocity.x * delta

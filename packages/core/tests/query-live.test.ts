@@ -68,9 +68,9 @@ describe('Live query results', () => {
       inner = [...world.query(Position)];
     });
 
-    // The starting membership is walked once, the nested run skips the pending removal and the
-    // replacement waits for the next run.
-    expect(visited).toEqual([first, second]);
+    // The starting membership is walked once and an entity destroyed during the walk is skipped,
+    // the nested run skips the pending removal and the replacement waits for the next run.
+    expect(visited).toEqual([first]);
     expect(inner).toEqual([first, replacement]);
     expect(first.get(Position)?.x).toBe(11);
     expect(replacement.get(Position)?.x).toBe(7);

@@ -14,7 +14,11 @@ import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
 import { notifyChanged } from './modifiers/changed';
 import { getQueryPages } from './query-pages';
-import { compileQueryIterators, getQueryIterators } from './utils/compile-iterators';
+import {
+  compileQueryIterators,
+  createIterationCursor,
+  getQueryIterators,
+} from './utils/compile-iterators';
 import type {
   QueryInstance,
   QueryIterationBuffers,
@@ -417,8 +421,14 @@ function prepareIterationBuffers(
     state[i] = undefined;
     if (prepared[i] === trait) continue;
     prepared[i] = trait;
-    records[i] =
-      trait[$internal].type === 'soa'
+    const traitCtx = trait[$internal];
+    records[i] = traitCtx.cursor
+      ? {
+          value: createIterationCursor(trait, true),
+          tuples: undefined,
+          reader: createIterationCursor(trait, false),
+        }
+      : traitCtx.type === 'soa'
         ? createIterationRecord(ctx, getEntityId(entities[0]), trait, stores[i])
         : undefined;
   }

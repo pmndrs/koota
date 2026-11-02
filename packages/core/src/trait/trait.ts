@@ -99,6 +99,10 @@ export function createTraitContext<S extends Schema>(
     remove: accessors?.remove ?? defaults.remove,
     relation: null,
     type,
+    cursor:
+      type === 'soa' &&
+      accessors === undefined &&
+      Object.keys(schema).every((key) => !Array.isArray((schema as Record<string, unknown>)[key])),
   };
 }
 
