@@ -28,6 +28,7 @@ import {
   type TrackingGroup,
 } from './types';
 import { checkQuery, passesStaticMasks } from './utils/check-query';
+import { handleAt } from '../entity/utils/handle-ring';
 import { checkQueryTrackingSeed } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
@@ -496,10 +497,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
     };
     for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
     if (query.retains && query.name === undefined) {
-      const { tombstones, tombstoneHead, tombstoneCount } = ctx;
-      for (let k = 0; k < tombstoneCount; k++) {
-        seed(tombstones[(tombstoneHead + k) % tombstones.length] as Entity);
-      }
+      const { tombstones, events } = ctx;
+      for (let k = 0; k < tombstones.count; k++) seed(handleAt(tombstones, k));
+      for (let k = 0; k < events.count; k++) seed(handleAt(events, k));
     }
   } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
     scanMaskPages(ctx, query);

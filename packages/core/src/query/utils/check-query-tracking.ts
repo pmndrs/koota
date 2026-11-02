@@ -9,7 +9,6 @@ import {
 } from '../../entity/utils/paged-mask';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance } from '../types';
-import { passesStaticMasks } from './check-query';
 
 export function checkQueryTracking(
   ctx: WorldContext,
@@ -31,7 +30,12 @@ export function checkQueryTracking(
 
   const trackingGroupsLen = trackingGroups.length;
 
-  if (!passesStaticMasks(query.masks, entityMasks, eid)) return false;
+  if (query.traitInstances.length === 0) return false;
+  // A destroyed entity or an event holds nothing, its static terms read the traits it died with.
+  const filterSlot = query.isDestroyed ? slot + DESTROYED_WORD : slot;
+  if (!passesStaticBitmasks(query.masks, entityMasks, pageId, filterSlot)) {
+    return false;
+  }
 
   let hasOrGroup = false;
   let anyOrMatched = false;

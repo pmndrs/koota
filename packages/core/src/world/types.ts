@@ -1,4 +1,5 @@
 import { ActionInstance } from '../actions/types';
+import type { HandleRing } from '../entity/utils/handle-ring';
 import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
@@ -47,13 +48,11 @@ export type WorldContext = {
   dirtyQueries: Set<QueryInstance>;
   /** Newer destroys an id must wait for before it is reused. Zero bumps generations at destroy. */
   retain: number;
-  /** Destroyed entities whose ids are not reused yet, a growable ring in destroy order. */
-  tombstones: Int32Array;
-  /** The destroy serial of each ring entry. */
-  tombstoneSerials: Float64Array;
-  tombstoneHead: number;
-  tombstoneCount: number;
-  /** Counts destroys. Removed and Destroyed readers stamp their runs with it. */
+  /** Destroyed entities whose ids are not reused yet, in destroy order. Spawns reuse them. */
+  tombstones: HandleRing;
+  /** Emitted events whose ids are not reused yet, in emit order. Only emits reuse them. */
+  events: HandleRing;
+  /** Counts destroys and emits. Removed and Destroyed readers stamp their runs with it. */
   destroySerial: number;
   /** Removed and Destroyed query instances. Ids stay unreused until they have moved past them. */
   retainingQueries: QueryInstance[];
@@ -99,7 +98,8 @@ export type World = {
   destroy(): void;
   reset(): void;
   /** Spawns an entity and destroys it at once, so only Destroyed queries and listeners see it. */
-  emit(...traits: ConfigurableTrait[]): void;
+  /** Emits an event, an entity born dead that Destroyed readers drain. Returns its handle. */
+  emit(...traits: ConfigurableTrait[]): Entity;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;

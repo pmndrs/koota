@@ -9,8 +9,8 @@ import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isQuery } from '../query/utils/is-query';
 import { TraitSchema } from '../storage';
-import { hasTraitOrRetained, trait } from '../trait/trait';
-import { getTraitInstance } from '../trait/trait-instance';
+import { hasTraitOrRetained, registerTrait, trait } from '../trait/trait';
+import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
 import type { Relation, RelationPair } from './types';
@@ -182,6 +182,37 @@ export function clearRelationEntity(instance: TraitInstance, eid: number): void 
 function popAll(list: unknown[] | undefined) {
   if (list === undefined) return;
   while (list.length !== 0) list.pop();
+}
+
+/**
+ * Records a pair on an event. The forward entry and pair data are written the way a tombstone
+ * keeps them, without the reverse index or the query reconciliation an alive source needs.
+ */
+export function attachEventTarget(
+  ctx: WorldContext,
+  relation: Relation<Trait>,
+  entity: Entity,
+  target: Entity,
+  params: Record<string, unknown> | undefined
+): TraitInstance {
+  const relationCtx = relation[$internal];
+  const relationTrait = relationCtx.trait;
+  if (!hasTraitInstance(ctx.traitInstances, relationTrait)) registerTrait(ctx, relationTrait);
+  const instance = getTraitInstance(ctx.traitInstances, relationTrait)!;
+  const eid = getEntityId(entity);
+  const page = ensureRelPage((instance.relationTargets ??= []), eid >>> 10);
+  const o = eid & 1023;
+  let targetIndex: number;
+  if (relationCtx.exclusive) {
+    page[o] = target;
+    targetIndex = 0;
+  } else {
+    const list = (page[o] ??= []) as number[];
+    targetIndex = list.length;
+    list.push(target);
+  }
+  initRelationData(ctx, entity, relation, instance, targetIndex, params);
+  return instance;
 }
 
 /**

@@ -416,8 +416,7 @@ export /* @inline @pure */ function hasTraitOrRetained(
   const page = ctx.entityMasks[generationId][eid >>> 10];
   const slot = (eid & 1023) << 2;
 
-  if ((page[slot] & bitflag) !== 0) return true;
-  return (page[slot + DESTROYED_WORD] & bitflag) !== 0;
+  return (page[slot] & bitflag) !== 0 || (page[slot + DESTROYED_WORD] & bitflag) !== 0;
 }
 
 /** Raw writes bypass accessors. Callers must preserve any trait-owned invariants. */

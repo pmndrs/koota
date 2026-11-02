@@ -667,7 +667,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 #### Destroyed
 
-The `Destroyed` modifier tracks entities destroyed while holding the specified traits since the last time the query was run. Removing a trait before the destroy does not count. The entity stays readable inside the query, so cleanup can still read its data, and other query terms filter on the traits it held when it died.
+The `Destroyed` modifier tracks entities destroyed while holding the specified traits since the last time the query was run. Removing a trait before the destroy does not count. The entity stays readable inside the query, so cleanup can still read its data, `has` and `get` answer for the traits it held when it died, and other query terms filter on them.
 
 A destroyed entity keeps its id and its data until the world reuses the id for a new entity. A spawn reuses an id only after at least `retain` newer destroys, 1024 by default and set with `createWorld({ retain })`, and after every `Removed` and `Destroyed` query has run twice since the destroy, once to expose it and once to move past it, up to sixteen times `retain` for a reader that has stopped running. Until then spawns take fresh ids. Zero reuses ids at once. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
 
@@ -704,7 +704,7 @@ world.query(DestroyedChild(ChildOf), ChildOf(parent)).forEach((child) => {
 
 ### Events
 
-An event is an entity that is spawned and destroyed in one call. `world.emit` does that, so synchronous subscribers see it at once and `Destroyed` queries drain it later. `createListener` returns a cached query key over a `Destroyed` term for the event trait, with any other query terms added, so each listener drains its own batch. An event lives until every listener has read it and at least `retain` newer destroys have happened, so listeners can run anywhere in the loop and can be created after the emit.
+An event is an entity that is born dead. `world.emit` writes its traits, records them as the traits it held when it died and tells the `Destroyed` queries, without ever making it alive, so it costs a fraction of a spawn and never enters a membership query. `onAdd` subscribers on the event trait see it synchronously, `Destroyed` queries drain it later, and it stays readable with `get`, `has` and `targetFor` until its id is reused. `createListener` returns a cached query key over a `Destroyed` term for the event trait, with any other query terms added, so each listener drains its own batch. Events keep their own queue. An event lives until every listener has read it and at least `retain` newer events have been emitted, and only emits reuse event ids, so entity churn never discards an event. Listeners can run anywhere in the loop and can be created after the emit. A listener that stops running releases its events once sixteen times `retain` newer ones have been emitted.
 
 ```js
 import { createListener, trait } from 'koota'

@@ -39,6 +39,7 @@ import {
   releaseEntity,
   reuseEntity,
 } from './utils/entity-index';
+import { canReleaseHead, pushHandle, shiftHandle } from './utils/handle-ring';
 import { getEntityId } from './utils/pack-entity';
 import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
@@ -126,7 +127,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
         let word = page[slot];
-        if (keep) page[slot + DESTROYED_WORD] = word;
+        page[slot + DESTROYED_WORD] = word;
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
@@ -144,7 +145,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       // nothing bumps the generation now.
       if (keep) {
         freeEntity(ctx.entityIndex, currentEntity);
-        pushTombstone(ctx, currentEntity);
+        pushHandle(ctx.tombstones, currentEntity, ++ctx.destroySerial);
       } else {
         releaseEntity(ctx.entityIndex, currentEntity);
       }
@@ -166,6 +167,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         if (keep) continue;
         page[slot + REMOVED_WORD] = 0;
         page[slot + CHANGED_WORD] = 0;
+        page[slot + DESTROYED_WORD] = 0;
       }
     }
   } finally {
@@ -269,50 +271,17 @@ function clearTombstoneRelations(word: number, traitsByBit: TraitInstance[], eid
 }
 
 function allocateReusing(ctx: WorldContext): Entity {
-  const count = ctx.tombstoneCount;
-  const retain = ctx.retain;
-  if (count > retain) {
-    const head = ctx.tombstoneHead;
-    if (ctx.tombstoneSerials[head] <= ctx.consumedSerial || count > retain * 16) {
-      const entity = ctx.tombstones[head] as Entity;
-      ctx.tombstoneHead = (head + 1) % ctx.tombstones.length;
-      ctx.tombstoneCount = count - 1;
-      clearTombstoneHistory(ctx, entity);
-      return reuseEntity(ctx.entityIndex, entity);
-    }
+  const ring = ctx.tombstones;
+  if (canReleaseHead(ring, ctx.retain, ctx.consumedSerial)) {
+    const entity = shiftHandle(ring);
+    clearTombstoneHistory(ctx, entity);
+    return reuseEntity(ctx.entityIndex, entity);
   }
   return allocateFreshEntity(ctx.entityIndex);
 }
 
-/** Record a destroyed entity, oldest first, with the serial readers compare their runs against. */
-function pushTombstone(ctx: WorldContext, entity: Entity) {
-  const count = ctx.tombstoneCount;
-  if (count === ctx.tombstones.length) growTombstones(ctx);
-  const ring = ctx.tombstones;
-  const tail = (ctx.tombstoneHead + count) % ring.length;
-  ring[tail] = entity;
-  ctx.tombstoneSerials[tail] = ++ctx.destroySerial;
-  ctx.tombstoneCount = count + 1;
-}
-
-function growTombstones(ctx: WorldContext) {
-  const old = ctx.tombstones;
-  const oldSerials = ctx.tombstoneSerials;
-  const count = ctx.tombstoneCount;
-  const ring = new Int32Array(Math.max(16, old.length * 2));
-  const serials = new Float64Array(ring.length);
-  for (let i = 0; i < count; i++) {
-    const from = (ctx.tombstoneHead + i) % old.length;
-    ring[i] = old[from];
-    serials[i] = oldSerials[from];
-  }
-  ctx.tombstones = ring;
-  ctx.tombstoneSerials = serials;
-  ctx.tombstoneHead = 0;
-}
-
 /** Clear the history a destroyed entity kept so a reused id starts clean. */
-function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
+export function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
@@ -360,7 +329,8 @@ export /* @inline */ function entityHas(
     if (isNameConfig(trait)) return ctx.names.get(trait[1]) === entity;
     return hasEntityRelationPair(ctx, entity, trait);
   }
-  return hasTrait(ctx, entity, trait);
+  // A destroyed entity or an event answers for the traits it held when it died.
+  return hasTraitOrRetained(ctx, entity, trait);
 }
 
 /**

@@ -167,7 +167,7 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**3. Emit and drain:** Emit an event as a short lived entity and let a system drain it on its own schedule. Use for discrete game events that several systems read. An event lives until every listener has read it and at least `retain` newer destroys have happened, so a listener created after the emit still sees it.
+**3. Emit and drain:** Emit an event as an entity born dead and let a system drain it on its own schedule. Use for discrete game events that several systems read. `world.emit` never makes the event alive, so it costs a fraction of a spawn, and events keep their own queue: an event lives until every listener has read it and at least `retain` newer events have been emitted, entity churn never discards it, and a listener created after the emit still sees it.
 
 ```typescript
 const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })

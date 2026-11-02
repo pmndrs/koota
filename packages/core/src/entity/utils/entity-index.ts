@@ -68,6 +68,33 @@ function enterAlive(index: EntityIndex, entity: Entity, entityId: number) {
 /** A fresh id from the page cursor. */
 export const allocateFreshEntity = (index: EntityIndex): Entity => {
   if (assertsEnabled) index.owner.structuralRevision++;
+  const entity = takeFreshId(index);
+  enterAlive(index, entity, getEntityId(entity));
+  return entity;
+};
+
+/** A fresh id that starts dead. An event takes one, so it is readable but never alive. */
+export const allocateFreeEntity = (index: EntityIndex): Entity => {
+  if (assertsEnabled) index.owner.structuralRevision++;
+  const entity = takeFreshId(index);
+  index.dense.push(entity);
+  index.sparse[getEntityId(entity)] = index.dense.length - 1;
+  return entity;
+};
+
+/** Bumps the generation of a dead entry in place, so the id can hold the next event. */
+export const renewFreeEntity = (index: EntityIndex, entity: Entity): Entity => {
+  if (assertsEnabled) index.owner.structuralRevision++;
+  const entityId = getEntityId(entity);
+  const nextGen = (getEntityGeneration(entity) + 1) & GENERATION_MASK;
+  index.allocator.generations[entityId >>> 10]![entityId & 1023] = nextGen;
+  const fresh = packEntity(nextGen, entityId);
+  index.dense[index.sparse[entityId]] = fresh;
+  return fresh;
+};
+
+/** The next id on the current page, leasing a page when it is full. The page counts it as held. */
+function takeFreshId(index: EntityIndex): Entity {
   const allocator = index.allocator;
   if (index.currentPageIdx === -1 || index.pageCursors[index.currentPageIdx] >= PAGE_SIZE) {
     const pid = leasePage(allocator, index.owner);
@@ -78,12 +105,11 @@ export const allocateFreshEntity = (index: EntityIndex): Entity => {
   const pid = index.ownedPages[index.currentPageIdx];
   const offset = index.pageCursors[index.currentPageIdx]++;
   const entityId = pid * PAGE_SIZE + offset;
-  // Read gen from TypedArray — handles re-leased pages where gen > 0.
+  // The generation comes from the page, so a re-leased page continues from where it left off.
   const entity = packEntity(allocator.generations[entityId >>> 10]![offset], entityId);
   allocator.pageAliveCounts[entityId >>> 10]++;
-  enterAlive(index, entity, entityId);
   return entity;
-};
+}
 
 /**
  * Strict allocation for a world that retains nothing: the newest released id, which already

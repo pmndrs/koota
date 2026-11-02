@@ -28,7 +28,7 @@ describe('Entity retention', () => {
     expect(world.has(entity)).toBe(false);
     expect(world.entities).not.toContain(entity);
     expect(world.query(Position).length).toBe(0);
-    expect(entity.has(Position)).toBe(false);
+    expect(entity.has(Position)).toBe(true);
     expect(entity.get(Position)).toEqual({ x: 1, y: 0 });
     expect(() => entity.set(Position, { x: 2 })).toThrow();
     expect(() => entity.add(IsCold)).toThrow();
@@ -187,12 +187,56 @@ describe('Entity retention', () => {
     expect(world.query(fast).length).toBe(0);
     expect(event.get(Event)!.by).toBe(7);
 
-    // The slow listener has not moved past it, so a spawn does not take its id.
-    expect(world.spawn().id()).not.toBe(event.id());
+    // The slow listener has not moved past it, so the next event does not take its id.
+    expect(world.emit(Event({ by: 9 })).id()).not.toBe(event.id());
     expect(world.query(slow).toArray()).toContain(event);
     expect(world.query(slow).length).toBe(0);
-    expect(world.spawn().id()).toBe(event.id());
+    expect(world.query(fast).length).toBe(1);
+    expect(world.emit(Event({ by: 10 })).id()).toBe(event.id());
     expect(() => event.get(Event)).toThrow();
+  });
+
+  it('keeps events through entity churn and never hands their ids to spawns', () => {
+    const world = createWorld({ retain: 2 });
+    const event = world.emit(Event({ by: 11 }));
+    for (let i = 0; i < 500; i++) world.spawn(Position).destroy();
+    for (let i = 0; i < 100; i++) expect(world.spawn().id()).not.toBe(event.id());
+
+    const listener = createListener(Event);
+    expect(world.query(listener).toArray()).toEqual([event]);
+    expect(event.get(Event)!.by).toBe(11);
+  });
+
+  it('never makes an event alive', () => {
+    const world = createWorld();
+    let observed = 0;
+    world.onAdd(Event, () => observed++);
+    const event = world.emit(Event({ by: 12 }), IsHot);
+
+    expect(observed).toBe(1);
+    expect(world.has(event)).toBe(false);
+    expect(world.entities).not.toContain(event);
+    expect(world.query(Event).length).toBe(0);
+    expect(world.query(IsHot).length).toBe(0);
+    expect(event.get(Event)).toEqual({ by: 12 });
+    expect(event.has(IsHot)).toBe(true);
+    expect(() => event.set(Event, { by: 0 })).toThrow();
+  });
+
+  it('filters events on their pairs and other traits', () => {
+    const Hits = relation();
+    const world = createWorld();
+    const a = world.spawn();
+    const b = world.spawn();
+    const Warm = createDestroyed();
+    world.query(Warm(Event), Hits(a));
+    const onA = world.emit(Event({ by: 13 }), Hits(a), IsHot);
+    world.emit(Event({ by: 14 }), Hits(b));
+
+    expect(world.query(Warm(Event), Hits(a)).toArray()).toEqual([onA]);
+    expect(world.query(createDestroyed()(Event), Hits(a)).toArray()).toEqual([onA]);
+    expect(world.query(createDestroyed()(Event), IsHot).toArray()).toEqual([onA]);
+    expect(onA.targetFor(Hits)).toBe(a);
   });
 
   it('drops events a reader fell too far behind to keep', () => {

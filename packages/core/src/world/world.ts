@@ -1,4 +1,6 @@
 import { $internal } from '../common';
+import { emitEvent } from '../entity/emit';
+import { clearHandleRing, createHandleRing } from '../entity/utils/handle-ring';
 import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
@@ -107,10 +109,8 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
       retain,
-      tombstones: new Int32Array(retain === 0 ? 0 : 16),
-      tombstoneSerials: new Float64Array(retain === 0 ? 0 : 16),
-      tombstoneHead: 0,
-      tombstoneCount: 0,
+      tombstones: createHandleRing(retain === 0 ? 0 : 16),
+      events: createHandleRing(retain === 0 ? 0 : 16),
       destroySerial: 0,
       retainingQueries: [],
       consumedSerial: Infinity,
@@ -232,8 +232,8 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       ctx.queryInstances.length = 0;
       ctx.retainingQueries.length = 0;
       ctx.consumedSerial = Infinity;
-      ctx.tombstoneHead = 0;
-      ctx.tombstoneCount = 0;
+      clearHandleRing(ctx.tombstones);
+      clearHandleRing(ctx.events);
       ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();
@@ -257,7 +257,7 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
         );
       }
       ensureWorldRegistered(ctx);
-      destroyEntity(ctx, createEntity(ctx, traits));
+      return emitEvent(ctx, traits);
     },
 
     query(...args: any[]) {
