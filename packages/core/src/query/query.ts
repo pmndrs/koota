@@ -240,6 +240,7 @@ function processTrackingModifier(
     }
   }
 
+  if (trackingType === 'destroy') query.isDestroyed = true;
   query.isTracking = true;
 }
 
@@ -272,6 +273,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     exposed: null!,
     iterating: 0,
     isTracking: false,
+    isDestroyed: false,
     hasChangedModifiers: false,
     changedTraits: [],
     toRemove: null,
@@ -430,26 +432,26 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
-  // A named query can only match the current owner, including on its first run.
-  const namedEntity = typeof query.name === 'string' ? ctx.names.get(query.name) : undefined;
+  // A named query can only match the current owner, including on its first run. Retained
+  // entities are candidates only for tracking queries, which seed Removed and Destroyed from them.
   const index = ctx.entityIndex;
+  const namedEntity = typeof query.name === 'string' ? ctx.names.get(query.name) : undefined;
   let candidates: readonly Entity[];
   let candidateCount: number;
   if (query.name !== undefined) {
     candidates = namedEntity === undefined ? EMPTY_ENTITIES : [namedEntity];
     candidateCount = candidates.length;
-  } else if (targetCandidates !== undefined) {
+  } else if (targetCandidates !== undefined && !query.isTracking) {
     candidates = targetCandidates;
     candidateCount = targetCandidates.length;
   } else {
     candidates = index.dense;
-    candidateCount = index.aliveCount;
+    candidateCount = index.aliveCount + (query.isTracking ? index.retainedCount : 0);
   }
 
   if (query.trackingGroups.length > 0) {
-    // A tracking query starts observing when it is created. Earlier history collapses into the
-    // current masks, so holders of a tracked trait seed the first batch and past removals and
-    // writes, which left no trace, do not.
+    // A tracking query seeds its first batch from the world history, so a reader created at any
+    // time sees what happened to the entities the world still holds.
     for (let i = 0; i < candidateCount; i++) {
       const entity = candidates[i];
       if (query.name !== undefined && !checkQuery(ctx, query, entity)) continue;
@@ -460,8 +462,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
   } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
     scanMaskPages(ctx, query);
   } else {
-    for (let c = 0; c < candidateCount; c++) {
-      const entity = candidates[c];
+    for (let i = 0; i < candidateCount; i++) {
+      const entity = candidates[i];
       const match = hasRelationFilters
         ? checkQueryWithRelations(ctx, query, entity)
         : checkQuery(ctx, query, entity);

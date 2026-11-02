@@ -25,13 +25,14 @@ export function createEmptyHistoryGeneration(): Uint32Array[] {
 }
 
 /**
- * Materialize a membership page together with its removed and changed history pages, so the
- * remove and set paths can write history without a branch or a call.
+ * Materialize a membership page together with its history pages, so the remove, set and destroy
+ * paths can write history without a branch or a call.
  */
 export function materializeMaskPages(ctx: WorldContext, generationId: number, pageId: number) {
   ctx.entityMasks[generationId][pageId] = new Uint32Array(PAGE_SIZE);
   ctx.removedMasks[generationId][pageId] = new Uint32Array(PAGE_SIZE);
   ctx.changedMasks[generationId][pageId] = new Uint32Array(PAGE_SIZE);
+  ctx.destroyedMasks[generationId][pageId] = new Uint32Array(PAGE_SIZE);
 }
 
 /** Materialize a mask page on first write. Returns the writable page. */

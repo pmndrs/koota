@@ -198,7 +198,7 @@ export type TrackingGroup = {
   /** Whether all traits must match (and) or any trait can match (or) */
   logic: 'and' | 'or';
   /** The type of tracking event */
-  type: 'add' | 'remove' | 'change';
+  type: EventType;
   /** Tracking modifier ID for snapshot/mask lookups */
   id: number;
   /** Bitmasks indexed by generationId */
@@ -231,6 +231,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   /** Walks in progress over the results. Removals stay pending while it is nonzero. */
   iterating: number;
   isTracking: boolean;
+  /** Holds a Destroyed term. Only destroy events reach it and its filters read the masks at destroy. */
+  isDestroyed: boolean;
   hasChangedModifiers: boolean;
   changedTraits: Trait[];
   /** Removals deferred by a walk in progress, created on the first one. */
@@ -251,4 +253,4 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   relationFilters: ResolvedRelationFilter[];
 };
 
-export type EventType = 'add' | 'remove' | 'change';
+export type EventType = 'add' | 'remove' | 'change' | 'destroy';

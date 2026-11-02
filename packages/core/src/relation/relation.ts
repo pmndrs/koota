@@ -1,7 +1,7 @@
 import type { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { assertEntityAlive } from '../asserts';
+import { assertEntityReadable } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import type { QueryParameter } from '../query/types';
@@ -140,7 +140,7 @@ export /* @inline */ function getRelationTargets(
   entity: Entity
 ): readonly Entity[] {
   if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
+    assertEntityReadable(ctx, entity);
   }
 
   const relationCtx = relation[$internal];
@@ -169,7 +169,7 @@ export /* @inline */ function getFirstRelationTarget(
   entity: Entity
 ): Entity | undefined {
   if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
+    assertEntityReadable(ctx, entity);
   }
 
   const relationCtx = relation[$internal];

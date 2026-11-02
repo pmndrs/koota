@@ -26,7 +26,7 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
-Tracking modifiers report what happened since the query last ran. A world records its history from the moment it is created, so a tracking query created later still sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a trait is watched, by a `Changed` term naming it, an `onChange` subscriber, or an explicit `changed()` call, so create `Changed` terms at module scope to record writes from the start.
+Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a trait is watched, by a `Changed` term naming it, an `onChange` subscriber, or an explicit `changed()` call, so create `Changed` terms at module scope to record writes from the start. A destroyed entity is released at destroy and leaves nothing to report unless the world retains destroyed entities, see [Destroyed](#destroyed).
 
 ## Added
 
@@ -56,7 +56,7 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 ## Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed. A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed, and on a world that retains destroyed entities their data stays readable until `world.collect()`, see [Destroyed](#destroyed). A new instance of the modifier must be created for tracking to be unique.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -114,6 +114,65 @@ const parent = world.spawn()
 const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
 const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer, IsActive))
 ```
+
+## Destroyed
+
+The `Destroyed` modifier tracks entities destroyed while holding the specified traits since the last time the query was run. Removing a trait before the destroy does not count. The entity stays readable inside the query, so cleanup can still read its data, and other query terms filter on the traits it held when it died.
+
+Destroyed entities are only kept on a world created with `collect: 'manual'`. Such a world keeps every destroyed entity, with its data, until `world.collect()` runs, usually once at the end of the loop. The entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
+
+```js
+import { createDestroyed, createWorld } from 'koota'
+
+const world = createWorld({ collect: 'manual' })
+const Destroyed = createDestroyed()
+
+function cleanupSystem(world) {
+  world.query(Destroyed(ServerSync)).readEach(([serverSync]) => {
+    serverSync.disconnect()
+  })
+}
+
+function loop() {
+  simulate(world)
+  cleanupSystem(world)
+  // Releases the entities destroyed this frame
+  world.collect()
+}
+
+// Caught by Destroyed(ServerSync) with its data intact until collect
+entity.destroy()
+
+// Ignored by Destroyed(ServerSync)
+entity.remove(ServerSync)
+```
+
+Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` or `Destroyed` query created later still sees everything destroyed since the last collect.
+
+# Events
+
+An event is an entity that is spawned and destroyed in one call. `world.emit` does that, so synchronous subscribers see it at once and `Destroyed` queries drain it later. `createListener` returns a cached query key over a `Destroyed` term for the event trait, with any other query terms added, so each listener drains its own batch. The world must retain destroyed entities for listeners to see anything.
+
+```js
+import { createListener, createWorld, trait } from 'koota'
+
+const world = createWorld({ collect: 'manual' })
+const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })
+
+// Emit an event, extra traits tag it for filtering
+world.emit(CoinCollected({ by: player, coin }), IsHot)
+
+// Returns a cached query key, create it at module scope
+const coinCollected = createListener(CoinCollected, Or(IsHot, IsCold))
+
+function eventSystem(world) {
+  world.query(coinCollected).readEach(([event]) => {
+    score(event.by)
+  })
+}
+```
+
+Use `world.spawn` instead when the event should persist and be destroyed by your own logic.
 
 ## Add, remove and change events
 

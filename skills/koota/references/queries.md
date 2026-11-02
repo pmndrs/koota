@@ -106,15 +106,16 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. Tracking starts when the world is created, so a query created later still reports earlier events on its first run. Write history for `Changed` is recorded once a trait is watched by a `Changed` term, an `onChange` subscriber or an explicit `changed()` call, so build `Changed` terms at module scope to record from the start.
+Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a trait is watched by a `Changed` term, an `onChange` subscriber or an explicit `changed()` call, so build `Changed` terms at module scope to record from the start. Destroyed entities are released at destroy unless the world was created with `collect: 'manual'`, see Destroyed below.
 
 ```typescript
-import { createAdded, createRemoved, createChanged } from 'koota'
+import { createAdded, createRemoved, createChanged, createDestroyed } from 'koota'
 
 // Create unique instances (typically at module scope)
 const Added = createAdded()
 const Removed = createRemoved()
 const Changed = createChanged()
+const Destroyed = createDestroyed()
 ```
 
 **Added** - Entities that added a trait since last query:
@@ -126,7 +127,7 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since last query (includes destroyed entities):
+**Removed** - Entities that removed a trait since last query (includes destroyed entities, readable until `world.collect()` on a manual world):
 
 ```typescript
 const stoppedEntities = world.query(Removed(Velocity))
@@ -143,6 +144,18 @@ const movedEntities = world.query(Changed(Position))
 // Track relation data changes
 const updatedChildren = world.query(Changed(ChildOf))
 ```
+
+**Destroyed** - Entities destroyed while holding a trait since last query. Needs `createWorld({ collect: 'manual' })`, which keeps destroyed entities readable until `world.collect()` runs, usually once per loop. Removing the trait first does not count, writes to the entity throw, and other terms filter on the traits held at destroy:
+
+```typescript
+const world = createWorld({ collect: 'manual' })
+
+world.query(Destroyed(ServerSync)).readEach(([serverSync]) => serverSync.disconnect())
+
+world.collect() // End of the loop
+```
+
+See [runtime.md](runtime.md#event-driven-systems) for `world.emit` and `createListener`, which build on Destroyed.
 
 **Logical AND (default):**
 
@@ -181,6 +194,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 - Create instances at module scope, not inside functions
 - Tracking resets after each query execution
 - Changed only tracks `set()` calls and `entity.changed()` signals
+- Removed and Destroyed need no warm up, a reader created after the event still sees it on its first run
 
 ## Caching queries
 

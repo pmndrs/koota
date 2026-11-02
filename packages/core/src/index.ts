@@ -9,6 +9,8 @@ export { createChanged } from './query/modifiers/changed';
 export { Not } from './query/modifiers/not';
 export { Or } from './query/modifiers/or';
 export { createRemoved } from './query/modifiers/removed';
+export { createDestroyed } from './query/modifiers/destroyed';
+export { createListener } from './query/create-listener';
 export { $modifier } from './query/modifier';
 export { createQuery, IsExcluded } from './query/query';
 export type {
@@ -62,7 +64,7 @@ export type {
 export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';
 export { resolveWorld } from './entity/utils/address-space';
-export type { World } from './world';
+export type { World, WorldOptions } from './world';
 export { createWorld } from './world';
 
 /**

@@ -167,6 +167,28 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
+**3. Emit and drain:** Emit an event as a short lived entity and let a system drain it on its own schedule. Use for discrete game events that several systems read. The world must be created with `collect: 'manual'`, and `world.collect()` runs once at the end of the loop to release everything destroyed that iteration.
+
+```typescript
+const world = createWorld({ collect: 'manual' })
+const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })
+
+// Cached query key over Destroyed(CoinCollected), create at module scope
+const coinCollected = createListener(CoinCollected, Or(IsHot, IsCold))
+
+// Spawn and destroy in one call. Synchronous subscribers fire now, listeners drain later
+world.emit(CoinCollected({ by: player, coin }), IsHot)
+
+function scoreSystem(world: World) {
+  world.query(coinCollected).readEach(([event]) => addScore(event.by))
+}
+
+function loop() {
+  scoreSystem(world)
+  world.collect()
+}
+```
+
 **Trait lifecycle events** (`onAdd`, `onRemove`, `onChange`) are also transition-based:
 
 ```typescript

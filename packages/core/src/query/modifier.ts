@@ -22,10 +22,15 @@ export /* @inline @pure */ function isModifier(param: QueryParameter): param is 
   return (param as Brand<typeof $modifier> | null | undefined)?.[$modifier] as unknown as boolean;
 }
 
-/** Check if a modifier is a tracking modifier (added, removed, or changed) */
+/** Check if a modifier is a tracking modifier (added, removed, changed or destroyed) */
 export function isTrackingModifier(modifier: Modifier): boolean {
   const { type } = modifier;
-  return type.includes('added') || type.includes('removed') || type.includes('changed');
+  return (
+    type.includes('added') ||
+    type.includes('removed') ||
+    type.includes('changed') ||
+    type.includes('destroyed')
+  );
 }
 
 /** Get the tracking type from a modifier */
@@ -34,6 +39,7 @@ export function getTrackingType(modifier: Modifier): EventType | null {
   if (type.includes('added')) return 'add';
   if (type.includes('removed')) return 'remove';
   if (type.includes('changed')) return 'change';
+  if (type.includes('destroyed')) return 'destroy';
   return null;
 }
 

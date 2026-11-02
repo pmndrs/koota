@@ -12,6 +12,7 @@ export function incrementWorldBitflag(ctx: WorldContext) {
     ctx.entityMasks.push(createEmptyMaskGeneration());
     ctx.removedMasks.push(createEmptyHistoryGeneration());
     ctx.changedMasks.push(createEmptyHistoryGeneration());
+    ctx.destroyedMasks.push(createEmptyHistoryGeneration());
     ctx.traitsByBit.push([]);
   }
 }

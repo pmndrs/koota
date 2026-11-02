@@ -69,14 +69,17 @@ export function checkQueryTracking(
 
 /**
  * Seed a new tracking query from the world history instead of an event. Membership stands in
- * for an add, the removed history for a loss the entity has not undone, and the changed history
- * for a write to a trait the entity still holds.
+ * for an add, the removed history for a loss the entity has not undone, the changed history for
+ * a write to a trait the entity still holds, and the destroyed history for the traits a retained
+ * entity held when it died. A Destroyed query filters on those masks too, since the entity holds
+ * nothing now.
  */
 export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, entity: Entity) {
   if (query.traitInstances.all.length === 0) return false;
   const eid = getEntityId(entity);
   const entityMasks = ctx.entityMasks;
-  if (!passesStaticBitmasks(query.staticBitmasks, query.generations, entityMasks, eid)) return false;
+  const filterMasks = query.isDestroyed ? ctx.destroyedMasks : entityMasks;
+  if (!passesStaticBitmasks(query.staticBitmasks, query.generations, filterMasks, eid)) return false;
 
   const pageId = eid >>> 10;
   const offset = eid & 1023;
@@ -87,19 +90,23 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
   for (let i = 0; i < trackingGroups.length; i++) {
     const group = trackingGroups[i];
     const bitmasks = group.bitmasks;
+    const type = group.type;
     const history =
-      group.type === 'add'
+      type === 'add'
         ? entityMasks
-        : group.type === 'remove'
+        : type === 'remove'
           ? ctx.removedMasks
-          : ctx.changedMasks;
+          : type === 'change'
+            ? ctx.changedMasks
+            : ctx.destroyedMasks;
 
     for (let genId = 0; genId < bitmasks.length; genId++) {
       const mask = bitmasks[genId];
       if (!mask) continue;
       const held = entityMasks[genId][pageId][offset];
       let hits = history[genId][pageId][offset] & mask;
-      hits = group.type === 'remove' ? hits & ~held : hits & held;
+      if (type === 'remove') hits &= ~held;
+      else if (type !== 'destroy') hits &= held;
       if (hits !== 0) recordTrackerHit(group.trackers, genId, eid, hits);
     }
 

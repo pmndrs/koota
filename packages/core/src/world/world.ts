@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { createEntity, destroyEntity } from '../entity/entity';
+import { collectEntities, createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -37,10 +37,15 @@ import type {
   TraitRecord,
   TraitValue,
 } from '../trait/types';
-import type { World, WorldContext } from './types';
+import type { World, WorldContext, WorldOptions } from './types';
 import { resolveHookCallback, resolveHookTrait } from './utils/resolve-hook';
 
 let nextWorldId = 0;
+
+/** Options come first and are the only plain object a world accepts, traits are functions or tuples. */
+function isWorldOptions(arg: WorldOptions | ConfigurableTrait): arg is WorldOptions {
+  return typeof arg === 'object' && arg !== null && !Array.isArray(arg) && !isRelationPair(arg);
+}
 
 /** Registers IsExcluded and creates the world entity on first mutation. */
 function ensureWorldRegistered(ctx: WorldContext): void {
@@ -80,8 +85,16 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
   return runQuery(ctx, query, params);
 }
 
-export function createWorld(...traits: ConfigurableTrait[]): World {
+export function createWorld(options: WorldOptions, ...traits: ConfigurableTrait[]): World;
+export function createWorld(...traits: ConfigurableTrait[]): World;
+export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): World {
   const id = nextWorldId++;
+  let manualCollect = false;
+  if (args.length !== 0 && isWorldOptions(args[0])) {
+    manualCollect = args[0].collect === 'manual';
+    args = args.slice(1);
+  }
+  const traits = args as ConfigurableTrait[];
   const pendingTraits = traits.length > 0 ? traits : undefined;
 
   const cleanupToken: PageCleanupToken = {
@@ -95,6 +108,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       entityMasks: [createEmptyMaskGeneration()],
       removedMasks: [createEmptyHistoryGeneration()],
       changedMasks: [createEmptyHistoryGeneration()],
+      destroyedMasks: [createEmptyHistoryGeneration()],
+      manualCollect,
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -199,6 +214,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.entityMasks = [createEmptyMaskGeneration()];
       ctx.removedMasks = [createEmptyHistoryGeneration()];
       ctx.changedMasks = [createEmptyHistoryGeneration()];
+      ctx.destroyedMasks = [createEmptyHistoryGeneration()];
       ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
 
@@ -226,6 +242,17 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       for (const sub of ctx.resetSubscriptions) {
         sub();
       }
+    },
+
+    emit(...traits: ConfigurableTrait[]) {
+      const ctx = world[$internal];
+      ensureWorldRegistered(ctx);
+      destroyEntity(ctx, createEntity(ctx, traits));
+    },
+
+    collect() {
+      const ctx = world[$internal];
+      if (ctx.isRegistered) collectEntities(ctx);
     },
 
     query(...args: any[]) {

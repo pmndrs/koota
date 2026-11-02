@@ -45,6 +45,10 @@ export type WorldContext = {
   removedMasks: Uint32Array[][];
   /** Traits written on an entity since it spawned. Seeds Changed queries created after the fact. */
   changedMasks: Uint32Array[][];
+  /** Traits an entity held when it was destroyed. Written only while the world retains destroyed entities. */
+  destroyedMasks: Uint32Array[][];
+  /** Destroyed entities stay readable until collect is called. */
+  manualCollect: boolean;
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
@@ -55,6 +59,14 @@ export type WorldContext = {
   pendingTraits: ConfigurableTrait[] | undefined;
   cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
   structuralRevision: number;
+};
+
+export type WorldOptions = {
+  /**
+   * When a destroyed entity is released. Eager releases it at destroy. Manual keeps it readable
+   * for Removed and Destroyed queries until the world collects.
+   */
+  collect?: 'eager' | 'manual';
 };
 
 export type World = {
@@ -75,6 +87,10 @@ export type World = {
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
   destroy(): void;
   reset(): void;
+  /** Spawns an entity and destroys it at once, so only Destroyed queries and listeners see it. */
+  emit(...traits: ConfigurableTrait[]): void;
+  /** Releases the entities destroyed since the last collect. A no-op on an eager world. */
+  collect(): void;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;

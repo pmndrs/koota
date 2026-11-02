@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { assertEntityAlive } from '../asserts';
+import { assertEntityAlive, assertEntityReadable } from '../asserts';
 import {
   addEntityToQuery,
   dropQuery,
@@ -19,6 +19,7 @@ import {
   addTraitsToAliveEntity,
   cleanupRelationTarget,
   hasTrait,
+  reconcileTrackingQueries,
   registerTrait,
   removeTraitFromAliveEntity,
 } from '../trait/trait';
@@ -28,7 +29,13 @@ import type { WorldContext } from '../world';
 import type { QueryInstance } from '../query/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
 import type { Entity } from './types';
-import { allocateEntity, isEntityAlive, releaseEntity } from './utils/entity-index';
+import {
+  allocateEntity,
+  collectRetainedEntities,
+  isEntityAlive,
+  releaseEntity,
+  retainEntity,
+} from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
 import { EMPTY_MASK_PAGE } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
@@ -103,7 +110,9 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       }
 
       // Remove every trait the masks still hold. A removal may cascade into others, so the word
-      // is read again after each one.
+      // is read again after each one. A retaining world records what was held first and tells the
+      // Destroyed queries while the data is still in place.
+      const manual = ctx.manualCollect;
       const pageId = currentId >>> 10;
       const offset = currentId & 1023;
       const entityMasks = ctx.entityMasks;
@@ -112,16 +121,21 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
         let word = page[offset];
+        if (manual) ctx.destroyedMasks[g][pageId][offset] = word;
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
+          if (manual && instance.trackingQueries.length !== 0) {
+            reconcileTrackingQueries(ctx, currentEntity, instance, 'destroy', g, low);
+          }
           removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
           // Clear the bit by hand in case removal declined, so the walk always ends.
           word = page[offset] & ~low;
         }
       }
 
-      releaseEntity(ctx.entityIndex, currentEntity);
+      if (manual) retainEntity(ctx.entityIndex, currentEntity);
+      else releaseEntity(ctx.entityIndex, currentEntity);
 
       const targetQueries = ctx.targetQueries[pageId]?.[offset];
       if (targetQueries) dropTargetQueries(ctx, targetQueries, currentEntity);
@@ -131,7 +145,8 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 
       if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, currentEntity);
 
-      // The history pages go with the entity so a recycled id starts clean. They exist wherever
+      // The history goes with the entity so a recycled id starts clean. A retained entity keeps
+      // it for the readers that seed from it, and collect clears it. The pages exist wherever
       // the membership page does.
       const removedMasks = ctx.removedMasks;
       const changedMasks = ctx.changedMasks;
@@ -139,6 +154,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         const page = entityMasks[i][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
         page[offset] = 0;
+        if (manual) continue;
         removedMasks[i][pageId][offset] = 0;
         changedMasks[i][pageId][offset] = 0;
       }
@@ -221,6 +237,26 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
   }
 }
 
+/** Release the entities destroyed since the last collect, clearing the history they kept. */
+export function collectEntities(ctx: WorldContext) {
+  const index = ctx.entityIndex;
+  const { dense, aliveCount, retainedCount } = index;
+  if (retainedCount === 0) return;
+  const entityMasks = ctx.entityMasks;
+  for (let i = aliveCount; i < aliveCount + retainedCount; i++) {
+    const eid = getEntityId(dense[i]);
+    const pageId = eid >>> 10;
+    const offset = eid & 1023;
+    for (let g = 0; g < entityMasks.length; g++) {
+      if (entityMasks[g][pageId] === EMPTY_MASK_PAGE) continue;
+      ctx.removedMasks[g][pageId][offset] = 0;
+      ctx.changedMasks[g][pageId][offset] = 0;
+      ctx.destroyedMasks[g][pageId][offset] = 0;
+    }
+  }
+  collectRetainedEntities(index);
+}
+
 /** The world that owns a live entity. Used by entity methods. */
 export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
   return addressSpace.pageOwners[getEntityId(entity) >>> 10]!;
@@ -232,7 +268,7 @@ export /* @inline */ function entityHas(
   trait: Trait | RelationPair | NameConfig
 ): boolean {
   if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
+    assertEntityReadable(ctx, entity);
   }
 
   if (typeof trait !== 'function') /* @cold */ {

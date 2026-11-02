@@ -19,6 +19,25 @@ export /* @inline */ function assertEntityAlive(
   }
 }
 
+/** Reads are allowed on alive entities and on destroyed ones the world still retains. */
+export /* @inline */ function assertEntityReadable(
+  ctx: WorldContext | undefined | null,
+  entity: Entity
+): void {
+  if (ctx === undefined || ctx === null) {
+    throw createEntityNotAliveError(entity);
+  }
+  const index = ctx.entityIndex;
+  const denseIdx = index.sparse[getEntityId(entity)];
+  if (
+    denseIdx === undefined ||
+    denseIdx >= index.aliveCount + index.retainedCount ||
+    index.dense[denseIdx] !== entity
+  ) {
+    throw createEntityNotAliveError(entity);
+  }
+}
+
 export /* @inline */ function assertTraitPresent(ctx: WorldContext, entity: Entity, trait: Trait) {
   const instance = getTraitInstance(ctx.traitInstances, trait);
   const eid = getEntityId(entity);

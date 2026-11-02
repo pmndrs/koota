@@ -1,7 +1,12 @@
-import type { QueryInstance } from '../query/types';
+import type { EventType, QueryInstance } from '../query/types';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
+import {
+  assertEntityAlive,
+  assertEntityReadable,
+  assertRelationTarget,
+  createTraitNotPresentError,
+} from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
@@ -386,7 +391,7 @@ export /* @inline */ function getTrait(
   out?: Record<string, unknown>
 ) {
   if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
+    assertEntityReadable(ctx, entity);
   }
 
   /* @cold */ if (isRelationPair(trait)) {
@@ -417,13 +422,28 @@ export /* @inline @pure */ function getTraitForTrait(
   out: Record<string, unknown> | undefined
 ) {
   const data = getTraitInstance(ctx.traitInstances, trait);
+  if (data === undefined) return undefined;
   const index = getEntityId(entity);
-  if (
-    data === undefined ||
-    (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0
-  )
-    return undefined;
+  if ((ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) {
+    return getRetainedTrait(ctx, index, data, out);
+  }
   const traitCtx = trait[$internal];
+  return out === undefined
+    ? traitCtx.get(ctx, index, data.store)
+    : traitCtx.getInto(ctx, index, data.store, out);
+}
+
+/** A destroyed entity the world retains still reads the traits it held when it died. */
+export function getRetainedTrait(
+  ctx: WorldContext,
+  index: number,
+  data: TraitInstance,
+  out: Record<string, unknown> | undefined
+) {
+  if ((ctx.destroyedMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) {
+    return undefined;
+  }
+  const traitCtx = data.trait[$internal];
   return out === undefined
     ? traitCtx.get(ctx, index, data.store)
     : traitCtx.getInto(ctx, index, data.store, out);
@@ -614,7 +634,7 @@ export function reconcileTraitQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,
-  eventType: 'add' | 'remove',
+  eventType: EventType,
   generationId: number,
   bitflag: number
 ) {
@@ -635,17 +655,22 @@ function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInsta
   }
 }
 
-function reconcileTrackingQueries(
+/**
+ * A Destroyed query takes only destroy events, which arrive while the entity still holds its
+ * traits, so the removals that follow cannot evict it. Every other tracking query ignores them.
+ */
+export function reconcileTrackingQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,
-  eventType: 'add' | 'remove',
+  eventType: EventType,
   generationId: number,
   bitflag: number
 ) {
   const queries = instance.trackingQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
+    if (query.isDestroyed !== (eventType === 'destroy')) continue;
     const match = query.relationFilters?.length
       ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
       : checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
