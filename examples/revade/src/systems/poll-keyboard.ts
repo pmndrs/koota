@@ -4,7 +4,7 @@ import { Input, IsPlayer, Keyboard } from '../traits';
 export function pollKeyboard(world: World) {
   const keys = world.get(Keyboard)!;
 
-  world.query(IsPlayer, Input).updateEach(([input]) => {
+  world.query(IsPlayer, Input).each((input) => {
     // Get horizontal and vertical input.
     const horizontal =
       (keys.has('arrowright') || keys.has('d') ? 1 : 0) -

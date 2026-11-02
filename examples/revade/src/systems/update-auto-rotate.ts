@@ -3,7 +3,7 @@ import { AutoRotate, Time, Transform } from '../traits';
 
 export function updateAutoRotate(world: World) {
   const { delta } = world.get(Time)!;
-  world.query(Transform, AutoRotate).updateEach(([{ rotation }, autoRotate]) => {
+  world.query(Transform, AutoRotate).each(({ rotation }, autoRotate) => {
     rotation.x = rotation.y += delta * autoRotate.speed;
   });
 }

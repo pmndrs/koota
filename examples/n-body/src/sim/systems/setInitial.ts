@@ -10,7 +10,7 @@ export const setInitial = ({ world }: { world: World }) => {
   const bodies = world.query(Added(...bodyTraits));
   const centralMasses = world.query(Added(...bodyTraits, IsCentralMass));
 
-  bodies.updateEach(([position, velocity, mass, circle]) => {
+  bodies.each((position, velocity, mass, circle) => {
     if (mass.value === 0) {
       // Random positions
       position.x = randInRange(-4000, 4000);
@@ -39,7 +39,7 @@ export const setInitial = ({ world }: { world: World }) => {
   });
 
   // Set the central mass properties.
-  centralMasses.updateEach(([position, velocity, mass, circle]) => {
+  centralMasses.each((position, velocity, mass, circle) => {
     position.x = 0;
     position.y = 0;
 

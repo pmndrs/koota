@@ -8,7 +8,7 @@ export const handleRepulse = ({ world }: { world: World }) => {
   const bodies = world.query(Position, Velocity, Mass);
   const { delta } = world.get(Time)!;
 
-  repulsors.updateEach(([repulse, position, circle], entity) => {
+  repulsors.each((repulse, position, circle, entity) => {
     // Count down the delay
     if (repulse.delay > 0) repulse.delay -= delta;
 
@@ -23,7 +23,7 @@ export const handleRepulse = ({ world }: { world: World }) => {
       return;
     }
 
-    bodies.updateEach(([bodyPostion, bodyVelocity, bodyMass], bodyEntity) => {
+    bodies.each((bodyPostion, bodyVelocity, bodyMass, bodyEntity) => {
       if (entity === bodyEntity) return;
 
       const dx = bodyPostion.x - position.x;

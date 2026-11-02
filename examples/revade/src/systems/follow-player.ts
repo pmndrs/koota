@@ -7,7 +7,7 @@ const acceleration = new THREE.Vector3();
 export function followPlayer(world: World) {
   world
     .query(IsEnemy, Transform, Movement, Targeting('*'))
-    .updateEach(([transform, { velocity, thrust, damping }], entity) => {
+    .each((transform, { velocity, thrust, damping }, entity) => {
       // Get the target from the Targeting relation
       const targets = entity.targetsFor(Targeting);
       const target = targets[0];

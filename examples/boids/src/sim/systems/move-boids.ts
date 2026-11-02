@@ -6,7 +6,7 @@ export const moveBoids = ({ world }: { world: World }) => {
   const { delta } = world.get(Time)!;
   const { maxVelocity, minVelocity } = CONFIG;
 
-  world.query(Position, Velocity).updateEach(([position, velocity]) => {
+  world.query(Position, Velocity).each((position, velocity) => {
     // Clamp velocity magnitude
     const speedSq = velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2;
     const speed = Math.sqrt(speedSq);

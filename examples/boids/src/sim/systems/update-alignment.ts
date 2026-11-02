@@ -5,7 +5,7 @@ import { CONFIG } from '../config';
 export const updateAlignment = ({ world }: { world: World }) => {
   const { alignmentFactor } = CONFIG;
 
-  world.query(Forces, Velocity, NeighborOf('*')).updateEach(([{ alignment }, velocity], entity) => {
+  world.query(Forces, Velocity, NeighborOf('*')).each(({ alignment }, velocity, entity) => {
     const neighbors = entity.targetsFor(NeighborOf);
 
     alignment.x = 0;

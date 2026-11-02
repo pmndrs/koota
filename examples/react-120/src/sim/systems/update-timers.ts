@@ -4,7 +4,7 @@ import { Time, Timer } from '../traits';
 export function updateTimers(world: World) {
   const { delta } = world.get(Time)!;
 
-  world.query(Timer).updateEach(([timer], entity) => {
+  world.query(Timer).each((timer, entity) => {
     timer.remaining -= delta;
 
     if (timer.remaining <= 0) {

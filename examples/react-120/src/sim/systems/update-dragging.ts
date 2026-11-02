@@ -11,7 +11,7 @@ export function updateDragging(world: World) {
   const { delta } = world.get(Time)!;
   const alpha = 1 - Math.pow(1 - BASE_ALPHA_60, delta * 60);
 
-  world.query(Position, Velocity, Dragging).updateEach(([position, velocity, dragging]) => {
+  world.query(Position, Velocity, Dragging).each((position, velocity, dragging) => {
     const oldX = position.x;
     const oldY = position.y;
 

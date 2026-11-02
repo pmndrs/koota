@@ -7,7 +7,7 @@ const body = [Position, Velocity, Mass, Circle, Color] as const;
 const Added = createAdded();
 
 export const setInitial = ({ world }: { world: World }) => {
-  world.query(Added(...body)).updateEach(([position, velocity, mass, circle, color], entity) => {
+  world.query(Added(...body)).each((position, velocity, mass, circle, color, entity) => {
     // Random positions
     position.x = randInRange(-400, 400);
     position.y = 100;
