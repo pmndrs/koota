@@ -32,6 +32,8 @@ export type QueryViewBinding = {
   stores: Store<any>[];
   /** Live view over the query for these traits, created on first use. */
   view: QueryView<any> | null;
+  /** Iterators compiled for this binding alone, so its callback site stays monomorphic. */
+  iterators: QueryIterators | null;
 };
 
 export type QueryIterationBuffers = {

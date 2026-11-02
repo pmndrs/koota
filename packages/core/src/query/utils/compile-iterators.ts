@@ -37,6 +37,7 @@ type IteratorCache = {
 
 // Weak keys at every position share iterators across worlds without retaining unused traits.
 const iteratorCache: IteratorCache = { traits: new WeakMap(), iterators: undefined };
+let iteratorSerial = 0;
 
 export function getQueryIterators(traits: Trait[]): QueryIterators {
   let cache = iteratorCache;
@@ -54,9 +55,10 @@ export function getQueryIterators(traits: Trait[]): QueryIterators {
 
 /**
  * Unrolls each trait into its own accessor call site. Each site sees one function, so V8 can inline
- * the accessors no matter how many traits the app iterates elsewhere.
+ * the accessors no matter how many traits the app iterates elsewhere. The serial line keeps every
+ * source distinct, since V8 hands identical sources one shared function and feedback vector.
  */
-function compileQueryIterators(traits: Trait[]): QueryIterators {
+export function compileQueryIterators(traits: Trait[]): QueryIterators {
   const accessors: unknown[] = [];
   const bind: string[] = [];
   const hoist: string[] = [];
@@ -137,6 +139,7 @@ function compileQueryIterators(traits: Trait[]): QueryIterators {
     'atomicChanged',
     'writeValidatedTrait',
     `'use strict';
+  // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
   return {
     readEach: function read(ctx, entities, length, callback, buffers, stores) {${setup}${loop(
