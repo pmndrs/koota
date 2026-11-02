@@ -4,7 +4,7 @@ import { Dragging, Position, Rotation, Scale, Velocity } from '../traits';
 export function updateTransform(world: World) {
   world
     .query(Velocity, Position, Rotation, Scale)
-    .updateEach(([velocity, position, rotation, scale], entity) => {
+    .each((velocity, position, rotation, scale, entity) => {
       const isDragging = entity.has(Dragging);
 
       // Derive transforms from velocity

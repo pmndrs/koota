@@ -86,9 +86,13 @@ export type QueryView<T extends QueryParameter[] = QueryParameter[]> = {
   /** Copies the entities into a plain array. */
   toArray(): Entity[];
   forEach(callback: (entity: Entity, index: number) => void): void;
+  /** Walks the entities with each trait's value as its own argument, then the entity and index. */
+  each(callback: (...args: [...InstancesFromParameters<T>, Entity, number]) => void): QueryView<T>;
+  /** @deprecated Use each. Reads cost the same and writes are dropped. */
   readEach(
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
   ): QueryView<T>;
+  /** @deprecated Use each. */
   updateEach(
     callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
     options?: UpdateEachOptions

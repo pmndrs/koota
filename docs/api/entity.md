@@ -96,12 +96,10 @@ Taken names are refused and throw `[NAME_TAKEN]` with [assertions](./asserts.md)
 const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
 ```
 
-In `updateEach`, replace the string in the callback tuple:
+Rename with `set`:
 
 ```js
-world.query(Name('hero'), Name).updateEach((state) => {
-  state[0] = 'champion'
-})
+hero.set(Name, 'champion')
 ```
 
-Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Direct store or page writes bypass name lookups and query updates, so use `set` or `updateEach` to rename.
+Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Direct store or page writes bypass name lookups and query updates, so use `set` to rename.

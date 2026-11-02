@@ -3,7 +3,7 @@ import { IsShieldVisible, ShieldVisibility, Time } from '../traits';
 
 export function tickShieldVisibility(world: World) {
   const { delta } = world.get(Time)!;
-  world.query(ShieldVisibility).updateEach(([shield], entity) => {
+  world.query(ShieldVisibility).each((shield, entity) => {
     shield.current += delta * 1000;
 
     if (shield.current >= shield.duration) {

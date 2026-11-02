@@ -4,9 +4,9 @@ description: Propagating and detecting changes
 nav: 12
 ---
 
-## `updateEach`
+## `each`
 
-By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.
+By default, `each` turns on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. The deprecated `updateEach` accepts an options config to silence it or force it to always run.
 
 ```js
 // Suppress change notifications
@@ -18,23 +18,23 @@ world
   .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
 ```
 
-A thrown error aborts `updateEach`. Earlier writes remain committed, and pending change notifications are not guaranteed.
+A thrown error aborts `each`. Earlier writes remain committed, and pending change notifications are not guaranteed.
 
 Change detection shallowly compares the scalar values just like React. Tuples are stored by value and compared per element, so mutating one in place is detected. Other objects and arrays will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually flag that a change has occurred.
 
 ```js
 // ❌ This change will not be detected since the array is mutated and will pass the comparison
-world.query(Inventory).updateEach(([inventory]) => {
+world.query(Inventory).each((inventory) => {
   inventory.items.push(item)
 })
 
 // ✅ This change will be detected since a new array is created and the comparison will fail
-world.query(Inventory).updateEach(([inventory]) => {
+world.query(Inventory).each((inventory) => {
   inventory.items = [...inventory.items, item]
 })
 
 // ✅ This change is manually flagged and we still get to mutate for performance
-world.query(Inventory).updateEach(([inventory], entity) => {
+world.query(Inventory).each((inventory, entity) => {
   inventory.items.push(item)
   entity.changed()
 })

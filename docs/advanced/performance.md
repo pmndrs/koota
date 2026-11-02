@@ -57,15 +57,15 @@ Consider these tips to optimize query performance.
 
 ### Create update functions once
 
-The standard pattern for `updateEach`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
+The standard pattern for `each`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
 
 ```js
 // Create the function once
-const handleMove = ([position, velocity]) => {}
+const handleMove = (position, velocity) => {}
 
 function updateMovement(world) {
-  // Use it for the updateEach
-  world.query(Position, Velocity).updateEach(handleMove)
+  // Use it for each
+  world.query(Position, Velocity).each(handleMove)
 }
 ```
 

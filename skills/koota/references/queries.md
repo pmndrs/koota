@@ -8,7 +8,7 @@ Complete guide to querying entities in Koota.
 - [Query modifiers](#query-modifiers) - Not, Or
 - [Tracking modifiers](#tracking-modifiers) - Added, Removed, Changed
 - [Caching queries](#caching-queries) - createQuery for performance
-- [Change detection](#change-detection) - updateEach options
+- [Change detection](#change-detection) - automatic with each
 - [Query + select](#query--select) - Select subset of traits for updates
 - [Direct store access](#direct-store-access) - getPages for performance
 
@@ -16,7 +16,7 @@ Complete guide to querying entities in Koota.
 
 Queries fetch entities that share specific traits (archetypes).
 
-`readEach` and `updateEach` are zero-copy interfaces for reading and writing trait data. To keep a copy, call `entity.get(Trait)` for a snapshot.
+`each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
 A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Call `toArray()` for a copy you own. Structural changes inside a loop are safe.
 
@@ -29,7 +29,7 @@ entities.first
 entities.at(-1)
 
 // Entities destroyed during a walk stay in the view until it ends and are
-// skipped by readEach and updateEach, entities spawned show up on the next run.
+// skipped by each, entities spawned show up on the next run.
 // Finish every for of loop you start, a suspended iterator keeps removals pending.
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
@@ -41,14 +41,14 @@ const kept = entities.toArray()
 // Relation filters can target entities that match a query
 const playerChildren = world.query(ChildOf(IsPlayer))
 
-// Batch update with updateEach
-world.query(Position, Velocity).updateEach(([pos, vel]) => {
+// each passes each trait as its own argument, then the entity and index
+world.query(Position, Velocity).each((pos, vel) => {
   pos.x += vel.x
   pos.y += vel.y
 })
 
-// Batch read with readEach
-world.query(Position).readEach(([pos], entity) => {
+// Reads go through each as well
+world.query(Position).each((pos, entity) => {
   // ...
 })
 
@@ -166,7 +166,7 @@ const movementQuery = createQuery(Position, Velocity)
 
 function updateMovement(world: World) {
   // Fast array-based lookup
-  world.query(movementQuery).updateEach(([pos, vel]) => {
+  world.query(movementQuery).each((pos, vel) => {
     pos.x += vel.x
     pos.y += vel.y
   })
@@ -187,29 +187,13 @@ function updateMovement(world: World) {
 
 ## Change detection
 
-`updateEach` automatically detects changes for traits tracked via `onChange` or `Changed` modifier.
+`each` automatically detects changes for traits tracked via `onChange` or `Changed` modifier.
 
 ```typescript
 // Default: selective detection (only tracked traits)
-world.query(Position, Velocity).updateEach(([pos, vel]) => {
+world.query(Position, Velocity).each((pos, vel) => {
   pos.x += vel.x
 })
-
-// Never trigger change events (silent updates)
-world.query(Position).updateEach(
-  ([pos]) => {
-    pos.x += 1
-  },
-  { changeDetection: 'never' }
-)
-
-// Always trigger change events for all mutated traits (DEFAULT)
-world.query(Position).updateEach(
-  ([pos]) => {
-    pos.x += 1
-  },
-  { changeDetection: 'always' }
-)
 ```
 
 **Shallow comparison:**
@@ -218,17 +202,17 @@ Change detection uses shallow comparison like React. Objects and arrays only det
 
 ```typescript
 // ❌ Mutation not detected (same array reference)
-world.query(Inventory).updateEach(([inv]) => {
+world.query(Inventory).each((inv) => {
   inv.items.push(item)
 })
 
 // ✅ New array detected
-world.query(Inventory).updateEach(([inv]) => {
+world.query(Inventory).each((inv) => {
   inv.items = [...inv.items, item]
 })
 
 // ✅ Mutate and manually signal
-world.query(Inventory).updateEach(([inv], entity) => {
+world.query(Inventory).each((inv, entity) => {
   inv.items.push(item)
   entity.changed(Inventory)
 })
@@ -244,7 +228,7 @@ Use `select()` when query filter is wider than traits needed for update.
 world
   .query(Position, Velocity, Mass)
   .select(Mass)
-  .updateEach(([mass]) => {
+  .each((mass) => {
     mass.value += 1
   })
 ```

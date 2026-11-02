@@ -22,7 +22,7 @@ import { Position, Velocity, Time } from '../traits'
 export function updateMovement(world: World) {
   const { delta } = world.get(Time)!
 
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  world.query(Position, Velocity).each((pos, vel) => {
     pos.x += vel.x * delta
     pos.y += vel.y * delta
   })
@@ -51,7 +51,7 @@ applyDamage: (entity, amount) => entity.set(Health, { hp: entity.get(Health).hp 
 ```typescript
 // Good system: reacts to state, orchestrates behavior
 export function applyPoison(world: World) {
-  world.query(Changed(Poisoned)).readEach(([poison], entity) => {
+  world.query(Changed(Poisoned)).each((poison, entity) => {
     entity.set(Health, { hp: entity.get(Health).hp - poison.dps * delta })
   })
 }
@@ -64,14 +64,14 @@ export function applyPoison(world: World) {
 ```typescript
 // Query and update each
 export function updatePhysics(world: World) {
-  world.query(Position, Velocity).updateEach(([position, velocity]) => {
+  world.query(Position, Velocity).each((position, velocity) => {
     position.x += velocity.x
   })
 }
 
-// If you need both queried data and the entity, prefer readEach
+// The entity follows the trait arguments
 export function processCompletedImages(world: World) {
-  world.query(Position).readEach(([position], entity) => {
+  world.query(Position).each((position, entity) => {
     // Read position
   })
 }
@@ -245,7 +245,7 @@ export function updateTime(world: World) {
 export function updateMovement(world: World) {
   const { delta } = world.get(Time)!
 
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  world.query(Position, Velocity).each((pos, vel) => {
     pos.x += vel.x * delta
     pos.y += vel.y * delta
   })

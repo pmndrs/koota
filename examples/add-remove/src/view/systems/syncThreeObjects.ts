@@ -54,7 +54,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
   }
 
   for (let i = 0; i < removedEntities.length; i++) {
-    const eid = removedEntities[i].id();
+    const eid = removedEntities.at(i)!.id();
     sizes[eid] = 0;
   }
 

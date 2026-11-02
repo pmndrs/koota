@@ -204,7 +204,7 @@ function CardView({ entity }: { entity: Entity }) {
 
 ```typescript
 export function syncToDOM(world: World) {
-  world.query(Position, Ref, ZIndex).updateEach(([pos, ref, zIndex]) => {
+  world.query(Position, Ref, ZIndex).each((pos, ref, zIndex) => {
     if (!ref) return
     ref.style.transform = `translate(${pos.x}px, ${pos.y}px)`
     ref.style.zIndex = zIndex.value.toString()
@@ -236,7 +236,7 @@ function EnemyView({ entity }: { entity: Entity }) {
 }
 
 export function syncThreeObjects(world: World) {
-  world.query(Position, Rotation, Ref).updateEach(([pos, rot, ref]) => {
+  world.query(Position, Rotation, Ref).each((pos, rot, ref) => {
     if (!ref) return
     ref.position.set(pos.x, pos.y, pos.z)
     ref.rotation.set(rot.x, rot.y, rot.z)
@@ -282,7 +282,7 @@ const handleInit = useCallback(
 )
 
 // Systems mutate trait directly - Three sees changes immediately
-world.query(Transform, Movement).updateEach(([transform, movement]) => {
+world.query(Transform, Movement).each((transform, movement) => {
   transform.position.add(movement.velocity)
 })
 ```
@@ -299,7 +299,7 @@ const Rotation = trait({ x: 0, y: 0, z: 0 })
 const Ref = trait(() => null! as THREE.Object3D)
 
 function syncToThree(world: World) {
-  world.query(Position, Rotation, Ref).updateEach(([pos, rot, ref]) => {
+  world.query(Position, Rotation, Ref).each((pos, rot, ref) => {
     ref.position.set(pos.x, pos.y, pos.z)
     ref.rotation.set(rot.x, rot.y, rot.z)
   })
@@ -330,7 +330,7 @@ export function updateDragging(world: World) {
 
   const { delta } = world.get(Time)!
 
-  world.query(Position, Velocity, Dragging).updateEach(([pos, vel, dragging]) => {
+  world.query(Position, Velocity, Dragging).each((pos, vel, dragging) => {
     const oldX = pos.x
     const oldY = pos.y
 
@@ -434,7 +434,7 @@ const handlePointerLeave = () => {
 }
 
 // Consume
-world.query(IsCanvas, IsHovering, Pointer).readEach(([pointer]) => {
+world.query(IsCanvas, IsHovering, Pointer).each((pointer) => {
   // Only runs when hovering canvas
   pointer.x
 })

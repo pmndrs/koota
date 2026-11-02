@@ -11,7 +11,7 @@ export const recycleBodiesSim = ({ world }: { world: World }) => {
   if (entities.length === 0) draining = false;
   if (entities.length > CONSTANTS.BODIES * 0.95) draining = true;
 
-  entities.select(Position).updateEach(([position], entity) => {
+  entities.select(Position).each((position, entity) => {
     if (position.y < CONSTANTS.FLOOR) {
       // Remove the entity
       entity.destroy();

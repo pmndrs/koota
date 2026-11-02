@@ -824,6 +824,24 @@ describe('Query', () => {
     expect(cb).toHaveBeenCalledTimes(1);
   });
 
+  it('each passes each trait as an argument followed by the entity and index', () => {
+    const Tags = trait(() => ({ list: [] as string[] }));
+    const first = world.spawn(Position({ x: 1 }), Tags);
+    const second = world.spawn(Position({ x: 2 }), Tags);
+    const changed = vi.fn();
+    world.onChange(Position, changed);
+
+    world.query(Position, Tags).each((position, tags, entity, index) => {
+      position.x += 10;
+      tags.list.push(String(index));
+      expect(entity).toBe(index === 0 ? first : second);
+    });
+
+    expect(first.get(Position)!.x).toBe(11);
+    expect(second.get(Tags)!.list).toEqual(['1']);
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
   it('updateEach does not overwrite when a trait is set instead of mutated', () => {
     const entity = world.spawn(Position);
 

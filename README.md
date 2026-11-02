@@ -49,19 +49,19 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 
 ### Query and update data
 
-Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently.
+Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently. Writes made in `each` are change detected for traits tracked with `onChange` or `Changed`.
 
 ```js
-// updateEach mutates the stores in place
-// Run this in a loop
-world.query(Position, Velocity).updateEach(([position, velocity]) => {
+// each passes each trait as its own argument, then the entity and index
+// Writes land in the stores directly. Run this in a loop
+world.query(Position, Velocity).each((position, velocity) => {
   position.x += velocity.x * delta
   position.y += velocity.y * delta
 })
 
-// For read-only operations with no mutation, use readEach
+// Reads go through each as well
 const data = []
-world.query(Position, Velocity).readEach(([position, velocity]) => {
+world.query(Position, Velocity).each((position, velocity) => {
   data.push({ x: position.x, y: position.y })
 })
 ```
@@ -542,7 +542,7 @@ Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Look u
 const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
 ```
 
-Removing `Name` or destroying the entity frees its name. Use `set` or `updateEach` to rename so lookups and subscriptions stay current.
+Removing `Name` or destroying the entity frees its name. Use `set` to rename so lookups and subscriptions stay current.
 
 ### Query modifiers
 
@@ -701,40 +701,6 @@ entity.onAdd(Position, (entity) => {})
 entity.onRemove(Position, (entity) => {})
 ```
 
-### Change detection with `updateEach`
-
-By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.
-
-```js
-// Setting changeDetection to 'never' will silence it, triggering no change events
-world.query(Position, Velocity).updateEach(([position, velocity]) => {}, { changeDetection: 'never' })
-
-// Setting changeDetection to 'always' emits change events for every accepted write, even unchanged values
-world
-  .query(Position, Velocity)
-  .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
-```
-
-Change detection shallowly compares the scalar values just like React. Tuples are stored by value and compared per element, so mutating one in place is detected. Other objects and arrays (created by an initializer) will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually mark that a change has occurred.
-
-```js
-// ❌ This change will not be detected since the array is mutated and will pass the comparison
-world.query(Inventory).updateEach(([inventory]) => {
-  inventory.items.push(item)
-})
-
-// ✅ This change will be detected since a new array is created and the comparison will fail
-world.query(Inventory).updateEach(([inventory]) => {
-  inventory.items = [...inventory.items, item]
-})
-
-// ✅ This change is manually flagged and we still get to mutate for performance
-world.query(Inventory).updateEach(([inventory], entity) => {
-  inventory.items.push(item)
-  entity.changed()
-})
-```
-
 ### World traits
 
 For global data like time, these can be traits added to the world. **World traits do not appear in queries.**
@@ -749,15 +715,16 @@ world.set(Time, { current: performance.now() })
 
 ### Select traits on queries for updates
 
-`select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify.
+`select` is used to choose what traits are fetched for `each` and `getPages`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
-world.query(Position, Velocity, Mass)
+world
+  .query(Position, Velocity, Mass)
   // And then select only Mass for updates
   .select(Mass)
   // Only mass will be used in the loop
-  .updateEach([mass] => {
+  .each((mass) => {
     // We are going blackhole
     mass.value += 1
   })
@@ -811,15 +778,15 @@ Performance and readability are often a tradeoff. The standard patterns are plen
 
 #### Create update functions once
 
-The standard pattern for `updateEach`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
+The standard pattern for `each`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
 
 ```js
 // Create the function once
-const handleMove = ([position, velocity]) => {}
+const handleMove = (position, velocity) => {}
 
 function updateMovement(world) {
-  // Use it for the updateEach
-  world.query(Position, Velocity).updateEach(handleMove)
+  // Use it for each
+  world.query(Position, Velocity).each(handleMove)
 }
 ```
 
@@ -836,7 +803,7 @@ entities.first
 entities.at(-1)
 
 // Entities destroyed during a walk stay in the view until it ends and are
-// skipped by readEach and updateEach, entities spawned show up on the next run.
+// skipped by each, entities spawned show up on the next run.
 // Finish every for of loop you start, a suspended iterator keeps removals pending.
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
@@ -1097,8 +1064,8 @@ entity.set(Transform, { position: [1, 2, 3] })
 // Tuples are copied in and out, so this array never aliases the store
 const { position } = entity.get(Transform)
 
-// Mutating a tuple in updateEach is detected per component
-world.query(Transform, Velocity).updateEach(([transform, velocity]) => {
+// Mutating a tuple in each is detected per component
+world.query(Transform, Velocity).each((transform, velocity) => {
   vec3.scaleAndAdd(transform.position, transform.position, velocity.value, delta)
 })
 ```
@@ -1243,7 +1210,7 @@ const positions = getStore(world, Position)
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-`readEach` and `updateEach` are zero-copy interfaces for reading and writing trait data. To keep a copy, call `entity.get(Trait)` for a snapshot.
+`each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
 #### Defining queries
 
@@ -1253,7 +1220,7 @@ Inline queries are great for readability and are optimized to be as fast as poss
 // Every time this query runs a hash for the query parameters (Position, Velocity)
 // is created and then used to get the cached query internally
 function updateMovement(world) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {})
+  world.query(Position, Velocity).each((pos, vel) => {})
 }
 ```
 
@@ -1265,7 +1232,7 @@ const movementQuery = createQuery(Position, Velocity)
 
 // The query ref is used for fast array-based lookup
 function updateMovement(world) {
-  world.query(movementQuery).updateEach(([pos, vel]) => {})
+  world.query(movementQuery).each((pos, vel) => {})
 }
 ```
 

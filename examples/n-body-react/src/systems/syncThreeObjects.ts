@@ -14,7 +14,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
 
   const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
 
-  world.query(Position, Circle, Color).updateEach(([position, circle, color], entity) => {
+  world.query(Position, Circle, Color).each((position, circle, color, entity) => {
     dummy.position.set(position.x, position.y, 0);
 
     const radius = normalize(circle.radius, 0, 60);

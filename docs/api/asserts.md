@@ -10,13 +10,13 @@ Koota makes common ECS assumptions executable when assertions are enabled:
 
 Errors include a stable code such as `[ENTITY_ALIVE]`, `[TRAIT_PRESENT]`, or `[RELATION_PRESENT]`, plus the relevant entity, target, or trait identifiers. The thrown `Error` supplies the call stack. Applications can attach that information to a bug report with their build revision and replay.
 
-Assertions check preconditions and writeback boundaries. They do not roll back callback side effects or mutations made through shared object references. Checks required for normal behavior, such as skipping an entity destroyed inside an `updateEach` callback, remain enabled in every build.
+Assertions check preconditions and writeback boundaries. They do not roll back callback side effects or mutations made through shared object references. Checks required for normal behavior, such as skipping an entity destroyed inside an `each` callback, remain enabled in every build.
 
 Missing-trait `get` returns `undefined`, duplicate adds and absent-trait removals remain valid, and `isAlive()` and `world.has(entity)` remain safe lifetime probes. `Removed` query selections intentionally expose historical data and do not require current trait membership. Entity subscriptions on dead handles retain their existing no-op behavior.
 
 Broad `Or` queries can match entities without every data trait. Use `select` to choose data shared by all results, or iterate entities and use `entity.get` for optional traits.
 
-Query accessors `readEach` and `updateEach` leave snapshot validity and selected trait membership to the caller. They do not assert entity lifetime or trait membership before access or writeback. Update callbacks must preserve the selected traits they write back. Discard query results after resetting or destroying their world.
+`each` leaves snapshot validity and selected trait membership to the caller. They do not assert entity lifetime or trait membership before access or writeback. Update callbacks must preserve the selected traits they write back. Discard query results after resetting or destroying their world.
 
 Raw writes through `getStore` or `getPages` bypass these checks. Their callers must maintain storage and membership invariants. Application rules such as finite coordinates or health bounds belong in the simulation's systems because Koota accepts arbitrary trait values. Replay recording is also an application concern.
 

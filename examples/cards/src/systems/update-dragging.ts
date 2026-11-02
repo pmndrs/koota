@@ -10,7 +10,7 @@ export function updateDragging(world: World) {
 
   const { delta } = world.get(Time)!;
 
-  world.query(Position, Velocity, Dragging).updateEach(([position, velocity, dragging]) => {
+  world.query(Position, Velocity, Dragging).each((position, velocity, dragging) => {
     const oldX = position.x;
     const oldY = position.y;
 

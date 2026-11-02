@@ -5,7 +5,7 @@ import { arcXForIndex } from '../utils/arc-x-for-index';
 export function updateCardOrder(world: World) {
   const viewport = world.get(Viewport)!;
 
-  world.query(Hand, OrderedCards).updateEach(([hand, cards], handEntity) => {
+  world.query(Hand, OrderedCards).each((hand, cards, handEntity) => {
     // Find the card being dragged in this hand
     const draggingCard = world.queryFirst(Dragging, HeldBy(handEntity));
     if (!draggingCard) return;

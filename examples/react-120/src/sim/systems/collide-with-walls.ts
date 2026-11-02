@@ -7,7 +7,7 @@ export function collideWithWalls(world: World) {
   const wall = world.get(Wall);
   if (!wall) return;
 
-  world.query(Position, Velocity, Ball).updateEach(([position, velocity, { radius }], entity) => {
+  world.query(Position, Velocity, Ball).each((position, velocity, { radius }, entity) => {
     const scale = entity.get(Scale)?.value ?? 1;
     const scaledRadius = radius * scale;
 

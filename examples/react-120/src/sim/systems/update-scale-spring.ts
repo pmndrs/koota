@@ -4,7 +4,7 @@ import { Scale, ScaleSpring, Time } from '../traits';
 export function updateScaleSpring(world: World) {
   const { delta } = world.get(Time)!;
 
-  world.query(ScaleSpring, Scale).updateEach(([spring, scale]) => {
+  world.query(ScaleSpring, Scale).each((spring, scale) => {
     // Classic damped spring toward target using normalized damping ratio
     const displacement = spring.current - spring.target;
     const stiffness = spring.stiffness;

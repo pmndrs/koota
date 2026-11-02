@@ -5,7 +5,7 @@ import { CONFIG } from '../config';
 export const avoidEdges = ({ world }: { world: World }) => {
   const { avoidEdgesFactor, avoidEdgesMaxDistance } = CONFIG;
 
-  world.query(Forces, Position).updateEach(([{ avoidEdges }, position]) => {
+  world.query(Forces, Position).each(({ avoidEdges }, position) => {
     const distance = Math.sqrt(position.x ** 2 + position.y ** 2 + position.z ** 2);
 
     if (distance > avoidEdgesMaxDistance) {

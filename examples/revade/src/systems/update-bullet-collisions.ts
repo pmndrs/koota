@@ -8,7 +8,7 @@ export function updateBulletCollisions(world: World) {
   world
     .query(Bullet, Transform)
     .select(Transform)
-    .updateEach(([{ position }], entity) => {
+    .each(({ position }, entity) => {
       const nearbyEntities = spatialHashMap.getNearbyEntities(position.x, position.y, position.z, 2);
 
       const hitEnemy = nearbyEntities.find(

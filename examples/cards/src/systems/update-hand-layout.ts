@@ -8,7 +8,7 @@ export function updateHandLayout(world: World) {
   const { delta } = world.get(Time)!;
   const viewport = world.get(Viewport)!;
 
-  world.query(Hand, OrderedCards).updateEach(([hand, cards]) => {
+  world.query(Hand, OrderedCards).each((hand, cards) => {
     const fanSpread = hand.fanSpreadDeg; // degrees
     const fanRadius = hand.fanRadius; // pixels
     const cardHeight = 250;

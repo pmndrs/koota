@@ -7,7 +7,7 @@ export function applyFriction(world: World) {
   const { delta } = world.get(Time)!;
   const decay = Math.pow(FRICTION_PER_60, delta * 60);
 
-  world.query(Velocity, Not(Dragging)).updateEach(([velocity]) => {
+  world.query(Velocity, Not(Dragging)).each((velocity) => {
     velocity.x *= decay;
     velocity.y *= decay;
   });
