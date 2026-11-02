@@ -34,7 +34,12 @@ import {
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { EMPTY_MASK_PAGE, materializeMaskPages } from '../entity/utils/paged-mask';
+import {
+  DESTROYED_WORD,
+  EMPTY_MASK_PAGE,
+  REMOVED_WORD,
+  materializeMaskPage,
+} from '../entity/utils/paged-mask';
 import {
   createAddFunction,
   createGetFunction,
@@ -362,7 +367,7 @@ export /* @inline @pure */ function hasTrait(
 
   const { generationId, bitflag } = instance;
   const eid = getEntityId(entity);
-  const mask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
+  const mask = ctx.entityMasks[generationId][eid >>> 10][(eid & 1023) << 2];
 
   return (mask & bitflag) === bitflag;
 }
@@ -435,7 +440,7 @@ export /* @inline @pure */ function getTraitForTrait(
   const data = getTraitInstance(ctx.traitInstances, trait);
   if (data === undefined) return undefined;
   const index = getEntityId(entity);
-  if ((ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) {
+  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0) {
     return getRetainedTrait(ctx, index, data, out);
   }
   const traitCtx = trait[$internal];
@@ -451,7 +456,8 @@ export function getRetainedTrait(
   data: TraitInstance,
   out: Record<string, unknown> | undefined
 ) {
-  if ((ctx.destroyedMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) {
+  const page = ctx.entityMasks[data.generationId][index >>> 10];
+  if ((page[((index & 1023) << 2) + DESTROYED_WORD] & data.bitflag) === 0) {
     return undefined;
   }
   const traitCtx = data.trait[$internal];
@@ -535,7 +541,7 @@ export /* @inline */ function setTraitForTrait(
   if (
     assertsEnabled &&
     (data === undefined ||
-      (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0)
+      (ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
   ) {
     throw createTraitNotPresentError(entity, trait, true);
   }
@@ -598,7 +604,10 @@ export function resolveTraitSetCallback(
   ) {
     assertEntityAlive(ctx, entity);
     // Trait removal retains the instance. Read membership again after the callback.
-    if ((ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) {
+    if (
+      (ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) ===
+      0
+    ) {
       throw createTraitNotPresentError(entity, trait);
     }
   }
@@ -629,15 +638,11 @@ export function resolveTraitSetCallback(
 
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
-  const offset = eid & 1023;
   if (assertsEnabled) ctx.structuralRevision++;
   const generation = ctx.entityMasks[generationId];
   let page = generation[pageId];
-  if (page === EMPTY_MASK_PAGE) {
-    materializeMaskPages(ctx, generationId, pageId);
-    page = generation[pageId];
-  }
-  page[offset] |= bitflag;
+  if (page === EMPTY_MASK_PAGE) page = materializeMaskPage(generation, pageId);
+  page[(eid & 1023) << 2] |= bitflag;
   instance.version++;
 
   reconcileTraitQueries(ctx, entity, instance, 'add', generationId, bitflag);
@@ -726,8 +731,10 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
     }
   }
   if (assertsEnabled) ctx.structuralRevision++;
-  ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
-  ctx.removedMasks[generationId][pageId][offset] |= bitflag;
+  const page = ctx.entityMasks[generationId][pageId];
+  const slot = offset << 2;
+  page[slot] &= ~bitflag;
+  page[slot + REMOVED_WORD] |= bitflag;
   instance.version++;
 
   reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);

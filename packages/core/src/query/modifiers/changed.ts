@@ -33,7 +33,8 @@ function markChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
   const data = getTraitInstance(ctx.traitInstances, trait);
   if (data === undefined) return;
   const index = getEntityId(entity);
-  if ((ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) return;
+  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
+    return;
   markTraitChanged(ctx, entity, data);
   return data;
 }

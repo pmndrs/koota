@@ -24,6 +24,10 @@ import type {
 
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
+  /**
+   * Membership and history by mask generation and page, four words per entity: held, removed
+   * and not regained, written since spawn, held at destroy. See paged-mask.
+   */
   entityMasks: Uint32Array[][];
   names: Map<string, Entity>;
   bitflag: number;
@@ -41,12 +45,6 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
-  /** Traits an entity lost since it spawned. Seeds Removed queries created after the fact. */
-  removedMasks: Uint32Array[][];
-  /** Traits written on an entity since it spawned. Seeds Changed queries created after the fact. */
-  changedMasks: Uint32Array[][];
-  /** Traits an entity held when it was destroyed. Written only while the world retains destroyed entities. */
-  destroyedMasks: Uint32Array[][];
   /** Destroyed entities stay readable until collect is called. */
   manualCollect: boolean;
   worldEntity: Entity;

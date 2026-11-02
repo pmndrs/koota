@@ -10,7 +10,7 @@ import {
 } from '../entity/utils/entity-index';
 import { addressSpace } from '../entity/utils/address-space';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
-import { createEmptyHistoryGeneration, createEmptyMaskGeneration } from '../entity/utils/paged-mask';
+import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findNamedEntity } from '../name/find-named-entity';
 import {
   IsExcluded,
@@ -106,9 +106,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
     [$internal]: {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
-      removedMasks: [createEmptyHistoryGeneration()],
-      changedMasks: [createEmptyHistoryGeneration()],
-      destroyedMasks: [createEmptyHistoryGeneration()],
       manualCollect,
       names: new Map(),
       bitflag: 1,
@@ -212,9 +209,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
       ctx.names.clear();
       ctx.entityMasks = [createEmptyMaskGeneration()];
-      ctx.removedMasks = [createEmptyHistoryGeneration()];
-      ctx.changedMasks = [createEmptyHistoryGeneration()];
-      ctx.destroyedMasks = [createEmptyHistoryGeneration()];
       ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
 

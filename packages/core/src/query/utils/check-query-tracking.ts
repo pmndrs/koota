@@ -1,6 +1,12 @@
 import { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { createEmptyMaskGeneration, ensureMaskPage } from '../../entity/utils/paged-mask';
+import {
+  CHANGED_WORD,
+  DESTROYED_WORD,
+  REMOVED_WORD,
+  createEmptyMaskGeneration,
+  ensureMaskPage,
+} from '../../entity/utils/paged-mask';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance } from '../types';
 import { passesStaticMasks } from './check-query';
@@ -20,6 +26,8 @@ export function checkQueryTracking(
   const trackingGroups = query.trackingGroups;
   const entityMasks = ctx.entityMasks;
   const eid = getEntityId(entity);
+  const pageId = eid >>> 10;
+  const slot = (eid & 1023) << 2;
 
   const trackingGroupsLen = trackingGroups.length;
 
@@ -45,9 +53,10 @@ export function checkQueryTracking(
       if (groupType === eventType) {
         if (
           eventType === 'change' &&
-          !(entityMasks[eventGenerationId][eid >>> 10][eid & 1023] & eventBitflag)
-        )
+          !(entityMasks[eventGenerationId][pageId][slot] & eventBitflag)
+        ) {
           return false;
+        }
         recordTrackerHit(group.trackers, eventGenerationId, eid, eventBitflag);
       }
     }
@@ -75,14 +84,18 @@ export function checkQueryTracking(
  * nothing now.
  */
 export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, entity: Entity) {
-  if (query.traitInstances.all.length === 0) return false;
+  if (query.traitInstances.length === 0) return false;
   const eid = getEntityId(entity);
   const entityMasks = ctx.entityMasks;
-  const filterMasks = query.isDestroyed ? ctx.destroyedMasks : entityMasks;
-  if (!passesStaticBitmasks(query.staticBitmasks, query.generations, filterMasks, eid)) return false;
-
   const pageId = eid >>> 10;
-  const offset = eid & 1023;
+  const slot = (eid & 1023) << 2;
+  const filterSlot = query.isDestroyed ? slot + DESTROYED_WORD : slot;
+  if (
+    !passesStaticBitmasks(query.masks, entityMasks, pageId, filterSlot)
+  ) {
+    return false;
+  }
+
   const trackingGroups = query.trackingGroups;
   let hasOrGroup = false;
   let anyOrMatched = false;
@@ -91,20 +104,21 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
     const group = trackingGroups[i];
     const bitmasks = group.bitmasks;
     const type = group.type;
-    const history =
+    const word =
       type === 'add'
-        ? entityMasks
+        ? 0
         : type === 'remove'
-          ? ctx.removedMasks
+          ? REMOVED_WORD
           : type === 'change'
-            ? ctx.changedMasks
-            : ctx.destroyedMasks;
+            ? CHANGED_WORD
+            : DESTROYED_WORD;
 
     for (let genId = 0; genId < bitmasks.length; genId++) {
       const mask = bitmasks[genId];
       if (!mask) continue;
-      const held = entityMasks[genId][pageId][offset];
-      let hits = history[genId][pageId][offset] & mask;
+      const page = entityMasks[genId][pageId];
+      const held = page[slot];
+      let hits = page[slot + word] & mask;
       if (type === 'remove') hits &= ~held;
       else if (type !== 'destroy') hits &= held;
       if (hits !== 0) recordTrackerHit(group.trackers, genId, eid, hits);
@@ -151,6 +165,26 @@ function trackersMatchAny(
     if (tracker & mask) return true;
   }
   return false;
+}
+
+/** The entity satisfies every static required, forbidden and or mask of the query. */
+function passesStaticBitmasks(
+  masks: number[],
+  entityMasks: Uint32Array[][],
+  pageId: number,
+  slot: number
+): boolean {
+  for (let i = 0; i < masks.length; i += 4) {
+    const required = masks[i + 1];
+    const forbidden = masks[i + 2];
+    const or = masks[i + 3];
+    const entityMask = entityMasks[masks[i]][pageId][slot];
+
+    if (forbidden && (entityMask & forbidden) !== 0) return false;
+    if (required && (entityMask & required) !== required) return false;
+    if (or !== 0 && (entityMask & or) === 0) return false;
+  }
+  return true;
 }
 
 /** Remember that the tracked event fired for the entity, allocating the tracker lazily. */

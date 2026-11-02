@@ -1,6 +1,7 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
+import { CHANGED_WORD } from '../../entity/utils/paged-mask';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { addEntityToQuery, removeEntityFromQuery } from '../query';
@@ -19,7 +20,8 @@ export /* @inline */ function markTraitChanged(
   data.version++;
   if (data.trait[$internal].tracked) {
     const eid = getEntityId(entity);
-    ctx.changedMasks[data.generationId][eid >>> 10][eid & 1023] |= data.bitflag;
+    ctx.entityMasks[data.generationId][eid >>> 10][((eid & 1023) << 2) + CHANGED_WORD] |=
+      data.bitflag;
   }
   if (data.trackingQueries.length !== 0) notifyChangedTrackingQueries(ctx, entity, data);
 }

@@ -37,7 +37,7 @@ import {
   retainEntity,
 } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
-import { EMPTY_MASK_PAGE } from './utils/paged-mask';
+import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
 
 // Ensure entity methods are patched.
@@ -115,13 +115,14 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       const manual = ctx.manualCollect;
       const pageId = currentId >>> 10;
       const offset = currentId & 1023;
+      const slot = offset << 2;
       const entityMasks = ctx.entityMasks;
       for (let g = 0; g < entityMasks.length; g++) {
         const page = entityMasks[g][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
-        let word = page[offset];
-        if (manual) ctx.destroyedMasks[g][pageId][offset] = word;
+        let word = page[slot];
+        if (manual) page[slot + DESTROYED_WORD] = word;
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
@@ -130,7 +131,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
           }
           removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
           // Clear the bit by hand in case removal declined, so the walk always ends.
-          word = page[offset] & ~low;
+          word = page[slot] & ~low;
         }
       }
 
@@ -146,17 +147,14 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, currentEntity);
 
       // The history goes with the entity so a recycled id starts clean. A retained entity keeps
-      // it for the readers that seed from it, and collect clears it. The pages exist wherever
-      // the membership page does.
-      const removedMasks = ctx.removedMasks;
-      const changedMasks = ctx.changedMasks;
+      // it for the readers that seed from it, and collect clears it.
       for (let i = 0; i < entityMasks.length; i++) {
         const page = entityMasks[i][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
-        page[offset] = 0;
+        page[slot] = 0;
         if (manual) continue;
-        removedMasks[i][pageId][offset] = 0;
-        changedMasks[i][pageId][offset] = 0;
+        page[slot + REMOVED_WORD] = 0;
+        page[slot + CHANGED_WORD] = 0;
       }
     }
   } finally {
@@ -246,12 +244,13 @@ export function collectEntities(ctx: WorldContext) {
   for (let i = aliveCount; i < aliveCount + retainedCount; i++) {
     const eid = getEntityId(dense[i]);
     const pageId = eid >>> 10;
-    const offset = eid & 1023;
+    const slot = (eid & 1023) << 2;
     for (let g = 0; g < entityMasks.length; g++) {
-      if (entityMasks[g][pageId] === EMPTY_MASK_PAGE) continue;
-      ctx.removedMasks[g][pageId][offset] = 0;
-      ctx.changedMasks[g][pageId][offset] = 0;
-      ctx.destroyedMasks[g][pageId][offset] = 0;
+      const page = entityMasks[g][pageId];
+      if (page === EMPTY_MASK_PAGE) continue;
+      page[slot + REMOVED_WORD] = 0;
+      page[slot + CHANGED_WORD] = 0;
+      page[slot + DESTROYED_WORD] = 0;
     }
   }
   collectRetainedEntities(index);

@@ -504,7 +504,7 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
     const gens = generations[pageId]!;
     const page = entityMasks[masks[0]][pageId];
     for (let offset = 0; offset < end; offset++) {
-      const word = page[offset];
+      const word = page[offset << 2];
       if (
         (word & forbidden) !== 0 ||
         (word & required) !== required ||
