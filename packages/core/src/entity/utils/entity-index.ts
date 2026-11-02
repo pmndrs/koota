@@ -14,11 +14,12 @@ import { leasePage } from './page-allocator';
 export type EntityIndex = {
   /** The number of currently alive entities. */
   aliveCount: number;
-  /** Counts every release, so a walk can tell whether any entity died since it started. */
+  /** Counts every entity that left the alive region, so a walk can tell whether any died. */
   releases: number;
-  /** Destroyed entities kept readable until the world collects. They follow the alive ones in dense. */
-  retainedCount: number;
-  /** Dense list of packed entities. Alive first, then retained, then free slots with bumped generations. */
+  /**
+   * Dense list of packed entities, alive first. A free slot keeps the handle of the entity that
+   * died there, so it stays readable until the id is reused and the generation is bumped.
+   */
   dense: Entity[];
   /** Sparse: entityId -> index in dense (or undefined). */
   sparse: number[];
@@ -32,12 +33,13 @@ export type EntityIndex = {
   allocator: PageAllocator;
   /** The owning WorldContext (for page leasing). */
   owner: WorldContext;
+  /** Free slots keep readable handles. False on a world that bumps generations at destroy. */
+  readableFree: boolean;
 };
 
 export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext): EntityIndex => ({
   aliveCount: 0,
   releases: 0,
-  retainedCount: 0,
   dense: [],
   sparse: [],
   ownedPages: [],
@@ -45,129 +47,100 @@ export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext)
   currentPageIdx: -1,
   allocator,
   owner,
+  readableFree: owner.retain !== 0,
 });
 
-export const allocateEntity = (index: EntityIndex): Entity => {
-  if (assertsEnabled) index.owner.structuralRevision++;
-  const allocator = index.allocator;
-  let entity: Entity;
-  let entityId: number;
-
-  const free = index.aliveCount + index.retainedCount;
-  if (free < index.dense.length) {
-    // Recycle: the first free slot already holds the pre-packed entity with its bumped generation
-    // (written on release). No TypedArray reads needed.
-    entity = index.dense[free];
-    entityId = getEntityId(entity);
-  } else {
-    // Fresh allocation from page cursor.
-    if (index.currentPageIdx === -1 || index.pageCursors[index.currentPageIdx] >= PAGE_SIZE) {
-      const pid = leasePage(allocator, index.owner);
-      index.ownedPages.push(pid);
-      index.pageCursors.push(0);
-      index.currentPageIdx = index.ownedPages.length - 1;
-    }
-
-    const pid = index.ownedPages[index.currentPageIdx];
-    const offset = index.pageCursors[index.currentPageIdx]++;
-    entityId = pid * PAGE_SIZE + offset;
-    // Read gen from TypedArray — handles re-leased pages where gen > 0.
-    const gen = allocator.generations[entityId >>> 10]![offset];
-    entity = packEntity(gen, entityId);
-  }
-
-  allocator.pageAliveCounts[entityId >>> 10]++;
-
+/** Place an allocated entity at the alive boundary, moving whatever free entry sat there to the end. */
+function enterAlive(index: EntityIndex, entity: Entity, entityId: number) {
   const denseIdx = index.aliveCount;
-  if (index.retainedCount !== 0) displaceRetained(index, denseIdx, free);
-  index.sparse[entityId] = denseIdx;
   if (denseIdx < index.dense.length) {
+    const displaced = index.dense[denseIdx];
+    index.dense.push(displaced);
+    index.sparse[getEntityId(displaced)] = index.dense.length - 1;
     index.dense[denseIdx] = entity;
   } else {
     index.dense.push(entity);
   }
+  index.sparse[entityId] = denseIdx;
   index.aliveCount++;
+}
 
+/** A fresh id from the page cursor. */
+export const allocateFreshEntity = (index: EntityIndex): Entity => {
+  if (assertsEnabled) index.owner.structuralRevision++;
+  const allocator = index.allocator;
+  if (index.currentPageIdx === -1 || index.pageCursors[index.currentPageIdx] >= PAGE_SIZE) {
+    const pid = leasePage(allocator, index.owner);
+    index.ownedPages.push(pid);
+    index.pageCursors.push(0);
+    index.currentPageIdx = index.ownedPages.length - 1;
+  }
+  const pid = index.ownedPages[index.currentPageIdx];
+  const offset = index.pageCursors[index.currentPageIdx]++;
+  const entityId = pid * PAGE_SIZE + offset;
+  // Read gen from TypedArray — handles re-leased pages where gen > 0.
+  const entity = packEntity(allocator.generations[entityId >>> 10]![offset], entityId);
+  allocator.pageAliveCounts[entityId >>> 10]++;
+  enterAlive(index, entity, entityId);
   return entity;
 };
 
+/**
+ * Strict allocation for a world that retains nothing: the newest released id, which already
+ * carries its bumped generation, else a fresh one.
+ */
+export const allocateEntity = (index: EntityIndex): Entity => {
+  if (index.aliveCount === index.dense.length) return allocateFreshEntity(index);
+  if (assertsEnabled) index.owner.structuralRevision++;
+  const entity = index.dense[index.aliveCount];
+  const entityId = getEntityId(entity);
+  index.allocator.pageAliveCounts[entityId >>> 10]++;
+  index.sparse[entityId] = index.aliveCount;
+  index.aliveCount++;
+  return entity;
+};
+
+/** Swap the entity out of the alive region. */
+function leaveAlive(index: EntityIndex, entityId: number, denseIdx: number, entry: Entity) {
+  index.releases++;
+  const lastIdx = index.aliveCount - 1;
+  const lastEntity = index.dense[lastIdx];
+  index.sparse[getEntityId(lastEntity)] = denseIdx;
+  index.dense[denseIdx] = lastEntity;
+  index.sparse[entityId] = lastIdx;
+  index.dense[lastIdx] = entry;
+  index.aliveCount--;
+}
+
+/** Strict release: the generation is bumped at once, so the handle stops resolving. */
 export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
   const entityId = getEntityId(entity);
   const denseIdx = index.sparse[entityId];
   if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
 
   if (assertsEnabled) index.owner.structuralRevision++;
-  index.releases++;
   const allocator = index.allocator;
   const pageId = entityId >>> 10;
-  const offset = entityId & 1023;
-
   allocator.pageAliveCounts[pageId]--;
-
-  // Bump generation and persist to both dense (for fast recycle) and TypedArray (for page re-lease safety).
   const nextGen = (getEntityGeneration(entity) + 1) & GENERATION_MASK;
-  allocator.generations[pageId]![offset] = nextGen;
-  const deadEntry = packEntity(nextGen, entityId);
-
-  // Swap with last alive in dense array.
-  const lastIdx = index.aliveCount - 1;
-  const lastEntity = index.dense[lastIdx];
-  const lastId = getEntityId(lastEntity);
-
-  index.sparse[lastId] = denseIdx;
-  index.dense[denseIdx] = lastEntity;
-  index.sparse[entityId] = lastIdx;
-  index.dense[lastIdx] = deadEntry;
-  index.aliveCount--;
-
-  // That slot now heads the retained region, so the dead entry moves past its last entry.
-  if (index.retainedCount !== 0) {
-    const endIdx = lastIdx + index.retainedCount;
-    const retained = index.dense[endIdx];
-    index.sparse[getEntityId(retained)] = lastIdx;
-    index.dense[lastIdx] = retained;
-    index.sparse[entityId] = endIdx;
-    index.dense[endIdx] = deadEntry;
-  }
+  allocator.generations[pageId]![entityId & 1023] = nextGen;
+  leaveAlive(index, entityId, denseIdx, packEntity(nextGen, entityId));
 };
 
 /**
- * The slot after the alive entities holds a retained one. It moves to the first free slot, which
- * the new entity would otherwise take, so the retained region stays contiguous.
+ * Free the entity without bumping its generation. The handle keeps resolving to its slot, so
+ * the data stays readable, until reuseEntity hands the id out again.
  */
-function displaceRetained(index: EntityIndex, denseIdx: number, free: number) {
-  const displaced = index.dense[denseIdx];
-  if (free < index.dense.length) index.dense[free] = displaced;
-  else index.dense.push(displaced);
-  index.sparse[getEntityId(displaced)] = free;
-}
-
-/**
- * Move a destroyed entity into the retained region without bumping its generation, so the handle
- * still resolves for readers until the world releases it.
- */
-export const retainEntity = (index: EntityIndex, entity: Entity): void => {
+export const freeEntity = (index: EntityIndex, entity: Entity): void => {
   const entityId = getEntityId(entity);
   const denseIdx = index.sparse[entityId];
   if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
-
   if (assertsEnabled) index.owner.structuralRevision++;
-
-  const lastIdx = index.aliveCount - 1;
-  const lastEntity = index.dense[lastIdx];
-  index.sparse[getEntityId(lastEntity)] = denseIdx;
-  index.dense[denseIdx] = lastEntity;
-  index.sparse[entityId] = lastIdx;
-  index.dense[lastIdx] = entity;
-  index.aliveCount--;
-  index.retainedCount++;
+  leaveAlive(index, entityId, denseIdx, entity);
 };
 
-/**
- * Bring a retained entity back as a fresh one. It moves to the alive boundary with a bumped
- * generation and its page count is unchanged, since a retained entity still held its slot.
- */
-export const reviveRetainedEntity = (index: EntityIndex, entity: Entity): Entity => {
+/** Reuse a freed id. The generation is bumped here, so the old handle stops resolving. */
+export const reuseEntity = (index: EntityIndex, entity: Entity): Entity => {
   if (assertsEnabled) index.owner.structuralRevision++;
   const entityId = getEntityId(entity);
   const denseIdx = index.sparse[entityId];
@@ -182,41 +155,14 @@ export const reviveRetainedEntity = (index: EntityIndex, entity: Entity): Entity
   index.dense[firstIdx] = fresh;
   index.sparse[entityId] = firstIdx;
   index.aliveCount++;
-  index.retainedCount--;
   return fresh;
 };
 
-/** Release one retained entity. Its id becomes free with a bumped generation. */
-export const releaseRetainedEntity = (index: EntityIndex, entity: Entity): void => {
-  const entityId = getEntityId(entity);
-  const denseIdx = index.sparse[entityId];
-  const end = index.aliveCount + index.retainedCount;
-  if (denseIdx === undefined || denseIdx < index.aliveCount || denseIdx >= end) return;
-  if (index.dense[denseIdx] !== entity) return;
-
-  if (assertsEnabled) index.owner.structuralRevision++;
-  const allocator = index.allocator;
-  const pageId = entityId >>> 10;
-  const offset = entityId & 1023;
-  allocator.pageAliveCounts[pageId]--;
-  const nextGen = (getEntityGeneration(entity) + 1) & GENERATION_MASK;
-  allocator.generations[pageId]![offset] = nextGen;
-
-  // Swap with the last retained entry so the free region still starts right after them.
-  const lastIdx = end - 1;
-  const lastEntity = index.dense[lastIdx];
-  index.sparse[getEntityId(lastEntity)] = denseIdx;
-  index.dense[denseIdx] = lastEntity;
-  index.sparse[entityId] = lastIdx;
-  index.dense[lastIdx] = packEntity(nextGen, entityId);
-  index.retainedCount--;
-};
-
-export const isEntityRetained = (index: EntityIndex, entity: Entity): boolean => {
+/** Alive, or destroyed with an id not yet reused on a world that keeps destroyed entities. */
+export const isEntityReadable = (index: EntityIndex, entity: Entity): boolean => {
   const denseIdx = index.sparse[getEntityId(entity)];
-  if (denseIdx === undefined || denseIdx < index.aliveCount) return false;
-  if (denseIdx >= index.aliveCount + index.retainedCount) return false;
-  return index.dense[denseIdx] === entity;
+  if (denseIdx === undefined || index.dense[denseIdx] !== entity) return false;
+  return denseIdx < index.aliveCount || index.readableFree;
 };
 
 export const isEntityAlive = /* @inline @pure */ (index: EntityIndex, entity: Entity): boolean => {

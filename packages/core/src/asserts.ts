@@ -29,11 +29,10 @@ export /* @inline */ function assertEntityReadable(
   }
   const index = ctx.entityIndex;
   const denseIdx = index.sparse[getEntityId(entity)];
-  if (
-    denseIdx === undefined ||
-    denseIdx >= index.aliveCount + index.retainedCount ||
-    index.dense[denseIdx] !== entity
-  ) {
+  if (denseIdx === undefined || index.dense[denseIdx] !== entity) {
+    throw createEntityNotAliveError(entity);
+  }
+  if (denseIdx >= index.aliveCount && !index.readableFree) {
     throw createEntityNotAliveError(entity);
   }
 }

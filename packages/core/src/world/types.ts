@@ -45,20 +45,20 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
-  /** Traits by mask generation whose holders stay readable after destroy. */
-  retainedMasks: number[];
-  /** How many registered traits are retained. Zero keeps destroy on the plain path. */
-  retainedTraitCount: number;
-  /** Destroyed entities the world still holds, a ring in destroy order. Zero length releases at destroy. */
+  /** Newer destroys an id must wait for before it is reused. Zero bumps generations at destroy. */
+  retain: number;
+  /** Destroyed entities whose ids are not reused yet, a growable ring in destroy order. */
   tombstones: Int32Array;
   /** The destroy serial of each ring entry. */
   tombstoneSerials: Float64Array;
   tombstoneHead: number;
   tombstoneCount: number;
-  /** Counts destroys. Retaining readers stamp their runs with it to say what they have consumed. */
+  /** Counts destroys. Removed and Destroyed readers stamp their runs with it. */
   destroySerial: number;
-  /** Removed and Destroyed query instances. Their runs release the tombstones they have consumed. */
+  /** Removed and Destroyed query instances. Ids stay unreused until they have moved past them. */
   retainingQueries: QueryInstance[];
+  /** The oldest serial every retaining reader has moved past, Infinity with none. */
+  consumedSerial: number;
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
@@ -73,9 +73,9 @@ export type WorldContext = {
 
 export type WorldOptions = {
   /**
-   * How many destroyed entities the world keeps readable at most. Removed and Destroyed queries
-   * release them as they consume them, so the cap only bounds a world whose readers stall or do
-   * not exist. Defaults to 1024. Zero releases every entity at destroy.
+   * How many newer destroys an id waits for before a spawn may reuse it, keeping the destroyed
+   * entity readable meanwhile. Removed and Destroyed queries hold it longer until they have
+   * moved past it, up to sixteen times this. Defaults to 1024. Zero reuses ids at once.
    */
   retain?: number;
 };

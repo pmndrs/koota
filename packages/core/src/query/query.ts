@@ -5,7 +5,8 @@ import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import { isNameConfig } from '../name/name-index';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
-import { reclaimTombstones } from '../entity/entity';
+import { refreshConsumedSerial } from '../entity/entity';
+import { isEntityReadable } from '../entity/utils/entity-index';
 import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -116,23 +117,20 @@ function consumeTrackingBatch(query: QueryInstance) {
   for (let i = 0; i < length; i++) {
     resetQueryTrackingBitmasks(query, getEntityId(dense[i] as Entity));
   }
-  if (query.retains && query.ctx.tombstones.length !== 0) consumeRetained(query, exposed);
+  if (query.retains && query.ctx.retain !== 0) consumeRetained(query, exposed);
 }
 
 /**
- * Entries the ring evicted before this run no longer resolve, so they leave the exposed batch.
- * The batch is rebuilt in place only when something was evicted, which keeps its order.
+ * Entries whose id was reused before this run no longer resolve, so they leave the exposed
+ * batch. The batch is rebuilt in place only when something was dropped, which keeps its order.
  */
 function consumeRetained(query: QueryInstance, exposed: SparseSet) {
   const ctx = query.ctx;
   const index = ctx.entityIndex;
-  const end = index.aliveCount + index.retainedCount;
   let survivors: Entity[] | undefined;
   for (let i = 0; i < exposed.length; i++) {
     const entity = exposed.dense[i] as Entity;
-    const idx = index.sparse[getEntityId(entity)];
-    const resolves = idx !== undefined && idx < end && index.dense[idx] === entity;
-    if (resolves) survivors?.push(entity);
+    if (isEntityReadable(index, entity)) survivors?.push(entity);
     else if (survivors === undefined) survivors = exposed.dense.slice(0, i) as Entity[];
   }
   if (survivors !== undefined) {
@@ -141,7 +139,7 @@ function consumeRetained(query: QueryInstance, exposed: SparseSet) {
   }
   query.consumedSerial = query.lastRunSerial;
   query.lastRunSerial = ctx.destroySerial;
-  reclaimTombstones(ctx);
+  refreshConsumedSerial(ctx);
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
@@ -267,13 +265,6 @@ function processTrackingModifier(
       instance.tracked = true;
       query.changedTraits.push(trait);
       query.hasChangedModifiers = true;
-    } else if (trackingType === 'remove' || trackingType === 'destroy') {
-      trait[$internal].retained = true;
-      if (!instance.retained) {
-        instance.retained = true;
-        ctx.retainedMasks[genId] |= instance.bitflag;
-        ctx.retainedTraitCount++;
-      }
     }
   }
 
@@ -410,7 +401,10 @@ export function createQueryInstance<T extends QueryParameter[]>(
   // A tracking query exposes one set while it collects the next batch in the other.
   query.exposed = query.entities;
   if (query.isTracking) query.exposed = query.batch = new SparseSet();
-  if (query.retains) ctx.retainingQueries.push(query);
+  if (query.retains) {
+    ctx.retainingQueries.push(query);
+    refreshConsumedSerial(ctx);
+  }
 
   if (query.name === undefined && forbidden.length > 0) {
     query.notIndex = ctx.notQueries.length;
@@ -648,6 +642,7 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   if (query.retains) {
     const i = ctx.retainingQueries.indexOf(query);
     if (i !== -1) ctx.retainingQueries.splice(i, 1);
+    refreshConsumedSerial(ctx);
   }
   for (let k = 0; k < query.relationFilters!.length; k++) {
     const trait = query.relationFilters![k].relation[$internal].trait;

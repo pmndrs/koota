@@ -2,7 +2,7 @@
 
 Koota makes common ECS assumptions executable when assertions are enabled:
 
-- **Entity lifetime:** `add`, `remove`, `set`, `changed`, and `destroy` require a live entity. `get`, `has`, `targetFor`, and `targetsFor` also accept a destroyed entity the world still retains for its `Removed` and `Destroyed` queries. Stale handles cannot access a recycled entity.
+- **Entity lifetime:** `add`, `remove`, `set`, `changed`, and `destroy` require a live entity. `get`, `has`, `targetFor`, and `targetsFor` also accept a destroyed entity whose id has not been reused yet. Stale handles cannot access a recycled entity.
 - **Trait membership:** `set` and `changed` require the trait to be present. A setter callback must leave its entity and trait valid before automatic writeback.
 - **Relation validity:** adding or setting a pair requires a concrete, live target in the same world. Setting requires the pair to exist. Wildcards and query filters remain valid for queries, membership checks, and removal.
 - **Name uniqueness:** adding `Name` or renaming requires a name no other entity holds.

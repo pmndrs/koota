@@ -43,8 +43,6 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   relation: Relation<any> | null;
   /** Writes record Changed history once a Changed term names the trait. */
   tracked: boolean;
-  /** Holders stay readable after destroy once a Removed or Destroyed term names the trait. */
-  retained: boolean;
 };
 
 export type Trait<TSchema extends Schema = any> = {
@@ -123,8 +121,6 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   queries: QueryInstance[];
   /** Writes record Changed history. Set once a Changed term names the trait in this world. */
   tracked: boolean;
-  /** Holders stay readable after destroy. Set once a Removed or Destroyed term names the trait. */
-  retained: boolean;
   /** Tracking queries (Added/Removed/Changed) that include this trait */
   trackingQueries: QueryInstance[];
   /** Destroyed queries that include this trait. Only destroy events reach them. */

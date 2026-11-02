@@ -106,14 +106,14 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
     [$internal]: {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
-      retainedMasks: [0],
-      retainedTraitCount: 0,
-      tombstones: new Int32Array(retain),
-      tombstoneSerials: new Float64Array(retain),
+      retain,
+      tombstones: new Int32Array(retain === 0 ? 0 : 16),
+      tombstoneSerials: new Float64Array(retain === 0 ? 0 : 16),
       tombstoneHead: 0,
       tombstoneCount: 0,
       destroySerial: 0,
       retainingQueries: [],
+      consumedSerial: Infinity,
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -216,8 +216,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
       ctx.names.clear();
       ctx.entityMasks = [createEmptyMaskGeneration()];
-      ctx.retainedMasks = [0];
-      ctx.retainedTraitCount = 0;
       ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
 
@@ -233,6 +231,7 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       ctx.queriesHashMap.clear();
       ctx.queryInstances.length = 0;
       ctx.retainingQueries.length = 0;
+      ctx.consumedSerial = Infinity;
       ctx.tombstoneHead = 0;
       ctx.tombstoneCount = 0;
       ctx.iterationBuffers = undefined;
@@ -252,9 +251,9 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
     emit(...traits: ConfigurableTrait[]) {
       const ctx = world[$internal];
-      if (ctx.tombstones.length === 0) {
+      if (ctx.retain === 0) {
         throw new Error(
-          'Koota: [EMIT_RETAIN] world.emit needs a world that retains destroyed entities. Create it without retain: 0.'
+          'Koota: [EMIT_RETAIN] world.emit needs a world that keeps destroyed entities. Create it without retain: 0.'
         );
       }
       ensureWorldRegistered(ctx);

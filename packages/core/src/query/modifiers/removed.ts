@@ -14,9 +14,6 @@ export function createRemoved() {
     const traits = inputs.map((input) =>
       isRelation(input) ? input[$internal].trait : input
     ) as ExtractTraits<T>;
-    // Naming a trait here is what keeps its holders readable after destroy, so module scope
-    // terms cover destroys from the start.
-    for (let i = 0; i < traits.length; i++) traits[i][$internal].retained = true;
     return createModifier(`removed-${id}`, id, traits);
   };
 }

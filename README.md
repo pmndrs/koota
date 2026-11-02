@@ -583,7 +583,7 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
-Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a `Changed` term names the trait, so create `Changed` terms at module scope to record writes from the start. A destroyed entity that held a trait some `Removed` or `Destroyed` term names stays readable until every such query has consumed it, so a reader created after the destroy still sees it, see [Destroyed](#destroyed).
+Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a `Changed` term names the trait, so create `Changed` terms at module scope to record writes from the start. A destroyed entity keeps its data until its id is reused, so a reader created after the destroy still sees it, see [Destroyed](#destroyed).
 
 #### Added
 
@@ -613,7 +613,7 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 #### Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed, whose data stays readable until every `Removed` and `Destroyed` query has consumed them, see [Destroyed](#destroyed). A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed, whose data stays readable until their id is reused, see [Destroyed](#destroyed). A new instance of the modifier must be created for tracking to be unique.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -667,7 +667,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 The `Destroyed` modifier tracks entities destroyed while holding the specified traits since the last time the query was run. Removing a trait before the destroy does not count. The entity stays readable inside the query, so cleanup can still read its data, and other query terms filter on the traits it held when it died.
 
-A destroyed entity is kept when it held a trait that some `Removed` or `Destroyed` term names, and it stays readable until every such query in the world has run twice since the destroy, once to expose it and once to move past it. Naming the trait in a term at module scope, which `createListener` does, covers destroys from the first frame. Entities that held no such trait release at destroy and cost nothing. The world keeps at most `retain` such entities, 1024 by default and set with `createWorld({ retain })`, so a reader that falls further behind than that misses the oldest ones. Zero releases at destroy. A retained entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
+A destroyed entity keeps its id and its data until the world reuses the id for a new entity. A spawn reuses an id only after at least `retain` newer destroys, 1024 by default and set with `createWorld({ retain })`, and after every `Removed` and `Destroyed` query has run twice since the destroy, once to expose it and once to move past it, up to sixteen times `retain` for a reader that has stopped running. Until then spawns take fresh ids. Zero reuses ids at once. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
 
 ```js
 import { createDestroyed } from 'koota'
@@ -687,11 +687,11 @@ entity.destroy()
 entity.remove(ServerSync)
 ```
 
-Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` or `Destroyed` query created later still sees everything the world still holds, in destroy order.
+Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` or `Destroyed` query created later still sees every destroyed entity whose id has not been reused, in destroy order.
 
 ### Events
 
-An event is an entity that is spawned and destroyed in one call. `world.emit` does that, so synchronous subscribers see it at once and `Destroyed` queries drain it later. `createListener` returns a cached query key over a `Destroyed` term for the event trait, with any other query terms added, so each listener drains its own batch. An event lives until every listener has read it, so listeners can run anywhere in the loop. A listener that does not exist yet only sees the events the world still holds, so create the ones that matter before the first emit.
+An event is an entity that is spawned and destroyed in one call. `world.emit` does that, so synchronous subscribers see it at once and `Destroyed` queries drain it later. `createListener` returns a cached query key over a `Destroyed` term for the event trait, with any other query terms added, so each listener drains its own batch. An event lives until every listener has read it and at least `retain` newer destroys have happened, so listeners can run anywhere in the loop and can be created after the emit.
 
 ```js
 import { createListener, trait } from 'koota'
@@ -959,8 +959,8 @@ This is where all data is stored. We have methods on entities but this is a bit 
 Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is not queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
 
 ```js
-// Destroyed entities that held a trait a Removed or Destroyed term names stay readable until
-// those queries consume them. The world keeps at most this many, 1024 by default, zero releases at destroy
+// A destroyed entity keeps its data until its id is reused, which waits for at least this many
+// newer destroys and for every Removed and Destroyed query to move past it. Zero reuses at once
 const world = createWorld({ retain: 1024 })
 
 // Spawns an entity

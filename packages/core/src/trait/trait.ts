@@ -110,7 +110,6 @@ export function createTraitContext<S extends Schema>(
     remove: accessors?.remove ?? defaults.remove,
     relation: null,
     tracked: false,
-    retained: false,
     type,
     cursor:
       type === 'soa' &&
@@ -163,7 +162,6 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     store: traitCtx.createStore(),
     queries: [],
     tracked: traitCtx.tracked,
-    retained: traitCtx.retained,
     trackingQueries: [],
     destroyedQueries: [],
     relationQueries: [],
@@ -177,10 +175,6 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
 
   setTraitInstance(ctx.traitInstances, trait, data);
   ctx.traitsByBit[data.generationId][31 - Math.clz32(ctx.bitflag)] = data;
-  if (data.retained) {
-    ctx.retainedMasks[data.generationId] |= data.bitflag;
-    ctx.retainedTraitCount++;
-  }
   ctx.traits.add(trait);
 
   if (traitCtx.relation) ctx.relations.push(traitCtx.relation);

@@ -14,12 +14,9 @@ const IsHot = trait();
 const IsCold = trait();
 const Event = trait({ by: 0 });
 
-// A Removed term naming Position at module scope is what keeps its holders readable after destroy.
-createRemoved()(Position);
-
 describe('Entity retention', () => {
-  it('keeps a destroyed entity readable until its readers have consumed it', () => {
-    const world = createWorld();
+  it('keeps a destroyed entity readable until its id is reused', () => {
+    const world = createWorld({ retain: 1 });
     const Removed = createRemoved();
     world.query(Removed(Position));
 
@@ -37,14 +34,22 @@ describe('Entity retention', () => {
     expect(() => entity.remove(IsHot)).toThrow();
     expect(() => entity.destroy()).toThrow();
 
-    // The first run exposes it, so it stays readable while the batch is being read.
-    expect(world.query(Removed(Position)).toArray()).toEqual([entity]);
+    // Within the window the id is not reused, so a spawn takes a fresh one.
+    const fresh = world.spawn();
+    expect(fresh.id()).not.toBe(entity.id());
     expect(entity.get(Position)).toEqual({ x: 1, y: 0 });
 
-    // The second run swaps the batch out, and the last reader releases it.
+    // A second destroy puts the first past the window, but the reader has not moved past it.
+    const second = world.spawn(Position({ x: 2 }));
+    second.destroy();
+    expect(world.query(Removed(Position)).toArray()).toEqual([entity, second]);
+    expect(world.spawn().id()).not.toBe(entity.id());
+
+    // The reader's second run moves past both, and the oldest id is reused first.
     expect(world.query(Removed(Position)).length).toBe(0);
-    expect(() => entity.get(Position)).toThrow();
     expect(world.spawn().id()).toBe(entity.id());
+    expect(() => entity.get(Position)).toThrow();
+    expect(second.get(Position)!.x).toBe(2);
   });
 
   it('releases a destroyed entity at once on a world that retains nothing', () => {
@@ -57,38 +62,35 @@ describe('Entity retention', () => {
     expect(() => world.emit(Event({ by: 1 }))).toThrow();
   });
 
-  it('holds destroyed entities up to the cap when nothing reads them', () => {
+  it('reuses the oldest id past the window when nothing reads', () => {
     const world = createWorld({ retain: 2 });
     const a = world.spawn(Position({ x: 1 }));
     const b = world.spawn(Position({ x: 2 }));
     const c = world.spawn(Position({ x: 3 }));
     a.destroy();
     b.destroy();
-    expect(a.get(Position)!.x).toBe(1);
     c.destroy();
 
+    expect(a.get(Position)!.x).toBe(1);
+    const reused = world.spawn(Position({ x: 4 }));
+    expect(reused.id()).toBe(a.id());
+    expect(reused).not.toBe(a);
     expect(() => a.get(Position)).toThrow();
     expect(b.get(Position)!.x).toBe(2);
     expect(c.get(Position)!.x).toBe(3);
-    expect(world.spawn().id()).toBe(a.id());
+    expect(world.spawn().id()).not.toBe(b.id());
   });
 
-  it('hands the oldest retained id to a spawn once the ring is full', () => {
-    const world = createWorld({ retain: 2 });
-    const a = world.spawn(Position({ x: 1 }));
-    const b = world.spawn(Position({ x: 2 }));
-    a.destroy();
-    b.destroy();
-
-    const c = world.spawn(Position({ x: 3 }));
-    expect(c.id()).toBe(a.id());
-    expect(c).not.toBe(a);
-    expect(() => a.get(Position)).toThrow();
-    expect(b.get(Position)!.x).toBe(2);
-    expect(c.get(Position)!.x).toBe(3);
-
+  it('reuses ids a stalled reader never consumed once the backstop is reached', () => {
+    const world = createWorld({ retain: 1 });
     const Removed = createRemoved();
-    expect(world.query(Removed(Position)).toArray()).toEqual([b]);
+    world.query(Removed(Position));
+
+    const first = world.spawn(Position);
+    first.destroy();
+    for (let i = 0; i < 16; i++) world.spawn(Position).destroy();
+
+    expect(world.spawn().id()).toBe(first.id());
   });
 
   it('seeds a Removed query created after a destroy in destroy order', () => {
@@ -105,44 +107,9 @@ describe('Entity retention', () => {
     removed.forEach((entity) => expect(entity.get(Position)!.x).toBeGreaterThan(1));
     expect(world.query(Removed(Position)).length).toBe(0);
     expect(kept.isAlive()).toBe(true);
-
-    const Later = createRemoved();
-    expect(world.query(Later(Position)).length).toBe(0);
-    expect(() => first.get(Position)).toThrow();
   });
 
-  it('releases an entity at destroy when no term names a trait it held', () => {
-    const Particle = trait({ life: 0 });
-    const world = createWorld();
-    const Removed = createRemoved();
-    world.query(Removed(Position));
-
-    const particle = world.spawn(Particle({ life: 1 }));
-    particle.destroy();
-
-    expect(() => particle.get(Particle)).toThrow();
-    expect(world.spawn().id()).toBe(particle.id());
-    expect(world.query(Removed(Position)).length).toBe(0);
-  });
-
-  it('keeps a retained entity in place when an untracked one is destroyed after it', () => {
-    const Particle = trait({ life: 0 });
-    const world = createWorld();
-    const Removed = createRemoved();
-    world.query(Removed(Position));
-
-    const kept = world.spawn(Position({ x: 1 }));
-    const particle = world.spawn(Particle);
-    kept.destroy();
-    particle.destroy();
-
-    expect(kept.get(Position)!.x).toBe(1);
-    expect(world.spawn().id()).toBe(particle.id());
-    expect(kept.get(Position)!.x).toBe(1);
-    expect(world.query(Removed(Position)).toArray()).toEqual([kept]);
-  });
-
-  it('does not seed an Added query from a retained entity', () => {
+  it('does not seed an Added query from a destroyed entity', () => {
     const world = createWorld();
     world.spawn(Position).destroy();
 
@@ -193,8 +160,6 @@ describe('Entity retention', () => {
     const world = createWorld();
     const listener = createListener(Event);
     const other = createListener(Event, Not(IsHot));
-    world.query(listener);
-    world.query(other);
 
     world.emit(Event({ by: 5 }));
     world.emit(Event({ by: 6 }), IsHot);
@@ -209,38 +174,41 @@ describe('Entity retention', () => {
   });
 
   it('keeps an event until every listener has consumed it', () => {
-    const world = createWorld();
+    const world = createWorld({ retain: 1 });
     const fast = createListener(Event);
     const slow = createListener(Event);
     world.query(fast);
     world.query(slow);
 
     world.emit(Event({ by: 7 }));
+    world.emit(Event({ by: 8 }));
     const event = world.query(fast).first!;
     expect(world.query(fast).length).toBe(0);
     expect(event.get(Event)!.by).toBe(7);
 
-    expect(world.query(slow).toArray()).toEqual([event]);
-    expect(event.get(Event)!.by).toBe(7);
+    // The slow listener has not moved past it, so a spawn does not take its id.
+    expect(world.spawn().id()).not.toBe(event.id());
+    expect(world.query(slow).toArray()).toContain(event);
     expect(world.query(slow).length).toBe(0);
+    expect(world.spawn().id()).toBe(event.id());
     expect(() => event.get(Event)).toThrow();
   });
 
   it('drops events a reader fell too far behind to keep', () => {
-    const world = createWorld({ retain: 2 });
+    const world = createWorld({ retain: 1 });
     const listener = createListener(Event);
     world.query(listener);
 
-    world.emit(Event({ by: 1 }));
-    world.emit(Event({ by: 2 }));
-    world.emit(Event({ by: 3 }));
+    for (let i = 1; i <= 40; i++) world.emit(Event({ by: i }));
 
     const seen: number[] = [];
     world.query(listener).readEach(([event]) => seen.push(event.by));
-    expect(seen).toEqual([2, 3]);
+    expect(seen.length).toBeLessThan(40);
+    expect(seen.at(-1)).toBe(40);
+    for (let i = 1; i < seen.length; i++) expect(seen[i]).toBe(seen[i - 1] + 1);
   });
 
-  it('keeps alive and retained entities apart while spawning', () => {
+  it('keeps alive and destroyed entities apart while spawning', () => {
     const world = createWorld();
     const a = world.spawn(Position({ x: 1 }));
     const b = world.spawn(Position({ x: 2 }));
@@ -258,11 +226,9 @@ describe('Entity retention', () => {
     expect(world.query(Removed(Position)).toArray()).toEqual([a, b]);
     expect(world.query(Removed(Position)).length).toBe(0);
     expect(world.query(Position).length).toBe(3);
-    const recycled = world.spawn();
-    expect([a.id(), b.id()]).toContain(recycled.id());
   });
 
-  it('releases retained entities on reset', () => {
+  it('releases destroyed entities on reset', () => {
     const world = createWorld();
     const entity = world.spawn(Position);
     entity.destroy();
