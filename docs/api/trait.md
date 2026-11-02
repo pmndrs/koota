@@ -82,8 +82,8 @@ entity.set(Transform, { position: [1, 2, 3] })
 // Tuples are copied in and out, so this array never aliases the store
 const { position } = entity.get(Transform)
 
-// Mutating a tuple in updateEach is detected per component
-world.query(Transform, Velocity).updateEach(([transform, velocity]) => {
+// Mutating a tuple in each is detected per component
+world.query(Transform, Velocity).each((transform, velocity) => {
   vec3.scaleAndAdd(transform.position, transform.position, velocity.value, delta)
 })
 ```
@@ -125,7 +125,7 @@ const store = {
 
 Array of Structures (AoS) are callback-based traits.
 
-When using a callback, each entity's trait data is stored as a single value in an array. This is useful for compatibility with third party libraries like Three, class instances, or atomic primitive values.
+When using a callback, each entity's trait data is stored as a single value in an array. This is useful for compatibility with third party libraries like Three and class instances. Put primitive data in a schema field, the one atomic trait is `Name`, which is set with `entity.set`.
 
 ```js
 const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }))
@@ -141,21 +141,6 @@ const store = [
 // Similarly, this will create a new instance of Mesh in each index
 const Mesh = trait(() => new THREE.Mesh())
 ```
-
-Callbacks can also return primitives, as with `Name`:
-
-```js
-const Status = trait(() => 'idle')
-entity.add(Status('ready'))
-entity.get(Status) // 'ready'
-entity.set(Status, 'done')
-
-world.query(Status).updateEach((state) => {
-  state[0] = 'idle' // Replace the tuple entry
-})
-```
-
-Reassigning a destructured string only changes the local variable. See [change detection](../advanced/change-detection.md).
 
 ## Trait record
 

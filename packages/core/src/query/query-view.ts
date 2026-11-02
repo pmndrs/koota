@@ -34,7 +34,7 @@ import type {
 /** The entity list behind a view. A live view reads its query's sparse set in place. */
 type EntitySource = { readonly dense: readonly number[]; readonly length: number };
 
-type Callback = (state: any, entity: Entity, index: number) => void;
+type Callback = (...args: any[]) => void;
 
 /** An entity array a view owns, such as a lookup or a nested run's copy. */
 class EntityList implements EntitySource {
@@ -135,6 +135,15 @@ class View implements QueryView<any> {
   }
 
   updateEach(callback: Callback, options?: UpdateEachOptions) {
+    return this.walk(callback, options, false);
+  }
+
+  each(callback: Callback) {
+    return this.walk(callback, undefined, true);
+  }
+
+  /** Shared body of updateEach and each, which differ only in how the callback takes the traits. */
+  private walk(callback: Callback, options: UpdateEachOptions | undefined, positional: boolean) {
     const { dense, length } = this.source;
     if (length === 0) return this;
     const { ctx, query, live } = this;
@@ -146,9 +155,23 @@ class View implements QueryView<any> {
     if (live) query!.iterating++;
     try {
       if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
-        iterators.updateEach(ctx, entities, length, callback, buffers, stores);
+        (positional ? iterators.each : iterators.updateEach)(
+          ctx,
+          entities,
+          length,
+          callback,
+          buffers,
+          stores
+        );
       } else {
-        const changedCount = iterators.trackEach(ctx, entities, length, callback, buffers, stores);
+        const changedCount = (positional ? iterators.trackArgs : iterators.trackEach)(
+          ctx,
+          entities,
+          length,
+          callback,
+          buffers,
+          stores
+        );
         const { changedEntities, changedTraits } = buffers;
         for (let i = 0; i < changedCount; i++) {
           const entity = changedEntities[i];

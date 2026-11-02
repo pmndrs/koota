@@ -23,7 +23,7 @@ A system is then a function that queries for entities that has the data that wil
 
 ```js
 function updateMovement(world, delta) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  world.query(Position, Velocity).each((pos, vel) => {
     pos.x += vel.x * delta
     pos.y += vel.y * delta
   })
@@ -64,7 +64,7 @@ const Acceleration = trait({ x: 0, y: 0 })
 
 // System 1: Apply acceleration to velocity
 function applyAcceleration(world, delta) {
-  world.query(Velocity, Acceleration).updateEach(([vel, acc]) => {
+  world.query(Velocity, Acceleration).each((vel, acc) => {
     vel.x += acc.x * delta
     vel.y += acc.y * delta
   })
@@ -72,7 +72,7 @@ function applyAcceleration(world, delta) {
 
 // System 2: Apply velocity to position
 function applyVelocity(world, delta) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {
+  world.query(Position, Velocity).each((pos, vel) => {
     pos.x += vel.x * delta
     pos.y += vel.y * delta
   })

@@ -1,10 +1,12 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait } from 'koota';
+import { createWorld, trait, type Trait } from 'koota';
 
 for (const layout of ['soa', 'aos'] as const) {
   group(`${layout} traits 10k @trait @accessor`, () => {
-    const Position =
-      layout === 'soa' ? trait({ x: 0, y: 0, z: 0 }) : trait(() => ({ x: 0, y: 0, z: 0 }));
+    // Both layouts expose the same instance shape, one type keeps the callbacks identical.
+    const Position = (
+      layout === 'soa' ? trait({ x: 0, y: 0, z: 0 }) : trait(() => ({ x: 0, y: 0, z: 0 }))
+    ) as Trait<{ x: number; y: number; z: number }>;
 
     bench('entity.get', function* () {
       const world = createWorld();
@@ -71,6 +73,29 @@ for (const layout of ['soa', 'aos'] as const) {
     });
 
     for (const tracked of [false, true]) {
+      bench(`query.each ${tracked ? 'tracked' : 'untracked'}`, function* () {
+        const world = createWorld();
+        for (let i = 0; i < 10_000; i++) world.spawn(Position);
+        const query = world.query(Position);
+        let notifications = 0;
+        if (tracked) world.onChange(Position, () => notifications++);
+
+        yield {
+          bench: () => {
+            query.each((position) => {
+              position.x++;
+            });
+          },
+          snapshot: () => {
+            const x = query.first!.get(Position)!.x;
+            assert.equal(query.at(9999)!.get(Position), { x, y: 0, z: 0 });
+            if (tracked) assert.equal(notifications, x * query.length);
+            return query.length;
+          },
+        };
+        world.destroy();
+      });
+
       bench(`query.updateEach ${tracked ? 'tracked' : 'untracked'}`, function* () {
         const world = createWorld();
         for (let i = 0; i < 10_000; i++) world.spawn(Position);

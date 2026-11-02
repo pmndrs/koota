@@ -148,7 +148,7 @@ const world = createWorld()
 const player = world.spawn(Position({ x: 100, y: 50 }), Velocity, IsPlayer)
 
 // 3. Query and update
-world.query(Position, Velocity).updateEach(([pos, vel]) => {
+world.query(Position, Velocity).each((pos, vel) => {
   pos.x += vel.x
   pos.y += vel.y
 })
@@ -205,9 +205,7 @@ const Hero = createQuery(Name('hero'), Position)
 world.query(Hero)
 world.onQueryAdd(Hero, (entity) => {})
 
-world.query(Name('hero'), Name).updateEach((state) => {
-  state[0] = 'champion' // Replace the tuple entry
-})
+world.lookup('hero')?.set(Name, 'champion')
 ```
 
 Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Prefer `set` to rename. Direct store or page writes bypass the name index and query updates.
@@ -232,14 +230,14 @@ Queries fetch entities matching an archetype and are the primary way to batch up
 
 ```typescript
 // Query and update
-world.query(Position, Velocity).updateEach(([pos, vel]) => {
+world.query(Position, Velocity).each((pos, vel) => {
   pos.x += vel.x
   pos.y += vel.y
 })
 
-// Read-only iteration (no write-back)
+// Reads go through each as well
 const data: Array<{ x: number; y: number }> = []
-world.query(Position, Velocity).readEach(([pos, vel]) => {
+world.query(Position, Velocity).each((pos, vel) => {
   data.push({ x: pos.x, y: pos.y })
 })
 
@@ -251,19 +249,19 @@ world.query(Position, Not(Velocity)) // Has Position but not Velocity
 world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 ```
 
-Prefer `updateEach`/`readEach` over `for...of` + `entity.get()` for data-bearing queries. `readEach` still gives you the entity as the second argument.
+Prefer `each` over `for...of` + `entity.get()` for data-bearing queries. The entity follows the trait arguments.
 
 A query result is a live view over the query's entities, not an array. Use `at(index)` for random access and `toArray()` for a copy you own. React and Svelte `useQuery` return a plain array sorted by id.
 
-The callback's state array, SoA records and tuple arrays are reused and only valid during the callback. Copy records and tuple arrays before retaining them, or call `entity.get(Trait)` for an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
+`each` is zero-copy, the values it passes are only valid during the callback. Call `entity.get(Trait)` for a snapshot.
 
-A thrown error aborts `updateEach` without rollback or guaranteed delivery of pending change notifications.
+A thrown error aborts `each` without rollback or guaranteed delivery of pending change notifications.
 
-**Note:** `updateEach`/`readEach` only return data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
+**Note:** `each` only passes data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
 
 ```typescript
-world.query(IsPlayer, Position, Velocity).updateEach(([pos, vel]) => {
-  // Array has 2 elements - IsPlayer (tag) excluded
+world.query(IsPlayer, Position, Velocity).each((pos, vel) => {
+  // Two trait arguments, IsPlayer (tag) excluded
 })
 ```
 

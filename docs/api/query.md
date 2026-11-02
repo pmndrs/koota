@@ -6,9 +6,9 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-Query results are live views of entity handles, and `toArray()` copies them. `readEach` and `updateEach` leave handle validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
+Query results are live views of entity handles, and `toArray()` copies them. `each` leaves handle validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
 
-`readEach` and `updateEach` are zero-copy interfaces for reading and writing trait data. To keep a copy, call `entity.get(Trait)` for a snapshot.
+`each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
 
 ## Defining queries
 
@@ -18,7 +18,7 @@ Inline queries are great for readability and are optimized to be as fast as poss
 // Every time this query runs a hash for the query parameters (Position, Velocity)
 // is created and then used to get the cached query internally
 function updateMovement(world) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {})
+  world.query(Position, Velocity).each((pos, vel) => {})
 }
 ```
 
@@ -30,7 +30,7 @@ const movementQuery = createQuery(Position, Velocity)
 
 // The query ref is used for fast array-based lookup
 function updateMovement(world) {
-  world.query(movementQuery).updateEach(([pos, vel]) => {})
+  world.query(movementQuery).each((pos, vel) => {})
 }
 ```
 
@@ -59,18 +59,19 @@ entities.includes(entity) // This will always be false
 
 ## Select traits on queries for updates
 
-Query filters entity results and `select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify.
+Query filters entity results and `select` is used to choose what traits are fetched for `each` and `getPages`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
-world.query(Position, Velocity, Mass)
+world
+  .query(Position, Velocity, Mass)
   // And then select only Mass for updates
   .select(Mass)
   // Only mass will be used in the loop
-  .updateEach([mass] => {
+  .each((mass) => {
     // We are going blackhole
     mass.value += 1
-  });
+  })
 ```
 
 ## Direct page access
