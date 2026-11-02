@@ -15,4 +15,4 @@ export type {
 
 export { validateSchema, getSchemaDefaults } from './schema';
 
-export type { Store, StoreType, Schema, AoSFactory, Norm } from './types';
+export type { Store, StoreType, Schema, AoSFactory, Norm, TraitSchema } from './types';

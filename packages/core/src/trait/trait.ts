@@ -39,6 +39,7 @@ import {
   Norm,
   Schema,
   StoreType,
+  TraitSchema,
   validateSchema,
 } from '../storage';
 import type { World, WorldContext } from '../world';
@@ -124,8 +125,8 @@ export function defineTraitProperties(target: object, id: number, schema: Schema
 }
 
 function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-function createTrait<S extends Schema>(schema: S): Trait<Norm<S>>;
-function createTrait<S extends Schema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+function createTrait<S extends TraitSchema>(schema: S): Trait<Norm<S>>;
+function createTrait<S extends TraitSchema>(schema: S = tagSchema as S): Trait<Norm<S>> {
   const context = createTraitContext(schema);
   const Trait = Object.assign(
     (params: TraitValue<Norm<S>>): [Trait<Norm<S>>, TraitValue<Norm<S>>] => [Trait, params],
