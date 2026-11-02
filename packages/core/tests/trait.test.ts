@@ -231,6 +231,14 @@ describe('Trait', () => {
     expect(entityB.get(Test)!.value).toBeInstanceOf(TestClass);
   });
 
+  it('only accepts object factories', () => {
+    // @ts-expect-error primitive data belongs in a schema field
+    trait(() => 'idle');
+    // @ts-expect-error primitive data belongs in a schema field
+    trait(() => 0);
+    expect(trait(() => ({ value: 'idle' }))).toBeDefined();
+  });
+
   it('can create atomic traits', () => {
     const object = { a: 1, b: 2 };
     const AtomicObject = trait(() => object);

@@ -8,7 +8,7 @@ import type { QueryParameter } from '../query/types';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isQuery } from '../query/utils/is-query';
-import { Schema } from '../storage';
+import { TraitSchema } from '../storage';
 import { hasTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -21,7 +21,7 @@ function ensureRelPage(arr: any[], pageId: number): any[] {
   return arr[pageId];
 }
 
-function createRelation<S extends Schema = Record<string, never>>(definition?: {
+function createRelation<S extends TraitSchema = Record<string, never>>(definition?: {
   exclusive?: boolean;
   autoDestroy?: 'orphan' | 'source' | 'target';
   /** @deprecated Use `autoDestroy: 'orphan'` instead */

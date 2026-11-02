@@ -26,12 +26,14 @@ export type StoreType = 'aos' | 'soa' | 'tag';
  * Schema definition for traits.
  * Can be a SoA object schema, an AoS factory function, or an empty object (tag).
  */
-export type Schema =
-  | {
-      [key: string]: number | bigint | string | boolean | null | undefined | Tuple | (() => unknown);
-    }
-  | AoSFactory
-  | Record<string, never>;
+export type Schema = SoASchema | AoSFactory | Record<string, never>;
+
+type SoASchema = {
+  [key: string]: number | bigint | string | boolean | null | undefined | Tuple | (() => unknown);
+};
+
+/** Schemas accepted by trait(). Factories return objects, primitive data belongs in a field. */
+export type TraitSchema = SoASchema | (() => object) | Record<string, never>;
 
 /**
  * A fixed-length list of primitives, such as a vector, quaternion, matrix or Euler.
