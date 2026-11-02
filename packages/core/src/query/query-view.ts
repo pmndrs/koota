@@ -14,7 +14,11 @@ import type { WorldContext } from '../world';
 import { isModifier } from './modifier';
 import { notifyChanged } from './modifiers/changed';
 import { getQueryPages } from './query-pages';
-import { getQueryIterators } from './utils/compile-iterators';
+import {
+  compileQueryIterators,
+  createIterationCursor,
+  getQueryIterators,
+} from './utils/compile-iterators';
 import type {
   QueryInstance,
   QueryIterationBuffers,
@@ -117,9 +121,9 @@ class View implements QueryView<any> {
     const { dense, length } = this.source;
     if (length === 0) return this;
     const { ctx, query, live } = this;
-    const { traits, stores } = this.binding;
+    const { stores } = this.binding;
     const pool = query ?? ctx;
-    const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], traits, stores);
+    const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding);
     if (live) query!.iterating++;
     try {
       buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
@@ -137,7 +141,7 @@ class View implements QueryView<any> {
     const { traits, stores } = this.binding;
     const pool = query ?? ctx;
     const entities = dense as Entity[];
-    const buffers = takeIterationBuffers(ctx, pool, entities, traits, stores);
+    const buffers = takeIterationBuffers(ctx, pool, entities, this.binding);
     const iterators = buffers.iterators!;
     if (live) query!.iterating++;
     try {
@@ -291,7 +295,7 @@ function getQueryBinding(
         return binding;
     }
   }
-  const binding: QueryViewBinding = { params, traits: [], stores: [], view: null };
+  const binding: QueryViewBinding = { params, traits: [], stores: [], view: null, iterators: null };
   fillQueryBinding(ctx, params, binding);
   if (cache) cache.push(binding);
   return binding;
@@ -384,26 +388,32 @@ function takeIterationBuffers(
   ctx: WorldContext,
   pool: QueryInstance | WorldContext,
   entities: Entity[],
-  traits: Trait[],
-  stores: Store<any>[]
+  binding: QueryViewBinding
 ): QueryIterationBuffers {
   const buffers = pool.iterationBuffers ?? createIterationBuffers();
   pool.iterationBuffers = buffers.next;
+  const { traits } = binding;
   const prepared = buffers.traits;
   let matches = buffers.iterators !== undefined && prepared.length === traits.length;
   for (let i = 0; matches && i < traits.length; i++) matches = prepared[i] === traits[i];
-  if (!matches) prepareIterationBuffers(ctx, buffers, entities, traits, stores);
+  if (!matches) prepareIterationBuffers(ctx, buffers, entities, binding, pool);
   return buffers;
 }
 
-/** Points the buffers at a new trait list. Records already built for the same trait are kept. */
+/**
+ * Points the buffers at a new trait list. Records already built for the same trait are kept. A
+ * query binding compiles its own iterators, since every generated function with the same source
+ * would otherwise share one feedback vector and its callback site would turn megamorphic across
+ * queries. Views without a query share iterators per trait list.
+ */
 function prepareIterationBuffers(
   ctx: WorldContext,
   buffers: QueryIterationBuffers,
   entities: Entity[],
-  traits: Trait[],
-  stores: Store<any>[]
+  binding: QueryViewBinding,
+  pool: QueryInstance | WorldContext
 ) {
+  const { traits, stores } = binding;
   const { state, records } = buffers;
   const prepared = buffers.traits;
   for (let i = 0; i < traits.length; i++) {
@@ -411,13 +421,20 @@ function prepareIterationBuffers(
     state[i] = undefined;
     if (prepared[i] === trait) continue;
     prepared[i] = trait;
-    records[i] =
-      trait[$internal].type === 'soa'
+    const traitCtx = trait[$internal];
+    records[i] = traitCtx.cursor
+      ? {
+          value: createIterationCursor(trait, true),
+          tuples: undefined,
+          reader: createIterationCursor(trait, false),
+        }
+      : traitCtx.type === 'soa'
         ? createIterationRecord(ctx, getEntityId(entities[0]), trait, stores[i])
         : undefined;
   }
   state.length = prepared.length = records.length = traits.length;
-  buffers.iterators = getQueryIterators(traits);
+  buffers.iterators =
+    pool === ctx ? getQueryIterators(traits) : (binding.iterators ??= compileQueryIterators(traits));
 }
 
 /** Releases references to user objects, then returns the buffers to the pool. */

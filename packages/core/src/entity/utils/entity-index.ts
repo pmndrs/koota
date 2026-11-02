@@ -14,6 +14,8 @@ import { leasePage } from './page-allocator';
 export type EntityIndex = {
   /** The number of currently alive entities. */
   aliveCount: number;
+  /** Counts every release, so a walk can tell whether any entity died since it started. */
+  releases: number;
   /** Dense list of alive packed entities. */
   dense: Entity[];
   /** Sparse: entityId -> index in dense (or undefined). */
@@ -32,6 +34,7 @@ export type EntityIndex = {
 
 export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext): EntityIndex => ({
   aliveCount: 0,
+  releases: 0,
   dense: [],
   sparse: [],
   ownedPages: [],
@@ -89,6 +92,7 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
   if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
 
   if (assertsEnabled) index.owner.structuralRevision++;
+  index.releases++;
   const allocator = index.allocator;
   const pageId = entityId >>> 10;
   const offset = entityId & 1023;
