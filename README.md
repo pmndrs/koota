@@ -49,7 +49,7 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 
 ### Query and update data
 
-Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently.
+Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently. Writes made in `each` are change detected for traits tracked with `onChange` or `Changed`, see [change detection](docs/advanced/change-detection.md).
 
 ```js
 // each passes each trait as its own argument, then the entity and index
@@ -699,40 +699,6 @@ const unsub = entity.onChange(Position, (entity) => {
 
 entity.onAdd(Position, (entity) => {})
 entity.onRemove(Position, (entity) => {})
-```
-
-### Change detection with `each`
-
-By default, `each` turns on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. The deprecated `updateEach` accepts an options config to silence it or force it to always run.
-
-```js
-// Setting changeDetection to 'never' will silence it, triggering no change events
-world.query(Position, Velocity).updateEach(([position, velocity]) => {}, { changeDetection: 'never' })
-
-// Setting changeDetection to 'always' emits change events for every accepted write, even unchanged values
-world
-  .query(Position, Velocity)
-  .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
-```
-
-Change detection shallowly compares the scalar values just like React. Tuples are stored by value and compared per element, so mutating one in place is detected. Other objects and arrays (created by an initializer) will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually mark that a change has occurred.
-
-```js
-// ❌ This change will not be detected since the array is mutated and will pass the comparison
-world.query(Inventory).each((inventory) => {
-  inventory.items.push(item)
-})
-
-// ✅ This change will be detected since a new array is created and the comparison will fail
-world.query(Inventory).each((inventory) => {
-  inventory.items = [...inventory.items, item]
-})
-
-// ✅ This change is manually flagged and we still get to mutate for performance
-world.query(Inventory).each((inventory, entity) => {
-  inventory.items.push(item)
-  entity.changed()
-})
 ```
 
 ### World traits

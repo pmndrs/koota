@@ -189,18 +189,11 @@ function updateMovement(world: World) {
 
 `each` automatically detects changes for traits tracked via `onChange` or `Changed` modifier. The deprecated `updateEach` accepts options to silence or force it.
 
-```typescript
+````typescript
 // Default: selective detection (only tracked traits)
 world.query(Position, Velocity).each((pos, vel) => {
   pos.x += vel.x
-})
-
-// Deprecated updateEach: silence change events
-world.query(Position).updateEach(([pos]) => (pos.x += 1), { changeDetection: 'never' })
-
-// Deprecated updateEach: emit change events for every write
-world.query(Position).updateEach(([pos]) => (pos.x += 1), { changeDetection: 'always' })
-```
+})```
 
 **Shallow comparison:**
 
@@ -222,7 +215,7 @@ world.query(Inventory).each((inv, entity) => {
   inv.items.push(item)
   entity.changed(Inventory)
 })
-```
+````
 
 ## Query + select
 
