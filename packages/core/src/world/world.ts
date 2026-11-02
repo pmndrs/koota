@@ -106,6 +106,7 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
     [$internal]: {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
+      retainedMasks: [0],
       tombstones: new Int32Array(retain),
       tombstoneSerials: new Float64Array(retain),
       tombstoneHead: 0,
@@ -214,6 +215,7 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
       ctx.names.clear();
       ctx.entityMasks = [createEmptyMaskGeneration()];
+      ctx.retainedMasks = [0];
       ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
 

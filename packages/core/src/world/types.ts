@@ -45,6 +45,8 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
+  /** Traits by mask generation whose holders stay readable after destroy. */
+  retainedMasks: number[];
   /** Destroyed entities the world still holds, a ring in destroy order. Zero length releases at destroy. */
   tombstones: Int32Array;
   /** The destroy serial of each ring entry. */

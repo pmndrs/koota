@@ -14,6 +14,9 @@ const IsHot = trait();
 const IsCold = trait();
 const Event = trait({ by: 0 });
 
+// A Removed term naming Position at module scope is what keeps its holders readable after destroy.
+createRemoved()(Position);
+
 describe('Entity retention', () => {
   it('keeps a destroyed entity readable until its readers have consumed it', () => {
     const world = createWorld();
@@ -106,6 +109,37 @@ describe('Entity retention', () => {
     const Later = createRemoved();
     expect(world.query(Later(Position)).length).toBe(0);
     expect(() => first.get(Position)).toThrow();
+  });
+
+  it('releases an entity at destroy when no term names a trait it held', () => {
+    const Particle = trait({ life: 0 });
+    const world = createWorld();
+    const Removed = createRemoved();
+    world.query(Removed(Position));
+
+    const particle = world.spawn(Particle({ life: 1 }));
+    particle.destroy();
+
+    expect(() => particle.get(Particle)).toThrow();
+    expect(world.spawn().id()).toBe(particle.id());
+    expect(world.query(Removed(Position)).length).toBe(0);
+  });
+
+  it('keeps a retained entity in place when an untracked one is destroyed after it', () => {
+    const Particle = trait({ life: 0 });
+    const world = createWorld();
+    const Removed = createRemoved();
+    world.query(Removed(Position));
+
+    const kept = world.spawn(Position({ x: 1 }));
+    const particle = world.spawn(Particle);
+    kept.destroy();
+    particle.destroy();
+
+    expect(kept.get(Position)!.x).toBe(1);
+    expect(world.spawn().id()).toBe(particle.id());
+    expect(kept.get(Position)!.x).toBe(1);
+    expect(world.query(Removed(Position)).toArray()).toEqual([kept]);
   });
 
   it('does not seed an Added query from a retained entity', () => {

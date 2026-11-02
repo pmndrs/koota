@@ -119,23 +119,26 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       }
 
       // Remove every trait the masks still hold. A removal may cascade into others, so the word
-      // is read again after each one. A retaining world records what was held first and tells the
-      // Destroyed queries while the data is still in place.
-      const retain = ctx.tombstones.length !== 0;
+      // is read again after each one. The held word is recorded first and the Destroyed queries
+      // hear about it while the data is still in place. The entity stays readable afterwards
+      // only if it held a trait some Removed or Destroyed term names.
+      let retain = false;
       const pageId = currentId >>> 10;
       const offset = currentId & 1023;
       const slot = offset << 2;
       const entityMasks = ctx.entityMasks;
+      const retainedMasks = ctx.retainedMasks;
       for (let g = 0; g < entityMasks.length; g++) {
         const page = entityMasks[g][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
         let word = page[slot];
-        if (retain) page[slot + DESTROYED_WORD] = word;
+        page[slot + DESTROYED_WORD] = word;
+        if ((word & retainedMasks[g]) !== 0) retain = true;
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
-          if (retain && instance.destroyedQueries.length !== 0) {
+          if (instance.destroyedQueries.length !== 0) {
             notifyDestroyedQueries(ctx, currentEntity, instance, g, low);
           }
           removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
@@ -144,7 +147,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         }
       }
 
-      if (retain) retainTombstone(ctx, currentEntity);
+      if (retain && ctx.tombstones.length !== 0) retainTombstone(ctx, currentEntity);
       else releaseEntity(ctx.entityIndex, currentEntity);
 
       const targetQueries = ctx.targetQueries[pageId]?.[offset];
@@ -164,6 +167,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         if (retain) continue;
         page[slot + REMOVED_WORD] = 0;
         page[slot + CHANGED_WORD] = 0;
+        page[slot + DESTROYED_WORD] = 0;
       }
     }
   } finally {

@@ -267,6 +267,10 @@ function processTrackingModifier(
       instance.tracked = true;
       query.changedTraits.push(trait);
       query.hasChangedModifiers = true;
+    } else if (trackingType === 'remove' || trackingType === 'destroy') {
+      trait[$internal].retained = true;
+      instance.retained = true;
+      ctx.retainedMasks[genId] |= instance.bitflag;
     }
   }
 

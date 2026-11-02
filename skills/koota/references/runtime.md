@@ -167,7 +167,7 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**3. Emit and drain:** Emit an event as a short lived entity and let a system drain it on its own schedule. Use for discrete game events that several systems read. An event lives until every listener has read it, bounded by the world's `retain` cap, so create listeners before the first emit they need to see.
+**3. Emit and drain:** Emit an event as a short lived entity and let a system drain it on its own schedule. Use for discrete game events that several systems read. An event lives until every listener has read it, bounded by the world's `retain` cap. Create listener keys at module scope, since naming the event trait in a listener is what keeps emitted entities readable.
 
 ```typescript
 const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })

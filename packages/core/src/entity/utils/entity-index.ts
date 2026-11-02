@@ -119,6 +119,16 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
   index.sparse[entityId] = lastIdx;
   index.dense[lastIdx] = deadEntry;
   index.aliveCount--;
+
+  // That slot now heads the retained region, so the dead entry moves past its last entry.
+  if (index.retainedCount !== 0) {
+    const endIdx = lastIdx + index.retainedCount;
+    const retained = index.dense[endIdx];
+    index.sparse[getEntityId(retained)] = lastIdx;
+    index.dense[lastIdx] = retained;
+    index.sparse[entityId] = endIdx;
+    index.dense[endIdx] = deadEntry;
+  }
 };
 
 /**

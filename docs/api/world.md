@@ -14,8 +14,8 @@ World's can also have their own traits, which function as singletons.
 ## World API
 
 ```js
-// Destroyed entities stay readable for Removed and Destroyed queries until they are consumed
-// The world keeps at most this many of them, 1024 by default, zero releases at destroy
+// Destroyed entities that held a trait a Removed or Destroyed term names stay readable until
+// those queries consume them. The world keeps at most this many, 1024 by default, zero releases at destroy
 const world = createWorld({ retain: 1024 })
 
 // Spawns an entity
