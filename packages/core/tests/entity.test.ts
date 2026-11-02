@@ -6,7 +6,8 @@ const Bar = trait({ value: 0 });
 const Baz = trait(() => ({ value: 0 }));
 
 describe('Entity', () => {
-  const world = createWorld();
+  // These tests pin id recycling and stale handle rejection, so the world releases at destroy.
+  const world = createWorld({ retain: 0 });
 
   beforeEach(() => {
     world.reset();

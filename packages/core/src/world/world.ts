@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { collectEntities, createEntity, destroyEntity } from '../entity/entity';
+import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -89,9 +89,9 @@ export function createWorld(options: WorldOptions, ...traits: ConfigurableTrait[
 export function createWorld(...traits: ConfigurableTrait[]): World;
 export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): World {
   const id = nextWorldId++;
-  let manualCollect = false;
+  let retain = 1024;
   if (args.length !== 0 && isWorldOptions(args[0])) {
-    manualCollect = args[0].collect === 'manual';
+    retain = args[0].retain ?? retain;
     args = args.slice(1);
   }
   const traits = args as ConfigurableTrait[];
@@ -106,7 +106,12 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
     [$internal]: {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
-      manualCollect,
+      tombstones: new Int32Array(retain),
+      tombstoneSerials: new Float64Array(retain),
+      tombstoneHead: 0,
+      tombstoneCount: 0,
+      destroySerial: 0,
+      retainingQueries: [],
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -223,6 +228,9 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
       ctx.queriesHashMap.clear();
       ctx.queryInstances.length = 0;
+      ctx.retainingQueries.length = 0;
+      ctx.tombstoneHead = 0;
+      ctx.tombstoneCount = 0;
       ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();
@@ -240,13 +248,13 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
     emit(...traits: ConfigurableTrait[]) {
       const ctx = world[$internal];
+      if (ctx.tombstones.length === 0) {
+        throw new Error(
+          'Koota: [EMIT_RETAIN] world.emit needs a world that retains destroyed entities. Create it without retain: 0.'
+        );
+      }
       ensureWorldRegistered(ctx);
       destroyEntity(ctx, createEntity(ctx, traits));
-    },
-
-    collect() {
-      const ctx = world[$internal];
-      if (ctx.isRegistered) collectEntities(ctx);
     },
 
     query(...args: any[]) {

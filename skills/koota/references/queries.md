@@ -106,7 +106,7 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a `Changed` term names the trait, so build `Changed` terms at module scope to record from the start. Destroyed entities are released at destroy unless the world was created with `collect: 'manual'`, see Destroyed below.
+Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a `Changed` term names the trait, so build `Changed` terms at module scope to record from the start. Destroyed entities stay readable until every `Removed` and `Destroyed` reader has consumed them, see Destroyed below.
 
 ```typescript
 import { createAdded, createRemoved, createChanged, createDestroyed } from 'koota'
@@ -127,7 +127,7 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since last query (includes destroyed entities, readable until `world.collect()` on a manual world):
+**Removed** - Entities that removed a trait since last query (includes destroyed entities, readable until every Removed and Destroyed reader has consumed them):
 
 ```typescript
 const stoppedEntities = world.query(Removed(Velocity))
@@ -145,14 +145,10 @@ const movedEntities = world.query(Changed(Position))
 const updatedChildren = world.query(Changed(ChildOf))
 ```
 
-**Destroyed** - Entities destroyed while holding a trait since last query. Needs `createWorld({ collect: 'manual' })`, which keeps destroyed entities readable until `world.collect()` runs, usually once per loop. Removing the trait first does not count, writes to the entity throw, and other terms filter on the traits held at destroy:
+**Destroyed** - Entities destroyed while holding a trait since last query. The entity stays readable until every Removed and Destroyed reader has run twice past the destroy, up to `createWorld({ retain })` entities (1024 by default, 0 releases at destroy). Removing the trait first does not count, writes to the entity throw, and other terms filter on the traits held at destroy:
 
 ```typescript
-const world = createWorld({ collect: 'manual' })
-
 world.query(Destroyed(ServerSync)).readEach(([serverSync]) => serverSync.disconnect())
-
-world.collect() // End of the loop
 ```
 
 See [runtime.md](runtime.md#event-driven-systems) for `world.emit` and `createListener`, which build on Destroyed.

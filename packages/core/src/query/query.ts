@@ -5,6 +5,7 @@ import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import { isNameConfig } from '../name/name-index';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
+import { reclaimTombstones } from '../entity/entity';
 import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -99,7 +100,9 @@ function firstRetained(query: QueryInstance): Entity | undefined {
 
 /**
  * Exposes the batch accumulated since the previous run and starts collecting the next one in the
- * set that run exposed. A run nested inside a walk of the batch keeps it as it is.
+ * set that run exposed. A run nested inside a walk of the batch keeps it as it is. A retaining
+ * query also stamps the run, drops entries the ring has already evicted, and releases the
+ * tombstones every retaining reader is done with.
  */
 function consumeTrackingBatch(query: QueryInstance) {
   if (query.iterating !== 0) return;
@@ -113,6 +116,32 @@ function consumeTrackingBatch(query: QueryInstance) {
   for (let i = 0; i < length; i++) {
     resetQueryTrackingBitmasks(query, getEntityId(dense[i] as Entity));
   }
+  if (query.retains && query.ctx.tombstones.length !== 0) consumeRetained(query, exposed);
+}
+
+/**
+ * Entries the ring evicted before this run no longer resolve, so they leave the exposed batch.
+ * The batch is rebuilt in place only when something was evicted, which keeps its order.
+ */
+function consumeRetained(query: QueryInstance, exposed: SparseSet) {
+  const ctx = query.ctx;
+  const index = ctx.entityIndex;
+  const end = index.aliveCount + index.retainedCount;
+  let survivors: Entity[] | undefined;
+  for (let i = 0; i < exposed.length; i++) {
+    const entity = exposed.dense[i] as Entity;
+    const idx = index.sparse[getEntityId(entity)];
+    const resolves = idx !== undefined && idx < end && index.dense[idx] === entity;
+    if (resolves) survivors?.push(entity);
+    else if (survivors === undefined) survivors = exposed.dense.slice(0, i) as Entity[];
+  }
+  if (survivors !== undefined) {
+    exposed.clear();
+    for (let i = 0; i < survivors.length; i++) exposed.add(survivors[i]);
+  }
+  query.consumedSerial = query.lastRunSerial;
+  query.lastRunSerial = ctx.destroySerial;
+  reclaimTombstones(ctx);
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
@@ -242,6 +271,7 @@ function processTrackingModifier(
   }
 
   if (trackingType === 'destroy') query.isDestroyed = true;
+  if (trackingType === 'destroy' || trackingType === 'remove') query.retains = true;
   query.isTracking = true;
 }
 
@@ -275,6 +305,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
     iterating: 0,
     isTracking: false,
     isDestroyed: false,
+    retains: false,
+    consumedSerial: -1,
+    lastRunSerial: -1,
     hasChangedModifiers: false,
     changedTraits: [],
     toRemove: null,
@@ -370,6 +403,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   // A tracking query exposes one set while it collects the next batch in the other.
   query.exposed = query.entities;
   if (query.isTracking) query.exposed = query.batch = new SparseSet();
+  if (query.retains) ctx.retainingQueries.push(query);
 
   if (query.name === undefined && forbidden.length > 0) {
     query.notIndex = ctx.notQueries.length;
@@ -433,8 +467,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
-  // A named query can only match the current owner, including on its first run. Retained
-  // entities are candidates only for tracking queries, which seed Removed and Destroyed from them.
+  // A named query can only match the current owner, including on its first run.
   const index = ctx.entityIndex;
   const namedEntity = typeof query.name === 'string' ? ctx.names.get(query.name) : undefined;
   let candidates: readonly Entity[];
@@ -447,18 +480,25 @@ export function createQueryInstance<T extends QueryParameter[]>(
     candidateCount = targetCandidates.length;
   } else {
     candidates = index.dense;
-    candidateCount = index.aliveCount + (query.isTracking ? index.retainedCount : 0);
+    candidateCount = index.aliveCount;
   }
 
   if (query.trackingGroups.length > 0) {
     // A tracking query seeds its first batch from the world history, so a reader created at any
-    // time sees what happened to the entities the world still holds.
-    for (let i = 0; i < candidateCount; i++) {
-      const entity = candidates[i];
-      if (query.name !== undefined && !checkQuery(ctx, query, entity)) continue;
-      if (!checkQueryTrackingSeed(ctx, query, entity)) continue;
-      if (hasRelationFilters && !hasEveryRelationPair(ctx, query, entity)) continue;
+    // time sees what happened to the entities the world still holds. Alive entities come first,
+    // then the retained ones in destroy order, which only Removed and Destroyed terms can match.
+    const seed = (entity: Entity) => {
+      if (query.name !== undefined && !checkQuery(ctx, query, entity)) return;
+      if (!checkQueryTrackingSeed(ctx, query, entity)) return;
+      if (hasRelationFilters && !hasEveryRelationPair(ctx, query, entity)) return;
       addEntityToQuery(query, entity);
+    };
+    for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
+    if (query.retains && query.name === undefined) {
+      const { tombstones, tombstoneHead, tombstoneCount } = ctx;
+      for (let k = 0; k < tombstoneCount; k++) {
+        seed(tombstones[(tombstoneHead + k) % tombstones.length] as Entity);
+      }
     }
   } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
     scanMaskPages(ctx, query);
@@ -597,6 +637,10 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     leaveList(queryList(query, instance), query, i, instance, false);
+  }
+  if (query.retains) {
+    const i = ctx.retainingQueries.indexOf(query);
+    if (i !== -1) ctx.retainingQueries.splice(i, 1);
   }
   for (let k = 0; k < query.relationFilters!.length; k++) {
     const trait = query.relationFilters![k].relation[$internal].trait;

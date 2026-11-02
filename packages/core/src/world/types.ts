@@ -45,8 +45,16 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
-  /** Destroyed entities stay readable until collect is called. */
-  manualCollect: boolean;
+  /** Destroyed entities the world still holds, a ring in destroy order. Zero length releases at destroy. */
+  tombstones: Int32Array;
+  /** The destroy serial of each ring entry. */
+  tombstoneSerials: Float64Array;
+  tombstoneHead: number;
+  tombstoneCount: number;
+  /** Counts destroys. Retaining readers stamp their runs with it to say what they have consumed. */
+  destroySerial: number;
+  /** Removed and Destroyed query instances. Their runs release the tombstones they have consumed. */
+  retainingQueries: QueryInstance[];
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
@@ -61,10 +69,11 @@ export type WorldContext = {
 
 export type WorldOptions = {
   /**
-   * When a destroyed entity is released. Eager releases it at destroy. Manual keeps it readable
-   * for Removed and Destroyed queries until the world collects.
+   * How many destroyed entities the world keeps readable at most. Removed and Destroyed queries
+   * release them as they consume them, so the cap only bounds a world whose readers stall or do
+   * not exist. Defaults to 1024. Zero releases every entity at destroy.
    */
-  collect?: 'eager' | 'manual';
+  retain?: number;
 };
 
 export type World = {
@@ -87,8 +96,6 @@ export type World = {
   reset(): void;
   /** Spawns an entity and destroys it at once, so only Destroyed queries and listeners see it. */
   emit(...traits: ConfigurableTrait[]): void;
-  /** Releases the entities destroyed since the last collect. A no-op on an eager world. */
-  collect(): void;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;

@@ -233,6 +233,12 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   isTracking: boolean;
   /** Holds a Destroyed term. Only destroy events reach it and its filters read the masks at destroy. */
   isDestroyed: boolean;
+  /** Holds a Removed or Destroyed term, so its runs decide when tombstones are released. */
+  retains: boolean;
+  /** The destroy serial at the previous run. Tombstones up to it were exposed and swapped out. */
+  consumedSerial: number;
+  /** The destroy serial at the last run. */
+  lastRunSerial: number;
   hasChangedModifiers: boolean;
   changedTraits: Trait[];
   /** Removals deferred by a walk in progress, created on the first one. */

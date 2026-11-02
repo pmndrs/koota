@@ -8,7 +8,8 @@ describe('Assertions', () => {
   const Link = relation({ store: { weight: 0 }, exclusive: true });
 
   beforeEach(() => {
-    world = createWorld();
+    // These tests pin id recycling and stale handle rejection, so the world releases at destroy.
+    world = createWorld({ retain: 0 });
   });
   afterEach(() => {
     world.destroy();

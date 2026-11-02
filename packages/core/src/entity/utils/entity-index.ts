@@ -134,7 +134,7 @@ function displaceRetained(index: EntityIndex, denseIdx: number, free: number) {
 
 /**
  * Move a destroyed entity into the retained region without bumping its generation, so the handle
- * still resolves for readers until the world collects.
+ * still resolves for readers until the world releases it.
  */
 export const retainEntity = (index: EntityIndex, entity: Entity): void => {
   const entityId = getEntityId(entity);
@@ -153,21 +153,30 @@ export const retainEntity = (index: EntityIndex, entity: Entity): void => {
   index.retainedCount++;
 };
 
-/** Release every retained entity. Their ids become free with bumped generations. */
-export const collectRetainedEntities = (index: EntityIndex): void => {
-  const { dense, aliveCount, retainedCount } = index;
-  if (retainedCount === 0) return;
+/** Release one retained entity. Its id becomes free with a bumped generation. */
+export const releaseRetainedEntity = (index: EntityIndex, entity: Entity): void => {
+  const entityId = getEntityId(entity);
+  const denseIdx = index.sparse[entityId];
+  const end = index.aliveCount + index.retainedCount;
+  if (denseIdx === undefined || denseIdx < index.aliveCount || denseIdx >= end) return;
+  if (index.dense[denseIdx] !== entity) return;
+
   if (assertsEnabled) index.owner.structuralRevision++;
   const allocator = index.allocator;
-  for (let i = aliveCount; i < aliveCount + retainedCount; i++) {
-    const entity = dense[i];
-    const entityId = getEntityId(entity);
-    const nextGen = (getEntityGeneration(entity) + 1) & GENERATION_MASK;
-    allocator.generations[entityId >>> 10]![entityId & 1023] = nextGen;
-    allocator.pageAliveCounts[entityId >>> 10]--;
-    dense[i] = packEntity(nextGen, entityId);
-  }
-  index.retainedCount = 0;
+  const pageId = entityId >>> 10;
+  const offset = entityId & 1023;
+  allocator.pageAliveCounts[pageId]--;
+  const nextGen = (getEntityGeneration(entity) + 1) & GENERATION_MASK;
+  allocator.generations[pageId]![offset] = nextGen;
+
+  // Swap with the last retained entry so the free region still starts right after them.
+  const lastIdx = end - 1;
+  const lastEntity = index.dense[lastIdx];
+  index.sparse[getEntityId(lastEntity)] = denseIdx;
+  index.dense[denseIdx] = lastEntity;
+  index.sparse[entityId] = lastIdx;
+  index.dense[lastIdx] = packEntity(nextGen, entityId);
+  index.retainedCount--;
 };
 
 export const isEntityRetained = (index: EntityIndex, entity: Entity): boolean => {

@@ -63,7 +63,6 @@ create();
 const main = () => {
   measure(() => {
     schedule.run({ world });
-    world.collect();
     renderer.render(scene, camera);
     updateStats();
   });

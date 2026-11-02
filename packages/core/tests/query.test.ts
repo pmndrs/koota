@@ -75,6 +75,7 @@ describe('Query', () => {
   });
 
   it('keeps replacements and removed entities distinct when ids are recycled before querying', () => {
+    const world = createWorld({ retain: 0 });
     const Removed = createRemoved();
     world.query(Removed(Position));
     const first = world.spawn(Position);
@@ -542,6 +543,7 @@ describe('Query', () => {
   });
 
   it('can sort query results', () => {
+    const world = createWorld({ retain: 0 });
     const entityA = world.spawn(Position);
     const entityB = world.spawn(Position);
     const entityC = world.spawn(Position);
@@ -574,10 +576,9 @@ describe('Query', () => {
     expect(sorted).not.toBe(entities);
     expect(entities.at(2)).toBe(entityD);
 
-    // Test the entity.id() are in ascending order.
-    // [1, 2, 3, 4]
+    // The ids are consecutive in ascending order once entityE has recycled entityC's id.
     for (let i = 0; i < sorted.length; i++) {
-      expect(sorted[i].id()).toBe(i + 1);
+      expect(sorted[i].id()).toBe(sorted[0].id() + i);
     }
   });
 

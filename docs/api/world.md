@@ -14,9 +14,9 @@ World's can also have their own traits, which function as singletons.
 ## World API
 
 ```js
-// A world releases destroyed entities at once by default. Manual collection keeps them
-// readable for Removed and Destroyed queries until collect is called, see Destroyed
-const world = createWorld({ collect: 'manual' })
+// Destroyed entities stay readable for Removed and Destroyed queries until they are consumed
+// The world keeps at most this many of them, 1024 by default, zero releases at destroy
+const world = createWorld({ retain: 1024 })
 
 // Spawns an entity
 // Can pass any number of traits
@@ -76,9 +76,6 @@ const id = world.id()
 
 // Spawns an entity and destroys it at once, so only Destroyed queries and listeners see it
 world.emit(CoinCollected({ by: player, coin }))
-
-// Releases the entities destroyed since the last collect, call once per loop on a manual world
-world.collect()
 
 // Resets the world as if it were just created
 // The world ID and reference is preserved

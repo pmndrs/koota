@@ -31,9 +31,9 @@ import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/
 import type { Entity } from './types';
 import {
   allocateEntity,
-  collectRetainedEntities,
   isEntityAlive,
   releaseEntity,
+  releaseRetainedEntity,
   retainEntity,
 } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
@@ -112,7 +112,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       // Remove every trait the masks still hold. A removal may cascade into others, so the word
       // is read again after each one. A retaining world records what was held first and tells the
       // Destroyed queries while the data is still in place.
-      const manual = ctx.manualCollect;
+      const retain = ctx.tombstones.length !== 0;
       const pageId = currentId >>> 10;
       const offset = currentId & 1023;
       const slot = offset << 2;
@@ -122,11 +122,11 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
         let word = page[slot];
-        if (manual) page[slot + DESTROYED_WORD] = word;
+        if (retain) page[slot + DESTROYED_WORD] = word;
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
-          if (manual && instance.destroyedQueries.length !== 0) {
+          if (retain && instance.destroyedQueries.length !== 0) {
             notifyDestroyedQueries(ctx, currentEntity, instance, g, low);
           }
           removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
@@ -135,7 +135,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         }
       }
 
-      if (manual) retainEntity(ctx.entityIndex, currentEntity);
+      if (retain) retainTombstone(ctx, currentEntity);
       else releaseEntity(ctx.entityIndex, currentEntity);
 
       const targetQueries = ctx.targetQueries[pageId]?.[offset];
@@ -147,12 +147,12 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, currentEntity);
 
       // The history goes with the entity so a recycled id starts clean. A retained entity keeps
-      // it for the readers that seed from it, and collect clears it.
+      // it for the readers that seed from it, and its release clears it.
       for (let i = 0; i < entityMasks.length; i++) {
         const page = entityMasks[i][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
         page[slot] = 0;
-        if (manual) continue;
+        if (retain) continue;
         page[slot + REMOVED_WORD] = 0;
         page[slot + CHANGED_WORD] = 0;
       }
@@ -235,25 +235,58 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
   }
 }
 
-/** Release the entities destroyed since the last collect, clearing the history they kept. */
-export function collectEntities(ctx: WorldContext) {
-  const index = ctx.entityIndex;
-  const { dense, aliveCount, retainedCount } = index;
-  if (retainedCount === 0) return;
-  const entityMasks = ctx.entityMasks;
-  for (let i = aliveCount; i < aliveCount + retainedCount; i++) {
-    const eid = getEntityId(dense[i]);
-    const pageId = eid >>> 10;
-    const slot = (eid & 1023) << 2;
-    for (let g = 0; g < entityMasks.length; g++) {
-      const page = entityMasks[g][pageId];
-      if (page === EMPTY_MASK_PAGE) continue;
-      page[slot + REMOVED_WORD] = 0;
-      page[slot + CHANGED_WORD] = 0;
-      page[slot + DESTROYED_WORD] = 0;
-    }
+/**
+ * Keep a destroyed entity readable. It joins the ring in destroy order and leaves when every
+ * retaining reader has consumed it, or when the ring is full and it is the oldest entry.
+ */
+function retainTombstone(ctx: WorldContext, entity: Entity) {
+  const cap = ctx.tombstones.length;
+  if (ctx.tombstoneCount === cap) {
+    releaseTombstone(ctx, ctx.tombstones[ctx.tombstoneHead] as Entity);
+    ctx.tombstoneHead = (ctx.tombstoneHead + 1) % cap;
+    ctx.tombstoneCount--;
   }
-  collectRetainedEntities(index);
+  retainEntity(ctx.entityIndex, entity);
+  const tail = (ctx.tombstoneHead + ctx.tombstoneCount) % cap;
+  ctx.tombstones[tail] = entity;
+  ctx.tombstoneSerials[tail] = ++ctx.destroySerial;
+  ctx.tombstoneCount++;
+}
+
+/** Free a retained entity and clear the history it kept so a recycled id starts clean. */
+function releaseTombstone(ctx: WorldContext, entity: Entity) {
+  const eid = getEntityId(entity);
+  const pageId = eid >>> 10;
+  const slot = (eid & 1023) << 2;
+  const entityMasks = ctx.entityMasks;
+  for (let g = 0; g < entityMasks.length; g++) {
+    const page = entityMasks[g][pageId];
+    if (page === EMPTY_MASK_PAGE) continue;
+    page[slot + REMOVED_WORD] = 0;
+    page[slot + CHANGED_WORD] = 0;
+    page[slot + DESTROYED_WORD] = 0;
+  }
+  releaseRetainedEntity(ctx.entityIndex, entity);
+}
+
+/**
+ * Release the oldest tombstones every retaining reader has consumed. A reader has consumed a
+ * tombstone once it ran twice after the destroy, since the first run exposes the batch and the
+ * second swaps it out. With no retaining reader the ring holds until it is full.
+ */
+export function reclaimTombstones(ctx: WorldContext) {
+  const readers = ctx.retainingQueries;
+  if (readers.length === 0 || ctx.tombstoneCount === 0) return;
+  let consumed = Infinity;
+  for (let i = 0; i < readers.length; i++) {
+    if (readers[i].consumedSerial < consumed) consumed = readers[i].consumedSerial;
+  }
+  const cap = ctx.tombstones.length;
+  while (ctx.tombstoneCount !== 0 && ctx.tombstoneSerials[ctx.tombstoneHead] <= consumed) {
+    releaseTombstone(ctx, ctx.tombstones[ctx.tombstoneHead] as Entity);
+    ctx.tombstoneHead = (ctx.tombstoneHead + 1) % cap;
+    ctx.tombstoneCount--;
+  }
 }
 
 /** The world that owns a live entity. Used by entity methods. */

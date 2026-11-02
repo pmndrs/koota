@@ -8,10 +8,7 @@ import { world } from './world';
 
 // Start the simulation.
 const main = () => {
-  measure(() => {
-    schedule.run({ world });
-    world.collect();
-  });
+  measure(() => schedule.run({ world }));
   requestAnimationFrame(main);
 };
 

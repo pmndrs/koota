@@ -167,10 +167,9 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**3. Emit and drain:** Emit an event as a short lived entity and let a system drain it on its own schedule. Use for discrete game events that several systems read. The world must be created with `collect: 'manual'`, and `world.collect()` runs once at the end of the loop to release everything destroyed that iteration.
+**3. Emit and drain:** Emit an event as a short lived entity and let a system drain it on its own schedule. Use for discrete game events that several systems read. An event lives until every listener has read it, bounded by the world's `retain` cap, so create listeners before the first emit they need to see.
 
 ```typescript
-const world = createWorld({ collect: 'manual' })
 const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })
 
 // Cached query key over Destroyed(CoinCollected), create at module scope
@@ -181,11 +180,6 @@ world.emit(CoinCollected({ by: player, coin }), IsHot)
 
 function scoreSystem(world: World) {
   world.query(coinCollected).readEach(([event]) => addScore(event.by))
-}
-
-function loop() {
-  scoreSystem(world)
-  world.collect()
 }
 ```
 
