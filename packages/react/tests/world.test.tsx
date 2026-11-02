@@ -1,4 +1,4 @@
-import { createWorld, universe, type World } from '@koota/core';
+import { createWorld, type World } from '@koota/core';
 import { render } from '@testing-library/react';
 import { act, StrictMode, useEffect, useMemo } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -15,7 +15,6 @@ let world: World;
 
 describe('World', () => {
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 
@@ -41,8 +40,6 @@ describe('World', () => {
   });
 
   it('can create a world in useMemo and auto-register on first use', () => {
-    universe.reset();
-
     let worldTest: World = null!;
 
     function Test() {

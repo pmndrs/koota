@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import './setup-dom';
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait, universe, type Entity } from 'koota';
+import { createWorld, trait, type Entity } from 'koota';
 import { useTrait } from 'koota/react';
 import { createElement as h } from 'react';
 import { flushSync } from 'react-dom';
@@ -25,7 +25,6 @@ group('React useTrait, 5000 entities @react @hooks', () => {
     ['rerender without changes', 0],
   ] as const) {
     bench(name, function* () {
-      universe.reset();
       const world = createWorld();
       const entities = Array.from({ length: 5000 }, () => world.spawn(Position, Radius));
       const root = createRoot(document.createElement('div'));

@@ -61,7 +61,7 @@ export type {
 } from './trait/types';
 export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';
-export { universe } from './universe/universe';
+export { resolveWorld } from './entity/utils/address-space';
 export type { World } from './world';
 export { createWorld } from './world';
 

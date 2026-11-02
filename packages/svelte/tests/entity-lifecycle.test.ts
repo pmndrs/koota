@@ -1,4 +1,4 @@
-import { createWorld, trait, universe, type World } from '@koota/core';
+import { createWorld, trait, type World } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,6 @@ describe('entity lifecycle', () => {
   const Position = trait({ x: 0 });
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

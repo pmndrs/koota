@@ -4,7 +4,6 @@ import { MAX_PAGES, PAGE_SIZE } from './pack-entity';
 export type PageCleanupToken = {
   ownedPages: number[];
   registered: boolean;
-  worldId?: number;
 };
 
 export type PageAllocator = {
@@ -22,7 +21,7 @@ export type PageAllocator = {
   worldFinalizer: FinalizationRegistry<PageCleanupToken>;
 };
 
-export function createPageAllocator(onWorldFinalize?: (worldId: number) => void): PageAllocator {
+export function createPageAllocator(): PageAllocator {
   const allocator: PageAllocator = {
     generations: new Array(MAX_PAGES).fill(null),
     pageAliveCounts: new Array(MAX_PAGES).fill(0),
@@ -40,7 +39,6 @@ export function createPageAllocator(onWorldFinalize?: (worldId: number) => void)
       allocator.freePages.push(pageId);
     }
     token.ownedPages.length = 0;
-    if (token.worldId !== undefined) onWorldFinalize?.(token.worldId);
   });
 
   return allocator;

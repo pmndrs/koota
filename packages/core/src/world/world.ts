@@ -8,6 +8,7 @@ import {
   isEntityAlive,
   releaseOwnedPages,
 } from '../entity/utils/entity-index';
+import { addressSpace } from '../entity/utils/address-space';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyHistoryGeneration, createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findNamedEntity } from '../name/find-named-entity';
@@ -36,22 +37,16 @@ import type {
   TraitRecord,
   TraitValue,
 } from '../trait/types';
-import { universe } from '../universe/universe';
 import type { World, WorldContext } from './types';
 import { resolveHookCallback, resolveHookTrait } from './utils/resolve-hook';
 
 let nextWorldId = 0;
 
-/**
- * Lazily registers a world in the universe on first mutation.
- * Registers IsExcluded and creates the world entity.
- */
-function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): void {
+/** Registers IsExcluded and creates the world entity on first mutation. */
+function ensureWorldRegistered(ctx: WorldContext): void {
   if (ctx.isRegistered) return;
   ctx.isRegistered = true;
   if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
-
-  universe.worlds[id] = ctx;
 
   if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
 
@@ -92,7 +87,6 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
   const cleanupToken: PageCleanupToken = {
     ownedPages: [],
     registered: false,
-    worldId: id,
   };
 
   const world = {
@@ -129,7 +123,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     spawn(...spawnTraits: ConfigurableTrait[]): Entity {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       return createEntity(ctx, spawnTraits);
     },
 
@@ -150,7 +144,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     add(...addTraits: ConfigurableTrait[]) {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       addTrait(ctx, ctx.worldEntity, ...addTraits);
     },
 
@@ -168,7 +162,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>) {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       setTrait(ctx, ctx.worldEntity, trait, value, true);
     },
 
@@ -180,8 +174,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         world.reset();
       }
       ctx.isRegistered = false;
-      delete universe.worlds[id];
-      universe.pageAllocator.worldFinalizer.unregister(world);
+      addressSpace.worldFinalizer.unregister(world);
     },
 
     reset() {
@@ -198,7 +191,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       });
 
       releaseOwnedPages(ctx.entityIndex);
-      ctx.entityIndex = createEntityIndex(universe.pageAllocator, ctx);
+      ctx.entityIndex = createEntityIndex(addressSpace, ctx);
       // Re-link shared ownedPages for the cleanup token.
       ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
 
@@ -237,7 +230,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     query(...args: any[]) {
       const ctx = world[$internal];
-      if (!ctx.isRegistered) ensureWorldRegistered(ctx, world, id);
+      if (!ctx.isRegistered) ensureWorldRegistered(ctx);
 
       if (args.length === 1 && isQuery(args[0])) {
         const queryRef = args[0];
@@ -249,7 +242,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     queryFirst(...args: [Query<QueryParameter[]>] | QueryParameter[]) {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
 
       if (args.length === 1) {
         const arg = args[0];
@@ -274,7 +267,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       callback: (entity: Entity) => void
     ): QueryUnsubscriber {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       let query: QueryInstance;
 
       if (isQuery(args)) {
@@ -310,7 +303,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       callback: (entity: Entity) => void
     ): QueryUnsubscriber {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       let query: QueryInstance;
 
       if (isQuery(args)) {
@@ -346,7 +339,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       const resolvedTrait = resolveHookTrait(trait);
       const resolvedCallback = resolveHookCallback(ctx, trait, callback);
 
@@ -367,7 +360,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       const resolvedTrait = resolveHookTrait(trait);
       const resolvedCallback = resolveHookCallback(ctx, trait, callback);
 
@@ -388,7 +381,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       callback: (entity: Entity, target?: Entity) => void
     ): QueryUnsubscriber {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      ensureWorldRegistered(ctx);
       const resolvedTrait = resolveHookTrait(trait);
       const resolvedCallback = resolveHookCallback(ctx, trait, callback);
 
@@ -421,12 +414,12 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
   } as World;
 
   // Initialize entity index.
-  world[$internal].entityIndex = createEntityIndex(universe.pageAllocator, world[$internal]);
+  world[$internal].entityIndex = createEntityIndex(addressSpace, world[$internal]);
   // Share ownedPages with the cleanup token so FR can reclaim pages.
   world[$internal].entityIndex.ownedPages = cleanupToken.ownedPages;
 
   // Register FR (only unobservable side effect of createWorld).
-  universe.pageAllocator.worldFinalizer.register(world, cleanupToken, world);
+  addressSpace.worldFinalizer.register(world, cleanupToken, world);
 
   // Accessors are added after the literal. Redefining a literal data property
   // as a getter would drop the world into V8 dictionary mode.
@@ -450,7 +443,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
   // Auto-register when traits are passed. No-arg createWorld() stays pure.
   if (pendingTraits) {
-    ensureWorldRegistered(world[$internal], world, id);
+    ensureWorldRegistered(world[$internal]);
   }
 
   return world;

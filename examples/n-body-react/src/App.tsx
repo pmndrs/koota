@@ -1,7 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { CONSTANTS, init, schedule } from '@examples/n-body';
 import { useSchedule } from 'directed/react';
-import { type Entity, universe } from 'koota';
+import { type Entity } from 'koota';
 import { useActions, useWorld } from 'koota/react';
 import { StrictMode, useLayoutEffect, useRef } from 'react';
 import * as THREE from 'three';
@@ -31,8 +31,6 @@ export function App() {
   useLayoutEffect(() => {
     spawnCentralMasses(1);
     spawnBodies(CONSTANTS.NBODIES - 1);
-
-    console.log(universe.worldIndex, universe.worlds);
 
     return () => {
       destroyAllBodies();

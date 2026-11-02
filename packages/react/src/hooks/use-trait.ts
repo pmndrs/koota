@@ -2,7 +2,7 @@ import {
   $internal,
   $relationPair,
   isOrderedTrait,
-  universe,
+  resolveWorld,
   type Entity,
   type ExtractSchema,
   type MutableOrderedView,
@@ -20,7 +20,7 @@ export function readTrait(entity: Entity, trait: Trait | RelationPair) {
 
 function getTraitVersionSource(entity: Entity, trait: Trait | RelationPair) {
   if ($relationPair in trait) trait = trait.relation[$internal].trait;
-  return universe.pageOwners[entity.id() >>> 10]?.traitInstances[trait.id];
+  return resolveWorld(entity)?.traitInstances[trait.id];
 }
 
 export function attachTrait<T extends Trait | RelationPair>(

@@ -1,4 +1,4 @@
-import { createWorld, trait, universe, type World } from '@koota/core';
+import { createWorld, trait, type World } from '@koota/core';
 import { renderHook } from '@testing-library/react';
 import { StrictMode, useLayoutEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,7 +9,6 @@ describe('entity lifecycle', () => {
   const Position = trait({ x: 0 });
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

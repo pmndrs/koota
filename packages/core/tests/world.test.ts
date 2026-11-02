@@ -1,17 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait, universe, IsExcluded } from '../src';
+import { describe, expect, it } from 'vitest';
+import { $internal, createWorld, relation, trait, IsExcluded } from '../src';
+import { addressSpace } from '../src/entity/utils/address-space';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 describe('World', () => {
-  beforeEach(() => {
-    universe.reset();
-  });
-
   it('should create a world', () => {
     const world = createWorld();
 
     expect(world.isRegistered).toBe(false);
-    expect(universe.worlds[world.id]).toBeUndefined();
   });
 
   it('should auto-register on first mutation', () => {
@@ -40,7 +36,6 @@ describe('World', () => {
     it.skipIf(!hasNativeGc())(
       'should finalize a used abandoned world',
       async () => {
-        let worldId = -1;
         let ownedPages: number[] = [];
 
         await expect(
@@ -49,18 +44,16 @@ describe('World', () => {
               const world = createWorld();
               world.spawn();
               world.query(IsExcluded);
-              worldId = world.id;
               ownedPages = [...world[$internal].entityIndex.ownedPages];
               registry.register(world, 'world');
             })();
           })
         ).resolves.toBe(true);
 
-        expect(universe.worlds[worldId]).toBeUndefined();
         for (const pageId of ownedPages) {
-          expect(universe.pageAllocator.pageOwners[pageId]).toBeNull();
-          expect(universe.pageAllocator.pageAliveCounts[pageId]).toBe(0);
-          expect(universe.pageAllocator.freePages).toContain(pageId);
+          expect(addressSpace.pageOwners[pageId]).toBeNull();
+          expect(addressSpace.pageAliveCounts[pageId]).toBe(0);
+          expect(addressSpace.freePages).toContain(pageId);
         }
       },
       20_000

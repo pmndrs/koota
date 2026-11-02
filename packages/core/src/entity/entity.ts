@@ -24,7 +24,6 @@ import {
 } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { ConfigurableTrait, Trait } from '../trait/types';
-import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
 import type { QueryInstance } from '../query/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
@@ -32,6 +31,7 @@ import type { Entity } from './types';
 import { allocateEntity, isEntityAlive, releaseEntity } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
 import { EMPTY_MASK_PAGE } from './utils/paged-mask';
+import { addressSpace } from './utils/address-space';
 
 // Ensure entity methods are patched.
 import './entity-methods-patch';
@@ -221,9 +221,9 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
   }
 }
 
-/** Resolve WorldContext directly from pageOwners. Used by entity methods. */
+/** The world that owns a live entity. Used by entity methods. */
 export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
-  return universe.pageOwners[getEntityId(entity) >>> 10]!;
+  return addressSpace.pageOwners[getEntityId(entity) >>> 10]!;
 }
 
 export /* @inline */ function entityHas(

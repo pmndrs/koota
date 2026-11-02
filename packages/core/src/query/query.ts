@@ -11,7 +11,6 @@ import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait, TraitInstance } from '../trait/types';
-import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
 import { bindQueryView, createOwnedView, exposeQuerySet } from './query-view';
@@ -724,10 +723,13 @@ export function subscribeQueryRemove(
 
 let queryId = 0;
 
+// Keys are hash consed so equal parameter lists share one id across every world.
+const queryKeys = new Map<string, Query<any>>();
+
 export function createQuery<T extends QueryParameter[]>(...parameters: T): Query<T> {
   const hash = createQueryHash(parameters);
 
-  const existing = universe.cachedQueries.get(hash);
+  const existing = queryKeys.get(hash);
   if (existing) return existing as Query<T>;
 
   const id = queryId++;
@@ -738,7 +740,7 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
     parameters,
   }) as Query<T>;
 
-  universe.cachedQueries.set(hash, queryRef);
+  queryKeys.set(hash, queryRef);
 
   return queryRef;
 }

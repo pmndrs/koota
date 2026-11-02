@@ -5,12 +5,12 @@ import { Name } from '../name/name';
 import type { NameConfig } from '../name/types';
 import { addTrait, getTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
-import { universe } from '../universe/universe';
 import type { Subscriber } from '../trait/subscriptions';
 import type { HookInput } from '../world/utils/resolve-hook';
 import { destroyEntity, entityHas, getEntityContext, subscribeEntityEvent } from './entity';
 import type { Entity } from './types';
 import { getEntityGeneration, getEntityId } from './utils/pack-entity';
+import { addressSpace } from './utils/address-space';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
@@ -99,7 +99,7 @@ Number.prototype.generation = function (this: Entity) {
 //@ts-expect-error
 Number.prototype.isAlive = function (this: Entity) {
   const eid = getEntityId(this);
-  const owner = universe.pageAllocator.pageOwners[eid >>> 10];
+  const owner = addressSpace.pageOwners[eid >>> 10];
   if (!owner) return false;
   const idx = owner.entityIndex;
   const denseIdx = idx.sparse[eid];
