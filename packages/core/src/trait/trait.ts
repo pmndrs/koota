@@ -161,6 +161,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     trait,
     store: traitCtx.createStore(),
     queries: [],
+    tracked: trait[$internal].tracked,
     trackingQueries: [],
     destroyedQueries: [],
     relationQueries: [],

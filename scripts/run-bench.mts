@@ -144,7 +144,8 @@ if (['baseline', 'compare', 'list', 'clear', 'delete', 'prune'].includes(args[0]
   run(['exec', 'labs', ...args]);
 } else {
   console.log(`Koota benchmarks: asserts ${asserts} (compiled)`);
-  await compile(repoDir);
+  // A candidate directory stands in for the working tree, which then has nothing to compile.
+  if (!args.includes('--candidate')) await compile(repoDir);
   await compileSide('--against');
   await compileSide('--candidate');
   run(['exec', 'labs', ...args], {

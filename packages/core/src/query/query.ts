@@ -235,6 +235,7 @@ function processTrackingModifier(
 
     if (trackingType === 'change') {
       trait[$internal].tracked = true;
+      instance.tracked = true;
       query.changedTraits.push(trait);
       query.hasChangedModifiers = true;
     }

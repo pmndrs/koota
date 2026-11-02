@@ -119,6 +119,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   store: Store<S>;
   /** Non-tracking queries that include this trait */
   queries: QueryInstance[];
+  /** Writes record Changed history. Set once a Changed term names the trait in this world. */
+  tracked: boolean;
   /** Tracking queries (Added/Removed/Changed) that include this trait */
   trackingQueries: QueryInstance[];
   /** Destroyed queries that include this trait. Only destroy events reach them. */

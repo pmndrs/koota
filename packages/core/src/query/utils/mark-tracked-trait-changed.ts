@@ -1,4 +1,3 @@
-import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { CHANGED_WORD } from '../../entity/utils/paged-mask';
@@ -18,7 +17,7 @@ export /* @inline */ function markTraitChanged(
   data: TraitInstance
 ) {
   data.version++;
-  if (data.trait[$internal].tracked) {
+  if (data.tracked) {
     const eid = getEntityId(entity);
     ctx.entityMasks[data.generationId][eid >>> 10][((eid & 1023) << 2) + CHANGED_WORD] |=
       data.bitflag;
