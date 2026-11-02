@@ -16,7 +16,7 @@ Complete guide to querying entities in Koota.
 
 Queries fetch entities that share specific traits (archetypes).
 
-`each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
+`each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
 A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Call `toArray()` for a copy you own. Structural changes inside a loop are safe.
 
@@ -187,7 +187,7 @@ function updateMovement(world: World) {
 
 ## Change detection
 
-`each` automatically detects changes for traits tracked via `onChange` or `Changed` modifier. The deprecated `updateEach` accepts options to silence or force it.
+`each` automatically detects changes for traits tracked via `onChange` or `Changed` modifier.
 
 ```typescript
 // Default: selective detection (only tracked traits)
