@@ -35,6 +35,7 @@ import {
   releaseEntity,
   releaseRetainedEntity,
   retainEntity,
+  reviveRetainedEntity,
 } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
 import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
@@ -44,7 +45,15 @@ import { addressSpace } from './utils/address-space';
 import './entity-methods-patch';
 
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
-  const entity = allocateEntity(ctx.entityIndex);
+  // Without a free slot, a full ring hands its oldest tombstone to the spawn, so the release work
+  // lands on lines the spawn writes anyway instead of on the destroy path.
+  const index = ctx.entityIndex;
+  const entity =
+    index.aliveCount + index.retainedCount === index.dense.length &&
+    ctx.tombstoneCount !== 0 &&
+    ctx.tombstoneCount === ctx.tombstones.length
+      ? reviveTombstone(ctx)
+      : allocateEntity(index);
 
   // Tracking queries enter on trait events. Static exclusion queries need an initial match.
   const notQueries = ctx.notQueries;
@@ -241,11 +250,7 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
  */
 function retainTombstone(ctx: WorldContext, entity: Entity) {
   const cap = ctx.tombstones.length;
-  if (ctx.tombstoneCount === cap) {
-    releaseTombstone(ctx, ctx.tombstones[ctx.tombstoneHead] as Entity);
-    ctx.tombstoneHead = (ctx.tombstoneHead + 1) % cap;
-    ctx.tombstoneCount--;
-  }
+  if (ctx.tombstoneCount === cap) evictTombstones(ctx);
   retainEntity(ctx.entityIndex, entity);
   const tail = (ctx.tombstoneHead + ctx.tombstoneCount) % cap;
   ctx.tombstones[tail] = entity;
@@ -253,8 +258,31 @@ function retainTombstone(ctx: WorldContext, entity: Entity) {
   ctx.tombstoneCount++;
 }
 
-/** Free a retained entity and clear the history it kept so a recycled id starts clean. */
-function releaseTombstone(ctx: WorldContext, entity: Entity) {
+/**
+ * A destroy on a full ring with no spawn to take the oldest entry releases a quarter of the ring
+ * at once, so a destroy burst pays for eviction in one sequential pass instead of per entity.
+ */
+function evictTombstones(ctx: WorldContext) {
+  const cap = ctx.tombstones.length;
+  const count = Math.max(1, cap >>> 2);
+  for (let i = 0; i < count; i++) {
+    releaseTombstone(ctx, ctx.tombstones[ctx.tombstoneHead] as Entity);
+    ctx.tombstoneHead = (ctx.tombstoneHead + 1) % cap;
+    ctx.tombstoneCount--;
+  }
+}
+
+/** Take the oldest tombstone off the ring and bring its id back as a fresh entity. */
+function reviveTombstone(ctx: WorldContext): Entity {
+  const entity = ctx.tombstones[ctx.tombstoneHead] as Entity;
+  ctx.tombstoneHead = (ctx.tombstoneHead + 1) % ctx.tombstones.length;
+  ctx.tombstoneCount--;
+  clearTombstoneHistory(ctx, entity);
+  return reviveRetainedEntity(ctx.entityIndex, entity);
+}
+
+/** Clear the history a retained entity kept so a recycled id starts clean. */
+function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
@@ -266,6 +294,11 @@ function releaseTombstone(ctx: WorldContext, entity: Entity) {
     page[slot + CHANGED_WORD] = 0;
     page[slot + DESTROYED_WORD] = 0;
   }
+}
+
+/** Free a retained entity and clear the history it kept so a recycled id starts clean. */
+function releaseTombstone(ctx: WorldContext, entity: Entity) {
+  clearTombstoneHistory(ctx, entity);
   releaseRetainedEntity(ctx.entityIndex, entity);
 }
 

@@ -70,6 +70,24 @@ describe('Entity retention', () => {
     expect(world.spawn().id()).toBe(a.id());
   });
 
+  it('hands the oldest retained id to a spawn once the ring is full', () => {
+    const world = createWorld({ retain: 2 });
+    const a = world.spawn(Position({ x: 1 }));
+    const b = world.spawn(Position({ x: 2 }));
+    a.destroy();
+    b.destroy();
+
+    const c = world.spawn(Position({ x: 3 }));
+    expect(c.id()).toBe(a.id());
+    expect(c).not.toBe(a);
+    expect(() => a.get(Position)).toThrow();
+    expect(b.get(Position)!.x).toBe(2);
+    expect(c.get(Position)!.x).toBe(3);
+
+    const Removed = createRemoved();
+    expect(world.query(Removed(Position)).toArray()).toEqual([b]);
+  });
+
   it('seeds a Removed query created after a destroy in destroy order', () => {
     const world = createWorld();
     const kept = world.spawn(Position({ x: 1 }));

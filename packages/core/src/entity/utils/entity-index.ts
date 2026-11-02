@@ -153,6 +153,29 @@ export const retainEntity = (index: EntityIndex, entity: Entity): void => {
   index.retainedCount++;
 };
 
+/**
+ * Bring a retained entity back as a fresh one. It moves to the alive boundary with a bumped
+ * generation and its page count is unchanged, since a retained entity still held its slot.
+ */
+export const reviveRetainedEntity = (index: EntityIndex, entity: Entity): Entity => {
+  if (assertsEnabled) index.owner.structuralRevision++;
+  const entityId = getEntityId(entity);
+  const denseIdx = index.sparse[entityId];
+  const firstIdx = index.aliveCount;
+  const first = index.dense[firstIdx];
+  index.sparse[getEntityId(first)] = denseIdx;
+  index.dense[denseIdx] = first;
+
+  const nextGen = (getEntityGeneration(entity) + 1) & GENERATION_MASK;
+  index.allocator.generations[entityId >>> 10]![entityId & 1023] = nextGen;
+  const fresh = packEntity(nextGen, entityId);
+  index.dense[firstIdx] = fresh;
+  index.sparse[entityId] = firstIdx;
+  index.aliveCount++;
+  index.retainedCount--;
+  return fresh;
+};
+
 /** Release one retained entity. Its id becomes free with a bumped generation. */
 export const releaseRetainedEntity = (index: EntityIndex, entity: Entity): void => {
   const entityId = getEntityId(entity);
