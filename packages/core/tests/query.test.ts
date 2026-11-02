@@ -11,6 +11,7 @@ import {
   Or,
   relation,
   trait,
+  type Entity,
 } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
@@ -907,5 +908,93 @@ describe('Query', () => {
     spawnEntities();
 
     expect(world.query(movementQuery).length).toBe(countBefore);
+  });
+
+  it('returns the same view each run and reflects membership changes', () => {
+    const first = world.spawn(Position);
+    const result = world.query(Position);
+    expect(world.query(Position)).toBe(result);
+
+    const second = world.spawn(Position);
+    expect([...result]).toEqual([first, second]);
+
+    // Removals commit on the next run.
+    first.remove(Position);
+    world.query(Position);
+    expect([...result]).toEqual([second]);
+
+    const copy = result.toArray();
+    expect(copy).not.toBe(result);
+    expect(copy).toEqual([second]);
+  });
+
+  it('reads indexed entities with array at semantics and respects the live length', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const result = world.query(Position);
+    const expected = [first, second];
+
+    for (const index of [0, 1, -1, 2]) {
+      expect(result.at(index)).toBe(expected.at(index));
+    }
+
+    second.destroy();
+    world.query(Position);
+    expect(result.at(-1)).toBe(first);
+    expect(result.at(1)).toBeUndefined();
+  });
+
+  it('keeps the outer walk stable when a callback runs the same query', () => {
+    const first = world.spawn(Position({ x: 1 }));
+    const second = world.spawn(Position({ x: 2 }));
+    const visited: Entity[] = [];
+    let inner: Entity[] = [];
+    let replacement!: Entity;
+
+    world.query(Position).updateEach(([position], entity, index) => {
+      visited.push(entity);
+      position.x += 10;
+      if (index !== 0) return;
+      second.destroy();
+      replacement = world.spawn(Position({ x: 7 }));
+      inner = [...world.query(Position)];
+    });
+
+    // The starting membership is walked once and an entity destroyed during the walk is skipped,
+    // the nested run skips the pending removal and the replacement waits for the next run.
+    expect(visited).toEqual([first]);
+    expect(inner).toEqual([first, replacement]);
+    expect(first.get(Position)?.x).toBe(11);
+    expect(replacement.get(Position)?.x).toBe(7);
+    expect([...world.query(Position)]).toEqual([first, replacement]);
+  });
+
+  it('walks the membership present when a for of loop starts', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const visited: Entity[] = [];
+
+    for (const entity of world.query(Position)) {
+      visited.push(entity);
+      if (entity === first) {
+        second.destroy();
+        world.spawn(Position);
+      }
+    }
+
+    expect(visited).toEqual([first, second]);
+  });
+
+  it('releases the iteration guard when a for of loop breaks', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+
+    for (const entity of world.query(Position)) {
+      entity.destroy();
+      break;
+    }
+
+    expect(first.isAlive()).toBe(false);
+    expect([...world.query(Position)]).toEqual([second]);
   });
 });
