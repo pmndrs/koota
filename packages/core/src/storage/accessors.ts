@@ -57,13 +57,7 @@ function createSoASetFunction(schema: Schema): SetAccessor {
 function createSoAAddFunction(schema: Schema): AddAccessor {
   const keys = Object.keys(schema);
   // Pages for every key are created together, so the first key stands in for all of them.
-  const pages = keys
-    .map((key) =>
-      getStride(schema, key)
-        ? `store.${key}[p] = createPage(schema.${key});`
-        : `store.${key}[p] = [];`
-    )
-    .join(' ');
+  const pages = keys.map((key) => `store.${key}[p] = createPage(schema.${key});`).join(' ');
   const writes = keys
     .map((key, k) => {
       const field = (schema as Record<string, unknown>)[key];

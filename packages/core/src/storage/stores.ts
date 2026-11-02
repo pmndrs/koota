@@ -17,15 +17,27 @@ export function createStore(schema: Schema): unknown {
   }
 }
 
+/** One filled page per default value, sliced for every new page. */
+const pageTemplates = new Map<unknown, unknown[]>();
+
 /**
- * Create one page of a SoA column. Tuple pages interleave each entity's elements
- * and start filled with the default, so the array stays packed.
+ * Create a full SoA page filled with the default so V8 keeps it packed. Tuples interleave
+ * their elements and factory defaults start undefined. The template starts from Array.of
+ * because a literal site shares its elements kind with every array made there.
  */
 export function createPage(field: unknown): unknown[] {
-  if (!Array.isArray(field)) return [];
-  const page: unknown[] = [];
-  for (let i = 0; i < PAGE_SIZE; i++) {
-    for (let c = 0; c < field.length; c++) page.push(field[c]);
+  let template = pageTemplates.get(field);
+  if (template === undefined) {
+    template = Array.of<unknown>();
+    if (Array.isArray(field)) {
+      for (let i = 0; i < PAGE_SIZE; i++) {
+        for (let c = 0; c < field.length; c++) template.push(field[c]);
+      }
+    } else {
+      const value = typeof field === 'function' ? undefined : field;
+      for (let i = 0; i < PAGE_SIZE; i++) template.push(value);
+    }
+    pageTemplates.set(field, template);
   }
-  return page;
+  return template.slice();
 }
