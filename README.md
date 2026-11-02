@@ -49,7 +49,7 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 
 ### Query and update data
 
-Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently. Writes made in `each` are change detected for traits tracked with `onChange` or `Changed`, see [change detection](docs/advanced/change-detection.md).
+Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently. Writes made in `each` are change detected for traits tracked with `onChange` or `Changed`.
 
 ```js
 // each passes each trait as its own argument, then the entity and index
