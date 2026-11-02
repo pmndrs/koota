@@ -49,9 +49,9 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
   // lands on lines the spawn writes anyway instead of on the destroy path.
   const index = ctx.entityIndex;
   const entity =
-    index.aliveCount + index.retainedCount === index.dense.length &&
     ctx.tombstoneCount !== 0 &&
-    ctx.tombstoneCount === ctx.tombstones.length
+    ctx.tombstoneCount === ctx.tombstones.length &&
+    index.aliveCount + index.retainedCount === index.dense.length
       ? reviveTombstone(ctx)
       : allocateEntity(index);
 
@@ -119,26 +119,30 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       }
 
       // Remove every trait the masks still hold. A removal may cascade into others, so the word
-      // is read again after each one. The held word is recorded first and the Destroyed queries
-      // hear about it while the data is still in place. The entity stays readable afterwards
-      // only if it held a trait some Removed or Destroyed term names.
-      let retain = false;
+      // is read again after each one. In a world with retained traits the held word is recorded
+      // first, the entity is kept if it holds one of them, and the Destroyed queries hear about
+      // it while the data is still in place. A Destroyed term names a retained trait, so the
+      // decision for a generation is made before its queries are told.
       const pageId = currentId >>> 10;
       const offset = currentId & 1023;
       const slot = offset << 2;
       const entityMasks = ctx.entityMasks;
       const retainedMasks = ctx.retainedMasks;
+      const retaining = ctx.retainedTraitCount !== 0 && ctx.tombstones.length !== 0;
+      let retain = false;
       for (let g = 0; g < entityMasks.length; g++) {
         const page = entityMasks[g][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
         let word = page[slot];
-        page[slot + DESTROYED_WORD] = word;
-        if ((word & retainedMasks[g]) !== 0) retain = true;
+        if (retaining) {
+          page[slot + DESTROYED_WORD] = word;
+          if ((word & retainedMasks[g]) !== 0) retain = true;
+        }
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
-          if (instance.destroyedQueries.length !== 0) {
+          if (retain && instance.destroyedQueries.length !== 0) {
             notifyDestroyedQueries(ctx, currentEntity, instance, g, low);
           }
           removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
@@ -147,7 +151,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         }
       }
 
-      if (retain && ctx.tombstones.length !== 0) retainTombstone(ctx, currentEntity);
+      if (retain) retainTombstone(ctx, currentEntity);
       else releaseEntity(ctx.entityIndex, currentEntity);
 
       const targetQueries = ctx.targetQueries[pageId]?.[offset];
@@ -167,7 +171,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         if (retain) continue;
         page[slot + REMOVED_WORD] = 0;
         page[slot + CHANGED_WORD] = 0;
-        page[slot + DESTROYED_WORD] = 0;
+        if (retaining) page[slot + DESTROYED_WORD] = 0;
       }
     }
   } finally {

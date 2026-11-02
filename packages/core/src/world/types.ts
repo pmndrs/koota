@@ -47,6 +47,8 @@ export type WorldContext = {
   dirtyQueries: Set<QueryInstance>;
   /** Traits by mask generation whose holders stay readable after destroy. */
   retainedMasks: number[];
+  /** How many registered traits are retained. Zero keeps destroy on the plain path. */
+  retainedTraitCount: number;
   /** Destroyed entities the world still holds, a ring in destroy order. Zero length releases at destroy. */
   tombstones: Int32Array;
   /** The destroy serial of each ring entry. */
