@@ -106,7 +106,7 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a trait is watched by a `Changed` term, an `onChange` subscriber or an explicit `changed()` call, so build `Changed` terms at module scope to record from the start. Destroyed entities are released at destroy unless the world was created with `collect: 'manual'`, see Destroyed below.
+Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a `Changed` term names the trait, so build `Changed` terms at module scope to record from the start. Destroyed entities are released at destroy unless the world was created with `collect: 'manual'`, see Destroyed below.
 
 ```typescript
 import { createAdded, createRemoved, createChanged, createDestroyed } from 'koota'

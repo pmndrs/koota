@@ -311,7 +311,6 @@ export function subscribeEntityEvent(
 ) {
   if (!isEntityAlive(ctx.entityIndex, entity)) return () => {};
   const trait = resolveHookTrait(input);
-  if (event === 'changeSubscriptions') trait[$internal].tracked = true;
   if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
   ctx.entitySubscribedInstances.add(instance);

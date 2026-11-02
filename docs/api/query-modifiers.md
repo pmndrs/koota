@@ -26,7 +26,7 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
-Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a trait is watched, by a `Changed` term naming it, an `onChange` subscriber, or an explicit `changed()` call, so create `Changed` terms at module scope to record writes from the start. A destroyed entity is released at destroy and leaves nothing to report unless the world retains destroyed entities, see [Destroyed](#destroyed).
+Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a `Changed` term names the trait, so create `Changed` terms at module scope to record writes from the start. A destroyed entity is released at destroy and leaves nothing to report unless the world retains destroyed entities, see [Destroyed](#destroyed).
 
 ## Added
 

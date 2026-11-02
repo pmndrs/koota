@@ -409,7 +409,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       if (!hasTraitInstance(ctx.traitInstances, resolvedTrait)) registerTrait(ctx, resolvedTrait);
 
       const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      resolvedTrait[$internal].tracked = true;
       data.changeSubscriptions.all.add(resolvedCallback);
 
       return () => data.changeSubscriptions.all.delete(resolvedCallback);

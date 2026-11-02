@@ -44,7 +44,6 @@ export function setChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
     assertEntityAlive(ctx, entity);
   }
   // An explicit flag is a request to be seen, so it opts the trait into write history.
-  trait[$internal].tracked = true;
   const data = markChanged(ctx, entity, trait);
   if (!data) {
     if (assertsEnabled) {
