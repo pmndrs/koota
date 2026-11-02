@@ -79,20 +79,13 @@ export const allocateEntity = (index: EntityIndex): Entity => {
   allocator.pageAliveCounts[entityId >>> 10]++;
 
   const denseIdx = index.aliveCount;
-  if (index.retainedCount !== 0) {
-    // The slot after the alive ones holds a retained entity. It moves to the slot the new entity
-    // would otherwise take so the retained region stays contiguous.
-    const displaced = index.dense[denseIdx];
-    if (free < index.dense.length) index.dense[free] = displaced;
-    else index.dense.push(displaced);
-    index.sparse[getEntityId(displaced)] = free;
-    index.dense[denseIdx] = entity;
-  } else if (denseIdx < index.dense.length) {
+  if (index.retainedCount !== 0) displaceRetained(index, denseIdx, free);
+  index.sparse[entityId] = denseIdx;
+  if (denseIdx < index.dense.length) {
     index.dense[denseIdx] = entity;
   } else {
     index.dense.push(entity);
   }
-  index.sparse[entityId] = denseIdx;
   index.aliveCount++;
 
   return entity;
@@ -127,6 +120,17 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
   index.dense[lastIdx] = deadEntry;
   index.aliveCount--;
 };
+
+/**
+ * The slot after the alive entities holds a retained one. It moves to the first free slot, which
+ * the new entity would otherwise take, so the retained region stays contiguous.
+ */
+function displaceRetained(index: EntityIndex, denseIdx: number, free: number) {
+  const displaced = index.dense[denseIdx];
+  if (free < index.dense.length) index.dense[free] = displaced;
+  else index.dense.push(displaced);
+  index.sparse[getEntityId(displaced)] = free;
+}
 
 /**
  * Move a destroyed entity into the retained region without bumping its generation, so the handle

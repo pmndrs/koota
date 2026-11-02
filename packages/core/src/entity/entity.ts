@@ -19,7 +19,7 @@ import {
   addTraitsToAliveEntity,
   cleanupRelationTarget,
   hasTrait,
-  reconcileTrackingQueries,
+  notifyDestroyedQueries,
   registerTrait,
   removeTraitFromAliveEntity,
 } from '../trait/trait';
@@ -125,8 +125,8 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
-          if (manual && instance.trackingQueries.length !== 0) {
-            reconcileTrackingQueries(ctx, currentEntity, instance, 'destroy', g, low);
+          if (manual && instance.destroyedQueries.length !== 0) {
+            notifyDestroyedQueries(ctx, currentEntity, instance, g, low);
           }
           removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
           // Clear the bit by hand in case removal declined, so the walk always ends.

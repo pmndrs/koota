@@ -121,6 +121,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   queries: QueryInstance[];
   /** Tracking queries (Added/Removed/Changed) that include this trait */
   trackingQueries: QueryInstance[];
+  /** Destroyed queries that include this trait. Only destroy events reach them. */
+  destroyedQueries: QueryInstance[];
   /** Queries that filter by this relation (only for relation traits) */
   relationQueries: QueryInstance[];
   schema: S;

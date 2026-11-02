@@ -363,7 +363,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     if (all.indexOf(instance) !== i) continue;
-    joinList(query.isTracking ? instance.trackingQueries : instance.queries, query, i);
+    joinList(queryList(query, instance), query, i);
   }
 
   // A tracking query exposes one set while it collects the next batch in the other.
@@ -532,6 +532,12 @@ function hasEveryRelationPair(ctx: WorldContext, query: QueryInstance, entity: E
  * A query records its position in every trait list it joins, so leaving is a swap with the last
  * entry instead of a scan. Trait slots come first, then one slot per relation filter.
  */
+/** The list on a trait instance a query belongs to, by the events it wants. */
+function queryList(query: QueryInstance, instance: TraitInstance): QueryInstance[] {
+  if (query.isDestroyed) return instance.destroyedQueries;
+  return query.isTracking ? instance.trackingQueries : instance.queries;
+}
+
 function joinList(list: QueryInstance[], query: QueryInstance, slot: number) {
   query.listSlots[slot] = list.length;
   list.push(query);
@@ -550,6 +556,7 @@ function leaveList(
   if (query.ctx.queryCallbackDepth !== 0) {
     list = list.slice();
     if (relation) instance.relationQueries = list;
+    else if (query.isDestroyed) instance.destroyedQueries = list;
     else if (query.isTracking) instance.trackingQueries = list;
     else instance.queries = list;
   }
@@ -588,13 +595,7 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   const all = query.traitInstances;
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
-    leaveList(
-      query.isTracking ? instance.trackingQueries : instance.queries,
-      query,
-      i,
-      instance,
-      false
-    );
+    leaveList(queryList(query, instance), query, i, instance, false);
   }
   for (let k = 0; k < query.relationFilters!.length; k++) {
     const trait = query.relationFilters![k].relation[$internal].trait;

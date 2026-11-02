@@ -157,6 +157,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     store: traitCtx.createStore(),
     queries: [],
     trackingQueries: [],
+    destroyedQueries: [],
     relationQueries: [],
     schema: trait.schema,
     changeSubscriptions: createSubscriptions(),
@@ -281,13 +282,8 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
 
   const traitCtx = trait[$internal];
 
-  /* @cold */ if (traitCtx.relation) {
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    if (instance) {
-      const targets = getRelationTargets(ctx, traitCtx.relation, entity);
-      for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-    }
-    removeAllRelationTargets(ctx, traitCtx.relation, entity);
+  if (traitCtx.relation) {
+    releaseRelationTargets(ctx, entity, trait, traitCtx.relation);
   } else {
     const instance = getTraitInstance(ctx.traitInstances, trait);
     if (instance) {
@@ -297,6 +293,21 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
   }
 
   removeTraitFromEntity(ctx, entity, trait);
+}
+
+/** Tell the pair subscribers and drop every target before a relation trait leaves an entity. */
+export function releaseRelationTargets(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait,
+  relation: Relation<Trait>
+) {
+  const instance = getTraitInstance(ctx.traitInstances, trait);
+  if (instance) {
+    const targets = getRelationTargets(ctx, relation, entity);
+    for (const t of targets) emit(instance.removeSubscriptions, entity, t);
+  }
+  removeAllRelationTargets(ctx, relation, entity);
 }
 
 /* @inline */ function removeRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
@@ -620,10 +631,13 @@ export function resolveTraitSetCallback(
   const pageId = eid >>> 10;
   const offset = eid & 1023;
   if (assertsEnabled) ctx.structuralRevision++;
-  if (ctx.entityMasks[generationId][pageId] === EMPTY_MASK_PAGE) {
+  const generation = ctx.entityMasks[generationId];
+  let page = generation[pageId];
+  if (page === EMPTY_MASK_PAGE) {
     materializeMaskPages(ctx, generationId, pageId);
+    page = generation[pageId];
   }
-  ctx.entityMasks[generationId][pageId][offset] |= bitflag;
+  page[offset] |= bitflag;
   instance.version++;
 
   reconcileTraitQueries(ctx, entity, instance, 'add', generationId, bitflag);
@@ -655,11 +669,7 @@ function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInsta
   }
 }
 
-/**
- * A Destroyed query takes only destroy events, which arrive while the entity still holds its
- * traits, so the removals that follow cannot evict it. Every other tracking query ignores them.
- */
-export function reconcileTrackingQueries(
+function reconcileTrackingQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,
@@ -670,12 +680,31 @@ export function reconcileTrackingQueries(
   const queries = instance.trackingQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    if (query.isDestroyed !== (eventType === 'destroy')) continue;
     const match = query.relationFilters?.length
       ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
       : checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
     if (match) addEntityToQuery(query, entity);
     else removeEntityFromQuery(ctx, query, entity);
+  }
+}
+
+/**
+ * Destroy events reach only Destroyed queries, while the entity still holds its traits, so the
+ * removals that follow never see those queries and cannot evict the entity.
+ */
+export function notifyDestroyedQueries(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance,
+  generationId: number,
+  bitflag: number
+) {
+  const queries = instance.destroyedQueries;
+  for (let i = 0; i < queries.length; i++) {
+    const query = queries[i];
+    if (checkQueryTracking(ctx, query, entity, 'destroy', generationId, bitflag)) {
+      addEntityToQuery(query, entity);
+    }
   }
 }
 
