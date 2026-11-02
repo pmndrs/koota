@@ -9,7 +9,7 @@ import {
   releaseOwnedPages,
 } from '../entity/utils/entity-index';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
-import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
+import { createEmptyHistoryGeneration, createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findNamedEntity } from '../name/find-named-entity';
 import {
   IsExcluded,
@@ -23,7 +23,6 @@ import { createOwnedView } from '../query/query-view';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
-import { getTrackingCursor, setTrackingMasks } from '../query/utils/tracking-cursor';
 import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -45,7 +44,7 @@ let nextWorldId = 0;
 
 /**
  * Lazily registers a world in the universe on first mutation.
- * Sets up tracking masks, registers IsExcluded, creates the world entity.
+ * Registers IsExcluded and creates the world entity.
  */
 function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): void {
   if (ctx.isRegistered) return;
@@ -53,11 +52,6 @@ function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): voi
   if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
 
   universe.worlds[id] = ctx;
-
-  const cursor = getTrackingCursor();
-  for (let i = 0; i < cursor; i++) {
-    setTrackingMasks(ctx, i);
-  }
 
   if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
 
@@ -105,6 +99,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
     [$internal]: {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
+      removedMasks: [createEmptyHistoryGeneration()],
+      changedMasks: [createEmptyHistoryGeneration()],
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -119,9 +115,6 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       queryCallbackDepth: 0,
       targetQueries: [],
       dirtyQueries: new Set(),
-      dirtyMasks: new Map(),
-      trackingSnapshots: new Map(),
-      changedMasks: new Map(),
       worldEntity: null!,
       entitySubscribedInstances: new Set(),
       resetSubscriptions: new Set(),
@@ -211,6 +204,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
       ctx.names.clear();
       ctx.entityMasks = [createEmptyMaskGeneration()];
+      ctx.removedMasks = [createEmptyHistoryGeneration()];
+      ctx.changedMasks = [createEmptyHistoryGeneration()];
       ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
 
@@ -231,11 +226,6 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.notQueries.length = 0;
       ctx.targetQueries.length = 0;
 
-      // Tracking modifiers outlive a reset, so give each one fresh masks like a new world does.
-      const cursor = getTrackingCursor();
-      for (let i = 0; i < cursor; i++) {
-        setTrackingMasks(ctx, i);
-      }
       ctx.entitySubscribedInstances.clear();
 
       ctx.worldEntity = createEntity(ctx, [IsExcluded]);
@@ -405,6 +395,7 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       if (!hasTraitInstance(ctx.traitInstances, resolvedTrait)) registerTrait(ctx, resolvedTrait);
 
       const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
+      resolvedTrait[$internal].tracked = true;
       data.changeSubscriptions.all.add(resolvedCallback);
 
       return () => data.changeSubscriptions.all.delete(resolvedCallback);

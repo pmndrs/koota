@@ -67,6 +67,53 @@ export function checkQueryTracking(
   return true;
 }
 
+/**
+ * Seed a new tracking query from the world history instead of an event. Membership stands in
+ * for an add, the removed history for a loss the entity has not undone, and the changed history
+ * for a write to a trait the entity still holds.
+ */
+export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, entity: Entity) {
+  if (query.traitInstances.all.length === 0) return false;
+  const eid = getEntityId(entity);
+  const entityMasks = ctx.entityMasks;
+  if (!passesStaticBitmasks(query.staticBitmasks, query.generations, entityMasks, eid)) return false;
+
+  const pageId = eid >>> 10;
+  const offset = eid & 1023;
+  const trackingGroups = query.trackingGroups;
+  let hasOrGroup = false;
+  let anyOrMatched = false;
+
+  for (let i = 0; i < trackingGroups.length; i++) {
+    const group = trackingGroups[i];
+    const bitmasks = group.bitmasks;
+    const history =
+      group.type === 'add'
+        ? entityMasks
+        : group.type === 'remove'
+          ? ctx.removedMasks
+          : ctx.changedMasks;
+
+    for (let genId = 0; genId < bitmasks.length; genId++) {
+      const mask = bitmasks[genId];
+      if (!mask) continue;
+      const held = entityMasks[genId][pageId][offset];
+      let hits = history[genId][pageId][offset] & mask;
+      hits = group.type === 'remove' ? hits & ~held : hits & held;
+      if (hits !== 0) recordTrackerHit(group.trackers, genId, eid, hits);
+    }
+
+    if (group.logic === 'or') {
+      hasOrGroup = true;
+      if (!anyOrMatched && trackersMatchAny(group.trackers, bitmasks, eid)) anyOrMatched = true;
+    } else if (!trackersMatchAll(group.trackers, bitmasks, eid)) {
+      return false;
+    }
+  }
+
+  return !hasOrGroup || anyOrMatched;
+}
+
 /** Every tracked bit of the group has fired for the entity. */
 function trackersMatchAll(
   trackers: Uint32Array[][],

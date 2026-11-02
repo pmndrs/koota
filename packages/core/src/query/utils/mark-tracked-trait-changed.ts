@@ -1,36 +1,27 @@
+import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { ensureMaskPage } from '../../entity/utils/paged-mask';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { addEntityToQuery, removeEntityFromQuery } from '../query';
 import { checkQueryTracking } from './check-query-tracking';
 import { checkQueryTrackingWithRelations } from './check-query-tracking-with-relations';
 
-/** Keep tracked work outside the inlined setter notification path. */
-export function markTrackedTraitChanged(ctx: WorldContext, entity: Entity, data: TraitInstance) {
-  markTraitChanged(ctx, entity, data);
-}
-
+/**
+ * Record a write. Watched traits keep a history bit so a Changed query created later still sees
+ * the write, and the tracking queries that already exist are re-evaluated out of line.
+ */
 export /* @inline */ function markTraitChanged(
   ctx: WorldContext,
   entity: Entity,
   data: TraitInstance
 ) {
   data.version++;
-  if (ctx.changedMasks.size !== 0) markChangedMasks(ctx, entity, data);
-  if (data.trackingQueries.length !== 0) notifyChangedTrackingQueries(ctx, entity, data);
-}
-
-/** Record the change in every changed mask snapshot. */
-export function markChangedMasks(ctx: WorldContext, entity: Entity, data: TraitInstance) {
-  const { generationId, bitflag } = data;
-  const eid = getEntityId(entity);
-  const pageId = eid >>> 10;
-  const offset = eid & 1023;
-  for (const changedMask of ctx.changedMasks.values()) {
-    ensureMaskPage(changedMask[generationId], pageId)[offset] |= bitflag;
+  if (data.trait[$internal].tracked) {
+    const eid = getEntityId(entity);
+    ctx.changedMasks[data.generationId][eid >>> 10][eid & 1023] |= data.bitflag;
   }
+  if (data.trackingQueries.length !== 0) notifyChangedTrackingQueries(ctx, entity, data);
 }
 
 /** Re-evaluate the tracking queries that watch this trait for changes. */

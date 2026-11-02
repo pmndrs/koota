@@ -41,9 +41,10 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
-  dirtyMasks: Map<number, Uint32Array[][]>;
-  trackingSnapshots: Map<number, Uint32Array[][]>;
-  changedMasks: Map<number, Uint32Array[][]>;
+  /** Traits an entity lost since it spawned. Seeds Removed queries created after the fact. */
+  removedMasks: Uint32Array[][];
+  /** Traits written on an entity since it spawned. Seeds Changed queries created after the fact. */
+  changedMasks: Uint32Array[][];
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;

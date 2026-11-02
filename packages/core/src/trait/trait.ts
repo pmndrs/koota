@@ -29,7 +29,7 @@ import {
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { ensureMaskPage } from '../entity/utils/paged-mask';
+import { EMPTY_MASK_PAGE, materializeMaskPages } from '../entity/utils/paged-mask';
 import {
   createAddFunction,
   createGetFunction,
@@ -99,6 +99,7 @@ export function createTraitContext<S extends Schema>(
         : defaults.getInto),
     remove: accessors?.remove ?? defaults.remove,
     relation: null,
+    tracked: false,
     type,
     cursor:
       type === 'soa' &&
@@ -599,24 +600,13 @@ export function resolveTraitSetCallback(
   const pageId = eid >>> 10;
   const offset = eid & 1023;
   if (assertsEnabled) ctx.structuralRevision++;
-  ensureMaskPage(ctx.entityMasks[generationId], pageId)[offset] |= bitflag;
+  if (ctx.entityMasks[generationId][pageId] === EMPTY_MASK_PAGE) {
+    materializeMaskPages(ctx, generationId, pageId);
+  }
+  ctx.entityMasks[generationId][pageId][offset] |= bitflag;
   instance.version++;
 
-  if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
   reconcileTraitQueries(ctx, entity, instance, 'add', generationId, bitflag);
-}
-
-/** Record a membership change in every dirty mask snapshot. */
-function markDirty(
-  masks: Map<unknown, Uint32Array[][]>,
-  generationId: number,
-  pageId: number,
-  offset: number,
-  bitflag: number
-) {
-  for (const mask of masks.values()) {
-    ensureMaskPage(mask[generationId], pageId)[offset] |= bitflag;
-  }
 }
 
 /** Re-evaluate the queries that include a trait after its membership bit changed. */
@@ -683,8 +673,8 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
   }
   if (assertsEnabled) ctx.structuralRevision++;
   ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
+  ctx.removedMasks[generationId][pageId][offset] |= bitflag;
   instance.version++;
 
-  if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
   reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
 }

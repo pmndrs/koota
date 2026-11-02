@@ -27,6 +27,7 @@ import {
   type TrackingGroup,
 } from './types';
 import { checkQuery, passesStaticMasks } from './utils/check-query';
+import { checkQueryTrackingSeed } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
@@ -234,6 +235,7 @@ function processTrackingModifier(
     group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
 
     if (trackingType === 'change') {
+      trait[$internal].tracked = true;
       query.changedTraits.push(trait);
       query.hasChangedModifiers = true;
     }
@@ -446,84 +448,15 @@ export function createQueryInstance<T extends QueryParameter[]>(
   }
 
   if (query.trackingGroups.length > 0) {
-    for (const group of query.trackingGroups) {
-      const { type, id, logic, bitmasks } = group;
-      const snapshot = ctx.trackingSnapshots.get(id)!;
-      const dirtyMask = ctx.dirtyMasks.get(id)!;
-      const changedMask = ctx.changedMasks.get(id)!;
-
-      for (let c = 0; c < candidateCount; c++) {
-        const entity = candidates[c];
-        if (query.name !== undefined && !checkQuery(ctx, query, entity)) continue;
-        if (query.entities.has(entity)) continue;
-
-        const eid = getEntityId(entity);
-        let matches = logic === 'and';
-
-        for (let genId = 0; genId < bitmasks.length; genId++) {
-          const mask = bitmasks[genId];
-          if (!mask) continue;
-
-          const pageId = eid >>> 10;
-          const offset = eid & 1023;
-          const currentMask = ctx.entityMasks[genId][pageId][offset];
-          // Only add and remove trackers keep a snapshot of the masks they compare against.
-          const oldMask = type === 'change' ? 0 : snapshot[genId][pageId][offset];
-
-          // A generation's highest bit is 2^30, and shifting past it wraps negative, so the walk stops there.
-          for (let bit = 1; bit > 0 && bit <= mask; bit <<= 1) {
-            if (!(mask & bit)) continue;
-
-            let traitMatches = false;
-
-            switch (type) {
-              case 'add':
-                traitMatches = (oldMask & bit) === 0 && (currentMask & bit) === bit;
-                break;
-              case 'remove':
-                traitMatches =
-                  ((oldMask & bit) === bit && (currentMask & bit) === 0) ||
-                  ((oldMask & bit) === 0 &&
-                    (currentMask & bit) === 0 &&
-                    (dirtyMask[genId][pageId][offset] & bit) === bit);
-                break;
-              case 'change':
-                traitMatches = (changedMask[genId][pageId][offset] & bit) === bit;
-                break;
-            }
-
-            if (logic === 'and') {
-              if (!traitMatches) {
-                matches = false;
-                break;
-              }
-            } else {
-              if (traitMatches) {
-                matches = true;
-                break;
-              }
-            }
-          }
-
-          if (logic === 'and' && !matches) break;
-          if (logic === 'or' && matches) break;
-        }
-
-        if (matches) {
-          if (hasRelationFilters) {
-            let relationMatch = true;
-            for (const pair of relationFilters) {
-              if (!hasRelationPair(ctx, entity, pair)) {
-                relationMatch = false;
-                break;
-              }
-            }
-            if (relationMatch) addEntityToQuery(query, entity);
-          } else {
-            addEntityToQuery(query, entity);
-          }
-        }
-      }
+    // A tracking query starts observing when it is created. Earlier history collapses into the
+    // current masks, so holders of a tracked trait seed the first batch and past removals and
+    // writes, which left no trace, do not.
+    for (let i = 0; i < candidateCount; i++) {
+      const entity = candidates[i];
+      if (query.name !== undefined && !checkQuery(ctx, query, entity)) continue;
+      if (!checkQueryTrackingSeed(ctx, query, entity)) continue;
+      if (hasRelationFilters && !hasEveryRelationPair(ctx, query, entity)) continue;
+      addEntityToQuery(query, entity);
     }
   } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
     scanMaskPages(ctx, query);
@@ -583,6 +516,15 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
       addEntityToQuery(query, packEntity(gens[offset], eid));
     }
   }
+}
+
+/** The entity holds every relation pair the query filters on. */
+function hasEveryRelationPair(ctx: WorldContext, query: QueryInstance, entity: Entity) {
+  const pairs = query.relationFilters!;
+  for (let i = 0; i < pairs.length; i++) {
+    if (!hasRelationPair(ctx, entity, pairs[i])) return false;
+  }
+  return true;
 }
 
 /**

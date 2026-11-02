@@ -463,9 +463,7 @@ function trackTraits(
     // Notifying costs a deferred pass per entity, so skip it when nothing can observe the change.
     const tracked =
       changeDetection === 'always'
-        ? hasSubscribers(instance.changeSubscriptions) ||
-          ctx.changedMasks.size !== 0 ||
-          instance.trackingQueries.length !== 0
+        ? hasSubscribers(instance.changeSubscriptions) || instance.trackingQueries.length !== 0
         : changeDetection !== 'never' &&
           (hasSubscribers(instance.changeSubscriptions) ||
             (query?.hasChangedModifiers && query.changedTraits.includes(trait)));

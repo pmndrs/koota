@@ -7,20 +7,14 @@ import { isRelation } from '../../relation/utils/is-relation';
 import { emit } from '../../trait/subscriptions';
 import { getTraitInstance } from '../../trait/trait-instance';
 import type { ExtractTraits, Trait, TraitInstance, TraitOrRelation } from '../../trait/types';
-import { universe } from '../../universe/universe';
 import type { WorldContext } from '../../world';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
-import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
-import { markTrackedTraitChanged, markTraitChanged } from '../utils/mark-tracked-trait-changed';
+import { createTrackingId } from '../utils/tracking-cursor';
+import { markTraitChanged } from '../utils/mark-tracked-trait-changed';
 
 export function createChanged() {
-  const id = createTrackingId('change');
-
-  for (const ctx of universe.worlds) {
-    if (!ctx) continue;
-    setTrackingMasks(ctx, id);
-  }
+  const id = createTrackingId();
 
   return <T extends TraitOrRelation[]>(
     ...inputs: T
@@ -28,6 +22,8 @@ export function createChanged() {
     const traits = inputs.map((input) =>
       isRelation(input) ? input[$internal].trait : input
     ) as ExtractTraits<T>;
+    // Naming a trait here is what starts its write history, so module scope terms track from the start.
+    for (let i = 0; i < traits.length; i++) traits[i][$internal].tracked = true;
     return createModifier(`changed-${id}`, id, traits);
   };
 }
@@ -46,6 +42,8 @@ export function setChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
+  // An explicit flag is a request to be seen, so it opts the trait into write history.
+  trait[$internal].tracked = true;
   const data = markChanged(ctx, entity, trait);
   if (!data) {
     if (assertsEnabled) {
@@ -68,8 +66,7 @@ export /* @inline */ function notifyTraitChanged(
   entity: Entity,
   data: TraitInstance
 ) {
-  if (ctx.changedMasks.size === 0 && data.trackingQueries.length === 0) data.version++;
-  else markTrackedTraitChanged(ctx, entity, data);
+  markTraitChanged(ctx, entity, data);
   emit(data.changeSubscriptions, entity);
 }
 

@@ -235,7 +235,7 @@ describe('Query modifiers', () => {
     expect(entities2.length).toBe(2);
   });
 
-  it('should populate Added queries even if they are registered after the trait is added', () => {
+  it('should seed Added queries from the world history when created after the trait is added', () => {
     const Added = createAdded();
 
     const entityA = world.spawn(Foo);
@@ -248,10 +248,11 @@ describe('Query modifiers', () => {
     entities = world.query(Added(Foo, Bar));
     expect(entities.first!).toBe(entityB);
 
+    // A modifier created later still sees the entities that currently hold the trait.
     const LaterAdded = createAdded();
 
     let entities2 = world.query(LaterAdded(Foo));
-    expect(entities2.length).toBe(0);
+    expect(entities2.length).toBe(2);
 
     entityA.remove(Foo); // Reset
     entityA.add(Foo);
@@ -316,11 +317,12 @@ describe('Query modifiers', () => {
     entityA.remove(Foo);
     entities = world.query(Removed(Foo));
     expect(entities.first!).toBe(entityA);
-    // Should track between Removed modifiers independently.
+    // Should track between Removed modifiers independently. A modifier created later still sees
+    // the entities that lost the trait and have not regained it.
     const Removed2 = createRemoved();
 
     let entities2 = world.query(Removed2(Foo));
-    expect(entities2.length).toBe(0);
+    expect(entities2.length).toBe(1);
 
     entityA.add(Foo);
     entityA.remove(Foo);
@@ -483,7 +485,7 @@ describe('Query modifiers', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('should populate Changed queries even if they are registered after the trait is changed', () => {
+  it('should seed Changed queries from the world history when created after the trait is changed', () => {
     const Changed = createChanged();
 
     const entity = world.spawn(Position);
@@ -497,10 +499,11 @@ describe('Query modifiers', () => {
     let entities = world.query(Changed(Position));
     // expect(entities).toEqual([entity]);
 
+    // A modifier created later still sees the write.
     const LaterChanged = createChanged();
 
     let entities2 = world.query(LaterChanged(Position));
-    expect(entities2.length).toBe(0);
+    expect(entities2.length).toBe(1);
 
     positions.x[eid >>> 10][eid & 1023] = 30;
     positions.y[eid >>> 10][eid & 1023] = 40;
