@@ -127,7 +127,7 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since last query (includes destroyed entities, readable until their id is reused):
+**Removed** - Entities that removed a trait since last query, including destroyed entities and emitted events. `get` still returns the value the trait had until it is added back or the id is reused, and other terms match a destroyed entity on the traits it died with:
 
 ```typescript
 const stoppedEntities = world.query(Removed(Velocity))

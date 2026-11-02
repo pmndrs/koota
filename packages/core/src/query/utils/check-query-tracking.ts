@@ -31,9 +31,7 @@ export function checkQueryTracking(
   const trackingGroupsLen = trackingGroups.length;
 
   if (query.traitInstances.length === 0) return false;
-  // A destroyed entity or an event holds nothing, its static terms read the traits it died with.
-  const filterSlot = query.isDestroyed ? slot + DESTROYED_WORD : slot;
-  if (!passesStaticBitmasks(query.masks, entityMasks, pageId, filterSlot)) {
+  if (!passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains)) {
     return false;
   }
 
@@ -93,9 +91,8 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
   const entityMasks = ctx.entityMasks;
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
-  const filterSlot = query.isDestroyed ? slot + DESTROYED_WORD : slot;
   if (
-    !passesStaticBitmasks(query.masks, entityMasks, pageId, filterSlot)
+    !passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains)
   ) {
     return false;
   }
@@ -171,18 +168,23 @@ function trackersMatchAny(
   return false;
 }
 
-/** The entity satisfies every static required, forbidden and or mask of the query. */
+/**
+ * Static terms read the traits an entity holds. A Removed or Destroyed query also reads the traits
+ * a dead entity or an event died with, so its other terms describe the row as it ended.
+ */
 function passesStaticBitmasks(
   masks: number[],
   entityMasks: Uint32Array[][],
   pageId: number,
-  slot: number
+  slot: number,
+  retained: boolean
 ): boolean {
   for (let i = 0; i < masks.length; i += 4) {
     const required = masks[i + 1];
     const forbidden = masks[i + 2];
     const or = masks[i + 3];
-    const entityMask = entityMasks[masks[i]][pageId][slot];
+    const page = entityMasks[masks[i]][pageId];
+    const entityMask = retained ? page[slot] | page[slot + DESTROYED_WORD] : page[slot];
 
     if (forbidden && (entityMask & forbidden) !== 0) return false;
     if (required && (entityMask & required) !== required) return false;

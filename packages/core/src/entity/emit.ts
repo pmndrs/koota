@@ -5,7 +5,7 @@ import { attachEventTarget } from '../relation/relation';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { emit } from '../trait/subscriptions';
-import { notifyDestroyedQueries, registerTrait } from '../trait/trait';
+import { notifyDestroyedQueries, reconcileTrackingQueries, registerTrait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
@@ -14,12 +14,17 @@ import type { Entity } from './types';
 import { allocateFreeEntity, renewFreeEntity } from './utils/entity-index';
 import { canReleaseHead, pushHandle, shiftHandle } from './utils/handle-ring';
 import { getEntityId } from './utils/pack-entity';
-import { DESTROYED_WORD, EMPTY_MASK_PAGE, materializeMaskPage } from './utils/paged-mask';
+import {
+  DESTROYED_WORD,
+  EMPTY_MASK_PAGE,
+  REMOVED_WORD,
+  materializeMaskPage,
+} from './utils/paged-mask';
 
 /**
- * An event is an entity born dead. Emit writes its data, records its traits as the ones it held
- * at destroy and tells the Destroyed readers, without the membership an alive entity enters and
- * leaves. Events keep their own ring, so only emits decide when an event id is reused.
+ * An event is an entity born dead. Emit writes its data, records its traits as removed and as held
+ * at destroy, and tells the Removed and Destroyed readers, without the membership an alive entity
+ * enters and leaves. Events keep their own ring, so only emits decide when an event id is reused.
  */
 export function emitEvent(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEvent(ctx);
@@ -72,7 +77,9 @@ function markEventTrait(ctx: WorldContext, eid: number, instance: TraitInstance)
   const pageId = eid >>> 10;
   let page = generation[pageId];
   if (page === EMPTY_MASK_PAGE) page = materializeMaskPage(generation, pageId);
-  page[((eid & 1023) << 2) + DESTROYED_WORD] |= instance.bitflag;
+  const slot = (eid & 1023) << 2;
+  page[slot + REMOVED_WORD] |= instance.bitflag;
+  page[slot + DESTROYED_WORD] |= instance.bitflag;
 }
 
 /** Tells the Destroyed readers once every trait and pair is in place, so their filters see all of it. */
@@ -91,6 +98,9 @@ function notifyEventQueries(ctx: WorldContext, entity: Entity) {
       const instance = traitsByBit[31 - Math.clz32(low)];
       if (instance.destroyedQueries.length !== 0) {
         notifyDestroyedQueries(ctx, entity, instance, g, low);
+      }
+      if (instance.trackingQueries.length !== 0) {
+        reconcileTrackingQueries(ctx, entity, instance, 'remove', g, low);
       }
       word &= ~low;
     }

@@ -504,7 +504,8 @@ export function getRetainedTrait(
   out: Record<string, unknown> | undefined
 ) {
   const page = ctx.entityMasks[data.generationId][index >>> 10];
-  if ((page[((index & 1023) << 2) + DESTROYED_WORD] & data.bitflag) === 0) {
+  const slot = (index & 1023) << 2;
+  if (((page[slot + DESTROYED_WORD] | page[slot + REMOVED_WORD]) & data.bitflag) === 0) {
     return undefined;
   }
   const traitCtx = data.trait[$internal];
@@ -721,7 +722,7 @@ function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInsta
   }
 }
 
-function reconcileTrackingQueries(
+export function reconcileTrackingQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,

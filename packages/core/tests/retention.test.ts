@@ -196,6 +196,48 @@ describe('Entity retention', () => {
     expect(() => event.get(Event)).toThrow();
   });
 
+  it('reads the last value of a removed trait until it is added back', () => {
+    const world = createWorld();
+    const Removed = createRemoved();
+    world.query(Removed(Position));
+    const entity = world.spawn(Position({ x: 5 }));
+
+    entity.remove(Position);
+    expect(entity.has(Position)).toBe(false);
+    expect(entity.get(Position)).toEqual({ x: 5, y: 0 });
+    expect(world.query(Removed(Position)).toArray()).toEqual([entity]);
+
+    entity.remove(Position);
+    entity.add(Position({ x: 7 }));
+    expect(entity.get(Position)!.x).toBe(7);
+    expect(world.query(Removed(Position)).length).toBe(0);
+  });
+
+  it('matches the other terms of a Removed query on what a destroyed entity died with', () => {
+    const world = createWorld();
+    const Warm = createRemoved();
+    world.query(Warm(Position), IsHot);
+    const hot = world.spawn(Position, IsHot);
+    const cold = world.spawn(Position, IsCold);
+    hot.destroy();
+    cold.destroy();
+
+    expect(world.query(Warm(Position), IsHot).toArray()).toEqual([hot]);
+    expect(world.query(createRemoved()(Position), IsHot).toArray()).toEqual([hot]);
+    expect(world.query(createRemoved()(Position), Not(IsHot)).toArray()).toEqual([cold]);
+  });
+
+  it('drains events through Removed as well as Destroyed', () => {
+    const world = createWorld();
+    const Warm = createRemoved();
+    world.query(Warm(Event));
+    const event = world.emit(Event({ by: 15 }));
+
+    expect(world.query(Warm(Event)).toArray()).toEqual([event]);
+    expect(world.query(createRemoved()(Event)).toArray()).toEqual([event]);
+    expect(world.query(Warm(Event)).length).toBe(0);
+  });
+
   it('keeps events through entity churn and never hands their ids to spawns', () => {
     const world = createWorld({ retain: 2 });
     const event = world.emit(Event({ by: 11 }));

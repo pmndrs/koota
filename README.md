@@ -615,7 +615,7 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 #### Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed, whose data stays readable until their id is reused, see [Destroyed](#destroyed). A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed and emitted events, see [Destroyed](#destroyed). The value a removed trait had stays readable with `get` until the trait is added back or the id is reused, so the reader can process what left, and other terms of the query match a destroyed entity on the traits it died with. A trait with a custom `remove` accessor keeps only what the accessor leaves. A new instance of the modifier must be created for tracking to be unique.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
