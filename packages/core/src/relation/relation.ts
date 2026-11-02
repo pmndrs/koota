@@ -9,7 +9,7 @@ import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isQuery } from '../query/utils/is-query';
 import { TraitSchema } from '../storage';
-import { hasTrait, trait } from '../trait/trait';
+import { hasTraitOrRetained, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
@@ -128,6 +128,60 @@ function removeFromRelationSources(traitData: TraitInstance, entity: Entity, tar
   const last = bucket.length - 1;
   if (idx !== last) bucket[idx] = bucket[last];
   bucket.pop();
+}
+
+/**
+ * A destroyed entity keeps its targets and pair data until its id is reused, so only the reverse
+ * index, which lives on the targets, lets go of it.
+ */
+export function detachRelationTargets(instance: TraitInstance, entity: Entity): void {
+  const eid = getEntityId(entity);
+  const entry = instance.relationTargets?.[eid >>> 10]?.[eid & 1023];
+  if (entry === undefined) return;
+  if (typeof entry === 'number') {
+    removeFromRelationSources(instance, entity, entry as Entity);
+  } else {
+    const targets = entry as Entity[];
+    for (let i = 0; i < targets.length; i++) removeFromRelationSources(instance, entity, targets[i]);
+  }
+  instance.version++;
+}
+
+/**
+ * Drops the targets and pair data a destroyed entity kept. Runs when its id is reused. Target
+ * lists are emptied in place, as a removal would, so the next pair reuses them.
+ */
+export function clearRelationEntity(instance: TraitInstance, eid: number): void {
+  const p = eid >>> 10;
+  const o = eid & 1023;
+  const page = instance.relationTargets![p];
+  if (page === undefined) return;
+  const entry = page[o];
+  if (entry === undefined) return;
+  const traitCtx = instance.trait[$internal];
+  const exclusive = traitCtx.relation![$internal].exclusive;
+  if (exclusive) page[o] = undefined;
+  else popAll(entry as unknown[]);
+  if (traitCtx.type === 'tag') return;
+  const store = instance.store as any;
+  if (traitCtx.type === 'aos') {
+    const slots = store[p];
+    if (slots === undefined) return;
+    if (exclusive) slots[o] = undefined;
+    else popAll(slots[o]);
+    return;
+  }
+  for (const key in store) {
+    const slots = store[key][p];
+    if (slots === undefined) continue;
+    if (exclusive) slots[o] = undefined;
+    else popAll(slots[o]);
+  }
+}
+
+function popAll(list: unknown[] | undefined) {
+  if (list === undefined) return;
+  while (list.length !== 0) list.pop();
 }
 
 /**
@@ -660,7 +714,7 @@ export function hasRelationPair(ctx: WorldContext, entity: Entity, pair: Relatio
   const relation = pair.relation;
   const target = pair.target;
 
-  if (!hasTrait(ctx, entity, relation[$internal].trait)) return false;
+  if (!hasTraitOrRetained(ctx, entity, relation[$internal].trait)) return false;
 
   if (target === '*') return true;
   if (typeof target === 'number') return hasRelationToTarget(ctx, relation, entity, target);

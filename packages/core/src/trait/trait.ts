@@ -20,6 +20,7 @@ import { checkQueryWithRelations } from '../query/utils/check-query-with-relatio
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
+  detachRelationTargets,
   getFirstRelationTarget,
   getRelationData,
   getRelationTargets,
@@ -316,6 +317,34 @@ export function releaseRelationTargets(
   removeAllRelationTargets(ctx, relation, entity);
 }
 
+/**
+ * A destroyed entity leaves its queries and tells its subscribers, but keeps its data and its
+ * relation targets for the readers that still hold it. Only the reverse index lets go of it.
+ */
+export function tombstoneTrait(ctx: WorldContext, entity: Entity, instance: TraitInstance) {
+  const traitCtx = instance.trait[$internal];
+  const relation = traitCtx.relation;
+  if (relation) {
+    const targets = getRelationTargets(ctx, relation, entity);
+    for (const t of targets) emit(instance.removeSubscriptions, entity, t);
+    detachRelationTargets(instance, entity);
+  } else {
+    emit(instance.removeSubscriptions, entity);
+    traitCtx.remove(ctx, getEntityId(entity), instance.store);
+  }
+
+  const { generationId, bitflag } = instance;
+  const eid = getEntityId(entity);
+  if (assertsEnabled) ctx.structuralRevision++;
+  const page = ctx.entityMasks[generationId][eid >>> 10];
+  const slot = (eid & 1023) << 2;
+  page[slot] &= ~bitflag;
+  page[slot + REMOVED_WORD] |= bitflag;
+  instance.version++;
+
+  reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
+}
+
 /* @inline */ function removeRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
   const relation = pair.relation;
   const target = pair.target;
@@ -371,6 +400,24 @@ export /* @inline @pure */ function hasTrait(
   const mask = ctx.entityMasks[generationId][eid >>> 10][(eid & 1023) << 2];
 
   return (mask & bitflag) === bitflag;
+}
+
+/** Membership, or for a destroyed entity the traits it held when it died. */
+export /* @inline @pure */ function hasTraitOrRetained(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait
+): boolean {
+  const instance = getTraitInstance(ctx.traitInstances, trait);
+  if (!instance) return false;
+
+  const { generationId, bitflag } = instance;
+  const eid = getEntityId(entity);
+  const page = ctx.entityMasks[generationId][eid >>> 10];
+  const slot = (eid & 1023) << 2;
+
+  if ((page[slot] & bitflag) !== 0) return true;
+  return (page[slot + DESTROYED_WORD] & bitflag) !== 0;
 }
 
 /** Raw writes bypass accessors. Callers must preserve any trait-owned invariants. */
@@ -708,9 +755,11 @@ export function notifyDestroyedQueries(
   const queries = instance.destroyedQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    if (checkQueryTracking(ctx, query, entity, 'destroy', generationId, bitflag)) {
-      addEntityToQuery(query, entity);
-    }
+    const match =
+      query.relationFilters.length !== 0
+        ? checkQueryTrackingWithRelations(ctx, query, entity, 'destroy', generationId, bitflag)
+        : checkQueryTracking(ctx, query, entity, 'destroy', generationId, bitflag);
+    if (match) addEntityToQuery(query, entity);
   }
 }
 

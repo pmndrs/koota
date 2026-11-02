@@ -321,6 +321,8 @@ container.destroy()
 world.has(itemA) // False, items are destroyed with container
 ```
 
+Entities destroyed this way keep their relations until their id is reused, so a `Destroyed` query can still read the parent of a child or the container of an item. See [Destroyed](#destroyed).
+
 #### Exclusive relations
 
 Exclusive relations ensure each entity can only have one target.
@@ -688,6 +690,17 @@ entity.remove(ServerSync)
 ```
 
 Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` or `Destroyed` query created later still sees every destroyed entity whose id has not been reused, in destroy order.
+
+A destroyed entity keeps its relations as well. `targetFor`, `targetsFor`, `has` and `get` read the targets and pair data it held when it died, and a pair term filters a `Destroyed` query on them. Children destroyed with their parent through `autoDestroy` keep the parent as their target. A live entity whose target dies loses the pair as before.
+
+```js
+const DestroyedChild = createDestroyed()
+
+// Children destroyed with the parent, or on their own while attached to it
+world.query(DestroyedChild(ChildOf), ChildOf(parent)).forEach((child) => {
+  detach(child, child.targetFor(ChildOf))
+})
+```
 
 ### Events
 

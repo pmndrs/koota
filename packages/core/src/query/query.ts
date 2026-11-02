@@ -419,7 +419,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     const pair = relationFilters[k];
     const relationTrait = pair.relation[$internal].trait;
     const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-    if (relationTraitInstance && relationSlot(query, relationTraitInstance) === all.length + k) {
+    if (relationTraitInstance && !query.isDestroyed && relationSlot(query, relationTraitInstance) === all.length + k) {
       joinList(relationTraitInstance.relationQueries, query, all.length + k);
     }
 

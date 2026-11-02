@@ -145,10 +145,13 @@ const movedEntities = world.query(Changed(Position))
 const updatedChildren = world.query(Changed(ChildOf))
 ```
 
-**Destroyed** - Entities destroyed while holding a trait since last query. A destroyed entity keeps its id and data until a spawn reuses the id, which waits for `createWorld({ retain })` newer destroys (1024 by default, 0 reuses at once) and for every Removed and Destroyed reader to run twice past it, up to sixteen times `retain` for a stalled reader. Removing the trait first does not count, writes to the entity throw, and other terms filter on the traits held at destroy:
+**Destroyed** - Entities destroyed while holding a trait since last query. A destroyed entity keeps its id and data until a spawn reuses the id, which waits for `createWorld({ retain })` newer destroys (1024 by default, 0 reuses at once) and for every Removed and Destroyed reader to run twice past it, up to sixteen times `retain` for a stalled reader. Removing the trait first does not count, writes to the entity throw, and other terms filter on the traits held at destroy. Relations are kept too: `targetFor`, `targetsFor`, `has` and `get` read the pairs held at destroy, a pair term filters on them, and children destroyed with their parent keep it as their target:
 
 ```typescript
 world.query(Destroyed(ServerSync)).readEach(([serverSync]) => serverSync.disconnect())
+world
+  .query(Destroyed(ChildOf), ChildOf(parent))
+  .forEach((child) => detach(child, child.targetFor(ChildOf)))
 ```
 
 See [runtime.md](runtime.md#event-driven-systems) for `world.emit` and `createListener`, which build on Destroyed.

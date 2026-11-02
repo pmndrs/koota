@@ -6,6 +6,7 @@ import {
   createListener,
   createRemoved,
   createWorld,
+  relation,
   trait,
 } from '../src';
 
@@ -241,5 +242,83 @@ describe('Entity retention', () => {
   it('accepts world traits after the options', () => {
     const world = createWorld({ retain: 8 }, Position({ x: 9 }));
     expect(world.get(Position)?.x).toBe(9);
+  });
+});
+
+const ChildOf = relation({ autoDestroy: 'orphan' });
+const Likes = relation();
+const Weighs = relation({ store: { kg: 0 } });
+
+describe('Relation retention', () => {
+  it('matches Destroyed queries on the pairs held at destroy, warm and cold', () => {
+    const world = createWorld();
+    const a = world.spawn();
+    const b = world.spawn();
+    const childA = world.spawn(Likes(a));
+    const childB = world.spawn(Likes(b));
+    const Warm = createDestroyed();
+    expect(world.query(Warm(Likes), Likes(a)).length).toBe(0);
+
+    childA.destroy();
+    childB.destroy();
+
+    expect(world.query(Warm(Likes), Likes(a)).toArray()).toEqual([childA]);
+    expect(world.query(createDestroyed()(Likes), Likes(a)).toArray()).toEqual([childA]);
+    expect(world.query(createDestroyed()(Likes), Likes('*')).toArray()).toEqual([childA, childB]);
+  });
+
+  it('keeps targets and pair data readable on a destroyed entity', () => {
+    const world = createWorld();
+    const a = world.spawn();
+    const b = world.spawn();
+    const entity = world.spawn(Weighs(a, { kg: 7 }), Weighs(b, { kg: 9 }));
+    entity.destroy();
+
+    expect(entity.targetsFor(Weighs)).toEqual([a, b]);
+    expect(entity.targetFor(Weighs)).toBe(a);
+    expect(entity.has(Weighs(b))).toBe(true);
+    expect(entity.get(Weighs(b))).toEqual({ kg: 9 });
+    expect(world.query(Weighs(a)).length).toBe(0);
+    expect(() => entity.remove(Weighs(a))).toThrow();
+  });
+
+  it('keeps the parent on children destroyed with it', () => {
+    const world = createWorld();
+    const parent = world.spawn();
+    const child = world.spawn(ChildOf(parent));
+    parent.destroy();
+
+    expect(world.has(child)).toBe(false);
+    expect(child.targetFor(ChildOf)).toBe(parent);
+    expect(world.query(createDestroyed()(ChildOf), ChildOf(parent)).toArray()).toEqual([child]);
+  });
+
+  it('drops the pair from a live source when its target dies', () => {
+    const world = createWorld();
+    const target = world.spawn();
+    const source = world.spawn(Likes(target));
+    target.destroy();
+
+    expect(source.has(Likes('*'))).toBe(false);
+    expect(source.targetFor(Likes)).toBeUndefined();
+  });
+
+  it('clears relation data when the id is reused', () => {
+    const world = createWorld({ retain: 1 });
+    const a = world.spawn();
+    const first = world.spawn(Weighs(a, { kg: 7 }));
+    const second = world.spawn(Weighs(a, { kg: 8 }));
+    first.destroy();
+    second.destroy();
+
+    const reused = world.spawn();
+    expect(reused.id()).toBe(first.id());
+    expect(reused.has(Weighs('*'))).toBe(false);
+    expect(reused.targetsFor(Weighs)).toEqual([]);
+    expect(second.get(Weighs(a))).toEqual({ kg: 8 });
+
+    reused.add(Weighs(a, { kg: 1 }));
+    expect(reused.targetsFor(Weighs)).toEqual([a]);
+    expect(reused.get(Weighs(a))).toEqual({ kg: 1 });
   });
 });

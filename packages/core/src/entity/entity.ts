@@ -10,7 +10,7 @@ import {
   resetQueryTrackingBitmasks,
 } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
-import { getRelationTargets, hasRelationPair } from '../relation/relation';
+import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
 import { isNameConfig } from '../name/name-index';
 import type { NameConfig } from '../name/types';
 import type { RelationPair } from '../relation/types';
@@ -19,12 +19,14 @@ import {
   addTraitsToAliveEntity,
   cleanupRelationTarget,
   hasTrait,
+  hasTraitOrRetained,
   notifyDestroyedQueries,
   registerTrait,
   removeTraitFromAliveEntity,
+  tombstoneTrait,
 } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
-import type { ConfigurableTrait, Trait } from '../trait/types';
+import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
 import type { QueryInstance } from '../query/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
@@ -131,7 +133,8 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
           if (instance.destroyedQueries.length !== 0) {
             notifyDestroyedQueries(ctx, currentEntity, instance, g, low);
           }
-          removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
+          if (keep) tombstoneTrait(ctx, currentEntity, instance);
+          else removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
           // Clear the bit by hand in case removal declined, so the walk always ends.
           word = page[slot] & ~low;
         }
@@ -181,9 +184,11 @@ function cleanupDestroyedRelations(
   stamp: number
 ) {
   const relations = ctx.relations;
+  const keep = ctx.retain !== 0;
   for (let r = 0; r < relations.length; r++) {
     const relation = relations[r];
     const relationCtx = relation[$internal];
+    const cascade = relationCtx.autoDestroy === 'source';
 
     // Cleanup swap-removes the source from this bucket, so walk it from the end.
     const sources = getTraitInstance(ctx.traitInstances, relationCtx.trait)
@@ -193,8 +198,13 @@ function cleanupDestroyedRelations(
         if (i >= sources.length) continue;
         const source = sources[i];
         if (!isEntityAlive(ctx.entityIndex, source)) continue;
+        // A source that dies with its target keeps the pair on its own tombstone, so its destroy
+        // does the cleanup. A world that retains nothing clears the pair here as before.
+        if (cascade) {
+          entityQueue.push(source);
+          if (keep) continue;
+        }
         cleanupRelationTarget(ctx, relation, source, entity);
-        if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
       }
     }
 
@@ -248,6 +258,16 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
  * retain newer destroys have happened and every Removed and Destroyed reader has moved past it,
  * or once sixteen times retain are waiting on a reader that stalled. Otherwise the id space grows.
  */
+/** Drops the relation targets and pair data a destroyed entity kept, before its id is reused. */
+function clearTombstoneRelations(word: number, traitsByBit: TraitInstance[], eid: number) {
+  while (word !== 0) {
+    const low = word & -word;
+    const instance = traitsByBit[31 - Math.clz32(low)];
+    if (instance.relationTargets !== undefined) clearRelationEntity(instance, eid);
+    word &= ~low;
+  }
+}
+
 function allocateReusing(ctx: WorldContext): Entity {
   const count = ctx.tombstoneCount;
   const retain = ctx.retain;
@@ -297,9 +317,11 @@ function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
   const entityMasks = ctx.entityMasks;
+  const hasRelations = ctx.relations.length !== 0;
   for (let g = 0; g < entityMasks.length; g++) {
     const page = entityMasks[g][pageId];
     if (page === EMPTY_MASK_PAGE) continue;
+    if (hasRelations) clearTombstoneRelations(page[slot + DESTROYED_WORD], ctx.traitsByBit[g], eid);
     page[slot + REMOVED_WORD] = 0;
     page[slot + CHANGED_WORD] = 0;
     page[slot + DESTROYED_WORD] = 0;
@@ -351,7 +373,7 @@ export function hasEntityRelationPair(
   pair: RelationPair
 ): boolean {
   /* @cold */ if (pair.targetQuery) {
-    if (!hasTrait(ctx, entity, pair.relation[$internal].trait)) return false;
+    if (!hasTraitOrRetained(ctx, entity, pair.relation[$internal].trait)) return false;
     const targets = getRelationTargets(ctx, pair.relation, entity);
     for (const match of queryInternal(ctx, ...(pair.targetQuery as any))) {
       if (targets.includes(match)) return true;

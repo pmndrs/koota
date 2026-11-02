@@ -141,6 +141,17 @@ entity.remove(ServerSync)
 
 Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` or `Destroyed` query created later still sees every destroyed entity whose id has not been reused, in destroy order.
 
+A destroyed entity keeps its relations as well. `targetFor`, `targetsFor`, `has` and `get` read the targets and pair data it held when it died, and a pair term filters a `Destroyed` query on them. Children destroyed with their parent through `autoDestroy` keep the parent as their target. A live entity whose target dies loses the pair as before.
+
+```js
+const DestroyedChild = createDestroyed()
+
+// Children destroyed with the parent, or on their own while attached to it
+world.query(DestroyedChild(ChildOf), ChildOf(parent)).forEach((child) => {
+  detach(child, child.targetFor(ChildOf))
+})
+```
+
 # Events
 
 An event is an entity that is spawned and destroyed in one call. `world.emit` does that, so synchronous subscribers see it at once and `Destroyed` queries drain it later. `createListener` returns a cached query key over a `Destroyed` term for the event trait, with any other query terms added, so each listener drains its own batch. An event lives until every listener has read it and at least `retain` newer destroys have happened, so listeners can run anywhere in the loop and can be created after the emit.

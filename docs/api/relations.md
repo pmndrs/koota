@@ -92,6 +92,8 @@ container.destroy()
 world.has(itemA) // False, items are destroyed with container
 ```
 
+Entities destroyed this way keep their relations until their id is reused, so a `Destroyed` query can still read the parent of a child or the container of an item. See [Destroyed](query-modifiers.md#destroyed).
+
 ## Exclusive relations
 
 Exclusive relations ensure each entity can only have one target.
