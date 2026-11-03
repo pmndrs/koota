@@ -32,8 +32,11 @@ type SoASchema = {
   [key: string]: number | bigint | string | boolean | null | undefined | Tuple | (() => unknown);
 };
 
-/** Schemas accepted by trait(). Factories return objects, primitive data belongs in a field. */
-export type TraitSchema = SoASchema | (() => object) | Record<string, never>;
+/**
+ * Schemas accepted by trait(). Factories return an object, or null for a reference slot that is
+ * empty until set. Primitive data belongs in a field.
+ */
+export type TraitSchema = SoASchema | (() => object | null) | Record<string, never>;
 
 /**
  * A fixed-length list of primitives, such as a vector, quaternion, matrix or Euler.

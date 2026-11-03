@@ -239,6 +239,20 @@ describe('Trait', () => {
     expect(trait(() => ({ value: 'idle' }))).toBeDefined();
   });
 
+  it('accepts a null factory for an empty reference', () => {
+    class Mesh {}
+    const MeshRef = trait(() => null as Mesh | null);
+    const world = createWorld();
+    const entity = world.spawn(MeshRef);
+    expect(entity.get(MeshRef)).toBeNull();
+
+    const mesh = new Mesh();
+    entity.set(MeshRef, mesh);
+    expect(entity.get(MeshRef)).toBe(mesh);
+    const value: Mesh | null = entity.get(MeshRef)!;
+    expect(value).toBe(mesh);
+  });
+
   it('can create atomic traits', () => {
     const object = { a: 1, b: 2 };
     const AtomicObject = trait(() => object);
