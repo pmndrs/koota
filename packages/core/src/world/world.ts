@@ -66,6 +66,31 @@ function ensureWorldRegistered(ctx: WorldContext, world: World, id: number): voi
   ctx.worldEntity = createEntity(ctx, [IsExcluded, ...(pending || [])]);
 }
 
+/** Resolve inline parameters, including direct relation and named lookups. */
+export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
+  if (params.length === 1 && isRelationPair(params[0])) {
+    const relation = params[0].relation;
+    const target = params[0].target;
+    if (!params[0].targetQuery && typeof target === 'number') {
+      const entities = getEntitiesWithRelationTo(ctx, relation as Relation<Trait>, target as Entity);
+      return createOwnedView(ctx, entities as Entity[], null, params);
+    }
+  }
+
+  const named = findNamedEntity(ctx, params);
+  if (named !== null) {
+    return createOwnedView(ctx, named === undefined ? [] : [named], null, params);
+  }
+
+  const hash = createQueryHash(params);
+  let query = ctx.queriesHashMap.get(hash);
+  if (!query) {
+    query = createQueryInstance(ctx, params);
+    ctx.queriesHashMap.set(hash, query);
+  }
+  return runQuery(ctx, query, params);
+}
+
 export function createWorld(...traits: ConfigurableTrait[]): World {
   const id = nextWorldId++;
   const pendingTraits = traits.length > 0 ? traits : undefined;
@@ -222,57 +247,14 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
 
     query(...args: any[]) {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx, world, id);
+      if (!ctx.isRegistered) ensureWorldRegistered(ctx, world, id);
 
       if (args.length === 1 && isQuery(args[0])) {
         const queryRef = args[0];
-        let query = ctx.queryInstances[queryRef.id];
-        if (query) return runQuery(ctx, query, queryRef.parameters);
-
-        query = ctx.queriesHashMap.get(queryRef.hash);
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-          query.refId = queryRef.id;
-        }
+        const query = ctx.queryInstances[queryRef.id] ?? resolveQueryInstanceFromRef(ctx, queryRef);
         return runQuery(ctx, query, queryRef.parameters);
-      } else {
-        const params = args as QueryParameter[];
-
-        if (params.length === 1 && isRelationPair(params[0])) {
-          const relation = params[0].relation;
-          const target = params[0].target;
-
-          // Only use fast path for specific targets
-          if (!params[0].targetQuery && typeof target === 'number') {
-            const entities = getEntitiesWithRelationTo(
-              ctx,
-              relation as Relation<Trait>,
-              target as Entity
-            );
-            return createOwnedView(ctx, entities as Entity[], null, params);
-          }
-        }
-
-        const named = findNamedEntity(ctx, params);
-        if (named !== null) {
-          return createOwnedView(ctx, named === undefined ? [] : [named], null, params);
-        }
-
-        const hash = createQueryHash(params);
-        let query = ctx.queriesHashMap.get(hash);
-
-        if (!query) {
-          query = createQueryInstance(ctx, params);
-          ctx.queriesHashMap.set(hash, query);
-        }
-
-        return runQuery(ctx, query, params);
       }
+      return queryWithParameters(ctx, args);
     },
 
     queryFirst(...args: [Query<QueryParameter[]>] | QueryParameter[]) {

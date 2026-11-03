@@ -148,7 +148,10 @@ class View implements QueryView<any> {
     return this.walk(callback, undefined, true);
   }
 
-  /** Shared body of updateEach and each, which differ only in how the callback takes the traits. */
+  /**
+   * Shared body of updateEach and each. This call boundary leaves V8 room to inline the
+   * generated iterator and trait accessors together.
+   */
   private walk(callback: Callback, options: UpdateEachOptions | undefined, positional: boolean) {
     const { dense, length } = this.source;
     if (length === 0) return this;
@@ -285,6 +288,10 @@ export function bindQueryView(
   query: QueryInstance,
   params: QueryParameter[]
 ): QueryView<any> {
+  const binding = query.viewBindings[0];
+  if (binding !== undefined && binding.params === params && binding.view !== null) {
+    return binding.view;
+  }
   return getLiveView(ctx, query, getQueryBinding(ctx, query, params));
 }
 
@@ -427,11 +434,9 @@ function takeIterationBuffers(
 ): QueryIterationBuffers {
   const buffers = pool.iterationBuffers ?? createIterationBuffers();
   pool.iterationBuffers = buffers.next;
-  const { traits } = binding;
-  const prepared = buffers.traits;
-  let matches = buffers.iterators !== undefined && prepared.length === traits.length;
-  for (let i = 0; matches && i < traits.length; i++) matches = prepared[i] === traits[i];
-  if (!matches) prepareIterationBuffers(ctx, buffers, entities, binding, pool);
+  if (buffers.traits !== binding.traits) {
+    prepareIterationBuffers(ctx, buffers, entities, binding, pool);
+  }
   return buffers;
 }
 
@@ -451,11 +456,14 @@ function prepareIterationBuffers(
   const { traits, stores } = binding;
   const { state, records } = buffers;
   const prepared = buffers.traits;
+  if (buffers.iterators !== undefined && sameParams(prepared, traits)) {
+    buffers.traits = traits;
+    return;
+  }
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
     state[i] = undefined;
     if (prepared[i] === trait) continue;
-    prepared[i] = trait;
     const traitCtx = trait[$internal];
     records[i] = traitCtx.cursor
       ? {
@@ -468,7 +476,8 @@ function prepareIterationBuffers(
         ? createIterationRecord(ctx, getEntityId(entities[0]), trait, stores[i])
         : undefined;
   }
-  state.length = prepared.length = records.length = traits.length;
+  state.length = records.length = traits.length;
+  buffers.traits = traits;
   buffers.iterators =
     pool === ctx ? getQueryIterators(traits) : (binding.iterators ??= compileQueryIterators(traits));
 }
