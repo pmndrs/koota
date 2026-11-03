@@ -233,13 +233,9 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   isTracking: boolean;
   /**
    * Holds a Removed term. Its other terms read the traits a dead entity died with, and its runs
-   * decide when tombstones and events are released.
+   * decide when tombstones are released.
    */
   retains: boolean;
-  /** A Removed query that names the subject. It reads the event ring on its runs instead of being reconciled. */
-  isListener: boolean;
-  /** Position in the event ring, in push order, where the next run starts reading. */
-  eventCursor: number;
   /** The destroy serial at the previous run. Tombstones up to it were exposed and swapped out. */
   consumedSerial: number;
   /** The destroy serial at the last run. */

@@ -35,8 +35,6 @@ export type Entity = number & {
   remove: (...traits: (Trait | RelationPair)[]) => void;
   has: (trait: Trait | RelationPair | NameConfig) => boolean;
   destroy: () => void;
-  /** Emits an event about this entity. Returns the event. */
-  emit: (...traits: ConfigurableTrait[]) => Entity;
   changed: (trait: Trait) => void;
   set: <T extends Trait | RelationPair>(
     trait: T,

@@ -89,9 +89,7 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
   const entityMasks = ctx.entityMasks;
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
-  if (
-    !passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains)
-  ) {
+  if (!passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains)) {
     return false;
   }
 
@@ -162,7 +160,7 @@ function trackersMatchAny(
  * read the traits an entity holds. A Removed query also reads the traits a dead entity or an
  * event died with, so its other terms describe the row as it ended.
  */
-export function passesStaticBitmasks(
+function passesStaticBitmasks(
   masks: number[],
   entityMasks: Uint32Array[][],
   pageId: number,

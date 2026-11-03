@@ -40,8 +40,6 @@ export type Relation<T extends Trait = Trait> = {
     trait: T;
     exclusive: boolean;
     autoDestroy: 'source' | 'target' | false;
-    /** Attached by emit only. A row that holds it is an event. */
-    reserved: boolean;
   };
 } & RelationCall<T>;
 

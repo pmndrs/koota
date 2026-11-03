@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  Not,
-  On,
-  createAdded,
-  createListener,
-  createRemoved,
-  createWorld,
-  relation,
-  trait,
-} from '../src';
+import { Not, createAdded, createRemoved, createWorld, relation, trait } from '../src';
 
 const Position = trait({ x: 0, y: 0 });
 const IsHot = trait();
@@ -60,8 +51,6 @@ describe('Entity retention', () => {
 
     expect(() => entity.get(Position)).toThrow();
     expect(world.spawn().id()).toBe(entity.id());
-    expect(() => world.emit(Event({ by: 1 }))).toThrow();
-    expect(() => world.spawn(Event({ by: 1 }), On(world.spawn()))).toThrow();
   });
 
   it('reuses the oldest id past the window when nothing reads', () => {
@@ -136,46 +125,6 @@ describe('Entity retention', () => {
     expect(world.query(Removed(Position)).length).toBe(0);
   });
 
-  it('emits events that each listener drains once, in order', () => {
-    const world = createWorld();
-    const listener = createListener(Event);
-    const other = createListener(Event, Not(IsHot));
-
-    world.emit(Event({ by: 5 }));
-    world.emit(Event({ by: 6 }), IsHot);
-
-    const seen: number[] = [];
-    world.query(listener).each((event) => seen.push(event.by));
-    expect(seen).toEqual([5, 6]);
-    expect(world.query(listener).length).toBe(0);
-
-    expect(world.query(other).length).toBe(1);
-    expect(world.query(Event).length).toBe(0);
-  });
-
-  it('keeps an event until every listener has consumed it', () => {
-    const world = createWorld();
-    const fast = createListener(Event);
-    const slow = createListener(Event);
-    world.query(fast);
-    world.query(slow);
-
-    const event = world.emit(Event({ by: 7 }));
-    // Past the window of 64 newer events, so only the listeners hold it.
-    for (let i = 0; i < 70; i++) world.emit(Event({ by: 8 }));
-    expect(world.query(fast).first).toBe(event);
-    expect(world.query(fast).length).toBe(0);
-    expect(event.get(Event)!.by).toBe(7);
-
-    // The slow listener has not moved past it, so the next event does not take its id.
-    expect(world.emit(Event({ by: 9 })).id()).not.toBe(event.id());
-    expect(world.query(slow).toArray()).toContain(event);
-    expect(world.query(slow).length).toBe(0);
-    expect(world.query(fast).length).toBe(1);
-    expect(world.emit(Event({ by: 10 })).id()).toBe(event.id());
-    expect(() => event.get(Event)).toThrow();
-  });
-
   it('reads the last value of a removed trait until it is added back', () => {
     const world = createWorld();
     const Removed = createRemoved();
@@ -205,130 +154,6 @@ describe('Entity retention', () => {
     expect(world.query(Warm(Position), IsHot).toArray()).toEqual([hot]);
     expect(world.query(createRemoved()(Position), IsHot).toArray()).toEqual([hot]);
     expect(world.query(createRemoved()(Position), Not(IsHot)).toArray()).toEqual([cold]);
-  });
-
-  it('drains events only through Removed readers that name the subject', () => {
-    const world = createWorld();
-    const Warm = createRemoved();
-    const Plain = createRemoved();
-    world.query(Warm(Event), On('*'));
-    world.query(Plain(Event));
-    const event = world.emit(Event({ by: 15 }));
-
-    expect(world.query(Warm(Event), On('*')).toArray()).toEqual([event]);
-    expect(world.query(Plain(Event)).length).toBe(0);
-    expect(world.query(createRemoved()(Event), On('*')).toArray()).toEqual([event]);
-    expect(world.query(createRemoved()(Event)).length).toBe(0);
-    expect(world.query(Warm(Event), On('*')).length).toBe(0);
-  });
-
-  it('gives every event a subject', () => {
-    const world = createWorld();
-    const player = world.spawn(IsHot);
-    const bystander = world.spawn();
-    const listener = createListener(Event);
-    world.query(listener);
-
-    const fromWorld = world.emit(Event({ by: 1 }));
-    const fromPlayer = player.emit(Event({ by: 2 }));
-    const explicit = world.emit(Event({ by: 3 }), On(player));
-
-    expect(fromWorld.has(On('*'))).toBe(true);
-    expect(fromWorld.targetFor(On)).not.toBe(player);
-    expect(fromPlayer.targetFor(On)).toBe(player);
-    expect(explicit.targetFor(On)).toBe(player);
-    expect(world.query(listener).toArray()).toEqual([fromWorld, fromPlayer, explicit]);
-    expect(world.query(createListener(Event, On(player))).toArray()).toEqual([fromPlayer, explicit]);
-    expect(world.query(createListener(Event, On(IsHot))).toArray()).toEqual([fromPlayer, explicit]);
-    expect(world.query(createListener(Event, On(bystander))).length).toBe(0);
-  });
-
-  it('ends an entity as an event when it gains a subject', () => {
-    const world = createWorld({ retain: 1 });
-    const target = world.spawn();
-    const listener = createListener(Event);
-    world.query(listener);
-    let removed = 0;
-    world.onRemove(Event, () => removed++);
-
-    const spawned = world.spawn(Event({ by: 20 }), On(target), IsHot);
-    expect(spawned.isAlive()).toBe(false);
-    expect(spawned.has(IsHot)).toBe(true);
-    expect(spawned.get(Event)).toEqual({ by: 20 });
-    expect(spawned.targetFor(On)).toBe(target);
-    expect(world.query(Event).length).toBe(0);
-
-    const promoted = world.spawn(Event({ by: 21 }));
-    expect(world.query(Event).length).toBe(1);
-    promoted.add(On(target));
-    expect(promoted.isAlive()).toBe(false);
-    expect(world.query(Event).length).toBe(0);
-    expect(removed).toBe(2);
-    expect(() => world.add(On(target))).toThrow();
-
-    expect(world.query(listener).toArray()).toEqual([spawned, promoted]);
-    expect(world.query(listener).length).toBe(0);
-    // Only emits reuse the ids of rows that ended as events, once the window has passed
-    for (let i = 0; i < 63; i++) expect(world.emit(Event({ by: 22 })).id()).not.toBe(spawned.id());
-    expect(world.spawn().id()).not.toBe(spawned.id());
-    expect(world.emit(Event({ by: 23 })).id()).toBe(spawned.id());
-  });
-
-  it('keeps events through entity churn and never hands their ids to spawns', () => {
-    const world = createWorld({ retain: 2 });
-    const event = world.emit(Event({ by: 11 }));
-    for (let i = 0; i < 500; i++) world.spawn(Position).destroy();
-    for (let i = 0; i < 100; i++) expect(world.spawn().id()).not.toBe(event.id());
-
-    const listener = createListener(Event);
-    expect(world.query(listener).toArray()).toEqual([event]);
-    expect(event.get(Event)!.by).toBe(11);
-  });
-
-  it('never makes an event alive', () => {
-    const world = createWorld();
-    let observed = 0;
-    world.onAdd(Event, () => observed++);
-    const event = world.emit(Event({ by: 12 }), IsHot);
-
-    expect(observed).toBe(1);
-    expect(world.has(event)).toBe(false);
-    expect(world.entities).not.toContain(event);
-    expect(world.query(Event).length).toBe(0);
-    expect(world.query(IsHot).length).toBe(0);
-    expect(event.get(Event)).toEqual({ by: 12 });
-    expect(event.has(IsHot)).toBe(true);
-    expect(() => event.set(Event, { by: 0 })).toThrow();
-  });
-
-  it('filters events on their pairs and other traits', () => {
-    const Hits = relation();
-    const world = createWorld();
-    const a = world.spawn();
-    const b = world.spawn();
-    const Warm = createRemoved();
-    world.query(Warm(Event), On('*'), Hits(a));
-    const onA = world.emit(Event({ by: 13 }), Hits(a), IsHot);
-    world.emit(Event({ by: 14 }), Hits(b));
-
-    expect(world.query(Warm(Event), On('*'), Hits(a)).toArray()).toEqual([onA]);
-    expect(world.query(createListener(Event, Hits(a))).toArray()).toEqual([onA]);
-    expect(world.query(createListener(Event, IsHot)).toArray()).toEqual([onA]);
-    expect(onA.targetFor(Hits)).toBe(a);
-  });
-
-  it('drops events a reader fell too far behind to keep', () => {
-    const world = createWorld();
-    const listener = createListener(Event);
-    world.query(listener);
-
-    for (let i = 1; i <= 17_000; i++) world.emit(Event({ by: i }));
-
-    const seen: number[] = [];
-    world.query(listener).each((event) => seen.push(event.by));
-    expect(seen.length).toBeLessThan(17_000);
-    expect(seen.at(-1)).toBe(17_000);
-    for (let i = 1; i < seen.length; i++) expect(seen[i]).toBe(seen[i - 1] + 1);
   });
 
   it('keeps alive and destroyed entities apart while spawning', () => {

@@ -9,8 +9,6 @@ export type HandleRing = {
   serials: Float64Array;
   head: number;
   count: number;
-  /** Handles shifted off the head so far, so the head sits at this position in push order. */
-  released: number;
 };
 
 export function createHandleRing(capacity: number): HandleRing {
@@ -19,7 +17,6 @@ export function createHandleRing(capacity: number): HandleRing {
     serials: new Float64Array(capacity),
     head: 0,
     count: 0,
-    released: 0,
   };
 }
 
@@ -32,32 +29,12 @@ export function pushHandle(ring: HandleRing, entity: Entity, serial: number): vo
   ring.count = count + 1;
 }
 
-/**
- * Moves the handle at an offset from the head to another ring, keeping its serial and the order
- * of the rest. The entries behind it move up one position.
- */
-export function moveHandle(from: HandleRing, offset: number, to: HandleRing): void {
-  const capacity = from.ids.length;
-  let index = (from.head + offset) % capacity;
-  const entity = from.ids[index] as Entity;
-  const serial = from.serials[index];
-  for (let i = offset + 1; i < from.count; i++) {
-    const next = (from.head + i) % capacity;
-    from.ids[index] = from.ids[next];
-    from.serials[index] = from.serials[next];
-    index = next;
-  }
-  from.count--;
-  pushHandle(to, entity, serial);
-}
-
 /** Takes the oldest handle. The caller checks the count first. */
 export /* @inline */ function shiftHandle(ring: HandleRing): Entity {
   const head = ring.head;
   const entity = ring.ids[head] as Entity;
   ring.head = (head + 1) % ring.ids.length;
   ring.count--;
-  ring.released++;
   return entity;
 }
 
@@ -77,7 +54,6 @@ export /* @inline */ function canReleaseHead(
 }
 
 export function clearHandleRing(ring: HandleRing): void {
-  ring.released = 0;
   ring.head = 0;
   ring.count = 0;
 }

@@ -9,7 +9,6 @@ export { createChanged } from './query/modifiers/changed';
 export { Not } from './query/modifiers/not';
 export { Or } from './query/modifiers/or';
 export { createRemoved } from './query/modifiers/removed';
-export { createListener } from './query/create-listener';
 export { $modifier } from './query/modifier';
 export { createQuery, IsExcluded } from './query/query';
 export type {
@@ -35,7 +34,6 @@ export { Name } from './name/name';
 export { $name } from './name/symbols';
 export type { NameConfig, NameTrait } from './name/types';
 export { relation } from './relation/relation';
-export { On } from './relation/on';
 export { ordered, isOrderedTrait } from './relation/ordered';
 export type { EntityComparator, EntityView, OrderedView, MutableOrderedView } from './view/types';
 export { $relationPair, $relation } from './relation/symbols';

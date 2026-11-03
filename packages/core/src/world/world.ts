@@ -1,9 +1,7 @@
 import { $internal } from '../common';
-import { emitEvent } from '../entity/emit';
 import { clearHandleRing, createHandleRing } from '../entity/utils/handle-ring';
 import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity } from '../entity/entity';
-import { On } from '../relation/on';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -57,7 +55,6 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
 
   if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
-  registerSubject(ctx);
 
   const pending = ctx.pendingTraits;
   ctx.pendingTraits = undefined;
@@ -89,13 +86,6 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
   return runQuery(ctx, query, params);
 }
 
-/** Registers the subject relation so every destroy and query has its instance at hand. */
-function registerSubject(ctx: WorldContext): void {
-  const subjectTrait = On[$internal].trait;
-  if (!hasTraitInstance(ctx.traitInstances, subjectTrait)) registerTrait(ctx, subjectTrait);
-  ctx.subject = getTraitInstance(ctx.traitInstances, subjectTrait)!;
-}
-
 export function createWorld(options: WorldOptions, ...traits: ConfigurableTrait[]): World;
 export function createWorld(...traits: ConfigurableTrait[]): World;
 export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): World {
@@ -119,12 +109,9 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       entityMasks: [createEmptyMaskGeneration()],
       retain,
       tombstones: createHandleRing(retain === 0 ? 0 : 16),
-      events: createHandleRing(retain === 0 ? 0 : 16),
       destroySerial: 0,
       retainingQueries: [],
       consumedSerial: Infinity,
-      listeners: [],
-      consumedEventSerial: Infinity,
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -140,8 +127,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       targetQueries: [],
       dirtyQueries: new Set(),
       worldEntity: null!,
-      subject: null!,
-      eventEnding: -1,
       entitySubscribedInstances: new Set(),
       resetSubscriptions: new Set(),
       entitySpawnSubscriptions: new Set(),
@@ -245,10 +230,7 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       ctx.queryInstances.length = 0;
       ctx.retainingQueries.length = 0;
       ctx.consumedSerial = Infinity;
-      ctx.listeners.length = 0;
-      ctx.consumedEventSerial = Infinity;
       clearHandleRing(ctx.tombstones);
-      clearHandleRing(ctx.events);
       ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();
@@ -257,18 +239,11 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
       ctx.entitySubscribedInstances.clear();
 
-      registerSubject(ctx);
       ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 
       for (const sub of ctx.resetSubscriptions) {
         sub();
       }
-    },
-
-    emit(...traits: ConfigurableTrait[]) {
-      const ctx = world[$internal];
-      ensureWorldRegistered(ctx);
-      return emitEvent(ctx, traits, ctx.worldEntity);
     },
 
     query(...args: any[]) {

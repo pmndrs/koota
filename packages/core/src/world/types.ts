@@ -50,23 +50,13 @@ export type WorldContext = {
   retain: number;
   /** Destroyed entities whose ids are not reused yet, in destroy order. Spawns reuse them. */
   tombstones: HandleRing;
-  /** Emitted events whose ids are not reused yet, in emit order. Only emits reuse them. */
-  events: HandleRing;
-  /** Counts destroys and emits. Removed readers stamp their runs with it. */
+  /** Counts destroys. Removed readers stamp their runs with it. */
   destroySerial: number;
   /** Removed query instances. Ids stay unreused until they have moved past them. */
   retainingQueries: QueryInstance[];
   /** The oldest serial every retaining reader has moved past, Infinity with none. */
   consumedSerial: number;
-  /** Listeners, Removed queries over events. They read the event ring and hold event ids until they have moved past them. */
-  listeners: QueryInstance[];
-  /** The oldest serial every listener has moved past, Infinity with none. */
-  consumedEventSerial: number;
   worldEntity: Entity;
-  /** The subject relation's instance, registered with the world entity. */
-  subject: TraitInstance;
-  /** The entity whose subject pair the current add or spawn attached, -1 otherwise. */
-  eventEnding: number;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
@@ -105,8 +95,6 @@ export type World = {
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
   destroy(): void;
   reset(): void;
-  /** Emits an event about the world, an entity born dead that listeners drain. Returns its handle. */
-  emit(...traits: ConfigurableTrait[]): Entity;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;

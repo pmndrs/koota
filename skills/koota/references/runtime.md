@@ -167,23 +167,6 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**3. Emit and drain:** Emit an event as an entity born dead about a subject and let a system drain it on its own schedule. Use for discrete game events that several systems read. `entity.emit` makes the entity the subject, `world.emit` makes the world the subject, and the built-in `On` relation carries it: `event.targetFor(On)` reads it and `On(subject)` or `On(IsPlayer)` filters a listener. Emit never makes the event alive, so it costs a fraction of a spawn, and events keep their own log on pages of their own: a listener reads it from where its previous run ended, an event lives until every listener has read it and at least 64 newer events have been emitted, entity churn never discards it, and a listener created after the emit still sees it. A `Removed` query sees events only when it names `On`, which `createListener` does. Adding `On` to an alive entity ends it as an event with its traits.
-
-```typescript
-const Damage = trait({ amount: 0 })
-
-// Cached query key over Removed(Damage), On('*'), create at module scope
-const damage = createListener(Damage, Or(IsHot, IsCold))
-const damageToPlayers = createListener(Damage, On(IsPlayer))
-
-// Born dead. Synchronous subscribers fire now, listeners drain later
-enemy.emit(Damage({ amount: 5 }), IsHot)
-
-function damageSystem(world: World) {
-  world.query(damage).each((damage, event) => applyDamage(event.targetFor(On), damage.amount))
-}
-```
-
 **Trait lifecycle events** (`onAdd`, `onRemove`, `onChange`) are also transition-based:
 
 ```typescript

@@ -7,28 +7,14 @@ import { addTrait, getTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { Subscriber } from '../trait/subscriptions';
 import type { HookInput } from '../world/utils/resolve-hook';
-import {
-  destroyEntity,
-  endEventEntity,
-  entityHas,
-  getEntityContext,
-  subscribeEntityEvent,
-} from './entity';
-import { emitEvent } from './emit';
+import { destroyEntity, entityHas, getEntityContext, subscribeEntityEvent } from './entity';
 import type { Entity } from './types';
 import { getEntityGeneration, getEntityId } from './utils/pack-entity';
 import { addressSpace } from './utils/address-space';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-  const ctx = getEntityContext(this);
-  addTrait(ctx, this, ...traits);
-  if (ctx.eventEnding === this) endEventEntity(ctx, this);
-};
-
-// @ts-expect-error
-Number.prototype.emit = function (this: Entity, ...traits: ConfigurableTrait[]) {
-  return emitEvent(getEntityContext(this), traits, this);
+  return addTrait(getEntityContext(this), this, ...traits);
 };
 
 // @ts-expect-error

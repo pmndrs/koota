@@ -74,9 +74,6 @@ world.entities
 // Return number
 const id = world.id()
 
-// Emits an event about the world, an entity born dead that listeners drain
-world.emit(CoinCollected({ by: player, coin }))
-
 // Resets the world as if it were just created
 // The world ID and reference is preserved
 world.reset()
