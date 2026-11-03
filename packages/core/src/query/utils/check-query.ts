@@ -7,27 +7,22 @@ export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Enti
   if (query.name !== undefined && (query.name === null || ctx.names.get(query.name) !== entity)) {
     return false;
   }
+  return passesStaticMasks(query.masks, ctx.entityMasks, getEntityId(entity));
+}
 
-  const staticBitmasks = query.staticBitmasks;
-  const generations = query.generations;
-  const eid = getEntityId(entity);
-
-  if (query.traitInstances.all.length === 0) return false;
-
-  for (let i = 0; i < generations.length; i++) {
-    const generationId = generations[i];
-    const bitmask = staticBitmasks[i];
-    if (!bitmask) continue;
-
-    const required = bitmask.required;
-    const forbidden = bitmask.forbidden;
-    const or = bitmask.or;
-    const entityMask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
-
-    if (forbidden && (entityMask & forbidden) !== 0) return false;
-    if (required && (entityMask & required) !== required) return false;
+/** The entity satisfies every required, forbidden and or mask of the query. */
+export function passesStaticMasks(masks: number[], entityMasks: Uint32Array[][], eid: number) {
+  if (masks.length === 0) return false;
+  const pageId = eid >>> 10;
+  const offset = eid & 1023;
+  for (let i = 0; i < masks.length; i += 4) {
+    const entityMask = entityMasks[masks[i]][pageId][offset];
+    const required = masks[i + 1];
+    const forbidden = masks[i + 2];
+    const or = masks[i + 3];
+    if (forbidden !== 0 && (entityMask & forbidden) !== 0) return false;
+    if (required !== 0 && (entityMask & required) !== required) return false;
     if (or !== 0 && (entityMask & or) === 0) return false;
   }
-
   return true;
 }

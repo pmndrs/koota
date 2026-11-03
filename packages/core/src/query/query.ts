@@ -1,14 +1,15 @@
 import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
-import { getEntityId } from '../entity/utils/pack-entity';
+import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import { isNameConfig } from '../name/name-index';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
+import { PAGE_SIZE } from '../entity/utils/pack-entity';
 import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
-import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
+import { getTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait, TraitInstance } from '../trait/types';
 import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
@@ -25,7 +26,7 @@ import {
   type ResolvedRelationFilter,
   type TrackingGroup,
 } from './types';
-import { checkQuery } from './utils/check-query';
+import { checkQuery, passesStaticMasks } from './utils/check-query';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
@@ -53,7 +54,9 @@ export function runQuery<T extends QueryParameter[]>(
 ): QueryView<T> {
   if (ctx.dirtyQueries.size !== 0) commitQueryRemovals(ctx);
   if (query.isTracking) consumeTrackingBatch(query);
-  if (query.iterating !== 0 && query.toRemove.length !== 0) return retained(ctx, query, params);
+  if (query.iterating !== 0 && query.toRemove !== null && query.toRemove.length !== 0) {
+    return retained(ctx, query, params);
+  }
   return bindQueryView(ctx, query, params) as QueryView<T>;
 }
 
@@ -64,7 +67,7 @@ function retained<T extends QueryParameter[]>(
   params: QueryParameter[]
 ): QueryView<T> {
   const { dense, length } = query.exposed;
-  const toRemove = query.toRemove;
+  const toRemove = query.toRemove!;
   const entities: Entity[] = [];
   for (let i = 0; i < length; i++) {
     if (!toRemove.has(dense[i])) entities.push(dense[i] as Entity);
@@ -78,14 +81,16 @@ export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity |
   if (query.isTracking) consumeTrackingBatch(query);
   const { dense, length } = query.exposed;
   if (length === 0) return undefined;
-  if (query.iterating !== 0 && query.toRemove.length !== 0) return firstRetained(query);
+  if (query.iterating !== 0 && query.toRemove !== null && query.toRemove.length !== 0) {
+    return firstRetained(query);
+  }
   return dense[0] as Entity;
 }
 
 /** Removals wait while the query is walked, so skip the pending ones by hand. */
 function firstRetained(query: QueryInstance): Entity | undefined {
   const { dense, length } = query.exposed;
-  const toRemove = query.toRemove;
+  const toRemove = query.toRemove!;
   for (let i = 0; i < length; i++) {
     if (!toRemove.has(dense[i])) return dense[i] as Entity;
   }
@@ -112,18 +117,20 @@ function consumeTrackingBatch(query: QueryInstance) {
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   if (query.dropped) return;
+  const toRemove = query.toRemove;
   if (
     query.name !== undefined &&
     !query.isTracking &&
     query.entities.has(entity) &&
-    !query.toRemove.has(entity)
+    (toRemove === null || !toRemove.has(entity))
   )
     return;
-  if (query.toRemove.length !== 0) query.toRemove.remove(entity);
+  if (toRemove !== null && toRemove.length !== 0) toRemove.remove(entity);
   query.entities.add(entity);
 
-  if (query.addSubscriptions.size !== 0) {
-    emitQuerySubscribers(query.ctx, query.addSubscriptions, entity);
+  const subscribers = query.addSubscriptions;
+  if (subscribers !== null && subscribers.size !== 0) {
+    emitQuerySubscribers(query.ctx, subscribers, entity);
   }
 
   query.version++;
@@ -131,17 +138,20 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
 
 /** Removes at once unless a walk is in progress, which keeps the removal pending until it ends. */
 export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, entity: Entity) {
-  if (query.dropped || !query.entities.has(entity) || query.toRemove.has(entity)) return;
+  if (query.dropped || !query.entities.has(entity)) return;
+  const toRemove = query.toRemove;
+  if (toRemove !== null && toRemove.has(entity)) return;
 
   if (query.iterating === 0) {
     query.entities.remove(entity);
   } else {
-    query.toRemove.add(entity);
+    (query.toRemove ??= new SparseSet()).add(entity);
     ctx.dirtyQueries.add(query);
   }
 
-  if (query.removeSubscriptions.size !== 0) {
-    emitQuerySubscribers(ctx, query.removeSubscriptions, entity);
+  const subscribers = query.removeSubscriptions;
+  if (subscribers !== null && subscribers.size !== 0) {
+    emitQuerySubscribers(ctx, subscribers, entity);
   }
 
   query.version++;
@@ -165,10 +175,11 @@ export function commitQueryRemovals(ctx: WorldContext) {
       (walked ??= []).push(query);
       continue;
     }
-    const { dense, length } = query.toRemove;
+    const toRemove = query.toRemove!;
+    const { dense, length } = toRemove;
     for (let i = length - 1; i >= 0; i--) {
       const eid = dense[i];
-      query.toRemove.remove(eid);
+      toRemove.remove(eid);
       query.entities.remove(eid);
     }
   }
@@ -192,49 +203,54 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
   }
 }
 
+function ensureTraitInstance(ctx: WorldContext, trait: Trait): TraitInstance {
+  return (
+    getTraitInstance(ctx.traitInstances, trait) ??
+    (registerTrait(ctx, trait), getTraitInstance(ctx.traitInstances, trait)!)
+  );
+}
+
 function processTrackingModifier(
   ctx: WorldContext,
   query: QueryInstance,
   modifier: Modifier,
   logic: 'and' | 'or',
-  groupsMap: Map<string, TrackingGroup>
+  groups: TrackingGroup[]
 ): void {
   const trackingType = getTrackingType(modifier);
   if (!trackingType) return;
 
   const id = modifier.id;
-  const key = `${trackingType}-${id}-${logic}`;
-
-  let group = groupsMap.get(key);
+  let group = groups.find((g) => g.type === trackingType && g.id === id && g.logic === logic);
   if (!group) {
-    group = {
-      logic,
-      type: trackingType,
-      id,
-      bitmasks: [],
-      trackers: [],
-    };
-    groupsMap.set(key, group);
-    query.trackingGroups.push(group);
+    group = { logic, type: trackingType, id, bitmasks: [], trackers: [] };
+    groups.push(group);
   }
 
   for (const trait of modifier.traits) {
-    if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-    const instance = getTraitInstance(ctx.traitInstances, trait)!;
+    const instance = ensureTraitInstance(ctx, trait);
     query.traits.push(trait);
-
-    query.traitInstances.all.push(instance);
+    query.traitInstances.push(instance);
 
     const genId = instance.generationId;
     group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
 
     if (trackingType === 'change') {
-      query.changedTraits.add(trait);
+      query.changedTraits.push(trait);
       query.hasChangedModifiers = true;
     }
   }
 
   query.isTracking = true;
+}
+
+/** Folds a trait's bit into the query's flat mask table under the given term. */
+function addMaskBit(masks: number[], instance: TraitInstance, term: 1 | 2 | 3) {
+  const genId = instance.generationId;
+  let i = 0;
+  while (i < masks.length && masks[i] !== genId) i += 4;
+  if (i === masks.length) masks.push(genId, 0, 0, 0);
+  masks[i + term] |= instance.bitflag;
 }
 
 export function createQueryInstance<T extends QueryParameter[]>(
@@ -249,36 +265,35 @@ export function createQueryInstance<T extends QueryParameter[]>(
     hash: '',
     refId: -1,
     traits: [],
-    traitInstances: {
-      required: [],
-      forbidden: [],
-      or: [],
-      all: [],
-    },
-    staticBitmasks: [],
+    traitInstances: [],
+    masks: [],
     trackingGroups: [],
-    generations: [],
     entities: new SparseSet(),
     batch: undefined,
     exposed: null!,
     iterating: 0,
     isTracking: false,
     hasChangedModifiers: false,
-    changedTraits: new Set<Trait>(),
-    toRemove: new SparseSet(),
+    changedTraits: [],
+    toRemove: null,
     notIndex: -1,
     dropped: false,
     listSlots: [],
-    cleanup: [],
-    addSubscriptions: new Set<QuerySubscriber>(),
-    removeSubscriptions: new Set<QuerySubscriber>(),
+    cleanup: null,
+    addSubscriptions: null,
+    removeSubscriptions: null,
     layoutCache: null,
     iterationBuffers: undefined,
     viewBindings: [],
     relationFilters: [],
   };
 
-  const trackingGroupsMap = new Map<string, TrackingGroup>();
+  // Tracked instances join first, so their slots come before the static terms.
+  const required: TraitInstance[] = [];
+  const forbidden: TraitInstance[] = [];
+  const or: TraitInstance[] = [];
+  const all = query.traitInstances;
+  const masks = query.masks;
 
   for (let i = 0; i < parameters.length; i++) {
     const parameter = parameters[i];
@@ -287,95 +302,63 @@ export function createQueryInstance<T extends QueryParameter[]>(
       const [trait, value] = parameter;
       if (query.name === undefined) query.name = value;
       else if (query.name !== value) query.name = null;
-      if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-      query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, trait)!);
+      required.push(ensureTraitInstance(ctx, trait));
       continue;
     }
 
     if (isRelationPair(parameter)) {
-      const relation = parameter.relation;
-      query.relationFilters!.push(resolveRelationFilter(parameter));
-
-      const baseTrait = (relation as Relation<Trait>)[$internal].trait;
-      if (!hasTraitInstance(ctx.traitInstances, baseTrait)) registerTrait(ctx, baseTrait);
-      query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, baseTrait)!);
+      query.relationFilters.push(resolveRelationFilter(parameter));
+      const baseTrait = (parameter.relation as Relation<Trait>)[$internal].trait;
+      required.push(ensureTraitInstance(ctx, baseTrait));
       query.traits.push(baseTrait);
-
       continue;
     }
 
     if (isModifier(parameter)) {
       const traits = parameter.traits;
-
-      for (let j = 0; j < traits.length; j++) {
-        const t = traits[j];
-        if (!hasTraitInstance(ctx.traitInstances, t)) registerTrait(ctx, t);
-      }
-
       if (parameter.type === 'not') {
-        query.traitInstances.forbidden.push(
-          ...traits.map((t) => getTraitInstance(ctx.traitInstances, t)!)
-        );
+        for (let j = 0; j < traits.length; j++) forbidden.push(ensureTraitInstance(ctx, traits[j]));
       } else if (parameter.type === 'or') {
-        query.traitInstances.or.push(...traits.map((t) => getTraitInstance(ctx.traitInstances, t)!));
-
+        for (let j = 0; j < traits.length; j++) or.push(ensureTraitInstance(ctx, traits[j]));
         if (isOrWithModifiers(parameter)) {
-          for (const nestedModifier of parameter.modifiers) {
-            if (isTrackingModifier(nestedModifier)) {
-              processTrackingModifier(ctx, query, nestedModifier, 'or', trackingGroupsMap);
+          for (const nested of parameter.modifiers) {
+            if (isTrackingModifier(nested)) {
+              processTrackingModifier(ctx, query, nested, 'or', query.trackingGroups);
             }
           }
         }
       } else if (isTrackingModifier(parameter)) {
-        processTrackingModifier(ctx, query, parameter, 'and', trackingGroupsMap);
+        processTrackingModifier(ctx, query, parameter, 'and', query.trackingGroups);
+      } else {
+        for (let j = 0; j < traits.length; j++) ensureTraitInstance(ctx, traits[j]);
       }
     } else {
       const t = parameter as Trait;
-      if (!hasTraitInstance(ctx.traitInstances, t)) registerTrait(ctx, t);
-      query.traitInstances.required.push(getTraitInstance(ctx.traitInstances, t)!);
+      required.push(ensureTraitInstance(ctx, t));
       query.traits.push(t);
     }
   }
 
-  query.traitInstances.forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
+  forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
 
-  query.traitInstances.all = [
-    ...query.traitInstances.all,
-    ...query.traitInstances.required,
-    ...query.traitInstances.forbidden,
-    ...query.traitInstances.or,
-  ];
-
-  query.generations = query.traitInstances.all
-    .map((c) => c.generationId)
-    .reduce((a: number[], v) => {
-      if (a.includes(v)) return a;
-      a.push(v);
-      return a;
-    }, []);
-
-  query.staticBitmasks = query.generations.map((generationId) => {
-    const required = query.traitInstances.required
-      .filter((c) => c.generationId === generationId)
-      .reduce((a, c) => a | c.bitflag, 0);
-
-    const forbidden = query.traitInstances.forbidden
-      .filter((c) => c.generationId === generationId)
-      .reduce((a, c) => a | c.bitflag, 0);
-
-    const or = query.traitInstances.or
-      .filter((c) => c.generationId === generationId)
-      .reduce((a, c) => a | c.bitflag, 0);
-
-    return { required, forbidden, or };
-  });
-
+  for (let i = 0; i < required.length; i++) {
+    all.push(required[i]);
+    addMaskBit(masks, required[i], 1);
+  }
+  for (let i = 0; i < forbidden.length; i++) {
+    all.push(forbidden[i]);
+    addMaskBit(masks, forbidden[i], 2);
+  }
+  for (let i = 0; i < or.length; i++) {
+    all.push(or[i]);
+    addMaskBit(masks, or[i], 3);
+  }
   query.hash = createQueryHash(parameters);
 
   ctx.queriesHashMap.set(query.hash, query);
 
-  const all = query.traitInstances.all;
-  query.listSlots = Array.from({ length: all.length + query.relationFilters!.length }, () => -1);
+  const relationFilters = query.relationFilters;
+  query.listSlots = Array.from({ length: all.length + relationFilters.length }, () => -1);
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     if (all.indexOf(instance) !== i) continue;
@@ -386,67 +369,83 @@ export function createQueryInstance<T extends QueryParameter[]>(
   query.exposed = query.entities;
   if (query.isTracking) query.exposed = query.batch = new SparseSet();
 
-  if (query.name === undefined && query.traitInstances.forbidden.length > 0) {
+  if (query.name === undefined && forbidden.length > 0) {
     query.notIndex = ctx.notQueries.length;
     ctx.notQueries.push(query);
   }
 
-  const hasRelationFilters = query.relationFilters && query.relationFilters.length > 0;
+  const hasRelationFilters = relationFilters.length > 0;
+  // Entities already related to a concrete target are the only candidates such a query can match.
+  let targetCandidates: readonly Entity[] | undefined;
 
-  if (hasRelationFilters) {
-    for (let k = 0; k < query.relationFilters!.length; k++) {
-      const pair = query.relationFilters![k];
-      const relationTrait = pair.relation[$internal].trait;
-      const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-      if (relationTraitInstance && relationSlot(query, relationTraitInstance) === all.length + k) {
-        joinList(relationTraitInstance.relationQueries, query, all.length + k);
+  for (let k = 0; k < relationFilters.length; k++) {
+    const pair = relationFilters[k];
+    const relationTrait = pair.relation[$internal].trait;
+    const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
+    if (relationTraitInstance && relationSlot(query, relationTraitInstance) === all.length + k) {
+      joinList(relationTraitInstance.relationQueries, query, all.length + k);
+    }
+
+    if (typeof pair.target === 'number') {
+      const eid = getEntityId(pair.target);
+      const page = (ctx.targetQueries[eid >>> 10] ??= []);
+      const targetQueries = (page[eid & 1023] ??= []);
+      if (!targetQueries.includes(query)) targetQueries.push(query);
+      const sources = relationTraitInstance?.relationSourcesByTarget?.[eid] ?? EMPTY_ENTITIES;
+      if (targetCandidates === undefined || sources.length < targetCandidates.length) {
+        targetCandidates = sources;
+      }
+    }
+
+    if (pair.targetQueryRef && pair.targetQueryMatches) {
+      for (const target of queryInternal(ctx, pair.targetQueryRef)) {
+        pair.targetQueryMatches.add(target);
       }
 
-      if (typeof pair.target === 'number') {
-        const eid = getEntityId(pair.target);
-        const page = (ctx.targetQueries[eid >>> 10] ??= []);
-        const targetQueries = (page[eid & 1023] ??= []);
-        if (!targetQueries.includes(query)) targetQueries.push(query);
-      }
-
-      if (pair.targetQueryRef && pair.targetQueryMatches) {
-        for (const target of queryInternal(ctx, pair.targetQueryRef)) {
-          pair.targetQueryMatches.add(target);
-        }
-
-        const refreshSourcesForTarget = (target: Entity) => {
-          const sources = getEntitiesWithRelationTo(ctx, pair.relation as Relation<Trait>, target);
-          for (let i = 0; i < sources.length; i++) {
-            const source = sources[i];
-            const match = checkQueryWithRelations(ctx, query, source);
-            if (match) {
-              addEntityToQuery(query, source);
-            } else {
-              removeEntityFromQuery(ctx, query, source);
-            }
+      const refreshSourcesForTarget = (target: Entity) => {
+        const sources = getEntitiesWithRelationTo(ctx, pair.relation as Relation<Trait>, target);
+        for (let i = 0; i < sources.length; i++) {
+          const source = sources[i];
+          const match = checkQueryWithRelations(ctx, query, source);
+          if (match) {
+            addEntityToQuery(query, source);
+          } else {
+            removeEntityFromQuery(ctx, query, source);
           }
-        };
+        }
+      };
 
-        query.cleanup.push(
-          subscribeQueryAdd(ctx, pair.targetQueryRef, (target) => {
-            pair.targetQueryMatches!.add(target);
-            refreshSourcesForTarget(target);
-          })
-        );
-        query.cleanup.push(
-          subscribeQueryRemove(ctx, pair.targetQueryRef, (target) => {
-            pair.targetQueryMatches!.remove(target);
-            refreshSourcesForTarget(target);
-          })
-        );
-      }
+      const cleanup = (query.cleanup ??= []);
+      cleanup.push(
+        subscribeQueryAdd(ctx, pair.targetQueryRef, (target) => {
+          pair.targetQueryMatches!.add(target);
+          refreshSourcesForTarget(target);
+        })
+      );
+      cleanup.push(
+        subscribeQueryRemove(ctx, pair.targetQueryRef, (target) => {
+          pair.targetQueryMatches!.remove(target);
+          refreshSourcesForTarget(target);
+        })
+      );
     }
   }
 
   // A named query can only match the current owner, including on its first run.
   const namedEntity = typeof query.name === 'string' ? ctx.names.get(query.name) : undefined;
-  const candidates =
-    query.name === undefined ? ctx.entityIndex.dense : namedEntity === undefined ? [] : [namedEntity];
+  const index = ctx.entityIndex;
+  let candidates: readonly Entity[];
+  let candidateCount: number;
+  if (query.name !== undefined) {
+    candidates = namedEntity === undefined ? EMPTY_ENTITIES : [namedEntity];
+    candidateCount = candidates.length;
+  } else if (targetCandidates !== undefined) {
+    candidates = targetCandidates;
+    candidateCount = targetCandidates.length;
+  } else {
+    candidates = index.dense;
+    candidateCount = index.aliveCount;
+  }
 
   if (query.trackingGroups.length > 0) {
     for (const group of query.trackingGroups) {
@@ -455,7 +454,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
       const dirtyMask = ctx.dirtyMasks.get(id)!;
       const changedMask = ctx.changedMasks.get(id)!;
 
-      for (const entity of candidates) {
+      for (let c = 0; c < candidateCount; c++) {
+        const entity = candidates[c];
         if (query.name !== undefined && !checkQuery(ctx, query, entity)) continue;
         if (query.entities.has(entity)) continue;
 
@@ -514,7 +514,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
         if (matches) {
           if (hasRelationFilters) {
             let relationMatch = true;
-            for (const pair of query.relationFilters!) {
+            for (const pair of relationFilters) {
               if (!hasRelationPair(ctx, entity, pair)) {
                 relationMatch = false;
                 break;
@@ -527,9 +527,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
         }
       }
     }
+  } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
+    scanMaskPages(ctx, query);
   } else {
-    for (let i = 0; i < candidates.length; i++) {
-      const entity = candidates[i];
+    for (let c = 0; c < candidateCount; c++) {
+      const entity = candidates[c];
       const match = hasRelationFilters
         ? checkQueryWithRelations(ctx, query, entity)
         : checkQuery(ctx, query, entity);
@@ -538,6 +540,51 @@ export function createQueryInstance<T extends QueryParameter[]>(
   }
 
   return query;
+}
+
+const EMPTY_ENTITIES: readonly Entity[] = [];
+
+/** A required or or bit means a matching slot holds a live entity, since destroy clears every bit. */
+function hasPositiveMask(masks: number[]) {
+  for (let i = 0; i < masks.length; i += 4) if (masks[i + 1] !== 0 || masks[i + 3] !== 0) return true;
+  return false;
+}
+
+/**
+ * Matches a fresh query against the mask pages directly instead of visiting each live entity,
+ * which reads the words in order and skips the entity handle until a slot matches.
+ */
+function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
+  const index = ctx.entityIndex;
+  const { ownedPages, pageCursors } = index;
+  const { generations, pageAliveCounts } = index.allocator;
+  const masks = query.masks;
+  const entityMasks = ctx.entityMasks;
+  const single = masks.length === 4;
+  const required = masks[1];
+  const forbidden = masks[2];
+  const or = masks[3];
+
+  for (let p = 0; p < ownedPages.length; p++) {
+    const pageId = ownedPages[p];
+    if (pageAliveCounts[pageId] === 0) continue;
+    const end = pageCursors[p];
+    const gens = generations[pageId]!;
+    const page = entityMasks[masks[0]][pageId];
+    for (let offset = 0; offset < end; offset++) {
+      const word = page[offset];
+      if (
+        (word & forbidden) !== 0 ||
+        (word & required) !== required ||
+        (or !== 0 && (word & or) === 0)
+      ) {
+        continue;
+      }
+      const eid = pageId * PAGE_SIZE + offset;
+      if (!single && !passesStaticMasks(masks, entityMasks, eid)) continue;
+      addEntityToQuery(query, packEntity(gens[offset], eid));
+    }
+  }
 }
 
 /**
@@ -575,14 +622,14 @@ function leaveList(
 
 /** A trait repeated in a query joins its list once, under the first occurrence. */
 function traitSlot(query: QueryInstance, instance: TraitInstance): number {
-  return query.traitInstances.all.indexOf(instance);
+  return query.traitInstances.indexOf(instance);
 }
 
 function relationSlot(query: QueryInstance, instance: TraitInstance): number {
   const filters = query.relationFilters!;
   for (let k = 0; k < filters.length; k++) {
     if (filters[k].relation[$internal].trait === instance.trait) {
-      return query.traitInstances.all.length + k;
+      return query.traitInstances.length + k;
     }
   }
   return -1;
@@ -592,12 +639,12 @@ function relationSlot(query: QueryInstance, instance: TraitInstance): number {
 export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   if (query.dropped) return;
   query.dropped = true;
-  for (let i = 0; i < query.cleanup.length; i++) {
-    query.cleanup[i]();
+  if (query.cleanup !== null) {
+    for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
+    query.cleanup = null;
   }
-  query.cleanup.length = 0;
 
-  const all = query.traitInstances.all;
+  const all = query.traitInstances;
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     leaveList(
@@ -713,8 +760,8 @@ export function subscribeQueryAdd(
   } else {
     query = resolveQueryInstance(ctx, args as QueryParameter[]);
   }
-  query.addSubscriptions.add(callback);
-  return () => query.addSubscriptions.delete(callback);
+  (query.addSubscriptions ??= new Set()).add(callback);
+  return () => query.addSubscriptions!.delete(callback);
 }
 
 /**
@@ -731,8 +778,8 @@ export function subscribeQueryRemove(
   } else {
     query = resolveQueryInstance(ctx, args as QueryParameter[]);
   }
-  query.removeSubscriptions.add(callback);
-  return () => query.removeSubscriptions.delete(callback);
+  (query.removeSubscriptions ??= new Set()).add(callback);
+  return () => query.removeSubscriptions!.delete(callback);
 }
 
 let queryId = 0;

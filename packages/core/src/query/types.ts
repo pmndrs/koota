@@ -232,22 +232,12 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   hash: QueryHash;
   refId: number;
   traits: Trait[];
-  /** Static trait instances for non-tracking query matching */
-  traitInstances: {
-    required: TraitInstance[];
-    forbidden: TraitInstance[];
-    or: TraitInstance[];
-    all: TraitInstance[];
-  };
-  /** Static bitmasks for non-tracking query matching (indexed by generationId) */
-  staticBitmasks: {
-    required: number;
-    forbidden: number;
-    or: number;
-  }[];
+  /** Every trait instance the query joins, tracked first, then required, forbidden and or. */
+  traitInstances: TraitInstance[];
+  /** Four entries per mask generation the query reads: generation id, required, forbidden and or bits. */
+  masks: number[];
   /** Unified tracking groups with explicit AND/OR logic */
   trackingGroups: TrackingGroup[];
-  generations: number[];
   /** Entities matching the query. A tracking query accumulates its next batch here. */
   entities: SparseSet;
   /** The batch a tracking query currently exposes. Swapped with entities on each run. */
@@ -258,17 +248,18 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   iterating: number;
   isTracking: boolean;
   hasChangedModifiers: boolean;
-  changedTraits: Set<Trait>;
-  toRemove: SparseSet;
+  changedTraits: Trait[];
+  /** Removals deferred by a walk in progress, created on the first one. */
+  toRemove: SparseSet | null;
   /** Position in the world's exclusion query list, or -1 when not listed. */
   notIndex: number;
   /** An active dispatch may still hold a list containing a dropped query. */
   dropped: boolean;
   /** Position in each trait list the query joined, trait lists first, then one per relation filter. */
   listSlots: number[];
-  cleanup: QueryUnsubscriber[];
-  addSubscriptions: Set<QuerySubscriber>;
-  removeSubscriptions: Set<QuerySubscriber>;
+  cleanup: QueryUnsubscriber[] | null;
+  addSubscriptions: Set<QuerySubscriber> | null;
+  removeSubscriptions: Set<QuerySubscriber> | null;
   layoutCache: QueryLayoutCache | null;
   iterationBuffers: QueryIterationBuffers | undefined;
   viewBindings: QueryViewBinding[];

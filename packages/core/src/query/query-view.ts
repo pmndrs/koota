@@ -512,7 +512,7 @@ function trackTraits(
           instance.trackingQueries.length !== 0
         : changeDetection !== 'never' &&
           (hasSubscribers(instance.changeSubscriptions) ||
-            (query?.hasChangedModifiers && query.changedTraits.has(trait)));
+            (query?.hasChangedModifiers && query.changedTraits.includes(trait)));
     if (!tracked) {
       modes[i] = 0;
       continue;

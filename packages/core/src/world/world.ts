@@ -190,9 +190,8 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
       ctx.bitflag = 1;
 
       for (const query of ctx.queriesHashMap.values()) {
-        for (let i = 0; i < query.cleanup.length; i++) {
-          query.cleanup[i]();
-        }
+        if (query.cleanup === null) continue;
+        for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
       }
 
       clearTraitInstance(ctx.traitInstances);
@@ -329,9 +328,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         }
       }
 
-      query.addSubscriptions.add(callback);
+      (query.addSubscriptions ??= new Set()).add(callback);
 
-      return () => query.addSubscriptions.delete(callback);
+      return () => query.addSubscriptions!.delete(callback);
     },
 
     onQueryRemove(
@@ -365,9 +364,9 @@ export function createWorld(...traits: ConfigurableTrait[]): World {
         }
       }
 
-      query.removeSubscriptions.add(callback);
+      (query.removeSubscriptions ??= new Set()).add(callback);
 
-      return () => query.removeSubscriptions.delete(callback);
+      return () => query.removeSubscriptions!.delete(callback);
     },
 
     onAdd<T extends Trait>(
