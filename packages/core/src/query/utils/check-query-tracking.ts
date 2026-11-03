@@ -162,7 +162,7 @@ function trackersMatchAny(
  * read the traits an entity holds. A Removed query also reads the traits a dead entity or an
  * event died with, so its other terms describe the row as it ended.
  */
-function passesStaticBitmasks(
+export function passesStaticBitmasks(
   masks: number[],
   entityMasks: Uint32Array[][],
   pageId: number,

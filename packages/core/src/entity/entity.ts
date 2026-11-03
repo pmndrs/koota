@@ -312,12 +312,20 @@ export function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
  * it out. With no such reader nothing holds an id back beyond the window.
  */
 export function refreshConsumedSerial(ctx: WorldContext) {
-  const readers = ctx.retainingQueries;
+  ctx.consumedSerial = lowestConsumedSerial(ctx.retainingQueries);
+}
+
+/** The oldest emit serial every listener has moved past, which gates event id reuse. */
+export function refreshConsumedEventSerial(ctx: WorldContext) {
+  ctx.consumedEventSerial = lowestConsumedSerial(ctx.listeners);
+}
+
+function lowestConsumedSerial(readers: QueryInstance[]): number {
   let consumed = Infinity;
   for (let i = 0; i < readers.length; i++) {
     if (readers[i].consumedSerial < consumed) consumed = readers[i].consumedSerial;
   }
-  ctx.consumedSerial = consumed;
+  return consumed;
 }
 
 /** The world that owns a live entity. Used by entity methods. */

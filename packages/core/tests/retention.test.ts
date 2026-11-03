@@ -145,7 +145,7 @@ describe('Entity retention', () => {
     world.emit(Event({ by: 6 }), IsHot);
 
     const seen: number[] = [];
-    world.query(listener).readEach(([event]) => seen.push(event.by));
+    world.query(listener).each((event) => seen.push(event.by));
     expect(seen).toEqual([5, 6]);
     expect(world.query(listener).length).toBe(0);
 
@@ -154,15 +154,16 @@ describe('Entity retention', () => {
   });
 
   it('keeps an event until every listener has consumed it', () => {
-    const world = createWorld({ retain: 1 });
+    const world = createWorld();
     const fast = createListener(Event);
     const slow = createListener(Event);
     world.query(fast);
     world.query(slow);
 
-    world.emit(Event({ by: 7 }));
-    world.emit(Event({ by: 8 }));
-    const event = world.query(fast).first!;
+    const event = world.emit(Event({ by: 7 }));
+    // Past the window of 64 newer events, so only the listeners hold it.
+    for (let i = 0; i < 70; i++) world.emit(Event({ by: 8 }));
+    expect(world.query(fast).first).toBe(event);
     expect(world.query(fast).length).toBe(0);
     expect(event.get(Event)!.by).toBe(7);
 
@@ -267,9 +268,10 @@ describe('Entity retention', () => {
 
     expect(world.query(listener).toArray()).toEqual([spawned, promoted]);
     expect(world.query(listener).length).toBe(0);
-    // Only emits reuse the ids of rows that ended as events
+    // Only emits reuse the ids of rows that ended as events, once the window has passed
+    for (let i = 0; i < 63; i++) expect(world.emit(Event({ by: 22 })).id()).not.toBe(spawned.id());
     expect(world.spawn().id()).not.toBe(spawned.id());
-    expect(world.emit(Event({ by: 22 })).id()).toBe(spawned.id());
+    expect(world.emit(Event({ by: 23 })).id()).toBe(spawned.id());
   });
 
   it('keeps events through entity churn and never hands their ids to spawns', () => {
@@ -316,16 +318,16 @@ describe('Entity retention', () => {
   });
 
   it('drops events a reader fell too far behind to keep', () => {
-    const world = createWorld({ retain: 1 });
+    const world = createWorld();
     const listener = createListener(Event);
     world.query(listener);
 
-    for (let i = 1; i <= 40; i++) world.emit(Event({ by: i }));
+    for (let i = 1; i <= 17_000; i++) world.emit(Event({ by: i }));
 
     const seen: number[] = [];
-    world.query(listener).readEach(([event]) => seen.push(event.by));
-    expect(seen.length).toBeLessThan(40);
-    expect(seen.at(-1)).toBe(40);
+    world.query(listener).each((event) => seen.push(event.by));
+    expect(seen.length).toBeLessThan(17_000);
+    expect(seen.at(-1)).toBe(17_000);
     for (let i = 1; i < seen.length; i++) expect(seen[i]).toBe(seen[i - 1] + 1);
   });
 

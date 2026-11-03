@@ -58,6 +58,10 @@ export type WorldContext = {
   retainingQueries: QueryInstance[];
   /** The oldest serial every retaining reader has moved past, Infinity with none. */
   consumedSerial: number;
+  /** Listeners, Removed queries over events. They read the event ring and hold event ids until they have moved past them. */
+  listeners: QueryInstance[];
+  /** The oldest serial every listener has moved past, Infinity with none. */
+  consumedEventSerial: number;
   worldEntity: Entity;
   /** The subject relation's instance, registered with the world entity. */
   subject: TraitInstance;

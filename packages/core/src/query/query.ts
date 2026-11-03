@@ -3,9 +3,9 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import { isNameConfig } from '../name/name-index';
-import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
-import { refreshConsumedSerial } from '../entity/entity';
+import { EMPTY_MASK_PAGE, REMOVED_WORD } from '../entity/utils/paged-mask';
+import { refreshConsumedEventSerial, refreshConsumedSerial } from '../entity/entity';
 import { isEntityReadable } from '../entity/utils/entity-index';
 import {
   getEntitiesWithRelationTo,
@@ -33,7 +33,7 @@ import {
 } from './types';
 import { checkQuery, passesStaticMasks } from './utils/check-query';
 import { handleAt } from '../entity/utils/handle-ring';
-import { checkQueryTrackingSeed } from './utils/check-query-tracking';
+import { checkQueryTrackingSeed, passesStaticBitmasks } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
@@ -112,6 +112,7 @@ function firstRetained(query: QueryInstance): Entity | undefined {
  */
 function consumeTrackingBatch(query: QueryInstance) {
   if (query.iterating !== 0) return;
+  if (query.isListener) return consumeEvents(query);
   const exposed = query.entities;
   const next = query.batch!;
   next.clear();
@@ -123,6 +124,66 @@ function consumeTrackingBatch(query: QueryInstance) {
     resetQueryTrackingBitmasks(query, getEntityId(dense[i] as Entity));
   }
   if (query.retains && query.ctx.retain !== 0) consumeRetained(query, exposed);
+}
+
+/**
+ * A listener reads the event ring from where its previous run ended and keeps the events that
+ * match its terms, so an emit tells nobody. Events the ring released before the listener got to
+ * them are gone, and the walk resumes at the head.
+ */
+function consumeEvents(query: QueryInstance) {
+  const ctx = query.ctx;
+  const ring = ctx.events;
+  const exposed = query.entities;
+  exposed.clear();
+  const released = ring.released;
+  const end = released + ring.count;
+  const capacity = ring.ids.length;
+  let i = query.eventCursor < released ? released : query.eventCursor;
+  for (; i < end; i++) {
+    const entity = ring.ids[(ring.head + i - released) % capacity] as Entity;
+    if (matchesEvent(ctx, query, entity)) exposed.add(entity);
+  }
+  query.eventCursor = end;
+  query.version++;
+  exposeQuerySet(query, exposed);
+  query.consumedSerial = query.lastRunSerial;
+  query.lastRunSerial = ctx.destroySerial;
+  refreshConsumedEventSerial(ctx);
+}
+
+/** A listener tests an event against its terms as it reads, with the Removed terms on the removed word. */
+function matchesEvent(ctx: WorldContext, query: QueryInstance, entity: Entity): boolean {
+  if (query.name !== undefined && (query.name === null || ctx.names.get(query.name) !== entity)) {
+    return false;
+  }
+  const eid = getEntityId(entity);
+  const pageId = eid >>> 10;
+  const slot = (eid & 1023) << 2;
+  const entityMasks = ctx.entityMasks;
+  if (
+    !passesStaticBitmasks(query.staticBitmasks, query.generations, entityMasks, pageId, slot, true)
+  ) {
+    return false;
+  }
+  const groups = query.trackingGroups;
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    if (group.type !== 'remove') return false;
+    const bitmasks = group.bitmasks;
+    const any = group.logic === 'or';
+    let matched = false;
+    for (let g = 0; g < bitmasks.length; g++) {
+      const mask = bitmasks[g];
+      if (!mask) continue;
+      const hits = entityMasks[g][pageId][slot + REMOVED_WORD] & mask;
+      if (any) {
+        if (hits !== 0) matched = true;
+      } else if (hits !== mask) return false;
+    }
+    if (any && !matched) return false;
+  }
+  return query.relationFilters.length === 0 || hasEveryRelationPair(ctx, query, entity);
 }
 
 /**
@@ -307,6 +368,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
     iterating: 0,
     isTracking: false,
     retains: false,
+    isListener: false,
+    eventCursor: 0,
     consumedSerial: -1,
     lastRunSerial: -1,
     hasChangedModifiers: false,
@@ -381,6 +444,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   if (query.retains && !all.includes(ctx.subject) && !required.includes(ctx.subject) && !forbidden.includes(ctx.subject) && !or.includes(ctx.subject)) {
     forbidden.push(ctx.subject);
   }
+  query.isListener = query.retains && required.includes(ctx.subject);
 
   for (let i = 0; i < required.length; i++) {
     all.push(required[i]);
@@ -400,21 +464,28 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
   const relationFilters = query.relationFilters;
   query.listSlots = new Array<number>(all.length + relationFilters.length).fill(-1);
+  if (!query.isListener) {
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     if (all.indexOf(instance) !== i) continue;
     joinList(queryList(query, instance), query, i);
   }
+  }
 
-  // A tracking query exposes one set while it collects the next batch in the other.
+  // A tracking query exposes one set while it collects the next batch in the other. A listener
+  // rebuilds its one set from the ring on each run, starting at the oldest event still held.
   query.exposed = query.entities;
-  if (query.isTracking) query.exposed = query.batch = new SparseSet();
-  if (query.retains) {
+  if (query.isListener) query.eventCursor = ctx.events.released;
+  else if (query.isTracking) query.exposed = query.batch = new SparseSet();
+  if (query.isListener) {
+    ctx.listeners.push(query);
+    refreshConsumedEventSerial(ctx);
+  } else if (query.retains) {
     ctx.retainingQueries.push(query);
     refreshConsumedSerial(ctx);
   }
 
-  if (query.name === undefined && forbidden.length > 0) {
+  if (query.name === undefined && forbidden.length > 0 && !query.isListener) {
     query.notIndex = ctx.notQueries.length;
     ctx.notQueries.push(query);
   }
@@ -427,11 +498,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
     const pair = relationFilters[k];
     const relationTrait = pair.relation[$internal].trait;
     const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-    if (relationTraitInstance && relationSlot(query, relationTraitInstance) === all.length + k) {
+    if (relationTraitInstance && !query.isListener && relationSlot(query, relationTraitInstance) === all.length + k) {
       joinList(relationTraitInstance.relationQueries, query, all.length + k);
     }
 
-    if (typeof pair.target === 'number') {
+    if (typeof pair.target === 'number' && !query.isListener) {
       const eid = getEntityId(pair.target);
       const page = (ctx.targetQueries[eid >>> 10] ??= []);
       const targetQueries = (page[eid & 1023] ??= []);
@@ -492,7 +563,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
     candidateCount = index.aliveCount;
   }
 
-  if (query.trackingGroups.length > 0) {
+  if (query.isListener) {
+    // The first run reads every event the ring still holds.
+  } else if (query.trackingGroups.length > 0) {
     // A tracking query seeds its first batch from the world history, so a reader created at any
     // time sees what happened to the entities the world still holds. Alive entities come first,
     // then the retained ones in destroy order, which only Removed terms can match.
@@ -504,9 +577,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
     };
     for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
     if (query.retains && query.name === undefined) {
-      const { tombstones, events } = ctx;
+      const tombstones = ctx.tombstones;
       for (let k = 0; k < tombstones.count; k++) seed(handleAt(tombstones, k));
-      for (let k = 0; k < events.count; k++) seed(handleAt(events, k));
     }
   } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
     scanMaskPages(ctx, query);
@@ -648,7 +720,11 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     const instance = all[i];
     leaveList(queryList(query, instance), query, i, instance, false);
   }
-  if (query.retains) {
+  if (query.isListener) {
+    const i = ctx.listeners.indexOf(query);
+    if (i !== -1) ctx.listeners.splice(i, 1);
+    refreshConsumedEventSerial(ctx);
+  } else if (query.retains) {
     const i = ctx.retainingQueries.indexOf(query);
     if (i !== -1) ctx.retainingQueries.splice(i, 1);
     refreshConsumedSerial(ctx);

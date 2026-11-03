@@ -29,6 +29,10 @@ export type EntityIndex = {
   pageCursors: number[];
   /** Index into ownedPages of the page we're currently filling. */
   currentPageIdx: number;
+  /** Index into ownedPages of the page events take ids from, which spawns never touch. */
+  eventPageIdx: number;
+  /** Next fresh offset on the event page. */
+  eventCursor: number;
   /** Reference to the global page allocator. */
   allocator: PageAllocator;
   /** The owning WorldContext (for page leasing). */
@@ -45,6 +49,8 @@ export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext)
   ownedPages: [],
   pageCursors: [],
   currentPageIdx: -1,
+  eventPageIdx: -1,
+  eventCursor: 0,
   allocator,
   owner,
   readableFree: owner.retain !== 0,
@@ -73,14 +79,37 @@ export const allocateFreshEntity = (index: EntityIndex): Entity => {
   return entity;
 };
 
-/** A fresh id that starts dead. An event takes one, so it is readable but never alive. */
+/**
+ * A fresh id that starts dead, from a page reserved for events. An event is readable but never
+ * alive, and it never shares a page with an entity, so the pages its traits touch hold events
+ * alone, in emit order.
+ */
 export const allocateFreeEntity = (index: EntityIndex): Entity => {
   if (assertsEnabled) index.owner.structuralRevision++;
-  const entity = takeFreshId(index);
+  const entity = takeEventId(index);
   index.dense.push(entity);
   index.sparse[getEntityId(entity)] = index.dense.length - 1;
   return entity;
 };
+
+/** The next id on the event page, leasing one when it is full. Its cursor is kept apart from the spawn cursor. */
+function takeEventId(index: EntityIndex): Entity {
+  const allocator = index.allocator;
+  if (index.eventPageIdx === -1 || index.eventCursor >= PAGE_SIZE) {
+    const pid = leasePage(allocator, index.owner);
+    index.ownedPages.push(pid);
+    // A full cursor keeps the spawn path off this page.
+    index.pageCursors.push(PAGE_SIZE);
+    index.eventPageIdx = index.ownedPages.length - 1;
+    index.eventCursor = 0;
+  }
+  const pid = index.ownedPages[index.eventPageIdx];
+  const offset = index.eventCursor++;
+  const entityId = pid * PAGE_SIZE + offset;
+  const entity = packEntity(allocator.generations[pid]![offset], entityId);
+  allocator.pageAliveCounts[pid]++;
+  return entity;
+}
 
 /** Bumps the generation of a dead entry in place, so the id can hold the next event. */
 export const renewFreeEntity = (index: EntityIndex, entity: Entity): Entity => {

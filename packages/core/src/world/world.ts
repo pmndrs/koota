@@ -123,6 +123,8 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       destroySerial: 0,
       retainingQueries: [],
       consumedSerial: Infinity,
+      listeners: [],
+      consumedEventSerial: Infinity,
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -243,6 +245,8 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       ctx.queryInstances.length = 0;
       ctx.retainingQueries.length = 0;
       ctx.consumedSerial = Infinity;
+      ctx.listeners.length = 0;
+      ctx.consumedEventSerial = Infinity;
       clearHandleRing(ctx.tombstones);
       clearHandleRing(ctx.events);
       ctx.iterationBuffers = undefined;
