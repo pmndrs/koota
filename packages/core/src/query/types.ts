@@ -40,9 +40,15 @@ export type QueryIterationBuffers = {
   state: any[];
   /** Traits the records and iterators were prepared for. */
   traits: Trait[];
-  /** SoA records with their owned tuple arrays, or a cursor pair, undefined for other traits. */
+  /** SoA records with their owned tuple arrays, or a cursor set, undefined for other traits. */
   records: (
-    { value: any; tuples: Record<string, unknown[]> | undefined; reader?: object } | undefined
+    | {
+        value: any;
+        tuples: Record<string, unknown[]> | undefined;
+        plain?: object;
+        reader?: object;
+      }
+    | undefined
   )[];
   iterators: QueryIterators | undefined;
   /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */

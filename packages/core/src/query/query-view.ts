@@ -447,9 +447,10 @@ function prepareIterationBuffers(
     const traitCtx = trait[$internal];
     records[i] = traitCtx.cursor
       ? {
-          value: createIterationCursor(trait, true),
+          value: createIterationCursor(trait, 'write'),
           tuples: undefined,
-          reader: createIterationCursor(trait, false),
+          plain: createIterationCursor(trait, 'plain'),
+          reader: createIterationCursor(trait, 'read'),
         }
       : traitCtx.type === 'soa'
         ? createIterationRecord(ctx, getEntityId(entities[0]), trait, stores[i])
