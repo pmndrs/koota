@@ -4,7 +4,7 @@ import { createQuery, createWorld, trait } from 'koota';
 const Position = trait({ x: 0, y: 0 });
 const Velocity = trait({ x: 0, y: 0 });
 
-/** Walks 10k entities with the view iterator and with readEach. */
+/** Walks 10k entities with the view iterator and with each. */
 group('entity walk 10k @query @query-walk', () => {
   const setup = () => {
     const world = createWorld();
@@ -23,11 +23,11 @@ group('entity walk 10k @query @query-walk', () => {
     return sum;
   });
 
-  bench('view readEach', function* () {
+  bench('view each', function* () {
     const { world, query } = setup();
     let sum = 0;
     yield () => {
-      world.query(query).readEach((_, entity) => {
+      world.query(query).each((_position, _velocity, entity) => {
         sum = (sum + entity) | 0;
       });
     };
@@ -45,7 +45,7 @@ group('movement 10k @query @query-walk @movement', () => {
     // x advances by 1 and y by 2 per step, so x - y / 2 recovers the spawn index whatever the count.
     const checksum = () => {
       let sum = 0;
-      world.query(query).readEach(([position]) => {
+      world.query(query).each((position) => {
         sum = (sum + position.x - position.y / 2) | 0;
       });
       world.destroy();
@@ -66,10 +66,10 @@ group('movement 10k @query @query-walk @movement', () => {
     return checksum();
   });
 
-  bench('updateEach', function* () {
+  bench('each', function* () {
     const { world, query, checksum } = setup();
     yield () => {
-      world.query(query).updateEach(([position, velocity]) => {
+      world.query(query).each((position, velocity) => {
         position.x += velocity.x;
         position.y += velocity.y;
       });
