@@ -76,6 +76,26 @@ group('relation queries 10k @relation', () => {
     return result.length;
   });
 
+  // A new target creates a query instance and destroying it drops the instance again.
+  bench('new parent, create and drop query ChildOf(parent)', function* () {
+    const world = createWorld();
+    const parent = world.spawn(Position);
+    for (let i = 0; i < 10_000; i++) {
+      world.spawn(Position, ChildOf(parent));
+    }
+
+    const result = yield () => {
+      const target = world.spawn(Position);
+      world.spawn(Position, ChildOf(target));
+      const length = world.query(ChildOf(target)).length;
+      target.destroy();
+      return length;
+    };
+
+    world.destroy();
+    return result;
+  });
+
   bench('100 parents, ChildOf(*)', function* () {
     const world = createWorld();
     const parents: Entity[] = [];
