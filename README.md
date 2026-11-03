@@ -802,8 +802,8 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// Entities destroyed during a walk stay in the view until it ends, guard with
-// isAlive if a callback destroys others. Entities spawned show up on the next run.
+// Entities destroyed during a walk stay in the view until it ends and are
+// skipped by each, entities spawned show up on the next run.
 // Finish every for of loop you start, a suspended iterator keeps removals pending.
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()

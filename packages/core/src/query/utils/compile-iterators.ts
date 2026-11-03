@@ -212,19 +212,20 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     }
   }
 
-  // Cursors address the slot of an entity destroyed earlier in the walk as well, which is safe
-  // because the entity index holds released slots back until the walk ends. Every cursor rebinds
-  // its pages together when the page changes, one compare per entity however many traits there are.
+  // Cursors write during the callback, so an entity that died earlier in the walk is skipped
+  // before its callback runs, which protects a recycled slot. The check costs one compare until
+  // the first release of the walk. Every cursor rebinds its pages together when the page changes,
+  // which is one compare per entity however many traits the walk reads.
   const setup = (cursor: 'value' | 'plain' | 'reader') => `
     var state = buffers.state, records = buffers.records, index = ctx.entityIndex;${
-      cursors ? ' var lastPg = -1;' : ''
+      cursors ? ' var releases = index.releases, lastPg = -1;' : ''
     }
     ${hoist.join('\n    ').replace(/__CURSOR__/g, cursor)}`;
   const loop = (body: string) => `
     for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};${
         cursors
-          ? ` var pg = eid >>> 10, off = eid & 1023;
+          ? ` var pg = eid >>> 10, off = eid & 1023; if (index.releases !== releases && !isEntityAlive(index, entity)) continue;
       if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')} }`
           : ''
       }

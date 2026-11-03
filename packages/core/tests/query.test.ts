@@ -390,7 +390,7 @@ describe('Query', () => {
   });
 
   it.each(['readEach', 'updateEach'] as const)(
-    'walks the live membership and lets callers guard destroyed entries during %s',
+    'walks the current live membership with %s',
     (operation) => {
       const stale = world.spawn(Position);
       const alive = world.spawn(Position({ x: 1 }));
@@ -401,7 +401,6 @@ describe('Query', () => {
 
       // The result is live, so the replacement is visited and the destroyed entity is stale.
       query[operation](([position], entity) => {
-        if (!entity.isAlive()) return;
         seen.push([entity, position.x]);
         if (operation === 'updateEach') position.x++;
       });
@@ -962,32 +961,45 @@ describe('Query', () => {
     expect(result.at(1)).toBeUndefined();
   });
 
-  it('keeps the outer walk stable when a callback runs the same query', () => {
-    const first = world.spawn(Position({ x: 1 }));
-    const second = world.spawn(Position({ x: 2 }));
-    const visited: Entity[] = [];
-    let inner: Entity[] = [];
-    let replacement!: Entity;
+  it.each([
+    ['readEach', false],
+    ['updateEach', false],
+    ['updateEach', true],
+    ['each', false],
+    ['each', true],
+  ] as const)(
+    'skips destroyed entities during a nested %s walk (tracked: %s)',
+    (operation, tracked) => {
+      const first = world.spawn(Position({ x: 1 }));
+      const second = world.spawn(Position({ x: 2 }));
+      const visited: Entity[] = [];
+      let inner: Entity[] = [];
+      let replacement!: Entity;
+      const changed = vi.fn();
+      if (tracked) world.onChange(Position, changed);
 
-    world.query(Position).updateEach(([position], entity, index) => {
-      visited.push(entity);
-      position.x += 10;
-      if (index !== 0) return;
-      second.destroy();
-      replacement = world.spawn(Position({ x: 7 }));
-      inner = [...world.query(Position)];
-    });
+      const visit = (position: { x: number }, entity: Entity, index: number) => {
+        visited.push(entity);
+        position.x += 10;
+        if (index !== 0) return;
+        second.destroy();
+        replacement = world.spawn(Position({ x: 7 }));
+        inner = [...world.query(Position)];
+      };
+      const query = world.query(Position);
+      if (operation === 'each') query.each(visit);
+      else query[operation](([position], entity, index) => visit(position, entity, index));
 
-    // The starting membership is walked once, including the entity destroyed during the walk,
-    // whose slot is not recycled by the replacement until the walk ends. The nested run skips
-    // the pending removal and the replacement waits for the next run.
-    expect(visited).toEqual([first, second]);
-    expect(second.isAlive()).toBe(false);
-    expect(inner).toEqual([first, replacement]);
-    expect(first.get(Position)?.x).toBe(11);
-    expect(replacement.get(Position)?.x).toBe(7);
-    expect([...world.query(Position)]).toEqual([first, replacement]);
-  });
+      // The starting membership is walked once and an entity destroyed during the walk is skipped,
+      // the nested run skips the pending removal and the replacement waits for the next run.
+      expect(visited).toEqual([first]);
+      expect(inner).toEqual([first, replacement]);
+      expect(first.get(Position)?.x).toBe(operation === 'readEach' ? 1 : 11);
+      expect(replacement.get(Position)?.x).toBe(7);
+      expect([...world.query(Position)]).toEqual([first, replacement]);
+      if (tracked) expect(changed).toHaveBeenCalledExactlyOnceWith(first);
+    }
+  );
 
   it('walks the membership present when a for of loop starts', () => {
     const first = world.spawn(Position);

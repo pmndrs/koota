@@ -3,7 +3,7 @@ import { $internal } from '../common';
 import { isNameConfig } from '../name/name-index';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isEntityAlive, releaseHeldEntities } from '../entity/utils/entity-index';
+import { isEntityAlive } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { Store } from '../storage';
 import { registerTrait } from '../trait/trait';
@@ -109,14 +109,11 @@ class View implements QueryView<any> {
   forEach(callback: (entity: Entity, index: number) => void) {
     const { dense, length } = this.source;
     const guard = this.live ? this.query : null;
-    const index = this.ctx.entityIndex;
     if (guard) guard.iterating++;
-    index.walks++;
     try {
       for (let i = 0; i < length; i++) callback(dense[i] as Entity, i);
     } finally {
       if (guard) guard.iterating--;
-      if (--index.walks === 0 && index.held.length !== 0) releaseHeldEntities(index);
     }
   }
 
@@ -127,14 +124,11 @@ class View implements QueryView<any> {
     const { stores } = this.binding;
     const pool = query ?? ctx;
     const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding);
-    const index = ctx.entityIndex;
     if (live) query!.iterating++;
-    index.walks++;
     try {
       buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
     } finally {
       if (live) query!.iterating--;
-      if (--index.walks === 0 && index.held.length !== 0) releaseHeldEntities(index);
       releaseIterationBuffers(pool, buffers);
     }
     return this;
@@ -161,9 +155,7 @@ class View implements QueryView<any> {
     const entities = dense as Entity[];
     const buffers = takeIterationBuffers(ctx, pool, entities, this.binding);
     const iterators = buffers.iterators!;
-    const index = ctx.entityIndex;
     if (live) query!.iterating++;
-    index.walks++;
     try {
       if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
         (positional ? iterators.each : iterators.updateEach)(
@@ -191,7 +183,6 @@ class View implements QueryView<any> {
       }
     } finally {
       if (live) query!.iterating--;
-      if (--index.walks === 0 && index.held.length !== 0) releaseHeldEntities(index);
       releaseIterationBuffers(pool, buffers);
     }
     return this;
@@ -239,7 +230,6 @@ class ViewIterator {
     this.done = false;
     this.guard = this.view.live ? this.view.query : null;
     if (this.guard) this.guard.iterating++;
-    this.view.ctx.entityIndex.walks++;
     return this;
   }
 
@@ -266,8 +256,6 @@ class ViewIterator {
     this.done = true;
     if (this.guard) this.guard.iterating--;
     this.guard = null;
-    const index = this.view.ctx.entityIndex;
-    if (--index.walks === 0 && index.held.length !== 0) releaseHeldEntities(index);
     this.view.iterator = this;
   }
 }

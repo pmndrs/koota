@@ -14,10 +14,8 @@ import { leasePage } from './page-allocator';
 export type EntityIndex = {
   /** The number of currently alive entities. */
   aliveCount: number;
-  /** Walks in progress. While one runs, released slots are held back from recycling. */
-  walks: number;
-  /** Entities released during a walk, recycled once the last walk ends. */
-  held: Entity[];
+  /** Counts every release, so a walk can tell whether any entity died since it started. */
+  releases: number;
   /** Dense list of alive packed entities. */
   dense: Entity[];
   /** Sparse: entityId -> index in dense (or undefined). */
@@ -36,8 +34,7 @@ export type EntityIndex = {
 
 export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext): EntityIndex => ({
   aliveCount: 0,
-  walks: 0,
-  held: [],
+  releases: 0,
   dense: [],
   sparse: [],
   ownedPages: [],
@@ -95,6 +92,7 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
   if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
 
   if (assertsEnabled) index.owner.structuralRevision++;
+  index.releases++;
   const allocator = index.allocator;
   const pageId = entityId >>> 10;
   const offset = entityId & 1023;
@@ -114,26 +112,8 @@ export const releaseEntity = (index: EntityIndex, entity: Entity): void => {
   index.sparse[lastId] = denseIdx;
   index.dense[denseIdx] = lastEntity;
   index.sparse[entityId] = lastIdx;
+  index.dense[lastIdx] = deadEntry;
   index.aliveCount--;
-
-  // A walk visits the membership it started with, so a slot released during one must not be
-  // recycled until it ends or the walk would read and write the entity that took the slot.
-  if (index.walks === 0) {
-    index.dense[lastIdx] = deadEntry;
-  } else {
-    const dense = index.dense;
-    const end = dense.length - 1;
-    if (lastIdx !== end) dense[lastIdx] = dense[end];
-    dense.pop();
-    index.held.push(deadEntry);
-  }
-};
-
-/** Returns the slots held during a walk to the recycle list. */
-export const releaseHeldEntities = (index: EntityIndex): void => {
-  const held = index.held;
-  for (let i = 0; i < held.length; i++) index.dense.push(held[i]);
-  held.length = 0;
 };
 
 export const isEntityAlive = /* @inline @pure */ (index: EntityIndex, entity: Entity): boolean => {
