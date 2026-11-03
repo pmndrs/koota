@@ -40,7 +40,7 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
     if (!query.hasChangedModifiers) continue;
-    if (!query.changedTraits.has(data.trait)) continue;
+    if (!query.changedTraits.includes(data.trait)) continue;
 
     const match =
       query.relationFilters && query.relationFilters.length > 0

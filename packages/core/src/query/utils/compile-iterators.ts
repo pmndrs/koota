@@ -41,37 +41,44 @@ type IteratorCache = {
 // Weak keys at every position share iterators across worlds without retaining unused traits.
 const iteratorCache: IteratorCache = { traits: new WeakMap(), iterators: undefined };
 
-type CursorClass = new () => { o: number; pageId: number; changed: boolean };
+type CursorClass = new () => { o: number; changed: boolean };
+/** write diffs and flags changes for tracked walks, plain stores bare, read drops writes. */
+export type CursorKind = 'write' | 'plain' | 'read';
 let iteratorSerial = 0;
-const cursorClasses = new Map<string, { write: CursorClass; read: CursorClass }>();
+const cursorClasses = new Map<string, Record<CursorKind, CursorClass>>();
 
 /**
  * A cursor stands in for a SoA record during a walk. Its accessors read and write the current page
- * at the current offset, so nothing is copied in or out per entity, and a write marks the cursor
- * changed only when the value differs. The read cursor drops writes, which keeps readEach read
- * only. Traits with the same field names share a class, so a callback site that handles several
- * such traits stays monomorphic, as it did with plain record objects.
+ * at the current offset, so nothing is copied in or out per entity. The write cursor marks itself
+ * changed when a value differs, which tracked walks read after the callback. Untracked walks use
+ * the plain cursor, whose setter is a bare store. The read cursor drops writes, which keeps
+ * readEach read only. Traits with the same field names share a class, so a callback site that
+ * handles several such traits stays monomorphic, as it did with plain record objects.
  */
-export function createIterationCursor(trait: Trait, writable: boolean): object {
+export function createIterationCursor(trait: Trait, kind: CursorKind): object {
   const keys = Object.keys(trait.schema as object);
   const signature = keys.join('\0');
   let classes = cursorClasses.get(signature);
   if (classes === undefined) {
-    classes = { write: compileCursorClass(keys, true), read: compileCursorClass(keys, false) };
+    classes = {
+      write: compileCursorClass(keys, 'write'),
+      plain: compileCursorClass(keys, 'plain'),
+      read: compileCursorClass(keys, 'read'),
+    };
     cursorClasses.set(signature, classes);
   }
-  return new (writable ? classes.write : classes.read)();
+  return new classes[kind]();
 }
 
-function compileCursorClass(keys: string[], writable: boolean): CursorClass {
+function compileCursorClass(keys: string[], kind: CursorKind): CursorClass {
   // Internal slots are hidden from enumeration, so spread and keys see nothing stale. The fields
   // themselves live on the prototype as accessors, which for..in and toJSON still report.
-  const slots = ['o', 'pageId', 'changed', ...keys.map((_, k) => `$${k}`)];
+  const slots = ['o', 'changed', ...keys.map((_, k) => `$${k}`)];
   const fields = slots
     .map(
       (slot) =>
         `Object.defineProperty(this, ${JSON.stringify(slot)}, { value: ${
-          slot === 'changed' ? 'false' : slot === 'pageId' ? '-1' : slot === 'o' ? '0' : 'null'
+          slot === 'changed' ? 'false' : slot === 'o' ? '0' : 'null'
         }, writable: true, enumerable: false, configurable: false });`
     )
     .join(' ');
@@ -80,9 +87,11 @@ function compileCursorClass(keys: string[], writable: boolean): CursorClass {
       (key, k) => `Object.defineProperty(Cursor.prototype, ${JSON.stringify(key)}, {
       get: function () { return this.$${k}[this.o]; },
       set: ${
-        writable
+        kind === 'write'
           ? `function (v) { var page = this.$${k}; if (page[this.o] !== v) { page[this.o] = v; this.changed = true; } }`
-          : 'function () {}'
+          : kind === 'plain'
+            ? `function (v) { this.$${k}[this.o] = v; }`
+            : 'function () {}'
       },
       enumerable: true,
       configurable: true,
@@ -126,6 +135,7 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
   const hoist: string[] = [];
   const modes: string[] = [];
   const read: string[] = [];
+  const rebind: string[] = [];
   const reset: string[] = [];
   const write: string[] = [];
   const trackLines: string[] = [];
@@ -148,9 +158,9 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     if (traitCtx.cursor && traitCtx.relation === null) {
       cursors = true;
       const keys = Object.keys(traits[j].schema as object);
-      const pages = keys.map((key, k) => `c${j}.$${k} = s${j}.${key}[pg];`).join(' ');
-      hoist.push(`var c${j} = records[${j}].__CURSOR__; c${j}.pageId = -1; state[${j}] = c${j};`);
-      read.push(`if (c${j}.pageId !== pg) { c${j}.pageId = pg; ${pages} } c${j}.o = off;`);
+      rebind.push(keys.map((key, k) => `c${j}.$${k} = s${j}.${key}[pg];`).join(' '));
+      hoist.push(`var c${j} = records[${j}].__CURSOR__; state[${j}] = c${j};`);
+      read.push(`c${j}.o = off;`);
       reset.push(`c${j}.changed = false;`);
       trackLines.push(
         `if ((c${j}.changed || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
@@ -204,17 +214,19 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
 
   // Cursors write during the callback, so an entity that died earlier in the walk is skipped
   // before its callback runs, which protects a recycled slot. The check costs one compare until
-  // the first release of the walk.
-  const setup = (cursor: 'value' | 'reader') => `
+  // the first release of the walk. Every cursor rebinds its pages together when the page changes,
+  // which is one compare per entity however many traits the walk reads.
+  const setup = (cursor: 'value' | 'plain' | 'reader') => `
     var state = buffers.state, records = buffers.records, index = ctx.entityIndex;${
-      cursors ? ' var releases = index.releases;' : ''
+      cursors ? ' var releases = index.releases, lastPg = -1;' : ''
     }
     ${hoist.join('\n    ').replace(/__CURSOR__/g, cursor)}`;
   const loop = (body: string) => `
     for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};${
         cursors
-          ? ' var pg = eid >>> 10, off = eid & 1023; if (index.releases !== releases && !isEntityAlive(index, entity)) continue;'
+          ? ` var pg = eid >>> 10, off = eid & 1023; if (index.releases !== releases && !isEntityAlive(index, entity)) continue;
+      if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')} }`
           : ''
       }
       ${read.join('\n      ')}
@@ -226,7 +238,7 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
   const arrayCall = 'callback(state, entity, i);';
   const argsCall = `callback(${[...args, 'entity', 'i'].join(', ')});`;
   const update = (call: string) =>
-    `${setup('value')}${loop(`${call}
+    `${setup('plain')}${loop(`${call}
       ${alive}
       ${write.join('\n      ')}`)}`;
   const track = (call: string) => `${setup('value')}

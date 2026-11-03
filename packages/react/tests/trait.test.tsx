@@ -311,7 +311,7 @@ describe('useTrait', () => {
       const entity = world.spawn(CameraPosition);
       let renders = 0;
       const tick = () => {
-        world.query(CameraPosition).updateEach(([position]) => {
+        world.query(CameraPosition).each((position) => {
           position.x = 10;
         });
       };

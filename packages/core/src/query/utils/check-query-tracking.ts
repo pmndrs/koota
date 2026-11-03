@@ -3,6 +3,7 @@ import { getEntityId } from '../../entity/utils/pack-entity';
 import { createEmptyMaskGeneration, ensureMaskPage } from '../../entity/utils/paged-mask';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance } from '../types';
+import { passesStaticMasks } from './check-query';
 
 export function checkQueryTracking(
   ctx: WorldContext,
@@ -16,17 +17,13 @@ export function checkQueryTracking(
     return false;
   }
 
-  const staticBitmasks = query.staticBitmasks;
   const trackingGroups = query.trackingGroups;
-  const generations = query.generations;
-  const traitInstancesAll = query.traitInstances.all;
   const entityMasks = ctx.entityMasks;
   const eid = getEntityId(entity);
 
   const trackingGroupsLen = trackingGroups.length;
 
-  if (traitInstancesAll.length === 0) return false;
-  if (!passesStaticBitmasks(staticBitmasks, generations, entityMasks, eid)) return false;
+  if (!passesStaticMasks(query.masks, entityMasks, eid)) return false;
 
   let hasOrGroup = false;
   let anyOrMatched = false;
@@ -100,29 +97,6 @@ function trackersMatchAny(
     if (tracker & mask) return true;
   }
   return false;
-}
-
-/** The entity satisfies every static required, forbidden and or mask of the query. */
-function passesStaticBitmasks(
-  staticBitmasks: QueryInstance['staticBitmasks'],
-  generations: number[],
-  entityMasks: Uint32Array[][],
-  eid: number
-): boolean {
-  for (let i = 0; i < generations.length; i++) {
-    const bitmask = staticBitmasks[i];
-    if (!bitmask) continue;
-
-    const required = bitmask.required;
-    const forbidden = bitmask.forbidden;
-    const or = bitmask.or;
-    const entityMask = entityMasks[generations[i]][eid >>> 10][eid & 1023];
-
-    if (forbidden && (entityMask & forbidden) !== 0) return false;
-    if (required && (entityMask & required) !== required) return false;
-    if (or !== 0 && (entityMask & or) === 0) return false;
-  }
-  return true;
 }
 
 /** Remember that the tracked event fired for the entity, allocating the tracker lazily. */

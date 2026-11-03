@@ -586,11 +586,11 @@ describe('Query modifiers', () => {
     expect(world.query(Removed(Foo)).first).toBe(entity);
   });
 
-  it('updateEach should work with Added modifier', () => {
+  it('each should work with Added modifier', () => {
     const Added = createAdded();
     const entity = world.spawn(Position({ x: 10, y: 20 }));
 
-    world.query(Added(Position)).updateEach(([position]) => {
+    world.query(Added(Position)).each((position) => {
       expect(position).toHaveProperty('x', 10);
       expect(position).toHaveProperty('y', 20);
       position.x = 100;
@@ -599,12 +599,12 @@ describe('Query modifiers', () => {
     expect(entity.get(Position)!.x).toBe(100);
   });
 
-  it('updateEach should work with Added modifier combined with other traits', () => {
+  it('each should work with Added modifier combined with other traits', () => {
     const Added = createAdded();
     const Name = trait({ name: '' });
     const entity = world.spawn(Position({ x: 5, y: 15 }), Name({ name: 'test' }));
 
-    world.query(Added(Position), Name).updateEach(([position, name]) => {
+    world.query(Added(Position), Name).each((position, name) => {
       expect(position).toHaveProperty('x', 5);
       expect(position).toHaveProperty('y', 15);
       expect(name).toHaveProperty('name', 'test');
@@ -616,13 +616,13 @@ describe('Query modifiers', () => {
     expect(entity.get(Name)!.name).toBe('updated');
   });
 
-  it('updateEach should work with Changed modifier', () => {
+  it('each should work with Changed modifier', () => {
     const Changed = createChanged();
     const entity = world.spawn(Position({ x: 1, y: 2 }));
 
     entity.changed(Position);
 
-    world.query(Changed(Position)).updateEach(([position]) => {
+    world.query(Changed(Position)).each((position) => {
       expect(position).toHaveProperty('x', 1);
       expect(position).toHaveProperty('y', 2);
       position.x = 10;
@@ -631,7 +631,7 @@ describe('Query modifiers', () => {
     expect(entity.get(Position)!.x).toBe(10);
   });
 
-  it('updateEach should work with Removed modifier', () => {
+  it('each should work with Removed modifier', () => {
     const Removed = createRemoved();
     const Name = trait({ name: '' });
     const entity = world.spawn(Position({ x: 7, y: 8 }), Name({ name: 'keep' }));
@@ -639,7 +639,7 @@ describe('Query modifiers', () => {
     entity.remove(Position);
 
     // Removed modifier includes the removed trait in stores, plus any other queried traits
-    world.query(Removed(Position), Name).updateEach(([position, name]) => {
+    world.query(Removed(Position), Name).each((position, name) => {
       // Position data may still be accessible (stale) even after removal
       expect(position).toHaveProperty('x');
       expect(name).toHaveProperty('name', 'keep');
@@ -811,7 +811,7 @@ describe('Query modifiers', () => {
     expect(removed).toContain(childB);
   });
 
-  it('updateEach should work with Removed modifier for relations', () => {
+  it('each should work with Removed modifier for relations', () => {
     const Removed = createRemoved();
     const Contains = relation({ store: { amount: 0 } });
 
@@ -821,7 +821,7 @@ describe('Query modifiers', () => {
     inventory.add(Contains(gold, { amount: 42 }));
     inventory.remove(Contains(gold));
 
-    world.query(Removed(Contains), Contains(gold)).updateEach(([contains], entity) => {
+    world.query(Removed(Contains), Contains(gold)).each((contains, entity) => {
       // Removed relation queries should still expose the removed pair's store data.
       expect(contains).toHaveProperty('amount', 42);
       // And its target
