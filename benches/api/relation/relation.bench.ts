@@ -76,8 +76,7 @@ group('relation queries 10k @relation', () => {
     return result.length;
   });
 
-  // A new target creates a query instance and destroying it drops the instance again.
-  bench('new parent, create and drop query ChildOf(parent)', function* () {
+  bench('new parent, direct lookup ChildOf(parent) @relation-new-target', function* () {
     const world = createWorld();
     const parent = world.spawn(Position);
     for (let i = 0; i < 10_000; i++) {
@@ -86,15 +85,43 @@ group('relation queries 10k @relation', () => {
 
     const result = yield () => {
       const target = world.spawn(Position);
-      world.spawn(Position, ChildOf(target));
+      const child = world.spawn(Position, ChildOf(target));
       const length = world.query(ChildOf(target)).length;
       target.destroy();
+      child.destroy();
       return length;
     };
 
+    assert.equal(result, 1);
+    assert.equal(world.entities.length, 10_002);
     world.destroy();
     return result;
   });
+
+  bench(
+    'new parent, create and drop query Position, ChildOf(parent) @relation-new-target',
+    function* () {
+      const world = createWorld();
+      const parent = world.spawn(Position);
+      for (let i = 0; i < 10_000; i++) {
+        world.spawn(Position, ChildOf(parent));
+      }
+
+      const result = yield () => {
+        const target = world.spawn(Position);
+        const child = world.spawn(Position, ChildOf(target));
+        const length = world.query(Position, ChildOf(target)).length;
+        target.destroy();
+        child.destroy();
+        return length;
+      };
+
+      assert.equal(result, 1);
+      assert.equal(world.entities.length, 10_002);
+      world.destroy();
+      return result;
+    }
+  );
 
   bench('100 parents, ChildOf(*)', function* () {
     const world = createWorld();
