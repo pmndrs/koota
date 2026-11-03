@@ -978,9 +978,11 @@ describe('Query', () => {
       inner = [...world.query(Position)];
     });
 
-    // The starting membership is walked once and an entity destroyed during the walk is skipped,
-    // the nested run skips the pending removal and the replacement waits for the next run.
-    expect(visited).toEqual([first]);
+    // The starting membership is walked once, including the entity destroyed during the walk,
+    // whose slot is not recycled by the replacement until the walk ends. The nested run skips
+    // the pending removal and the replacement waits for the next run.
+    expect(visited).toEqual([first, second]);
+    expect(second.isAlive()).toBe(false);
     expect(inner).toEqual([first, replacement]);
     expect(first.get(Position)?.x).toBe(11);
     expect(replacement.get(Position)?.x).toBe(7);
