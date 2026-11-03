@@ -20,10 +20,8 @@ import {
   cleanupRelationTarget,
   hasTrait,
   hasTraitOrRetained,
-  notifyDestroyedQueries,
   registerTrait,
-  removeTraitFromAliveEntity,
-  tombstoneTrait,
+  removeTraitFromDyingEntity,
 } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
@@ -115,8 +113,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 
       // Remove every trait the masks still hold. A removal may cascade into others, so the word
       // is read again after each one. A world that keeps destroyed entities records the held word
-      // first, so Destroyed queries and later readers can filter on it, and tells the Destroyed
-      // queries while the data is still in place.
+      // first, so has, get and the other terms of Removed queries see what the entity died with.
       const pageId = currentId >>> 10;
       const offset = currentId & 1023;
       const slot = offset << 2;
@@ -131,11 +128,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];
-          if (instance.destroyedQueries.length !== 0) {
-            notifyDestroyedQueries(ctx, currentEntity, instance, g, low);
-          }
-          if (keep) tombstoneTrait(ctx, currentEntity, instance);
-          else removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
+          removeTraitFromDyingEntity(ctx, currentEntity, instance, keep);
           // Clear the bit by hand in case removal declined, so the walk always ends.
           word = page[slot] & ~low;
         }
@@ -255,11 +248,6 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
   }
 }
 
-/**
- * Spawn on a world that keeps destroyed entities. The oldest freed id is reused once at least
- * retain newer destroys have happened and every Removed and Destroyed reader has moved past it,
- * or once sixteen times retain are waiting on a reader that stalled. Otherwise the id space grows.
- */
 /** Drops the relation targets and pair data a destroyed entity kept, before its id is reused. */
 function clearTombstoneRelations(word: number, traitsByBit: TraitInstance[], eid: number) {
   while (word !== 0) {
@@ -270,6 +258,11 @@ function clearTombstoneRelations(word: number, traitsByBit: TraitInstance[], eid
   }
 }
 
+/**
+ * Spawn on a world that keeps destroyed entities. The oldest freed id is reused once at least
+ * retain newer destroys have happened and every Removed reader has moved past it, or once sixteen
+ * times retain are waiting on a reader that stalled. Otherwise the id space grows.
+ */
 function allocateReusing(ctx: WorldContext): Entity {
   const ring = ctx.tombstones;
   if (canReleaseHead(ring, ctx.retain, ctx.consumedSerial)) {
@@ -298,9 +291,9 @@ export function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
 }
 
 /**
- * The oldest destroy serial every Removed and Destroyed reader has moved past. A reader has
- * moved past a destroy once it ran twice after it, since the first run exposes the batch and
- * the second swaps it out. With no such reader nothing holds an id back beyond the window.
+ * The oldest destroy serial every Removed reader has moved past. A reader has moved past a
+ * destroy once it ran twice after it, since the first run exposes the batch and the second swaps
+ * it out. With no such reader nothing holds an id back beyond the window.
  */
 export function refreshConsumedSerial(ctx: WorldContext) {
   const readers = ctx.retainingQueries;

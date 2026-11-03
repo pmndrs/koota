@@ -321,7 +321,7 @@ container.destroy()
 world.has(itemA) // False, items are destroyed with container
 ```
 
-Entities destroyed this way keep their relations until their id is reused, so a `Destroyed` query can still read the parent of a child or the container of an item. See [Destroyed](#destroyed).
+Entities destroyed this way keep their relations until their id is reused, so a `Removed` query can still read the parent of a child or the container of an item. See [Destroyed entities](#destroyed-entities).
 
 #### Exclusive relations
 
@@ -585,7 +585,7 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
-Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a `Changed` term names the trait, so create `Changed` terms at module scope to record writes from the start. A destroyed entity keeps its data until its id is reused, so a reader created after the destroy still sees it, see [Destroyed](#destroyed).
+Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a `Changed` term names the trait, so create `Changed` terms at module scope to record writes from the start. A destroyed entity keeps its data until its id is reused, so a reader created after the destroy still sees it, see [Destroyed entities](#destroyed-entities).
 
 #### Added
 
@@ -615,7 +615,7 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 #### Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed and emitted events, see [Destroyed](#destroyed). The value a removed trait had stays readable with `get` until the trait is added back or the id is reused, so the reader can process what left, and other terms of the query match a destroyed entity on the traits it died with. A trait with a custom `remove` accessor keeps only what the accessor leaves. A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities destroyed while holding them and emitted events, so one reader covers a trait leaving a live entity and an entity ending, see [Destroyed entities](#destroyed-entities). The value a removed trait had stays readable with `get` until the trait is added back or the id is reused, so the reader can process what left, and the other terms of the query match a destroyed entity on the traits it died with. A trait with a custom `remove` accessor keeps only what the accessor leaves. A new instance of the modifier must be created for tracking to be unique.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -665,46 +665,44 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 // After running the query, the Changed modifier is reset
 ```
 
-#### Destroyed
+#### Destroyed entities
 
-The `Destroyed` modifier tracks entities destroyed while holding the specified traits since the last time the query was run. Removing a trait before the destroy does not count. The entity stays readable inside the query, so cleanup can still read its data, `has` and `get` answer for the traits it held when it died, and other query terms filter on them.
+A destroyed entity keeps its id and its data until the world reuses the id for a new entity, and every trait it held when it died counts as removed. A `Removed` query over one of those traits sees the entity in destroy order, `has` and `get` answer for the traits it held when it died, other query terms filter on them, and `isAlive` tells a destroy apart from a trait leaving a live entity. A trait removed before the destroy was a remove, not part of the destroy.
 
-A destroyed entity keeps its id and its data until the world reuses the id for a new entity. A spawn reuses an id only after at least `retain` newer destroys, 1024 by default and set with `createWorld({ retain })`, and after every `Removed` and `Destroyed` query has run twice since the destroy, once to expose it and once to move past it, up to sixteen times `retain` for a reader that has stopped running. Until then spawns take fresh ids. Zero reuses ids at once. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
+A spawn reuses an id only after at least `retain` newer destroys, 1024 by default and set with `createWorld({ retain })`, and after every `Removed` query has run twice since the destroy, once to expose it and once to move past it, up to sixteen times `retain` for a reader that has stopped running. Until then spawns take fresh ids. Zero reuses ids at once. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
 
 ```js
-import { createDestroyed } from 'koota'
-
-const Destroyed = createDestroyed()
+const Removed = createRemoved()
 
 function cleanupSystem(world) {
-  world.query(Destroyed(ServerSync)).readEach(([serverSync]) => {
+  world.query(Removed(ServerSync)).readEach(([serverSync]) => {
     serverSync.disconnect()
   })
 }
 
-// Caught by Destroyed(ServerSync) with its data intact until the cleanup system has read it
+// Caught by Removed(ServerSync) with its data intact until the cleanup system has read it
 entity.destroy()
 
-// Ignored by Destroyed(ServerSync)
+// Caught as well, from an entity that stays alive
 entity.remove(ServerSync)
 ```
 
-Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` or `Destroyed` query created later still sees every destroyed entity whose id has not been reused, in destroy order.
+Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` query created later still sees every destroyed entity whose id has not been reused, in destroy order.
 
-A destroyed entity keeps its relations as well. `targetFor`, `targetsFor`, `has` and `get` read the targets and pair data it held when it died, and a pair term filters a `Destroyed` query on them. Children destroyed with their parent through `autoDestroy` keep the parent as their target. A live entity whose target dies loses the pair as before.
+A destroyed entity keeps its relations as well. `targetFor`, `targetsFor`, `has` and `get` read the targets and pair data it held when it died, and a pair term filters a `Removed` query on them. Children destroyed with their parent through `autoDestroy` keep the parent as their target. A live entity that drops a pair or whose target dies loses it as before, so a pair term matches only the destroyed ones.
 
 ```js
-const DestroyedChild = createDestroyed()
+const RemovedChild = createRemoved()
 
-// Children destroyed with the parent, or on their own while attached to it
-world.query(DestroyedChild(ChildOf), ChildOf(parent)).forEach((child) => {
+// Children destroyed while attached to the parent, with it or on their own
+world.query(RemovedChild(ChildOf), ChildOf(parent)).forEach((child) => {
   detach(child, child.targetFor(ChildOf))
 })
 ```
 
 ### Events
 
-An event is an entity that is born dead. `world.emit` writes its traits, records them as the traits it held when it died and tells the `Destroyed` queries, without ever making it alive, so it costs a fraction of a spawn and never enters a membership query. `onAdd` subscribers on the event trait see it synchronously, `Destroyed` queries drain it later, and it stays readable with `get`, `has` and `targetFor` until its id is reused. `createListener` returns a cached query key over a `Destroyed` term for the event trait, with any other query terms added, so each listener drains its own batch. Events keep their own queue. An event lives until every listener has read it and at least `retain` newer events have been emitted, and only emits reuse event ids, so entity churn never discards an event. Listeners can run anywhere in the loop and can be created after the emit. A listener that stops running releases its events once sixteen times `retain` newer ones have been emitted.
+An event is an entity that is born dead. `world.emit` writes its traits, records them as the traits it held when it died and tells the `Removed` queries, without ever making it alive, so it costs a fraction of a spawn and never enters a membership query. `onAdd` subscribers on the event trait see it synchronously, `Removed` queries drain it later, and it stays readable with `get`, `has` and `targetFor` until its id is reused. `createListener` returns a cached query key over a `Removed` term for the event trait, with any other query terms added, so each listener drains its own batch. Events keep their own queue. An event lives until every listener has read it and at least `retain` newer events have been emitted, and only emits reuse event ids, so entity churn never discards an event. Listeners can run anywhere in the loop and can be created after the emit. A listener that stops running releases its events once sixteen times `retain` newer ones have been emitted.
 
 ```js
 import { createListener, trait } from 'koota'
@@ -973,7 +971,7 @@ Worlds can have traits, which is our version of a singleton. Use these for globa
 
 ```js
 // A destroyed entity keeps its data until its id is reused, which waits for at least this many
-// newer destroys and for every Removed and Destroyed query to move past it. Zero reuses at once
+// newer destroys and for every Removed query to move past it. Zero reuses at once
 const world = createWorld({ retain: 1024 })
 
 // Spawns an entity
@@ -1054,7 +1052,7 @@ world.entities
 // Return number
 const id = world.id
 
-// Spawns an entity and destroys it at once, so only Destroyed queries and listeners see it
+// Emits an event, an entity born dead that only Removed queries and listeners see
 world.emit(CoinCollected({ by: player, coin }))
 
 // Resets the world as if it were just created

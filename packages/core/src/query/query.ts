@@ -269,8 +269,7 @@ function processTrackingModifier(
     }
   }
 
-  if (trackingType === 'destroy') query.isDestroyed = true;
-  if (trackingType === 'destroy' || trackingType === 'remove') query.retains = true;
+  if (trackingType === 'remove') query.retains = true;
   query.isTracking = true;
 }
 
@@ -303,7 +302,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     exposed: null!,
     iterating: 0,
     isTracking: false,
-    isDestroyed: false,
     retains: false,
     consumedSerial: -1,
     lastRunSerial: -1,
@@ -420,7 +418,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     const pair = relationFilters[k];
     const relationTrait = pair.relation[$internal].trait;
     const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-    if (relationTraitInstance && !query.isDestroyed && relationSlot(query, relationTraitInstance) === all.length + k) {
+    if (relationTraitInstance && relationSlot(query, relationTraitInstance) === all.length + k) {
       joinList(relationTraitInstance.relationQueries, query, all.length + k);
     }
 
@@ -488,7 +486,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   if (query.trackingGroups.length > 0) {
     // A tracking query seeds its first batch from the world history, so a reader created at any
     // time sees what happened to the entities the world still holds. Alive entities come first,
-    // then the retained ones in destroy order, which only Removed and Destroyed terms can match.
+    // then the retained ones in destroy order, which only Removed terms can match.
     const seed = (entity: Entity) => {
       if (query.name !== undefined && !checkQuery(ctx, query, entity)) return;
       if (!checkQueryTrackingSeed(ctx, query, entity)) return;
@@ -576,7 +574,6 @@ function hasEveryRelationPair(ctx: WorldContext, query: QueryInstance, entity: E
  */
 /** The list on a trait instance a query belongs to, by the events it wants. */
 function queryList(query: QueryInstance, instance: TraitInstance): QueryInstance[] {
-  if (query.isDestroyed) return instance.destroyedQueries;
   return query.isTracking ? instance.trackingQueries : instance.queries;
 }
 
@@ -598,7 +595,6 @@ function leaveList(
   if (query.ctx.queryCallbackDepth !== 0) {
     list = list.slice();
     if (relation) instance.relationQueries = list;
-    else if (query.isDestroyed) instance.destroyedQueries = list;
     else if (query.isTracking) instance.trackingQueries = list;
     else instance.queries = list;
   }

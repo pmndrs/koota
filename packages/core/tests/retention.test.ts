@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   Not,
   createAdded,
-  createDestroyed,
   createListener,
   createRemoved,
   createWorld,
@@ -118,43 +117,21 @@ describe('Entity retention', () => {
     expect(world.query(Added(Position)).length).toBe(0);
   });
 
-  it('tracks entities destroyed while holding the trait with Destroyed', () => {
+  it('tracks destroys through Removed, told apart from live removes by liveness', () => {
     const world = createWorld();
-    const Destroyed = createDestroyed();
-    expect(world.query(Destroyed(Position)).length).toBe(0);
+    const Removed = createRemoved();
+    expect(world.query(Removed(Position)).length).toBe(0);
 
     const held = world.spawn(Position({ x: 3 }));
-    const dropped = world.spawn(Position);
+    const dropped = world.spawn(Position({ x: 4 }));
     dropped.remove(Position);
     held.destroy();
-    dropped.destroy();
 
-    const destroyed = world.query(Destroyed(Position));
-    expect(destroyed.toArray()).toEqual([held]);
-    destroyed.readEach(([position]) => expect(position.x).toBe(3));
-    expect(world.query(Destroyed(Position)).length).toBe(0);
-  });
-
-  it('seeds a Destroyed query created after the destroy', () => {
-    const world = createWorld();
-    const held = world.spawn(Position({ x: 3 }));
-    world.spawn(Position);
-    held.destroy();
-
-    const Destroyed = createDestroyed();
-    expect(world.query(Destroyed(Position)).toArray()).toEqual([held]);
-  });
-
-  it('filters Destroyed queries on the traits held at destroy', () => {
-    const world = createWorld();
-    const Destroyed = createDestroyed();
-    const hot = world.spawn(Position, IsHot);
-    const cold = world.spawn(Position, IsCold);
-    hot.destroy();
-    cold.destroy();
-
-    expect(world.query(Destroyed(Position), IsHot).toArray()).toEqual([hot]);
-    expect(world.query(Destroyed(Position), Not(IsHot)).toArray()).toEqual([cold]);
+    const removed = world.query(Removed(Position));
+    expect(removed.toArray()).toEqual([dropped, held]);
+    expect(removed.toArray().map((entity) => entity.isAlive())).toEqual([true, false]);
+    expect(removed.toArray().map((entity) => entity.get(Position)!.x)).toEqual([4, 3]);
+    expect(world.query(Removed(Position)).length).toBe(0);
   });
 
   it('emits events that each listener drains once, in order', () => {
@@ -227,7 +204,7 @@ describe('Entity retention', () => {
     expect(world.query(createRemoved()(Position), Not(IsHot)).toArray()).toEqual([cold]);
   });
 
-  it('drains events through Removed as well as Destroyed', () => {
+  it('drains events through any Removed query over the event trait', () => {
     const world = createWorld();
     const Warm = createRemoved();
     world.query(Warm(Event));
@@ -270,14 +247,14 @@ describe('Entity retention', () => {
     const world = createWorld();
     const a = world.spawn();
     const b = world.spawn();
-    const Warm = createDestroyed();
+    const Warm = createRemoved();
     world.query(Warm(Event), Hits(a));
     const onA = world.emit(Event({ by: 13 }), Hits(a), IsHot);
     world.emit(Event({ by: 14 }), Hits(b));
 
     expect(world.query(Warm(Event), Hits(a)).toArray()).toEqual([onA]);
-    expect(world.query(createDestroyed()(Event), Hits(a)).toArray()).toEqual([onA]);
-    expect(world.query(createDestroyed()(Event), IsHot).toArray()).toEqual([onA]);
+    expect(world.query(createRemoved()(Event), Hits(a)).toArray()).toEqual([onA]);
+    expect(world.query(createRemoved()(Event), IsHot).toArray()).toEqual([onA]);
     expect(onA.targetFor(Hits)).toBe(a);
   });
 
@@ -336,21 +313,21 @@ const Likes = relation();
 const Weighs = relation({ store: { kg: 0 } });
 
 describe('Relation retention', () => {
-  it('matches Destroyed queries on the pairs held at destroy, warm and cold', () => {
+  it('matches Removed queries on the pairs held at destroy, warm and cold', () => {
     const world = createWorld();
     const a = world.spawn();
     const b = world.spawn();
     const childA = world.spawn(Likes(a));
     const childB = world.spawn(Likes(b));
-    const Warm = createDestroyed();
+    const Warm = createRemoved();
     expect(world.query(Warm(Likes), Likes(a)).length).toBe(0);
 
     childA.destroy();
     childB.destroy();
 
     expect(world.query(Warm(Likes), Likes(a)).toArray()).toEqual([childA]);
-    expect(world.query(createDestroyed()(Likes), Likes(a)).toArray()).toEqual([childA]);
-    expect(world.query(createDestroyed()(Likes), Likes('*')).toArray()).toEqual([childA, childB]);
+    expect(world.query(createRemoved()(Likes), Likes(a)).toArray()).toEqual([childA]);
+    expect(world.query(createRemoved()(Likes), Likes('*')).toArray()).toEqual([childA, childB]);
   });
 
   it('keeps targets and pair data readable on a destroyed entity', () => {
@@ -376,7 +353,7 @@ describe('Relation retention', () => {
 
     expect(world.has(child)).toBe(false);
     expect(child.targetFor(ChildOf)).toBe(parent);
-    expect(world.query(createDestroyed()(ChildOf), ChildOf(parent)).toArray()).toEqual([child]);
+    expect(world.query(createRemoved()(ChildOf), ChildOf(parent)).toArray()).toEqual([child]);
   });
 
   it('drops the pair from a live source when its target dies', () => {

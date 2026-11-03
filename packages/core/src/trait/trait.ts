@@ -164,7 +164,6 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     queries: [],
     tracked: traitCtx.tracked,
     trackingQueries: [],
-    destroyedQueries: [],
     relationQueries: [],
     schema: trait.schema,
     changeSubscriptions: createSubscriptions(),
@@ -318,16 +317,23 @@ export function releaseRelationTargets(
 }
 
 /**
- * A destroyed entity leaves its queries and tells its subscribers, but keeps its data and its
- * relation targets for the readers that still hold it. Only the reverse index lets go of it.
+ * A dying entity leaves its queries and tells its subscribers. A world that keeps it holds its
+ * data and its relation targets for the readers that still see it, and only the reverse index
+ * lets go of it. A world that keeps nothing drops the targets and the pair data at once.
  */
-export function tombstoneTrait(ctx: WorldContext, entity: Entity, instance: TraitInstance) {
+export function removeTraitFromDyingEntity(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance,
+  keep: boolean
+) {
   const traitCtx = instance.trait[$internal];
   const relation = traitCtx.relation;
   if (relation) {
     const targets = getRelationTargets(ctx, relation, entity);
     for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-    detachRelationTargets(instance, entity);
+    if (keep) detachRelationTargets(instance, entity);
+    else removeAllRelationTargets(ctx, relation, entity);
   } else {
     emit(instance.removeSubscriptions, entity);
     traitCtx.remove(ctx, getEntityId(entity), instance.store);
@@ -496,7 +502,10 @@ export /* @inline @pure */ function getTraitForTrait(
     : traitCtx.getInto(ctx, index, data.store, out);
 }
 
-/** A destroyed entity the world retains still reads the traits it held when it died. */
+/**
+ * A removed trait keeps its last value readable until it is added back or the id is reused. A
+ * destroyed entity or an event has every trait it died with recorded as removed.
+ */
 export function getRetainedTrait(
   ctx: WorldContext,
   index: number,
@@ -505,9 +514,7 @@ export function getRetainedTrait(
 ) {
   const page = ctx.entityMasks[data.generationId][index >>> 10];
   const slot = (index & 1023) << 2;
-  if (((page[slot + DESTROYED_WORD] | page[slot + REMOVED_WORD]) & data.bitflag) === 0) {
-    return undefined;
-  }
+  if ((page[slot + REMOVED_WORD] & data.bitflag) === 0) return undefined;
   const traitCtx = data.trait[$internal];
   return out === undefined
     ? traitCtx.get(ctx, index, data.store)
@@ -738,28 +745,6 @@ export function reconcileTrackingQueries(
       : checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
     if (match) addEntityToQuery(query, entity);
     else removeEntityFromQuery(ctx, query, entity);
-  }
-}
-
-/**
- * Destroy events reach only Destroyed queries, while the entity still holds its traits, so the
- * removals that follow never see those queries and cannot evict the entity.
- */
-export function notifyDestroyedQueries(
-  ctx: WorldContext,
-  entity: Entity,
-  instance: TraitInstance,
-  generationId: number,
-  bitflag: number
-) {
-  const queries = instance.destroyedQueries;
-  for (let i = 0; i < queries.length; i++) {
-    const query = queries[i];
-    const match =
-      query.relationFilters.length !== 0
-        ? checkQueryTrackingWithRelations(ctx, query, entity, 'destroy', generationId, bitflag)
-        : checkQueryTracking(ctx, query, entity, 'destroy', generationId, bitflag);
-    if (match) addEntityToQuery(query, entity);
   }
 }
 

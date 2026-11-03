@@ -231,9 +231,10 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   /** Walks in progress over the results. Removals stay pending while it is nonzero. */
   iterating: number;
   isTracking: boolean;
-  /** Holds a Destroyed term. Only destroy events reach it and its filters read the masks at destroy. */
-  isDestroyed: boolean;
-  /** Holds a Removed or Destroyed term, so its runs decide when tombstones are released. */
+  /**
+   * Holds a Removed term. Its other terms read the traits a dead entity died with, and its runs
+   * decide when tombstones and events are released.
+   */
   retains: boolean;
   /** The destroy serial at the previous run. Tombstones up to it were exposed and swapped out. */
   consumedSerial: number;
@@ -259,4 +260,4 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   relationFilters: ResolvedRelationFilter[];
 };
 
-export type EventType = 'add' | 'remove' | 'change' | 'destroy';
+export type EventType = 'add' | 'remove' | 'change';

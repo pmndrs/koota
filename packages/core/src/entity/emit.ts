@@ -5,7 +5,7 @@ import { attachEventTarget } from '../relation/relation';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { emit } from '../trait/subscriptions';
-import { notifyDestroyedQueries, reconcileTrackingQueries, registerTrait } from '../trait/trait';
+import { reconcileTrackingQueries, registerTrait } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
@@ -23,8 +23,8 @@ import {
 
 /**
  * An event is an entity born dead. Emit writes its data, records its traits as removed and as held
- * at destroy, and tells the Removed and Destroyed readers, without the membership an alive entity
- * enters and leaves. Events keep their own ring, so only emits decide when an event id is reused.
+ * at destroy, and tells the Removed readers, without the membership an alive entity enters and
+ * leaves. Events keep their own ring, so only emits decide when an event id is reused.
  */
 export function emitEvent(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEvent(ctx);
@@ -82,7 +82,7 @@ function markEventTrait(ctx: WorldContext, eid: number, instance: TraitInstance)
   page[slot + DESTROYED_WORD] |= instance.bitflag;
 }
 
-/** Tells the Destroyed readers once every trait and pair is in place, so their filters see all of it. */
+/** Tells the Removed readers once every trait and pair is in place, so their filters see all of it. */
 function notifyEventQueries(ctx: WorldContext, entity: Entity) {
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
@@ -96,9 +96,6 @@ function notifyEventQueries(ctx: WorldContext, entity: Entity) {
     while (word !== 0) {
       const low = word & -word;
       const instance = traitsByBit[31 - Math.clz32(low)];
-      if (instance.destroyedQueries.length !== 0) {
-        notifyDestroyedQueries(ctx, entity, instance, g, low);
-      }
       if (instance.trackingQueries.length !== 0) {
         reconcileTrackingQueries(ctx, entity, instance, 'remove', g, low);
       }

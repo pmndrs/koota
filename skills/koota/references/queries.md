@@ -106,16 +106,15 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a `Changed` term names the trait, so build `Changed` terms at module scope to record from the start. Destroyed entities keep their data until their id is reused, see Destroyed below.
+Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a `Changed` term names the trait, so build `Changed` terms at module scope to record from the start. Destroyed entities keep their data until their id is reused, see Removed below.
 
 ```typescript
-import { createAdded, createRemoved, createChanged, createDestroyed } from 'koota'
+import { createAdded, createRemoved, createChanged } from 'koota'
 
 // Create unique instances (typically at module scope)
 const Added = createAdded()
 const Removed = createRemoved()
 const Changed = createChanged()
-const Destroyed = createDestroyed()
 ```
 
 **Added** - Entities that added a trait since last query:
@@ -127,13 +126,19 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since last query, including destroyed entities and emitted events. `get` still returns the value the trait had until it is added back or the id is reused, and other terms match a destroyed entity on the traits it died with:
+**Removed** - Entities that removed a trait since last query, including entities destroyed while holding it and emitted events. `get` still returns the value the trait had until it is added back or the id is reused, other terms match a destroyed entity on the traits it died with, and `isAlive` tells a destroy apart from a live remove. A destroyed entity keeps its id and data until a spawn reuses the id, which waits for `createWorld({ retain })` newer destroys (1024 by default, 0 reuses at once) and for every Removed reader to run twice past it, up to sixteen times `retain` for a stalled reader. Writes to it throw. Relations are kept too: `targetFor`, `targetsFor`, `has` and `get` read the pairs held at destroy, a pair term filters on them, and children destroyed with their parent keep it as their target, while a live entity that drops a pair loses it:
 
 ```typescript
 const stoppedEntities = world.query(Removed(Velocity))
 
 // Track orphaned entities
 const orphaned = world.query(Removed(ChildOf))
+
+// Destroyed entities keep their data until the reader has seen them
+world.query(Removed(ServerSync)).readEach(([serverSync]) => serverSync.disconnect())
+world
+  .query(Removed(ChildOf), ChildOf(parent))
+  .forEach((child) => detach(child, child.targetFor(ChildOf)))
 ```
 
 **Changed** - Entities whose trait data changed since last query:
@@ -145,16 +150,7 @@ const movedEntities = world.query(Changed(Position))
 const updatedChildren = world.query(Changed(ChildOf))
 ```
 
-**Destroyed** - Entities destroyed while holding a trait since last query. A destroyed entity keeps its id and data until a spawn reuses the id, which waits for `createWorld({ retain })` newer destroys (1024 by default, 0 reuses at once) and for every Removed and Destroyed reader to run twice past it, up to sixteen times `retain` for a stalled reader. Removing the trait first does not count, writes to the entity throw, `has` and `get` answer for the traits held at destroy, and other terms filter on them. Relations are kept too: `targetFor`, `targetsFor`, `has` and `get` read the pairs held at destroy, a pair term filters on them, and children destroyed with their parent keep it as their target:
-
-```typescript
-world.query(Destroyed(ServerSync)).readEach(([serverSync]) => serverSync.disconnect())
-world
-  .query(Destroyed(ChildOf), ChildOf(parent))
-  .forEach((child) => detach(child, child.targetFor(ChildOf)))
-```
-
-See [runtime.md](runtime.md#event-driven-systems) for `world.emit` and `createListener`, which build on Destroyed.
+See [runtime.md](runtime.md#event-driven-systems) for `world.emit` and `createListener`, which build on Removed.
 
 **Logical AND (default):**
 
@@ -193,7 +189,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 - Create instances at module scope, not inside functions
 - Tracking resets after each query execution
 - Changed only tracks `set()` calls and `entity.changed()` signals
-- Removed and Destroyed need no warm up, a reader created after the event still sees it on its first run, inline or at module scope
+- Removed needs no warm up, a reader created after the event still sees it on its first run, inline or at module scope
 
 ## Caching queries
 

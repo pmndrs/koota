@@ -52,9 +52,9 @@ export type WorldContext = {
   tombstones: HandleRing;
   /** Emitted events whose ids are not reused yet, in emit order. Only emits reuse them. */
   events: HandleRing;
-  /** Counts destroys and emits. Removed and Destroyed readers stamp their runs with it. */
+  /** Counts destroys and emits. Removed readers stamp their runs with it. */
   destroySerial: number;
-  /** Removed and Destroyed query instances. Ids stay unreused until they have moved past them. */
+  /** Removed query instances. Ids stay unreused until they have moved past them. */
   retainingQueries: QueryInstance[];
   /** The oldest serial every retaining reader has moved past, Infinity with none. */
   consumedSerial: number;
@@ -73,7 +73,7 @@ export type WorldContext = {
 export type WorldOptions = {
   /**
    * How many newer destroys an id waits for before a spawn may reuse it, keeping the destroyed
-   * entity readable meanwhile. Removed and Destroyed queries hold it longer until they have
+   * entity readable meanwhile. Removed queries hold it longer until they have
    * moved past it, up to sixteen times this. Defaults to 1024. Zero reuses ids at once.
    */
   retain?: number;
@@ -97,8 +97,7 @@ export type World = {
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
   destroy(): void;
   reset(): void;
-  /** Spawns an entity and destroys it at once, so only Destroyed queries and listeners see it. */
-  /** Emits an event, an entity born dead that Destroyed readers drain. Returns its handle. */
+  /** Emits an event, an entity born dead that Removed readers and listeners drain. Returns its handle. */
   emit(...traits: ConfigurableTrait[]): Entity;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;

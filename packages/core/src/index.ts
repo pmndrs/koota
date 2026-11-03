@@ -9,7 +9,6 @@ export { createChanged } from './query/modifiers/changed';
 export { Not } from './query/modifiers/not';
 export { Or } from './query/modifiers/or';
 export { createRemoved } from './query/modifiers/removed';
-export { createDestroyed } from './query/modifiers/destroyed';
 export { createListener } from './query/create-listener';
 export { $modifier } from './query/modifier';
 export { createQuery, IsExcluded } from './query/query';

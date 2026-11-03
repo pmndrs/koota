@@ -15,7 +15,7 @@ World's can also have their own traits, which function as singletons.
 
 ```js
 // A destroyed entity keeps its data until its id is reused, which waits for at least this many
-// newer destroys and for every Removed and Destroyed query to move past it. Zero reuses at once
+// newer destroys and for every Removed query to move past it. Zero reuses at once
 const world = createWorld({ retain: 1024 })
 
 // Spawns an entity
@@ -74,7 +74,7 @@ world.entities
 // Return number
 const id = world.id()
 
-// Spawns an entity and destroys it at once, so only Destroyed queries and listeners see it
+// Emits an event, an entity born dead that only Removed queries and listeners see
 world.emit(CoinCollected({ by: player, coin }))
 
 // Resets the world as if it were just created

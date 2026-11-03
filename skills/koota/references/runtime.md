@@ -172,7 +172,7 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 ```typescript
 const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })
 
-// Cached query key over Destroyed(CoinCollected), create at module scope
+// Cached query key over Removed(CoinCollected), create at module scope
 const coinCollected = createListener(CoinCollected, Or(IsHot, IsCold))
 
 // Spawn and destroy in one call. Synchronous subscribers fire now, listeners drain later

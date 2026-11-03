@@ -80,10 +80,8 @@ export function checkQueryTracking(
 
 /**
  * Seed a new tracking query from the world history instead of an event. Membership stands in
- * for an add, the removed history for a loss the entity has not undone, the changed history for
- * a write to a trait the entity still holds, and the destroyed history for the traits a retained
- * entity held when it died. A Destroyed query filters on those masks too, since the entity holds
- * nothing now.
+ * for an add, the removed history for a loss the entity has not undone, which covers every trait
+ * a dead entity died with, and the changed history for a write to a trait the entity still holds.
  */
 export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, entity: Entity) {
   if (query.traitInstances.length === 0) return false;
@@ -105,23 +103,14 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
     const group = trackingGroups[i];
     const bitmasks = group.bitmasks;
     const type = group.type;
-    const word =
-      type === 'add'
-        ? 0
-        : type === 'remove'
-          ? REMOVED_WORD
-          : type === 'change'
-            ? CHANGED_WORD
-            : DESTROYED_WORD;
+    const word = type === 'add' ? 0 : type === 'remove' ? REMOVED_WORD : CHANGED_WORD;
 
     for (let genId = 0; genId < bitmasks.length; genId++) {
       const mask = bitmasks[genId];
       if (!mask) continue;
       const page = entityMasks[genId][pageId];
       const held = page[slot];
-      let hits = page[slot + word] & mask;
-      if (type === 'remove') hits &= ~held;
-      else if (type !== 'destroy') hits &= held;
+      const hits = page[slot + word] & mask & (type === 'remove' ? ~held : held);
       if (hits !== 0) recordTrackerHit(group.trackers, genId, eid, hits);
     }
 
@@ -169,8 +158,9 @@ function trackersMatchAny(
 }
 
 /**
- * Static terms read the traits an entity holds. A Removed or Destroyed query also reads the traits
- * a dead entity or an event died with, so its other terms describe the row as it ended.
+ * The entity satisfies every static required, forbidden and or mask of the query. Static terms
+ * read the traits an entity holds. A Removed query also reads the traits a dead entity or an
+ * event died with, so its other terms describe the row as it ended.
  */
 function passesStaticBitmasks(
   masks: number[],
