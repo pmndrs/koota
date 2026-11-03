@@ -95,8 +95,8 @@ describe('Lifecycle Subscriptions', () => {
       // for all callbacks associated with the trait.
       unsub();
 
-      // Test changed detection with updateEach.
-      world.query(Position).updateEach(([position]) => {
+      // Test changed detection with each.
+      world.query(Position).each((position) => {
         position.x = 100;
       });
 
@@ -197,18 +197,18 @@ describe('Lifecycle Subscriptions', () => {
       expect(entityCb).toHaveBeenCalledTimes(1);
     });
 
-    it('enables change detection in updateEach', () => {
+    it('enables change detection in each', () => {
       const entity = world.spawn(Position);
       const cb = vi.fn();
       const unsub = entity.onChange(Position, cb);
 
-      world.query(Position).updateEach(([position]) => {
+      world.query(Position).each((position) => {
         position.x = 5;
       });
       expect(cb).toHaveBeenCalledTimes(1);
 
       unsub();
-      world.query(Position).updateEach(([position]) => {
+      world.query(Position).each((position) => {
         position.x = 6;
       });
       expect(cb).toHaveBeenCalledTimes(1);
@@ -242,7 +242,7 @@ describe('Lifecycle Subscriptions', () => {
       entity.onChange(Position, cb);
       stale();
 
-      world.query(Position).updateEach(([position]) => {
+      world.query(Position).each((position) => {
         position.x = 1;
       });
       expect(cb).toHaveBeenCalledTimes(1);
@@ -259,7 +259,7 @@ describe('Lifecycle Subscriptions', () => {
 
       unsubA();
       unsubB();
-      world.query(Position).updateEach(([position]) => {
+      world.query(Position).each((position) => {
         position.x = 2;
       });
       expect(cb).toHaveBeenCalledTimes(1);
@@ -287,7 +287,7 @@ describe('Lifecycle Subscriptions', () => {
 
       unsubA();
       unsubC();
-      world.query(Position).updateEach(([position]) => {
+      world.query(Position).each((position) => {
         position.x = 3;
       });
       expect(a).toHaveBeenCalledTimes(2);

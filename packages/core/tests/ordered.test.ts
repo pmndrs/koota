@@ -37,9 +37,9 @@ describe('Ordered relations', () => {
     expect(children).toHaveLength(0);
 
     const child = world.spawn();
-    world.query(OrderedChildren).updateEach(([list]) => list.push(child));
+    world.query(OrderedChildren).each((list) => list.push(child));
     expect(child.has(ChildOf(parent))).toBe(true);
-    world.query(OrderedChildren).readEach(([list], entity) => {
+    world.query(OrderedChildren).each((list, entity) => {
       expect(entity).toBe(parent);
       expect(list).toBe(children);
       expect(list).toEqual(expect.arrayContaining([child]));

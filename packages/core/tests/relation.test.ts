@@ -407,7 +407,7 @@ describe('Relation', () => {
   });
 
   // There is a hotpath for relation-only queries so this is a sanity check
-  it('should support relation-only query with updateEach', () => {
+  it('should support relation-only query with each', () => {
     const ChildOf = relation();
 
     const parent = world.spawn();
@@ -417,9 +417,7 @@ describe('Relation', () => {
 
     const visited: number[] = [];
 
-    // updateEach should work but with empty state array
-    world.query(ChildOf(parent)).updateEach((state, entity, index) => {
-      expect(state).toEqual([]);
+    world.query(ChildOf(parent)).each((entity, index) => {
       visited.push(entity);
       expect(index).toBe(visited.length - 1);
     });
@@ -456,8 +454,7 @@ describe('Relation', () => {
     const child3 = world.spawn(ChildOf(parent));
 
     const visited: number[] = [];
-    world.query(ChildOf(parent)).updateEach((state, entity) => {
-      expect(state).toEqual([]);
+    world.query(ChildOf(parent)).each((entity) => {
       visited.push(entity);
       entity.remove(ChildOf(parent));
     });

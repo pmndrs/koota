@@ -306,7 +306,7 @@ describe('Trait', () => {
       expect(b.get(Transform)!.scale).not.toBe(scale);
     });
 
-    it('writes tuples mutated in updateEach back and detects changes per component', () => {
+    it('writes tuples mutated in each back and detects changes per component', () => {
       const Position = trait({ value: [0, 0, 0] });
       const Velocity = trait({ value: [0, 0, 0] });
       const Changed = createChanged();
@@ -316,7 +316,7 @@ describe('Trait', () => {
       const moving = world.spawn(Position, Velocity({ value: [0, 2, 0] }));
       world.spawn(Position, Velocity);
 
-      world.query(Position, Velocity).updateEach(([position, velocity]) => {
+      world.query(Position, Velocity).each((position, velocity) => {
         for (let i = 0; i < 3; i++) position.value[i] += velocity.value[i];
       });
 
