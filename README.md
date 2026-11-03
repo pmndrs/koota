@@ -1101,7 +1101,7 @@ const store = {
 
 #### Array of Structures (AoS) - Callback-based traits
 
-When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibility with third party libraries like Three, or class instances in general. The callback must return an object, primitive data belongs in a schema field.
+When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibility with third party libraries like Three, or class instances in general. The callback must return an object, or `null` for a reference that is empty until set. Primitive data belongs in a schema field.
 
 ```js
 const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }))
