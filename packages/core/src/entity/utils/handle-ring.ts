@@ -29,6 +29,22 @@ export function pushHandle(ring: HandleRing, entity: Entity, serial: number): vo
   ring.count = count + 1;
 }
 
+/** Moves the handle at an offset from the head to another ring, keeping its serial and the order of the rest. */
+export function moveHandle(from: HandleRing, offset: number, to: HandleRing): void {
+  const capacity = from.ids.length;
+  let index = (from.head + offset) % capacity;
+  const entity = from.ids[index] as Entity;
+  const serial = from.serials[index];
+  for (let i = offset + 1; i < from.count; i++) {
+    const next = (from.head + i) % capacity;
+    from.ids[index] = from.ids[next];
+    from.serials[index] = from.serials[next];
+    index = next;
+  }
+  from.count--;
+  pushHandle(to, entity, serial);
+}
+
 /** Takes the oldest handle. The caller checks the count first. */
 export /* @inline */ function shiftHandle(ring: HandleRing): Entity {
   const head = ring.head;

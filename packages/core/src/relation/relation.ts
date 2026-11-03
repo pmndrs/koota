@@ -49,6 +49,7 @@ function createRelation<S extends TraitSchema = Record<string, never>>(definitio
     trait: relationTrait,
     exclusive: definition?.exclusive ?? false,
     autoDestroy,
+    reserved: false,
   };
 
   function relationFn(...args: any[]): RelationPair<Trait<S>> {

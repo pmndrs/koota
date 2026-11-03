@@ -59,6 +59,10 @@ export type WorldContext = {
   /** The oldest serial every retaining reader has moved past, Infinity with none. */
   consumedSerial: number;
   worldEntity: Entity;
+  /** The subject relation's instance, registered with the world entity. */
+  subject: TraitInstance;
+  /** The entity whose subject pair the current add or spawn attached, -1 otherwise. */
+  eventEnding: number;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
@@ -97,7 +101,7 @@ export type World = {
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
   destroy(): void;
   reset(): void;
-  /** Emits an event, an entity born dead that Removed readers and listeners drain. Returns its handle. */
+  /** Emits an event about the world, an entity born dead that listeners drain. Returns its handle. */
   emit(...traits: ConfigurableTrait[]): Entity;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;

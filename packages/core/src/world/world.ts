@@ -3,6 +3,7 @@ import { emitEvent } from '../entity/emit';
 import { clearHandleRing, createHandleRing } from '../entity/utils/handle-ring';
 import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity } from '../entity/entity';
+import { On } from '../relation/on';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -56,6 +57,7 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
 
   if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
+  registerSubject(ctx);
 
   const pending = ctx.pendingTraits;
   ctx.pendingTraits = undefined;
@@ -85,6 +87,13 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
     ctx.queriesHashMap.set(hash, query);
   }
   return runQuery(ctx, query, params);
+}
+
+/** Registers the subject relation so every destroy and query has its instance at hand. */
+function registerSubject(ctx: WorldContext): void {
+  const subjectTrait = On[$internal].trait;
+  if (!hasTraitInstance(ctx.traitInstances, subjectTrait)) registerTrait(ctx, subjectTrait);
+  ctx.subject = getTraitInstance(ctx.traitInstances, subjectTrait)!;
 }
 
 export function createWorld(options: WorldOptions, ...traits: ConfigurableTrait[]): World;
@@ -129,6 +138,8 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       targetQueries: [],
       dirtyQueries: new Set(),
       worldEntity: null!,
+      subject: null!,
+      eventEnding: -1,
       entitySubscribedInstances: new Set(),
       resetSubscriptions: new Set(),
       entitySpawnSubscriptions: new Set(),
@@ -242,6 +253,7 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
       ctx.entitySubscribedInstances.clear();
 
+      registerSubject(ctx);
       ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 
       for (const sub of ctx.resetSubscriptions) {
@@ -251,13 +263,8 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
     emit(...traits: ConfigurableTrait[]) {
       const ctx = world[$internal];
-      if (ctx.retain === 0) {
-        throw new Error(
-          'Koota: [EMIT_RETAIN] world.emit needs a world that keeps destroyed entities. Create it without retain: 0.'
-        );
-      }
       ensureWorldRegistered(ctx);
-      return emitEvent(ctx, traits);
+      return emitEvent(ctx, traits, ctx.worldEntity);
     },
 
     query(...args: any[]) {

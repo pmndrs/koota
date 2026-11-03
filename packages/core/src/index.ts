@@ -35,6 +35,7 @@ export { Name } from './name/name';
 export { $name } from './name/symbols';
 export type { NameConfig, NameTrait } from './name/types';
 export { relation } from './relation/relation';
+export { On } from './relation/on';
 export { ordered, isOrderedTrait } from './relation/ordered';
 export type { EntityComparator, EntityView, OrderedView, MutableOrderedView } from './view/types';
 export { $relationPair, $relation } from './relation/symbols';

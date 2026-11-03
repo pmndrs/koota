@@ -167,19 +167,20 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**3. Emit and drain:** Emit an event as an entity born dead and let a system drain it on its own schedule. Use for discrete game events that several systems read. `world.emit` never makes the event alive, so it costs a fraction of a spawn, and events keep their own queue: an event lives until every listener has read it and at least `retain` newer events have been emitted, entity churn never discards it, and a listener created after the emit still sees it.
+**3. Emit and drain:** Emit an event as an entity born dead about a subject and let a system drain it on its own schedule. Use for discrete game events that several systems read. `entity.emit` makes the entity the subject, `world.emit` makes the world the subject, and the built-in `On` relation carries it: `event.targetFor(On)` reads it and `On(subject)` or `On(IsPlayer)` filters a listener. Emit never makes the event alive, so it costs a fraction of a spawn, and events keep their own queue: an event lives until every listener has read it and at least `retain` newer events have been emitted, entity churn never discards it, and a listener created after the emit still sees it. A `Removed` query sees events only when it names `On`, which `createListener` does. Adding `On` to an alive entity ends it as an event with its traits.
 
 ```typescript
-const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })
+const Damage = trait({ amount: 0 })
 
-// Cached query key over Removed(CoinCollected), create at module scope
-const coinCollected = createListener(CoinCollected, Or(IsHot, IsCold))
+// Cached query key over Removed(Damage), On('*'), create at module scope
+const damage = createListener(Damage, Or(IsHot, IsCold))
+const damageToPlayers = createListener(Damage, On(IsPlayer))
 
-// Spawn and destroy in one call. Synchronous subscribers fire now, listeners drain later
-world.emit(CoinCollected({ by: player, coin }), IsHot)
+// Born dead. Synchronous subscribers fire now, listeners drain later
+enemy.emit(Damage({ amount: 5 }), IsHot)
 
-function scoreSystem(world: World) {
-  world.query(coinCollected).readEach(([event]) => addScore(event.by))
+function damageSystem(world: World) {
+  world.query(damage).each((damage, event) => applyDamage(event.targetFor(On), damage.amount))
 }
 ```
 

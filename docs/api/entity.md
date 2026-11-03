@@ -41,6 +41,10 @@ const targets = entity.targetsFor(Contains)
 // Return Entity
 const target = entity.targetFor(Contains)
 
+// Emits an event about this entity, see Events
+// Return Entity
+const event = entity.emit(Damage({ amount: 5 }))
+
 // Get the entity ID
 // Return number
 const id = entity.id()

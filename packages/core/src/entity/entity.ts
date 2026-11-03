@@ -37,7 +37,7 @@ import {
   releaseEntity,
   reuseEntity,
 } from './utils/entity-index';
-import { canReleaseHead, pushHandle, shiftHandle } from './utils/handle-ring';
+import { canReleaseHead, moveHandle, pushHandle, shiftHandle } from './utils/handle-ring';
 import { getEntityId } from './utils/pack-entity';
 import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
@@ -63,7 +63,22 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
     for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
   }
 
+  if (ctx.eventEnding === entity) endEventEntity(ctx, entity);
   return entity;
+}
+
+/**
+ * A subject pair added during a spawn or an add turns the entity into an event. It leaves its
+ * queries and tells its subscribers like any destroy, with the subject already on the row so the
+ * Removed readers see an event, and its id returns through the event ring.
+ */
+export function endEventEntity(ctx: WorldContext, entity: Entity) {
+  ctx.eventEnding = -1;
+  // The destroy handles the entity before anything it cascades into, so its handle lands where
+  // the tombstone ring ended, and moves from there to the event ring.
+  const at = ctx.tombstones.count;
+  destroyEntity(ctx, entity);
+  moveHandle(ctx.tombstones, at, ctx.events);
 }
 
 // Entities already visited by the destroy in progress, keyed by id and stamped per outer call so
@@ -113,7 +128,8 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 
       // Remove every trait the masks still hold. A removal may cascade into others, so the word
       // is read again after each one. A world that keeps destroyed entities records the held word
-      // first, so has, get and the other terms of Removed queries see what the entity died with.
+      // first, beside a subject pair already there, so has, get and the other terms of Removed
+      // queries see what the entity died with.
       const pageId = currentId >>> 10;
       const offset = currentId & 1023;
       const slot = offset << 2;
@@ -124,7 +140,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
         let word = page[slot];
-        page[slot + DESTROYED_WORD] = word;
+        page[slot + DESTROYED_WORD] |= word;
         while (word !== 0) {
           const low = word & -word;
           const instance = traitsByBit[31 - Math.clz32(low)];

@@ -615,7 +615,7 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 #### Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities destroyed while holding them and emitted events, so one reader covers a trait leaving a live entity and an entity ending, see [Destroyed entities](#destroyed-entities). The value a removed trait had stays readable with `get` until the trait is added back or the id is reused, so the reader can process what left, and the other terms of the query match a destroyed entity on the traits it died with. A trait with a custom `remove` accessor keeps only what the accessor leaves. A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities destroyed while holding them, so one reader covers a trait leaving a live entity and an entity ending, see [Destroyed entities](#destroyed-entities). Events are seen only by readers that name `On`, see [Events](#events). The value a removed trait had stays readable with `get` until the trait is added back or the id is reused, so the reader can process what left, and the other terms of the query match a destroyed entity on the traits it died with. A trait with a custom `remove` accessor keeps only what the accessor leaves. A new instance of the modifier must be created for tracking to be unique.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -675,7 +675,7 @@ A spawn reuses an id only after at least `retain` newer destroys, 1024 by defaul
 const Removed = createRemoved()
 
 function cleanupSystem(world) {
-  world.query(Removed(ServerSync)).readEach(([serverSync]) => {
+  world.query(Removed(ServerSync)).each((serverSync) => {
     serverSync.disconnect()
   })
 }
@@ -702,27 +702,33 @@ world.query(RemovedChild(ChildOf), ChildOf(parent)).forEach((child) => {
 
 ### Events
 
-An event is an entity that is born dead. `world.emit` writes its traits, records them as the traits it held when it died and tells the `Removed` queries, without ever making it alive, so it costs a fraction of a spawn and never enters a membership query. `onAdd` subscribers on the event trait see it synchronously, `Removed` queries drain it later, and it stays readable with `get`, `has` and `targetFor` until its id is reused. `createListener` returns a cached query key over a `Removed` term for the event trait, with any other query terms added, so each listener drains its own batch. Events keep their own queue. An event lives until every listener has read it and at least `retain` newer events have been emitted, and only emits reuse event ids, so entity churn never discards an event. Listeners can run anywhere in the loop and can be created after the emit. A listener that stops running releases its events once sixteen times `retain` newer ones have been emitted.
+An event is an entity that is born dead, about a subject. `world.emit` writes its traits, records them as the traits it held when it died, attaches the built-in `On` relation naming the subject and tells the `Removed` readers, without ever making the event alive, so it costs a fraction of a spawn and never enters a membership query. `world.emit` makes the world the subject and `entity.emit` makes the entity the subject. `onAdd` subscribers on the event trait see the event synchronously, listeners drain it later, and it stays readable with `get`, `has` and `targetFor` until its id is reused.
+
+A listener is a `Removed` query that names `On`. `createListener` returns a cached query key over `Removed(Event), On('*')` with any other query terms added, so each listener drains its own batch, and `On(subject)` or `On(IsPlayer)` narrows it to the events about one subject or a class of subjects. A `Removed` query that does not name `On` never sees an event, so a cleanup reader over a trait that doubles as an event needs no guard. Events keep their own queue. An event lives until every listener has read it and at least `retain` newer events have been emitted, and only emits reuse event ids, so entity churn never discards an event. Listeners can run anywhere in the loop and can be created after the emit. A listener that stops running releases its events once sixteen times `retain` newer ones have been emitted.
 
 ```js
-import { createListener, trait } from 'koota'
+import { On, createListener, trait } from 'koota'
 
-const CoinCollected = trait({ by: 0 as Entity, coin: 0 as Entity })
+const Damage = trait({ amount: 0 })
 
-// Emit an event, extra traits tag it for filtering
-world.emit(CoinCollected({ by: player, coin }), IsHot)
+// Emit an event about an entity, extra traits tag the event itself
+enemy.emit(Damage({ amount: 5 }), IsCritical)
+
+// Emit an event about the world
+world.emit(Damage({ amount: 1 }))
 
 // Returns a cached query key, create it at module scope
-const coinCollected = createListener(CoinCollected, Or(IsHot, IsCold))
+const damage = createListener(Damage)
+const damageToPlayers = createListener(Damage, On(IsPlayer))
 
-function eventSystem(world) {
-  world.query(coinCollected).readEach(([event]) => {
-    score(event.by)
+function damageSystem(world) {
+  world.query(damage).each((damage, event) => {
+    applyDamage(event.targetFor(On), damage.amount)
   })
 }
 ```
 
-Use `world.spawn` instead when the event should persist and be destroyed by your own logic.
+`On` is reserved for events. Adding it to an alive entity ends the entity as an event with the traits it holds, so `world.spawn(Damage({ amount: 5 }), On(enemy))` is an event that passed through the entity lifecycle, and a live entity turns into an event by adding `On`. The world entity cannot become an event. Use `world.spawn` without `On` when the event should persist and be destroyed by your own logic.
 
 ### Add, remove and change events
 
@@ -1052,7 +1058,7 @@ world.entities
 // Return number
 const id = world.id
 
-// Emits an event, an entity born dead that only Removed queries and listeners see
+// Emits an event about the world, an entity born dead that listeners drain
 world.emit(CoinCollected({ by: player, coin }))
 
 // Resets the world as if it were just created
@@ -1101,6 +1107,10 @@ const targets = entity.targetsFor(Contains)
 // Get the first target for a relation
 // Return Entity
 const target = entity.targetFor(Contains)
+
+// Emits an event about this entity, see Events
+// Return Entity
+const event = entity.emit(Damage({ amount: 5 }))
 
 // Get the entity ID
 // Return number

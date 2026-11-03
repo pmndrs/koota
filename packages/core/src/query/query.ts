@@ -7,7 +7,11 @@ import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
 import { refreshConsumedSerial } from '../entity/entity';
 import { isEntityReadable } from '../entity/utils/entity-index';
-import { getEntitiesWithRelationTo, hasRelationPair } from '../relation/relation';
+import {
+  getEntitiesWithRelationTo,
+  hasRelationPair,
+  hasRelationTargetInSet,
+} from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
@@ -339,7 +343,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
 
     if (isRelationPair(parameter)) {
-      query.relationFilters.push(resolveRelationFilter(parameter));
+      // A wildcard pair is the relation's membership, which the required mask already checks.
+      if (parameter.target !== '*') query.relationFilters.push(resolveRelationFilter(parameter));
       const baseTrait = (parameter.relation as Relation<Trait>)[$internal].trait;
       required.push(ensureTraitInstance(ctx, baseTrait));
       query.traits.push(baseTrait);
@@ -372,6 +377,10 @@ export function createQueryInstance<T extends QueryParameter[]>(
   }
 
   forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
+
+  if (query.retains && !all.includes(ctx.subject) && !required.includes(ctx.subject) && !forbidden.includes(ctx.subject) && !or.includes(ctx.subject)) {
+    forbidden.push(ctx.subject);
+  }
 
   for (let i = 0; i < required.length; i++) {
     all.push(required[i]);
@@ -559,11 +568,15 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
   }
 }
 
-/** The entity holds every relation pair the query filters on. */
+/** The entity holds every relation pair the query filters on, read from the targets it keeps. */
 function hasEveryRelationPair(ctx: WorldContext, query: QueryInstance, entity: Entity) {
   const pairs = query.relationFilters!;
   for (let i = 0; i < pairs.length; i++) {
-    if (!hasRelationPair(ctx, entity, pairs[i])) return false;
+    const pair = pairs[i];
+    const matches = pair.targetQueryMatches;
+    if (matches !== undefined) {
+      if (!hasRelationTargetInSet(ctx, pair.relation, entity, matches)) return false;
+    } else if (!hasRelationPair(ctx, entity, pair)) return false;
   }
   return true;
 }

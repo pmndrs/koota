@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   Not,
+  On,
   createAdded,
   createListener,
   createRemoved,
@@ -60,6 +61,7 @@ describe('Entity retention', () => {
     expect(() => entity.get(Position)).toThrow();
     expect(world.spawn().id()).toBe(entity.id());
     expect(() => world.emit(Event({ by: 1 }))).toThrow();
+    expect(() => world.spawn(Event({ by: 1 }), On(world.spawn()))).toThrow();
   });
 
   it('reuses the oldest id past the window when nothing reads', () => {
@@ -204,15 +206,70 @@ describe('Entity retention', () => {
     expect(world.query(createRemoved()(Position), Not(IsHot)).toArray()).toEqual([cold]);
   });
 
-  it('drains events through any Removed query over the event trait', () => {
+  it('drains events only through Removed readers that name the subject', () => {
     const world = createWorld();
     const Warm = createRemoved();
-    world.query(Warm(Event));
+    const Plain = createRemoved();
+    world.query(Warm(Event), On('*'));
+    world.query(Plain(Event));
     const event = world.emit(Event({ by: 15 }));
 
-    expect(world.query(Warm(Event)).toArray()).toEqual([event]);
-    expect(world.query(createRemoved()(Event)).toArray()).toEqual([event]);
-    expect(world.query(Warm(Event)).length).toBe(0);
+    expect(world.query(Warm(Event), On('*')).toArray()).toEqual([event]);
+    expect(world.query(Plain(Event)).length).toBe(0);
+    expect(world.query(createRemoved()(Event), On('*')).toArray()).toEqual([event]);
+    expect(world.query(createRemoved()(Event)).length).toBe(0);
+    expect(world.query(Warm(Event), On('*')).length).toBe(0);
+  });
+
+  it('gives every event a subject', () => {
+    const world = createWorld();
+    const player = world.spawn(IsHot);
+    const bystander = world.spawn();
+    const listener = createListener(Event);
+    world.query(listener);
+
+    const fromWorld = world.emit(Event({ by: 1 }));
+    const fromPlayer = player.emit(Event({ by: 2 }));
+    const explicit = world.emit(Event({ by: 3 }), On(player));
+
+    expect(fromWorld.has(On('*'))).toBe(true);
+    expect(fromWorld.targetFor(On)).not.toBe(player);
+    expect(fromPlayer.targetFor(On)).toBe(player);
+    expect(explicit.targetFor(On)).toBe(player);
+    expect(world.query(listener).toArray()).toEqual([fromWorld, fromPlayer, explicit]);
+    expect(world.query(createListener(Event, On(player))).toArray()).toEqual([fromPlayer, explicit]);
+    expect(world.query(createListener(Event, On(IsHot))).toArray()).toEqual([fromPlayer, explicit]);
+    expect(world.query(createListener(Event, On(bystander))).length).toBe(0);
+  });
+
+  it('ends an entity as an event when it gains a subject', () => {
+    const world = createWorld({ retain: 1 });
+    const target = world.spawn();
+    const listener = createListener(Event);
+    world.query(listener);
+    let removed = 0;
+    world.onRemove(Event, () => removed++);
+
+    const spawned = world.spawn(Event({ by: 20 }), On(target), IsHot);
+    expect(spawned.isAlive()).toBe(false);
+    expect(spawned.has(IsHot)).toBe(true);
+    expect(spawned.get(Event)).toEqual({ by: 20 });
+    expect(spawned.targetFor(On)).toBe(target);
+    expect(world.query(Event).length).toBe(0);
+
+    const promoted = world.spawn(Event({ by: 21 }));
+    expect(world.query(Event).length).toBe(1);
+    promoted.add(On(target));
+    expect(promoted.isAlive()).toBe(false);
+    expect(world.query(Event).length).toBe(0);
+    expect(removed).toBe(2);
+    expect(() => world.add(On(target))).toThrow();
+
+    expect(world.query(listener).toArray()).toEqual([spawned, promoted]);
+    expect(world.query(listener).length).toBe(0);
+    // Only emits reuse the ids of rows that ended as events
+    expect(world.spawn().id()).not.toBe(spawned.id());
+    expect(world.emit(Event({ by: 22 })).id()).toBe(spawned.id());
   });
 
   it('keeps events through entity churn and never hands their ids to spawns', () => {
@@ -248,13 +305,13 @@ describe('Entity retention', () => {
     const a = world.spawn();
     const b = world.spawn();
     const Warm = createRemoved();
-    world.query(Warm(Event), Hits(a));
+    world.query(Warm(Event), On('*'), Hits(a));
     const onA = world.emit(Event({ by: 13 }), Hits(a), IsHot);
     world.emit(Event({ by: 14 }), Hits(b));
 
-    expect(world.query(Warm(Event), Hits(a)).toArray()).toEqual([onA]);
-    expect(world.query(createRemoved()(Event), Hits(a)).toArray()).toEqual([onA]);
-    expect(world.query(createRemoved()(Event), IsHot).toArray()).toEqual([onA]);
+    expect(world.query(Warm(Event), On('*'), Hits(a)).toArray()).toEqual([onA]);
+    expect(world.query(createListener(Event, Hits(a))).toArray()).toEqual([onA]);
+    expect(world.query(createListener(Event, IsHot)).toArray()).toEqual([onA]);
     expect(onA.targetFor(Hits)).toBe(a);
   });
 

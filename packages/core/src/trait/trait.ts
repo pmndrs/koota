@@ -10,6 +10,7 @@ import {
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
+import { attachSubject } from '../entity/subject';
 import { isNameTrait, refreshNamedQueries } from '../name/name-index';
 import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
@@ -177,7 +178,10 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
   ctx.traitsByBit[data.generationId][31 - Math.clz32(ctx.bitflag)] = data;
   ctx.traits.add(trait);
 
-  if (traitCtx.relation) ctx.relations.push(traitCtx.relation);
+  // The subject relation has no reverse index and never cascades, so destroys skip it.
+  if (traitCtx.relation && !traitCtx.relation[$internal].reserved) {
+    ctx.relations.push(traitCtx.relation);
+  }
 
   incrementWorldBitflag(ctx);
 
@@ -241,8 +245,23 @@ export /* @inline */ function addTraitsToAliveEntity(
   }
   if (typeof target !== 'number') return;
 
-  const params = pair.params;
   const relationCtx = relation[$internal];
+  // The subject pair ends the entity as an event once the rest of the call is in place.
+  if (relationCtx.reserved) {
+    if (ctx.retain === 0) {
+      throw new Error(
+        'Koota: [EMIT_RETAIN] Events need a world that keeps destroyed entities. Create it without retain: 0.'
+      );
+    }
+    if (entity === ctx.worldEntity) {
+      throw new Error('Koota: [EMIT_SUBJECT] The world entity cannot become an event.');
+    }
+    attachSubject(ctx, entity, target);
+    ctx.eventEnding = entity;
+    return;
+  }
+
+  const params = pair.params;
   const relationTrait = relationCtx.trait;
 
   if (hasRelationToTarget(ctx, relation, entity, target)) return;
