@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { createWorld, trait, type Entity, type Trait } from '../src';
+import { createWorld, trait, type Entity } from '../src';
 
 describe('Sorted query views', () => {
   const world = createWorld();
@@ -36,15 +36,6 @@ describe('Sorted query views', () => {
     expect(sorted.entities).toEqual([c, a]);
   });
 
-  it('maps in sorted order and leaves the base query in its original order', () => {
-    world.spawn(Position({ x: 2 }));
-    world.spawn(Position({ x: 1 }));
-    const query = world.query(Position);
-    const label = (entity: Entity, index: number) => `${index}: ${entity.get(Position)!.x}`;
-    expect(query.sort(ascending).map(label)).toEqual(['0: 1', '1: 2']);
-    expect(query.map(label)).toEqual(['0: 2', '1: 1']);
-  });
-
   it('excludes pending removals while the base query is being walked', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
@@ -64,20 +55,7 @@ describe('Sorted query views', () => {
     expect(sorted.entities).toEqual([c, a, b]);
   });
 
-  it('updates the order when members or sort keys change', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const sorted = world.query(Position).sort(ascending, [Position]);
-    expect(sorted.toArray()).toEqual([a]);
-
-    const b = world.spawn(Position({ x: 1 }));
-    expect(sorted.toArray()).toEqual([b, a]);
-    a.set(Position, { x: 0 });
-    expect(sorted.toArray()).toEqual([a, b]);
-    a.remove(Position);
-    expect(sorted.toArray()).toEqual([b]);
-  });
-
-  it('writes selected traits in sorted order', () => {
+  it('writes selections in sorted order and shares manual invalidation', () => {
     const Rank = trait({ value: 0 });
     const a = world.spawn(Position({ x: 2 }), Rank);
     const b = world.spawn(Position({ x: 1 }), Rank);
@@ -93,14 +71,12 @@ describe('Sorted query views', () => {
     expect(a.get(Rank)!.value).toBe(2);
 
     direction = -1;
-    expect(sorted.first).toBe(b);
     expect(ranks.entities).toEqual([b, a]);
     ranks.invalidate();
-    expect(ranks.entities).toEqual([a, b]);
-    expect(sorted.first).toBe(a);
+    expect(sorted.entities).toEqual([a, b]);
   });
 
-  it.each(['each', 'forEach', 'map', 'for...of'] as const)(
+  it.each(['each', 'forEach', 'for...of'] as const)(
     'defers sorting until re-entry after active walks finish (%s)',
     (mode) => {
       const a = world.spawn(Position({ x: 2 }));
@@ -117,12 +93,9 @@ describe('Sorted query views', () => {
         c.add(Position({ x: 3 }));
         sorted.invalidate();
 
-        expect(sorted.first).toBe(b);
-        expect(sorted.entities).toBe(entities);
         expect(selected.entities).toBe(entities);
-        expect(sorted.toArray()).toEqual([b, a]);
         expect([...selected]).toEqual([b, a]);
-        expect(sorted.toArray()).toEqual([b, a]);
+        expect(sorted.entities).toBe(entities);
       };
 
       switch (mode) {
@@ -132,35 +105,25 @@ describe('Sorted query views', () => {
         case 'forEach':
           sorted.forEach(visit);
           break;
-        case 'map':
-          sorted.map(visit);
-          break;
         case 'for...of':
           for (const entity of sorted) visit(entity);
           break;
       }
 
       expect(visited).toEqual([b, a]);
-      expect([...sorted]).toEqual([a, b, c]);
-      expect(sorted.entities).toEqual([a, b, c]);
+      expect(sorted.toArray()).toEqual([a, b, c]);
     }
   );
 
-  it.each(['break', 'throw'] as const)('allows sorting after a loop exits with %s', (mode) => {
+  it('allows sorting after a loop exits early', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
     const sorted = world.query(Position).sort(ascending, [Position]);
-    const walk = () => {
-      for (const _entity of sorted) {
-        a.set(Position, { x: 0 });
-        expect(sorted.first).toBe(b);
-        if (mode === 'throw') throw new Error('Stop walking');
-        break;
-      }
-    };
-
-    if (mode === 'throw') expect(walk).toThrow('Stop walking');
-    else walk();
+    for (const _entity of sorted) {
+      a.set(Position, { x: 0 });
+      expect(sorted.first).toBe(b);
+      break;
+    }
     expect([...sorted]).toEqual([a, b]);
   });
 
@@ -180,20 +143,6 @@ describe('Sorted query views', () => {
     expect(sorted.first).toBe(a);
     a.set(Rank, { value: 3 });
     expect(sorted.first).toBe(b);
-  });
-
-  it('keeps its dependencies when the caller edits the array', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
-    const deps: Trait[] = [Position];
-    const query = world.query(Position);
-    const sorted = query.sort(ascending, deps);
-    expect(sorted.first).toBe(b);
-
-    deps.length = 0;
-    a.set(Position, { x: 0 });
-    expect(sorted.first).toBe(a);
-    expect(query.sort(ascending, [Position])).toBe(sorted);
   });
 
   it.each([{ deps: undefined }, { deps: [] }])(

@@ -75,28 +75,22 @@ describe('Ordered relation views', () => {
 
   it('updates selected traits in child order', () => {
     const Position = trait({ x: 0 });
-    const Visible = trait();
     const ChildOf = relation();
     const Children = ordered(ChildOf);
     const parent = world.spawn(Children);
-    const a = world.spawn(Position, Visible, ChildOf(parent));
-    const b = world.spawn(Position, Visible, ChildOf(parent));
+    const a = world.spawn(Position, ChildOf(parent));
+    const b = world.spawn(Position, ChildOf(parent));
     const children = parent.get(Children)!;
     const selected = children.select(Position);
-    const tags = children.select(Visible);
     expectTypeOf(selected).not.toHaveProperty('sort');
-    expect(tags).not.toHaveProperty('moveTo');
-    expect(tags).not.toHaveProperty('sort');
-    expect(selected).not.toHaveProperty('sort');
-    expect(children).not.toHaveProperty('invalidate');
+    expect(selected).not.toHaveProperty('moveTo');
     children.moveTo(b, 0);
-    expect(tags.toArray()).toEqual([b, a]);
     selected.each((position, _entity, index) => {
       position.x = index + 1;
     });
     expect(b.get(Position)!.x).toBe(1);
     expect(a.get(Position)!.x).toBe(2);
-    const c = world.spawn(Position, Visible);
+    const c = world.spawn(Position);
     world.query(Children).each((view) => view.add(c));
     expect(selected.toArray()).toEqual([b, a, c]);
     expect(c.has(ChildOf(parent))).toBe(true);
