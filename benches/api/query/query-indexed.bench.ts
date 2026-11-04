@@ -5,18 +5,13 @@ group('indexed query iteration 10000 @query-indexed', () => {
   for (const mode of [
     'array for of',
     'array indexed',
-    'array forEach',
-    'query for of',
-    'query indexed',
-    'query forEach',
-    'copy then indexed',
     'query entities indexed',
     'query entities for of',
     'sorted entities indexed',
     'sorted entities for of',
-  ]) {
+  ] as const) {
     bench(
-      `${mode}${['array indexed', 'array for of', 'query entities indexed', 'query entities for of'].includes(mode) ? ' @query-indexed-raw' : ''}${['array indexed', 'array for of', 'sorted entities indexed', 'sorted entities for of'].includes(mode) ? ' @sorted-indexed-raw' : ''}`,
+      `${mode}${mode.startsWith('sorted') ? ' @sorted-indexed-raw' : mode.startsWith('query') ? ' @query-indexed-raw' : ' @query-indexed-raw @sorted-indexed-raw'}`,
       function* () {
         const world = createWorld();
         const Included = trait();
@@ -40,40 +35,6 @@ group('indexed query iteration 10000 @query-indexed', () => {
               for (let i = 0, length = entities.length; i < length; i++) {
                 result = (result + entities[i]) | 0;
               }
-              sum = result;
-            };
-            break;
-          case 'array forEach':
-            walk = () => {
-              let result = 0;
-              entities.forEach((entity) => {
-                result = (result + entity) | 0;
-              });
-              sum = result;
-            };
-            break;
-          case 'query for of':
-            walk = () => {
-              let result = 0;
-              for (const entity of query) result = (result + entity) | 0;
-              sum = result;
-            };
-            break;
-          case 'query indexed':
-            walk = () => {
-              let result = 0;
-              for (let i = 0, length = query.length; i < length; i++) {
-                result = (result + query.at(i)!) | 0;
-              }
-              sum = result;
-            };
-            break;
-          case 'query forEach':
-            walk = () => {
-              let result = 0;
-              query.forEach((entity) => {
-                result = (result + entity) | 0;
-              });
               sum = result;
             };
             break;
@@ -118,15 +79,6 @@ group('indexed query iteration 10000 @query-indexed', () => {
                   };
             break;
           }
-          default:
-            walk = () => {
-              const snapshot = query.toArray();
-              let result = 0;
-              for (let i = 0, length = snapshot.length; i < length; i++) {
-                result = (result + snapshot[i]) | 0;
-              }
-              sum = result;
-            };
         }
         yield {
           bench: walk,
