@@ -106,7 +106,7 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Explicit `set` writes and `changed()` notifications are recorded in the owning world even before a `Changed` term or query exists. Destroyed entities keep their data until they are evicted, see Removed below.
+Track structural and data changes. Each tracking modifier must be created as a unique instance. The first run includes earlier history still available in the world, even if the modifier was created afterward.
 
 ```typescript
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -126,7 +126,7 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since the last query, including entities destroyed while holding it. `get` returns the last value until the trait is added back or the entity is evicted. Other terms match a destroyed entity on the traits it died with, and `isAlive` distinguishes a destroy from a live removal.
+**Removed** - Entities that removed a trait since the last query, including entities destroyed while holding it. `get` returns the last value until the trait is added back or the entity is evicted. Custom `remove` accessors may clear retained data. Other terms match a destroyed entity on the traits it died with, and `isAlive` distinguishes a destroy from a live removal.
 
 The world keeps its newest `retain` destroyed entities, fixed by `createWorld({ retain })` and defaulting to 1024. Each destroy that exceeds the cap evicts the oldest, even if unread. Eviction invalidates the handle, removes pending and exposed query entries, releases stored values and relations, and makes the id reusable. Slow readers can miss evicted entities. Zero disables destroyed-entity retention, while live trait removals still work.
 
@@ -140,8 +140,11 @@ const stoppedEntities = world.query(Removed(Velocity))
 // Track orphaned entities
 const orphaned = world.query(Removed(ChildOf))
 
-// Destroyed entities keep their data while they remain within the retention cap
-world.query(Removed(ServerSync)).each((serverSync) => serverSync.disconnect())
+// Register after destruction and still read retained data
+const entity = world.spawn(ServerSync)
+entity.destroy()
+const RemovedSync = createRemoved()
+world.query(RemovedSync(ServerSync)).each((serverSync) => serverSync.disconnect())
 world
   .query(Removed(ChildOf), ChildOf(parent))
   .forEach((child) => detach(child, child.targetFor(ChildOf)))
@@ -150,7 +153,12 @@ world
 **Changed** - Entities whose trait data changed since last query:
 
 ```typescript
-const movedEntities = world.query(Changed(Position))
+const moved = world.spawn(Position)
+moved.set(Position, { x: 10 })
+const ChangedPosition = createChanged()
+
+// Includes earlier writes on the first run
+const movedEntities = world.query(ChangedPosition(Position))
 
 // Track relation data changes
 const updatedChildren = world.query(Changed(ChildOf))
