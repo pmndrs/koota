@@ -36,7 +36,6 @@ import {
   isEntityAlive,
   releaseRetainedEntity,
 } from './utils/entity-index';
-import { pushHandle } from './utils/handle-ring';
 import { getEntityId } from './utils/pack-entity';
 import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
@@ -186,7 +185,7 @@ function cleanupDestroyedRelations(
         if (i >= sources.length) continue;
         const source = sources[i];
         if (!isEntityAlive(ctx.entityIndex, source)) continue;
-        // A source that dies with its target keeps the pair until reuse and cleans up on destroy.
+        // A source that dies with its target keeps the pair until eviction and cleans up on destroy.
         if (cascade) {
           entityQueue.push(source);
           continue;
@@ -247,13 +246,14 @@ function retainDestroyedEntity(ctx: WorldContext, entity: Entity) {
     return;
   }
   const ring = ctx.tombstones;
-  if (ring.count === ctx.retain) {
-    const oldest = ring.ids[ring.head] as Entity;
-    ring.head = (ring.head + 1) & (ring.ids.length - 1);
-    ring.count--;
+  if (ring.ids.length === ctx.retain) {
+    const oldest = ring.ids[ring.head];
+    ring.ids[ring.head] = entity;
+    if (++ring.head === ctx.retain) ring.head = 0;
     evictEntity(ctx, oldest);
+  } else {
+    ring.ids.push(entity);
   }
-  pushHandle(ring, entity);
 }
 
 /** Release stored values and query entries before the slot becomes reusable. */

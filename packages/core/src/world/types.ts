@@ -1,5 +1,4 @@
 import { ActionInstance } from '../actions/types';
-import type { HandleRing } from '../entity/utils/handle-ring';
 import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
@@ -49,7 +48,7 @@ export type WorldContext = {
   /** Maximum destroyed entities whose data and query history remain readable. */
   readonly retain: number;
   /** Retained destroyed entities in destroy order. Overflow evicts the oldest. */
-  tombstones: HandleRing;
+  tombstones: { ids: Entity[]; head: number };
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;

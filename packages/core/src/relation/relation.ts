@@ -148,7 +148,7 @@ export function detachRelationTargets(instance: TraitInstance, entity: Entity): 
 }
 
 /**
- * Drops the targets and pair data a destroyed entity kept. Runs when its id is reused. Target
+ * Drops the targets and pair data a destroyed entity kept. Runs when it is evicted. Target
  * lists are emptied in place, as a removal would, so the next pair reuses them.
  */
 export function clearRelationEntity(instance: TraitInstance, eid: number): void {

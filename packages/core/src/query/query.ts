@@ -483,8 +483,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
     for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
     if (query.retains && query.name === undefined) {
       const tombstones = ctx.tombstones;
-      for (let k = 0; k < tombstones.count; k++) {
-        seed(tombstones.ids[(tombstones.head + k) & (tombstones.ids.length - 1)] as Entity);
+      for (let k = 0; k < tombstones.ids.length; k++) {
+        seed(tombstones.ids[(tombstones.head + k) % tombstones.ids.length]);
       }
     }
   } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {

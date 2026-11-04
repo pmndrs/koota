@@ -286,17 +286,20 @@ describe('Entity retention', () => {
     expect(kept.isAlive()).toBe(true);
   });
 
-  it('preserves late-reader destroy order after the retention ring wraps', () => {
-    const world = createWorld({ retain: 2 });
-    for (let x = 0; x < 21; x++) world.spawn(Position({ x })).destroy();
-    const entities = Array.from({ length: 20 }, (_, i) => world.spawn(Position({ x: i + 21 })));
-    for (const entity of entities) entity.destroy();
+  it.each([1, 2, 3, 17])(
+    'preserves late-reader destroy order after repeated evictions, retain %s',
+    (retain) => {
+      const world = createWorld({ retain });
+      for (let x = 0; x < 21; x++) world.spawn(Position({ x })).destroy();
+      const entities = Array.from({ length: 20 }, (_, i) => world.spawn(Position({ x: i + 21 })));
+      for (const entity of entities) entity.destroy();
 
-    const Removed = createRemoved();
-    const values: number[] = [];
-    world.query(Removed(Position)).each((position) => values.push(position.x));
-    expect(values).toEqual([39, 40]);
-  });
+      const Removed = createRemoved();
+      const values: number[] = [];
+      world.query(Removed(Position)).each((position) => values.push(position.x));
+      expect(values).toEqual(Array.from({ length: retain }, (_, i) => 41 - retain + i));
+    }
+  );
 
   it('does not seed an Added query from a destroyed entity', () => {
     const world = createWorld();
