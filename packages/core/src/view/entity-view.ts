@@ -47,8 +47,6 @@ export class EntityView {
   live: boolean;
   /** Owned query views memoize their page layout. */
   layout: QueryLayout | undefined;
-  /** Pooled iterator so for..of allocates nothing in steady state. */
-  iterator: ViewIterator | undefined;
 
   constructor(
     ctx: WorldContext,
@@ -63,7 +61,6 @@ export class EntityView {
     this.source = source;
     this.live = live;
     this.layout = undefined;
-    this.iterator = undefined;
   }
 
   getGuard(): { iterating: number } | null {
@@ -91,9 +88,23 @@ export class EntityView {
   }
 
   [Symbol.iterator](): IterableIterator<Entity> {
-    const iterator = this.iterator ?? new ViewIterator(this);
-    this.iterator = undefined;
-    return iterator.start() as unknown as IterableIterator<Entity>;
+    const source = this.getSource();
+    const dense = source.dense as Entity[];
+    // Trim retired slots so V8 can share the loop bound with the array access.
+    if (dense.length !== source.length) dense.length = source.length;
+    const guard = this.getGuard();
+    if (guard) guard.iterating++;
+    // A local cursor can be eliminated by V8. Reuse its result to avoid per-entity allocations.
+    return {
+      index: 0,
+      length: dense.length,
+      dense,
+      guard,
+      result: { value: 0 as Entity, done: false },
+      next: nextViewIterator,
+      return: returnViewIterator,
+      [Symbol.iterator]: iterateViewIterator,
+    } as ViewIterator;
   }
 
   toArray(): Entity[] {
@@ -197,55 +208,45 @@ export class EntityView {
   }
 }
 
-/** Walks the membership present when the loop started and doubles as its own iterator result. */
-class ViewIterator {
-  value: Entity = 0 as Entity;
-  done = true;
-  private index = 0;
-  private length = 0;
-  private dense: readonly number[] = [];
-  private guard: { iterating: number } | null = null;
-  private view: EntityView;
+/** Walks the membership present when the loop started. */
+interface ViewIterator extends IterableIterator<Entity> {
+  index: number;
+  readonly length: number;
+  readonly dense: readonly number[];
+  readonly guard: { iterating: number } | null;
+  readonly result: { value: Entity; done: boolean };
+}
 
-  constructor(view: EntityView) {
-    this.view = view;
+function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
+  const index = this.index >>> 0;
+  let value = 0 as Entity;
+  let done = true;
+  if (index < this.length) {
+    value = this.dense[index] as Entity;
+    this.index = (index + 1) | 0;
+    done = false;
+  } else {
+    finishViewIterator(this);
   }
+  this.result.value = value;
+  this.result.done = done;
+  return this.result as IteratorResult<Entity>;
+}
 
-  start() {
-    const { dense, length } = this.view.getSource();
-    this.dense = dense;
-    this.length = length;
-    this.index = 0;
-    this.done = false;
-    this.guard = this.view.getGuard();
-    if (this.guard) this.guard.iterating++;
-    return this;
-  }
+function returnViewIterator(this: ViewIterator): IteratorResult<Entity> {
+  finishViewIterator(this);
+  return this.result as IteratorResult<Entity>;
+}
 
-  next(): IteratorResult<Entity> {
-    if (this.index < this.length) {
-      this.value = this.dense[this.index++] as Entity;
-      return this as IteratorResult<Entity>;
-    }
-    this.finish();
-    return this as IteratorResult<Entity>;
-  }
+function iterateViewIterator(this: ViewIterator) {
+  return this;
+}
 
-  return(): IteratorResult<Entity> {
-    this.finish();
-    return this as IteratorResult<Entity>;
-  }
-
-  [Symbol.iterator]() {
-    return this;
-  }
-
-  private finish() {
-    if (this.done) return;
-    this.done = true;
-    if (this.guard) this.guard.iterating--;
-    this.guard = null;
-    this.view.iterator = this;
+function finishViewIterator(iterator: ViewIterator) {
+  if (!iterator.result.done) {
+    iterator.result.done = true;
+    iterator.index = iterator.length;
+    if (iterator.guard) iterator.guard.iterating--;
   }
 }
 

@@ -827,7 +827,7 @@ function updateMovement(world) {
 
 #### Query results are live views
 
-A query result is a live view over the query's entities. Running and iterating it allocates nothing. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
 
 ```js
 const entities = world.query(Position)

@@ -19,7 +19,7 @@ Queries fetch entities that share specific traits (archetypes).
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
-A query result is a live view over the query's entities. Running and iterating it allocates nothing. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
 
 ```typescript
 // Returns a QueryView, a live borrowed view

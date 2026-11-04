@@ -27,7 +27,6 @@ class View implements QueryView<any> {
   source: EntitySource;
   live: boolean;
   layout: QueryLayout | undefined;
-  iterator: EntityView['iterator'];
 
   constructor(
     ctx: WorldContext,
@@ -42,7 +41,6 @@ class View implements QueryView<any> {
     this.source = source;
     this.live = live;
     this.layout = undefined;
-    this.iterator = undefined;
   }
 
   get length() {
