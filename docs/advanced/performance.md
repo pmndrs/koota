@@ -57,7 +57,7 @@ Consider these tips to optimize query performance.
 
 ### Create update functions once
 
-The standard pattern for `each`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
+An inline callback is created each time `each` is called, then reused for the entities in that walk. Define it once if the same function can be shared across calls.
 
 ```js
 // Create the function once
@@ -69,15 +69,27 @@ function updateMovement(world) {
 }
 ```
 
-### You can use `for of` instead of `forEach` on query results
+### Iterating entity handles
 
-A query returns a live view over its entities, not an array. Every run returns the same view and iterating it with `for of` allocates nothing, so a system can run a query every frame for free. Call `toArray()` when you need a plain array you own.
+A query returns a cached live view over its entities. Use `for...of` on the view to keep the starting membership while adding or removing entities or traits. Each walk creates a cursor and reuses its result object for every entity.
 
 ```js
-// Allocates nothing per frame
-for (const entity of world.query()) {
+for (const entity of world.query(Position)) {
+  if (entity.has(IsDead)) entity.destroy()
 }
-
-// Copies, so only do this when the list has to outlive the frame
-const kept = world.query().toArray()
 ```
+
+Read `query.entities` once to borrow the backing array without copying. Both indexed loops and `for...of` on this array use native array traversal.
+
+```js
+const query = world.query(Position)
+const entities = query.entities
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+Treat the array as read-only. Finish the loop before running another query or changing membership. Use `toArray()` for an independent copy.
+
+[Ordered views](../api/query.md#ordered-views) also expose `sorted.entities`. Reading it refreshes the order when needed, then returns the cached array. Read it once and finish the loop before another view access or changes to membership or sort data.

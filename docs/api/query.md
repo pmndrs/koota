@@ -53,8 +53,8 @@ const entity = world.spawn(Position)
 // This entity can no longer be queried
 entity.add(IsExcluded)
 
-const entities = world.query(Position)
-entities.includes(entity) // This will always be false
+const query = world.query(Position)
+query.entities.includes(entity) // This will always be false
 ```
 
 ## Select traits on queries for updates
@@ -73,6 +73,21 @@ world
     mass.value += 1
   })
 ```
+
+## Direct entity access
+
+Read `query.entities` once to borrow the query's backing array without copying. Both indexed loops and `for...of` use native array traversal.
+
+```js
+const query = world.query(Position)
+const entities = query.entities
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+Treat the array as read-only. Finish the loop before running another query or changing membership. Use the view's traversal methods when the loop adds or removes entities or traits, or `toArray()` for an independent copy.
 
 ## Direct page access
 
@@ -95,3 +110,24 @@ sorted.each((position) => {
 ```
 
 Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
+
+Active view walks keep their starting order. Re-enter the view after they finish to refresh it.
+
+`sorted.entities` checks whether the order needs refreshing, then returns the cached array without an extra copy. Read it once before the loop:
+
+```js
+const entities = sorted.entities
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+Treat the array as read-only. Finish reading before accessing the view again or changing membership or sort data. Use the view's traversal methods for guarded walks, or `toArray()` for an independent copy.
+
+Call `invalidate()` after changing external sort data or writing directly to stores. The order refreshes on the next access.
+
+```js
+sorted.invalidate()
+const entities = sorted.entities
+```
