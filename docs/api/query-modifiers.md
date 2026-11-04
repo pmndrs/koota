@@ -56,7 +56,7 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 ## Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities destroyed while holding them, so one reader covers a trait leaving a live entity and an entity ending, see [Destroyed entities](#destroyed-entities). The value a removed trait had stays readable with `get` until the trait is added back or the destroyed entity is evicted, so the reader can process what left, and the other terms of the query match a destroyed entity on the traits it died with. A trait with a custom `remove` accessor keeps only what the accessor leaves. A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks entities that removed the specified traits or relations since the last query, including [destroyed entities](#destroyed-entities). Read retained values through `each` arguments or `getPages` stores until the trait is added back or the entity is evicted. A custom `remove` accessor may clear retained data. Ordinary entity methods require a live entity, and `get` returns `undefined` for a removed trait on a live entity. A new instance of the modifier must be created for tracking to be unique.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -117,7 +117,7 @@ const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer, Is
 
 ## Destroyed entities
 
-A destroyed entity keeps its id and its data until the world's retention cap evicts it, and every trait it held when it died counts as removed. A `Removed` query over one of those traits sees the entity, `has` and `get` answer for the traits it held when it died, other query terms filter on them, and `isAlive` tells a destroy apart from a trait leaving a live entity. A trait removed before the destroy was a remove, not part of the destroy.
+A destroyed entity keeps its id and data until eviction, and every trait it held when it died counts as removed. `Removed` queries expose retained values through `each` and `getPages`. Ordinary `get`, `has`, `targetFor` and `targetsFor` require a live entity, even inside those loops. Other query terms match the traits and pairs held at destruction. `isAlive` distinguishes a destroy from a live removal.
 
 The world keeps its newest `retain` destroyed entities, 1024 by default and fixed at creation with `createWorld({ retain })`. Each destroy that exceeds the cap evicts the oldest entity, even if a reader has not consumed it. Eviction invalidates its handle, removes it from pending and exposed query batches, releases its stored values and relations, and makes its id reusable. The cap is enforced during destroy, without waiting for another spawn. Slow readers can miss evicted entities.
 
@@ -126,31 +126,44 @@ Readers consume their batches independently within the cap. Running a query expo
 The cap bounds the number of retained destroyed entities, not their size in bytes. Allocated storage pages remain available for reuse. Mutations that overflow the cap also invalidate evicted entries in existing query views and caller-owned snapshots.
 
 ```js
+const destroyed = world.spawn(ServerSync)
+const live = world.spawn(ServerSync)
+destroyed.destroy()
+live.remove(ServerSync)
+
+// Both values are available when the query is registered afterward
 const Removed = createRemoved()
-
-function cleanupSystem(world) {
-  world.query(Removed(ServerSync)).each((serverSync) => {
-    serverSync.disconnect()
-  })
-}
-
-// Caught by Removed(ServerSync) with its data intact while it remains within the retention cap
-entity.destroy()
-
-// Caught as well, from an entity that stays alive
-entity.remove(ServerSync)
+world.query(Removed(ServerSync)).each((serverSync) => {
+  serverSync.disconnect()
+})
 ```
 
-Because the world keeps the history, the cleanup system does not have to exist before the first removal or destroy. A `Removed` query created later reads the last value of a removed trait until it is added back or the entity is evicted, and seeds retained destroyed entities in destroy order. The retention cap gives late readers a bounded opportunity to register.
+Queries registered after removal can read retained values until re-addition or eviction. Late readers receive retained destroyed entities in destroy order. For a custom page loop:
 
-A destroyed entity keeps its relations as well. `targetFor`, `targetsFor`, `has` and `get` read the targets and pair data it held when it died, and a pair term filters a `Removed` query on them. Children destroyed with their parent through `autoDestroy` keep the parent as their target. A live entity that drops a pair or whose target dies loses it as before, so a pair term matches only the destroyed ones.
+```js
+const RemovedPosition = createRemoved()
+for (const {
+  stores: [position],
+  indices,
+  entities,
+} of world.query(RemovedPosition(Position)).getPages()) {
+  for (let i = 0; i < indices.length; i++) {
+    const offset = indices[i]
+    recordRemoval(entities[i], position.x[offset], position.y[offset])
+  }
+}
+```
+
+Finish page reads before structural mutations that may evict or reuse their rows.
+
+Retained relation pairs still match query filters. Children destroyed with their parent through `autoDestroy` keep that parent for matching. Ordinary relation readers require a live entity. A live entity that drops a pair or whose target dies loses the pair as before.
 
 ```js
 const RemovedChild = createRemoved()
 
 // Children destroyed while attached to the parent, with it or on their own
 world.query(RemovedChild(ChildOf), ChildOf(parent)).forEach((child) => {
-  detach(child, child.targetFor(ChildOf))
+  detach(child, parent)
 })
 ```
 

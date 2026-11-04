@@ -617,7 +617,7 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 The `Removed` modifier tracks entities that removed the specified traits or relations since the last query, including [destroyed entities](#destroyed-entities). A new instance of the modifier must be created for tracking to be unique.
 
-Removed data stays readable until the trait is added back or the entity is evicted, unless a custom `remove` accessor clears it.
+Read removed data through `.each()` or `.getPages()` until the trait is added back or the entity is evicted. Custom `remove` accessors may clear it.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -671,7 +671,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 #### Destroyed entities
 
-Destroyed entities stay readable by `Removed` queries until eviction. They are no longer alive and cannot be modified.
+Destroyed entities immediately lose ordinary entity access. Read their retained data through `.each()` or `.getPages()` on a `Removed` query until eviction.
 
 ```js
 const world = createWorld({ retain: 1 })
@@ -679,8 +679,6 @@ const entity = world.spawn(ServerSync)
 entity.destroy()
 
 entity.isAlive() // false
-entity.has(ServerSync) // true
-entity.get(ServerSync) // Last value
 
 // Register after destruction and still read retained data
 const Removed = createRemoved()
@@ -692,16 +690,16 @@ world.query(Removed(ServerSync)).each((serverSync) => {
 world.spawn(ServerSync).destroy()
 ```
 
-The world keeps its newest `retain` destroyed entities, 1024 by default. Each destroy beyond the cap evicts the oldest, even if unread, and invalidates its handle. Readers consume batches independently, and reading does not release world history. `retain: 0` disables destroyed history while live trait removals still work.
+The world keeps the last destroyed entities defined by the world's `retain` which is 1024 by default. Each destroy beyond the cap evicts the oldest, even if unread, and invalidates its handle. Readers consume batches independently, and reading does not release world history. `retain: 0` disables destroyed history while live trait removals still work.
 
-Retained entities also keep their relation targets and pair data:
+Retained relations still match query filters:
 
 ```js
 const RemovedChild = createRemoved()
 
 // Works for children destroyed on their own or with their parent
 world.query(RemovedChild(ChildOf), ChildOf(parent)).forEach((child) => {
-  detach(child, child.targetFor(ChildOf))
+  detach(child, parent)
 })
 ```
 

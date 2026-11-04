@@ -72,7 +72,7 @@ Entity allocation is handled by a global page allocator plus a per-world entity 
 
 - The global allocator owns page generations, page ownership, free pages, and cleanup for abandoned worlds.
 - Each world owns a dense index partitioned into alive, reusable and retained entries, a sparse lookup, and per-page cursors for fresh allocation.
-- Destroyed entities stay readable in a FIFO capped by `retain`. Eviction clears their history and stored references, bumps their generation, and moves the slot into the reusable region of the dense index. Allocation takes reusable slots without scanning.
+- Destroyed data stays available to `Removed` query iteration in a FIFO capped by `retain`. Ordinary entity reads require a live entity. Eviction clears history and stored references, bumps the generation, and moves the slot into the reusable region of the dense index. Allocation takes reusable slots without scanning.
 
 Internals use `WorldContext`, the actual context, instead of `World` handle. That avoids repeated `world[$internal]` lookups in hot paths and lets entity convenience methods resolve context directly from page ownership. In addition, this means that the world context can be held onto while letting the the world handle get garbage collected, allowing us to free global resources in response.
 
