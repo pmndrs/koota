@@ -100,9 +100,9 @@ export class EntityView {
       length: dense.length,
       dense,
       guard,
-      ctx: this.query?.retains ? this.ctx : null,
+      ctx: this.ctx,
       result: { value: 0 as Entity, done: false },
-      next: nextViewIterator,
+      next: this.query?.retains ? nextRetainedViewIterator : nextViewIterator,
       return: returnViewIterator,
       [Symbol.iterator]: iterateViewIterator,
     } as ViewIterator;
@@ -221,12 +221,11 @@ interface ViewIterator extends IterableIterator<Entity> {
   readonly length: number;
   readonly dense: readonly number[];
   readonly guard: { iterating: number } | null;
-  readonly ctx: WorldContext | null;
+  readonly ctx: WorldContext;
   readonly result: { value: Entity; done: boolean };
 }
 
 function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
-  if (this.ctx !== null) return nextRetainedViewIterator(this);
   const index = this.index >>> 0;
   let value = 0 as Entity;
   let done = true;
@@ -243,16 +242,16 @@ function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
 }
 
 /** Retained walks skip entries evicted while a callback holds the original array. */
-function nextRetainedViewIterator(iterator: ViewIterator): IteratorResult<Entity> {
-  while (iterator.index < iterator.length) {
-    const entity = iterator.dense[iterator.index++] as Entity;
-    if (!isEntityReadable(iterator.ctx!.entityIndex, entity)) continue;
-    iterator.result.value = entity;
-    return iterator.result as IteratorResult<Entity>;
+function nextRetainedViewIterator(this: ViewIterator): IteratorResult<Entity> {
+  while (this.index < this.length) {
+    const entity = this.dense[this.index++] as Entity;
+    if (!isEntityReadable(this.ctx.entityIndex, entity)) continue;
+    this.result.value = entity;
+    return this.result as IteratorResult<Entity>;
   }
-  finishViewIterator(iterator);
-  iterator.result.value = 0 as Entity;
-  return iterator.result as IteratorResult<Entity>;
+  finishViewIterator(this);
+  this.result.value = 0 as Entity;
+  return this.result as IteratorResult<Entity>;
 }
 
 function returnViewIterator(this: ViewIterator): IteratorResult<Entity> {
