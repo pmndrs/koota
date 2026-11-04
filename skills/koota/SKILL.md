@@ -251,7 +251,7 @@ world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 
 Prefer `each` over `for...of` + `entity.get()` for data-bearing queries. The entity follows the trait arguments.
 
-A query result is a live view over the query's entities, not an array. Use `at(index)` for random access and `toArray()` for a copy you own. React and Svelte `useQuery` return a plain array sorted by id.
+A query result is a live view. Regular query views expose a read-only, zero-copy array through `query.entities`. Finish using it before another query run or membership change. Use `at(index)` for random access and `toArray()` for an independent copy. React and Svelte `useQuery` return a plain array sorted by id.
 
 `each` is zero-copy, the values it passes are only valid during the callback. Call `entity.get(Trait)` for a snapshot.
 

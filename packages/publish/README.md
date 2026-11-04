@@ -827,7 +827,7 @@ function updateMovement(world) {
 
 #### Query results are live views
 
-A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes during view traversal with `for...of`, `forEach`, or `each` are safe.
 
 ```js
 const entities = world.query(Position)
@@ -860,29 +860,29 @@ for (const entity of world.query(Position)) {
 
 #### Indexed loops
 
-`toArray()` returns a snapshot you can iterate with a plain indexed loop. It copies the entity list, so include that cost when comparing traversal methods.
+Read `query.entities` once to borrow the regular query view's backing array without copying.
 
 ```js
-const entities = world.query(Position).toArray()
+const query = world.query(Position)
+const entities = query.entities
 
 for (let i = 0, length = entities.length; i < length; i++) {
   draw(entities[i])
 }
 ```
 
-The snapshot does not track membership changes. Indexing the live view with `query.at(i)` still goes through the view on every access.
+Treat the array as read-only. Finish the loop before running another query or changing membership. Use `for...of` on the view or `each` when the loop adds or removes entities or traits. Use `toArray()` to keep an independent copy.
 
-A guarded, zero-copy prototype matched native array indexing in a checksum benchmark. It accesses the backing array directly and is not a public API.
+Both indexed loops and `for...of` on `query.entities` use native array traversal.
 
-Median time per 10,000 entities on an Apple M4 Pro, across eight fresh processes with assertions disabled:
+Median time per 10,000-entity checksum on an Apple M4 Pro, across eight fresh processes with assertions disabled:
 
-| Indexed traversal                               | Node 24.14.0 | Node 26.1.0 |
-| ----------------------------------------------- | -----------: | ----------: |
-| Native array                                    |      3.14 µs |     3.10 µs |
-| Query backing array with walk guard (prototype) |      3.11 µs |     3.07 µs |
-| Live query through `at(i)`                      |      8.91 µs |     7.74 µs |
+| Indexed traversal | Node 24.14.0 | Node 26.1.0 |
+| ----------------- | -----------: | ----------: |
+| Native array      |      3.23 µs |     3.30 µs |
+| `query.entities`  |      3.27 µs |     3.29 µs |
 
-Run `pnpm bench '@query-indexed' -n query-indexed` to reproduce the cases.
+Run `pnpm bench '@query-indexed-raw' -n query-entities` to compare them with plain arrays.
 
 ## APIs in detail until I make docs
 
