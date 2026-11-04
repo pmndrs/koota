@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   $internal,
+  createAdded,
   createQuery,
   createRemoved,
   createWorld,
@@ -146,7 +147,7 @@ describe('Query', () => {
     expect(entities).toContain(entityA);
 
     // Check that a query result is returned.
-    expect(entities.each).toBeDefined();
+    expect(entities).toHaveProperty('each');
 
     // Test caching before a world is created.
     const world2 = createWorld();
@@ -677,6 +678,76 @@ describe('Query', () => {
     }
 
     expect(visited).toEqual([first, second]);
+  });
+
+  it('keeps an outer iterator stable while nested runs see current membership', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const query = world.query(Position);
+    const visited: Entity[] = [];
+    let replacement!: Entity;
+
+    for (const entity of query) {
+      visited.push(entity);
+      if (entity !== first) continue;
+      second.destroy();
+      replacement = world.spawn(Position);
+      expect([...world.query(Position)]).toEqual([first, replacement]);
+    }
+
+    expect(visited).toEqual([first, second]);
+    world.query(Position);
+    expect([...query]).toEqual([first, replacement]);
+  });
+
+  it('iterates only live slots after removals and later additions', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const third = world.spawn(Position);
+    const query = world.query(Position);
+    expect([...query]).toEqual([first, second, third]);
+
+    third.remove(Position);
+    world.query(Position);
+    expect([...query]).toEqual([first, second]);
+    third.add(Position);
+    expect([...query]).toEqual([first, second, third]);
+  });
+
+  it('preserves an iterator across removals made by each', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const query = world.query(Position);
+    const iterator = query[Symbol.iterator]();
+    expect(iterator.next().value).toBe(first);
+
+    query.each((_position, entity) => {
+      if (entity === first) second.remove(Position);
+    });
+
+    expect([...world.query(Position)]).toEqual([first]);
+    expect([...iterator]).toEqual([second]);
+  });
+
+  it('keeps a tracking batch active until its for of loop finishes', () => {
+    const Added = createAdded();
+    const ref = createQuery(Added(Position));
+    world.query(ref);
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const batch = world.query(ref);
+    const visited: Entity[] = [];
+    let third!: Entity;
+
+    for (const entity of batch) {
+      visited.push(entity);
+      if (entity !== first) continue;
+      third = world.spawn(Position);
+      expect([...world.query(ref)]).toEqual([first, second]);
+    }
+
+    expect(visited).toEqual([first, second]);
+    expect([...world.query(ref)]).toEqual([third]);
   });
 
   it('releases the iteration guard when a for of loop breaks', () => {
