@@ -19,7 +19,7 @@ export class SparseSet {
 
     if (head < this.length && (this.dense[head] & 0xffffff) === key) {
       if (this.has(val)) return;
-      this.links ??= Array.from({ length: this.length }, () => -1);
+      this.links ??= new Array<number>(this.length).fill(-1);
       this.links[this.length] = head;
     } else if (this.links) {
       this.links[this.length] = -1;

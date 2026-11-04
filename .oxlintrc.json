@@ -1,4 +1,4 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "extends": ["@config/oxlint/base.json"]
+  "extends": ["./.config/oxlint/base.json"]
 }

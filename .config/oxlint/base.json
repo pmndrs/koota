@@ -5,6 +5,7 @@
     "typeAware": true
   },
   "rules": {
+    "unicorn/no-new-array": "off",
     "no-unused-vars": [
       "warn",
       {

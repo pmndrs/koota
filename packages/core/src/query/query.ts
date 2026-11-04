@@ -358,7 +358,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   ctx.queriesHashMap.set(query.hash, query);
 
   const relationFilters = query.relationFilters;
-  query.listSlots = Array.from({ length: all.length + relationFilters.length }, () => -1);
+  query.listSlots = new Array<number>(all.length + relationFilters.length).fill(-1);
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     if (all.indexOf(instance) !== i) continue;
