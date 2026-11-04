@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createWorld, Not, relation, trait } from '../src';
+import { createRemoved, createWorld, Not, relation, trait } from '../src';
 
 describe('Query pages', () => {
   let world: ReturnType<typeof createWorld>;
@@ -10,6 +10,36 @@ describe('Query pages', () => {
 
   afterEach(() => {
     world.destroy();
+  });
+
+  it.each(['soa', 'aos'] as const)('reads removed and destroyed %s data through pages', (kind) => {
+    const Value = kind === 'soa' ? trait({ value: 0 }) : trait(() => ({ value: 0 }));
+    const live = world.spawn(Value({ value: 1 }));
+    const dead = world.spawn(Value({ value: 2 }));
+    live.remove(Value);
+    dead.destroy();
+    expect(live.get(Value)).toBeUndefined();
+    expect(() => dead.get(Value)).toThrow(/\[ENTITY_ALIVE\]/);
+
+    const Removed = createRemoved();
+    const found = new Map();
+    for (const {
+      stores: [values],
+      indices,
+      entities,
+    } of world.query(Removed(Value)).getPages()) {
+      for (let i = 0; i < indices.length; i++) {
+        const offset = indices[i];
+        found.set(entities[i], Array.isArray(values) ? values[offset].value : values.value[offset]);
+      }
+    }
+    expect(found).toEqual(
+      new Map([
+        [live, 1],
+        [dead, 2],
+      ])
+    );
+    expect(world.query(Removed(Value)).length).toBe(0);
   });
 
   it('reads and writes matching entities across sparse pages without emitting changes', () => {

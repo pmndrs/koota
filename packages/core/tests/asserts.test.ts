@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, getStore, relation, trait, type World } from '../src';
+import { createRemoved, createWorld, getStore, relation, trait, type World } from '../src';
 
 describe('Assertions', () => {
   let world: World;
@@ -13,6 +13,38 @@ describe('Assertions', () => {
   });
   afterEach(() => {
     world.destroy();
+  });
+
+  it('rejects retained handles even inside a Removed callback', () => {
+    world = createWorld({ retain: 2 });
+    const target = world.spawn();
+    const entity = world.spawn(Position({ x: 7 }), Link(target));
+    const reads = [
+      () => entity.get(Position),
+      () => entity.get(Position, { x: 0 }),
+      () => entity.has(Position),
+      () => entity.get(Link(target)),
+      () => entity.has(Link(target)),
+      () => entity.targetFor(Link),
+      () => entity.targetsFor(Link),
+      () => entity.name(),
+    ];
+    entity.destroy();
+
+    expect(entity.isAlive()).toBe(false);
+    expect(world.has(entity)).toBe(false);
+    for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
+
+    const Removed = createRemoved();
+    const values: number[] = [];
+    world.query(Removed(Position)).each((position, removed) => {
+      expect(removed).toBe(entity);
+      values.push(position.x);
+      for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
+    });
+    expect(values).toEqual([7]);
+    world.spawn().destroy();
+    for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
   });
 
   it.each(['get', 'has', 'targetFor', 'targetsFor'] as const)(

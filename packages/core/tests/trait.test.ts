@@ -440,10 +440,9 @@ describe('Trait', () => {
       expect(entity.get(Transform)!.position).toEqual([4, 5, 6]);
 
       // A missing trait leaves out untouched.
-      // A removed trait keeps its last value readable until it is added back.
       entity.remove(Transform);
-      expect(entity.get(Transform, out)).toBe(out);
-      expect(out.position).toEqual([4, 5, 6]);
+      expect(entity.get(Transform, out)).toBeUndefined();
+      expect(out.position).toEqual([100, 5, 6]);
       expect(out.mass).toBe(2);
 
       const Mesh = trait(() => ({ visible: true }));

@@ -1,12 +1,7 @@
 import type { EventType, QueryInstance } from '../query/types';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import {
-  assertEntityAlive,
-  assertEntityReadable,
-  assertRelationTarget,
-  createTraitNotPresentError,
-} from '../asserts';
+import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
@@ -457,7 +452,7 @@ export /* @inline */ function getTrait(
   out?: Record<string, unknown>
 ) {
   if (assertsEnabled) {
-    assertEntityReadable(ctx, entity);
+    assertEntityAlive(ctx, entity);
   }
 
   /* @cold */ if (isRelationPair(trait)) {
@@ -490,29 +485,9 @@ export /* @inline @pure */ function getTraitForTrait(
   const data = getTraitInstance(ctx.traitInstances, trait);
   if (data === undefined) return undefined;
   const index = getEntityId(entity);
-  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0) {
-    return getRetainedTrait(ctx, index, data, out);
-  }
+  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
+    return undefined;
   const traitCtx = trait[$internal];
-  return out === undefined
-    ? traitCtx.get(ctx, index, data.store)
-    : traitCtx.getInto(ctx, index, data.store, out);
-}
-
-/**
- * A removed trait keeps its last value readable until it is added back or the entity is evicted. A
- * destroyed entity or an event has every trait it died with recorded as removed.
- */
-export function getRetainedTrait(
-  ctx: WorldContext,
-  index: number,
-  data: TraitInstance,
-  out: Record<string, unknown> | undefined
-) {
-  const page = ctx.entityMasks[data.generationId][index >>> 10];
-  const slot = (index & 1023) << 2;
-  if ((page[slot + REMOVED_WORD] & data.bitflag) === 0) return undefined;
-  const traitCtx = data.trait[$internal];
   return out === undefined
     ? traitCtx.get(ctx, index, data.store)
     : traitCtx.getInto(ctx, index, data.store, out);

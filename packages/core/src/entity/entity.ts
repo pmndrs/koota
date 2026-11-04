@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { assertEntityAlive, assertEntityReadable } from '../asserts';
+import { assertEntityAlive } from '../asserts';
 import {
   addEntityToQuery,
   dropQuery,
@@ -20,7 +20,6 @@ import {
   addTraitsToAliveEntity,
   cleanupRelationTarget,
   hasTrait,
-  hasTraitOrRetained,
   registerTrait,
   removeTraitFromDyingEntity,
 } from '../trait/trait';
@@ -294,15 +293,14 @@ export /* @inline */ function entityHas(
   trait: Trait | RelationPair | NameConfig
 ): boolean {
   if (assertsEnabled) {
-    assertEntityReadable(ctx, entity);
+    assertEntityAlive(ctx, entity);
   }
 
   if (typeof trait !== 'function') /* @cold */ {
     if (isNameConfig(trait)) return ctx.names.get(trait[1]) === entity;
     return hasEntityRelationPair(ctx, entity, trait);
   }
-  // A destroyed entity or an event answers for the traits it held when it died.
-  return hasTraitOrRetained(ctx, entity, trait);
+  return hasTrait(ctx, entity, trait);
 }
 
 /**
@@ -315,7 +313,7 @@ export function hasEntityRelationPair(
   pair: RelationPair
 ): boolean {
   /* @cold */ if (pair.targetQuery) {
-    if (!hasTraitOrRetained(ctx, entity, pair.relation[$internal].trait)) return false;
+    if (!hasTrait(ctx, entity, pair.relation[$internal].trait)) return false;
     const targets = getRelationTargets(ctx, pair.relation, entity);
     for (const match of queryInternal(ctx, ...(pair.targetQuery as any))) {
       if (targets.includes(match)) return true;

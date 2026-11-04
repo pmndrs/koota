@@ -42,7 +42,8 @@ describe('Entity retention', () => {
     entity.remove(Position);
     const view = world.query(Removed(Position));
     expect(view.toArray()).toEqual([entity]);
-    expect(entity.get(Position)!.x).toBe(42);
+    expect(entity.get(Position)).toBeUndefined();
+    view.each((position) => expect(position.x).toBe(42));
 
     entity.destroy();
     expect(view.length).toBe(0);
@@ -52,7 +53,7 @@ describe('Entity retention', () => {
     expect(world.spawn().id()).toBe(entity.id());
   });
 
-  it('keeps destroyed entities readable until the oldest exceeds the cap', () => {
+  it('retains query data until the oldest entity exceeds the cap', () => {
     const world = createWorld({ retain: 1 });
     const entity = world.spawn(Position({ x: 1 }), IsHot);
     entity.destroy();
@@ -61,8 +62,11 @@ describe('Entity retention', () => {
     expect(world.has(entity)).toBe(false);
     expect(world.entities).not.toContain(entity);
     expect(world.query(Position).length).toBe(0);
-    expect(entity.has(Position)).toBe(true);
-    expect(entity.get(Position)).toEqual({ x: 1, y: 0 });
+    expect(() => entity.has(Position)).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.get(Position)).toThrow(/\[ENTITY_ALIVE\]/);
+    const values: number[] = [];
+    world.query(createRemoved()(Position)).each((position) => values.push(position.x));
+    expect(values).toEqual([1]);
     expect(() => entity.set(Position, { x: 2 })).toThrow();
     expect(() => entity.add(IsCold)).toThrow();
     expect(() => entity.remove(IsHot)).toThrow();
@@ -72,9 +76,10 @@ describe('Entity retention', () => {
     const second = world.spawn(Position({ x: 2 }));
     second.destroy();
     expect(() => entity.get(Position)).toThrow();
-    expect(world.query(createRemoved()(Position)).toArray()).toEqual([second]);
+    const latest = world.query(createRemoved()(Position));
+    expect(latest.toArray()).toEqual([second]);
     expect(world.spawn().id()).toBe(entity.id());
-    expect(second.get(Position)!.x).toBe(2);
+    latest.each((position) => expect(position.x).toBe(2));
   });
 
   it.each([false, true])('caps history without needing a spawn or reader, registered: %s', (warm) => {
@@ -104,7 +109,7 @@ describe('Entity retention', () => {
     expect(exposed.toArray()).toEqual([first]);
     expect(world.query(Slow(Position)).toArray()).toEqual([first]);
     world.query(Fast(Position));
-    expect(first.get(Position)!.x).toBe(1);
+    world.query(createRemoved()(Position)).each((position) => expect(position.x).toBe(1));
 
     const second = world.spawn(Position({ x: 2 }));
     second.destroy();
@@ -197,17 +202,17 @@ describe('Entity retention', () => {
     const entities = [1, 2, 3].map((x) => world.spawn(Position({ x })));
     for (const entity of entities) entity.destroy();
     const view = world.query(createRemoved()(Position));
-    const values: number[] = [];
+    const visited: (typeof entities)[number][] = [];
     const visit = (entity: (typeof entities)[number]) => {
-      values.push(entity.get(Position)!.x);
-      if (values.length === 1) {
+      visited.push(entity);
+      if (visited.length === 1) {
         world.spawn().destroy();
         world.spawn().destroy();
       }
     };
     if (method === 'forEach') view.forEach(visit);
     else for (const entity of view) visit(entity);
-    expect(values).toEqual([1, 3]);
+    expect(visited).toEqual([entities[0], entities[2]]);
   });
 
   it.skipIf(!hasNativeGc()).each(['soa', 'aos'] as const)(
@@ -281,7 +286,9 @@ describe('Entity retention', () => {
     const Removed = createRemoved();
     const removed = world.query(Removed(Position));
     expect(removed.toArray()).toEqual([second, first]);
-    removed.forEach((entity) => expect(entity.get(Position)!.x).toBeGreaterThan(1));
+    const values: number[] = [];
+    removed.each((position) => values.push(position.x));
+    expect(values).toEqual([3, 2]);
     expect(world.query(Removed(Position)).length).toBe(0);
     expect(kept.isAlive()).toBe(true);
   });
@@ -322,11 +329,13 @@ describe('Entity retention', () => {
     const removed = world.query(Removed(Position));
     expect(removed.toArray()).toEqual([dropped, held]);
     expect(removed.toArray().map((entity) => entity.isAlive())).toEqual([true, false]);
-    expect(removed.toArray().map((entity) => entity.get(Position)!.x)).toEqual([4, 3]);
+    const values: number[] = [];
+    removed.each((position) => values.push(position.x));
+    expect(values).toEqual([4, 3]);
     expect(world.query(Removed(Position)).length).toBe(0);
   });
 
-  it('reads the last value of a removed trait until it is added back', () => {
+  it('reads removed values through the query while ordinary reads reflect current membership', () => {
     const world = createWorld();
     const Removed = createRemoved();
     world.query(Removed(Position));
@@ -334,8 +343,12 @@ describe('Entity retention', () => {
 
     entity.remove(Position);
     expect(entity.has(Position)).toBe(false);
-    expect(entity.get(Position)).toEqual({ x: 5, y: 0 });
-    expect(world.query(Removed(Position)).toArray()).toEqual([entity]);
+    expect(entity.get(Position)).toBeUndefined();
+    const removed = world.query(Removed(Position));
+    expect(removed.toArray()).toEqual([entity]);
+    const values: number[] = [];
+    removed.each((position) => values.push(position.x));
+    expect(values).toEqual([5]);
 
     entity.remove(Position);
     entity.add(Position({ x: 7 }));
@@ -368,11 +381,12 @@ describe('Entity retention', () => {
     const e = world.spawn(Position({ x: 5 }));
 
     expect(world.query(Position).toArray().sort()).toEqual([c, d, e].sort());
-    expect(a.get(Position)!.x).toBe(1);
-    expect(b.get(Position)!.x).toBe(2);
-
     const Removed = createRemoved();
-    expect(world.query(Removed(Position)).toArray()).toEqual([a, b]);
+    const removed = world.query(Removed(Position));
+    expect(removed.toArray()).toEqual([a, b]);
+    const values: number[] = [];
+    removed.each((position) => values.push(position.x));
+    expect(values).toEqual([1, 2]);
     expect(world.query(Removed(Position)).length).toBe(0);
     expect(world.query(Position).length).toBe(3);
   });
@@ -427,7 +441,7 @@ describe('Relation retention', () => {
   });
 
   it.each([1, 1024])(
-    'keeps targets and pair data readable on a destroyed entity, retain %s',
+    'retains relation matches without allowing ordinary reads, retain %s',
     (retain) => {
       const world = createWorld({ retain });
       const a = world.spawn();
@@ -435,10 +449,12 @@ describe('Relation retention', () => {
       const entity = world.spawn(Weighs(a, { kg: 7 }), Weighs(b, { kg: 9 }));
       entity.destroy();
 
-      expect(entity.targetsFor(Weighs)).toEqual([a, b]);
-      expect(entity.targetFor(Weighs)).toBe(a);
-      expect(entity.has(Weighs(b))).toBe(true);
-      expect(entity.get(Weighs(b))).toEqual({ kg: 9 });
+      expect(() => entity.targetsFor(Weighs)).toThrow(/\[ENTITY_ALIVE\]/);
+      expect(() => entity.targetFor(Weighs)).toThrow(/\[ENTITY_ALIVE\]/);
+      expect(() => entity.has(Weighs(b))).toThrow(/\[ENTITY_ALIVE\]/);
+      expect(() => entity.get(Weighs(b))).toThrow(/\[ENTITY_ALIVE\]/);
+      const Removed = createRemoved();
+      expect(world.query(Removed(Weighs), Weighs(b)).toArray()).toEqual([entity]);
       expect(world.query(Weighs(a)).length).toBe(0);
       expect(() => entity.remove(Weighs(a))).toThrow();
     }
@@ -451,7 +467,7 @@ describe('Relation retention', () => {
     parent.destroy();
 
     expect(world.has(child)).toBe(false);
-    expect(child.targetFor(ChildOf)).toBe(parent);
+    expect(() => child.targetFor(ChildOf)).toThrow(/\[ENTITY_ALIVE\]/);
     expect(world.query(createRemoved()(ChildOf), ChildOf(parent)).toArray()).toEqual([child]);
   });
 
@@ -477,7 +493,7 @@ describe('Relation retention', () => {
     expect(reused.id()).toBe(first.id());
     expect(reused.has(Weighs('*'))).toBe(false);
     expect(reused.targetsFor(Weighs)).toEqual([]);
-    expect(second.get(Weighs(a))).toEqual({ kg: 8 });
+    expect(world.query(createRemoved()(Weighs), Weighs(a)).toArray()).toEqual([second]);
 
     reused.add(Weighs(a, { kg: 1 }));
     expect(reused.targetsFor(Weighs)).toEqual([a]);
