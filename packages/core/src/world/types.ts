@@ -59,7 +59,6 @@ export type WorldContext = {
   entityDestroySubscriptions: Set<(entity: Entity) => void>;
   traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
   isRegistered: boolean;
-  pendingTraits: ConfigurableTrait[] | undefined;
   cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
   structuralRevision: number;
 };
@@ -68,12 +67,14 @@ export type WorldOptions = {
   /**
    * How many newer destroys an id waits for before a spawn may reuse it. Defaults to 1024.
    * Zero removes only this extra history window. Matching Removed queries hold their entities
-   * until the next run replaces the exposed batch.
+   * until the next run replaces the exposed batch. Must be a non-negative safe integer.
    */
   retain?: number;
 };
 
 export type World = {
+  /** The history window set at creation. Read-only and preserved by reset. */
+  readonly retain: number;
   readonly id: number;
   readonly isRegistered: boolean;
   readonly entities: Entity[];

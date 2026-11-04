@@ -106,7 +106,7 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Write history for `Changed` is recorded once a `Changed` term names the trait, so build `Changed` terms at module scope to record from the start. Destroyed entities keep their data until their id is reused, see Removed below.
+Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Explicit `set` writes and `changed()` notifications are recorded in the owning world even before a `Changed` term or query exists. Destroyed entities keep their data until their id is reused, see Removed below.
 
 ```typescript
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -126,7 +126,7 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since last query, including entities destroyed while holding it. `get` still returns the value the trait had until it is added back or the id is reused, other terms match a destroyed entity on the traits it died with, and `isAlive` tells a destroy apart from a live remove. A destroyed entity keeps its id and data until a spawn reuses the id, which waits for `createWorld({ retain })` newer destroys (1024 by default, 0 reuses at once) and for every Removed reader to run twice past it, up to sixteen times `retain` for a stalled reader. Writes to it throw. Relations are kept too: `targetFor`, `targetsFor`, `has` and `get` read the pairs held at destroy, a pair term filters on them, and children destroyed with their parent keep it as their target, while a live entity that drops a pair loses it:
+**Removed** - Entities that removed a trait since last query, including entities destroyed while holding it. `get` still returns the value the trait had until it is added back or the id is reused, other terms match a destroyed entity on the traits it died with, and `isAlive` tells a destroy apart from a live remove. A destroyed entity keeps its id and data until a spawn reuses the id, which waits for `retain` newer destroys (fixed by `createWorld({ retain })`, 1024 by default) and for every matching Removed reader to release its batch. Zero removes only the extra history window, so matching readers still protect their batches. A run exposes the pending batch and the next run replaces it. Pending and exposed batches retain their entities independently, and queries only hold entities they match. Reuse follows destroy order, so a held oldest entity also delays reuse of newer ids. A reader that stops running can grow retained memory. A late reader sees removed trait data until the trait is added back and destroyed entities until their ids are reused. Writes to it throw. Relations are kept too: `targetFor`, `targetsFor`, `has` and `get` read the pairs held at destroy, a pair term filters on them, and children destroyed with their parent keep it as their target, while a live entity that drops a pair loses it:
 
 ```typescript
 const stoppedEntities = world.query(Removed(Velocity))
@@ -187,7 +187,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 - Create instances at module scope, not inside functions
 - Tracking resets after each query execution
 - Changed only tracks `set()` calls and `entity.changed()` signals
-- Removed needs no warm up, a reader created after the event still sees it on its first run, inline or at module scope
+- Removed needs no warm up, a reader created after a removal sees it on its first run while the trait stays removed and the entity id has not been reused
 
 ## Caching queries
 

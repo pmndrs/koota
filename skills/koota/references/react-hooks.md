@@ -44,8 +44,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 import { createWorld } from 'koota'
 import { Time, Pointer, Viewport } from './traits'
 
-// Pass singleton traits to createWorld for global data
-export const world = createWorld(Time, Pointer, Viewport)
+// Add singleton traits after creating the world
+export const world = createWorld()
+world.add(Time, Pointer, Viewport)
 ```
 
 ## useQuery

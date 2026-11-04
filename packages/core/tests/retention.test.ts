@@ -6,6 +6,30 @@ const IsHot = trait();
 const IsCold = trait();
 
 describe('Entity retention', () => {
+  it('sets the history window at creation without initializing the world', () => {
+    expect(createWorld().retain).toBe(1024);
+    const world = createWorld({ retain: 8 });
+    expect(world.retain).toBe(8);
+    expect(world.isRegistered).toBe(false);
+  });
+
+  it('keeps the creation policy fixed independently of the options object and reset', () => {
+    const options = { retain: 8 };
+    const world = createWorld(options);
+    options.retain = 0;
+    expect(() => {
+      // @ts-expect-error The creation policy is read-only.
+      world.retain = 0;
+    }).toThrow(TypeError);
+
+    world.spawn(Position).destroy();
+    world.reset();
+    expect(world.retain).toBe(8);
+    const entity = world.spawn(Position);
+    entity.destroy();
+    expect(world.spawn().id()).not.toBe(entity.id());
+  });
+
   it('protects pending and exposed batches with a zero history window', () => {
     const world = createWorld({ retain: 0 });
     const Removed = createRemoved();
@@ -25,6 +49,10 @@ describe('Entity retention', () => {
     expect(second.get(Position)!.x).toBe(2);
     world.query(Removed(Position));
     expect(world.spawn().id()).toBe(second.id());
+  });
+
+  it.each([-1, 1.5, NaN, Infinity])('rejects an invalid history window: %s', (retain) => {
+    expect(() => createWorld({ retain })).toThrow(RangeError);
   });
 
   it('keeps a destroyed entity readable until its id is reused', () => {

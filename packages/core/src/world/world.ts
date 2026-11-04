@@ -42,11 +42,6 @@ import { resolveHookCallback, resolveHookTrait } from './utils/resolve-hook';
 
 let nextWorldId = 0;
 
-/** Options come first and are the only plain object a world accepts, traits are functions or tuples. */
-function isWorldOptions(arg: WorldOptions | ConfigurableTrait): arg is WorldOptions {
-  return typeof arg === 'object' && arg !== null && !Array.isArray(arg) && !isRelationPair(arg);
-}
-
 /** Registers IsExcluded and creates the world entity on first mutation. */
 function ensureWorldRegistered(ctx: WorldContext): void {
   if (ctx.isRegistered) return;
@@ -55,9 +50,7 @@ function ensureWorldRegistered(ctx: WorldContext): void {
 
   if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
 
-  const pending = ctx.pendingTraits;
-  ctx.pendingTraits = undefined;
-  ctx.worldEntity = createEntity(ctx, [IsExcluded, ...(pending || [])]);
+  ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 }
 
 /** Resolve inline parameters, including direct relation and named lookups. */
@@ -85,17 +78,12 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
   return runQuery(ctx, query, params);
 }
 
-export function createWorld(options: WorldOptions, ...traits: ConfigurableTrait[]): World;
-export function createWorld(...traits: ConfigurableTrait[]): World;
-export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): World {
-  const id = nextWorldId++;
-  let retain = 1024;
-  if (args.length !== 0 && isWorldOptions(args[0])) {
-    retain = args[0].retain ?? retain;
-    args = args.slice(1);
+export function createWorld(options?: WorldOptions): World {
+  const retain = options?.retain ?? 1024;
+  if (!Number.isSafeInteger(retain) || retain < 0) {
+    throw new RangeError('Koota: retain must be a non-negative safe integer.');
   }
-  const traits = args as ConfigurableTrait[];
-  const pendingTraits = traits.length > 0 ? traits : undefined;
+  const id = nextWorldId++;
 
   const cleanupToken: PageCleanupToken = {
     ownedPages: [],
@@ -130,7 +118,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       entityDestroySubscriptions: new Set(),
       traitRegisteredSubscriptions: new Set(),
       isRegistered: false,
-      pendingTraits,
       cleanupToken,
       ...(assertsEnabled ? { structuralRevision: 0 } : {}),
     } as WorldContext,
@@ -196,7 +183,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       if (!ctx.isRegistered) return;
 
       if (assertsEnabled) ctx.structuralRevision++;
-      ctx.pendingTraits = undefined;
 
       world.entities.forEach((entity) => {
         if (isEntityAlive(ctx.entityIndex, entity)) {
@@ -437,6 +423,11 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
   // Accessors are added after the literal. Redefining a literal data property
   // as a getter would drop the world into V8 dictionary mode.
+  Object.defineProperty(world, 'retain', {
+    get: () => world[$internal].retain,
+    enumerable: true,
+  });
+
   Object.defineProperty(world, 'traits', {
     get: () => world[$internal].traits,
     enumerable: true,
@@ -454,11 +445,6 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
     get: () => getAliveEntities(world[$internal].entityIndex),
     enumerable: true,
   });
-
-  // Auto-register when traits are passed. No-arg createWorld() stays pure.
-  if (pendingTraits) {
-    ensureWorldRegistered(world[$internal]);
-  }
 
   return world;
 }

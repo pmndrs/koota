@@ -52,6 +52,8 @@ A world is the context and holds the underlying storage, manages entities and th
 
 Traits are a user-facing handle for storage. The user never interacts with stores directly and instead deals with the mental model of traits -- composable pieces of semantic data.
 
+`createWorld(options?: WorldOptions)` fixes world policy at creation. `retain` defaults to 1024, is readable through `world.retain`, and survives reset. Singleton traits are added separately with `world.add(...)`.
+
 Worlds are **lazily registered** with the global universe. `createWorld()` allocates the facade and internal state, but it does not enter the global universe until first use (`spawn`, `add`, `set`, `query`, hook registration). This keeps world creation cheap and makes React-style memoized world creation safer.
 
 ## Internals

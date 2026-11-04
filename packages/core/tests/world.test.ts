@@ -148,7 +148,8 @@ describe('World', () => {
   it('should add, remove and get singletons', () => {
     const Test = trait({ last: 0, delta: 0 });
 
-    const world = createWorld(Test);
+    const world = createWorld();
+    world.add(Test);
     expect(world.has(Test)).toBe(true);
 
     const { last: then, delta } = world.get(Test)!;
@@ -179,7 +180,8 @@ describe('World', () => {
 
   it('should set singletons', () => {
     const Test = trait({ last: 0, delta: 0 });
-    const world = createWorld(Test);
+    const world = createWorld();
+    world.add(Test);
 
     world.set(Test, { last: 1, delta: 1 });
 

@@ -585,7 +585,7 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
-Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a `Changed` term names the trait, so create `Changed` terms at module scope to record writes from the start. A destroyed entity keeps its data until its id is reused, so a reader created after the destroy still sees it, see [Destroyed entities](#destroyed-entities).
+Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Explicit `set` writes and `changed()` notifications are recorded in the owning world even before a `Changed` term or query exists. A destroyed entity keeps its data until its id is reused, so a reader created after the destroy still sees it, see [Destroyed entities](#destroyed-entities).
 
 #### Added
 
@@ -669,7 +669,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 A destroyed entity keeps its id and its data until the world reuses the id for a new entity, and every trait it held when it died counts as removed. A `Removed` query over one of those traits sees the entity in destroy order, `has` and `get` answer for the traits it held when it died, other query terms filter on them, and `isAlive` tells a destroy apart from a trait leaving a live entity. A trait removed before the destroy was a remove, not part of the destroy.
 
-A spawn reuses an id only after at least `retain` newer destroys, 1024 by default and set with `createWorld({ retain })`, and after every `Removed` query has run twice since the destroy, once to expose it and once to move past it, up to sixteen times `retain` for a reader that has stopped running. Until then spawns take fresh ids. Zero reuses ids at once. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
+A spawn reuses the oldest retained id only after at least `retain` newer destroys, 1024 by default and fixed at creation with `createWorld({ retain })`, and when no `Removed` query holds it in a pending or exposed batch. Running a query exposes its pending batch. The next run replaces that batch and releases its hold. Every matching reader holds the entity independently. Queries only hold entities they match. Reuse follows destroy order, so a held oldest entity also delays reuse of newer ids. A reader that stops running keeps its batch retained, so retained memory can grow. Zero removes the extra history window, but matching readers still protect their batches. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
 
 ```js
 const Removed = createRemoved()
@@ -687,7 +687,7 @@ entity.destroy()
 entity.remove(ServerSync)
 ```
 
-Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` query created later still sees every destroyed entity whose id has not been reused, in destroy order.
+Because the world keeps the history, the cleanup system does not have to exist before the first removal or destroy. A `Removed` query created later reads the last value of a removed trait until it is added back, and sees every destroyed entity whose id has not been reused, in destroy order. The retention window gives late readers a chance to register. It does not preserve unobserved destroys indefinitely.
 
 A destroyed entity keeps its relations as well. `targetFor`, `targetsFor`, `has` and `get` read the targets and pair data it held when it died, and a pair term filters a `Removed` query on them. Children destroyed with their parent through `autoDestroy` keep the parent as their target. A live entity that drops a pair or whose target dies loses it as before, so a pair term matches only the destroyed ones.
 
@@ -943,12 +943,16 @@ These are more like notes for docs. Take a look around, ask questions. Eventuall
 
 This is where all data is stored. We have methods on entities but this is a bit of a trick, entities don't actually store any data and instead it is operating on the connected world. Each world has its own set of entities that do not overlap with another. Typically you only need one world.
 
-Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is not queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
+Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Set policy with `createWorld(options?: WorldOptions)` and add singleton traits afterward with `world.add(...)`. The `retain` option must be a non-negative safe integer. Each world gets its own entity used for world traits. This entity is not queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
 
 ```js
-// A destroyed entity keeps its data until its id is reused, which waits for at least this many
-// newer destroys and for every Removed query to move past it. Zero reuses at once
+// Set world policy once. Options are optional and retain defaults to 1024
 const world = createWorld({ retain: 1024 })
+world.add(Time, Config)
+
+// Read-only history window, preserved by reset
+// Zero removes only the extra window. Matching Removed queries still retain their batches
+world.retain
 
 // Spawns an entity
 // Can pass any number of traits

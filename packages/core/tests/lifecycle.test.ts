@@ -124,7 +124,8 @@ describe('Lifecycle Subscriptions', () => {
 
     it('should observe singleton traits', () => {
       const TimeOfDay = trait({ hour: 0 });
-      const localWorld = createWorld(TimeOfDay);
+      const localWorld = createWorld();
+      localWorld.add(TimeOfDay);
 
       let timeOfDay: TraitRecord<typeof TimeOfDay> | undefined;
       localWorld.onChange(TimeOfDay, (e) => {
@@ -382,7 +383,8 @@ describe('Lifecycle Subscriptions', () => {
 
     it('works on the world entity', () => {
       const TimeOfDay = trait({ hour: 0 });
-      const localWorld = createWorld(TimeOfDay);
+      const localWorld = createWorld();
+      localWorld.add(TimeOfDay);
       const cb = vi.fn();
       localWorld[$internal].worldEntity.onChange(TimeOfDay, cb);
 

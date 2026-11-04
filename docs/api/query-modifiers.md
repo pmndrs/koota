@@ -26,7 +26,7 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
-Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Write history is recorded once a `Changed` term names the trait, so create `Changed` terms at module scope to record writes from the start. A destroyed entity keeps its data until its id is reused, so a reader created after the destroy still sees it, see [Destroyed entities](#destroyed-entities).
+Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Explicit `set` writes and `changed()` notifications are recorded in the owning world even before a `Changed` term or query exists. A destroyed entity keeps its data until its id is reused, so a reader created after the destroy still sees it, see [Destroyed entities](#destroyed-entities).
 
 ## Added
 
@@ -119,7 +119,7 @@ const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer, Is
 
 A destroyed entity keeps its id and its data until the world reuses the id for a new entity, and every trait it held when it died counts as removed. A `Removed` query over one of those traits sees the entity in destroy order, `has` and `get` answer for the traits it held when it died, other query terms filter on them, and `isAlive` tells a destroy apart from a trait leaving a live entity. A trait removed before the destroy was a remove, not part of the destroy.
 
-A spawn reuses an id only after at least `retain` newer destroys, 1024 by default and set with `createWorld({ retain })`, and after every `Removed` query has run twice since the destroy, once to expose it and once to move past it, up to sixteen times `retain` for a reader that has stopped running. Until then spawns take fresh ids. Zero reuses ids at once. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
+A spawn reuses the oldest retained id only after at least `retain` newer destroys, 1024 by default and fixed at creation with `createWorld({ retain })`, and when no `Removed` query holds it in a pending or exposed batch. Running a query exposes its pending batch. The next run replaces that batch and releases its hold. Every matching reader holds the entity independently. Queries only hold entities they match. Reuse follows destroy order, so a held oldest entity also delays reuse of newer ids. A reader that stops running keeps its batch retained, so retained memory can grow. Zero removes the extra history window, but matching readers still protect their batches. A destroyed entity is dead for every other purpose. It is not alive, it is in no other query, writes to it throw, and `world.entities` does not list it.
 
 ```js
 const Removed = createRemoved()
@@ -137,7 +137,7 @@ entity.destroy()
 entity.remove(ServerSync)
 ```
 
-Because the world keeps the history, the cleanup system does not have to exist before the first destroy. A `Removed` query created later still sees every destroyed entity whose id has not been reused, in destroy order.
+Because the world keeps the history, the cleanup system does not have to exist before the first removal or destroy. A `Removed` query created later reads the last value of a removed trait until it is added back, and sees every destroyed entity whose id has not been reused, in destroy order. The retention window gives late readers a chance to register. It does not preserve unobserved destroys indefinitely.
 
 A destroyed entity keeps its relations as well. `targetFor`, `targetsFor`, `has` and `get` read the targets and pair data it held when it died, and a pair term filters a `Removed` query on them. Children destroyed with their parent through `autoDestroy` keep the parent as their target. A live entity that drops a pair or whose target dies loses it as before, so a pair term matches only the destroyed ones.
 

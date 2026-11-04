@@ -154,6 +154,17 @@ world.query(Position, Velocity).each((pos, vel) => {
 })
 ```
 
+## Worlds
+
+`createWorld(options?: WorldOptions)` sets policy once. Add singleton traits on the next line:
+
+```typescript
+const world = createWorld({ retain: 1024 })
+world.add(Time, Config)
+```
+
+`retain` is an optional non-negative safe integer, defaulting to 1024. `world.retain` is read-only and preserved by reset. Zero removes only the extra history window. Every matching `Removed` query still holds its pending and exposed batches until released.
+
 ## Entities
 
 Entities are unique identifiers that compose traits. Spawned from a world.
