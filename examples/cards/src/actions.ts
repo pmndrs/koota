@@ -12,7 +12,7 @@ export const actions = createActions((world) => ({
     const cards = hand.get(OrderedCards);
     // Use the ordered list to add the card to the hand.
     //  The HeldBy relation is automatically added to the card.
-    if (cards) cards.push(card);
+    if (cards) cards.add(card);
     return card;
   },
 }));

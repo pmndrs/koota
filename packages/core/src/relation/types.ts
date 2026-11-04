@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { Query, QueryParameter } from '../query/types';
 import type { Trait } from '../trait/types';
-import type { OrderedList } from './ordered-list';
+import type { MutableOrderedView } from '../view/types';
 import { $orderedTargetsTrait, $relation, $relationPair } from './symbols';
 
 export type RelationTarget = Entity | '*';
@@ -43,7 +43,9 @@ export type Relation<T extends Trait = Trait> = {
   };
 } & RelationCall<T>;
 
-export interface OrderedRelation<T extends Trait = Trait> extends Trait<() => OrderedList> {
+export interface OrderedRelation<T extends Trait = Trait> extends Trait<
+  () => MutableOrderedView<[]>
+> {
   [$orderedTargetsTrait]: {
     relation: Relation<T>;
   };

@@ -222,7 +222,7 @@ function createPropagateSystem(
     if (!children) return;
 
     for (let i = 0; i < children.length; i++) {
-      propagateOrdered(children[i], total);
+      propagateOrdered(children.at(i)!, total);
     }
   };
 

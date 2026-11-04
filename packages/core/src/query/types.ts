@@ -1,3 +1,4 @@
+import type { EntityComparator, EntityView, OrderedView } from '../view/types';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { NameConfig } from '../name/types';
@@ -82,31 +83,12 @@ export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
  * own entity list, so it reflects later changes and allocates nothing per run. Read it before the
  * next run or structural change, and call toArray for a copy you own.
  */
-export type QueryView<T extends QueryParameter[] = QueryParameter[]> = {
-  readonly length: number;
-  /** The first entity, if any. */
-  readonly first: Entity | undefined;
-  /** The entity at an index without copying. Negative indices count from the end. */
-  at(index: number): Entity | undefined;
-  [Symbol.iterator](): IterableIterator<Entity>;
-  /** Copies the entities into a plain array. */
-  toArray(): Entity[];
-  forEach(callback: (entity: Entity, index: number) => void): void;
-  /** Walks the entities with each trait's value as its own argument, then the entity and index. */
-  each(callback: (...args: [...InstancesFromParameters<T>, Entity, number]) => void): QueryView<T>;
-  /** @deprecated Use each. Reads cost the same and writes are dropped. */
-  readEach(
-    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void
-  ): QueryView<T>;
-  /** @deprecated Use each. */
-  updateEach(
-    callback: (state: InstancesFromParameters<T>, entity: Entity, index: number) => void,
-    options?: UpdateEachOptions
-  ): QueryView<T>;
+export interface QueryView<T extends QueryParameter[] = QueryParameter[]> extends EntityView<T> {
   getPages(): readonly QueryPage<T>[];
-  /** A view over the same entities with only the given traits. Cached per trait list. */
   select<U extends QueryParameter[]>(...params: U): QueryView<U>;
-};
+  /** Caches a derived order. Omit deps or pass [] to sort on every access. */
+  sort(compare: EntityComparator, deps?: readonly Trait[]): OrderedView<T>;
+}
 
 type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
 
