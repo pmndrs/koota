@@ -274,3 +274,5 @@ sorted.each((position) => {
 ```
 
 Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
+
+Active walks keep their starting order. Re-enter the view after they finish to refresh it.

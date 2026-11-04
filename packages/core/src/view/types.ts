@@ -30,7 +30,7 @@ export interface EntityView<T extends QueryParameter[] = QueryParameter[]> {
 /** A query's derived order, shared by its selections. */
 export interface OrderedView<T extends QueryParameter[] = QueryParameter[]> extends EntityView<T> {
   select<U extends QueryParameter[]>(...params: U): OrderedView<U>;
-  /** Refresh the order on its next access, including comparator state outside the ECS. */
+  /** Refresh on the next access after active walks finish, including external comparator state. */
   invalidate(): void;
 }
 

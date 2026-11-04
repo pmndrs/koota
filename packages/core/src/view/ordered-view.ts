@@ -79,11 +79,6 @@ class SortedView extends ListView implements OrderedView<any> {
   invalidate() {
     this.source.dirty = true;
   }
-
-  /** A small entry lets V8 inline native array iteration into the caller. */
-  override [Symbol.iterator](): IterableIterator<Entity> {
-    return this.source.ensure().values();
-  }
 }
 
 class SortedSource extends OrderedSource {
@@ -127,7 +122,7 @@ class SortedSource extends OrderedSource {
   private refresh(revision: number, rebuild: boolean, liveQuery: QueryInstance | null) {
     this.refreshing = true;
     try {
-      // Published arrays stay immutable so native iterators retain their starting sequence.
+      // Keep the previous sequence until sorting succeeds.
       const entities: Entity[] = rebuild ? [] : this.dense.slice();
       if (rebuild) {
         const source = this.base.source;

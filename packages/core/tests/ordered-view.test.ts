@@ -50,6 +50,66 @@ describe('Sorted query views', () => {
     expect(sorted.first).toBe(a);
   });
 
+  it.each(['each', 'forEach', 'map', 'for...of'] as const)(
+    'defers sorting until re-entry after active walks finish (%s)',
+    (mode) => {
+      const a = world.spawn(Position({ x: 2 }));
+      const b = world.spawn(Position({ x: 1 }));
+      const c = world.spawn();
+      const sorted = world.query(Position).sort(ascending, [Position]);
+      const selected = sorted.select();
+      const visited: Entity[] = [];
+      const visit = (entity: Entity) => {
+        visited.push(entity);
+        if (visited.length !== 1) return;
+        a.set(Position, { x: 0 });
+        c.add(Position({ x: 3 }));
+        sorted.invalidate();
+
+        expect(sorted.first).toBe(b);
+        expect(sorted.toArray()).toEqual([b, a]);
+        expect([...selected]).toEqual([b, a]);
+        expect(sorted.toArray()).toEqual([b, a]);
+      };
+
+      switch (mode) {
+        case 'each':
+          sorted.each((_position, entity) => visit(entity));
+          break;
+        case 'forEach':
+          sorted.forEach(visit);
+          break;
+        case 'map':
+          sorted.map(visit);
+          break;
+        case 'for...of':
+          for (const entity of sorted) visit(entity);
+          break;
+      }
+
+      expect(visited).toEqual([b, a]);
+      expect([...sorted]).toEqual([a, b, c]);
+    }
+  );
+
+  it.each(['break', 'throw'] as const)('allows sorting after a loop exits with %s', (mode) => {
+    const a = world.spawn(Position({ x: 2 }));
+    const b = world.spawn(Position({ x: 1 }));
+    const sorted = world.query(Position).sort(ascending, [Position]);
+    const walk = () => {
+      for (const _entity of sorted) {
+        a.set(Position, { x: 0 });
+        expect(sorted.first).toBe(b);
+        if (mode === 'throw') throw new Error('Stop walking');
+        break;
+      }
+    };
+
+    if (mode === 'throw') expect(walk).toThrow('Stop walking');
+    else walk();
+    expect([...sorted]).toEqual([a, b]);
+  });
+
   it('tracks every dependency and reuses views for equivalent arrays', () => {
     const Rank = trait({ value: 0 });
     const a = world.spawn(Position({ x: 2 }), Rank);
