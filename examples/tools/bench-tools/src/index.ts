@@ -1,3 +1,6 @@
+/// <reference lib="dom" />
+/// <reference types="node" />
+
 export { getFPS } from './getFPS.js';
 export { getThreadCount } from './getThreadCount.js';
 export * from './measure.js';
