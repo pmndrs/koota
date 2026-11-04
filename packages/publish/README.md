@@ -813,7 +813,7 @@ Performance and readability are often a tradeoff. The standard patterns are plen
 
 #### Create update functions once
 
-The standard pattern for `each`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
+An inline callback is created each time `each` is called, then reused for the entities in that walk. Define it once if the same function can be shared across calls.
 
 ```js
 // Create the function once
@@ -848,20 +848,41 @@ for (const entity of entities) {
 const kept = entities.toArray()
 ```
 
-#### You can use `for of` instead of `forEach` on query results
+#### Iterating entity handles
 
-You can use `for of` instead of `forEach` to get a nice iterator. Additionally, this will save a little performance since `forEach` calls a function on each member, while `for of` will compile down to what is basically a for loop.
+Use `for...of` to process entity handles directly.
 
 ```js
-// This is nice and ergonomic but will cost some overhead since we are
-// creating a fresh function for each entity and then calling it
-world.query().forEach((entity) => {})
-
-// By contrast, this compiles down to a for loop and will have a
-// single block of code executed for each entity
-for (const entity of world.query()) {
+for (const entity of world.query(Position)) {
+  draw(entity)
 }
 ```
+
+#### Indexed loops
+
+`toArray()` returns a snapshot you can iterate with a plain indexed loop. It copies the entity list, so include that cost when comparing traversal methods.
+
+```js
+const entities = world.query(Position).toArray()
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+The snapshot does not track membership changes. Indexing the live view with `query.at(i)` still goes through the view on every access.
+
+A guarded, zero-copy prototype matched native array indexing in a checksum benchmark. It accesses the backing array directly and is not a public API.
+
+Median time per 10,000 entities on an Apple M4 Pro, across eight fresh processes with assertions disabled:
+
+| Indexed traversal                               | Node 24.14.0 | Node 26.1.0 |
+| ----------------------------------------------- | -----------: | ----------: |
+| Native array                                    |      3.14 µs |     3.10 µs |
+| Query backing array with walk guard (prototype) |      3.11 µs |     3.07 µs |
+| Live query through `at(i)`                      |      8.91 µs |     7.74 µs |
+
+Run `pnpm bench '@query-indexed' -n query-indexed` to reproduce the cases.
 
 ## APIs in detail until I make docs
 

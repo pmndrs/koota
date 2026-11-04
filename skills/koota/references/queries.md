@@ -5,6 +5,7 @@ Complete guide to querying entities in Koota.
 ## Contents
 
 - [Basic queries](#basic-queries)
+- [Indexed loops](#indexed-loops) - Array snapshots and traversal costs
 - [Query modifiers](#query-modifiers) - Not, Or
 - [Tracking modifiers](#tracking-modifiers) - Added, Removed, Changed
 - [Caching queries](#caching-queries) - createQuery for performance
@@ -59,6 +60,32 @@ const player = world.queryFirst(IsPlayer, Position)
 // Query all entities (excludes system entities)
 const allEntities = world.query()
 ```
+
+## Indexed loops
+
+`toArray()` returns a snapshot you can iterate with a plain indexed loop. It copies the entity list, so include that cost when comparing traversal methods.
+
+```typescript
+const entities = world.query(Position).toArray()
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+The snapshot does not track membership changes. Indexing the live view with `query.at(i)` still goes through the view on every access.
+
+A guarded, zero-copy prototype matched native array indexing in a checksum benchmark. It accesses the backing array directly and is not a public API.
+
+Median time per 10,000 entities on an Apple M4 Pro, across eight fresh processes with assertions disabled:
+
+| Indexed traversal                               | Node 24.14.0 | Node 26.1.0 |
+| ----------------------------------------------- | -----------: | ----------: |
+| Native array                                    |      3.14 µs |     3.10 µs |
+| Query backing array with walk guard (prototype) |      3.11 µs |     3.07 µs |
+| Live query through `at(i)`                      |      8.91 µs |     7.74 µs |
+
+Run `pnpm bench '@query-indexed' -n query-indexed` to reproduce the cases.
 
 ## Query modifiers
 
