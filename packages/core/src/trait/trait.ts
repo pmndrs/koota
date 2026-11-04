@@ -110,7 +110,6 @@ export function createTraitContext<S extends Schema>(
         : defaults.getInto),
     remove: accessors?.remove ?? defaults.remove,
     relation: null,
-    tracked: false,
     type,
     cursor:
       type === 'soa' &&
@@ -162,7 +161,6 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     trait,
     store: traitCtx.createStore(),
     queries: [],
-    tracked: traitCtx.tracked,
     trackingQueries: [],
     relationQueries: [],
     schema: trait.schema,

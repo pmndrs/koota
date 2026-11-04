@@ -8,8 +8,8 @@ import { checkQueryTracking } from './check-query-tracking';
 import { checkQueryTrackingWithRelations } from './check-query-tracking-with-relations';
 
 /**
- * Record a write. Watched traits keep a history bit so a Changed query created later still sees
- * the write, and the tracking queries that already exist are re-evaluated out of line.
+ * Record a write in this world's history so a Changed query created later still sees it.
+ * Tracking queries that already exist are re-evaluated out of line.
  */
 export /* @inline */ function markTraitChanged(
   ctx: WorldContext,
@@ -17,11 +17,8 @@ export /* @inline */ function markTraitChanged(
   data: TraitInstance
 ) {
   data.version++;
-  if (data.tracked) {
-    const eid = getEntityId(entity);
-    ctx.entityMasks[data.generationId][eid >>> 10][((eid & 1023) << 2) + CHANGED_WORD] |=
-      data.bitflag;
-  }
+  const eid = getEntityId(entity);
+  ctx.entityMasks[data.generationId][eid >>> 10][((eid & 1023) << 2) + CHANGED_WORD] |= data.bitflag;
   if (data.trackingQueries.length !== 0) notifyChangedTrackingQueries(ctx, entity, data);
 }
 

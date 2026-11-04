@@ -266,8 +266,6 @@ function processTrackingModifier(
     group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
 
     if (trackingType === 'change') {
-      trait[$internal].tracked = true;
-      instance.tracked = true;
       query.changedTraits.push(trait);
       query.hasChangedModifiers = true;
     }

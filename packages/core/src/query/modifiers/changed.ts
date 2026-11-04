@@ -22,8 +22,6 @@ export function createChanged() {
     const traits = inputs.map((input) =>
       isRelation(input) ? input[$internal].trait : input
     ) as ExtractTraits<T>;
-    // Naming a trait here is what starts its write history, so module scope terms track from the start.
-    for (let i = 0; i < traits.length; i++) traits[i][$internal].tracked = true;
     return createModifier(`changed-${id}`, id, traits);
   };
 }
@@ -43,7 +41,6 @@ export function setChanged(ctx: WorldContext, entity: Entity, trait: Trait) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
-  // An explicit flag is a request to be seen, so it opts the trait into write history.
   const data = markChanged(ctx, entity, trait);
   if (!data) {
     if (assertsEnabled) {

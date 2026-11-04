@@ -516,6 +516,35 @@ describe('Query modifiers', () => {
     expect(entities2.length).toBe(1);
   });
 
+  it.each(['set', 'changed'] as const)(
+    'records %s history independently of when each world registers a shared trait',
+    (operation) => {
+      const Value = trait({ value: 0 });
+      const before = createWorld();
+      const first = before.spawn(Value);
+      if (operation === 'set') first.set(Value, { value: 1 });
+      else first.changed(Value);
+
+      const Changed = createChanged();
+      const changed = Changed(Value);
+      const after = createWorld();
+      const second = after.spawn(Value);
+      if (operation === 'set') second.set(Value, { value: 1 });
+      else second.changed(Value);
+
+      expect(before.query(changed).toArray()).toEqual([first]);
+      expect(after.query(changed).toArray()).toEqual([second]);
+      expect(before.query(changed).length).toBe(0);
+      expect(after.query(changed).length).toBe(0);
+
+      first.changed(Value);
+      expect(before.query(changed).toArray()).toEqual([first]);
+      expect(after.query(changed).length).toBe(0);
+      before.destroy();
+      after.destroy();
+    }
+  );
+
   it('should only update a Changed query when the tracked trait is changed', () => {
     const entity = world.spawn(Foo, Bar);
 

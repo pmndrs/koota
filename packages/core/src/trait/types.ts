@@ -41,8 +41,6 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   /** True for a plain paged SoA trait with scalar fields, which iteration can read in place. */
   readonly cursor: boolean;
   relation: Relation<any> | null;
-  /** Writes record Changed history once a Changed term names the trait. */
-  tracked: boolean;
 };
 
 export type Trait<TSchema extends Schema = any> = {
@@ -119,8 +117,6 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   store: Store<S>;
   /** Non-tracking queries that include this trait */
   queries: QueryInstance[];
-  /** Writes record Changed history. Set once a Changed term names the trait in this world. */
-  tracked: boolean;
   /** Tracking queries (Added/Removed/Changed) that include this trait */
   trackingQueries: QueryInstance[];
   /** Queries that filter by this relation (only for relation traits) */
