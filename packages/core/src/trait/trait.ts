@@ -20,7 +20,6 @@ import {
   getRelationData,
   getRelationTargets,
   getTargetIndex,
-  hasRelationPair,
   hasRelationToTarget,
   initRelationData,
   removeAllRelationTargets,
@@ -30,12 +29,7 @@ import {
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import {
-  DESTROYED_WORD,
-  EMPTY_MASK_PAGE,
-  REMOVED_WORD,
-  materializeMaskPage,
-} from '../entity/utils/paged-mask';
+import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../entity/utils/paged-mask';
 import {
   createAddFunction,
   createGetFunction,
@@ -400,23 +394,6 @@ export /* @inline @pure */ function hasTrait(
   return (mask & bitflag) === bitflag;
 }
 
-/** Membership, or for a destroyed entity the traits it held when it died. */
-export /* @inline @pure */ function hasTraitOrRetained(
-  ctx: WorldContext,
-  entity: Entity,
-  trait: Trait
-): boolean {
-  const instance = getTraitInstance(ctx.traitInstances, trait);
-  if (!instance) return false;
-
-  const { generationId, bitflag } = instance;
-  const eid = getEntityId(entity);
-  const page = ctx.entityMasks[generationId][eid >>> 10];
-  const slot = (eid & 1023) << 2;
-
-  return (page[slot] & bitflag) !== 0 || (page[slot + DESTROYED_WORD] & bitflag) !== 0;
-}
-
 /** Raw writes bypass accessors. Callers must preserve any trait-owned invariants. */
 export /* @inline @pure */ function getStore<C extends Trait = Trait>(
   ctxOrWorld: WorldContext | World,
@@ -470,7 +447,6 @@ export /* @inline @pure */ function getTraitForPair(
   const relation = pair.relation as Relation<Trait>;
   const target = pair.target;
 
-  if (!hasRelationPair(ctx, entity, pair)) return undefined;
   if (typeof target !== 'number') return undefined;
 
   return getRelationData(ctx, entity, relation, target, out);

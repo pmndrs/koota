@@ -9,7 +9,7 @@ import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isQuery } from '../query/utils/is-query';
 import { TraitSchema } from '../storage';
-import { hasTraitOrRetained, trait } from '../trait/trait';
+import { trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
@@ -708,16 +708,24 @@ export function getRelationData(
 
 /**
  * Check if an entity has a concrete relation pair (specific target or wildcard).
+ * Target slots cover live pairs and pairs retained for Removed query filters.
  * Does NOT handle targetQuery — that is resolved by the query layer or entity convenience methods.
  */
-export function hasRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair): boolean {
-  const relation = pair.relation;
+export /* @inline @pure */ function hasRelationPair(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: RelationPair
+): boolean {
   const target = pair.target;
-
-  if (!hasTraitOrRetained(ctx, entity, relation[$internal].trait)) return false;
-
-  if (target === '*') return true;
-  if (typeof target === 'number') return hasRelationToTarget(ctx, relation, entity, target);
-
-  return false;
+  if (target === undefined) return false;
+  const relationCtx = pair.relation[$internal];
+  const instance = getTraitInstance(ctx.traitInstances, relationCtx.trait);
+  const eid = getEntityId(entity);
+  const targets = instance?.relationTargets?.[eid >>> 10]?.[eid & 1023];
+  if (targets === undefined) return false;
+  return relationCtx.exclusive
+    ? target === '*' || targets === target
+    : target === '*'
+      ? targets.length !== 0
+      : targets.includes(target);
 }

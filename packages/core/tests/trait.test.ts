@@ -450,24 +450,35 @@ describe('Trait', () => {
       entity.get(Mesh, { visible: false });
     });
 
-    it('reads relation data and world traits into out', () => {
-      const Attached = relation({ store: { offset: [0, 0, 0], weight: 1 } });
-      const parent = world.spawn();
-      const child = world.spawn(Attached(parent, { offset: [1, 2, 3] }));
-      const offset: Vec3 = [0, 0, 0];
-      const attached = { offset, weight: 0 };
+    it.each([false, true])(
+      'reads relation data and world traits into out, exclusive: %s',
+      (exclusive) => {
+        const Attached = relation({ exclusive, store: { offset: [0, 0, 0], weight: 1 } });
+        const parent = world.spawn();
+        const child = world.spawn(Attached(parent, { offset: [1, 2, 3] }));
+        const offset: Vec3 = [0, 0, 0];
+        const attached = { offset, weight: 0 };
 
-      expect(child.get(Attached(parent), attached)).toBe(attached);
-      expect(attached).toEqual({ offset: [1, 2, 3], weight: 1 });
-      expect(attached.offset).toBe(offset);
-      offset[0] = 100;
-      expect(child.get(Attached(parent))!.offset).toEqual([1, 2, 3]);
+        expect(child.get(Attached(parent), attached)).toBe(attached);
+        expect(attached).toEqual({ offset: [1, 2, 3], weight: 1 });
+        expect(attached.offset).toBe(offset);
+        offset[0] = 100;
+        expect(child.get(Attached(parent))!.offset).toEqual([1, 2, 3]);
 
-      const Time = trait({ delta: 0 });
-      world.add(Time({ delta: 0.016 }));
-      const time = { delta: 0 };
-      expect(world.get(Time, time)).toBe(time);
-      expect(time.delta).toBe(0.016);
-    });
+        const missing = world.spawn();
+        expect(child.get(Attached(missing))).toBeUndefined();
+        expect(child.get(Attached(missing), attached)).toBeUndefined();
+        child.remove(Attached(parent));
+        expect(child.get(Attached(parent))).toBeUndefined();
+        expect(child.get(Attached(parent), attached)).toBeUndefined();
+        expect(attached).toEqual({ offset: [100, 2, 3], weight: 1 });
+
+        const Time = trait({ delta: 0 });
+        world.add(Time({ delta: 0.016 }));
+        const time = { delta: 0 };
+        expect(world.get(Time, time)).toBe(time);
+        expect(time.delta).toBe(0.016);
+      }
+    );
   });
 });

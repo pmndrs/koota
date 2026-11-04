@@ -423,22 +423,26 @@ const Likes = relation();
 const Weighs = relation({ store: { kg: 0 } });
 
 describe('Relation retention', () => {
-  it('matches Removed queries on the pairs held at destroy, warm and cold', () => {
-    const world = createWorld();
-    const a = world.spawn();
-    const b = world.spawn();
-    const childA = world.spawn(Likes(a));
-    const childB = world.spawn(Likes(b));
-    const Warm = createRemoved();
-    expect(world.query(Warm(Likes), Likes(a)).length).toBe(0);
+  it.each([false, true])(
+    'matches retained pairs in warm and cold queries, exclusive: %s',
+    (exclusive) => {
+      const Link = relation({ exclusive });
+      const world = createWorld();
+      const a = world.spawn();
+      const b = world.spawn();
+      const childA = world.spawn(Link(a));
+      const childB = world.spawn(Link(b));
+      const Warm = createRemoved();
+      expect(world.query(Warm(Link), Link(a)).length).toBe(0);
 
-    childA.destroy();
-    childB.destroy();
+      childA.destroy();
+      childB.destroy();
 
-    expect(world.query(Warm(Likes), Likes(a)).toArray()).toEqual([childA]);
-    expect(world.query(createRemoved()(Likes), Likes(a)).toArray()).toEqual([childA]);
-    expect(world.query(createRemoved()(Likes), Likes('*')).toArray()).toEqual([childA, childB]);
-  });
+      expect(world.query(Warm(Link), Link(a)).toArray()).toEqual([childA]);
+      expect(world.query(createRemoved()(Link), Link(a)).toArray()).toEqual([childA]);
+      expect(world.query(createRemoved()(Link), Link('*')).toArray()).toEqual([childA, childB]);
+    }
+  );
 
   it.each([1, 1024])(
     'retains relation matches without allowing ordinary reads, retain %s',
