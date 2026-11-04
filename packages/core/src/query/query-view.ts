@@ -47,6 +47,14 @@ class View implements QueryView<any> {
     return this.source.length;
   }
 
+  get entities(): readonly Entity[] {
+    const source = this.source;
+    const dense = source.dense as Entity[];
+    // Retired slots are outside the query's current membership.
+    if (dense.length !== source.length) dense.length = source.length;
+    return dense;
+  }
+
   sort(compare: EntityComparator, deps: readonly Trait[] = []) {
     return sortView(this, compare, deps);
   }

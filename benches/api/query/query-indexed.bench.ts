@@ -10,10 +10,11 @@ group('indexed query iteration 10000 @query-indexed', () => {
     'query indexed',
     'query forEach',
     'copy then indexed',
-    'borrowed indexed',
+    'query entities indexed',
+    'query entities for of',
   ]) {
     bench(
-      `${mode}${mode === 'array indexed' || mode === 'borrowed indexed' ? ' @query-indexed-raw' : ''}`,
+      `${mode}${['array indexed', 'array for of', 'query entities indexed', 'query entities for of'].includes(mode) ? ' @query-indexed-raw' : ''}`,
       function* () {
         const world = createWorld();
         const Included = trait();
@@ -74,30 +75,24 @@ group('indexed query iteration 10000 @query-indexed', () => {
               sum = result;
             };
             break;
-          case 'borrowed indexed': {
-            // Read the internal source directly while retaining the existing walk guard.
-            const view = query as unknown as {
-              getSource(): { dense: number[]; length: number };
-              getGuard(): { iterating: number } | null;
-            };
+          case 'query entities indexed':
             walk = () => {
-              const source = view.getSource();
-              const dense = source.dense;
-              if (dense.length !== source.length) dense.length = source.length;
-              const guard = view.getGuard();
-              if (guard) guard.iterating++;
+              const entities = query.entities;
               let result = 0;
-              try {
-                for (let i = 0, length = dense.length; i < length; i++) {
-                  result = (result + dense[i]) | 0;
-                }
-              } finally {
-                if (guard) guard.iterating--;
+              for (let i = 0, length = entities.length; i < length; i++) {
+                result = (result + entities[i]) | 0;
               }
               sum = result;
             };
             break;
-          }
+          case 'query entities for of':
+            walk = () => {
+              const entities = query.entities;
+              let result = 0;
+              for (const entity of entities) result = (result + entity) | 0;
+              sum = result;
+            };
+            break;
           default:
             walk = () => {
               const snapshot = query.toArray();

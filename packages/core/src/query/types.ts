@@ -84,6 +84,8 @@ export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
  * next run or structural change, and call toArray for a copy you own.
  */
 export interface QueryView<T extends QueryParameter[] = QueryParameter[]> extends EntityView<T> {
+  /** Zero-copy array. Do not mutate it. Finish reading before another query run or membership change. */
+  readonly entities: readonly Entity[];
   getPages(): readonly QueryPage<T>[];
   select<U extends QueryParameter[]>(...params: U): QueryView<U>;
   /** Caches a derived order. Omit deps or pass [] to sort on every access. */

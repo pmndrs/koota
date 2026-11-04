@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   $internal,
   createAdded,
@@ -617,6 +617,58 @@ describe('Query', () => {
     expect(copy).toEqual([second]);
   });
 
+  it('shares a read-only entity array across query selections without copying', () => {
+    const first = world.spawn(Position, Foo);
+    const second = world.spawn(Position, Foo);
+    const query = world.query(Position, Foo);
+    const entities = query.entities;
+
+    expectTypeOf(entities).toEqualTypeOf<readonly Entity[]>();
+    expect(Array.isArray(entities)).toBe(true);
+    expect(query.entities).toBe(entities);
+    expect(query.select(Position).entities).toBe(entities);
+
+    const visited: Entity[] = [];
+    for (let i = 0; i < entities.length; i++) visited.push(entities[i]);
+    expect(visited).toEqual([first, second]);
+  });
+
+  it('exposes only current members after removals, additions, and emptying a query', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const third = world.spawn(Position);
+    const query = world.query(Position);
+    expect(query.entities).toEqual([first, second, third]);
+
+    second.remove(Position);
+    expect(query.entities).toEqual([first, third]);
+    expect(query.entities.length).toBe(query.length);
+
+    second.add(Position);
+    expect(query.entities).toEqual([first, third, second]);
+
+    first.remove(Position);
+    second.remove(Position);
+    third.remove(Position);
+    expect(query.entities).toEqual([]);
+
+    third.add(Position);
+    expect(query.entities).toEqual([third]);
+  });
+
+  it('exposes the current tracking batch through entities', () => {
+    const ref = createQuery(createAdded()(Position));
+    world.query(ref);
+    const first = world.spawn(Position);
+    const query = world.query(ref);
+    expect(query.entities).toEqual([first]);
+
+    const second = world.spawn(Position);
+    expect(world.query(ref).entities).toEqual([second]);
+    expect(query.entities).toEqual([second]);
+    expect(world.query(ref).entities).toEqual([]);
+  });
+
   it('reads indexed entities with array at semantics and respects the live length', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);
@@ -692,7 +744,9 @@ describe('Query', () => {
       if (entity !== first) continue;
       second.destroy();
       replacement = world.spawn(Position);
-      expect([...world.query(Position)]).toEqual([first, replacement]);
+      const nested = world.query(Position);
+      expect(nested.entities).toEqual([first, replacement]);
+      expect([...nested]).toEqual([first, replacement]);
     }
 
     expect(visited).toEqual([first, second]);
