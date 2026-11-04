@@ -34,6 +34,10 @@ describe('Assertions', () => {
     expect(entity.isAlive()).toBe(false);
     expect(world.has(entity)).toBe(false);
     for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.set(Position, { x: 2 })).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.add(Selected)).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.remove(Position)).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.destroy()).toThrow(/\[ENTITY_ALIVE\]/);
 
     const Removed = createRemoved();
     const values: number[] = [];
@@ -43,8 +47,6 @@ describe('Assertions', () => {
       for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
     });
     expect(values).toEqual([7]);
-    world.spawn().destroy();
-    for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
   });
 
   it.each(['get', 'has', 'targetFor', 'targetsFor'] as const)(

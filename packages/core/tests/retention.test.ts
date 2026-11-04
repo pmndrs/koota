@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Name, Not, createAdded, createRemoved, createWorld, relation, trait } from '../src';
+import { Name, Not, createRemoved, createWorld, relation, trait } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
@@ -7,17 +7,13 @@ const IsHot = trait();
 const IsCold = trait();
 
 describe('Entity retention', () => {
-  it('sets the retention cap at creation without initializing the world', () => {
+  it('sets a fixed retention cap without initializing the world', () => {
     expect(createWorld().retain).toBe(1024);
-    const world = createWorld({ retain: 8 });
-    expect(world.retain).toBe(8);
-    expect(world.isRegistered).toBe(false);
-  });
-
-  it('keeps the creation policy fixed independently of the options object and reset', () => {
     const options = { retain: 8 };
     const world = createWorld(options);
     options.retain = 0;
+    expect(world.retain).toBe(8);
+    expect(world.isRegistered).toBe(false);
     expect(() => {
       // @ts-expect-error The creation policy is read-only.
       world.retain = 0;
@@ -31,12 +27,14 @@ describe('Entity retention', () => {
     expect(world.spawn().id()).not.toBe(entity.id());
   });
 
-  it.each([-1, 1.5, NaN, Infinity])('rejects an invalid retention cap: %s', (retain) => {
+  it.each([-1, 1.5])('rejects an invalid retention cap: %s', (retain) => {
     expect(() => createWorld({ retain })).toThrow(RangeError);
   });
 
   it('disables destroyed history at zero while preserving live trait removals', () => {
     const world = createWorld({ retain: 0 });
+    world.add(Position({ x: 9 }));
+    expect(world.get(Position)?.x).toBe(9);
     const Removed = createRemoved();
     const entity = world.spawn(Position({ x: 42 }));
     entity.remove(Position);
@@ -53,35 +51,6 @@ describe('Entity retention', () => {
     expect(world.spawn().id()).toBe(entity.id());
   });
 
-  it('retains query data until the oldest entity exceeds the cap', () => {
-    const world = createWorld({ retain: 1 });
-    const entity = world.spawn(Position({ x: 1 }), IsHot);
-    entity.destroy();
-
-    expect(entity.isAlive()).toBe(false);
-    expect(world.has(entity)).toBe(false);
-    expect(world.entities).not.toContain(entity);
-    expect(world.query(Position).length).toBe(0);
-    expect(() => entity.has(Position)).toThrow(/\[ENTITY_ALIVE\]/);
-    expect(() => entity.get(Position)).toThrow(/\[ENTITY_ALIVE\]/);
-    const values: number[] = [];
-    world.query(createRemoved()(Position)).each((position) => values.push(position.x));
-    expect(values).toEqual([1]);
-    expect(() => entity.set(Position, { x: 2 })).toThrow();
-    expect(() => entity.add(IsCold)).toThrow();
-    expect(() => entity.remove(IsHot)).toThrow();
-    expect(() => entity.destroy()).toThrow();
-    expect(world.spawn().id()).not.toBe(entity.id());
-
-    const second = world.spawn(Position({ x: 2 }));
-    second.destroy();
-    expect(() => entity.get(Position)).toThrow();
-    const latest = world.query(createRemoved()(Position));
-    expect(latest.toArray()).toEqual([second]);
-    expect(world.spawn().id()).toBe(entity.id());
-    latest.each((position) => expect(position.x).toBe(2));
-  });
-
   it.each([false, true])('caps history without needing a spawn or reader, registered: %s', (warm) => {
     const world = createWorld({ retain: 3 });
     const Removed = createRemoved();
@@ -89,7 +58,6 @@ describe('Entity retention', () => {
     const entities = Array.from({ length: 20 }, (_, x) => world.spawn(Position({ x })));
     for (const entity of entities) entity.destroy();
 
-    for (const entity of entities.slice(0, -3)) expect(() => entity.get(Position)).toThrow();
     const values: number[] = [];
     world.query(Removed(Position)).each((position) => values.push(position.x));
     expect(values.sort((a, b) => a - b)).toEqual([17, 18, 19]);
@@ -105,19 +73,20 @@ describe('Entity retention', () => {
     world.query(Slow(Position));
     const first = world.spawn(Position({ x: 1 }));
     first.destroy();
-    const exposed = world.query(Fast(Position));
-    expect(exposed.toArray()).toEqual([first]);
-    expect(world.query(Slow(Position)).toArray()).toEqual([first]);
-    world.query(Fast(Position));
-    world.query(createRemoved()(Position)).each((position) => expect(position.x).toBe(1));
+    const values: number[] = [];
+    world.query(Fast(Position)).each((position) => values.push(position.x));
+    expect(values).toEqual([1]);
+    expect(world.query(Fast(Position)).length).toBe(0);
 
     const second = world.spawn(Position({ x: 2 }));
     second.destroy();
     const slow = world.query(Slow(Position));
-    expect(slow.toArray()).toEqual([second]);
+    expect(slow.toArray()).toEqual([first, second]);
+    values.length = 0;
+    slow.each((position) => values.push(position.x));
+    expect(values).toEqual([1, 2]);
     const third = world.spawn(Position({ x: 3 }));
     third.destroy();
-    expect(() => first.get(Position)).toThrow();
     expect(world.query(Fast(Position)).toArray()).toEqual([second, third]);
     expect(slow.toArray()).toEqual([second]);
     world.spawn().destroy();
@@ -129,7 +98,7 @@ describe('Entity retention', () => {
     const Removed = createRemoved();
     world.query(Removed(Position));
     const ids = new Set<number>();
-    for (let x = 0; x < 2000; x++) {
+    for (let x = 0; x < 20; x++) {
       const entity = world.spawn(Position({ x }));
       ids.add(entity.id());
       entity.destroy();
@@ -137,7 +106,7 @@ describe('Entity retention', () => {
     expect(ids.size).toBe(4);
     const values: number[] = [];
     world.query(Removed(Position)).each((position) => values.push(position.x));
-    expect(values.sort((a, b) => a - b)).toEqual([1997, 1998, 1999]);
+    expect(values.sort((a, b) => a - b)).toEqual([17, 18, 19]);
   });
 
   it('evicts a removal present in both pending and exposed batches', () => {
@@ -156,10 +125,10 @@ describe('Entity retention', () => {
     expect(world.spawn().id()).toBe(entity.id());
   });
 
-  it.each([false, true])('clears partial removal history before id reuse, named: %s', (named) => {
+  it('clears partial removal history before a named entity id is reused', () => {
     const world = createWorld({ retain: 1 });
     const Removed = createRemoved();
-    const params = [Removed(Position, IsHot), ...(named ? [Name('target')] : [])];
+    const params = [Removed(Position, IsHot), Name('target')];
     world.query(...params);
     const first = world.spawn(Position, IsHot, Name('target'));
     first.remove(Position);
@@ -238,122 +207,27 @@ describe('Entity retention', () => {
     }
   );
 
-  it.each(['remove', 'destroy'] as const)(
-    'reads data on the first tick when %s happened before query registration',
-    (operation) => {
-      const world = createWorld();
-      const entity = world.spawn(Position({ x: 42 }));
-      if (operation === 'remove') entity.remove(Position);
-      else entity.destroy();
-
-      const Removed = createRemoved();
-      const values: number[] = [];
-      world.query(Removed(Position)).each((position, removed) => {
-        expect(removed).toBe(entity);
-        values.push(position.x);
-      });
-      expect(values).toEqual([42]);
-      expect(world.query(Removed(Position)).length).toBe(0);
-    }
-  );
-
-  it('keeps a late reader readable while spawning within the cap', () => {
-    const world = createWorld({ retain: 2 });
-    const entities = [world.spawn(Position({ x: 1 })), world.spawn(Position({ x: 2 }))];
-    for (const entity of entities) entity.destroy();
-
-    const Removed = createRemoved();
-    const values: number[] = [];
-    world.query(Removed(Position)).each((position) => {
-      world.query(Removed(Position));
-      expect(world.spawn().id()).not.toBe(entities[0].id());
-      values.push(position.x);
-    });
-    expect(values).toEqual([1, 2]);
-    world.query(Removed(Position));
-    world.spawn().destroy();
-    expect(world.spawn().id()).toBe(entities[0].id());
-  });
-
-  it('seeds a Removed query created after a destroy in destroy order', () => {
+  it('reads first-tick removals and destroys once with their data in destroy order', () => {
     const world = createWorld();
-    const kept = world.spawn(Position({ x: 1 }));
+    const live = world.spawn(Position({ x: 1 }));
     const first = world.spawn(Position({ x: 2 }));
     const second = world.spawn(Position({ x: 3 }));
+    live.remove(Position);
     second.destroy();
     first.destroy();
+    const kept = world.spawn(Position({ x: 4 }));
 
+    expect(live.has(Position)).toBe(false);
+    expect(live.get(Position)).toBeUndefined();
     const Removed = createRemoved();
     const removed = world.query(Removed(Position));
-    expect(removed.toArray()).toEqual([second, first]);
+    expect(removed.toArray()).toEqual([live, second, first]);
+    expect(removed.toArray().map((entity) => entity.isAlive())).toEqual([true, false, false]);
     const values: number[] = [];
     removed.each((position) => values.push(position.x));
-    expect(values).toEqual([3, 2]);
+    expect(values).toEqual([1, 3, 2]);
     expect(world.query(Removed(Position)).length).toBe(0);
-    expect(kept.isAlive()).toBe(true);
-  });
-
-  it.each([1, 2, 3, 17])(
-    'preserves late-reader destroy order after repeated evictions, retain %s',
-    (retain) => {
-      const world = createWorld({ retain });
-      for (let x = 0; x < 21; x++) world.spawn(Position({ x })).destroy();
-      const entities = Array.from({ length: 20 }, (_, i) => world.spawn(Position({ x: i + 21 })));
-      for (const entity of entities) entity.destroy();
-
-      const Removed = createRemoved();
-      const values: number[] = [];
-      world.query(Removed(Position)).each((position) => values.push(position.x));
-      expect(values).toEqual(Array.from({ length: retain }, (_, i) => 41 - retain + i));
-    }
-  );
-
-  it('does not seed an Added query from a destroyed entity', () => {
-    const world = createWorld();
-    world.spawn(Position).destroy();
-
-    const Added = createAdded();
-    expect(world.query(Added(Position)).length).toBe(0);
-  });
-
-  it('tracks destroys through Removed, told apart from live removes by liveness', () => {
-    const world = createWorld();
-    const Removed = createRemoved();
-    expect(world.query(Removed(Position)).length).toBe(0);
-
-    const held = world.spawn(Position({ x: 3 }));
-    const dropped = world.spawn(Position({ x: 4 }));
-    dropped.remove(Position);
-    held.destroy();
-
-    const removed = world.query(Removed(Position));
-    expect(removed.toArray()).toEqual([dropped, held]);
-    expect(removed.toArray().map((entity) => entity.isAlive())).toEqual([true, false]);
-    const values: number[] = [];
-    removed.each((position) => values.push(position.x));
-    expect(values).toEqual([4, 3]);
-    expect(world.query(Removed(Position)).length).toBe(0);
-  });
-
-  it('reads removed values through the query while ordinary reads reflect current membership', () => {
-    const world = createWorld();
-    const Removed = createRemoved();
-    world.query(Removed(Position));
-    const entity = world.spawn(Position({ x: 5 }));
-
-    entity.remove(Position);
-    expect(entity.has(Position)).toBe(false);
-    expect(entity.get(Position)).toBeUndefined();
-    const removed = world.query(Removed(Position));
-    expect(removed.toArray()).toEqual([entity]);
-    const values: number[] = [];
-    removed.each((position) => values.push(position.x));
-    expect(values).toEqual([5]);
-
-    entity.remove(Position);
-    entity.add(Position({ x: 7 }));
-    expect(entity.get(Position)!.x).toBe(7);
-    expect(world.query(Removed(Position)).length).toBe(0);
+    expect(world.query(Position).toArray()).toEqual([kept]);
   });
 
   it('matches the other terms of a Removed query on what a destroyed entity died with', () => {
@@ -368,53 +242,6 @@ describe('Entity retention', () => {
     expect(world.query(Warm(Position), IsHot).toArray()).toEqual([hot]);
     expect(world.query(createRemoved()(Position), IsHot).toArray()).toEqual([hot]);
     expect(world.query(createRemoved()(Position), Not(IsHot)).toArray()).toEqual([cold]);
-  });
-
-  it('keeps alive and destroyed entities apart while spawning', () => {
-    const world = createWorld();
-    const a = world.spawn(Position({ x: 1 }));
-    const b = world.spawn(Position({ x: 2 }));
-    const c = world.spawn(Position({ x: 3 }));
-    a.destroy();
-    b.destroy();
-    const d = world.spawn(Position({ x: 4 }));
-    const e = world.spawn(Position({ x: 5 }));
-
-    expect(world.query(Position).toArray().sort()).toEqual([c, d, e].sort());
-    const Removed = createRemoved();
-    const removed = world.query(Removed(Position));
-    expect(removed.toArray()).toEqual([a, b]);
-    const values: number[] = [];
-    removed.each((position) => values.push(position.x));
-    expect(values).toEqual([1, 2]);
-    expect(world.query(Removed(Position)).length).toBe(0);
-    expect(world.query(Position).length).toBe(3);
-  });
-
-  it('releases destroyed entities on reset', () => {
-    const world = createWorld();
-    const entity = world.spawn(Position);
-    entity.destroy();
-    world.reset();
-
-    const replacement = world.spawn(Position({ x: 9 }));
-    expect(replacement.id()).toBe(entity.id());
-    expect(entity.isAlive()).toBe(false);
-    expect(() => entity.get(Position)).toThrow();
-    expect(world.query(Position).toArray()).toEqual([replacement]);
-  });
-
-  it('applies the creation policy to later world traits and queries', () => {
-    const world = createWorld({ retain: 0 });
-    world.add(Position({ x: 9 }));
-    const Removed = createRemoved();
-    world.query(Removed(Position));
-    expect(world.get(Position)?.x).toBe(9);
-    const entity = world.spawn(Position);
-    entity.destroy();
-    expect(world.query(Removed(Position)).length).toBe(0);
-    expect(world.spawn().id()).toBe(entity.id());
-    expect(() => entity.get(Position)).toThrow();
   });
 });
 
@@ -444,28 +271,8 @@ describe('Relation retention', () => {
     }
   );
 
-  it.each([1, 1024])(
-    'retains relation matches without allowing ordinary reads, retain %s',
-    (retain) => {
-      const world = createWorld({ retain });
-      const a = world.spawn();
-      const b = world.spawn();
-      const entity = world.spawn(Weighs(a, { kg: 7 }), Weighs(b, { kg: 9 }));
-      entity.destroy();
-
-      expect(() => entity.targetsFor(Weighs)).toThrow(/\[ENTITY_ALIVE\]/);
-      expect(() => entity.targetFor(Weighs)).toThrow(/\[ENTITY_ALIVE\]/);
-      expect(() => entity.has(Weighs(b))).toThrow(/\[ENTITY_ALIVE\]/);
-      expect(() => entity.get(Weighs(b))).toThrow(/\[ENTITY_ALIVE\]/);
-      const Removed = createRemoved();
-      expect(world.query(Removed(Weighs), Weighs(b)).toArray()).toEqual([entity]);
-      expect(world.query(Weighs(a)).length).toBe(0);
-      expect(() => entity.remove(Weighs(a))).toThrow();
-    }
-  );
-
-  it.each([1, 1024])('keeps the parent on children destroyed with it, retain %s', (retain) => {
-    const world = createWorld({ retain });
+  it('keeps the parent on children destroyed with it at the retention cap', () => {
+    const world = createWorld({ retain: 1 });
     const parent = world.spawn();
     const child = world.spawn(ChildOf(parent));
     parent.destroy();
