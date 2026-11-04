@@ -1,6 +1,16 @@
-import { createWorld, Name, type Entity, relation, trait, universe, type World } from '@koota/core';
+// oxlint-disable react/globals -- Test components expose hook values to assertions.
+import {
+  createAdded,
+  createWorld,
+  Name,
+  type Entity,
+  relation,
+  trait,
+  universe,
+  type World,
+} from '@koota/core';
 import { render, renderHook } from '@testing-library/react';
-import { act, StrictMode } from 'react';
+import { act, StrictMode, useLayoutEffect } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useQuery, WorldProvider } from '../src';
 
@@ -82,41 +92,46 @@ describe('useQuery', () => {
     unmount();
   });
 
-  it.fails('captures entities added before useEffect runs', async () => {
-    // Spawn an initial entity
+  it('reports the same added entities to both subscribers', () => {
+    const Added = createAdded();
+    const useAddedPositions = () => useQuery(Added(Position));
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <WorldProvider world={world}>{children}</WorldProvider>
+    );
+    const first = renderHook(useAddedPositions, { wrapper });
+    const second = renderHook(useAddedPositions, { wrapper });
+    let entity!: Entity;
+    act(() => {
+      entity = world.spawn(Position);
+    });
+    expect(first.result.current).toEqual([entity]);
+    expect(second.result.current).toEqual([entity]);
+  });
+
+  it('captures entities added before the subscription attaches', () => {
     world.spawn(Position);
 
-    let entities: Entity[] = null!;
-
     function Test() {
-      entities = useQuery(Position);
+      return <span>{useQuery(Position).length}</span>;
+    }
+
+    function EntityAdder() {
+      useLayoutEffect(() => {
+        const entity = world.spawn(Position);
+        return () => entity.destroy();
+      }, []);
       return null;
     }
 
-    // Spawn an entity in the ref callback, which is after the
-    // render function but before effects run
-    function EntityAdder() {
-      return (
-        <div
-          ref={() => {
-            world.spawn(Position);
-          }}
-        />
-      );
-    }
-
-    await act(async () => {
-      render(
-        <StrictMode>
-          <WorldProvider world={world}>
-            <Test />
-            <EntityAdder />
-          </WorldProvider>
-        </StrictMode>
-      );
-    });
-
-    expect(entities.length).toBe(2);
+    const view = render(
+      <StrictMode>
+        <WorldProvider world={world}>
+          <Test />
+          <EntityAdder />
+        </WorldProvider>
+      </StrictMode>
+    );
+    expect(view.container.textContent).toBe('2');
   });
 
   it('renders once if entities do not change before effect', async () => {

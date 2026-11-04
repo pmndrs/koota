@@ -1,5 +1,7 @@
+// oxlint-disable react/globals -- Test components expose hook values to assertions.
 import {
   createWorld,
+  ordered,
   relation,
   trait,
   universe,
@@ -7,9 +9,9 @@ import {
   type TraitRecord,
   type World,
 } from '@koota/core';
-import { render } from '@testing-library/react';
+import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode, useEffect, useLayoutEffect, useState } from 'react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import { useHas, useTag, useTrait, useTraitEffect, WorldProvider } from '../src';
 
 declare global {
@@ -57,6 +59,31 @@ describe('useTrait', () => {
     expect(position).toEqual({ x: 1, y: 1 });
   });
 
+  it('publishes ordered relation snapshots when membership or order changes', () => {
+    const ChildOf = relation();
+    const Children = ordered(ChildOf);
+    const parent = world.spawn(Children);
+    const a = world.spawn(ChildOf(parent));
+    const b = world.spawn();
+    const children = parent.get(Children)!;
+    const { result, rerender } = renderHook(() => useTrait(parent, Children));
+    expectTypeOf(result.current).toEqualTypeOf<readonly Entity[] | undefined>();
+    const initial = result.current;
+
+    act(() => b.add(ChildOf(parent)));
+    const added = result.current;
+    act(() => {
+      children.moveTo(b, 0);
+    });
+    const moved = result.current;
+    expect(initial).toEqual([a]);
+    expect(added).toEqual([a, b]);
+    expect(moved).toEqual([b, a]);
+    act(() => parent.changed(Children));
+    rerender();
+    expect(result.current).toBe(moved);
+  });
+
   it('reactively works with an entity at effect time', async () => {
     let entity: Entity | undefined;
     let position: TraitRecord<typeof Position> | undefined;
@@ -67,6 +94,7 @@ describe('useTrait', () => {
       // Rerender to ensure the entity is not stale for useTrait
       useEffect(() => {
         entity = world.spawn(Position);
+        // oxlint-disable-next-line react/set-state-in-effect -- The test creates its target after the first render.
         set((v) => v + 1);
       }, []);
 

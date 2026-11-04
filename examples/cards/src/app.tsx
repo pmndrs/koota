@@ -21,8 +21,7 @@ export function App() {
 function HandRenderer() {
   // We only want to render a single hand, so we query the first
   const hand = useQueryFirst(Hand, OrderedCards);
-  // Get the ordered cards, with is a special ordered list view of the HeldBy relation
-  // Note: This hook rerenders when the order of the cards changes and the actual indices of the cards change.
+  // Read the hand in relation order. Membership and order changes publish a new array.
   const cards = useTrait(hand, OrderedCards);
 
   if (!cards) return null;

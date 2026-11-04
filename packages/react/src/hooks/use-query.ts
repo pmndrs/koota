@@ -1,72 +1,81 @@
-import { $internal, createQuery, type Entity, type QueryParameter } from '@koota/core';
-import { useEffect, useMemo, useReducer, useRef } from 'react';
+import {
+  $internal,
+  createQuery,
+  type Entity,
+  type Query,
+  type QueryInstance,
+  type QueryParameter,
+  type QueryView,
+  type World,
+} from '@koota/core';
+import { useMemo, useSyncExternalStore } from 'react';
 import { useWorld } from '../world/use-world';
 
-// Sorted by id so the array order is stable across versions and the DOM stays stable.
-const byId = (a: Entity, b: Entity) => a.id() - b.id();
+// A tracking query consumes its batch on read. All React readers of that revision share the view.
+const batches = new WeakMap<QueryInstance, { version: number; view: QueryView }>();
+
+function createQueryStore(world: World, ref: Query) {
+  const ctx = world[$internal];
+  let source: QueryInstance | undefined;
+  let version: number | undefined;
+  let revision = 0;
+  let copiedRevision = -1;
+  let entities: Entity[] = [];
+
+  function getSnapshot() {
+    const current = ctx.queriesHashMap.get(ref.hash);
+    if (source !== current || version !== current?.version) {
+      source = current;
+      version = current?.version;
+      revision++;
+    }
+    return revision;
+  }
+
+  return {
+    getSnapshot,
+    // Copy in render so a burst of membership changes only materializes the final list.
+    read(revision: number) {
+      if (copiedRevision !== revision) {
+        const batch = source?.isTracking ? batches.get(source) : undefined;
+        const view = batch && batch.version === source?.version ? batch.view : world.query(ref);
+        entities = view.toArray().sort((a, b) => a.id() - b.id());
+        copiedRevision = revision;
+        // Running a tracking query advances its batch and version.
+        source = ctx.queriesHashMap.get(ref.hash)!;
+        version = source.version;
+        if (source.isTracking) batches.set(source, { version, view });
+      }
+      return entities;
+    },
+    subscribe: (notify: () => void) => {
+      function listen() {
+        const offAdd = world.onQueryAdd(ref, notify);
+        const offRemove = world.onQueryRemove(ref, notify);
+        return () => {
+          offAdd();
+          offRemove();
+        };
+      }
+      let detach = listen();
+      const reset = () => {
+        detach();
+        detach = listen();
+        notify();
+      };
+      ctx.resetSubscriptions.add(reset);
+      return () => {
+        ctx.resetSubscriptions.delete(reset);
+        detach();
+      };
+    },
+  };
+}
 
 export function useQuery<T extends QueryParameter[]>(...parameters: T): Entity[] {
   const world = useWorld();
-  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
-
-  const queryRef = useMemo(() => createQuery(...parameters), parameters);
-  const cacheRef = useRef<{ hash: string; version: number; result: Entity[] } | null>(null);
-
-  // Compute result: uses cache if valid, otherwise recomputes
-  const getResult = (): Entity[] => {
-    const query = world[$internal].queriesHashMap.get(queryRef.hash);
-
-    if (
-      query &&
-      cacheRef.current?.hash === queryRef.hash &&
-      cacheRef.current.version === query.version
-    ) {
-      return cacheRef.current.result;
-    }
-
-    const result = world.query(queryRef).toArray().sort(byId);
-    const registeredQuery = world[$internal].queriesHashMap.get(queryRef.hash)!;
-    cacheRef.current = { hash: queryRef.hash, version: registeredQuery.version, result };
-
-    return result;
-  };
-
-  const result = getResult();
-
-  useEffect(() => {
-    const update = () => forceUpdate();
-
-    let unsubAdd = () => {};
-    let unsubRemove = () => {};
-
-    const subscribe = () => {
-      unsubAdd = world.onQueryAdd(queryRef, update);
-      unsubRemove = world.onQueryRemove(queryRef, update);
-
-      // Check if query changed between render and effect
-      const query = world[$internal].queriesHashMap.get(queryRef.hash)!;
-      if (cacheRef.current && query.version !== cacheRef.current.version) {
-        update();
-      }
-    };
-
-    const handleReset = () => {
-      cacheRef.current = null;
-      unsubAdd();
-      unsubRemove();
-      subscribe();
-      update();
-    };
-
-    subscribe();
-    world[$internal].resetSubscriptions.add(handleReset);
-
-    return () => {
-      world[$internal].resetSubscriptions.delete(handleReset);
-      unsubAdd();
-      unsubRemove();
-    };
-  }, [world, queryRef]);
-
-  return result;
+  const ref = createQuery(...parameters);
+  const store = useMemo(() => createQueryStore(world, ref), [world, ref]);
+  const revision = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  return store.read(revision);
 }
