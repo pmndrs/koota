@@ -57,12 +57,17 @@ describe('World', () => {
           expect(addressSpace!.freePages).toContain(pageId);
         }
 
-        const replacementWorld = createWorld();
-        const replacement = replacementWorld.spawn();
-        expect(replacement.id()).toBe(entity!.id());
+        // Lease every free page because finalizer order can change which is reused first.
+        const replacementWorlds = Array.from({ length: addressSpace!.freePages.length }, () =>
+          createWorld()
+        );
+        const replacements = replacementWorlds.map((world) => world.spawn());
+        expect(replacements.some((replacement) => replacement.id() === entity!.id())).toBe(true);
         expect(entity!.isAlive()).toBe(false);
-        expect(replacementWorld.has(entity!)).toBe(false);
-        replacementWorld.destroy();
+        for (const world of replacementWorlds) {
+          expect(world.has(entity!)).toBe(false);
+          world.destroy();
+        }
       },
       20_000
     );
