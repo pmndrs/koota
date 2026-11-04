@@ -71,6 +71,10 @@ export class ListView extends EntityView {
 class SortedView extends ListView implements OrderedView<any> {
   declare source: SortedSource;
 
+  get entities(): readonly Entity[] {
+    return this.source.ensure();
+  }
+
   override getSource() {
     this.source.ensure();
     return this.source;

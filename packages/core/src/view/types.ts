@@ -29,6 +29,8 @@ export interface EntityView<T extends QueryParameter[] = QueryParameter[]> {
 
 /** A query's derived order, shared by its selections. */
 export interface OrderedView<T extends QueryParameter[] = QueryParameter[]> extends EntityView<T> {
+  /** Borrowed read-only array. Refreshes on access unless a view walk is active. */
+  readonly entities: readonly Entity[];
   select<U extends QueryParameter[]>(...params: U): OrderedView<U>;
   /** Refresh on the next access after active walks finish, including external comparator state. */
   invalidate(): void;

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import { createWorld, trait, type Entity, type Trait } from '../src';
 
 describe('Sorted query views', () => {
@@ -6,6 +6,35 @@ describe('Sorted query views', () => {
   const Position = trait({ x: 0 });
   const ascending = (a: Entity, b: Entity) => a.get(Position)!.x - b.get(Position)!.x;
   beforeEach(() => world.reset());
+
+  it('shares the cached read-only entity array across sorted selections', () => {
+    const a = world.spawn(Position({ x: 2 }));
+    const b = world.spawn(Position({ x: 1 }));
+    const query = world.query(Position);
+    const sorted = query.sort(ascending, [Position]);
+    const entities = sorted.entities;
+
+    expectTypeOf(entities).toEqualTypeOf<readonly Entity[]>();
+    expect(Array.isArray(entities)).toBe(true);
+    expect(entities).toEqual([b, a]);
+    expect(sorted.entities).toBe(entities);
+    expect(sorted.select().entities).toBe(entities);
+    expect(query.entities).toEqual([a, b]);
+  });
+
+  it('refreshes the borrowed entity array after dependency and membership changes', () => {
+    const a = world.spawn(Position({ x: 2 }));
+    const b = world.spawn(Position({ x: 1 }));
+    const sorted = world.query(Position).sort(ascending, [Position]);
+    expect(sorted.entities).toEqual([b, a]);
+
+    a.set(Position, { x: 0 });
+    expect(sorted.entities).toEqual([a, b]);
+    const c = world.spawn(Position({ x: -1 }));
+    expect(sorted.entities).toEqual([c, a, b]);
+    b.remove(Position);
+    expect(sorted.entities).toEqual([c, a]);
+  });
 
   it('maps in sorted order and leaves the base query in its original order', () => {
     world.spawn(Position({ x: 2 }));
@@ -46,7 +75,9 @@ describe('Sorted query views', () => {
 
     direction = -1;
     expect(sorted.first).toBe(b);
+    expect(ranks.entities).toEqual([b, a]);
     ranks.invalidate();
+    expect(ranks.entities).toEqual([a, b]);
     expect(sorted.first).toBe(a);
   });
 
@@ -58,6 +89,7 @@ describe('Sorted query views', () => {
       const c = world.spawn();
       const sorted = world.query(Position).sort(ascending, [Position]);
       const selected = sorted.select();
+      const entities = sorted.entities;
       const visited: Entity[] = [];
       const visit = (entity: Entity) => {
         visited.push(entity);
@@ -67,6 +99,8 @@ describe('Sorted query views', () => {
         sorted.invalidate();
 
         expect(sorted.first).toBe(b);
+        expect(sorted.entities).toBe(entities);
+        expect(selected.entities).toBe(entities);
         expect(sorted.toArray()).toEqual([b, a]);
         expect([...selected]).toEqual([b, a]);
         expect(sorted.toArray()).toEqual([b, a]);
@@ -89,6 +123,7 @@ describe('Sorted query views', () => {
 
       expect(visited).toEqual([b, a]);
       expect([...sorted]).toEqual([a, b, c]);
+      expect(sorted.entities).toEqual([a, b, c]);
     }
   );
 
@@ -150,7 +185,9 @@ describe('Sorted query views', () => {
       let direction = 1;
       const sorted = world.query(Position).sort((a, b) => direction * ascending(a, b), deps);
       expect(sorted.first).toBe(a);
+      expect(sorted.entities).toEqual([a, b]);
       direction = -1;
+      expect(sorted.entities).toEqual([b, a]);
       expect(sorted.first).toBe(b);
     }
   );
