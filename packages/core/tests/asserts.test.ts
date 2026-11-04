@@ -8,7 +8,7 @@ describe('Assertions', () => {
   const Link = relation({ store: { weight: 0 }, exclusive: true });
 
   beforeEach(() => {
-    // Use no extra history window so unobserved ids can be reused on the next spawn.
+    // Disable destroyed-entity retention so ids can be reused on the next spawn.
     world = createWorld({ retain: 0 });
   });
   afterEach(() => {

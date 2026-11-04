@@ -6,7 +6,7 @@ const Bar = trait({ value: 0 });
 const Baz = trait(() => ({ value: 0 }));
 
 describe('Entity', () => {
-  // Use no extra history window so unobserved ids can be reused on the next spawn.
+  // Disable destroyed-entity retention so ids can be reused on the next spawn.
   const world = createWorld({ retain: 0 });
 
   beforeEach(() => {

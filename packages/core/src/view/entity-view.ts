@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import { isNameConfig } from '../name/name-index';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isEntityAlive } from '../entity/utils/entity-index';
+import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { Store } from '../storage';
 import { registerTrait } from '../trait/trait';
@@ -100,6 +100,7 @@ export class EntityView {
       length: dense.length,
       dense,
       guard,
+      ctx: this.query?.retains ? this.ctx : null,
       result: { value: 0 as Entity, done: false },
       next: nextViewIterator,
       return: returnViewIterator,
@@ -117,7 +118,11 @@ export class EntityView {
     const guard = this.getGuard();
     if (guard) guard.iterating++;
     try {
-      for (let i = 0; i < length; i++) callback(dense[i] as Entity, i);
+      for (let i = 0; i < length; i++) {
+        const entity = dense[i] as Entity;
+        if (this.query?.retains && !isEntityReadable(this.ctx.entityIndex, entity)) continue;
+        callback(entity, i);
+      }
     } finally {
       if (guard) guard.iterating--;
     }
@@ -137,6 +142,7 @@ export class EntityView {
     const { stores } = this.binding;
     const pool = query ?? ctx;
     const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding);
+    buffers.retains = query?.retains ?? false;
     if (guard) guard.iterating++;
     try {
       buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
@@ -168,6 +174,7 @@ export class EntityView {
     const pool = query ?? ctx;
     const entities = dense as Entity[];
     const buffers = takeIterationBuffers(ctx, pool, entities, this.binding);
+    buffers.retains = query?.retains ?? false;
     const iterators = buffers.iterators!;
     if (guard) guard.iterating++;
     try {
@@ -214,10 +221,12 @@ interface ViewIterator extends IterableIterator<Entity> {
   readonly length: number;
   readonly dense: readonly number[];
   readonly guard: { iterating: number } | null;
+  readonly ctx: WorldContext | null;
   readonly result: { value: Entity; done: boolean };
 }
 
 function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
+  if (this.ctx !== null) return nextRetainedViewIterator(this);
   const index = this.index >>> 0;
   let value = 0 as Entity;
   let done = true;
@@ -231,6 +240,19 @@ function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
   this.result.value = value;
   this.result.done = done;
   return this.result as IteratorResult<Entity>;
+}
+
+/** Retained walks skip entries evicted while a callback holds the original array. */
+function nextRetainedViewIterator(iterator: ViewIterator): IteratorResult<Entity> {
+  while (iterator.index < iterator.length) {
+    const entity = iterator.dense[iterator.index++] as Entity;
+    if (!isEntityReadable(iterator.ctx!.entityIndex, entity)) continue;
+    iterator.result.value = entity;
+    return iterator.result as IteratorResult<Entity>;
+  }
+  finishViewIterator(iterator);
+  iterator.result.value = 0 as Entity;
+  return iterator.result as IteratorResult<Entity>;
 }
 
 function returnViewIterator(this: ViewIterator): IteratorResult<Entity> {
@@ -365,6 +387,7 @@ function createIterationBuffers(): QueryIterationBuffers {
     traits: [],
     records: [],
     iterators: undefined,
+    retains: false,
     modes: [],
     atomicSnapshots: [],
     changedEntities: [],

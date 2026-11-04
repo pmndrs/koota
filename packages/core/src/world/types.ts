@@ -46,12 +46,10 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
-  /** Extra history window in newer destroys before an id can be reused. Readers hold it independently. */
+  /** Maximum destroyed entities whose data and query history remain readable. */
   readonly retain: number;
-  /** Destroyed entities whose ids are not reused yet, in destroy order. Spawns reuse them. */
+  /** Retained destroyed entities in destroy order. Overflow evicts the oldest. */
   tombstones: HandleRing;
-  /** Number of pending and exposed Removed batches holding each entity, by page and offset. */
-  entityRetainCounts: Uint32Array[];
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
@@ -65,15 +63,15 @@ export type WorldContext = {
 
 export type WorldOptions = {
   /**
-   * How many newer destroys an id waits for before a spawn may reuse it. Defaults to 1024.
-   * Zero removes only this extra history window. Matching Removed queries hold their entities
-   * until the next run replaces the exposed batch. Must be a non-negative safe integer.
+   * Maximum retained destroyed entities. Defaults to 1024. Overflow evicts the oldest even if
+   * a Removed reader has not consumed it. Zero disables destroyed-entity retention.
+   * Must be a non-negative safe integer.
    */
   retain?: number;
 };
 
 export type World = {
-  /** The history window set at creation. Read-only and preserved by reset. */
+  /** The retention cap set at creation. Read-only and preserved by reset. */
   readonly retain: number;
   readonly id: number;
   readonly isRegistered: boolean;

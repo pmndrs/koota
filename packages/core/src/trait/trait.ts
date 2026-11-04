@@ -57,6 +57,7 @@ import type { World, WorldContext } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { createSubscriptions, emit } from './subscriptions';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
+import { createClearFunction } from '../storage/stores';
 import type {
   ConfigurableTrait,
   ExtractStore,
@@ -98,6 +99,7 @@ export function createTraitContext<S extends Schema>(
   return {
     id: traitId++,
     createStore: () => createStore(schema),
+    clear: createClearFunction(schema),
     validate: accessors?.validate,
     add: accessors?.add ?? defaults.add,
     set: accessors?.set ?? defaults.set,
@@ -316,7 +318,7 @@ export function releaseRelationTargets(
 
 /**
  * A dying entity leaves its queries and tells its subscribers. Data and outgoing relation
- * targets stay readable until reuse. Reverse relation indexes let go of it immediately.
+ * targets stay readable until eviction. Reverse relation indexes let go of it immediately.
  */
 export function removeTraitFromDyingEntity(
   ctx: WorldContext,
@@ -498,7 +500,7 @@ export /* @inline @pure */ function getTraitForTrait(
 }
 
 /**
- * A removed trait keeps its last value readable until it is added back or the id is reused. A
+ * A removed trait keeps its last value readable until it is added back or the entity is evicted. A
  * destroyed entity or an event has every trait it died with recorded as removed.
  */
 export function getRetainedTrait(

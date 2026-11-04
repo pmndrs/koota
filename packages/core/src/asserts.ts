@@ -1,5 +1,5 @@
 import type { Entity } from './entity/types';
-import { isEntityAlive } from './entity/utils/entity-index';
+import { isEntityAlive, isEntityReadable } from './entity/utils/entity-index';
 import { getEntityId } from './entity/utils/pack-entity';
 import { getTraitInstance } from './trait/trait-instance';
 import type { Trait } from './trait/types';
@@ -27,9 +27,7 @@ export /* @inline */ function assertEntityReadable(
   if (ctx === undefined || ctx === null) {
     throw createEntityNotAliveError(entity);
   }
-  const index = ctx.entityIndex;
-  const denseIdx = index.sparse[getEntityId(entity)];
-  if (denseIdx === undefined || index.dense[denseIdx] !== entity) {
+  if (!isEntityReadable(ctx.entityIndex, entity)) {
     throw createEntityNotAliveError(entity);
   }
 }

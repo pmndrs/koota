@@ -4,6 +4,7 @@ import { assertEntityAlive, assertEntityReadable } from '../asserts';
 import {
   addEntityToQuery,
   dropQuery,
+  evictEntityFromQuery,
   IsExcluded,
   queryInternal,
   removeEntityFromQuery,
@@ -24,12 +25,17 @@ import {
   removeTraitFromDyingEntity,
 } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
-import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
+import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { WorldContext } from '../world';
 import type { QueryInstance } from '../query/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
 import type { Entity } from './types';
-import { allocateFreshEntity, freeEntity, isEntityAlive, reuseEntity } from './utils/entity-index';
+import {
+  allocateEntity,
+  freeEntity,
+  isEntityAlive,
+  releaseRetainedEntity,
+} from './utils/entity-index';
 import { pushHandle } from './utils/handle-ring';
 import { getEntityId } from './utils/pack-entity';
 import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
@@ -39,7 +45,7 @@ import { addressSpace } from './utils/address-space';
 import './entity-methods-patch';
 
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
-  const entity = allocateReusing(ctx);
+  const entity = allocateEntity(ctx.entityIndex);
 
   // Tracking queries enter on trait events. Static exclusion queries need an initial match.
   const notQueries = ctx.notQueries;
@@ -138,9 +144,8 @@ export function destroyQueuedEntity(
     }
   }
 
-  // The id stays readable with its data until a spawn reuses it.
+  // The id stays readable until the retention cap evicts it.
   freeEntity(ctx.entityIndex, entity);
-  pushHandle(ctx.tombstones, entity);
 
   const targetQueries = ctx.targetQueries[pageId]?.[offset];
   if (targetQueries) dropTargetQueries(ctx, targetQueries, entity);
@@ -156,6 +161,7 @@ export function destroyQueuedEntity(
     if (page === EMPTY_MASK_PAGE) continue;
     page[slot] = 0;
   }
+  retainDestroyedEntity(ctx, entity);
 }
 
 /** Detach every relation that points at the dying entity and queue its auto destroy cascade. */
@@ -234,51 +240,47 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
   }
 }
 
-/** Drops the relation targets and pair data a destroyed entity kept, before its id is reused. */
-function clearTombstoneRelations(word: number, traitsByBit: TraitInstance[], eid: number) {
-  while (word !== 0) {
-    const low = word & -word;
-    const instance = traitsByBit[31 - Math.clz32(low)];
-    if (instance.relationTargets !== undefined) clearRelationEntity(instance, eid);
-    word &= ~low;
+/** Keep the newest retain destroyed entities. Overflow evicts the oldest, including unread data. */
+function retainDestroyedEntity(ctx: WorldContext, entity: Entity) {
+  if (ctx.retain === 0) {
+    evictEntity(ctx, entity);
+    return;
   }
-}
-
-/**
- * Reuse the oldest freed id once at least retain newer destroys have happened and no Removed
- * batch holds it. Otherwise allocate a fresh id.
- */
-function allocateReusing(ctx: WorldContext): Entity {
   const ring = ctx.tombstones;
-  if (ring.count > ctx.retain) {
-    const entity = ring.ids[ring.head] as Entity;
-    const eid = getEntityId(entity);
-    if (ctx.entityRetainCounts[eid >>> 10]?.[eid & 1023]) {
-      return allocateFreshEntity(ctx.entityIndex);
-    }
+  if (ring.count === ctx.retain) {
+    const oldest = ring.ids[ring.head] as Entity;
     ring.head = (ring.head + 1) & (ring.ids.length - 1);
     ring.count--;
-    clearTombstoneHistory(ctx, entity);
-    return reuseEntity(ctx.entityIndex, entity);
+    evictEntity(ctx, oldest);
   }
-  return allocateFreshEntity(ctx.entityIndex);
+  pushHandle(ring, entity);
 }
 
-/** Clear the history a destroyed entity kept so a reused id starts clean. */
-export function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
+/** Release stored values and query entries before the slot becomes reusable. */
+function evictEntity(ctx: WorldContext, entity: Entity) {
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
   const entityMasks = ctx.entityMasks;
-  const hasRelations = ctx.relations.length !== 0;
   for (let g = 0; g < entityMasks.length; g++) {
     const page = entityMasks[g][pageId];
     if (page === EMPTY_MASK_PAGE) continue;
-    if (hasRelations) clearTombstoneRelations(page[slot + DESTROYED_WORD], ctx.traitsByBit[g], eid);
+    let word = page[slot + REMOVED_WORD] | page[slot + DESTROYED_WORD];
+    const traits = ctx.traitsByBit[g];
+    while (word !== 0) {
+      const low = word & -word;
+      const instance = traits[31 - Math.clz32(low)];
+      const queries = instance.trackingQueries;
+      for (let i = 0; i < queries.length; i++) evictEntityFromQuery(queries[i], entity);
+      if (instance.relationTargets !== undefined) clearRelationEntity(instance, eid);
+      else instance.trait[$internal].clear?.(eid, instance.store);
+      word &= ~low;
+    }
     page[slot + REMOVED_WORD] = 0;
     page[slot + CHANGED_WORD] = 0;
     page[slot + DESTROYED_WORD] = 0;
   }
+  releaseRetainedEntity(ctx.entityIndex, entity);
 }
 
 /** The world that owns a live entity. Used by entity methods. */

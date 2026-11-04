@@ -104,13 +104,12 @@ function firstRetained(query: QueryInstance): Entity | undefined {
 /**
  * Exposes the batch accumulated since the previous run and starts collecting the next one in the
  * set that run exposed. A run nested inside a walk of the batch keeps it as it is. For Removed
- * queries, both batches keep their destroyed entities readable until cleared.
+ * queries, both batches can read destroyed entities until the world's retention cap evicts them.
  */
 function consumeTrackingBatch(query: QueryInstance) {
   if (query.iterating !== 0) return;
   const exposed = query.entities;
   const next = query.exposed;
-  if (query.retains) releaseBatch(query.ctx, next);
   next.clear();
   query.entities = next;
   exposeQuerySet(query, exposed);
@@ -120,21 +119,24 @@ function consumeTrackingBatch(query: QueryInstance) {
   }
 }
 
-/** A batch owns one hold per entity, including live removals that may be destroyed later. */
-function retainEntity(ctx: WorldContext, entity: Entity) {
-  const eid = getEntityId(entity);
-  const page = (ctx.entityRetainCounts[eid >>> 10] ??= new Uint32Array(PAGE_SIZE));
-  page[eid & 1023]++;
-}
-
-function releaseEntityHold(ctx: WorldContext, entity: Entity) {
-  const eid = getEntityId(entity);
-  ctx.entityRetainCounts[eid >>> 10][eid & 1023]--;
-}
-
-function releaseBatch(ctx: WorldContext, batch: SparseSet) {
-  const { dense, length } = batch;
-  for (let i = 0; i < length; i++) releaseEntityHold(ctx, dense[i] as Entity);
+/** Expired history leaves both batches without emitting a second removal event. */
+export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
+  // Unnamed tracking queries reset on spawn. Named queries are outside that list.
+  if (query.name !== undefined) resetQueryTrackingBitmasks(query, getEntityId(entity));
+  if (query.entities.length !== 0) query.entities.remove(entity);
+  query.toRemove?.remove(entity);
+  if (query.exposed.length !== 0 && query.exposed.has(entity)) {
+    /* @cold */ if (query.iterating !== 0) {
+      // An active walk keeps its array and skips expired handles. Later reads see the new set.
+      const next = new SparseSet();
+      const { dense, length } = query.exposed;
+      for (let i = 0; i < length; i++) if (dense[i] !== entity) next.add(dense[i]);
+      exposeQuerySet(query, next);
+    } else {
+      query.exposed.remove(entity);
+    }
+  }
+  query.version++;
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
@@ -148,12 +150,8 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   )
     return;
   if (toRemove !== null && toRemove.length !== 0) toRemove.remove(entity);
-  const length = query.entities.length;
   query.entities.add(entity);
   query.version++;
-  if (query.retains && query.entities.length !== length) {
-    retainEntity(query.ctx, entity);
-  }
 
   const subscribers = query.addSubscriptions;
   if (subscribers !== null && subscribers.size !== 0) {
@@ -169,7 +167,6 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
 
   if (query.iterating === 0) {
     query.entities.remove(entity);
-    if (query.retains) releaseEntityHold(ctx, entity);
   } else {
     (query.toRemove ??= new SparseSet()).add(entity);
     ctx.dirtyQueries.add(query);
@@ -206,7 +203,6 @@ export function commitQueryRemovals(ctx: WorldContext) {
       const eid = dense[i];
       toRemove.remove(eid);
       query.entities.remove(eid);
-      if (query.retains) releaseEntityHold(ctx, eid as Entity);
     }
   }
   ctx.dirtyQueries.clear();
@@ -629,10 +625,6 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     leaveList(queryList(query, instance), query, i, instance, false);
-  }
-  if (query.retains) {
-    releaseBatch(ctx, query.entities);
-    releaseBatch(ctx, query.exposed);
   }
   for (let k = 0; k < query.relationFilters!.length; k++) {
     const trait = query.relationFilters![k].relation[$internal].trait;

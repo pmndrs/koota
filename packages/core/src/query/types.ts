@@ -52,6 +52,8 @@ export type QueryIterationBuffers = {
     | undefined
   )[];
   iterators: QueryIterators | undefined;
+  /** Removed walks can read dead entities until their retained history is evicted. */
+  retains: boolean;
   /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
   modes: number[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
@@ -231,7 +233,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   isTracking: boolean;
   /**
    * Holds a Removed term. Its other terms read the traits a dead entity died with, and its
-   * pending and exposed batches keep their entities readable.
+   * pending and exposed batches are trimmed when the retention cap evicts an entity.
    */
   retains: boolean;
   hasChangedModifiers: boolean;

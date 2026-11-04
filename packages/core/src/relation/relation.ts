@@ -131,7 +131,7 @@ function removeFromRelationSources(traitData: TraitInstance, entity: Entity, tar
 }
 
 /**
- * A destroyed entity keeps its targets and pair data until its id is reused, so only the reverse
+ * A destroyed entity keeps its targets and pair data until eviction, so only the reverse
  * index, which lives on the targets, lets go of it.
  */
 export function detachRelationTargets(instance: TraitInstance, entity: Entity): void {

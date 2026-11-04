@@ -74,8 +74,8 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('keeps removed entities distinct from new spawns until the query releases them', () => {
-    const world = createWorld({ retain: 0 });
+  it('keeps retained entities distinct from new spawns until eviction', () => {
+    const world = createWorld({ retain: 2 });
     const Removed = createRemoved();
     world.query(Removed(Position));
     const first = world.spawn(Position);
@@ -91,6 +91,7 @@ describe('Query', () => {
     expect(Array.from(world.query(Position))).toEqual([replacement]);
     expect(Array.from(world.query(Removed(Position)))).toEqual([first, second]);
     expect(world.query(Removed(Position)).length).toBe(0);
+    world.spawn().destroy();
     expect(world.spawn(Position).id()).toBe(first.id());
   });
 

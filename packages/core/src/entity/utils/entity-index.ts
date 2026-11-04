@@ -14,11 +14,13 @@ import { leasePage, releasePage } from './page-allocator';
 export type EntityIndex = {
   /** The number of currently alive entities. */
   aliveCount: number;
+  /** Reusable entries immediately after the alive region. Retained entries follow them. */
+  freeCount: number;
   /** Counts every entity that left the alive region, so a walk can tell whether any died. */
   releases: number;
   /**
-   * Dense list of packed entities, alive first. A free slot keeps the handle of the entity that
-   * died there, so it stays readable until the id is reused and the generation is bumped.
+   * Packed entities in three regions: alive, reusable, retained. Eviction bumps the generation
+   * before moving a retained entry into the reusable region.
    */
   dense: Entity[];
   /** Sparse: entityId -> index in dense (or undefined). */
@@ -37,6 +39,7 @@ export type EntityIndex = {
 
 export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext): EntityIndex => ({
   aliveCount: 0,
+  freeCount: 0,
   releases: 0,
   dense: [],
   sparse: [],
@@ -70,6 +73,13 @@ export const allocateFreshEntity = (index: EntityIndex): Entity => {
   return entity;
 };
 
+export const allocateEntity = (index: EntityIndex): Entity => {
+  if (index.freeCount === 0) return allocateFreshEntity(index);
+  if (assertsEnabled) index.owner.structuralRevision++;
+  index.freeCount--;
+  return index.dense[index.aliveCount++];
+};
+
 /** The next id on the current page, leasing a page when it is full. */
 function takeFreshId(index: EntityIndex): Entity {
   const allocator = index.allocator;
@@ -86,7 +96,7 @@ function takeFreshId(index: EntityIndex): Entity {
   return packEntity(allocator.generations[entityId >>> 10]![offset], entityId);
 }
 
-/** Free the entity without bumping its generation. Its data stays readable until id reuse. */
+/** Move the entity after the reusable region, keeping it readable until eviction. */
 export const freeEntity = (index: EntityIndex, entity: Entity): void => {
   const entityId = getEntityId(entity);
   const denseIdx = index.sparse[entityId];
@@ -97,17 +107,23 @@ export const freeEntity = (index: EntityIndex, entity: Entity): void => {
   const lastEntity = index.dense[lastIdx];
   index.sparse[getEntityId(lastEntity)] = denseIdx;
   index.dense[denseIdx] = lastEntity;
-  index.sparse[entityId] = lastIdx;
-  index.dense[lastIdx] = entity;
+  const retainedIdx = lastIdx + index.freeCount;
+  if (retainedIdx !== lastIdx) {
+    const displaced = index.dense[retainedIdx];
+    index.dense[lastIdx] = displaced;
+    index.sparse[getEntityId(displaced)] = lastIdx;
+  }
+  index.sparse[entityId] = retainedIdx;
+  index.dense[retainedIdx] = entity;
   index.aliveCount--;
 };
 
-/** Reuse a freed id. The generation is bumped here, so the old handle stops resolving. */
-export const reuseEntity = (index: EntityIndex, entity: Entity): Entity => {
+/** Invalidate an evicted handle and put its slot at the end of the reusable region. */
+export const releaseRetainedEntity = (index: EntityIndex, entity: Entity): void => {
   if (assertsEnabled) index.owner.structuralRevision++;
   const entityId = getEntityId(entity);
   const denseIdx = index.sparse[entityId];
-  const firstIdx = index.aliveCount;
+  const firstIdx = index.aliveCount + index.freeCount;
   const first = index.dense[firstIdx];
   index.sparse[getEntityId(first)] = denseIdx;
   index.dense[denseIdx] = first;
@@ -117,8 +133,15 @@ export const reuseEntity = (index: EntityIndex, entity: Entity): Entity => {
   const fresh = packEntity(nextGen, entityId);
   index.dense[firstIdx] = fresh;
   index.sparse[entityId] = firstIdx;
-  index.aliveCount++;
-  return fresh;
+  index.freeCount++;
+};
+
+export const isEntityReadable = /* @inline @pure */ (index: EntityIndex, entity: Entity): boolean => {
+  const position = index.sparse[getEntityId(entity)];
+  return (
+    index.dense[position] === entity &&
+    (position < index.aliveCount || position >= index.aliveCount + index.freeCount)
+  );
 };
 
 export const isEntityAlive = /* @inline @pure */ (index: EntityIndex, entity: Entity): boolean => {
