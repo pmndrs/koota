@@ -60,7 +60,7 @@ const grandchild = world.spawn(ChildOf(child))
 // Destroying parent destroys entire subtree
 parent.destroy() // child and grandchild also destroyed
 
-// The destroyed children keep their parent until their id is reused, see queries.md Removed
+// The destroyed children keep their parent until they are evicted, see queries.md Removed
 world.query(createRemoved()(ChildOf), ChildOf(parent)).forEach((child) => child.targetFor(ChildOf))
 ```
 

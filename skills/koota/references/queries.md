@@ -106,7 +106,7 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Explicit `set` writes and `changed()` notifications are recorded in the owning world even before a `Changed` term or query exists. Destroyed entities keep their data until their id is reused, see Removed below.
+Track structural and data changes. Each tracking modifier must be created as a unique instance. The world records its own history, so a query created at any time, including inside a system body, still reports earlier events on its first run. Explicit `set` writes and `changed()` notifications are recorded in the owning world even before a `Changed` term or query exists. Destroyed entities keep their data until they are evicted, see Removed below.
 
 ```typescript
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -126,7 +126,13 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since last query, including entities destroyed while holding it. `get` still returns the value the trait had until it is added back or the id is reused, other terms match a destroyed entity on the traits it died with, and `isAlive` tells a destroy apart from a live remove. A destroyed entity keeps its id and data until a spawn reuses the id, which waits for `retain` newer destroys (fixed by `createWorld({ retain })`, 1024 by default) and for every matching Removed reader to release its batch. Zero removes only the extra history window, so matching readers still protect their batches. A run exposes the pending batch and the next run replaces it. Pending and exposed batches retain their entities independently, and queries only hold entities they match. Reuse follows destroy order, so a held oldest entity also delays reuse of newer ids. A reader that stops running can grow retained memory. A late reader sees removed trait data until the trait is added back and destroyed entities until their ids are reused. Writes to it throw. Relations are kept too: `targetFor`, `targetsFor`, `has` and `get` read the pairs held at destroy, a pair term filters on them, and children destroyed with their parent keep it as their target, while a live entity that drops a pair loses it:
+**Removed** - Entities that removed a trait since the last query, including entities destroyed while holding it. `get` returns the last value until the trait is added back or the entity is evicted. Other terms match a destroyed entity on the traits it died with, and `isAlive` distinguishes a destroy from a live removal.
+
+The world keeps its newest `retain` destroyed entities, fixed by `createWorld({ retain })` and defaulting to 1024. Each destroy that exceeds the cap evicts the oldest, even if unread. Eviction invalidates the handle, removes pending and exposed query entries, releases stored values and relations, and makes the id reusable. Slow readers can miss evicted entities. Zero disables destroyed-entity retention, while live trait removals still work.
+
+Readers consume independent batches within the cap. A run exposes its pending batch and the next run replaces it. Reading does not evict world history, so late queries can still seed retained destroys in destroy order. The cap bounds entity count, not bytes, and allocated pages remain available for reuse. Mutations that overflow the cap also invalidate evicted entries in existing views and snapshots.
+
+Writes to destroyed entities throw. Retained relations remain readable through `targetFor`, `targetsFor`, `has` and `get`, pair terms filter on them, and children destroyed with their parent keep it as their target. A live entity that drops a pair loses it:
 
 ```typescript
 const stoppedEntities = world.query(Removed(Velocity))
@@ -134,7 +140,7 @@ const stoppedEntities = world.query(Removed(Velocity))
 // Track orphaned entities
 const orphaned = world.query(Removed(ChildOf))
 
-// Destroyed entities keep their data until the reader has seen them
+// Destroyed entities keep their data while they remain within the retention cap
 world.query(Removed(ServerSync)).each((serverSync) => serverSync.disconnect())
 world
   .query(Removed(ChildOf), ChildOf(parent))
@@ -187,7 +193,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 - Create instances at module scope, not inside functions
 - Tracking resets after each query execution
 - Changed only tracks `set()` calls and `entity.changed()` signals
-- Removed needs no warm up, a reader created after a removal sees it on its first run while the trait stays removed and the entity id has not been reused
+- Removed needs no warm up, a reader created after a removal sees it on its first run while the trait stays removed and the entity has not been evicted
 
 ## Caching queries
 

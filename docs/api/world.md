@@ -20,8 +20,8 @@ World's can also have their own traits, which function as singletons.
 const world = createWorld({ retain: 1024 })
 world.add(Time, Config)
 
-// Read-only history window, preserved by reset
-// Zero removes only the extra window. Matching Removed queries still retain their batches
+// Read-only cap on retained destroyed entities, preserved by reset
+// Overflow evicts the oldest, even if unread. Zero disables destroyed-entity retention
 world.retain
 
 // Spawns an entity

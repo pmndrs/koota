@@ -163,7 +163,7 @@ const world = createWorld({ retain: 1024 })
 world.add(Time, Config)
 ```
 
-`retain` is an optional non-negative safe integer, defaulting to 1024. `world.retain` is read-only and preserved by reset. Zero removes only the extra history window. Every matching `Removed` query still holds its pending and exposed batches until released.
+`retain` is an optional non-negative safe integer, defaulting to 1024. `world.retain` is read-only and preserved by reset. The world keeps its newest `retain` destroyed entities. Overflow evicts the oldest even if a `Removed` reader has not consumed it. Zero disables destroyed-entity retention. Readers consume independent batches within the cap, and late readers can see retained history.
 
 ## Entities
 
