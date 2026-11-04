@@ -267,6 +267,8 @@ world.query(IsPlayer, Position, Velocity).each((pos, vel) => {
 
 Use `query.sort(compare, [Position])` to read query results in a chosen order. The dependency array lists the traits read by the comparator. Omit it or pass `[]` to sort on every access.
 
+`sorted.entities` exposes the cached ordered array without an extra copy. Access checks whether the order needs refreshing. Read it once per loop and finish before another view access or changes to membership or sort data.
+
 For tracking changes, caching queries, and advanced patterns, see [references/queries.md](references/queries.md).
 
 ## React integration

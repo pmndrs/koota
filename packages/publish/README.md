@@ -763,7 +763,19 @@ sorted.each((position) => {
 
 Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
 
-Active walks keep their starting order. Re-enter the view after they finish to refresh it.
+Active view walks keep their starting order. Re-enter the view after they finish to refresh it.
+
+`sorted.entities` checks whether the order needs refreshing, then returns the cached array without an extra copy. Read it once before the loop:
+
+```js
+const entities = sorted.entities
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+Treat the array as read-only. Finish reading before accessing the view again or changing membership or sort data. Use the view's traversal methods for guarded walks, or `toArray()` for an independent copy.
 
 ### Modifying trait stores directly
 
