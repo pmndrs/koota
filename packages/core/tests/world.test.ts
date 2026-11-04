@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait, IsExcluded } from '../src';
-import { addressSpace } from '../src/entity/utils/address-space';
+import { $internal, createWorld, relation, trait, IsExcluded, type Entity, type World } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 describe('World', () => {
@@ -37,13 +36,16 @@ describe('World', () => {
       'should finalize a used abandoned world',
       async () => {
         let ownedPages: number[] = [];
+        let entity: Entity;
+        let addressSpace: World[typeof $internal]['entityIndex']['allocator'];
 
         await expect(
           waitForFinalization((registry) => {
             (() => {
               const world = createWorld();
-              world.spawn();
+              entity = world.spawn();
               world.query(IsExcluded);
+              addressSpace = world[$internal].entityIndex.allocator;
               ownedPages = [...world[$internal].entityIndex.ownedPages];
               registry.register(world, 'world');
             })();
@@ -51,10 +53,17 @@ describe('World', () => {
         ).resolves.toBe(true);
 
         for (const pageId of ownedPages) {
-          expect(addressSpace.pageOwners[pageId]).toBeNull();
-          expect(addressSpace.pageAliveCounts[pageId]).toBe(0);
-          expect(addressSpace.freePages).toContain(pageId);
+          expect(addressSpace!.pageOwners[pageId]).toBeNull();
+          expect(addressSpace!.pageAliveCounts[pageId]).toBe(0);
+          expect(addressSpace!.freePages).toContain(pageId);
         }
+
+        const replacementWorld = createWorld();
+        const replacement = replacementWorld.spawn();
+        expect(replacement.id()).toBe(entity!.id());
+        expect(entity!.isAlive()).toBe(false);
+        expect(replacementWorld.has(entity!)).toBe(false);
+        replacementWorld.destroy();
       },
       20_000
     );
@@ -68,6 +77,32 @@ describe('World', () => {
     // Always has one entity that is the world itself.
     expect(world.entities.length).toBe(1);
   });
+
+  it.each(['reset', 'destroy'] as const)(
+    '%s invalidates live and retained handles before another world reuses their page',
+    (operation) => {
+      const Value = trait({ value: 0 });
+      const world = createWorld();
+      // Two pages let cleanup keep its world entity while returning the first page.
+      const entities = Array.from({ length: 1024 }, () => world.spawn(Value));
+      entities[1].destroy();
+      world[operation]();
+
+      const replacementWorld = createWorld();
+      for (const stale of entities.slice(0, 2)) {
+        const replacement = replacementWorld.spawn(Value({ value: 9 }));
+        expect(replacement.id()).toBe(stale.id());
+        expect(replacement).not.toBe(stale);
+        expect(stale.isAlive()).toBe(false);
+        expect(replacementWorld.has(stale)).toBe(false);
+        expect(() => stale.get(Value)).toThrow();
+        expect(() => stale.set(Value, { value: 1 })).toThrow();
+        expect(replacement.get(Value)).toEqual({ value: 9 });
+      }
+      replacementWorld.destroy();
+      world.destroy();
+    }
+  );
 
   it('reset should remove entities with auto-destroy relations', () => {
     const Node = trait();

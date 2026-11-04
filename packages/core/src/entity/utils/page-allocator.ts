@@ -34,9 +34,7 @@ export function createPageAllocator(): PageAllocator {
   allocator.worldFinalizer = new FinalizationRegistry<PageCleanupToken>((token) => {
     if (!token.registered) return;
     for (const pageId of token.ownedPages) {
-      allocator.pageAliveCounts[pageId] = 0;
-      allocator.pageOwners[pageId] = null;
-      allocator.freePages.push(pageId);
+      releasePage(allocator, pageId);
     }
     token.ownedPages.length = 0;
   });
@@ -68,7 +66,11 @@ export function leasePage(allocator: PageAllocator, owner: WorldContext): number
   return pageId;
 }
 
+/** Invalidate every handle before the page can be leased by another world. */
 export function releasePage(allocator: PageAllocator, pageId: number): void {
+  const generations = allocator.generations[pageId]!;
+  for (let offset = 0; offset < PAGE_SIZE; offset++) generations[offset]++;
+  allocator.pageAliveCounts[pageId] = 0;
   allocator.pageOwners[pageId] = null;
   allocator.freePages.push(pageId);
 }
@@ -78,14 +80,9 @@ function reclaimEmptyPages(allocator: PageAllocator, needed: number): number {
   for (let pageId = 0; pageId < allocator.pageCursor && reclaimed < needed; pageId++) {
     if (allocator.pageOwners[pageId] === null) continue;
     if (allocator.pageAliveCounts[pageId] === 0) {
-      revokePageFromOwner(allocator, pageId);
-      allocator.freePages.push(pageId);
+      releasePage(allocator, pageId);
       reclaimed++;
     }
   }
   return reclaimed;
-}
-
-function revokePageFromOwner(allocator: PageAllocator, _pageId: number): void {
-  allocator.pageOwners[_pageId] = null;
 }

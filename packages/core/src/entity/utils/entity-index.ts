@@ -9,7 +9,7 @@ import {
   packEntity,
 } from './pack-entity';
 import type { PageAllocator } from './page-allocator';
-import { leasePage } from './page-allocator';
+import { leasePage, releasePage } from './page-allocator';
 
 export type EntityIndex = {
   /** The number of currently alive entities. */
@@ -186,12 +186,8 @@ export const getAliveEntities = (index: EntityIndex): Entity[] => {
 
 /** Release all pages owned by this entity index back to the allocator. */
 export function releaseOwnedPages(index: EntityIndex): void {
-  const allocator = index.allocator;
   for (const pageId of index.ownedPages) {
-    allocator.pageAliveCounts[pageId] = 0;
-    // Preserve bumped generations so old handles stay invalid when a page is leased again.
-    allocator.pageOwners[pageId] = null;
-    allocator.freePages.push(pageId);
+    releasePage(index.allocator, pageId);
   }
   index.ownedPages.length = 0;
   index.pageCursors.length = 0;
