@@ -4,19 +4,39 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { createTraitContext, defineTraitProperties, registerTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitValue } from '../trait/types';
+import type { MutableOrderedView } from '../view/types';
+import { getEntitiesWithRelationTo } from './relation';
 import type { WorldContext } from '../world';
-import { OrderedList } from './ordered-list';
+import { RelationView } from './ordered-view';
 import { $orderedTargetsTrait } from './symbols';
-import type { OrderedRelation, Relation } from './types';
+import type { OrderedRelation, Relation, RelationPair } from './types';
 
 export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation<T> {
-  const schema = () => [] as Entity[];
+  const schema = (): MutableOrderedView<[]> => {
+    throw new Error('Koota: Add an ordered trait to an entity to create its view.');
+  };
   const context = createTraitContext(schema, (defaults) => ({
     // Each entity gets a list bound to itself, so the default is built per add.
     add: (ctx, index, store, value) => {
       const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[index]];
-      const list = value ?? new OrderedList(ctx, entity, relation, orderedTrait);
-      defaults.add(ctx, index, store, list);
+      if (value !== undefined) throw new Error('Koota: Ordered traits create their own views.');
+      const existing = getEntitiesWithRelationTo(ctx, relation, entity);
+      const entities = existing.length === 0 ? [] : (existing as Entity[]);
+      defaults.add(
+        ctx,
+        index,
+        store,
+        new RelationView(ctx, entity, relation, orderedTrait, entities)
+      );
+    },
+    set: (ctx, index, store, value) => {
+      if (value !== defaults.get(ctx, index, store)) {
+        throw new Error('Koota: Mutate the ordered view instead of replacing it.');
+      }
+      return false;
+    },
+    remove: (ctx, index, store) => {
+      (defaults.get(ctx, index, store) as RelationView).active = false;
     },
   }));
 
@@ -36,7 +56,9 @@ export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation
   return orderedTrait;
 }
 
-export /* @inline @pure */ function isOrderedTrait(trait: Trait): trait is OrderedRelation {
+export /* @inline @pure */ function isOrderedTrait(
+  trait: Trait | RelationPair
+): trait is OrderedRelation {
   return $orderedTargetsTrait in trait;
 }
 
@@ -61,24 +83,24 @@ export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRe
   const { entityMasks, entityIndex } = ctx;
   const traitCtx = orderedTrait[$internal];
 
-  const getList = (parent: Entity): OrderedList | undefined => {
+  const getList = (parent: Entity): RelationView | undefined => {
     const eid = getEntityId(parent);
     return entityMasks[generationId][eid >>> 10][eid & 1023] & bitflag
-      ? (traitCtx.get(ctx, eid, store) as OrderedList)
+      ? (traitCtx.get(ctx, eid, store) as RelationView)
       : undefined;
   };
 
   type RelationSub = (entity: Entity, target: Entity) => void;
 
   (relationInstance.addSubscriptions.all as Set<RelationSub>).add((child, parent) => {
-    getList(parent)?._appendWithoutSync(child);
+    getList(parent)?.appendFromRelation(child);
   });
 
   (relationInstance.removeSubscriptions.all as Set<RelationSub>).add((child, parent) => {
     const eid = getEntityId(parent);
     const denseIdx = entityIndex.sparse[eid];
     if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
-      getList(parent)?._removeWithoutSync(child);
+      getList(parent)?.removeFromRelation(child);
     }
   });
 }

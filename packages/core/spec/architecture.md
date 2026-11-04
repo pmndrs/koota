@@ -36,7 +36,7 @@ The internal hot paths should avoid Maps and Sets where an SMI and array can wor
 
 **Pair.** A pair is of a trait and target entity `(trait, targetEntity)`. Relations produce pairs.
 
-**OrderedRelation.** A trait added to the **target** entity that stores an ordered list of all entities with a relation pointing to it. The list and relation stay in sync bidirectionally. Modifying the list updates the relation pairs, and modifying the relation updates the list.
+**OrderedRelation.** A trait added to the **target** entity that stores a mutable ordered view of all entities with a relation pointing to it. The list and relation stay in sync bidirectionally. Modifying the list updates the relation pairs, and modifying the relation updates the list.
 
 ## Definitions
 

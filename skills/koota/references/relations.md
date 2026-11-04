@@ -9,7 +9,7 @@ Relations build graphs between entities. Use for hierarchies, inventories, targe
 - [Building Graphs](#building-graphs) - Hierarchies, inventories, targeting, neighbors
 - [Querying Relations](#querying-relations) - Specific targets, wildcards, combined queries
 - [Traversing Graphs](#traversing-graphs) - Recursive traversal, building trees, finding ancestors
-- [Ordered Relations](#ordered-relations) - Maintaining order (experimental)
+- [Ordered Relations](#ordered-relations) - Maintaining order
 - [Removing Relations](#removing-relations)
 - [Relation Options](#relation-options)
 - [React Hooks](#react-hooks)
@@ -218,119 +218,51 @@ function getAncestors(entity: Entity): Entity[] {
 
 ## Ordered Relations
 
-Ordered relations maintain a list of related entities with bidirectional sync. Use when order matters (UI layers, rendering order, execution order).
-
-### Why ordered relations?
-
-A regular query returns a flat unordered list:
+Ordered relations store an explicit order on the target. Changes to the view and relation stay in sync.
 
 ```typescript
-const children = world.query(ChildOf(parent)) // Order not guaranteed
-```
+import { ordered, relation, trait } from 'koota'
 
-Without ordered relations, you'd need to store an order field and sort every time you query. Ordered relations solve this by caching the order on the target.
-
-### Basic usage
-
-```typescript
-import { relation, ordered } from 'koota'
-
+const Position = trait({ x: 0 })
 const ChildOf = relation()
 const OrderedChildren = ordered(ChildOf)
-
 const parent = world.spawn(OrderedChildren)
-const children = parent.get(OrderedChildren)
+const childA = world.spawn(Position)
+const childB = world.spawn(Position)
+const children = parent.get(OrderedChildren)!
 
-// Array-like interface
-children.push(child1) // Adds ChildOf(parent) to child1
-children.unshift(child2) // Adds to front
-children.splice(0, 1) // Removes first child
-
-// Bidirectional sync
-child3.add(ChildOf(parent)) // child3 automatically added to list
+children.add(childA) // Adds ChildOf(parent)
+childB.add(ChildOf(parent)) // Appends childB
+children.moveTo(childB, 0) // Order: childB, childA
 ```
 
-### Supported methods
+The trait holds a `MutableOrderedView`. Duplicate additions do nothing, and edits notify the parent's ordered trait.
 
-**Standard array methods:**
-
-- `push(entity)` - Add to end
-- `pop()` - Remove from end
-- `shift()` - Remove from front
-- `unshift(entity)` - Add to front
-- `splice(start, deleteCount, ...items)` - Remove/insert
-
-**Special methods:**
-
-- `moveTo(entity, index)` - Move entity to specific position
-- `insert(entity, index)` - Insert at specific position
-
-### Example: UI layer ordering
+Select traits to update them in child order. Every child must have the selected traits.
 
 ```typescript
-const ChildOf = relation({ autoDestroy: 'orphan' })
-const OrderedChildren = ordered(ChildOf)
+children.select(Position).each((position, child, index) => {
+  position.x = index * 100
+})
 
-const scene = world.spawn(OrderedChildren)
-const layers = scene.get(OrderedChildren)
-
-const background = world.spawn(ChildOf(scene))
-const gameplay = world.spawn(ChildOf(scene))
-const ui = world.spawn(ChildOf(scene))
-
-// Render in order (background first, UI last)
-function render(world: World) {
-  for (const layer of layers) {
-    renderLayer(layer)
-  }
-}
-
-// Reorder dynamically
-layers.moveTo(ui, 0) // Move UI to back
+const first = children.at(0)
+const ids = children.map((child) => child.id())
+const snapshot = children.toArray()
 ```
 
-### Example: Execution order
+Edit membership and order through the original view:
 
 ```typescript
-const ChildOf = relation()
-const OrderedSystems = ordered(ChildOf)
-
-const pipeline = world.spawn(OrderedSystems)
-const systems = pipeline.get(OrderedSystems)
-
-// Define system execution order
-systems.push(inputSystem)
-systems.push(physicsSystem)
-systems.push(renderSystem)
-
-// Run in order
-function tick(world: World) {
-  for (const system of systems) {
-    executeSystem(system)
-  }
-}
+children.insert(childA, 0) // Moves an existing child to index 0
+children.sort((a, b) => a.get(Position)!.x - b.get(Position)!.x)
+children.reverse()
+children.remove(childA) // Removes ChildOf(parent)
+children.clear() // Removes all ChildOf(parent) pairs
 ```
 
-### Performance notes
+Adding the ordered trait collects existing children. Removing it leaves their relations intact. Each walk keeps the sequence it started with.
 
-Ordered relations add bookkeeping overhead:
-
-- Cost is paid during structural changes (add, remove, move)
-- NOT during query/iteration time
-- Use only when order is essential
-
-**When to use:**
-
-- UI layer/z-index management
-- System execution order
-- Render order
-- Any time iteration order matters
-
-**When NOT to use:**
-
-- Order doesn't matter
-- Can sort at query time
-- Performance-critical hot paths
+Ordering work happens when children are added, removed, or reordered. Use [sorted queries](queries.md#ordered-views) when trait values determine the order.
 
 ## Removing Relations
 

@@ -49,20 +49,10 @@ export function useQuery<T extends QueryParameter[]>(
       result = next;
     };
 
-    /**
-     * Cache invalidation: addEntityToQuery fires subscriptions before
-     * bumping query.version, so the cache version check would incorrectly
-     * hit on the stale (pre-bump) version. Force a fresh recompute.
-     */
-    const onChange = () => {
-      cache = null;
-      refresh();
-    };
-
     refresh();
 
-    const unsubAdd = world.onQueryAdd(queryRef, onChange);
-    const unsubRemove = world.onQueryRemove(queryRef, onChange);
+    const unsubAdd = world.onQueryAdd(queryRef, refresh);
+    const unsubRemove = world.onQueryRemove(queryRef, refresh);
 
     /**
      * Catch query updates that happened between the initial read and

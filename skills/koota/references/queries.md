@@ -5,11 +5,13 @@ Complete guide to querying entities in Koota.
 ## Contents
 
 - [Basic queries](#basic-queries)
+- [Indexed loops](#indexed-loops) - Zero-copy entity access
 - [Query modifiers](#query-modifiers) - Not, Or
 - [Tracking modifiers](#tracking-modifiers) - Added, Removed, Changed
 - [Caching queries](#caching-queries) - createQuery for performance
 - [Change detection](#change-detection) - automatic with each
 - [Query + select](#query--select) - Select subset of traits for updates
+- [Ordered views](#ordered-views) - Cached entity ordering
 - [Direct store access](#direct-store-access) - getPages for performance
 
 ## Basic queries
@@ -18,7 +20,7 @@ Queries fetch entities that share specific traits (archetypes).
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
-A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Call `toArray()` for a copy you own. Structural changes inside a loop are safe.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes during view traversal with `for...of`, `forEach`, or `each` are safe.
 
 ```typescript
 // Returns a QueryView, a live borrowed view
@@ -58,6 +60,32 @@ const player = world.queryFirst(IsPlayer, Position)
 // Query all entities (excludes system entities)
 const allEntities = world.query()
 ```
+
+## Indexed loops
+
+Read `query.entities` once to borrow the regular query view's backing array without copying.
+
+```typescript
+const query = world.query(Position)
+const entities = query.entities
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+Treat the array as read-only. Finish the loop before running another query or changing membership. Use `for...of` on the view or `each` when the loop adds or removes entities or traits. Use `toArray()` to keep an independent copy.
+
+Both indexed loops and `for...of` on `query.entities` use native array traversal.
+
+Median time per 10,000-entity checksum on an Apple M4 Pro, across eight fresh processes with assertions disabled:
+
+| Indexed traversal | Node 24.14.0 | Node 26.1.0 |
+| ----------------- | -----------: | ----------: |
+| Native array      |      3.23 µs |     3.30 µs |
+| `query.entities`  |      3.27 µs |     3.29 µs |
+
+Run `pnpm bench '@query-indexed-raw' -n query-entities` to compare them with plain arrays.
 
 ## Query modifiers
 
@@ -255,3 +283,35 @@ for (const {
 `page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
 
 Query each frame and finish the loop before adding or removing traits or entities. Direct writes don't notify subscribers. Call `entity.changed(Trait)` when you need notifications.
+
+## Ordered views
+
+Use `sort` to read query results in a chosen order.
+
+```ts
+const query = world.query(Position)
+const sorted = query.sort(
+  (a: Entity, b: Entity) => a.get(Position)!.x - b.get(Position)!.x,
+  [Position]
+)
+
+sorted.each((position) => {
+  console.log(position.x)
+})
+```
+
+Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
+
+Active view walks keep their starting order. Re-enter the view after they finish to refresh it.
+
+`sorted.entities` checks whether the order needs refreshing, then returns the cached array without an extra copy. Read it once before the loop:
+
+```js
+const entities = sorted.entities
+
+for (let i = 0, length = entities.length; i < length; i++) {
+  draw(entities[i])
+}
+```
+
+Treat the array as read-only. Finish reading before accessing the view again or changing membership or sort data. Use the view's traversal methods for guarded walks, or `toArray()` for an independent copy.

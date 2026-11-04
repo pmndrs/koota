@@ -19,7 +19,7 @@ export function updateHandLayout(world: World) {
     const centerY = viewport.height + fanRadius - cardHeight / 2;
 
     for (let i = 0; i < cards.length; i++) {
-      const card = cards[i];
+      const card = cards.at(i)!;
 
       // Assign z-index based on card order
       card.set(ZIndex, { value: i });

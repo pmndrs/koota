@@ -127,13 +127,12 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
     return;
   if (toRemove !== null && toRemove.length !== 0) toRemove.remove(entity);
   query.entities.add(entity);
+  query.version++;
 
   const subscribers = query.addSubscriptions;
   if (subscribers !== null && subscribers.size !== 0) {
     emitQuerySubscribers(query.ctx, subscribers, entity);
   }
-
-  query.version++;
 }
 
 /** Removes at once unless a walk is in progress, which keeps the removal pending until it ends. */
@@ -148,13 +147,12 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
     (query.toRemove ??= new SparseSet()).add(entity);
     ctx.dirtyQueries.add(query);
   }
+  query.version++;
 
   const subscribers = query.removeSubscriptions;
   if (subscribers !== null && subscribers.size !== 0) {
     emitQuerySubscribers(ctx, subscribers, entity);
   }
-
-  query.version++;
 }
 
 /** A callback can drop queries from any list its caller is still walking. */
@@ -358,7 +356,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   ctx.queriesHashMap.set(query.hash, query);
 
   const relationFilters = query.relationFilters;
-  query.listSlots = Array.from({ length: all.length + relationFilters.length }, () => -1);
+  query.listSlots = new Array<number>(all.length + relationFilters.length).fill(-1);
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     if (all.indexOf(instance) !== i) continue;

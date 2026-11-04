@@ -1,6 +1,7 @@
 import {
   $internal,
   $relationPair,
+  createQuery,
   shallowEqual,
   type Entity,
   type RelationPair,
@@ -16,113 +17,150 @@ export function resolveEntity(target: Entity | World | undefined | null): Entity
   return target[$internal].worldEntity;
 }
 
-/** Relation pairs are equal when their relation and target match. */
-export function sameInput(a: unknown, b: unknown): boolean {
+type Target = Entity | World | undefined | null;
+type Attach<T, I> = (entity: Entity, input: I, push: (value: T) => void) => () => void;
+type GetVersionSource<I> = (entity: Entity, input: I) => { version: number } | undefined;
+/** Snapshots share one subscription for the lifetime of a target and input. */
+type Snapshot<T, I> = { binding: Binding<T, I>; value: T | undefined };
+type Action<T, I> = Snapshot<T, I> | { replace: Snapshot<T, I> };
+type Binding<T, I> = {
+  target: Target;
+  input: I;
+  subscribe: (publish: (snapshot: Snapshot<T, I>) => void) => (() => void) | undefined;
+  entity: Entity | undefined;
+  value: T | undefined;
+  source: { version: number } | undefined;
+  version: number;
+};
+
+function queryRef(query: RelationPair['targetQuery']) {
+  return Array.isArray(query) ? createQuery(...query) : query;
+}
+
+function sameInput(a: unknown, b: unknown) {
   if (a === b) return true;
-  const pairA = a as RelationPair;
-  const pairB = b as RelationPair;
+  const left = a as RelationPair;
+  const right = b as RelationPair;
   return (
-    !!pairA[$relationPair] &&
-    !!pairB[$relationPair] &&
-    pairA.relation === pairB.relation &&
-    pairA.target === pairB.target
+    left[$relationPair] &&
+    right[$relationPair] &&
+    left.relation === right.relation &&
+    left.target === right.target &&
+    (left.targetQuery === right.targetQuery ||
+      queryRef(left.targetQuery) === queryRef(right.targetQuery))
   );
 }
 
-export type Attach<T, I> = (entity: Entity, input: I, push: (value: T) => void) => () => void;
-
-type VersionSource = { version: number };
-type GetVersionSource<I> = (entity: Entity, input: I) => VersionSource | undefined;
-
-/** Live cache for one entity and input, stable for the subscription lifetime. */
-type Binding<T, I> = {
-  entity: Entity | undefined;
-  input: I;
-  value: T | undefined;
-  version: number;
-  versionSource: VersionSource | undefined;
-};
-
-type State<T, I> = { binding: Binding<T, I> };
-type Action<T, I> = Binding<T, I> | { replace: Binding<T, I> };
-
-function createBinding<T, I>(
-  entity: Entity | undefined,
+function createSnapshot<T, I>(
+  target: Target,
   input: I,
   read: (entity: Entity, input: I) => T,
+  attach: Attach<T, I>,
   getVersionSource?: GetVersionSource<I>
-): Binding<T, I> {
+): Snapshot<T, I> {
+  const entity = resolveEntity(target);
   const alive = entity !== undefined && entity.isAlive();
   const value = alive ? read(entity, input) : undefined;
-  const versionSource = alive ? getVersionSource?.(entity, input) : undefined;
-  return { entity, input, value, version: versionSource?.version ?? 0, versionSource };
+  const source = alive ? getVersionSource?.(entity, input) : undefined;
+  const binding: Binding<T, I> = {
+    target,
+    input,
+    entity,
+    value,
+    source,
+    version: source?.version ?? 0,
+    subscribe: (publish) => subscribe(binding, publish, read, attach, getVersionSource),
+  };
+  return { binding, value };
 }
 
-function reducer<T, I>(state: State<T, I>, next: Action<T, I>): State<T, I> {
-  if ('replace' in next) return { binding: next.replace };
-  // A previous subscription may still emit before its effect is cleaned up.
-  return next === state.binding ? { binding: next } : state;
+function observeEntity<T, I>(
+  binding: Binding<T, I>,
+  publish: (next: Snapshot<T, I>) => void,
+  read: (entity: Entity, input: I) => T,
+  attach: Attach<T, I>,
+  getVersionSource?: GetVersionSource<I>
+) {
+  const { entity, input } = binding;
+  if (!entity?.isAlive()) {
+    if (binding.value !== undefined) {
+      binding.value = undefined;
+      publish({ binding, value: undefined });
+    }
+    return;
+  }
+  const push = (value: T | undefined) => {
+    binding.value = value;
+    binding.version = binding.source?.version ?? 0;
+    publish({ binding, value });
+  };
+  const detach = attach(entity, input, push);
+  // Catch writes before the subscription attached, including changes to an AoS object in place.
+  if (getVersionSource) {
+    const source = getVersionSource(entity, input);
+    const replaced = binding.source !== undefined && binding.source !== source;
+    binding.source = source;
+    if (replaced || (source?.version ?? 0) !== binding.version) push(read(entity, input));
+  } else {
+    const latest = read(entity, input);
+    if (!shallowEqual(latest, binding.value)) push(latest);
+  }
+  return detach;
 }
 
-/**
- * Read an entity value during render and subscribe to updates in an effect.
- * Check the value after subscribing to catch changes since render.
- */
+function subscribe<T, I>(
+  binding: Binding<T, I>,
+  dispatch: (next: Snapshot<T, I>) => void,
+  read: (entity: Entity, input: I) => T,
+  attach: Attach<T, I>,
+  getVersionSource?: GetVersionSource<I>
+) {
+  const { target } = binding;
+  if (typeof target !== 'object' || !target)
+    return observeEntity(binding, dispatch, read, attach, getVersionSource);
+  // A reset replaces the world entity even when the observed trait was absent.
+  const listen = () => {
+    const entity = resolveEntity(target);
+    if (entity !== binding.entity) {
+      binding.entity = entity;
+      binding.version = -1;
+    }
+    return observeEntity(binding, dispatch, read, attach, getVersionSource);
+  };
+  let detach = listen();
+  const reset = () => {
+    detach?.();
+    detach = listen();
+  };
+  target[$internal].resetSubscriptions.add(reset);
+  return () => {
+    target[$internal].resetSubscriptions.delete(reset);
+    detach?.();
+  };
+}
+
+function reducer<T, I>(state: Snapshot<T, I>, next: Action<T, I>) {
+  if ('replace' in next) return next.replace;
+  // An old subscription may still emit before React cleans up its effect.
+  return next.binding === state.binding ? next : state;
+}
+
 export function useEntityValue<T, I>(
-  target: Entity | World | undefined | null,
+  target: Target,
   input: I,
   read: (entity: Entity, input: I) => T,
   attach: Attach<T, I>,
   getVersionSource?: GetVersionSource<I>
 ): T | undefined {
-  const entity = resolveEntity(target);
-  const [state, dispatch] = useReducer(reducer<T, I>, undefined, () => ({
-    binding: createBinding(entity, input, read, getVersionSource),
-  }));
-
-  // Read a new binding during render so a target switch never displays the old value.
-  let binding = state.binding;
-  if (binding.entity !== entity || !sameInput(binding.input, input)) {
-    binding = createBinding(entity, input, read, getVersionSource);
-    dispatch({ replace: binding });
+  const [current, dispatch] = useReducer(reducer<T, I>, undefined, () =>
+    createSnapshot(target, input, read, attach, getVersionSource)
+  );
+  let snapshot = current;
+  if (current.binding.target !== target || !sameInput(current.binding.input, input)) {
+    snapshot = createSnapshot(target, input, read, attach, getVersionSource);
+    dispatch({ replace: snapshot });
   }
-
-  // Capture what this render used before subscription callbacks can update the cache.
-  const { value, version } = binding;
-
-  useEffect(() => {
-    // A reset between render and subscribe replaces the world's entity as well as its storage.
-    const currentEntity = resolveEntity(target);
-    if (binding.entity !== currentEntity) {
-      dispatch({ replace: createBinding(currentEntity, binding.input, read, getVersionSource) });
-      return;
-    }
-    const entity = binding.entity;
-    if (entity === undefined || !entity.isAlive()) return;
-
-    const push = (value: T) => {
-      binding.value = value;
-      binding.version = binding.versionSource?.version ?? 0;
-      dispatch(binding);
-    };
-
-    const detach = attach(entity, binding.input, push);
-    // Catch changes between render and subscribe.
-    if (getVersionSource) {
-      const source = getVersionSource(entity, binding.input);
-      // A reset can replace the source with one at the same version.
-      const replaced = binding.versionSource !== undefined && binding.versionSource !== source;
-      binding.versionSource = source;
-      if (replaced || version !== (source?.version ?? 0)) {
-        push(read(entity, binding.input));
-      }
-    } else {
-      const latest = read(entity, binding.input);
-      if (!shallowEqual(latest, value)) push(latest);
-    }
-    return detach;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [binding]);
-
-  return value;
+  const binding = snapshot.binding;
+  useEffect(() => binding.subscribe(dispatch), [binding]);
+  return snapshot.value;
 }

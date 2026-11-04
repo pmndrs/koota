@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   $internal,
+  createAdded,
   createQuery,
   createRemoved,
   createWorld,
@@ -146,7 +147,7 @@ describe('Query', () => {
     expect(entities).toContain(entityA);
 
     // Check that a query result is returned.
-    expect(entities.each).toBeDefined();
+    expect(entities).toHaveProperty('each');
 
     // Test caching before a world is created.
     const world2 = createWorld();
@@ -616,6 +617,42 @@ describe('Query', () => {
     expect(copy).toEqual([second]);
   });
 
+  it('shares a read-only entity array across query selections without copying', () => {
+    const first = world.spawn(Position, Foo);
+    const second = world.spawn(Position, Foo);
+    const query = world.query(Position, Foo);
+    const entities = query.entities;
+
+    expectTypeOf(entities).toEqualTypeOf<readonly Entity[]>();
+    expect(Array.isArray(entities)).toBe(true);
+    expect(query.entities).toBe(entities);
+    expect(query.select(Position).entities).toBe(entities);
+
+    expect(entities).toEqual([first, second]);
+  });
+
+  it('exposes only current members after removals, additions, and emptying a query', () => {
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const third = world.spawn(Position);
+    const query = world.query(Position);
+    expect(query.entities).toEqual([first, second, third]);
+
+    second.remove(Position);
+    expect(query.entities).toEqual([first, third]);
+
+    second.add(Position);
+    expect(query.entities).toEqual([first, third, second]);
+
+    first.remove(Position);
+    second.remove(Position);
+    third.remove(Position);
+    expect(query.entities).toEqual([]);
+
+    third.add(Position);
+    expect(query.entities).toEqual([third]);
+  });
+
   it('reads indexed entities with array at semantics and respects the live length', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);
@@ -663,20 +700,52 @@ describe('Query', () => {
     }
   );
 
-  it('walks the membership present when a for of loop starts', () => {
+  it('keeps an outer walk stable across nested updates and query runs', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);
+    const query = world.query(Position);
     const visited: Entity[] = [];
+    let replacement!: Entity;
 
-    for (const entity of world.query(Position)) {
+    for (const entity of query) {
       visited.push(entity);
-      if (entity === first) {
-        second.destroy();
-        world.spawn(Position);
-      }
+      if (entity !== first) continue;
+      query.each((_position, inner) => {
+        if (inner === first) second.destroy();
+      });
+      replacement = world.spawn(Position);
+      const nested = world.query(Position);
+      expect(nested.entities).toEqual([first, replacement]);
+      expect([...nested]).toEqual([first, replacement]);
     }
 
     expect(visited).toEqual([first, second]);
+    world.query(Position);
+    expect([...query]).toEqual([first, replacement]);
+  });
+
+  it('keeps a tracking batch stable during iteration and exposes the next batch', () => {
+    const Added = createAdded();
+    const ref = createQuery(Added(Position));
+    world.query(ref);
+    const first = world.spawn(Position);
+    const second = world.spawn(Position);
+    const batch = world.query(ref);
+    expect(batch.entities).toEqual([first, second]);
+    const visited: Entity[] = [];
+    let third!: Entity;
+
+    for (const entity of batch) {
+      visited.push(entity);
+      if (entity !== first) continue;
+      third = world.spawn(Position);
+      expect([...world.query(ref)]).toEqual([first, second]);
+    }
+
+    expect(visited).toEqual([first, second]);
+    expect(world.query(ref).entities).toEqual([third]);
+    expect(batch.entities).toEqual([third]);
+    expect(world.query(ref).entities).toEqual([]);
   });
 
   it('releases the iteration guard when a for of loop breaks', () => {

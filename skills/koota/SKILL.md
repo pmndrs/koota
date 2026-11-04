@@ -251,7 +251,7 @@ world.query(Or(IsPlayer, IsEnemy)) // Has either trait
 
 Prefer `each` over `for...of` + `entity.get()` for data-bearing queries. The entity follows the trait arguments.
 
-A query result is a live view over the query's entities, not an array. Use `at(index)` for random access and `toArray()` for a copy you own. React and Svelte `useQuery` return a plain array sorted by id.
+A query result is a live view. Regular query views expose a read-only, zero-copy array through `query.entities`. Finish using it before another query run or membership change. Use `at(index)` for random access and `toArray()` for an independent copy. React and Svelte `useQuery` return a plain array sorted by id.
 
 `each` is zero-copy, the values it passes are only valid during the callback. Call `entity.get(Trait)` for a snapshot.
 
@@ -264,6 +264,10 @@ world.query(IsPlayer, Position, Velocity).each((pos, vel) => {
   // Two trait arguments, IsPlayer (tag) excluded
 })
 ```
+
+Use `query.sort(compare, [Position])` to read query results in a chosen order. The dependency array lists the traits read by the comparator. Omit it or pass `[]` to sort on every access.
+
+`sorted.entities` exposes the cached ordered array without an extra copy. Access checks whether the order needs refreshing. Read it once per loop and finish before another view access or changes to membership or sort data.
 
 For tracking changes, caching queries, and advanced patterns, see [references/queries.md](references/queries.md).
 
