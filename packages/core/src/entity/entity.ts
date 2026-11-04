@@ -99,7 +99,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
   }
 }
 
-/** Destroy one queued entity, leaving queue and reentrancy handling to the caller. */
+/** Keep the destroy worker separate so trait removal and eviction have their own inlining budget. */
 export function destroyQueuedEntity(
   ctx: WorldContext,
   entity: Entity,
@@ -121,8 +121,8 @@ export function destroyQueuedEntity(
     emitEntityDestroy(ctx, entity);
   }
   // Remove every trait the masks still hold. A removal may cascade into others, so the word
-  // is read again after each one. Record the held word first so has, get and the other
-  // terms of Removed queries see what the entity died with.
+  // is read again after each one. Record the held word first so Removed query filters
+  // match the traits the entity held at destruction.
   const pageId = eid >>> 10;
   const offset = eid & 1023;
   const slot = offset << 2;
@@ -142,7 +142,7 @@ export function destroyQueuedEntity(
     }
   }
 
-  // The id stays readable until the retention cap evicts it.
+  // Keep the data and id for Removed queries until eviction.
   freeEntity(ctx.entityIndex, entity);
 
   const targetQueries = ctx.targetQueries[pageId]?.[offset];

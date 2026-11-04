@@ -187,7 +187,7 @@ export class EntityView {
           buffers,
           stores
         );
-      } else {
+      } else /* @cold */ {
         const changedCount = (positional ? iterators.trackArgs : iterators.trackEach)(
           ctx,
           entities,
