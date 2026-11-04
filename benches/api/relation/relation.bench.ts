@@ -139,7 +139,7 @@ group('relation queries 10k @relation', () => {
     return result.length;
   });
 
-  bench('100 parents, ChildOf(parent)', function* () {
+  bench('100 parents, ChildOf(parent) @relation-small-target', function* () {
     const world = createWorld();
     const parents: Entity[] = [];
     for (let i = 0; i < 100; i++) {
