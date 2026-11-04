@@ -224,22 +224,16 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   trackingGroups: TrackingGroup[];
   /** Entities matching the query. A tracking query accumulates its next batch here. */
   entities: SparseSet;
-  /** The batch a tracking query currently exposes. Swapped with entities on each run. */
-  batch: SparseSet | undefined;
-  /** The set results read. entities for plain queries, the exposed batch for tracking ones. */
+  /** The set results read. Aliases entities for plain queries, swaps with it for tracking ones. */
   exposed: SparseSet;
   /** Walks in progress over the results. Removals stay pending while it is nonzero. */
   iterating: number;
   isTracking: boolean;
   /**
-   * Holds a Removed term. Its other terms read the traits a dead entity died with, and its runs
-   * decide when tombstones are released.
+   * Holds a Removed term. Its other terms read the traits a dead entity died with, and its
+   * pending and exposed batches keep their entities readable.
    */
   retains: boolean;
-  /** The destroy serial at the previous run. Tombstones up to it were exposed and swapped out. */
-  consumedSerial: number;
-  /** The destroy serial at the last run. */
-  lastRunSerial: number;
   hasChangedModifiers: boolean;
   changedTraits: Trait[];
   /** Removals deferred by a walk in progress, created on the first one. */

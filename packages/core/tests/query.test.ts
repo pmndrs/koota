@@ -74,7 +74,7 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('keeps replacements and removed entities distinct when ids are recycled before querying', () => {
+  it('keeps removed entities distinct from new spawns until the query releases them', () => {
     const world = createWorld({ retain: 0 });
     const Removed = createRemoved();
     world.query(Removed(Position));
@@ -86,10 +86,12 @@ describe('Query', () => {
     second.destroy();
     const replacement = world.spawn(Position);
 
-    expect(replacement.id()).toBe(first.id());
+    expect(replacement.id()).not.toBe(first.id());
+    expect(replacement.id()).not.toBe(second.id());
     expect(Array.from(world.query(Position))).toEqual([replacement]);
     expect(Array.from(world.query(Removed(Position)))).toEqual([first, second]);
     expect(world.query(Removed(Position)).length).toBe(0);
+    expect(world.spawn(Position).id()).toBe(first.id());
   });
 
   it('should only create one hash indpendent of the order of the parameters', () => {

@@ -29,15 +29,8 @@ import type { WorldContext } from '../world';
 import type { QueryInstance } from '../query/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
 import type { Entity } from './types';
-import {
-  allocateEntity,
-  allocateFreshEntity,
-  freeEntity,
-  isEntityAlive,
-  releaseEntity,
-  reuseEntity,
-} from './utils/entity-index';
-import { canReleaseHead, pushHandle, shiftHandle } from './utils/handle-ring';
+import { allocateFreshEntity, freeEntity, isEntityAlive, reuseEntity } from './utils/entity-index';
+import { pushHandle } from './utils/handle-ring';
 import { getEntityId } from './utils/pack-entity';
 import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
@@ -46,7 +39,7 @@ import { addressSpace } from './utils/address-space';
 import './entity-methods-patch';
 
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
-  const entity = ctx.retain === 0 ? allocateEntity(ctx.entityIndex) : allocateReusing(ctx);
+  const entity = allocateReusing(ctx);
 
   // Tracking queries enter on trait events. Static exclusion queries need an initial match.
   const notQueries = ctx.notQueries;
@@ -93,80 +86,75 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 
   try {
     while (entityQueue.length > 0) {
-      const currentEntity = entityQueue.pop()!;
-      const currentId = getEntityId(currentEntity);
-      if (processedStamp[currentId] === stamp && processedEntity[currentId] === currentEntity) {
-        continue;
-      }
-      processedStamp[currentId] = stamp;
-      processedEntity[currentId] = currentEntity;
-
-      // The rare work is kept out of line so the trait walk below stays within the optimizer's
-      // inlining budget for this function.
-      if (ctx.relations.length !== 0) {
-        cleanupDestroyedRelations(ctx, currentEntity, currentId, entityQueue, stamp);
-      }
-
-      if (ctx.entityDestroySubscriptions.size > 0 && currentEntity !== ctx.worldEntity) {
-        emitEntityDestroy(ctx, currentEntity);
-      }
-
-      // Remove every trait the masks still hold. A removal may cascade into others, so the word
-      // is read again after each one. A world that keeps destroyed entities records the held word
-      // first, so has, get and the other terms of Removed queries see what the entity died with.
-      const pageId = currentId >>> 10;
-      const offset = currentId & 1023;
-      const slot = offset << 2;
-      const entityMasks = ctx.entityMasks;
-      const keep = ctx.retain !== 0;
-      for (let g = 0; g < entityMasks.length; g++) {
-        const page = entityMasks[g][pageId];
-        if (page === EMPTY_MASK_PAGE) continue;
-        const traitsByBit = ctx.traitsByBit[g];
-        let word = page[slot];
-        page[slot + DESTROYED_WORD] = word;
-        while (word !== 0) {
-          const low = word & -word;
-          const instance = traitsByBit[31 - Math.clz32(low)];
-          removeTraitFromDyingEntity(ctx, currentEntity, instance, keep);
-          // Clear the bit by hand in case removal declined, so the walk always ends.
-          word = page[slot] & ~low;
-        }
-      }
-
-      // The id stays readable with its data until a spawn reuses it. A world that retains
-      // nothing bumps the generation now.
-      if (keep) {
-        freeEntity(ctx.entityIndex, currentEntity);
-        pushHandle(ctx.tombstones, currentEntity, ++ctx.destroySerial);
-      } else {
-        releaseEntity(ctx.entityIndex, currentEntity);
-      }
-
-      const targetQueries = ctx.targetQueries[pageId]?.[offset];
-      if (targetQueries) dropTargetQueries(ctx, targetQueries, currentEntity);
-
-      const allQuery = ctx.queriesHashMap.get('');
-      if (allQuery) removeEntityFromQuery(ctx, allQuery, currentEntity);
-
-      if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, currentEntity);
-
-      // The history goes with the entity so a recycled id starts clean. A kept entity holds it
-      // for the readers that seed from it, and the reuse of its id clears it.
-      for (let i = 0; i < entityMasks.length; i++) {
-        const page = entityMasks[i][pageId];
-        if (page === EMPTY_MASK_PAGE) continue;
-        page[slot] = 0;
-        if (keep) continue;
-        page[slot + REMOVED_WORD] = 0;
-        page[slot + CHANGED_WORD] = 0;
-        page[slot + DESTROYED_WORD] = 0;
-      }
+      destroyQueuedEntity(ctx, entityQueue.pop()!, entityQueue, stamp);
     }
   } finally {
     isDestroying = nested;
     // Only a throw leaves entries behind. Trimming the length reallocates, so do it only then.
     if (!nested && entityQueue.length !== 0) entityQueue.length = 0;
+  }
+}
+
+/** Destroy one queued entity, leaving queue and reentrancy handling to the caller. */
+export function destroyQueuedEntity(
+  ctx: WorldContext,
+  entity: Entity,
+  entityQueue: Entity[],
+  stamp: number
+) {
+  const eid = getEntityId(entity);
+  if (processedStamp[eid] === stamp && processedEntity[eid] === entity) {
+    return;
+  }
+  processedStamp[eid] = stamp;
+  processedEntity[eid] = entity;
+
+  if (ctx.relations.length !== 0) {
+    cleanupDestroyedRelations(ctx, entity, eid, entityQueue, stamp);
+  }
+
+  if (ctx.entityDestroySubscriptions.size > 0 && entity !== ctx.worldEntity) {
+    emitEntityDestroy(ctx, entity);
+  }
+  // Remove every trait the masks still hold. A removal may cascade into others, so the word
+  // is read again after each one. Record the held word first so has, get and the other
+  // terms of Removed queries see what the entity died with.
+  const pageId = eid >>> 10;
+  const offset = eid & 1023;
+  const slot = offset << 2;
+  const entityMasks = ctx.entityMasks;
+  for (let g = 0; g < entityMasks.length; g++) {
+    const page = entityMasks[g][pageId];
+    if (page === EMPTY_MASK_PAGE) continue;
+    const traitsByBit = ctx.traitsByBit[g];
+    let word = page[slot];
+    page[slot + DESTROYED_WORD] = word;
+    while (word !== 0) {
+      const low = word & -word;
+      const instance = traitsByBit[31 - Math.clz32(low)];
+      removeTraitFromDyingEntity(ctx, entity, instance);
+      // Clear the bit by hand in case removal declined, so the walk always ends.
+      word = page[slot] & ~low;
+    }
+  }
+
+  // The id stays readable with its data until a spawn reuses it.
+  freeEntity(ctx.entityIndex, entity);
+  pushHandle(ctx.tombstones, entity);
+
+  const targetQueries = ctx.targetQueries[pageId]?.[offset];
+  if (targetQueries) dropTargetQueries(ctx, targetQueries, entity);
+
+  const allQuery = ctx.queriesHashMap.get('');
+  if (allQuery) removeEntityFromQuery(ctx, allQuery, entity);
+
+  if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, entity);
+
+  // Callbacks may have added traits during removal. Clear any remaining held bits, keeping history.
+  for (let i = 0; i < entityMasks.length; i++) {
+    const page = entityMasks[i][pageId];
+    if (page === EMPTY_MASK_PAGE) continue;
+    page[slot] = 0;
   }
 }
 
@@ -179,7 +167,6 @@ function cleanupDestroyedRelations(
   stamp: number
 ) {
   const relations = ctx.relations;
-  const keep = ctx.retain !== 0;
   for (let r = 0; r < relations.length; r++) {
     const relation = relations[r];
     const relationCtx = relation[$internal];
@@ -193,11 +180,10 @@ function cleanupDestroyedRelations(
         if (i >= sources.length) continue;
         const source = sources[i];
         if (!isEntityAlive(ctx.entityIndex, source)) continue;
-        // A source that dies with its target keeps the pair on its own tombstone, so its destroy
-        // does the cleanup. A world that retains nothing clears the pair here as before.
+        // A source that dies with its target keeps the pair until reuse and cleans up on destroy.
         if (cascade) {
           entityQueue.push(source);
-          if (keep) continue;
+          continue;
         }
         cleanupRelationTarget(ctx, relation, source, entity);
       }
@@ -259,14 +245,19 @@ function clearTombstoneRelations(word: number, traitsByBit: TraitInstance[], eid
 }
 
 /**
- * Spawn on a world that keeps destroyed entities. The oldest freed id is reused once at least
- * retain newer destroys have happened and every Removed reader has moved past it, or once sixteen
- * times retain are waiting on a reader that stalled. Otherwise the id space grows.
+ * Reuse the oldest freed id once at least retain newer destroys have happened and no Removed
+ * batch holds it. Otherwise allocate a fresh id.
  */
 function allocateReusing(ctx: WorldContext): Entity {
   const ring = ctx.tombstones;
-  if (canReleaseHead(ring, ctx.retain, ctx.consumedSerial)) {
-    const entity = shiftHandle(ring);
+  if (ring.count > ctx.retain) {
+    const entity = ring.ids[ring.head] as Entity;
+    const eid = getEntityId(entity);
+    if (ctx.entityRetainCounts[eid >>> 10]?.[eid & 1023]) {
+      return allocateFreshEntity(ctx.entityIndex);
+    }
+    ring.head = (ring.head + 1) & (ring.ids.length - 1);
+    ring.count--;
     clearTombstoneHistory(ctx, entity);
     return reuseEntity(ctx.entityIndex, entity);
   }
@@ -288,20 +279,6 @@ export function clearTombstoneHistory(ctx: WorldContext, entity: Entity) {
     page[slot + CHANGED_WORD] = 0;
     page[slot + DESTROYED_WORD] = 0;
   }
-}
-
-/**
- * The oldest destroy serial every Removed reader has moved past. A reader has moved past a
- * destroy once it ran twice after it, since the first run exposes the batch and the second swaps
- * it out. With no such reader nothing holds an id back beyond the window.
- */
-export function refreshConsumedSerial(ctx: WorldContext) {
-  const readers = ctx.retainingQueries;
-  let consumed = Infinity;
-  for (let i = 0; i < readers.length; i++) {
-    if (readers[i].consumedSerial < consumed) consumed = readers[i].consumedSerial;
-  }
-  ctx.consumedSerial = consumed;
 }
 
 /** The world that owns a live entity. Used by entity methods. */

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createQuery, createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
-  // These tests pin id recycling and stale handle rejection, so the world releases at destroy.
+  // Use no extra history window so unobserved ids can be reused on the next spawn.
   const world = createWorld({ retain: 0 });
 
   beforeEach(() => {

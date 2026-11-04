@@ -16,7 +16,7 @@ const Bar = trait();
 const Value = trait({ value: 0 });
 
 describe('Lifecycle Subscriptions', () => {
-  // These tests pin id recycling and stale handle rejection, so the world releases at destroy.
+  // Use no extra history window so unobserved ids can be reused on the next spawn.
   const world = createWorld({ retain: 0 });
 
   beforeEach(() => {

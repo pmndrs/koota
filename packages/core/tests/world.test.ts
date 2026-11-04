@@ -54,7 +54,6 @@ describe('World', () => {
 
         for (const pageId of ownedPages) {
           expect(addressSpace!.pageOwners[pageId]).toBeNull();
-          expect(addressSpace!.pageAliveCounts[pageId]).toBe(0);
           expect(addressSpace!.freePages).toContain(pageId);
         }
 

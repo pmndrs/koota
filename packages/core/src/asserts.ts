@@ -32,9 +32,6 @@ export /* @inline */ function assertEntityReadable(
   if (denseIdx === undefined || index.dense[denseIdx] !== entity) {
     throw createEntityNotAliveError(entity);
   }
-  if (denseIdx >= index.aliveCount && !index.readableFree) {
-    throw createEntityNotAliveError(entity);
-  }
 }
 
 export /* @inline */ function assertTraitPresent(ctx: WorldContext, entity: Entity, trait: Trait) {

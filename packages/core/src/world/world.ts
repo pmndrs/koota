@@ -1,5 +1,4 @@
 import { $internal } from '../common';
-import { clearHandleRing, createHandleRing } from '../entity/utils/handle-ring';
 import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity } from '../entity/entity';
 import type { Entity } from '../entity/types';
@@ -108,10 +107,8 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
       entityMasks: [createEmptyMaskGeneration()],
       retain,
-      tombstones: createHandleRing(retain === 0 ? 0 : 16),
-      destroySerial: 0,
-      retainingQueries: [],
-      consumedSerial: Infinity,
+      tombstones: { ids: new Int32Array(0), head: 0, count: 0 },
+      entityRetainCounts: [],
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -228,9 +225,9 @@ export function createWorld(...args: (WorldOptions | ConfigurableTrait)[]): Worl
 
       ctx.queriesHashMap.clear();
       ctx.queryInstances.length = 0;
-      ctx.retainingQueries.length = 0;
-      ctx.consumedSerial = Infinity;
-      clearHandleRing(ctx.tombstones);
+      ctx.entityRetainCounts = [];
+      ctx.tombstones.head = 0;
+      ctx.tombstones.count = 0;
       ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();

@@ -315,23 +315,20 @@ export function releaseRelationTargets(
 }
 
 /**
- * A dying entity leaves its queries and tells its subscribers. A world that keeps it holds its
- * data and its relation targets for the readers that still see it, and only the reverse index
- * lets go of it. A world that keeps nothing drops the targets and the pair data at once.
+ * A dying entity leaves its queries and tells its subscribers. Data and outgoing relation
+ * targets stay readable until reuse. Reverse relation indexes let go of it immediately.
  */
 export function removeTraitFromDyingEntity(
   ctx: WorldContext,
   entity: Entity,
-  instance: TraitInstance,
-  keep: boolean
+  instance: TraitInstance
 ) {
   const traitCtx = instance.trait[$internal];
   const relation = traitCtx.relation;
   if (relation) {
     const targets = getRelationTargets(ctx, relation, entity);
     for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-    if (keep) detachRelationTargets(instance, entity);
-    else removeAllRelationTargets(ctx, relation, entity);
+    detachRelationTargets(instance, entity);
   } else {
     emit(instance.removeSubscriptions, entity);
     traitCtx.remove(ctx, getEntityId(entity), instance.store);

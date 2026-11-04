@@ -9,8 +9,6 @@ export type PageCleanupToken = {
 export type PageAllocator = {
   /** Per-page generation values (pageId -> Uint8Array(PAGE_SIZE)). */
   generations: (Uint8Array | null)[];
-  /** Per-page alive entity count. O(1) emptiness check for reclamation. */
-  pageAliveCounts: number[];
   /** Stack of released page IDs available for leasing. */
   freePages: number[];
   /** Next fresh page ID to allocate. */
@@ -24,7 +22,6 @@ export type PageAllocator = {
 export function createPageAllocator(): PageAllocator {
   const allocator: PageAllocator = {
     generations: new Array(MAX_PAGES).fill(null),
-    pageAliveCounts: new Array(MAX_PAGES).fill(0),
     freePages: [],
     pageCursor: 0,
     pageOwners: new Array(MAX_PAGES).fill(null),
@@ -50,13 +47,9 @@ export function leasePage(allocator: PageAllocator, owner: WorldContext): number
   } else if (allocator.pageCursor < MAX_PAGES) {
     pageId = allocator.pageCursor++;
   } else {
-    const reclaimed = reclaimEmptyPages(allocator, 1);
-    if (reclaimed === 0) {
-      throw new Error(
-        `Koota: All ${MAX_PAGES} entity pages are in use. Cannot allocate more entities.`
-      );
-    }
-    pageId = allocator.freePages.pop()!;
+    throw new Error(
+      `Koota: All ${MAX_PAGES} entity pages are in use. Cannot allocate more entities.`
+    );
   }
 
   allocator.pageOwners[pageId] = owner;
@@ -70,19 +63,6 @@ export function leasePage(allocator: PageAllocator, owner: WorldContext): number
 export function releasePage(allocator: PageAllocator, pageId: number): void {
   const generations = allocator.generations[pageId]!;
   for (let offset = 0; offset < PAGE_SIZE; offset++) generations[offset]++;
-  allocator.pageAliveCounts[pageId] = 0;
   allocator.pageOwners[pageId] = null;
   allocator.freePages.push(pageId);
-}
-
-function reclaimEmptyPages(allocator: PageAllocator, needed: number): number {
-  let reclaimed = 0;
-  for (let pageId = 0; pageId < allocator.pageCursor && reclaimed < needed; pageId++) {
-    if (allocator.pageOwners[pageId] === null) continue;
-    if (allocator.pageAliveCounts[pageId] === 0) {
-      releasePage(allocator, pageId);
-      reclaimed++;
-    }
-  }
-  return reclaimed;
 }

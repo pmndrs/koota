@@ -46,16 +46,12 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
-  /** Newer destroys an id must wait for before it is reused. Zero bumps generations at destroy. */
-  retain: number;
+  /** Extra history window in newer destroys before an id can be reused. Readers hold it independently. */
+  readonly retain: number;
   /** Destroyed entities whose ids are not reused yet, in destroy order. Spawns reuse them. */
   tombstones: HandleRing;
-  /** Counts destroys. Removed readers stamp their runs with it. */
-  destroySerial: number;
-  /** Removed query instances. Ids stay unreused until they have moved past them. */
-  retainingQueries: QueryInstance[];
-  /** The oldest serial every retaining reader has moved past, Infinity with none. */
-  consumedSerial: number;
+  /** Number of pending and exposed Removed batches holding each entity, by page and offset. */
+  entityRetainCounts: Uint32Array[];
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
@@ -70,9 +66,9 @@ export type WorldContext = {
 
 export type WorldOptions = {
   /**
-   * How many newer destroys an id waits for before a spawn may reuse it, keeping the destroyed
-   * entity readable meanwhile. Removed queries hold it longer until they have
-   * moved past it, up to sixteen times this. Defaults to 1024. Zero reuses ids at once.
+   * How many newer destroys an id waits for before a spawn may reuse it. Defaults to 1024.
+   * Zero removes only this extra history window. Matching Removed queries hold their entities
+   * until the next run replaces the exposed batch.
    */
   retain?: number;
 };

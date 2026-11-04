@@ -5,8 +5,6 @@ import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import { isNameConfig } from '../name/name-index';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
-import { refreshConsumedSerial } from '../entity/entity';
-import { isEntityReadable } from '../entity/utils/entity-index';
 import {
   getEntitiesWithRelationTo,
   hasRelationPair,
@@ -32,7 +30,6 @@ import {
   type TrackingGroup,
 } from './types';
 import { checkQuery, passesStaticMasks } from './utils/check-query';
-import { handleAt } from '../entity/utils/handle-ring';
 import { checkQueryTrackingSeed } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
@@ -106,45 +103,38 @@ function firstRetained(query: QueryInstance): Entity | undefined {
 
 /**
  * Exposes the batch accumulated since the previous run and starts collecting the next one in the
- * set that run exposed. A run nested inside a walk of the batch keeps it as it is. A retaining
- * query also stamps the run, drops entries the ring has already evicted, and releases the
- * tombstones every retaining reader is done with.
+ * set that run exposed. A run nested inside a walk of the batch keeps it as it is. For Removed
+ * queries, both batches keep their destroyed entities readable until cleared.
  */
 function consumeTrackingBatch(query: QueryInstance) {
   if (query.iterating !== 0) return;
   const exposed = query.entities;
-  const next = query.batch!;
+  const next = query.exposed;
+  if (query.retains) releaseBatch(query.ctx, next);
   next.clear();
   query.entities = next;
-  query.batch = exposed;
   exposeQuerySet(query, exposed);
   const { dense, length } = exposed;
   for (let i = 0; i < length; i++) {
     resetQueryTrackingBitmasks(query, getEntityId(dense[i] as Entity));
   }
-  if (query.retains && query.ctx.retain !== 0) consumeRetained(query, exposed);
 }
 
-/**
- * Entries whose id was reused before this run no longer resolve, so they leave the exposed
- * batch. The batch is rebuilt in place only when something was dropped, which keeps its order.
- */
-function consumeRetained(query: QueryInstance, exposed: SparseSet) {
-  const ctx = query.ctx;
-  const index = ctx.entityIndex;
-  let survivors: Entity[] | undefined;
-  for (let i = 0; i < exposed.length; i++) {
-    const entity = exposed.dense[i] as Entity;
-    if (isEntityReadable(index, entity)) survivors?.push(entity);
-    else if (survivors === undefined) survivors = exposed.dense.slice(0, i) as Entity[];
-  }
-  if (survivors !== undefined) {
-    exposed.clear();
-    for (let i = 0; i < survivors.length; i++) exposed.add(survivors[i]);
-  }
-  query.consumedSerial = query.lastRunSerial;
-  query.lastRunSerial = ctx.destroySerial;
-  refreshConsumedSerial(ctx);
+/** A batch owns one hold per entity, including live removals that may be destroyed later. */
+function retainEntity(ctx: WorldContext, entity: Entity) {
+  const eid = getEntityId(entity);
+  const page = (ctx.entityRetainCounts[eid >>> 10] ??= new Uint32Array(PAGE_SIZE));
+  page[eid & 1023]++;
+}
+
+function releaseEntityHold(ctx: WorldContext, entity: Entity) {
+  const eid = getEntityId(entity);
+  ctx.entityRetainCounts[eid >>> 10][eid & 1023]--;
+}
+
+function releaseBatch(ctx: WorldContext, batch: SparseSet) {
+  const { dense, length } = batch;
+  for (let i = 0; i < length; i++) releaseEntityHold(ctx, dense[i] as Entity);
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
@@ -158,8 +148,12 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   )
     return;
   if (toRemove !== null && toRemove.length !== 0) toRemove.remove(entity);
+  const length = query.entities.length;
   query.entities.add(entity);
   query.version++;
+  if (query.retains && query.entities.length !== length) {
+    retainEntity(query.ctx, entity);
+  }
 
   const subscribers = query.addSubscriptions;
   if (subscribers !== null && subscribers.size !== 0) {
@@ -175,6 +169,7 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
 
   if (query.iterating === 0) {
     query.entities.remove(entity);
+    if (query.retains) releaseEntityHold(ctx, entity);
   } else {
     (query.toRemove ??= new SparseSet()).add(entity);
     ctx.dirtyQueries.add(query);
@@ -211,6 +206,7 @@ export function commitQueryRemovals(ctx: WorldContext) {
       const eid = dense[i];
       toRemove.remove(eid);
       query.entities.remove(eid);
+      if (query.retains) releaseEntityHold(ctx, eid as Entity);
     }
   }
   ctx.dirtyQueries.clear();
@@ -300,13 +296,10 @@ export function createQueryInstance<T extends QueryParameter[]>(
     masks: [],
     trackingGroups: [],
     entities: new SparseSet(),
-    batch: undefined,
     exposed: null!,
     iterating: 0,
     isTracking: false,
     retains: false,
-    consumedSerial: -1,
-    lastRunSerial: -1,
     hasChangedModifiers: false,
     changedTraits: [],
     toRemove: null,
@@ -401,12 +394,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   }
 
   // A tracking query exposes one set while it collects the next batch in the other.
-  query.exposed = query.entities;
-  if (query.isTracking) query.exposed = query.batch = new SparseSet();
-  if (query.retains) {
-    ctx.retainingQueries.push(query);
-    refreshConsumedSerial(ctx);
-  }
+  query.exposed = query.isTracking ? new SparseSet() : query.entities;
 
   if (query.name === undefined && forbidden.length > 0) {
     query.notIndex = ctx.notQueries.length;
@@ -499,7 +487,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
     for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
     if (query.retains && query.name === undefined) {
       const tombstones = ctx.tombstones;
-      for (let k = 0; k < tombstones.count; k++) seed(handleAt(tombstones, k));
+      for (let k = 0; k < tombstones.count; k++) {
+        seed(tombstones.ids[(tombstones.head + k) & (tombstones.ids.length - 1)] as Entity);
+      }
     }
   } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
     scanMaskPages(ctx, query);
@@ -531,7 +521,7 @@ function hasPositiveMask(masks: number[]) {
 function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
   const index = ctx.entityIndex;
   const { ownedPages, pageCursors } = index;
-  const { generations, pageAliveCounts } = index.allocator;
+  const { generations } = index.allocator;
   const masks = query.masks;
   const entityMasks = ctx.entityMasks;
   const single = masks.length === 4;
@@ -541,7 +531,6 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
 
   for (let p = 0; p < ownedPages.length; p++) {
     const pageId = ownedPages[p];
-    if (pageAliveCounts[pageId] === 0) continue;
     const end = pageCursors[p];
     const gens = generations[pageId]!;
     const page = entityMasks[masks[0]][pageId];
@@ -642,9 +631,8 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     leaveList(queryList(query, instance), query, i, instance, false);
   }
   if (query.retains) {
-    const i = ctx.retainingQueries.indexOf(query);
-    if (i !== -1) ctx.retainingQueries.splice(i, 1);
-    refreshConsumedSerial(ctx);
+    releaseBatch(ctx, query.entities);
+    releaseBatch(ctx, query.exposed);
   }
   for (let k = 0; k < query.relationFilters!.length; k++) {
     const trait = query.relationFilters![k].relation[$internal].trait;
