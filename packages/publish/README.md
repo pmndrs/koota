@@ -49,19 +49,19 @@ const goblin = world.spawn(Position({ x: 10, y: 10 }), Velocity, Mesh)
 
 ### Query and update data
 
-Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently.
+Queries fetch entities sharing traits (archetypes). Use them to batch update entities efficiently. Writes made in `each` are change detected for traits tracked with `onChange` or `Changed`.
 
 ```js
-// updateEach mutates and writes back to stores
-// Run this in a loop
-world.query(Position, Velocity).updateEach(([position, velocity]) => {
+// each passes each trait as its own argument, then the entity and index
+// Writes land in the stores directly. Run this in a loop
+world.query(Position, Velocity).each((position, velocity) => {
   position.x += velocity.x * delta
   position.y += velocity.y * delta
 })
 
-// For read-only operations with no mutation, use readEach
+// Reads go through each as well
 const data = []
-world.query(Position, Velocity).readEach(([position, velocity]) => {
+world.query(Position, Velocity).each((position, velocity) => {
   data.push({ x: position.x, y: position.y })
 })
 ```
@@ -341,15 +341,7 @@ hero.has(Targeting(goblin)) // True
 
 #### Ordered relations
 
-> ⚠️ **Experimental**<br>
-> This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
-
-Ordered relations maintain a list of related entities with
-bidirectional sync.
-
-A query like `world.query(ChildOf(parent))` returns a flat list of children without any ordering. If you need an ordered list, you'd have to store an order field and sort every time you query.
-
-An ordered relation solves this by caching the order on the target. It's a trait added to the parent that maintains a view of all entities targeting it.
+Ordered relations keep related entities in an explicit order. Add the ordered trait to the target entity.
 
 ```mermaid
 flowchart BT
@@ -367,25 +359,48 @@ flowchart BT
 ```
 
 ```js
-import { relation, ordered } from 'koota'
+import { ordered, relation, trait } from 'koota'
 
+const Position = trait({ x: 0 })
 const ChildOf = relation()
 const OrderedChildren = ordered(ChildOf)
 
 const parent = world.spawn(OrderedChildren)
+const childA = world.spawn(Position)
+const childB = world.spawn(Position)
 const children = parent.get(OrderedChildren)
 
-children.push(child1) // adds ChildOf(parent) to child1
-children.splice(0, 1) // removes ChildOf(parent) from child1
-
-// Bidirectional sync works both ways
-child2.add(ChildOf(parent)) // child2 automatically added to list
+children.add(childA) // Adds ChildOf(parent)
+childB.add(ChildOf(parent)) // Appends childB
+children.moveTo(childB, 0) // Order: childB, childA
 ```
 
-Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa, as well as emit change events.
+The view and relation stay in sync. Adding the same child twice has no effect. Edits notify the parent's ordered trait.
 
-> ⚠️ **Performance note**<br>
-> Ordered relations requires additional bookkeeping where the cost of ordering is paid during structural changes (add, remove, move) instead of at query time. Use ordered relations only when entity order is essential or when hierarchical search (looping over children) is necessary.
+Iterate and update traits in child order. Each child must have the traits passed to `select`.
+
+```js
+children.at(0) // childB
+const ids = children.map((child) => child.id())
+
+children.select(Position).each((position, child, index) => {
+  position.x = index * 100
+})
+```
+
+Edit membership and order through the view:
+
+```js
+children.insert(childA, 0) // Moves an existing child to index 0
+children.sort((a, b) => a.get(Position).x - b.get(Position).x)
+children.reverse()
+children.remove(childA) // Removes ChildOf(parent)
+children.clear() // Removes all ChildOf(parent) pairs
+```
+
+Adding the ordered trait collects existing children. Removing it leaves their relations intact. Each walk keeps the sequence it started with.
+
+Ordering work happens when children are added, removed, or reordered. For order derived from trait values, use a [sorted query](docs/api/query.md#ordered-views).
 
 #### Querying relations
 
@@ -542,7 +557,7 @@ Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Look u
 const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
 ```
 
-Removing `Name` or destroying the entity frees its name. Use `set` or `updateEach` to rename so lookups and subscriptions stay current.
+Removing `Name` or destroying the entity frees its name. Use `set` to rename so lookups and subscriptions stay current.
 
 ### Query modifiers
 
@@ -701,40 +716,6 @@ entity.onAdd(Position, (entity) => {})
 entity.onRemove(Position, (entity) => {})
 ```
 
-### Change detection with `updateEach`
-
-By default, `updateEach` will automatically turn on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. If you want to silence change detection for a loop or force it to always run, you can do so with an options config.
-
-```js
-// Setting changeDetection to 'never' will silence it, triggering no change events
-world.query(Position, Velocity).updateEach(([position, velocity]) => {}, { changeDetection: 'never' })
-
-// Setting changeDetection to 'always' emits change events for every accepted write, even unchanged values
-world
-  .query(Position, Velocity)
-  .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
-```
-
-Change detection shallowly compares the scalar values just like React. Tuples are stored by value and compared per element, so mutating one in place is detected. Other objects and arrays (created by an initializer) will only be detected as changed if a new object or array is committed to the store. While immutable state is a great design pattern, it creates memory pressure and reduces performance so instead you can mutate and manually mark that a change has occurred.
-
-```js
-// ❌ This change will not be detected since the array is mutated and will pass the comparison
-world.query(Inventory).updateEach(([inventory]) => {
-  inventory.items.push(item)
-})
-
-// ✅ This change will be detected since a new array is created and the comparison will fail
-world.query(Inventory).updateEach(([inventory]) => {
-  inventory.items = [...inventory.items, item]
-})
-
-// ✅ This change is manually flagged and we still get to mutate for performance
-world.query(Inventory).updateEach(([inventory], entity) => {
-  inventory.items.push(item)
-  entity.changed()
-})
-```
-
 ### World traits
 
 For global data like time, these can be traits added to the world. **World traits do not appear in queries.**
@@ -749,19 +730,38 @@ world.set(Time, { current: performance.now() })
 
 ### Select traits on queries for updates
 
-`select` is used to choose what traits are fetched for `updateEach` and `getPages`. This can be useful if your query is wider than the data you want to modify.
+`select` is used to choose what traits are fetched for `each` and `getPages`. This can be useful if your query is wider than the data you want to modify.
 
 ```js
 // The query finds all entities with Position, Velocity and Mass
-world.query(Position, Velocity, Mass)
+world
+  .query(Position, Velocity, Mass)
   // And then select only Mass for updates
   .select(Mass)
   // Only mass will be used in the loop
-  .updateEach([mass] => {
+  .each((mass) => {
     // We are going blackhole
     mass.value += 1
   })
 ```
+
+### Ordered query views
+
+Use `sort` to read query results in a chosen order.
+
+```ts
+const query = world.query(Position)
+const sorted = query.sort(
+  (a: Entity, b: Entity) => a.get(Position)!.x - b.get(Position)!.x,
+  [Position]
+)
+
+sorted.each((position) => {
+  console.log(position.x)
+})
+```
+
+Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
 
 ### Modifying trait stores directly
 
@@ -811,21 +811,21 @@ Performance and readability are often a tradeoff. The standard patterns are plen
 
 #### Create update functions once
 
-The standard pattern for `updateEach`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
+The standard pattern for `each`, and handlers in general, uses an arrow function. This has great readability since the function logic is colocated with with query, but it comes at the cost of creating a new function for every entity being updated. This can be mitigated by creating the update function once in module scope.
 
 ```js
 // Create the function once
-const handleMove = ([position, velocity]) => {}
+const handleMove = (position, velocity) => {}
 
 function updateMovement(world) {
-  // Use it for the updateEach
-  world.query(Position, Velocity).updateEach(handleMove)
+  // Use it for each
+  world.query(Position, Velocity).each(handleMove)
 }
 ```
 
 #### Query results are live views
 
-A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Call `toArray()` for a copy you own. Structural changes inside a loop are safe.
+A query result is a live view over the query's entities. Running and iterating it allocates nothing. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
 
 ```js
 const entities = world.query(Position)
@@ -835,8 +835,9 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// Entities destroyed during the loop stay until it ends
-// Entities spawned during the loop show up on the next run
+// Entities destroyed during a walk stay in the view until it ends and are
+// skipped by each, entities spawned show up on the next run.
+// Finish every for of loop you start, a suspended iterator keeps removals pending.
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
@@ -1096,8 +1097,8 @@ entity.set(Transform, { position: [1, 2, 3] })
 // Tuples are copied in and out, so this array never aliases the store
 const { position } = entity.get(Transform)
 
-// Mutating a tuple in updateEach is detected per component
-world.query(Transform, Velocity).updateEach(([transform, velocity]) => {
+// Mutating a tuple in each is detected per component
+world.query(Transform, Velocity).each((transform, velocity) => {
   vec3.scaleAndAdd(transform.position, transform.position, velocity.value, delta)
 })
 ```
@@ -1133,7 +1134,7 @@ const store = {
 
 #### Array of Structures (AoS) - Callback-based traits
 
-When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibility with third party libraries like Three, or class instances in general.
+When using a callback, each entity's trait data is stored as an object in an array. This is best used for compatibility with third party libraries like Three, or class instances in general. The callback must return an object, or `null` for a reference that is empty until set. Primitive data belongs in a schema field.
 
 ```js
 const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }))
@@ -1242,7 +1243,7 @@ const positions = getStore(world, Position)
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-`readEach` and `updateEach` reuse the callback's state array, SoA records and tuple arrays to reduce allocation. These values are only valid during the callback. Copy records and tuple arrays before retaining them, or call `entity.get(Trait)` for an independent snapshot of stored state. AoS traits still return their stored values. Nested iterations use separate scratch data.
+`each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
 #### Defining queries
 
@@ -1252,7 +1253,7 @@ Inline queries are great for readability and are optimized to be as fast as poss
 // Every time this query runs a hash for the query parameters (Position, Velocity)
 // is created and then used to get the cached query internally
 function updateMovement(world) {
-  world.query(Position, Velocity).updateEach(([pos, vel]) => {})
+  world.query(Position, Velocity).each((pos, vel) => {})
 }
 ```
 
@@ -1264,7 +1265,7 @@ const movementQuery = createQuery(Position, Velocity)
 
 // The query ref is used for fast array-based lookup
 function updateMovement(world) {
-  world.query(movementQuery).updateEach(([pos, vel]) => {})
+  world.query(movementQuery).each((pos, vel) => {})
 }
 ```
 

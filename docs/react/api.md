@@ -80,6 +80,8 @@ Observes a trait on an entity or world. It returns the current trait record and 
 
 Relation pairs are supported for relations with store data.
 
+For an ordered relation trait, `useTrait(parent, OrderedChildren)` returns a `readonly Entity[]` in relation order. The hook reuses the array while the sequence is the same. Add, remove, or reorder children through `parent.get(OrderedChildren)` in an action or event handler.
+
 ```jsx
 import { useTrait } from 'koota/react'
 

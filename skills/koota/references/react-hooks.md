@@ -96,6 +96,8 @@ const player = useQuery(IsPlayer)[0]
 
 Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed. Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
 
+For an ordered relation trait, `useTrait(parent, OrderedChildren)` returns a `readonly Entity[]` in relation order. Its reference changes when the sequence changes. Edit the relation through `parent.get(OrderedChildren)` in an action or event handler.
+
 ```typescript
 import { useTrait } from 'koota/react'
 

@@ -10,6 +10,7 @@ Complete guide to querying entities in Koota.
 - [Caching queries](#caching-queries) - createQuery for performance
 - [Change detection](#change-detection) - automatic with each
 - [Query + select](#query--select) - Select subset of traits for updates
+- [Ordered views](#ordered-views) - Cached entity ordering
 - [Direct store access](#direct-store-access) - getPages for performance
 
 ## Basic queries
@@ -18,7 +19,7 @@ Queries fetch entities that share specific traits (archetypes).
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
-A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Call `toArray()` for a copy you own. Structural changes inside a loop are safe.
+A query result is a live view over the query's entities. Running and iterating it allocates nothing. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
 
 ```typescript
 // Returns a QueryView, a live borrowed view
@@ -255,3 +256,21 @@ for (const {
 `page.indices[i]` is the store offset for `page.entities[i]`. Use it to access values like `position.x[offset]` (SoA) or `objects[offset]` (AoS).
 
 Query each frame and finish the loop before adding or removing traits or entities. Direct writes don't notify subscribers. Call `entity.changed(Trait)` when you need notifications.
+
+## Ordered views
+
+Use `sort` to read query results in a chosen order.
+
+```ts
+const query = world.query(Position)
+const sorted = query.sort(
+  (a: Entity, b: Entity) => a.get(Position)!.x - b.get(Position)!.x,
+  [Position]
+)
+
+sorted.each((position) => {
+  console.log(position.x)
+})
+```
+
+Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.

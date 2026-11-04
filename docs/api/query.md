@@ -6,7 +6,7 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-Query results are live views of entity handles, and `toArray()` copies them. `each` leaves handle validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
+Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. `each` leaves handle validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
 
@@ -77,3 +77,21 @@ world
 ## Direct page access
 
 Use `query.getPages()` to iterate cached page views and read or write trait arrays directly. See [Modifying trait stores directly](../advanced/performance.md#modifying-trait-stores-directly) for the page shape, iteration pattern, and change notification behavior.
+
+## Ordered views
+
+Use `sort` to read query results in a chosen order.
+
+```ts
+const query = world.query(Position)
+const sorted = query.sort(
+  (a: Entity, b: Entity) => a.get(Position)!.x - b.get(Position)!.x,
+  [Position]
+)
+
+sorted.each((position) => {
+  console.log(position.x)
+})
+```
+
+Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.

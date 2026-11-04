@@ -341,15 +341,7 @@ hero.has(Targeting(goblin)) // True
 
 #### Ordered relations
 
-> ⚠️ **Experimental**<br>
-> This API is experimental and may change in future versions. Please provide feedback on GitHub or Discord.
-
-Ordered relations maintain a list of related entities with
-bidirectional sync.
-
-A query like `world.query(ChildOf(parent))` returns a flat list of children without any ordering. If you need an ordered list, you'd have to store an order field and sort every time you query.
-
-An ordered relation solves this by caching the order on the target. It's a trait added to the parent that maintains a view of all entities targeting it.
+Ordered relations keep related entities in an explicit order. Add the ordered trait to the target entity.
 
 ```mermaid
 flowchart BT
@@ -367,25 +359,48 @@ flowchart BT
 ```
 
 ```js
-import { relation, ordered } from 'koota'
+import { ordered, relation, trait } from 'koota'
 
+const Position = trait({ x: 0 })
 const ChildOf = relation()
 const OrderedChildren = ordered(ChildOf)
 
 const parent = world.spawn(OrderedChildren)
+const childA = world.spawn(Position)
+const childB = world.spawn(Position)
 const children = parent.get(OrderedChildren)
 
-children.push(child1) // adds ChildOf(parent) to child1
-children.splice(0, 1) // removes ChildOf(parent) from child1
-
-// Bidirectional sync works both ways
-child2.add(ChildOf(parent)) // child2 automatically added to list
+children.add(childA) // Adds ChildOf(parent)
+childB.add(ChildOf(parent)) // Appends childB
+children.moveTo(childB, 0) // Order: childB, childA
 ```
 
-Ordered relations support array methods like `push()`, `pop()`, `shift()`, `unshift()`, and `splice()`, plus special methods `moveTo()` and `insert()` for precise control. Changes to the list automatically sync with relations, and vice versa, as well as emit change events.
+The view and relation stay in sync. Adding the same child twice has no effect. Edits notify the parent's ordered trait.
 
-> ⚠️ **Performance note**<br>
-> Ordered relations requires additional bookkeeping where the cost of ordering is paid during structural changes (add, remove, move) instead of at query time. Use ordered relations only when entity order is essential or when hierarchical search (looping over children) is necessary.
+Iterate and update traits in child order. Each child must have the traits passed to `select`.
+
+```js
+children.at(0) // childB
+const ids = children.map((child) => child.id())
+
+children.select(Position).each((position, child, index) => {
+  position.x = index * 100
+})
+```
+
+Edit membership and order through the view:
+
+```js
+children.insert(childA, 0) // Moves an existing child to index 0
+children.sort((a, b) => a.get(Position).x - b.get(Position).x)
+children.reverse()
+children.remove(childA) // Removes ChildOf(parent)
+children.clear() // Removes all ChildOf(parent) pairs
+```
+
+Adding the ordered trait collects existing children. Removing it leaves their relations intact. Each walk keeps the sequence it started with.
+
+Ordering work happens when children are added, removed, or reordered. For order derived from trait values, use a [sorted query](docs/api/query.md#ordered-views).
 
 #### Querying relations
 
@@ -730,6 +745,24 @@ world
   })
 ```
 
+### Ordered query views
+
+Use `sort` to read query results in a chosen order.
+
+```ts
+const query = world.query(Position)
+const sorted = query.sort(
+  (a: Entity, b: Entity) => a.get(Position)!.x - b.get(Position)!.x,
+  [Position]
+)
+
+sorted.each((position) => {
+  console.log(position.x)
+})
+```
+
+Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
+
 ### Modifying trait stores directly
 
 For performance-critical operations, `getPages()` returns cached page views with direct access to trait arrays. Each page contains a `stores` tuple in query or `select()` order, `indices` for the matching store offsets, and an `entities` array aligned with those indices. The returned array supports both `for...of` and indexed loops.
@@ -792,7 +825,7 @@ function updateMovement(world) {
 
 #### Query results are live views
 
-A query result is a live view over the query's entities, not an array. Running and iterating it allocates nothing. Call `toArray()` for a copy you own. Structural changes inside a loop are safe.
+A query result is a live view over the query's entities. Running and iterating it allocates nothing. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes inside a loop are safe.
 
 ```js
 const entities = world.query(Position)

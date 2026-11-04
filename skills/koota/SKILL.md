@@ -265,6 +265,8 @@ world.query(IsPlayer, Position, Velocity).each((pos, vel) => {
 })
 ```
 
+Use `query.sort(compare, [Position])` to read query results in a chosen order. The dependency array lists the traits read by the comparator. Omit it or pass `[]` to sort on every access.
+
 For tracking changes, caching queries, and advanced patterns, see [references/queries.md](references/queries.md).
 
 ## React integration
