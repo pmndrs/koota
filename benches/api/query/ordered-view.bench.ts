@@ -100,13 +100,25 @@ group('ordered trait access 10k @ordered-view', () => {
 
 /** Includes publishing a fresh order, rather than only walking a clean cache. */
 group('ordered refresh 10k @ordered-refresh', () => {
-  for (const mode of ['clean', 'sort each walk', 'membership each walk'] as const) {
-    bench(mode, function* () {
+  for (const mode of [
+    'clean',
+    'sort each walk',
+    'membership each walk',
+    'membership after guarded removal',
+  ] as const) {
+    bench(`${mode}${mode.startsWith('membership') ? ' @ordered-rebuild' : ''}`, function* () {
       const world = createWorld();
       const Included = trait();
       for (let i = 0; i < 10_000; i++) world.spawn(Included);
       const query = world.query(Included);
       const last = query.at(-1)!;
+      if (mode === 'membership after guarded removal') {
+        query.forEach((entity) => {
+          if (entity === last) entity.remove(Included);
+        });
+        world.query(Included);
+        last.add(Included);
+      }
       const view = query.sort((a, b) => a - b, [Included]);
       const total = query.toArray().reduce((sum, entity) => (sum + entity) | 0, 0);
       let included = true;
@@ -114,7 +126,7 @@ group('ordered refresh 10k @ordered-refresh', () => {
       yield {
         bench: () => {
           if (mode === 'sort each walk') view.invalidate();
-          if (mode === 'membership each walk') {
+          if (mode.startsWith('membership')) {
             if (included) last.remove(Included);
             else last.add(Included);
             included = !included;

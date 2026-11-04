@@ -127,14 +127,21 @@ class SortedSource extends OrderedSource {
     this.refreshing = true;
     try {
       // Keep the previous sequence until sorting succeeds.
-      const entities: Entity[] = rebuild ? [] : this.dense.slice();
+      let entities: Entity[];
       if (rebuild) {
         const source = this.base.source;
         const pending = liveQuery?.toRemove;
-        for (let i = 0; i < source.length; i++) {
-          const entity = source.dense[i] as Entity;
-          if (!pending?.has(entity)) entities.push(entity);
+        if (pending && pending.length !== 0) {
+          entities = [];
+          for (let i = 0; i < source.length; i++) {
+            const entity = source.dense[i] as Entity;
+            if (!pending.has(entity)) entities.push(entity);
+          }
+        } else {
+          entities = source.dense.slice(0, source.length) as Entity[];
         }
+      } else {
+        entities = this.dense.slice();
       }
       // Capture before the comparator, so writes inside it invalidate the next access.
       for (let i = 0; i < this.instances.length; i++) this.revisions[i] = this.instances[i].version;

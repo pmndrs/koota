@@ -45,6 +45,25 @@ describe('Sorted query views', () => {
     expect(query.map(label)).toEqual(['0: 2', '1: 1']);
   });
 
+  it('excludes pending removals while the base query is being walked', () => {
+    const a = world.spawn(Position({ x: 2 }));
+    const b = world.spawn(Position({ x: 1 }));
+    const c = world.spawn(Position({ x: 0 }));
+    const query = world.query(Position);
+    const sorted = query.sort(ascending, [Position]);
+    expect(sorted.entities).toEqual([c, b, a]);
+
+    query.forEach((entity) => {
+      if (entity !== a) return;
+      b.remove(Position);
+      expect(sorted.entities).toEqual([c, a]);
+    });
+
+    expect(sorted.entities).toEqual([c, a]);
+    b.add(Position({ x: 3 }));
+    expect(sorted.entities).toEqual([c, a, b]);
+  });
+
   it('updates the order when members or sort keys change', () => {
     const a = world.spawn(Position({ x: 2 }));
     const sorted = world.query(Position).sort(ascending, [Position]);
