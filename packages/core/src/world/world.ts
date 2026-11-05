@@ -96,6 +96,7 @@ export function createWorld(options?: WorldOptions): World {
       entityMasks: [createEmptyMaskGeneration()],
       retain,
       tombstones: { ids: [], head: 0 },
+      pairRemovals: { entries: [], head: 0 },
       names: new Map(),
       bitflag: 1,
       traitInstances: [],
@@ -214,6 +215,8 @@ export function createWorld(options?: WorldOptions): World {
       ctx.queryInstances.length = 0;
       ctx.tombstones.head = 0;
       ctx.tombstones.ids.length = 0;
+      ctx.pairRemovals.head = 0;
+      ctx.pairRemovals.entries.length = 0;
       ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
       ctx.dirtyQueries.clear();

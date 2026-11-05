@@ -167,6 +167,12 @@ const threats = world.query(IsEnemy, Targeting(player))
 
 // Children of parent that also have Position
 const positionedChildren = world.query(ChildOf(parent), Position)
+
+// Enemies that are not targeting the player, whatever else they target
+const distracted = world.query(IsEnemy, Not(Targeting(player)))
+
+// Children of either parent
+const eitherChildren = world.query(Or(ChildOf(parentA), ChildOf(parentB)))
 ```
 
 ## Traversing Graphs

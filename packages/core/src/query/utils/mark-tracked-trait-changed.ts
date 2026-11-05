@@ -3,8 +3,9 @@ import { getEntityId } from '../../entity/utils/pack-entity';
 import { PENDING_WORD } from '../../entity/utils/paged-mask';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
-import { addEntityToQuery, hasEveryRelationPair, removeEntityFromQuery } from '../query';
+import { addEntityToQuery, removeEntityFromQuery } from '../query';
 import type { QueryInstance } from '../types';
+import { passesRelationFilters } from './check-query-with-relations';
 import {
   checkQueryTracking,
   passesStaticBitmasks,
@@ -62,7 +63,7 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
     accepted = true;
     if (
       recordChangeAndMatch(query, generationId, eid, bitflag) &&
-      (query.relationFilters.length === 0 || hasEveryRelationPair(ctx, query, entity))
+      (query.relationFilters.length === 0 || passesRelationFilters(ctx, query, entity))
     ) {
       addEntityToQuery(query, entity);
     } else removeEntityFromQuery(ctx, query, entity);
@@ -79,7 +80,11 @@ function recordChange(query: QueryInstance, generationId: number, eid: number, b
   const groups = query.trackingGroups;
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
-    if (group.type === 'change' && (group.bitmasks[generationId]! & bitflag) !== 0) {
+    if (
+      group.type === 'change' &&
+      (group.bitmasks[generationId]! & bitflag) !== 0 &&
+      group.pairs === null
+    ) {
       recordTrackerHit(group.trackers, generationId, eid, bitflag);
     }
   }

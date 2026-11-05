@@ -102,7 +102,14 @@ world.query(Or(IsPlayer, IsEnemy))
 
 // Combine modifiers
 world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
+
+// Not and Or accept relations and relation pairs
+world.query(Not(ChildOf)) // No parent at all
+world.query(Position, Not(ChildOf(player))) // Not a child of player
+world.query(Or(ChildOf(redTeam), ChildOf(blueTeam), IsBoss))
 ```
+
+Tracking modifiers accept pairs too. `Added(ChildOf(parent))` tracks that one pair, while `Added(ChildOf), ChildOf(parent)` tracks any `ChildOf` pair and filters by target.
 
 ## Tracking modifiers
 
@@ -124,6 +131,9 @@ const newPositions = world.query(Added(Position))
 
 // Track relation additions
 const newChildren = world.query(Added(ChildOf))
+
+// Track one pair
+const newChildrenOfParent = world.query(Added(ChildOf(parent)))
 ```
 
 **Removed** - Entities that removed a trait since the last query, including entities destroyed while holding it. Removed data stays available through `each` arguments and `getPages` stores so you can clean up resources, until the trait is added back or the entity is evicted. Custom `remove` accessors may clear retained data. Other terms match a destroyed entity on the traits it died with, and `isAlive` distinguishes a destroy from a live removal.
@@ -139,6 +149,9 @@ const stoppedEntities = world.query(Removed(Velocity))
 
 // Track orphaned entities
 const orphaned = world.query(Removed(ChildOf))
+
+// Track entities that lost one pair, also when the entity or the target is destroyed
+const lostChildren = world.query(Removed(ChildOf(parent)))
 
 // Register after destruction and still read retained data
 const entity = world.spawn(ServerSync)

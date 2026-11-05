@@ -6,8 +6,8 @@ import {
   dropQuery,
   evictEntityFromQuery,
   IsExcluded,
+  leaveTraitlessQueries,
   queryInternal,
-  removeEntityFromQuery,
   resetQueryTrackingBitmasks,
 } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
@@ -26,7 +26,7 @@ import {
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { WorldContext } from '../world';
-import type { QueryInstance } from '../query/types';
+import type { QueryInstance, ResolvedRelationFilter } from '../query/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
 import type { Entity } from './types';
 import {
@@ -146,10 +146,9 @@ export function destroyQueuedEntity(
   freeEntity(ctx.entityIndex, entity);
 
   const targetQueries = ctx.targetQueries[pageId]?.[offset];
-  if (targetQueries) dropTargetQueries(ctx, targetQueries, entity);
+  if (targetQueries) dropTargetQueries(ctx, targetQueries, entity, false);
 
-  const allQuery = ctx.queriesHashMap.get('');
-  if (allQuery) removeEntityFromQuery(ctx, allQuery, entity);
+  if (ctx.notQueries.length !== 0) leaveTraitlessQueries(ctx, entity);
 
   if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, entity);
 
@@ -209,14 +208,46 @@ function emitEntityDestroy(ctx: WorldContext, entity: Entity) {
   for (const sub of ctx.entityDestroySubscriptions) sub(entity);
 }
 
-/** Drop the cached queries that filter on the dying entity as a relation target. */
-function dropTargetQueries(ctx: WorldContext, targetQueries: QueryInstance[], entity: Entity) {
+/**
+ * Drop the cached queries that name the entity as a relation target. A query that needs the pair
+ * to match cannot match once its target dies. Any other is built again if it is queried later, so
+ * it goes too unless it has subscribers. A tracking query waits for the eviction of its target,
+ * since it may still hold the removals the destroy caused.
+ */
+function dropTargetQueries(
+  ctx: WorldContext,
+  targetQueries: QueryInstance[],
+  entity: Entity,
+  evicted: boolean
+) {
   for (let i = targetQueries.length - 1; i >= 0; i--) {
     const query = targetQueries[i];
-    if (query.relationFilters!.some((pair) => pair.target === entity)) {
-      dropQuery(ctx, query);
+    const disposable =
+      (evicted || !query.isTracking) &&
+      (query.addSubscriptions === null || query.addSubscriptions.size === 0) &&
+      (query.removeSubscriptions === null || query.removeSubscriptions.size === 0);
+    const filters = query.relationFilters;
+    for (let k = 0; k < filters.length; k++) {
+      const pair = filters[k];
+      if (pair.target === entity && (disposable || needsPair(query, pair))) {
+        dropQuery(ctx, query);
+        break;
+      }
     }
   }
+}
+
+/** The query matches only entities that hold the pair, or that added or changed it. */
+function needsPair(query: QueryInstance, pair: ResolvedRelationFilter): boolean {
+  if (pair.term !== 4) return pair.term === 1;
+  const groups = query.trackingGroups;
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    if (group.pairs !== null && group.pairs.includes(pair)) {
+      return group.logic === 'and' && group.type !== 'remove';
+    }
+  }
+  return false;
 }
 
 /**
@@ -278,6 +309,8 @@ function evictEntity(ctx: WorldContext, entity: Entity) {
     page[slot + REMOVED_WORD] = 0;
     page[slot + DESTROYED_WORD] = 0;
   }
+  const targetQueries = ctx.targetQueries[pageId]?.[eid & 1023];
+  if (targetQueries) dropTargetQueries(ctx, targetQueries, entity, true);
   releaseRetainedEntity(ctx.entityIndex, entity);
 }
 

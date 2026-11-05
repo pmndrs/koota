@@ -1,10 +1,10 @@
 import { $internal } from '../../common';
-import type { Relation } from '../../relation/types';
+import type { Relation, RelationPair } from '../../relation/types';
 import { isNameConfig } from '../../name/name-index';
 import { isRelationPair } from '../../relation/utils/is-relation';
 import type { Trait } from '../../trait/types';
 import { isQuery } from './is-query';
-import type { QueryHash, QueryParameter } from '../types';
+import type { Modifier, QueryHash, QueryParameter } from '../types';
 
 const MODIFIER_FACTOR = 100000;
 const RELATION_FACTOR = 10000000;
@@ -28,10 +28,58 @@ function queryHashNumericId(hash: string): number {
   return id;
 }
 
+/**
+ * Key for a pair inside a modifier, the same key a pair parameter gets. Pair parameters compute
+ * theirs in place, since a call there slows every relation query lookup.
+ */
+function hashModifierPair(pair: RelationPair, cursor: number): number {
+  const relationId = (pair.relation as Relation<Trait>)[$internal].trait.id;
+
+  if (pair.targetQuery) {
+    const subHash = isQuery(pair.targetQuery)
+      ? pair.targetQuery.hash
+      : createQueryHash(pair.targetQuery, cursor);
+    return relationId * RELATION_FACTOR + queryHashNumericId(subHash) + RELATION_QUERY_OFFSET;
+  }
+
+  const target = pair.target;
+  const targetId = typeof target === 'number' ? target : -1;
+  return relationId * RELATION_FACTOR + targetId + RELATION_OFFSET;
+}
+
+/**
+ * Hashes what a modifier holds beyond its own traits. Pairs become keys under the modifier id. A
+ * tracking modifier nested in Or is set apart from the same modifier outside it.
+ */
+function hashModifierExtras(param: Modifier, cursor: number, pairKeys: string[]): number {
+  const pairs = param.pairs;
+  if (pairs !== null) {
+    for (let j = 0; j < pairs.length; j++) {
+      pairKeys.push(`${param.id}:${hashModifierPair(pairs[j], cursor)}`);
+    }
+  }
+
+  const nested = param.modifiers;
+  if (nested === null) return cursor;
+  for (let n = 0; n < nested.length; n++) {
+    const modifier = nested[n];
+    for (let j = 0; j < modifier.traitIds.length; j++) {
+      sortBuf[cursor++] = modifier.id * MODIFIER_FACTOR + modifier.traitIds[j] + 0.5;
+    }
+    const nestedPairs = modifier.pairs;
+    if (nestedPairs === null) continue;
+    for (let j = 0; j < nestedPairs.length; j++) {
+      pairKeys.push(`or${modifier.id}:${hashModifierPair(nestedPairs[j], cursor)}`);
+    }
+  }
+  return cursor;
+}
+
 export const createQueryHash = (parameters: readonly QueryParameter[], base = 0): QueryHash => {
   let cursor = base;
   let name: string | undefined;
   let names: string[] | undefined;
+  let pairKeys: string[] | undefined;
 
   for (let i = 0; i < parameters.length; i++) {
     const param = parameters[i];
@@ -72,11 +120,18 @@ export const createQueryHash = (parameters: readonly QueryParameter[], base = 0)
     for (let j = 0; j < param.traitIds.length; j++) {
       sortBuf[cursor++] = param.id * MODIFIER_FACTOR + param.traitIds[j];
     }
+
+    if (param.pairs !== null || param.modifiers !== null) {
+      cursor = hashModifierExtras(param, cursor, (pairKeys ??= []));
+    }
   }
 
   let hash = '';
   if (cursor === base + 1) hash = `${sortBuf[base]}`;
   else if (cursor > base + 1) hash = sortBuf.subarray(base, cursor).sort().join(',');
+
+  // Pairs inside modifiers follow the numeric entries, each keyed by its modifier id.
+  if (pairKeys !== undefined && pairKeys.length !== 0) hash += `~${pairKeys.sort().join(',')}`;
 
   // Length prefixes keep names unambiguous even when they contain separators.
   if (names) {

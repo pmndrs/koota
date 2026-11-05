@@ -5,18 +5,14 @@ import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import { isNameConfig } from '../name/name-index';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
-import {
-  getEntitiesWithRelationTo,
-  hasRelationPair,
-  hasRelationTargetInSet,
-} from '../relation/relation';
-import type { Relation } from '../relation/types';
+import { getEntitiesWithRelationTo } from '../relation/relation';
+import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { registerTrait, trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
-import { getTrackingType, isModifier, isOrWithModifiers, isTrackingModifier } from './modifier';
+import { getTrackingType, isModifier, isTrackingModifier } from './modifier';
 import { bindQueryView, createOwnedView, exposeQuerySet } from './query-view';
 import { $queryRef } from './symbols';
 import {
@@ -27,29 +23,47 @@ import {
   type QueryView,
   type QuerySubscriber,
   type ResolvedRelationFilter,
+  type EventType,
   type TrackingGroup,
 } from './types';
 import { checkQuery, passesStaticMasks } from './utils/check-query';
-import { checkQueryTrackingSeed } from './utils/check-query-tracking';
-import { checkQueryWithRelations } from './utils/check-query-with-relations';
+import {
+  checkQueryTracking,
+  checkQueryTrackingSeed,
+  seedPairRemovals,
+} from './utils/check-query-tracking';
+import { checkQueryWithRelations, passesRelationFilters } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
 import { clearPendingChanges } from './utils/mark-tracked-trait-changed';
 
 export const IsExcluded: TagTrait = trait();
 
-function resolveRelationFilter(filter: ResolvedRelationFilter): ResolvedRelationFilter {
-  if (!filter.targetQuery) return filter;
-
-  const targetQueryRef = isQuery(filter.targetQuery)
-    ? filter.targetQuery
-    : createQuery(...filter.targetQuery);
+function resolveRelationFilter(pair: RelationPair, term: 1 | 2 | 3 | 4): ResolvedRelationFilter {
+  const targetQuery = pair.targetQuery;
+  if (!targetQuery) {
+    return { ...pair, term, targetQueryRef: undefined, targetQueryMatches: undefined };
+  }
 
   return {
-    ...filter,
-    targetQueryRef,
+    ...pair,
+    term,
+    targetQueryRef: isQuery(targetQuery) ? targetQuery : createQuery(...targetQuery),
     targetQueryMatches: new SparseSet(),
   };
+}
+
+/** Adds a pair from a modifier as a relation filter. Its relation only needs to be registered. */
+function addPairFilter(
+  ctx: WorldContext,
+  query: QueryInstance,
+  pair: RelationPair,
+  term: 2 | 3 | 4
+): ResolvedRelationFilter {
+  ensureTraitInstance(ctx, (pair.relation as Relation<Trait>)[$internal].trait);
+  const filter = resolveRelationFilter(pair, term);
+  query.relationFilters.push(filter);
+  return filter;
 }
 
 export function runQuery<T extends QueryParameter[]>(
@@ -180,6 +194,14 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
   }
 }
 
+/** Trait removal does not reach the static queries a destroyed entity satisfied without a trait. */
+export function leaveTraitlessQueries(ctx: WorldContext, entity: Entity) {
+  const queries = ctx.notQueries;
+  for (let i = 0; i < queries.length; i++) {
+    if (!queries[i].isTracking) removeEntityFromQuery(ctx, queries[i], entity);
+  }
+}
+
 /** A callback can drop queries from any list its caller is still walking. */
 function emitQuerySubscribers(ctx: WorldContext, subscribers: Set<QuerySubscriber>, entity: Entity) {
   ctx.queryCallbackDepth++;
@@ -233,6 +255,38 @@ function ensureTraitInstance(ctx: WorldContext, trait: Trait): TraitInstance {
   );
 }
 
+/** The group for a tracking modifier's traits or for its pairs, created on first use. */
+function trackingGroup(
+  groups: TrackingGroup[],
+  logic: 'and' | 'or',
+  type: EventType,
+  id: number,
+  tracksPairs: boolean
+): TrackingGroup {
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    if (
+      group.type === type &&
+      group.id === id &&
+      group.logic === logic &&
+      (group.pairs !== null) === tracksPairs
+    ) {
+      return group;
+    }
+  }
+  const group: TrackingGroup = {
+    logic,
+    type,
+    id,
+    bitmasks: [],
+    trackers: [],
+    single: false,
+    pairs: tracksPairs ? [] : null,
+  };
+  groups.push(group);
+  return group;
+}
+
 function processTrackingModifier(
   ctx: WorldContext,
   query: QueryInstance,
@@ -244,30 +298,49 @@ function processTrackingModifier(
   if (!trackingType) return;
 
   const id = modifier.id;
-  let group = groups.find((g) => g.type === trackingType && g.id === id && g.logic === logic);
-  if (!group) {
-    group = { logic, type: trackingType, id, bitmasks: [], trackers: [], single: false };
-    groups.push(group);
+  const pairs = modifier.pairs;
+
+  if (pairs === null || modifier.traits.length !== 0) {
+    const group = trackingGroup(groups, logic, trackingType, id, false);
+    for (const trait of modifier.traits) {
+      const instance = ensureTraitInstance(ctx, trait);
+      query.traits.push(trait);
+      query.traitInstances.push(instance);
+
+      const genId = instance.generationId;
+      group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
+
+      if (trackingType === 'change') {
+        query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
+      }
+    }
+
+    let tracked = 0;
+    for (const mask of group.bitmasks) {
+      for (let bits = mask ?? 0; bits !== 0; bits &= bits - 1) tracked++;
+    }
+    group.single = tracked === 1;
   }
 
-  for (const trait of modifier.traits) {
-    const instance = ensureTraitInstance(ctx, trait);
-    query.traits.push(trait);
-    query.traitInstances.push(instance);
-
-    const genId = instance.generationId;
-    group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
-
-    if (trackingType === 'change') {
-      query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
+  if (pairs !== null) {
+    const group = trackingGroup(groups, logic, trackingType, id, true);
+    const tracked = group.pairs!;
+    for (let i = 0; i < pairs.length; i++) {
+      if (tracked.length === 32) {
+        throw new Error(
+          'Koota: [TRACKED_PAIRS] A tracking modifier tracks at most 32 relation pairs.'
+        );
+      }
+      // A tracked pair matches on its events. It joins the relation filters for their list
+      // membership and target query, and the relation's tracking list so a pair write reaches it.
+      const filter = addPairFilter(ctx, query, pairs[i], 4);
+      query.traitInstances.push(
+        getTraitInstance(ctx.traitInstances, filter.relation[$internal].trait)!
+      );
+      group.bitmasks[0] = (group.bitmasks[0] || 0) | (1 << tracked.length);
+      tracked.push(filter);
     }
   }
-
-  let tracked = 0;
-  for (const mask of group.bitmasks) {
-    for (let bits = mask ?? 0; bits !== 0; bits &= bits - 1) tracked++;
-  }
-  group.single = tracked === 1;
 
   if (trackingType === 'remove') query.retains = true;
   query.isTracking = true;
@@ -302,6 +375,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     iterating: 0,
     isTracking: false,
     retains: false,
+    orMasks: null,
     changedMasks: [],
     toRemove: null,
     notIndex: -1,
@@ -336,7 +410,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (isRelationPair(parameter)) {
       // A wildcard pair is the relation's membership, which the required mask already checks.
-      if (parameter.target !== '*') query.relationFilters.push(resolveRelationFilter(parameter));
+      if (parameter.target !== '*') query.relationFilters.push(resolveRelationFilter(parameter, 1));
       const baseTrait = (parameter.relation as Relation<Trait>)[$internal].trait;
       required.push(ensureTraitInstance(ctx, baseTrait));
       query.traits.push(baseTrait);
@@ -345,14 +419,23 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (isModifier(parameter)) {
       const traits = parameter.traits;
+      const pairs = parameter.pairs;
       if (parameter.type === 'not') {
         for (let j = 0; j < traits.length; j++) forbidden.push(ensureTraitInstance(ctx, traits[j]));
+        if (pairs !== null)
+          for (let j = 0; j < pairs.length; j++) addPairFilter(ctx, query, pairs[j], 2);
       } else if (parameter.type === 'or') {
         for (let j = 0; j < traits.length; j++) or.push(ensureTraitInstance(ctx, traits[j]));
-        if (isOrWithModifiers(parameter)) {
-          for (const nested of parameter.modifiers) {
-            if (isTrackingModifier(nested)) {
-              processTrackingModifier(ctx, query, nested, 'or', query.trackingGroups);
+        if (pairs !== null) {
+          // An or pair can satisfy the or term alone, so the or bits are checked beside the pairs.
+          query.orMasks ??= [];
+          for (let j = 0; j < pairs.length; j++) addPairFilter(ctx, query, pairs[j], 3);
+        }
+        const nested = parameter.modifiers;
+        if (nested !== null) {
+          for (let j = 0; j < nested.length; j++) {
+            if (isTrackingModifier(nested[j])) {
+              processTrackingModifier(ctx, query, nested[j], 'or', query.trackingGroups);
             }
           }
         }
@@ -378,9 +461,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
     all.push(forbidden[i]);
     addMaskBit(masks, forbidden[i], 2);
   }
+  const relationFilters = query.relationFilters;
+  const orMasks = query.orMasks;
   for (let i = 0; i < or.length; i++) {
     all.push(or[i]);
-    addMaskBit(masks, or[i], 3);
+    addMaskBit(orMasks ?? masks, or[i], 3);
   }
   query.hash = createQueryHash(parameters);
 
@@ -394,7 +479,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     ctx.defersChanges = false;
   }
 
-  const relationFilters = query.relationFilters;
   query.listSlots = new Array<number>(all.length + relationFilters.length).fill(-1);
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
@@ -405,7 +489,12 @@ export function createQueryInstance<T extends QueryParameter[]>(
   // A tracking query exposes one set while it collects the next batch in the other.
   query.exposed = query.isTracking ? new SparseSet() : query.entities;
 
-  if (query.name === undefined && forbidden.length > 0) {
+  // Spawn resets the trackers of a tracking query. A static query joins when an entity with no
+  // traits satisfies it, so spawn can add the entity and destroy can remove it.
+  if (
+    query.name === undefined &&
+    (query.isTracking || (orMasks === null && !hasPositiveMask(masks)))
+  ) {
     query.notIndex = ctx.notQueries.length;
     ctx.notQueries.push(query);
   }
@@ -423,12 +512,17 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
 
     if (typeof pair.target === 'number') {
+      // A query is indexed by every target it names, so it can be dropped once that target is gone.
       const eid = getEntityId(pair.target);
       const page = (ctx.targetQueries[eid >>> 10] ??= []);
       const targetQueries = (page[eid & 1023] ??= []);
       if (!targetQueries.includes(query)) targetQueries.push(query);
+      // Only a required pair narrows the candidates.
       const sources = relationTraitInstance?.relationSourcesByTarget?.[eid] ?? EMPTY_ENTITIES;
-      if (targetCandidates === undefined || sources.length < targetCandidates.length) {
+      if (
+        pair.term === 1 &&
+        (targetCandidates === undefined || sources.length < targetCandidates.length)
+      ) {
         targetCandidates = sources;
       }
     }
@@ -442,7 +536,10 @@ export function createQueryInstance<T extends QueryParameter[]>(
         const sources = getEntitiesWithRelationTo(ctx, pair.relation as Relation<Trait>, target);
         for (let i = 0; i < sources.length; i++) {
           const source = sources[i];
-          const match = checkQueryWithRelations(ctx, query, source);
+          // A target entering or leaving the target query is not an event for a tracking query.
+          const match = query.isTracking
+            ? checkQueryTracking(ctx, query, source, 'change', 0, 0)
+            : checkQueryWithRelations(ctx, query, source);
           if (match) {
             addEntityToQuery(query, source);
           } else {
@@ -486,10 +583,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
   if (query.trackingGroups.length > 0) {
     // Seed from current membership and retained removals. Alive entities come first,
     // then retained entities in destroy order, which only Removed terms can match.
+    if (query.retains && hasRelationFilters) seedPairRemovals(ctx, query);
     const seed = (entity: Entity) => {
       if (query.name !== undefined && !checkQuery(ctx, query, entity)) return;
       if (!checkQueryTrackingSeed(ctx, query, entity)) return;
-      if (hasRelationFilters && !hasEveryRelationPair(ctx, query, entity)) return;
+      if (hasRelationFilters && !passesRelationFilters(ctx, query, entity)) return;
       addEntityToQuery(query, entity);
     };
     for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
@@ -556,19 +654,6 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
       addEntityToQuery(query, packEntity(gens[offset], eid));
     }
   }
-}
-
-/** The entity holds every relation pair the query filters on, read from the targets it keeps. */
-export function hasEveryRelationPair(ctx: WorldContext, query: QueryInstance, entity: Entity) {
-  const pairs = query.relationFilters!;
-  for (let i = 0; i < pairs.length; i++) {
-    const pair = pairs[i];
-    const matches = pair.targetQueryMatches;
-    if (matches !== undefined) {
-      if (!hasRelationTargetInSet(ctx, pair.relation, entity, matches)) return false;
-    } else if (!hasRelationPair(ctx, entity, pair)) return false;
-  }
-  return true;
 }
 
 /**

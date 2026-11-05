@@ -141,6 +141,15 @@ export type TraitOrRelation = Trait | Relation<Trait>;
 /** Extracts the underlying Trait from a TraitOrRelation (Relations contain a Trait) */
 export type ExtractTrait<T> = T extends Relation<infer TTrait> ? TTrait : T;
 
+/** Maps modifier inputs to the traits they read. A relation gives its trait and a pair gives none. */
+export type ExtractModifierTraits<T extends unknown[]> = T extends [infer First, ...infer Rest]
+  ? First extends RelationPair
+    ? ExtractModifierTraits<Rest>
+    : [ExtractTrait<First>, ...ExtractModifierTraits<Rest>]
+  : T extends []
+    ? []
+    : ExtractTrait<Exclude<T[number], RelationPair>>[];
+
 /** Maps a tuple of TraitOrRelation to their underlying Traits */
 export type ExtractTraits<T extends TraitOrRelation[]> = {
   [K in keyof T]: ExtractTrait<T[K]>;
