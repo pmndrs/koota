@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { Name, Not, createRemoved, createWorld, relation, trait } from '../src';
+import { Not, createRemoved, createWorld, identifier, relation, trait } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
 const IsHot = trait();
 const IsCold = trait();
+const Name = identifier();
 
 describe('Entity retention', () => {
   it('sets a fixed retention cap without initializing the world', () => {

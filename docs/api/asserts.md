@@ -5,7 +5,7 @@ Koota makes common ECS assumptions executable when assertions are enabled:
 - **Entity lifetime:** `add`, `remove`, `set`, `changed`, `destroy`, `get`, `has`, `name`, `targetFor`, and `targetsFor` require a live entity, including inside `Removed` callbacks. Retained data is accessed through the query's `each` arguments or `getPages` stores. Stale handles cannot access a recycled entity.
 - **Trait membership:** `set` and `changed` require the trait to be present. A setter callback must leave its entity and trait valid before automatic writeback.
 - **Relation validity:** adding or setting a pair requires a concrete, live target in the same world. Setting requires the pair to exist. Wildcards and query filters remain valid for queries, membership checks, and removal.
-- **Name uniqueness:** adding `Name` or renaming requires a name no other entity holds.
+- **Identifier uniqueness:** assigning a key requires that no other entity holds it for the same identifier type and world.
 - **Relation consistency:** adding an edge requires base trait membership. Clearing that membership requires no remaining targets. Removing a forward edge requires its reverse source entry to exist.
 
 Errors include a stable code such as `[ENTITY_ALIVE]`, `[TRAIT_PRESENT]`, or `[RELATION_PRESENT]`, plus the relevant entity, target, or trait identifiers. The thrown `Error` supplies the call stack. Applications can attach that information to a bug report with their build revision and replay.
@@ -38,7 +38,7 @@ export default defineConfig(({ command }) => ({
 
 Use `true` to keep assertions in a production build. Use `false` to remove assertions and their conditions through dead code elimination. Explicitly defining the flag is needed to remove the code completely, because a bundler cannot assume that an undefined optional global will stay undefined at runtime.
 
-With assertions disabled, the caller must satisfy these preconditions. Invalid operations may read or write a recycled entity, write absent traits, or leave inconsistent relations. Name uniqueness is the exception. A taken name is refused in every build, so the add or rename is skipped and the index stays consistent.
+With assertions disabled, the caller must satisfy these preconditions. Invalid operations may read or write a recycled entity, write absent traits, or leave inconsistent relations. Identifier uniqueness is the exception. A taken key is refused in every build, so the assignment is skipped and both mappings stay consistent. Identifier keys must always be strings or finite numbers.
 
 ## Benchmark assertion modes
 

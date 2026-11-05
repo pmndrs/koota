@@ -12,6 +12,7 @@ Koota manages state using entities with composable traits.
 - **Entity** - A unique identifier pointing to data defined by traits. Spawned from a world.
 - **Trait** - A reusable data definition. Can be schema-based (SoA), callback-based (AoS), or a tag.
 - **Relation** - A directional connection between entities to build graphs.
+- **Identifier** - A namespace of scalar keys. Within each world, an entity has at most one key per namespace, and a key has at most one owner.
 - **World** - The context for all entities and their data (traits).
 - **Archetype** - A unique combination of traits that entities share.
 - **Query** - Fetches entities matching an archetype. The primary way to batch update state.
@@ -194,32 +195,27 @@ entity.id() // Just the entity ID (reused after destroy)
 entity // Full packed number (unique forever)
 ```
 
-**Named entities**
+**Identifiers**
 
-`Name` is an atomic trait holding a non-empty string, unique per world.
+Define and export identifier types once, like traits. Each type is an independent namespace with at most one key per entity and one owner per key in each world. Keys are strings by default, or finite numbers with `identifier<number>()`.
 
 ```typescript
-const player = world.spawn(Name('player'), Position)
-player.get(Name) // 'player'
-player.name() // 'player'
-player.has(Name('player')) // true
-world.lookup('player') // player
+const Name = identifier()
+const WireId = identifier<number>()
+const player = world.spawn(Name('kris'), WireId(123), Position)
 
-player.set(Name, 'hero')
-world.lookup('player') // undefined
-world.lookup('hero') // player
+world.lookup(Name('kris')) // player
+world.lookup(WireId(123)) // player
+player.targetFor(WireId) // 123
+world.query(Name('kris'), WireId(123), Position)
 
-// Find or create
-const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
-
-const Hero = createQuery(Name('hero'), Position)
-world.query(Hero)
-world.onQueryAdd(Hero, (entity) => {})
-
-world.lookup('hero')?.set(Name, 'champion')
+player.add(WireId(456)) // Replaces 123
+player.remove(WireId(456)) // Releases the key
 ```
 
-Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Prefer `set` to rename. Direct store or page writes bypass the name index and query updates.
+`Name` is application-defined. Use `targetFor` to read and `add` to replace identifiers. Adding the same term is a no-op. Conflicting ownership is refused before mutation, with `[IDENTIFIER_TAKEN]` when assertions are enabled. Removal, destruction and reset release keys. Queries and subscriptions follow the current owner.
+
+See [identifier contracts and patterns](references/identifiers.md).
 
 **Typing**
 

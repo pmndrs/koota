@@ -8,7 +8,7 @@ import { hasRelationToTarget, reconcileRelationQueries } from '../../relation/re
 import type { RelationPair } from '../../relation/types';
 import { emit, hasSubscribers } from '../../trait/subscriptions';
 import { getTraitInstance } from '../../trait/trait-instance';
-import type { ExtractModifierTraits, Trait, TraitInstance, TraitOrRelation } from '../../trait/types';
+import type { ExtractModifierTraits, Trait, TraitInstance, TraitInput } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
@@ -18,7 +18,7 @@ import { markTraitChanged, notifyChangedTrackingQueries } from '../utils/mark-tr
 export function createChanged() {
   const id = createTrackingId();
 
-  return <T extends (TraitOrRelation | RelationPair)[]>(
+  return <T extends (TraitInput | RelationPair)[]>(
     ...inputs: T
   ): Modifier<ExtractModifierTraits<T>, `changed-${number}`> => {
     return createModifier(`changed-${id}`, id, inputs) as Modifier<

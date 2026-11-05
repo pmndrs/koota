@@ -30,9 +30,9 @@ export type {
   PageStoresFromParameters,
 } from './query/types';
 export { $queryRef } from './query/symbols';
-export { Name } from './name/name';
-export { $name } from './name/symbols';
-export type { NameConfig, NameTrait } from './name/types';
+export { identifier } from './identifier/identifier';
+export { $identifier, $identifierPair } from './identifier/symbols';
+export type { Identifier, IdentifierKey, IdentifierPair } from './identifier/types';
 export { relation } from './relation/relation';
 export { ordered, isOrderedTrait } from './relation/ordered';
 export type { EntityComparator, EntityView, OrderedView, MutableOrderedView } from './view/types';

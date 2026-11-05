@@ -1,10 +1,10 @@
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 
-export type Subscriber = (entity: Entity, target?: Entity) => void;
+export type Subscriber<T extends string | number = Entity> = (entity: Entity, target?: T) => void;
 
 /** A slot holds one subscriber directly and only becomes a Set on the second subscriber. */
-type Slot = Subscriber | Set<Subscriber>;
+type Slot = Subscriber<any> | Set<Subscriber<any>>;
 
 /**
  * Subscribers for one trait event. World subscribers fire for every entity.
@@ -13,7 +13,7 @@ type Slot = Subscriber | Set<Subscriber>;
  * entityCount lets emit and destroy skip the page lookup when nothing is registered.
  */
 export type Subscriptions = {
-  all: Set<Subscriber>;
+  all: Set<Subscriber<any>>;
   byEntity: ((Slot | undefined)[] | undefined)[];
   /** Number of entities with at least one subscriber. */
   entityCount: number;
@@ -31,7 +31,7 @@ export function hasSubscribers(subs: Subscriptions): boolean {
 export function subscribeEntity(
   subs: Subscriptions,
   entity: Entity,
-  callback: Subscriber
+  callback: Subscriber<any>
 ): () => void {
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
@@ -87,12 +87,12 @@ export function clearEntity(subs: Subscriptions, entity: Entity) {
  * traits call with the entity alone so callbacks keep their one argument arity.
  */
 /** @inline */
-export function emit(subs: Subscriptions, entity: Entity, target?: Entity) {
+export function emit(subs: Subscriptions, entity: Entity, target?: string | number) {
   if (hasSubscribers(subs)) emitSubscribers(subs, entity, target);
 }
 
 /** Exported so the inline guard in emit can expand in other modules. */
-export function emitSubscribers(subs: Subscriptions, entity: Entity, target?: Entity) {
+export function emitSubscribers(subs: Subscriptions, entity: Entity, target?: string | number) {
   if (target === undefined) {
     for (const sub of subs.all) sub(entity);
     const slot = getSlot(subs, entity);

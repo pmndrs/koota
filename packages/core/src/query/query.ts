@@ -2,7 +2,13 @@ import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId, packEntity } from '../entity/utils/pack-entity';
-import { isNameConfig } from '../name/name-index';
+import {
+  isIdentifier,
+  isIdentifierPair,
+  joinKeyQueries,
+  leaveKeyQueries,
+  lookupIdentifier,
+} from '../identifier/identifier';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
 import { getEntitiesWithRelationTo } from '../relation/relation';
@@ -136,8 +142,10 @@ function consumeTrackingBatch(query: QueryInstance) {
 
 /** Expired history leaves both batches without emitting a second removal event. */
 export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
-  // Unnamed tracking queries reset on spawn. Named queries are outside that list.
-  if (query.name !== undefined) resetQueryTrackingBitmasks(query, getEntityId(entity));
+  // Tracking queries reset on spawn. Identifier queries are outside that list.
+  if (query.identifierFilters !== undefined) {
+    resetQueryTrackingBitmasks(query, getEntityId(entity));
+  }
   if (query.entities.length !== 0) query.entities.remove(entity);
   query.toRemove?.remove(entity);
   if (query.exposed.length !== 0 && query.exposed.has(entity)) {
@@ -158,7 +166,7 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   if (query.dropped) return;
   const toRemove = query.toRemove;
   if (
-    query.name !== undefined &&
+    query.identifierFilters !== undefined &&
     !query.isTracking &&
     query.entities.has(entity) &&
     (toRemove === null || !toRemove.has(entity))
@@ -363,7 +371,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     version: 0,
     ctx,
     parameters,
-    name: undefined,
+    identifierFilters: undefined,
     hash: '',
     refId: -1,
     traits: [],
@@ -400,11 +408,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
   for (let i = 0; i < parameters.length; i++) {
     const parameter = parameters[i];
 
-    if (isNameConfig(parameter)) {
-      const [trait, value] = parameter;
-      if (query.name === undefined) query.name = value;
-      else if (query.name !== value) query.name = null;
-      required.push(ensureTraitInstance(ctx, trait));
+    if (isIdentifierPair(parameter)) {
+      (query.identifierFilters ??= []).push(parameter);
+      required.push(ensureTraitInstance(ctx, parameter.identifier[$internal].trait));
+      continue;
+    }
+    if (isIdentifier(parameter)) {
+      required.push(ensureTraitInstance(ctx, parameter[$internal].trait));
       continue;
     }
 
@@ -480,19 +490,23 @@ export function createQueryInstance<T extends QueryParameter[]>(
   }
 
   query.listSlots = new Array<number>(all.length + relationFilters.length).fill(-1);
+  const keyFilters = query.isTracking ? undefined : query.identifierFilters;
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     if (all.indexOf(instance) !== i) continue;
+    // The key lists reconcile a static query for every identifier it filters by key.
+    if (keyFilters?.some((pair) => pair.identifier.id === instance.trait.id)) continue;
     joinList(queryList(query, instance), query, i);
   }
+  if (keyFilters !== undefined) for (const pair of keyFilters) joinKeyQueries(ctx, query, pair);
 
   // A tracking query exposes one set while it collects the next batch in the other.
   query.exposed = query.isTracking ? new SparseSet() : query.entities;
 
-  // Spawn resets the trackers of a tracking query. A static query joins when an entity with no
-  // traits satisfies it, so spawn can add the entity and destroy can remove it.
+  // Spawn resets tracking queries and adds entities that satisfy a query without traits.
+  // Fresh entities own no keys, so identifier queries reset their trackers on eviction instead.
   if (
-    query.name === undefined &&
+    query.identifierFilters === undefined &&
     (query.isTracking || (orMasks === null && !hasPositiveMask(masks)))
   ) {
     query.notIndex = ctx.notQueries.length;
@@ -564,13 +578,15 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
-  // A named query can only match the current owner, including on its first run.
+  // One unique term bounds the candidates. The matcher checks every remaining term.
+  const identifiedEntity = query.identifierFilters
+    ? lookupIdentifier(ctx, query.identifierFilters[0])
+    : undefined;
   const index = ctx.entityIndex;
-  const namedEntity = typeof query.name === 'string' ? ctx.names.get(query.name) : undefined;
   let candidates: readonly Entity[];
   let candidateCount: number;
-  if (query.name !== undefined) {
-    candidates = namedEntity === undefined ? EMPTY_ENTITIES : [namedEntity];
+  if (query.identifierFilters !== undefined) {
+    candidates = identifiedEntity === undefined ? EMPTY_ENTITIES : [identifiedEntity];
     candidateCount = candidates.length;
   } else if (targetCandidates !== undefined && !query.isTracking) {
     candidates = targetCandidates;
@@ -585,13 +601,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
     // then retained entities in destroy order, which only Removed terms can match.
     if (query.retains && hasRelationFilters) seedPairRemovals(ctx, query);
     const seed = (entity: Entity) => {
-      if (query.name !== undefined && !checkQuery(ctx, query, entity)) return;
+      if (query.identifierFilters !== undefined && !checkQuery(ctx, query, entity)) return;
       if (!checkQueryTrackingSeed(ctx, query, entity)) return;
       if (hasRelationFilters && !passesRelationFilters(ctx, query, entity)) return;
       addEntityToQuery(query, entity);
     };
     for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
-    if (query.retains && query.name === undefined) {
+    // A destroyed entity owns no key, so an identifier query has no retained entity to seed.
+    if (query.retains && query.identifierFilters === undefined) {
       const tombstones = ctx.tombstones;
       for (let k = 0; k < tombstones.ids.length; k++) {
         seed(tombstones.ids[(tombstones.head + k) % tombstones.ids.length]);
@@ -727,6 +744,9 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     const trait = query.relationFilters![k].relation[$internal].trait;
     const instance = getTraitInstance(ctx.traitInstances, trait);
     if (instance) leaveList(instance.relationQueries, query, all.length + k, instance, true);
+  }
+  if (!query.isTracking && query.identifierFilters !== undefined) {
+    for (const pair of query.identifierFilters) leaveKeyQueries(ctx, query, pair);
   }
 
   if (query.notIndex !== -1) {

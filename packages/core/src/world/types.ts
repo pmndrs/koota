@@ -1,5 +1,6 @@
 import { ActionInstance } from '../actions/types';
 import type { $internal } from '../common';
+import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import type { Entity } from '../entity/types';
 import type { createEntityIndex } from '../entity/utils/entity-index';
 import type {
@@ -28,7 +29,6 @@ export type WorldContext = {
    * Membership and removal history by mask generation and page. See paged-mask.
    */
   entityMasks: Uint32Array[][];
-  names: Map<string, Entity>;
   bitflag: number;
   traitInstances: (TraitInstance | undefined)[];
   /** Trait instances by mask generation and bit index, so a mask word can be walked back to its traits. */
@@ -85,12 +85,12 @@ export type World = {
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
   spawn(...traits: ConfigurableTrait[]): Entity;
-  lookup(name: string): Entity | undefined;
+  lookup<K extends IdentifierKey>(pair: IdentifierPair<K>): Entity | undefined;
   has(entity: Entity): boolean;
-  has(trait: Trait): boolean;
-  has(target: Entity | Trait): boolean;
+  has(trait: Trait | Identifier | IdentifierPair): boolean;
+  has(target: Entity | Trait | Identifier | IdentifierPair): boolean;
   add(...traits: ConfigurableTrait[]): void;
-  remove(...traits: Trait[]): void;
+  remove(...traits: (Trait | Identifier | IdentifierPair)[]): void;
   get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
   get<T extends Trait, O extends TraitOut<T>>(trait: T, out: O): O | undefined;
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
@@ -116,6 +116,10 @@ export type World = {
     parameters: T,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
+  onAdd<K extends IdentifierKey>(
+    input: Identifier<K> | IdentifierPair<K>,
+    callback: (entity: Entity, key: K) => void
+  ): QueryUnsubscriber;
   onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onAdd<T extends Trait>(
     relation: Relation<T>,
@@ -129,6 +133,10 @@ export type World = {
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
   ): QueryUnsubscriber;
+  onRemove<K extends IdentifierKey>(
+    input: Identifier<K> | IdentifierPair<K>,
+    callback: (entity: Entity, key: K) => void
+  ): QueryUnsubscriber;
   onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onRemove<T extends Trait>(
     relation: Relation<T>,
@@ -141,6 +149,10 @@ export type World = {
   onRemove(
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
+  ): QueryUnsubscriber;
+  onChange<K extends IdentifierKey>(
+    input: Identifier<K> | IdentifierPair<K>,
+    callback: (entity: Entity, key: K) => void
   ): QueryUnsubscriber;
   /** Reports future additions and writes. Removals use onRemove. */
   onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;

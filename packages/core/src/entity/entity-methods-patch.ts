@@ -1,8 +1,8 @@
 import { setChanged } from '../query/modifiers/changed';
 import { getFirstRelationTarget, getRelationTargets } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
-import { Name } from '../name/name';
-import type { NameConfig } from '../name/types';
+import { isIdentifier, getIdentifierTarget } from '../identifier/identifier';
+import type { Identifier, IdentifierPair } from '../identifier/types';
 import { addTrait, getTrait, removeTrait, setTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { Subscriber } from '../trait/subscriptions';
@@ -18,12 +18,18 @@ Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
 };
 
 // @ts-expect-error
-Number.prototype.remove = function (this: Entity, ...traits: (Trait | RelationPair)[]) {
+Number.prototype.remove = function (
+  this: Entity,
+  ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+) {
   return removeTrait(getEntityContext(this), this, ...traits);
 };
 
 // @ts-expect-error
-Number.prototype.has = function (this: Entity, trait: Trait | RelationPair | NameConfig) {
+Number.prototype.has = function (
+  this: Entity,
+  trait: Trait | RelationPair | Identifier | IdentifierPair
+) {
   return entityHas(getEntityContext(this), this, trait);
 };
 
@@ -57,38 +63,38 @@ Number.prototype.set = function (
 };
 
 // @ts-expect-error
-Number.prototype.onAdd = function (this: Entity, input: HookInput, callback: Subscriber) {
+Number.prototype.onAdd = function (this: Entity, input: HookInput, callback: Subscriber<any>) {
   return subscribeEntityEvent(getEntityContext(this), this, 'addSubscriptions', input, callback);
 };
 
 // @ts-expect-error
-Number.prototype.onRemove = function (this: Entity, input: HookInput, callback: Subscriber) {
+Number.prototype.onRemove = function (this: Entity, input: HookInput, callback: Subscriber<any>) {
   return subscribeEntityEvent(getEntityContext(this), this, 'removeSubscriptions', input, callback);
 };
 
 // @ts-expect-error
-Number.prototype.onChange = function (this: Entity, input: HookInput, callback: Subscriber) {
+Number.prototype.onChange = function (this: Entity, input: HookInput, callback: Subscriber<any>) {
   return subscribeEntityEvent(getEntityContext(this), this, 'changeSubscriptions', input, callback);
 };
 
 //@ts-expect-error
-Number.prototype.targetsFor = function (this: Entity, relation: Relation<any>) {
+Number.prototype.targetsFor = function (this: Entity, relation: Relation<any> | Identifier) {
+  if (isIdentifier(relation)) {
+    const target = getIdentifierTarget(getEntityContext(this), this, relation);
+    return target === undefined ? [] : [target];
+  }
   return getRelationTargets(getEntityContext(this), relation, this);
 };
 
 //@ts-expect-error
-Number.prototype.targetFor = function (this: Entity, relation: Relation<any>) {
+Number.prototype.targetFor = function (this: Entity, relation: Relation<any> | Identifier) {
+  if (isIdentifier(relation)) return getIdentifierTarget(getEntityContext(this), this, relation);
   return getFirstRelationTarget(getEntityContext(this), relation, this);
 };
 
 //@ts-expect-error
 Number.prototype.id = function (this: Entity) {
   return getEntityId(this);
-};
-
-// @ts-expect-error
-Number.prototype.name = function (this: Entity) {
-  return getTrait(getEntityContext(this), this, Name);
 };
 
 // @ts-expect-error

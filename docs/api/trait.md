@@ -125,7 +125,7 @@ const store = {
 
 Array of Structures (AoS) are callback-based traits.
 
-When using a callback, each entity's trait data is stored as a single value in an array. This is useful for compatibility with third party libraries like Three and class instances. Put primitive data in a schema field, the one atomic trait is `Name`, which is set with `entity.set`.
+When using a callback, each entity's trait data is stored as a single value in an array. This is useful for compatibility with third party libraries like Three and class instances. Put primitive data in a schema field. For unique lookup keys, define an [identifier](identifiers.md).
 
 ```js
 const Velocity = trait(() => ({ x: 0, y: 0, z: 0 }))

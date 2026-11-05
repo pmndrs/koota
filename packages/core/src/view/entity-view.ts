@@ -1,5 +1,5 @@
 import { $internal } from '../common';
-import { isNameConfig } from '../name/name-index';
+import { isIdentifier, isIdentifierPair } from '../identifier/identifier';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
@@ -40,7 +40,7 @@ type Callback = (...args: any[]) => void;
  */
 export class EntityView {
   ctx: WorldContext;
-  /** Null for lookups that bypass a query instance, such as named and relation fast paths. */
+  /** Null for lookups that bypass a query instance, such as identifier and relation fast paths. */
   query: QueryInstance | null;
   binding: QueryViewBinding;
   source: EntitySource;
@@ -294,7 +294,7 @@ export function getQueryBinding(
   if (
     query === null &&
     (params.length === 0 ||
-      (params.length === 1 && (isRelationPair(params[0]) || isNameConfig(params[0]))))
+      (params.length === 1 && (isRelationPair(params[0]) || isIdentifierPair(params[0]))))
   ) {
     return entityBinding;
   }
@@ -329,7 +329,7 @@ export function matchesQueryBinding(
   let index = 0;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
-    if (isNameConfig(param) || isRelationPair(param)) continue;
+    if (isIdentifierPair(param) || isIdentifier(param) || isRelationPair(param)) continue;
     if (isModifier(param)) {
       if (param.type === 'not') continue;
       for (const trait of param.traits) {
@@ -363,7 +363,7 @@ function fillQueryBinding(
 ) {
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
-    if (isNameConfig(param) || isRelationPair(param)) continue;
+    if (isIdentifierPair(param) || isIdentifier(param) || isRelationPair(param)) continue;
     if (isModifier(param)) {
       if (param.type === 'not') continue;
       for (const trait of param.traits) {

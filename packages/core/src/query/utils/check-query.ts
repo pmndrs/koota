@@ -1,10 +1,14 @@
+import { matchesIdentifiers } from '../../identifier/identifier';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import type { WorldContext } from '../../world';
 import type { QueryInstance } from '../types';
 
 export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Entity): boolean {
-  if (query.name !== undefined && (query.name === null || ctx.names.get(query.name) !== entity)) {
+  if (
+    query.identifierFilters !== undefined &&
+    !matchesIdentifiers(ctx, entity, query.identifierFilters)
+  ) {
     return false;
   }
   return passesStaticMasks(query.masks, ctx.entityMasks, getEntityId(entity));

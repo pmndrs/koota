@@ -1,9 +1,11 @@
 import {
   $internal,
+  $identifierPair,
   $relationPair,
   createQuery,
   shallowEqual,
   type Entity,
+  type IdentifierPair,
   type RelationPair,
   type World,
 } from '@koota/core';
@@ -39,11 +41,14 @@ function queryRef(query: RelationPair['targetQuery']) {
 
 function sameInput(a: unknown, b: unknown) {
   if (a === b) return true;
-  const left = a as RelationPair;
-  const right = b as RelationPair;
+  const left = a as RelationPair | IdentifierPair;
+  const right = b as RelationPair | IdentifierPair;
+  if ($identifierPair in left && $identifierPair in right) {
+    return left.identifier === right.identifier && left.target === right.target;
+  }
   return (
-    left[$relationPair] &&
-    right[$relationPair] &&
+    $relationPair in left &&
+    $relationPair in right &&
     left.relation === right.relation &&
     left.target === right.target &&
     (left.targetQuery === right.targetQuery ||

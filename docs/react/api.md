@@ -131,7 +131,7 @@ function ActiveIndicator({ entity }) {
 
 ## `useHas`
 
-Observes the presence of any trait or relation pair on an entity or world. It returns a boolean; changes to a trait's value do not affect it.
+Observes a trait, relation pair, identifier type or identifier term on an entity or world. It returns `false` when absent or the source is nullish. Changes to trait data do not affect it.
 
 ```jsx
 import { useHas } from 'koota/react'
@@ -143,6 +143,13 @@ function Status({ entity, parent }) {
 
   return hasHealth ? <div>Has health</div> : null
 }
+```
+
+For identifiers, pass the type to observe presence or a term to observe an exact key. Replacing a key keeps presence true and updates the matching terms. Inline terms do not need memoization.
+
+```ts
+const hasWireId = useHas(entity, WireId)
+const isPlayer = useHas(entity, WireId(123))
 ```
 
 ## `useTraitEffect`
@@ -173,7 +180,7 @@ function SyncTraits({ entity, parent, world, meshRef }) {
 
 ## `useTarget`
 
-Observes a relation on an entity or world. It returns the first target entity, or `undefined` when no target exists or the source target is nullish.
+Observes a relation or identifier on an entity or world. It returns the first target entity for a relation or the scalar key for an identifier. The result is `undefined` when no target exists or the source is nullish or destroyed.
 
 ```jsx
 import { useTarget } from 'koota/react'
@@ -183,6 +190,23 @@ function ParentDisplay({ entity }) {
   return parent ? <div>Parent: {parent.id()}</div> : <div>No parent</div>
 }
 ```
+
+Identifier keys retain their inferred type. The hook follows assignment, replacement and removal, and world targets remain subscribed across resets.
+
+```ts
+import { identifier } from 'koota'
+
+const Name = identifier()
+const WireId = identifier<number>()
+
+function PlayerLabel({ entity }) {
+  const name = useTarget(entity, Name) // string | undefined
+  const wireId = useTarget(entity, WireId) // number | undefined
+  // ...
+}
+```
+
+Use `useQueryFirst(WireId(123))` for the reverse direction, observing the entity that owns a key. The returned entity can be passed directly to `useTarget` or `useHas`.
 
 ## `useTargets`
 

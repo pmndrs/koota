@@ -49,9 +49,9 @@ const id = entity.id()
 // Return number
 const generation = entity.generation()
 
-// Get the entity's name if it has the Name trait
-// Return string | undefined
-const name = entity.name()
+// Read an application-defined identifier
+// Return its key type, or undefined
+const key = entity.targetFor(WireId)
 
 // Destroys the entity making its number no longer valid
 entity.destroy()
@@ -65,41 +65,26 @@ const { entityId, generation, worldId } = unpackEntity(entity)
 
 See [assertion configuration](asserts.md) for development checks and production overrides.
 
-## Named entities
+## Identifiers
 
-`Name` holds a non-empty string, unique within its world.
+Define the identifier types your application needs with `identifier()`. An entity can have one value for each type, and each value belongs to at most one entity per world.
 
-```js
-import { createQuery, Name } from 'koota'
+```ts
+import { identifier } from 'koota'
 
-const player = world.spawn(Name('player'), Position)
-player.get(Name) // 'player'
-player.name() // 'player'
-player.has(Name('player')) // true
-world.lookup('player') // player
+const Name = identifier()
+const WireId = identifier<number>()
+const player = world.spawn(Name('kris'), WireId(123), Position)
 
-player.set(Name, 'hero')
-world.lookup('player') // undefined
-world.lookup('hero') // player
-
-world.query(Name, Position) // All named entities with Position
-world.queryFirst(Name('hero'), Position) // player
-
-const Hero = createQuery(Name('hero'), Position)
-world.query(Hero)
-world.onQueryAdd(Hero, (entity) => {})
+player.targetFor(Name) // 'kris'
+player.targetsFor(WireId) // [123]
+player.has(WireId(123)) // true
+player.has(WireId) // true
+player.add(WireId(456)) // Replaces 123
+player.remove(WireId(123)) // No effect
+player.remove(WireId) // Releases the current wire ID
 ```
 
-Taken names are refused and throw `[NAME_TAKEN]` with [assertions](./asserts.md) enabled. Guard expected conflicts:
+Use `add` to replace a value and `targetFor` to read it. `get` and `set` operate on trait or relation data. Koota has no built-in `Name` or `entity.name()` method.
 
-```js
-const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
-```
-
-Rename with `set`:
-
-```js
-hero.set(Name, 'champion')
-```
-
-Removing `Name` or destroying the entity frees its name. Cached queries and subscriptions follow the current owner. Direct store or page writes bypass name lookups and query updates, so use `set` to rename.
+See [identifiers](identifiers.md) for lookup, queries, ownership and lifecycle contracts.

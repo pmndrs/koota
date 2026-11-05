@@ -2,7 +2,7 @@
 import {
   createAdded,
   createWorld,
-  Name,
+  identifier,
   type Entity,
   relation,
   trait,
@@ -20,6 +20,7 @@ declare global {
 // Let React know that we'll be testing effectful components
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+const Name = identifier();
 let world: World;
 const Position = trait({ x: 0, y: 0 });
 // const Velocity = trait({ x: 0, y: 0 });
@@ -80,7 +81,7 @@ describe('useQuery', () => {
     });
     expect([...result.current]).toEqual([player!]);
     await act(async () => {
-      player!.set(Name, 'hero');
+      player!.add(Name('hero'));
     });
     expect(result.current).toHaveLength(0);
     await act(async () => {
