@@ -37,6 +37,8 @@ export type TraitAccessors<S extends Schema = any> = {
 export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> & {
   readonly id: number;
   readonly createStore: () => Store<S>;
+  /** Drop stored references when a destroyed entity is evicted. */
+  readonly clear: ((index: number, store: any) => void) | undefined;
   readonly type: StoreType;
   /** True for a plain paged SoA trait with scalar fields, which iteration can read in place. */
   readonly cursor: boolean;

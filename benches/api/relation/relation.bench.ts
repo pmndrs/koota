@@ -316,6 +316,36 @@ group('relation target lifecycle 1k @relation @lifecycle', () => {
   });
 });
 
+group('relation membership 10k @relation @accessor', () => {
+  for (const exclusive of [false, true]) {
+    for (const wildcard of [false, true]) {
+      bench(
+        `${exclusive ? 'exclusive' : 'multiple'} targets, ${wildcard ? 'wildcard' : 'concrete'} has`,
+        function* () {
+          const Link = relation({ exclusive });
+          const world = createWorld();
+          const concrete = Link(world.spawn());
+          const pair = wildcard ? Link('*') : concrete;
+          const entities = Array.from({ length: 10_000 }, (_, i) => {
+            const entity = world.spawn(concrete);
+            if (i % 2) entity.remove(concrete);
+            return entity;
+          });
+          const count = yield () => {
+            let count = 0;
+            for (let i = 0; i < entities.length; i++) {
+              if (entities[i].has(pair)) count++;
+            }
+            return count;
+          };
+          assert.equal(count, 5000);
+          world.destroy();
+        }
+      );
+    }
+  }
+});
+
 group('relation data 10k @relation @accessor', () => {
   const Attached = relation({ store: { offset: [0, 0, 0], weight: 1 } });
 

@@ -44,8 +44,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 import { createWorld } from 'koota'
 import { Time, Pointer, Viewport } from './traits'
 
-// Pass singleton traits to createWorld for global data
-export const world = createWorld(Time, Pointer, Viewport)
+// Add singleton traits after creating the world
+export const world = createWorld()
+world.add(Time, Pointer, Viewport)
 ```
 
 ## useQuery
@@ -95,6 +96,8 @@ const player = useQuery(IsPlayer)[0]
 ## useTrait
 
 Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed. Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
+
+Requires a `WorldProvider`. The target must belong to the world returned by `useWorld()`.
 
 For an ordered relation trait, `useTrait(parent, OrderedChildren)` returns a `readonly Entity[]` in relation order. Its reference changes when the sequence changes. Edit the relation through `parent.get(OrderedChildren)` in an action or event handler.
 

@@ -13,7 +13,17 @@ World's can also have their own traits, which function as singletons.
 
 ## World API
 
+`createWorld(options?: WorldOptions)` sets policy at creation. Add singleton traits afterward with `world.add(...)`. The `retain` option must be a non-negative safe integer.
+
 ```js
+// Set world policy once. Options are optional and retain defaults to 1024
+const world = createWorld({ retain: 1024 })
+world.add(Time, Config)
+
+// Read-only cap on retained destroyed entities, preserved by reset
+// Overflow evicts the oldest, even if unread. Zero disables destroyed-entity retention
+world.retain
+
 // Spawns an entity
 // Can pass any number of traits
 // Return Entity

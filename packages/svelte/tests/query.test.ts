@@ -1,4 +1,4 @@
-import { createWorld, relation, trait, universe, type Entity } from '@koota/core';
+import { createWorld, relation, trait, type Entity } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -12,7 +12,6 @@ describe('useQuery', () => {
   let world = createWorld();
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

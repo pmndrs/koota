@@ -2,7 +2,6 @@ import {
   $internal,
   $relationPair,
   isOrderedTrait,
-  universe,
   type Entity,
   type ExtractSchema,
   type MutableOrderedView,
@@ -13,14 +12,10 @@ import {
   type World,
 } from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
+import { useWorld } from '../world/use-world';
 
 export function readTrait(entity: Entity, trait: Trait | RelationPair) {
   return entity.has(trait) ? entity.get(trait) : undefined;
-}
-
-function getTraitVersionSource(entity: Entity, trait: Trait | RelationPair) {
-  if ($relationPair in trait) trait = trait.relation[$internal].trait;
-  return universe.pageOwners[entity.id() >>> 10]?.traitInstances[trait.id];
 }
 
 export function attachTrait<T extends Trait | RelationPair>(
@@ -30,12 +25,10 @@ export function attachTrait<T extends Trait | RelationPair>(
 ) {
   const update = () => push(entity.get(trait));
   const onChange = entity.onChange(trait, update);
-  const onAdd = entity.onAdd(trait, update);
   const onRemove = entity.onRemove(trait, () => push(undefined));
 
   return () => {
     onChange();
-    onAdd();
     onRemove();
   };
 }
@@ -74,5 +67,13 @@ export function useTrait<T extends Trait>(
   trait: T | RelationPair<T>
 ): (T extends OrderedTrait ? readonly Entity[] : TraitRecord<T>) | undefined;
 export function useTrait(target: Entity | World | undefined | null, trait: Trait | RelationPair) {
-  return useEntityValue(target, trait, readSnapshot, attachSnapshot, getTraitVersionSource);
+  const world = useWorld();
+  const sourceTrait = $relationPair in trait ? trait.relation[$internal].trait : trait;
+  return useEntityValue(
+    target,
+    trait,
+    readSnapshot,
+    attachSnapshot,
+    () => world[$internal].traitInstances[sourceTrait.id]
+  );
 }

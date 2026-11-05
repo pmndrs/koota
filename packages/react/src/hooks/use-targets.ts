@@ -13,14 +13,12 @@ function attachTargets(entity: Entity, relation: Relation<Trait>, push: (value: 
   // so removals filter the last pushed list rather than rereading.
   let targets = entity.targetsFor(relation);
   const update = () => push((targets = entity.targetsFor(relation)));
-  const onAdd = entity.onAdd(relation, update);
   const onChange = entity.onChange(relation, update);
   const onRemove = entity.onRemove(relation, (_, removed) => {
     push((targets = targets.filter((t) => t !== removed)));
   });
 
   return () => {
-    onAdd();
     onChange();
     onRemove();
   };

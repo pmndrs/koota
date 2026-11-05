@@ -1,6 +1,6 @@
 import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
-import { isEntityAlive } from '../../entity/utils/entity-index';
+import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { ENTITY_ID_MASK } from '../../entity/utils/pack-entity';
 import { isNameTrait, refreshNamedQueries } from '../../name/name-index';
 import type { Store } from '../../storage';
@@ -212,20 +212,20 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     }
   }
 
-  // Cursors write during the callback, so an entity that died earlier in the walk is skipped
-  // before its callback runs, which protects a recycled slot. The check costs one compare until
+  // Structural changes can invalidate later entries. Removed walks accept retained dead entities,
+  // but skip evicted handles before reading a recycled slot. The check costs one compare until
   // the first release of the walk. Every cursor rebinds its pages together when the page changes,
   // which is one compare per entity however many traits the walk reads.
   const setup = (cursor: 'value' | 'plain' | 'reader') => `
-    var state = buffers.state, records = buffers.records, index = ctx.entityIndex;${
-      cursors ? ' var releases = index.releases, lastPg = -1;' : ''
-    }
+    var state = buffers.state, records = buffers.records, index = ctx.entityIndex;
+    var releases = index.releases, retains = buffers.retains;${cursors ? ' var lastPg = -1;' : ''}
     ${hoist.join('\n    ').replace(/__CURSOR__/g, cursor)}`;
   const loop = (body: string) => `
     for (var i = 0; i < length; i++) {
-      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};${
+      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
+      if (index.releases !== releases && !(retains ? isEntityReadable(index, entity) : isEntityAlive(index, entity))) continue;${
         cursors
-          ? ` var pg = eid >>> 10, off = eid & 1023; if (index.releases !== releases && !isEntityAlive(index, entity)) continue;
+          ? ` var pg = eid >>> 10, off = eid & 1023;
       if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')} }`
           : ''
       }
@@ -255,6 +255,7 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     'a',
     'traits',
     'isEntityAlive',
+    'isEntityReadable',
     'snapshotAtomic',
     'atomicChanged',
     'writeValidatedTrait',
@@ -283,6 +284,7 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     accessors,
     traits.slice(),
     isIterationEntityAlive,
+    isEntityReadable,
     snapshotAtomic,
     atomicChanged,
     writeValidatedTrait

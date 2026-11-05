@@ -50,6 +50,10 @@ pnpm bench baseline "Name"
 
 # Compare baseline to a test by name
 pnpm bench compare "Name"
+
+# Compare against another checkout, interleaved in one session so clock drift cancels out
+git worktree add ../koota-base canary
+pnpm bench --against ../koota-base "@entity" -n "Name"
 ```
 
 ## Testing Principles

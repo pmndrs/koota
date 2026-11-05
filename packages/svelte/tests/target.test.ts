@@ -1,4 +1,4 @@
-import { createWorld, relation, trait, universe } from '@koota/core';
+import { createWorld, relation, trait } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -19,7 +19,6 @@ describe('useTarget', () => {
   };
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 
@@ -103,7 +102,6 @@ describe('useTargets', () => {
   };
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

@@ -1,18 +1,12 @@
 import { $internal } from '../../common';
 import { isRelation } from '../../relation/utils/is-relation';
 import type { ExtractTraits, TraitOrRelation } from '../../trait/types';
-import { universe } from '../../universe/universe';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
-import { createTrackingId, setTrackingMasks } from '../utils/tracking-cursor';
+import { createTrackingId } from '../utils/tracking-cursor';
 
 export function createAdded() {
-  const id = createTrackingId('add');
-
-  for (const ctx of universe.worlds) {
-    if (!ctx) continue;
-    setTrackingMasks(ctx, id);
-  }
+  const id = createTrackingId();
 
   return <T extends TraitOrRelation[]>(
     ...inputs: T

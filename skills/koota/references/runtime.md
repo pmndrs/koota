@@ -167,7 +167,7 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**Trait lifecycle events** (`onAdd`, `onRemove`, `onChange`) are also transition-based:
+**Trait lifecycle events** (`onAdd`, `onRemove`, `onChange`) report future events. `onChange` covers additions, including spawn, and writes. It does not replay existing matches or report removals:
 
 ```typescript
 useEffect(() => {
@@ -234,7 +234,7 @@ export function updateTime(world: World) {
 
 **Key points:**
 
-- `Time` is a singleton trait passed to `createWorld(Time, ...)`
+- `Time` is a singleton trait added with `world.add(Time)` after creating the world
 - `delta` is in seconds (divided by 1000)
 - `delta` capped at 0.1s to prevent large jumps
 - Call `updateTime(world)` first in frameloop

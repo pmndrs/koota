@@ -106,7 +106,7 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance.
+Track structural and data changes. Create a separate modifier for each independent reader. `Added` and `Changed` start with current matches. `Removed` starts with retained removals.
 
 ```typescript
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -126,21 +126,42 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since last query (includes destroyed entities):
+**Removed** - Entities that removed a trait since the last query, including entities destroyed while holding it. Removed data stays available through `each` arguments and `getPages` stores so you can clean up resources, until the trait is added back or the entity is evicted. Custom `remove` accessors may clear retained data. Other terms match a destroyed entity on the traits it died with, and `isAlive` distinguishes a destroy from a live removal.
+
+The world defers cleanup of existing data for its newest `retain` destroyed entities, fixed by `createWorld({ retain })` and defaulting to 1024. Each destroy that exceeds the cap evicts the oldest, even if unread. Eviction invalidates the handle, removes pending and exposed query entries, releases stored values and relations, and makes the id reusable. Slow readers can miss evicted entities. Zero cleans up destroyed entities immediately, while live trait removals still work.
+
+Readers consume independent batches within the cap. A run exposes its pending batch and the next run replaces it. Reading does not clean up retained data, so late queries can still seed retained destroys in destroy order. The cap bounds entity count, not bytes, and allocated pages remain available for reuse. Mutations that overflow the cap also invalidate evicted entries in existing views and snapshots.
+
+Ordinary entity reads and writes require liveness, even inside `Removed` callbacks. A live entity's `get` returns `undefined` after the trait is removed. Retained relation pairs still match query filters, including children destroyed with their parent:
 
 ```typescript
 const stoppedEntities = world.query(Removed(Velocity))
 
 // Track orphaned entities
 const orphaned = world.query(Removed(ChildOf))
+
+// Register after destruction and still read retained data
+const entity = world.spawn(ServerSync)
+entity.destroy()
+const RemovedSync = createRemoved()
+world.query(RemovedSync(ServerSync)).each((serverSync) => serverSync.disconnect())
+world.query(Removed(ChildOf), ChildOf(parent)).forEach((child) => detach(child, parent))
 ```
 
-**Changed** - Entities whose trait data changed since last query:
+**Changed** - Entities whose traits were added or written since the last query. The first run includes all current matches. `onChange` reports the same additions and writes, but callbacks only observe future events:
 
 ```typescript
-const movedEntities = world.query(Changed(Position))
+const ChangedPosition = createChanged()
+const moved = world.spawn(Position)
 
-// Track relation data changes
+// First run includes existing Position traits
+world.query(ChangedPosition(Position))
+
+moved.set(Position, { x: 10 })
+// Later runs include additions and writes
+const movedEntities = world.query(ChangedPosition(Position))
+
+// Track relation additions and data writes
 const updatedChildren = world.query(Changed(ChildOf))
 ```
 
@@ -180,7 +201,8 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 - Create instances at module scope, not inside functions
 - Tracking resets after each query execution
-- Changed only tracks `set()` calls and `entity.changed()` signals
+- Changed tracks trait additions, `set()` calls, `entity.changed()` signals, and changes detected by `each`
+- Removed needs no warm up, a reader created after a removal sees it on its first run while the trait stays removed and the entity has not been evicted
 
 ## Caching queries
 

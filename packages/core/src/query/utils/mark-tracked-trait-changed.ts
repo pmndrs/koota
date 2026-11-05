@@ -1,36 +1,17 @@
 import type { Entity } from '../../entity/types';
-import { getEntityId } from '../../entity/utils/pack-entity';
-import { ensureMaskPage } from '../../entity/utils/paged-mask';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { addEntityToQuery, removeEntityFromQuery } from '../query';
 import { checkQueryTracking } from './check-query-tracking';
-import { checkQueryTrackingWithRelations } from './check-query-tracking-with-relations';
 
-/** Keep tracked work outside the inlined setter notification path. */
-export function markTrackedTraitChanged(ctx: WorldContext, entity: Entity, data: TraitInstance) {
-  markTraitChanged(ctx, entity, data);
-}
-
+/** Advance the revision and notify registered Changed queries. */
 export /* @inline */ function markTraitChanged(
   ctx: WorldContext,
   entity: Entity,
   data: TraitInstance
 ) {
   data.version++;
-  if (ctx.changedMasks.size !== 0) markChangedMasks(ctx, entity, data);
   if (data.trackingQueries.length !== 0) notifyChangedTrackingQueries(ctx, entity, data);
-}
-
-/** Record the change in every changed mask snapshot. */
-export function markChangedMasks(ctx: WorldContext, entity: Entity, data: TraitInstance) {
-  const { generationId, bitflag } = data;
-  const eid = getEntityId(entity);
-  const pageId = eid >>> 10;
-  const offset = eid & 1023;
-  for (const changedMask of ctx.changedMasks.values()) {
-    ensureMaskPage(changedMask[generationId], pageId)[offset] |= bitflag;
-  }
 }
 
 /** Re-evaluate the tracking queries that watch this trait for changes. */
@@ -39,13 +20,9 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
   const queries = data.trackingQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    if (!query.hasChangedModifiers) continue;
-    if (!query.changedTraits.includes(data.trait)) continue;
+    if ((query.changedMasks[generationId] & bitflag) === 0) continue;
 
-    const match =
-      query.relationFilters && query.relationFilters.length > 0
-        ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', generationId, bitflag)
-        : checkQueryTracking(ctx, query, entity, 'change', generationId, bitflag);
+    const match = checkQueryTracking(ctx, query, entity, 'change', generationId, bitflag);
     if (match) addEntityToQuery(query, entity);
     else removeEntityFromQuery(ctx, query, entity);
   }

@@ -22,7 +22,7 @@ export /* @inline @pure */ function isModifier(param: QueryParameter): param is 
   return (param as Brand<typeof $modifier> | null | undefined)?.[$modifier] as unknown as boolean;
 }
 
-/** Check if a modifier is a tracking modifier (added, removed, or changed) */
+/** Check if a modifier is a tracking modifier (added, removed or changed) */
 export function isTrackingModifier(modifier: Modifier): boolean {
   const { type } = modifier;
   return type.includes('added') || type.includes('removed') || type.includes('changed');

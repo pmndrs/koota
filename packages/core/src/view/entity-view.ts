@@ -2,7 +2,7 @@ import { $internal } from '../common';
 import { isNameConfig } from '../name/name-index';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isEntityAlive } from '../entity/utils/entity-index';
+import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { Store } from '../storage';
 import { registerTrait } from '../trait/trait';
@@ -100,8 +100,9 @@ export class EntityView {
       length: dense.length,
       dense,
       guard,
+      ctx: this.ctx,
       result: { value: 0 as Entity, done: false },
-      next: nextViewIterator,
+      next: this.query?.retains ? nextRetainedViewIterator : nextViewIterator,
       return: returnViewIterator,
       [Symbol.iterator]: iterateViewIterator,
     } as ViewIterator;
@@ -117,7 +118,11 @@ export class EntityView {
     const guard = this.getGuard();
     if (guard) guard.iterating++;
     try {
-      for (let i = 0; i < length; i++) callback(dense[i] as Entity, i);
+      for (let i = 0; i < length; i++) {
+        const entity = dense[i] as Entity;
+        if (this.query?.retains && !isEntityReadable(this.ctx.entityIndex, entity)) continue;
+        callback(entity, i);
+      }
     } finally {
       if (guard) guard.iterating--;
     }
@@ -137,6 +142,7 @@ export class EntityView {
     const { stores } = this.binding;
     const pool = query ?? ctx;
     const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding);
+    buffers.retains = query?.retains ?? false;
     if (guard) guard.iterating++;
     try {
       buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
@@ -168,6 +174,7 @@ export class EntityView {
     const pool = query ?? ctx;
     const entities = dense as Entity[];
     const buffers = takeIterationBuffers(ctx, pool, entities, this.binding);
+    buffers.retains = query?.retains ?? false;
     const iterators = buffers.iterators!;
     if (guard) guard.iterating++;
     try {
@@ -180,7 +187,7 @@ export class EntityView {
           buffers,
           stores
         );
-      } else {
+      } else /* @cold */ {
         const changedCount = (positional ? iterators.trackArgs : iterators.trackEach)(
           ctx,
           entities,
@@ -214,6 +221,7 @@ interface ViewIterator extends IterableIterator<Entity> {
   readonly length: number;
   readonly dense: readonly number[];
   readonly guard: { iterating: number } | null;
+  readonly ctx: WorldContext;
   readonly result: { value: Entity; done: boolean };
 }
 
@@ -230,6 +238,19 @@ function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
   }
   this.result.value = value;
   this.result.done = done;
+  return this.result as IteratorResult<Entity>;
+}
+
+/** Retained walks skip entries evicted while a callback holds the original array. */
+function nextRetainedViewIterator(this: ViewIterator): IteratorResult<Entity> {
+  while (this.index < this.length) {
+    const entity = this.dense[this.index++] as Entity;
+    if (!isEntityReadable(this.ctx.entityIndex, entity)) continue;
+    this.result.value = entity;
+    return this.result as IteratorResult<Entity>;
+  }
+  finishViewIterator(this);
+  this.result.value = 0 as Entity;
   return this.result as IteratorResult<Entity>;
 }
 
@@ -365,6 +386,7 @@ function createIterationBuffers(): QueryIterationBuffers {
     traits: [],
     records: [],
     iterators: undefined,
+    retains: false,
     modes: [],
     atomicSnapshots: [],
     changedEntities: [],
@@ -463,12 +485,10 @@ function trackTraits(
     // Notifying costs a deferred pass per entity, so skip it when nothing can observe the change.
     const tracked =
       changeDetection === 'always'
-        ? hasSubscribers(instance.changeSubscriptions) ||
-          ctx.changedMasks.size !== 0 ||
-          instance.trackingQueries.length !== 0
+        ? hasSubscribers(instance.changeSubscriptions) || instance.trackingQueries.length !== 0
         : changeDetection !== 'never' &&
           (hasSubscribers(instance.changeSubscriptions) ||
-            (query?.hasChangedModifiers && query.changedTraits.includes(trait)));
+            (query !== null && (query.changedMasks[instance.generationId] & instance.bitflag) !== 0));
     if (!tracked) {
       modes[i] = 0;
       continue;

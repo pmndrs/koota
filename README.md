@@ -321,6 +321,8 @@ container.destroy()
 world.has(itemA) // False, items are destroyed with container
 ```
 
+`Removed` queries can still read [relations on destroyed entities](docs/api/query-modifiers.md#destroyed-entities).
+
 #### Exclusive relations
 
 Exclusive relations ensure each entity can only have one target.
@@ -463,7 +465,7 @@ player.has(banana) // false
 
 #### Tracking relation changes
 
-Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Changes can only be tracked on relations that have a store.
+Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Use a relation store to track data writes.
 
 ```js
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -480,7 +482,7 @@ const newChildren = world.query(Added(ChildOf))
 // Track when any entity removes the ChildOf relation
 const orphaned = world.query(Removed(ChildOf))
 
-// Track when relation data changes for any target
+// Track relation additions and data writes
 const updated = world.query(Changed(ChildOf))
 ```
 
@@ -503,7 +505,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 
 - `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
 - `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
-- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+- `onChange(Relation, (entity, target) => {})` triggers when a pair is added or its store data is written. Pair additions also fire for relations without a store.
 
 ```js
 const ChildOf = relation({ store: { priority: 0 } })
@@ -515,7 +517,7 @@ const unsubChange = world.onChange(ChildOf, (entity, target) => {})
 const parent = world.spawn()
 const child = world.spawn()
 
-child.add(ChildOf(parent)) // onAdd(child, parent)
+child.add(ChildOf(parent)) // onAdd(child, parent), onChange(child, parent)
 child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
 child.remove(ChildOf(parent)) // onRemove(child, parent)
 ```
@@ -583,6 +585,8 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
+Tracking modifiers report changes since their query last ran. `Added` and `Changed` start with current matches. `Removed` starts with retained removals.
+
 #### Added
 
 The `Added` modifier tracks all entities that have added the specified traits or relations since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
@@ -611,7 +615,9 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 #### Removed
 
-The `Removed` modifier tracks all entities that have removed the specified traits or relations since the last time the query was run. This includes entities that have been destroyed. A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks entities that removed the specified traits or relations since the last query, including destroyed entities. A new instance of the modifier must be created for tracking to be unique.
+
+Removed data stays available through `.each()` or `.getPages()` so you can clean up resources. See the [query modifier API](docs/api/query-modifiers.md#destroyed-entities) for retention limits.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -637,7 +643,7 @@ const eitherRemoved = world.query(Or(Removed(Position), Removed(Velocity)))
 
 #### Changed
 
-The `Changed` modifier tracks all entities that have had the specified traits or relation stores change since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
+`Changed` tracks additions and writes to the specified traits or relation stores. Its first run includes all current matches. Create a separate modifier for each independent reader.
 
 When multiple traits are passed to `Changed` it uses logical `AND`. Only entities where **all** specified traits have changed will be returned.
 
@@ -645,11 +651,16 @@ When multiple traits are passed to `Changed` it uses logical `AND`. Only entitie
 import { createChanged } from 'koota'
 
 const Changed = createChanged()
+const entity = world.spawn(Position)
 
-// Track entities whose Position has changed
+// First run includes existing Position traits
+world.query(Changed(Position))
+
+entity.set(Position, { x: 10 })
+// Later runs include additions and writes
 const movedEntities = world.query(Changed(Position))
 
-// Track entities whose ChildOf relation data has changed
+// Track ChildOf additions and data writes
 const updatedChildren = world.query(Changed(ChildOf))
 
 // Track entities where BOTH Position AND Velocity have changed
@@ -667,7 +678,9 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
-- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
+- `onChange` triggers after a trait is added (including spawn), written with `entity.set()`, or flagged with `entity.changed()`. It also reports writes detected by `.each()`.
+
+Subscriptions only report future events. `Changed` queries also include current matches on their first run.
 
 ```js
 // Subscribe to Position changes
@@ -691,7 +704,7 @@ entity.set(Position, { x: 10, y: 20 })
 entity.remove(Position)
 ```
 
-When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
+When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events report pair additions and writes to relation store data.
 
 ```js
 const Likes = relation()
@@ -906,7 +919,16 @@ This is where all data is stored. We have methods on entities but this is a bit 
 
 Worlds can have traits, which is our version of a singleton. Use these for global resources like a clock. Each world gets its own entity used for world traits. This entity is not queryable but will show up in the list of active entities making the only way to retrieve a world trait with its API.
 
+The optional `retain` cap must be a non-negative safe integer.
+
 ```js
+// Set the retention cap at creation (default 1024)
+const world = createWorld({ retain: 1024 })
+// Add singleton traits separately
+world.add(Time, Config)
+
+world.retain // 1024, read-only and preserved by reset
+
 // Spawns an entity
 // Can pass any number of traits
 // Return Entity

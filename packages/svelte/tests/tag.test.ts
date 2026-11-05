@@ -1,4 +1,4 @@
-import { createWorld, trait, universe } from '@koota/core';
+import { createWorld, trait } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { ComponentProps, tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -17,7 +17,6 @@ describe('useTag', () => {
   };
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

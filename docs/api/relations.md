@@ -92,6 +92,8 @@ container.destroy()
 world.has(itemA) // False, items are destroyed with container
 ```
 
+Retained relation pairs still match `Removed` query filters until eviction. Ordinary entity methods require a live entity. See [Destroyed entities](query-modifiers.md#destroyed-entities).
+
 ## Exclusive relations
 
 Exclusive relations ensure each entity can only have one target.
@@ -234,7 +236,7 @@ player.has(banana) // false
 
 ## Tracking relation changes
 
-Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Changes can only be tracked on relations that have a store.
+Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Use a relation store to track data writes.
 
 ```js
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -251,7 +253,7 @@ const newChildren = world.query(Added(ChildOf))
 // Track when any entity removes the ChildOf relation
 const orphaned = world.query(Removed(ChildOf))
 
-// Track when relation data changes for any target
+// Track relation additions and data writes
 const updated = world.query(Changed(ChildOf))
 ```
 
@@ -274,7 +276,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 
 - `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
 - `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
-- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+- `onChange(Relation, (entity, target) => {})` triggers when a pair is added or its store data is written. Pair additions also fire for relations without a store.
 
 ```js
 const ChildOf = relation({ store: { priority: 0 } })
@@ -286,7 +288,7 @@ const unsubChange = world.onChange(ChildOf, (entity, target) => {})
 const parent = world.spawn()
 const child = world.spawn()
 
-child.add(ChildOf(parent)) // onAdd(child, parent)
+child.add(ChildOf(parent)) // onAdd(child, parent), onChange(child, parent)
 child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
 child.remove(ChildOf(parent)) // onRemove(child, parent)
 ```

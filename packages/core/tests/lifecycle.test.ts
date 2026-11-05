@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   $internal,
+  createChanged,
   createQuery,
   createWorld,
   relation,
@@ -16,7 +17,8 @@ const Bar = trait();
 const Value = trait({ value: 0 });
 
 describe('Lifecycle Subscriptions', () => {
-  const world = createWorld();
+  // Disable destroyed-entity retention so ids can be reused on the next spawn.
+  const world = createWorld({ retain: 0 });
 
   beforeEach(() => {
     world.reset();
@@ -123,7 +125,8 @@ describe('Lifecycle Subscriptions', () => {
 
     it('should observe singleton traits', () => {
       const TimeOfDay = trait({ hour: 0 });
-      const localWorld = createWorld(TimeOfDay);
+      const localWorld = createWorld();
+      localWorld.add(TimeOfDay);
 
       let timeOfDay: TraitRecord<typeof TimeOfDay> | undefined;
       localWorld.onChange(TimeOfDay, (e) => {
@@ -136,19 +139,79 @@ describe('Lifecycle Subscriptions', () => {
       localWorld.destroy();
     });
 
-    it('does not fire onChange when a trait is added without or with initial data', () => {
+    it('fires onChange after additions and spawns have their initial data', () => {
       const cb = vi.fn();
-      world.onChange(Position, cb);
+      world.onChange(Position, (entity) => cb(entity, entity.get(Position)));
 
-      // Plain add — no initial data
       const entityA = world.spawn();
       entityA.add(Position);
-      expect(cb).not.toHaveBeenCalled();
-
-      // Add with inline initial data via trait ref
       const entityB = world.spawn();
       entityB.add(Position({ x: 1, y: 2 }));
-      expect(cb).not.toHaveBeenCalled();
+      const entityC = world.spawn(Position({ x: 3, y: 4 }));
+      entityA.add(Position({ x: 99 }));
+
+      expect(cb.mock.calls).toEqual([
+        [entityA, { x: 0, y: 0 }],
+        [entityB, { x: 1, y: 2 }],
+        [entityC, { x: 3, y: 4 }],
+      ]);
+    });
+
+    it.each(['world', 'entity'] as const)(
+      'aligns %s callbacks with Changed additions and writes without replaying existing values',
+      (scope) => {
+        const entity = world.spawn(Position({ x: 1 }));
+        const Changed = createChanged();
+        const values: number[] = [];
+        const unsubscribe = (scope === 'world' ? world : entity).onChange(Position, (changed) => {
+          values.push(changed.get(Position)!.x);
+        });
+
+        expect(values).toEqual([]);
+        expect(world.query(Changed(Position)).toArray()).toEqual([entity]);
+        expect(world.query(Changed(Position)).length).toBe(0);
+
+        entity.remove(Position);
+        expect(values).toEqual([]);
+        expect(world.query(Changed(Position)).length).toBe(0);
+
+        entity.add(Position({ x: 2 }));
+        expect(values).toEqual([2]);
+        expect(world.query(Changed(Position)).toArray()).toEqual([entity]);
+
+        entity.set(Position, { x: 3 });
+        expect(values).toEqual([2, 3]);
+        expect(world.query(Changed(Position)).toArray()).toEqual([entity]);
+
+        entity.changed(Position);
+        expect(values).toEqual([2, 3, 3]);
+        expect(world.query(Changed(Position)).toArray()).toEqual([entity]);
+
+        world.query(Position).each((position) => position.x++);
+        expect(values).toEqual([2, 3, 3, 4]);
+        expect(world.query(Changed(Position)).toArray()).toEqual([entity]);
+
+        entity.set(Position, { x: 5 }, false);
+        expect(values).toEqual([2, 3, 3, 4]);
+        expect(world.query(Changed(Position)).length).toBe(0);
+
+        unsubscribe();
+        entity.remove(Position);
+        entity.add(Position);
+        entity.set(Position, { x: 6 });
+        expect(values).toEqual([2, 3, 3, 4]);
+      }
+    );
+
+    it('skips an addition removed by an earlier onAdd callback', () => {
+      const entity = world.spawn();
+      const changed = vi.fn();
+      entity.onAdd(Position, () => entity.remove(Position));
+      entity.onChange(Position, changed);
+
+      entity.add(Position);
+      expect(entity.has(Position)).toBe(false);
+      expect(changed).not.toHaveBeenCalled();
     });
   });
 
@@ -381,7 +444,8 @@ describe('Lifecycle Subscriptions', () => {
 
     it('works on the world entity', () => {
       const TimeOfDay = trait({ hour: 0 });
-      const localWorld = createWorld(TimeOfDay);
+      const localWorld = createWorld();
+      localWorld.add(TimeOfDay);
       const cb = vi.fn();
       localWorld[$internal].worldEntity.onChange(TimeOfDay, cb);
 

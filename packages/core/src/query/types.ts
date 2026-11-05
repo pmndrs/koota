@@ -52,6 +52,8 @@ export type QueryIterationBuffers = {
     | undefined
   )[];
   iterators: QueryIterators | undefined;
+  /** Removed walks can read dead entities until their retained history is evicted. */
+  retains: boolean;
   /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
   modes: number[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
@@ -198,7 +200,7 @@ export type TrackingGroup = {
   /** Whether all traits must match (and) or any trait can match (or) */
   logic: 'and' | 'or';
   /** The type of tracking event */
-  type: 'add' | 'remove' | 'change';
+  type: EventType;
   /** Tracking modifier ID for snapshot/mask lookups */
   id: number;
   /** Bitmasks indexed by generationId */
@@ -224,15 +226,18 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   trackingGroups: TrackingGroup[];
   /** Entities matching the query. A tracking query accumulates its next batch here. */
   entities: SparseSet;
-  /** The batch a tracking query currently exposes. Swapped with entities on each run. */
-  batch: SparseSet | undefined;
-  /** The set results read. entities for plain queries, the exposed batch for tracking ones. */
+  /** The set results read. Aliases entities for plain queries, swaps with it for tracking ones. */
   exposed: SparseSet;
   /** Walks in progress over the results. Removals stay pending while it is nonzero. */
   iterating: number;
   isTracking: boolean;
-  hasChangedModifiers: boolean;
-  changedTraits: Trait[];
+  /**
+   * Holds a Removed term. Its other terms read the traits a dead entity died with, and its
+   * pending and exposed batches are trimmed when the retention cap evicts an entity.
+   */
+  retains: boolean;
+  /** Changed terms indexed by mask generation, for direct write dispatch. */
+  changedMasks: number[];
   /** Removals deferred by a walk in progress, created on the first one. */
   toRemove: SparseSet | null;
   /** Position in the world's exclusion query list, or -1 when not listed. */

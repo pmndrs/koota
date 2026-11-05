@@ -1,4 +1,4 @@
-import { createWorld, relation, trait, universe, type Entity, type TraitRecord } from '@koota/core';
+import { createWorld, relation, trait, type Entity, type TraitRecord } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { ComponentProps, tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -19,7 +19,6 @@ describe('useTrait', () => {
   };
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 
@@ -250,7 +249,6 @@ describe('useTraitEffect', () => {
   };
 
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

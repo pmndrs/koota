@@ -30,6 +30,7 @@ type EntityHook = {
   ): () => void;
 };
 
+/** Trait and relation reads require liveness. Read retained values through Removed query iteration. */
 export type Entity = number & {
   add: (...traits: ConfigurableTrait[]) => void;
   remove: (...traits: (Trait | RelationPair)[]) => void;
@@ -50,6 +51,7 @@ export type Entity = number & {
   targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
   onAdd: EntityHook;
   onRemove: EntityHook;
+  /** Reports future additions and writes. Removals use onRemove. */
   onChange: EntityHook;
   id: () => number;
   name: () => string | undefined;

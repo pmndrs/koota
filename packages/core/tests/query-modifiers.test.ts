@@ -235,7 +235,7 @@ describe('Query modifiers', () => {
     expect(entities2.length).toBe(2);
   });
 
-  it('should populate Added queries even if they are registered after the trait is added', () => {
+  it('should seed Added queries from the world history when created after the trait is added', () => {
     const Added = createAdded();
 
     const entityA = world.spawn(Foo);
@@ -248,10 +248,11 @@ describe('Query modifiers', () => {
     entities = world.query(Added(Foo, Bar));
     expect(entities.first!).toBe(entityB);
 
+    // A modifier created later still sees the entities that currently hold the trait.
     const LaterAdded = createAdded();
 
     let entities2 = world.query(LaterAdded(Foo));
-    expect(entities2.length).toBe(0);
+    expect(entities2.length).toBe(2);
 
     entityA.remove(Foo); // Reset
     entityA.add(Foo);
@@ -316,11 +317,12 @@ describe('Query modifiers', () => {
     entityA.remove(Foo);
     entities = world.query(Removed(Foo));
     expect(entities.first!).toBe(entityA);
-    // Should track between Removed modifiers independently.
+    // Should track between Removed modifiers independently. A modifier created later still sees
+    // the entities that lost the trait and have not regained it.
     const Removed2 = createRemoved();
 
     let entities2 = world.query(Removed2(Foo));
-    expect(entities2.length).toBe(0);
+    expect(entities2.length).toBe(1);
 
     entityA.add(Foo);
     entityA.remove(Foo);
@@ -450,7 +452,7 @@ describe('Query modifiers', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('should properly populate Changed queries when traits are changed', () => {
+  it('tracks additions and writes after a Changed query is registered', () => {
     const Changed = createChanged();
 
     const entityA = world.spawn();
@@ -460,7 +462,19 @@ describe('Query modifiers', () => {
 
     entityA.add(Position);
     entities = world.query(Changed(Position));
-    expect(entities.length).toBe(0);
+    expect(entities.toArray()).toEqual([entityA]);
+
+    entityA.add(Position);
+    expect(world.query(Changed(Position)).length).toBe(0);
+
+    const entityB = world.spawn(Position);
+    expect(world.query(Changed(Position)).toArray()).toEqual([entityB]);
+
+    entityA.set(Position, { x: 5 });
+    expect(world.query(Changed(Position)).toArray()).toEqual([entityA]);
+
+    entityA.set(Position, { x: 6 }, false);
+    expect(world.query(Changed(Position)).length).toBe(0);
 
     const positions = getStore(world, Position);
     const eidA = entityA & 0xfffff;
@@ -483,42 +497,71 @@ describe('Query modifiers', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('should populate Changed queries even if they are registered after the trait is changed', () => {
-    const Changed = createChanged();
+  it.each([
+    ['Added', createAdded],
+    ['Changed', createChanged],
+  ] as const)('tracks %s regardless of spawn trait order', (_, createTracker) => {
+    const Tracked = createTracker();
+    expect(world.query(Tracked(Position), IsActive).length).toBe(0);
 
-    const entity = world.spawn(Position);
-
-    const positions = getStore(world, Position);
-    const eid = entity & 0xfffff;
-    positions.x[eid >>> 10][eid & 1023] = 10;
-    positions.y[eid >>> 10][eid & 1023] = 20;
-    entity.changed(Position);
-
-    let entities = world.query(Changed(Position));
-    // expect(entities).toEqual([entity]);
-
-    const LaterChanged = createChanged();
-
-    let entities2 = world.query(LaterChanged(Position));
-    expect(entities2.length).toBe(0);
-
-    positions.x[eid >>> 10][eid & 1023] = 30;
-    positions.y[eid >>> 10][eid & 1023] = 40;
-    entity.changed(Position);
-
-    entities = world.query(Changed(Position));
-    entities2 = world.query(LaterChanged(Position));
-
-    expect(entities.length).toBe(1);
-    expect(entities2.length).toBe(1);
+    const first = world.spawn(Position, IsActive);
+    const second = world.spawn(IsActive, Position);
+    expect(world.query(Tracked(Position), IsActive).toArray()).toEqual([first, second]);
+    expect(world.query(Tracked(Position), IsActive).length).toBe(0);
   });
 
-  it('should only update a Changed query when the tracked trait is changed', () => {
+  it('seeds independent Changed readers from current membership', () => {
+    const Changed = createChanged();
+    const untouched = world.spawn(Position);
+    const written = world.spawn(Position);
+    written.set(Position, { x: 10 });
+    const removed = world.spawn(Position);
+    removed.remove(Position);
+    world.spawn(Position).destroy();
+
+    expect(world.query(Changed(Position)).toArray()).toEqual([untouched, written]);
+    expect(world.query(Changed(Position)).length).toBe(0);
+
+    written.set(Position, { x: 20 });
+    const LaterChanged = createChanged();
+    expect(world.query(LaterChanged(Position)).toArray()).toEqual([untouched, written]);
+    expect(world.query(Changed(Position)).toArray()).toEqual([written]);
+    expect(world.query(LaterChanged(Position)).length).toBe(0);
+
+    const added = world.spawn(Position);
+    expect(world.query(Changed(Position)).toArray()).toEqual([added]);
+    expect(world.query(LaterChanged(Position)).toArray()).toEqual([added]);
+  });
+
+  it.each(['set', 'changed'] as const)('keeps %s tracking independent across worlds', (operation) => {
+    const Value = trait({ value: 0 });
+    const before = createWorld();
+    const first = before.spawn(Value);
+
+    const Changed = createChanged();
+    const changed = Changed(Value);
+    const after = createWorld();
+    const second = after.spawn(Value);
+
+    expect(before.query(changed).toArray()).toEqual([first]);
+    expect(after.query(changed).toArray()).toEqual([second]);
+    expect(before.query(changed).length).toBe(0);
+    expect(after.query(changed).length).toBe(0);
+
+    if (operation === 'set') first.set(Value, { value: 1 });
+    else first.changed(Value);
+    expect(before.query(changed).toArray()).toEqual([first]);
+    expect(after.query(changed).length).toBe(0);
+    before.destroy();
+    after.destroy();
+  });
+
+  it('requires every Changed trait to be added or written', () => {
     const entity = world.spawn(Foo, Bar);
 
     const Changed = createChanged();
 
-    expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBeUndefined();
+    expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBe(entity);
 
     entity.changed(Foo);
     entity.changed(Bar);
@@ -526,6 +569,10 @@ describe('Query modifiers', () => {
 
     entity.changed(Foo);
     expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBeUndefined();
+
+    entity.remove(Bar);
+    entity.add(Bar);
+    expect(world.queryFirst(Changed(Foo), Changed(Bar))).toBe(entity);
   });
 
   // @see https://github.com/pmndrs/koota/issues/115
@@ -533,8 +580,8 @@ describe('Query modifiers', () => {
     const Changed = createChanged();
     const entity = world.spawn(Position);
 
-    // Initial state - no changes
-    expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
+    // The first read includes current membership.
+    expect(world.queryFirst(Changed(Position), Not(Foo))).toBe(entity);
 
     // Change Position
     entity.changed(Position);
@@ -547,19 +594,6 @@ describe('Query modifiers', () => {
     entity.add(Foo);
     entity.remove(Foo);
     expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
-  });
-
-  it('should correctly populate Changed query when trait changes happen before query initialization', () => {
-    // Create change modifier and spawn an entity
-    const Changed = createChanged();
-    const entity = world.spawn(Foo, Bar);
-
-    // Mark Bar as changed
-    entity.changed(Bar);
-
-    // Even if the query wasn't executed before,
-    // it should pick up the trait change
-    expect(world.queryFirst(Changed(Bar))).toBe(entity);
   });
 
   it('should keep tracking after the world is reset', () => {
@@ -656,9 +690,9 @@ describe('Query modifiers', () => {
     const entityB = world.spawn(Position, Foo);
     const entityC = world.spawn(Position, Foo);
 
-    // No changes yet
+    // The first read includes current membership.
     let entities = world.query(Or(Changed(Position), Changed(Foo)));
-    expect(entities.length).toBe(0);
+    expect(entities.toArray()).toEqual([entityA, entityB, entityC]);
 
     // Change only Position on entityA
     entityA.changed(Position);
@@ -750,8 +784,10 @@ describe('Query modifiers', () => {
     const childA = world.spawn(ChildOf(parentA));
     const childB = world.spawn(ChildOf(parentB));
 
-    // No changes yet
-    expect(world.query(Changed(ChildOf))).toHaveLength(0);
+    expect(world.query(Changed(ChildOf)).toArray()).toEqual([childA, childB]);
+
+    const childC = world.spawn(ChildOf(parentB));
+    expect(world.query(Changed(ChildOf)).toArray()).toEqual([childC]);
 
     // Change only childA
     childA.set(ChildOf(parentA), { order: 1 });
@@ -840,7 +876,7 @@ describe('Query modifiers', () => {
       testWorld.spawn(t);
     }
 
-    // Create Changed modifier - snapshots entityMasks with 1 generation
+    // Create the modifier before registering traits in another generation.
     const Changed = createChanged();
 
     // Spawn an entity so entityIndex.dense is not empty (required to trigger the bug)

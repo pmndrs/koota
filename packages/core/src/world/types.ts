@@ -24,6 +24,9 @@ import type {
 
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
+  /**
+   * Membership and removal history by mask generation and page. See paged-mask.
+   */
   entityMasks: Uint32Array[][];
   names: Map<string, Entity>;
   bitflag: number;
@@ -41,9 +44,10 @@ export type WorldContext = {
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
-  dirtyMasks: Map<number, Uint32Array[][]>;
-  trackingSnapshots: Map<number, Uint32Array[][]>;
-  changedMasks: Map<number, Uint32Array[][]>;
+  /** Maximum destroyed entities whose data and query history remain readable. */
+  readonly retain: number;
+  /** Retained destroyed entities in destroy order. Overflow evicts the oldest. */
+  tombstones: { ids: Entity[]; head: number };
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;
@@ -51,12 +55,22 @@ export type WorldContext = {
   entityDestroySubscriptions: Set<(entity: Entity) => void>;
   traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
   isRegistered: boolean;
-  pendingTraits: ConfigurableTrait[] | undefined;
   cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
   structuralRevision: number;
 };
 
+export type WorldOptions = {
+  /**
+   * Maximum retained destroyed entities. Defaults to 1024. Overflow evicts the oldest even if
+   * a Removed reader has not consumed it. Zero disables destroyed-entity retention.
+   * Must be a non-negative safe integer.
+   */
+  retain?: number;
+};
+
 export type World = {
+  /** The retention cap set at creation. Read-only and preserved by reset. */
+  readonly retain: number;
   readonly id: number;
   readonly isRegistered: boolean;
   readonly entities: Entity[];
@@ -120,6 +134,7 @@ export type World = {
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
   ): QueryUnsubscriber;
+  /** Reports future additions and writes. Removals use onRemove. */
   onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onChange<T extends Trait>(
     relation: Relation<T>,

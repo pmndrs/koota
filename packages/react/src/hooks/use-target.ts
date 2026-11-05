@@ -11,12 +11,10 @@ function attachTarget(
   push: (value: Entity | undefined) => void
 ) {
   const update = () => push(entity.targetFor(relation));
-  const onAdd = entity.onAdd(relation, update);
   const onChange = entity.onChange(relation, update);
   const onRemove = entity.onRemove(relation, () => push(undefined));
 
   return () => {
-    onAdd();
     onChange();
     onRemove();
   };

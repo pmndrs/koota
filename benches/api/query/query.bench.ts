@@ -85,7 +85,7 @@ group('queryFirst 10k matches @query @query-first', () => {
     const entities: Entity[] = [];
     for (let i = 0; i < 10_000; i++) entities.push(world.spawn(Position));
     let result = world.queryFirst(query);
-    assert.equal(result, undefined);
+    assert.equal(result, entities[0]);
 
     yield {
       bench: () => {

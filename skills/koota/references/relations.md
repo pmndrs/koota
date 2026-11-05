@@ -59,6 +59,9 @@ const grandchild = world.spawn(ChildOf(child))
 
 // Destroying parent destroys entire subtree
 parent.destroy() // child and grandchild also destroyed
+
+// Retained relation pairs still match Removed query filters
+const removedChildren = world.query(createRemoved()(ChildOf), ChildOf(parent))
 ```
 
 ### Inventories (contains)

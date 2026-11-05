@@ -14,7 +14,7 @@ export function checkQuery(ctx: WorldContext, query: QueryInstance, entity: Enti
 export function passesStaticMasks(masks: number[], entityMasks: Uint32Array[][], eid: number) {
   if (masks.length === 0) return false;
   const pageId = eid >>> 10;
-  const offset = eid & 1023;
+  const offset = (eid & 1023) << 2;
   for (let i = 0; i < masks.length; i += 4) {
     const entityMask = entityMasks[masks[i]][pageId][offset];
     const required = masks[i + 1];

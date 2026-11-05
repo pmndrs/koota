@@ -5,10 +5,13 @@ import type { Entity } from 'koota';
 type Cell = Set<Entity>;
 
 export class SpatialHashMap {
+  public cellSize: number;
   protected cells = new Map<string, Cell>();
   protected entityToCell = new Map<Entity, Cell>();
 
-  constructor(public cellSize: number) {}
+  constructor(cellSize: number) {
+    this.cellSize = cellSize;
+  }
 
   setEntity(entity: Entity, x: number, y: number, z: number) {
     const cell = this.getCell(x, y, z);

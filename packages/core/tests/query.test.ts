@@ -74,7 +74,8 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('keeps replacements and removed entities distinct when ids are recycled before querying', () => {
+  it('keeps retained entities distinct from new spawns until eviction', () => {
+    const world = createWorld({ retain: 2 });
     const Removed = createRemoved();
     world.query(Removed(Position));
     const first = world.spawn(Position);
@@ -85,10 +86,13 @@ describe('Query', () => {
     second.destroy();
     const replacement = world.spawn(Position);
 
-    expect(replacement.id()).toBe(first.id());
+    expect(replacement.id()).not.toBe(first.id());
+    expect(replacement.id()).not.toBe(second.id());
     expect(Array.from(world.query(Position))).toEqual([replacement]);
     expect(Array.from(world.query(Removed(Position)))).toEqual([first, second]);
     expect(world.query(Removed(Position)).length).toBe(0);
+    world.spawn().destroy();
+    expect(world.spawn(Position).id()).toBe(first.id());
   });
 
   it('should only create one hash indpendent of the order of the parameters', () => {
@@ -255,7 +259,7 @@ describe('Query', () => {
       }
     });
 
-    expect(changed).toHaveBeenCalledExactlyOnceWith(second);
+    expect(changed.mock.calls).toEqual([[replacement], [second]]);
     expect(replacement.get(Position)?.x).toBe(7);
   });
 
@@ -477,8 +481,8 @@ describe('Query', () => {
     const Velocity = trait(() => ({ x: 0 }));
     const positionChanged = vi.fn();
     const velocityChanged = vi.fn();
-    world.onChange(Position, positionChanged);
     const entity = world.spawn(Position, Velocity);
+    world.onChange(Position, positionChanged);
     const query = world.query(Velocity, Position);
 
     query.each((velocity, position) => {
@@ -542,6 +546,7 @@ describe('Query', () => {
   });
 
   it('can sort query results', () => {
+    const world = createWorld({ retain: 0 });
     const entityA = world.spawn(Position);
     const entityB = world.spawn(Position);
     const entityC = world.spawn(Position);
@@ -574,10 +579,9 @@ describe('Query', () => {
     expect(sorted).not.toBe(entities);
     expect(entities.at(2)).toBe(entityD);
 
-    // Test the entity.id() are in ascending order.
-    // [1, 2, 3, 4]
+    // The ids are consecutive in ascending order once entityE has recycled entityC's id.
     for (let i = 0; i < sorted.length; i++) {
-      expect(sorted[i].id()).toBe(i + 1);
+      expect(sorted[i].id()).toBe(sorted[0].id() + i);
     }
   });
 
@@ -696,7 +700,7 @@ describe('Query', () => {
       expect(first.get(Position)?.x).toBe(11);
       expect(replacement.get(Position)?.x).toBe(7);
       expect([...world.query(Position)]).toEqual([first, replacement]);
-      if (tracked) expect(changed).toHaveBeenCalledExactlyOnceWith(first);
+      if (tracked) expect(changed.mock.calls).toEqual([[replacement], [first]]);
     }
   );
 

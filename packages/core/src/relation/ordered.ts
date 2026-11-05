@@ -85,7 +85,7 @@ export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRe
 
   const getList = (parent: Entity): RelationView | undefined => {
     const eid = getEntityId(parent);
-    return entityMasks[generationId][eid >>> 10][eid & 1023] & bitflag
+    return entityMasks[generationId][eid >>> 10][(eid & 1023) << 2] & bitflag
       ? (traitCtx.get(ctx, eid, store) as RelationView)
       : undefined;
   };

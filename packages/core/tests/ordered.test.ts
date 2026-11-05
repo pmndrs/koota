@@ -102,7 +102,7 @@ describe('Ordered relation views', () => {
     const parent = world.spawn(Children);
     const children = parent.get(Children)!;
     const child = world.spawn();
-    expect(world.query(Changed(Children)).length).toBe(0);
+    expect(world.query(Changed(Children)).toArray()).toEqual([parent]);
     children.add(child).add(world.spawn());
     expect(world.query(Changed(Children)).toArray()).toEqual([parent]);
     children.reverse();

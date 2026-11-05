@@ -6,7 +6,6 @@ import {
   type Entity,
   relation,
   trait,
-  universe,
   type World,
 } from '@koota/core';
 import { render, renderHook } from '@testing-library/react';
@@ -27,7 +26,6 @@ const Position = trait({ x: 0, y: 0 });
 
 describe('useQuery', () => {
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

@@ -7,7 +7,6 @@ import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
-import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import type { WorldContext } from '../world';
 import { $name } from './symbols';
 import type { NameConfig, NameTrait } from './types';
@@ -74,9 +73,7 @@ export function refreshNamedQueries(ctx: WorldContext, entity: Entity, data: Tra
   for (const query of data.trackingQueries) {
     if (query.name === undefined) continue;
     // Recheck membership without recording an additional tracking event.
-    const matches = query.relationFilters?.length
-      ? checkQueryTrackingWithRelations(ctx, query, entity, 'change', -1, 0)
-      : checkQueryTracking(ctx, query, entity, 'change', -1, 0);
+    const matches = checkQueryTracking(ctx, query, entity, 'change', -1, 0);
     if (matches) addEntityToQuery(query, entity);
     else removeEntityFromQuery(ctx, query, entity);
   }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createWorld, getStore, relation, trait, type World } from '../src';
+import { createRemoved, createWorld, getStore, relation, trait, type World } from '../src';
 
 describe('Assertions', () => {
   let world: World;
@@ -8,10 +8,45 @@ describe('Assertions', () => {
   const Link = relation({ store: { weight: 0 }, exclusive: true });
 
   beforeEach(() => {
-    world = createWorld();
+    // Disable destroyed-entity retention so ids can be reused on the next spawn.
+    world = createWorld({ retain: 0 });
   });
   afterEach(() => {
     world.destroy();
+  });
+
+  it('rejects retained handles even inside a Removed callback', () => {
+    world = createWorld({ retain: 2 });
+    const target = world.spawn();
+    const entity = world.spawn(Position({ x: 7 }), Link(target));
+    const reads = [
+      () => entity.get(Position),
+      () => entity.get(Position, { x: 0 }),
+      () => entity.has(Position),
+      () => entity.get(Link(target)),
+      () => entity.has(Link(target)),
+      () => entity.targetFor(Link),
+      () => entity.targetsFor(Link),
+      () => entity.name(),
+    ];
+    entity.destroy();
+
+    expect(entity.isAlive()).toBe(false);
+    expect(world.has(entity)).toBe(false);
+    for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.set(Position, { x: 2 })).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.add(Selected)).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.remove(Position)).toThrow(/\[ENTITY_ALIVE\]/);
+    expect(() => entity.destroy()).toThrow(/\[ENTITY_ALIVE\]/);
+
+    const Removed = createRemoved();
+    const values: number[] = [];
+    world.query(Removed(Position)).each((position, removed) => {
+      expect(removed).toBe(entity);
+      values.push(position.x);
+      for (const read of reads) expect(read).toThrow(/\[ENTITY_ALIVE\]/);
+    });
+    expect(values).toEqual([7]);
   });
 
   it.each(['get', 'has', 'targetFor', 'targetsFor'] as const)(
@@ -195,7 +230,7 @@ describe('Assertions', () => {
     ).toThrow(/\[RELATION_PRESENT\]/);
     expect(source.targetFor(Link)).toBe(second);
     expect(source.get(Link(second))).toEqual({ weight: 9 });
-    expect(changed).not.toHaveBeenCalled();
+    expect(changed).toHaveBeenCalledExactlyOnceWith(source, second);
   });
 
   it('writes the selected relation pair when a callback removes another target', () => {

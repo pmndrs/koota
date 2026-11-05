@@ -78,6 +78,8 @@ function PlayerView() {
 
 Observes a trait on an entity or world. It returns the current trait record and rerenders when the trait is added, removed, or changed. The result is `undefined` when the target is nullish or does not have the trait.
 
+Requires a `WorldProvider`. The target must belong to the world returned by `useWorld()`.
+
 Relation pairs are supported for relations with store data.
 
 For an ordered relation trait, `useTrait(parent, OrderedChildren)` returns a `readonly Entity[]` in relation order. The hook reuses the array while the sequence is the same. Add, remove, or reorder children through `parent.get(OrderedChildren)` in an action or event handler.

@@ -4,7 +4,6 @@ import {
   ordered,
   relation,
   trait,
-  universe,
   type Entity,
   type TraitRecord,
   type World,
@@ -26,8 +25,11 @@ const Position = trait({ x: 0, y: 0 });
 const IsTagged = trait();
 
 describe('useTrait', () => {
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return <WorldProvider world={world}>{children}</WorldProvider>;
+  }
+
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 
@@ -66,7 +68,7 @@ describe('useTrait', () => {
     const a = world.spawn(ChildOf(parent));
     const b = world.spawn();
     const children = parent.get(Children)!;
-    const { result, rerender } = renderHook(() => useTrait(parent, Children));
+    const { result, rerender } = renderHook(() => useTrait(parent, Children), { wrapper: Wrapper });
     expectTypeOf(result.current).toEqualTypeOf<readonly Entity[] | undefined>();
     const initial = result.current;
 
@@ -327,7 +329,7 @@ describe('useTrait', () => {
       return <span>{value?.value}</span>;
     }
 
-    expect(render(<Test />).container.textContent).toBe('42');
+    expect(render(<Test />, { wrapper: Wrapper }).container.textContent).toBe('42');
     expect(renderCount).toBe(1);
     otherWorld.destroy();
   });
@@ -361,7 +363,7 @@ describe('useTrait', () => {
           <CameraView />
         </>
       );
-      const view = render(strict ? <StrictMode>{scene}</StrictMode> : scene);
+      const view = render(strict ? <StrictMode>{scene}</StrictMode> : scene, { wrapper: Wrapper });
 
       expect(entity.get(CameraPosition)!.x).toBe(10);
       expect(view.container.textContent).toBe('10');
@@ -400,7 +402,7 @@ describe('useTrait', () => {
         return <span>{value?.x ?? 'missing'}</span>;
       }
 
-      const view = render(<View />);
+      const view = render(<View />, { wrapper: Wrapper });
       expect(view.container.textContent).toBe(operation === 'remove' ? 'missing' : '10');
     }
   );
@@ -418,7 +420,7 @@ describe('useTrait', () => {
       return <span>{value?.position.x}</span>;
     }
 
-    expect(render(<View />).container.textContent).toBe('10');
+    expect(render(<View />, { wrapper: Wrapper }).container.textContent).toBe('10');
   });
 
   it('catches relation pair writes before subscribing', () => {
@@ -432,7 +434,7 @@ describe('useTrait', () => {
       return <span>{value?.order}</span>;
     }
 
-    expect(render(<View />).container.textContent).toBe('10');
+    expect(render(<View />, { wrapper: Wrapper }).container.textContent).toBe('10');
   });
 
   it('catches a world trait replaced by reset before subscribing', () => {
@@ -452,7 +454,7 @@ describe('useTrait', () => {
       return <span>{value?.x}</span>;
     }
 
-    expect(render(<View />).container.textContent).toBe('10');
+    expect(render(<View />, { wrapper: Wrapper }).container.textContent).toBe('10');
     expect(effectValue).toBe(10);
   });
 
@@ -473,7 +475,8 @@ describe('useTrait', () => {
     const view = render(
       <StrictMode>
         <View entity={previous} />
-      </StrictMode>
+      </StrictMode>,
+      { wrapper: Wrapper }
     );
     expect(view.container.textContent).toBe('1');
     positions.length = 0;
@@ -541,7 +544,6 @@ describe('useTrait', () => {
 
 describe('useTag', () => {
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 
@@ -677,7 +679,6 @@ describe('useTag', () => {
 
 describe('useHas', () => {
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 
@@ -866,7 +867,6 @@ describe('useHas', () => {
 
 describe('useTraitEffect', () => {
   beforeEach(() => {
-    universe.reset();
     world = createWorld();
   });
 

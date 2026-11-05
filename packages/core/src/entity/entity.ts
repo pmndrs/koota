@@ -4,13 +4,14 @@ import { assertEntityAlive } from '../asserts';
 import {
   addEntityToQuery,
   dropQuery,
+  evictEntityFromQuery,
   IsExcluded,
   queryInternal,
   removeEntityFromQuery,
   resetQueryTrackingBitmasks,
 } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
-import { getRelationTargets, hasRelationPair } from '../relation/relation';
+import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
 import { isNameConfig } from '../name/name-index';
 import type { NameConfig } from '../name/types';
 import type { RelationPair } from '../relation/types';
@@ -20,17 +21,23 @@ import {
   cleanupRelationTarget,
   hasTrait,
   registerTrait,
-  removeTraitFromAliveEntity,
+  removeTraitFromDyingEntity,
 } from '../trait/trait';
 import { getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type { ConfigurableTrait, Trait } from '../trait/types';
-import { universe } from '../universe/universe';
 import type { WorldContext } from '../world';
+import type { QueryInstance } from '../query/types';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from '../world/utils/resolve-hook';
 import type { Entity } from './types';
-import { allocateEntity, isEntityAlive, releaseEntity } from './utils/entity-index';
+import {
+  allocateEntity,
+  freeEntity,
+  isEntityAlive,
+  releaseRetainedEntity,
+} from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
-import { EMPTY_MASK_PAGE } from './utils/paged-mask';
+import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
+import { addressSpace } from './utils/address-space';
 
 // Ensure entity methods are patched.
 import './entity-methods-patch';
@@ -83,100 +90,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 
   try {
     while (entityQueue.length > 0) {
-      const currentEntity = entityQueue.pop()!;
-      const currentId = getEntityId(currentEntity);
-      if (processedStamp[currentId] === stamp && processedEntity[currentId] === currentEntity) {
-        continue;
-      }
-      processedStamp[currentId] = stamp;
-      processedEntity[currentId] = currentEntity;
-
-      const relations = ctx.relations;
-      for (let r = 0; r < relations.length; r++) {
-        const relation = relations[r];
-        const relationCtx = relation[$internal];
-
-        // Cleanup swap-removes the source from this bucket, so walk it from the end.
-        const sources = getTraitInstance(ctx.traitInstances, relationCtx.trait)
-          ?.relationSourcesByTarget?.[currentId];
-        if (sources !== undefined) {
-          for (let i = sources.length - 1; i >= 0; i--) {
-            if (i >= sources.length) continue;
-            const source = sources[i];
-            if (!isEntityAlive(ctx.entityIndex, source)) continue;
-            cleanupRelationTarget(ctx, relation, source, currentEntity);
-            if (relationCtx.autoDestroy === 'source') entityQueue.push(source);
-          }
-        }
-
-        if (relationCtx.autoDestroy === 'target') {
-          const targets = getRelationTargets(ctx, relation, currentEntity);
-          for (const target of targets) {
-            if (!isEntityAlive(ctx.entityIndex, target)) continue;
-            const targetId = getEntityId(target);
-            if (processedStamp[targetId] === stamp && processedEntity[targetId] === target) continue;
-            entityQueue.push(target);
-          }
-        }
-      }
-
-      if (ctx.entityDestroySubscriptions.size > 0 && currentEntity !== ctx.worldEntity) {
-        for (const sub of ctx.entityDestroySubscriptions) sub(currentEntity);
-      }
-
-      // Remove every trait the masks still hold. A removal may cascade into others, so the word
-      // is read again after each one.
-      const pageId = currentId >>> 10;
-      const offset = currentId & 1023;
-      const entityMasks = ctx.entityMasks;
-      for (let g = 0; g < entityMasks.length; g++) {
-        const page = entityMasks[g][pageId];
-        if (page === EMPTY_MASK_PAGE) continue;
-        const traitsByBit = ctx.traitsByBit[g];
-        let word = page[offset];
-        while (word !== 0) {
-          const low = word & -word;
-          const instance = traitsByBit[31 - Math.clz32(low)];
-          removeTraitFromAliveEntity(ctx, currentEntity, instance.trait);
-          // Clear the bit by hand in case removal declined, so the walk always ends.
-          word = page[offset] & ~low;
-        }
-      }
-
-      releaseEntity(ctx.entityIndex, currentEntity);
-
-      const targetQueries = ctx.targetQueries[pageId]?.[offset];
-      if (targetQueries) {
-        for (let i = targetQueries.length - 1; i >= 0; i--) {
-          const query = targetQueries[i];
-          if (query.relationFilters!.some((pair) => pair.target === currentEntity)) {
-            dropQuery(ctx, query);
-          }
-        }
-      }
-
-      const allQuery = ctx.queriesHashMap.get('');
-      if (allQuery) removeEntityFromQuery(ctx, allQuery, currentEntity);
-
-      // Drop entity subscribers so a recycled id never inherits them. Instances
-      // that no longer hold any are pruned from the index here.
-      for (const instance of ctx.entitySubscribedInstances) {
-        clearEntity(instance.addSubscriptions, currentEntity);
-        clearEntity(instance.removeSubscriptions, currentEntity);
-        clearEntity(instance.changeSubscriptions, currentEntity);
-        if (
-          instance.addSubscriptions.entityCount === 0 &&
-          instance.removeSubscriptions.entityCount === 0 &&
-          instance.changeSubscriptions.entityCount === 0
-        ) {
-          ctx.entitySubscribedInstances.delete(instance);
-        }
-      }
-
-      for (let i = 0; i < entityMasks.length; i++) {
-        const page = entityMasks[i][pageId];
-        if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
-      }
+      destroyQueuedEntity(ctx, entityQueue.pop()!, entityQueue, stamp);
     }
   } finally {
     isDestroying = nested;
@@ -185,9 +99,191 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
   }
 }
 
-/** Resolve WorldContext directly from pageOwners. Used by entity methods. */
+/** Keep the destroy worker separate so trait removal and eviction have their own inlining budget. */
+export function destroyQueuedEntity(
+  ctx: WorldContext,
+  entity: Entity,
+  entityQueue: Entity[],
+  stamp: number
+) {
+  const eid = getEntityId(entity);
+  if (processedStamp[eid] === stamp && processedEntity[eid] === entity) {
+    return;
+  }
+  processedStamp[eid] = stamp;
+  processedEntity[eid] = entity;
+
+  if (ctx.relations.length !== 0) {
+    cleanupDestroyedRelations(ctx, entity, eid, entityQueue, stamp);
+  }
+
+  if (ctx.entityDestroySubscriptions.size > 0 && entity !== ctx.worldEntity) {
+    emitEntityDestroy(ctx, entity);
+  }
+  // Remove every trait the masks still hold. A removal may cascade into others, so the word
+  // is read again after each one. Record the held word first so Removed query filters
+  // match the traits the entity held at destruction.
+  const pageId = eid >>> 10;
+  const offset = eid & 1023;
+  const slot = offset << 2;
+  const entityMasks = ctx.entityMasks;
+  for (let g = 0; g < entityMasks.length; g++) {
+    const page = entityMasks[g][pageId];
+    if (page === EMPTY_MASK_PAGE) continue;
+    const traitsByBit = ctx.traitsByBit[g];
+    let word = page[slot];
+    page[slot + DESTROYED_WORD] = word;
+    while (word !== 0) {
+      const low = word & -word;
+      const instance = traitsByBit[31 - Math.clz32(low)];
+      removeTraitFromDyingEntity(ctx, entity, instance);
+      // Clear the bit by hand in case removal declined, so the walk always ends.
+      word = page[slot] & ~low;
+    }
+  }
+
+  // Keep the data and id for Removed queries until eviction.
+  freeEntity(ctx.entityIndex, entity);
+
+  const targetQueries = ctx.targetQueries[pageId]?.[offset];
+  if (targetQueries) dropTargetQueries(ctx, targetQueries, entity);
+
+  const allQuery = ctx.queriesHashMap.get('');
+  if (allQuery) removeEntityFromQuery(ctx, allQuery, entity);
+
+  if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, entity);
+
+  // Callbacks may have added traits during removal. Clear any remaining held bits, keeping history.
+  for (let i = 0; i < entityMasks.length; i++) {
+    const page = entityMasks[i][pageId];
+    if (page === EMPTY_MASK_PAGE) continue;
+    page[slot] = 0;
+  }
+  retainDestroyedEntity(ctx, entity);
+}
+
+/** Detach every relation that points at the dying entity and queue its auto destroy cascade. */
+function cleanupDestroyedRelations(
+  ctx: WorldContext,
+  entity: Entity,
+  entityId: number,
+  entityQueue: Entity[],
+  stamp: number
+) {
+  const relations = ctx.relations;
+  for (let r = 0; r < relations.length; r++) {
+    const relation = relations[r];
+    const relationCtx = relation[$internal];
+    const cascade = relationCtx.autoDestroy === 'source';
+
+    // Cleanup swap-removes the source from this bucket, so walk it from the end.
+    const sources = getTraitInstance(ctx.traitInstances, relationCtx.trait)
+      ?.relationSourcesByTarget?.[entityId];
+    if (sources !== undefined) {
+      for (let i = sources.length - 1; i >= 0; i--) {
+        if (i >= sources.length) continue;
+        const source = sources[i];
+        if (!isEntityAlive(ctx.entityIndex, source)) continue;
+        // A source that dies with its target keeps the pair until eviction and cleans up on destroy.
+        if (cascade) {
+          entityQueue.push(source);
+          continue;
+        }
+        cleanupRelationTarget(ctx, relation, source, entity);
+      }
+    }
+
+    if (relationCtx.autoDestroy === 'target') {
+      const targets = getRelationTargets(ctx, relation, entity);
+      for (const target of targets) {
+        if (!isEntityAlive(ctx.entityIndex, target)) continue;
+        const targetId = getEntityId(target);
+        if (processedStamp[targetId] === stamp && processedEntity[targetId] === target) continue;
+        entityQueue.push(target);
+      }
+    }
+  }
+}
+
+function emitEntityDestroy(ctx: WorldContext, entity: Entity) {
+  for (const sub of ctx.entityDestroySubscriptions) sub(entity);
+}
+
+/** Drop the cached queries that filter on the dying entity as a relation target. */
+function dropTargetQueries(ctx: WorldContext, targetQueries: QueryInstance[], entity: Entity) {
+  for (let i = targetQueries.length - 1; i >= 0; i--) {
+    const query = targetQueries[i];
+    if (query.relationFilters!.some((pair) => pair.target === entity)) {
+      dropQuery(ctx, query);
+    }
+  }
+}
+
+/**
+ * Drop entity subscribers so a recycled id never inherits them. Instances that no longer hold
+ * any are pruned from the index here.
+ */
+function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
+  for (const instance of ctx.entitySubscribedInstances) {
+    clearEntity(instance.addSubscriptions, entity);
+    clearEntity(instance.removeSubscriptions, entity);
+    clearEntity(instance.changeSubscriptions, entity);
+    if (
+      instance.addSubscriptions.entityCount === 0 &&
+      instance.removeSubscriptions.entityCount === 0 &&
+      instance.changeSubscriptions.entityCount === 0
+    ) {
+      ctx.entitySubscribedInstances.delete(instance);
+    }
+  }
+}
+
+/** Keep the newest retain destroyed entities. Overflow evicts the oldest, including unread data. */
+function retainDestroyedEntity(ctx: WorldContext, entity: Entity) {
+  if (ctx.retain === 0) {
+    evictEntity(ctx, entity);
+    return;
+  }
+  const ring = ctx.tombstones;
+  if (ring.ids.length === ctx.retain) {
+    const oldest = ring.ids[ring.head];
+    ring.ids[ring.head] = entity;
+    if (++ring.head === ctx.retain) ring.head = 0;
+    evictEntity(ctx, oldest);
+  } else {
+    ring.ids.push(entity);
+  }
+}
+
+/** Release stored values and query entries before the slot becomes reusable. */
+function evictEntity(ctx: WorldContext, entity: Entity) {
+  const eid = getEntityId(entity);
+  const pageId = eid >>> 10;
+  const slot = (eid & 1023) << 2;
+  const entityMasks = ctx.entityMasks;
+  for (let g = 0; g < entityMasks.length; g++) {
+    const page = entityMasks[g][pageId];
+    if (page === EMPTY_MASK_PAGE) continue;
+    let word = page[slot + REMOVED_WORD] | page[slot + DESTROYED_WORD];
+    const traits = ctx.traitsByBit[g];
+    while (word !== 0) {
+      const low = word & -word;
+      const instance = traits[31 - Math.clz32(low)];
+      const queries = instance.trackingQueries;
+      for (let i = 0; i < queries.length; i++) evictEntityFromQuery(queries[i], entity);
+      if (instance.relationTargets !== undefined) clearRelationEntity(instance, eid);
+      else instance.trait[$internal].clear?.(eid, instance.store);
+      word &= ~low;
+    }
+    page[slot + REMOVED_WORD] = 0;
+    page[slot + DESTROYED_WORD] = 0;
+  }
+  releaseRetainedEntity(ctx.entityIndex, entity);
+}
+
+/** The world that owns a live entity. Used by entity methods. */
 export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
-  return universe.pageOwners[getEntityId(entity) >>> 10]!;
+  return addressSpace.pageOwners[getEntityId(entity) >>> 10]!;
 }
 
 export /* @inline */ function entityHas(

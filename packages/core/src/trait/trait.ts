@@ -1,4 +1,4 @@
-import type { QueryInstance } from '../query/types';
+import type { EventType, QueryInstance } from '../query/types';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
@@ -6,20 +6,19 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { isNameTrait, refreshNamedQueries } from '../name/name-index';
-import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
+import { notifyTraitAdded, notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
-import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
+  detachRelationTargets,
   getFirstRelationTarget,
   getRelationData,
   getRelationTargets,
   getTargetIndex,
-  hasRelationPair,
   hasRelationToTarget,
   initRelationData,
   removeAllRelationTargets,
@@ -29,7 +28,7 @@ import {
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { ensureMaskPage } from '../entity/utils/paged-mask';
+import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../entity/utils/paged-mask';
 import {
   createAddFunction,
   createGetFunction,
@@ -46,6 +45,7 @@ import type { World, WorldContext } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
 import { createSubscriptions, emit } from './subscriptions';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
+import { createClearFunction } from '../storage/stores';
 import type {
   ConfigurableTrait,
   ExtractStore,
@@ -87,6 +87,7 @@ export function createTraitContext<S extends Schema>(
   return {
     id: traitId++,
     createStore: () => createStore(schema),
+    clear: createClearFunction(schema),
     validate: accessors?.validate,
     add: accessors?.add ?? defaults.add,
     set: accessors?.set ?? defaults.set,
@@ -215,6 +216,7 @@ export /* @inline */ function addTraitsToAliveEntity(
       traitCtx.add(ctx, eid, instance.store, params);
       grantTraitMembership(ctx, entity, instance);
       emit(instance.addSubscriptions, entity);
+      notifyTraitAdded(ctx, entity, instance);
     }
   }
 }
@@ -243,14 +245,18 @@ export /* @inline */ function addTraitsToAliveEntity(
     }
   }
 
-  let instance = addTraitToEntity(ctx, entity, relationTrait);
+  const added = addTraitToEntity(ctx, entity, relationTrait);
 
   const targetIndex = addRelationTarget(ctx, relation, entity, target);
   if (targetIndex === -1) return;
 
-  instance = instance ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
+  const instance = added ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
   initRelationData(ctx, entity, relation, instance, targetIndex, params);
+  if (added === undefined && instance.trackingQueries.length !== 0) {
+    reconcileTrackingQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
+  }
   emit(instance.addSubscriptions, entity, target);
+  notifyTraitAdded(ctx, entity, instance, target);
 }
 
 export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait | RelationPair)[]) {
@@ -275,13 +281,8 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
 
   const traitCtx = trait[$internal];
 
-  /* @cold */ if (traitCtx.relation) {
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    if (instance) {
-      const targets = getRelationTargets(ctx, traitCtx.relation, entity);
-      for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-    }
-    removeAllRelationTargets(ctx, traitCtx.relation, entity);
+  if (traitCtx.relation) {
+    releaseRelationTargets(ctx, entity, trait, traitCtx.relation);
   } else {
     const instance = getTraitInstance(ctx.traitInstances, trait);
     if (instance) {
@@ -291,6 +292,53 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
   }
 
   removeTraitFromEntity(ctx, entity, trait);
+}
+
+/** Tell the pair subscribers and drop every target before a relation trait leaves an entity. */
+export function releaseRelationTargets(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait,
+  relation: Relation<Trait>
+) {
+  const instance = getTraitInstance(ctx.traitInstances, trait);
+  if (instance) {
+    const targets = getRelationTargets(ctx, relation, entity);
+    for (const t of targets) emit(instance.removeSubscriptions, entity, t);
+  }
+  removeAllRelationTargets(ctx, relation, entity);
+}
+
+/**
+ * A dying entity leaves its queries and tells its subscribers. Data and outgoing relation
+ * targets stay readable until eviction. Reverse relation indexes let go of it immediately.
+ */
+export function removeTraitFromDyingEntity(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance
+) {
+  const traitCtx = instance.trait[$internal];
+  const relation = traitCtx.relation;
+  if (relation) {
+    const targets = getRelationTargets(ctx, relation, entity);
+    for (const t of targets) emit(instance.removeSubscriptions, entity, t);
+    detachRelationTargets(instance, entity);
+  } else {
+    emit(instance.removeSubscriptions, entity);
+    traitCtx.remove(ctx, getEntityId(entity), instance.store);
+  }
+
+  const { generationId, bitflag } = instance;
+  const eid = getEntityId(entity);
+  if (assertsEnabled) ctx.structuralRevision++;
+  const page = ctx.entityMasks[generationId][eid >>> 10];
+  const slot = (eid & 1023) << 2;
+  page[slot] &= ~bitflag;
+  page[slot + REMOVED_WORD] |= bitflag;
+  instance.version++;
+
+  reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
 }
 
 /* @inline */ function removeRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
@@ -345,7 +393,7 @@ export /* @inline @pure */ function hasTrait(
 
   const { generationId, bitflag } = instance;
   const eid = getEntityId(entity);
-  const mask = ctx.entityMasks[generationId][eid >>> 10][eid & 1023];
+  const mask = ctx.entityMasks[generationId][eid >>> 10][(eid & 1023) << 2];
 
   return (mask & bitflag) === bitflag;
 }
@@ -403,7 +451,6 @@ export /* @inline @pure */ function getTraitForPair(
   const relation = pair.relation as Relation<Trait>;
   const target = pair.target;
 
-  if (!hasRelationPair(ctx, entity, pair)) return undefined;
   if (typeof target !== 'number') return undefined;
 
   return getRelationData(ctx, entity, relation, target, out);
@@ -416,11 +463,9 @@ export /* @inline @pure */ function getTraitForTrait(
   out: Record<string, unknown> | undefined
 ) {
   const data = getTraitInstance(ctx.traitInstances, trait);
+  if (data === undefined) return undefined;
   const index = getEntityId(entity);
-  if (
-    data === undefined ||
-    (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0
-  )
+  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
     return undefined;
   const traitCtx = trait[$internal];
   return out === undefined
@@ -503,7 +548,7 @@ export /* @inline */ function setTraitForTrait(
   if (
     assertsEnabled &&
     (data === undefined ||
-      (ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0)
+      (ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
   ) {
     throw createTraitNotPresentError(entity, trait, true);
   }
@@ -566,7 +611,10 @@ export function resolveTraitSetCallback(
   ) {
     assertEntityAlive(ctx, entity);
     // Trait removal retains the instance. Read membership again after the callback.
-    if ((ctx.entityMasks[data.generationId][index >>> 10][index & 1023] & data.bitflag) === 0) {
+    if (
+      (ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) ===
+      0
+    ) {
       throw createTraitNotPresentError(entity, trait);
     }
   }
@@ -597,26 +645,14 @@ export function resolveTraitSetCallback(
 
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
-  const offset = eid & 1023;
   if (assertsEnabled) ctx.structuralRevision++;
-  ensureMaskPage(ctx.entityMasks[generationId], pageId)[offset] |= bitflag;
+  const generation = ctx.entityMasks[generationId];
+  let page = generation[pageId];
+  if (page === EMPTY_MASK_PAGE) page = materializeMaskPage(generation, pageId);
+  page[(eid & 1023) << 2] |= bitflag;
   instance.version++;
 
-  if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
   reconcileTraitQueries(ctx, entity, instance, 'add', generationId, bitflag);
-}
-
-/** Record a membership change in every dirty mask snapshot. */
-function markDirty(
-  masks: Map<unknown, Uint32Array[][]>,
-  generationId: number,
-  pageId: number,
-  offset: number,
-  bitflag: number
-) {
-  for (const mask of masks.values()) {
-    ensureMaskPage(mask[generationId], pageId)[offset] |= bitflag;
-  }
 }
 
 /** Re-evaluate the queries that include a trait after its membership bit changed. */
@@ -624,7 +660,7 @@ export function reconcileTraitQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,
-  eventType: 'add' | 'remove',
+  eventType: EventType,
   generationId: number,
   bitflag: number
 ) {
@@ -645,20 +681,18 @@ function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInsta
   }
 }
 
-function reconcileTrackingQueries(
+export function reconcileTrackingQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,
-  eventType: 'add' | 'remove',
+  eventType: EventType,
   generationId: number,
   bitflag: number
 ) {
   const queries = instance.trackingQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    const match = query.relationFilters?.length
-      ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
-      : checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
+    const match = checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
     if (match) addEntityToQuery(query, entity);
     else removeEntityFromQuery(ctx, query, entity);
   }
@@ -682,9 +716,11 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
     }
   }
   if (assertsEnabled) ctx.structuralRevision++;
-  ctx.entityMasks[generationId][pageId][offset] &= ~bitflag;
+  const page = ctx.entityMasks[generationId][pageId];
+  const slot = offset << 2;
+  page[slot] &= ~bitflag;
+  page[slot + REMOVED_WORD] |= bitflag;
   instance.version++;
 
-  if (ctx.dirtyMasks.size !== 0) markDirty(ctx.dirtyMasks, generationId, pageId, offset, bitflag);
   reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
 }

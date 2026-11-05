@@ -1,4 +1,5 @@
 import { createWorld } from 'koota';
 import { Time } from './trait/Time';
 
-export const world = createWorld(Time);
+export const world = createWorld();
+world.add(Time);
