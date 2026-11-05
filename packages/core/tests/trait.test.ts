@@ -329,6 +329,8 @@ describe('Trait', () => {
       const moving = world.spawn(Position, Velocity({ value: [0, 2, 0] }));
       world.spawn(Position, Velocity);
       expect(world.query(Changed(Position)).length).toBe(2);
+      expect(changed).toHaveBeenCalledTimes(2);
+      changed.mockClear();
 
       world.query(Position, Velocity).each((position, velocity) => {
         for (let i = 0; i < 3; i++) position.value[i] += velocity.value[i];

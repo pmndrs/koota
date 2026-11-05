@@ -51,6 +51,7 @@ export type Entity = number & {
   targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
   onAdd: EntityHook;
   onRemove: EntityHook;
+  /** Reports future additions and writes. Removals use onRemove. */
   onChange: EntityHook;
   id: () => number;
   name: () => string | undefined;

@@ -134,6 +134,7 @@ export type World = {
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
   ): QueryUnsubscriber;
+  /** Reports future additions and writes. Removals use onRemove. */
   onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onChange<T extends Trait>(
     relation: Relation<T>,

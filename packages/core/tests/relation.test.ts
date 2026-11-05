@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createQuery, createWorld, Not, relation, trait } from '../src';
+import { createChanged, createQuery, createWorld, Not, relation, trait } from '../src';
 
 describe('Relation', () => {
   // Disable destroyed-entity retention so ids can be reused on the next spawn.
@@ -678,7 +678,47 @@ describe('Relation', () => {
     unsubParentA();
   });
 
-  it('should emit change events when relation store is updated', () => {
+  it.each([false, true])(
+    'tracks every relation addition with initialized data, exclusive: %s',
+    (exclusive) => {
+      const Link = relation({ exclusive, store: { weight: 0 } });
+      const first = world.spawn();
+      const second = world.spawn();
+      const entity = world.spawn();
+      const Changed = createChanged();
+      const Filtered = createChanged();
+      world.query(Changed(Link));
+      world.query(Filtered(Link), Link(second));
+      const entered = vi.fn();
+      world.onQueryAdd([Changed(Link)], entered);
+      const changes = vi.fn();
+      const filtered = vi.fn();
+      world.onChange(Link, (source, target) => changes(source, target, source.get(Link(target))));
+      entity.onChange(Link(second), filtered);
+
+      entity.add(Link(first, { weight: 1 }));
+      expect(entered).toHaveBeenCalledExactlyOnceWith(entity);
+      expect(changes).toHaveBeenLastCalledWith(entity, first, { weight: 1 });
+      expect(world.query(Changed(Link)).toArray()).toEqual([entity]);
+      expect(world.query(Filtered(Link), Link(second)).length).toBe(0);
+      expect(filtered).not.toHaveBeenCalled();
+
+      entity.add(Link(second, { weight: 2 }));
+      expect(entered).toHaveBeenCalledTimes(2);
+      expect(changes).toHaveBeenLastCalledWith(entity, second, { weight: 2 });
+      expect(world.query(Changed(Link)).toArray()).toEqual([entity]);
+      expect(world.query(Filtered(Link), Link(second)).toArray()).toEqual([entity]);
+      expect(filtered).toHaveBeenCalledExactlyOnceWith(entity, second);
+
+      entity.add(Link(second, { weight: 99 }));
+      entity.remove(Link(second));
+      expect(changes).toHaveBeenCalledTimes(2);
+      expect(filtered).toHaveBeenCalledTimes(1);
+      expect(world.query(Changed(Link)).length).toBe(0);
+    }
+  );
+
+  it('should emit change events when a relation is added or its store is updated', () => {
     const ChildOf = relation({ store: { order: 0 } });
 
     const changes: Array<{ entity: number; target?: number }> = [];
@@ -687,15 +727,19 @@ describe('Relation', () => {
     const parent = world.spawn();
     const child = world.spawn(ChildOf(parent));
 
-    expect(changes).toEqual([]);
+    expect(changes).toEqual([{ entity: child, target: parent }]);
 
     // Update relation store
     child.set(ChildOf(parent), { order: 1 });
-    expect(changes).toEqual([{ entity: child, target: parent }]);
+    expect(changes).toEqual([
+      { entity: child, target: parent },
+      { entity: child, target: parent },
+    ]);
 
     // Update again
     child.set(ChildOf(parent), { order: 2 });
     expect(changes).toEqual([
+      { entity: child, target: parent },
       { entity: child, target: parent },
       { entity: child, target: parent },
     ]);

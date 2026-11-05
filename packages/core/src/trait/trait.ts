@@ -6,7 +6,7 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { isNameTrait, refreshNamedQueries } from '../name/name-index';
-import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
+import { notifyTraitAdded, notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
@@ -216,6 +216,7 @@ export /* @inline */ function addTraitsToAliveEntity(
       traitCtx.add(ctx, eid, instance.store, params);
       grantTraitMembership(ctx, entity, instance);
       emit(instance.addSubscriptions, entity);
+      notifyTraitAdded(ctx, entity, instance);
     }
   }
 }
@@ -244,14 +245,18 @@ export /* @inline */ function addTraitsToAliveEntity(
     }
   }
 
-  let instance = addTraitToEntity(ctx, entity, relationTrait);
+  const added = addTraitToEntity(ctx, entity, relationTrait);
 
   const targetIndex = addRelationTarget(ctx, relation, entity, target);
   if (targetIndex === -1) return;
 
-  instance = instance ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
+  const instance = added ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
   initRelationData(ctx, entity, relation, instance, targetIndex, params);
+  if (added === undefined && instance.trackingQueries.length !== 0) {
+    reconcileTrackingQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
+  }
   emit(instance.addSubscriptions, entity, target);
+  notifyTraitAdded(ctx, entity, instance, target);
 }
 
 export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait | RelationPair)[]) {

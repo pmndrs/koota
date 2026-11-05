@@ -259,7 +259,7 @@ describe('Query', () => {
       }
     });
 
-    expect(changed).toHaveBeenCalledExactlyOnceWith(second);
+    expect(changed.mock.calls).toEqual([[replacement], [second]]);
     expect(replacement.get(Position)?.x).toBe(7);
   });
 
@@ -481,8 +481,8 @@ describe('Query', () => {
     const Velocity = trait(() => ({ x: 0 }));
     const positionChanged = vi.fn();
     const velocityChanged = vi.fn();
-    world.onChange(Position, positionChanged);
     const entity = world.spawn(Position, Velocity);
+    world.onChange(Position, positionChanged);
     const query = world.query(Velocity, Position);
 
     query.each((velocity, position) => {
@@ -700,7 +700,7 @@ describe('Query', () => {
       expect(first.get(Position)?.x).toBe(11);
       expect(replacement.get(Position)?.x).toBe(7);
       expect([...world.query(Position)]).toEqual([first, replacement]);
-      if (tracked) expect(changed).toHaveBeenCalledExactlyOnceWith(first);
+      if (tracked) expect(changed.mock.calls).toEqual([[replacement], [first]]);
     }
   );
 

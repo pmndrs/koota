@@ -230,7 +230,7 @@ describe('Assertions', () => {
     ).toThrow(/\[RELATION_PRESENT\]/);
     expect(source.targetFor(Link)).toBe(second);
     expect(source.get(Link(second))).toEqual({ weight: 9 });
-    expect(changed).not.toHaveBeenCalled();
+    expect(changed).toHaveBeenCalledExactlyOnceWith(source, second);
   });
 
   it('writes the selected relation pair when a callback removes another target', () => {
