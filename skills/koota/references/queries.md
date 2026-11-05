@@ -100,6 +100,9 @@ world.query(Position, Not(Velocity))
 // Has IsPlayer OR IsEnemy
 world.query(Or(IsPlayer, IsEnemy))
 
+// Has IsPlayer OR lacks IsHidden
+world.query(Or(IsPlayer, Not(IsHidden)))
+
 // Combine modifiers
 world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
@@ -110,6 +113,8 @@ world.query(Or(ChildOf(redTeam), ChildOf(blueTeam), IsBoss))
 ```
 
 Tracking modifiers accept pairs too. `Added(ChildOf(parent))` tracks that one pair, while `Added(ChildOf), ChildOf(parent)` tracks any `ChildOf` pair and filters by target.
+
+`Or(Not(T))` is equivalent to `Not(T)`. A branch `Not(A, B)` requires both traits to be absent, while separate branches `Or(Not(A), Not(B))` require either absence.
 
 ## Tracking modifiers
 
@@ -209,6 +214,8 @@ const eitherRemoved = world.query(Or(Removed(Position), Removed(Velocity)))
 // Entities where EITHER Position OR Velocity has changed
 const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 ```
+
+Static and tracking branches can share an `Or`. For `Or(Changed(Position), IsVisible)`, visible entities match every read and changes to other entities are consumed once. Any tracking modifier outside `Or` must still fire for an entity to match.
 
 **Key points:**
 
