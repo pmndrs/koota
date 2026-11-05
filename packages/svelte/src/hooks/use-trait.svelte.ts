@@ -39,10 +39,6 @@ export function useTrait<T extends Trait>(
       untrack(() => version++);
     });
 
-    const onAddUnsub = entity.onAdd(resolvedTrait, () => {
-      value = entity.get(resolvedTrait);
-    });
-
     const onRemoveUnsub = entity.onRemove(resolvedTrait, () => {
       value = undefined;
     });
@@ -51,7 +47,6 @@ export function useTrait<T extends Trait>(
 
     return () => {
       onChangeUnsub();
-      onAddUnsub();
       onRemoveUnsub();
     };
   });

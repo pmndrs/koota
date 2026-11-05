@@ -30,12 +30,10 @@ export function attachTrait<T extends Trait | RelationPair>(
 ) {
   const update = () => push(entity.get(trait));
   const onChange = entity.onChange(trait, update);
-  const onAdd = entity.onAdd(trait, update);
   const onRemove = entity.onRemove(trait, () => push(undefined));
 
   return () => {
     onChange();
-    onAdd();
     onRemove();
   };
 }

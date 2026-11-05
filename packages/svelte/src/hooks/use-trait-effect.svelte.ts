@@ -22,14 +22,12 @@ export function useTraitEffect<T extends Trait>(
     const resolvedTrait = resolve(trait);
 
     const onChangeUnsub = entity.onChange(resolvedTrait, () => notify(entity.get(resolvedTrait)));
-    const onAddUnsub = entity.onAdd(resolvedTrait, () => notify(entity.get(resolvedTrait)));
     const onRemoveUnsub = entity.onRemove(resolvedTrait, () => notify(undefined));
 
     notify(entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined);
 
     return () => {
       onChangeUnsub();
-      onAddUnsub();
       onRemoveUnsub();
     };
   });

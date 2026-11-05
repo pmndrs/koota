@@ -28,10 +28,6 @@ export function useTargets<T extends Trait>(
       value = next;
     };
 
-    const onAddUnsub = entity.onAdd(resolvedRelation, () => {
-      update(entity.targetsFor(resolvedRelation));
-    });
-
     // onRemove fires before data is removed, so filter out the target
     const onRemoveUnsub = entity.onRemove(resolvedRelation, (_, removedTarget) => {
       update(targets.filter((p) => p !== removedTarget));
@@ -44,7 +40,6 @@ export function useTargets<T extends Trait>(
     update(entity.targetsFor(resolvedRelation));
 
     return () => {
-      onAddUnsub();
       onRemoveUnsub();
       onChangeUnsub();
     };

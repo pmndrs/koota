@@ -25,8 +25,6 @@ export function useTarget<T extends Trait>(
       value = targets[0];
     };
 
-    const onAddUnsub = entity.onAdd(resolvedRelation, update);
-
     const onRemoveUnsub = entity.onRemove(resolvedRelation, (_, removedTarget) => {
       // onRemove fires before core removes the target, so mirror its swap-and-pop.
       const index = targets.indexOf(removedTarget);
@@ -42,7 +40,6 @@ export function useTarget<T extends Trait>(
     update();
 
     return () => {
-      onAddUnsub();
       onRemoveUnsub();
       onChangeUnsub();
     };
