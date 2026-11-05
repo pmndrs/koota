@@ -536,34 +536,36 @@ world.onAdd(ChildOf(parent), (entity, target) => {})
 world.onAdd(ChildOf('*'), (entity, target) => {})
 ```
 
-### Named entities
+### Identifiers
 
-`Name` is an atomic trait holding a non-empty string, unique within its world.
+`identifier()` defines a namespace for unique keys, such as names or network ids. Within each world, an entity has at most one key per namespace, and each key has at most one owner. Keys are strings by default, or finite numbers with `identifier<number>()`.
 
-```js
-import { Name } from 'koota'
+```ts
+import { identifier } from 'koota'
 
-const player = world.spawn(Name('player'), Position)
-world.lookup('player') // player, or undefined if absent
-player.get(Name) // 'player'
-player.name() // 'player'
-player.has(Name('player')) // true
+const Name = identifier()
+const WireId = identifier<number>()
 
-player.set(Name, 'hero')
-world.lookup('player') // undefined
-world.lookup('hero') // player
+const player = world.spawn(Name('kris'), WireId(123), Position)
+world.lookup(Name('kris')) // player, or undefined if absent
+player.targetFor(Name) // 'kris'
+player.has(WireId(123)) // true
 
-world.query(Name('hero'), Position) // Filter by name
-world.query(Name, Position) // All named entities with Position
+player.add(WireId(456)) // Replaces the key
+world.lookup(WireId(123)) // undefined
+world.lookup(WireId(456)) // player
+
+world.query(Name('kris'), Position) // Filter by key
+world.query(Name, Position) // All entities with a Name and Position
 ```
 
-Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Look up first to find or create:
+Taken keys are refused and throw `[IDENTIFIER_TAKEN]` with assertions enabled. Look up first to find or create:
 
-```js
-const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
+```ts
+const player = world.lookup(Name('kris')) ?? world.spawn(Name('kris'), Position)
 ```
 
-Removing `Name` or destroying the entity frees its name. Use `set` to rename so lookups and subscriptions stay current.
+Removing the identifier or destroying the entity frees its key. See [identifiers](docs/api/identifiers.md) for events, tracking and React hooks.
 
 ### Query modifiers
 
@@ -970,10 +972,9 @@ const entities = world.query(Position)
 // Return Entity
 const entity = world.queryFirst(Position)
 
-// Get the entity with a unique name, see Named entities
-// Accepts a string
+// Get the entity that owns an identifier key, see Identifiers
 // Return Entity | undefined
-const player = world.lookup('player')
+const player = world.lookup(Name('player'))
 
 // The trait API is identical to entity's
 
@@ -1086,9 +1087,9 @@ const id = entity.id()
 // Return number
 const generation = entity.generation()
 
-// Get the entity's name if it has the Name trait
-// Return string | undefined
-const name = entity.name()
+// Get the entity's key for an identifier
+// Return string | number | undefined
+const name = entity.targetFor(Name)
 
 // Destroys the entity making its number no longer valid
 entity.destroy()

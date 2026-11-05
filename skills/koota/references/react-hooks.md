@@ -145,6 +145,8 @@ function ActiveIndicator({ entity }: { entity: Entity }) {
 
 Like `useTag` but for any trait. Returns `true`/`false` based on presence. Also accepts relation pairs like `ChildOf(parent)` or `ChildOf('*')`.
 
+Identifier types test presence, and identifier terms test the exact key. Inline terms do not need memoization. A replacement keeps presence true and updates exact matches. A nullish or destroyed source returns `false`.
+
 ```typescript
 import { useHas } from 'koota/react'
 
@@ -156,11 +158,16 @@ function HealthIndicator({ entity }: { entity: Entity }) {
 // Track a specific relation pair or any target
 const isChild = useHas(entity, ChildOf(parent))
 const hasAnyParent = useHas(entity, ChildOf('*'))
+
+const hasWireId = useHas(entity, WireId)
+const isPlayer = useHas(entity, WireId(123))
 ```
 
 ## useTarget / useTargets
 
 Observe relation targets on an entity.
+
+`useTarget` also accepts an identifier type and returns its scalar key with the inferred type. It follows assignment, replacement, removal and destruction. Missing keys and nullish or destroyed sources return `undefined`. Both hooks accept world targets too.
 
 ```typescript
 import { useTarget, useTargets } from 'koota/react'
@@ -177,6 +184,14 @@ function InventoryDisplay({ entity }: { entity: Entity }) {
   return <ul>{items.map((item) => <li key={item}>{item.id()}</li>)}</ul>
 }
 ```
+
+```typescript
+const player = useQueryFirst(WireId(123)) // Entity | undefined
+const name = useTarget(player, Name) // string | undefined
+const wireId = useTarget(player, WireId) // number | undefined
+```
+
+Define `Name = identifier()` and `WireId = identifier<number>()` once in the application's shared definitions. World targets remain subscribed across resets.
 
 ## useTraitEffect
 

@@ -486,18 +486,22 @@ const orphaned = world.query(Removed(ChildOf))
 const updated = world.query(Changed(ChildOf))
 ```
 
-> 👉 **Note**<br>
-> Tracking modifiers do not accept pairs directly such as `Changed(ChildOf(parent))`. Instead, pass the base relation to the modifier and add the pair as a separate query parameter to filter by target.
+Pass a pair to track one target. `Added(ChildOf(parent))` reports the entities that gained that pair and `Removed(ChildOf(parent))` those that lost it, including when the entity or the target is destroyed. `Changed(ChildOf(parent))` reports the entities whose pair was added or had its store data written.
 
 ```js
 const parent = world.spawn()
 
-// Filter changed entities by a specific target
-const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
+// Track one pair
+const newChildren = world.query(Added(ChildOf(parent)))
+const lostChildren = world.query(Removed(ChildOf(parent)))
+const updatedChildren = world.query(Changed(ChildOf(parent)))
 
-// Filter changed entities by the target's traits
-const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer))
+// Track pairs by the target's traits
+const newPlayerChildren = world.query(Added(ChildOf(IsPlayer)))
 ```
+
+> 👉 **Note**<br>
+> `Changed(ChildOf), ChildOf(parent)` is a different query. It tracks a change to any `ChildOf` pair of an entity and then filters by the entities that have `parent` as a target.
 
 #### Relation events
 
@@ -532,34 +536,36 @@ world.onAdd(ChildOf(parent), (entity, target) => {})
 world.onAdd(ChildOf('*'), (entity, target) => {})
 ```
 
-### Named entities
+### Identifiers
 
-`Name` is an atomic trait holding a non-empty string, unique within its world.
+`identifier()` defines a namespace for unique keys, such as names or network ids. Within each world, an entity has at most one key per namespace, and each key has at most one owner. Keys are strings by default, or finite numbers with `identifier<number>()`.
 
-```js
-import { Name } from 'koota'
+```ts
+import { identifier } from 'koota'
 
-const player = world.spawn(Name('player'), Position)
-world.lookup('player') // player, or undefined if absent
-player.get(Name) // 'player'
-player.name() // 'player'
-player.has(Name('player')) // true
+const Name = identifier()
+const WireId = identifier<number>()
 
-player.set(Name, 'hero')
-world.lookup('player') // undefined
-world.lookup('hero') // player
+const player = world.spawn(Name('kris'), WireId(123), Position)
+world.lookup(Name('kris')) // player, or undefined if absent
+player.targetFor(Name) // 'kris'
+player.has(WireId(123)) // true
 
-world.query(Name('hero'), Position) // Filter by name
-world.query(Name, Position) // All named entities with Position
+player.add(WireId(456)) // Replaces the key
+world.lookup(WireId(123)) // undefined
+world.lookup(WireId(456)) // player
+
+world.query(Name('kris'), Position) // Filter by key
+world.query(Name, Position) // All entities with a Name and Position
 ```
 
-Taken names are refused and throw `[NAME_TAKEN]` with assertions enabled. Look up first to find or create:
+Taken keys are refused and throw `[IDENTIFIER_TAKEN]` with assertions enabled. Look up first to find or create:
 
-```js
-const hero = world.lookup('hero') ?? world.spawn(Name('hero'), Position)
+```ts
+const player = world.lookup(Name('kris')) ?? world.spawn(Name('kris'), Position)
 ```
 
-Removing `Name` or destroying the entity frees its name. Use `set` to rename so lookups and subscriptions stay current.
+Removing the identifier or destroying the entity frees its key. See [identifiers](docs/api/identifiers.md) for events, tracking and React hooks.
 
 ### Query modifiers
 
@@ -575,6 +581,19 @@ import { Not } from 'koota'
 const staticEntities = world.query(Position, Not(Velocity))
 ```
 
+`Not` also accepts relations and relation pairs. A bare relation excludes entities with any target, while a pair excludes only the entities that hold that pair.
+
+```js
+// Entities with no parent at all
+const roots = world.query(Not(ChildOf))
+
+// Everything that is not a child of the player, including entities with another parent
+const others = world.query(Position, Not(ChildOf(player)))
+
+// Pairs with a target query work too
+const safe = world.query(Position, Not(ChildOf(IsHostile)))
+```
+
 #### Or
 
 By default all query parameters are combined with logical AND. The `Or` modifier enables using logical OR instead.
@@ -583,6 +602,13 @@ By default all query parameters are combined with logical AND. The `Or` modifier
 import { Or } from 'koota'
 
 const movingOrVisible = world.query(Or(Velocity, Renderable))
+```
+
+Traits, relations and relation pairs can be mixed in one `Or`.
+
+```js
+// Children of either team, or any boss
+const targets = world.query(Or(ChildOf(redTeam), ChildOf(blueTeam), IsBoss))
 ```
 
 Tracking modifiers report changes since their query last ran. `Added` and `Changed` start with current matches. `Removed` starts with retained removals.
@@ -946,10 +972,9 @@ const entities = world.query(Position)
 // Return Entity
 const entity = world.queryFirst(Position)
 
-// Get the entity with a unique name, see Named entities
-// Accepts a string
+// Get the entity that owns an identifier key, see Identifiers
 // Return Entity | undefined
-const player = world.lookup('player')
+const player = world.lookup(Name('player'))
 
 // The trait API is identical to entity's
 
@@ -1062,9 +1087,9 @@ const id = entity.id()
 // Return number
 const generation = entity.generation()
 
-// Get the entity's name if it has the Name trait
-// Return string | undefined
-const name = entity.name()
+// Get the entity's key for an identifier
+// Return string | number | undefined
+const name = entity.targetFor(Name)
 
 // Destroys the entity making its number no longer valid
 entity.destroy()
