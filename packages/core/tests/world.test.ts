@@ -52,6 +52,13 @@ describe('World', () => {
           })
         ).resolves.toBe(true);
 
+        // Independent finalization registries may run their callbacks in either order.
+        await expect
+          .poll(() => ownedPages.every((pageId) => addressSpace!.pageOwners[pageId] === null), {
+            timeout: 5_000,
+          })
+          .toBe(true);
+
         for (const pageId of ownedPages) {
           expect(addressSpace!.pageOwners[pageId]).toBeNull();
           expect(addressSpace!.freePages).toContain(pageId);
