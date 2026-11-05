@@ -26,7 +26,7 @@ import { Or } from 'koota'
 const movingOrVisible = world.query(Or(Velocity, Renderable))
 ```
 
-Tracking modifiers report what happened since the query last ran. The world records its own history, so a tracking query created at any time, including inside a system body, sees earlier events on its first run. Entities that hold a trait count as added, entities that lost a trait and have not regained it count as removed, and entities whose trait was written since they spawned count as changed. Explicit `set` writes and `changed()` notifications are recorded in the owning world even before a `Changed` term or query exists. A destroyed entity keeps its data until it is evicted, so a reader created after the destroy still sees it, see [Destroyed entities](#destroyed-entities).
+Tracking modifiers report changes since their query last ran. `Added` and `Changed` start with current matches. `Removed` starts with retained removals, including [destroyed entities](#destroyed-entities) that have not been evicted.
 
 ## Added
 
@@ -82,7 +82,7 @@ const eitherRemoved = world.query(Or(Removed(Position), Removed(Velocity)))
 
 ## Changed
 
-The `Changed` modifier tracks all entities that have had the specified traits or relation stores change since the last time the query was run. A new instance of the modifier must be created for tracking to be unique.
+`Changed` tracks additions and writes to the specified traits or relation stores. Its first run includes all current matches. Create a separate modifier for each independent reader.
 
 When multiple traits are passed to `Changed` it uses logical `AND`. Only entities where **all** specified traits have changed will be returned.
 
@@ -90,11 +90,16 @@ When multiple traits are passed to `Changed` it uses logical `AND`. Only entitie
 import { createChanged } from 'koota'
 
 const Changed = createChanged()
+const entity = world.spawn(Position)
 
-// Track entities whose Position has changed
+// First run includes existing Position traits
+world.query(Changed(Position))
+
+entity.set(Position, { x: 10 })
+// Later runs include additions and writes
 const movedEntities = world.query(Changed(Position))
 
-// Track entities whose ChildOf relation data has changed
+// Track ChildOf additions and data writes
 const updatedChildren = world.query(Changed(ChildOf))
 
 // Track entities where BOTH Position AND Velocity have changed

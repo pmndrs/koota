@@ -106,7 +106,7 @@ world.query(Position, Not(Velocity), Or(IsPlayer, IsEnemy))
 
 ## Tracking modifiers
 
-Track structural and data changes. Each tracking modifier must be created as a unique instance. The first run includes earlier history still available in the world, even if the modifier was created afterward.
+Track structural and data changes. Create a separate modifier for each independent reader. `Added` and `Changed` start with current matches. `Removed` starts with retained removals.
 
 ```typescript
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -148,17 +148,20 @@ world.query(RemovedSync(ServerSync)).each((serverSync) => serverSync.disconnect(
 world.query(Removed(ChildOf), ChildOf(parent)).forEach((child) => detach(child, parent))
 ```
 
-**Changed** - Entities whose trait data changed since last query:
+**Changed** - Entities whose traits were added or written since the last query. The first run includes all current matches:
 
 ```typescript
-const moved = world.spawn(Position)
-moved.set(Position, { x: 10 })
 const ChangedPosition = createChanged()
+const moved = world.spawn(Position)
 
-// Includes earlier writes on the first run
+// First run includes existing Position traits
+world.query(ChangedPosition(Position))
+
+moved.set(Position, { x: 10 })
+// Later runs include additions and writes
 const movedEntities = world.query(ChangedPosition(Position))
 
-// Track relation data changes
+// Track relation additions and data writes
 const updatedChildren = world.query(Changed(ChildOf))
 ```
 
@@ -198,7 +201,7 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 
 - Create instances at module scope, not inside functions
 - Tracking resets after each query execution
-- Changed only tracks `set()` calls and `entity.changed()` signals
+- Changed tracks trait additions, `set()` calls, `entity.changed()` signals, and changes detected by `each`
 - Removed needs no warm up, a reader created after a removal sees it on its first run while the trait stays removed and the entity has not been evicted
 
 ## Caching queries

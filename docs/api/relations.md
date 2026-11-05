@@ -236,7 +236,7 @@ player.has(banana) // false
 
 ## Tracking relation changes
 
-Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Changes can only be tracked on relations that have a store.
+Relations work with tracking modifiers to detect when entities gain, lose, or update relations. Use a relation store to track data writes.
 
 ```js
 import { createAdded, createRemoved, createChanged } from 'koota'
@@ -253,7 +253,7 @@ const newChildren = world.query(Added(ChildOf))
 // Track when any entity removes the ChildOf relation
 const orphaned = world.query(Removed(ChildOf))
 
-// Track when relation data changes for any target
+// Track relation additions and data writes
 const updated = world.query(Changed(ChildOf))
 ```
 
