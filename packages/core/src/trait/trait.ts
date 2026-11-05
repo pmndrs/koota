@@ -16,6 +16,7 @@ import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
   detachRelationTargets,
+  reconcileRelationQueries,
   getFirstRelationTarget,
   getRelationData,
   getRelationTargets,
@@ -321,8 +322,9 @@ export function removeTraitFromDyingEntity(
 ) {
   const traitCtx = instance.trait[$internal];
   const relation = traitCtx.relation;
+  let targets: readonly Entity[] | undefined;
   if (relation) {
-    const targets = getRelationTargets(ctx, relation, entity);
+    targets = getRelationTargets(ctx, relation, entity);
     for (const t of targets) emit(instance.removeSubscriptions, entity, t);
     detachRelationTargets(instance, entity);
   } else {
@@ -339,7 +341,47 @@ export function removeTraitFromDyingEntity(
   page[slot + REMOVED_WORD] |= bitflag;
   instance.version++;
 
-  reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
+  // Most traits have no query to leave, so the check stays here and the work is a call.
+  if (
+    instance.queries.length !== 0 ||
+    instance.trackingQueries.length !== 0 ||
+    targets !== undefined
+  ) {
+    reconcileDyingTraitQueries(ctx, entity, instance, targets);
+  }
+}
+
+/**
+ * A dying entity only leaves static queries, since losing a forbidden trait must not let it enter
+ * one. Tracking queries get the removal, and every pair the entity kept counts as removed.
+ */
+export function reconcileDyingTraitQueries(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance,
+  targets: readonly Entity[] | undefined
+) {
+  leaveStaticQueries(ctx, entity, instance.queries);
+  if (targets !== undefined) leaveStaticQueries(ctx, entity, instance.relationQueries);
+  if (instance.trackingQueries.length !== 0) {
+    reconcileTrackingQueries(
+      ctx,
+      entity,
+      instance,
+      'remove',
+      instance.generationId,
+      instance.bitflag
+    );
+  }
+  if (targets !== undefined && instance.relationQueries.length !== 0) {
+    for (const t of targets) reconcileRelationQueries(ctx, instance, entity, t, 'remove', true);
+  }
+}
+
+function leaveStaticQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
+  for (let i = 0; i < queries.length; i++) {
+    if (!queries[i].isTracking) removeEntityFromQuery(ctx, queries[i], entity);
+  }
 }
 
 /* @inline */ function removeRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {

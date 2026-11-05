@@ -1,14 +1,17 @@
+import { $internal } from '../../common';
 import { Entity } from '../../entity/types';
-import { getEntityId } from '../../entity/utils/pack-entity';
+import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
+import { GENERATION_MASK, getEntityId } from '../../entity/utils/pack-entity';
 import {
   DESTROYED_WORD,
   REMOVED_WORD,
   createEmptyMaskGeneration,
   ensureMaskPage,
 } from '../../entity/utils/paged-mask';
+import { hasRelationToTarget } from '../../relation/relation';
 import { WorldContext } from '../../world';
-import { EventType, QueryInstance } from '../types';
-import { hasEveryRelationPair } from '../query';
+import { EventType, QueryInstance, ResolvedRelationFilter } from '../types';
+import { holdsFilterPair, passesRelationFilters } from './check-query-with-relations';
 
 export function checkQueryTracking(
   ctx: WorldContext,
@@ -44,15 +47,20 @@ export function checkQueryTracking(
     const groupBitmasks = group.bitmasks;
     const groupBitmask = groupBitmasks[eventGenerationId];
 
-    if (groupBitmask && groupBitmask & eventBitflag) {
-      // The event undoes this group's term. Later groups still need to record it.
+    if (groupBitmask && groupBitmask & eventBitflag && group.pairs === null) {
+      // The event undoes this group's term, so the recorded hit is taken back and a later recheck
+      // cannot report it. Later groups still need to record the event.
       if (
         eventType === 'remove'
           ? groupType !== 'remove'
           : eventType === 'add' && groupType === 'remove'
       ) {
-        if (i === trackingGroupsLen - 1) return false;
-        matched = false;
+        clearTrackerHit(group.trackers, eventGenerationId, eid, eventBitflag);
+        // An and group cannot match without the event. An or group may still hold another term.
+        if (groupLogic === 'and') {
+          if (i === trackingGroupsLen - 1) return false;
+          matched = false;
+        }
       }
 
       if (groupType === eventType || (groupType === 'change' && eventType === 'add')) {
@@ -80,7 +88,7 @@ export function checkQueryTracking(
 
   return (
     passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains) &&
-    (query.relationFilters.length === 0 || hasEveryRelationPair(ctx, query, entity))
+    (query.relationFilters.length === 0 || passesRelationFilters(ctx, query, entity))
   );
 }
 
@@ -108,13 +116,21 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
     const bitmasks = group.bitmasks;
     const removed = group.type === 'remove';
 
-    for (let genId = 0; genId < bitmasks.length; genId++) {
-      const mask = bitmasks[genId];
-      if (!mask) continue;
-      const page = entityMasks[genId][pageId];
-      const held = page[slot];
-      const hits = (removed ? page[slot + REMOVED_WORD] & ~held : held) & mask;
-      if (hits !== 0) recordTrackerHit(group.trackers, genId, eid, hits);
+    const pairs = group.pairs;
+    if (pairs === null) {
+      for (let genId = 0; genId < bitmasks.length; genId++) {
+        const mask = bitmasks[genId];
+        if (!mask) continue;
+        const page = entityMasks[genId][pageId];
+        const held = page[slot];
+        const hits = (removed ? page[slot + REMOVED_WORD] & ~held : held) & mask;
+        if (hits !== 0) recordTrackerHit(group.trackers, genId, eid, hits);
+      }
+    } else if (removed !== isEntityAlive(ctx.entityIndex, entity)) {
+      // Removed seeds from the pairs a dead entity kept. Pairs lost alive come from the world's ring.
+      for (let p = 0; p < pairs.length; p++) {
+        if (holdsFilterPair(ctx, entity, pairs[p])) recordTrackerHit(group.trackers, 0, eid, 1 << p);
+      }
     }
 
     if (group.logic === 'or') {
@@ -146,7 +162,8 @@ export function recordChangeAndMatch(
   for (let i = 0; i < trackingGroups.length; i++) {
     const group = trackingGroups[i];
     const bitmasks = group.bitmasks;
-    const hit = group.type === 'change' && (bitmasks[generationId]! & bitflag) !== 0;
+    const hit =
+      group.type === 'change' && (bitmasks[generationId]! & bitflag) !== 0 && group.pairs === null;
     if (hit) recordTrackerHit(group.trackers, generationId, eid, bitflag);
     if (group.logic === 'or') {
       hasOrGroup = true;
@@ -162,6 +179,86 @@ export function recordChangeAndMatch(
     }
   }
   return matched && (!hasOrGroup || anyOrMatched);
+}
+
+/**
+ * Seeds Removed pair terms from the pairs live entities lost before the query existed. An entry
+ * counts while its entity is still readable, has not taken the pair back and passes the static
+ * terms, as a trait seed does.
+ */
+export function seedPairRemovals(ctx: WorldContext, query: QueryInstance) {
+  const groups = query.trackingGroups;
+  const entries = ctx.pairRemovals.entries;
+  // An id is destroyed at most once per retain destroys, so its generation cannot wrap sooner.
+  const oldest = ctx.entityIndex.releases - (GENERATION_MASK + 1) * ctx.retain;
+
+  for (let g = 0; g < groups.length; g++) {
+    const group = groups[g];
+    const pairs = group.pairs;
+    if (pairs === null || group.type !== 'remove') continue;
+
+    for (let i = 0; i < entries.length; i += 4) {
+      if (entries[i + 3] <= oldest) continue;
+      const entity = entries[i] as Entity;
+      const target = entries[i + 2] as Entity;
+      const eid = getEntityId(entity);
+
+      for (let p = 0; p < pairs.length; p++) {
+        const pair = pairs[p];
+        if (
+          coversPair(pair, entries[i + 1], target) &&
+          isEntityReadable(ctx.entityIndex, entity) &&
+          !hasRelationToTarget(ctx, pair.relation, entity, target) &&
+          passesStaticBitmasks(query.masks, ctx.entityMasks, eid >>> 10, (eid & 1023) << 2, true)
+        ) {
+          recordTrackerHit(group.trackers, 0, eid, 1 << p);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Records a pair event on the pair terms it concerns, then rechecks the query. The opposite event
+ * takes a recorded one back, so a pair added and removed between two runs is reported by neither
+ * Added nor Removed. A pair change is not a trait event, so the recheck records nothing else.
+ */
+export function checkQueryTrackingPair(
+  ctx: WorldContext,
+  query: QueryInstance,
+  entity: Entity,
+  traitId: number,
+  target: Entity,
+  eventType: EventType
+): boolean {
+  const groups = query.trackingGroups;
+  const eid = getEntityId(entity);
+
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    const pairs = group.pairs;
+    if (pairs === null) continue;
+    const type = group.type;
+
+    for (let p = 0; p < pairs.length; p++) {
+      if (!coversPair(pairs[p], traitId, target)) continue;
+
+      if (type === eventType || (type === 'change' && eventType === 'add')) {
+        recordTrackerHit(group.trackers, 0, eid, 1 << p);
+      } else if (eventType !== 'change') {
+        clearTrackerHit(group.trackers, 0, eid, 1 << p);
+      }
+    }
+  }
+
+  return checkQueryTracking(ctx, query, entity, 'change', 0, 0);
+}
+
+/** The tracked pair is this relation with this target, or with a target its target query matches. */
+function coversPair(pair: ResolvedRelationFilter, traitId: number, target: Entity): boolean {
+  if (pair.relation[$internal].trait.id !== traitId) return false;
+  const matches = pair.targetQueryMatches;
+  return matches !== undefined ? matches.has(target) : pair.target === target;
 }
 
 /** Every tracked bit of the group has fired for the entity. */
@@ -220,6 +317,20 @@ export function passesStaticBitmasks(
     if (or !== 0 && (entityMask & or) === 0) return false;
   }
   return true;
+}
+
+function clearTrackerHit(
+  trackers: Uint32Array[][],
+  generationId: number,
+  eid: number,
+  bitflag: number
+) {
+  const generation = trackers[generationId];
+  if (generation === undefined) return;
+  // An unallocated page reads as zero, so it is never written.
+  const page = generation[eid >>> 10];
+  const hits = page[eid & 1023];
+  if ((hits & bitflag) !== 0) page[eid & 1023] = hits & ~bitflag;
 }
 
 /** Remember that the tracked event fired for the entity, allocating the tracker lazily. */

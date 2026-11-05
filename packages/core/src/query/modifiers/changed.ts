@@ -4,27 +4,27 @@ import { assertEntityAlive, assertTraitPresent } from '../../asserts';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import { isEntityAlive } from '../../entity/utils/entity-index';
-import { hasRelationToTarget } from '../../relation/relation';
-import { isRelation } from '../../relation/utils/is-relation';
+import { hasRelationToTarget, reconcileRelationQueries } from '../../relation/relation';
+import type { RelationPair } from '../../relation/types';
 import { emit, hasSubscribers } from '../../trait/subscriptions';
 import { getTraitInstance } from '../../trait/trait-instance';
-import type { ExtractTraits, Trait, TraitInstance, TraitOrRelation } from '../../trait/types';
+import type { ExtractModifierTraits, Trait, TraitInstance, TraitOrRelation } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
 import { createTrackingId } from '../utils/tracking-cursor';
-import { markTraitChanged } from '../utils/mark-tracked-trait-changed';
+import { markTraitChanged, notifyChangedTrackingQueries } from '../utils/mark-tracked-trait-changed';
 
 export function createChanged() {
   const id = createTrackingId();
 
-  return <T extends TraitOrRelation[]>(
+  return <T extends (TraitOrRelation | RelationPair)[]>(
     ...inputs: T
-  ): Modifier<ExtractTraits<T>, `changed-${number}`> => {
-    const traits = inputs.map((input) =>
-      isRelation(input) ? input[$internal].trait : input
-    ) as ExtractTraits<T>;
-    return createModifier(`changed-${id}`, id, traits);
+  ): Modifier<ExtractModifierTraits<T>, `changed-${number}`> => {
+    return createModifier(`changed-${id}`, id, inputs) as Modifier<
+      ExtractModifierTraits<T>,
+      `changed-${number}`
+    >;
   };
 }
 
@@ -70,8 +70,20 @@ export /* @inline */ function notifyTraitChanged(
 }
 
 export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, target: Entity) {
-  const data = markChanged(ctx, entity, trait);
-  if (data) emit(data.changeSubscriptions, entity, target);
+  const data = getTraitInstance(ctx.traitInstances, trait);
+  if (data === undefined) return;
+  const index = getEntityId(entity);
+  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
+    return;
+  data.version++;
+  if (data.trackingQueries.length !== 0) notifyPairChanged(ctx, entity, data, target);
+  emit(data.changeSubscriptions, entity, target);
+}
+
+/** A pair write changes its relation trait and the pair, for the queries tracking either. */
+function notifyPairChanged(ctx: WorldContext, entity: Entity, data: TraitInstance, target: Entity) {
+  notifyChangedTrackingQueries(ctx, entity, data);
+  reconcileRelationQueries(ctx, data, entity, target, 'change', true);
 }
 
 /** Add notifications follow onAdd, once the initial value is available. */

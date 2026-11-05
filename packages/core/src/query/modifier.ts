@@ -1,21 +1,48 @@
-import { Brand } from '../common';
-import { Trait } from '../trait/types';
-import { EventType, Modifier, OrModifier, QueryParameter } from './types';
+import { $internal, Brand } from '../common';
+import type { RelationPair } from '../relation/types';
+import { isRelation, isRelationPair } from '../relation/utils/is-relation';
+import type { Trait, TraitOrRelation } from '../trait/types';
+import { EventType, Modifier, QueryParameter } from './types';
 
 export const $modifier = Symbol('modifier');
 
-export function createModifier<TTrait extends Trait[] = Trait[], TType extends string = string>(
+/**
+ * Sorts modifier inputs into the traits its masks read and the pairs it checks per entity. The
+ * inputs are the caller's own argument array, so the traits are resolved in place.
+ */
+export function createModifier<TType extends string>(
   type: TType,
   id: number,
-  traits: TTrait
-): Modifier<TTrait, TType> {
+  inputs: (TraitOrRelation | RelationPair)[]
+): Modifier<Trait[], TType> {
+  let pairs: RelationPair[] | null = null;
+  let count = 0;
+
+  for (let i = 0; i < inputs.length; i++) {
+    const input = inputs[i];
+    if (isRelationPair(input)) {
+      if (input.target !== '*') {
+        (pairs ??= []).push(input);
+        continue;
+      }
+      // A wildcard pair is the relation's membership, which the trait masks cover.
+      inputs[count++] = input.relation[$internal].trait;
+    } else {
+      inputs[count++] = isRelation(input) ? input[$internal].trait : input;
+    }
+  }
+  if (count !== inputs.length) inputs.length = count;
+
+  const traits = inputs as Trait[];
   return {
     [$modifier]: true,
     type,
     id,
     traits,
     traitIds: traits.map((trait) => trait.id),
-  } as const;
+    pairs,
+    modifiers: null,
+  };
 }
 
 export /* @inline @pure */ function isModifier(param: QueryParameter): param is Modifier {
@@ -35,9 +62,4 @@ export function getTrackingType(modifier: Modifier): EventType | null {
   if (type.includes('removed')) return 'remove';
   if (type.includes('changed')) return 'change';
   return null;
-}
-
-/** Check if an Or modifier has nested modifiers */
-export function isOrWithModifiers(modifier: Modifier): modifier is OrModifier {
-  return modifier.type === 'or' && Array.isArray((modifier as OrModifier).modifiers);
 }

@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createChanged, createQuery, createWorld, Not, relation, trait } from '../src';
+import {
+  $internal,
+  createAdded,
+  createChanged,
+  createQuery,
+  createWorld,
+  Not,
+  Or,
+  relation,
+  trait,
+} from '../src';
 
 describe('Relation', () => {
   // Disable destroyed-entity retention so ids can be reused on the next spawn.
@@ -486,6 +496,132 @@ describe('Relation', () => {
     expect(weaponResult.length).toBe(1);
     expect(weaponResult).toContain(child1);
     expect(weaponResult).not.toContain(child2);
+  });
+
+  it('Not excludes entities holding a specific pair', () => {
+    const ChildOf = relation();
+    const Unit = trait();
+
+    const player = world.spawn();
+    const enemy = world.spawn();
+    const ofPlayer = world.spawn(Unit, ChildOf(player));
+    const ofEnemy = world.spawn(Unit, ChildOf(enemy));
+    const orphan = world.spawn(Unit);
+
+    expect(world.query(Unit, Not(ChildOf(player))).toArray()).toEqual([ofEnemy, orphan]);
+    // Other queries on the same relation keep their own results.
+    expect(world.query(Unit, ChildOf(player)).toArray()).toEqual([ofPlayer]);
+    expect(world.query(Unit, Not(ChildOf)).toArray()).toEqual([orphan]);
+    expect(world.query(Unit, Not(ChildOf('*'))).toArray()).toEqual([orphan]);
+
+    // Membership follows the pair as it is added and removed.
+    orphan.add(ChildOf(player));
+    ofPlayer.remove(ChildOf(player));
+    expect(world.query(Unit, Not(ChildOf(player))).toArray()).toEqual([ofEnemy, ofPlayer]);
+
+    // An entity spawned later is matched too.
+    const late = world.spawn(Unit);
+    expect(world.query(Unit, Not(ChildOf(player)))).toContain(late);
+  });
+
+  it('Not on a pair checks one target of a relation with many', () => {
+    const Likes = relation();
+    const Unit = trait();
+
+    const apples = world.spawn();
+    const pears = world.spawn();
+    const both = world.spawn(Unit, Likes(apples), Likes(pears));
+    const onlyPears = world.spawn(Unit, Likes(pears));
+
+    expect(world.query(Unit, Not(Likes(apples))).toArray()).toEqual([onlyPears]);
+    expect(world.query(Unit, Likes(pears), Not(Likes(apples))).toArray()).toEqual([onlyPears]);
+
+    both.remove(Likes(apples));
+    expect(world.query(Unit, Not(Likes(apples))).toArray()).toEqual([onlyPears, both]);
+  });
+
+  it('Not on a pair keeps matching after its target is destroyed', () => {
+    const ChildOf = relation();
+    const Unit = trait();
+
+    const player = world.spawn();
+    const child = world.spawn(Unit, ChildOf(player));
+    const added = vi.fn();
+    world.onQueryAdd([Unit, Not(ChildOf(player))], added);
+
+    expect(world.query(Unit, Not(ChildOf(player)))).toHaveLength(0);
+
+    player.destroy();
+
+    expect(added).toHaveBeenCalledWith(child);
+    expect(world.query(Unit, Not(ChildOf(player))).toArray()).toEqual([child]);
+  });
+
+  it('queries naming a destroyed target are dropped and rebuilt on demand', () => {
+    const ChildOf = relation();
+    const Added = createAdded();
+    const Unit = trait();
+    const unit = world.spawn(Unit);
+    const cached = world[$internal].queriesHashMap.size;
+    let team = world.spawn();
+
+    for (let i = 0; i < 3; i++) {
+      team = world.spawn();
+      world.query(Unit, Not(ChildOf(team)));
+      world.query(Unit, Or(ChildOf(team), Unit));
+      world.query(Added(ChildOf(team)));
+      team.destroy();
+      // The world retains nothing, so the queries go with their target.
+      expect(world[$internal].queriesHashMap.size).toBe(cached);
+    }
+
+    expect(world.query(Unit, Not(ChildOf(team))).toArray()).toEqual([unit]);
+  });
+
+  it('Not accepts a pair with a target query', () => {
+    const ChildOf = relation();
+    const Unit = trait();
+    const IsHostile = trait();
+
+    const hostile = world.spawn(IsHostile);
+    const friendly = world.spawn();
+    const ofHostile = world.spawn(Unit, ChildOf(hostile));
+    const ofFriendly = world.spawn(Unit, ChildOf(friendly));
+
+    expect(world.query(Unit, Not(ChildOf(IsHostile))).toArray()).toEqual([ofFriendly]);
+
+    // The result follows the targets as they enter and leave the target query.
+    friendly.add(IsHostile);
+    hostile.remove(IsHostile);
+    expect(world.query(Unit, Not(ChildOf(IsHostile))).toArray()).toEqual([ofHostile]);
+  });
+
+  it('Or matches entities holding any of its pairs or traits', () => {
+    const ChildOf = relation();
+    const Unit = trait();
+    const IsBoss = trait();
+
+    const red = world.spawn();
+    const blue = world.spawn();
+    const green = world.spawn();
+    const ofRed = world.spawn(Unit, ChildOf(red));
+    const ofBlue = world.spawn(Unit, ChildOf(blue));
+    const ofGreen = world.spawn(Unit, ChildOf(green));
+    const boss = world.spawn(Unit, IsBoss);
+    world.spawn(Unit);
+
+    expect(world.query(Unit, Or(ChildOf(red), ChildOf(blue))).toArray()).toEqual([ofRed, ofBlue]);
+    expect(world.query(Unit, Or(ChildOf(red), IsBoss)).toArray()).toEqual([ofRed, boss]);
+
+    // Membership follows both the pairs and the traits of the or term.
+    ofGreen.add(ChildOf(red));
+    boss.remove(IsBoss);
+    ofBlue.add(IsBoss);
+    expect(world.query(Unit, Or(ChildOf(red), IsBoss)).toArray()).toEqual([ofRed, ofGreen, ofBlue]);
+
+    // Nothing enters through spawn alone when the or term is the whole query.
+    world.spawn();
+    expect(world.query(Or(ChildOf(red), IsBoss)).toArray()).toEqual([ofRed, ofBlue, ofGreen]);
   });
 
   it('should emit add/remove events for each pair', () => {

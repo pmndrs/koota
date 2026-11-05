@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   $internal,
   createAdded,
@@ -112,6 +112,24 @@ describe('Query modifiers', () => {
 
     entities = world.query(Not(ChildOf));
     expect(entities.length).toBe(2);
+  });
+
+  it('Not queries drop destroyed entities', () => {
+    const plain = world.spawn();
+    const withBar = world.spawn(Bar);
+    const withFoo = world.spawn(Foo);
+    expect(world.query(Not(Foo)).toArray()).toEqual([plain, withBar]);
+
+    const added = vi.fn();
+    world.onQueryAdd([Not(Foo)], added);
+
+    plain.destroy();
+    withBar.destroy();
+    withFoo.destroy();
+
+    expect(world.query(Not(Foo))).toHaveLength(0);
+    // Losing Foo while dying does not turn the entity into a match.
+    expect(added).not.toHaveBeenCalled();
   });
 
   it('modifiers can be added as one call or separately', () => {
@@ -979,5 +997,246 @@ describe('Query modifiers', () => {
     expect(() => {
       testWorld.query(Changed(NewTrait));
     }).not.toThrow();
+  });
+
+  it('Added tracks a specific pair', () => {
+    const ChildOf = relation();
+    const Added = createAdded();
+    const red = world.spawn();
+    const blue = world.spawn();
+    const existing = world.spawn(ChildOf(red));
+
+    // The first run reports the entities that already hold the pair.
+    expect(world.query(Added(ChildOf(red))).toArray()).toEqual([existing]);
+    expect(world.query(Added(ChildOf(red)))).toHaveLength(0);
+
+    const ofRed = world.spawn(ChildOf(red));
+    const ofBlue = world.spawn(ChildOf(blue));
+    // Another target of the same relation is not this pair.
+    existing.add(ChildOf(blue));
+
+    expect(world.query(Added(ChildOf(red))).toArray()).toEqual([ofRed]);
+    expect(world.query(Added(ChildOf(red)))).toHaveLength(0);
+
+    // A pair added and removed between two runs is not reported.
+    ofBlue.add(ChildOf(red));
+    ofBlue.remove(ChildOf(red));
+    expect(world.query(Added(ChildOf(red)))).toHaveLength(0);
+  });
+
+  it('Removed tracks a specific pair', () => {
+    const ChildOf = relation();
+    const Removed = createRemoved();
+    const red = world.spawn();
+    const blue = world.spawn();
+    const removes = world.spawn(ChildOf(red));
+    const dies = world.spawn(ChildOf(red));
+    const stays = world.spawn(ChildOf(red), ChildOf(blue));
+    const ofBlue = world.spawn(ChildOf(blue));
+
+    expect(world.query(Removed(ChildOf(red)))).toHaveLength(0);
+
+    removes.remove(ChildOf(red));
+    dies.destroy();
+    ofBlue.remove(ChildOf(blue));
+    expect(world.query(Removed(ChildOf(red))).toArray()).toEqual([removes, dies]);
+    expect(world.query(Removed(ChildOf(red)))).toHaveLength(0);
+
+    // Adding the pair back before the next run takes the removal back.
+    stays.remove(ChildOf(red));
+    stays.add(ChildOf(red));
+    expect(world.query(Removed(ChildOf(red)))).toHaveLength(0);
+
+    // Destroying the target removes the pair from its sources.
+    red.destroy();
+    expect(world.query(Removed(ChildOf(red))).toArray()).toEqual([stays]);
+  });
+
+  it('Changed tracks writes to a specific pair', () => {
+    const Likes = relation({ store: { amount: 0 } });
+    const Changed = createChanged();
+    const apples = world.spawn();
+    const pears = world.spawn();
+    const entity = world.spawn(Likes(apples), Likes(pears));
+
+    // The first run reports the entities that already hold the pair.
+    expect(world.query(Changed(Likes(apples))).toArray()).toEqual([entity]);
+    expect(world.query(Changed(Likes(apples)))).toHaveLength(0);
+
+    entity.set(Likes(pears), { amount: 2 });
+    expect(world.query(Changed(Likes(apples)))).toHaveLength(0);
+
+    entity.set(Likes(apples), { amount: 3 });
+    expect(world.query(Changed(Likes(apples))).toArray()).toEqual([entity]);
+    expect(world.query(Changed(Likes(apples)))).toHaveLength(0);
+  });
+
+  it('tracked pairs combine with Or and with other parameters', () => {
+    const ChildOf = relation();
+    const Added = createAdded();
+    const red = world.spawn();
+    const blue = world.spawn();
+    const green = world.spawn();
+
+    world.query(Or(Added(ChildOf(red)), Added(ChildOf(blue))));
+    world.query(Foo, Added(ChildOf(red)));
+
+    const ofRed = world.spawn(ChildOf(red));
+    const ofBlue = world.spawn(Foo, ChildOf(blue));
+    world.spawn(ChildOf(green));
+    const fooOfRed = world.spawn(Foo, ChildOf(red));
+
+    expect(world.query(Or(Added(ChildOf(red)), Added(ChildOf(blue)))).toArray()).toEqual([
+      ofRed,
+      ofBlue,
+      fooOfRed,
+    ]);
+    expect(world.query(Foo, Added(ChildOf(red))).toArray()).toEqual([fooOfRed]);
+  });
+
+  it('a pair filter does not report an entity whose tracked trait is unchanged', () => {
+    const ChildOf = relation();
+    const Added = createAdded();
+    const parent = world.spawn();
+    const entity = world.spawn(Foo);
+
+    expect(world.query(Added(Foo), ChildOf(parent))).toHaveLength(0);
+
+    // Foo was added before the first run, so gaining the pair alone is not an addition of Foo.
+    entity.add(ChildOf(parent));
+    expect(world.query(Added(Foo), ChildOf(parent))).toHaveLength(0);
+
+    const fresh = world.spawn(Foo, ChildOf(parent));
+    expect(world.query(Added(Foo), ChildOf(parent)).toArray()).toEqual([fresh]);
+  });
+
+  it('an undone tracked event is not reported after a later membership change', () => {
+    const ChildOf = relation();
+    const Added = createAdded();
+    const Removed = createRemoved();
+    const parent = world.spawn();
+    const other = world.spawn();
+
+    world.query(Added(Foo), ChildOf(parent));
+    world.query(Removed(Foo), Bar);
+    world.query(Added(Foo), Not(ChildOf(parent)));
+
+    // Foo is added and removed again before the pair makes the entity a candidate.
+    const addedThenRemoved = world.spawn();
+    addedThenRemoved.add(Foo);
+    addedThenRemoved.remove(Foo);
+    addedThenRemoved.add(ChildOf(parent));
+    expect(world.query(Added(Foo), ChildOf(parent))).toHaveLength(0);
+
+    // Foo is removed and added back before Bar makes the entity a candidate.
+    const removedThenAdded = world.spawn(Foo);
+    removedThenAdded.remove(Foo);
+    removedThenAdded.add(Foo);
+    removedThenAdded.add(Bar);
+    expect(world.query(Removed(Foo), Bar)).toHaveLength(0);
+
+    // A destroyed entity is not an addition, whatever pairs it loses on the way out.
+    world.query(Added(Foo), Not(ChildOf(parent)));
+    world.spawn(Foo, ChildOf(other)).destroy();
+    expect(world.query(Added(Foo), Not(ChildOf(parent)))).toHaveLength(0);
+  });
+
+  it('Removed starts with the pairs live entities lost before the query existed', () => {
+    const ChildOf = relation();
+    const Removed = createRemoved();
+    const red = world.spawn();
+    const blue = world.spawn();
+
+    const removed = world.spawn(ChildOf(red));
+    removed.remove(ChildOf(red));
+    const moved = world.spawn(ChildOf(red), ChildOf(blue));
+    moved.remove(ChildOf(red));
+    const returned = world.spawn(ChildOf(red));
+    returned.remove(ChildOf(red));
+    returned.add(ChildOf(red));
+    const destroyed = world.spawn(ChildOf(red));
+    destroyed.destroy();
+    world.spawn(ChildOf(blue)).remove(ChildOf(blue));
+
+    expect(world.query(Removed(ChildOf(red))).toArray()).toEqual([removed, moved, destroyed]);
+    expect(world.query(Removed(ChildOf(red)))).toHaveLength(0);
+  });
+
+  it('pair removals older than the retention cap are not seeded', () => {
+    const small = createWorld({ retain: 2 });
+    const ChildOf = relation();
+    const Removed = createRemoved();
+    const parent = small.spawn();
+    const children = [0, 1, 2].map(() => small.spawn(ChildOf(parent)));
+    for (const child of children) child.remove(ChildOf(parent));
+
+    expect(small.query(Removed(ChildOf(parent))).toArray()).toEqual([children[1], children[2]]);
+    small.destroy();
+  });
+
+  it('queries with different tracking modifiers nested in Or stay separate', () => {
+    const AddedFoo = createAdded();
+    const AddedBar = createAdded();
+    const foo = world.spawn(Foo);
+    const bar = world.spawn(Bar);
+    const neither = world.spawn();
+
+    expect(world.query(Or(AddedFoo(Foo))).toArray()).toEqual([foo]);
+    expect(world.query(Or(AddedBar(Bar))).toArray()).toEqual([bar]);
+    // Nesting in Or is not the same query as the modifier alone, or as no parameters at all.
+    expect(world.query(AddedFoo(Foo)).toArray()).toEqual([foo]);
+    expect(world.query().toArray()).toEqual([foo, bar, neither]);
+  });
+
+  it('Or keeps an entity whose other tracked term still holds', () => {
+    const ChildOf = relation();
+    const Added = createAdded();
+    const parent = world.spawn();
+    world.query(Or(Added(ChildOf(parent)), Added(Foo)));
+    world.query(Or(Added(Bar), Added(Foo)));
+
+    // Foo is added and removed again, the other term of each query was still added.
+    const child = world.spawn(ChildOf(parent), Foo);
+    child.remove(Foo);
+    const bar = world.spawn(Bar, Foo);
+    bar.remove(Foo);
+
+    expect(world.query(Or(Added(ChildOf(parent)), Added(Foo))).toArray()).toEqual([child]);
+    expect(world.query(Or(Added(Bar), Added(Foo))).toArray()).toEqual([bar]);
+  });
+
+  it('a pair removal from before the query does not bypass its other terms', () => {
+    const ChildOf = relation();
+    const Removed = createRemoved();
+    const parent = world.spawn();
+    const entity = world.spawn(ChildOf(parent));
+    entity.remove(ChildOf(parent));
+
+    expect(world.query(Removed(ChildOf(parent)), Foo)).toHaveLength(0);
+
+    // The entity lacked Foo when the query was seeded, so the old removal is not carried over.
+    entity.add(Foo);
+    expect(world.query(Removed(ChildOf(parent)), Foo)).toHaveLength(0);
+  });
+
+  it('a trait write is not taken for a change to a tracked pair', () => {
+    const fresh = createWorld();
+    const Health = trait({ value: 0 });
+    const Likes = relation();
+    const Changed = createChanged();
+    const targets = Array.from({ length: 8 }, () => fresh.spawn());
+    const entity = fresh.spawn(Health);
+    const changed = () =>
+      fresh.query(Changed(Health), Or(...targets.map((target) => Changed(Likes(target)))));
+
+    expect(changed()).toHaveLength(0);
+
+    // The entity holds none of the pairs, so writing Health satisfies only the first term.
+    entity.set(Health, { value: 1 });
+    expect(changed()).toHaveLength(0);
+
+    entity.add(Likes(targets[3]));
+    expect(changed().toArray()).toEqual([entity]);
+    fresh.destroy();
   });
 });

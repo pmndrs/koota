@@ -16,6 +16,19 @@ import { Not } from 'koota'
 const staticEntities = world.query(Position, Not(Velocity))
 ```
 
+`Not` also accepts relations and relation pairs. A bare relation excludes entities with any target, while a pair excludes only the entities that hold that pair.
+
+```js
+// Entities with no parent at all
+const roots = world.query(Not(ChildOf))
+
+// Everything that is not a child of the player, including entities with another parent
+const others = world.query(Position, Not(ChildOf(player)))
+
+// Pairs with a target query work too
+const safe = world.query(Position, Not(ChildOf(IsHostile)))
+```
+
 ## Or
 
 By default all query parameters are combined with logical AND. The `Or` modifier enables using logical OR instead.
@@ -24,6 +37,13 @@ By default all query parameters are combined with logical AND. The `Or` modifier
 import { Or } from 'koota'
 
 const movingOrVisible = world.query(Or(Velocity, Renderable))
+```
+
+Traits, relations and relation pairs can be mixed in one `Or`.
+
+```js
+// Children of either team, or any boss
+const targets = world.query(Or(ChildOf(redTeam), ChildOf(blueTeam), IsBoss))
 ```
 
 Tracking modifiers report changes since their query last ran. `Added` and `Changed` start with current matches. `Removed` starts with retained removals, including [destroyed entities](#destroyed-entities) that have not been evicted.
@@ -111,14 +131,24 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 // After running the query, the Changed modifier is reset
 ```
 
-Tracking modifiers do not accept relation pairs directly such as `Changed(ChildOf(parent))`. Pass the base relation to the modifier and add a separate relation filter parameter. Relation filters can use any legal query, not just a single trait.
+Tracking modifiers accept relation pairs to track one target. `Added(ChildOf(parent))` reports the entities that gained that pair and `Removed(ChildOf(parent))` those that lost it, including when the entity or the target is destroyed. `Changed(ChildOf(parent))` reports the entities whose pair was added or had its store data written. A pair can use any legal target query, not just a single trait.
 
 ```js
 const parent = world.spawn()
 
-const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
-const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer, IsActive))
+const newChildren = world.query(Added(ChildOf(parent)))
+const lostChildren = world.query(Removed(ChildOf(parent)))
+const updatedChildren = world.query(Changed(ChildOf(parent)))
+const newPlayerChildren = world.query(Added(ChildOf(IsPlayer, IsActive)))
 ```
+
+A pair added and removed again between two runs is reported by neither `Added` nor `Removed`. The first run of `Removed` reports the pairs lost before its query existed, from destroyed entities that still hold the pair and from the world's newest `retain` pair removals by live entities. An older removal is no longer reported.
+
+A pair with a target query is tracked while its target matches that query, and a destroyed target no longer matches. A child destroyed along with its parent, or a removal that predates the query, is therefore not reported by `Removed(ChildOf(IsPlayer))` once that parent is gone. Use the concrete target when you need those.
+
+A cached query that names a destroyed target is discarded and built again if it is queried later. Queries with subscribers are kept. A `Removed` query is kept until its target is evicted, so it can still report the pairs lost when the target was destroyed. With `retain: 0` the target is evicted at once and those pairs are not reported.
+
+Passing the base relation and a separate pair is a different query. `Changed(ChildOf), ChildOf(parent)` tracks a change to any `ChildOf` pair of an entity and then filters by the entities that have `parent` as a target.
 
 ## Destroyed entities
 

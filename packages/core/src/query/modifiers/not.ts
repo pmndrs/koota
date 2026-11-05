@@ -1,14 +1,10 @@
-import { $internal } from '../../common';
-import { isRelation } from '../../relation/utils/is-relation';
-import type { ExtractTraits, TraitOrRelation } from '../../trait/types';
+import type { RelationPair } from '../../relation/types';
+import type { ExtractModifierTraits, TraitOrRelation } from '../../trait/types';
 import type { Modifier } from '../types';
 import { createModifier } from '../modifier';
 
-export const Not = <T extends TraitOrRelation[] = TraitOrRelation[]>(
+export const Not = <T extends (TraitOrRelation | RelationPair)[] = TraitOrRelation[]>(
   ...inputs: T
-): Modifier<ExtractTraits<T>, 'not'> => {
-  const traits = inputs.map((input) =>
-    isRelation(input) ? input[$internal].trait : input
-  ) as ExtractTraits<T>;
-  return createModifier('not', 1, traits);
+): Modifier<ExtractModifierTraits<T>, 'not'> => {
+  return createModifier('not', 1, inputs) as Modifier<ExtractModifierTraits<T>, 'not'>;
 };

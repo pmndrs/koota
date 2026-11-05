@@ -4,8 +4,9 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import type { QueryParameter } from '../query/types';
+import type { EventType, QueryParameter } from '../query/types';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
+import { checkQueryTrackingPair } from '../query/utils/check-query-tracking';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isQuery } from '../query/utils/is-query';
 import { TraitSchema } from '../storage';
@@ -332,7 +333,7 @@ export function addRelationTarget(
   }
 
   traitData.version++;
-  updateQueriesForRelationChange(ctx, relation, entity);
+  reconcileRelationQueries(ctx, traitData, entity, target, 'add', false);
   addToRelationSources(traitData, entity, target);
 
   return targetIndex;
@@ -385,7 +386,8 @@ export function removeRelationTarget(
 
   if (remaining !== -1) {
     data.version++;
-    updateQueriesForRelationChange(ctx, relation, entity);
+    if (ctx.retain !== 0) recordPairRemoval(ctx, entity, relationTrait.id, target);
+    reconcileRelationQueries(ctx, data, entity, target, 'remove', false);
   }
 
   return remaining;
@@ -408,19 +410,49 @@ export function removeRelationTarget(
   }
 }
 
-function updateQueriesForRelationChange(
-  ctx: WorldContext,
-  relation: Relation<Trait>,
-  entity: Entity
-): void {
-  const baseTrait = relation[$internal].trait;
-  const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
-  if (!traitData) return;
+/**
+ * Remember a pair a live entity lost. A pair has no bit in the removed mask, so the world keeps
+ * its newest removals in a ring under the same cap as destroyed entities.
+ */
+function recordPairRemoval(ctx: WorldContext, entity: Entity, traitId: number, target: Entity) {
+  const ring = ctx.pairRemovals;
+  const entries = ring.entries;
+  const releases = ctx.entityIndex.releases;
+  if (entries.length < ctx.retain * 4) {
+    entries.push(entity, traitId, target, releases);
+    return;
+  }
+  const head = ring.head;
+  entries[head] = entity;
+  entries[head + 1] = traitId;
+  entries[head + 2] = target;
+  entries[head + 3] = releases;
+  ring.head = head + 4 === entries.length ? 0 : head + 4;
+}
 
-  const queries = traitData.relationQueries;
+/**
+ * Re-evaluate the queries that filter on or track the pairs of a relation after a pair event. A
+ * pair write or a dying entity leaves static membership alone and only concerns tracking queries.
+ */
+export function reconcileRelationQueries(
+  ctx: WorldContext,
+  instance: TraitInstance,
+  entity: Entity,
+  target: Entity,
+  eventType: EventType,
+  trackingOnly: boolean
+): void {
+  const queries = instance.relationQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    const match = checkQueryWithRelations(ctx, query, entity);
+    let match: boolean;
+    if (query.isTracking) {
+      match = checkQueryTrackingPair(ctx, query, entity, instance.trait.id, target, eventType);
+    } else if (trackingOnly) {
+      continue;
+    } else {
+      match = checkQueryWithRelations(ctx, query, entity);
+    }
     if (match) {
       addEntityToQuery(query, entity);
     } else {

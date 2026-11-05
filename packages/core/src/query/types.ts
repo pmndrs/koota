@@ -158,8 +158,13 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 };
 
 export type ResolvedRelationFilter = RelationPair & {
-  targetQueryRef?: Query<QueryParameter[]>;
-  targetQueryMatches?: SparseSet;
+  /**
+   * How the pair counts toward a match: 1 required, 2 forbidden, 3 one of the or terms. A pair
+   * with term 4 belongs to a tracking modifier, which matches on its events instead.
+   */
+  term: 1 | 2 | 3 | 4;
+  targetQueryRef: Query<QueryParameter[]> | undefined;
+  targetQueryMatches: SparseSet | undefined;
 };
 
 export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = string> = {
@@ -168,18 +173,20 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
   id: number;
   traits: TTrait;
   traitIds: number[];
+  /** Pairs with a specific target or target query. */
+  pairs: RelationPair[] | null;
+  /** Tracking modifiers nested in an Or modifier. */
+  modifiers: Modifier[] | null;
 };
 
 /** Parameter types that can be passed to Or modifier */
-export type OrParameter = TraitOrRelation | Modifier;
+export type OrParameter = TraitOrRelation | RelationPair | Modifier;
 
 /** Or modifier that can contain both traits and nested modifiers */
 export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
   ExtractTraitsFromOrParams<T>,
   'or'
-> & {
-  modifiers: Modifier[];
-};
+>;
 
 /** Extract traits from Or parameters (filters out modifiers) */
 type ExtractTraitsFromOrParams<T extends OrParameter[]> = T extends [infer First, ...infer Rest]
@@ -209,6 +216,12 @@ export type TrackingGroup = {
   trackers: Uint32Array[][];
   /** The group tracks one trait, so a hit on it satisfies the group. */
   single: boolean;
+  /**
+   * A group tracks trait bits or relation pairs, never both. A pair group lists its pairs here
+   * and gives each one bit by position, kept under generation 0 of bitmasks and trackers. Code
+   * that reads bitmasks as trait bits skips pair groups.
+   */
+  pairs: ResolvedRelationFilter[] | null;
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
@@ -238,11 +251,16 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
    * pending and exposed batches are trimmed when the retention cap evicts an entity.
    */
   retains: boolean;
+  /**
+   * Or trait bits in the layout of masks. They are kept here instead when the or term also holds
+   * relation pairs, since a pair can satisfy the term without any of the bits. Null otherwise.
+   */
+  orMasks: number[] | null;
   /** Changed terms indexed by mask generation, for direct write dispatch. */
   changedMasks: number[];
   /** Removals deferred by a walk in progress, created on the first one. */
   toRemove: SparseSet | null;
-  /** Position in the world's exclusion query list, or -1 when not listed. */
+  /** Position in the world's list of queries that spawn and destroy visit, or -1 when not listed. */
   notIndex: number;
   /** An active dispatch may still hold a list containing a dropped query. */
   dropped: boolean;
@@ -254,7 +272,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   layoutCache: QueryLayoutCache | null;
   iterationBuffers: QueryIterationBuffers | undefined;
   viewBindings: QueryViewBinding[];
-  /** Relation pairs for target-specific queries */
+  /** Relation pairs for target-specific queries, required, forbidden or part of the or term. */
   relationFilters: ResolvedRelationFilter[];
 };
 

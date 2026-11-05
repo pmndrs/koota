@@ -486,18 +486,22 @@ const orphaned = world.query(Removed(ChildOf))
 const updated = world.query(Changed(ChildOf))
 ```
 
-> 👉 **Note**<br>
-> Tracking modifiers do not accept pairs directly such as `Changed(ChildOf(parent))`. Instead, pass the base relation to the modifier and add the pair as a separate query parameter to filter by target.
+Pass a pair to track one target. `Added(ChildOf(parent))` reports the entities that gained that pair and `Removed(ChildOf(parent))` those that lost it, including when the entity or the target is destroyed. `Changed(ChildOf(parent))` reports the entities whose pair was added or had its store data written.
 
 ```js
 const parent = world.spawn()
 
-// Filter changed entities by a specific target
-const changedChildren = world.query(Changed(ChildOf), ChildOf(parent))
+// Track one pair
+const newChildren = world.query(Added(ChildOf(parent)))
+const lostChildren = world.query(Removed(ChildOf(parent)))
+const updatedChildren = world.query(Changed(ChildOf(parent)))
 
-// Filter changed entities by the target's traits
-const changedPlayerChildren = world.query(Changed(ChildOf), ChildOf(IsPlayer))
+// Track pairs by the target's traits
+const newPlayerChildren = world.query(Added(ChildOf(IsPlayer)))
 ```
+
+> 👉 **Note**<br>
+> `Changed(ChildOf), ChildOf(parent)` is a different query. It tracks a change to any `ChildOf` pair of an entity and then filters by the entities that have `parent` as a target.
 
 #### Relation events
 
@@ -575,6 +579,19 @@ import { Not } from 'koota'
 const staticEntities = world.query(Position, Not(Velocity))
 ```
 
+`Not` also accepts relations and relation pairs. A bare relation excludes entities with any target, while a pair excludes only the entities that hold that pair.
+
+```js
+// Entities with no parent at all
+const roots = world.query(Not(ChildOf))
+
+// Everything that is not a child of the player, including entities with another parent
+const others = world.query(Position, Not(ChildOf(player)))
+
+// Pairs with a target query work too
+const safe = world.query(Position, Not(ChildOf(IsHostile)))
+```
+
 #### Or
 
 By default all query parameters are combined with logical AND. The `Or` modifier enables using logical OR instead.
@@ -583,6 +600,13 @@ By default all query parameters are combined with logical AND. The `Or` modifier
 import { Or } from 'koota'
 
 const movingOrVisible = world.query(Or(Velocity, Renderable))
+```
+
+Traits, relations and relation pairs can be mixed in one `Or`.
+
+```js
+// Children of either team, or any boss
+const targets = world.query(Or(ChildOf(redTeam), ChildOf(blueTeam), IsBoss))
 ```
 
 Tracking modifiers report changes since their query last ran. `Added` and `Changed` start with current matches. `Removed` starts with retained removals.

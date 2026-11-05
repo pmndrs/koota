@@ -39,6 +39,7 @@ export type WorldContext = {
   queryInstances: (QueryInstance | undefined)[];
   iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];
+  /** Tracking queries, and static queries that an entity holding no traits satisfies. */
   notQueries: QueryInstance[];
   queryCallbackDepth: number;
   /** Some entity may hold a pending bit, so membership changes clear the pending word. */
@@ -50,6 +51,11 @@ export type WorldContext = {
   readonly retain: number;
   /** Retained destroyed entities in destroy order. Overflow evicts the oldest. */
   tombstones: { ids: Entity[]; head: number };
+  /**
+   * Pairs that live entities lost, newest retain entries, as entity, relation trait id, target and
+   * the release count at the time. A Removed query created later seeds its pair terms from them.
+   */
+  pairRemovals: { entries: number[]; head: number };
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   resetSubscriptions: Set<() => void>;

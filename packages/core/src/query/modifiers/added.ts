@@ -1,6 +1,5 @@
-import { $internal } from '../../common';
-import { isRelation } from '../../relation/utils/is-relation';
-import type { ExtractTraits, TraitOrRelation } from '../../trait/types';
+import type { RelationPair } from '../../relation/types';
+import type { ExtractModifierTraits, TraitOrRelation } from '../../trait/types';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
 import { createTrackingId } from '../utils/tracking-cursor';
@@ -8,12 +7,12 @@ import { createTrackingId } from '../utils/tracking-cursor';
 export function createAdded() {
   const id = createTrackingId();
 
-  return <T extends TraitOrRelation[]>(
+  return <T extends (TraitOrRelation | RelationPair)[]>(
     ...inputs: T
-  ): Modifier<ExtractTraits<T>, `added-${number}`> => {
-    const traits = inputs.map((input) =>
-      isRelation(input) ? input[$internal].trait : input
-    ) as ExtractTraits<T>;
-    return createModifier(`added-${id}`, id, traits);
+  ): Modifier<ExtractModifierTraits<T>, `added-${number}`> => {
+    return createModifier(`added-${id}`, id, inputs) as Modifier<
+      ExtractModifierTraits<T>,
+      `added-${number}`
+    >;
   };
 }
