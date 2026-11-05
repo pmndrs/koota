@@ -8,6 +8,7 @@ import {
 } from '../../entity/utils/paged-mask';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance } from '../types';
+import { hasEveryRelationPair } from '../query';
 
 export function checkQueryTracking(
   ctx: WorldContext,
@@ -71,7 +72,10 @@ export function checkQueryTracking(
     return false;
   }
 
-  return passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains);
+  return (
+    passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains) &&
+    (query.relationFilters.length === 0 || hasEveryRelationPair(ctx, query, entity))
+  );
 }
 
 /**

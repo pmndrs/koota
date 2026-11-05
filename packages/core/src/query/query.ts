@@ -258,8 +258,7 @@ function processTrackingModifier(
     group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
 
     if (trackingType === 'change') {
-      query.changedTraits.push(trait);
-      query.hasChangedModifiers = true;
+      query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
     }
   }
 
@@ -296,8 +295,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     iterating: 0,
     isTracking: false,
     retains: false,
-    hasChangedModifiers: false,
-    changedTraits: [],
+    changedMasks: [],
     toRemove: null,
     notIndex: -1,
     dropped: false,
@@ -546,7 +544,7 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
 }
 
 /** The entity holds every relation pair the query filters on, read from the targets it keeps. */
-function hasEveryRelationPair(ctx: WorldContext, query: QueryInstance, entity: Entity) {
+export function hasEveryRelationPair(ctx: WorldContext, query: QueryInstance, entity: Entity) {
   const pairs = query.relationFilters!;
   for (let i = 0; i < pairs.length; i++) {
     const pair = pairs[i];

@@ -10,7 +10,6 @@ import { notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
-import { checkQueryTrackingWithRelations } from '../query/utils/check-query-tracking-with-relations';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
@@ -688,9 +687,7 @@ export function reconcileTrackingQueries(
   const queries = instance.trackingQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    const match = query.relationFilters?.length
-      ? checkQueryTrackingWithRelations(ctx, query, entity, eventType, generationId, bitflag)
-      : checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
+    const match = checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
     if (match) addEntityToQuery(query, entity);
     else removeEntityFromQuery(ctx, query, entity);
   }

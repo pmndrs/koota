@@ -236,8 +236,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
    * pending and exposed batches are trimmed when the retention cap evicts an entity.
    */
   retains: boolean;
-  hasChangedModifiers: boolean;
-  changedTraits: Trait[];
+  /** Changed terms indexed by mask generation, for direct write dispatch. */
+  changedMasks: number[];
   /** Removals deferred by a walk in progress, created on the first one. */
   toRemove: SparseSet | null;
   /** Position in the world's exclusion query list, or -1 when not listed. */
