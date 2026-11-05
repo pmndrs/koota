@@ -51,3 +51,57 @@ group('change detection 50k @change @query', () => {
     return result;
   });
 });
+
+group('set under a filtered Changed query 10k @change @filtered', () => {
+  const tags = Array.from({ length: 4 }, () => trait());
+
+  const write = (entities: Entity[]) => {
+    for (let i = 0; i < entities.length; i++) entities[i].set(Position, { x: i, y: i, z: i });
+  };
+
+  bench('outside the filter of 4 Changed queries', function* () {
+    const world = createWorld();
+    const entities = Array.from({ length: 10_000 }, () => world.spawn(Position));
+    for (const tag of tags) world.query(tag, Changed(Position));
+
+    const result = yield () => {
+      write(entities);
+      let matched = 0;
+      for (const tag of tags) matched += world.query(tag, Changed(Position)).length;
+      return matched;
+    };
+
+    world.destroy();
+    assert.equal(result, 0);
+  });
+
+  bench('1 percent inside the filter', function* () {
+    const world = createWorld();
+    const entities = Array.from({ length: 10_000 }, (_, i) =>
+      i % 100 === 0 ? world.spawn(Position, tags[0]) : world.spawn(Position)
+    );
+    world.query(tags[0], Changed(Position));
+
+    const result = yield () => {
+      write(entities);
+      return world.query(tags[0], Changed(Position)).length;
+    };
+
+    world.destroy();
+    assert.equal(result, 100);
+  });
+
+  bench('all inside the filter', function* () {
+    const world = createWorld();
+    const entities = Array.from({ length: 10_000 }, () => world.spawn(Position, tags[0]));
+    world.query(tags[0], Changed(Position));
+
+    const result = yield () => {
+      write(entities);
+      return world.query(tags[0], Changed(Position)).length;
+    };
+
+    world.destroy();
+    assert.equal(result, 10_000);
+  });
+});

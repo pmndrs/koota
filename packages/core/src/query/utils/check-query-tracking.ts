@@ -34,6 +34,8 @@ export function checkQueryTracking(
 
   let hasOrGroup = false;
   let anyOrMatched = false;
+  // Every group records the event before the match is decided, so group order cannot drop one.
+  let matched = true;
 
   for (let i = 0; i < trackingGroupsLen; i++) {
     const group = trackingGroups[i];
@@ -43,10 +45,14 @@ export function checkQueryTracking(
     const groupBitmask = groupBitmasks[eventGenerationId];
 
     if (groupBitmask && groupBitmask & eventBitflag) {
-      if (eventType === 'remove') {
-        if (groupType === 'add' || groupType === 'change') return false;
-      } else if (eventType === 'add') {
-        if (groupType === 'remove') return false;
+      // The event undoes this group's term. Later groups still need to record it.
+      if (
+        eventType === 'remove'
+          ? groupType !== 'remove'
+          : eventType === 'add' && groupType === 'remove'
+      ) {
+        if (i === trackingGroupsLen - 1) return false;
+        matched = false;
       }
 
       if (groupType === eventType || (groupType === 'change' && eventType === 'add')) {
@@ -63,12 +69,12 @@ export function checkQueryTracking(
     if (groupLogic === 'or') {
       hasOrGroup = true;
       if (!anyOrMatched && trackersMatchAny(group.trackers, groupBitmasks, eid)) anyOrMatched = true;
-    } else if (!trackersMatchAll(group.trackers, groupBitmasks, eid)) {
-      return false;
+    } else if (matched && !trackersMatchAll(group.trackers, groupBitmasks, eid)) {
+      matched = false;
     }
   }
 
-  if (hasOrGroup && !anyOrMatched) {
+  if (!matched || (hasOrGroup && !anyOrMatched)) {
     return false;
   }
 
@@ -95,6 +101,7 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
   const trackingGroups = query.trackingGroups;
   let hasOrGroup = false;
   let anyOrMatched = false;
+  let matched = true;
 
   for (let i = 0; i < trackingGroups.length; i++) {
     const group = trackingGroups[i];
@@ -113,12 +120,48 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
     if (group.logic === 'or') {
       hasOrGroup = true;
       if (!anyOrMatched && trackersMatchAny(group.trackers, bitmasks, eid)) anyOrMatched = true;
-    } else if (!trackersMatchAll(group.trackers, bitmasks, eid)) {
-      return false;
+    } else if (matched && !trackersMatchAll(group.trackers, bitmasks, eid)) {
+      matched = false;
     }
   }
 
-  return !hasOrGroup || anyOrMatched;
+  return matched && (!hasOrGroup || anyOrMatched);
+}
+
+/**
+ * Record a write in the Changed groups that track the trait, then report whether the tracking
+ * groups are satisfied. Every and group must have fired in full and, when or groups exist, at
+ * least one of them in part.
+ */
+export function recordChangeAndMatch(
+  query: QueryInstance,
+  generationId: number,
+  eid: number,
+  bitflag: number
+): boolean {
+  const trackingGroups = query.trackingGroups;
+  let hasOrGroup = false;
+  let anyOrMatched = false;
+  let matched = true;
+  for (let i = 0; i < trackingGroups.length; i++) {
+    const group = trackingGroups[i];
+    const bitmasks = group.bitmasks;
+    const hit = group.type === 'change' && (bitmasks[generationId]! & bitflag) !== 0;
+    if (hit) recordTrackerHit(group.trackers, generationId, eid, bitflag);
+    if (group.logic === 'or') {
+      hasOrGroup = true;
+      if (!anyOrMatched && (hit || trackersMatchAny(group.trackers, bitmasks, eid))) {
+        anyOrMatched = true;
+      }
+    } else if (
+      matched &&
+      !(hit && group.single) &&
+      !trackersMatchAll(group.trackers, bitmasks, eid)
+    ) {
+      matched = false;
+    }
+  }
+  return matched && (!hasOrGroup || anyOrMatched);
 }
 
 /** Every tracked bit of the group has fired for the entity. */
@@ -158,7 +201,7 @@ function trackersMatchAny(
  * read the traits an entity holds. A Removed query also reads the traits a dead entity or an
  * event died with, so its other terms describe the row as it ended.
  */
-function passesStaticBitmasks(
+export function passesStaticBitmasks(
   masks: number[],
   entityMasks: Uint32Array[][],
   pageId: number,
@@ -180,7 +223,7 @@ function passesStaticBitmasks(
 }
 
 /** Remember that the tracked event fired for the entity, allocating the tracker lazily. */
-function recordTrackerHit(
+export function recordTrackerHit(
   trackers: Uint32Array[][],
   generationId: number,
   eid: number,

@@ -41,6 +41,8 @@ export type WorldContext = {
   actionInstances: (ActionInstance | undefined)[];
   notQueries: QueryInstance[];
   queryCallbackDepth: number;
+  /** Some entity may hold a pending bit, so membership changes clear the pending word. */
+  defersChanges: boolean;
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   dirtyQueries: Set<QueryInstance>;
