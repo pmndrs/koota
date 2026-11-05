@@ -80,7 +80,6 @@ async function compile(root: string) {
     JSON.stringify({
       extends: '../../../tsconfig.json',
       compilerOptions: {
-        baseUrl: '.',
         paths: {
           koota: ['./index.js'],
           'koota/react': ['./react.js'],
