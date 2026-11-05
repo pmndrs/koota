@@ -321,7 +321,7 @@ container.destroy()
 world.has(itemA) // False, items are destroyed with container
 ```
 
-`Removed` queries can still read [relations on destroyed entities](#destroyed-entities).
+`Removed` queries can still read [relations on destroyed entities](docs/api/query-modifiers.md#destroyed-entities).
 
 #### Exclusive relations
 
@@ -505,7 +505,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 
 - `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
 - `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
-- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+- `onChange(Relation, (entity, target) => {})` triggers when a pair is added or its store data is written. Pair additions also fire for relations without a store.
 
 ```js
 const ChildOf = relation({ store: { priority: 0 } })
@@ -517,7 +517,7 @@ const unsubChange = world.onChange(ChildOf, (entity, target) => {})
 const parent = world.spawn()
 const child = world.spawn()
 
-child.add(ChildOf(parent)) // onAdd(child, parent)
+child.add(ChildOf(parent)) // onAdd(child, parent), onChange(child, parent)
 child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
 child.remove(ChildOf(parent)) // onRemove(child, parent)
 ```
@@ -615,9 +615,9 @@ const eitherAdded = world.query(Or(Added(Position), Added(Velocity)))
 
 #### Removed
 
-The `Removed` modifier tracks entities that removed the specified traits or relations since the last query, including [destroyed entities](#destroyed-entities). A new instance of the modifier must be created for tracking to be unique.
+The `Removed` modifier tracks entities that removed the specified traits or relations since the last query, including destroyed entities. A new instance of the modifier must be created for tracking to be unique.
 
-Read removed data through `.each()` or `.getPages()` until the trait is added back or the entity is evicted. Custom `remove` accessors may clear it.
+Removed data stays available through `.each()` or `.getPages()` so you can clean up resources. See the [query modifier API](docs/api/query-modifiers.md#destroyed-entities) for retention limits.
 
 When multiple traits are passed to `Removed` it uses logical `AND`. Only entities where **all** specified traits have been removed will be returned.
 
@@ -672,49 +672,15 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 // After running the query, the Changed modifier is reset
 ```
 
-#### Destroyed entities
-
-Destroyed entities immediately lose ordinary entity access. Read their retained data through `.each()` or `.getPages()` on a `Removed` query until eviction.
-
-```js
-const world = createWorld({ retain: 1 })
-const entity = world.spawn(ServerSync)
-entity.destroy()
-
-entity.isAlive() // false
-
-// Register after destruction and still read retained data
-const Removed = createRemoved()
-world.query(Removed(ServerSync)).each((serverSync) => {
-  serverSync.disconnect()
-})
-
-// Evicts entity and makes its ID reusable
-world.spawn(ServerSync).destroy()
-```
-
-The world keeps the last destroyed entities defined by the world's `retain` which is 1024 by default. Each destroy beyond the cap evicts the oldest, even if unread, and invalidates its handle. Readers consume batches independently, and reading does not release world history. `retain: 0` disables destroyed history while live trait removals still work.
-
-Retained relations still match query filters:
-
-```js
-const RemovedChild = createRemoved()
-
-// Works for children destroyed on their own or with their parent
-world.query(RemovedChild(ChildOf), ChildOf(parent)).forEach((child) => {
-  detach(child, parent)
-})
-```
-
-See the [query modifier API](docs/api/query-modifiers.md#destroyed-entities) for full retention semantics.
-
 ### Add, remove and change events
 
 Koota allows you to subscribe to add, remove, and change events for specific traits.
 
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
-- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
+- `onChange` triggers after a trait is added (including spawn), written with `entity.set()`, or flagged with `entity.changed()`. It also reports writes detected by `.each()`.
+
+Subscriptions only report future events. `Changed` queries also include current matches on their first run.
 
 ```js
 // Subscribe to Position changes
@@ -738,7 +704,7 @@ entity.set(Position, { x: 10, y: 20 })
 entity.remove(Position)
 ```
 
-When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
+When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events report pair additions and writes to relation store data.
 
 ```js
 const Likes = relation()

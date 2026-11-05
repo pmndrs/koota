@@ -167,7 +167,7 @@ function handleStateTransition(world: World, snapshot: StateSnapshot) {
 }
 ```
 
-**Trait lifecycle events** (`onAdd`, `onRemove`, `onChange`) are also transition-based:
+**Trait lifecycle events** (`onAdd`, `onRemove`, `onChange`) report future events. `onChange` covers additions, including spawn, and writes. It does not replay existing matches or report removals:
 
 ```typescript
 useEffect(() => {

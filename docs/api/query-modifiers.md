@@ -178,7 +178,9 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
-- `onChange` triggers when an entity's trait value has been set with `entity.set()` or when it is manually flagged with `entity.changed()`.
+- `onChange` triggers after a trait is added (including spawn), written with `entity.set()`, or flagged with `entity.changed()`. It also reports writes detected by `.each()`.
+
+Subscriptions only report future events. `Changed` queries also include current matches on their first run.
 
 ```js
 // Subscribe to Position changes
@@ -202,7 +204,7 @@ entity.set(Position, { x: 10, y: 20 })
 entity.remove(Position)
 ```
 
-When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events are triggered by `entity.set(Relation(target), data)` and only on relations with data via the store prop.
+When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events report pair additions and writes to relation store data.
 
 ```js
 const Likes = relation()

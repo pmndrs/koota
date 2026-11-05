@@ -126,11 +126,11 @@ const newPositions = world.query(Added(Position))
 const newChildren = world.query(Added(ChildOf))
 ```
 
-**Removed** - Entities that removed a trait since the last query, including entities destroyed while holding it. `each` arguments and `getPages` stores expose the last value until the trait is added back or the entity is evicted. Custom `remove` accessors may clear retained data. Other terms match a destroyed entity on the traits it died with, and `isAlive` distinguishes a destroy from a live removal.
+**Removed** - Entities that removed a trait since the last query, including entities destroyed while holding it. Removed data stays available through `each` arguments and `getPages` stores so you can clean up resources, until the trait is added back or the entity is evicted. Custom `remove` accessors may clear retained data. Other terms match a destroyed entity on the traits it died with, and `isAlive` distinguishes a destroy from a live removal.
 
-The world keeps its newest `retain` destroyed entities, fixed by `createWorld({ retain })` and defaulting to 1024. Each destroy that exceeds the cap evicts the oldest, even if unread. Eviction invalidates the handle, removes pending and exposed query entries, releases stored values and relations, and makes the id reusable. Slow readers can miss evicted entities. Zero disables destroyed-entity retention, while live trait removals still work.
+The world defers cleanup of existing data for its newest `retain` destroyed entities, fixed by `createWorld({ retain })` and defaulting to 1024. Each destroy that exceeds the cap evicts the oldest, even if unread. Eviction invalidates the handle, removes pending and exposed query entries, releases stored values and relations, and makes the id reusable. Slow readers can miss evicted entities. Zero cleans up destroyed entities immediately, while live trait removals still work.
 
-Readers consume independent batches within the cap. A run exposes its pending batch and the next run replaces it. Reading does not evict world history, so late queries can still seed retained destroys in destroy order. The cap bounds entity count, not bytes, and allocated pages remain available for reuse. Mutations that overflow the cap also invalidate evicted entries in existing views and snapshots.
+Readers consume independent batches within the cap. A run exposes its pending batch and the next run replaces it. Reading does not clean up retained data, so late queries can still seed retained destroys in destroy order. The cap bounds entity count, not bytes, and allocated pages remain available for reuse. Mutations that overflow the cap also invalidate evicted entries in existing views and snapshots.
 
 Ordinary entity reads and writes require liveness, even inside `Removed` callbacks. A live entity's `get` returns `undefined` after the trait is removed. Retained relation pairs still match query filters, including children destroyed with their parent:
 
@@ -148,7 +148,7 @@ world.query(RemovedSync(ServerSync)).each((serverSync) => serverSync.disconnect(
 world.query(Removed(ChildOf), ChildOf(parent)).forEach((child) => detach(child, parent))
 ```
 
-**Changed** - Entities whose traits were added or written since the last query. The first run includes all current matches:
+**Changed** - Entities whose traits were added or written since the last query. The first run includes all current matches. `onChange` reports the same additions and writes, but callbacks only observe future events:
 
 ```typescript
 const ChangedPosition = createChanged()

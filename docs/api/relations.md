@@ -276,7 +276,7 @@ Relations emit events per **pair**. This makes it easy to know exactly which tar
 
 - `onAdd(Relation, (entity, target) => {})` triggers when `entity.add(Relation(target))` is called.
 - `onRemove(Relation, (entity, target) => {})` triggers when `entity.remove(Relation(target))` is called.
-- `onChange(Relation, (entity, target) => {})` triggers when relation **store data** is updated with `entity.set(Relation(target), data)` (only for relations created with a `store`).
+- `onChange(Relation, (entity, target) => {})` triggers when a pair is added or its store data is written. Pair additions also fire for relations without a store.
 
 ```js
 const ChildOf = relation({ store: { priority: 0 } })
@@ -288,7 +288,7 @@ const unsubChange = world.onChange(ChildOf, (entity, target) => {})
 const parent = world.spawn()
 const child = world.spawn()
 
-child.add(ChildOf(parent)) // onAdd(child, parent)
+child.add(ChildOf(parent)) // onAdd(child, parent), onChange(child, parent)
 child.set(ChildOf(parent), { priority: 1 }) // onChange(child, parent)
 child.remove(ChildOf(parent)) // onRemove(child, parent)
 ```
