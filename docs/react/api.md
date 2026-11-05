@@ -4,7 +4,7 @@ description: React integration API
 nav: 9
 ---
 
-Import React hooks and components from `koota/react`. Every hook reads a world from context, including hooks whose target is a `World`, so render them under a `WorldProvider`.
+Import React hooks and components from `koota/react`. `useWorld`, `useQuery`, `useQueryFirst`, and `useActions` read a world from `WorldProvider`. Hooks with an explicit entity or world target observe that target directly.
 
 The examples below assume application traits such as `Position`, `Velocity`, and `IsPlayer`, and relations such as `ChildOf` and `Contains`, are defined in framework-agnostic modules.
 
@@ -78,7 +78,7 @@ function PlayerView() {
 
 Observes a trait on an entity or world. It returns the current trait record and rerenders when the trait is added, removed, or changed. The result is `undefined` when the target is nullish or does not have the trait.
 
-Requires a `WorldProvider`. The target must belong to the world returned by `useWorld()`.
+Uses the target's world and does not require a `WorldProvider`.
 
 Relation pairs are supported for relations with store data.
 

@@ -33,6 +33,27 @@ describe('useTrait', () => {
     world = createWorld();
   });
 
+  it.each(['entity', 'world'] as const)('observes an explicit %s without a provider', (kind) => {
+    const Atomic = trait(() => ({ x: 0 }));
+    world.add(Atomic);
+    const target = kind === 'entity' ? world.spawn(Atomic) : world;
+    const write = (x: number) => {
+      if (typeof target === 'number') target.set(Atomic, { x });
+      else target.set(Atomic, { x });
+    };
+    const { result } = renderHook(() => {
+      const value = useTrait(target, Atomic);
+      useLayoutEffect(() => write(10), []);
+      return value?.x;
+    });
+
+    expect(result.current).toBe(10);
+    act(() => write(20));
+    expect(result.current).toBe(20);
+    act(() => target.remove(Atomic));
+    expect(result.current).toBeUndefined();
+  });
+
   it('reactively returns the trait value for an entity', async () => {
     const entity = world.spawn(Position);
     let position: TraitRecord<typeof Position> | undefined;
