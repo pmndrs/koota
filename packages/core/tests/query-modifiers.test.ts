@@ -641,44 +641,43 @@ describe('Query modifiers', () => {
     expect(world.query(Foo, Changed(Position)).toArray()).toEqual([entity]);
   });
 
-  describe.each([
+  it.each([
     ['Added', createAdded],
     ['Removed', createRemoved],
-  ] as const)('Changed combined with %s', (kind, createTracker) => {
-    it.each([
-      [false, false],
-      [false, true],
-      [true, false],
-      [true, true],
-    ])('matches with parameters swapped %s and events swapped %s', (swapParameters, swapEvents) => {
-      const Changed = createChanged();
+  ] as const)(
+    'combines Changed with %s in either parameter and event order',
+    (kind, createTracker) => {
       const Tracked = createTracker();
-      const read = () =>
-        swapParameters
-          ? world.query(Changed(Position), Tracked(Foo))
-          : world.query(Tracked(Foo), Changed(Position));
+      // Independent readers prevent the query cache from collapsing the parameter orders.
+      const parameters = [
+        [Tracked(Foo), createChanged()(Position)],
+        [createChanged()(Position), Tracked(Foo)],
+      ];
+      const read = () => parameters.map((params) => world.query(...params).toArray());
       const entity = kind === 'Added' ? world.spawn(Position) : world.spawn(Position, Foo);
       const fire = () => (kind === 'Added' ? entity.add(Foo) : entity.remove(Foo));
       const undo = () => (kind === 'Added' ? entity.remove(Foo) : entity.add(Foo));
-      read();
+      expect(read()).toEqual([[], []]);
 
-      // Match once so both trackers start empty.
-      entity.set(Position, { x: 1 });
+      // Current Position membership seeds Changed even when the other group does not match yet.
       fire();
-      expect(read().toArray()).toEqual([entity]);
-      expect(read().length).toBe(0);
+      expect(read()).toEqual([[entity], [entity]]);
+      expect(read()).toEqual([[], []]);
 
       undo();
-      if (swapEvents) {
-        fire();
-        entity.set(Position, { x: 2 });
-      } else {
-        entity.set(Position, { x: 2 });
-        fire();
-      }
-      expect(read().toArray()).toEqual([entity]);
-    });
-  });
+      entity.set(Position, { x: 1 });
+      expect(read()).toEqual([[], []]);
+      fire();
+      expect(read()).toEqual([[entity], [entity]]);
+
+      undo();
+      fire();
+      expect(read()).toEqual([[], []]);
+      entity.set(Position, { x: 2 });
+      expect(read()).toEqual([[entity], [entity]]);
+      expect(read()).toEqual([[], []]);
+    }
+  );
 
   it('should keep tracking after the world is reset', () => {
     const Added = createAdded();

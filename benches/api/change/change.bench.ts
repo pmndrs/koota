@@ -53,51 +53,38 @@ group('change detection 50k @change @query', () => {
 });
 
 group('set under a filtered Changed query 10k @change @filtered', () => {
-  const TagA = trait();
-  const TagB = trait();
-  const TagC = trait();
-  const TagD = trait();
-  const tags = [TagA, TagB, TagC, TagD];
+  const tags = Array.from({ length: 4 }, () => trait());
 
   const write = (entities: Entity[]) => {
     for (let i = 0; i < entities.length; i++) entities[i].set(Position, { x: i, y: i, z: i });
   };
 
-  bench('no Changed query', function* () {
+  bench('outside the filter of 4 Changed queries', function* () {
     const world = createWorld();
     const entities = Array.from({ length: 10_000 }, () => world.spawn(Position));
-    yield () => write(entities);
+    for (const tag of tags) world.query(tag, Changed(Position));
+
+    const result = yield () => {
+      write(entities);
+      let matched = 0;
+      for (const tag of tags) matched += world.query(tag, Changed(Position)).length;
+      return matched;
+    };
+
     world.destroy();
+    assert.equal(result, 0);
   });
-
-  for (const count of [1, 4]) {
-    bench(`outside the filter of ${count} Changed queries`, function* () {
-      const world = createWorld();
-      const entities = Array.from({ length: 10_000 }, () => world.spawn(Position));
-      for (let i = 0; i < count; i++) world.query(tags[i], Changed(Position));
-
-      const result = yield () => {
-        write(entities);
-        let matched = 0;
-        for (let i = 0; i < count; i++) matched += world.query(tags[i], Changed(Position)).length;
-        return matched;
-      };
-
-      world.destroy();
-      assert.equal(result, 0);
-    });
-  }
 
   bench('1 percent inside the filter', function* () {
     const world = createWorld();
     const entities = Array.from({ length: 10_000 }, (_, i) =>
-      i % 100 === 0 ? world.spawn(Position, TagA) : world.spawn(Position)
+      i % 100 === 0 ? world.spawn(Position, tags[0]) : world.spawn(Position)
     );
-    world.query(TagA, Changed(Position));
+    world.query(tags[0], Changed(Position));
 
     const result = yield () => {
       write(entities);
-      return world.query(TagA, Changed(Position)).length;
+      return world.query(tags[0], Changed(Position)).length;
     };
 
     world.destroy();
@@ -106,12 +93,12 @@ group('set under a filtered Changed query 10k @change @filtered', () => {
 
   bench('all inside the filter', function* () {
     const world = createWorld();
-    const entities = Array.from({ length: 10_000 }, () => world.spawn(Position, TagA));
-    world.query(TagA, Changed(Position));
+    const entities = Array.from({ length: 10_000 }, () => world.spawn(Position, tags[0]));
+    world.query(tags[0], Changed(Position));
 
     const result = yield () => {
       write(entities);
-      return world.query(TagA, Changed(Position)).length;
+      return world.query(tags[0], Changed(Position)).length;
     };
 
     world.destroy();
