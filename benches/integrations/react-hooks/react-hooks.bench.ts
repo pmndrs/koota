@@ -2,7 +2,7 @@
 import './setup-dom';
 import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, trait, type Entity } from 'koota';
-import { useTrait } from 'koota/react';
+import { useTrait, WorldProvider } from 'koota/react';
 import { createElement as h } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
@@ -30,11 +30,14 @@ group('React useTrait, 5000 entities @react @hooks', () => {
       const root = createRoot(document.createElement('div'));
       const render = () =>
         root.render(
-          h(
-            'div',
-            null,
-            entities.map((entity) => h(Ball, { key: entity, entity }))
-          )
+          h(WorldProvider, {
+            world,
+            children: h(
+              'div',
+              null,
+              entities.map((entity) => h(Ball, { key: entity, entity }))
+            ),
+          })
         );
       flushSync(render);
 
