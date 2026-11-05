@@ -108,6 +108,7 @@ export function createWorld(options?: WorldOptions): World {
       actionInstances: [],
       notQueries: [],
       queryCallbackDepth: 0,
+      defersChanges: false,
       targetQueries: [],
       dirtyQueries: new Set(),
       worldEntity: null!,
@@ -198,6 +199,7 @@ export function createWorld(options?: WorldOptions): World {
       ctx.entityMasks = [createEmptyMaskGeneration()];
       ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
+      ctx.defersChanges = false;
 
       for (const query of ctx.queriesHashMap.values()) {
         if (query.cleanup === null) continue;

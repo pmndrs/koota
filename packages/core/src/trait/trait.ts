@@ -10,6 +10,7 @@ import { notifyTraitAdded, notifyTraitChanged, setPairChanged } from '../query/m
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
+import { clearPendingChanges } from '../query/utils/mark-tracked-trait-changed';
 import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
@@ -689,6 +690,8 @@ export function reconcileTrackingQueries(
   generationId: number,
   bitflag: number
 ) {
+  // The entity may now pass a static term that deferred its writes.
+  if (ctx.defersChanges) clearPendingChanges(ctx, getEntityId(entity));
   const queries = instance.trackingQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];

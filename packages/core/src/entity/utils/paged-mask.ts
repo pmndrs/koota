@@ -1,12 +1,13 @@
 import { MAX_PAGES, PAGE_SIZE } from './pack-entity';
 
 /**
- * Three masks hold current traits, removed traits and traits held at destruction.
- * A four-word stride keeps entity slots shift-indexed as (eid & 1023) << 2.
+ * Four masks hold current traits, removed traits, traits held at destruction and traits with
+ * a write pending for their Changed queries. Entity slots are shift-indexed as (eid & 1023) << 2.
  */
 export const MASK_STRIDE = 4;
 export const REMOVED_WORD = 1;
 export const DESTROYED_WORD = 2;
+export const PENDING_WORD = 3;
 
 /** Shared sentinel for unallocated mask pages. Always reads as 0. Never write to it directly. */
 export const EMPTY_MASK_PAGE: Uint32Array = new Uint32Array(PAGE_SIZE * MASK_STRIDE);

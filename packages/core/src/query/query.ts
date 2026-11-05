@@ -34,6 +34,7 @@ import { checkQueryTrackingSeed } from './utils/check-query-tracking';
 import { checkQueryWithRelations } from './utils/check-query-with-relations';
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
+import { clearPendingChanges } from './utils/mark-tracked-trait-changed';
 
 export const IsExcluded: TagTrait = trait();
 
@@ -245,7 +246,7 @@ function processTrackingModifier(
   const id = modifier.id;
   let group = groups.find((g) => g.type === trackingType && g.id === id && g.logic === logic);
   if (!group) {
-    group = { logic, type: trackingType, id, bitmasks: [], trackers: [] };
+    group = { logic, type: trackingType, id, bitmasks: [], trackers: [], single: false };
     groups.push(group);
   }
 
@@ -261,6 +262,12 @@ function processTrackingModifier(
       query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
     }
   }
+
+  let tracked = 0;
+  for (const mask of group.bitmasks) {
+    for (let bits = mask ?? 0; bits !== 0; bits &= bits - 1) tracked++;
+  }
+  group.single = tracked === 1;
 
   if (trackingType === 'remove') query.retains = true;
   query.isTracking = true;
@@ -378,6 +385,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
   query.hash = createQueryHash(parameters);
 
   ctx.queriesHashMap.set(query.hash, query);
+
+  // A pending bit speaks for the Changed queries that existed when it was set, not for this one.
+  // Dead ids are cleared too, since a trait that lost its last reader leaves its bits behind.
+  if (ctx.defersChanges && query.changedMasks.length !== 0) {
+    const dense = ctx.entityIndex.dense;
+    for (let i = 0; i < dense.length; i++) clearPendingChanges(ctx, getEntityId(dense[i]));
+    ctx.defersChanges = false;
+  }
 
   const relationFilters = query.relationFilters;
   query.listSlots = new Array<number>(all.length + relationFilters.length).fill(-1);

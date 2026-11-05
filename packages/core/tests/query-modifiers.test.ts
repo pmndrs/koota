@@ -596,6 +596,51 @@ describe('Query modifiers', () => {
     expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
   });
 
+  it('holds a write made outside a Changed query filter until the entity enters it', () => {
+    const Changed = createChanged();
+    const entity = world.spawn(Position);
+    const unwritten = world.spawn(Position);
+    expect(world.query(Foo, Changed(Position)).length).toBe(0);
+    expect(world.query(Bar, Changed(Position)).length).toBe(0);
+
+    entity.set(Position, { x: 1 });
+    entity.set(Position, { x: 2 });
+    expect(world.query(Foo, Changed(Position)).length).toBe(0);
+
+    entity.add(Foo);
+    unwritten.add(Foo);
+    expect(world.query(Foo, Changed(Position)).toArray()).toEqual([entity]);
+    expect(world.query(Foo, Changed(Position)).length).toBe(0);
+
+    // Each reader holds the write on its own. The first has consumed it, the second has not.
+    entity.remove(Foo);
+    entity.add(Foo, Bar);
+    expect(world.query(Foo, Changed(Position)).length).toBe(0);
+    expect(world.query(Bar, Changed(Position)).toArray()).toEqual([entity]);
+
+    entity.set(Position, { x: 3 });
+    expect(world.query(Foo, Changed(Position)).toArray()).toEqual([entity]);
+    expect(world.query(Bar, Changed(Position)).toArray()).toEqual([entity]);
+  });
+
+  it('tracks writes for a Changed query created after writes outside other filters', () => {
+    const Changed = createChanged();
+    const entity = world.spawn(Position, IsActive);
+    expect(world.query(Foo, Changed(Position)).length).toBe(0);
+    entity.set(Position, { x: 1 });
+
+    const LaterChanged = createChanged();
+    expect(world.query(IsActive, LaterChanged(Position)).toArray()).toEqual([entity]);
+    expect(world.query(IsActive, LaterChanged(Position)).length).toBe(0);
+
+    entity.set(Position, { x: 2 });
+    expect(world.query(IsActive, LaterChanged(Position)).toArray()).toEqual([entity]);
+    expect(world.query(Foo, Changed(Position)).length).toBe(0);
+
+    entity.add(Foo);
+    expect(world.query(Foo, Changed(Position)).toArray()).toEqual([entity]);
+  });
+
   describe.each([
     ['Added', createAdded],
     ['Removed', createRemoved],

@@ -207,6 +207,8 @@ export type TrackingGroup = {
   bitmasks: (number | undefined)[];
   /** Per-entity tracker state indexed by [generationId][pageId][offset] */
   trackers: Uint32Array[][];
+  /** The group tracks one trait, so a hit on it satisfies the group. */
+  single: boolean;
 };
 
 export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {

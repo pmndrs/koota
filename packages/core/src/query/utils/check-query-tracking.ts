@@ -128,6 +128,42 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
   return matched && (!hasOrGroup || anyOrMatched);
 }
 
+/**
+ * Record a write in the Changed groups that track the trait, then report whether the tracking
+ * groups are satisfied. Every and group must have fired in full and, when or groups exist, at
+ * least one of them in part.
+ */
+export function recordChangeAndMatch(
+  query: QueryInstance,
+  generationId: number,
+  eid: number,
+  bitflag: number
+): boolean {
+  const trackingGroups = query.trackingGroups;
+  let hasOrGroup = false;
+  let anyOrMatched = false;
+  let matched = true;
+  for (let i = 0; i < trackingGroups.length; i++) {
+    const group = trackingGroups[i];
+    const bitmasks = group.bitmasks;
+    const hit = group.type === 'change' && (bitmasks[generationId]! & bitflag) !== 0;
+    if (hit) recordTrackerHit(group.trackers, generationId, eid, bitflag);
+    if (group.logic === 'or') {
+      hasOrGroup = true;
+      if (!anyOrMatched && (hit || trackersMatchAny(group.trackers, bitmasks, eid))) {
+        anyOrMatched = true;
+      }
+    } else if (
+      matched &&
+      !(hit && group.single) &&
+      !trackersMatchAll(group.trackers, bitmasks, eid)
+    ) {
+      matched = false;
+    }
+  }
+  return matched && (!hasOrGroup || anyOrMatched);
+}
+
 /** Every tracked bit of the group has fired for the entity. */
 function trackersMatchAll(
   trackers: Uint32Array[][],
@@ -165,7 +201,7 @@ function trackersMatchAny(
  * read the traits an entity holds. A Removed query also reads the traits a dead entity or an
  * event died with, so its other terms describe the row as it ended.
  */
-function passesStaticBitmasks(
+export function passesStaticBitmasks(
   masks: number[],
   entityMasks: Uint32Array[][],
   pageId: number,
@@ -187,7 +223,7 @@ function passesStaticBitmasks(
 }
 
 /** Remember that the tracked event fired for the entity, allocating the tracker lazily. */
-function recordTrackerHit(
+export function recordTrackerHit(
   trackers: Uint32Array[][],
   generationId: number,
   eid: number,
