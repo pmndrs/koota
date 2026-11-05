@@ -1,4 +1,4 @@
-import type { NameConfig } from '../name/types';
+import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
   ConfigurableTrait,
@@ -15,6 +15,10 @@ import type {
  * but only fire for this entity so the callback needs no identity check.
  */
 type EntityHook = {
+  <K extends IdentifierKey>(
+    input: Identifier<K> | IdentifierPair<K>,
+    callback: (entity: Entity, key: K) => void
+  ): () => void;
   <T extends Trait>(trait: T, callback: (entity: Entity) => void): () => void;
   <T extends Trait>(
     relation: Relation<T>,
@@ -33,8 +37,8 @@ type EntityHook = {
 /** Trait and relation reads require liveness. Read retained values through Removed query iteration. */
 export type Entity = number & {
   add: (...traits: ConfigurableTrait[]) => void;
-  remove: (...traits: (Trait | RelationPair)[]) => void;
-  has: (trait: Trait | RelationPair | NameConfig) => boolean;
+  remove: (...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]) => void;
+  has: (trait: Trait | RelationPair | Identifier | IdentifierPair) => boolean;
   destroy: () => void;
   changed: (trait: Trait) => void;
   set: <T extends Trait | RelationPair>(
@@ -47,14 +51,19 @@ export type Entity = number & {
     /** Fills out in place and returns it, without allocating. */
     <T extends Trait | RelationPair, O extends TraitOut<T>>(trait: T, out: O): O | undefined;
   };
-  targetFor: <T extends Trait>(relation: Relation<T>) => Entity | undefined;
-  targetsFor: <T extends Trait>(relation: Relation<T>) => Entity[];
+  targetFor: {
+    <K extends IdentifierKey>(identifier: Identifier<K>): K | undefined;
+    <T extends Trait>(relation: Relation<T>): Entity | undefined;
+  };
+  targetsFor: {
+    <K extends IdentifierKey>(identifier: Identifier<K>): K[];
+    <T extends Trait>(relation: Relation<T>): Entity[];
+  };
   onAdd: EntityHook;
   onRemove: EntityHook;
   /** Reports future additions and writes. Removals use onRemove. */
   onChange: EntityHook;
   id: () => number;
-  name: () => string | undefined;
   generation: () => number;
   isAlive: () => boolean;
 };

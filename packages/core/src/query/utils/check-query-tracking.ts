@@ -1,4 +1,5 @@
 import { $internal } from '../../common';
+import { matchesIdentifiers } from '../../identifier/identifier';
 import { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { GENERATION_MASK, getEntityId } from '../../entity/utils/pack-entity';
@@ -21,7 +22,10 @@ export function checkQueryTracking(
   eventGenerationId: number,
   eventBitflag: number
 ): boolean {
-  if (query.name !== undefined && (query.name === null || ctx.names.get(query.name) !== entity)) {
+  if (
+    query.identifierFilters !== undefined &&
+    !matchesIdentifiers(ctx, entity, query.identifierFilters)
+  ) {
     return false;
   }
 

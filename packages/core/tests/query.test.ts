@@ -6,7 +6,6 @@ import {
   createRemoved,
   createWorld,
   IsExcluded,
-  Name as EntityName,
   Not,
   Or,
   relation,
@@ -159,68 +158,6 @@ describe('Query', () => {
     const query2 = world2.query(key);
 
     expect(query2).toContain(entityC);
-  });
-
-  describe('named entities', () => {
-    it('filters named entities alongside traits', () => {
-      const player = world.spawn(EntityName('player'), Position);
-      const enemy = world.spawn(EntityName('enemy'), Position, IsActive);
-      world.spawn(Position);
-      world.spawn(EntityName('hidden'), Position, IsExcluded);
-
-      expect([...world.query(EntityName)]).toEqual([player, enemy]);
-      expect([...world.query(EntityName('player'))]).toEqual([player]);
-      expect(world.queryFirst(EntityName('player'), Position)).toBe(player);
-      expect(world.query(EntityName('player'), IsActive)).toHaveLength(0);
-      expect(world.queryFirst(EntityName('hidden'))).toBeUndefined();
-    });
-
-    it('keeps a cached query current through renaming, replacement and reset', () => {
-      const query = createQuery(EntityName('player'), Position, Not(IsActive));
-      const player = world.spawn(EntityName('player'), Position);
-      expect(world.queryFirst(query)).toBe(player);
-
-      player.set(EntityName, 'hero');
-      expect(world.query(query)).toHaveLength(0);
-
-      const replacement = world.spawn(EntityName('player'), Position);
-      expect([...world.query(query)]).toEqual([replacement]);
-
-      world.reset();
-      expect(world.query(query)).toHaveLength(0);
-      const next = world.spawn(EntityName('player'), Position);
-      expect(world.queryFirst(query)).toBe(next);
-    });
-
-    it('notifies subscribers when entities enter or leave a named query', () => {
-      const added = vi.fn();
-      const removed = vi.fn();
-      world.onQueryAdd([EntityName('player'), Position], added);
-      world.onQueryRemove([EntityName('player'), Position], removed);
-
-      const player = world.spawn(EntityName('player'));
-      player.add(Position);
-      player.set(EntityName, 'hero');
-      const replacement = world.spawn(EntityName('player'), Position);
-      replacement.destroy();
-
-      expect(added.mock.calls).toEqual([[player], [replacement]]);
-      expect(removed.mock.calls).toEqual([[player], [replacement]]);
-    });
-
-    it('resolves relation targets by their current name', () => {
-      const player = world.spawn(EntityName('player'));
-      const enemy = world.spawn(EntityName('enemy'));
-      const first = world.spawn(Position, ChildOf(player));
-      const second = world.spawn(Position, ChildOf(enemy));
-      const query = createQuery(Position, ChildOf(EntityName('player')));
-      expect([...world.query(query)]).toEqual([first]);
-
-      player.set(EntityName, 'hero');
-      enemy.set(EntityName, 'player');
-
-      expect([...world.query(query)]).toEqual([second]);
-    });
   });
 
   it('should exclude entities with IsExcluded', () => {

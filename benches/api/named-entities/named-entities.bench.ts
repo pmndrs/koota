@@ -1,5 +1,7 @@
 import { bench, group } from '@pmndrs/labs';
-import { createWorld, Name, trait, type Entity } from 'koota';
+import { createWorld, identifier, trait, type Entity } from 'koota';
+
+const Name = identifier();
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 
@@ -14,8 +16,8 @@ group('named entities 1k @name @entity', () => {
       bench: () => {
         for (let frame = 0; frame < 60; frame++) {
           player.set(Position, { x: frame });
-          const target = world.lookup('player')!;
-          world.lookup('camera')!.set(Position, { x: target.get(Position)!.x, z: 10 });
+          const target = world.lookup(Name('player'))!;
+          world.lookup(Name('camera'))!.set(Position, { x: target.get(Position)!.x, z: 10 });
         }
       },
       snapshot: () => camera.get(Position),
@@ -61,13 +63,13 @@ group('named entities 1k @name @entity', () => {
         }
       },
       snapshot: () =>
-        updates.reduce((sum, update) => sum + world.lookup(update.id)!.get(Position)!.x, 0),
+        updates.reduce((sum, update) => sum + world.lookup(Name(update.id))!.get(Position)!.x, 0),
     };
 
     world.destroy();
   });
 
-  bench('rename 1k scene objects with set', function* () {
+  bench('reassign 1k scene identifiers', function* () {
     const world = createWorld();
     const entities: Entity[] = [];
     for (let i = 0; i < 1_000; i++) entities.push(world.spawn(Name(`object-${i}`)));
@@ -77,11 +79,11 @@ group('named entities 1k @name @entity', () => {
       bench: () => {
         prefix = prefix ? '' : 'scene/';
         for (let i = 0; i < entities.length; i++) {
-          entities[i].set(Name, `${prefix}object-${i}`);
+          entities[i].add(Name(`${prefix}object-${i}`));
         }
       },
       snapshot: () =>
-        entities.filter((entity, i) => world.lookup(`${prefix}object-${i}`) === entity).length,
+        entities.filter((entity, i) => world.lookup(Name(`${prefix}object-${i}`)) === entity).length,
     };
 
     world.destroy();

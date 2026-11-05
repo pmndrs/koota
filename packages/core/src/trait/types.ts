@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import type { Identifier, IdentifierIndex, IdentifierPair } from '../identifier/types';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
@@ -18,13 +19,11 @@ export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
  * The core owns membership, queries, revisions and events. Accessors must not re-enter it.
  */
 export type TraitAccessors<S extends Schema = any> = {
-  /** Check a candidate value before any storage or membership changes. */
-  validate?(ctx: WorldContext, index: number, value: TraitValue<S> | undefined): boolean | void;
   /**
    * Initialize while membership is absent. On failure, undo any partial writes or indexes.
    */
   add(ctx: WorldContext, index: number, store: Store<S>, value?: TraitValue<S>): void;
-  /** Runs only for members. Commit validated state and return whether this call changed it. */
+  /** Runs only for members. Commit the value and return whether this call changed it. */
   set(ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
   /** Runs only for members. Read without side effects. SoA returns a snapshot with copied tuples and AoS returns the stored value. */
   get(ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;
@@ -43,6 +42,8 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   /** True for a plain paged SoA trait with scalar fields, which iteration can read in place. */
   readonly cursor: boolean;
   relation: Relation<any> | null;
+  /** The trait tracks identifier presence. Keys live in the world-local identifier index. */
+  isIdentifier: boolean;
 };
 
 export type Trait<TSchema extends Schema = any> = {
@@ -63,7 +64,8 @@ export type TraitTuple<T extends Trait = Trait> = [
     : never,
 ];
 
-export type ConfigurableTrait<T extends Trait = Trait> = T | TraitTuple<T> | RelationPair<T>;
+export type ConfigurableTrait<T extends Trait = Trait> =
+  T | TraitTuple<T> | RelationPair<T> | IdentifierPair;
 
 export type SetTraitCallback<T extends Trait | RelationPair> = (
   prev: TraitRecord<ExtractSchema<T>>
@@ -133,13 +135,19 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
    * For non-exclusive: relationTargets[pageId][offset] = [targetId1, targetId2, ...] (number[])
    */
   relationTargets?: any[][];
+  identifier: IdentifierIndex | undefined;
   relationSourcesByTarget?: Entity[][];
 }
 
-export type TraitOrRelation = Trait | Relation<Trait>;
+/** A type whose presence can be queried or observed through a trait. */
+export type TraitInput = Trait | Relation<Trait> | Identifier;
 
-/** Extracts the underlying Trait from a TraitOrRelation (Relations contain a Trait) */
-export type ExtractTrait<T> = T extends Relation<infer TTrait> ? TTrait : T;
+/** Resolve a type to its backing trait. Identifiers carry no trait data. */
+export type ExtractTrait<T> = T extends Identifier
+  ? TagTrait
+  : T extends Relation<infer TTrait>
+    ? TTrait
+    : T;
 
 /** Maps modifier inputs to the traits they read. A relation gives its trait and a pair gives none. */
 export type ExtractModifierTraits<T extends unknown[]> = T extends [infer First, ...infer Rest]
@@ -150,7 +158,7 @@ export type ExtractModifierTraits<T extends unknown[]> = T extends [infer First,
     ? []
     : ExtractTrait<Exclude<T[number], RelationPair>>[];
 
-/** Maps a tuple of TraitOrRelation to their underlying Traits */
-export type ExtractTraits<T extends TraitOrRelation[]> = {
+/** Resolve a tuple of types to their backing traits. */
+export type ExtractTraits<T extends TraitInput[]> = {
   [K in keyof T]: ExtractTrait<T[K]>;
 };

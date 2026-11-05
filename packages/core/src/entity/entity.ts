@@ -12,8 +12,8 @@ import {
 } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
-import { isNameConfig } from '../name/name-index';
-import type { NameConfig } from '../name/types';
+import { isIdentifierPair, lookupIdentifier } from '../identifier/identifier';
+import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair } from '../relation/types';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
@@ -71,6 +71,13 @@ const processedEntity: number[] = [];
 let destroyStamp = 0;
 const cachedQueue = [] as Entity[];
 let isDestroying = false;
+
+/** An entity being destroyed cannot acquire a new identifier owner entry. */
+export function isEntityDestroying(entity: Entity): boolean {
+  if (!isDestroying) return false;
+  const eid = getEntityId(entity);
+  return processedStamp[eid] === destroyStamp && processedEntity[eid] === entity;
+}
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
   if (assertsEnabled) {
@@ -322,17 +329,18 @@ export /* @inline @pure */ function getEntityContext(entity: Entity): WorldConte
 export /* @inline */ function entityHas(
   ctx: WorldContext,
   entity: Entity,
-  trait: Trait | RelationPair | NameConfig
+  trait: Trait | RelationPair | Identifier | IdentifierPair
 ): boolean {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
   if (typeof trait !== 'function') /* @cold */ {
-    if (isNameConfig(trait)) return ctx.names.get(trait[1]) === entity;
+    if (isIdentifierPair(trait)) return lookupIdentifier(ctx, trait) === entity;
     return hasEntityRelationPair(ctx, entity, trait);
   }
-  return hasTrait(ctx, entity, trait);
+  // An identifier shares the id of its backing trait, so presence reads it directly.
+  return hasTrait(ctx, entity, trait as Trait);
 }
 
 /**
@@ -365,7 +373,7 @@ export function subscribeEntityEvent(
   entity: Entity,
   event: 'addSubscriptions' | 'removeSubscriptions' | 'changeSubscriptions',
   input: HookInput,
-  callback: Subscriber
+  callback: Subscriber<any>
 ) {
   if (!isEntityAlive(ctx.entityIndex, entity)) return () => {};
   const trait = resolveHookTrait(input);

@@ -4,8 +4,14 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isEntityAlive } from '../entity/utils/entity-index';
-import { isNameTrait, refreshNamedQueries } from '../name/name-index';
+import {
+  addIdentifierPair,
+  isIdentifier,
+  lookupIdentifier,
+  reconcileKeyQueries,
+  releaseIdentifier,
+} from '../identifier/identifier';
+import type { Identifier, IdentifierPair } from '../identifier/types';
 import { notifyTraitAdded, notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
@@ -90,7 +96,6 @@ export function createTraitContext<S extends Schema>(
     id: traitId++,
     createStore: () => createStore(schema),
     clear: createClearFunction(schema),
-    validate: accessors?.validate,
     add: accessors?.add ?? defaults.add,
     set: accessors?.set ?? defaults.set,
     get: get ?? defaults.get,
@@ -102,6 +107,7 @@ export function createTraitContext<S extends Schema>(
         : defaults.getInto),
     remove: accessors?.remove ?? defaults.remove,
     relation: null,
+    isIdentifier: false,
     type,
     cursor:
       type === 'soa' &&
@@ -161,6 +167,9 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     removeSubscriptions: createSubscriptions(),
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
+    identifier: traitCtx.isIdentifier
+      ? { targets: [], owners: new Map(), queries: new Map() }
+      : undefined,
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
@@ -194,8 +203,10 @@ export /* @inline */ function addTraitsToAliveEntity(
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
 
-    /* @cold */ if (isRelationPair(config)) {
-      addRelationPair(ctx, entity, config);
+    // Pairs are the only configs that are neither a trait nor a tuple.
+    if (typeof config !== 'function' && !Array.isArray(config)) /* @cold */ {
+      if (isRelationPair(config)) addRelationPair(ctx, entity, config);
+      else addIdentifierPair(ctx, entity, config);
     } else {
       let trait: Trait;
       let params: Record<string, any> | undefined;
@@ -210,12 +221,9 @@ export /* @inline */ function addTraitsToAliveEntity(
       if (hasTrait(ctx, entity, trait)) continue;
       if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
 
-      const instance = getTraitInstance(ctx.traitInstances, trait)!;
-      const traitCtx = trait[$internal];
-      const eid = getEntityId(entity);
-      if (traitCtx.validate?.(ctx, eid, params) === false) continue;
       // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
-      traitCtx.add(ctx, eid, instance.store, params);
+      const instance = getTraitInstance(ctx.traitInstances, trait)!;
+      trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
       grantTraitMembership(ctx, entity, instance);
       emit(instance.addSubscriptions, entity);
       notifyTraitAdded(ctx, entity, instance);
@@ -261,7 +269,11 @@ export /* @inline */ function addTraitsToAliveEntity(
   notifyTraitAdded(ctx, entity, instance, target);
 }
 
-export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait | RelationPair)[]) {
+export function removeTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
@@ -269,8 +281,14 @@ export function removeTrait(ctx: WorldContext, entity: Entity, ...traits: (Trait
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
 
-    /* @cold */ if (isRelationPair(trait)) {
-      removeRelationPair(ctx, entity, trait);
+    if (typeof trait !== 'function') /* @cold */ {
+      if (isRelationPair(trait)) {
+        removeRelationPair(ctx, entity, trait);
+      } else if (lookupIdentifier(ctx, trait) === entity) {
+        removeTraitFromAliveEntity(ctx, entity, trait.identifier[$internal].trait);
+      }
+    } else if (isIdentifier(trait)) /* @cold */ {
+      removeTraitFromAliveEntity(ctx, entity, trait[$internal].trait);
     } else {
       removeTraitFromAliveEntity(ctx, entity, trait);
     }
@@ -283,6 +301,11 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
 
   const traitCtx = trait[$internal];
 
+  if (traitCtx.isIdentifier) {
+    releaseIdentifierTrait(ctx, entity, getTraitInstance(ctx.traitInstances, trait)!);
+    return;
+  }
+
   if (traitCtx.relation) {
     releaseRelationTargets(ctx, entity, trait, traitCtx.relation);
   } else {
@@ -294,6 +317,14 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
   }
 
   removeTraitFromEntity(ctx, entity, trait);
+}
+
+/** Release the key before membership, then tell the queries and subscribers of that key. */
+export function releaseIdentifierTrait(ctx: WorldContext, entity: Entity, instance: TraitInstance) {
+  const target = releaseIdentifier(entity, instance);
+  removeTraitFromEntity(ctx, entity, instance.trait);
+  reconcileKeyQueries(ctx, entity, instance, target);
+  emit(instance.removeSubscriptions, entity, target);
 }
 
 /** Tell the pair subscribers and drop every target before a relation trait leaves an entity. */
@@ -321,6 +352,12 @@ export function removeTraitFromDyingEntity(
   instance: TraitInstance
 ) {
   const traitCtx = instance.trait[$internal];
+  // A key is free for another entity as soon as its owner dies.
+  if (traitCtx.isIdentifier) {
+    releaseIdentifierTrait(ctx, entity, instance);
+    return;
+  }
+
   const relation = traitCtx.relation;
   let targets: readonly Entity[] | undefined;
   if (relation) {
@@ -603,32 +640,7 @@ export /* @inline */ function setTraitForTrait(
     value = resolveTraitSetCallback(ctx, entity, trait, value, data, index);
   }
 
-  if (traitCtx.validate) /* @cold */ {
-    return setValidatedTrait(ctx, entity, trait, data, index, value, triggerChanged);
-  }
   traitCtx.set(ctx, index, store, value);
-  if (triggerChanged) {
-    notifyTraitChanged(ctx, entity, data);
-  } else data.version++;
-}
-
-/** Keep validation and query callbacks outside the ordinary setter path. */
-export function setValidatedTrait(
-  ctx: WorldContext,
-  entity: Entity,
-  trait: Trait,
-  data: TraitInstance,
-  index: number,
-  value: any,
-  triggerChanged: boolean
-) {
-  const traitCtx = trait[$internal];
-  if (traitCtx.validate!(ctx, index, value) === false) return;
-  const changed = traitCtx.set(ctx, index, data.store, value);
-  if (changed && isNameTrait(trait)) {
-    refreshNamedQueries(ctx, entity, data);
-    if (!isEntityAlive(ctx.entityIndex, entity) || !hasTrait(ctx, entity, trait)) return;
-  }
   if (triggerChanged) {
     notifyTraitChanged(ctx, entity, data);
   } else data.version++;
@@ -679,7 +691,7 @@ export function resolveTraitSetCallback(
 }
 
 /** Flip the membership bit and reconcile every query that includes the trait. */
-/* @inline */ function grantTraitMembership(
+export /* @inline */ function grantTraitMembership(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance
@@ -713,7 +725,7 @@ export function reconcileTraitQueries(
   }
 }
 
-function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
+export function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
     const match = query.relationFilters?.length

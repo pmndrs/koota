@@ -1,5 +1,5 @@
 import type { RelationPair } from '../../relation/types';
-import type { ExtractModifierTraits, TraitOrRelation } from '../../trait/types';
+import type { ExtractModifierTraits, TraitInput } from '../../trait/types';
 import { createModifier } from '../modifier';
 import type { Modifier } from '../types';
 import { createTrackingId } from '../utils/tracking-cursor';
@@ -7,7 +7,7 @@ import { createTrackingId } from '../utils/tracking-cursor';
 export function createRemoved() {
   const id = createTrackingId();
 
-  return <T extends (TraitOrRelation | RelationPair)[]>(
+  return <T extends (TraitInput | RelationPair)[]>(
     ...inputs: T
   ): Modifier<ExtractModifierTraits<T>, `removed-${number}`> => {
     return createModifier(`removed-${id}`, id, inputs) as Modifier<

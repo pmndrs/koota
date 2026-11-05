@@ -2,10 +2,7 @@ import { $internal } from '../../common';
 import type { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { ENTITY_ID_MASK } from '../../entity/utils/pack-entity';
-import { isNameTrait, refreshNamedQueries } from '../../name/name-index';
 import type { Store } from '../../storage';
-import { hasTrait } from '../../trait/trait';
-import { getTraitInstance } from '../../trait/trait-instance';
 import type { Trait } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import type { QueryIterationBuffers } from '../types';
@@ -192,22 +189,17 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
       read.push(`state[${j}] = g${j}(ctx, eid, s${j});`);
     }
 
-    const writeCall = traitCtx.validate
-      ? `writeValidatedTrait(ctx, entity, eid, T${j}, s${j}, state[${j}])`
-      : `w${j}(ctx, eid, s${j}, state[${j}])`;
+    const writeCall = `w${j}(ctx, eid, s${j}, state[${j}])`;
     write.push(`${writeCall};`);
-    const accepted = traitCtx.validate ? `c${j} !== undefined && ` : '';
-    const result = traitCtx.validate ? `c${j}` : writeCall;
-    if (traitCtx.validate) trackLines.push(`var c${j} = ${writeCall};`);
     if (isSoA) {
       trackLines.push(
-        `if (${accepted}(${result} || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+        `if ((${writeCall} || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
       );
     } else {
       // An atomic value mutated in place is the same reference, so compare its snapshot.
       snapshot.push(`if (m${j} === 2) snapshotAtomic(state[${j}], snapshots, ${j});`);
       trackLines.push(
-        `if (${accepted}(${result} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}]))) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+        `if (${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}])) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
       );
     }
   }
@@ -258,7 +250,6 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     'isEntityReadable',
     'snapshotAtomic',
     'atomicChanged',
-    'writeValidatedTrait',
     `'use strict';
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
@@ -286,32 +277,12 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     isIterationEntityAlive,
     isEntityReadable,
     snapshotAtomic,
-    atomicChanged,
-    writeValidatedTrait
+    atomicChanged
   ) as QueryIterators;
 }
 
 function isIterationEntityAlive(index: WorldContext['entityIndex'], entity: Entity): boolean {
   return isEntityAlive(index, entity);
-}
-
-/** Validate before writeback, then reconcile queries outside the storage accessor. */
-function writeValidatedTrait(
-  ctx: WorldContext,
-  entity: Entity,
-  eid: number,
-  trait: Trait,
-  store: Store<any>,
-  value: any
-): boolean | undefined {
-  const traitCtx = trait[$internal];
-  if (!isEntityAlive(ctx.entityIndex, entity) || !hasTrait(ctx, entity, trait)) return;
-  if (traitCtx.validate!(ctx, eid, value) === false) return;
-  const changed = traitCtx.set(ctx, eid, store, value);
-  if (changed && isNameTrait(trait)) {
-    refreshNamedQueries(ctx, entity, getTraitInstance(ctx.traitInstances, trait)!);
-  }
-  return changed;
 }
 
 // hasOwnProperty.call inside for-in hits a V8 fast path that Object.hasOwn does not.

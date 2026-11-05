@@ -1,6 +1,6 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { createEntity, destroyEntity } from '../entity/entity';
+import { createEntity, destroyEntity, entityHas } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -11,7 +11,9 @@ import {
 import { addressSpace } from '../entity/utils/address-space';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
-import { findNamedEntity } from '../name/find-named-entity';
+import { findIdentifiedEntity } from '../identifier/find-identified-entity';
+import { lookupIdentifier } from '../identifier/identifier';
+import type { Identifier, IdentifierPair } from '../identifier/types';
 import {
   IsExcluded,
   createQueryInstance,
@@ -25,9 +27,9 @@ import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '..
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
-import type { Relation, RelationPair } from '../relation/types';
+import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { addTrait, getTrait, hasTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
+import { addTrait, getTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
   ConfigurableTrait,
@@ -38,7 +40,8 @@ import type {
   TraitValue,
 } from '../trait/types';
 import type { World, WorldContext, WorldOptions } from './types';
-import { resolveHookCallback, resolveHookTrait } from './utils/resolve-hook';
+import type { Subscriber } from '../trait/subscriptions';
+import { resolveHookCallback, resolveHookTrait, type HookInput } from './utils/resolve-hook';
 
 let nextWorldId = 0;
 
@@ -53,7 +56,7 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 }
 
-/** Resolve inline parameters, including direct relation and named lookups. */
+/** Resolve inline parameters, including direct relation and identifier lookups. */
 export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
   if (params.length === 1 && isRelationPair(params[0])) {
     const relation = params[0].relation;
@@ -64,9 +67,9 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
     }
   }
 
-  const named = findNamedEntity(ctx, params);
-  if (named !== null) {
-    return createOwnedView(ctx, named === undefined ? [] : [named], null, params);
+  const identified = findIdentifiedEntity(ctx, params);
+  if (identified !== null) {
+    return createOwnedView(ctx, identified === undefined ? [] : [identified], null, params);
   }
 
   const hash = createQueryHash(params);
@@ -97,7 +100,6 @@ export function createWorld(options?: WorldOptions): World {
       retain,
       tombstones: { ids: [], head: 0 },
       pairRemovals: { entries: [], head: 0 },
-      names: new Map(),
       bitflag: 1,
       traitInstances: [],
       traitsByBit: [[]],
@@ -129,11 +131,11 @@ export function createWorld(options?: WorldOptions): World {
       return createEntity(ctx, spawnTraits);
     },
 
-    lookup(name: string): Entity | undefined {
-      return world[$internal].names.get(name);
+    lookup(pair: IdentifierPair): Entity | undefined {
+      return lookupIdentifier(world[$internal], pair);
     },
 
-    has(target: Entity | Trait): boolean {
+    has(target: Entity | Trait | Identifier | IdentifierPair): boolean {
       const ctx = world[$internal];
       if (!ctx.isRegistered) {
         if (typeof target === 'number') return false;
@@ -141,7 +143,7 @@ export function createWorld(options?: WorldOptions): World {
       }
       return typeof target === 'number'
         ? isEntityAlive(ctx.entityIndex, target)
-        : hasTrait(ctx, ctx.worldEntity, target);
+        : entityHas(ctx, ctx.worldEntity, target);
     },
 
     add(...addTraits: ConfigurableTrait[]) {
@@ -150,7 +152,7 @@ export function createWorld(options?: WorldOptions): World {
       addTrait(ctx, ctx.worldEntity, ...addTraits);
     },
 
-    remove(...removeTraits: Trait[]) {
+    remove(...removeTraits: (Trait | Identifier | IdentifierPair)[]) {
       const ctx = world[$internal];
       if (!ctx.isRegistered) return;
       removeTrait(ctx, ctx.worldEntity, ...removeTraits);
@@ -196,7 +198,6 @@ export function createWorld(options?: WorldOptions): World {
       // Re-link shared ownedPages for the cleanup token.
       ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
 
-      ctx.names.clear();
       ctx.entityMasks = [createEmptyMaskGeneration()];
       ctx.traitsByBit = [[]];
       ctx.bitflag = 1;
@@ -260,8 +261,8 @@ export function createWorld(options?: WorldOptions): World {
         }
       }
 
-      const named = findNamedEntity(ctx, args as QueryParameter[]);
-      if (named !== null) return named;
+      const identified = findIdentifiedEntity(ctx, args as QueryParameter[]);
+      if (identified !== null) return identified;
 
       return runQueryFirst(ctx, resolveQueryInstance(ctx, args as QueryParameter[]));
     },
@@ -338,10 +339,7 @@ export function createWorld(options?: WorldOptions): World {
       return () => query.removeSubscriptions!.delete(callback);
     },
 
-    onAdd<T extends Trait>(
-      trait: T | Relation<T> | RelationPair<T>,
-      callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber {
+    onAdd(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
       const resolvedTrait = resolveHookTrait(trait);
@@ -359,10 +357,7 @@ export function createWorld(options?: WorldOptions): World {
       return () => data.addSubscriptions.all.delete(resolvedCallback);
     },
 
-    onRemove<T extends Trait>(
-      trait: T | Relation<T> | RelationPair<T>,
-      callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber {
+    onRemove(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
       const resolvedTrait = resolveHookTrait(trait);
@@ -380,10 +375,7 @@ export function createWorld(options?: WorldOptions): World {
       return () => data.removeSubscriptions.all.delete(resolvedCallback);
     },
 
-    onChange(
-      trait: Trait | Relation<Trait> | RelationPair<Trait>,
-      callback: (entity: Entity, target?: Entity) => void
-    ): QueryUnsubscriber {
+    onChange(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
       const resolvedTrait = resolveHookTrait(trait);

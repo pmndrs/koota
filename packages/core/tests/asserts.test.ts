@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRemoved, createWorld, getStore, relation, trait, type World } from '../src';
+import {
+  createRemoved,
+  createWorld,
+  getStore,
+  identifier,
+  relation,
+  trait,
+  type World,
+} from '../src';
 
 describe('Assertions', () => {
   let world: World;
   const Position = trait({ x: 0 });
   const Selected = trait();
   const Link = relation({ store: { weight: 0 }, exclusive: true });
+  const Name = identifier();
 
   beforeEach(() => {
     // Disable destroyed-entity retention so ids can be reused on the next spawn.
@@ -18,7 +27,7 @@ describe('Assertions', () => {
   it('rejects retained handles even inside a Removed callback', () => {
     world = createWorld({ retain: 2 });
     const target = world.spawn();
-    const entity = world.spawn(Position({ x: 7 }), Link(target));
+    const entity = world.spawn(Position({ x: 7 }), Link(target), Name('entity'));
     const reads = [
       () => entity.get(Position),
       () => entity.get(Position, { x: 0 }),
@@ -27,7 +36,7 @@ describe('Assertions', () => {
       () => entity.has(Link(target)),
       () => entity.targetFor(Link),
       () => entity.targetsFor(Link),
-      () => entity.name(),
+      () => entity.targetFor(Name),
     ];
     entity.destroy();
 

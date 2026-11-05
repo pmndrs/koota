@@ -1,7 +1,7 @@
 import type { EntityComparator, EntityView, OrderedView } from '../view/types';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
-import type { NameConfig } from '../name/types';
+import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair } from '../relation/types';
 import { AoSFactory, type Store } from '../storage';
 import type { QueryIterators } from './utils/compile-iterators';
@@ -10,7 +10,7 @@ import type {
   ExtractStore,
   IsTag,
   Trait,
-  TraitOrRelation,
+  TraitInput,
   TraitInstance,
   TraitRecord,
 } from '../trait/types';
@@ -19,7 +19,8 @@ import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
 export type QueryModifier = (...components: Trait[]) => Modifier;
-export type QueryParameter = Trait | RelationPair | NameConfig | ReturnType<QueryModifier>;
+export type QueryParameter =
+  Trait | RelationPair | Identifier | IdentifierPair | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryUnsubscriber = () => void;
 
@@ -180,7 +181,7 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
 };
 
 /** Parameter types that can be passed to Or modifier */
-export type OrParameter = TraitOrRelation | RelationPair | Modifier;
+export type OrParameter = TraitInput | RelationPair | Modifier;
 
 /** Or modifier that can contain both traits and nested modifiers */
 export type OrModifier<T extends OrParameter[] = OrParameter[]> = Modifier<
@@ -228,8 +229,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   version: number;
   ctx: WorldContext;
   parameters: T;
-  /** Undefined for ordinary queries, null for conflicting name filters. */
-  name: string | null | undefined;
+  /** Every identifier term must resolve to the candidate entity. */
+  identifierFilters: IdentifierPair[] | undefined;
   hash: QueryHash;
   refId: number;
   traits: Trait[];

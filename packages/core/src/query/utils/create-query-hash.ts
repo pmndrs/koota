@@ -1,6 +1,6 @@
 import { $internal } from '../../common';
 import type { Relation, RelationPair } from '../../relation/types';
-import { isNameConfig } from '../../name/name-index';
+import { isIdentifierPair } from '../../identifier/identifier';
 import { isRelationPair } from '../../relation/utils/is-relation';
 import type { Trait } from '../../trait/types';
 import { isQuery } from './is-query';
@@ -77,8 +77,8 @@ function hashModifierExtras(param: Modifier, cursor: number, pairKeys: string[])
 
 export const createQueryHash = (parameters: readonly QueryParameter[], base = 0): QueryHash => {
   let cursor = base;
-  let name: string | undefined;
-  let names: string[] | undefined;
+  let identifier: string | undefined;
+  let identifiers: string[] | undefined;
   let pairKeys: string[] | undefined;
 
   for (let i = 0; i < parameters.length; i++) {
@@ -90,10 +90,11 @@ export const createQueryHash = (parameters: readonly QueryParameter[], base = 0)
       continue;
     }
 
-    if (isNameConfig(param)) {
-      const value = param[1];
-      if (name === undefined) name = value;
-      else (names ??= [name]).push(value);
+    if (isIdentifierPair(param)) {
+      const key = param.target;
+      const value = `${param.identifier.id}:${typeof key === 'string' ? 's' : 'n'}:${key}`;
+      if (identifier === undefined) identifier = value;
+      else (identifiers ??= [identifier]).push(value);
       continue;
     }
 
@@ -133,12 +134,13 @@ export const createQueryHash = (parameters: readonly QueryParameter[], base = 0)
   // Pairs inside modifiers follow the numeric entries, each keyed by its modifier id.
   if (pairKeys !== undefined && pairKeys.length !== 0) hash += `~${pairKeys.sort().join(',')}`;
 
-  // Length prefixes keep names unambiguous even when they contain separators.
-  if (names) {
-    names.sort();
-    for (let i = 0; i < names.length; i++) hash += `|${names[i].length}:${names[i]}`;
-  } else if (name !== undefined) {
-    hash += `|${name.length}:${name}`;
+  // Type, namespace and length keep scalar keys unambiguous.
+  if (identifiers) {
+    identifiers.sort();
+    for (let i = 0; i < identifiers.length; i++)
+      hash += `|${identifiers[i].length}:${identifiers[i]}`;
+  } else if (identifier !== undefined) {
+    hash += `|${identifier.length}:${identifier}`;
   }
   return hash;
 };

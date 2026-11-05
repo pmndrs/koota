@@ -1,7 +1,8 @@
 import { $internal, Brand } from '../common';
 import type { RelationPair } from '../relation/types';
-import { isRelation, isRelationPair } from '../relation/utils/is-relation';
-import type { Trait, TraitOrRelation } from '../trait/types';
+import { isRelationPair } from '../relation/utils/is-relation';
+import { resolveTrait } from '../trait/resolve-trait';
+import type { Trait, TraitInput } from '../trait/types';
 import { EventType, Modifier, QueryParameter } from './types';
 
 export const $modifier = Symbol('modifier');
@@ -13,7 +14,7 @@ export const $modifier = Symbol('modifier');
 export function createModifier<TType extends string>(
   type: TType,
   id: number,
-  inputs: (TraitOrRelation | RelationPair)[]
+  inputs: (TraitInput | RelationPair)[]
 ): Modifier<Trait[], TType> {
   let pairs: RelationPair[] | null = null;
   let count = 0;
@@ -28,7 +29,7 @@ export function createModifier<TType extends string>(
       // A wildcard pair is the relation's membership, which the trait masks cover.
       inputs[count++] = input.relation[$internal].trait;
     } else {
-      inputs[count++] = isRelation(input) ? input[$internal].trait : input;
+      inputs[count++] = resolveTrait(input);
     }
   }
   if (count !== inputs.length) inputs.length = count;

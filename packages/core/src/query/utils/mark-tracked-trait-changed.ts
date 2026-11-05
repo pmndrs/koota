@@ -45,8 +45,8 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
     const query = queries[i];
     if ((query.changedMasks[generationId] & bitflag) === 0) continue;
 
-    // A named query records nothing for other entities, so it takes the full check.
-    if (query.name !== undefined) {
+    // An identifier query records nothing for other entities, so it takes the full check.
+    if (query.identifierFilters !== undefined) {
       accepted = true;
       if (checkQueryTracking(ctx, query, entity, 'change', generationId, bitflag)) {
         addEntityToQuery(query, entity);
