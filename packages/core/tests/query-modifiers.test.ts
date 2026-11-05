@@ -596,6 +596,45 @@ describe('Query modifiers', () => {
     expect(world.queryFirst(Changed(Position), Not(Foo))).toBeUndefined();
   });
 
+  describe.each([
+    ['Added', createAdded],
+    ['Removed', createRemoved],
+  ] as const)('Changed combined with %s', (kind, createTracker) => {
+    it.each([
+      [false, false],
+      [false, true],
+      [true, false],
+      [true, true],
+    ])('matches with parameters swapped %s and events swapped %s', (swapParameters, swapEvents) => {
+      const Changed = createChanged();
+      const Tracked = createTracker();
+      const read = () =>
+        swapParameters
+          ? world.query(Changed(Position), Tracked(Foo))
+          : world.query(Tracked(Foo), Changed(Position));
+      const entity = kind === 'Added' ? world.spawn(Position) : world.spawn(Position, Foo);
+      const fire = () => (kind === 'Added' ? entity.add(Foo) : entity.remove(Foo));
+      const undo = () => (kind === 'Added' ? entity.remove(Foo) : entity.add(Foo));
+      read();
+
+      // Match once so both trackers start empty.
+      entity.set(Position, { x: 1 });
+      fire();
+      expect(read().toArray()).toEqual([entity]);
+      expect(read().length).toBe(0);
+
+      undo();
+      if (swapEvents) {
+        fire();
+        entity.set(Position, { x: 2 });
+      } else {
+        entity.set(Position, { x: 2 });
+        fire();
+      }
+      expect(read().toArray()).toEqual([entity]);
+    });
+  });
+
   it('should keep tracking after the world is reset', () => {
     const Added = createAdded();
     const Removed = createRemoved();

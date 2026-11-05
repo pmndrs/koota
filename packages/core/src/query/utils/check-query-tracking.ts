@@ -34,6 +34,8 @@ export function checkQueryTracking(
 
   let hasOrGroup = false;
   let anyOrMatched = false;
+  // Every group records the event before the match is decided, so group order cannot drop one.
+  let matched = true;
 
   for (let i = 0; i < trackingGroupsLen; i++) {
     const group = trackingGroups[i];
@@ -43,10 +45,14 @@ export function checkQueryTracking(
     const groupBitmask = groupBitmasks[eventGenerationId];
 
     if (groupBitmask && groupBitmask & eventBitflag) {
-      if (eventType === 'remove') {
-        if (groupType === 'add' || groupType === 'change') return false;
-      } else if (eventType === 'add') {
-        if (groupType === 'remove') return false;
+      // The event undoes this group's term. Later groups still need to record it.
+      if (
+        eventType === 'remove'
+          ? groupType !== 'remove'
+          : eventType === 'add' && groupType === 'remove'
+      ) {
+        if (i === trackingGroupsLen - 1) return false;
+        matched = false;
       }
 
       if (groupType === eventType || (groupType === 'change' && eventType === 'add')) {
@@ -63,12 +69,12 @@ export function checkQueryTracking(
     if (groupLogic === 'or') {
       hasOrGroup = true;
       if (!anyOrMatched && trackersMatchAny(group.trackers, groupBitmasks, eid)) anyOrMatched = true;
-    } else if (!trackersMatchAll(group.trackers, groupBitmasks, eid)) {
-      return false;
+    } else if (matched && !trackersMatchAll(group.trackers, groupBitmasks, eid)) {
+      matched = false;
     }
   }
 
-  if (hasOrGroup && !anyOrMatched) {
+  if (!matched || (hasOrGroup && !anyOrMatched)) {
     return false;
   }
 
@@ -95,6 +101,7 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
   const trackingGroups = query.trackingGroups;
   let hasOrGroup = false;
   let anyOrMatched = false;
+  let matched = true;
 
   for (let i = 0; i < trackingGroups.length; i++) {
     const group = trackingGroups[i];
@@ -113,12 +120,12 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
     if (group.logic === 'or') {
       hasOrGroup = true;
       if (!anyOrMatched && trackersMatchAny(group.trackers, bitmasks, eid)) anyOrMatched = true;
-    } else if (!trackersMatchAll(group.trackers, bitmasks, eid)) {
-      return false;
+    } else if (matched && !trackersMatchAll(group.trackers, bitmasks, eid)) {
+      matched = false;
     }
   }
 
-  return !hasOrGroup || anyOrMatched;
+  return matched && (!hasOrGroup || anyOrMatched);
 }
 
 /** Every tracked bit of the group has fired for the entity. */
