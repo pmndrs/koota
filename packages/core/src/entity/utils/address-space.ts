@@ -1,7 +1,4 @@
-import type { WorldContext } from '../../world/types';
-import type { Entity } from '../types';
 import { createPageAllocator } from './page-allocator';
-import { getEntityId } from './pack-entity';
 
 /**
  * The one structure worlds share. An entity is a number, so the page that holds its id is how
@@ -9,8 +6,3 @@ import { getEntityId } from './pack-entity';
  * state and the program's definitions carry their own ids.
  */
 export const addressSpace = createPageAllocator();
-
-/** The world that owns the entity, or null when its page has been released. */
-export function resolveWorld(entity: Entity): WorldContext | null {
-  return addressSpace.pageOwners[getEntityId(entity) >>> 10];
-}

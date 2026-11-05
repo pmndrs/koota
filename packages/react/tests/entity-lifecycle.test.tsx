@@ -2,11 +2,19 @@ import { createWorld, trait, type World } from '@koota/core';
 import { renderHook } from '@testing-library/react';
 import { StrictMode, useLayoutEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useTrait, useTraitEffect } from '../src';
+import { useTrait, useTraitEffect, WorldProvider } from '../src';
 
 describe('entity lifecycle', () => {
   let world: World;
   const Position = trait({ x: 0 });
+
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <StrictMode>
+        <WorldProvider world={world}>{children}</WorldProvider>
+      </StrictMode>
+    );
+  }
 
   beforeEach(() => {
     world = createWorld();
@@ -22,7 +30,7 @@ describe('entity lifecycle', () => {
         useTraitEffect(entity, Position, notify);
         return useTrait(entity, Position);
       },
-      { wrapper: StrictMode }
+      { wrapper: Wrapper }
     );
 
     expect(result.current).toBeUndefined();
@@ -42,7 +50,7 @@ describe('entity lifecycle', () => {
         }, []);
         return position;
       },
-      { wrapper: StrictMode }
+      { wrapper: Wrapper }
     );
 
     expect(entity.isAlive()).toBe(false);
