@@ -36,7 +36,7 @@ import {
   releaseRetainedEntity,
 } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
-import { CHANGED_WORD, DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
+import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
 
 // Ensure entity methods are patched.
@@ -276,7 +276,6 @@ function evictEntity(ctx: WorldContext, entity: Entity) {
       word &= ~low;
     }
     page[slot + REMOVED_WORD] = 0;
-    page[slot + CHANGED_WORD] = 0;
     page[slot + DESTROYED_WORD] = 0;
   }
   releaseRetainedEntity(ctx.entityIndex, entity);

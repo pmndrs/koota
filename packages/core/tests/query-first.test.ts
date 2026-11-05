@@ -106,7 +106,7 @@ describe('queryFirst', () => {
       a.add(Foo, Bar);
       b.add(Foo, Bar);
     }
-    expect(world.queryFirst(query)).toBeUndefined();
+    expect(world.queryFirst(query)).toBe(type === 'changed' ? a : undefined);
 
     for (const entity of [a, b]) {
       if (type === 'added') entity.add(Foo, Bar);

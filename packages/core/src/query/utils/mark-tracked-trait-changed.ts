@@ -1,24 +1,17 @@
 import type { Entity } from '../../entity/types';
-import { getEntityId } from '../../entity/utils/pack-entity';
-import { CHANGED_WORD } from '../../entity/utils/paged-mask';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { addEntityToQuery, removeEntityFromQuery } from '../query';
 import { checkQueryTracking } from './check-query-tracking';
 import { checkQueryTrackingWithRelations } from './check-query-tracking-with-relations';
 
-/**
- * Record a write in this world's history so a Changed query created later still sees it.
- * Tracking queries that already exist are re-evaluated out of line.
- */
+/** Advance the revision and notify registered Changed queries. */
 export /* @inline */ function markTraitChanged(
   ctx: WorldContext,
   entity: Entity,
   data: TraitInstance
 ) {
   data.version++;
-  const eid = getEntityId(entity);
-  ctx.entityMasks[data.generationId][eid >>> 10][((eid & 1023) << 2) + CHANGED_WORD] |= data.bitflag;
   if (data.trackingQueries.length !== 0) notifyChangedTrackingQueries(ctx, entity, data);
 }
 

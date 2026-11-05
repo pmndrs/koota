@@ -471,9 +471,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
   }
 
   if (query.trackingGroups.length > 0) {
-    // A tracking query seeds its first batch from the world history, so a reader created at any
-    // time sees what happened to the entities the world still holds. Alive entities come first,
-    // then the retained ones in destroy order, which only Removed terms can match.
+    // Seed from current membership and retained removals. Alive entities come first,
+    // then retained entities in destroy order, which only Removed terms can match.
     const seed = (entity: Entity) => {
       if (query.name !== undefined && !checkQuery(ctx, query, entity)) return;
       if (!checkQueryTrackingSeed(ctx, query, entity)) return;

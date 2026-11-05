@@ -1,15 +1,12 @@
 import { MAX_PAGES, PAGE_SIZE } from './pack-entity';
 
 /**
- * Every mask of an entity sits in one page at a stride of four words: the traits it holds, the
- * traits it lost and has not regained, the traits written since it spawned, and the traits it
- * held when destroyed. A destroy clears one cache line and a remove writes the word it has
- * already loaded. The slot of an entity is (eid & 1023) << 2.
+ * Three masks hold current traits, removed traits and traits held at destruction.
+ * A four-word stride keeps entity slots shift-indexed as (eid & 1023) << 2.
  */
 export const MASK_STRIDE = 4;
 export const REMOVED_WORD = 1;
-export const CHANGED_WORD = 2;
-export const DESTROYED_WORD = 3;
+export const DESTROYED_WORD = 2;
 
 /** Shared sentinel for unallocated mask pages. Always reads as 0. Never write to it directly. */
 export const EMPTY_MASK_PAGE: Uint32Array = new Uint32Array(PAGE_SIZE * MASK_STRIDE);

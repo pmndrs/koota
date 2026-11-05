@@ -1,7 +1,6 @@
 import { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
 import {
-  CHANGED_WORD,
   DESTROYED_WORD,
   REMOVED_WORD,
   createEmptyMaskGeneration,
@@ -31,9 +30,6 @@ export function checkQueryTracking(
   const trackingGroupsLen = trackingGroups.length;
 
   if (query.traitInstances.length === 0) return false;
-  if (!passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains)) {
-    return false;
-  }
 
   let hasOrGroup = false;
   let anyOrMatched = false;
@@ -49,10 +45,10 @@ export function checkQueryTracking(
       if (eventType === 'remove') {
         if (groupType === 'add' || groupType === 'change') return false;
       } else if (eventType === 'add') {
-        if (groupType === 'remove' || groupType === 'change') return false;
+        if (groupType === 'remove') return false;
       }
 
-      if (groupType === eventType) {
+      if (groupType === eventType || (groupType === 'change' && eventType === 'add')) {
         if (
           eventType === 'change' &&
           !(entityMasks[eventGenerationId][pageId][slot] & eventBitflag)
@@ -75,13 +71,12 @@ export function checkQueryTracking(
     return false;
   }
 
-  return true;
+  return passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains);
 }
 
 /**
- * Seed a new tracking query from the world history instead of an event. Membership stands in
- * for an add, the removed history for a loss the entity has not undone, which covers every trait
- * a dead entity died with, and the changed history for a write to a trait the entity still holds.
+ * Seed Added and Changed from current membership. Removed reads losses the entity has not
+ * undone, including every trait it held when destroyed.
  */
 export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, entity: Entity) {
   if (query.traitInstances.length === 0) return false;
@@ -100,15 +95,14 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
   for (let i = 0; i < trackingGroups.length; i++) {
     const group = trackingGroups[i];
     const bitmasks = group.bitmasks;
-    const type = group.type;
-    const word = type === 'add' ? 0 : type === 'remove' ? REMOVED_WORD : CHANGED_WORD;
+    const removed = group.type === 'remove';
 
     for (let genId = 0; genId < bitmasks.length; genId++) {
       const mask = bitmasks[genId];
       if (!mask) continue;
       const page = entityMasks[genId][pageId];
       const held = page[slot];
-      const hits = page[slot + word] & mask & (type === 'remove' ? ~held : held);
+      const hits = (removed ? page[slot + REMOVED_WORD] & ~held : held) & mask;
       if (hits !== 0) recordTrackerHit(group.trackers, genId, eid, hits);
     }
 

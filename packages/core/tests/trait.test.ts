@@ -326,9 +326,9 @@ describe('Trait', () => {
       const Changed = createChanged();
       const changed = vi.fn();
       world.onChange(Position, changed);
-      world.query(Changed(Position));
       const moving = world.spawn(Position, Velocity({ value: [0, 2, 0] }));
       world.spawn(Position, Velocity);
+      expect(world.query(Changed(Position)).length).toBe(2);
 
       world.query(Position, Velocity).each((position, velocity) => {
         for (let i = 0; i < 3; i++) position.value[i] += velocity.value[i];

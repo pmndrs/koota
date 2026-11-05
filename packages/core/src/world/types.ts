@@ -25,8 +25,7 @@ import type {
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   /**
-   * Membership and history by mask generation and page, four words per entity: held, removed
-   * and not regained, written since spawn, held at destroy. See paged-mask.
+   * Membership and removal history by mask generation and page. See paged-mask.
    */
   entityMasks: Uint32Array[][];
   names: Map<string, Entity>;
