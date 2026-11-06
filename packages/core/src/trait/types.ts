@@ -50,6 +50,8 @@ export type Trait<TSchema extends Schema = any> = {
   /** Public read-only ID for fast array lookups */
   readonly id: number;
   readonly schema: TSchema;
+  /** Create a record of the schema defaults, such as a scratch record for get to fill. */
+  readonly record: () => TraitRecordFromSchema<TSchema>;
   readonly [$internal]: TraitContext<TSchema>;
 } & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
 

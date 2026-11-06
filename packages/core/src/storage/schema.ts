@@ -1,32 +1,5 @@
 import { warningsEnabled } from '../warning-config';
-import type { Schema, StoreType } from './types';
-
-/**
- * Get default values from a schema.
- * Returns null for tags (empty schemas) or if no defaults exist.
- */
-/* @inline @pure */ export function getSchemaDefaults(
-  schema: Record<string, any> | (() => unknown),
-  type: StoreType
-): Record<string, any> | null {
-  if (type === 'aos') {
-    return typeof schema === 'function' ? (schema() as Record<string, any>) : null;
-  }
-
-  if (!schema || typeof schema === 'function' || Object.keys(schema).length === 0) return null;
-
-  const defaults: Record<string, any> = {};
-  for (const key in schema) {
-    if (typeof schema[key] === 'function') {
-      defaults[key] = schema[key]();
-    } else if (Array.isArray(schema[key])) {
-      defaults[key] = schema[key].slice();
-    } else {
-      defaults[key] = schema[key];
-    }
-  }
-  return defaults;
-}
+import type { Schema } from './types';
 
 export function validateSchema(schema: Schema) {
   for (const key in schema) {

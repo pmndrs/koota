@@ -126,6 +126,14 @@ function createRelation<S extends TraitSchema = Record<string, never>>(definitio
     configurable: false,
   });
 
+  // Pairs share the relation's data trait, so its records fit every target.
+  Object.defineProperty(relation, 'record', {
+    value: relationTrait.record,
+    writable: false,
+    enumerable: false,
+    configurable: false,
+  });
+
   traitCtx.relation = relation;
 
   return relation;

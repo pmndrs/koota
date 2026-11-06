@@ -452,6 +452,31 @@ describe('Trait', () => {
       entity.get(Mesh, { visible: false });
     });
 
+    it('creates records of the schema defaults to fill', () => {
+      const Transform = trait({ position: [0, 0, 0], mass: 1, tags: () => ['static'] });
+      const a = Transform.record();
+      const b = Transform.record();
+
+      expect(a).toEqual({ position: [0, 0, 0], mass: 1, tags: ['static'] });
+      // Every record owns its tuples and factory values, so filling one leaves the rest alone.
+      expect(a.position).not.toBe(b.position);
+      expect(a.tags).not.toBe(b.tags);
+
+      const entity = world.spawn(Transform({ position: [1, 2, 3], mass: 2 }));
+      expect(entity.get(Transform, a)).toBe(a);
+      expect(a).toMatchObject({ position: [1, 2, 3], mass: 2 });
+      expect(world.spawn(Transform).get(Transform)!.position).toEqual([0, 0, 0]);
+
+      const Attached = relation({ store: { offset: [0, 0, 0] } });
+      const child = world.spawn(Attached(entity, { offset: [4, 5, 6] }));
+      const attached = Attached.record();
+      expect(child.get(Attached(entity), attached)).toEqual({ offset: [4, 5, 6] });
+
+      const Mesh = trait(() => ({ visible: true }));
+      expect(Mesh.record()).toEqual({ visible: true });
+      expect(Mesh.record()).not.toBe(Mesh.record());
+    });
+
     it.each([false, true])(
       'reads relation data and world traits into out, exclusive: %s',
       (exclusive) => {

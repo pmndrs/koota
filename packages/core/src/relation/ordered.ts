@@ -44,7 +44,7 @@ export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation
     [$internal]: context,
   }) as unknown as OrderedRelation<T>;
 
-  defineTraitProperties(orderedTrait, context.id, schema);
+  defineTraitProperties(orderedTrait, context, schema);
 
   Object.defineProperty(orderedTrait, $orderedTargetsTrait, {
     value: { relation },

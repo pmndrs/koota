@@ -20,7 +20,7 @@ const result = entity.has(Position)
 // Gets the trait record for an entity
 // Return TraitRecord
 const position = entity.get(Position)
-// Fills a record you own instead of allocating one
+// Fills a record you own instead of allocating one, such as one from Position.record()
 // Return the record, or undefined if the entity does not have the trait
 entity.get(Position, position)
 
