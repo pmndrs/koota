@@ -17,7 +17,7 @@ import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { clearPendingChanges } from '../query/utils/mark-tracked-trait-changed';
-import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
+import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
@@ -728,11 +728,13 @@ export function reconcileTraitQueries(
 export function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    const match = query.relationFilters?.length
-      ? checkQueryWithRelations(ctx, query, entity)
-      : checkQuery(ctx, query, entity);
-    if (match) addEntityToQuery(query, entity);
-    else removeEntityFromQuery(ctx, query, entity);
+    if (query.filters !== null) {
+      if (checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
+      else removeEntityFromQuery(ctx, query, entity);
+    } else {
+      if (checkQuery(ctx, query, entity)) addEntityToQuery(query, entity);
+      else removeEntityFromQuery(ctx, query, entity);
+    }
   }
 }
 

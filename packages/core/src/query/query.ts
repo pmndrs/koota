@@ -38,14 +38,17 @@ import {
   checkQueryTrackingSeed,
   seedPairRemovals,
 } from './utils/check-query-tracking';
-import { checkQueryWithRelations, passesRelationFilters } from './utils/check-query-with-relations';
+import { checkQueryWithFilters, passesQueryFilters } from './utils/check-query-filters';
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
 import { clearPendingChanges } from './utils/mark-tracked-trait-changed';
 
 export const IsExcluded: TagTrait = trait();
 
-function resolveRelationFilter(pair: RelationPair, term: 1 | 2 | 3 | 4): ResolvedRelationFilter {
+function resolveRelationFilter(
+  pair: RelationPair,
+  term: ResolvedRelationFilter['term']
+): ResolvedRelationFilter {
   const targetQuery = pair.targetQuery;
   if (!targetQuery) {
     return { ...pair, term, targetQueryRef: undefined, targetQueryMatches: undefined };
@@ -64,11 +67,11 @@ function addPairFilter(
   ctx: WorldContext,
   query: QueryInstance,
   pair: RelationPair,
-  term: 2 | 3 | 4
+  term: 2 | 3 | 4 | 5
 ): ResolvedRelationFilter {
   ensureTraitInstance(ctx, (pair.relation as Relation<Trait>)[$internal].trait);
   const filter = resolveRelationFilter(pair, term);
-  query.relationFilters.push(filter);
+  ensureQueryFilters(query).pairs.push(filter);
   return filter;
 }
 
@@ -126,6 +129,7 @@ function firstRetained(query: QueryInstance): Entity | undefined {
  * Exposes the batch accumulated since the previous run and starts collecting the next one in the
  * set that run exposed. A run nested inside a walk of the batch keeps it as it is. For Removed
  * queries, both batches can read destroyed entities until the world's retention cap evicts them.
+ * Static alternatives in a mixed or query carry their live matches into the next batch.
  */
 function consumeTrackingBatch(query: QueryInstance) {
   if (query.iterating !== 0) return;
@@ -137,6 +141,13 @@ function consumeTrackingBatch(query: QueryInstance) {
   const { dense, length } = exposed;
   for (let i = 0; i < length; i++) {
     resetQueryTrackingBitmasks(query, getEntityId(dense[i] as Entity));
+  }
+  if (query.filters?.tracking === 'or') {
+    // Pending matches already satisfy the mandatory terms. Carry forward their static alternatives.
+    for (let i = 0; i < length; i++) {
+      const entity = dense[i] as Entity;
+      if (passesQueryFilters(query.ctx, query, entity)) next.add(entity);
+    }
   }
 }
 
@@ -206,7 +217,11 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
 export function leaveTraitlessQueries(ctx: WorldContext, entity: Entity) {
   const queries = ctx.notQueries;
   for (let i = 0; i < queries.length; i++) {
-    if (!queries[i].isTracking) removeEntityFromQuery(ctx, queries[i], entity);
+    const query = queries[i];
+    if (!query.isTracking) removeEntityFromQuery(ctx, query, entity);
+    else if (query.filters?.tracking && !checkQueryTracking(ctx, query, entity, 'change', -1, 0)) {
+      removeEntityFromQuery(ctx, query, entity);
+    }
   }
 }
 
@@ -355,12 +370,23 @@ function processTrackingModifier(
 }
 
 /** Folds a trait's bit into the query's flat mask table under the given term. */
-function addMaskBit(masks: number[], instance: TraitInstance, term: 1 | 2 | 3) {
-  const genId = instance.generationId;
+function addMaskBits(masks: number[], genId: number, bits: number, term: 1 | 2 | 3) {
   let i = 0;
   while (i < masks.length && masks[i] !== genId) i += 4;
   if (i === masks.length) masks.push(genId, 0, 0, 0);
-  masks[i + term] |= instance.bitflag;
+  masks[i + term] |= bits;
+}
+
+/** Allocate pair and or filters only when the static mask table cannot express them. */
+function ensureQueryFilters(query: QueryInstance) {
+  return (query.filters ??= { pairs: [], orMasks: null, not: [], tracking: null });
+}
+
+/** A static or term can be satisfied by a held bit, a pair or a negated branch. */
+function ensureOrFilters(query: QueryInstance) {
+  const filters = ensureQueryFilters(query);
+  filters.orMasks ??= [];
+  return filters;
 }
 
 export function createQueryInstance<T extends QueryParameter[]>(
@@ -383,7 +409,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     iterating: 0,
     isTracking: false,
     retains: false,
-    orMasks: null,
+    filters: null,
     changedMasks: [],
     toRemove: null,
     notIndex: -1,
@@ -395,10 +421,9 @@ export function createQueryInstance<T extends QueryParameter[]>(
     layoutCache: null,
     iterationBuffers: undefined,
     viewBindings: [],
-    relationFilters: [],
   };
 
-  // Tracked instances join first, so their slots come before the static terms.
+  // Static masks are assembled after registering the modifier dependencies.
   const required: TraitInstance[] = [];
   const forbidden: TraitInstance[] = [];
   const or: TraitInstance[] = [];
@@ -420,7 +445,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     if (isRelationPair(parameter)) {
       // A wildcard pair is the relation's membership, which the required mask already checks.
-      if (parameter.target !== '*') query.relationFilters.push(resolveRelationFilter(parameter, 1));
+      if (parameter.target !== '*')
+        ensureQueryFilters(query).pairs.push(resolveRelationFilter(parameter, 1));
       const baseTrait = (parameter.relation as Relation<Trait>)[$internal].trait;
       required.push(ensureTraitInstance(ctx, baseTrait));
       query.traits.push(baseTrait);
@@ -438,14 +464,28 @@ export function createQueryInstance<T extends QueryParameter[]>(
         for (let j = 0; j < traits.length; j++) or.push(ensureTraitInstance(ctx, traits[j]));
         if (pairs !== null) {
           // An or pair can satisfy the or term alone, so the or bits are checked beside the pairs.
-          query.orMasks ??= [];
+          ensureOrFilters(query);
           for (let j = 0; j < pairs.length; j++) addPairFilter(ctx, query, pairs[j], 3);
         }
         const nested = parameter.modifiers;
         if (nested !== null) {
           for (let j = 0; j < nested.length; j++) {
-            if (isTrackingModifier(nested[j])) {
-              processTrackingModifier(ctx, query, nested[j], 'or', query.trackingGroups);
+            const branch = nested[j];
+            if (branch.type === 'not') {
+              ensureOrFilters(query);
+              const masks: number[] = [];
+              const pairs: ResolvedRelationFilter[] = [];
+              for (const trait of branch.traits) {
+                const instance = ensureTraitInstance(ctx, trait);
+                all.push(instance);
+                addMaskBits(masks, instance.generationId, instance.bitflag, 2);
+              }
+              if (branch.pairs !== null) {
+                for (const pair of branch.pairs) pairs.push(addPairFilter(ctx, query, pair, 5));
+              }
+              query.filters!.not.push({ masks, pairs });
+            } else if (isTrackingModifier(branch)) {
+              processTrackingModifier(ctx, query, branch, 'or', query.trackingGroups);
             }
           }
         }
@@ -463,19 +503,51 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
   forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
 
+  const hasNegatedOr = query.filters !== null && query.filters.not.length !== 0;
+  if (
+    (or.length !== 0 || query.filters?.orMasks != null) &&
+    query.trackingGroups.some((group) => group.logic === 'or')
+  ) {
+    const filters = ensureOrFilters(query);
+    filters.tracking = query.trackingGroups.every((group) => group.logic === 'or') ? 'or' : 'and';
+  }
+
+  // A lone negated branch uses the ordinary exclusion masks and pair filters.
+  if (
+    query.filters?.not.length === 1 &&
+    or.length === 0 &&
+    !query.filters.tracking &&
+    !query.filters.pairs.some((filter) => filter.term === 3)
+  ) {
+    masks.push(...query.filters.not[0].masks);
+    for (const pair of query.filters.not[0].pairs) pair.term = 2;
+    query.filters.orMasks = null;
+    query.filters.not = [];
+    if (query.filters.pairs.length === 0) query.filters = null;
+  } else if (query.filters !== null && query.filters.not.length !== 0) {
+    const filters = query.filters;
+    // Single absent traits share a mask check with the positive alternatives.
+    filters.not = filters.not.filter(({ masks, pairs }) => {
+      const bits = masks[2];
+      if (pairs.length !== 0 || masks.length !== 4 || (bits & (bits - 1)) !== 0) return true;
+      addMaskBits(filters.orMasks!, masks[0], bits, 2);
+      return false;
+    });
+  }
+
   for (let i = 0; i < required.length; i++) {
     all.push(required[i]);
-    addMaskBit(masks, required[i], 1);
+    addMaskBits(masks, required[i].generationId, required[i].bitflag, 1);
   }
   for (let i = 0; i < forbidden.length; i++) {
     all.push(forbidden[i]);
-    addMaskBit(masks, forbidden[i], 2);
+    addMaskBits(masks, forbidden[i].generationId, forbidden[i].bitflag, 2);
   }
-  const relationFilters = query.relationFilters;
-  const orMasks = query.orMasks;
+  const relationFilters = query.filters?.pairs ?? [];
+  const orMasks = query.filters?.orMasks;
   for (let i = 0; i < or.length; i++) {
     all.push(or[i]);
-    addMaskBit(orMasks ?? masks, or[i], 3);
+    addMaskBits(orMasks ?? masks, or[i].generationId, or[i].bitflag, 3);
   }
   query.hash = createQueryHash(parameters);
 
@@ -507,13 +579,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
   // Fresh entities own no keys, so identifier queries reset their trackers on eviction instead.
   if (
     query.identifierFilters === undefined &&
-    (query.isTracking || (orMasks === null && !hasPositiveMask(masks)))
+    (query.isTracking || ((orMasks == null || hasNegatedOr) && !hasPositiveMask(masks)))
   ) {
     query.notIndex = ctx.notQueries.length;
     ctx.notQueries.push(query);
   }
 
-  const hasRelationFilters = relationFilters.length > 0;
+  const hasFilters = query.filters !== null;
   // Entities already related to a concrete target are the only candidates such a query can match.
   let targetCandidates: readonly Entity[] | undefined;
 
@@ -553,7 +625,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
           // A target entering or leaving the target query is not an event for a tracking query.
           const match = query.isTracking
             ? checkQueryTracking(ctx, query, source, 'change', 0, 0)
-            : checkQueryWithRelations(ctx, query, source);
+            : checkQueryWithFilters(ctx, query, source);
           if (match) {
             addEntityToQuery(query, source);
           } else {
@@ -599,11 +671,10 @@ export function createQueryInstance<T extends QueryParameter[]>(
   if (query.trackingGroups.length > 0) {
     // Seed from current membership and retained removals. Alive entities come first,
     // then retained entities in destroy order, which only Removed terms can match.
-    if (query.retains && hasRelationFilters) seedPairRemovals(ctx, query);
+    if (query.retains && hasFilters) seedPairRemovals(ctx, query);
     const seed = (entity: Entity) => {
       if (query.identifierFilters !== undefined && !checkQuery(ctx, query, entity)) return;
       if (!checkQueryTrackingSeed(ctx, query, entity)) return;
-      if (hasRelationFilters && !passesRelationFilters(ctx, query, entity)) return;
       addEntityToQuery(query, entity);
     };
     for (let i = 0; i < candidateCount; i++) seed(candidates[i]);
@@ -614,13 +685,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
         seed(tombstones.ids[(tombstones.head + k) % tombstones.ids.length]);
       }
     }
-  } else if (candidates === index.dense && !hasRelationFilters && hasPositiveMask(masks)) {
+  } else if (candidates === index.dense && !hasFilters && hasPositiveMask(masks)) {
     scanMaskPages(ctx, query);
   } else {
     for (let i = 0; i < candidateCount; i++) {
       const entity = candidates[i];
-      const match = hasRelationFilters
-        ? checkQueryWithRelations(ctx, query, entity)
+      const match = hasFilters
+        ? checkQueryWithFilters(ctx, query, entity)
         : checkQuery(ctx, query, entity);
       if (match) addEntityToQuery(query, entity);
     }
@@ -717,7 +788,7 @@ function traitSlot(query: QueryInstance, instance: TraitInstance): number {
 }
 
 function relationSlot(query: QueryInstance, instance: TraitInstance): number {
-  const filters = query.relationFilters!;
+  const filters = query.filters!.pairs;
   for (let k = 0; k < filters.length; k++) {
     if (filters[k].relation[$internal].trait === instance.trait) {
       return query.traitInstances.length + k;
@@ -740,8 +811,9 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     const instance = all[i];
     leaveList(queryList(query, instance), query, i, instance, false);
   }
-  for (let k = 0; k < query.relationFilters!.length; k++) {
-    const trait = query.relationFilters![k].relation[$internal].trait;
+  const filters = query.filters?.pairs ?? [];
+  for (let k = 0; k < filters.length; k++) {
+    const trait = filters[k].relation[$internal].trait;
     const instance = getTraitInstance(ctx.traitInstances, trait);
     if (instance) leaveList(instance.relationQueries, query, all.length + k, instance, true);
   }
@@ -760,7 +832,7 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     query.notIndex = -1;
   }
 
-  for (const pair of query.relationFilters!) {
+  for (const pair of filters) {
     if (typeof pair.target !== 'number') continue;
     const eid = getEntityId(pair.target);
     const page = ctx.targetQueries[eid >>> 10];
