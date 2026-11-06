@@ -161,9 +161,9 @@ export type Query<T extends QueryParameter[] = QueryParameter[]> = {
 export type ResolvedRelationFilter = RelationPair & {
   /**
    * How the pair counts toward a match: 1 required, 2 forbidden, 3 one of the or terms. A pair
-   * with term 4 belongs to a tracking modifier, which matches on its events instead.
+   * with term 4 belongs to a tracking modifier. Term 5 belongs to a negated or branch.
    */
-  term: 1 | 2 | 3 | 4;
+  term: 1 | 2 | 3 | 4 | 5;
   targetQueryRef: Query<QueryParameter[]> | undefined;
   targetQueryMatches: SparseSet | undefined;
 };
@@ -176,7 +176,7 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
   traitIds: number[];
   /** Pairs with a specific target or target query. */
   pairs: RelationPair[] | null;
-  /** Tracking modifiers nested in an Or modifier. */
+  /** Modifiers nested in an Or modifier. */
   modifiers: Modifier[] | null;
 };
 
@@ -234,7 +234,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   hash: QueryHash;
   refId: number;
   traits: Trait[];
-  /** Every trait instance the query joins, tracked first, then required, forbidden and or. */
+  /** Every trait instance the query joins, deduplicated when registering its list slots. */
   traitInstances: TraitInstance[];
   /** Four entries per mask generation the query reads: generation id, required, forbidden and or bits. */
   masks: number[];
@@ -252,11 +252,16 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
    * pending and exposed batches are trimmed when the retention cap evicts an entity.
    */
   retains: boolean;
-  /**
-   * Or trait bits in the layout of masks. They are kept here instead when the or term also holds
-   * relation pairs, since a pair can satisfy the term without any of the bits. Null otherwise.
-   */
-  orMasks: number[] | null;
+  /** Relation and or filters beyond the ordinary static mask table, allocated only when needed. */
+  filters: {
+    pairs: ResolvedRelationFilter[];
+    /** Null without a static or term, otherwise positive and single absent alternatives. */
+    orMasks: number[] | null;
+    /** Each branch requires every listed trait and pair to be absent. */
+    not: { masks: number[]; pairs: ResolvedRelationFilter[] }[];
+    /** Null without tracked alternatives, 'and' with outer trackers, 'or' with alternatives only. */
+    tracking: 'or' | 'and' | null;
+  } | null;
   /** Changed terms indexed by mask generation, for direct write dispatch. */
   changedMasks: number[];
   /** Removals deferred by a walk in progress, created on the first one. */
@@ -273,8 +278,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   layoutCache: QueryLayoutCache | null;
   iterationBuffers: QueryIterationBuffers | undefined;
   viewBindings: QueryViewBinding[];
-  /** Relation pairs for target-specific queries, required, forbidden or part of the or term. */
-  relationFilters: ResolvedRelationFilter[];
 };
 
 export type EventType = 'add' | 'remove' | 'change';

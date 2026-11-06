@@ -46,6 +46,16 @@ Traits, relations and relation pairs can be mixed in one `Or`.
 const targets = world.query(Or(ChildOf(redTeam), ChildOf(blueTeam), IsBoss))
 ```
 
+`Not` can be an `Or` branch. Multiple inputs to one `Not` must all be absent. Separate `Not` branches match when either absence holds.
+
+```js
+world.query(Or(IsBoss, Not(IsHidden))) // Bosses or anything without IsHidden
+world.query(Or(Not(IsHidden))) // Equivalent to Not(IsHidden)
+world.query(Or(IsBoss, Not(IsHidden, IsDisabled))) // Bosses or entities with neither trait
+```
+
+Static and tracking branches can share an `Or`. In `Or(Changed(Position), IsVisible)`, visible entities appear on every read while changes to other entities are consumed once. Tracking modifiers outside `Or` still have to fire for an entity to match.
+
 Tracking modifiers report changes since their query last ran. `Added` and `Changed` start with current matches. `Removed` starts with retained removals, including [destroyed entities](#destroyed-entities) that have not been evicted.
 
 ## Added

@@ -12,7 +12,7 @@ import {
 import { hasRelationToTarget } from '../../relation/relation';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance, ResolvedRelationFilter } from '../types';
-import { holdsFilterPair, passesRelationFilters } from './check-query-with-relations';
+import { holdsFilterPair, passesQueryFilters } from './check-query-filters';
 
 export function checkQueryTracking(
   ctx: WorldContext,
@@ -86,13 +86,13 @@ export function checkQueryTracking(
     }
   }
 
-  if (!matched || (hasOrGroup && !anyOrMatched)) {
+  if (!matched || (hasOrGroup && !anyOrMatched && !query.filters?.tracking)) {
     return false;
   }
 
   return (
     passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains) &&
-    (query.relationFilters.length === 0 || passesRelationFilters(ctx, query, entity))
+    (query.filters === null || passesQueryFilters(ctx, query, entity, anyOrMatched))
   );
 }
 
@@ -145,7 +145,8 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
     }
   }
 
-  return matched && (!hasOrGroup || anyOrMatched);
+  if (!matched || (hasOrGroup && !anyOrMatched && !query.filters?.tracking)) return false;
+  return query.filters === null || passesQueryFilters(ctx, query, entity, anyOrMatched);
 }
 
 /**

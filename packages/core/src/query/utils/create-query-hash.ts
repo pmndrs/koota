@@ -63,6 +63,15 @@ function hashModifierExtras(param: Modifier, cursor: number, pairKeys: string[])
   if (nested === null) return cursor;
   for (let n = 0; n < nested.length; n++) {
     const modifier = nested[n];
+    if (modifier.type === 'not') {
+      // Keep each conjunction of absent inputs together inside the disjunction.
+      const keys = modifier.traitIds.map((id) => `t${id}`);
+      if (modifier.pairs !== null) {
+        for (const pair of modifier.pairs) keys.push(`p${hashModifierPair(pair, cursor)}`);
+      }
+      pairKeys.push(`or-not[${keys.sort().join(',')}]`);
+      continue;
+    }
     for (let j = 0; j < modifier.traitIds.length; j++) {
       sortBuf[cursor++] = modifier.id * MODIFIER_FACTOR + modifier.traitIds[j] + 0.5;
     }

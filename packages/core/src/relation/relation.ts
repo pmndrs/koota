@@ -7,7 +7,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import type { EventType, QueryParameter } from '../query/types';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryTrackingPair } from '../query/utils/check-query-tracking';
-import { checkQueryWithRelations } from '../query/utils/check-query-with-relations';
+import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isQuery } from '../query/utils/is-query';
 import { TraitSchema } from '../storage';
 import { trait } from '../trait/trait';
@@ -451,7 +451,7 @@ export function reconcileRelationQueries(
     } else if (trackingOnly) {
       continue;
     } else {
-      match = checkQueryWithRelations(ctx, query, entity);
+      match = checkQueryWithFilters(ctx, query, entity);
     }
     if (match) {
       addEntityToQuery(query, entity);

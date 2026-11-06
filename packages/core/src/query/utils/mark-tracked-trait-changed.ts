@@ -5,7 +5,7 @@ import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { addEntityToQuery, removeEntityFromQuery } from '../query';
 import type { QueryInstance } from '../types';
-import { passesRelationFilters } from './check-query-with-relations';
+import { passesQueryFilters } from './check-query-filters';
 import {
   checkQueryTracking,
   passesStaticBitmasks,
@@ -45,8 +45,8 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
     const query = queries[i];
     if ((query.changedMasks[generationId] & bitflag) === 0) continue;
 
-    // An identifier query records nothing for other entities, so it takes the full check.
-    if (query.identifierFilters !== undefined) {
+    // Identifier filters and mixed or terms need current membership and tracked events.
+    if (query.identifierFilters !== undefined || query.filters?.tracking) {
       accepted = true;
       if (checkQueryTracking(ctx, query, entity, 'change', generationId, bitflag)) {
         addEntityToQuery(query, entity);
@@ -63,7 +63,7 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
     accepted = true;
     if (
       recordChangeAndMatch(query, generationId, eid, bitflag) &&
-      (query.relationFilters.length === 0 || passesRelationFilters(ctx, query, entity))
+      (query.filters === null || passesQueryFilters(ctx, query, entity))
     ) {
       addEntityToQuery(query, entity);
     } else removeEntityFromQuery(ctx, query, entity);

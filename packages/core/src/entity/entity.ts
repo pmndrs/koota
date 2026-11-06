@@ -11,6 +11,8 @@ import {
   resetQueryTrackingBitmasks,
 } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
+import { checkQueryWithFilters } from '../query/utils/check-query-filters';
+import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
 import { isIdentifierPair, lookupIdentifier } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
@@ -45,12 +47,20 @@ import './entity-methods-patch';
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
 
-  // Tracking queries enter on trait events. Static exclusion queries need an initial match.
+  // Queries that can match without traits need an initial membership check.
   const notQueries = ctx.notQueries;
   for (let i = 0; i < notQueries.length; i++) {
     const query = notQueries[i];
     resetQueryTrackingBitmasks(query, getEntityId(entity));
-    if (!query.isTracking && checkQuery(ctx, query, entity)) addEntityToQuery(query, entity);
+    if (query.filters?.tracking) {
+      if (checkQueryTracking(ctx, query, entity, 'change', -1, 0)) addEntityToQuery(query, entity);
+    } else if (!query.isTracking) {
+      const matches =
+        query.filters !== null
+          ? checkQueryWithFilters(ctx, query, entity)
+          : checkQuery(ctx, query, entity);
+      if (matches) addEntityToQuery(query, entity);
+    }
   }
 
   // Spawn is create then add in argument order. A trait that throws leaves the earlier ones in place.
@@ -233,7 +243,7 @@ function dropTargetQueries(
       (evicted || !query.isTracking) &&
       (query.addSubscriptions === null || query.addSubscriptions.size === 0) &&
       (query.removeSubscriptions === null || query.removeSubscriptions.size === 0);
-    const filters = query.relationFilters;
+    const filters = query.filters!.pairs;
     for (let k = 0; k < filters.length; k++) {
       const pair = filters[k];
       if (pair.target === entity && (disposable || needsPair(query, pair))) {
