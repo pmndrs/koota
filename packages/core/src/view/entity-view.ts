@@ -6,7 +6,7 @@ import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { Store } from '../storage';
 import { registerTrait } from '../trait/trait';
-import type { Trait } from '../trait/types';
+import type { Trait, TraitInstance } from '../trait/types';
 import { hasSubscribers } from '../trait/subscriptions';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
@@ -178,7 +178,7 @@ export class EntityView {
     const iterators = buffers.iterators!;
     if (guard) guard.iterating++;
     try {
-      if (trackTraits(ctx, query, traits, buffers.modes, options?.changeDetection) === 0) {
+      if (trackTraits(ctx, traits, buffers.modes, options?.changeDetection) === 0) {
         (positional ? iterators.each : iterators.updateEach)(
           ctx,
           entities,
@@ -473,7 +473,6 @@ function releaseIterationBuffers(pool: QueryInstance | WorldContext, buffers: Qu
 /** Fills modes and returns how many traits are tracked. */
 function trackTraits(
   ctx: WorldContext,
-  query: QueryInstance | null,
   traits: Trait[],
   modes: number[],
   changeDetection: UpdateEachOptions['changeDetection']
@@ -487,8 +486,7 @@ function trackTraits(
       changeDetection === 'always'
         ? hasSubscribers(instance.changeSubscriptions) || instance.trackingQueries.length !== 0
         : changeDetection !== 'never' &&
-          (hasSubscribers(instance.changeSubscriptions) ||
-            (query !== null && (query.changedMasks[instance.generationId] & instance.bitflag) !== 0));
+          (hasSubscribers(instance.changeSubscriptions) || hasChangedQuery(instance));
     if (!tracked) {
       modes[i] = 0;
       continue;
@@ -497,6 +495,15 @@ function trackTraits(
     trackedCount++;
   }
   return trackedCount;
+}
+
+/** A Changed query anywhere in the world reads the writes a walk makes to the trait. */
+function hasChangedQuery(instance: TraitInstance) {
+  const { trackingQueries, generationId, bitflag } = instance;
+  for (let i = 0; i < trackingQueries.length; i++) {
+    if ((trackingQueries[i].changedMasks[generationId] & bitflag) !== 0) return true;
+  }
+  return false;
 }
 
 function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait, store: Store<any>) {
