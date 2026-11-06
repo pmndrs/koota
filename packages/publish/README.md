@@ -733,7 +733,7 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
-- `onChange` triggers after a trait is added (including spawn), written with `entity.set()`, or flagged with `entity.changed()`. It also reports writes detected by `.each()`.
+- `onChange` triggers after a trait is added (including spawn), written with `entity.set()` or `entity.upsert()`, or flagged with `entity.changed()`. It also reports writes detected by `.each()`.
 
 Subscriptions only report future events. `Changed` queries also include current matches on their first run.
 
@@ -1033,6 +1033,9 @@ world.set(Time, (prev) => ({
   delta: performance.now() - prev.current,
 }))
 
+// Sets the given values if the world has the trait, or adds the trait with them
+world.upsert(Time({ current: performance.now() }))
+
 // Subscribe to add, remove or change events for entity traits
 // Return unsub function
 const unsub = world.onAdd(Position, (entity) => {})
@@ -1103,6 +1106,10 @@ entity.set(Position, (prev) => ({
   x: prev + 1,
   y: prev + 1,
 }))
+
+// Sets the given values on traits the entity has and adds the traits it lacks
+// Triggers a change event, and an add event for each trait that is new
+entity.upsert(Position({ x: 10 }), Velocity({ x: 1 }))
 
 // Get the targets for a relation
 // Return Entity[]

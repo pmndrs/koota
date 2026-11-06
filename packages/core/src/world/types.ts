@@ -109,6 +109,8 @@ export type World = {
   has(trait: Trait | Identifier | IdentifierPair): boolean;
   has(target: Entity | Trait | Identifier | IdentifierPair): boolean;
   add(...traits: ConfigurableTrait[]): void;
+  /** Write the given values to traits the world has and add the traits it lacks. */
+  upsert(...traits: ConfigurableTrait[]): void;
   remove(...traits: (Trait | Identifier | IdentifierPair)[]): void;
   get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
   get<T extends Trait, O extends TraitOut<T>>(trait: T, out: O): O | undefined;

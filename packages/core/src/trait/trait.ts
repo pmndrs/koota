@@ -246,6 +246,44 @@ export /* @inline */ function addTraitsToAliveEntity(
   }
 }
 
+/** Write the given value where the trait or pair is present and add it where it is absent. */
+export function upsertTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
+  for (let i = 0; i < traits.length; i++) {
+    const config = traits[i];
+
+    if (Array.isArray(config)) {
+      const trait = config[0];
+      const value = config[1];
+      if (value !== undefined && hasTrait(ctx, entity, trait)) {
+        const instance = getTraitInstance(ctx.traitInstances, trait)!;
+        trait[$internal].set(ctx, getEntityId(entity), instance.store, value);
+        notifyTraitChanged(ctx, entity, instance);
+        continue;
+      }
+    } else if (typeof config !== 'function' && isRelationPair(config)) {
+      const relation = config.relation;
+      const target = config.target;
+      const params = config.params;
+      if (
+        params !== undefined &&
+        typeof target === 'number' &&
+        hasRelationToTarget(ctx, relation, entity, target)
+      ) {
+        setRelationData(ctx, entity, relation, target, params);
+        setPairChanged(ctx, entity, relation[$internal].trait, target);
+        continue;
+      }
+    }
+
+    // A config without a value has nothing to write, so it only ensures presence.
+    addTraitsToAliveEntity(ctx, entity, [config]);
+  }
+}
+
 /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
   const relation = pair.relation;
   const target = pair.target;

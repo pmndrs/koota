@@ -123,6 +123,9 @@ world.set(Time, (prev) => ({
   delta: performance.now() - prev.current,
 }))
 
+// Sets the given values if the world has the trait, or adds the trait with them
+world.upsert(Time({ current: performance.now() }))
+
 // Remove a trait from the world
 world.remove(Time)
 ```

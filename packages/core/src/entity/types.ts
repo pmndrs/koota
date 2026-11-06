@@ -37,6 +37,8 @@ type EntityHook = {
 /** Trait and relation reads require liveness. Read retained values through Removed query iteration. */
 export type Entity = number & {
   add: (...traits: ConfigurableTrait[]) => void;
+  /** Write the given values to traits the entity has and add the traits it lacks. */
+  upsert: (...traits: ConfigurableTrait[]) => void;
   remove: (...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]) => void;
   has: (trait: Trait | RelationPair | Identifier | IdentifierPair) => boolean;
   destroy: () => void;
