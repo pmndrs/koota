@@ -44,6 +44,7 @@ import type {
   ExtractSchema,
   SetTraitCallback,
   Trait,
+  TraitInit,
   TraitRecord,
   TraitValue,
 } from '../trait/types';
@@ -237,7 +238,7 @@ export function createWorld(options?: WorldOptions): World {
       addTrait(ctx, ctx.worldEntity, ...addTraits);
     },
 
-    upsert<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>>) {
+    upsert<T extends Trait>(trait: T, value: TraitInit<ExtractSchema<T>>) {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
       upsertTrait(ctx, ctx.worldEntity, trait, value);
