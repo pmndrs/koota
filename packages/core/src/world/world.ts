@@ -26,8 +26,9 @@ import { createOwnedView } from '../query/query-view';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
+import { isStableParameter } from '../query/modifier';
 import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
-import type { Relation } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { addTrait, getTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
@@ -39,7 +40,7 @@ import type {
   TraitRecord,
   TraitValue,
 } from '../trait/types';
-import type { World, WorldContext, WorldOptions } from './types';
+import type { InlineQueryNode, World, WorldContext, WorldOptions } from './types';
 import type { Subscriber } from '../trait/subscriptions';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from './utils/resolve-hook';
 
@@ -56,17 +57,39 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 }
 
-/** Resolve inline parameters, including direct relation and identifier lookups. */
+/**
+ * Runs a query written inline. A lone pair with a target entity reads the relation's sources
+ * directly. Parameters that are the same objects as on an earlier call find their query by
+ * identity, which skips building and hashing a key.
+ */
 export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
-  if (params.length === 1 && isRelationPair(params[0])) {
-    const relation = params[0].relation;
-    const target = params[0].target;
-    if (!params[0].targetQuery && typeof target === 'number') {
-      const entities = getEntitiesWithRelationTo(ctx, relation as Relation<Trait>, target as Entity);
-      return createOwnedView(ctx, entities as Entity[], null, params);
-    }
+  const first = params[0];
+  if (params.length === 1 && isRelationPair(first) && typeof first.target === 'number') {
+    const entities = getEntitiesWithRelationTo(ctx, first.relation as Relation<Trait>, first.target);
+    return createOwnedView(ctx, entities as Entity[], null, params);
   }
 
+  // One lookup per parameter, so the cost does not grow with the number of queries kept.
+  let node = ctx.inlineQueries;
+  for (let i = 0; i < params.length; i++) {
+    const param = params[i];
+    let next = node.next?.get(param);
+    if (next === undefined) {
+      // A pair naming a target entity is a new object on every call, found by what it names.
+      if (!isRelationPair(param) || typeof param.target !== 'number') {
+        return resolveInlineQuery(ctx, params);
+      }
+      next = node.next?.get(param.relation as Relation<Trait>)?.next?.get(param.target);
+      if (next === undefined) return resolveInlineQuery(ctx, params);
+    }
+    node = next;
+  }
+  if (node.query === null) return resolveInlineQuery(ctx, params);
+  return runQuery(ctx, node.query, node.params!);
+}
+
+/** Resolves parameters seen for the first time, or ones that are new objects on every call. */
+export function resolveInlineQuery(ctx: WorldContext, params: QueryParameter[]) {
   const identified = findIdentifiedEntity(ctx, params);
   if (identified !== null) {
     // Shared-key views need subscriptions even when empty or owned by one entity.
@@ -79,7 +102,48 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
     return createOwnedView(ctx, identified === undefined ? [] : [identified], null, params);
   }
 
-  return runQuery(ctx, resolveQueryInstance(ctx, params), params);
+  const query = resolveQueryInstance(ctx, params);
+  rememberInlineQuery(ctx, params, query);
+  return runQuery(ctx, query, params);
+}
+
+/**
+ * Lists a query under parameters that are the same objects on every call, plus at most one pair
+ * naming a target entity. Only a query naming a target is ever dropped, which happens when the
+ * target is destroyed, and the tree lets go of the target then. So a listed query stays valid.
+ */
+function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query: QueryInstance) {
+  let target = -1;
+  for (let i = 0; i < params.length; i++) {
+    const param = params[i];
+    if (isStableParameter(param)) continue;
+    if (target !== -1 || !isRelationPair(param) || typeof param.target !== 'number') return;
+    target = i;
+  }
+  let node = ctx.inlineQueries;
+  for (let i = 0; i < params.length; i++) {
+    const param = params[i];
+    if (i !== target) {
+      node = inlineStep(node, param);
+      continue;
+    }
+    const pair = param as RelationPair;
+    const relationStep = inlineStep(node, pair.relation as Relation<Trait>);
+    if (relationStep.next === null) ctx.inlineTargets.push(relationStep);
+    node = inlineStep(relationStep, pair.target as Entity);
+  }
+  node.params = params;
+  node.query = query;
+}
+
+function inlineStep(node: InlineQueryNode, key: QueryParameter | Relation<Trait> | Entity) {
+  const next = (node.next ??= new Map());
+  let child = next.get(key);
+  if (child === undefined) {
+    child = { next: null, params: null, query: null };
+    next.set(key, child);
+  }
+  return child;
 }
 
 export function createWorld(options?: WorldOptions): World {
@@ -107,6 +171,8 @@ export function createWorld(options?: WorldOptions): World {
       traits: new Set<Trait>(),
       relations: [],
       queriesHashMap: new Map(),
+      inlineQueries: { next: null, params: null, query: null },
+      inlineTargets: [],
       queryInstances: [],
       iterationBuffers: undefined,
       actionInstances: [],
@@ -218,6 +284,8 @@ export function createWorld(options?: WorldOptions): World {
       ctx.relations.length = 0;
 
       ctx.queriesHashMap.clear();
+      ctx.inlineQueries = { next: null, params: null, query: null };
+      ctx.inlineTargets.length = 0;
       ctx.queryInstances.length = 0;
       ctx.tombstones.head = 0;
       ctx.tombstones.ids.length = 0;

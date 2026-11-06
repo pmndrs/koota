@@ -5,13 +5,8 @@ import { registerTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
-import {
-  EntityView,
-  getQueryBinding,
-  matchesQueryBinding,
-  sameParams,
-  type EntitySource,
-} from './entity-view';
+import { sameParams } from '../query/utils/same-params';
+import { EntityView, getQueryBinding, matchesQueryBinding, type EntitySource } from './entity-view';
 import type { EntityComparator, OrderedView } from './types';
 
 /** Owns order independently of trait storage. Active walks retain their original sequence. */

@@ -540,6 +540,40 @@ describe('Query', () => {
     expect(world.query(movementQuery).length).toBe(countBefore);
   });
 
+  it('passes traits in the order each inline query lists them', () => {
+    world.spawn(Position({ x: 1, y: 2 }), Name({ name: 'first' }));
+
+    // The second pass resolves both orders from parameters seen before.
+    for (let pass = 0; pass < 2; pass++) {
+      world.query(Position, Name, Not(Foo)).each((position, name) => {
+        expect(position).toMatchObject({ x: 1, y: 2 });
+        expect(name).toMatchObject({ name: 'first' });
+      });
+      world.query(Name, Position, Not(Foo)).each((name, position) => {
+        expect(name).toMatchObject({ name: 'first' });
+        expect(position).toMatchObject({ x: 1, y: 2 });
+      });
+    }
+  });
+
+  it('resolves a repeated inline query that names a target entity', () => {
+    const parent = world.spawn();
+    const other = world.spawn();
+    const child = world.spawn(Position, ChildOf(parent));
+    const otherChild = world.spawn(Position, ChildOf(other));
+
+    // Each call builds a new pair, and the later ones find the query of the first.
+    const result = world.query(Position, ChildOf(parent));
+    expect(world.query(Position, ChildOf(parent))).toBe(result);
+    expect(result.toArray()).toEqual([child]);
+    expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild]);
+
+    // A destroyed parent takes its query with it, and the other parent keeps its own.
+    parent.destroy();
+    const late = world.spawn(Position, ChildOf(other));
+    expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild, late]);
+  });
+
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
     const result = world.query(Position);

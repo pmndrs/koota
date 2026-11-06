@@ -23,6 +23,16 @@ import type {
   TraitValue,
 } from '../trait/types';
 
+/**
+ * A step in the tree of resolved inline parameter lists. The list ending here holds its query. A
+ * pair naming a target entity takes two steps, its relation and then its target.
+ */
+export type InlineQueryNode = {
+  next: Map<QueryParameter | Relation<Trait> | Entity, InlineQueryNode> | null;
+  params: QueryParameter[] | null;
+  query: QueryInstance | null;
+};
+
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   /**
@@ -36,6 +46,10 @@ export type WorldContext = {
   traits: Set<Trait>;
   relations: Relation<Trait>[];
   queriesHashMap: Map<string, QueryInstance>;
+  /** Inline parameter lists already resolved, as a tree with one level per parameter. */
+  inlineQueries: InlineQueryNode;
+  /** The relation steps of the tree, which let go of a target when it is destroyed. */
+  inlineTargets: InlineQueryNode[];
   queryInstances: (QueryInstance | undefined)[];
   iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];
