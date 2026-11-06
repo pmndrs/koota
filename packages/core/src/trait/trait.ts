@@ -517,7 +517,7 @@ export /* @inline */ function setTrait(
   value: any,
   triggerChanged: boolean
 ) {
-  if (assertsEnabled) {
+  /* @cold */ if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
