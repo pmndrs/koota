@@ -94,7 +94,7 @@ export /* @inline */ function getIdentifierTarget<K extends IdentifierKey>(
 
 /** Validate ownership before committing both directions, then notify the core. */
 export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: IdentifierPair) {
-  if (isEntityDestroying(entity)) return;
+  if (isEntityDestroying(ctx, entity)) return;
   const trait = pair.identifier[$internal].trait;
   let data = getTraitInstance(ctx.traitInstances, trait);
   if (!data) {

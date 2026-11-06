@@ -4,13 +4,13 @@ import {
   createAdded,
   createChanged,
   createQuery,
-  createWorld,
   Not,
   Or,
   relation,
   required,
   trait,
 } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('Relation', () => {
   // Disable destroyed-entity retention so ids can be reused on the next spawn.

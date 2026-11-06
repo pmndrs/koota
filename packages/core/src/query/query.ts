@@ -10,7 +10,7 @@ import {
   lookupAllIdentifiers,
 } from '../identifier/identifier';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
-import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
+import { EMPTY_MASK_PAGE, createPageTable, getPageLimit } from '../entity/utils/paged-mask';
 import { getEntitiesWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -379,6 +379,7 @@ function processTrackingModifier(
 
       const genId = instance.generationId;
       group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
+      group.trackers[genId] ??= createPageTable(getPageLimit(ctx));
 
       if (trackingType === 'change') {
         query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
@@ -408,6 +409,7 @@ function processTrackingModifier(
         getTraitInstance(ctx.traitInstances, filter.relation[$internal].trait)!
       );
       group.bitmasks[0] = (group.bitmasks[0] || 0) | (1 << tracked.length);
+      group.trackers[0] ??= createPageTable(getPageLimit(ctx));
       tracked.push(filter);
     }
   }
@@ -551,7 +553,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
-  forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
+  forbidden.push(ensureTraitInstance(ctx, IsExcluded));
 
   const hasNegatedOr = query.filters !== null && query.filters.not.length !== 0;
   if (

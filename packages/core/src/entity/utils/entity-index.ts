@@ -10,6 +10,7 @@ import {
 } from './pack-entity';
 import type { PageAllocator } from './page-allocator';
 import { leasePage, releasePage } from './page-allocator';
+import { getPageLimit, growPageTables } from './paged-mask';
 
 export type EntityIndex = {
   /** The number of currently alive entities. */
@@ -31,7 +32,7 @@ export type EntityIndex = {
   pageCursors: number[];
   /** Index into ownedPages of the page we're currently filling. */
   currentPageIdx: number;
-  /** Reference to the global page allocator. */
+  /** The world's own allocator, or the one worlds with entity methods share. */
   allocator: PageAllocator;
   /** The owning WorldContext (for page leasing). */
   owner: WorldContext;
@@ -80,14 +81,20 @@ export const allocateEntity = (index: EntityIndex): Entity => {
   return index.dense[index.aliveCount++];
 };
 
+/** Runs once per page of ids, so it stays out of the spawn path. */
+function leaseNextPage(index: EntityIndex) {
+  const pid = leasePage(index.allocator, index.owner);
+  if (pid >= getPageLimit(index.owner)) growPageTables(index.owner, pid + 1);
+  index.ownedPages.push(pid);
+  index.pageCursors.push(0);
+  index.currentPageIdx = index.ownedPages.length - 1;
+}
+
 /** The next id on the current page, leasing a page when it is full. */
 function takeFreshId(index: EntityIndex): Entity {
   const allocator = index.allocator;
   if (index.currentPageIdx === -1 || index.pageCursors[index.currentPageIdx] >= PAGE_SIZE) {
-    const pid = leasePage(allocator, index.owner);
-    index.ownedPages.push(pid);
-    index.pageCursors.push(0);
-    index.currentPageIdx = index.ownedPages.length - 1;
+    leaseNextPage(index);
   }
   const pid = index.ownedPages[index.currentPageIdx];
   const offset = index.pageCursors[index.currentPageIdx]++;
@@ -157,10 +164,13 @@ export const getAliveEntities = (index: EntityIndex): Entity[] => {
   return index.dense.slice(0, index.aliveCount);
 };
 
-/** Release all pages owned by this entity index back to the allocator. */
+/**
+ * Release all pages owned by this entity index back to the allocator, last page first, so a
+ * world that owns its allocator leases them again from the first page up.
+ */
 export function releaseOwnedPages(index: EntityIndex): void {
-  for (const pageId of index.ownedPages) {
-    releasePage(index.allocator, pageId);
+  for (let i = index.ownedPages.length - 1; i >= 0; i--) {
+    releasePage(index.allocator, index.ownedPages[i]);
   }
   index.ownedPages.length = 0;
   index.pageCursors.length = 0;

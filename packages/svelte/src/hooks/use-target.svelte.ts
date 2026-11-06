@@ -5,31 +5,36 @@ import {
   type Trait,
   type World,
 } from '@koota/core';
-import { getTargetEntity } from '../utils/get-target-entity.js';
+import { createTargetResolver } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useTarget<T extends Trait>(
   target: () => Entity | World | undefined | null,
   relation: MaybeGetter<Relation<T>>
 ): { readonly current: Entity | undefined } {
-  const initialEntity = getTargetEntity(target());
-  let value = $state.raw<Entity | undefined>(initialEntity?.targetFor(resolve(relation)));
+  const resolveTarget = createTargetResolver();
+  const initial = resolveTarget(target());
+  let value = $state.raw<Entity | undefined>(
+    initial === undefined ? undefined : initial.world.targetFor(initial.entity, resolve(relation))
+  );
 
   $effect(() => {
-    const entity = getTargetEntity(target());
+    const resolved = resolveTarget(target());
 
-    if (entity === undefined) {
+    if (resolved === undefined) {
       value = undefined;
       return;
     }
 
+    const { world, entity } = resolved;
+
     const resolvedRelation = resolve(relation);
     const update = () => {
-      value = entity.isAlive() ? entity.targetFor(resolvedRelation) : undefined;
+      value = world.isAlive(entity) ? world.targetFor(entity, resolvedRelation) : undefined;
     };
-    const observer = entity[internal].observeSettled(update);
-    const onChange = entity.onChange(resolvedRelation, observer.invalidate);
-    const onRemove = entity.onRemove(resolvedRelation, observer.invalidate);
+    const observer = world[internal].observeSettled(update);
+    const onChange = world.onChange(entity, resolvedRelation, observer.invalidate);
+    const onRemove = world.onRemove(entity, resolvedRelation, observer.invalidate);
     update();
     return () => {
       observer.unsubscribe();

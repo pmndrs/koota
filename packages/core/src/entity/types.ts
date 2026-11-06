@@ -1,5 +1,3 @@
-import type { $internal } from '../common';
-import type { WorldContext } from '../world';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
@@ -37,9 +35,20 @@ type EntityHook = {
   ): () => void;
 };
 
+/**
+ * Methods every entity gains once the program imports the entity methods entry. Empty otherwise,
+ * so an entity is a bare id and its world does the work.
+ */
+// oxlint-disable-next-line typescript/no-empty-object-type
+export interface EntityExtensions {}
+
+declare const $entityBrand: unique symbol;
+
+/** A packed numeric identity that only means something to the world that spawned it. */
+export type Entity = number & { readonly [$entityBrand]: true } & EntityExtensions;
+
 /** Trait and relation reads require liveness. Read retained values through Removed query iteration. */
-export type Entity = number & {
-  readonly [$internal]: WorldContext;
+export type EntityMethods = {
   add: (...traits: ConfigurableTrait[]) => void;
   /** Set the value if the entity has the trait or pair, or add it with the value if it does not. */
   upsert: <T extends Trait | RelationPair>(trait: T, value: TraitInit<ExtractSchema<T>>) => void;

@@ -57,18 +57,20 @@ const pageTemplates = new Map<unknown, unknown[]>();
  * because a literal site shares its elements kind with every array made there.
  */
 export function createPage(field: unknown): unknown[] {
-  let template = pageTemplates.get(field);
+  // Factory defaults all start undefined and share one template. Keying by the factory would
+  // keep whatever it closes over alive, such as a world.
+  const key = typeof field === 'function' ? undefined : field;
+  let template = pageTemplates.get(key);
   if (template === undefined) {
     template = Array.of<unknown>();
-    if (Array.isArray(field)) {
+    if (Array.isArray(key)) {
       for (let i = 0; i < PAGE_SIZE; i++) {
-        for (let c = 0; c < field.length; c++) template.push(field[c]);
+        for (let c = 0; c < key.length; c++) template.push(key[c]);
       }
     } else {
-      const value = typeof field === 'function' ? undefined : field;
-      for (let i = 0; i < PAGE_SIZE; i++) template.push(value);
+      for (let i = 0; i < PAGE_SIZE; i++) template.push(key);
     }
-    pageTemplates.set(field, template);
+    pageTemplates.set(key, template);
   }
   return template.slice();
 }

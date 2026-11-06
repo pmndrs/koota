@@ -18,7 +18,7 @@ describe('World', () => {
     });
 
     expect(worldTest).toBe(world);
-    worldTest!.spawn();
-    expect(worldTest!.isRegistered).toBe(true);
+    const entity = worldTest!.spawn();
+    expect(worldTest!.isAlive(entity)).toBe(true);
   });
 });

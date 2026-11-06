@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createChanged, createWorld, trait, type Entity } from 'koota';
+import { createChanged, trait, type Entity } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ vx: 0, vy: 0, vz: 0 });
