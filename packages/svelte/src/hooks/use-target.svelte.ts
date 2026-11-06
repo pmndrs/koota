@@ -18,21 +18,21 @@ export function useTarget<T extends Trait>(
     }
 
     const resolvedRelation = resolve(relation);
-    let targets: Entity[];
+    let active = true;
+    let pending = false;
 
     const update = () => {
-      targets = entity.targetsFor(resolvedRelation);
-      value = targets[0];
+      if (active) value = entity.isAlive() ? entity.targetFor(resolvedRelation) : undefined;
     };
 
-    const onRemoveUnsub = entity.onRemove(resolvedRelation, (_, removedTarget) => {
-      // onRemove fires before core removes the target, so mirror its swap-and-pop.
-      const index = targets.indexOf(removedTarget);
-      if (index === -1) return;
-
-      const lastTarget = targets.pop()!;
-      if (index < targets.length) targets[index] = lastTarget;
-      value = targets[0];
+    const onRemoveUnsub = entity.onRemove(resolvedRelation, () => {
+      // Relation cleanup follows onRemove, including mutations made by other subscribers.
+      if (pending) return;
+      pending = true;
+      queueMicrotask(() => {
+        pending = false;
+        update();
+      });
     });
 
     const onChangeUnsub = entity.onChange(resolvedRelation, update);
@@ -40,6 +40,7 @@ export function useTarget<T extends Trait>(
     update();
 
     return () => {
+      active = false;
       onRemoveUnsub();
       onChangeUnsub();
     };

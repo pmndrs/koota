@@ -24,12 +24,29 @@ function attachTarget(
   push: (value: IdentifierKey | undefined) => void
 ) {
   const trait = relation[$internal].trait;
-  const update = () => push(entity.isAlive() ? readTarget(entity, relation) : undefined);
+  let active = true;
+  let pending = false;
+  const update = () => {
+    if (active) push(entity.isAlive() ? readTarget(entity, relation) : undefined);
+  };
   const onChange = entity.onChange(trait, update);
-  // Identifier removal observes the committed mapping, including a replacement key.
-  const onRemove = entity.onRemove(trait, $identifier in relation ? update : () => push(undefined));
+  const onRemove = entity.onRemove(trait, () => {
+    // Identifier removal already observes the committed mapping.
+    if ($identifier in relation) {
+      update();
+      return;
+    }
+    // Relation cleanup follows onRemove, including mutations made by other subscribers.
+    if (pending) return;
+    pending = true;
+    queueMicrotask(() => {
+      pending = false;
+      update();
+    });
+  });
 
   return () => {
+    active = false;
     onChange();
     onRemove();
   };
