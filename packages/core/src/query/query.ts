@@ -462,6 +462,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     dirty: false,
     notIndex: -1,
     dropped: false,
+    inlineNodes: null,
     anchored: false,
     listSlots: [],
     cleanup: null,
@@ -865,6 +866,22 @@ function relationSlot(query: QueryInstance, instance: TraitInstance): number {
 export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   if (query.dropped) return;
   query.dropped = true;
+  if (query.inlineNodes !== null) {
+    for (let node of query.inlineNodes) {
+      node.query = null;
+      node.params = null;
+      // Preserve shared prefixes until their last query is dropped.
+      while (
+        node.parent !== null &&
+        node.query === null &&
+        (node.next === null || node.next.size === 0)
+      ) {
+        node.parent.next!.delete(node.key!);
+        node = node.parent;
+      }
+    }
+    query.inlineNodes = null;
+  }
   if (query.cleanup !== null) {
     for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
     query.cleanup = null;

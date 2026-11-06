@@ -114,39 +114,42 @@ export function resolveInlineQuery(ctx: WorldContext, params: QueryParameter[]) 
 }
 
 /**
- * Lists a query under parameters that are the same objects on every call, plus at most one pair
- * naming a target entity. Only a query naming a target is ever dropped, which happens when the
- * target is destroyed, and the tree lets go of the target then. So a listed query stays valid.
+ * Lists a query under stable parameters and concrete relation targets. Queries that name a
+ * target keep their tree entries so dropping the query can prune every path that reaches it.
  */
 function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query: QueryInstance) {
-  let target = -1;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
     if (isStableParameter(param)) continue;
-    if (target !== -1 || !isRelationPair(param) || typeof param.target !== 'number') return;
-    target = i;
+    if (!isRelationPair(param) || typeof param.target !== 'number') return;
   }
   let node = ctx.inlineQueries;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
-    if (i !== target) {
+    if (isStableParameter(param)) {
       node = inlineStep(node, param);
       continue;
     }
     const pair = param as RelationPair;
     const relationStep = inlineStep(node, pair.relation as Relation<Trait>);
-    if (relationStep.next === null) ctx.inlineTargets.push(relationStep);
     node = inlineStep(relationStep, pair.target as Entity);
   }
   node.params = params;
   node.query = query;
+  if (node.parent !== null) (query.inlineNodes ??= []).push(node);
 }
 
 function inlineStep(node: InlineQueryNode, key: QueryParameter | Relation<Trait> | Entity) {
   const next = (node.next ??= new Map());
   let child = next.get(key);
   if (child === undefined) {
-    child = { next: null, params: null, query: null };
+    child = {
+      next: null,
+      params: null,
+      query: null,
+      parent: node.parent !== null || typeof key === 'number' ? node : null,
+      key,
+    };
     next.set(key, child);
   }
   return child;
@@ -177,8 +180,7 @@ export function createWorld(options?: WorldOptions): World {
       traits: new Set<Trait>(),
       relations: [],
       queriesHashMap: new Map(),
-      inlineQueries: { next: null, params: null, query: null },
-      inlineTargets: [],
+      inlineQueries: { next: null, params: null, query: null, parent: null, key: null },
       queryInstances: [],
       iterationBuffers: undefined,
       actionInstances: [],
@@ -291,6 +293,7 @@ export function createWorld(options?: WorldOptions): World {
         ctx.defersChanges = false;
 
         for (const query of ctx.queriesHashMap.values()) {
+          query.inlineNodes = null;
           if (query.cleanup === null) continue;
           for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
         }
@@ -300,8 +303,7 @@ export function createWorld(options?: WorldOptions): World {
         ctx.relations.length = 0;
 
         ctx.queriesHashMap.clear();
-        ctx.inlineQueries = { next: null, params: null, query: null };
-        ctx.inlineTargets.length = 0;
+        ctx.inlineQueries = { next: null, params: null, query: null, parent: null, key: null };
         ctx.queryInstances.length = 0;
         ctx.tombstones.head = 0;
         ctx.tombstones.ids.length = 0;

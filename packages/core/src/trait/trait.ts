@@ -22,6 +22,7 @@ import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
+  assertRequiredParams,
   detachRelationTargets,
   reconcileRelationQueries,
   getFirstRelationTarget,
@@ -45,6 +46,7 @@ import {
   createRecordFunction,
   createSetFunction,
   createStore,
+  isRequired,
   Norm,
   Schema,
   StoreType,
@@ -62,9 +64,10 @@ import type {
   TagTrait,
   Trait,
   TraitAccessors,
+  RequiresInit,
   TraitContext,
+  TraitInit,
   TraitInstance,
-  TraitValue,
 } from './types';
 
 const tagSchema = Object.freeze({});
@@ -111,6 +114,7 @@ export function createTraitContext<S extends Schema>(
     relation: null,
     isIdentifier: false,
     type,
+    required: (isRequired(schema) || Object.values(schema).some(isRequired)) as RequiresInit<S>,
     cursor:
       type === 'soa' &&
       accessors === undefined &&
@@ -149,9 +153,9 @@ function createTrait<S extends TraitSchema>(schema: S): Trait<Norm<S>>;
 function createTrait<S extends TraitSchema>(schema: S = tagSchema as S): Trait<Norm<S>> {
   const context = createTraitContext(schema);
   const Trait = Object.assign(
-    (params: TraitValue<Norm<S>>): [Trait<Norm<S>>, TraitValue<Norm<S>>] => [Trait, params],
+    (params: TraitInit<Norm<S>>): [Trait<Norm<S>>, TraitInit<Norm<S>>] => [Trait, params],
     { [$internal]: context }
-  ) as Trait<Norm<S>>;
+  ) as unknown as Trait<Norm<S>>;
 
   defineTraitProperties(Trait, context, schema);
 
@@ -277,6 +281,10 @@ export function addPair(ctx: WorldContext, entity: Entity, pair: RelationPair | 
   const relationTrait = relationCtx.trait;
 
   if (hasRelationToTarget(ctx, relation, entity, target)) return;
+
+  if (assertsEnabled) {
+    if (relationTrait[$internal].required) assertRequiredParams(relationTrait.schema, params);
+  }
 
   if (relationCtx.exclusive) {
     const oldTarget = getFirstRelationTarget(ctx, relation, entity);
@@ -537,7 +545,7 @@ export /* @inline */ function setTrait(
   value: any,
   triggerChanged: boolean
 ) {
-  if (assertsEnabled) {
+  /* @cold */ if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 

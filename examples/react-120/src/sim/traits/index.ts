@@ -1,4 +1,4 @@
-import { trait } from 'koota';
+import { required, trait } from 'koota';
 
 export const Time = trait({ delta: 0, current: 0 });
 export const Timer = trait({ duration: 0, remaining: 0, completed: false });
@@ -25,7 +25,7 @@ export const IsIdle = trait();
 export const WobblesOnIdle = trait({ cooldown: 4, strength: 0.25 });
 export const WobblesOnHover = trait({ strength: 0.5 });
 
-export const Ref = trait(() => null! as HTMLDivElement);
+export const Ref = trait(required<HTMLDivElement>());
 
 // Input
 export const Dragging = trait({ offset: () => ({ x: 0, y: 0 }) });

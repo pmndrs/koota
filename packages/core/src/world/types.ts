@@ -32,6 +32,9 @@ export type InlineQueryNode = {
   next: Map<QueryParameter | Relation<Trait> | Entity, InlineQueryNode> | null;
   params: QueryParameter[] | null;
   query: QueryInstance | null;
+  /** Pruning stops at the stable prefix before the first concrete target. */
+  parent: InlineQueryNode | null;
+  key: QueryParameter | Relation<Trait> | Entity | null;
 };
 
 export type WorldContext = {
@@ -49,8 +52,6 @@ export type WorldContext = {
   queriesHashMap: Map<string, QueryInstance>;
   /** Inline parameter lists already resolved, as a tree with one level per parameter. */
   inlineQueries: InlineQueryNode;
-  /** The relation steps of the tree, which let go of a target when it is destroyed. */
-  inlineTargets: InlineQueryNode[];
   queryInstances: (QueryInstance | undefined)[];
   iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];

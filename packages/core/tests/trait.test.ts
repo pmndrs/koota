@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createChanged, createWorld, type Entity, getStore, relation, trait } from '../src';
+import { createChanged, createWorld, type Entity, getStore, relation, required, trait } from '../src';
 
 class TestClass {
   public name: string;
@@ -251,6 +251,25 @@ describe('Trait', () => {
     expect(entity.get(MeshRef)).toBe(mesh);
     const value: Mesh | null = entity.get(MeshRef)!;
     expect(value).toBe(mesh);
+  });
+
+  it('requires a value for required fields', () => {
+    class Mesh {}
+    const MeshRef = trait(required<Mesh>());
+    const View = trait({ object: required<Mesh>(), visible: true });
+    const mesh = new Mesh();
+
+    const entity = world.spawn(MeshRef(mesh), View({ object: mesh }));
+    const ref: Mesh = entity.get(MeshRef)!;
+    expect(ref).toBe(mesh);
+    expect(entity.get(View)).toEqual({ object: mesh, visible: true });
+
+    const other = world.spawn();
+    // @ts-expect-error a required trait cannot be added bare
+    expect(() => other.add(MeshRef)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error the required field is missing
+    expect(() => other.add(View({ visible: false }))).toThrow('REQUIRED_VALUE');
+    expect(other.has(MeshRef) || other.has(View)).toBe(false);
   });
 
   it('can create atomic traits', () => {
