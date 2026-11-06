@@ -1,4 +1,4 @@
-import { trait } from 'koota';
+import { required, trait } from 'koota';
 import type * as THREE from 'three';
 
-export const InstancedMesh = trait(() => null! as THREE.InstancedMesh);
+export const InstancedMesh = trait(required<THREE.InstancedMesh>());

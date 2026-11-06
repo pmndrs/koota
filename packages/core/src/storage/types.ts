@@ -39,6 +39,12 @@ type SoASchema = {
 export type TraitSchema = SoASchema | (() => object | null) | Record<string, never>;
 
 /**
+ * A field or whole trait value that has no default and must be given on add.
+ * It is typed as a factory so records and stores read its value type like any other factory.
+ */
+export type RequiredField<T = unknown> = (() => T) & { readonly required: true };
+
+/**
  * A fixed-length list of primitives, such as a vector, quaternion, matrix or Euler.
  * Its length is the stride of the column that stores it.
  */
@@ -73,28 +79,30 @@ export type AoSFactory = () => unknown;
 export type Norm<T extends Schema> =
   T extends Record<string, never>
     ? T
-    : T extends AoSFactory
-      ? () => ReturnType<T> extends number
-          ? number
-          : ReturnType<T> extends boolean
-            ? boolean
-            : ReturnType<T> extends string
-              ? string
-              : ReturnType<T>
-      : {
-            [K in keyof T]: T[K] extends object
-              ? T[K] extends ((...args: never[]) => unknown) | Tuple
-                ? T[K]
-                : never
-              : T[K] extends boolean
-                ? boolean
-                : T[K];
-          }[keyof T] extends never
-        ? never
-        : {
-            [K in keyof T]: T[K] extends boolean
+    : T extends RequiredField
+      ? T
+      : T extends AoSFactory
+        ? () => ReturnType<T> extends number
+            ? number
+            : ReturnType<T> extends boolean
               ? boolean
-              : T[K] extends Tuple
-                ? WidenTuple<T[K]>
-                : T[K];
-          };
+              : ReturnType<T> extends string
+                ? string
+                : ReturnType<T>
+        : {
+              [K in keyof T]: T[K] extends object
+                ? T[K] extends ((...args: never[]) => unknown) | Tuple
+                  ? T[K]
+                  : never
+                : T[K] extends boolean
+                  ? boolean
+                  : T[K];
+            }[keyof T] extends never
+          ? never
+          : {
+              [K in keyof T]: T[K] extends boolean
+                ? boolean
+                : T[K] extends Tuple
+                  ? WidenTuple<T[K]>
+                  : T[K];
+            };

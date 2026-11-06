@@ -39,6 +39,10 @@ const ChildOf = relation()
 // Relation with data
 const Contains = relation({ store: { amount: 0 } })
 
+// Store field with no default, the pair must carry it on add
+const Holds = relation({ store: { item: required<Item>(), count: 1 } })
+holder.add(Holds(target, { item }))
+
 // Auto cleanup when target destroyed
 const ChildOf = relation({ autoDestroy: 'orphan' })
 

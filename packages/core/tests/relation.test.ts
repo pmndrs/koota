@@ -8,6 +8,7 @@ import {
   Not,
   Or,
   relation,
+  required,
   trait,
 } from '../src';
 
@@ -149,6 +150,25 @@ describe('Relation', () => {
     expect(Contains(gold)).not.toBe(Contains(silver));
     expect(inventory.get(Contains(gold))!.amount).toBe(5);
     expect(inventory.get(Contains(silver))!.amount).toBe(12);
+
+    // @ts-expect-error pair values are typed by the store
+    Contains(gold, { count: 5 });
+  });
+
+  it('requires a value for required store fields', () => {
+    class Item {}
+    const Holds = relation({ store: { item: required<Item>(), count: 1 } });
+    const item = new Item();
+    const target = world.spawn();
+
+    // Only add needs the values. Reads name the pair without them.
+    const holder = world.spawn(Holds(target, { item }));
+    expect(holder.get(Holds(target))).toEqual({ item, count: 1 });
+
+    const other = world.spawn();
+    // @ts-expect-error the pair carries no values
+    expect(() => other.add(Holds(target))).toThrow('REQUIRED_VALUE');
+    expect(other.has(Holds(target))).toBe(false);
   });
 
   it('has no record for relations without a store', () => {

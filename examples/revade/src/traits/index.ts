@@ -1,9 +1,9 @@
-import { Entity, relation, trait } from 'koota';
+import { Entity, relation, required, trait } from 'koota';
 import { Euler, Quaternion, Vector2, Vector3, type Object3D } from 'three';
 import { SpatialHashMap as SpatialHashMapImpl } from '../utils/spatial-hash';
 
 export const Time = trait({ last: 0, delta: 0 });
-export const Ref = trait(() => null! as Object3D);
+export const Ref = trait(required<Object3D>());
 export const Keyboard = trait(() => new Set<string>());
 export const EnemySpawner = trait({
   interval: 1,

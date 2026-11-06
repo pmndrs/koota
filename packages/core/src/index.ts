@@ -50,6 +50,7 @@ export type {
   RelationTarget,
 } from './relation/types';
 export { getStore, trait } from './trait/trait';
+export { required } from './storage/schema';
 export type {
   ConfigurableTrait,
   ExtractIsTag,
@@ -60,11 +61,12 @@ export type {
   TagTrait,
   Trait,
   TraitOut,
+  TraitInit,
   TraitRecord,
   TraitTuple,
   TraitValue,
 } from './trait/types';
-export type { AoSFactory, Norm, Schema, Store, StoreType } from './storage/types';
+export type { AoSFactory, Norm, RequiredField, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';

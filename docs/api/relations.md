@@ -55,6 +55,18 @@ inventory.set(Contains(gold), { amount: 20 })
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
+The values passed with a pair are typed by the store. A store field can be [required](trait.md#required-fields), and the pair must then carry it when it is added. Reads and queries still name the pair without values.
+
+```ts
+const Holds = relation({ store: { item: required<Item>(), count: 1 } })
+
+holder.add(Holds(target, { item })) // count defaults to 1
+holder.has(Holds(target)) // true
+
+// ❌ Type error
+holder.add(Holds(target))
+```
+
 A relation without a store has no record, so `get` returns `undefined` for its pairs. Check for a pair with `has`.
 
 ## Auto destroy

@@ -63,6 +63,35 @@ Both schema-based and callback-based traits are used similarly, but they have di
 
 [Learn more about AoS and SoA here](https://en.wikipedia.org/wiki/AoS_and_SoA).
 
+## Required fields
+
+Some values have no sensible default, such as a DOM element or a Three object that only exists once the view mounts. Declare these with `required` and give the value when the trait is added. The type argument is the type of the value, and reads return it without `null`.
+
+```ts
+import { required, trait } from 'koota'
+
+// A whole trait value
+const Ref = trait(required<HTMLDivElement>())
+
+// A single field next to fields with defaults
+const View = trait({ object: required<THREE.Object3D>(), visible: true })
+
+entity.add(Ref(div))
+entity.add(View({ object: mesh }))
+
+const view = entity.get(View) // { object: THREE.Object3D, visible: boolean }
+```
+
+Adding the trait without its required values is a type error. With [assertions](asserts.md) enabled it also throws, and without them the value is left `undefined`.
+
+```ts
+// ❌ Both are type errors
+entity.add(Ref)
+entity.add(View({ visible: false }))
+```
+
+A required field has no default, so `Trait.record()` leaves it `undefined` until `get` fills the record.
+
 ## Tuples
 
 A tuple is a fixed-size field such as a vector, quaternion, matrix or Euler. Its default sets its length, and the field is stored by value like any other primitive. This works directly with math libraries built on plain arrays, like [pmndrs/math](https://github.com/pmndrs/math).

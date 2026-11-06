@@ -16,7 +16,7 @@ import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isStableParameter } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
-import { TraitSchema } from '../storage';
+import { isRequired, type Schema, type TraitSchema } from '../storage';
 import { trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -678,6 +678,27 @@ function writeRelationField(
 }
 
 /**
+ * Asserts that params carry every value the store requires by calling the marker of a missing
+ * one. Runs before the pair is granted, so a failed add leaves the entity without the pair.
+ */
+export function assertRequiredParams(
+  schema: Schema,
+  params: Record<string, unknown> | undefined
+): void {
+  // A required store is the marker itself.
+  if (typeof schema === 'function') {
+    if (params === undefined) schema();
+    return;
+  }
+  const fields = schema as Record<string, unknown>;
+  for (const key in fields) {
+    if (isRequired(fields[key]) && (params === undefined || !(key in params))) {
+      (fields[key] as () => void)();
+    }
+  }
+}
+
+/**
  * Fills a new pair's record from the schema defaults and the given params. SoA fields are
  * resolved one at a time so no defaults object is built. Tag relations store nothing.
  */
@@ -689,18 +710,18 @@ export function initRelationData(
   targetIndex: number,
   params: Record<string, unknown> | undefined
 ): void {
-  const type = traitData.trait[$internal].type;
+  const traitCtx = traitData.trait[$internal];
+  const type = traitCtx.type;
   if (type === 'tag') return;
   if (type === 'aos') {
     // An AoS record is fresh per pair, so the params are laid over the factory result.
-    const record = (traitData.schema as () => Record<string, unknown>)();
-    setRelationDataAtIndex(
-      ctx,
-      entity,
-      relation,
-      targetIndex,
-      params === undefined ? record : Object.assign(record, params)
-    );
+    // A required store has no factory result, so the params are the record.
+    let record = params;
+    if (!traitCtx.required) {
+      record = (traitData.schema as () => Record<string, unknown>)();
+      if (params !== undefined) Object.assign(record, params);
+    }
+    setRelationDataAtIndex(ctx, entity, relation, targetIndex, record!);
     return;
   }
 
