@@ -17,6 +17,7 @@ import type {
   ExtractSchema,
   SetTraitCallback,
   Trait,
+  TraitInit,
   TraitInstance,
   TraitOut,
   TraitRecord,
@@ -109,6 +110,8 @@ export type World = {
   has(trait: Trait | Identifier | IdentifierPair): boolean;
   has(target: Entity | Trait | Identifier | IdentifierPair): boolean;
   add(...traits: ConfigurableTrait[]): void;
+  /** Set the value if the world has the trait, or add the trait with the value if it does not. */
+  upsert<T extends Trait>(trait: T, value: TraitInit<ExtractSchema<T>>): void;
   remove(...traits: (Trait | Identifier | IdentifierPair)[]): void;
   get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
   get<T extends Trait, O extends TraitOut<T>>(trait: T, out: O): O | undefined;
