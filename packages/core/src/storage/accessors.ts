@@ -143,6 +143,24 @@ function createSoAGetIntoFunction(schema: Schema): GetIntoAccessor {
   ) as GetIntoAccessor;
 }
 
+/**
+ * Compiles a builder for a record of the schema defaults, the value add stores when given none.
+ * Keys follow the get literal so records and snapshots share a hidden class, and every tuple gets
+ * its own array.
+ */
+function createSoARecordFunction(schema: Schema): () => any {
+  const fields = Object.keys(schema).map((key) => {
+    const field = (schema as Record<string, unknown>)[key];
+    const stride = getStride(schema, key);
+    if (stride === 0) {
+      return `${key}: ${typeof field === 'function' ? `schema.${key}()` : `schema.${key}`}`;
+    }
+    return `${key}: [${Array.from({ length: stride }, (_, c) => `schema.${key}[${c}]`).join(', ')}]`;
+  });
+
+  return new Function('schema', `return function () { return { ${fields.join(', ')} }; };`)(schema);
+}
+
 function createAoSSetFunction(_schema: Schema): SetAccessor {
   return (_ctx, index, store, value) => {
     const page = store[index >>> 10],
@@ -190,4 +208,11 @@ export const createGetIntoFunction: Record<StoreType, (schema: Schema) => GetInt
   soa: createSoAGetIntoFunction,
   aos: createAoSGetFunction,
   tag: () => noop,
+};
+
+// An AoS factory already builds its default record.
+export const createRecordFunction: Record<StoreType, (schema: Schema) => () => any> = {
+  soa: createSoARecordFunction,
+  aos: (schema) => schema as () => unknown,
+  tag: createSoARecordFunction,
 };

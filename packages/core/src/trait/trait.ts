@@ -41,6 +41,7 @@ import {
   createAddFunction,
   createGetFunction,
   createGetIntoFunction,
+  createRecordFunction,
   createSetFunction,
   createStore,
   Norm,
@@ -116,10 +117,10 @@ export function createTraitContext<S extends Schema>(
   };
 }
 
-/** Define the public id and schema as read-only properties on a trait object. */
-export function defineTraitProperties(target: object, id: number, schema: Schema) {
+/** Define the public id, schema and record builder as read-only properties on a trait object. */
+export function defineTraitProperties(target: object, context: TraitContext, schema: Schema) {
   Object.defineProperty(target, 'id', {
-    value: id,
+    value: context.id,
     writable: false,
     enumerable: true,
     configurable: false,
@@ -129,6 +130,15 @@ export function defineTraitProperties(target: object, id: number, schema: Schema
     value: schema,
     writable: false,
     enumerable: true,
+    configurable: false,
+  });
+
+  // Most traits never build a record, so the builder compiles on first use.
+  let create: (() => unknown) | undefined;
+  Object.defineProperty(target, 'record', {
+    value: () => (create ??= createRecordFunction[context.type](schema))(),
+    writable: false,
+    enumerable: false,
     configurable: false,
   });
 }
@@ -142,7 +152,7 @@ function createTrait<S extends TraitSchema>(schema: S = tagSchema as S): Trait<N
     { [$internal]: context }
   ) as Trait<Norm<S>>;
 
-  defineTraitProperties(Trait, context.id, schema);
+  defineTraitProperties(Trait, context, schema);
 
   return Trait;
 }

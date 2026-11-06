@@ -164,16 +164,19 @@ const velocity = entity.get(Velocity)
 const velocity2 = entity.get(Velocity)
 ```
 
-To read a SoA trait without allocating, pass a record you own. Koota fills it in place and returns it. AoS traits return their stored value, so they take no record.
-
-Note: A record from an earlier `get` works too!
+To read a SoA trait without allocating, pass a record you own. Koota fills it in place and returns it. `Trait.record()` creates one from the schema defaults with its own copy of every tuple, so make it once and reuse it. Relations have `record()` too, shaped by their store. AoS traits return their stored value, so they take no record.
 
 ```js
-const transform = entity.get(Transform) // allocates once
-entity.get(Transform, transform) // refills it in place
-vec3.add(transform.position, transform.position, offset)
-entity.set(Transform, transform) // copies back without allocating
+const transform = Transform.record() // allocates once
+
+for (const entity of world.query(Transform)) {
+  entity.get(Transform, transform) // refills it in place
+  vec3.add(transform.position, transform.position, offset)
+  entity.set(Transform, transform) // copies back without allocating
+}
 ```
+
+Note: A record from an earlier `get` works too!
 
 Use `TraitRecord` to type this state.
 

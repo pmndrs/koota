@@ -176,7 +176,7 @@ const entity = world.spawn(Position, Velocity)
 
 // Read/write traits
 entity.get(Position) // Read trait data
-entity.get(Position, out) // Read into a record you own, without allocating
+entity.get(Position, out) // Read into a record you own, such as Position.record(), without allocating
 entity.set(Position, { x: 10 }) // Write
 entity.add(IsPlayer) // Add trait
 entity.remove(Velocity) // Remove trait

@@ -4,6 +4,7 @@ export {
   createSetFunction,
   createGetFunction,
   createGetIntoFunction,
+  createRecordFunction,
 } from './accessors';
 export type {
   AddAccessor,
@@ -13,6 +14,6 @@ export type {
   RemoveAccessor,
 } from './accessors';
 
-export { validateSchema, getSchemaDefaults } from './schema';
+export { validateSchema } from './schema';
 
 export type { Store, StoreType, Schema, AoSFactory, Norm, TraitSchema } from './types';
