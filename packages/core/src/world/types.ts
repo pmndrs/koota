@@ -36,6 +36,8 @@ export type WorldContext = {
   traits: Set<Trait>;
   relations: Relation<Trait>[];
   queriesHashMap: Map<string, QueryInstance>;
+  /** Inline parameter lists already resolved, listed under their first parameter. */
+  inlineQueries: Map<QueryParameter, { params: QueryParameter[]; query: QueryInstance }[]>;
   queryInstances: (QueryInstance | undefined)[];
   iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];

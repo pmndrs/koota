@@ -51,6 +51,15 @@ group('world.query inline cache hit @query @query-api @query-hash', () => {
     world.destroy();
   });
 
+  bench('trait + wildcard pair', function* () {
+    const { world, entity } = setupWorld();
+    assert.deepEqual(Array.from(world.query(Position, ChildOf('*'))), [entity]);
+
+    yield () => world.query(Position, ChildOf('*'));
+
+    world.destroy();
+  });
+
   bench('relation concrete target', function* () {
     const world = createWorld();
     const parent = world.spawn();

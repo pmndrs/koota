@@ -540,6 +540,22 @@ describe('Query', () => {
     expect(world.query(movementQuery).length).toBe(countBefore);
   });
 
+  it('passes traits in the order each inline query lists them', () => {
+    world.spawn(Position({ x: 1, y: 2 }), Name({ name: 'first' }));
+
+    // The second pass resolves both orders from parameters seen before.
+    for (let pass = 0; pass < 2; pass++) {
+      world.query(Position, Name, Not(Foo)).each((position, name) => {
+        expect(position).toMatchObject({ x: 1, y: 2 });
+        expect(name).toMatchObject({ name: 'first' });
+      });
+      world.query(Name, Position, Not(Foo)).each((name, position) => {
+        expect(name).toMatchObject({ name: 'first' });
+        expect(position).toMatchObject({ x: 1, y: 2 });
+      });
+    }
+  });
+
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
     const result = world.query(Position);

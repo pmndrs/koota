@@ -11,6 +11,7 @@ import { hasSubscribers } from '../trait/subscriptions';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
 import { isModifier } from '../query/modifier';
+import { sameParams } from '../query/utils/same-params';
 import { notifyChanged } from '../query/modifiers/changed';
 import {
   compileQueryIterators,
@@ -310,14 +311,6 @@ export function getQueryBinding(
   fillQueryBinding(ctx, params, binding);
   if (cache) cache.push(binding);
   return binding;
-}
-
-/** Inline parameters arrive in a fresh array each run, so compare the entries by identity. */
-export function sameParams(a: QueryParameter[], b: QueryParameter[]): boolean {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-  return true;
 }
 
 /** Mirrors fillQueryBinding, comparing each stored trait and its current store in order. */

@@ -10,18 +10,20 @@ import { emit, hasSubscribers } from '../../trait/subscriptions';
 import { getTraitInstance } from '../../trait/trait-instance';
 import type { ExtractModifierTraits, Trait, TraitInstance, TraitInput } from '../../trait/types';
 import type { WorldContext } from '../../world';
-import { createModifier } from '../modifier';
+import { internModifier, type ModifierCache } from '../modifier';
 import type { Modifier } from '../types';
 import { createTrackingId } from '../utils/tracking-cursor';
 import { markTraitChanged, notifyChangedTrackingQueries } from '../utils/mark-tracked-trait-changed';
 
 export function createChanged() {
   const id = createTrackingId();
+  const type = `changed-${id}` as const;
+  const cache: ModifierCache = new WeakMap();
 
   return <T extends (TraitInput | RelationPair)[]>(
     ...inputs: T
   ): Modifier<ExtractModifierTraits<T>, `changed-${number}`> => {
-    return createModifier(`changed-${id}`, id, inputs) as Modifier<
+    return internModifier(cache, type, id, inputs) as Modifier<
       ExtractModifierTraits<T>,
       `changed-${number}`
     >;

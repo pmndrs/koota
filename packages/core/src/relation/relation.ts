@@ -52,18 +52,28 @@ function createRelation<S extends TraitSchema = Record<string, never>>(definitio
     autoDestroy,
   };
 
+  // A wildcard pair holds nothing of its own, so every call returns this one.
+  const wildcard: RelationPair<Trait<S>> = {
+    [$relationPair]: true,
+    relation: relationFn as unknown as Relation<Trait<S>>,
+    target: '*',
+    params: undefined,
+  };
+
   function relationFn(...args: any[]): RelationPair<Trait<S>> {
     const firstArg = args[0];
-    if (firstArg === undefined) throw Error('Relation target is undefined');
+    if (firstArg === '*') return wildcard;
 
-    if (firstArg === '*' || typeof firstArg === 'number') {
+    if (typeof firstArg === 'number') {
       return {
         [$relationPair]: true,
         relation: relationFn as unknown as Relation<Trait<S>>,
-        target: firstArg,
+        target: firstArg as Entity,
         params: args[1],
       };
     }
+
+    if (firstArg === undefined) throw Error('Relation target is undefined');
 
     if (isQuery(firstArg)) {
       if (args.length > 1) throw Error('Query relations do not accept additional parameters.');

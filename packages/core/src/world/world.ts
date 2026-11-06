@@ -26,6 +26,8 @@ import { createOwnedView } from '../query/query-view';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
+import { isStableParameter } from '../query/modifier';
+import { sameParams } from '../query/utils/same-params';
 import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -56,17 +58,38 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 }
 
-/** Resolve inline parameters, including direct relation and identifier lookups. */
+/**
+ * Runs a query written inline. A lone pair with a target entity reads the relation's sources
+ * directly. Parameters that are the same objects as on an earlier call find their query by
+ * identity, which skips building and hashing a key.
+ */
 export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
-  if (params.length === 1 && isRelationPair(params[0])) {
-    const relation = params[0].relation;
-    const target = params[0].target;
-    if (!params[0].targetQuery && typeof target === 'number') {
-      const entities = getEntitiesWithRelationTo(ctx, relation as Relation<Trait>, target as Entity);
+  const first = params[0];
+  // A pair naming a target is a new object on every call, so no list is kept under it.
+  if (isRelationPair(first) && first.target !== '*') {
+    if (params.length === 1 && typeof first.target === 'number') {
+      const entities = getEntitiesWithRelationTo(
+        ctx,
+        first.relation as Relation<Trait>,
+        first.target
+      );
       return createOwnedView(ctx, entities as Entity[], null, params);
     }
+    return resolveInlineQuery(ctx, params);
   }
 
+  const known = ctx.inlineQueries.get(first);
+  if (known !== undefined) {
+    for (let i = 0; i < known.length; i++) {
+      const entry = known[i];
+      if (sameParams(entry.params, params)) return runQuery(ctx, entry.query, entry.params);
+    }
+  }
+  return resolveInlineQuery(ctx, params);
+}
+
+/** Resolves parameters seen for the first time, or ones that are new objects on every call. */
+export function resolveInlineQuery(ctx: WorldContext, params: QueryParameter[]) {
   const identified = findIdentifiedEntity(ctx, params);
   if (identified !== null) {
     // Shared-key views need subscriptions even when empty or owned by one entity.
@@ -79,7 +102,21 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
     return createOwnedView(ctx, identified === undefined ? [] : [identified], null, params);
   }
 
-  return runQuery(ctx, resolveQueryInstance(ctx, params), params);
+  const query = resolveQueryInstance(ctx, params);
+  // Pairs and modifiers trail the traits, so the last entry settles most lists that cannot be kept.
+  if (isStableParameter(params[params.length - 1])) rememberInlineQuery(ctx, params, query);
+  return runQuery(ctx, query, params);
+}
+
+/**
+ * Lists a query under parameters that are the same objects on every call. Only a query naming a
+ * target entity is ever dropped, and its pair is never stable, so a listed query stays valid.
+ */
+function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query: QueryInstance) {
+  if (!params.every(isStableParameter)) return;
+  const known = ctx.inlineQueries.get(params[0]);
+  if (known === undefined) ctx.inlineQueries.set(params[0], [{ params, query }]);
+  else known.push({ params, query });
 }
 
 export function createWorld(options?: WorldOptions): World {
@@ -107,6 +144,7 @@ export function createWorld(options?: WorldOptions): World {
       traits: new Set<Trait>(),
       relations: [],
       queriesHashMap: new Map(),
+      inlineQueries: new Map(),
       queryInstances: [],
       iterationBuffers: undefined,
       actionInstances: [],
@@ -218,6 +256,7 @@ export function createWorld(options?: WorldOptions): World {
       ctx.relations.length = 0;
 
       ctx.queriesHashMap.clear();
+      ctx.inlineQueries.clear();
       ctx.queryInstances.length = 0;
       ctx.tombstones.head = 0;
       ctx.tombstones.ids.length = 0;
