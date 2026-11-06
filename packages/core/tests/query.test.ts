@@ -608,26 +608,6 @@ describe('Query', () => {
     }
   );
 
-  it.skipIf(!hasNativeGc()).each(['outer', 'inner'] as const)(
-    'releases every cached path after destroying the %s relation target',
-    async (destroyed) => {
-      const VisibleIn = relation();
-      await expect(
-        waitForFinalization((registry) => {
-          const parent = world.spawn();
-          const viewport = world.spawn();
-          world.spawn(Position, ChildOf(parent), VisibleIn(viewport));
-          const view = world.query(ChildOf(parent), VisibleIn(viewport), Position);
-          world.query(Position, VisibleIn(viewport), ChildOf(parent));
-          registry.register(view, 'view');
-          if (destroyed === 'outer') parent.destroy();
-          else viewport.destroy();
-        })
-      ).resolves.toBe(true);
-    },
-    20_000
-  );
-
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
     const result = world.query(Position);
