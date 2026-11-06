@@ -272,6 +272,11 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   notIndex: number;
   /** An active dispatch may still hold a list containing a dropped query. */
   dropped: boolean;
+  /**
+   * Requires a pair with a concrete target, so it can only hold sources of that target. It joins
+   * no trait list and is reconciled through the targets of the entity an event concerns.
+   */
+  anchored: boolean;
   /** Position in each trait list the query joined, trait lists first, then one per relation filter. */
   listSlots: number[];
   cleanup: QueryUnsubscriber[] | null;

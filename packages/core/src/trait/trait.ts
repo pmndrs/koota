@@ -13,7 +13,7 @@ import {
 } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import { notifyTraitAdded, notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
-import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
+import { addEntityToQuery, reconcileAnchoredQueries, removeEntityFromQuery } from '../query/query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { clearPendingChanges } from '../query/utils/mark-tracked-trait-changed';
@@ -161,6 +161,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     queries: [],
     trackingQueries: [],
     relationQueries: [],
+    anchorRelations: [],
     schema: trait.schema,
     changeSubscriptions: createSubscriptions(),
     addSubscriptions: createSubscriptions(),
@@ -382,6 +383,7 @@ export function removeTraitFromDyingEntity(
   if (
     instance.queries.length !== 0 ||
     instance.trackingQueries.length !== 0 ||
+    instance.anchorRelations.length !== 0 ||
     targets !== undefined
   ) {
     reconcileDyingTraitQueries(ctx, entity, instance, targets);
@@ -400,6 +402,7 @@ export function reconcileDyingTraitQueries(
 ) {
   leaveStaticQueries(ctx, entity, instance.queries);
   if (targets !== undefined) leaveStaticQueries(ctx, entity, instance.relationQueries);
+  if (instance.anchorRelations.length !== 0) reconcileAnchoredQueries(ctx, entity, instance, true);
   if (instance.trackingQueries.length !== 0) {
     reconcileTrackingQueries(
       ctx,
@@ -720,6 +723,7 @@ export function reconcileTraitQueries(
   bitflag: number
 ) {
   if (instance.queries.length !== 0) reconcileQueries(ctx, entity, instance.queries);
+  if (instance.anchorRelations.length !== 0) reconcileAnchoredQueries(ctx, entity, instance, false);
   if (instance.trackingQueries.length !== 0) {
     reconcileTrackingQueries(ctx, entity, instance, eventType, generationId, bitflag);
   }

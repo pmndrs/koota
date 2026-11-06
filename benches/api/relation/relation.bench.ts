@@ -239,6 +239,71 @@ group('relation target filters 10k @relation @query', () => {
   });
 });
 
+/** Changes one child while 1000 other parents each hold a query of their own children. */
+group('upkeep among 1000 queried parents x100 @relation @query @upkeep', () => {
+  const ChildOf = relation();
+
+  const buildWorld = () => {
+    const world = createWorld();
+    for (let p = 0; p < 1000; p++) {
+      const parent = world.spawn();
+      for (let c = 0; c < 10; c++) world.spawn(Position, ChildOf(parent));
+      world.query(Position, ChildOf(parent));
+    }
+    const parent = world.spawn();
+    const other = world.spawn();
+    const child = world.spawn(Position, ChildOf(parent));
+    return { world, parent, other, child };
+  };
+
+  bench('add + remove trait on a child', function* () {
+    const { world, child } = buildWorld();
+    yield () => {
+      for (let i = 0; i < 100; i++) {
+        child.remove(Position);
+        child.add(Position);
+      }
+    };
+    world.destroy();
+  });
+
+  bench('add + remove trait on a child of a queried parent', function* () {
+    const { world, parent, child } = buildWorld();
+    world.query(Position, ChildOf(parent));
+    yield () => {
+      for (let i = 0; i < 100; i++) {
+        child.remove(Position);
+        child.add(Position);
+      }
+    };
+    world.destroy();
+  });
+
+  bench('move a child between two parents', function* () {
+    const { world, parent, other, child } = buildWorld();
+    const from = ChildOf(parent);
+    const to = ChildOf(other);
+    yield () => {
+      for (let i = 0; i < 50; i++) {
+        child.remove(from);
+        child.add(to);
+        child.remove(to);
+        child.add(from);
+      }
+    };
+    world.destroy();
+  });
+
+  bench('spawn + destroy a child', function* () {
+    const { world, parent } = buildWorld();
+    const pair = ChildOf(parent);
+    yield () => {
+      for (let i = 0; i < 100; i++) world.spawn(Position, pair).destroy();
+    };
+    world.destroy();
+  });
+});
+
 group('relation target lifecycle 1k @relation @lifecycle', () => {
   bench('spawn after 100 destroyed targets', function* () {
     const ChildOf = relation({ autoDestroy: 'orphan' });

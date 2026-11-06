@@ -5,7 +5,12 @@ import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import type { EventType, QueryParameter } from '../query/types';
-import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
+import {
+  addEntityToQuery,
+  reconcileAnchoredQueries,
+  reconcileTargetQueries,
+  removeEntityFromQuery,
+} from '../query/query';
 import { checkQueryTrackingPair } from '../query/utils/check-query-tracking';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isQuery } from '../query/utils/is-query';
@@ -442,6 +447,11 @@ export function reconcileRelationQueries(
   eventType: EventType,
   trackingOnly: boolean
 ): void {
+  if (!trackingOnly && instance.anchorRelations.length !== 0) {
+    // The entity no longer lists a target it lost, so the queries of that target are named here.
+    if (eventType === 'remove') reconcileTargetQueries(ctx, entity, target, false);
+    reconcileAnchoredQueries(ctx, entity, instance, false);
+  }
   const queries = instance.relationQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];

@@ -228,6 +228,47 @@ export function leaveTraitlessQueries(ctx: WorldContext, entity: Entity) {
   }
 }
 
+/**
+ * Re-evaluate the anchored queries that read a trait after an event on an entity. The entity can
+ * only be in the ones anchored to a target it holds, and a dying entity only leaves them.
+ */
+export function reconcileAnchoredQueries(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance,
+  dying: boolean
+) {
+  const relations = instance.anchorRelations;
+  const eid = getEntityId(entity);
+  for (let r = 0; r < relations.length; r++) {
+    const targets = relations[r].relationTargets?.[eid >>> 10]?.[eid & 1023];
+    if (targets === undefined) continue;
+    if (typeof targets === 'number') reconcileTargetQueries(ctx, entity, targets as Entity, dying);
+    else {
+      for (let i = 0; i < targets.length; i++) reconcileTargetQueries(ctx, entity, targets[i], dying);
+    }
+  }
+}
+
+/** Re-evaluate an entity against the anchored queries that name a target. */
+export function reconcileTargetQueries(
+  ctx: WorldContext,
+  entity: Entity,
+  target: Entity,
+  dying: boolean
+) {
+  const targetId = getEntityId(target);
+  const queries = ctx.targetQueries[targetId >>> 10]?.[targetId & 1023];
+  if (queries === undefined) return;
+  // A subscriber can drop queries from the list, which swaps the last one into the freed slot.
+  for (let i = queries.length - 1; i >= 0; i--) {
+    const query = queries[i];
+    if (query === undefined || !query.anchored) continue;
+    if (!dying && checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
+    else removeEntityFromQuery(ctx, query, entity);
+  }
+}
+
 /** A callback can drop queries from any list its caller is still walking. */
 function emitQuerySubscribers(ctx: WorldContext, subscribers: Set<QuerySubscriber>, entity: Entity) {
   ctx.queryCallbackDepth++;
@@ -421,6 +462,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     dirty: false,
     notIndex: -1,
     dropped: false,
+    anchored: false,
     listSlots: [],
     cleanup: null,
     addSubscriptions: null,
@@ -570,12 +612,23 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
   query.listSlots = new Array<number>(all.length + relationFilters.length).fill(-1);
   const keyFilters = query.isTracking ? undefined : query.identifierFilters;
+  // A required pair with a concrete target bounds a static query to the sources of that target.
+  const anchor =
+    query.isTracking || keyFilters !== undefined
+      ? undefined
+      : relationFilters.find((filter) => filter.term === 1 && typeof filter.target === 'number');
+  const anchorRelation =
+    anchor && getTraitInstance(ctx.traitInstances, anchor.relation[$internal].trait)!;
+  query.anchored = anchorRelation !== undefined;
   for (let i = 0; i < all.length; i++) {
     const instance = all[i];
     if (all.indexOf(instance) !== i) continue;
     // The key lists reconcile a static query for every identifier it filters by key.
     if (keyFilters?.some((pair) => pair.identifier.id === instance.trait.id)) continue;
-    joinList(queryList(query, instance), query, i);
+    if (anchorRelation === undefined) joinList(queryList(query, instance), query, i);
+    else if (!instance.anchorRelations.includes(anchorRelation)) {
+      instance.anchorRelations.push(anchorRelation);
+    }
   }
   if (keyFilters !== undefined) for (const pair of keyFilters) joinKeyQueries(ctx, query, pair);
 
@@ -600,7 +653,14 @@ export function createQueryInstance<T extends QueryParameter[]>(
     const pair = relationFilters[k];
     const relationTrait = pair.relation[$internal].trait;
     const relationTraitInstance = getTraitInstance(ctx.traitInstances, relationTrait);
-    if (relationTraitInstance && relationSlot(query, relationTraitInstance) === all.length + k) {
+    if (relationTraitInstance && anchorRelation !== undefined) {
+      if (!relationTraitInstance.anchorRelations.includes(anchorRelation)) {
+        relationTraitInstance.anchorRelations.push(anchorRelation);
+      }
+    } else if (
+      relationTraitInstance &&
+      relationSlot(query, relationTraitInstance) === all.length + k
+    ) {
       joinList(relationTraitInstance.relationQueries, query, all.length + k);
     }
 
