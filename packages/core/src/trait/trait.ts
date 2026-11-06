@@ -21,7 +21,6 @@ import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
-  checkRequiredParams,
   detachRelationTargets,
   reconcileRelationQueries,
   getFirstRelationTarget,
@@ -260,7 +259,6 @@ export /* @inline */ function addTraitsToAliveEntity(
   const relationTrait = relationCtx.trait;
 
   if (hasRelationToTarget(ctx, relation, entity, target)) return;
-  if (relationTrait[$internal].required) checkRequiredParams(relationTrait.schema, params);
 
   if (relationCtx.exclusive) {
     const oldTarget = getFirstRelationTarget(ctx, relation, entity);

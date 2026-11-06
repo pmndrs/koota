@@ -63,7 +63,7 @@ const Holds = relation({ store: { item: required<Item>(), count: 1 } })
 holder.add(Holds(target, { item })) // count defaults to 1
 holder.has(Holds(target)) // true
 
-// ❌ Type error and throws
+// ❌ Type error
 holder.add(Holds(target))
 ```
 

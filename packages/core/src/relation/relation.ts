@@ -16,7 +16,7 @@ import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isStableParameter } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
-import { isRequired, type Schema, type TraitSchema } from '../storage';
+import { TraitSchema } from '../storage';
 import { trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -678,27 +678,6 @@ function writeRelationField(
 }
 
 /**
- * Throws when params lack a value the store requires. Runs before the pair is granted so a
- * failed add leaves the entity without the pair.
- */
-export function checkRequiredParams(
-  schema: Schema,
-  params: Record<string, unknown> | undefined
-): void {
-  if (typeof schema === 'function') {
-    // The store itself is the required marker, which throws when called.
-    if (params === undefined) schema();
-    return;
-  }
-  const fields = schema as Record<string, unknown>;
-  for (const key in fields) {
-    if (isRequired(fields[key]) && (params === undefined || params[key] === undefined)) {
-      throw new Error(`Koota: the required field "${key}" was not given a value on add.`);
-    }
-  }
-}
-
-/**
  * Fills a new pair's record from the schema defaults and the given params. SoA fields are
  * resolved one at a time so no defaults object is built. Tag relations store nothing.
  */
@@ -716,12 +695,13 @@ export function initRelationData(
   if (type === 'aos') {
     // An AoS record is fresh per pair, so the params are laid over the factory result.
     // A required store has no factory result, so the params are the record.
+    const factory = traitData.schema as () => Record<string, unknown>;
     let record = params;
     if (!traitCtx.required) {
-      record = (traitData.schema as () => Record<string, unknown>)();
+      record = factory();
       if (params !== undefined) Object.assign(record, params);
     }
-    setRelationDataAtIndex(ctx, entity, relation, targetIndex, record!);
+    setRelationDataAtIndex(ctx, entity, relation, targetIndex, record ?? factory());
     return;
   }
 

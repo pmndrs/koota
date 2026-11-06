@@ -264,9 +264,9 @@ describe('Trait', () => {
 
     const other = world.spawn();
     // @ts-expect-error a required trait cannot be added bare
-    expect(() => other.add(MeshRef)).toThrow('required');
+    expect(() => other.add(MeshRef)).toThrow('REQUIRED_VALUE');
     // @ts-expect-error a required trait is called with its value
-    expect(() => other.add(MeshRef())).toThrow('required');
+    expect(() => other.add(MeshRef())).toThrow('REQUIRED_VALUE');
     expect(other.has(MeshRef)).toBe(false);
 
     other.add(MeshRef(mesh));
@@ -286,9 +286,9 @@ describe('Trait', () => {
 
     const other = world.spawn();
     // @ts-expect-error a trait with a required field cannot be added bare
-    expect(() => other.add(View)).toThrow('"object"');
+    expect(() => other.add(View)).toThrow('REQUIRED_VALUE');
     // @ts-expect-error the required field is missing
-    expect(() => other.add(View({ visible: false }))).toThrow('"object"');
+    expect(() => other.add(View({ visible: false }))).toThrow('REQUIRED_VALUE');
     expect(other.has(View)).toBe(false);
 
     // The other fields stay optional and can still be set later.

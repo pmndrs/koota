@@ -1,9 +1,15 @@
+import { assertsEnabled } from '../assert-config';
 import { warningsEnabled } from '../warning-config';
 import type { RequiredField, Schema } from './types';
 
-/** Stands in for the default of every required field. It is reached only when no value was given. */
-function missing(): never {
-  throw new Error('Koota: a required trait value was not given.');
+/**
+ * Stands in for the default of every required field. Add falls back to it only when no value
+ * was given, which assertions reject.
+ */
+function missing(): undefined {
+  if (assertsEnabled) {
+    throw new Error('Koota: [REQUIRED_VALUE] A required trait or relation value was not given.');
+  }
 }
 missing.required = true as const;
 
@@ -12,7 +18,7 @@ missing.required = true as const;
  * The type argument is the type of the value.
  */
 export function required<T>(): RequiredField<T> {
-  return missing;
+  return missing as RequiredField<T>;
 }
 
 export function isRequired(field: unknown): boolean {

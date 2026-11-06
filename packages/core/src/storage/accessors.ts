@@ -54,25 +54,14 @@ function createSoASetFunction(schema: Schema): SetAccessor {
   ) as SetAccessor;
 }
 
-/**
- * Creates the entity's pages if needed, then writes every key from value or its schema default.
- * Required keys have no default, so they are checked before anything is written.
- */
+/** Creates the entity's pages if needed, then writes every key from value or its schema default. */
 function createSoAAddFunction(schema: Schema): AddAccessor {
   const keys = Object.keys(schema);
   // Pages for every key are created together, so the first key stands in for all of them.
   const pages = keys.map((key) => `store.${key}[p] = createPage(schema.${key});`).join(' ');
-  const checks = keys
-    .filter((key) => isRequired((schema as Record<string, unknown>)[key]))
-    .map(
-      (key) =>
-        `if (value == null || value.${key} === undefined) throw new Error('Koota: the required field "${key}" was not given a value on add.');`
-    )
-    .join('\n        ');
   const writes = keys
     .map((key, k) => {
       const field = (schema as Record<string, unknown>)[key];
-      if (isRequired(field)) return `store.${key}[p][o] = value.${key};`;
       const source = `value != null && '${key}' in value ? value.${key}`;
       const stride = getStride(schema, key);
       if (stride === 0) {
@@ -92,7 +81,6 @@ function createSoAAddFunction(schema: Schema): AddAccessor {
     `
       return function (ctx, index, store, value) {
         var p = index >>> 10, o = index & 1023;
-        ${checks}
         if (!store.${keys[0]}[p]) { ${pages} }
         ${writes}
       };

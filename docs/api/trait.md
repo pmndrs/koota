@@ -82,10 +82,10 @@ entity.add(View({ object: mesh }))
 const view = entity.get(View) // { object: THREE.Object3D, visible: boolean }
 ```
 
-Adding the trait without its required values is a type error and throws.
+Adding the trait without its required values is a type error. With [assertions](asserts.md) enabled it also throws, and without them the value is left `undefined`.
 
 ```ts
-// ❌ Both are type errors and throw
+// ❌ Both are type errors
 entity.add(Ref)
 entity.add(View({ visible: false }))
 ```

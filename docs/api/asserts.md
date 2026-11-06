@@ -6,6 +6,7 @@ Koota makes common ECS assumptions executable when assertions are enabled:
 - **Trait membership:** `set` and `changed` require the trait to be present. A setter callback must leave its entity and trait valid before automatic writeback.
 - **Relation validity:** adding or setting a pair requires a concrete, live target in the same world. Setting requires the pair to exist. Wildcards and query filters remain valid for queries, membership checks, and removal.
 - **Identifier uniqueness:** assigning a key requires that no other entity holds it for the same identifier type and world.
+- **Required values:** adding a trait or pair requires every [required](trait.md#required-fields) value of its schema or store.
 - **Relation consistency:** adding an edge requires base trait membership. Clearing that membership requires no remaining targets. Removing a forward edge requires its reverse source entry to exist.
 
 Errors include a stable code such as `[ENTITY_ALIVE]`, `[TRAIT_PRESENT]`, or `[RELATION_PRESENT]`, plus the relevant entity, target, or trait identifiers. The thrown `Error` supplies the call stack. Applications can attach that information to a bug report with their build revision and replay.
