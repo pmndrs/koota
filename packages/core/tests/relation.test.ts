@@ -177,10 +177,10 @@ describe('Relation', () => {
     const inventory = world.spawn();
     const gold = world.spawn();
 
-    inventory.upsert(Contains(gold, { amount: 5 }));
+    inventory.upsert(Contains(gold), { amount: 5 });
     expect(inventory.get(Contains(gold))!.amount).toBe(5);
 
-    inventory.upsert(Contains(gold, { amount: 12 }));
+    inventory.upsert(Contains(gold), { amount: 12 });
     expect(inventory.get(Contains(gold))!.amount).toBe(12);
     expect(inventory.targetsFor(Contains)).toEqual([gold]);
   });

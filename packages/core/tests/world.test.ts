@@ -213,10 +213,10 @@ describe('World', () => {
     const Test = trait({ last: 0, delta: 0 });
     const world = createWorld();
 
-    world.upsert(Test({ last: 1 }));
+    world.upsert(Test, { last: 1 });
     expect(world.get(Test)).toEqual({ last: 1, delta: 0 });
 
-    world.upsert(Test({ delta: 2 }));
+    world.upsert(Test, { delta: 2 });
     expect(world.get(Test)).toEqual({ last: 1, delta: 2 });
   });
 });

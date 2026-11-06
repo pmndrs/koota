@@ -35,7 +35,7 @@ import {
   setRelationData,
   setRelationDataAtIndex,
 } from '../relation/relation';
-import type { Relation, RelationPair } from '../relation/types';
+import type { Relation, RelationPair, RelationTarget } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../entity/utils/paged-mask';
 import {
@@ -67,7 +67,6 @@ import type {
   TraitContext,
   TraitInit,
   TraitInstance,
-  TraitTuple,
 } from './types';
 
 const tagSchema = Object.freeze({});
@@ -247,35 +246,34 @@ export /* @inline */ function addTraitsToAliveEntity(
   }
 }
 
-/** Set the given value where the trait or pair is present and add it where it is absent. */
-export function upsertTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
+/** Set the value where the trait or pair is present and add it with the value where it is absent. */
+export /* @inline */ function upsertTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait | RelationPair,
+  value: any
+) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
 
-  for (let i = 0; i < traits.length; i++) {
-    const config = traits[i];
-    // Only a tuple has an index 1. Reading it, unlike Array.isArray, lets the optimizer elide the tuple.
-    const tuple = config as TraitTuple;
-
-    if (tuple[1] !== undefined && hasTrait(ctx, entity, tuple[0])) {
-      // Upsert takes no callback, so the value is written as given.
-      const instance = getTraitInstance(ctx.traitInstances, tuple[0])!;
-      tuple[0][$internal].set(ctx, getEntityId(entity), instance.store, tuple[1]);
-      notifyTraitChanged(ctx, entity, instance);
-    } else /* @cold */ {
-      // Pairs and additions run out of line so the present trait write stays small enough to inline.
-      if (
-        isRelationPair(config) &&
-        config.params !== undefined &&
-        typeof config.target === 'number' &&
-        hasRelationToTarget(ctx, config.relation, entity, config.target)
-      ) {
-        setTraitForPair(ctx, entity, config, config.params, true);
-      } else {
-        // A config without a value has nothing to set, so it only ensures presence.
-        addTraitsToAliveEntity(ctx, entity, [config]);
-      }
+  if (typeof trait === 'function' && hasTrait(ctx, entity, trait)) {
+    // Upsert takes no callback, so the value is written as given.
+    const instance = getTraitInstance(ctx.traitInstances, trait)!;
+    trait[$internal].set(ctx, getEntityId(entity), instance.store, value);
+    notifyTraitChanged(ctx, entity, instance);
+  } else /* @cold */ {
+    // Pairs and additions run out of line so the present trait write stays small enough to inline.
+    if (typeof trait === 'function') {
+      addTraitsToAliveEntity(ctx, entity, [[trait, value]]);
+    } else if (
+      typeof trait.target === 'number' &&
+      hasRelationToTarget(ctx, trait.relation, entity, trait.target)
+    ) {
+      setTraitForPair(ctx, entity, trait, value, true);
+    } else {
+      // The relation call validates the target and builds the pair that carries the value.
+      addTraitsToAliveEntity(ctx, entity, [trait.relation(trait.target as RelationTarget, value)]);
     }
   }
 }

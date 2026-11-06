@@ -171,17 +171,13 @@ describe('Entity', () => {
     const Position = trait({ x: 0, y: 0 });
     const entity = world.spawn(Position({ x: 1, y: 2 }));
 
-    // Writes the given fields of a present trait and adds a missing one.
-    entity.upsert(Position({ x: 5 }), Bar({ value: 3 }));
-
+    // Sets the given fields of a trait the entity has.
+    entity.upsert(Position, { x: 5 });
     expect(entity.get(Position)).toEqual({ x: 5, y: 2 });
-    expect(entity.get(Bar)).toEqual({ value: 3 });
 
-    // Without a value there is nothing to write.
-    entity.upsert(Bar, Foo);
-
+    // Adds a trait the entity lacks with the value.
+    entity.upsert(Bar, { value: 3 });
     expect(entity.get(Bar)).toEqual({ value: 3 });
-    expect(entity.has(Foo)).toBe(true);
   });
 
   it('emits add only when upsert adds the trait and change on every write', () => {
@@ -191,11 +187,11 @@ describe('Entity', () => {
     entity.onAdd(Bar, () => added++);
     entity.onChange(Bar, () => changed++);
 
-    entity.upsert(Bar({ value: 1 }));
+    entity.upsert(Bar, { value: 1 });
     expect(added).toBe(1);
     expect(changed).toBe(1);
 
-    entity.upsert(Bar({ value: 2 }));
+    entity.upsert(Bar, { value: 2 });
     expect(added).toBe(1);
     expect(changed).toBe(2);
   });

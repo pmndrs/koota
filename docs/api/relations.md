@@ -51,6 +51,9 @@ inventory.add(Contains(gold, { amount: 10 }))
 // Update data with set
 inventory.set(Contains(gold), { amount: 20 })
 
+// Set the data if the pair exists, or add the pair with it
+inventory.upsert(Contains(gold), { amount: 20 })
+
 // Read data with get
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```

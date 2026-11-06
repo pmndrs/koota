@@ -284,6 +284,9 @@ inventory.add(Contains(gold, { amount: 10 }))
 // Update data with set
 inventory.set(Contains(gold), { amount: 20 })
 
+// Set the data if the pair exists, or add the pair with it
+inventory.upsert(Contains(gold), { amount: 20 })
+
 // Read data with get
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
@@ -1033,8 +1036,8 @@ world.set(Time, (prev) => ({
   delta: performance.now() - prev.current,
 }))
 
-// Sets the given values if the world has the trait, or adds the trait with them
-world.upsert(Time({ current: performance.now() }))
+// Sets the value if the world has the trait, or adds the trait with the value if it does not
+world.upsert(Time, { current: performance.now() })
 
 // Subscribe to add, remove or change events for entity traits
 // Return unsub function
@@ -1107,9 +1110,9 @@ entity.set(Position, (prev) => ({
   y: prev + 1,
 }))
 
-// Sets the given values on traits the entity has and adds the traits it lacks
-// Triggers a change event, and an add event for each trait that is new
-entity.upsert(Position({ x: 10 }), Velocity({ x: 1 }))
+// Sets the value if the entity has the trait, or adds the trait with the value if it does not
+// Triggers a change event, and an add event when the trait is new
+entity.upsert(Position, { x: 10 })
 
 // Get the targets for a relation
 // Return Entity[]

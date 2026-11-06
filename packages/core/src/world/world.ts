@@ -237,10 +237,10 @@ export function createWorld(options?: WorldOptions): World {
       addTrait(ctx, ctx.worldEntity, ...addTraits);
     },
 
-    upsert(...upsertTraits: ConfigurableTrait[]) {
+    upsert<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>>) {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      upsertTrait(ctx, ctx.worldEntity, ...upsertTraits);
+      upsertTrait(ctx, ctx.worldEntity, trait, value);
     },
 
     remove(...removeTraits: (Trait | Identifier | IdentifierPair)[]) {

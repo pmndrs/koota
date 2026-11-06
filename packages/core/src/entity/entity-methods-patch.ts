@@ -18,8 +18,8 @@ Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
 };
 
 // @ts-expect-error
-Number.prototype.upsert = function (this: Entity, ...traits: ConfigurableTrait[]) {
-  return upsertTrait(getEntityContext(this), this, ...traits);
+Number.prototype.upsert = function (this: Entity, trait: Trait | RelationPair, value: any) {
+  upsertTrait(getEntityContext(this), this, trait, value);
 };
 
 // @ts-expect-error

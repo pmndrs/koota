@@ -33,9 +33,9 @@ entity.set(Position, (prev) => ({
   y: prev + 1,
 }))
 
-// Sets the given values on traits the entity has and adds the traits it lacks
-// Triggers a change event, and an add event for each trait that is new
-entity.upsert(Position({ x: 10 }), Velocity({ x: 1 }))
+// Sets the value if the entity has the trait, or adds the trait with the value if it does not
+// Triggers a change event, and an add event when the trait is new
+entity.upsert(Position, { x: 10 })
 
 // Get the targets for a relation
 // Return Entity[]
