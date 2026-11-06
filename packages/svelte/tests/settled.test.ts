@@ -1,4 +1,4 @@
-import { $internal, createWorld, relation, trait } from '@koota/core';
+import { createWorld, relation, trait } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
 import { expect, it } from 'vitest';
@@ -64,7 +64,6 @@ it('refreshes every hook synchronously after removal and child destruction', () 
     first: undefined,
   });
   flushSync(() => unmount());
-  expect(world[$internal].settledSubscriptions.size).toBe(0);
 });
 
 it('coalesces structural callback writes and preserves immediate ordinary writes', () => {
@@ -96,5 +95,36 @@ it('coalesces structural callback writes and preserves immediate ordinary writes
   source.set(Value, { x: 3 });
   expect(values).toEqual([{ x: 2 }, { x: 3 }]);
   flushSync(() => unmount());
-  expect(world[$internal].settledSubscriptions.size).toBe(0);
+});
+
+it('clears every hook when the world resets', () => {
+  const world = createWorld();
+  const Value = trait({ x: 1 });
+  const Link = relation();
+  const source = world.spawn(Value, Link(world.spawn()));
+  let read!: () => unknown;
+  render(SettledTest, {
+    context: new Map([[WORLD_KEY, world]]),
+    props: {
+      source,
+      valueTrait: Value,
+      relation: Link,
+      childOf: Link,
+      expose: (fn: () => unknown) => {
+        read = fn;
+      },
+      onValue: () => {},
+    },
+  });
+  flushSync();
+  expect(read()).toMatchObject({ has: true, query: [source] });
+  world.reset();
+  expect(read()).toEqual({
+    has: false,
+    target: undefined,
+    targets: [],
+    value: undefined,
+    query: [],
+    first: undefined,
+  });
 });

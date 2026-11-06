@@ -1,6 +1,10 @@
-import { $internal as internal } from '@koota/core';
-import { observeSettled } from '../utils/observe-settled.js';
-import { type Entity, type RelationPair, type Trait, type World } from '@koota/core';
+import {
+  $internal as internal,
+  type Entity,
+  type RelationPair,
+  type Trait,
+  type World,
+} from '@koota/core';
 import { getTargetEntity } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
@@ -23,7 +27,7 @@ export function useHas(
     const update = () => {
       value = entity.isAlive() && entity.has(resolvedTrait);
     };
-    const observer = observeSettled(entity[internal], update);
+    const observer = entity[internal].observeSettled(update);
     const onAdd = entity.onAdd(resolvedTrait, observer.invalidate);
     const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
     update();

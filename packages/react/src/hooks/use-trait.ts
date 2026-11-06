@@ -1,4 +1,3 @@
-import { observeSettled } from '../utils/observe-settled';
 import {
   $internal,
   $relationPair,
@@ -24,7 +23,7 @@ export function attachTrait<T extends Trait | RelationPair>(
   trait: T,
   push: (value: TraitRecord<ExtractSchema<T>> | undefined) => void
 ) {
-  const observer = observeSettled(entity[$internal], () => {
+  const observer = entity[$internal].observeSettled(() => {
     push(entity.isAlive() ? entity.get(trait) : undefined);
   });
   const onChange = entity.onChange(trait, observer.invalidate);

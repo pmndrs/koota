@@ -1,3 +1,4 @@
+import type { observeSettled } from './settled';
 import { ActionInstance } from '../actions/types';
 import type { $internal } from '../common';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
@@ -74,9 +75,8 @@ export type WorldContext = {
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
   structuralDepth: number;
-  isSettling: boolean;
-  settledPending: boolean;
-  settledSubscriptions: Set<() => void>;
+  settledQueue: Set<() => void>;
+  observeSettled: typeof observeSettled;
   resetSubscriptions: Set<() => void>;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
   entityDestroySubscriptions: Set<(entity: Entity) => void>;

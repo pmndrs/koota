@@ -15,7 +15,7 @@ import { addressSpace } from './utils/address-space';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-  return addTrait(getEntityContext(this), this, ...traits);
+  addTrait(getEntityContext(this), this, traits);
 };
 
 // @ts-expect-error

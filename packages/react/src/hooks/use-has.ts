@@ -1,6 +1,5 @@
-import { $internal, $identifier, $identifierPair } from '@koota/core';
-import { observeSettled } from '../utils/observe-settled';
 import {
+  $internal,
   type Entity,
   type Identifier,
   type IdentifierPair,
@@ -17,17 +16,12 @@ function readHas(entity: Entity, trait: HasInput) {
 }
 
 function attachHas(entity: Entity, trait: HasInput, push: (value: boolean) => void) {
-  const observer = observeSettled(entity[$internal], () =>
+  const observer = entity[$internal].observeSettled(() =>
     push(entity.isAlive() && entity.has(trait))
   );
-  const source =
-    $identifier in trait
-      ? trait[$internal].trait
-      : $identifierPair in trait
-        ? trait.identifier[$internal].trait
-        : trait;
-  const onAdd = entity.onAdd(source, observer.invalidate);
-  const onRemove = entity.onRemove(source, observer.invalidate);
+  // The hook overloads take no union. Core resolves every input and filters exact terms by key.
+  const onAdd = entity.onAdd(trait as Trait, observer.invalidate);
+  const onRemove = entity.onRemove(trait as Trait, observer.invalidate);
   return () => {
     observer.unsubscribe();
     onAdd();

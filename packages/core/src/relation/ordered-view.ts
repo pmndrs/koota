@@ -45,24 +45,11 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     if (!isEntityAlive(this.ctx.entityIndex, entity)) {
       throw new Error('Koota: Ordered views require live entities in the same world.');
     }
-    addTrait(this.ctx, entity, this.relation(this.parent));
+    addTrait(this.ctx, entity, [this.relation(this.parent)]);
     return this;
   }
 
   insert(entity: Entity, index: number): this {
-    this.ctx.structuralDepth++;
-    let result;
-    try {
-      result = this.insertInternal(entity, index);
-    } catch (error) {
-      this.ctx.structuralDepth--;
-      throw error;
-    }
-    endStructuralChanges(this.ctx);
-    return result;
-  }
-
-  private insertInternal(entity: Entity, index: number): this {
     this.assertActive();
     if (this.has(entity)) return this.moveTo(entity, index);
     const previous = this.inserting;
@@ -79,48 +66,32 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   }
 
   remove(entity: Entity): boolean {
-    this.ctx.structuralDepth++;
-    let result;
-    try {
-      result = this.removeInternal(entity);
-    } catch (error) {
-      this.ctx.structuralDepth--;
-      throw error;
-    }
-    endStructuralChanges(this.ctx);
-    return result;
-  }
-
-  private removeInternal(entity: Entity): boolean {
     this.assertActive();
     const index = this.indexOf(entity);
     if (index === -1) return false;
-    this.source.write().splice(index, 1);
-    removeTrait(this.ctx, entity, this.relation(this.parent));
-    this.changed();
+    this.ctx.structuralDepth++;
+    try {
+      this.source.write().splice(index, 1);
+      removeTrait(this.ctx, entity, this.relation(this.parent));
+      this.changed();
+    } finally {
+      endStructuralChanges(this.ctx);
+    }
     return true;
   }
 
   clear(): void {
-    this.ctx.structuralDepth++;
-    let result;
-    try {
-      result = this.clearInternal();
-    } catch (error) {
-      this.ctx.structuralDepth--;
-      throw error;
-    }
-    endStructuralChanges(this.ctx);
-    return result;
-  }
-
-  private clearInternal(): void {
     this.assertActive();
     if (this.length === 0) return;
     const entities = this.source.dense;
     this.source.dense = [];
-    for (const entity of entities) removeTrait(this.ctx, entity, this.relation(this.parent));
-    this.changed();
+    this.ctx.structuralDepth++;
+    try {
+      for (const entity of entities) removeTrait(this.ctx, entity, this.relation(this.parent));
+      this.changed();
+    } finally {
+      endStructuralChanges(this.ctx);
+    }
   }
 
   moveTo(entity: Entity, index: number): this {

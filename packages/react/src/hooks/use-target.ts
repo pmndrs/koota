@@ -1,6 +1,4 @@
-import { observeSettled } from '../utils/observe-settled';
 import {
-  $identifier,
   $internal,
   type Entity,
   type Identifier,
@@ -15,8 +13,8 @@ function readTarget(
   entity: Entity,
   relation: Relation<Trait> | Identifier
 ): IdentifierKey | undefined {
-  if ($identifier in relation) return entity.targetFor(relation);
-  return entity.targetFor(relation);
+  // The targetFor overloads take no union. Core reads both inputs the same way.
+  return entity.targetFor(relation as Relation<Trait>);
 }
 
 function attachTarget(
@@ -24,7 +22,7 @@ function attachTarget(
   relation: Relation<Trait> | Identifier,
   push: (value: IdentifierKey | undefined) => void
 ) {
-  const observer = observeSettled(entity[$internal], () => {
+  const observer = entity[$internal].observeSettled(() => {
     push(entity.isAlive() ? readTarget(entity, relation) : undefined);
   });
   const trait = relation[$internal].trait;

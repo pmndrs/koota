@@ -1,4 +1,3 @@
-import { observeSettled } from '../utils/observe-settled.js';
 import { $internal as internal, createQuery, type Entity, type QueryParameter } from '@koota/core';
 import { untrack } from 'svelte';
 import { useWorld } from '../world/world-context.js';
@@ -52,7 +51,7 @@ export function useQuery<T extends QueryParameter[]>(
 
     refresh();
 
-    const observer = observeSettled(world[internal], refresh);
+    const observer = world[internal].observeSettled(refresh);
     const unsubAdd = world.onQueryAdd(queryRef, observer.invalidate);
     const unsubRemove = world.onQueryRemove(queryRef, observer.invalidate);
 

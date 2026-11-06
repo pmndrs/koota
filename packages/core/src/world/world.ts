@@ -1,4 +1,4 @@
-import { endStructuralChanges } from './settled';
+import { endStructuralChanges, observeSettled } from './settled';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity, entityHas } from '../entity/entity';
@@ -50,19 +50,12 @@ let nextWorldId = 0;
 /** Registers IsExcluded and creates the world entity on first mutation. */
 function ensureWorldRegistered(ctx: WorldContext): void {
   if (ctx.isRegistered) return;
-  ctx.structuralDepth++;
-  try {
-    ctx.isRegistered = true;
-    if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
+  ctx.isRegistered = true;
+  if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
 
-    if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
+  if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
 
-    ctx.worldEntity = createEntity(ctx, [IsExcluded]);
-  } catch (error) {
-    ctx.structuralDepth--;
-    throw error;
-  }
-  endStructuralChanges(ctx);
+  ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 }
 
 /**
@@ -197,9 +190,8 @@ export function createWorld(options?: WorldOptions): World {
       worldEntity: null!,
       entitySubscribedInstances: new Set(),
       structuralDepth: 0,
-      isSettling: false,
-      settledPending: false,
-      settledSubscriptions: new Set(),
+      settledQueue: new Set(),
+      observeSettled,
       resetSubscriptions: new Set(),
       entitySpawnSubscriptions: new Set(),
       entityDestroySubscriptions: new Set(),
@@ -211,17 +203,8 @@ export function createWorld(options?: WorldOptions): World {
 
     spawn(...spawnTraits: ConfigurableTrait[]): Entity {
       const ctx = world[$internal];
-      let result;
-      ctx.structuralDepth++;
-      try {
-        ensureWorldRegistered(ctx);
-        result = createEntity(ctx, spawnTraits);
-      } catch (error) {
-        ctx.structuralDepth--;
-        throw error;
-      }
-      endStructuralChanges(ctx);
-      return result;
+      ensureWorldRegistered(ctx);
+      return createEntity(ctx, spawnTraits);
     },
 
     lookup(pair: IdentifierPair): Entity | undefined {
@@ -245,15 +228,8 @@ export function createWorld(options?: WorldOptions): World {
 
     add(...addTraits: ConfigurableTrait[]) {
       const ctx = world[$internal];
-      ctx.structuralDepth++;
-      try {
-        ensureWorldRegistered(ctx);
-        addTrait(ctx, ctx.worldEntity, ...addTraits);
-      } catch (error) {
-        ctx.structuralDepth--;
-        throw error;
-      }
-      endStructuralChanges(ctx);
+      ensureWorldRegistered(ctx);
+      addTrait(ctx, ctx.worldEntity, addTraits);
     },
 
     remove(...removeTraits: (Trait | Identifier | IdentifierPair)[]) {
@@ -276,20 +252,19 @@ export function createWorld(options?: WorldOptions): World {
 
     destroy() {
       const ctx = world[$internal];
-      ctx.structuralDepth++;
-      try {
-        if (ctx.isRegistered) {
+      if (ctx.isRegistered) {
+        // Settle while the world is still registered so an observer that reads it cannot revive it.
+        ctx.structuralDepth++;
+        try {
           destroyEntity(ctx, ctx.worldEntity);
           ctx.worldEntity = null!;
           world.reset();
+        } finally {
+          endStructuralChanges(ctx);
         }
-        ctx.isRegistered = false;
-        addressSpace.worldFinalizer.unregister(world);
-      } catch (error) {
-        ctx.structuralDepth--;
-        throw error;
       }
-      endStructuralChanges(ctx);
+      ctx.isRegistered = false;
+      addressSpace.worldFinalizer.unregister(world);
     },
 
     reset() {
@@ -345,11 +320,9 @@ export function createWorld(options?: WorldOptions): World {
         for (const sub of ctx.resetSubscriptions) {
           sub();
         }
-      } catch (error) {
-        ctx.structuralDepth--;
-        throw error;
+      } finally {
+        endStructuralChanges(ctx);
       }
-      endStructuralChanges(ctx);
     },
 
     query(...args: any[]) {

@@ -160,7 +160,7 @@ function createTrait<S extends TraitSchema>(schema: S = tagSchema as S): Trait<N
 
 export const trait = createTrait;
 
-export function registerTrait(ctx: WorldContext, trait: Trait) {
+export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   const traitCtx = trait[$internal];
 
   const data: TraitInstance = {
@@ -197,20 +197,24 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
   if (ctx.traitRegisteredSubscriptions.size > 0) {
     for (const sub of ctx.traitRegisteredSubscriptions) sub(trait);
   }
+
+  return data;
 }
 
-export function addTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
+export /* @inline */ function addTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  traits: ConfigurableTrait[]
+) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
   ctx.structuralDepth++;
   try {
-    if (assertsEnabled) {
-      assertEntityAlive(ctx, entity);
-    }
     addTraitsToAliveEntity(ctx, entity, traits);
-  } catch (error) {
-    ctx.structuralDepth--;
-    throw error;
+  } finally {
+    endStructuralChanges(ctx);
   }
-  endStructuralChanges(ctx);
 }
 
 /** The caller must establish entity liveness before adding traits. */
@@ -222,32 +226,41 @@ export /* @inline */ function addTraitsToAliveEntity(
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
 
-    // Pairs are the only configs that are neither a trait nor a tuple.
-    if (typeof config !== 'function' && !Array.isArray(config)) /* @cold */ {
-      if (isRelationPair(config)) addRelationPair(ctx, entity, config);
-      else addIdentifierPair(ctx, entity, config);
+    let trait: Trait;
+    let params: Record<string, any> | undefined;
+
+    if (typeof config === 'function') {
+      trait = config as Trait;
+    } else if (Array.isArray(config)) {
+      trait = config[0];
+      params = config[1];
     } else {
-      let trait: Trait;
-      let params: Record<string, any> | undefined;
-
-      if (Array.isArray(config)) {
-        trait = config[0];
-        params = config[1];
-      } else {
-        trait = config as Trait;
-      }
-
-      if (hasTrait(ctx, entity, trait)) continue;
-      if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-
-      // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
-      const instance = getTraitInstance(ctx.traitInstances, trait)!;
-      trait[$internal].add(ctx, getEntityId(entity), instance.store, params);
-      grantTraitMembership(ctx, entity, instance);
-      emit(instance.addSubscriptions, entity);
-      notifyTraitAdded(ctx, entity, instance);
+      addPair(ctx, entity, config);
+      continue;
     }
+
+    // One instance load serves the membership check, registration and the add.
+    const eid = getEntityId(entity);
+    let instance = getTraitInstance(ctx.traitInstances, trait);
+    if (instance === undefined) {
+      instance = registerTrait(ctx, trait);
+    } else {
+      const mask = ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2];
+      if ((mask & instance.bitflag) !== 0) continue;
+    }
+
+    // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
+    trait[$internal].add(ctx, eid, instance.store, params);
+    grantTraitMembership(ctx, entity, instance);
+    emit(instance.addSubscriptions, entity);
+    notifyTraitAdded(ctx, entity, instance);
   }
+}
+
+/** Pairs are the only configs that are neither a trait nor a tuple. Kept out of line as the rare case. */
+export function addPair(ctx: WorldContext, entity: Entity, pair: RelationPair | IdentifierPair) {
+  if (isRelationPair(pair)) addRelationPair(ctx, entity, pair);
+  else addIdentifierPair(ctx, entity, pair);
 }
 
 /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
@@ -293,12 +306,12 @@ export function removeTrait(
   entity: Entity,
   ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
 ) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
   ctx.structuralDepth++;
   try {
-    if (assertsEnabled) {
-      assertEntityAlive(ctx, entity);
-    }
-
     for (let i = 0; i < traits.length; i++) {
       const trait = traits[i];
 
@@ -314,32 +327,32 @@ export function removeTrait(
         removeTraitFromAliveEntity(ctx, entity, trait);
       }
     }
-  } catch (error) {
-    ctx.structuralDepth--;
-    throw error;
+  } finally {
+    endStructuralChanges(ctx);
   }
-  endStructuralChanges(ctx);
 }
 
 /** The caller must establish entity liveness before removing a trait. */
 export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, trait: Trait) {
-  if (!hasTrait(ctx, entity, trait)) return;
+  // One instance load serves the membership check and the removal.
+  const instance = getTraitInstance(ctx.traitInstances, trait);
+  if (instance === undefined) return;
+  const eid = getEntityId(entity);
+  const mask = ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2];
+  if ((mask & instance.bitflag) === 0) return;
 
   const traitCtx = trait[$internal];
 
   if (traitCtx.isIdentifier) {
-    releaseIdentifierTrait(ctx, entity, getTraitInstance(ctx.traitInstances, trait)!);
+    releaseIdentifierTrait(ctx, entity, instance);
     return;
   }
 
   if (traitCtx.relation) {
     releaseRelationTargets(ctx, entity, trait, traitCtx.relation);
   } else {
-    const instance = getTraitInstance(ctx.traitInstances, trait);
-    if (instance) {
-      emit(instance.removeSubscriptions, entity);
-      traitCtx.remove(ctx, getEntityId(entity), instance.store);
-    }
+    emit(instance.removeSubscriptions, entity);
+    traitCtx.remove(ctx, eid, instance.store);
   }
 
   removeTraitFromEntity(ctx, entity, trait);
@@ -787,14 +800,17 @@ export function reconcileTrackingQueries(
 }
 
 function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait): void {
-  if (!hasTrait(ctx, entity, trait)) return;
-
-  const instance = getTraitInstance(ctx.traitInstances, trait)!;
+  const instance = getTraitInstance(ctx.traitInstances, trait);
+  if (instance === undefined) return;
   const { generationId, bitflag } = instance;
 
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const offset = eid & 1023;
+  const page = ctx.entityMasks[generationId][pageId];
+  const slot = offset << 2;
+  if ((page[slot] & bitflag) === 0) return;
+
   /* @cold */ if (assertsEnabled && trait[$internal].relation) {
     const targets = instance.relationTargets?.[pageId]?.[offset];
     if (typeof targets === 'number' || (targets !== undefined && targets.length > 0)) {
@@ -804,8 +820,6 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
     }
   }
   if (assertsEnabled) ctx.structuralRevision++;
-  const page = ctx.entityMasks[generationId][pageId];
-  const slot = offset << 2;
   page[slot] &= ~bitflag;
   page[slot + REMOVED_WORD] |= bitflag;
   instance.version++;
