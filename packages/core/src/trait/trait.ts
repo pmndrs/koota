@@ -728,7 +728,7 @@ export function reconcileTraitQueries(
 export function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    /* @cold */ if (query.filters !== null) {
+    if (query.filters !== null) {
       if (checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
       else removeEntityFromQuery(ctx, query, entity);
     } else {
