@@ -15,9 +15,17 @@ import type { TraitInstance } from '../trait/types';
 import type { QueryInstance } from '../query/types';
 import type { WorldContext } from '../world';
 import { $identifier, $identifierPair } from './symbols';
-import type { Identifier, IdentifierKey, IdentifierPair } from './types';
+import type {
+  Identifier,
+  IdentifierIndex,
+  IdentifierKey,
+  IdentifierOptions,
+  IdentifierPair,
+} from './types';
 
-export function identifier<K extends IdentifierKey = string>(): Identifier<K> {
+export function identifier<K extends IdentifierKey = string>(
+  options?: IdentifierOptions
+): Identifier<K> {
   const backing = trait();
   const Identifier = Object.assign(
     (target: K): IdentifierPair<K> => {
@@ -26,7 +34,7 @@ export function identifier<K extends IdentifierKey = string>(): Identifier<K> {
       }
       return { [$identifierPair]: true, identifier: Identifier, target };
     },
-    { [$internal]: { trait: backing } }
+    { [$internal]: { trait: backing, exclusive: options?.exclusive ?? true } }
   ) as Identifier<K>;
   Object.defineProperties(Identifier, {
     [$identifier]: { value: true },
@@ -50,7 +58,27 @@ export /* @inline @pure */ function lookupIdentifier(
   ctx: WorldContext,
   pair: IdentifierPair
 ): Entity | undefined {
-  return ctx.traitInstances[pair.identifier.id]?.identifier?.owners.get(pair.target);
+  const owners = ctx.traitInstances[pair.identifier.id]?.identifier?.owners.get(pair.target);
+  return typeof owners === 'number' ? owners : owners?.[0];
+}
+
+export function lookupAllIdentifiers(ctx: WorldContext, pair: IdentifierPair): Entity[] {
+  const owners = ctx.traitInstances[pair.identifier.id]?.identifier?.owners.get(pair.target);
+  return typeof owners === 'number' ? [owners] : owners === undefined ? [] : owners.slice();
+}
+
+export /* @inline @pure */ function hasIdentifier(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: IdentifierPair
+): boolean {
+  const index = ctx.traitInstances[pair.identifier.id]?.identifier;
+  const owners = index?.owners.get(pair.target);
+  if (typeof owners === 'number') return owners === entity;
+  if (owners === undefined) return false;
+  const eid = getEntityId(entity);
+  const position = index!.positions![eid >>> 10]?.[eid & 1023];
+  return position !== undefined && owners[position] === entity;
 }
 
 export /* @inline */ function getIdentifierTarget<K extends IdentifierKey>(
@@ -76,25 +104,50 @@ export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: Ident
   // Earlier assignments or registration callbacks may have destroyed the source.
   if (!data || !isEntityAlive(ctx.entityIndex, entity)) return;
   const index = data.identifier!;
-  const owner = index.owners.get(pair.target);
-  if (owner === entity) return;
-  if (owner !== undefined) {
+  const eid = getEntityId(entity);
+  const page = (index.targets[eid >>> 10] ??= []);
+  const previous = page[eid & 1023];
+  if (previous === pair.target) return;
+  const owners = index.owners.get(pair.target);
+  if (typeof owners === 'number' && pair.identifier[$internal].exclusive) {
     if (assertsEnabled) {
       throw new Error(
-        `Koota: [IDENTIFIER_TAKEN] Identifier ${trait.id} key ${JSON.stringify(pair.target)} belongs to entity ${owner}.`
+        `Koota: [IDENTIFIER_TAKEN] Identifier ${trait.id} key ${JSON.stringify(pair.target)} belongs to entity ${owners}.`
       );
     }
     return;
   }
 
-  const eid = getEntityId(entity);
-  const page = (index.targets[eid >>> 10] ??= []);
-  const previous = page[eid & 1023];
-  if (previous !== undefined) index.owners.delete(previous);
-  index.owners.set(pair.target, entity);
+  if (previous !== undefined) releaseIdentifierOwner(index, entity, previous);
+  if (owners === undefined) {
+    index.owners.set(pair.target, entity);
+  } else {
+    addSharedIdentifierOwner(index, entity, pair.target, owners);
+  }
   page[eid & 1023] = pair.target;
 
   notifyIdentifierAssignment(ctx, entity, data, pair, previous);
+}
+
+/** Shared owners use one paged offset per entity for membership and swap removal. */
+export function addSharedIdentifierOwner(
+  index: IdentifierIndex,
+  entity: Entity,
+  target: IdentifierKey,
+  owners: Entity | Entity[]
+) {
+  const positions = (index.positions ??= []);
+  const eid = getEntityId(entity);
+  const page = (positions[eid >>> 10] ??= []);
+  if (typeof owners === 'number') {
+    const previousId = getEntityId(owners);
+    (positions[previousId >>> 10] ??= [])[previousId & 1023] = 0;
+    page[eid & 1023] = 1;
+    index.owners.set(target, [owners, entity]);
+  } else {
+    page[eid & 1023] = owners.length;
+    owners.push(entity);
+  }
 }
 
 /** Publish the committed mapping, allowing callbacks to replace or remove it. */
@@ -119,15 +172,15 @@ export function notifyIdentifierAssignment(
     emit(data.removeSubscriptions, entity, previous);
   }
   // Query and removal subscribers may have replaced or removed this assignment.
-  if (lookupIdentifier(ctx, pair) !== entity) return;
+  if (!hasIdentifier(ctx, entity, pair)) return;
   if (hasSubscribers(data.addSubscriptions)) {
     emitSubscribers(data.addSubscriptions, entity, pair.target);
-    if (lookupIdentifier(ctx, pair) !== entity) return;
+    if (!hasIdentifier(ctx, entity, pair)) return;
   }
   // Membership already recorded a first assignment for Changed queries. A replacement is a write.
   if (previous !== undefined) markTraitChanged(ctx, entity, data);
   // Changed query subscribers can also replace the assignment before onChange runs.
-  if (hasSubscribers(data.changeSubscriptions) && lookupIdentifier(ctx, pair) === entity) {
+  if (hasSubscribers(data.changeSubscriptions) && hasIdentifier(ctx, entity, pair)) {
     emitSubscribers(data.changeSubscriptions, entity, pair.target);
   }
 }
@@ -138,9 +191,29 @@ export function releaseIdentifier(entity: Entity, data: TraitInstance): Identifi
   const index = data.identifier!;
   const page = index.targets[eid >>> 10];
   const target = page[eid & 1023]!;
-  index.owners.delete(target);
+  releaseIdentifierOwner(index, entity, target);
   page[eid & 1023] = undefined;
   return target;
+}
+
+export /* @inline */ function releaseIdentifierOwner(
+  index: IdentifierIndex,
+  entity: Entity,
+  target: IdentifierKey
+) {
+  const owners = index.owners.get(target);
+  if (typeof owners === 'object') {
+    const eid = getEntityId(entity);
+    const position = index.positions![eid >>> 10][eid & 1023];
+    const last = owners.pop()!;
+    if (position < owners.length) {
+      owners[position] = last;
+      const lastId = getEntityId(last);
+      index.positions![lastId >>> 10][lastId & 1023] = position;
+    }
+    if (owners.length !== 0) return;
+  }
+  index.owners.delete(target);
 }
 
 /**
@@ -165,7 +238,7 @@ export function leaveKeyQueries(ctx: WorldContext, query: QueryInstance, pair: I
   else queries!.set(pair.target, rest);
 }
 
-/** Reconcile the static queries that filter by a key after it changed owner. */
+/** Reconcile the static queries that filter by a key after an assignment changes. */
 export function reconcileKeyQueries(
   ctx: WorldContext,
   entity: Entity,
@@ -195,6 +268,8 @@ export function matchesIdentifiers(
   entity: Entity,
   pairs: IdentifierPair[]
 ): boolean {
-  for (const pair of pairs) if (lookupIdentifier(ctx, pair) !== entity) return false;
+  for (let i = 0; i < pairs.length; i++) {
+    if (!hasIdentifier(ctx, entity, pairs[i])) return false;
+  }
   return true;
 }

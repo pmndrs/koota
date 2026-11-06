@@ -12,7 +12,7 @@ Koota manages state using entities with composable traits.
 - **Entity** - A unique identifier pointing to data defined by traits. Spawned from a world.
 - **Trait** - A reusable data definition. Can be schema-based (SoA), callback-based (AoS), or a tag.
 - **Relation** - A directional connection between entities to build graphs.
-- **Identifier** - A namespace of scalar keys. Within each world, an entity has at most one key per namespace, and a key has at most one owner.
+- **Identifier** - A namespace of scalar keys. An entity has at most one key per namespace. Keys are exclusive per world by default, or shared with `exclusive: false`.
 - **World** - The context for all entities and their data (traits).
 - **Archetype** - A unique combination of traits that entities share.
 - **Query** - Fetches entities matching an archetype. The primary way to batch update state.
@@ -197,7 +197,7 @@ entity // Full packed number (unique forever)
 
 **Identifiers**
 
-Define and export identifier types once, like traits. Each type is an independent namespace with at most one key per entity and one owner per key in each world. Keys are strings by default, or finite numbers with `identifier<number>()`.
+Define and export identifier types once, like traits. Each type is an independent namespace with at most one key per entity. Keys are exclusive per world by default. Use `identifier({ exclusive: false })` for shared values such as user-entered names, and `world.lookupAll(I(key))` or `world.query(I(key))` for all matches. Keys are strings by default, or finite numbers with `identifier<number>()`.
 
 ```typescript
 const Name = identifier()
@@ -213,7 +213,7 @@ player.add(WireId(456)) // Replaces 123
 player.remove(WireId(456)) // Releases the key
 ```
 
-`Name` is application-defined. Use `targetFor` to read and `add` to replace identifiers. Adding the same term is a no-op. Conflicting ownership is refused before mutation, with `[IDENTIFIER_TAKEN]` when assertions are enabled. Removal, destruction and reset release keys. Queries and subscriptions follow the current owner.
+`Name` is application-defined. Use `targetFor` to read and `add` to replace identifiers. Adding the same term is a no-op. Exclusive identifiers refuse conflicting ownership before mutation, with `[IDENTIFIER_TAKEN]` when assertions are enabled. Removal, destruction and reset release that entity's assignment. Queries and subscriptions follow every current owner.
 
 See [identifier contracts and patterns](references/identifiers.md).
 

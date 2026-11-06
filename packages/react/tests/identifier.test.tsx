@@ -9,7 +9,7 @@ import {
 import { cleanup, renderHook } from '@testing-library/react';
 import { act, StrictMode, useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { useHas, useTarget } from '../src';
+import { useHas, useQuery, useTarget, WorldProvider } from '../src';
 
 describe('identifier hooks', () => {
   const Name = identifier();
@@ -91,6 +91,35 @@ describe('identifier hooks', () => {
     act(() => first.destroy());
     rerender({ target: first, type: Name });
     expect(result.current).toEqual({ value: undefined, present: false });
+  });
+
+  it('observes every entity sharing a name through rename and destruction', () => {
+    const DisplayName = identifier({ exclusive: false });
+    const first = world.spawn(DisplayName('kris'));
+    const second = world.spawn(DisplayName('kris'));
+    const { result } = renderHook(
+      () => ({
+        entities: useQuery(DisplayName('kris')),
+        name: useTarget(second, DisplayName),
+        matches: useHas(second, DisplayName('kris')),
+      }),
+      {
+        wrapper: ({ children }) => (
+          <StrictMode>
+            <WorldProvider world={world}>{children}</WorldProvider>
+          </StrictMode>
+        ),
+      }
+    );
+    expect(result.current).toEqual({ entities: [first, second], name: 'kris', matches: true });
+    act(() => second.add(DisplayName('sam')));
+    expect(result.current).toEqual({ entities: [first], name: 'sam', matches: false });
+    act(() => first.destroy());
+    expect(result.current.entities).toEqual([]);
+    act(() => second.add(DisplayName('kris')));
+    expect(result.current).toEqual({ entities: [second], name: 'kris', matches: true });
+    act(() => second.remove(DisplayName));
+    expect(result.current).toEqual({ entities: [], name: undefined, matches: false });
   });
 
   it('compares inline terms by namespace and scalar key', () => {

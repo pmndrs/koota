@@ -7,7 +7,7 @@ import {
   isIdentifierPair,
   joinKeyQueries,
   leaveKeyQueries,
-  lookupIdentifier,
+  lookupAllIdentifiers,
 } from '../identifier/identifier';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
@@ -657,15 +657,12 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
-  // One unique term bounds the candidates. The matcher checks every remaining term.
-  const identifiedEntity = query.identifierFilters
-    ? lookupIdentifier(ctx, query.identifierFilters[0])
-    : undefined;
   const index = ctx.entityIndex;
   let candidates: readonly Entity[];
   let candidateCount: number;
   if (query.identifierFilters !== undefined) {
-    candidates = identifiedEntity === undefined ? EMPTY_ENTITIES : [identifiedEntity];
+    // A key bounds the candidates. The matcher checks every remaining term.
+    candidates = lookupAllIdentifiers(ctx, query.identifierFilters[0]);
     candidateCount = candidates.length;
   } else if (targetCandidates !== undefined && !query.isTracking) {
     candidates = targetCandidates;

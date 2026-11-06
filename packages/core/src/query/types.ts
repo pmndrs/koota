@@ -229,7 +229,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   version: number;
   ctx: WorldContext;
   parameters: T;
-  /** Every identifier term must resolve to the candidate entity. */
+  /** The candidate entity must own the key in every identifier term. */
   identifierFilters: IdentifierPair[] | undefined;
   hash: QueryHash;
   refId: number;

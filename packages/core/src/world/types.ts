@@ -86,7 +86,10 @@ export type World = {
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
   spawn(...traits: ConfigurableTrait[]): Entity;
+  /** Resolve one current owner, including excluded entities, or undefined if absent. */
   lookup<K extends IdentifierKey>(pair: IdentifierPair<K>): Entity | undefined;
+  /** Return a snapshot of every current owner, including excluded entities. */
+  lookupAll<K extends IdentifierKey>(pair: IdentifierPair<K>): Entity[];
   has(entity: Entity): boolean;
   has(trait: Trait | Identifier | IdentifierPair): boolean;
   has(target: Entity | Trait | Identifier | IdentifierPair): boolean;
