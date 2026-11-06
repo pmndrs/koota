@@ -246,7 +246,7 @@ export /* @inline */ function addTraitsToAliveEntity(
   }
 }
 
-/** Write the given value where the trait or pair is present and add it where it is absent. */
+/** Set the given value where the trait or pair is present and add it where it is absent. */
 export function upsertTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
@@ -255,32 +255,22 @@ export function upsertTrait(ctx: WorldContext, entity: Entity, ...traits: Config
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
 
-    if (Array.isArray(config)) {
-      const trait = config[0];
-      const value = config[1];
-      if (value !== undefined && hasTrait(ctx, entity, trait)) {
-        const instance = getTraitInstance(ctx.traitInstances, trait)!;
-        trait[$internal].set(ctx, getEntityId(entity), instance.store, value);
-        notifyTraitChanged(ctx, entity, instance);
-        continue;
-      }
-    } else if (typeof config !== 'function' && isRelationPair(config)) {
-      const relation = config.relation;
-      const target = config.target;
-      const params = config.params;
+    if (Array.isArray(config) && config[1] !== undefined && hasTrait(ctx, entity, config[0])) {
+      setTraitForTrait(ctx, entity, config[0], config[1], true);
+    } else /* @cold */ {
+      // Pairs and additions run out of line so the present trait write stays small enough to inline.
       if (
-        params !== undefined &&
-        typeof target === 'number' &&
-        hasRelationToTarget(ctx, relation, entity, target)
+        isRelationPair(config) &&
+        config.params !== undefined &&
+        typeof config.target === 'number' &&
+        hasRelationToTarget(ctx, config.relation, entity, config.target)
       ) {
-        setRelationData(ctx, entity, relation, target, params);
-        setPairChanged(ctx, entity, relation[$internal].trait, target);
-        continue;
+        setTraitForPair(ctx, entity, config, config.params, true);
+      } else {
+        // A config without a value has nothing to set, so it only ensures presence.
+        addTraitsToAliveEntity(ctx, entity, [config]);
       }
     }
-
-    // A config without a value has nothing to write, so it only ensures presence.
-    addTraitsToAliveEntity(ctx, entity, [config]);
   }
 }
 
