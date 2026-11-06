@@ -1,5 +1,7 @@
 import { endStructuralChanges, observeSettled } from './settled';
 import { $internal } from '../common';
+import { subscribeMachine } from '../machine/machine';
+import type { Machine, TransitionSubscriber } from '../machine/types';
 import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity, entityHas } from '../entity/entity';
 import type { Entity } from '../entity/types';
@@ -194,6 +196,9 @@ export function createWorld(options?: WorldOptions): World {
       actionInstances: [],
       notQueries: [],
       queryCallbackDepth: 0,
+      queryBatch: undefined,
+      internalQuerySubscriptions: undefined,
+      machineMutations: undefined,
       defersChanges: false,
       targetQueries: [],
       dirtyQueries: [],
@@ -317,6 +322,7 @@ export function createWorld(options?: WorldOptions): World {
         ctx.relations.length = 0;
 
         ctx.queriesHashMap.clear();
+        ctx.internalQuerySubscriptions = undefined;
         ctx.inlineQueries = { next: null, params: null, query: null, parent: null, key: null };
         ctx.queryInstances.length = 0;
         ctx.tombstones.head = 0;
@@ -500,6 +506,12 @@ export function createWorld(options?: WorldOptions): World {
       data.changeSubscriptions.all.add(resolvedCallback);
 
       return () => data.changeSubscriptions.all.delete(resolvedCallback);
+    },
+
+    onTransition(machine: Machine, callback: TransitionSubscriber) {
+      const ctx = world[$internal];
+      ensureWorldRegistered(ctx);
+      return subscribeMachine(ctx, machine, callback);
     },
 
     onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {

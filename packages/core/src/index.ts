@@ -1,3 +1,11 @@
+export { machine } from './machine/machine';
+export type {
+  Machine,
+  MachineOptions,
+  MachineStates,
+  MachineStateInput,
+  TransitionSubscriber,
+} from './machine/types';
 export { createActions } from './actions/create-actions';
 export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
 export { $internal } from './common';
