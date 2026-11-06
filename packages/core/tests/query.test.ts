@@ -556,6 +556,24 @@ describe('Query', () => {
     }
   });
 
+  it('resolves a repeated inline query that names a target entity', () => {
+    const parent = world.spawn();
+    const other = world.spawn();
+    const child = world.spawn(Position, ChildOf(parent));
+    const otherChild = world.spawn(Position, ChildOf(other));
+
+    // Each call builds a new pair, and the later ones find the query of the first.
+    const result = world.query(Position, ChildOf(parent));
+    expect(world.query(Position, ChildOf(parent))).toBe(result);
+    expect(result.toArray()).toEqual([child]);
+    expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild]);
+
+    // A destroyed parent takes its query with it, and the other parent keeps its own.
+    parent.destroy();
+    const late = world.spawn(Position, ChildOf(other));
+    expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild, late]);
+  });
+
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
     const result = world.query(Position);
