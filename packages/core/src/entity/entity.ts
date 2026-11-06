@@ -237,9 +237,6 @@ function dropTargetQueries(
   entity: Entity,
   evicted: boolean
 ) {
-  // Every inline query kept under the target needs its pair, so each one is dropped below.
-  const steps = ctx.inlineTargets;
-  for (let i = 0; i < steps.length; i++) steps[i].next!.delete(entity);
   for (let i = targetQueries.length - 1; i >= 0; i--) {
     const query = targetQueries[i];
     const disposable =

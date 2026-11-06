@@ -574,6 +574,60 @@ describe('Query', () => {
     expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild, late]);
   });
 
+  it.each([0, 1, 2])(
+    'keeps multi-target queries current when target %i is destroyed',
+    (destroyed) => {
+      const VisibleIn = relation();
+      const LayerOf = relation();
+      const targets = [world.spawn(), world.spawn(), world.spawn()];
+      const pairs = [ChildOf(targets[0]), VisibleIn(targets[1]), LayerOf(targets[2])];
+      const child = world.spawn(Position, ...pairs);
+      const sibling = world.spawn(Position, ChildOf(targets[0]));
+      const prefix = world.query(ChildOf(targets[0]), Position);
+      const read = () =>
+        world.query(ChildOf(targets[0]), VisibleIn(targets[1]), LayerOf(targets[2]), Position);
+      const view = read();
+      expect(read()).toBe(view);
+      expect(view.toArray()).toEqual([child]);
+      expect(world.query(Position, ...pairs).toArray()).toEqual([child]);
+
+      child.remove(VisibleIn(targets[1]));
+      expect(read()).toHaveLength(0);
+      child.add(VisibleIn(targets[1]));
+      expect(read().toArray()).toEqual([child]);
+      targets[destroyed].destroy();
+      expect(read()).toHaveLength(0);
+      if (destroyed !== 0) {
+        expect(world.query(ChildOf(targets[0]), Position)).toBe(prefix);
+        expect(prefix.toArray()).toEqual([child, sibling]);
+      }
+
+      targets[destroyed] = world.spawn();
+      child.add([ChildOf, VisibleIn, LayerOf][destroyed](targets[destroyed]));
+      expect(read().toArray()).toEqual([child]);
+    }
+  );
+
+  it.skipIf(!hasNativeGc()).each(['outer', 'inner'] as const)(
+    'releases every cached path after destroying the %s relation target',
+    async (destroyed) => {
+      const VisibleIn = relation();
+      await expect(
+        waitForFinalization((registry) => {
+          const parent = world.spawn();
+          const viewport = world.spawn();
+          world.spawn(Position, ChildOf(parent), VisibleIn(viewport));
+          const view = world.query(ChildOf(parent), VisibleIn(viewport), Position);
+          world.query(Position, VisibleIn(viewport), ChildOf(parent));
+          registry.register(view, 'view');
+          if (destroyed === 'outer') parent.destroy();
+          else viewport.destroy();
+        })
+      ).resolves.toBe(true);
+    },
+    20_000
+  );
+
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
     const result = world.query(Position);

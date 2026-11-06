@@ -14,7 +14,7 @@ import type {
   TraitInstance,
   TraitRecord,
 } from '../trait/types';
-import type { WorldContext } from '../world';
+import type { InlineQueryNode, WorldContext } from '../world/types';
 import { $modifier } from './modifier';
 import { $parameters, $queryRef } from './symbols';
 
@@ -274,6 +274,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   notIndex: number;
   /** An active dispatch may still hold a list containing a dropped query. */
   dropped: boolean;
+  /** Inline tree entries to prune when a concrete relation target destroys this query. */
+  inlineNodes: InlineQueryNode[] | null;
   /**
    * Requires a pair with a concrete target, so it can only hold sources of that target. It joins
    * no trait list and is reconciled through the targets of the entity an event concerns.
