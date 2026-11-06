@@ -69,7 +69,13 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
     return createOwnedView(ctx, entities as Entity[], null, params);
   }
 
-  // One lookup per parameter, so the cost does not grow with the number of queries kept.
+  const node = findInlineQuery(ctx, params);
+  if (node === null) return resolveInlineQuery(ctx, params);
+  return runQuery(ctx, node.query!, node.params!);
+}
+
+/** One lookup per parameter, shared by full queries and first-match queries. */
+function findInlineQuery(ctx: WorldContext, params: QueryParameter[]): InlineQueryNode | null {
   let node = ctx.inlineQueries;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
@@ -77,15 +83,14 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
     if (next === undefined) {
       // A pair naming a target entity is a new object on every call, found by what it names.
       if (!isRelationPair(param) || typeof param.target !== 'number') {
-        return resolveInlineQuery(ctx, params);
+        return null;
       }
       next = node.next?.get(param.relation as Relation<Trait>)?.next?.get(param.target);
-      if (next === undefined) return resolveInlineQuery(ctx, params);
+      if (next === undefined) return null;
     }
     node = next;
   }
-  if (node.query === null) return resolveInlineQuery(ctx, params);
-  return runQuery(ctx, node.query, node.params!);
+  return node.query === null ? null : node;
 }
 
 /** Resolves parameters seen for the first time, or ones that are new objects on every call. */
@@ -334,10 +339,15 @@ export function createWorld(options?: WorldOptions): World {
         }
       }
 
+      const node = findInlineQuery(ctx, args as QueryParameter[]);
+      if (node !== null) return runQueryFirst(ctx, node.query!);
+
       const identified = findIdentifiedEntity(ctx, args as QueryParameter[]);
       if (identified !== null) return identified;
 
-      return runQueryFirst(ctx, resolveQueryInstance(ctx, args as QueryParameter[]));
+      const query = resolveQueryInstance(ctx, args as QueryParameter[]);
+      rememberInlineQuery(ctx, args as QueryParameter[], query);
+      return runQueryFirst(ctx, query);
     },
 
     onQueryAdd(
