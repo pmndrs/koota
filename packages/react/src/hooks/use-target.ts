@@ -24,10 +24,33 @@ function attachTarget(
   push: (value: IdentifierKey | undefined) => void
 ) {
   const trait = relation[$internal].trait;
-  const update = () => push(entity.isAlive() ? readTarget(entity, relation) : undefined);
-  const onChange = entity.onChange(trait, update);
-  // Identifier removal observes the committed mapping, including a replacement key.
-  const onRemove = entity.onRemove(trait, $identifier in relation ? update : () => push(undefined));
+
+  if ($identifier in relation) {
+    const update = () => push(entity.isAlive() ? readTarget(entity, relation) : undefined);
+    const onChange = entity.onChange(trait, update);
+    // Identifier removal observes the committed mapping, including a replacement key.
+    const onRemove = entity.onRemove(trait, update);
+
+    return () => {
+      onChange();
+      onRemove();
+    };
+  }
+
+  // Relation removal fires before cleanup, so it mirrors the core's swap-and-pop
+  // on the last read targets to find the first target that remains.
+  let targets = entity.targetsFor(relation);
+  const onChange = entity.onChange(relation, () => {
+    targets = entity.isAlive() ? entity.targetsFor(relation) : [];
+    push(targets[0]);
+  });
+  const onRemove = entity.onRemove(relation, (_, removed) => {
+    const index = targets.indexOf(removed);
+    if (index === -1) return;
+    const last = targets.pop()!;
+    if (index < targets.length) targets[index] = last;
+    push(targets[0]);
+  });
 
   return () => {
     onChange();
