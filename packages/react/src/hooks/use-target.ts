@@ -1,5 +1,4 @@
 import {
-  $identifier,
   $internal,
   type Entity,
   type Identifier,
@@ -14,8 +13,8 @@ function readTarget(
   entity: Entity,
   relation: Relation<Trait> | Identifier
 ): IdentifierKey | undefined {
-  if ($identifier in relation) return entity.targetFor(relation);
-  return entity.targetFor(relation);
+  // The targetFor overloads take no union. Core reads both inputs the same way.
+  return entity.targetFor(relation as Relation<Trait>);
 }
 
 function attachTarget(
@@ -23,13 +22,14 @@ function attachTarget(
   relation: Relation<Trait> | Identifier,
   push: (value: IdentifierKey | undefined) => void
 ) {
+  const observer = entity[$internal].observeSettled(() => {
+    push(entity.isAlive() ? readTarget(entity, relation) : undefined);
+  });
   const trait = relation[$internal].trait;
-  const update = () => push(entity.isAlive() ? readTarget(entity, relation) : undefined);
-  const onChange = entity.onChange(trait, update);
-  // Identifier removal observes the committed mapping, including a replacement key.
-  const onRemove = entity.onRemove(trait, $identifier in relation ? update : () => push(undefined));
-
+  const onChange = entity.onChange(trait, observer.invalidate);
+  const onRemove = entity.onRemove(trait, observer.invalidate);
   return () => {
+    observer.unsubscribe();
     onChange();
     onRemove();
   };

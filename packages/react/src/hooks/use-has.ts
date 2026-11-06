@@ -1,7 +1,5 @@
 import {
-  $identifier,
-  $identifierPair,
-  $relationPair,
+  $internal,
   type Entity,
   type Identifier,
   type IdentifierPair,
@@ -18,26 +16,14 @@ function readHas(entity: Entity, trait: HasInput) {
 }
 
 function attachHas(entity: Entity, trait: HasInput, push: (value: boolean) => void) {
-  if ($identifier in trait || $identifierPair in trait) {
-    const update = () => push(entity.isAlive() && entity.has(trait));
-    const onAdd = entity.onAdd(trait, update);
-    const onRemove = entity.onRemove(trait, update);
-    return () => {
-      onAdd();
-      onRemove();
-    };
-  }
-
-  // onRemove fires before cleanup, so a wildcard still matches if another target remains.
-  const pair = trait as RelationPair;
-  const wildcardRelation = pair[$relationPair] && pair.target === '*' ? pair.relation : undefined;
-
-  const onAdd = entity.onAdd(trait, () => push(true));
-  const onRemove = entity.onRemove(trait, () => {
-    push(wildcardRelation ? entity.targetsFor(wildcardRelation).length > 1 : false);
-  });
-
+  const observer = entity[$internal].observeSettled(() =>
+    push(entity.isAlive() && entity.has(trait))
+  );
+  // The hook overloads take no union. Core resolves every input and filters exact terms by key.
+  const onAdd = entity.onAdd(trait as Trait, observer.invalidate);
+  const onRemove = entity.onRemove(trait as Trait, observer.invalidate);
   return () => {
+    observer.unsubscribe();
     onAdd();
     onRemove();
   };

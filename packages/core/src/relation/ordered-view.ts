@@ -1,3 +1,4 @@
+import { endStructuralChanges } from '../world/settled';
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { notifyChanged } from '../query/modifiers/changed';
@@ -44,7 +45,7 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     if (!isEntityAlive(this.ctx.entityIndex, entity)) {
       throw new Error('Koota: Ordered views require live entities in the same world.');
     }
-    addTrait(this.ctx, entity, this.relation(this.parent));
+    addTrait(this.ctx, entity, [this.relation(this.parent)]);
     return this;
   }
 
@@ -68,9 +69,14 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     this.assertActive();
     const index = this.indexOf(entity);
     if (index === -1) return false;
-    this.source.write().splice(index, 1);
-    removeTrait(this.ctx, entity, this.relation(this.parent));
-    this.changed();
+    this.ctx.structuralDepth++;
+    try {
+      this.source.write().splice(index, 1);
+      removeTrait(this.ctx, entity, this.relation(this.parent));
+      this.changed();
+    } finally {
+      endStructuralChanges(this.ctx);
+    }
     return true;
   }
 
@@ -79,8 +85,13 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     if (this.length === 0) return;
     const entities = this.source.dense;
     this.source.dense = [];
-    for (const entity of entities) removeTrait(this.ctx, entity, this.relation(this.parent));
-    this.changed();
+    this.ctx.structuralDepth++;
+    try {
+      for (const entity of entities) removeTrait(this.ctx, entity, this.relation(this.parent));
+      this.changed();
+    } finally {
+      endStructuralChanges(this.ctx);
+    }
   }
 
   moveTo(entity: Entity, index: number): this {

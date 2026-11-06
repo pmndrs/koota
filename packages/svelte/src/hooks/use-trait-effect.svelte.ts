@@ -1,4 +1,5 @@
 import {
+  $internal as internal,
   type Entity,
   type RelationPair,
   type Trait,
@@ -20,15 +21,15 @@ export function useTraitEffect<T extends Trait>(
     const entity = getTargetEntity(target());
     if (entity === undefined) return;
     const resolvedTrait = resolve(trait);
-
-    const onChangeUnsub = entity.onChange(resolvedTrait, () => notify(entity.get(resolvedTrait)));
-    const onRemoveUnsub = entity.onRemove(resolvedTrait, () => notify(undefined));
-
-    notify(entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined);
-
+    const update = () => notify(entity.isAlive() ? entity.get(resolvedTrait) : undefined);
+    const observer = entity[internal].observeSettled(update);
+    const onChange = entity.onChange(resolvedTrait, observer.invalidate);
+    const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+    update();
     return () => {
-      onChangeUnsub();
-      onRemoveUnsub();
+      observer.unsubscribe();
+      onChange();
+      onRemove();
     };
   });
 }

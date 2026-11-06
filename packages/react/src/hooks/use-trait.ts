@@ -23,11 +23,13 @@ export function attachTrait<T extends Trait | RelationPair>(
   trait: T,
   push: (value: TraitRecord<ExtractSchema<T>> | undefined) => void
 ) {
-  const update = () => push(entity.get(trait));
-  const onChange = entity.onChange(trait, update);
-  const onRemove = entity.onRemove(trait, () => push(undefined));
-
+  const observer = entity[$internal].observeSettled(() => {
+    push(entity.isAlive() ? entity.get(trait) : undefined);
+  });
+  const onChange = entity.onChange(trait, observer.invalidate);
+  const onRemove = entity.onRemove(trait, observer.invalidate);
   return () => {
+    observer.unsubscribe();
     onChange();
     onRemove();
   };

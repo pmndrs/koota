@@ -1,4 +1,10 @@
-import { type Entity, type Relation, type Trait, type World } from '@koota/core';
+import {
+  $internal as internal,
+  type Entity,
+  type Relation,
+  type Trait,
+  type World,
+} from '@koota/core';
 import { getTargetEntity } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
@@ -18,30 +24,17 @@ export function useTarget<T extends Trait>(
     }
 
     const resolvedRelation = resolve(relation);
-    let targets: Entity[];
-
     const update = () => {
-      targets = entity.targetsFor(resolvedRelation);
-      value = targets[0];
+      value = entity.isAlive() ? entity.targetFor(resolvedRelation) : undefined;
     };
-
-    const onRemoveUnsub = entity.onRemove(resolvedRelation, (_, removedTarget) => {
-      // onRemove fires before core removes the target, so mirror its swap-and-pop.
-      const index = targets.indexOf(removedTarget);
-      if (index === -1) return;
-
-      const lastTarget = targets.pop()!;
-      if (index < targets.length) targets[index] = lastTarget;
-      value = targets[0];
-    });
-
-    const onChangeUnsub = entity.onChange(resolvedRelation, update);
-
+    const observer = entity[internal].observeSettled(update);
+    const onChange = entity.onChange(resolvedRelation, observer.invalidate);
+    const onRemove = entity.onRemove(resolvedRelation, observer.invalidate);
     update();
-
     return () => {
-      onRemoveUnsub();
-      onChangeUnsub();
+      observer.unsubscribe();
+      onChange();
+      onRemove();
     };
   });
 

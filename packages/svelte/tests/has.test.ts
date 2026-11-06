@@ -1,6 +1,6 @@
 import { createWorld, relation, trait } from '@koota/core';
 import { render } from '@testing-library/svelte';
-import { ComponentProps, tick } from 'svelte';
+import { ComponentProps, flushSync, tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import HasTest from './components/HasTest.svelte';
 import { WORLD_KEY } from '../src/world/world-context';
@@ -96,7 +96,7 @@ describe('useHas', () => {
     expect(getByTestId('value').textContent).toBe('false');
   });
 
-  it('supports relation pair and wildcard pair subscriptions', async () => {
+  it('supports relation pair and wildcard pair subscriptions', () => {
     const parentA = world.spawn();
     const parentB = world.spawn();
     const child = world.spawn();
@@ -107,23 +107,23 @@ describe('useHas', () => {
       trait: ChildOf('*'),
     });
 
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('false');
 
     child.add(ChildOf(parentB));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('true');
 
     child.add(ChildOf(parentA));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('true');
 
     child.remove(ChildOf(parentA));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('true');
 
     child.remove(ChildOf(parentB));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('false');
   });
 });

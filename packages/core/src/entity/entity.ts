@@ -1,3 +1,4 @@
+import { endStructuralChanges } from '../world/settled';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
@@ -47,27 +48,32 @@ import './entity-methods-patch';
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
 
-  // Queries that can match without traits need an initial membership check.
-  const notQueries = ctx.notQueries;
-  for (let i = 0; i < notQueries.length; i++) {
-    const query = notQueries[i];
-    resetQueryTrackingBitmasks(query, getEntityId(entity));
-    if (query.filters?.tracking) {
-      if (checkQueryTracking(ctx, query, entity, 'change', -1, 0)) addEntityToQuery(query, entity);
-    } else if (!query.isTracking) {
-      const matches =
-        query.filters !== null
-          ? checkQueryWithFilters(ctx, query, entity)
-          : checkQuery(ctx, query, entity);
-      if (matches) addEntityToQuery(query, entity);
+  ctx.structuralDepth++;
+  try {
+    // Queries that can match without traits need an initial membership check.
+    const notQueries = ctx.notQueries;
+    for (let i = 0; i < notQueries.length; i++) {
+      const query = notQueries[i];
+      resetQueryTrackingBitmasks(query, getEntityId(entity));
+      if (query.filters?.tracking) {
+        if (checkQueryTracking(ctx, query, entity, 'change', -1, 0)) addEntityToQuery(query, entity);
+      } else if (!query.isTracking) {
+        const matches =
+          query.filters !== null
+            ? checkQueryWithFilters(ctx, query, entity)
+            : checkQuery(ctx, query, entity);
+        if (matches) addEntityToQuery(query, entity);
+      }
     }
-  }
 
-  // Spawn is create then add in argument order. A trait that throws leaves the earlier ones in place.
-  addTraitsToAliveEntity(ctx, entity, traits);
+    // Spawn is create then add in argument order. A trait that throws leaves the earlier ones in place.
+    addTraitsToAliveEntity(ctx, entity, traits);
 
-  /* @cold */ if (ctx.entitySpawnSubscriptions.size > 0 && !hasTrait(ctx, entity, IsExcluded)) {
-    for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
+    /* @cold */ if (ctx.entitySpawnSubscriptions.size > 0 && !hasTrait(ctx, entity, IsExcluded)) {
+      for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
+    }
+  } finally {
+    endStructuralChanges(ctx);
   }
 
   return entity;
@@ -104,6 +110,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
   if (!nested) entityQueue.push(entity);
 
   isDestroying = true;
+  ctx.structuralDepth++;
 
   try {
     while (entityQueue.length > 0) {
@@ -113,6 +120,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
     isDestroying = nested;
     // Only a throw leaves entries behind. Trimming the length reallocates, so do it only then.
     if (!nested && entityQueue.length !== 0) entityQueue.length = 0;
+    endStructuralChanges(ctx);
   }
 }
 

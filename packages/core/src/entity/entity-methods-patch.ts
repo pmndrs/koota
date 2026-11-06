@@ -1,3 +1,4 @@
+import { $internal } from '../common';
 import { setChanged } from '../query/modifiers/changed';
 import { getFirstRelationTarget, getRelationTargets } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
@@ -14,7 +15,7 @@ import { addressSpace } from './utils/address-space';
 
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
-  return addTrait(getEntityContext(this), this, ...traits);
+  addTrait(getEntityContext(this), this, traits);
 };
 
 // @ts-expect-error
@@ -117,3 +118,10 @@ Number.prototype.isAlive = function (this: Entity) {
   if (denseIdx === undefined || denseIdx >= idx.aliveCount) return false;
   return idx.dense[denseIdx] === (this as unknown as number);
 };
+
+Object.defineProperty(Number.prototype, $internal, {
+  configurable: true,
+  get(this: Entity) {
+    return getEntityContext(this);
+  },
+});

@@ -1,3 +1,5 @@
+import type { $internal } from '../common';
+import type { WorldContext } from '../world';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
@@ -37,6 +39,7 @@ type EntityHook = {
 
 /** Trait and relation reads require liveness. Read retained values through Removed query iteration. */
 export type Entity = number & {
+  readonly [$internal]: WorldContext;
   add: (...traits: ConfigurableTrait[]) => void;
   /** Set the value if the entity has the trait or pair, or add it with the value if it does not. */
   upsert: <T extends Trait | RelationPair>(trait: T, value: TraitInit<ExtractSchema<T>>) => void;

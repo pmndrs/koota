@@ -1,6 +1,6 @@
 import { createWorld, relation, trait } from '@koota/core';
 import { render } from '@testing-library/svelte';
-import { tick } from 'svelte';
+import { flushSync } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import TargetTest from './components/TargetTest.svelte';
 import TargetsTest from './components/TargetsTest.svelte';
@@ -22,15 +22,15 @@ describe('useTarget', () => {
     world = createWorld();
   });
 
-  it('handles an unregistered world', async () => {
+  it('handles an unregistered world', () => {
     const Parent = relation();
     const { getByTestId } = renderSubject({ target: world, relation: Parent });
 
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('undefined');
   });
 
-  it('reactively returns the target for an entity relation', async () => {
+  it('reactively returns the target for an entity relation', () => {
     const Parent = relation({ exclusive: true });
     const subject = world.spawn(Marker);
     const targetA = world.spawn(Marker);
@@ -41,36 +41,89 @@ describe('useTarget', () => {
       relation: Parent,
     });
 
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('undefined');
 
     subject.add(Parent(targetA));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe(String(targetA));
 
     subject.add(Parent(targetB));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe(String(targetB));
 
     subject.remove(Parent(targetB));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe('undefined');
   });
 
-  it('returns a remaining target when one is removed', async () => {
+  it('returns a remaining target when one is removed', () => {
     const Parent = relation();
     const removedTarget = world.spawn();
     const remainingTarget = world.spawn();
     const subject = world.spawn(Parent(removedTarget), Parent(remainingTarget));
     const { getByTestId } = renderSubject({ target: subject, relation: Parent });
 
-    await tick();
+    flushSync();
     subject.remove(Parent(removedTarget));
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe(String(remainingTarget));
   });
 
-  it('immediately reflects the correct value when switching entities', async () => {
+  it('keeps the first remaining target across removals and additions', () => {
+    const Likes = relation();
+    const targetA = world.spawn();
+    const targetB = world.spawn();
+    const targetC = world.spawn();
+    const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC));
+    const { getByTestId } = renderSubject({ target: subject, relation: Likes });
+    flushSync();
+    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
+    subject.remove(Likes(targetB));
+    flushSync();
+    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
+    subject.remove(Likes(targetA));
+    flushSync();
+    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
+    subject.remove(Likes(targetC));
+    flushSync();
+    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
+    subject.add(Likes(targetB));
+    flushSync();
+    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
+    targetB.destroy();
+    flushSync();
+    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
+  });
+
+  it('clears its target when the source is destroyed', () => {
+    const Likes = relation();
+    const subject = world.spawn(Likes(world.spawn()), Likes(world.spawn()));
+    const { getByTestId } = renderSubject({ target: subject, relation: Likes });
+
+    flushSync();
+    subject.destroy();
+    flushSync();
+    expect(getByTestId('value').textContent).toBe('undefined');
+  });
+
+  it('keeps the new source when an old removal is queued', () => {
+    const Likes = relation();
+    const targetA = world.spawn();
+    const targetB = world.spawn();
+    const first = world.spawn(Likes(targetA));
+    const second = world.spawn(Likes(targetB));
+    const { getByTestId, rerender } = renderSubject({ target: first, relation: Likes });
+
+    flushSync();
+    first.remove(Likes(targetA));
+    flushSync(() => {
+      void rerender({ target: second, relation: Likes });
+    });
+    expect(getByTestId('value').textContent).toBe(String(targetB));
+  });
+
+  it('immediately reflects the correct value when switching entities', () => {
     const Parent = relation({ exclusive: true });
     const entityA = world.spawn();
     const entityB = world.spawn();
@@ -82,11 +135,12 @@ describe('useTarget', () => {
       relation: Parent,
     });
 
-    await tick();
+    flushSync();
     expect(getByTestId('value').textContent).toBe(String(targetForA));
 
-    await rerender({ target: entityB, relation: Parent });
-    await tick();
+    flushSync(() => {
+      void rerender({ target: entityB, relation: Parent });
+    });
     expect(getByTestId('value').textContent).toBe('undefined');
   });
 });
@@ -105,15 +159,15 @@ describe('useTargets', () => {
     world = createWorld();
   });
 
-  it('handles an unregistered world', async () => {
+  it('handles an unregistered world', () => {
     const Contains = relation();
     const { getByTestId } = renderSubject({ target: world, relation: Contains });
 
-    await tick();
+    flushSync();
     expect(getByTestId('count').textContent).toBe('0');
   });
 
-  it('reactively returns targets for an entity relation', async () => {
+  it('reactively returns targets for an entity relation', () => {
     const Likes = relation();
     const subject = world.spawn(Marker);
     const targetA = world.spawn(Marker);
@@ -124,20 +178,20 @@ describe('useTargets', () => {
       relation: Likes,
     });
 
-    await tick();
+    flushSync();
     expect(getByTestId('count').textContent).toBe('0');
 
     subject.add(Likes(targetA));
     subject.add(Likes(targetB));
-    await tick();
+    flushSync();
     expect(getByTestId('count').textContent).toBe('2');
 
     subject.remove(Likes(targetA));
-    await tick();
+    flushSync();
     expect(getByTestId('count').textContent).toBe('1');
   });
 
-  it('does not loop when a pair is removed inside an effect', async () => {
+  it('does not loop when a pair is removed inside an effect', () => {
     const Likes = relation();
     const targetA = world.spawn(Marker);
     const targetB = world.spawn(Marker);
@@ -153,8 +207,7 @@ describe('useTargets', () => {
       },
     });
 
-    await tick();
-    await tick();
+    flushSync();
     expect(runs).toBe(1);
     expect(getByTestId('count').textContent).toBe('1');
   });

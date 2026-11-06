@@ -18,7 +18,7 @@ describe('useTarget', () => {
     world = createWorld();
   });
 
-  it('reactively returns the target for an entity relation', async () => {
+  it('reactively returns the target for an entity relation', () => {
     const Parent = relation({ exclusive: true });
     const subject = world.spawn(Marker);
     const targetA = world.spawn(Marker);
@@ -30,7 +30,7 @@ describe('useTarget', () => {
       return null;
     }
 
-    await act(async () => {
+    act(() => {
       render(
         <StrictMode>
           <WorldProvider world={world}>
@@ -42,23 +42,82 @@ describe('useTarget', () => {
 
     expect(target).toBeUndefined();
 
-    await act(async () => {
+    act(() => {
       subject.add(Parent(targetA));
     });
     expect(target).toBe(targetA);
 
-    await act(async () => {
+    act(() => {
       subject.add(Parent(targetB));
     });
     expect(target).toBe(targetB);
 
-    await act(async () => {
+    act(() => {
       subject.remove(Parent(targetB));
     });
     expect(target).toBeUndefined();
   });
 
-  it('immediately reflects the correct value when switching entities', async () => {
+  it('keeps the first remaining target across removals and additions', () => {
+    const Likes = relation();
+    const targetA = world.spawn();
+    const targetB = world.spawn();
+    const targetC = world.spawn();
+    const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC));
+    const { result } = renderHook(() => useTarget(subject, Likes));
+    expect(result.current).toBe(subject.targetFor(Likes));
+    act(() => {
+      subject.remove(Likes(targetB));
+    });
+    expect(result.current).toBe(subject.targetFor(Likes));
+    act(() => {
+      subject.remove(Likes(targetA));
+    });
+    expect(result.current).toBe(subject.targetFor(Likes));
+    act(() => {
+      subject.remove(Likes(targetC));
+    });
+    expect(result.current).toBe(subject.targetFor(Likes));
+    act(() => {
+      subject.add(Likes(targetB));
+    });
+    expect(result.current).toBe(subject.targetFor(Likes));
+    act(() => {
+      targetB.destroy();
+    });
+    expect(result.current).toBe(subject.targetFor(Likes));
+  });
+
+  it('clears its target when the source is destroyed', () => {
+    const Likes = relation();
+    const subject = world.spawn(Likes(world.spawn()), Likes(world.spawn()));
+    const { result } = renderHook(() => useTarget(subject, Likes));
+
+    act(() => {
+      subject.destroy();
+    });
+    expect(result.current).toBeUndefined();
+  });
+
+  it('keeps the new source when an old removal is queued', () => {
+    const Likes = relation();
+    const targetA = world.spawn();
+    const targetB = world.spawn();
+    const first = world.spawn(Likes(targetA));
+    const second = world.spawn(Likes(targetB));
+    const { result, rerender } = renderHook(({ entity }) => useTarget(entity, Likes), {
+      initialProps: { entity: first },
+      wrapper: StrictMode,
+    });
+
+    act(() => {
+      first.remove(Likes(targetA));
+      rerender({ entity: second });
+    });
+    expect(result.current).toBe(targetB);
+  });
+
+  it('immediately reflects the correct value when switching entities', () => {
     const Parent = relation({ exclusive: true });
     const entityA = world.spawn();
     const entityB = world.spawn();
@@ -86,7 +145,7 @@ describe('useTarget', () => {
     expect(target).toBe(targetForA);
     targets.length = 0;
 
-    await act(async () => {
+    act(() => {
       rerender(
         <StrictMode>
           <WorldProvider world={world}>
@@ -106,7 +165,7 @@ describe('useTargets', () => {
     world = createWorld();
   });
 
-  it('drops every target when one removal triggers another', async () => {
+  it('drops every target when one removal triggers another', () => {
     const Likes = relation();
     const targetA = world.spawn();
     const targetB = world.spawn();
@@ -118,13 +177,13 @@ describe('useTargets', () => {
       if (target === targetA) entity.remove(Likes(targetB));
     });
 
-    await act(async () => {
+    act(() => {
       subject.remove(Likes(targetA));
     });
     expect(result.current).toEqual([]);
   });
 
-  it('reactively returns targets for an entity relation', async () => {
+  it('reactively returns targets for an entity relation', () => {
     const Likes = relation();
     const subject = world.spawn(Marker);
     const targetA = world.spawn(Marker);
@@ -136,7 +195,7 @@ describe('useTargets', () => {
       return null;
     }
 
-    await act(async () => {
+    act(() => {
       render(
         <StrictMode>
           <WorldProvider world={world}>
@@ -148,14 +207,14 @@ describe('useTargets', () => {
 
     expect(targets).toEqual([]);
 
-    await act(async () => {
+    act(() => {
       subject.add(Likes(targetA));
       subject.add(Likes(targetB));
     });
 
     expect([...targets].sort()).toEqual([targetA, targetB].sort());
 
-    await act(async () => {
+    act(() => {
       subject.remove(Likes(targetA));
     });
 

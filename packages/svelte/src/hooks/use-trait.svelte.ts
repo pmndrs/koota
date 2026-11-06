@@ -1,4 +1,5 @@
 import {
+  $internal as internal,
   type Entity,
   type RelationPair,
   type Trait,
@@ -33,21 +34,18 @@ export function useTrait<T extends Trait>(
     }
 
     const resolvedTrait = resolve(trait);
-
-    const onChangeUnsub = entity.onChange(resolvedTrait, () => {
-      value = entity.get(resolvedTrait);
+    const update = () => {
+      value = entity.isAlive() ? entity.get(resolvedTrait) : undefined;
       untrack(() => version++);
-    });
-
-    const onRemoveUnsub = entity.onRemove(resolvedTrait, () => {
-      value = undefined;
-    });
-
-    value = entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined;
-
+    };
+    const observer = entity[internal].observeSettled(update);
+    const onChange = entity.onChange(resolvedTrait, observer.invalidate);
+    const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+    update();
     return () => {
-      onChangeUnsub();
-      onRemoveUnsub();
+      observer.unsubscribe();
+      onChange();
+      onRemove();
     };
   });
 

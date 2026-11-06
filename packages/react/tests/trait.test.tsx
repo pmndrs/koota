@@ -811,7 +811,7 @@ describe('useHas', () => {
     expect(values.every((v) => v === false)).toBe(true);
   });
 
-  it('supports relation pair and wildcard pair subscriptions', async () => {
+  it('supports relation pair and wildcard pair subscriptions', () => {
     const ChildOf = relation();
     const parentA = world.spawn();
     const parentB = world.spawn();
@@ -826,7 +826,7 @@ describe('useHas', () => {
       return null;
     }
 
-    await act(async () => {
+    act(() => {
       render(
         <StrictMode>
           <WorldProvider world={world}>
@@ -839,25 +839,25 @@ describe('useHas', () => {
     expect(hasParentA).toBe(false);
     expect(hasAnyParent).toBe(false);
 
-    await act(async () => {
+    act(() => {
       child.add(ChildOf(parentB));
     });
     expect(hasParentA).toBe(false);
     expect(hasAnyParent).toBe(true);
 
-    await act(async () => {
+    act(() => {
       child.add(ChildOf(parentA));
     });
     expect(hasParentA).toBe(true);
     expect(hasAnyParent).toBe(true);
 
-    await act(async () => {
+    act(() => {
       child.remove(ChildOf(parentA));
     });
     expect(hasParentA).toBe(false);
     expect(hasAnyParent).toBe(true);
 
-    await act(async () => {
+    act(() => {
       child.remove(ChildOf(parentB));
     });
     expect(hasParentA).toBe(false);

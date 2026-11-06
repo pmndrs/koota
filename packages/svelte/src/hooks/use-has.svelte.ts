@@ -1,5 +1,5 @@
 import {
-  $relationPair as relationPair,
+  $internal as internal,
   type Entity,
   type RelationPair,
   type Trait,
@@ -24,31 +24,17 @@ export function useHas(
     }
 
     const resolvedTrait = resolve(trait);
-
-    // Wildcard pairs like ChildOf('*') fire on every pair removal, but the entity
-    // may still have other pairs. Since onRemove fires before state cleanup,
-    // we check targetsFor().length > 1 (the removed target is still counted).
-    const isWildcard =
-      !!(resolvedTrait as any)?.[relationPair] && (resolvedTrait as RelationPair).target === '*';
-    const wildcardRelation = isWildcard ? (resolvedTrait as RelationPair).relation : undefined;
-
-    const onAddUnsub = entity.onAdd(resolvedTrait, () => {
-      value = true;
-    });
-
-    const onRemoveUnsub = entity.onRemove(resolvedTrait, () => {
-      if (wildcardRelation) {
-        value = entity.targetsFor(wildcardRelation).length > 1;
-      } else {
-        value = false;
-      }
-    });
-
-    value = entity.has(resolvedTrait);
-
+    const update = () => {
+      value = entity.isAlive() && entity.has(resolvedTrait);
+    };
+    const observer = entity[internal].observeSettled(update);
+    const onAdd = entity.onAdd(resolvedTrait, observer.invalidate);
+    const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+    update();
     return () => {
-      onAddUnsub();
-      onRemoveUnsub();
+      observer.unsubscribe();
+      onAdd();
+      onRemove();
     };
   });
 
