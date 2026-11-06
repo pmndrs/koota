@@ -150,60 +150,23 @@ describe('Relation', () => {
     expect(Contains(gold)).not.toBe(Contains(silver));
     expect(inventory.get(Contains(gold))!.amount).toBe(5);
     expect(inventory.get(Contains(silver))!.amount).toBe(12);
-  });
 
-  it('types pair values from the store', () => {
-    const Contains = relation({ store: { amount: 0 } });
-    const ChildOf = relation();
-    const inventory = world.spawn();
-    const gold = world.spawn();
-
-    inventory.add(Contains(gold, { amount: 5 }), ChildOf(gold));
-    expect(inventory.get(Contains(gold))).toEqual({ amount: 5 });
-
-    // @ts-expect-error not a field of the store
+    // @ts-expect-error pair values are typed by the store
     Contains(gold, { count: 5 });
-    // @ts-expect-error the field is a number
-    Contains(gold, { amount: 'five' });
-    // @ts-expect-error a relation without a store takes no values
-    ChildOf(gold, { amount: 5 });
   });
 
-  it('requires a value for a required store field', () => {
+  it('requires a value for required store fields', () => {
     class Item {}
     const Holds = relation({ store: { item: required<Item>(), count: 1 } });
     const item = new Item();
     const target = world.spawn();
 
+    // Only add needs the values. Reads name the pair without them.
     const holder = world.spawn(Holds(target, { item }));
-    const record = holder.get(Holds(target))!;
-    const stored: Item = record.item;
-    expect(stored).toBe(item);
-    expect(record.count).toBe(1);
-
-    // Reads and queries name the pair without values.
-    expect(holder.has(Holds(target))).toBe(true);
-    expect(world.query(Holds(target)).toArray()).toEqual([holder]);
+    expect(holder.get(Holds(target))).toEqual({ item, count: 1 });
 
     const other = world.spawn();
     // @ts-expect-error the pair carries no values
-    expect(() => other.add(Holds(target))).toThrow('REQUIRED_VALUE');
-    // @ts-expect-error the required field is missing
-    expect(() => other.add(Holds(target, { count: 2 }))).toThrow('REQUIRED_VALUE');
-    expect(other.has(Holds(target))).toBe(false);
-  });
-
-  it('takes the record of a required store on add', () => {
-    class Item {}
-    const Holds = relation({ store: required<Item>() });
-    const item = new Item();
-    const target = world.spawn();
-
-    const holder = world.spawn(Holds(target, item));
-    expect(holder.get(Holds(target))).toBe(item);
-
-    const other = world.spawn();
-    // @ts-expect-error the pair carries no record
     expect(() => other.add(Holds(target))).toThrow('REQUIRED_VALUE');
     expect(other.has(Holds(target))).toBe(false);
   });

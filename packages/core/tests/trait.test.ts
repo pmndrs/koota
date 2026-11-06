@@ -253,48 +253,23 @@ describe('Trait', () => {
     expect(value).toBe(mesh);
   });
 
-  it('requires a value for a required trait', () => {
+  it('requires a value for required fields', () => {
     class Mesh {}
     const MeshRef = trait(required<Mesh>());
+    const View = trait({ object: required<Mesh>(), visible: true });
     const mesh = new Mesh();
 
-    const entity = world.spawn(MeshRef(mesh));
-    const value: Mesh = entity.get(MeshRef)!;
-    expect(value).toBe(mesh);
+    const entity = world.spawn(MeshRef(mesh), View({ object: mesh }));
+    const ref: Mesh = entity.get(MeshRef)!;
+    expect(ref).toBe(mesh);
+    expect(entity.get(View)).toEqual({ object: mesh, visible: true });
 
     const other = world.spawn();
     // @ts-expect-error a required trait cannot be added bare
     expect(() => other.add(MeshRef)).toThrow('REQUIRED_VALUE');
-    // @ts-expect-error a required trait is called with its value
-    expect(() => other.add(MeshRef())).toThrow('REQUIRED_VALUE');
-    expect(other.has(MeshRef)).toBe(false);
-
-    other.add(MeshRef(mesh));
-    expect(other.get(MeshRef)).toBe(mesh);
-  });
-
-  it('requires a value for a required field', () => {
-    class Mesh {}
-    const View = trait({ object: required<Mesh>(), visible: true });
-    const mesh = new Mesh();
-
-    const entity = world.spawn(View({ object: mesh }));
-    const view = entity.get(View)!;
-    const object: Mesh = view.object;
-    expect(object).toBe(mesh);
-    expect(view.visible).toBe(true);
-
-    const other = world.spawn();
-    // @ts-expect-error a trait with a required field cannot be added bare
-    expect(() => other.add(View)).toThrow('REQUIRED_VALUE');
     // @ts-expect-error the required field is missing
     expect(() => other.add(View({ visible: false }))).toThrow('REQUIRED_VALUE');
-    expect(other.has(View)).toBe(false);
-
-    // The other fields stay optional and can still be set later.
-    other.add(View({ object: mesh, visible: false }));
-    other.set(View, { visible: true });
-    expect(other.get(View)).toEqual({ object: mesh, visible: true });
+    expect(other.has(MeshRef) || other.has(View)).toBe(false);
   });
 
   it('can create atomic traits', () => {

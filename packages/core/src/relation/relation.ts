@@ -716,13 +716,12 @@ export function initRelationData(
   if (type === 'aos') {
     // An AoS record is fresh per pair, so the params are laid over the factory result.
     // A required store has no factory result, so the params are the record.
-    const factory = traitData.schema as () => Record<string, unknown>;
     let record = params;
     if (!traitCtx.required) {
-      record = factory();
+      record = (traitData.schema as () => Record<string, unknown>)();
       if (params !== undefined) Object.assign(record, params);
     }
-    setRelationDataAtIndex(ctx, entity, relation, targetIndex, record ?? factory());
+    setRelationDataAtIndex(ctx, entity, relation, targetIndex, record!);
     return;
   }
 
