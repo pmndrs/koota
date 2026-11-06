@@ -27,7 +27,6 @@ import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '..
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { isStableParameter } from '../query/modifier';
-import { sameParams } from '../query/utils/same-params';
 import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -65,7 +64,7 @@ function ensureWorldRegistered(ctx: WorldContext): void {
  */
 export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
   const first = params[0];
-  // A pair naming a target entity is a new object on every call, so no list is kept under it.
+  // A pair naming a target entity is a new object on every call, so its list is never kept.
   if (isRelationPair(first) && typeof first.target === 'number') {
     if (params.length === 1) {
       const entities = getEntitiesWithRelationTo(
@@ -78,14 +77,15 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
     return resolveInlineQuery(ctx, params);
   }
 
-  const known = ctx.inlineQueries.get(first);
-  if (known !== undefined) {
-    for (let i = 0; i < known.length; i++) {
-      const entry = known[i];
-      if (sameParams(entry.params, params)) return runQuery(ctx, entry.query, entry.params);
-    }
+  // One lookup per parameter, so the cost does not grow with the number of queries kept.
+  let node = ctx.inlineQueries;
+  for (let i = 0; i < params.length; i++) {
+    const next = node.next?.get(params[i]);
+    if (next === undefined) return resolveInlineQuery(ctx, params);
+    node = next;
   }
-  return resolveInlineQuery(ctx, params);
+  if (node.query === null) return resolveInlineQuery(ctx, params);
+  return runQuery(ctx, node.query, node.params!);
 }
 
 /** Resolves parameters seen for the first time, or ones that are new objects on every call. */
@@ -114,9 +114,18 @@ export function resolveInlineQuery(ctx: WorldContext, params: QueryParameter[]) 
  */
 function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query: QueryInstance) {
   if (!params.every(isStableParameter)) return;
-  const known = ctx.inlineQueries.get(params[0]);
-  if (known === undefined) ctx.inlineQueries.set(params[0], [{ params, query }]);
-  else known.push({ params, query });
+  let node = ctx.inlineQueries;
+  for (let i = 0; i < params.length; i++) {
+    const next = (node.next ??= new Map());
+    let child = next.get(params[i]);
+    if (child === undefined) {
+      child = { next: null, params: null, query: null };
+      next.set(params[i], child);
+    }
+    node = child;
+  }
+  node.params = params;
+  node.query = query;
 }
 
 export function createWorld(options?: WorldOptions): World {
@@ -144,7 +153,7 @@ export function createWorld(options?: WorldOptions): World {
       traits: new Set<Trait>(),
       relations: [],
       queriesHashMap: new Map(),
-      inlineQueries: new Map(),
+      inlineQueries: { next: null, params: null, query: null },
       queryInstances: [],
       iterationBuffers: undefined,
       actionInstances: [],
@@ -256,7 +265,7 @@ export function createWorld(options?: WorldOptions): World {
       ctx.relations.length = 0;
 
       ctx.queriesHashMap.clear();
-      ctx.inlineQueries.clear();
+      ctx.inlineQueries.next = null;
       ctx.queryInstances.length = 0;
       ctx.tombstones.head = 0;
       ctx.tombstones.ids.length = 0;

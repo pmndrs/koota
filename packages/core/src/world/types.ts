@@ -23,6 +23,13 @@ import type {
   TraitValue,
 } from '../trait/types';
 
+/** A step in the tree of resolved inline parameter lists. The list ending here holds its query. */
+export type InlineQueryNode = {
+  next: Map<QueryParameter, InlineQueryNode> | null;
+  params: QueryParameter[] | null;
+  query: QueryInstance | null;
+};
+
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   /**
@@ -36,8 +43,8 @@ export type WorldContext = {
   traits: Set<Trait>;
   relations: Relation<Trait>[];
   queriesHashMap: Map<string, QueryInstance>;
-  /** Inline parameter lists already resolved, listed under their first parameter. */
-  inlineQueries: Map<QueryParameter, { params: QueryParameter[]; query: QueryInstance }[]>;
+  /** Inline parameter lists already resolved, as a tree with one level per parameter. */
+  inlineQueries: InlineQueryNode;
   queryInstances: (QueryInstance | undefined)[];
   iterationBuffers: QueryIterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];

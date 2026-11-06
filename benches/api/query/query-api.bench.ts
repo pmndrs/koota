@@ -42,6 +42,17 @@ group('world.query inline cache hit @query @query-api @query-hash', () => {
     world.destroy();
   });
 
+  // The lookup must not slow down as more inline queries start with the same trait.
+  bench('2 traits among 64 queries sharing the first', function* () {
+    const { world, entity } = setupWorld();
+    for (let i = 0; i < 64; i++) world.query(Position, trait());
+    assert.deepEqual(Array.from(world.query(Position, Velocity)), [entity]);
+
+    yield () => world.query(Position, Velocity);
+
+    world.destroy();
+  });
+
   bench('2 traits + Not', function* () {
     const { world, entity } = setupWorld();
     assert.deepEqual(Array.from(world.query(Position, Velocity, Not(IsPlayer))), [entity]);
