@@ -178,19 +178,14 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   const toRemove = query.toRemove;
   if (
     (query.identifierFilters !== undefined || query.ctx.queryBatch !== undefined) &&
-    !query.isTracking &&
-    query.entities.has(entity) &&
-    (toRemove === null || !toRemove.has(entity))
+    hasStaticMembership(query, entity)
   )
     return;
   if (toRemove !== null && toRemove.length !== 0) toRemove.remove(entity);
   query.entities.add(entity);
   query.version++;
 
-  if (
-    query.addSubscriptions?.size ||
-    (query.ctx.queryBatch !== undefined && query.removeSubscriptions?.size)
-  ) {
+  if (query.addSubscriptions !== null || query.removeSubscriptions !== null) {
     notifyQuerySubscribers(query, entity, true);
   }
 }
@@ -212,10 +207,7 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
   }
   query.version++;
 
-  if (
-    query.removeSubscriptions?.size ||
-    (ctx.queryBatch !== undefined && query.addSubscriptions?.size)
-  ) {
+  if (query.removeSubscriptions !== null || query.addSubscriptions !== null) {
     notifyQuerySubscribers(query, entity, false);
   }
 }
@@ -273,11 +265,20 @@ export function reconcileTargetQueries(
   }
 }
 
-/** @inline */
+function hasStaticMembership(query: QueryInstance, entity: Entity) {
+  return (
+    !query.isTracking &&
+    query.entities.has(entity) &&
+    (query.toRemove === null || !query.toRemove.has(entity))
+  );
+}
+
 function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
   const ctx = query.ctx;
   if (ctx.queryBatch !== undefined) /* @cold */ {
-    ctx.queryBatch.push({ query, entity, added });
+    if (query.addSubscriptions?.size || query.removeSubscriptions?.size) {
+      ctx.queryBatch.push({ query, entity, added });
+    }
   } else {
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
     if (subscribers?.size) emitQuerySubscribers(ctx, subscribers, entity);

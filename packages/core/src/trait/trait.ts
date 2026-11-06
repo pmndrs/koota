@@ -786,11 +786,7 @@ export function resolveTraitSetCallback(
 }
 
 /** Flip the membership bit and reconcile every query that includes the trait. */
-export /* @inline */ function grantTraitMembership(
-  ctx: WorldContext,
-  entity: Entity,
-  instance: TraitInstance
-) {
+export function grantTraitMembership(ctx: WorldContext, entity: Entity, instance: TraitInstance) {
   setTraitMembership(ctx, entity, instance);
   reconcileTraitQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
 }
