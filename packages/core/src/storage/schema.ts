@@ -1,5 +1,23 @@
 import { warningsEnabled } from '../warning-config';
-import type { Schema } from './types';
+import type { RequiredField, Schema } from './types';
+
+/** Stands in for the default of every required field. It is reached only when no value was given. */
+function missing(): never {
+  throw new Error('Koota: a required trait value was not given.');
+}
+missing.required = true as const;
+
+/**
+ * Declare a field, or a whole trait value, that has no default and must be given on add.
+ * The type argument is the type of the value.
+ */
+export function required<T>(): RequiredField<T> {
+  return missing;
+}
+
+export function isRequired(field: unknown): boolean {
+  return field === missing;
+}
 
 export function validateSchema(schema: Schema) {
   for (const key in schema) {

@@ -1,4 +1,4 @@
-import { ordered, relation, trait } from 'koota';
+import { ordered, relation, required, trait } from 'koota';
 
 export const Time = trait({ last: 0, delta: 0 });
 export const Pointer = trait({ x: 0, y: 0 });
@@ -32,7 +32,7 @@ export const Dragging = trait({
 
 export const ZIndex = trait({ value: 0 });
 
-export const Ref = trait(() => null! as HTMLDivElement);
+export const Ref = trait(required<HTMLDivElement>());
 
 export const HeldBy = relation();
 export const OrderedCards = ordered(HeldBy);

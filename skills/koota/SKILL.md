@@ -79,12 +79,15 @@ For detailed patterns and monorepo structures, see [references/architecture.md](
 
 ## Trait types
 
-| Type               | Syntax                     | Use when                  | Examples                         |
-| ------------------ | -------------------------- | ------------------------- | -------------------------------- |
-| **SoA (Schema)**   | `trait({ x: 0 })`          | Simple primitive data     | `Position`, `Velocity`, `Health` |
-| **SoA tuple**      | `trait({ p: [0, 0, 0] })`  | Vectors, quats, matrices  | `Transform` with `vec3.create()` |
-| **AoS (Callback)** | `trait(() => new Thing())` | Complex objects/instances | `Ref` (DOM), `Keyboard` (Set)    |
-| **Tag**            | `trait()`                  | No data, just a flag      | `IsPlayer`, `IsEnemy`, `IsDead`  |
+| Type               | Syntax                     | Use when                        | Examples                               |
+| ------------------ | -------------------------- | ------------------------------- | -------------------------------------- |
+| **SoA (Schema)**   | `trait({ x: 0 })`          | Simple primitive data           | `Position`, `Velocity`, `Health`       |
+| **SoA tuple**      | `trait({ p: [0, 0, 0] })`  | Vectors, quats, matrices        | `Transform` with `vec3.create()`       |
+| **AoS (Callback)** | `trait(() => new Thing())` | Complex objects/instances       | `Keyboard` (Set), `Velocity` (Vector3) |
+| **Required**       | `trait(required<T>())`     | Values given on add, no default | `Ref` (DOM, Object3D)                  |
+| **Tag**            | `trait()`                  | No data, just a flag            | `IsPlayer`, `IsEnemy`, `IsDead`        |
+
+`required<T>()` marks a whole trait value or a single schema field (`trait({ object: required<Mesh>(), visible: true })`) that has no default. The trait must then be added with its value, `entity.add(Ref(div))`. Adding it bare is a type error and throws. Never use `trait(() => null! as T)`.
 
 ## Trait naming conventions
 

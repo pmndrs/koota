@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createChanged, createWorld, type Entity, getStore, relation, trait } from '../src';
+import { createChanged, createWorld, type Entity, getStore, relation, required, trait } from '../src';
 
 class TestClass {
   public name: string;
@@ -251,6 +251,50 @@ describe('Trait', () => {
     expect(entity.get(MeshRef)).toBe(mesh);
     const value: Mesh | null = entity.get(MeshRef)!;
     expect(value).toBe(mesh);
+  });
+
+  it('requires a value for a required trait', () => {
+    class Mesh {}
+    const MeshRef = trait(required<Mesh>());
+    const mesh = new Mesh();
+
+    const entity = world.spawn(MeshRef(mesh));
+    const value: Mesh = entity.get(MeshRef)!;
+    expect(value).toBe(mesh);
+
+    const other = world.spawn();
+    // @ts-expect-error a required trait cannot be added bare
+    expect(() => other.add(MeshRef)).toThrow('required');
+    // @ts-expect-error a required trait is called with its value
+    expect(() => other.add(MeshRef())).toThrow('required');
+    expect(other.has(MeshRef)).toBe(false);
+
+    other.add(MeshRef(mesh));
+    expect(other.get(MeshRef)).toBe(mesh);
+  });
+
+  it('requires a value for a required field', () => {
+    class Mesh {}
+    const View = trait({ object: required<Mesh>(), visible: true });
+    const mesh = new Mesh();
+
+    const entity = world.spawn(View({ object: mesh }));
+    const view = entity.get(View)!;
+    const object: Mesh = view.object;
+    expect(object).toBe(mesh);
+    expect(view.visible).toBe(true);
+
+    const other = world.spawn();
+    // @ts-expect-error a trait with a required field cannot be added bare
+    expect(() => other.add(View)).toThrow('"object"');
+    // @ts-expect-error the required field is missing
+    expect(() => other.add(View({ visible: false }))).toThrow('"object"');
+    expect(other.has(View)).toBe(false);
+
+    // The other fields stay optional and can still be set later.
+    other.add(View({ object: mesh, visible: false }));
+    other.set(View, { visible: true });
+    expect(other.get(View)).toEqual({ object: mesh, visible: true });
   });
 
   it('can create atomic traits', () => {

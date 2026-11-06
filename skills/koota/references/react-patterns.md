@@ -171,10 +171,10 @@ React controls when a view element connects to an entity. Systems only query and
 
 ```typescript
 // For DOM
-export const Ref = trait(() => null! as HTMLDivElement)
+export const Ref = trait(required<HTMLDivElement>())
 
 // For React Three Fiber
-export const Ref = trait(() => null! as THREE.Object3D)
+export const Ref = trait(required<THREE.Object3D>())
 ```
 
 ### handleInit pattern
@@ -296,7 +296,7 @@ Scalar traits for transforms; `Ref` holds `Object3D`. Systems mutate traits; a s
 ```typescript
 const Position = trait({ x: 0, y: 0, z: 0 })
 const Rotation = trait({ x: 0, y: 0, z: 0 })
-const Ref = trait(() => null! as THREE.Object3D)
+const Ref = trait(required<THREE.Object3D>())
 
 function syncToThree(world: World) {
   world.query(Position, Rotation, Ref).each((pos, rot, ref) => {

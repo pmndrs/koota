@@ -2,8 +2,8 @@ import { $internal } from '../common';
 import type { Identifier, IdentifierIndex, IdentifierPair } from '../identifier/types';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
-import type { Relation, RelationPair } from '../relation/types';
-import type { AoSFactory, Schema, Store, StoreType } from '../storage';
+import type { ConfigurablePair, Relation, RelationPair } from '../relation/types';
+import type { AoSFactory, RequiredField, Schema, Store, StoreType } from '../storage';
 import type { WorldContext } from '../world';
 import type { Subscriptions } from './subscriptions';
 
@@ -13,6 +13,45 @@ export type TraitType = StoreType;
 export type TraitValue<TSchema extends Schema> = TSchema extends AoSFactory
   ? ReturnType<TSchema>
   : Partial<TraitRecord<TSchema>>;
+
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+type RequiredKeys<TSchema extends Schema> = {
+  [K in keyof TSchema]: TSchema[K] extends RequiredField ? K : never;
+}[keyof TSchema];
+
+/**
+ * Whether add needs a value because the schema has a required field.
+ * An untyped schema resolves to any so open Trait references accept and pass as either kind.
+ */
+export type RequiresInit<TSchema extends Schema> =
+  IsAny<TSchema> extends true
+    ? any
+    : TSchema extends Record<string, never>
+      ? false
+      : TSchema extends RequiredField
+        ? true
+        : TSchema extends AoSFactory
+          ? false
+          : [RequiredKeys<TSchema>] extends [never]
+            ? false
+            : true;
+
+/** The value a trait takes on add. Required fields must be present and the rest fall back to defaults. */
+export type TraitInit<TSchema extends Schema> = TSchema extends AoSFactory
+  ? ReturnType<TSchema>
+  : RequiresInit<TSchema> extends true
+    ? Partial<TraitRecord<TSchema>> & {
+        [K in RequiredKeys<TSchema>]: TraitRecord<TSchema>[K & keyof TraitRecord<TSchema>];
+      }
+    : Partial<TraitRecord<TSchema>>;
+
+type TraitInitArgs<TSchema extends Schema> =
+  IsAny<TSchema> extends true
+    ? any[]
+    : RequiresInit<TSchema> extends true
+      ? [params: TraitInit<TSchema>]
+      : [params?: TraitInit<TSchema>];
 
 /**
  * Accessors preserve the schema's paged store and maintain only trait-owned state.
@@ -39,6 +78,8 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   /** Drop stored references when a destroyed entity is evicted. */
   readonly clear: ((index: number, store: any) => void) | undefined;
   readonly type: StoreType;
+  /** True when the schema has a required field, so add needs a value. */
+  readonly required: RequiresInit<S>;
   /** True for a plain paged SoA trait with scalar fields, which iteration can read in place. */
   readonly cursor: boolean;
   relation: Relation<any> | null;
@@ -53,21 +94,21 @@ export type Trait<TSchema extends Schema = any> = {
   /** Create a record of the schema defaults, such as a scratch record for get to fill. */
   readonly record: () => TraitRecordFromSchema<TSchema>;
   readonly [$internal]: TraitContext<TSchema>;
-} & ((params?: TraitValue<TSchema>) => [Trait<TSchema>, TraitValue<TSchema>]);
+} & ((...params: TraitInitArgs<TSchema>) => [Trait<TSchema>, TraitInit<TSchema>]);
 
 export type TagTrait = Trait<Record<string, never>> & { [$internal]: { type: 'tag' } };
 
 export type TraitTuple<T extends Trait = Trait> = [
   T,
-  T extends Trait<infer S extends Schema>
-    ? S extends AoSFactory
-      ? ReturnType<S>
-      : Partial<TraitRecord<S>>
-    : never,
+  T extends Trait<infer S extends Schema> ? TraitInit<S> : never,
 ];
 
+/** A trait with a required field cannot be added bare. It is called with its value instead. */
 export type ConfigurableTrait<T extends Trait = Trait> =
-  T | TraitTuple<T> | RelationPair<T> | IdentifierPair;
+  | (T & { readonly [$internal]: { readonly required: false } })
+  | TraitTuple<T>
+  | ConfigurablePair<T>
+  | IdentifierPair;
 
 export type SetTraitCallback<T extends Trait | RelationPair> = (
   prev: TraitRecord<ExtractSchema<T>>

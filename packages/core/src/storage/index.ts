@@ -14,6 +14,6 @@ export type {
   RemoveAccessor,
 } from './accessors';
 
-export { validateSchema } from './schema';
+export { isRequired, required, validateSchema } from './schema';
 
-export type { Store, StoreType, Schema, AoSFactory, Norm, TraitSchema } from './types';
+export type { Store, StoreType, Schema, AoSFactory, Norm, RequiredField, TraitSchema } from './types';

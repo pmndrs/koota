@@ -288,6 +288,18 @@ inventory.set(Contains(gold), { amount: 20 })
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
+The values passed with a pair are typed by the store. A store field can be [required](#required-fields), and the pair must then carry it when it is added. Reads and queries still name the pair without values.
+
+```ts
+const Holds = relation({ store: { item: required<Item>(), count: 1 } })
+
+holder.add(Holds(target, { item })) // count defaults to 1
+holder.has(Holds(target)) // true
+
+// ❌ Type error and throws
+holder.add(Holds(target))
+```
+
 A relation without a store has no record, so `get` returns `undefined` for its pairs. Check for a pair with `has`.
 
 #### Auto destroy
@@ -1180,6 +1192,35 @@ Both schema-based and callback-based traits are used similarly, but they have di
 2. Callback-based traits use an Array of Structures (AoS) storage.
 
 [Learn more about AoS and SoA here](https://en.wikipedia.org/wiki/AoS_and_SoA).
+
+#### Required fields
+
+Some values have no sensible default, such as a DOM element or a Three object that only exists once the view mounts. Declare these with `required` and give the value when the trait is added. The type argument is the type of the value, and reads return it without `null`.
+
+```ts
+import { required, trait } from 'koota'
+
+// A whole trait value
+const Ref = trait(required<HTMLDivElement>())
+
+// A single field next to fields with defaults
+const View = trait({ object: required<THREE.Object3D>(), visible: true })
+
+entity.add(Ref(div))
+entity.add(View({ object: mesh }))
+
+const view = entity.get(View) // { object: THREE.Object3D, visible: boolean }
+```
+
+Adding the trait without its required values is a type error and throws.
+
+```ts
+// ❌ Both are type errors and throw
+entity.add(Ref)
+entity.add(View({ visible: false }))
+```
+
+A required field has no default, so `Trait.record()` leaves it `undefined` until `get` fills the record.
 
 #### Tuples
 
