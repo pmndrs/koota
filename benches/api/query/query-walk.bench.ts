@@ -1,8 +1,9 @@
 import { bench, group } from '@pmndrs/labs';
-import { createQuery, createWorld, trait } from 'koota';
+import { createQuery, createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0 });
 const Velocity = trait({ x: 0, y: 0 });
+const Dirty = trait();
 
 /** Walks 10k entities with the view iterator and with each. */
 group('entity walk 10k @query @query-walk', () => {
@@ -91,4 +92,32 @@ group('movement 10k @query @query-walk @movement', () => {
     };
     return checksum();
   });
+});
+
+/** Sheds a tag from every entity of the walked query, which defers each removal to the next run. */
+group('shed tag in each @query @query-walk @removal', () => {
+  for (const [count, walks] of [
+    [1, 1000],
+    [1000, 1],
+  ] as const) {
+    bench(`${count} per walk x${walks}`, function* () {
+      const world = createWorld();
+      const entities = Array.from({ length: count }, () => world.spawn(Position, Dirty));
+      const query = createQuery(Position, Dirty);
+      const shed = (_position: unknown, entity: Entity) => {
+        entity.remove(Dirty);
+      };
+      let left = 0;
+      yield () => {
+        for (let w = 0; w < walks; w++) {
+          world.query(query).each(shed);
+          // Reading the query commits the removals before the tag returns.
+          left += world.query(query).length;
+          for (let i = 0; i < count; i++) entities[i].add(Dirty);
+        }
+      };
+      world.destroy();
+      return left;
+    });
+  }
 });
