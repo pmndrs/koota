@@ -12,7 +12,7 @@ import { addressSpace } from '../entity/utils/address-space';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findIdentifiedEntity } from '../identifier/find-identified-entity';
-import { lookupIdentifier } from '../identifier/identifier';
+import { isIdentifierPair, lookupAllIdentifiers, lookupIdentifier } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import {
   IsExcluded,
@@ -69,16 +69,17 @@ export function queryWithParameters(ctx: WorldContext, params: QueryParameter[])
 
   const identified = findIdentifiedEntity(ctx, params);
   if (identified !== null) {
+    // Shared-key views need subscriptions even when empty or owned by one entity.
+    for (let i = 0; i < params.length; i++) {
+      const param = params[i];
+      if (isIdentifierPair(param) && !param.identifier[$internal].exclusive) {
+        return runQuery(ctx, resolveQueryInstance(ctx, params), params);
+      }
+    }
     return createOwnedView(ctx, identified === undefined ? [] : [identified], null, params);
   }
 
-  const hash = createQueryHash(params);
-  let query = ctx.queriesHashMap.get(hash);
-  if (!query) {
-    query = createQueryInstance(ctx, params);
-    ctx.queriesHashMap.set(hash, query);
-  }
-  return runQuery(ctx, query, params);
+  return runQuery(ctx, resolveQueryInstance(ctx, params), params);
 }
 
 export function createWorld(options?: WorldOptions): World {
@@ -133,6 +134,10 @@ export function createWorld(options?: WorldOptions): World {
 
     lookup(pair: IdentifierPair): Entity | undefined {
       return lookupIdentifier(world[$internal], pair);
+    },
+
+    lookupAll(pair: IdentifierPair): Entity[] {
+      return lookupAllIdentifiers(world[$internal], pair);
     },
 
     has(target: Entity | Trait | Identifier | IdentifierPair): boolean {

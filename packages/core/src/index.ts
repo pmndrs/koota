@@ -32,7 +32,12 @@ export type {
 export { $queryRef } from './query/symbols';
 export { identifier } from './identifier/identifier';
 export { $identifier, $identifierPair } from './identifier/symbols';
-export type { Identifier, IdentifierKey, IdentifierPair } from './identifier/types';
+export type {
+  Identifier,
+  IdentifierKey,
+  IdentifierOptions,
+  IdentifierPair,
+} from './identifier/types';
 export { relation } from './relation/relation';
 export { ordered, isOrderedTrait } from './relation/ordered';
 export type { EntityComparator, EntityView, OrderedView, MutableOrderedView } from './view/types';

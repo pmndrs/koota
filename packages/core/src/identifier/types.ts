@@ -6,11 +6,16 @@ import type { $identifier, $identifierPair } from './symbols';
 
 export type IdentifierKey = string | number;
 
-/** A namespace with at most one key per entity and one owner per key in each world. */
+export type IdentifierOptions = {
+  /** Whether each key can belong to only one entity per world. Defaults to true. */
+  exclusive?: boolean;
+};
+
+/** A namespace with at most one key per entity. Keys are exclusive by default. */
 export type Identifier<K extends IdentifierKey = any> = {
   readonly [$identifier]: true;
   readonly id: number;
-  readonly [$internal]: { readonly trait: TagTrait };
+  readonly [$internal]: { readonly trait: TagTrait; readonly exclusive: boolean };
   (key: K): IdentifierPair<K>;
 };
 
@@ -24,8 +29,10 @@ export type IdentifierPair<K extends IdentifierKey = any> = {
 export type IdentifierIndex = {
   /** Entity id to key, paged like trait storage. Undefined means no assignment. */
   targets: (IdentifierKey | undefined)[][];
-  /** Key to live owner. Both directions are committed before queries or callbacks run. */
-  owners: Map<IdentifierKey, Entity>;
+  /** Store one owner directly and promote to a dense array when a key is shared. */
+  owners: Map<IdentifierKey, Entity | Entity[]>;
+  /** Entity id to its shared-owner offset. Allocated only when a key is shared. */
+  positions: number[][] | undefined;
   /** Static queries that filter by a key, so an assignment visits only the queries for its key. */
   queries: Map<IdentifierKey, QueryInstance[]>;
 };
