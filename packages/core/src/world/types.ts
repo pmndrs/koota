@@ -46,7 +46,8 @@ export type WorldContext = {
   defersChanges: boolean;
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
-  dirtyQueries: Set<QueryInstance>;
+  /** Queries holding removals deferred by a walk, each listed once. */
+  dirtyQueries: QueryInstance[];
   /** Maximum destroyed entities whose data and query history remain readable. */
   readonly retain: number;
   /** Retained destroyed entities in destroy order. Overflow evicts the oldest. */

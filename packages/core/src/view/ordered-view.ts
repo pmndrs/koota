@@ -111,7 +111,7 @@ class SortedSource extends OrderedSource {
     if (this.iterating !== 0 || this.refreshing) return this.dense;
     const { base } = this;
     const liveQuery = base.live ? base.query : null;
-    if (liveQuery && base.ctx.dirtyQueries.size !== 0) commitQueryRemovals(base.ctx);
+    if (liveQuery && base.ctx.dirtyQueries.length !== 0) commitQueryRemovals(base.ctx);
     const revision = liveQuery?.version ?? 0;
     const rebuild = revision !== this.revision;
     let dirty = rebuild || this.dirty || this.instances.length === 0;

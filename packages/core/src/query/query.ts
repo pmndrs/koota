@@ -80,7 +80,7 @@ export function runQuery<T extends QueryParameter[]>(
   query: QueryInstance<T>,
   params: QueryParameter[]
 ): QueryView<T> {
-  if (ctx.dirtyQueries.size !== 0) commitQueryRemovals(ctx);
+  if (ctx.dirtyQueries.length !== 0) commitQueryRemovals(ctx);
   if (query.isTracking) consumeTrackingBatch(query);
   if (query.iterating !== 0 && query.toRemove !== null && query.toRemove.length !== 0) {
     return retained(ctx, query, params);
@@ -104,7 +104,7 @@ function retained<T extends QueryParameter[]>(
 }
 
 export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity | undefined {
-  if (ctx.dirtyQueries.size !== 0) commitQueryRemovals(ctx);
+  if (ctx.dirtyQueries.length !== 0) commitQueryRemovals(ctx);
   // Reading one entity still consumes the entire tracking batch.
   if (query.isTracking) consumeTrackingBatch(query);
   const { dense, length } = query.exposed;
@@ -203,7 +203,10 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
     query.entities.remove(entity);
   } else {
     (query.toRemove ??= new SparseSet()).add(entity);
-    ctx.dirtyQueries.add(query);
+    if (!query.dirty) {
+      query.dirty = true;
+      ctx.dirtyQueries.push(query);
+    }
   }
   query.version++;
 
@@ -236,13 +239,16 @@ function emitQuerySubscribers(ctx: WorldContext, subscribers: Set<QuerySubscribe
 }
 
 export function commitQueryRemovals(ctx: WorldContext) {
-  let walked: QueryInstance[] | undefined;
-  for (const query of ctx.dirtyQueries) {
+  const dirty = ctx.dirtyQueries;
+  let kept = 0;
+  for (let q = 0; q < dirty.length; q++) {
+    const query = dirty[q];
     // A query being walked keeps its removals pending so the walk sees a stable list.
     if (query.iterating !== 0) {
-      (walked ??= []).push(query);
+      dirty[kept++] = query;
       continue;
     }
+    query.dirty = false;
     const toRemove = query.toRemove!;
     const { dense, length } = toRemove;
     for (let i = length - 1; i >= 0; i--) {
@@ -251,8 +257,8 @@ export function commitQueryRemovals(ctx: WorldContext) {
       query.entities.remove(eid);
     }
   }
-  ctx.dirtyQueries.clear();
-  if (walked !== undefined) for (const query of walked) ctx.dirtyQueries.add(query);
+  // Popping keeps the backing store, which a length write would release.
+  while (dirty.length > kept) dirty.pop();
 }
 
 export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
@@ -412,6 +418,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     filters: null,
     changedMasks: [],
     toRemove: null,
+    dirty: false,
     notIndex: -1,
     dropped: false,
     listSlots: [],
@@ -845,7 +852,10 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     if (targetQueries.length === 0) page[eid & 1023] = undefined;
   }
 
-  ctx.dirtyQueries.delete(query);
+  if (query.dirty) {
+    query.dirty = false;
+    ctx.dirtyQueries.splice(ctx.dirtyQueries.indexOf(query), 1);
+  }
   if (ctx.queriesHashMap.get(query.hash) === query) ctx.queriesHashMap.delete(query.hash);
 
   if (query.refId >= 0 && ctx.queryInstances[query.refId] === query) {
