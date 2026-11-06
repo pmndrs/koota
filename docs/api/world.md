@@ -30,7 +30,7 @@ world.retain
 const entity = world.spawn()
 
 // Spawn always creates an entity then adds each trait in order
-// A taken identifier key is refused, so look up first to find or create
+// A taken exclusive identifier key is refused, so look up first to find or create
 const Name = identifier()
 const player = world.lookup(Name('player')) ?? world.spawn(Name('player'), Position)
 
@@ -49,9 +49,14 @@ const rareInventories = world.query(Contains(IsRare))
 // Return Entity
 const entity = world.queryFirst(Position)
 
-// Get the entity with an identifier term
+// Get one entity with an identifier term
 // Return Entity | undefined
 const player = world.lookup(Name('player'))
+
+// Get every entity sharing an identifier value
+// Return Entity[] snapshot, including excluded entities
+const DisplayName = identifier({ exclusive: false })
+const players = world.lookupAll(DisplayName('kris'))
 
 // Subscribe to add, remove or change events for entity traits
 // Return unsub function

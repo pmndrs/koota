@@ -538,7 +538,7 @@ world.onAdd(ChildOf('*'), (entity, target) => {})
 
 ### Identifiers
 
-`identifier()` defines a namespace for unique keys, such as names or network ids. Within each world, an entity has at most one key per namespace, and each key has at most one owner. Keys are strings by default, or finite numbers with `identifier<number>()`.
+`identifier()` defines a namespace for scalar keys, such as names or network ids. Within each world, an entity has at most one key per namespace. Keys are exclusive by default, so each key has at most one owner. Keys are strings by default, or finite numbers with `identifier<number>()`.
 
 ```ts
 import { identifier } from 'koota'
@@ -564,6 +564,21 @@ Taken keys are refused and throw `[IDENTIFIER_TAKEN]` with assertions enabled. L
 ```ts
 const player = world.lookup(Name('kris')) ?? world.spawn(Name('kris'), Position)
 ```
+
+For values that multiple entities can share, such as user-entered names, set `exclusive: false`:
+
+```ts
+const DisplayName = identifier({ exclusive: false })
+const first = world.spawn(DisplayName('kris'), Position)
+const second = world.spawn(DisplayName('kris'), Position)
+
+world.lookupAll(DisplayName('kris')) // [first, second]
+world.query(DisplayName('kris'), Position) // Both entities
+second.add(DisplayName('sam')) // Replaces only second's name
+world.lookupAll(DisplayName('kris')) // [first]
+```
+
+`lookupAll` returns a snapshot array, or `[]` if there are no matches. `lookup` returns one current owner, or `undefined`. Both include excluded entities, while queries follow the normal exclusion rules. Each entity still has only one key per namespace.
 
 Removing the identifier or destroying the entity frees its key. See [identifiers](docs/api/identifiers.md) for events, tracking and React hooks.
 
@@ -975,6 +990,10 @@ const entity = world.queryFirst(Position)
 // Get the entity that owns an identifier key, see Identifiers
 // Return Entity | undefined
 const player = world.lookup(Name('player'))
+
+// Get every entity that owns an identifier key
+// Return Entity[]
+const players = world.lookupAll(DisplayName('kris'))
 
 // The trait API is identical to entity's
 

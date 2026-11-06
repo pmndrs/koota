@@ -7,7 +7,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import {
   addIdentifierPair,
   isIdentifier,
-  lookupIdentifier,
+  hasIdentifier,
   reconcileKeyQueries,
   releaseIdentifier,
 } from '../identifier/identifier';
@@ -168,7 +168,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
     identifier: traitCtx.isIdentifier
-      ? { targets: [], owners: new Map(), queries: new Map() }
+      ? { targets: [], owners: new Map(), positions: undefined, queries: new Map() }
       : undefined,
   };
 
@@ -284,7 +284,7 @@ export function removeTrait(
     if (typeof trait !== 'function') /* @cold */ {
       if (isRelationPair(trait)) {
         removeRelationPair(ctx, entity, trait);
-      } else if (lookupIdentifier(ctx, trait) === entity) {
+      } else if (hasIdentifier(ctx, entity, trait)) {
         removeTraitFromAliveEntity(ctx, entity, trait.identifier[$internal].trait);
       }
     } else if (isIdentifier(trait)) /* @cold */ {

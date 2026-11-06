@@ -129,4 +129,103 @@ group('named entities 1k @name @identifier @entity', () => {
       }
     );
   }
+
+  bench('look up 1k shared names with ten owners each', function* () {
+    const DisplayName = identifier({ exclusive: false });
+    const world = createWorld();
+    for (let i = 0; i < 1_000; i++) world.spawn(DisplayName(`name-${i % 100}`));
+    const terms = Array.from({ length: 100 }, (_, i) => DisplayName(`name-${i}`));
+
+    const matches = yield () => {
+      let matches = 0;
+      for (let i = 0; i < 1_000; i++) matches += world.lookupAll(terms[i % 100]).length;
+      return matches;
+    };
+
+    assert.equal(matches, 10_000);
+    world.destroy();
+    return matches;
+  });
+
+  bench('reassign 1k shared names with a cached query per key', function* () {
+    const DisplayName = identifier({ exclusive: false });
+    const world = createWorld();
+    const entities = Array.from({ length: 1_000 }, (_, i) =>
+      world.spawn(DisplayName(`name-${i % 100}`))
+    );
+    const queries = Array.from({ length: 100 }, (_, i) => createQuery(DisplayName(`name-${i}`)));
+    for (const query of queries) world.query(query);
+    let offset = 0;
+
+    yield {
+      bench: () => {
+        offset = (offset + 1) % 100;
+        for (let i = 0; i < entities.length; i++) {
+          entities[i].add(DisplayName(`name-${(i + offset) % 100}`));
+        }
+      },
+      snapshot: () => {
+        for (let i = 0; i < queries.length; i++) {
+          const matches = world.query(queries[i]).toArray();
+          assert.equal(matches.length, 10);
+          assert(matches.every((entity) => entity.targetFor(DisplayName) === `name-${i}`));
+        }
+        return entities.length;
+      },
+    };
+
+    world.destroy();
+  });
+
+  bench('find 1k distinct non-exclusive names with queryFirst', function* () {
+    const DisplayName = identifier({ exclusive: false });
+    const world = createWorld();
+    const entities = Array.from({ length: 1_000 }, (_, i) =>
+      world.spawn(DisplayName(`name-${i}`), Position)
+    );
+    const terms = entities.map((_, i) => DisplayName(`name-${i}`));
+
+    const matches = yield () => {
+      let matches = 0;
+      for (let i = 0; i < terms.length; i++) {
+        if (world.queryFirst(terms[i], Position) === entities[i]) matches++;
+      }
+      return matches;
+    };
+
+    assert.equal(matches, 1_000);
+    world.destroy();
+    return matches;
+  });
+
+  for (const owners of [1, 10, 1_000]) {
+    bench(
+      owners === 1
+        ? 'assign and remove 1k distinct non-exclusive names'
+        : owners === 10
+          ? 'assign and remove 1k shared names'
+          : 'assign and remove 1k owners of the same name',
+      function* () {
+        const DisplayName = identifier({ exclusive: false });
+        const world = createWorld();
+        const entities = Array.from({ length: 1_000 }, () => world.spawn());
+        const terms = entities.map((_, i) => DisplayName(`name-${i % (1_000 / owners)}`));
+
+        const matches = yield () => {
+          for (let i = 0; i < entities.length; i++) entities[i].add(terms[i]);
+          let matches = 0;
+          for (let i = 0; i < entities.length; i++) {
+            if (entities[i].has(terms[i])) matches++;
+            entities[i].remove(terms[i]);
+          }
+          return matches;
+        };
+
+        assert.equal(matches, 1_000);
+        for (const term of terms) assert.equal(world.lookup(term), undefined);
+        world.destroy();
+        return matches;
+      }
+    );
+  }
 });

@@ -14,7 +14,7 @@ import { checkQuery } from '../query/utils/check-query';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
-import { isIdentifierPair, lookupIdentifier } from '../identifier/identifier';
+import { hasIdentifier, isIdentifierPair } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair } from '../relation/types';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
@@ -346,7 +346,7 @@ export /* @inline */ function entityHas(
   }
 
   if (typeof trait !== 'function') /* @cold */ {
-    if (isIdentifierPair(trait)) return lookupIdentifier(ctx, trait) === entity;
+    if (isIdentifierPair(trait)) return hasIdentifier(ctx, entity, trait);
     return hasEntityRelationPair(ctx, entity, trait);
   }
   // An identifier shares the id of its backing trait, so presence reads it directly.
