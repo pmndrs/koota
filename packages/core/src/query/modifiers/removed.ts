@@ -1,16 +1,18 @@
 import type { RelationPair } from '../../relation/types';
 import type { ExtractModifierTraits, TraitInput } from '../../trait/types';
-import { createModifier } from '../modifier';
+import { internModifier, type ModifierCache } from '../modifier';
 import type { Modifier } from '../types';
 import { createTrackingId } from '../utils/tracking-cursor';
 
 export function createRemoved() {
   const id = createTrackingId();
+  const type = `removed-${id}` as const;
+  const cache: ModifierCache = new WeakMap();
 
   return <T extends (TraitInput | RelationPair)[]>(
     ...inputs: T
   ): Modifier<ExtractModifierTraits<T>, `removed-${number}`> => {
-    return createModifier(`removed-${id}`, id, inputs) as Modifier<
+    return internModifier(cache, type, id, inputs) as Modifier<
       ExtractModifierTraits<T>,
       `removed-${number}`
     >;

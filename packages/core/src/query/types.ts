@@ -178,6 +178,8 @@ export type Modifier<TTrait extends Trait[] = Trait[], TType extends string = st
   pairs: RelationPair[] | null;
   /** Modifiers nested in an Or modifier. */
   modifiers: Modifier[] | null;
+  /** The inputs it was created from when every call with them returns this modifier. */
+  inputs: readonly unknown[] | null;
 };
 
 /** Parameter types that can be passed to Or modifier */
