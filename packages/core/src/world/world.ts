@@ -113,7 +113,7 @@ export function createWorld(options?: WorldOptions): World {
       queryCallbackDepth: 0,
       defersChanges: false,
       targetQueries: [],
-      dirtyQueries: new Set(),
+      dirtyQueries: [],
       worldEntity: null!,
       entitySubscribedInstances: new Set(),
       resetSubscriptions: new Set(),
@@ -220,7 +220,7 @@ export function createWorld(options?: WorldOptions): World {
       ctx.pairRemovals.entries.length = 0;
       ctx.iterationBuffers = undefined;
       ctx.actionInstances.length = 0;
-      ctx.dirtyQueries.clear();
+      ctx.dirtyQueries.length = 0;
       ctx.notQueries.length = 0;
       ctx.targetQueries.length = 0;
 

@@ -266,6 +266,8 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   changedMasks: number[];
   /** Removals deferred by a walk in progress, created on the first one. */
   toRemove: SparseSet | null;
+  /** Listed in the world's dirty queries until its deferred removals commit. */
+  dirty: boolean;
   /** Position in the world's list of queries that spawn and destroy visit, or -1 when not listed. */
   notIndex: number;
   /** An active dispatch may still hold a list containing a dropped query. */
