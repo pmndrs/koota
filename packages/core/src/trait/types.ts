@@ -73,11 +73,14 @@ export type SetTraitCallback<T extends Trait | RelationPair> = (
   prev: TraitRecord<ExtractSchema<T>>
 ) => TraitValue<ExtractSchema<T>>;
 
+// A tag has no data, so it has no record.
 type TraitRecordFromSchema<T extends Schema> = T extends AoSFactory
   ? ReturnType<T>
-  : {
-      [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];
-    };
+  : T extends Record<string, never>
+    ? undefined
+    : {
+        [P in keyof T]: T[P] extends (...args: never[]) => unknown ? ReturnType<T[P]> : T[P];
+      };
 
 /**
  * The record of a trait.

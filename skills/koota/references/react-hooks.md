@@ -95,7 +95,7 @@ const player = useQuery(IsPlayer)[0]
 
 ## useTrait
 
-Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed. Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data.
+Observes an entity's trait and rerenders when it changes. Returns `undefined` if trait is removed. Also accepts relation pairs like `ChildOf(parent)` to observe a specific relation's store data. Tags and relations without a store have no record, so the result is always `undefined`. Use `useTag` or `useHas` to observe presence.
 
 Requires a `WorldProvider`. The target must belong to the world returned by `useWorld()`.
 
