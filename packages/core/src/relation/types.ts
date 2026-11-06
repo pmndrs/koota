@@ -36,6 +36,8 @@ type RelationCall<T extends Trait = Trait> = {
 
 export type Relation<T extends Trait = Trait> = {
   readonly [$relation]: true;
+  /** Create a record of the relation store defaults, such as a scratch record for get to fill. */
+  readonly record: T['record'];
   [$internal]: {
     trait: T;
     exclusive: boolean;
