@@ -574,6 +574,32 @@ describe('Query', () => {
     expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild, late]);
   });
 
+  it('keeps cached multi-target queries current as relations and targets change', () => {
+    const VisibleIn = relation();
+    const parent = world.spawn();
+    let viewport = world.spawn();
+    const child = world.spawn(Position, ChildOf(parent), VisibleIn(viewport));
+    const prefix = world.query(ChildOf(parent), Position);
+    const read = () => world.query(ChildOf(parent), VisibleIn(viewport), Position);
+    const view = read();
+    expect(read()).toBe(view);
+    expect(view.toArray()).toEqual([child]);
+
+    child.remove(VisibleIn(viewport));
+    expect(read()).toHaveLength(0);
+    child.add(VisibleIn(viewport));
+    expect(read().toArray()).toEqual([child]);
+
+    viewport.destroy();
+    expect(read()).toHaveLength(0);
+    expect(world.query(ChildOf(parent), Position)).toBe(prefix);
+    expect(prefix.toArray()).toEqual([child]);
+
+    viewport = world.spawn();
+    child.add(VisibleIn(viewport));
+    expect(read().toArray()).toEqual([child]);
+  });
+
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
     const result = world.query(Position);
