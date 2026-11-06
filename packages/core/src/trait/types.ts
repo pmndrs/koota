@@ -125,6 +125,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   trackingQueries: QueryInstance[];
   /** Queries that filter by this relation (only for relation traits) */
   relationQueries: QueryInstance[];
+  /** Relations whose targets lead to the anchored queries that read this trait. */
+  anchorRelations: TraitInstance[];
   schema: S;
   changeSubscriptions: Subscriptions;
   addSubscriptions: Subscriptions;

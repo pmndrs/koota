@@ -477,6 +477,32 @@ describe('Relation', () => {
     expect(world.query(ChildOf(parent))).toHaveLength(0);
   });
 
+  it('keeps the query of each parent current as its children change', () => {
+    const ChildOf = relation({ exclusive: true });
+    const Weapon = trait();
+
+    const parent = world.spawn();
+    const other = world.spawn();
+    const child = world.spawn(Weapon, ChildOf(parent));
+    const armed = world.query(Weapon, ChildOf(parent));
+    const armedOfOther = world.query(Weapon, ChildOf(other));
+    expect(armed.toArray()).toEqual([child]);
+
+    // A trait the query reads leaves and returns.
+    child.remove(Weapon);
+    expect(armed).toHaveLength(0);
+    child.add(Weapon);
+    expect(armed.toArray()).toEqual([child]);
+
+    // The child moves to the other parent.
+    child.add(ChildOf(other));
+    expect(armed).toHaveLength(0);
+    expect(armedOfOther.toArray()).toEqual([child]);
+
+    child.destroy();
+    expect(armedOfOther).toHaveLength(0);
+  });
+
   it('queries should support relations with modifiers and traits', () => {
     const ChildOf = relation();
     const Weapon = trait();
