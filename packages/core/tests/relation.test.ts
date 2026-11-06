@@ -185,10 +185,12 @@ describe('Relation', () => {
     expect(holder.has(Holds(target))).toBe(true);
     expect(world.query(Holds(target)).toArray()).toEqual([holder]);
 
+    const other = world.spawn();
     // @ts-expect-error the pair carries no values
-    expect(() => world.spawn(Holds(target))).toThrow('REQUIRED_VALUE');
+    expect(() => other.add(Holds(target))).toThrow('REQUIRED_VALUE');
     // @ts-expect-error the required field is missing
-    expect(() => world.spawn(Holds(target, { count: 2 }))).toThrow('REQUIRED_VALUE');
+    expect(() => other.add(Holds(target, { count: 2 }))).toThrow('REQUIRED_VALUE');
+    expect(other.has(Holds(target))).toBe(false);
   });
 
   it('takes the record of a required store on add', () => {
@@ -200,8 +202,10 @@ describe('Relation', () => {
     const holder = world.spawn(Holds(target, item));
     expect(holder.get(Holds(target))).toBe(item);
 
+    const other = world.spawn();
     // @ts-expect-error the pair carries no record
-    expect(() => world.spawn(Holds(target))).toThrow('REQUIRED_VALUE');
+    expect(() => other.add(Holds(target))).toThrow('REQUIRED_VALUE');
+    expect(other.has(Holds(target))).toBe(false);
   });
 
   it('has no record for relations without a store', () => {

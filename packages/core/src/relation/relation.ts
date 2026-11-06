@@ -16,7 +16,7 @@ import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isStableParameter } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
-import { TraitSchema } from '../storage';
+import { isRequired, type Schema, type TraitSchema } from '../storage';
 import { trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -675,6 +675,27 @@ function writeRelationField(
   const stored = slots[slot] as unknown[] | undefined;
   if (stored === undefined) slots[slot] = Array.from(field as ArrayLike<unknown>);
   else for (let i = 0; i < stored.length; i++) stored[i] = (field as ArrayLike<unknown>)[i];
+}
+
+/**
+ * Asserts that params carry every value the store requires by calling the marker of a missing
+ * one. Runs before the pair is granted, so a failed add leaves the entity without the pair.
+ */
+export function assertRequiredParams(
+  schema: Schema,
+  params: Record<string, unknown> | undefined
+): void {
+  // A required store is the marker itself.
+  if (typeof schema === 'function') {
+    if (params === undefined) schema();
+    return;
+  }
+  const fields = schema as Record<string, unknown>;
+  for (const key in fields) {
+    if (isRequired(fields[key]) && (params === undefined || !(key in params))) {
+      (fields[key] as () => void)();
+    }
+  }
 }
 
 /**
