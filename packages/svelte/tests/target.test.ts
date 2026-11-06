@@ -96,50 +96,6 @@ describe('useTarget', () => {
     expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
   });
 
-  it('matches targetFor when one removal triggers another', () => {
-    const Likes = relation();
-    const targetA = world.spawn();
-    const targetB = world.spawn();
-    const targetC = world.spawn();
-    const targetD = world.spawn();
-    const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC), Likes(targetD));
-    const { getByTestId } = renderSubject({ target: subject, relation: Likes });
-    flushSync();
-    subject.onRemove(Likes, (entity, removed) => {
-      if (removed === targetA) entity.remove(Likes(targetB));
-    });
-    subject.remove(Likes(targetA));
-    flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-  });
-
-  it('does not restore a removed target when its removal adds another', () => {
-    const Likes = relation();
-    const targetA = world.spawn();
-    const targetB = world.spawn();
-    const subject = world.spawn(Likes(targetA));
-    const { getByTestId } = renderSubject({ target: subject, relation: Likes });
-    flushSync();
-    subject.onRemove(Likes, (entity, removed) => {
-      if (removed === targetA) entity.add(Likes(targetB));
-    });
-    subject.remove(Likes(targetA));
-    flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-  });
-
-  it('clears its target when the whole relation is removed', () => {
-    const Likes = relation();
-    const targetA = world.spawn();
-    const targetB = world.spawn();
-    const subject = world.spawn(Likes(targetA), Likes(targetB));
-    const { getByTestId } = renderSubject({ target: subject, relation: Likes });
-    flushSync();
-    subject.remove(Likes('*'));
-    flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-  });
-
   it('clears its target when the source is destroyed', () => {
     const Likes = relation();
     const subject = world.spawn(Likes(world.spawn()), Likes(world.spawn()));

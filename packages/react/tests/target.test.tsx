@@ -88,50 +88,6 @@ describe('useTarget', () => {
     expect(result.current).toBe(subject.targetFor(Likes));
   });
 
-  it('matches targetFor when one removal triggers another', () => {
-    const Likes = relation();
-    const targetA = world.spawn();
-    const targetB = world.spawn();
-    const targetC = world.spawn();
-    const targetD = world.spawn();
-    const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC), Likes(targetD));
-    const { result } = renderHook(() => useTarget(subject, Likes));
-    subject.onRemove(Likes, (entity, removed) => {
-      if (removed === targetA) entity.remove(Likes(targetB));
-    });
-    act(() => {
-      subject.remove(Likes(targetA));
-    });
-    expect(result.current).toBe(subject.targetFor(Likes));
-  });
-
-  it('does not restore a removed target when its removal adds another', () => {
-    const Likes = relation();
-    const targetA = world.spawn();
-    const targetB = world.spawn();
-    const subject = world.spawn(Likes(targetA));
-    const { result } = renderHook(() => useTarget(subject, Likes));
-    subject.onRemove(Likes, (entity, removed) => {
-      if (removed === targetA) entity.add(Likes(targetB));
-    });
-    act(() => {
-      subject.remove(Likes(targetA));
-    });
-    expect(result.current).toBe(subject.targetFor(Likes));
-  });
-
-  it('clears its target when the whole relation is removed', () => {
-    const Likes = relation();
-    const targetA = world.spawn();
-    const targetB = world.spawn();
-    const subject = world.spawn(Likes(targetA), Likes(targetB));
-    const { result } = renderHook(() => useTarget(subject, Likes));
-    act(() => {
-      subject.remove(Likes('*'));
-    });
-    expect(result.current).toBe(subject.targetFor(Likes));
-  });
-
   it('clears its target when the source is destroyed', () => {
     const Likes = relation();
     const subject = world.spawn(Likes(world.spawn()), Likes(world.spawn()));

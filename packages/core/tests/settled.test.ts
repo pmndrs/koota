@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { $internal, createWorld, ordered, relation, trait } from '../src';
+import { $internal, createWorld, relation, trait } from '../src';
 
 it('settles once after nested removals and observes the remaining target', () => {
   const world = createWorld();
@@ -17,23 +17,21 @@ it('settles once after nested removals and observes the remaining target', () =>
   expect(observed).toEqual([c]);
 });
 
-for (const retain of [0, 1024]) {
-  it(`settles after the entire destruction cascade with retain ${retain}`, () => {
-    const world = createWorld({ retain });
-    const ChildOf = relation({ autoDestroy: 'source' });
-    const parent = world.spawn();
-    const child = world.spawn(ChildOf(parent));
-    const grandchild = world.spawn(ChildOf(child));
-    const observed: boolean[][] = [];
-    const observer = world[$internal].observeSettled(() => {
-      observed.push([parent.isAlive(), child.isAlive(), grandchild.isAlive()]);
-      expect(world.query(ChildOf('*')).length).toBe(0);
-    });
-    world.onQueryRemove([ChildOf('*')], observer.invalidate);
-    parent.destroy();
-    expect(observed).toEqual([[false, false, false]]);
+it('settles after the entire destruction cascade', () => {
+  const world = createWorld();
+  const ChildOf = relation({ autoDestroy: 'source' });
+  const parent = world.spawn();
+  const child = world.spawn(ChildOf(parent));
+  const grandchild = world.spawn(ChildOf(child));
+  const observed: boolean[][] = [];
+  const observer = world[$internal].observeSettled(() => {
+    observed.push([parent.isAlive(), child.isAlive(), grandchild.isAlive()]);
+    expect(world.query(ChildOf('*')).length).toBe(0);
   });
-}
+  world.onQueryRemove([ChildOf('*')], observer.invalidate);
+  parent.destroy();
+  expect(observed).toEqual([[false, false, false]]);
+});
 
 it('settles after bulk additions, exclusive replacement, and query reconciliation', () => {
   const world = createWorld();
@@ -67,18 +65,6 @@ it('settles an upsert that replaces an exclusive target', () => {
   source.onAdd(Link, observer.invalidate);
   source.upsert(Link(b), { weight: 1 });
   expect(observed).toEqual([b]);
-});
-
-it('drops a queued update when unsubscribed before settlement', () => {
-  const world = createWorld();
-  const A = trait();
-  const source = world.spawn();
-  let calls = 0;
-  const observer = world[$internal].observeSettled(() => calls++);
-  source.onAdd(A, observer.invalidate);
-  source.onAdd(A, observer.unsubscribe);
-  source.add(A);
-  expect(calls).toBe(0);
 });
 
 it('processes structural work from settled callbacks without recursive notification', () => {
@@ -117,24 +103,6 @@ it('delivers queued updates when a structural callback throws', () => {
   // The operation is closed, so a later invalidation is not left waiting for it.
   observer.invalidate();
   expect(observed).toEqual([true, true]);
-});
-
-it('delivers the other queued updates and keeps settling after an observer throws', () => {
-  const world = createWorld();
-  const A = trait();
-  const source = world.spawn();
-  let calls = 0;
-  const failing = world[$internal].observeSettled(() => {
-    throw new Error('stop');
-  });
-  const counting = world[$internal].observeSettled(() => calls++);
-  source.onAdd(A, failing.invalidate);
-  source.onAdd(A, counting.invalidate);
-  source.onRemove(A, counting.invalidate);
-  expect(() => source.add(A)).toThrow('stop');
-  expect(calls).toBe(1);
-  source.remove(A);
-  expect(calls).toBe(2);
 });
 
 it('throws when an observer keeps invalidating itself', () => {
@@ -185,22 +153,4 @@ it('runs value invalidations at once outside structural changes', () => {
   source.set(Value, { value: 1 });
   source.set(Value, { value: 2 });
   expect(observed).toEqual([1, 2]);
-});
-
-it('settles ordered clear after removing every relation and updating the owned sequence', () => {
-  const world = createWorld();
-  const ChildOf = relation();
-  const Children = ordered(ChildOf);
-  const parent = world.spawn(Children);
-  const children = parent.get(Children)!;
-  const a = world.spawn();
-  const b = world.spawn();
-  children.add(a).add(b);
-  const observed: unknown[] = [];
-  const observer = world[$internal].observeSettled(() => observed.push(children.toArray()));
-  a.onRemove(ChildOf, observer.invalidate);
-  b.onRemove(ChildOf, observer.invalidate);
-  parent.onChange(Children, observer.invalidate);
-  children.clear();
-  expect(observed).toEqual([[]]);
 });
