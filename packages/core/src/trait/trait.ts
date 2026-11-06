@@ -35,7 +35,7 @@ import {
   setRelationData,
   setRelationDataAtIndex,
 } from '../relation/relation';
-import type { Relation, RelationPair, RelationTarget } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../entity/utils/paged-mask';
 import {
@@ -273,7 +273,7 @@ export /* @inline */ function upsertTrait(
       setTraitForPair(ctx, entity, trait, value, true);
     } else {
       // The relation call validates the target and builds the pair that carries the value.
-      addTraitsToAliveEntity(ctx, entity, [trait.relation(trait.target as RelationTarget, value)]);
+      addTraitsToAliveEntity(ctx, entity, [trait.relation(trait.target!, value)]);
     }
   }
 }
