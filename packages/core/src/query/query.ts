@@ -177,7 +177,7 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   if (query.dropped) return;
   const toRemove = query.toRemove;
   if (
-    query.identifierFilters !== undefined &&
+    (query.identifierFilters !== undefined || query.ctx.queryBatch !== undefined) &&
     !query.isTracking &&
     query.entities.has(entity) &&
     (toRemove === null || !toRemove.has(entity))
@@ -187,9 +187,11 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   query.entities.add(entity);
   query.version++;
 
-  const subscribers = query.addSubscriptions;
-  if (subscribers !== null && subscribers.size !== 0) {
-    emitQuerySubscribers(query.ctx, subscribers, entity);
+  if (
+    query.addSubscriptions?.size ||
+    (query.ctx.queryBatch !== undefined && query.removeSubscriptions?.size)
+  ) {
+    notifyQuerySubscribers(query, entity, true);
   }
 }
 
@@ -210,9 +212,11 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
   }
   query.version++;
 
-  const subscribers = query.removeSubscriptions;
-  if (subscribers !== null && subscribers.size !== 0) {
-    emitQuerySubscribers(ctx, subscribers, entity);
+  if (
+    query.removeSubscriptions?.size ||
+    (ctx.queryBatch !== undefined && query.addSubscriptions?.size)
+  ) {
+    notifyQuerySubscribers(query, entity, false);
   }
 }
 
@@ -266,6 +270,68 @@ export function reconcileTargetQueries(
     if (query === undefined || !query.anchored) continue;
     if (!dying && checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
     else removeEntityFromQuery(ctx, query, entity);
+  }
+}
+
+/** @inline */
+function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
+  const ctx = query.ctx;
+  if (ctx.queryBatch !== undefined) /* @cold */ {
+    ctx.queryBatch.push({ query, entity, added });
+  } else {
+    const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
+    if (subscribers?.size) emitQuerySubscribers(ctx, subscribers, entity);
+  }
+}
+
+/** Finish derived query membership before delivering any public query callback. */
+export function flushQueryBatch(ctx: WorldContext) {
+  const events = ctx.queryBatch!;
+  for (let i = 0; i < events.length; i++) {
+    const { query, entity, added } = events[i];
+    const subscriptions = ctx.internalQuerySubscriptions?.get(query);
+    const internal = added ? subscriptions?.add : subscriptions?.remove;
+    if (internal?.size) emitQuerySubscribers(ctx, internal, entity);
+  }
+  ctx.queryBatch = undefined;
+  if (events.length === 0) return;
+  const settled = new Map<QueryInstance, Map<Entity, { first: boolean; last: boolean }>>();
+  for (const { query, entity, added } of events) {
+    if (query.isTracking) continue;
+    let entities = settled.get(query);
+    if (entities === undefined) settled.set(query, (entities = new Map()));
+    const event = entities.get(entity);
+    if (event === undefined) entities.set(entity, { first: added, last: added });
+    else event.last = added;
+  }
+  for (const { query, entity, added } of events) {
+    if (!query.isTracking) {
+      const entities = settled.get(query)!;
+      const event = entities.get(entity);
+      if (event === undefined) continue;
+      entities.delete(entity);
+      if (event.first !== event.last) continue;
+      // Earlier callbacks may invalidate a queued membership change.
+      if (
+        query.dropped ||
+        added !==
+          (query.entities.has(entity) && (query.toRemove === null || !query.toRemove.has(entity)))
+      )
+        continue;
+    }
+    const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
+    const subscriptions = ctx.internalQuerySubscriptions?.get(query);
+    const internal = added ? subscriptions?.add : subscriptions?.remove;
+    if (subscribers?.size) {
+      ctx.queryCallbackDepth++;
+      try {
+        for (const subscriber of subscribers) {
+          if (!internal?.has(subscriber)) subscriber(entity);
+        }
+      } finally {
+        ctx.queryCallbackDepth--;
+      }
+    }
   }
 }
 
@@ -466,6 +532,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     anchored: false,
     listSlots: [],
     cleanup: null,
+
     addSubscriptions: null,
     removeSubscriptions: null,
     layoutCache: null,
@@ -990,6 +1057,17 @@ export function queryInternal<T extends QueryParameter[]>(
   return runQuery(ctx, instance, params) as QueryView<T>;
 }
 
+/** Only relation target filters need separate bookkeeping for their internal callbacks. */
+function internalQuerySubscriptions(ctx: WorldContext, query: QueryInstance) {
+  const index = (ctx.internalQuerySubscriptions ??= new WeakMap());
+  let subscriptions = index.get(query);
+  if (subscriptions === undefined) {
+    subscriptions = { add: new Set<QuerySubscriber>(), remove: new Set<QuerySubscriber>() };
+    index.set(query, subscriptions);
+  }
+  return subscriptions;
+}
+
 /**
  * Subscribe to query entries. Internal equivalent of world.onEnter().
  */
@@ -1004,8 +1082,13 @@ export function subscribeEnter(
   } else {
     query = resolveQueryInstance(ctx, args as QueryParameter[]);
   }
+  const subscriptions = internalQuerySubscriptions(ctx, query);
+  subscriptions.add.add(callback);
   (query.addSubscriptions ??= new Set()).add(callback);
-  return () => query.addSubscriptions!.delete(callback);
+  return () => {
+    subscriptions.add.delete(callback);
+    query.addSubscriptions!.delete(callback);
+  };
 }
 
 /**
@@ -1022,8 +1105,13 @@ export function subscribeExit(
   } else {
     query = resolveQueryInstance(ctx, args as QueryParameter[]);
   }
+  const subscriptions = internalQuerySubscriptions(ctx, query);
+  subscriptions.remove.add(callback);
   (query.removeSubscriptions ??= new Set()).add(callback);
-  return () => query.removeSubscriptions!.delete(callback);
+  return () => {
+    subscriptions.remove.delete(callback);
+    query.removeSubscriptions!.delete(callback);
+  };
 }
 
 let queryId = 0;

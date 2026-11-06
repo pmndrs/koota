@@ -1,4 +1,5 @@
 import { $internal } from '../common';
+import type { MachineContext, MachineInstance } from '../machine/types';
 import type { Identifier, IdentifierIndex, IdentifierPair } from '../identifier/types';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
@@ -82,9 +83,11 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   readonly required: RequiresInit<S>;
   /** True for a plain paged SoA trait with scalar fields, which iteration can read in place. */
   readonly cursor: boolean;
+  registered: boolean;
+  machine: MachineContext | undefined;
   relation: Relation<any> | null;
-  /** The trait tracks identifier presence. Keys live in the world-local identifier index. */
-  isIdentifier: boolean;
+  /** Membership cleanup dispatch, separate from the storage layout. */
+  kind: 'trait' | 'relation' | 'identifier' | 'machine';
 };
 
 export type Trait<TSchema extends Schema = any> = {
@@ -184,6 +187,7 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
    */
   relationTargets?: any[][];
   identifier: IdentifierIndex | undefined;
+  machine: MachineInstance | undefined;
   relationSourcesByTarget?: Entity[][];
 }
 

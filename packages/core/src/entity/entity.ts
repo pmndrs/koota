@@ -1,5 +1,6 @@
 import { endStructuralChanges } from '../world/settled';
 import { $internal } from '../common';
+import { assertMachineIdle } from '../machine/machine';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import {
@@ -131,6 +132,9 @@ export function destroyQueuedEntity(
   entityQueue: Entity[],
   stamp: number
 ) {
+  if (ctx.machineMutations !== undefined && ctx.machineMutations.size !== 0) /* @cold */ {
+    assertMachineIdle(ctx, entity);
+  }
   const eid = getEntityId(entity);
   if (processedStamp[eid] === stamp && processedEntity[eid] === entity) {
     return;
@@ -157,7 +161,7 @@ export function destroyQueuedEntity(
     if (page === EMPTY_MASK_PAGE) continue;
     const traitsByBit = ctx.traitsByBit[g];
     let word = page[slot];
-    page[slot + DESTROYED_WORD] = word;
+    page[slot + DESTROYED_WORD] |= word;
     while (word !== 0) {
       const low = word & -word;
       const instance = traitsByBit[31 - Math.clz32(low)];
@@ -284,10 +288,12 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
     clearEntity(instance.addSubscriptions, entity);
     clearEntity(instance.removeSubscriptions, entity);
     clearEntity(instance.changeSubscriptions, entity);
+    instance.machine?.byEntity.delete(entity);
     if (
       instance.addSubscriptions.entityCount === 0 &&
       instance.removeSubscriptions.entityCount === 0 &&
-      instance.changeSubscriptions.entityCount === 0
+      instance.changeSubscriptions.entityCount === 0 &&
+      (instance.machine === undefined || instance.machine.byEntity.size === 0)
     ) {
       ctx.entitySubscribedInstances.delete(instance);
     }

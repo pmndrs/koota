@@ -1,5 +1,6 @@
 import { endStructuralChanges } from '../world/settled';
 import type { EventType, QueryInstance } from '../query/types';
+import { addMachineTrait, createMachineInstance, removeMachineTrait } from '../machine/machine';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
@@ -38,7 +39,7 @@ import {
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../entity/utils/paged-mask';
+import { clearTraitMembership, setTraitMembership } from './membership';
 import {
   createAddFunction,
   createGetFunction,
@@ -111,8 +112,10 @@ export function createTraitContext<S extends Schema>(
         ? (ctx, index, store, out) => Object.assign(out, get(ctx, index, store))
         : defaults.getInto),
     remove: accessors?.remove ?? defaults.remove,
+    registered: false,
+    machine: undefined,
     relation: null,
-    isIdentifier: false,
+    kind: 'trait',
     type,
     required: (isRequired(schema) || Object.values(schema).some(isRequired)) as RequiresInit<S>,
     cursor:
@@ -166,6 +169,7 @@ export const trait = createTrait;
 
 export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   const traitCtx = trait[$internal];
+  traitCtx.registered = true;
 
   const data: TraitInstance = {
     version: 0,
@@ -183,9 +187,11 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
     removeSubscriptions: createSubscriptions(),
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
-    identifier: traitCtx.isIdentifier
-      ? { targets: [], owners: new Map(), positions: undefined, queries: new Map() }
-      : undefined,
+    machine: traitCtx.machine?.trait === trait ? createMachineInstance() : undefined,
+    identifier:
+      traitCtx.kind === 'identifier'
+        ? { targets: [], owners: new Map(), positions: undefined, queries: new Map() }
+        : undefined,
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
@@ -227,12 +233,11 @@ export /* @inline */ function addTraitsToAliveEntity(
   entity: Entity,
   traits: ConfigurableTrait[]
 ) {
+  const eid = getEntityId(entity);
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
-
     let trait: Trait;
     let params: Record<string, any> | undefined;
-
     if (typeof config === 'function') {
       trait = config as Trait;
     } else if (Array.isArray(config)) {
@@ -244,20 +249,22 @@ export /* @inline */ function addTraitsToAliveEntity(
     }
 
     // One instance load serves the membership check, registration and the add.
-    const eid = getEntityId(entity);
     let instance = getTraitInstance(ctx.traitInstances, trait);
-    if (instance === undefined) {
-      instance = registerTrait(ctx, trait);
+    if (
+      instance !== undefined &&
+      (ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2] & instance.bitflag) !== 0
+    )
+      continue;
+    if (trait[$internal].kind === 'machine') /* @cold */ {
+      addMachineTrait(ctx, entity, trait, params, traits);
     } else {
-      const mask = ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2];
-      if ((mask & instance.bitflag) !== 0) continue;
+      if (instance === undefined) instance = registerTrait(ctx, trait);
+      // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
+      trait[$internal].add(ctx, eid, instance.store, params);
+      grantTraitMembership(ctx, entity, instance);
+      emit(instance.addSubscriptions, entity);
+      notifyTraitAdded(ctx, entity, instance);
     }
-
-    // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
-    trait[$internal].add(ctx, eid, instance.store, params);
-    grantTraitMembership(ctx, entity, instance);
-    emit(instance.addSubscriptions, entity);
-    notifyTraitAdded(ctx, entity, instance);
   }
 }
 
@@ -382,19 +389,19 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
   if ((mask & instance.bitflag) === 0) return;
 
   const traitCtx = trait[$internal];
-
-  if (traitCtx.isIdentifier) {
-    releaseIdentifierTrait(ctx, entity, instance);
+  if (traitCtx.kind !== 'trait') /* @cold */ {
+    if (traitCtx.kind === 'machine') {
+      removeMachineTrait(ctx, entity, trait);
+    } else if (traitCtx.kind === 'identifier') {
+      releaseIdentifierTrait(ctx, entity, instance);
+    } else {
+      releaseRelationTargets(ctx, entity, trait, traitCtx.relation!);
+      removeTraitFromEntity(ctx, entity, trait);
+    }
     return;
   }
-
-  if (traitCtx.relation) {
-    releaseRelationTargets(ctx, entity, trait, traitCtx.relation);
-  } else {
-    emit(instance.removeSubscriptions, entity);
-    traitCtx.remove(ctx, eid, instance.store);
-  }
-
+  emit(instance.removeSubscriptions, entity);
+  traitCtx.remove(ctx, eid, instance.store);
   removeTraitFromEntity(ctx, entity, trait);
 }
 
@@ -431,31 +438,38 @@ export function removeTraitFromDyingEntity(
   instance: TraitInstance
 ) {
   const traitCtx = instance.trait[$internal];
-  // A key is free for another entity as soon as its owner dies.
-  if (traitCtx.isIdentifier) {
-    releaseIdentifierTrait(ctx, entity, instance);
+  if (traitCtx.kind !== 'trait') /* @cold */ {
+    removeSpecialDyingTrait(ctx, entity, instance);
     return;
   }
+  emit(instance.removeSubscriptions, entity);
+  traitCtx.remove(ctx, getEntityId(entity), instance.store);
+  finishDyingTraitRemoval(ctx, entity, instance, undefined);
+}
 
-  const relation = traitCtx.relation;
-  let targets: readonly Entity[] | undefined;
-  if (relation) {
-    targets = getRelationTargets(ctx, relation, entity);
-    for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-    detachRelationTargets(instance, entity);
+/** Release auxiliary membership before recording a dying trait's removal. */
+export function removeSpecialDyingTrait(ctx: WorldContext, entity: Entity, instance: TraitInstance) {
+  const context = instance.trait[$internal];
+  if (context.kind === 'machine') {
+    removeMachineTrait(ctx, entity, instance.trait, true);
+  } else if (context.kind === 'identifier') {
+    releaseIdentifierTrait(ctx, entity, instance);
   } else {
-    emit(instance.removeSubscriptions, entity);
-    traitCtx.remove(ctx, getEntityId(entity), instance.store);
+    const targets = getRelationTargets(ctx, context.relation!, entity);
+    for (const target of targets) emit(instance.removeSubscriptions, entity, target);
+    detachRelationTargets(instance, entity);
+    finishDyingTraitRemoval(ctx, entity, instance, targets);
   }
+}
 
-  const { generationId, bitflag } = instance;
-  const eid = getEntityId(entity);
-  if (assertsEnabled) ctx.structuralRevision++;
-  const page = ctx.entityMasks[generationId][eid >>> 10];
-  const slot = (eid & 1023) << 2;
-  page[slot] &= ~bitflag;
-  page[slot + REMOVED_WORD] |= bitflag;
-  instance.version++;
+/** @inline */
+export function finishDyingTraitRemoval(
+  ctx: WorldContext,
+  entity: Entity,
+  instance: TraitInstance,
+  targets: readonly Entity[] | undefined
+) {
+  clearTraitMembership(ctx, entity, instance);
 
   // Most traits have no query to leave, so the check stays here and the work is a call.
   if (
@@ -777,18 +791,8 @@ export /* @inline */ function grantTraitMembership(
   entity: Entity,
   instance: TraitInstance
 ) {
-  const { generationId, bitflag } = instance;
-
-  const eid = getEntityId(entity);
-  const pageId = eid >>> 10;
-  if (assertsEnabled) ctx.structuralRevision++;
-  const generation = ctx.entityMasks[generationId];
-  let page = generation[pageId];
-  if (page === EMPTY_MASK_PAGE) page = materializeMaskPage(generation, pageId);
-  page[(eid & 1023) << 2] |= bitflag;
-  instance.version++;
-
-  reconcileTraitQueries(ctx, entity, instance, 'add', generationId, bitflag);
+  setTraitMembership(ctx, entity, instance);
+  reconcileTraitQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
 }
 
 /** Re-evaluate the queries that include a trait after its membership bit changed. */
@@ -842,27 +846,18 @@ export function reconcileTrackingQueries(
 function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait): void {
   const instance = getTraitInstance(ctx.traitInstances, trait);
   if (instance === undefined) return;
-  const { generationId, bitflag } = instance;
-
   const eid = getEntityId(entity);
-  const pageId = eid >>> 10;
-  const offset = eid & 1023;
-  const page = ctx.entityMasks[generationId][pageId];
-  const slot = offset << 2;
-  if ((page[slot] & bitflag) === 0) return;
+  const mask = ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2];
+  if ((mask & instance.bitflag) === 0) return;
 
   /* @cold */ if (assertsEnabled && trait[$internal].relation) {
-    const targets = instance.relationTargets?.[pageId]?.[offset];
+    const targets = instance.relationTargets?.[eid >>> 10]?.[eid & 1023];
     if (typeof targets === 'number' || (targets !== undefined && targets.length > 0)) {
       throw new Error(
         `Koota: [RELATION_INDEX] Remove relation targets before removing their trait membership. Entity ${entity}, trait ${trait.id}.`
       );
     }
   }
-  if (assertsEnabled) ctx.structuralRevision++;
-  page[slot] &= ~bitflag;
-  page[slot + REMOVED_WORD] |= bitflag;
-  instance.version++;
-
-  reconcileTraitQueries(ctx, entity, instance, 'remove', generationId, bitflag);
+  clearTraitMembership(ctx, entity, instance);
+  reconcileTraitQueries(ctx, entity, instance, 'remove', instance.generationId, instance.bitflag);
 }
