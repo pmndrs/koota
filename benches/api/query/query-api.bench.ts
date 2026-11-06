@@ -93,6 +93,31 @@ group('world.query inline cache hit @query @query-api @query-hash', () => {
   });
 });
 
+group('world.queryFirst inline cache hit @query @query-api @query-first', () => {
+  bench('2 traits', function* () {
+    const { world, entity } = setupWorld();
+    assert.equal(world.queryFirst(Position, Velocity), entity);
+
+    yield () => world.queryFirst(Position, Velocity);
+
+    assert.equal(world.queryFirst(Position, Velocity), entity);
+    world.destroy();
+  });
+
+  bench('trait + concrete target', function* () {
+    const world = createWorld();
+    const parent = world.spawn();
+    world.spawn(ChildOf(parent));
+    const entity = world.spawn(Position, ChildOf(parent));
+    assert.equal(world.queryFirst(Position, ChildOf(parent)), entity);
+
+    yield () => world.queryFirst(Position, ChildOf(parent));
+
+    assert.equal(world.queryFirst(Position, ChildOf(parent)), entity);
+    world.destroy();
+  });
+});
+
 // The cached Query ref is the ceiling the inline path is chasing. Same world, same results,
 // the only difference is that hashing and the hash lookup are replaced by an id index.
 group('world.query cached ref @query @query-api', () => {

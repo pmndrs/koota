@@ -91,6 +91,43 @@ describe('queryFirst', () => {
     expect(world.queryFirst(ChildOf('*'))).toBeUndefined();
   });
 
+  it('shares an inline relation query and skips pending removals during a walk', () => {
+    const Position = trait({ x: 0 });
+    const ChildOf = relation();
+    const parent = world.spawn();
+    const a = world.spawn(Position, ChildOf(parent));
+    const b = world.spawn(Position, ChildOf(parent));
+
+    expect(world.queryFirst(Position, ChildOf(parent))).toBe(a);
+    const view = world.query(Position, ChildOf(parent));
+    view.forEach((entity) => {
+      if (entity === a) {
+        a.remove(Position);
+        expect(world.queryFirst(Position, ChildOf(parent))).toBe(b);
+      }
+    });
+    expect(world.queryFirst(Position, ChildOf(parent))).toBe(b);
+    parent.destroy();
+    expect(world.queryFirst(Position, ChildOf(parent))).toBeUndefined();
+  });
+
+  it('consumes a tracking batch through a warmed inline lookup', () => {
+    const Position = trait({ x: 0 });
+    const Changed = createChanged();
+    const a = world.spawn(Position);
+    const b = world.spawn(Position);
+
+    expect(world.queryFirst(Changed(Position))).toBe(a);
+    expect(world.queryFirst(Changed(Position))).toBeUndefined();
+    a.changed(Position);
+    b.changed(Position);
+    expect(world.queryFirst(Changed(Position))).toBe(a);
+    expect(world.query(Changed(Position))).toHaveLength(0);
+    b.changed(Position);
+    expect(world.queryFirst(Changed(Position))).toBe(b);
+    expect(world.queryFirst(Changed(Position))).toBeUndefined();
+  });
+
   it.each([
     ['added', createAdded],
     ['changed', createChanged],
