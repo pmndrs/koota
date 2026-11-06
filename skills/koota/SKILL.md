@@ -97,6 +97,53 @@ For detailed patterns and monorepo structures, see [references/architecture.md](
 | **Relations** | Prepositional   | `ChildOf`, `HeldBy`, `Contains`  |
 | **Trait**     | Noun            | `Position`, `Velocity`, `Health` |
 
+## State machines
+
+Use `machine` to group ordinary traits into mutually exclusive states and declare their transitions. Declare machines before any member is registered in a world. The initial state needs defaults. A member belongs to only one machine.
+
+```typescript
+import { machine, trait } from 'koota'
+
+const Pending = trait()
+const Loading = trait({ progress: 0 })
+const Loaded = trait()
+const AssetMachine = machine({
+  states: { Pending, Loading, Loaded },
+  initial: Pending,
+  transitions: {
+    Pending: [Loading],
+    Loading: [Pending, Loaded],
+    Loaded: [Pending],
+  },
+})
+```
+
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `of` to read the current state.
+
+```typescript
+const entity = world.spawn(AssetMachine) // Starts in Pending
+AssetMachine.enter(entity, Loading({ progress: 0 })) // Checks the transition when assertions are enabled
+AssetMachine.of(entity) === Loading // true
+world.query(Loading) // All assets currently loading
+AssetMachine.enter(entity, Loaded) // Transitions to Loaded
+entity.add(Pending) // Swaps without checking the transition table
+entity.remove(AssetMachine) // Clears this entity's asset loading state
+AssetMachine.of(entity) // undefined
+```
+
+- `world.spawn(Machine)` enters the initial state. An explicit member overrides a bare machine in the same call.
+- `Machine.enter(entity, Loading({ progress }))` checks edges when assertions are enabled and replaces state data. Self-entry requires a self-edge.
+- `entity.add(member)` swaps without edge checks, with duplicate adds remaining no-ops. `upsert` writes the current state or swaps when absent.
+- `Machine.of(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
+- Remove the machine, not its current member.
+- `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition. `previous` contains the old value. `get` only reads current data.
+- Transition listeners must be registered when the transition starts. Unsubscribing before delivery cancels it. Listeners added during callbacks start with later transitions.
+- `Added` and `Removed` coalesce changes. `Changed` includes state additions. These queries are not transition event logs.
+- Stop using borrowed `each` state values after transitioning. Membership changes immediately.
+- Do not transition or destroy the same entity inside its machine callbacks. Other entities may transition.
+
+Keep guards, clocks and effects in systems or actions. See [machine lifecycle and errors](../../docs/api/machines.md).
+
 ## Relations
 
 Relations build graphs between entities such as hierarchies, inventories, targeting.
@@ -289,6 +336,8 @@ For query lifecycle, tracking changes, caching queries, and advanced patterns, s
 **Imports:** Core types (`World`, `Entity`) from `'koota'`. React hooks from `'koota/react'`.
 
 **Change detection:** `entity.set()` and `world.set()` trigger change events that cause hooks like `useTrait` to rerender. For AoS traits where you mutate objects directly, manually signal with `entity.changed(Trait)`.
+
+`useMachine(entity, Machine)` observes the current state of a machine and rerenders on transitions. See the [React API documentation](../../docs/react/api.md#usemachine) for a component example.
 
 For React hooks and actions, see [references/react-hooks.md](references/react-hooks.md).
 
