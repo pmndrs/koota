@@ -766,6 +766,22 @@ describe('Query modifiers', () => {
     expect(entity.get(Position)!.x).toBe(10);
   });
 
+  it('reports writes made in each of another query to a Changed query', () => {
+    const Changed = createChanged();
+    const Velocity = trait({ x: 0, y: 0 });
+    const moving = world.spawn(Position, Velocity({ x: 1, y: 0 }));
+    world.spawn(Position, Velocity);
+    expect(world.query(Changed(Position)).length).toBe(2);
+
+    world.query(Position, Velocity).each((position, velocity) => {
+      position.x += velocity.x;
+    });
+
+    // The entity with zero velocity wrote the value it already had.
+    expect(world.query(Changed(Position)).toArray()).toEqual([moving]);
+    expect(world.query(Changed(Position)).length).toBe(0);
+  });
+
   it('each should work with Removed modifier', () => {
     const Removed = createRemoved();
     const Name = trait({ name: '' });
