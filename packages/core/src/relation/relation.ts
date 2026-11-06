@@ -8,7 +8,9 @@ import type { EventType, QueryParameter } from '../query/types';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryTrackingPair } from '../query/utils/check-query-tracking';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
+import { isStableParameter } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
+import { sameParams } from '../query/utils/same-params';
 import { TraitSchema } from '../storage';
 import { trait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
@@ -60,6 +62,9 @@ function createRelation<S extends TraitSchema = Record<string, never>>(definitio
     params: undefined,
   };
 
+  // Pairs whose target query is the same objects on every call, listed under its first entry.
+  const targetQueryPairs = new WeakMap<object, RelationPair<Trait<S>>[]>();
+
   function relationFn(...args: any[]): RelationPair<Trait<S>> {
     const firstArg = args[0];
     if (firstArg === '*') return wildcard;
@@ -75,20 +80,34 @@ function createRelation<S extends TraitSchema = Record<string, never>>(definitio
 
     if (firstArg === undefined) throw Error('Relation target is undefined');
 
-    if (isQuery(firstArg)) {
-      if (args.length > 1) throw Error('Query relations do not accept additional parameters.');
-      return {
-        [$relationPair]: true,
-        relation: relationFn as unknown as Relation<Trait<S>>,
-        targetQuery: firstArg,
-      };
+    const shared = targetQueryPairs.get(firstArg);
+    if (shared !== undefined) {
+      for (let i = 0; i < shared.length; i++) {
+        const targetQuery = shared[i].targetQuery!;
+        // A query ref is the whole target. Inline parameters are compared entry by entry.
+        if (
+          targetQuery === firstArg
+            ? args.length === 1
+            : sameParams(targetQuery as readonly QueryParameter[], args)
+        ) {
+          return shared[i];
+        }
+      }
     }
 
-    return {
+    if (isQuery(firstArg) && args.length > 1) {
+      throw Error('Query relations do not accept additional parameters.');
+    }
+    const pair: RelationPair<Trait<S>> = {
       [$relationPair]: true,
       relation: relationFn as unknown as Relation<Trait<S>>,
-      targetQuery: args as QueryParameter[],
+      targetQuery: isQuery(firstArg) ? firstArg : (args as QueryParameter[]),
     };
+    if (isStableParameter(pair)) {
+      if (shared === undefined) targetQueryPairs.set(firstArg, [pair]);
+      else shared.push(pair);
+    }
+    return pair;
   }
 
   const relation = Object.assign(relationFn, {

@@ -65,9 +65,9 @@ function ensureWorldRegistered(ctx: WorldContext): void {
  */
 export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
   const first = params[0];
-  // A pair naming a target is a new object on every call, so no list is kept under it.
-  if (isRelationPair(first) && first.target !== '*') {
-    if (params.length === 1 && typeof first.target === 'number') {
+  // A pair naming a target entity is a new object on every call, so no list is kept under it.
+  if (isRelationPair(first) && typeof first.target === 'number') {
+    if (params.length === 1) {
       const entities = getEntitiesWithRelationTo(
         ctx,
         first.relation as Relation<Trait>,

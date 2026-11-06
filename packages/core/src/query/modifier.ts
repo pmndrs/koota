@@ -4,6 +4,7 @@ import { isRelationPair } from '../relation/utils/is-relation';
 import { resolveTrait } from '../trait/resolve-trait';
 import type { Trait, TraitInput } from '../trait/types';
 import { EventType, Modifier, QueryParameter } from './types';
+import { isQuery } from './utils/is-query';
 import { sameParams } from './utils/same-params';
 
 export const $modifier = Symbol('modifier');
@@ -53,12 +54,17 @@ export function createSharedModifier<TType extends string>(
 }
 
 /**
- * Traits, wildcard pairs and shared modifiers are the same object wherever they are written. A
- * pair that names a target or an identifier key is a new object on every call.
+ * Traits, wildcard pairs, pairs with a stable target query and shared modifiers are the same
+ * object wherever they are written. A pair that names a target entity or an identifier key is a
+ * new object on every call.
  */
 export function isStableParameter(param: QueryParameter | ModifierInput): boolean {
   if (typeof param === 'function') return true;
-  if (isRelationPair(param)) return param.target === '*';
+  if (isRelationPair(param)) {
+    const targetQuery = param.targetQuery;
+    if (targetQuery === undefined) return param.target === '*';
+    return isQuery(targetQuery) || targetQuery.every(isStableParameter);
+  }
   return isModifier(param) && param.inputs !== null;
 }
 
