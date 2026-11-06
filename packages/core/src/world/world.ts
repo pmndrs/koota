@@ -1,3 +1,4 @@
+import { endStructuralChanges } from './settled';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { createEntity, destroyEntity, entityHas } from '../entity/entity';
@@ -49,12 +50,19 @@ let nextWorldId = 0;
 /** Registers IsExcluded and creates the world entity on first mutation. */
 function ensureWorldRegistered(ctx: WorldContext): void {
   if (ctx.isRegistered) return;
-  ctx.isRegistered = true;
-  if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
+  ctx.structuralDepth++;
+  try {
+    ctx.isRegistered = true;
+    if (ctx.cleanupToken) ctx.cleanupToken.registered = true;
 
-  if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
+    if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
 
-  ctx.worldEntity = createEntity(ctx, [IsExcluded]);
+    ctx.worldEntity = createEntity(ctx, [IsExcluded]);
+  } catch (error) {
+    ctx.structuralDepth--;
+    throw error;
+  }
+  endStructuralChanges(ctx);
 }
 
 /**
@@ -188,6 +196,10 @@ export function createWorld(options?: WorldOptions): World {
       dirtyQueries: [],
       worldEntity: null!,
       entitySubscribedInstances: new Set(),
+      structuralDepth: 0,
+      isSettling: false,
+      settledPending: false,
+      settledSubscriptions: new Set(),
       resetSubscriptions: new Set(),
       entitySpawnSubscriptions: new Set(),
       entityDestroySubscriptions: new Set(),
@@ -199,8 +211,17 @@ export function createWorld(options?: WorldOptions): World {
 
     spawn(...spawnTraits: ConfigurableTrait[]): Entity {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx);
-      return createEntity(ctx, spawnTraits);
+      let result;
+      ctx.structuralDepth++;
+      try {
+        ensureWorldRegistered(ctx);
+        result = createEntity(ctx, spawnTraits);
+      } catch (error) {
+        ctx.structuralDepth--;
+        throw error;
+      }
+      endStructuralChanges(ctx);
+      return result;
     },
 
     lookup(pair: IdentifierPair): Entity | undefined {
@@ -224,8 +245,15 @@ export function createWorld(options?: WorldOptions): World {
 
     add(...addTraits: ConfigurableTrait[]) {
       const ctx = world[$internal];
-      ensureWorldRegistered(ctx);
-      addTrait(ctx, ctx.worldEntity, ...addTraits);
+      ctx.structuralDepth++;
+      try {
+        ensureWorldRegistered(ctx);
+        addTrait(ctx, ctx.worldEntity, ...addTraits);
+      } catch (error) {
+        ctx.structuralDepth--;
+        throw error;
+      }
+      endStructuralChanges(ctx);
     },
 
     remove(...removeTraits: (Trait | Identifier | IdentifierPair)[]) {
@@ -248,67 +276,80 @@ export function createWorld(options?: WorldOptions): World {
 
     destroy() {
       const ctx = world[$internal];
-      if (ctx.isRegistered) {
-        destroyEntity(ctx, ctx.worldEntity);
-        ctx.worldEntity = null!;
-        world.reset();
+      ctx.structuralDepth++;
+      try {
+        if (ctx.isRegistered) {
+          destroyEntity(ctx, ctx.worldEntity);
+          ctx.worldEntity = null!;
+          world.reset();
+        }
+        ctx.isRegistered = false;
+        addressSpace.worldFinalizer.unregister(world);
+      } catch (error) {
+        ctx.structuralDepth--;
+        throw error;
       }
-      ctx.isRegistered = false;
-      addressSpace.worldFinalizer.unregister(world);
+      endStructuralChanges(ctx);
     },
 
     reset() {
       const ctx = world[$internal];
       if (!ctx.isRegistered) return;
+      ctx.structuralDepth++;
+      try {
+        if (assertsEnabled) ctx.structuralRevision++;
 
-      if (assertsEnabled) ctx.structuralRevision++;
+        world.entities.forEach((entity) => {
+          if (isEntityAlive(ctx.entityIndex, entity)) {
+            destroyEntity(ctx, entity);
+          }
+        });
 
-      world.entities.forEach((entity) => {
-        if (isEntityAlive(ctx.entityIndex, entity)) {
-          destroyEntity(ctx, entity);
+        releaseOwnedPages(ctx.entityIndex);
+        ctx.entityIndex = createEntityIndex(addressSpace, ctx);
+        // Re-link shared ownedPages for the cleanup token.
+        ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
+
+        ctx.entityMasks = [createEmptyMaskGeneration()];
+        ctx.traitsByBit = [[]];
+        ctx.bitflag = 1;
+        ctx.defersChanges = false;
+
+        for (const query of ctx.queriesHashMap.values()) {
+          if (query.cleanup === null) continue;
+          for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
         }
-      });
 
-      releaseOwnedPages(ctx.entityIndex);
-      ctx.entityIndex = createEntityIndex(addressSpace, ctx);
-      // Re-link shared ownedPages for the cleanup token.
-      ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
+        clearTraitInstance(ctx.traitInstances);
+        ctx.traits.clear();
+        ctx.relations.length = 0;
 
-      ctx.entityMasks = [createEmptyMaskGeneration()];
-      ctx.traitsByBit = [[]];
-      ctx.bitflag = 1;
-      ctx.defersChanges = false;
+        ctx.queriesHashMap.clear();
+        ctx.inlineQueries = { next: null, params: null, query: null };
+        ctx.inlineTargets.length = 0;
+        ctx.queryInstances.length = 0;
+        ctx.tombstones.head = 0;
+        ctx.tombstones.ids.length = 0;
+        ctx.pairRemovals.head = 0;
+        ctx.pairRemovals.entries.length = 0;
+        ctx.iterationBuffers = undefined;
+        ctx.actionInstances.length = 0;
+        ctx.dirtyQueries.length = 0;
+        ctx.notQueries.length = 0;
+        ctx.targetQueries.length = 0;
 
-      for (const query of ctx.queriesHashMap.values()) {
-        if (query.cleanup === null) continue;
-        for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
+        ctx.entitySubscribedInstances.clear();
+
+        ctx.worldEntity = createEntity(ctx, [IsExcluded]);
+
+        for (const sub of ctx.resetSubscriptions) {
+          sub();
+        }
+      } catch (error) {
+        ctx.structuralDepth--;
+        throw error;
       }
-
-      clearTraitInstance(ctx.traitInstances);
-      ctx.traits.clear();
-      ctx.relations.length = 0;
-
-      ctx.queriesHashMap.clear();
-      ctx.inlineQueries = { next: null, params: null, query: null };
-      ctx.inlineTargets.length = 0;
-      ctx.queryInstances.length = 0;
-      ctx.tombstones.head = 0;
-      ctx.tombstones.ids.length = 0;
-      ctx.pairRemovals.head = 0;
-      ctx.pairRemovals.entries.length = 0;
-      ctx.iterationBuffers = undefined;
-      ctx.actionInstances.length = 0;
-      ctx.dirtyQueries.length = 0;
-      ctx.notQueries.length = 0;
-      ctx.targetQueries.length = 0;
-
-      ctx.entitySubscribedInstances.clear();
-
-      ctx.worldEntity = createEntity(ctx, [IsExcluded]);
-
-      for (const sub of ctx.resetSubscriptions) {
-        sub();
-      }
+      endStructuralChanges(ctx);
     },
 
     query(...args: any[]) {

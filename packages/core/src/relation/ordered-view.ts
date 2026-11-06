@@ -1,3 +1,4 @@
+import { endStructuralChanges } from '../world/settled';
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { notifyChanged } from '../query/modifiers/changed';
@@ -49,6 +50,19 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   }
 
   insert(entity: Entity, index: number): this {
+    this.ctx.structuralDepth++;
+    let result;
+    try {
+      result = this.insertInternal(entity, index);
+    } catch (error) {
+      this.ctx.structuralDepth--;
+      throw error;
+    }
+    endStructuralChanges(this.ctx);
+    return result;
+  }
+
+  private insertInternal(entity: Entity, index: number): this {
     this.assertActive();
     if (this.has(entity)) return this.moveTo(entity, index);
     const previous = this.inserting;
@@ -65,6 +79,19 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   }
 
   remove(entity: Entity): boolean {
+    this.ctx.structuralDepth++;
+    let result;
+    try {
+      result = this.removeInternal(entity);
+    } catch (error) {
+      this.ctx.structuralDepth--;
+      throw error;
+    }
+    endStructuralChanges(this.ctx);
+    return result;
+  }
+
+  private removeInternal(entity: Entity): boolean {
     this.assertActive();
     const index = this.indexOf(entity);
     if (index === -1) return false;
@@ -75,6 +102,19 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   }
 
   clear(): void {
+    this.ctx.structuralDepth++;
+    let result;
+    try {
+      result = this.clearInternal();
+    } catch (error) {
+      this.ctx.structuralDepth--;
+      throw error;
+    }
+    endStructuralChanges(this.ctx);
+    return result;
+  }
+
+  private clearInternal(): void {
     this.assertActive();
     if (this.length === 0) return;
     const entities = this.source.dense;

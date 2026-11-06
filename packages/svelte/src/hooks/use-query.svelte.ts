@@ -1,3 +1,4 @@
+import { observeSettled } from '../utils/observe-settled.js';
 import { $internal as internal, createQuery, type Entity, type QueryParameter } from '@koota/core';
 import { untrack } from 'svelte';
 import { useWorld } from '../world/world-context.js';
@@ -51,8 +52,9 @@ export function useQuery<T extends QueryParameter[]>(
 
     refresh();
 
-    const unsubAdd = world.onQueryAdd(queryRef, refresh);
-    const unsubRemove = world.onQueryRemove(queryRef, refresh);
+    const observer = observeSettled(world[internal], refresh);
+    const unsubAdd = world.onQueryAdd(queryRef, observer.invalidate);
+    const unsubRemove = world.onQueryRemove(queryRef, observer.invalidate);
 
     /**
      * Catch query updates that happened between the initial read and
@@ -72,6 +74,7 @@ export function useQuery<T extends QueryParameter[]>(
     world[internal].resetSubscriptions.add(handleReset);
 
     return () => {
+      observer.unsubscribe();
       world[internal].resetSubscriptions.delete(handleReset);
       unsubAdd();
       unsubRemove();

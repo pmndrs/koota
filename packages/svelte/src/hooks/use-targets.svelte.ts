@@ -1,3 +1,5 @@
+import { $internal as internal } from '@koota/core';
+import { observeSettled } from '../utils/observe-settled.js';
 import { type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { getTargetEntity } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
@@ -18,30 +20,17 @@ export function useTargets<T extends Trait>(
     }
 
     const resolvedRelation = resolve(relation);
-
-    // Callbacks run inside whatever effect mutated the world, so they read
-    // this plain list instead of the signal.
-    let targets: Entity[] = [];
-
-    const update = (next: Entity[]) => {
-      targets = next;
-      value = next;
+    const update = () => {
+      value = entity.isAlive() ? entity.targetsFor(resolvedRelation) : [];
     };
-
-    // onRemove fires before data is removed, so filter out the target
-    const onRemoveUnsub = entity.onRemove(resolvedRelation, (_, removedTarget) => {
-      update(targets.filter((p) => p !== removedTarget));
-    });
-
-    const onChangeUnsub = entity.onChange(resolvedRelation, () => {
-      update(entity.targetsFor(resolvedRelation));
-    });
-
-    update(entity.targetsFor(resolvedRelation));
-
+    const observer = observeSettled(entity[internal], update);
+    const onChange = entity.onChange(resolvedRelation, observer.invalidate);
+    const onRemove = entity.onRemove(resolvedRelation, observer.invalidate);
+    update();
     return () => {
-      onRemoveUnsub();
-      onChangeUnsub();
+      observer.unsubscribe();
+      onChange();
+      onRemove();
     };
   });
 

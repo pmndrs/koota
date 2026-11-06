@@ -1,3 +1,4 @@
+import { endStructuralChanges } from '../world/settled';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
@@ -45,6 +46,19 @@ import { addressSpace } from './utils/address-space';
 import './entity-methods-patch';
 
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
+  ctx.structuralDepth++;
+  let result;
+  try {
+    result = createEntityInternal(ctx, traits);
+  } catch (error) {
+    ctx.structuralDepth--;
+    throw error;
+  }
+  endStructuralChanges(ctx);
+  return result;
+}
+
+function createEntityInternal(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
 
   // Queries that can match without traits need an initial membership check.
@@ -90,6 +104,17 @@ export function isEntityDestroying(entity: Entity): boolean {
 }
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
+  ctx.structuralDepth++;
+  try {
+    destroyEntityInternal(ctx, entity);
+  } catch (error) {
+    ctx.structuralDepth--;
+    throw error;
+  }
+  endStructuralChanges(ctx);
+}
+
+function destroyEntityInternal(ctx: WorldContext, entity: Entity) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }

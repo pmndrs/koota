@@ -73,6 +73,10 @@ export type WorldContext = {
   pairRemovals: { entries: number[]; head: number };
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
+  structuralDepth: number;
+  isSettling: boolean;
+  settledPending: boolean;
+  settledSubscriptions: Set<() => void>;
   resetSubscriptions: Set<() => void>;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
   entityDestroySubscriptions: Set<(entity: Entity) => void>;

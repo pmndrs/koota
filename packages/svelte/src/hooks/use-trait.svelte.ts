@@ -1,3 +1,5 @@
+import { $internal as internal } from '@koota/core';
+import { observeSettled } from '../utils/observe-settled.js';
 import {
   type Entity,
   type RelationPair,
@@ -33,21 +35,18 @@ export function useTrait<T extends Trait>(
     }
 
     const resolvedTrait = resolve(trait);
-
-    const onChangeUnsub = entity.onChange(resolvedTrait, () => {
-      value = entity.get(resolvedTrait);
+    const update = () => {
+      value = entity.isAlive() ? entity.get(resolvedTrait) : undefined;
       untrack(() => version++);
-    });
-
-    const onRemoveUnsub = entity.onRemove(resolvedTrait, () => {
-      value = undefined;
-    });
-
-    value = entity.has(resolvedTrait) ? entity.get(resolvedTrait) : undefined;
-
+    };
+    const observer = observeSettled(entity[internal], update);
+    const onChange = entity.onChange(resolvedTrait, observer.invalidate);
+    const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+    update();
     return () => {
-      onChangeUnsub();
-      onRemoveUnsub();
+      observer.unsubscribe();
+      onChange();
+      onRemove();
     };
   });
 

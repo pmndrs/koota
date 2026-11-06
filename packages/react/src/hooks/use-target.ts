@@ -1,3 +1,4 @@
+import { observeSettled } from '../utils/observe-settled';
 import {
   $identifier,
   $internal,
@@ -23,30 +24,14 @@ function attachTarget(
   relation: Relation<Trait> | Identifier,
   push: (value: IdentifierKey | undefined) => void
 ) {
-  const trait = relation[$internal].trait;
-  let active = true;
-  let pending = false;
-  const update = () => {
-    if (active) push(entity.isAlive() ? readTarget(entity, relation) : undefined);
-  };
-  const onChange = entity.onChange(trait, update);
-  const onRemove = entity.onRemove(trait, () => {
-    // Identifier removal already observes the committed mapping.
-    if ($identifier in relation) {
-      update();
-      return;
-    }
-    // Relation cleanup follows onRemove, including mutations made by other subscribers.
-    if (pending) return;
-    pending = true;
-    queueMicrotask(() => {
-      pending = false;
-      update();
-    });
+  const observer = observeSettled(entity[$internal], () => {
+    push(entity.isAlive() ? readTarget(entity, relation) : undefined);
   });
-
+  const trait = relation[$internal].trait;
+  const onChange = entity.onChange(trait, observer.invalidate);
+  const onRemove = entity.onRemove(trait, observer.invalidate);
   return () => {
-    active = false;
+    observer.unsubscribe();
     onChange();
     onRemove();
   };

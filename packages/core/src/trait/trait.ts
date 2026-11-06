@@ -1,3 +1,4 @@
+import { endStructuralChanges } from '../world/settled';
 import type { EventType, QueryInstance } from '../query/types';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
@@ -199,10 +200,17 @@ export function registerTrait(ctx: WorldContext, trait: Trait) {
 }
 
 export function addTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
-  if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
+  ctx.structuralDepth++;
+  try {
+    if (assertsEnabled) {
+      assertEntityAlive(ctx, entity);
+    }
+    addTraitsToAliveEntity(ctx, entity, traits);
+  } catch (error) {
+    ctx.structuralDepth--;
+    throw error;
   }
-  addTraitsToAliveEntity(ctx, entity, traits);
+  endStructuralChanges(ctx);
 }
 
 /** The caller must establish entity liveness before adding traits. */
@@ -285,25 +293,32 @@ export function removeTrait(
   entity: Entity,
   ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
 ) {
-  if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
-  }
-
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-
-    if (typeof trait !== 'function') /* @cold */ {
-      if (isRelationPair(trait)) {
-        removeRelationPair(ctx, entity, trait);
-      } else if (hasIdentifier(ctx, entity, trait)) {
-        removeTraitFromAliveEntity(ctx, entity, trait.identifier[$internal].trait);
-      }
-    } else if (isIdentifier(trait)) /* @cold */ {
-      removeTraitFromAliveEntity(ctx, entity, trait[$internal].trait);
-    } else {
-      removeTraitFromAliveEntity(ctx, entity, trait);
+  ctx.structuralDepth++;
+  try {
+    if (assertsEnabled) {
+      assertEntityAlive(ctx, entity);
     }
+
+    for (let i = 0; i < traits.length; i++) {
+      const trait = traits[i];
+
+      if (typeof trait !== 'function') /* @cold */ {
+        if (isRelationPair(trait)) {
+          removeRelationPair(ctx, entity, trait);
+        } else if (hasIdentifier(ctx, entity, trait)) {
+          removeTraitFromAliveEntity(ctx, entity, trait.identifier[$internal].trait);
+        }
+      } else if (isIdentifier(trait)) /* @cold */ {
+        removeTraitFromAliveEntity(ctx, entity, trait[$internal].trait);
+      } else {
+        removeTraitFromAliveEntity(ctx, entity, trait);
+      }
+    }
+  } catch (error) {
+    ctx.structuralDepth--;
+    throw error;
   }
+  endStructuralChanges(ctx);
 }
 
 /** The caller must establish entity liveness before removing a trait. */

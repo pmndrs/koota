@@ -1,3 +1,4 @@
+import { observeSettled } from '../utils/observe-settled';
 import {
   $internal,
   createQuery,
@@ -49,9 +50,10 @@ function createQueryStore(world: World, ref: Query) {
       return entities;
     },
     subscribe: (notify: () => void) => {
+      const observer = observeSettled(ctx, notify);
       function listen() {
-        const offAdd = world.onQueryAdd(ref, notify);
-        const offRemove = world.onQueryRemove(ref, notify);
+        const offAdd = world.onQueryAdd(ref, observer.invalidate);
+        const offRemove = world.onQueryRemove(ref, observer.invalidate);
         return () => {
           offAdd();
           offRemove();
@@ -61,10 +63,11 @@ function createQueryStore(world: World, ref: Query) {
       const reset = () => {
         detach();
         detach = listen();
-        notify();
+        observer.invalidate();
       };
       ctx.resetSubscriptions.add(reset);
       return () => {
+        observer.unsubscribe();
         ctx.resetSubscriptions.delete(reset);
         detach();
       };

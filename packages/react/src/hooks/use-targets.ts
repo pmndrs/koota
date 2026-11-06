@@ -1,3 +1,5 @@
+import { $internal } from '@koota/core';
+import { observeSettled } from '../utils/observe-settled';
 import type { Entity, Relation, Trait, World } from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
 
@@ -9,16 +11,13 @@ function readTargets(entity: Entity, relation: Relation<Trait>) {
 }
 
 function attachTargets(entity: Entity, relation: Relation<Trait>, push: (value: Entity[]) => void) {
-  // onRemove fires before cleanup, and one removal can trigger another,
-  // so removals filter the last pushed list rather than rereading.
-  let targets = entity.targetsFor(relation);
-  const update = () => push((targets = entity.targetsFor(relation)));
-  const onChange = entity.onChange(relation, update);
-  const onRemove = entity.onRemove(relation, (_, removed) => {
-    push((targets = targets.filter((t) => t !== removed)));
+  const observer = observeSettled(entity[$internal], () => {
+    push(entity.isAlive() ? entity.targetsFor(relation) : []);
   });
-
+  const onChange = entity.onChange(relation, observer.invalidate);
+  const onRemove = entity.onRemove(relation, observer.invalidate);
   return () => {
+    observer.unsubscribe();
     onChange();
     onRemove();
   };

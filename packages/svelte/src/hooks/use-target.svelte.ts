@@ -1,3 +1,5 @@
+import { $internal as internal } from '@koota/core';
+import { observeSettled } from '../utils/observe-settled.js';
 import { type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { getTargetEntity } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
@@ -18,31 +20,17 @@ export function useTarget<T extends Trait>(
     }
 
     const resolvedRelation = resolve(relation);
-    let active = true;
-    let pending = false;
-
     const update = () => {
-      if (active) value = entity.isAlive() ? entity.targetFor(resolvedRelation) : undefined;
+      value = entity.isAlive() ? entity.targetFor(resolvedRelation) : undefined;
     };
-
-    const onRemoveUnsub = entity.onRemove(resolvedRelation, () => {
-      // Relation cleanup follows onRemove, including mutations made by other subscribers.
-      if (pending) return;
-      pending = true;
-      queueMicrotask(() => {
-        pending = false;
-        update();
-      });
-    });
-
-    const onChangeUnsub = entity.onChange(resolvedRelation, update);
-
+    const observer = observeSettled(entity[internal], update);
+    const onChange = entity.onChange(resolvedRelation, observer.invalidate);
+    const onRemove = entity.onRemove(resolvedRelation, observer.invalidate);
     update();
-
     return () => {
-      active = false;
-      onRemoveUnsub();
-      onChangeUnsub();
+      observer.unsubscribe();
+      onChange();
+      onRemove();
     };
   });
 
