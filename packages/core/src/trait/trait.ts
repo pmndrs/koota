@@ -67,6 +67,7 @@ import type {
   TraitContext,
   TraitInit,
   TraitInstance,
+  TraitTuple,
 } from './types';
 
 const tagSchema = Object.freeze({});
@@ -254,9 +255,14 @@ export function upsertTrait(ctx: WorldContext, entity: Entity, ...traits: Config
 
   for (let i = 0; i < traits.length; i++) {
     const config = traits[i];
+    // Only a tuple has an index 1. Reading it, unlike Array.isArray, lets the optimizer elide the tuple.
+    const tuple = config as TraitTuple;
 
-    if (Array.isArray(config) && config[1] !== undefined && hasTrait(ctx, entity, config[0])) {
-      setTraitForTrait(ctx, entity, config[0], config[1], true);
+    if (tuple[1] !== undefined && hasTrait(ctx, entity, tuple[0])) {
+      // Upsert takes no callback, so the value is written as given.
+      const instance = getTraitInstance(ctx.traitInstances, tuple[0])!;
+      tuple[0][$internal].set(ctx, getEntityId(entity), instance.store, tuple[1]);
+      notifyTraitChanged(ctx, entity, instance);
     } else /* @cold */ {
       // Pairs and additions run out of line so the present trait write stays small enough to inline.
       if (
