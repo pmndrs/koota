@@ -31,13 +31,21 @@ import { isStableParameter } from '../query/modifier';
 import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { addTrait, getTrait, registerTrait, removeTrait, setTrait } from '../trait/trait';
+import {
+  addTrait,
+  getTrait,
+  registerTrait,
+  removeTrait,
+  setTrait,
+  upsertTrait,
+} from '../trait/trait';
 import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
   ConfigurableTrait,
   ExtractSchema,
   SetTraitCallback,
   Trait,
+  TraitInit,
   TraitRecord,
   TraitValue,
 } from '../trait/types';
@@ -232,6 +240,12 @@ export function createWorld(options?: WorldOptions): World {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
       addTrait(ctx, ctx.worldEntity, addTraits);
+    },
+
+    upsert<T extends Trait>(trait: T, value: TraitInit<ExtractSchema<T>>) {
+      const ctx = world[$internal];
+      ensureWorldRegistered(ctx);
+      upsertTrait(ctx, ctx.worldEntity, trait, value);
     },
 
     remove(...removeTraits: (Trait | Identifier | IdentifierPair)[]) {

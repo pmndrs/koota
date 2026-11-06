@@ -7,6 +7,7 @@ import type {
   ExtractSchema,
   SetTraitCallback,
   Trait,
+  TraitInit,
   TraitOut,
   TraitRecord,
   TraitValue,
@@ -40,6 +41,8 @@ type EntityHook = {
 export type Entity = number & {
   readonly [$internal]: WorldContext;
   add: (...traits: ConfigurableTrait[]) => void;
+  /** Set the value if the entity has the trait or pair, or add it with the value if it does not. */
+  upsert: <T extends Trait | RelationPair>(trait: T, value: TraitInit<ExtractSchema<T>>) => void;
   remove: (...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]) => void;
   has: (trait: Trait | RelationPair | Identifier | IdentifierPair) => boolean;
   destroy: () => void;

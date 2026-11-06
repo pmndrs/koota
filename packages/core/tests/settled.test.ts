@@ -55,6 +55,20 @@ it('settles after bulk additions, exclusive replacement, and query reconciliatio
   expect(observed).toEqual([[true, true, b, [source]]]);
 });
 
+it('settles an upsert that replaces an exclusive target', () => {
+  const world = createWorld();
+  const Link = relation({ exclusive: true, store: { weight: 0 } });
+  const a = world.spawn();
+  const b = world.spawn();
+  const source = world.spawn(Link(a));
+  const observed: unknown[] = [];
+  const observer = world[$internal].observeSettled(() => observed.push(source.targetFor(Link)));
+  source.onRemove(Link, observer.invalidate);
+  source.onAdd(Link, observer.invalidate);
+  source.upsert(Link(b), { weight: 1 });
+  expect(observed).toEqual([b]);
+});
+
 it('drops a queued update when unsubscribed before settlement', () => {
   const world = createWorld();
   const A = trait();

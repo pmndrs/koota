@@ -33,6 +33,10 @@ entity.set(Position, (prev) => ({
   y: prev + 1,
 }))
 
+// Sets the value if the entity has the trait, or adds the trait with the value if it does not
+// Triggers a change event, and an add event when the trait is new
+entity.upsert(Position, { x: 10 })
+
 // Get the targets for a relation
 // Return Entity[]
 const targets = entity.targetsFor(Contains)

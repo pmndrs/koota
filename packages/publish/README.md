@@ -284,6 +284,9 @@ inventory.add(Contains(gold, { amount: 10 }))
 // Update data with set
 inventory.set(Contains(gold), { amount: 20 })
 
+// Set the data if the pair exists, or add the pair with it
+inventory.upsert(Contains(gold), { amount: 20 })
+
 // Read data with get
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
@@ -733,7 +736,7 @@ Koota allows you to subscribe to add, remove, and change events for specific tra
 
 - `onAdd` triggers when `entity.add()` is called after the initial value has been set on the trait.
 - `onRemove` triggers when `entity.remove()` is called, but before any data has been removed.
-- `onChange` triggers after a trait is added (including spawn), written with `entity.set()`, or flagged with `entity.changed()`. It also reports writes detected by `.each()`.
+- `onChange` triggers after a trait is added (including spawn), written with `entity.set()` or `entity.upsert()`, or flagged with `entity.changed()`. It also reports writes detected by `.each()`.
 
 Subscriptions only report future events. `Changed` queries also include current matches on their first run.
 
@@ -1033,6 +1036,9 @@ world.set(Time, (prev) => ({
   delta: performance.now() - prev.current,
 }))
 
+// Sets the value if the world has the trait, or adds the trait with the value if it does not
+world.upsert(Time, { current: performance.now() })
+
 // Subscribe to add, remove or change events for entity traits
 // Return unsub function
 const unsub = world.onAdd(Position, (entity) => {})
@@ -1103,6 +1109,10 @@ entity.set(Position, (prev) => ({
   x: prev + 1,
   y: prev + 1,
 }))
+
+// Sets the value if the entity has the trait, or adds the trait with the value if it does not
+// Triggers a change event, and an add event when the trait is new
+entity.upsert(Position, { x: 10 })
 
 // Get the targets for a relation
 // Return Entity[]

@@ -4,7 +4,7 @@ import { getFirstRelationTarget, getRelationTargets } from '../relation/relation
 import type { Relation, RelationPair } from '../relation/types';
 import { isIdentifier, getIdentifierTarget } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
-import { addTrait, getTrait, removeTrait, setTrait } from '../trait/trait';
+import { addTrait, getTrait, removeTrait, setTrait, upsertTrait } from '../trait/trait';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { Subscriber } from '../trait/subscriptions';
 import type { HookInput } from '../world/utils/resolve-hook';
@@ -16,6 +16,11 @@ import { addressSpace } from './utils/address-space';
 // @ts-expect-error
 Number.prototype.add = function (this: Entity, ...traits: ConfigurableTrait[]) {
   addTrait(getEntityContext(this), this, traits);
+};
+
+// @ts-expect-error
+Number.prototype.upsert = function (this: Entity, trait: Trait | RelationPair, value: any) {
+  upsertTrait(getEntityContext(this), this, trait, value);
 };
 
 // @ts-expect-error

@@ -267,6 +267,38 @@ export function addPair(ctx: WorldContext, entity: Entity, pair: RelationPair | 
   else addIdentifierPair(ctx, entity, pair);
 }
 
+/** Set the value where the trait or pair is present and add it with the value where it is absent. */
+export /* @inline */ function upsertTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait | RelationPair,
+  value: any
+) {
+  if (assertsEnabled) {
+    assertEntityAlive(ctx, entity);
+  }
+
+  if (typeof trait === 'function' && hasTrait(ctx, entity, trait)) {
+    // Upsert takes no callback, so the value is written as given.
+    const instance = getTraitInstance(ctx.traitInstances, trait)!;
+    trait[$internal].set(ctx, getEntityId(entity), instance.store, value);
+    notifyTraitChanged(ctx, entity, instance);
+  } else /* @cold */ {
+    // Pairs and additions run out of line so the present trait write stays small enough to inline.
+    if (typeof trait === 'function') {
+      addTrait(ctx, entity, [[trait, value]]);
+    } else if (
+      typeof trait.target === 'number' &&
+      hasRelationToTarget(ctx, trait.relation, entity, trait.target)
+    ) {
+      setTraitForPair(ctx, entity, trait, value, true);
+    } else {
+      // The relation call validates the target and builds the pair that carries the value.
+      addTrait(ctx, entity, [trait.relation(trait.target!, value)]);
+    }
+  }
+}
+
 /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
   const relation = pair.relation;
   const target = pair.target;
