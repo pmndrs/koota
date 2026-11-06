@@ -1,3 +1,3 @@
-import { createWorld } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 export const world = createWorld();

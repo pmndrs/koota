@@ -178,9 +178,9 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
     relationQueries: [],
     anchorRelations: [],
     schema: trait.schema,
-    changeSubscriptions: createSubscriptions(),
-    addSubscriptions: createSubscriptions(),
-    removeSubscriptions: createSubscriptions(),
+    changeSubscriptions: createSubscriptions(ctx.entityIndex),
+    addSubscriptions: createSubscriptions(ctx.entityIndex),
+    removeSubscriptions: createSubscriptions(ctx.entityIndex),
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
     identifier: traitCtx.isIdentifier

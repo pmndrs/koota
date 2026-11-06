@@ -1,5 +1,6 @@
-import { createWorld, relation, trait } from '@koota/core';
+import { createWorld, relation, trait, type World } from '@koota/core';
 import { act, renderHook } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { expect, it } from 'vitest';
 import {
   useHas,
@@ -11,6 +12,13 @@ import {
   useTraitEffect,
   WorldProvider,
 } from '../src';
+
+/** Hooks read a bare entity through the provided world. */
+function provide(world: World) {
+  return ({ children }: { children: ReactNode }) => (
+    <WorldProvider world={world}>{children}</WorldProvider>
+  );
+}
 
 it('refreshes all entity and query hooks after removal side effects synchronously', () => {
   const world = createWorld({ retain: 0 });
@@ -32,20 +40,25 @@ it('refreshes all entity and query hooks after removal side effects synchronousl
       const query = useQuery(ChildOf('*'));
       const first = useQueryFirst(ChildOf('*'));
       useTraitEffect(source, Value, (value) => {
-        effects.push([value, parent.isAlive(), child.isAlive(), source.targetsFor(Link)]);
+        effects.push([
+          value,
+          world.isAlive(parent),
+          world.isAlive(child),
+          world.targetsFor(source, Link),
+        ]);
       });
       return { has, target, targets, value, query, first };
     },
-    { wrapper: ({ children }) => <WorldProvider world={world}>{children}</WorldProvider> }
+    { wrapper: provide(world) }
   );
-  source.onRemove(Value, () => {
-    parent.destroy();
-    source.remove(Link(a));
+  world.onRemove(source, Value, () => {
+    world.destroy(parent);
+    world.remove(source, Link(a));
   });
-  source.onRemove(Link, () => source.add(Link(b)));
+  world.onRemove(source, Link, () => world.add(source, Link(b)));
   effects.length = 0;
   act(() => {
-    source.remove(Value);
+    world.remove(source, Value);
     expect(effects).toEqual([[undefined, false, false, [b]]]);
   });
   expect(result.current).toEqual({
@@ -65,15 +78,17 @@ it('coalesces writes inside structural callbacks and still delivers ordinary wri
   const Trigger = trait();
   const source = world.spawn(Value, Trigger);
   const values: unknown[] = [];
-  const { unmount } = renderHook(() => useTraitEffect(source, Value, (v) => values.push(v?.x)));
-  source.onRemove(Trigger, () => {
-    source.set(Value, { x: 1 });
-    source.set(Value, { x: 2 });
+  const { unmount } = renderHook(() => useTraitEffect(source, Value, (v) => values.push(v?.x)), {
+    wrapper: provide(world),
+  });
+  world.onRemove(source, Trigger, () => {
+    world.set(source, Value, { x: 1 });
+    world.set(source, Value, { x: 2 });
   });
   values.length = 0;
-  source.remove(Trigger);
+  world.remove(source, Trigger);
   expect(values).toEqual([2]);
-  source.set(Value, { x: 3 });
+  world.set(source, Value, { x: 3 });
   expect(values).toEqual([2, 3]);
   unmount();
 });
@@ -92,9 +107,9 @@ it('clears every hook when the source is destroyed and when the world resets', (
       value: useTrait(source, Value),
       query: useQuery(Value),
     }),
-    { wrapper: ({ children }) => <WorldProvider world={world}>{children}</WorldProvider> }
+    { wrapper: provide(world) }
   );
-  act(() => source.destroy());
+  act(() => world.destroy(source));
   expect(result.current).toEqual({
     has: false,
     target: undefined,

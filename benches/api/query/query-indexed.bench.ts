@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait } from 'koota';
+import { trait } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 group('indexed query iteration 10000 @query-indexed', () => {
   for (const mode of [

@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, ordered, relation, trait, type Entity } from 'koota';
+import { ordered, relation, trait, type Entity } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 group('ordered view cache hit @ordered-view-cache', () => {
   bench('tracked sort', function* () {

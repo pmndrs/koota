@@ -1,4 +1,4 @@
-import { createWorld } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 import { Time } from './traits';
 
 export const world = createWorld();

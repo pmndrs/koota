@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait } from '../src';
+import { $internal, relation, trait } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 it('settles once after nested removals and observes the remaining target', () => {
   const world = createWorld();
@@ -140,7 +141,7 @@ it('settles world destruction before the world unregisters', () => {
   world.onQueryRemove([A], observer.invalidate);
   world.destroy();
   expect(observed).toEqual([0]);
-  expect(world.isRegistered).toBe(false);
+  expect(world.entities.length).toBe(0);
 });
 
 it('runs value invalidations at once outside structural changes', () => {
