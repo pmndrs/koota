@@ -117,12 +117,10 @@ export function resolveInlineQuery(ctx: WorldContext, params: QueryParameter[]) 
  * target keep their tree entries so dropping the query can prune every path that reaches it.
  */
 function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query: QueryInstance) {
-  let hasTarget = false;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
     if (isStableParameter(param)) continue;
     if (!isRelationPair(param) || typeof param.target !== 'number') return;
-    hasTarget = true;
   }
   let node = ctx.inlineQueries;
   for (let i = 0; i < params.length; i++) {
@@ -137,7 +135,7 @@ function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query:
   }
   node.params = params;
   node.query = query;
-  if (hasTarget) (query.inlineNodes ??= []).push(node);
+  if (node.parent !== null) (query.inlineNodes ??= []).push(node);
 }
 
 function inlineStep(node: InlineQueryNode, key: QueryParameter | Relation<Trait> | Entity) {

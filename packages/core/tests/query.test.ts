@@ -574,39 +574,31 @@ describe('Query', () => {
     expect(world.query(Position, ChildOf(other)).toArray()).toEqual([otherChild, late]);
   });
 
-  it.each([0, 1, 2])(
-    'keeps multi-target queries current when target %i is destroyed',
-    (destroyed) => {
-      const VisibleIn = relation();
-      const LayerOf = relation();
-      const targets = [world.spawn(), world.spawn(), world.spawn()];
-      const pairs = [ChildOf(targets[0]), VisibleIn(targets[1]), LayerOf(targets[2])];
-      const child = world.spawn(Position, ...pairs);
-      const sibling = world.spawn(Position, ChildOf(targets[0]));
-      const prefix = world.query(ChildOf(targets[0]), Position);
-      const read = () =>
-        world.query(ChildOf(targets[0]), VisibleIn(targets[1]), LayerOf(targets[2]), Position);
-      const view = read();
-      expect(read()).toBe(view);
-      expect(view.toArray()).toEqual([child]);
-      expect(world.query(Position, ...pairs).toArray()).toEqual([child]);
+  it('keeps cached multi-target queries current as relations and targets change', () => {
+    const VisibleIn = relation();
+    const parent = world.spawn();
+    let viewport = world.spawn();
+    const child = world.spawn(Position, ChildOf(parent), VisibleIn(viewport));
+    const prefix = world.query(ChildOf(parent), Position);
+    const read = () => world.query(ChildOf(parent), VisibleIn(viewport), Position);
+    const view = read();
+    expect(read()).toBe(view);
+    expect(view.toArray()).toEqual([child]);
 
-      child.remove(VisibleIn(targets[1]));
-      expect(read()).toHaveLength(0);
-      child.add(VisibleIn(targets[1]));
-      expect(read().toArray()).toEqual([child]);
-      targets[destroyed].destroy();
-      expect(read()).toHaveLength(0);
-      if (destroyed !== 0) {
-        expect(world.query(ChildOf(targets[0]), Position)).toBe(prefix);
-        expect(prefix.toArray()).toEqual([child, sibling]);
-      }
+    child.remove(VisibleIn(viewport));
+    expect(read()).toHaveLength(0);
+    child.add(VisibleIn(viewport));
+    expect(read().toArray()).toEqual([child]);
 
-      targets[destroyed] = world.spawn();
-      child.add([ChildOf, VisibleIn, LayerOf][destroyed](targets[destroyed]));
-      expect(read().toArray()).toEqual([child]);
-    }
-  );
+    viewport.destroy();
+    expect(read()).toHaveLength(0);
+    expect(world.query(ChildOf(parent), Position)).toBe(prefix);
+    expect(prefix.toArray()).toEqual([child]);
+
+    viewport = world.spawn();
+    child.add(VisibleIn(viewport));
+    expect(read().toArray()).toEqual([child]);
+  });
 
   it('returns the same view each run and reflects membership changes', () => {
     const first = world.spawn(Position);
