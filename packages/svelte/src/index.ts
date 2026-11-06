@@ -6,5 +6,6 @@ export { useHas } from './hooks/use-has.svelte.js';
 export { useTarget } from './hooks/use-target.svelte.js';
 export { useTargets } from './hooks/use-targets.svelte.js';
 export { useTrait } from './hooks/use-trait.svelte.js';
+export { useMachine } from './hooks/use-machine.svelte.js';
 export { useTraitEffect } from './hooks/use-trait-effect.svelte.js';
 export { useWorld, provideWorld } from './world/world-context.js';

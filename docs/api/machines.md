@@ -115,6 +115,17 @@ const state = useMachine(entity, AssetMachine)
 
 The hook returns the current member and updates on transitions, including self-transitions, removal and destruction. It accepts an entity, world singleton, `null` or `undefined`.
 
+## Svelte
+
+```ts
+import { useMachine } from 'koota/svelte'
+
+const state = useMachine(() => entity, AssetMachine)
+state.current // Current member trait or undefined
+```
+
+The binding follows the same transitions as the React hook. Pass the entity or world singleton through a getter, which may return `null` or `undefined`. The machine can also be a getter. See the [Svelte API](../svelte/api.md#usemachine) for component usage.
+
 ## Errors
 
 | Error                          | Meaning                                                         |
