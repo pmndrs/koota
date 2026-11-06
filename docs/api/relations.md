@@ -55,6 +55,8 @@ inventory.set(Contains(gold), { amount: 20 })
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
+A relation without a store has no record, so `get` returns `undefined` for its pairs. Check for a pair with `has`.
+
 ## Auto destroy
 
 Relations can automatically destroy related entities when their counterpart is destroyed using the `autoDestroy` option.

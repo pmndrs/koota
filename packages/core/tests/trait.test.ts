@@ -475,6 +475,9 @@ describe('Trait', () => {
       const Mesh = trait(() => ({ visible: true }));
       expect(Mesh.record()).toEqual({ visible: true });
       expect(Mesh.record()).not.toBe(Mesh.record());
+
+      // A tag has no data, so like get it has no record.
+      expect(trait().record()).toBeUndefined();
     });
 
     it.each([false, true])(

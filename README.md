@@ -288,6 +288,8 @@ inventory.set(Contains(gold), { amount: 20 })
 const data = inventory.get(Contains(gold)) // { amount: 20 }
 ```
 
+A relation without a store has no record, so `get` returns `undefined` for its pairs. Check for a pair with `has`.
+
 #### Auto destroy
 
 Relations can automatically destroy related entities when their counterpart is destroyed using the `autoDestroy` option.
@@ -1254,7 +1256,7 @@ const Mesh = trait(() => new THREE.Mesh())
 
 #### Trait record
 
-The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state while when it is AoS the record is a ref to the object inserted there.
+The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state while when it is AoS the record is a ref to the object inserted there. A tag has no data, so it has no record and `get` returns `undefined`. Check for it with `has`.
 
 ```js
 // SoA store

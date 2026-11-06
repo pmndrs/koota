@@ -151,6 +151,17 @@ describe('Relation', () => {
     expect(inventory.get(Contains(silver))!.amount).toBe(12);
   });
 
+  it('has no record for relations without a store', () => {
+    const ChildOf = relation();
+    const parent = world.spawn();
+    const child = world.spawn(ChildOf(parent));
+
+    // Presence is answered by has, so a pair without data reads like a missing one.
+    expect(child.has(ChildOf(parent))).toBe(true);
+    expect(child.get(ChildOf(parent))).toBeUndefined();
+    expect(ChildOf.record()).toBeUndefined();
+  });
+
   it('should query all relations with a wildcard', () => {
     const Contains = relation();
 

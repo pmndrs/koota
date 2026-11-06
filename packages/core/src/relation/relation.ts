@@ -740,13 +740,16 @@ export function getRelationData(
   out?: Record<string, unknown>
 ): unknown {
   const baseTrait = relation[$internal].trait;
+  const traitCtx = baseTrait[$internal];
+  // A relation without a store is a tag underneath, so its pairs have no record.
+  if (traitCtx.type === 'tag') return undefined;
+
   const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
   if (!traitData) return undefined;
 
   const targetIndex = getTargetIndex(ctx, relation, entity, target);
   if (targetIndex === -1) return undefined;
 
-  const traitCtx = baseTrait[$internal];
   const store = traitData.store;
   const eid = getEntityId(entity);
   const p = eid >>> 10,

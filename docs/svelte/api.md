@@ -81,7 +81,7 @@ Works like `useQuery`, but `current` contains only the first matching entity or 
 
 ## `useTrait`
 
-Observes a trait on an entity or world. `current` updates when the trait is added, removed, or changed, and is `undefined` when the target is nullish or does not have the trait.
+Observes a trait on an entity or world. `current` updates when the trait is added, removed, or changed, and is `undefined` when the target is nullish or does not have the trait. Tags and relations without a store have no record, so the result is always `undefined`. Use `useTag` or `useHas` to observe presence.
 
 The target is always a getter. The trait or relation pair can be passed directly or as a getter; use a getter when a relation pair depends on reactive state.
 

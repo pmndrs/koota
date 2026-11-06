@@ -144,7 +144,7 @@ const Mesh = trait(() => new THREE.Mesh())
 
 ## Trait record
 
-The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state. For AoS, it is the stored value, which can be an object reference or a primitive.
+The state of a given entity-trait pair is called a trait record and is like the row of a table in a database. When the trait store is SoA the record returned is a snapshot of the state. For AoS, it is the stored value, which can be an object reference or a primitive. A tag has no data, so it has no record and `get` returns `undefined`. Check for it with `has`.
 
 ```js
 // SoA store

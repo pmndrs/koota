@@ -80,7 +80,7 @@ Observes a trait on an entity or world. It returns the current trait record and 
 
 Requires a `WorldProvider`. The target must belong to the world returned by `useWorld()`.
 
-Relation pairs are supported for relations with store data.
+Relation pairs are supported for relations with store data. Tags and relations without a store have no record, so the result is always `undefined`. Use `useTag` or `useHas` to observe presence.
 
 For an ordered relation trait, `useTrait(parent, OrderedChildren)` returns a `readonly Entity[]` in relation order. The hook reuses the array while the sequence is the same. Add, remove, or reorder children through `parent.get(OrderedChildren)` in an action or event handler.
 

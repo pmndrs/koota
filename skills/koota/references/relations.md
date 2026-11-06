@@ -83,6 +83,8 @@ inventory.set(Contains(gold), { amount: 50 })
 const data = inventory.get(Contains(gold)) // { amount: 50 }
 ```
 
+A relation without a store has no record, so `get` returns `undefined` for its pairs. Check for a pair with `has`.
+
 ### Targeting/Following
 
 ```typescript
