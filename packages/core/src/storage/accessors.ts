@@ -88,6 +88,29 @@ function createSoAAddFunction(schema: Schema): AddAccessor {
   )(schema, createPage) as AddAccessor;
 }
 
+/** Prepare one complete value with add semantics without allocating or changing storage. */
+export function createInitializer(schema: Schema): (value: unknown) => any {
+  if (typeof schema === 'function') return (value) => value ?? schema();
+  const keys = Object.keys(schema);
+  if (keys.length === 0) return () => undefined;
+
+  const reads = keys.map((key, k) => {
+    const name = JSON.stringify(key);
+    const fallback = `schema[${name}]${typeof schema[key] === 'function' ? '()' : ''}`;
+    let read = `var v${k} = value != null && ${name} in value ? value[${name}] : ${fallback};`;
+    const stride = getStride(schema, key);
+    if (stride !== 0) {
+      read += ` v${k} = [${Array.from({ length: stride }, (_, c) => `v${k}[${c}]`).join(', ')}];`;
+    }
+    return read;
+  });
+  const fields = keys.map((key, k) => `${JSON.stringify(key)}: v${k}`);
+  return new Function(
+    'schema',
+    `return function (value) { ${reads.join(' ')} return { ${fields.join(', ')} }; };`
+  )(schema);
+}
+
 /** Returns a snapshot. Tuples are copied into fresh arrays, so the result never aliases storage. */
 function createSoAGetFunction(schema: Schema): GetAccessor {
   const keys = Object.keys(schema);

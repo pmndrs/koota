@@ -31,6 +31,7 @@ export type MachineContext = {
   members: readonly Trait[];
   initial: Trait;
   transitions: Map<Trait, ReadonlySet<Trait>> | undefined;
+  initializers: Map<Trait, (value: unknown) => unknown>;
   revision(entity: Entity): number;
 };
 
