@@ -22,6 +22,7 @@ export type QueryModifier = (...components: Trait[]) => Modifier;
 export type QueryParameter =
   Trait | RelationPair | Identifier | IdentifierPair | ReturnType<QueryModifier>;
 export type QuerySubscriber = (entity: Entity) => void;
+export type QueryNotification = { query: QueryInstance; entity: Entity; added: boolean };
 export type QueryUnsubscriber = () => void;
 
 export type UpdateEachOptions = {

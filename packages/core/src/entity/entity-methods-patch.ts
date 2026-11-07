@@ -1,4 +1,6 @@
 import { $internal } from '../common';
+import { subscribeMachine } from '../machine/machine';
+import type { Machine, TransitionSubscriber } from '../machine/types';
 import { setChanged } from '../query/modifiers/changed';
 import { getFirstRelationTarget, getRelationTargets } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
@@ -66,6 +68,15 @@ Number.prototype.set = function (
   triggerChanged = true
 ) {
   setTrait(getEntityContext(this), this, trait, value, triggerChanged);
+};
+
+// @ts-expect-error
+Number.prototype.onTransition = function (
+  this: Entity,
+  machine: Machine,
+  callback: TransitionSubscriber
+) {
+  return subscribeMachine(getEntityContext(this), machine, callback, this);
 };
 
 // @ts-expect-error

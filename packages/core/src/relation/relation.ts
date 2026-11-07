@@ -135,6 +135,7 @@ function createRelation<S extends TraitSchema = Record<string, never>>(definitio
   });
 
   traitCtx.relation = relation;
+  traitCtx.kind = 'relation';
 
   return relation;
 }

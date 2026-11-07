@@ -1,5 +1,6 @@
 import type { $internal } from '../common';
 import type { WorldContext } from '../world';
+import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
@@ -65,6 +66,10 @@ export type Entity = number & {
     <K extends IdentifierKey>(identifier: Identifier<K>): K[];
     <T extends Trait>(relation: Relation<T>): Entity[];
   };
+  onTransition: <S extends MachineStates>(
+    machine: Machine<S>,
+    callback: TransitionSubscriber<S[keyof S]>
+  ) => () => void;
   onAdd: EntityHook;
   onRemove: EntityHook;
   /** Reports future additions and writes. Removals use onRemove. */
