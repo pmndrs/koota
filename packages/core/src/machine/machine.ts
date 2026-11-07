@@ -18,6 +18,7 @@ import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { clearPendingChanges } from '../query/utils/mark-tracked-trait-changed';
 import { notifyTraitAdded } from '../query/modifiers/changed';
 import { isOrderedTrait } from '../relation/ordered';
+import { createInitializer } from '../storage/accessors';
 import { emit } from '../trait/subscriptions';
 import { clearTraitMembership, setTraitMembership } from '../trait/membership';
 import { hasTrait, registerTrait, trait } from '../trait/trait';
@@ -73,6 +74,7 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
     members,
     initial: options.initial,
     transitions,
+    initializers: new Map(members.map((member) => [member, createInitializer(member.schema)])),
     revision(entity) {
       return machineRevision(getEntityContext(entity), marker, getEntityId(entity));
     },
@@ -310,11 +312,8 @@ function changeMachine(
     const previous = subscribed && before ? from![$internal].get(ctx, eid, before.store) : undefined;
     let prepared: unknown;
     if (after) {
-      if (from === to) {
-        const scratch = to![$internal].createStore();
-        to![$internal].add(ctx, 0, scratch, value);
-        prepared = to![$internal].get(ctx, 0, scratch);
-      } else to![$internal].add(ctx, eid, after.store, value);
+      if (from === to) prepared = machine.initializers.get(to!)!(value);
+      else to![$internal].add(ctx, eid, after.store, value);
     }
     // Removal hooks see the old state. No membership or query changes have happened yet.
     if (before) emit(before.removeSubscriptions, entity);

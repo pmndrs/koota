@@ -2,6 +2,28 @@ import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, machine, trait } from 'koota';
 
 group('machine transitions 10k @machine @mutation', () => {
+  bench('re-enter one state, observers none', function* () {
+    const Loading = trait({ requestId: 0 });
+    const Download = machine({ states: { Loading }, initial: Loading });
+    const world = createWorld();
+    const entities = Array.from({ length: 10_000 }, () => world.spawn(Download));
+
+    yield {
+      bench: () => {
+        for (const entity of entities) {
+          Download.enter(entity, Loading);
+          Download.enter(entity, Loading);
+        }
+      },
+      snapshot: () => {
+        assert.equal(Download.of(entities[9999]), Loading);
+        assert.equal(entities[9999].get(Loading)?.requestId, 0);
+        return entities.length;
+      },
+    };
+    world.destroy();
+  });
+
   for (const observers of ['none', 'transitions', 'queries']) {
     bench(`enter two states, observers ${observers}`, function* () {
       const Idle = trait();
