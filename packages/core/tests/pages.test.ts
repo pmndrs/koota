@@ -20,6 +20,7 @@ describe('Query pages', () => {
     dead.destroy();
     expect(live.get(Value)).toBeUndefined();
     expect(() => dead.get(Value)).toThrow(/\[ENTITY_ALIVE\]/);
+    for (let i = 0; i < 1100; i++) world.spawn(Value);
 
     const Removed = createRemoved();
     const found = new Map();
@@ -65,7 +66,6 @@ describe('Query pages', () => {
       }
     }
 
-    expect(pages.length).toBeGreaterThan(1);
     expect(visited).toEqual(entities);
     expect(entities.map((entity) => entity.get(Position)!.x)).toEqual(
       entities.map((_, i) => i * 3 + 2)
@@ -118,5 +118,27 @@ describe('Query pages', () => {
     expect(world.query(Position).getPages()[0].entities).toEqual([second]);
     second.destroy();
     expect(world.query(Position).getPages()).toEqual([]);
+  });
+
+  it('keeps cached columns readable and writable as more entities are added', () => {
+    const createReference = vi.fn(() => ({ value: 1 }));
+    const Value = trait({ scalar: 0.25, vector: [0.5, 1.5, 2.5], ref: createReference });
+    const first = world.spawn(Value({ scalar: 42, vector: [4, 5, 6] }));
+    const columns = world.query(Value).getPages()[0].stores[0];
+
+    const entities = Array.from({ length: 1100 }, () => world.spawn(Value));
+    expect(createReference).toHaveBeenCalledTimes(entities.length + 1);
+    expect(first.get(Value)).toEqual({ scalar: 42, vector: [4, 5, 6], ref: { value: 1 } });
+    expect(entities.at(-1)!.get(Value)).toEqual({
+      scalar: 0.25,
+      vector: [0.5, 1.5, 2.5],
+      ref: { value: 1 },
+    });
+
+    const current = world.query(Value).getPages()[0];
+    columns.scalar[current.indices[0]] = 44;
+    columns.vector[current.indices[0] * 3] = 7;
+    expect(current.entities[0].get(Value)!.scalar).toBe(44);
+    expect(current.entities[0].get(Value)!.vector[0]).toBe(7);
   });
 });

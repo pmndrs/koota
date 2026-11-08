@@ -93,6 +93,7 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
 export type Trait<TSchema extends Schema = any> = {
   /** Public read-only ID for fast array lookups */
   readonly id: number;
+  /** Defaults for new members. Field names, storage kinds, and tuple lengths are fixed. */
   readonly schema: TSchema;
   /** Create a record of the schema defaults, such as a scratch record for get to fill. */
   readonly record: () => TraitRecordFromSchema<TSchema>;
