@@ -746,7 +746,7 @@ stopEnter()
 stopExit()
 ```
 
-Adding `Hidden` causes an exit, and removing it causes an entry. The same lifecycle applies to ordinary traits, relations and identifiers. Regular queries emit neither event while an entity remains matched. See [query lifecycle](docs/api/query.md#query-lifecycle) for details.
+Adding `Hidden` causes an exit, and removing it causes an entry. The same lifecycle applies to ordinary traits, relations and identifiers. See [query lifecycle](docs/api/query.md#query-lifecycle) for details.
 
 ### Add, remove and change events
 

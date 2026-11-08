@@ -50,7 +50,7 @@ stopEnter()
 stopExit()
 ```
 
-Entry and exit describe query membership. Adding `Hidden` makes an entity exit `[Renderable, Not(Hidden)]`, and removing `Hidden` makes it enter. Trait changes, relation target changes and identifier changes can all affect membership. A regular query emits neither event while an entity remains matched.
+Entry and exit describe query membership. Adding `Hidden` makes an entity exit `[Renderable, Not(Hidden)]`, and removing `Hidden` makes it enter. Trait changes, relation target changes and identifier changes can all affect membership.
 
 Trait `onAdd` and `onRemove` hooks retain their own lifecycle timing.
 

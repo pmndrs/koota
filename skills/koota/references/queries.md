@@ -78,7 +78,7 @@ stopEnter()
 stopExit()
 ```
 
-Adding `Hidden` makes an entity exit the visibility query, and removing it makes the entity enter. Relations and identifiers use the same lifecycle. Regular queries emit neither event while an entity remains matched. Trait `onAdd` and `onRemove` hooks retain their lifecycle timing. Tracking queries retain their tracking semantics.
+Adding `Hidden` makes an entity exit the visibility query, and removing it makes the entity enter. Relations and identifiers use the same lifecycle. Trait `onAdd` and `onRemove` hooks retain their lifecycle timing. Tracking queries retain their tracking semantics.
 
 ## Iterating entities
 
