@@ -71,3 +71,49 @@ group('machine transitions 10k @machine @mutation', () => {
     });
   }
 });
+
+group('machine transition table 10k @machine @mutation', () => {
+  for (const operation of ['enter', 'add', 'upsert']) {
+    bench(`${operation} two states with a transition table`, function* () {
+      const Idle = trait();
+      const Loading = trait({ requestId: 0 });
+      const Download = machine({
+        states: { Idle, Loading },
+        initial: Idle,
+        transitions: { Idle: [Loading], Loading: [Idle] },
+      });
+      const world = createWorld();
+      const entities = Array.from({ length: 10_000 }, () => world.spawn(Download));
+
+      yield {
+        bench:
+          operation === 'enter'
+            ? () => {
+                for (const entity of entities) {
+                  Download.enter(entity, Loading);
+                  Download.enter(entity, Idle);
+                }
+              }
+            : operation === 'add'
+              ? () => {
+                  for (const entity of entities) {
+                    entity.add(Loading);
+                    entity.add(Idle);
+                  }
+                }
+              : () => {
+                  for (const entity of entities) {
+                    entity.upsert(Loading, { requestId: 0 });
+                    entity.upsert(Idle, undefined);
+                  }
+                },
+        snapshot: () => {
+          assert.equal(Download.current(entities[9999]), Idle);
+          assert.equal(entities[9999].has(Loading), false);
+          return entities.length;
+        },
+      };
+      world.destroy();
+    });
+  }
+});

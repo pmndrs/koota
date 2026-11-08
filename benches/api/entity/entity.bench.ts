@@ -232,3 +232,44 @@ group('entity get set 10k @entity @accessor @set', () => {
     world.destroy();
   });
 });
+
+group('entity upsert 10k @entity @upsert', () => {
+  bench('entity.upsert existing trait', function* () {
+    const world = createWorld();
+    const entities = Array.from({ length: 10_000 }, () => world.spawn(Position));
+    let frame = 0;
+
+    yield {
+      bench: () => {
+        frame ^= 1;
+        for (const entity of entities) entity.upsert(Position, { x: frame, y: frame, z: frame });
+      },
+      snapshot: () => {
+        assert.equal(entities[9999].get(Position), { x: frame, y: frame, z: frame });
+        return entities.length;
+      },
+    };
+
+    world.destroy();
+  });
+
+  bench('entity.upsert absent trait + remove', function* () {
+    const world = createWorld();
+    const entities = Array.from({ length: 10_000 }, () => world.spawn());
+
+    yield {
+      bench: () => {
+        for (const entity of entities) {
+          entity.upsert(Position, { x: 1, y: 2, z: 3 });
+          entity.remove(Position);
+        }
+      },
+      snapshot: () => {
+        assert.equal(entities[9999].has(Position), false);
+        return entities.length;
+      },
+    };
+
+    world.destroy();
+  });
+});
