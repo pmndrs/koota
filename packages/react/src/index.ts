@@ -1,3 +1,4 @@
+export { useMachine } from './hooks/use-machine';
 export { useActions } from './hooks/use-actions';
 export { useQuery } from './hooks/use-query';
 export { useQueryFirst } from './hooks/use-query-first';

@@ -152,6 +152,23 @@ const hasWireId = useHas(entity, WireId)
 const isPlayer = useHas(entity, WireId(123))
 ```
 
+## `useMachine`
+
+Returns the current member of a [state machine](../api/machines.md), or `undefined` when absent. Updates on entry, self-entry, removal and destruction. Accepts an entity, a world singleton, `null` or `undefined`.
+
+```jsx
+import { useMachine } from 'koota/react'
+
+function AssetStatus({ entity }) {
+  const state = useMachine(entity, AssetMachine)
+
+  if (state === Pending) return <span>Pending</span>
+  if (state === Loading) return <span>Loading</span>
+  if (state === Loaded) return <span>Loaded</span>
+  return <span>No asset loading state</span>
+}
+```
+
 ## `useTraitEffect`
 
 Runs a callback with the current trait value when the effect starts and again whenever the trait is added, removed, or changed. A missing or removed trait produces `undefined`. Use it to synchronize imperative objects without rerendering the component for each change.
