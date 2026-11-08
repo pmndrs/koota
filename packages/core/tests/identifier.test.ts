@@ -155,7 +155,7 @@ describe('Identifiers', () => {
     const changed = vi.fn();
     world.onAdd(WireId, changed);
     world.onRemove(WireId, changed);
-    world.onQueryRemove(query, changed);
+    world.onExit(query, changed);
     expect(() => world.spawn(WireId(1))).toThrow(/IDENTIFIER_TAKEN/);
     expect(() => challenger.add(WireId(1))).toThrow(/IDENTIFIER_TAKEN/);
     expect(() => unassigned.add(WireId(1))).toThrow(/IDENTIFIER_TAKEN/);
@@ -196,8 +196,8 @@ describe('Identifiers', () => {
     const query = createQuery(Name('kris'), WireId(1), Position);
     const added = vi.fn();
     const removed = vi.fn();
-    world.onQueryAdd(query, added);
-    world.onQueryRemove(query, removed);
+    world.onEnter(query, added);
+    world.onExit(query, removed);
     const player = world.spawn(Name('kris'), WireId(1));
     expect(added).not.toHaveBeenCalled();
     player.add(Position);
@@ -359,7 +359,7 @@ describe('Identifiers', () => {
     const Added = createAdded();
     const query = createQuery(Added(Position), Name('kris'), WireId);
     const added = vi.fn();
-    world.onQueryAdd(query, added);
+    world.onEnter(query, added);
     const player = world.spawn(Name('kris'), WireId(1), Position);
     player.add(WireId(2));
     player.add(WireId(3));
@@ -413,7 +413,7 @@ describe('Identifiers', () => {
         if (player.targetFor(WireId) === 2) player.add(WireId(3));
       };
       if (event === 'onAdd') player.onAdd(WireId(2), replace);
-      else world.onQueryAdd([Changed(WireId)], replace);
+      else world.onEnter([Changed(WireId)], replace);
 
       player.add(WireId(2));
 
@@ -440,7 +440,7 @@ describe('Identifiers', () => {
   });
 
   it('does not assign later terms when a query callback destroys a spawned entity', () => {
-    world.onQueryAdd([Name('transient')], (entity) => entity.destroy());
+    world.onEnter([Name('transient')], (entity) => entity.destroy());
     const player = world.spawn(Name('transient'), WireId(1));
     expect(player.isAlive()).toBe(false);
     expect(world.lookup(Name('transient'))).toBeUndefined();
@@ -538,8 +538,8 @@ describe('Identifiers', () => {
       const query = createQuery(DisplayName('kris'), Position);
       const added = vi.fn();
       const removed = vi.fn();
-      world.onQueryAdd(query, added);
-      world.onQueryRemove(query, removed);
+      world.onEnter(query, added);
+      world.onExit(query, removed);
       const first = world.spawn(DisplayName('kris'), Position);
       const second = world.spawn(DisplayName('kris'));
       second.add(Position);

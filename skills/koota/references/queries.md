@@ -5,6 +5,7 @@ Complete guide to querying entities in Koota.
 ## Contents
 
 - [Basic queries](#basic-queries)
+- [Query lifecycle](#query-lifecycle) - Entering and exiting matching conditions
 - [Indexed loops](#indexed-loops) - Zero-copy entity access
 - [Query modifiers](#query-modifiers) - Not, Or
 - [Tracking modifiers](#tracking-modifiers) - Added, Removed, Changed
@@ -60,6 +61,24 @@ const player = world.queryFirst(IsPlayer, Position)
 // Query all entities (excludes system entities)
 const allEntities = world.query()
 ```
+
+## Query lifecycle
+
+Use `world.onEnter` when an entity starts matching and `world.onExit` when it stops matching. Pass a query reference or an array of query parameters. Both return unsubscribe functions and report future events without replaying existing matches.
+
+```typescript
+const moving = createQuery(Position, Velocity)
+const stopEnter = world.onEnter(moving, (entity) => startMoving(entity))
+const stopExit = world.onExit(moving, (entity) => stopMoving(entity))
+
+world.onEnter([Renderable, Not(Hidden)], (entity) => mount(entity))
+world.onExit([Renderable, Not(Hidden)], (entity) => unmount(entity))
+
+stopEnter()
+stopExit()
+```
+
+Adding `Hidden` makes an entity exit the visibility query, and removing it makes the entity enter. Relations and identifiers use the same lifecycle. Regular queries emit neither event while an entity remains matched. Trait `onAdd` and `onRemove` hooks retain their lifecycle timing. Tracking queries retain their tracking semantics.
 
 ## Indexed loops
 

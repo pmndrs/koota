@@ -15,7 +15,7 @@ player.has(WireId(123)) // true
 
 const Player = createQuery(Name('kris'), WireId(123), Position)
 world.query(Player).each((position, entity) => {})
-world.onQueryRemove(Player, (entity) => {})
+world.onExit(Player, (entity) => {})
 
 player.add(WireId(456)) // Player no longer matches
 player.remove(WireId(123)) // No effect

@@ -297,7 +297,7 @@ describe('Relation', () => {
     const keptQuery = createQuery(Mesh, ChildOf(kept));
     const droppedQuery = createQuery(Mesh, ChildOf(dropped));
     const onRemove = vi.fn();
-    world.onQueryRemove(droppedQuery, onRemove);
+    world.onExit(droppedQuery, onRemove);
 
     expect([...world.query(keptQuery)]).toEqual([keptChild]);
     expect([...world.query(droppedQuery)]).toEqual([droppedChild]);
@@ -330,7 +330,7 @@ describe('Relation', () => {
     const kept = createQuery(Mesh, Likes(otherTarget));
     const wildcard = createQuery(Mesh, Likes('*'));
     const onRemove = vi.fn();
-    world.onQueryRemove(combined, onRemove);
+    world.onExit(combined, onRemove);
 
     expect([...world.query(combined)]).toEqual([subject]);
     expect([...world.query(shared)]).toEqual([subject]);
@@ -618,7 +618,7 @@ describe('Relation', () => {
     const player = world.spawn();
     const child = world.spawn(Unit, ChildOf(player));
     const added = vi.fn();
-    world.onQueryAdd([Unit, Not(ChildOf(player))], added);
+    world.onEnter([Unit, Not(ChildOf(player))], added);
 
     expect(world.query(Unit, Not(ChildOf(player)))).toHaveLength(0);
 
@@ -897,7 +897,7 @@ describe('Relation', () => {
       world.query(Changed(Link));
       world.query(Filtered(Link), Link(second));
       const entered = vi.fn();
-      world.onQueryAdd([Changed(Link)], entered);
+      world.onEnter([Changed(Link)], entered);
       const changes = vi.fn();
       const filtered = vi.fn();
       world.onChange(Link, (source, target) => changes(source, target, source.get(Link(target))));

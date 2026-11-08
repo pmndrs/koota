@@ -52,8 +52,8 @@ export function useQuery<T extends QueryParameter[]>(
     refresh();
 
     const observer = world[internal].observeSettled(refresh);
-    const unsubAdd = world.onQueryAdd(queryRef, observer.invalidate);
-    const unsubRemove = world.onQueryRemove(queryRef, observer.invalidate);
+    const unsubEnter = world.onEnter(queryRef, observer.invalidate);
+    const unsubExit = world.onExit(queryRef, observer.invalidate);
 
     /**
      * Catch query updates that happened between the initial read and
@@ -75,8 +75,8 @@ export function useQuery<T extends QueryParameter[]>(
     return () => {
       observer.unsubscribe();
       world[internal].resetSubscriptions.delete(handleReset);
-      unsubAdd();
-      unsubRemove();
+      unsubEnter();
+      unsubExit();
     };
   });
 

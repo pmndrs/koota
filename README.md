@@ -730,6 +730,24 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 // After running the query, the Changed modifier is reset
 ```
 
+### Query lifecycle
+
+Entities enter a query when they start matching and exit when they stop matching. Use `world.onEnter` and `world.onExit` with a query reference or an array of query parameters. Both return unsubscribe functions and report future events without replaying existing matches.
+
+```js
+const moving = createQuery(Position, Velocity)
+const stopEnter = world.onEnter(moving, (entity) => startMoving(entity))
+const stopExit = world.onExit(moving, (entity) => stopMoving(entity))
+
+world.onEnter([Renderable, Not(Hidden)], (entity) => mount(entity))
+world.onExit([Renderable, Not(Hidden)], (entity) => unmount(entity))
+
+stopEnter()
+stopExit()
+```
+
+Adding `Hidden` causes an exit, and removing it causes an entry. The same lifecycle applies to ordinary traits, relations and identifiers. Regular queries emit neither event while an entity remains matched. See [query lifecycle](docs/api/query.md#query-lifecycle) for details.
+
 ### Add, remove and change events
 
 Koota allows you to subscribe to add, remove, and change events for specific traits.
@@ -1049,11 +1067,11 @@ const unsub = world.onChange(Position, (entity) => {})
 const unsub = world.onAdd(ChildOf(parent), (entity, target) => {})
 const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 
-// Subscribe to add or remove query events
-// This triggers whenever a query is updated
+// Subscribe to entities entering or exiting a query
+// Entry starts matching, exit stops matching
 // Return unsub function
-const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
-const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
+const unsub = world.onEnter([Position, Velocity], (entity) => {})
+const unsub = world.onExit([Position, Velocity], (entity) => {})
 
 // Subscribe to entity lifecycle events
 const unsub = world.onEntitySpawn((entity) => {})

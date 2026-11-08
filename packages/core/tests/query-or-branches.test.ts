@@ -63,8 +63,8 @@ describe('Or branches', () => {
     const query = createQuery(Or(U, Not(V)));
     const added = vi.fn();
     const removed = vi.fn();
-    world.onQueryAdd(query, added);
-    world.onQueryRemove(query, removed);
+    world.onEnter(query, added);
+    world.onExit(query, removed);
 
     entity.remove(V);
     expect(added).toHaveBeenCalledExactlyOnceWith(entity);

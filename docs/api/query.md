@@ -34,6 +34,28 @@ function updateMovement(world) {
 }
 ```
 
+## Query lifecycle
+
+`world.onEnter(query, callback)` observes entities starting to match a query. `world.onExit(query, callback)` observes entities stopping matching. Both accept a query reference or an array of query parameters and return an unsubscribe function. Subscriptions report future events and do not replay existing matches.
+
+```ts
+const moving = createQuery(Position, Velocity)
+const stopEnter = world.onEnter(moving, (entity) => startMoving(entity))
+const stopExit = world.onExit(moving, (entity) => stopMoving(entity))
+
+world.onEnter([Renderable, Not(Hidden)], (entity) => mount(entity))
+world.onExit([Renderable, Not(Hidden)], (entity) => unmount(entity))
+
+stopEnter()
+stopExit()
+```
+
+Entry and exit describe query membership. Adding `Hidden` makes an entity exit `[Renderable, Not(Hidden)]`, and removing `Hidden` makes it enter. Trait changes, relation target changes and identifier changes can all affect membership. A regular query emits neither event while an entity remains matched.
+
+Trait `onAdd` and `onRemove` hooks retain their own lifecycle timing.
+
+Tracking queries using `Added`, `Removed` or `Changed` retain their tracking semantics. Their events describe the tracking query, not a history of every mutation.
+
 ## Query all entities
 
 To get all queryable entities you simply query the world with no parameters.

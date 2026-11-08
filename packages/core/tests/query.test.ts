@@ -357,8 +357,8 @@ describe('Query', () => {
     const parent = world.spawn();
     const child = world.spawn(ChildOf(parent));
 
-    world.onQueryAdd([ChildOf(IsPlayer)], onAdd);
-    world.onQueryRemove([ChildOf(IsPlayer)], onRemove);
+    world.onEnter([ChildOf(IsPlayer)], onAdd);
+    world.onExit([ChildOf(IsPlayer)], onRemove);
 
     expect(world.query(ChildOf(IsPlayer))).toHaveLength(0);
 
