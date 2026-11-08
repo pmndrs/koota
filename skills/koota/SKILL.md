@@ -122,7 +122,7 @@ Spawn with the machine to enter its initial state. Use `enter` to transition bet
 
 ```typescript
 const entity = world.spawn(AssetMachine) // Starts in Pending
-AssetMachine.enter(entity, Loading({ progress: 0 })) // Checks the transition in every build
+AssetMachine.enter(entity, Loading({ progress: 0 })) // Checks the transition
 AssetMachine.current(entity) === Loading // true
 world.query(Loading) // All assets currently loading
 AssetMachine.enter(entity, Loaded) // Transitions to Loaded
@@ -132,8 +132,8 @@ AssetMachine.current(entity) // undefined
 ```
 
 - `world.spawn(Machine)` enters the initial state. An explicit member overrides a bare machine in the same call.
-- `Machine.enter(entity, Loading({ progress }))` checks the transition table in every build. Re-entering the current state is a transition and replaces its data with supplied values and defaults. A self-edge is required when a table exists.
-- `entity.add(member)` checks the transition table in every build, with duplicate adds remaining no-ops. `upsert` writes the current state or checks the table before swapping when absent.
+- `Machine.enter(entity, Loading({ progress }))` checks the transition table. Re-entering the current state is a transition and replaces its data with supplied values and defaults. A self-edge is required when a table exists.
+- `entity.add(member)` checks the transition table, with duplicate adds remaining no-ops. `upsert` writes the current state or checks the table before swapping when absent.
 - `Machine.current(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.
 - `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition. `previous` contains the old value. `get` only reads current data.
