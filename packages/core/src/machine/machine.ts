@@ -278,22 +278,24 @@ function changeMachine(
   machine: MachineContext,
   to: Trait | undefined,
   value: unknown,
-  checked: boolean,
+  reenter: boolean,
   dying = false
 ) {
   assertMachineIdle(ctx, entity);
   if (!dying && isEntityDestroying(entity))
     throw new Error('Koota: [MACHINE_DESTROYING] Cannot enter a state during destruction.');
   const from = currentState(ctx, entity, machine);
-  if (!checked && from === to) return;
+  if (!reenter && from === to) return;
   if (
-    assertsEnabled &&
-    checked &&
     from !== undefined &&
+    to !== undefined &&
     machine.transitions !== undefined &&
-    !machine.transitions.get(from)?.has(to!)
+    !machine.transitions.get(from)?.has(to)
   ) {
-    throw new Error('Koota: [MACHINE_ILLEGAL_TRANSITION] The transition is not in the table.');
+    if (assertsEnabled) {
+      throw new Error('Koota: [MACHINE_ILLEGAL_TRANSITION] The transition is not in the table.');
+    }
+    return;
   }
   const mutations = (ctx.machineMutations ??= new Set());
   mutations.add(entity);

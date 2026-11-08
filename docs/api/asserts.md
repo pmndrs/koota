@@ -6,6 +6,7 @@ Koota makes common ECS assumptions executable when assertions are enabled:
 - **Trait membership:** `set` and `changed` require the trait to be present. A setter callback must leave its entity and trait valid before automatic writeback.
 - **Relation validity:** adding or setting a pair requires a concrete, live target in the same world. Setting requires the pair to exist. Wildcards and query filters remain valid for queries, membership checks, and removal.
 - **Identifier uniqueness:** assigning a key requires that no other entity holds it for the same identifier type and world.
+- **Machine transitions:** changing states requires an allowed edge when a transition table is provided.
 - **Required values:** adding a trait or pair requires every [required](trait.md#required-fields) value of its schema or store.
 - **Relation consistency:** adding an edge requires base trait membership. Clearing that membership requires no remaining targets. Removing a forward edge requires its reverse source entry to exist.
 
@@ -39,7 +40,7 @@ export default defineConfig(({ command }) => ({
 
 Use `true` to keep assertions in a production build. Use `false` to remove assertions and their conditions through dead code elimination. Explicitly defining the flag is needed to remove the code completely, because a bundler cannot assume that an undefined optional global will stay undefined at runtime.
 
-With assertions disabled, the caller must satisfy these preconditions. Invalid operations may read or write a recycled entity, write absent traits, or leave inconsistent relations. Identifier uniqueness is the exception. A taken key is refused in every build, so the assignment is skipped and both mappings stay consistent. Identifier keys must always be strings or finite numbers.
+With assertions disabled, the caller must satisfy these preconditions. Invalid operations may read or write a recycled entity, write absent traits, or leave inconsistent relations. Identifier uniqueness and machine transition tables remain enforced. Conflicting identifier assignments and illegal machine transitions are skipped when assertions are disabled, preserving the existing state. Identifier keys must always be strings or finite numbers.
 
 ## Benchmark assertion modes
 
