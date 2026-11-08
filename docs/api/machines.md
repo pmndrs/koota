@@ -25,7 +25,7 @@ const AssetMachine = machine({
 
 State names resolve transition-table keys. Declare a machine before any member is registered in any world, including through a query or subscription. A trait belongs to at most one machine. States must be ordinary traits, not relations, identifiers, ordered views or other machines. The initial state must have defaults. Other states can require values.
 
-Omitting `transitions` allows every edge. With a table, omitted sources have no outgoing edges. `enter`, `add` and `upsert` enforce the table in every build, regardless of `__KOOTA_ASSERTS__`. Mutual exclusion applies in every build.
+Omitting `transitions` allows every edge. With a table, omitted sources have no outgoing edges. `enter`, `add` and `upsert` enforce the table. Illegal transitions throw `[MACHINE_ILLEGAL_TRANSITION]` when assertions are enabled and otherwise return without changing state or firing callbacks. Mutual exclusion always applies.
 
 ## Entering and reading
 
@@ -143,7 +143,7 @@ The binding follows the same transitions as the React hook. Pass the entity or w
 | Error                          | Meaning                                                         |
 | ------------------------------ | --------------------------------------------------------------- |
 | `[MACHINE_MULTIPLE_STATES]`    | One add or spawn call supplies different states of one machine. |
-| `[MACHINE_ILLEGAL_TRANSITION]` | An edge is absent from the table.                               |
+| `[MACHINE_ILLEGAL_TRANSITION]` | An edge is absent from the table, with assertions enabled.      |
 | `[MACHINE_STATE_REQUIRED]`     | Direct removal would leave the machine without a state.         |
 | `[MACHINE_MEMBER_TAKEN]`       | A member already belongs to a machine.                          |
 | `[MACHINE_REGISTERED]`         | A member was registered before machine declaration.             |

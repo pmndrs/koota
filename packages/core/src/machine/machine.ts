@@ -292,7 +292,10 @@ function changeMachine(
     machine.transitions !== undefined &&
     !machine.transitions.get(from)?.has(to)
   ) {
-    throw new Error('Koota: [MACHINE_ILLEGAL_TRANSITION] The transition is not in the table.');
+    if (assertsEnabled) {
+      throw new Error('Koota: [MACHINE_ILLEGAL_TRANSITION] The transition is not in the table.');
+    }
+    return;
   }
   const mutations = (ctx.machineMutations ??= new Set());
   mutations.add(entity);

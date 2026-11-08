@@ -31,7 +31,7 @@ it.each(['add', 'upsert'] as const)(
       expect(() => {
         if (operation === 'add') entity.add(Loaded);
         else entity.upsert(Loaded, undefined);
-      }).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+      }).not.toThrow();
       expect(Asset.current(entity)).toBe(Pending);
       expect(entity.get(Pending)).toEqual({ attempts: 3 });
       expect(entity.has(Loaded)).toBe(false);
@@ -77,10 +77,8 @@ it('enforces transitions before changing state or notifying listeners with asser
     entity.onAdd(Loaded, changed);
     entity.onTransition(Asset, changed);
 
-    expect(() => Asset.enter(entity, Loaded)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
-    expect(() => Asset.enter(entity, Pending({ attempts: 9 }))).toThrow(
-      '[MACHINE_ILLEGAL_TRANSITION]'
-    );
+    expect(() => Asset.enter(entity, Loaded)).not.toThrow();
+    expect(() => Asset.enter(entity, Pending({ attempts: 9 }))).not.toThrow();
     expect(Asset.current(entity)).toBe(Pending);
     expect(entity.get(Pending)).toEqual({ attempts: 3 });
     expect(entity.has(Loaded)).toBe(false);
@@ -91,7 +89,7 @@ it('enforces transitions before changing state or notifying listeners with asser
     expect(entity.get(Loading)).toEqual({ progress: 0 });
     Asset.enter(entity, Loaded);
     changed.mockClear();
-    expect(() => Asset.enter(entity, Loading)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+    expect(() => Asset.enter(entity, Loading)).not.toThrow();
     expect(Asset.current(entity)).toBe(Loaded);
     expect(changed).not.toHaveBeenCalled();
   } finally {
