@@ -42,7 +42,7 @@ entity.get(Loading) // { progress: 0.5 }
 
 `current` returns the current member or `undefined`, using membership masks without allocating. An explicit member overrides a bare machine in the same `spawn` or `add` call, regardless of argument order. Different members of one machine in a single call are rejected before changing that machine. Other arguments retain ordinary argument-order mutation behavior.
 
-`enter` can attach a missing machine directly in any member. The initial state is used only when adding a bare machine. Entering the current state requires a self-edge when a table is supplied and replaces its data using defaults for omitted fields. `set` updates data without a transition.
+`enter` can attach a missing machine directly in any member. The initial state is used only when adding a bare machine. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces state data, using defaults for omitted fields. `set` updates data without a transition.
 
 `entity.add(member)` swaps states after checking the table. Adding the current member is a no-op, including when values are supplied. `upsert(member, value)` writes the current member or checks the table before swapping when absent. Attaching a missing machine can start in any member. Adding the bare machine is a no-op when it is already present.
 

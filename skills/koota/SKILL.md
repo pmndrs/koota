@@ -132,7 +132,7 @@ AssetMachine.current(entity) // undefined
 ```
 
 - `world.spawn(Machine)` enters the initial state. An explicit member overrides a bare machine in the same call.
-- `Machine.enter(entity, Loading({ progress }))` checks the transition table. Re-entering the current state is a transition and replaces its data with supplied values and defaults. A self-edge is required when a table exists.
+- `Machine.enter(entity, Loading({ progress }))` checks the transition table. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces its data with supplied values and defaults.
 - `entity.add(member)` checks the transition table, with duplicate adds remaining no-ops. `upsert` writes the current state or checks the table before swapping when absent.
 - `Machine.current(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.

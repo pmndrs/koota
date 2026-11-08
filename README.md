@@ -281,7 +281,7 @@ world.onTransition(AssetMachine, (entity, from, to) => {
 
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.
 - `enter`, `add` and `upsert` enforce the transition table. Adding the current state is a no-op, and upserting it only updates its data.
-- Re-entering the current state with `enter` is a transition and replaces its data with supplied values and defaults. A self-edge is required when a table exists.
+- To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entering with `enter` replaces its data with supplied values and defaults.
 - Declare the machine before any state is registered in a world, including through queries or subscriptions. Defining it alongside its states helps preserve that order.
 
 ### Relations
