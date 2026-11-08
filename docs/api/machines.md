@@ -35,12 +35,12 @@ world.spawn(Loading({ progress: 0 })) // Also has AssetMachine
 world.spawn(AssetMachine, Loading({ progress: 0.25 })) // Loading, without entering Pending
 
 AssetMachine.enter(entity, Loading({ progress: 0.5 }))
-AssetMachine.of(entity) === Loading
+AssetMachine.current(entity) === Loading
 entity.has(AssetMachine) // true
 entity.get(Loading) // { progress: 0.5 }
 ```
 
-`of` returns the current member or `undefined`, using membership masks without allocating. An explicit member overrides a bare machine in the same `spawn` or `add` call, regardless of argument order. Different members of one machine in a single call are rejected before changing that machine. Other arguments retain ordinary argument-order mutation behavior.
+`current` returns the current member or `undefined`, using membership masks without allocating. An explicit member overrides a bare machine in the same `spawn` or `add` call, regardless of argument order. Different members of one machine in a single call are rejected before changing that machine. Other arguments retain ordinary argument-order mutation behavior.
 
 `enter` can attach a missing machine directly in any member. The initial state is used only when adding a bare machine. Entering the current state requires a self-edge when a table is supplied and replaces its data using defaults for omitted fields. `set` updates data without a transition.
 
@@ -75,7 +75,7 @@ A swap commits the old and new membership together. A query matching both states
 
 Trackers retain their ordinary semantics. `Changed` includes additions and writes. Trackers coalesce changes and do not record an event history. Entering then leaving a state before reading `Added` removes that pending match. Re-entering a state clears its pending `Removed` match. Use transition callbacks to observe each transition.
 
-Inside `each`, membership changes immediately, including for `has`, `of` and nested queries. Only removal from the active query's backing collection is deferred. The walk keeps its starting sequence and does not revisit a transitioned entity. Stop using a state's borrowed callback value after transitioning away or re-entering it. Iterator writeback will not overwrite a replacement state.
+Inside `each`, membership changes immediately, including for `has`, `current` and nested queries. Only removal from the active query's backing collection is deferred. The walk keeps its starting sequence and does not revisit a transitioned entity. Stop using a state's borrowed callback value after transitioning away or re-entering it. Iterator writeback will not overwrite a replacement state.
 
 ## Transition callbacks
 

@@ -16,7 +16,7 @@ export function useMachine<S extends MachineStates>(
 ): { readonly current: S[keyof S] | undefined } {
   const initialEntity = getTargetEntity(target());
   let value = $state.raw<S[keyof S] | undefined>(
-    initialEntity === undefined ? undefined : resolve(machine).of(initialEntity)
+    initialEntity === undefined ? undefined : resolve(machine).current(initialEntity)
   );
   // Self-transitions replace data while keeping the same member trait.
   let version = $state(0);
@@ -32,7 +32,7 @@ export function useMachine<S extends MachineStates>(
       }
 
       const update = () => {
-        value = entity.isAlive() ? resolvedMachine.of(entity) : undefined;
+        value = entity.isAlive() ? resolvedMachine.current(entity) : undefined;
         untrack(() => version++);
       };
       const observer = entity[internal].observeSettled(update);

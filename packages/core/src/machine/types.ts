@@ -16,7 +16,7 @@ export type TransitionSubscriber<T extends Trait = Trait> = (
 
 export type Machine<S extends MachineStates = MachineStates> = TagTrait & {
   readonly states: Readonly<S>;
-  of(entity: Entity): S[keyof S] | undefined;
+  current(entity: Entity): S[keyof S] | undefined;
   enter(entity: Entity, state: MachineStateInput<S[keyof S]>): void;
 };
 

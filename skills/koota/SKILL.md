@@ -118,23 +118,23 @@ const AssetMachine = machine({
 })
 ```
 
-Spawn with the machine to enter its initial state. Use `enter` to transition between states and `of` to read the current state.
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state.
 
 ```typescript
 const entity = world.spawn(AssetMachine) // Starts in Pending
 AssetMachine.enter(entity, Loading({ progress: 0 })) // Checks the transition when assertions are enabled
-AssetMachine.of(entity) === Loading // true
+AssetMachine.current(entity) === Loading // true
 world.query(Loading) // All assets currently loading
 AssetMachine.enter(entity, Loaded) // Transitions to Loaded
 entity.add(Pending) // Swaps without checking the transition table
 entity.remove(AssetMachine) // Clears this entity's asset loading state
-AssetMachine.of(entity) // undefined
+AssetMachine.current(entity) // undefined
 ```
 
 - `world.spawn(Machine)` enters the initial state. An explicit member overrides a bare machine in the same call.
 - `Machine.enter(entity, Loading({ progress }))` checks edges when assertions are enabled and replaces state data. Self-entry requires a self-edge.
 - `entity.add(member)` swaps without edge checks, with duplicate adds remaining no-ops. `upsert` writes the current state or swaps when absent.
-- `Machine.of(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
+- `Machine.current(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
 - Remove the machine, not its current member.
 - `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition. `previous` contains the old value. `get` only reads current data.
 - Transition listeners must be registered when the transition starts. Unsubscribing before delivery cancels it. Listeners added during callbacks start with later transitions.

@@ -2,7 +2,7 @@ import { $internal, type Entity, type Machine, type MachineStates, type World } 
 import { useEntityValue } from '../utils/use-entity-value';
 
 function readMachine(entity: Entity, machine: Machine) {
-  return { state: machine.of(entity), revision: machine[$internal].machine!.revision(entity) };
+  return { state: machine.current(entity), revision: machine[$internal].machine!.revision(entity) };
 }
 
 function attachMachine(

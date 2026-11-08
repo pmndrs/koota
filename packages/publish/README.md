@@ -258,12 +258,12 @@ const AssetMachine = machine({
 })
 ```
 
-Spawn with the machine to enter its initial state. Use `enter` to transition between states and `of` to read the current state.
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state.
 
 ```ts
 const entity = world.spawn(AssetMachine) // Starts in Pending
 AssetMachine.enter(entity, Loading({ progress: 0 })) // Transitions to Loading
-AssetMachine.of(entity) === Loading // true
+AssetMachine.current(entity) === Loading // true
 world.query(Loading) // All assets currently loading
 AssetMachine.enter(entity, Loaded) // Transitions to Loaded
 

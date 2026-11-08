@@ -81,7 +81,7 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
   };
   const result = Object.assign(marker, {
     states,
-    of(entity: Entity) {
+    current(entity: Entity) {
       const ctx = getEntityContext(entity);
       if (assertsEnabled) assertEntityAlive(ctx, entity);
       return currentState(ctx, entity, context);

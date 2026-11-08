@@ -16,7 +16,7 @@ group('machine transitions 10k @machine @mutation', () => {
         }
       },
       snapshot: () => {
-        assert.equal(Download.of(entities[9999]), Loading);
+        assert.equal(Download.current(entities[9999]), Loading);
         assert.equal(entities[9999].get(Loading)?.requestId, 0);
         return entities.length;
       },
@@ -52,7 +52,7 @@ group('machine transitions 10k @machine @mutation', () => {
           }
         },
         snapshot: () => {
-          assert.equal(Download.of(entities[9999]), Idle);
+          assert.equal(Download.current(entities[9999]), Idle);
           assert.equal(entities[9999].has(Loading), false);
           if (observers !== 'none') assert.equal(transitions > 0, true);
           if (observers === 'queries') assert.equal(queryEvents, transitions);
