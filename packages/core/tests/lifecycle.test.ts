@@ -456,7 +456,7 @@ describe('Lifecycle Subscriptions', () => {
     });
   });
 
-  describe('onQueryAdd / onQueryRemove', () => {
+  describe('onEnter / onExit', () => {
     it.each(['add', 'remove'] as const)(
       'updates every query when a subscriber destroys its relation target during %s',
       (event) => {
@@ -465,7 +465,7 @@ describe('Lifecycle Subscriptions', () => {
         const parent = world.spawn();
         const child = world.spawn(ChildOf(parent));
         if (event === 'remove') child.add(Tag);
-        const subscribe = event === 'add' ? world.onQueryAdd : world.onQueryRemove;
+        const subscribe = event === 'add' ? world.onEnter : world.onExit;
         const notified = vi.fn();
         subscribe([Tag, ChildOf(parent)], () => parent.destroy());
         subscribe([Tag], notified);
@@ -488,8 +488,8 @@ describe('Lifecycle Subscriptions', () => {
 
       // With a cache key.
       const queryKey = createQuery(Position, Foo);
-      world.onQueryAdd(queryKey, staticCb);
-      world.onQueryRemove(queryKey, staticCb);
+      world.onEnter(queryKey, staticCb);
+      world.onExit(queryKey, staticCb);
 
       entity.add(Position);
       expect(staticCb).toHaveBeenCalledTimes(0);
@@ -503,8 +503,8 @@ describe('Lifecycle Subscriptions', () => {
       expect(event.entity).toBe(entity);
 
       // With parameters.
-      world.onQueryAdd([Position, Bar], staticCb);
-      world.onQueryRemove([Position, Bar], staticCb);
+      world.onEnter([Position, Bar], staticCb);
+      world.onExit([Position, Bar], staticCb);
 
       entity.add(Position);
       expect(staticCb).toHaveBeenCalledTimes(2);
@@ -521,10 +521,10 @@ describe('Lifecycle Subscriptions', () => {
       expect(staticCb).toHaveBeenCalledTimes(4);
     });
 
-    it('calls onQueryAdd after the traits are added with data', () => {
+    it('calls onEnter after the traits are added with data', () => {
       const values: number[] = [];
-      world.onQueryAdd([Position], (entity) => values.push(entity.get(Position)!.x));
-      world.onQueryAdd([Position, Value], (entity) => values.push(entity.get(Value)!.value));
+      world.onEnter([Position], (entity) => values.push(entity.get(Position)!.x));
+      world.onEnter([Position, Value], (entity) => values.push(entity.get(Value)!.value));
 
       world.spawn(Position({ x: 10, y: 20 }), Value({ value: 5 }));
       const entity = world.spawn();

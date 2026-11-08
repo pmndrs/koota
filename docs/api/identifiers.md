@@ -81,8 +81,8 @@ Keys use exact scalar equality. Numbers and strings are distinct, `0` and `-0` a
 Multiple terms use AND semantics. Each result must own every requested key, whether exclusive or shared. Term order does not change membership or tracking behavior. Identifier filters do not add data arguments to iteration callbacks. Cached queries and query subscriptions follow replacement, removal and key reuse for every owner.
 
 ```ts
-world.onQueryAdd([Name('kris'), WireId(123)], (entity) => {})
-world.onQueryRemove([Name('kris'), WireId(123)], (entity) => {})
+world.onEnter([Name('kris'), WireId(123)], (entity) => {})
+world.onExit([Name('kris'), WireId(123)], (entity) => {})
 
 // Entity relations can select targets through identifiers
 world.query(ChildOf(Name('kris'), WireId(123)))
