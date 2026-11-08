@@ -86,16 +86,18 @@ describe('machines', () => {
     world.destroy();
   });
 
-  it('checks enter edges while add and upsert can restore any state', () => {
+  it('checks transition edges through enter, add and upsert', () => {
     const { Wanted, Loading, Failed, Download } = download();
     const world = createWorld();
     const entity = world.spawn(Download);
     expect(() => Download.enter(entity, Failed)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+    expect(() => Download.enter(entity, Wanted)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+    expect(() => entity.add(Failed)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+    expect(() => entity.upsert(Failed, { retryAt: 20 })).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
     expect(Download.current(entity)).toBe(Wanted);
     Download.enter(entity, Loading({ requestId: 7, attempts: 3 }));
     Download.enter(entity, Loading({ requestId: 8 }));
     expect(entity.get(Loading)).toEqual({ requestId: 8, attempts: 0 });
-    entity.add(Wanted);
     entity.upsert(Failed, { retryAt: 20 });
     expect(entity.has(Wanted)).toBe(false);
     expect(entity.get(Failed)).toEqual({ retryAt: 20 });
@@ -370,7 +372,7 @@ describe('machines', () => {
   });
 
   it('rejects reentrant mutation, releases the lock after errors, and permits other entities', () => {
-    const { Wanted, Loading, Failed, Download } = download();
+    const { Loading, Failed, Download } = download();
     const world = createWorld();
     const entity = world.spawn(Download);
     const other = world.spawn(Download);
@@ -384,8 +386,8 @@ describe('machines', () => {
     expect(Download.current(entity)).toBe(Loading);
     expect(Download.current(other)).toBe(Loading);
     stop();
-    entity.add(Wanted);
-    expect(Download.current(entity)).toBe(Wanted);
+    entity.add(Failed);
+    expect(Download.current(entity)).toBe(Failed);
     world.destroy();
   });
 

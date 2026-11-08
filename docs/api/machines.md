@@ -25,7 +25,7 @@ const AssetMachine = machine({
 
 State names resolve transition-table keys. Declare a machine before any member is registered in any world, including through a query or subscription. A trait belongs to at most one machine. States must be ordinary traits, not relations, identifiers, ordered views or other machines. The initial state must have defaults. Other states can require values.
 
-Omitting `transitions` allows every edge. With a table, omitted sources have no outgoing edges. Edge checks follow `__KOOTA_ASSERTS__`, enabled by default outside production. Mutual exclusion applies in every build.
+Omitting `transitions` allows every edge. With a table, omitted sources have no outgoing edges. `enter`, `add` and `upsert` enforce the table. Illegal transitions throw `[MACHINE_ILLEGAL_TRANSITION]` when assertions are enabled and otherwise return without changing state or firing callbacks. Mutual exclusion always applies.
 
 ## Entering and reading
 
@@ -42,9 +42,9 @@ entity.get(Loading) // { progress: 0.5 }
 
 `current` returns the current member or `undefined`, using membership masks without allocating. An explicit member overrides a bare machine in the same `spawn` or `add` call, regardless of argument order. Different members of one machine in a single call are rejected before changing that machine. Other arguments retain ordinary argument-order mutation behavior.
 
-`enter` can attach a missing machine directly in any member. The initial state is used only when adding a bare machine. Entering the current state requires a self-edge when a table is supplied and replaces its data using defaults for omitted fields. `set` updates data without a transition.
+`enter` can attach a missing machine directly in any member. The initial state is used only when adding a bare machine. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces state data, using defaults for omitted fields. `set` updates data without a transition.
 
-`entity.add(member)` swaps states without checking the table. It is useful for restoration and tests. Adding the current member is a no-op, including when values are supplied. `upsert(member, value)` writes the current member or performs an unchecked swap when absent. Adding the bare machine is a no-op when it is already present.
+`entity.add(member)` swaps states after checking the table. Adding the current member is a no-op, including when values are supplied. `upsert(member, value)` writes the current member or checks the table before swapping when absent. Attaching a missing machine can start in any member. Adding the bare machine is a no-op when it is already present.
 
 ## Removing
 
@@ -103,7 +103,7 @@ const unsubscribeEntity = entity.onTransition(AssetMachine, (entity, from, to, p
 })
 ```
 
-`from` is `undefined` on attachment. `to` is `undefined` on removal or destruction. Callbacks report explicit re-entry and unchecked swaps too. Data-only writes and duplicate adds do not produce transitions.
+`from` is `undefined` on attachment. `to` is `undefined` on removal or destruction. Callbacks report explicit re-entry and swaps through `add` or `upsert` too. Data-only writes and duplicate adds do not produce transitions.
 
 Only listeners registered when a transition starts are eligible for that transition. Unsubscribing before delivery cancels it. Listeners added during a callback observe subsequent transitions.
 
@@ -143,7 +143,7 @@ The binding follows the same transitions as the React hook. Pass the entity or w
 | Error                          | Meaning                                                         |
 | ------------------------------ | --------------------------------------------------------------- |
 | `[MACHINE_MULTIPLE_STATES]`    | One add or spawn call supplies different states of one machine. |
-| `[MACHINE_ILLEGAL_TRANSITION]` | An edge is absent from the table, when assertions are enabled.  |
+| `[MACHINE_ILLEGAL_TRANSITION]` | An edge is absent from the table, with assertions enabled.      |
 | `[MACHINE_STATE_REQUIRED]`     | Direct removal would leave the machine without a state.         |
 | `[MACHINE_MEMBER_TAKEN]`       | A member already belongs to a machine.                          |
 | `[MACHINE_REGISTERED]`         | A member was registered before machine declaration.             |
@@ -154,4 +154,4 @@ The binding follows the same transitions as the React hook. Pass the entity or w
 | `[MACHINE_REENTRANT]`          | A callback changes a machine or destroys the same entity.       |
 | `[MACHINE_DESTROYING]`         | An entity being destroyed attempts to enter a state.            |
 
-Machines provide no clocks, guards or effects. Keep timed conditions and transition decisions in systems and actions.
+Machines provide no clocks, predicate guards or effects. Keep timed conditions and transition decisions in systems and actions.
