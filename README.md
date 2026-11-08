@@ -730,6 +730,24 @@ const eitherChanged = world.query(Or(Changed(Position), Changed(Velocity)))
 // After running the query, the Changed modifier is reset
 ```
 
+### Query lifecycle
+
+Entities enter a query when they start matching and exit when they stop matching. Use `world.onEnter` and `world.onExit` with a query reference or an array of query parameters. Both return unsubscribe functions and report future events without replaying existing matches.
+
+```js
+const moving = createQuery(Position, Velocity)
+const stopEnter = world.onEnter(moving, (entity) => startMoving(entity))
+const stopExit = world.onExit(moving, (entity) => stopMoving(entity))
+
+world.onEnter([Renderable, Not(Hidden)], (entity) => mount(entity))
+world.onExit([Renderable, Not(Hidden)], (entity) => unmount(entity))
+
+stopEnter()
+stopExit()
+```
+
+Adding `Hidden` causes an exit, and removing it causes an entry. The same lifecycle applies to ordinary traits, relations and identifiers. See [query lifecycle](docs/api/query.md#query-lifecycle) for details.
+
 ### Add, remove and change events
 
 Koota allows you to subscribe to add, remove, and change events for specific traits.
@@ -931,41 +949,24 @@ for (const entity of entities) {
 const kept = entities.toArray()
 ```
 
-#### Iterating entity handles
+#### Iterating entities
 
-Use `for...of` to process entity handles directly.
-
-```js
-for (const entity of world.query(Position)) {
-  draw(entity)
-}
-```
-
-#### Indexed loops
-
-Read `query.entities` once to borrow the regular query view's backing array without copying.
+Use `for...of` to iterate entities directly. For the fastest possible iteration, index `query.entities`, with the same performance as a native array.
 
 ```js
 const query = world.query(Position)
-const entities = query.entities
 
+for (const entity of query) {
+  draw(entity)
+}
+
+const entities = query.entities
 for (let i = 0, length = entities.length; i < length; i++) {
   draw(entities[i])
 }
 ```
 
-Treat the array as read-only. Finish the loop before running another query or changing membership. Use `for...of` on the view or `each` when the loop adds or removes entities or traits. Use `toArray()` to keep an independent copy.
-
-Both indexed loops and `for...of` on `query.entities` use native array traversal.
-
-Median time per 10,000-entity checksum on an Apple M4 Pro, across eight fresh processes with assertions disabled:
-
-| Indexed traversal | Node 24.14.0 | Node 26.1.0 |
-| ----------------- | -----------: | ----------: |
-| Native array      |      3.23 µs |     3.30 µs |
-| `query.entities`  |      3.27 µs |     3.29 µs |
-
-Run `pnpm bench '@query-indexed-raw' -n query-entities` to compare them with plain arrays.
+Treat the backing array as read-only and finish using it before another query run or membership change.
 
 ## APIs in detail until I make docs
 
@@ -1049,11 +1050,11 @@ const unsub = world.onChange(Position, (entity) => {})
 const unsub = world.onAdd(ChildOf(parent), (entity, target) => {})
 const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 
-// Subscribe to add or remove query events
-// This triggers whenever a query is updated
+// Subscribe to entities entering or exiting a query
+// Entry starts matching, exit stops matching
 // Return unsub function
-const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
-const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
+const unsub = world.onEnter([Position, Velocity], (entity) => {})
+const unsub = world.onExit([Position, Velocity], (entity) => {})
 
 // Subscribe to entity lifecycle events
 const unsub = world.onEntitySpawn((entity) => {})

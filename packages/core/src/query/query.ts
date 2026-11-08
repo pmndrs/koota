@@ -704,13 +704,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
       const cleanup = (query.cleanup ??= []);
       cleanup.push(
-        subscribeQueryAdd(ctx, pair.targetQueryRef, (target) => {
+        subscribeEnter(ctx, pair.targetQueryRef, (target) => {
           pair.targetQueryMatches!.add(target);
           refreshSourcesForTarget(target);
         })
       );
       cleanup.push(
-        subscribeQueryRemove(ctx, pair.targetQueryRef, (target) => {
+        subscribeExit(ctx, pair.targetQueryRef, (target) => {
           pair.targetQueryMatches!.remove(target);
           refreshSourcesForTarget(target);
         })
@@ -991,9 +991,9 @@ export function queryInternal<T extends QueryParameter[]>(
 }
 
 /**
- * Subscribe to query additions. Internal equivalent of world.onQueryAdd().
+ * Subscribe to query entries. Internal equivalent of world.onEnter().
  */
-export function subscribeQueryAdd(
+export function subscribeEnter(
   ctx: WorldContext,
   args: Query<QueryParameter[]> | QueryParameter[],
   callback: (entity: Entity) => void
@@ -1009,9 +1009,9 @@ export function subscribeQueryAdd(
 }
 
 /**
- * Subscribe to query removals. Internal equivalent of world.onQueryRemove().
+ * Subscribe to query exits. Internal equivalent of world.onExit().
  */
-export function subscribeQueryRemove(
+export function subscribeExit(
   ctx: WorldContext,
   args: Query<QueryParameter[]> | QueryParameter[],
   callback: (entity: Entity) => void

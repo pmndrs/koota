@@ -68,14 +68,14 @@ const unsub = world.onChange(Position, (entity) => {})
 const unsub = world.onAdd(ChildOf(parent), (entity, target) => {})
 const unsub = world.onAdd(ChildOf('*'), (entity, target) => {})
 
-// Subscribe to add or remove query events
-// This triggers whenever a query is updated
+// Subscribe to entities entering or exiting a query
+// Entry starts matching, exit stops matching
 // Return unsub function
-const unsub = world.onQueryAdd([Position, Velocity], (entity) => {})
-const unsub = world.onQueryRemove([Position, Velocity], (entity) => {})
+const unsub = world.onEnter([Position, Velocity], (entity) => {})
+const unsub = world.onExit([Position, Velocity], (entity) => {})
 
 // Relation-filtered query subscriptions stay live as target membership changes
-const unsub = world.onQueryAdd([ChildOf(IsPlayer, IsActive)], (entity) => {})
+const unsub = world.onEnter([ChildOf(IsPlayer, IsActive)], (entity) => {})
 
 // An array of all entities alive in the world, including non-queryable entities
 // This is a copy so editing it won't do anything!
@@ -93,6 +93,8 @@ world.reset()
 // Nukes the world and releases its ID
 world.destroy()
 ```
+
+See [query lifecycle](query.md#query-lifecycle) for membership semantics and examples.
 
 ## World traits
 

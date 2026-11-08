@@ -121,7 +121,7 @@ describe('Query modifiers', () => {
     expect(world.query(Not(Foo)).toArray()).toEqual([plain, withBar]);
 
     const added = vi.fn();
-    world.onQueryAdd([Not(Foo)], added);
+    world.onEnter([Not(Foo)], added);
 
     plain.destroy();
     withBar.destroy();

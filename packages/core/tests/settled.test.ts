@@ -28,7 +28,7 @@ it('settles after the entire destruction cascade', () => {
     observed.push([parent.isAlive(), child.isAlive(), grandchild.isAlive()]);
     expect(world.query(ChildOf('*')).length).toBe(0);
   });
-  world.onQueryRemove([ChildOf('*')], observer.invalidate);
+  world.onExit([ChildOf('*')], observer.invalidate);
   parent.destroy();
   expect(observed).toEqual([[false, false, false]]);
 });
@@ -137,7 +137,7 @@ it('settles world destruction before the world unregisters', () => {
   world.spawn(A);
   const observed: number[] = [];
   const observer = world[$internal].observeSettled(() => observed.push(world.query(A).length));
-  world.onQueryRemove([A], observer.invalidate);
+  world.onExit([A], observer.invalidate);
   world.destroy();
   expect(observed).toEqual([0]);
   expect(world.isRegistered).toBe(false);

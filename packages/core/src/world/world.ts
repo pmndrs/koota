@@ -380,7 +380,7 @@ export function createWorld(options?: WorldOptions): World {
       return runQueryFirst(ctx, query);
     },
 
-    onQueryAdd(
+    onEnter(
       args: Query<QueryParameter[]> | QueryParameter[],
       callback: (entity: Entity) => void
     ): QueryUnsubscriber {
@@ -416,7 +416,7 @@ export function createWorld(options?: WorldOptions): World {
       return () => query.addSubscriptions!.delete(callback);
     },
 
-    onQueryRemove(
+    onExit(
       args: Query<QueryParameter[]> | QueryParameter[],
       callback: (entity: Entity) => void
     ): QueryUnsubscriber {

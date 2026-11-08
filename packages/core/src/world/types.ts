@@ -126,19 +126,23 @@ export type World = {
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
   queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
-  onQueryAdd<T extends QueryParameter[]>(
+  /** Observe future entries into a query. Existing matches are not replayed. */
+  onEnter<T extends QueryParameter[]>(
     key: Query<T>,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
-  onQueryAdd<T extends QueryParameter[]>(
+  /** Observe future entries into a query. Existing matches are not replayed. */
+  onEnter<T extends QueryParameter[]>(
     parameters: T,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
-  onQueryRemove<T extends QueryParameter[]>(
+  /** Observe entities leaving a query. */
+  onExit<T extends QueryParameter[]>(
     key: Query<T>,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
-  onQueryRemove<T extends QueryParameter[]>(
+  /** Observe entities leaving a query. */
+  onExit<T extends QueryParameter[]>(
     parameters: T,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;

@@ -5,7 +5,8 @@ Complete guide to querying entities in Koota.
 ## Contents
 
 - [Basic queries](#basic-queries)
-- [Indexed loops](#indexed-loops) - Zero-copy entity access
+- [Query lifecycle](#query-lifecycle) - Entering and exiting matching conditions
+- [Iterating entities](#iterating-entities) - Direct and indexed loops
 - [Query modifiers](#query-modifiers) - Not, Or
 - [Tracking modifiers](#tracking-modifiers) - Added, Removed, Changed
 - [Caching queries](#caching-queries) - createQuery for performance
@@ -61,31 +62,42 @@ const player = world.queryFirst(IsPlayer, Position)
 const allEntities = world.query()
 ```
 
-## Indexed loops
+## Query lifecycle
 
-Read `query.entities` once to borrow the regular query view's backing array without copying.
+Use `world.onEnter` when an entity starts matching and `world.onExit` when it stops matching. Pass a query reference or an array of query parameters. Both return unsubscribe functions and report future events without replaying existing matches.
+
+```typescript
+const moving = createQuery(Position, Velocity)
+const stopEnter = world.onEnter(moving, (entity) => startMoving(entity))
+const stopExit = world.onExit(moving, (entity) => stopMoving(entity))
+
+world.onEnter([Renderable, Not(Hidden)], (entity) => mount(entity))
+world.onExit([Renderable, Not(Hidden)], (entity) => unmount(entity))
+
+stopEnter()
+stopExit()
+```
+
+Adding `Hidden` makes an entity exit the visibility query, and removing it makes the entity enter. Relations and identifiers use the same lifecycle. Trait `onAdd` and `onRemove` hooks retain their lifecycle timing. Tracking queries retain their tracking semantics.
+
+## Iterating entities
+
+Use `for...of` to iterate entities directly. For the fastest possible iteration, index `query.entities`, with the same performance as a native array.
 
 ```typescript
 const query = world.query(Position)
-const entities = query.entities
 
+for (const entity of query) {
+  draw(entity)
+}
+
+const entities = query.entities
 for (let i = 0, length = entities.length; i < length; i++) {
   draw(entities[i])
 }
 ```
 
-Treat the array as read-only. Finish the loop before running another query or changing membership. Use `for...of` on the view or `each` when the loop adds or removes entities or traits. Use `toArray()` to keep an independent copy.
-
-Both indexed loops and `for...of` on `query.entities` use native array traversal.
-
-Median time per 10,000-entity checksum on an Apple M4 Pro, across eight fresh processes with assertions disabled:
-
-| Indexed traversal | Node 24.14.0 | Node 26.1.0 |
-| ----------------- | -----------: | ----------: |
-| Native array      |      3.23 µs |     3.30 µs |
-| `query.entities`  |      3.27 µs |     3.29 µs |
-
-Run `pnpm bench '@query-indexed-raw' -n query-entities` to compare them with plain arrays.
+Treat the backing array as read-only and finish using it before another query run or membership change.
 
 ## Query modifiers
 

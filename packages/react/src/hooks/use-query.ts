@@ -51,11 +51,11 @@ function createQueryStore(world: World, ref: Query) {
     subscribe: (notify: () => void) => {
       const observer = ctx.observeSettled(notify);
       function listen() {
-        const offAdd = world.onQueryAdd(ref, observer.invalidate);
-        const offRemove = world.onQueryRemove(ref, observer.invalidate);
+        const offEnter = world.onEnter(ref, observer.invalidate);
+        const offExit = world.onExit(ref, observer.invalidate);
         return () => {
-          offAdd();
-          offRemove();
+          offEnter();
+          offExit();
         };
       }
       let detach = listen();

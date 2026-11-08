@@ -9,7 +9,7 @@ describe('Ordered relation views', () => {
     const ChildOf = relation();
     const Children = ordered(ChildOf);
     const added = vi.fn((parent: Entity) => expect(parent.get(Children)).toHaveLength(0));
-    world.onQueryAdd([Children], added);
+    world.onEnter([Children], added);
     const parent = world.spawn(Children);
     const child = world.spawn();
     parent.get(Children)!.add(child);

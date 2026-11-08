@@ -280,7 +280,9 @@ Use `query.sort(compare, [Position])` to read query results in a chosen order. T
 
 `sorted.entities` exposes the cached ordered array without an extra copy. Access checks whether the order needs refreshing. Read it once per loop and finish before another view access or changes to membership or sort data.
 
-For tracking changes, caching queries, and advanced patterns, see [references/queries.md](references/queries.md).
+Observe query lifecycle with `world.onEnter(query, callback)` and `world.onExit(query, callback)`. Pass a query reference or an array of query parameters. Both return an unsubscribe function and report future events without replaying existing matches. Entry starts matching and exit stops matching, so adding a trait can cause an exit through `Not`. This applies to ordinary traits, relations and identifiers.
+
+For query lifecycle, tracking changes, caching queries, and advanced patterns, see [references/queries.md](references/queries.md).
 
 ## React integration
 

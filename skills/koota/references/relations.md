@@ -156,7 +156,7 @@ const activePlayers = createQuery(IsPlayer, IsActive)
 const cachedChildren = world.query(ChildOf(activePlayers))
 ```
 
-These target-query filters stay live. If a target gains or loses the traits required by the filter, cached queries and `onQueryAdd`/`onQueryRemove` subscriptions update automatically.
+These target-query filters stay live. If a target gains or loses the traits required by the filter, cached queries and `onEnter`/`onExit` subscriptions update automatically.
 
 ### Get targets from an entity
 
