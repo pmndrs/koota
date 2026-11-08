@@ -91,13 +91,13 @@ describe('machines', () => {
     const world = createWorld();
     const entity = world.spawn(Download);
     expect(() => Download.enter(entity, Failed)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+    expect(() => Download.enter(entity, Wanted)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
     expect(() => entity.add(Failed)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
     expect(() => entity.upsert(Failed, { retryAt: 20 })).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
     expect(Download.current(entity)).toBe(Wanted);
     Download.enter(entity, Loading({ requestId: 7, attempts: 3 }));
     Download.enter(entity, Loading({ requestId: 8 }));
     expect(entity.get(Loading)).toEqual({ requestId: 8, attempts: 0 });
-    expect(() => entity.add(Wanted)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
     entity.upsert(Failed, { retryAt: 20 });
     expect(entity.has(Wanted)).toBe(false);
     expect(entity.get(Failed)).toEqual({ retryAt: 20 });

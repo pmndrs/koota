@@ -18,7 +18,6 @@ group('entity walk 10k @query @query-walk', () => {
     const { world, query } = setup();
     let sum = 0;
     yield () => {
-      sum = 0;
       for (const entity of world.query(query)) sum = (sum + entity) | 0;
     };
     world.destroy();
@@ -29,7 +28,6 @@ group('entity walk 10k @query @query-walk', () => {
     const { world, query } = setup();
     let sum = 0;
     yield () => {
-      sum = 0;
       world.query(query).each((_position, _velocity, entity) => {
         sum = (sum + entity) | 0;
       });
