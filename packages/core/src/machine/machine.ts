@@ -108,11 +108,6 @@ export function createMachineInstance(): MachineInstance {
   return { subscribers: new Map(), byEntity: new Map(), subscriptionVersion: 0, revisions: [] };
 }
 
-function machineInstance(ctx: WorldContext, machine: MachineContext): TraitInstance {
-  if (ctx.traitInstances[machine.trait.id] === undefined) registerTrait(ctx, machine.trait);
-  return ctx.traitInstances[machine.trait.id]!;
-}
-
 function currentState(ctx: WorldContext, entity: Entity, machine: MachineContext): Trait | undefined {
   for (const member of machine.members) {
     if (hasTrait(ctx, entity, member)) return member;
@@ -134,7 +129,7 @@ export function subscribeMachine(
   callback: TransitionSubscriber,
   entity?: Entity
 ): () => void {
-  const instance = machineInstance(ctx, machine[$internal].machine!);
+  const instance = ctx.traitInstances[machine.id] ?? registerTrait(ctx, machine);
   const data = instance.machine!;
   let subscriptions = data.subscribers;
   if (entity !== undefined) {
@@ -217,17 +212,21 @@ function reconcileMachine(
   marker: TraitInstance | undefined,
   dying: boolean
 ) {
+  if (ctx.defersChanges) clearPendingChanges(ctx, getEntityId(entity));
+  // Self-entry preserves static membership. Only tracking queries need reconciliation.
+  if (before === after && before?.trackingQueries.length === 0) return;
   let queries: Set<QueryInstance> | undefined;
   let tracked: Set<QueryInstance> | undefined;
   let anchored = false;
   for (let i = 0; i < 3; i++) {
     const instance = i === 0 ? before : i === 1 ? after : marker;
     if (instance === undefined) continue;
-    for (const query of instance.queries) (queries ??= new Set()).add(query);
+    if (before !== after) {
+      for (const query of instance.queries) (queries ??= new Set()).add(query);
+      anchored ||= instance.anchorRelations.length !== 0;
+    }
     for (const query of instance.trackingQueries) (tracked ??= new Set()).add(query);
-    anchored ||= instance.anchorRelations.length !== 0;
   }
-  if (ctx.defersChanges) clearPendingChanges(ctx, getEntityId(entity));
   if (queries === undefined && tracked === undefined && !anchored) return;
   const outerBatch = ctx.queryBatch;
   ctx.queryBatch = [];
@@ -302,7 +301,7 @@ function changeMachine(
   try {
     let marker = ctx.traitInstances[machine.trait.id];
     const subscriptionVersion = marker?.machine?.subscriptionVersion ?? 0;
-    if (marker === undefined) marker = machineInstance(ctx, machine);
+    if (marker === undefined) marker = registerTrait(ctx, machine.trait);
     const data = marker.machine!;
     if (to !== undefined && ctx.traitInstances[to.id] === undefined) registerTrait(ctx, to);
     const before = from === undefined ? undefined : ctx.traitInstances[from.id]!;

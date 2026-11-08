@@ -239,7 +239,7 @@ Or access world directly and use it.
 
 ### Finite state machines
 
-A finite state machine groups ordinary traits into mutually exclusive states and declares the transitions between them. Declare valid states, the initial state and valid transitions.
+A finite state machine groups ordinary traits into mutually exclusive states and declares the transitions between them. States are traits and can have data.
 
 ```ts
 import { machine, trait } from 'koota'

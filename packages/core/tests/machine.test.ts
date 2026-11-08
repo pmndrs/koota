@@ -200,7 +200,7 @@ describe('machines', () => {
     world.destroy();
   });
 
-  it.each(['onQueryAdd', 'onQueryRemove'] as const)(
+  it.each(['onEnter', 'onExit'] as const)(
     'keeps queries consistent during transitions with %s subscribed',
     (hook) => {
       const { Wanted, Loading, Download } = download();
@@ -211,13 +211,13 @@ describe('machines', () => {
       const machineAdded = vi.fn();
       const machineRemoved = vi.fn();
       const anyStateAdded = vi.fn();
-      world.onQueryAdd([Download], machineAdded);
-      world.onQueryRemove([Download], machineRemoved);
-      world.onQueryAdd([Or(Wanted, Loading)], anyStateAdded);
+      world.onEnter([Download], machineAdded);
+      world.onExit([Download], machineRemoved);
+      world.onEnter([Or(Wanted, Loading)], anyStateAdded);
       const remainsMatched = vi.fn();
       world[hook]([Or(RefersTo(Wanted), RefersTo(Loading))], remainsMatched);
       const observations: unknown[] = [];
-      world.onQueryAdd([Loading], () =>
+      world.onEnter([Loading], () =>
         observations.push([
           world.query(Wanted).toArray(),
           world.query(Loading).toArray(),
@@ -231,6 +231,14 @@ describe('machines', () => {
       expect(machineAdded).not.toHaveBeenCalled();
       expect(machineRemoved).not.toHaveBeenCalled();
       expect(anyStateAdded).not.toHaveBeenCalled();
+      expect(remainsMatched).not.toHaveBeenCalled();
+
+      const reentered = vi.fn();
+      world[hook]([Loading], reentered);
+      Download.enter(entity, Loading({ requestId: 9 }));
+      expect(entity.get(Loading)?.requestId).toBe(9);
+      expect(reentered).not.toHaveBeenCalled();
+      expect(observations).toHaveLength(1);
       expect(remainsMatched).not.toHaveBeenCalled();
       world.destroy();
     }
@@ -246,9 +254,9 @@ describe('machines', () => {
       const source = world.spawn(RefersTo(target));
       world.spawn(RefersTo(world.spawn(Loading)));
       const events: string[] = [];
-      const stop = world.onQueryRemove([Wanted], () => source.destroy());
-      world.onQueryAdd([RefersTo(Loading)], () => events.push('add'));
-      world.onQueryRemove([RefersTo(Loading)], () => events.push('remove'));
+      const stop = world.onExit([Wanted], () => source.destroy());
+      world.onEnter([RefersTo(Loading)], () => events.push('add'));
+      world.onExit([RefersTo(Loading)], () => events.push('remove'));
 
       if (walking) world.query(RefersTo(Loading)).each(() => Download.enter(target, Loading));
       else Download.enter(target, Loading);
@@ -267,9 +275,9 @@ describe('machines', () => {
     const other = world.spawn(Download);
     const source = world.spawn(RefersTo(target));
     const events: string[] = [];
-    world.onQueryAdd([Loading], () => source.add(RefersTo(other)));
-    world.onQueryAdd([RefersTo(Wanted)], () => events.push('add'));
-    world.onQueryRemove([RefersTo(Wanted)], () => events.push('remove'));
+    world.onEnter([Loading], () => source.add(RefersTo(other)));
+    world.onEnter([RefersTo(Wanted)], () => events.push('add'));
+    world.onExit([RefersTo(Wanted)], () => events.push('remove'));
 
     Download.enter(target, Loading);
     expect(world.query(RefersTo(Wanted)).toArray()).toContain(source);

@@ -77,6 +77,18 @@ Trackers retain their ordinary semantics. `Changed` includes additions and write
 
 Inside `each`, membership changes immediately, including for `has`, `current` and nested queries. Only removal from the active query's backing collection is deferred. The walk keeps its starting sequence and does not revisit a transitioned entity. Stop using a state's borrowed callback value after transitioning away or re-entering it. Iterator writeback will not overwrite a replacement state.
 
+## Query lifecycle
+
+States participate in the same [query lifecycle](query.md#query-lifecycle) as ordinary traits, relations and identifiers.
+
+```ts
+world.onEnter([Loading], (entity) => startRequest(entity))
+world.onExit([Loading], (entity) => cancelRequest(entity))
+world.onExit([AssetMachine], (entity) => cleanupAsset(entity))
+```
+
+These callbacks observe changes in query membership. A self-transition stays matched, as does a swap between states covered by the same query. Neither produces entry or exit events for that query. A query for the machine itself observes attachment and detachment. Use `onTransition` for every transition and its previous value.
+
 ## Transition callbacks
 
 ```ts
@@ -97,7 +109,7 @@ Only listeners registered when a transition starts are eligible for that transit
 
 `previous` is captured before removal callbacks. It is a snapshot for schema traits, the previous stored value for callback traits, and `undefined` for tags or initial attachment. Callback trait objects are references, not deep copies. Ordinary `get` always reads current membership and data, including during a self-transition.
 
-The order is destination preparation, old member `onRemove`, machine `onRemove` on detachment, membership and query reconciliation, query callbacks, new member `onAdd` and `onChange`, machine addition callbacks on attachment, then world and entity transition callbacks. Removal callbacks can still read the old member. Post-commit callbacks see the new membership, including relation-target query filters.
+The order is destination preparation, old member `onRemove`, machine `onRemove` on detachment, membership and query reconciliation, query `onEnter` and `onExit` callbacks, new member `onAdd` and `onChange`, machine addition callbacks on attachment, then world and entity transition callbacks. Removal callbacks can still read the old member. Post-commit callbacks see the new membership, including relation-target query filters.
 
 Before delivering a queued static-query notification, its membership is checked again. An earlier callback that destroys an entity or changes whether it matches can invalidate a pending notification, which is then skipped. Tracking queries retain their existing event semantics.
 
