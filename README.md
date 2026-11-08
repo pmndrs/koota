@@ -237,6 +237,48 @@ Or access world directly and use it.
 
 ## Advanced
 
+### Finite state machines
+
+A finite state machine groups ordinary traits into mutually exclusive states and declares the transitions between them. States are traits and can have data.
+
+```ts
+import { machine, trait } from 'koota'
+
+const Pending = trait()
+const Loading = trait({ progress: 0 })
+const Loaded = trait()
+const AssetMachine = machine({
+  states: { Pending, Loading, Loaded },
+  initial: Pending,
+  transitions: {
+    Pending: [Loading],
+    Loading: [Pending, Loaded],
+    Loaded: [Pending],
+  },
+})
+```
+
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state.
+
+```ts
+const entity = world.spawn(AssetMachine) // Starts in Pending
+AssetMachine.enter(entity, Loading({ progress: 0 })) // Transitions to Loading
+AssetMachine.current(entity) === Loading // true
+world.query(Loading) // All assets currently loading
+AssetMachine.enter(entity, Loaded) // Transitions to Loaded
+
+entity.add(Pending) // Swaps without checking the transition table
+entity.remove(AssetMachine) // Clears this entity's asset loading state
+```
+
+Observe each transition with `world.onTransition`.
+
+```ts
+world.onTransition(AssetMachine, (entity, from, to) => {
+  console.log('Asset loading state changed', entity, from, to)
+})
+```
+
 ### Relations
 
 Koota supports relations between entities using the `relation` function. Relations allow you to build graphs by creating connections between entities with efficient queries.

@@ -1,5 +1,7 @@
 import type { observeSettled } from './settled';
 import { ActionInstance } from '../actions/types';
+import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
+import type { QueryNotification, QuerySubscriber } from '../query/types';
 import type { $internal } from '../common';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import type { Entity } from '../entity/types';
@@ -59,6 +61,10 @@ export type WorldContext = {
   /** Tracking queries, and static queries that an entity holding no traits satisfies. */
   notQueries: QueryInstance[];
   queryCallbackDepth: number;
+  queryBatch: QueryNotification[] | undefined;
+  internalQuerySubscriptions:
+    WeakMap<QueryInstance, { add: Set<QuerySubscriber>; remove: Set<QuerySubscriber> }> | undefined;
+  machineMutations: Set<Entity> | undefined;
   /** Some entity may hold a pending bit, so membership changes clear the pending word. */
   defersChanges: boolean;
   /** Queries indexed by target entity page and offset. */
@@ -197,6 +203,10 @@ export type World = {
   onChange(
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
+  ): QueryUnsubscriber;
+  onTransition<S extends MachineStates>(
+    machine: Machine<S>,
+    callback: TransitionSubscriber<S[keyof S]>
   ): QueryUnsubscriber;
   onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber;
   onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber;

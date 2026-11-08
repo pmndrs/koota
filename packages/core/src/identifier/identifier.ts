@@ -40,7 +40,7 @@ export function identifier<K extends IdentifierKey = string>(
     [$identifier]: { value: true },
     id: { value: backing.id, enumerable: true },
   });
-  backing[$internal].isIdentifier = true;
+  backing[$internal].kind = 'identifier';
   return Identifier;
 }
 

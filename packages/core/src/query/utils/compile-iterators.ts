@@ -1,4 +1,5 @@
 import { $internal } from '../../common';
+import { machineRevision } from '../../machine/machine';
 import type { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { ENTITY_ID_MASK } from '../../entity/utils/pack-entity';
@@ -145,6 +146,9 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
   for (let j = 0; j < traits.length; j++) {
     const traitCtx = traits[j][$internal];
     const isSoA = traitCtx.type === 'soa';
+    const stable =
+      traitCtx.machine === undefined ? '' : `v${j} === machineRevision(ctx, T${j}, eid) && `;
+    if (traitCtx.machine !== undefined) read.push(`var v${j} = machineRevision(ctx, T${j}, eid);`);
     accessors.push(isSoA ? traitCtx.getInto : traitCtx.get, traitCtx.set);
     bind.push(`const g${j} = a[${j * 2}], w${j} = a[${j * 2 + 1}], T${j} = traits[${j}];`);
     hoist.push(`var s${j} = stores[${j}];`);
@@ -160,7 +164,7 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
       read.push(`c${j}.o = off;`);
       reset.push(`c${j}.changed = false;`);
       trackLines.push(
-        `if ((c${j}.changed || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+        `if (${stable}(c${j}.changed || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
       );
       continue;
     }
@@ -190,16 +194,16 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     }
 
     const writeCall = `w${j}(ctx, eid, s${j}, state[${j}])`;
-    write.push(`${writeCall};`);
+    write.push(stable ? `if (${stable}true) ${writeCall};` : `${writeCall};`);
     if (isSoA) {
       trackLines.push(
-        `if ((${writeCall} || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+        `if (${stable}(${writeCall} || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
       );
     } else {
       // An atomic value mutated in place is the same reference, so compare its snapshot.
       snapshot.push(`if (m${j} === 2) snapshotAtomic(state[${j}], snapshots, ${j});`);
       trackLines.push(
-        `if (${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}])) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+        `if (${stable}(${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}]))) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
       );
     }
   }
@@ -250,6 +254,7 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     'isEntityReadable',
     'snapshotAtomic',
     'atomicChanged',
+    'machineRevision',
     `'use strict';
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
@@ -277,7 +282,8 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     isIterationEntityAlive,
     isEntityReadable,
     snapshotAtomic,
-    atomicChanged
+    atomicChanged,
+    machineRevision
   ) as QueryIterators;
 }
 

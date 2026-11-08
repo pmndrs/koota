@@ -117,6 +117,28 @@ A nullish target is useful when combining `useTrait` with `useQueryFirst`:
 {/if}
 ```
 
+## `useMachine`
+
+Observes a machine on an entity or world. `current` is the current member trait, or `undefined` when the target is nullish, destroyed or has no machine. It updates on transitions, including self-transitions, removal and destruction. Data-only writes do not trigger it; use `useTrait` to observe those.
+
+Pass the target as a getter. The machine can be passed directly or as a getter when it changes reactively.
+
+```svelte
+<script>
+  import { useMachine } from 'koota/svelte'
+  import { AssetMachine, Loading } from './traits'
+
+  let { entity } = $props()
+  const state = useMachine(() => entity, AssetMachine)
+</script>
+
+{#if state.current === Loading}
+  <div>Loading</div>
+{/if}
+```
+
+See [state machines](../api/machines.md) for declaration and transition contracts.
+
 ## `useTag`
 
 Observes a tag on an entity or world. `current` is `true` when the tag is present and `false` when it is absent or the target is nullish. Use `useHas` to observe the presence of data-bearing traits.
