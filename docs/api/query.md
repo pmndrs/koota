@@ -98,35 +98,27 @@ world
 
 ## Relation targets in each
 
-Required relation pairs contribute arguments in parameter order, alongside trait records and before the source entity and index:
+`each` passes relation targets in query order, alongside trait records and before the entity and index. A pair that selects one target passes an `Entity`. A pair that can select several passes a read only array.
 
-| Pair                          | Exclusive relation | Non-exclusive relation                |
-| ----------------------------- | ------------------ | ------------------------------------- |
-| `R('*')`                      | `Entity`           | `readonly Entity[]`, every target     |
-| `R(Trait, ...)` or `R(query)` | `Entity`           | `readonly Entity[]`, matching targets |
-| `R(entity)`                   | `Entity`           | `Entity`                              |
-| Pair inside a modifier        | No target argument | No target argument                    |
-
-A pair that can select one target passes it as an `Entity`. A pair that can select several passes a read only array. A concrete `R(entity)` passes the target you gave it, so callbacks keep one shape whether the target is fixed or found.
+| Pair                          | Exclusive | Non-exclusive                           |
+| ----------------------------- | --------- | --------------------------------------- |
+| `R('*')`                      | `Entity`  | `readonly Entity[]`                     |
+| `R(Trait, ...)` or `R(query)` | `Entity`  | `readonly Entity[]` of matching targets |
+| `R(entity)`                   | `Entity`  | `Entity`                                |
+| Pair inside a modifier        | none      | none                                    |
 
 ```ts
 const ChildOf = relation({ exclusive: true })
 const Contains = relation()
 
-world
-  .query(Position, ChildOf('*'), Contains('*'))
-  .each((position, parent, contents, entity, index) => {
-    // parent is an Entity and contents is a readonly Entity[]
-  })
+world.query(Position, ChildOf('*'), Contains('*')).each((position, parent, contents, entity) => {
+  // parent is an Entity, contents is a readonly Entity[]
+})
 ```
 
-Target arrays snapshot the targets before each entity's callback. Adding or removing relations, destroying entities, and nested walks do not change that callback's array. The arrays are reused for later entities and walks. Keep them read only and copy with `contents.slice()` to retain them after the callback returns. `entity.targetsFor(R)` continues to return an independent snapshot.
+Arrays are snapshots reused between callbacks. Copy with `contents.slice()` to keep one. Structural changes to other entities during a walk are unsupported.
 
-Snapshots are taken per callback. Changing another entity's relations during a walk is unsupported, so remove pairs from the current entity only.
-
-Target reads and array copies are eager. Use `.select(Position)` to omit them, or `.forEach((entity) => ...)` for entity-only access. Relation pairs with stores contribute only their target values, without a store record. `getPages()`, `readEach`, and `updateEach` retain their existing trait-only data layouts.
-
-This changes the positions of the source entity and index in existing `each` callbacks with projecting pairs. Add the new arguments or select only the trait records the callback needs.
+Use `select` to skip reading targets, or `forEach` for entities only. Pairs with stores pass their targets, not a record. `getPages`, `readEach` and `updateEach` keep their trait only layouts.
 
 ## Direct entity access
 
