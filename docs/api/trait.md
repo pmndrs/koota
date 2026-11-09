@@ -90,7 +90,7 @@ entity.add(Ref)
 entity.add(View({ visible: false }))
 ```
 
-A required field has no default, so `Trait.record()` leaves it `undefined` until `get` fills the record.
+A required field has no default, so `Trait.record()` leaves it `undefined` until `get` fills the record. A required trait value has no default at all, so its `record()` returns `undefined`.
 
 ## Tuples
 

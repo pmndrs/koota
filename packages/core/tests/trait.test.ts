@@ -504,6 +504,11 @@ describe('Trait', () => {
 
       // A tag has no data, so like get it has no record.
       expect(trait().record()).toBeUndefined();
+
+      // A required value has no default, so it has no record either.
+      const MeshRef = trait(required<{ visible: boolean }>());
+      expect(MeshRef.record()).toBeUndefined();
+      expectTypeOf(MeshRef.record()).toEqualTypeOf<undefined>();
     });
 
     it.each([false, true])(

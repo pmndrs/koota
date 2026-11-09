@@ -242,9 +242,9 @@ export const createGetIntoFunction: Record<StoreType, (schema: Schema) => GetInt
   tag: () => noop,
 };
 
-// An AoS factory already builds its default record, and a tag has none.
+// An AoS factory already builds its default record. A required value and a tag have none.
 export const createRecordFunction: Record<StoreType, (schema: Schema) => () => any> = {
   soa: createSoARecordFunction,
-  aos: (schema) => schema as () => unknown,
+  aos: (schema) => (isRequired(schema) ? noop : (schema as () => unknown)),
   tag: () => noop,
 };
