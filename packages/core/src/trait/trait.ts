@@ -295,7 +295,10 @@ export function addPair(
   } else addIdentifierPair(ctx, entity, pair);
 }
 
-/** Apply a following parent pair before a name can claim a temporary root key. */
+/**
+ * Apply a following parent pair before a name can claim a temporary root key. The name then
+ * resolves in whatever scope the entity holds, even when the parent pair was skipped.
+ */
 export function addScopedIdentifierPair(
   ctx: WorldContext,
   entity: Entity,
@@ -308,7 +311,6 @@ export function addScopedIdentifierPair(
     const next = traits[i];
     if (isRelationPair(next) && next.relation === scope) {
       addRelationPair(ctx, entity, next);
-      if (getScopeTarget(ctx, scope, entity) !== next.target) return;
       break;
     }
   }
@@ -347,7 +349,7 @@ export /* @inline */ function upsertTrait(
   }
 }
 
-/* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
+export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
   const relation = pair.relation;
   const target = pair.target;
 
@@ -658,8 +660,8 @@ export function cleanupRelationTarget(
   entity: Entity,
   target: Entity
 ): void {
-  if (relation[$internal].scopedIdentifiers !== undefined) {
-    setScopedRelationPair(ctx, entity, relation, undefined, undefined);
+  if (relation[$internal].scopedIdentifiers !== undefined) /* @cold */ {
+    orphanScopedRelationSource(ctx, relation, entity);
     return;
   }
   const relationTrait = relation[$internal].trait;
@@ -669,6 +671,22 @@ export function cleanupRelationTarget(
 
   const remaining = removeRelationTarget(ctx, relation, entity, target);
   if (remaining === 0) removeTraitFromEntity(ctx, entity, relationTrait);
+}
+
+/** A destroy cannot be refused, so an orphan whose key is taken at the root releases that key. */
+function orphanScopedRelationSource(ctx: WorldContext, relation: Relation, entity: Entity) {
+  const eid = getEntityId(entity);
+  for (const identifier of relation[$internal].scopedIdentifiers!) {
+    if (!identifier[$internal].exclusive) continue;
+    const index = ctx.traitInstances[identifier.id]?.identifier;
+    const key = index?.targets[eid >>> 10]?.[eid & 1023];
+    if (key === undefined) continue;
+    const owner = index!.owners.get(key);
+    if (owner !== undefined && owner !== entity) {
+      removeTraitFromAliveEntity(ctx, entity, identifier[$internal].trait);
+    }
+  }
+  setScopedRelationPair(ctx, entity, relation, undefined, undefined);
 }
 
 export /* @inline @pure */ function hasTrait(
