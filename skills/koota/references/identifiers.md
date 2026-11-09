@@ -118,12 +118,26 @@ Shared intermediate keys select one current owner, so use exclusive keys for det
 restrict the query to one parent. Reparenting updates lookup ownership without changing the local
 name or emitting a name assignment event. Relation queries and subscriptions observe the move.
 
-A relation selected as an identifier scope must be exclusive. It becomes acyclic, and deleting a
-parent cascades to its descendants, including unnamed descendants. Moving or detaching an entity
-validates all identifiers using that relation before changing any mapping. A collision refuses
-the entire move with `[IDENTIFIER_TAKEN]`, and a cycle with `[IDENTIFIER_SCOPE_CYCLE]`. With
-assertions disabled, invalid moves are skipped. Removing the parent relation moves names into
-the root scope and follows the same collision rules.
+A relation selected as an identifier scope must be exclusive. Scoping changes nothing else about
+the relation. Lookups resolve one parent at a time and never walk ancestors, so the graph is not
+checked for cycles. Moving or detaching an entity validates all identifiers using that relation
+before changing any mapping. A collision refuses the entire move with `[IDENTIFIER_TAKEN]`. With
+assertions disabled, invalid moves are skipped. Removing the parent relation moves names into the
+root scope and follows the same collision rules.
+
+Destroying a parent follows the relation's own `autoDestroy` policy. With `autoDestroy: 'orphan'`
+the descendants are destroyed with it and their keys are released. Without it, the children move
+to the root scope. A destroy cannot be refused, so an orphan whose exclusive key is already taken
+at the root loses that key with the usual removal event and keeps everything else.
+
+```ts
+const ChildOf = relation({ exclusive: true, autoDestroy: 'orphan' })
+const Name = identifier({ scope: ChildOf })
+
+const robot = world.spawn(Name('robot'))
+const motor = world.spawn(Name('motor'), ChildOf(robot))
+robot.destroy() // motor is destroyed and both keys are released
+```
 
 When a scoped identifier precedes its parent pair in the same `spawn` or `add`, that following
 pair is applied before the name. This avoids temporarily claiming a root key. Multi-term calls
@@ -145,7 +159,7 @@ world.query(Name('motor'), ChildOf(arm), Position)
 
 // The arm named "arm" under a robot identified by its global ID
 const Motors = createQuery(Name('motor'), ChildOf(Name('arm'), ChildOf(RobotId(101))), Position)
-world.query(Motors).each((position, motor) => {
+world.query(Motors).each((arm, position, motor) => {
   position.x += 1
 })
 

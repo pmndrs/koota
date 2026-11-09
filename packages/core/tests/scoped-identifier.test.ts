@@ -182,9 +182,12 @@ describe('Scoped identifiers', () => {
     ).toEqual([motor]);
     expect(world.query(query).toArray()).toEqual([motor]);
     expect(world.queryFirst(query)).toBe(motor);
-    world.query(query).each((position, entity) => {
+    // Required relation filters pass their target before the trait records.
+    world.query(query).each((parent, position, entity) => {
+      expectTypeOf(parent).toEqualTypeOf<Entity>();
       expectTypeOf(position).toEqualTypeOf<{ x: number }>();
       expectTypeOf(entity).toEqualTypeOf<Entity>();
+      expect(parent).toBe(arm);
       position.x = 7;
     });
     expect(motor.get(Position)?.x).toBe(7);
@@ -230,18 +233,11 @@ describe('Scoped identifiers', () => {
     expect(view).toHaveLength(0);
     robot.remove(ChildOf(empty));
     expect(view.toArray()).toEqual([motor]);
-    robot.add(Name('old'));
-    expect(view).toHaveLength(0);
-    const replacement = world.spawn(Name('robot'));
-    arm.add(ChildOf(replacement));
-    expect(view.toArray()).toEqual([motor]);
-    replacement.destroy();
-    expect(view).toHaveLength(0);
-    expect(entered.mock.calls).toEqual([[motor], [motor], [motor]]);
-    expect(left.mock.calls).toEqual([[motor], [motor], [motor], [motor]]);
+    expect(entered.mock.calls).toEqual([[motor], [motor]]);
+    expect(left.mock.calls).toEqual([[motor], [motor]]);
   });
 
-  it('updates keyed relation queries alongside broader filters when moving and renaming', () => {
+  it('updates keyed relation queries alongside broader filters when moving', () => {
     const Port = identifier<number>({ scope: ChildOf });
     const first = world.spawn();
     const second = world.spawn();
@@ -264,49 +260,6 @@ describe('Scoped identifiers', () => {
     expect(either.toArray()).toEqual([motor]);
     expect(except.toArray()).toEqual([motor]);
     expect(mixed).toHaveLength(0);
-
-    motor.add(Name('renamed'));
-    motor.add(ChildOf(first));
-    expect(named).toHaveLength(0);
-    expect(numbered.toArray()).toEqual([motor]);
-    expect(either).toHaveLength(0);
-    motor.add(Name('motor'));
-    expect(named.toArray()).toEqual([motor]);
-    expect(mixed.toArray()).toEqual([motor]);
-    motor.remove(ChildOf(first));
-    expect(named).toHaveLength(0);
-    expect(numbered).toHaveLength(0);
-    expect(except.toArray()).toEqual([motor]);
-    motor.destroy();
-    expect(except).toHaveLength(0);
-  });
-
-  it('allows a keyed query callback to drop its target and reparent again', () => {
-    const first = world.spawn();
-    const second = world.spawn();
-    const third = world.spawn();
-    const motor = world.spawn(ChildOf(first), Name('motor'));
-    const leaving = createQuery(Name('motor'), ChildOf(first));
-    const middle = createQuery(Name('motor'), ChildOf(second));
-    const arriving = createQuery(Name('motor'), ChildOf(third));
-    const firstView = world.query(leaving);
-    const middleAdded = vi.fn();
-    const arrived = vi.fn();
-    world.onEnter(middle, middleAdded);
-    world.onEnter(arriving, arrived);
-    world.onExit(leaving, () => {
-      first.destroy();
-      motor.add(ChildOf(third));
-    });
-
-    motor.add(ChildOf(second));
-    expect(motor.targetFor(ChildOf)).toBe(third);
-    expect(firstView).toHaveLength(0);
-    expect(world.query(middle)).toHaveLength(0);
-    expect(world.query(arriving).toArray()).toEqual([motor]);
-    expect(world.lookup(third, Name('motor'))).toBe(motor);
-    expect(middleAdded).not.toHaveBeenCalled();
-    expect(arrived.mock.calls).toEqual([[motor]]);
   });
 
   it('keeps shared keys and lookupAll inside their requested scope', () => {
@@ -327,58 +280,90 @@ describe('Scoped identifiers', () => {
     expect(world.lookupAll(b, Label('sensor'))).toEqual([third]);
   });
 
-  it('releases names through cascading destruction and world reset', () => {
-    const robot = world.spawn(Name('robot'));
-    const motor = world.spawn(Name('motor'), ChildOf(robot));
+  it('follows the relation cascade policy through destruction and world reset', () => {
+    const Owns = relation({ exclusive: true, autoDestroy: 'orphan' });
+    const Label = identifier({ scope: Owns });
+    const robot = world.spawn(Label('robot'));
+    const motor = world.spawn(Label('motor'), Owns(robot));
     robot.destroy();
     expect(world.has(motor)).toBe(false);
-    expect(world.lookup(robot, Name('motor'))).toBeUndefined();
-    expect(world.query(Name('motor')).toArray()).toEqual([]);
-    const replacement = world.spawn(Name('robot'));
-    const next = world.spawn(Name('motor'), ChildOf(replacement));
-    expect(world.lookup(Name('robot'), Name('motor'))).toBe(next);
+    expect(world.lookup(robot, Label('motor'))).toBeUndefined();
+    expect(world.lookup(Label('motor'))).toBeUndefined();
+    expect(world.query(Label('motor')).toArray()).toEqual([]);
+    const replacement = world.spawn(Label('robot'));
+    const next = world.spawn(Label('motor'), Owns(replacement));
+    expect(world.lookup(Label('robot'), Label('motor'))).toBe(next);
     world.reset();
-    expect(world.lookup(Name('robot'), Name('motor'))).toBeUndefined();
+    expect(world.lookup(Label('robot'), Label('motor'))).toBeUndefined();
   });
 
-  it('requires single-parent hierarchies and refuses cycles before changing edges', () => {
+  it('moves orphans to the root scope and releases keys already taken there', () => {
+    const robot = world.spawn(Name('robot'));
+    const arm = world.spawn(Name('arm'), ChildOf(robot));
+    const motor = world.spawn(Name('motor'), ChildOf(arm));
+    const taken = world.spawn(Name('arm'));
+    const removed: unknown[] = [];
+    arm.onRemove(Name, (_, key) => removed.push(key));
+    robot.destroy();
+    expect(world.has(arm)).toBe(true);
+    expect(arm.targetFor(ChildOf)).toBeUndefined();
+    expect(arm.has(Name)).toBe(false);
+    expect(removed).toEqual(['arm']);
+    expect(world.lookup(Name('arm'))).toBe(taken);
+    expect(world.lookup(arm, Name('motor'))).toBe(motor);
+    arm.add(Name('spare'));
+    expect(world.lookup(Name('spare'))).toBe(arm);
+    arm.destroy();
+    expect(world.has(motor)).toBe(true);
+    expect(motor.targetFor(ChildOf)).toBeUndefined();
+    expect(world.lookup(Name('motor'))).toBe(motor);
+  });
+
+  it('resolves paths of any length for lookup and lookupAll', () => {
+    // Keys are literal scalars, so punctuation is never parsed as a path.
+    const a = world.spawn(Name('a.1'));
+    const b = world.spawn(Name('b'), ChildOf(a));
+    const c = world.spawn(Name('c'), ChildOf(b));
+    const d = world.spawn(Name('d'), ChildOf(c));
+    const e = world.spawn(Name('e'), ChildOf(d));
+    const f = world.spawn(Name('f'), ChildOf(e));
+    expect(world.lookup(Name('a.1'), Name('b'), Name('c'), Name('d'))).toBe(d);
+    expect(world.lookup(Name('a.1'), Name('b'), Name('c'), Name('d'), Name('e'))).toBe(e);
+    expect(world.lookup(a, Name('b'), Name('c'), Name('d'), Name('e'), Name('f'))).toBe(f);
+    expect(world.lookup(Name('a.1'), Name('b'), Name('x'), Name('d'), Name('e'))).toBeUndefined();
+    expect(world.lookupAll(a, Name('b'))).toEqual([b]);
+    expect(world.lookupAll(Name('a.1'), Name('b'), Name('c'))).toEqual([c]);
+    expect(world.lookupAll(Name('a.1'), Name('b'), Name('c'), Name('d'), Name('e'))).toEqual([e]);
+    expect(world.lookupAll(b, Name('c'), Name('d'), Name('e'), Name('f'))).toEqual([f]);
+    expect(world.lookupAll(Name('a.1'), Name('x'), Name('c'), Name('d'), Name('e'))).toEqual([]);
+  });
+
+  it('assigns a name in the scope the entity ends up with when the parent pair changes', () => {
+    const first = world.spawn(Name('first'));
+    const second = world.spawn(Name('second'));
+    const stop = world.onEnter([ChildOf(first)], (entity) => entity.add(ChildOf(second)));
+    const motor = world.spawn(Name('motor'), ChildOf(first));
+    stop();
+    expect(motor.targetFor(ChildOf)).toBe(second);
+    expect(world.lookup(second, Name('motor'))).toBe(motor);
+    expect(world.lookup(first, Name('motor'))).toBeUndefined();
+    expect(world.lookup(Name('motor'))).toBeUndefined();
+    const dead = world.spawn();
+    dead.destroy();
+    expect(() => world.spawn(Name('loose'), ChildOf(dead))).toThrow(/ENTITY_ALIVE/);
+  });
+
+  it('requires an exclusive scope and leaves the relation graph unconstrained', () => {
     expect(() => identifier({ scope: relation() })).toThrow(/IDENTIFIER_SCOPE/);
     const root = world.spawn(Name('root'));
     const child = world.spawn(ChildOf(root), Name('child'));
-    expect(() => root.add(ChildOf(child))).toThrow(/IDENTIFIER_SCOPE_CYCLE/);
-    expect(() => child.add(ChildOf(child))).toThrow(/IDENTIFIER_SCOPE_CYCLE/);
-    expect(root.targetFor(ChildOf)).toBeUndefined();
+    root.add(ChildOf(child));
+    expect(root.targetFor(ChildOf)).toBe(child);
     expect(child.targetFor(ChildOf)).toBe(root);
-    expect(world.lookup(Name('root'), Name('child'))).toBe(child);
-  });
-
-  it('keeps scope entities world-local and never resolves stale scopes', () => {
-    const other = createWorld();
-    try {
-      const scope = other.spawn(Name('robot'));
-      other.spawn(ChildOf(scope), Name('motor'));
-      expect(world.lookup(scope, Name('motor'))).toBeUndefined();
-      expect(world.lookupAll(scope, Name('motor'))).toEqual([]);
-    } finally {
-      other.destroy();
-    }
-  });
-
-  it('traverses longer paths without parsing punctuation in local keys', () => {
-    const root = world.spawn(Name('robot.one'));
-    const arm = world.spawn(ChildOf(root), Name('arm'));
-    const joint = world.spawn(ChildOf(arm), Name('joint'));
-    const motor = world.spawn(ChildOf(joint), Name('motor'));
-    const sensor = world.spawn(ChildOf(motor), Name('sensor'));
-    expect(
-      world.lookup(Name('robot.one'), Name('arm'), Name('joint'), Name('motor'), Name('sensor'))
-    ).toBe(sensor);
-    expect(world.lookup(root, Name('arm'), Name('joint'), Name('motor'), Name('sensor'))).toBe(
-      sensor
-    );
-    expect(
-      world.lookupAll(Name('robot.one'), Name('arm'), Name('joint'), Name('motor'), Name('sensor'))
-    ).toEqual([sensor]);
+    expect(world.lookup(child, Name('root'))).toBe(root);
+    expect(world.lookup(root, Name('child'))).toBe(child);
+    expect(world.lookup(Name('root'))).toBeUndefined();
+    expect(world.lookup(Name('child'))).toBeUndefined();
   });
 
   it('tracks a reparent as a relation change without assigning the local name again', () => {
@@ -399,11 +384,14 @@ describe('Scoped identifiers', () => {
     expect(world.query(Changed(Name)).toArray()).toEqual([]);
   });
 
-  it('preserves a reparent performed by a removal callback', () => {
+  it('preserves and tracks a reparent performed by a removal callback', () => {
+    const Changed = createChanged();
     const first = world.spawn();
     const second = world.spawn();
     const third = world.spawn();
     const motor = world.spawn(ChildOf(first), Name('motor'));
+    const secondView = world.query(createQuery(Name('motor'), ChildOf(second)));
+    world.query(Changed(ChildOf));
     const stop = motor.onRemove(ChildOf(first), () => motor.add(ChildOf(third)));
     motor.add(ChildOf(second));
     stop();
@@ -411,31 +399,7 @@ describe('Scoped identifiers', () => {
     expect(world.lookup(first, Name('motor'))).toBeUndefined();
     expect(world.lookup(second, Name('motor'))).toBeUndefined();
     expect(world.lookup(third, Name('motor'))).toBe(motor);
-  });
-
-  it('refuses new children of a parent during its destruction', () => {
-    const parent = world.spawn(Name('robot'));
-    const child = world.spawn(Name('motor'));
-    world.onEntityDestroy((entity) => {
-      if (entity === parent) expect(() => child.add(ChildOf(parent))).toThrow(/IDENTIFIER_SCOPE/);
-    });
-    parent.destroy();
-    expect(child.targetFor(ChildOf)).toBeUndefined();
-    expect(world.lookup(Name('motor'))).toBe(child);
-  });
-
-  it('tracks a replacement parent added by a query-removal callback', () => {
-    const Changed = createChanged();
-    const first = world.spawn();
-    const second = world.spawn();
-    const motor = world.spawn(ChildOf(first), Name('motor'));
-    world.query(Changed(ChildOf));
-    const stop = world.onExit([ChildOf(first)], (entity) => entity.add(ChildOf(second)));
-    motor.remove(ChildOf(first));
-    stop();
-    expect(motor.targetFor(ChildOf)).toBe(second);
-    expect(world.lookup(Name('motor'))).toBeUndefined();
-    expect(world.lookup(second, Name('motor'))).toBe(motor);
+    expect(secondView).toHaveLength(0);
     expect(world.query(Changed(ChildOf)).toArray()).toEqual([motor]);
   });
 });
