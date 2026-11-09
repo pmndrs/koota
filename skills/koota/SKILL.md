@@ -140,8 +140,8 @@ AssetMachine.current(entity) // undefined
 - `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition. `previous` contains the old value. `get` only reads current data.
 - Transition listeners must be registered when the transition starts. Unsubscribing before delivery cancels it. Listeners added during callbacks start with later transitions.
 - `Added` and `Removed` coalesce changes. `Changed` includes state additions. These queries are not transition event logs.
-- Stop using borrowed `each` state values after transitioning. Membership changes immediately.
-- Do not transition or destroy the same entity inside its machine callbacks. Other entities may transition.
+- Transitions inside `each` apply when the outermost scope ends. Borrowed state values remain valid for the callback and writes land before the transition.
+- Transitions and destroys requested by machine callbacks are deferred until the current operation completes, including requests for the same entity.
 
 Keep guards, clocks and effects in systems or actions. See [machine lifecycle and errors](../../docs/api/machines.md).
 
@@ -216,6 +216,12 @@ world.add(Time, Config)
 ```
 
 `retain` is an optional non-negative safe integer, defaulting to 1024. `world.retain` is read-only and preserved by reset. The world keeps its newest `retain` destroyed entities. Overflow evicts the oldest even if a `Removed` reader has not consumed it. Zero disables destroyed-entity retention. Readers consume independent batches within the cap, and late readers can see retained history.
+
+Structural changes made inside a walk, a hook or `world.defer(fn)` are deferred. `add`, `remove`, `destroy` and machine `enter` apply in call order when the outermost scope ends, while `spawn`, `set` and `changed` are immediate. Inside the scope, `has` and `isAlive` still report the state the scope started with. Wrap indexed loops over `query.entities` in `world.defer`. `world.reset` and `world.destroy` cannot run inside a scope.
+
+Commands appended by hooks form the next drain wave. Settled observers wait until all commands finish. The drain permits 100 passes independent of batch size, then throws and clears pending work. Already-applied changes remain committed. Ordinary command errors allow remaining work to finish before the first error is rethrown.
+
+Change notification holds one scope across tracking query reconciliation and trait or pair callbacks. An `onEnter(Changed(...))` callback can queue a removal without invalidating later notifications from the same write. Ordered view edits also apply in call order inside a scope, with `remove` reporting membership at call time even when its queued removal follows a pending addition.
 
 ## Entities
 
@@ -330,6 +336,8 @@ A query result is a live view. Regular query views expose a read-only, zero-copy
 `each` is zero-copy, the values it passes are only valid during the callback. Call `entity.get(Trait)` for a snapshot.
 
 A thrown error aborts `each` without rollback or guaranteed delivery of pending change notifications.
+
+Structural changes inside `each`, `forEach` and `for...of` are deferred until the outermost walk ends, so every row is visited with its entity, traits and relation targets intact. Hooks such as `onRemove` defer the structural changes they make until the operation that reached them completes.
 
 **Note:** `each` passes data-bearing traits (SoA/AoS) and targets discovered by `R('*')` or `R(query)`. Exclusive relations pass an `Entity`, otherwise a read-only target array. Tags, `Not()`, concrete `R(entity)` pairs, and relation pairs inside modifiers contribute no arguments:
 

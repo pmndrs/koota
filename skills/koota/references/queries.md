@@ -21,7 +21,7 @@ Queries fetch entities that share specific traits (archetypes).
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
-A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes during view traversal with `for...of`, `forEach`, or `each` are safe.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes during view traversal with `for...of`, `forEach`, or `each` are deferred. Adds, removes, destroys and machine transitions made inside a walk apply in call order when the outermost walk ends, so every row keeps its entity, traits and relation targets until then. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities. Spawning is immediate and the new entity shows up on the next run.
 
 ```typescript
 // Returns a QueryView, a live borrowed view
@@ -31,12 +31,18 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// Entities destroyed during a walk stay in the view until it ends and are
-// skipped by each, entities spawned show up on the next run.
-// Finish every for of loop you start, a suspended iterator keeps removals pending.
+// Entities destroyed during a walk stay alive until it ends, entities spawned
+// show up on the next run. Finish every for of loop you start, a suspended
+// iterator holds every structural change in the world.
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
+
+// Indexed loops over query.entities get the same guarantee from world.defer
+world.defer(() => {
+  const dense = entities.entities
+  for (let i = 0; i < dense.length; i++) if (dense[i].has(IsDead)) dense[i].destroy()
+})
 
 // The view changes with the world, copy it to keep it
 const kept = entities.toArray()
