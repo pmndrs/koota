@@ -484,8 +484,11 @@ export function removeTrait(
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
-  if (ctx.deferDepth !== 0) /* @cold */ {
-    deferCommand(ctx, applyRemoveTrait, entity, traits, undefined);
+  if (ctx.deferDepth !== 0) {
+    // Copy by index so only the command's array escapes. A helper or slice retains the rest array.
+    const deferred: typeof traits = [];
+    for (let i = 0; i < traits.length; i++) deferred[i] = traits[i];
+    deferCommand(ctx, applyRemoveTrait, entity, deferred, undefined);
   } else {
     beginRootDefer(ctx);
     try {

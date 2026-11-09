@@ -104,14 +104,13 @@ export class EntityView {
     const guard = this.getGuard();
     if (guard) guard.iterating++;
     beginDefer(this.ctx);
-    // A local cursor can be eliminated by V8. Reuse its result to avoid per-entity allocations.
     return {
       index: 0,
       length: dense.length,
       dense,
       guard,
       ctx: this.ctx,
-      result: { value: 0 as Entity, done: false },
+      done: false,
       next: nextViewIterator,
       return: returnViewIterator,
       [Symbol.iterator]: iterateViewIterator,
@@ -227,11 +226,11 @@ export class EntityView {
 /** Walks the membership present when the loop started. */
 interface ViewIterator extends IterableIterator<Entity> {
   index: number;
+  done: boolean;
   readonly length: number;
   readonly dense: readonly number[];
   readonly guard: { iterating: number } | null;
   readonly ctx: WorldContext;
-  readonly result: { value: Entity; done: boolean };
 }
 
 function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
@@ -245,27 +244,31 @@ function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
   } else {
     finishViewIterator(this);
   }
-  this.result.value = value;
-  this.result.done = done;
-  return this.result as IteratorResult<Entity>;
+  // A local result lets V8 eliminate it independently of the cursor.
+  return { value, done };
 }
 
 function returnViewIterator(this: ViewIterator): IteratorResult<Entity> {
   finishViewIterator(this);
-  return this.result as IteratorResult<Entity>;
+  return { value: 0 as Entity, done: true };
 }
 
 function iterateViewIterator(this: ViewIterator) {
   return this;
 }
 
-function finishViewIterator(iterator: ViewIterator) {
-  if (!iterator.result.done) {
-    iterator.result.done = true;
+/* @inline */ function finishViewIterator(iterator: ViewIterator) {
+  if (!iterator.done) {
+    iterator.done = true;
     iterator.index = iterator.length;
-    if (iterator.guard) iterator.guard.iterating--;
-    endDefer(iterator.ctx);
+    endViewIteration(iterator.ctx, iterator.guard);
   }
+}
+
+/** Keep scope cleanup outside the per-entity next method's inlining budget. */
+function endViewIteration(ctx: WorldContext, guard: ViewIterator['guard']) {
+  if (guard) guard.iterating--;
+  endDefer(ctx);
 }
 
 /** Handle-only snapshots need no world-specific stores or query-owned view cache. */
