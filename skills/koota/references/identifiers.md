@@ -74,3 +74,95 @@ const matches = useHas(player, WireId(123))
 ```
 
 Import these hooks from `koota/react`. `useTarget` observes the key, `useHas` observes presence or an exact term, and `useQuery` or `useQueryFirst` observes owners through the query system. They follow replacement, removal and destruction. Nullish sources return `undefined` from `useTarget` and `false` from `useHas`. Inline terms do not need memoization.
+
+## Scoped identifiers
+
+Choose one exclusive relation to supply an identifier's immediate scope. Entities without that
+relation belong to the root scope. Names may repeat under different parents, while exclusive
+keys must remain unique among siblings.
+
+```ts
+const ChildOf = relation({ exclusive: true })
+const Name = identifier({ scope: ChildOf })
+
+const robot = world.spawn(Name('robot'))
+const arm = world.spawn(Name('arm'), ChildOf(robot))
+const motor = world.spawn(Name('motor'), ChildOf(arm))
+
+world.lookup(Name('robot'), Name('arm'), Name('motor')) // motor
+world.lookup(robot, Name('arm'), Name('motor')) // motor
+world.lookup(arm, Name('motor')) // motor
+world.lookup(Name('motor')) // undefined, only the root scope is searched
+```
+
+Each path segment resolves in the entity returned by the preceding segment. Missing segments
+return `undefined`. Lookup does not search descendants or fall back to ancestor scopes. Keys
+remain literal scalars, so a name containing dots or slashes is not parsed as a path. Scope
+entities need not have names.
+
+Paths can mix identifier types. A global robot ID can identify the initial scope, followed by a
+local component name:
+
+```ts
+const RobotId = identifier<number>()
+robot.add(RobotId(101))
+world.lookup(RobotId(101), Name('arm'), Name('motor')) // motor
+```
+
+Only the first key can be unscoped. Every subsequent identifier must have a scoping relation.
+`lookupAll` accepts the same paths and returns all owners of the final key in the resolved scope.
+Shared intermediate keys select one current owner, so use exclusive keys for deterministic paths.
+
+`Name('motor')` still means a local key for `has`, removal, queries and subscriptions.
+`world.query(Name('motor'))` matches that local name across all scopes. Add `ChildOf(arm)` to
+restrict the query to one parent. Reparenting updates lookup ownership without changing the local
+name or emitting a name assignment event. Relation queries and subscriptions observe the move.
+
+A relation selected as an identifier scope must be exclusive. It becomes acyclic, and deleting a
+parent cascades to its descendants, including unnamed descendants. Moving or detaching an entity
+validates all identifiers using that relation before changing any mapping. A collision refuses
+the entire move with `[IDENTIFIER_TAKEN]`, and a cycle with `[IDENTIFIER_SCOPE_CYCLE]`. With
+assertions disabled, invalid moves are skipped. Removing the parent relation moves names into
+the root scope and follows the same collision rules.
+
+When a scoped identifier precedes its parent pair in the same `spawn` or `add`, that following
+pair is applied before the name. This avoids temporarily claiming a root key. Multi-term calls
+are otherwise sequential, so this is not a transaction that can rename and reparent through an
+otherwise conflicting intermediate state.
+
+Use `identifier({ scope: ChildOf, exclusive: false })` to allow shared keys inside each scope.
+Changing a parent's name or application ID does not rewrite descendants' local keys.
+
+### Querying scoped names
+
+Combine a local identifier with relation filters to query a specific parent or a named path.
+Each nested relation describes one immediate parent. Add ordinary traits to filter and read the
+matching entities' data.
+
+```ts
+// A known immediate parent
+world.query(Name('motor'), ChildOf(arm), Position)
+
+// The arm named "arm" under a robot identified by its global ID
+const Motors = createQuery(Name('motor'), ChildOf(Name('arm'), ChildOf(RobotId(101))), Position)
+world.query(Motors).each((position, motor) => {
+  position.x += 1
+})
+
+// The same path relative to a known robot entity
+world.query(Name('motor'), ChildOf(Name('arm'), ChildOf(robot)), Position)
+
+// A full name path anchored at the root
+world.query(Name('motor'), ChildOf(Name('arm'), ChildOf(Name('robot'), Not(ChildOf('*')))))
+```
+
+Identifier query terms match their local names across scopes. The root restriction above makes
+the named path match the root-started lookup. Omitting it also matches paths whose robot is
+nested under another entity. A global identifier such as `RobotId` needs no root restriction.
+
+Cached queries, live views and query subscriptions follow changes to ancestor identifiers and
+parent relations, as well as changes to the result entities. Shared intermediate names match
+every qualifying branch. Query exclusions apply at each level.
+
+Separate terms in `world.query(Name('robot'), Name('motor'))` require one entity to own both
+keys and therefore match nothing. Use nested relation filters to express the path.

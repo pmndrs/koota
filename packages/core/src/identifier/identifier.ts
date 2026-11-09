@@ -13,6 +13,7 @@ import { grantTraitMembership, reconcileQueries, registerTrait, trait } from '..
 import { getTraitInstance } from '../trait/trait-instance';
 import type { TraitInstance } from '../trait/types';
 import type { QueryInstance } from '../query/types';
+import { getIdentifierOwners, getScopeTarget, validateScopeParent } from './scoped-identifier';
 import type { WorldContext } from '../world';
 import { $identifier, $identifierPair } from './symbols';
 import type {
@@ -26,6 +27,10 @@ import type {
 export function identifier<K extends IdentifierKey = string>(
   options?: IdentifierOptions
 ): Identifier<K> {
+  const scope = options?.scope;
+  if (scope !== undefined && !scope[$internal].exclusive) {
+    throw new Error('Koota: [IDENTIFIER_SCOPE] A scoping relation must be exclusive.');
+  }
   const backing = trait();
   const Identifier = Object.assign(
     (target: K): IdentifierPair<K> => {
@@ -34,13 +39,15 @@ export function identifier<K extends IdentifierKey = string>(
       }
       return { [$identifierPair]: true, identifier: Identifier, target };
     },
-    { [$internal]: { trait: backing, exclusive: options?.exclusive ?? true } }
+    { [$internal]: { trait: backing, exclusive: options?.exclusive ?? true, scope } }
   ) as Identifier<K>;
   Object.defineProperties(Identifier, {
     [$identifier]: { value: true },
     id: { value: backing.id, enumerable: true },
   });
   backing[$internal].kind = 'identifier';
+  backing[$internal].identifier = Identifier;
+  if (scope !== undefined) (scope[$internal].scopedIdentifiers ??= []).push(Identifier);
   return Identifier;
 }
 
@@ -62,9 +69,43 @@ export /* @inline @pure */ function lookupIdentifier(
   return typeof owners === 'number' ? owners : owners?.[0];
 }
 
-export function lookupAllIdentifiers(ctx: WorldContext, pair: IdentifierPair): Entity[] {
-  const owners = ctx.traitInstances[pair.identifier.id]?.identifier?.owners.get(pair.target);
+export /* @inline @pure */ function lookupScopedIdentifier(
+  ctx: WorldContext,
+  scope: Entity,
+  pair: IdentifierPair
+): Entity | undefined {
+  const eid = getEntityId(scope);
+  const owners = ctx.traitInstances[pair.identifier.id]?.identifier?.scopeOwners?.[eid >>> 10]?.[
+    eid & 1023
+  ]?.get(pair.target);
+  return typeof owners === 'number' ? owners : owners?.[0];
+}
+
+export function lookupAllIdentifiers(
+  ctx: WorldContext,
+  pair: IdentifierPair,
+  scope: Entity | undefined
+): Entity[] {
+  const index = ctx.traitInstances[pair.identifier.id]?.identifier;
+  const scopeId = scope === undefined ? 0 : getEntityId(scope);
+  const owners = (
+    scope === undefined ? index?.owners : index?.scopeOwners?.[scopeId >>> 10]?.[scopeId & 1023]
+  )?.get(pair.target);
   return typeof owners === 'number' ? [owners] : owners === undefined ? [] : owners.slice();
+}
+
+/** Queries match local keys in every scope while lookup resolves a particular scope. */
+export function lookupAllIdentifierScopes(ctx: WorldContext, pair: IdentifierPair): Entity[] {
+  const result = lookupAllIdentifiers(ctx, pair, undefined);
+  const scopes = ctx.traitInstances[pair.identifier.id]?.identifier?.scopes;
+  if (scopes !== undefined) {
+    for (const owners of scopes.values()) {
+      const match = owners.get(pair.target);
+      if (typeof match === 'number') result.push(match);
+      else if (match !== undefined) for (const entity of match) result.push(entity);
+    }
+  }
+  return result;
 }
 
 export /* @inline @pure */ function hasIdentifier(
@@ -73,12 +114,8 @@ export /* @inline @pure */ function hasIdentifier(
   pair: IdentifierPair
 ): boolean {
   const index = ctx.traitInstances[pair.identifier.id]?.identifier;
-  const owners = index?.owners.get(pair.target);
-  if (typeof owners === 'number') return owners === entity;
-  if (owners === undefined) return false;
   const eid = getEntityId(entity);
-  const position = index!.positions![eid >>> 10]?.[eid & 1023];
-  return position !== undefined && owners[position] === entity;
+  return index?.targets[eid >>> 10]?.[eid & 1023] === pair.target;
 }
 
 export /* @inline */ function getIdentifierTarget<K extends IdentifierKey>(
@@ -108,7 +145,11 @@ export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: Ident
   const page = (index.targets[eid >>> 10] ??= []);
   const previous = page[eid & 1023];
   if (previous === pair.target) return;
-  const owners = index.owners.get(pair.target);
+  const scopeRelation = pair.identifier[$internal].scope;
+  const scope = scopeRelation === undefined ? undefined : getScopeTarget(ctx, scopeRelation, entity);
+  if (scopeRelation !== undefined && !validateScopeParent(ctx, scopeRelation, entity, scope)) return;
+  const ownerMap = getIdentifierOwners(index, scope);
+  const owners = ownerMap.get(pair.target);
   if (typeof owners === 'number' && pair.identifier[$internal].exclusive) {
     if (assertsEnabled) {
       throw new Error(
@@ -119,8 +160,15 @@ export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: Ident
   }
 
   if (previous !== undefined) releaseIdentifierOwner(index, entity, previous);
+  // Releasing the last old key may have removed this scope's bucket.
+  if (scope !== undefined) {
+    index.scopes!.set(scope, ownerMap);
+    const scopeId = getEntityId(scope);
+    (index.scopeOwners![scopeId >>> 10] ??= [])[scopeId & 1023] = ownerMap;
+  }
+  if (index.scopeTargets !== undefined) (index.scopeTargets[eid >>> 10] ??= [])[eid & 1023] = scope;
   if (owners === undefined) {
-    index.owners.set(pair.target, entity);
+    ownerMap.set(pair.target, entity);
   } else {
     addSharedIdentifierOwner(index, entity, pair.target, owners);
   }
@@ -143,7 +191,8 @@ export function addSharedIdentifierOwner(
     const previousId = getEntityId(owners);
     (positions[previousId >>> 10] ??= [])[previousId & 1023] = 0;
     page[eid & 1023] = 1;
-    index.owners.set(target, [owners, entity]);
+    const scope = index.scopeTargets?.[eid >>> 10]?.[eid & 1023];
+    getIdentifierOwners(index, scope).set(target, [owners, entity]);
   } else {
     page[eid & 1023] = owners.length;
     owners.push(entity);
@@ -193,6 +242,7 @@ export function releaseIdentifier(entity: Entity, data: TraitInstance): Identifi
   const target = page[eid & 1023]!;
   releaseIdentifierOwner(index, entity, target);
   page[eid & 1023] = undefined;
+  if (index.scopeTargets !== undefined) index.scopeTargets[eid >>> 10][eid & 1023] = undefined;
   return target;
 }
 
@@ -201,7 +251,10 @@ export /* @inline */ function releaseIdentifierOwner(
   entity: Entity,
   target: IdentifierKey
 ) {
-  const owners = index.owners.get(target);
+  const eid = getEntityId(entity);
+  const scope = index.scopeTargets?.[eid >>> 10]?.[eid & 1023];
+  const ownerMap = scope === undefined ? index.owners : index.scopes!.get(scope)!;
+  const owners = ownerMap.get(target);
   if (typeof owners === 'object') {
     const eid = getEntityId(entity);
     const position = index.positions![eid >>> 10][eid & 1023];
@@ -213,7 +266,13 @@ export /* @inline */ function releaseIdentifierOwner(
     }
     if (owners.length !== 0) return;
   }
-  index.owners.delete(target);
+  ownerMap.delete(target);
+  if (scope !== undefined && ownerMap.size === 0) {
+    index.scopes!.delete(scope);
+    const scopeId = getEntityId(scope);
+    const page = index.scopeOwners![scopeId >>> 10];
+    if (page[scopeId & 1023] === ownerMap) page[scopeId & 1023] = undefined;
+  }
 }
 
 /**
