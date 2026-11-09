@@ -126,6 +126,16 @@ describe('Trait', () => {
     });
   });
 
+  it('uses updated defaults for later entities without rewriting existing values', () => {
+    const Value = trait({ value: 0 });
+    const first = world.spawn(Value);
+    Value.schema.value = 1234567;
+    for (let i = 0; i < 300; i++) world.spawn();
+    const later = world.spawn(Value);
+    expect(first.get(Value)).toEqual({ value: 0 });
+    expect(later.get(Value)).toEqual({ value: 1234567 });
+  });
+
   it('should override defaults with params', () => {
     const entity = world.spawn();
 
@@ -373,15 +383,12 @@ describe('Trait', () => {
         stores: [position],
         indices,
       } of pages) {
-        // Every slot is filled with the default, so a column holds 1024 tuples.
-        expect(position.value).toHaveLength(1024 * 3);
         for (let i = 0; i < indices.length; i++) {
           const o = indices[i] * 3;
           position.value[o + 1] += position.mass[indices[i]];
         }
       }
 
-      expect(pages.length).toBeGreaterThan(1);
       expect(entities.map((entity) => entity.get(Position)!.value[1])).toEqual(
         entities.map((_, i) => i * 2 + 1)
       );

@@ -1,6 +1,6 @@
 import type { WorldContext } from '../world';
 import { isRequired } from './schema';
-import { createPage } from './stores';
+import { createPage, growPages } from './stores';
 import type { Schema, StoreType } from './types';
 
 // Accessors share the (ctx, index, store) prefix so a trait with custom storage can replace any of them.
@@ -58,7 +58,8 @@ function createSoASetFunction(schema: Schema): SetAccessor {
 function createSoAAddFunction(schema: Schema): AddAccessor {
   const keys = Object.keys(schema);
   // Pages for every key are created together, so the first key stands in for all of them.
-  const pages = keys.map((key) => `store.${key}[p] = createPage(schema.${key});`).join(' ');
+  // Only the world's first leased page starts short. Later pages need no growth.
+  const pages = keys.map((key) => `store.${key}[p] = createPage(schema.${key}, capacity);`).join(' ');
   const writes = keys
     .map((key, k) => {
       const field = (schema as Record<string, unknown>)[key];
@@ -78,14 +79,20 @@ function createSoAAddFunction(schema: Schema): AddAccessor {
   return new Function(
     'schema',
     'createPage',
+    'growPages',
     `
       return function (ctx, index, store, value) {
         var p = index >>> 10, o = index & 1023;
-        if (!store.${keys[0]}[p]) { ${pages} }
+        var page = store.${keys[0]}[p];
+        if (!page || page.length <= o * ${getStride(schema, keys[0]) || 1}) {
+          var capacity = p === ctx.entityIndex.ownedPages[0] ? 1 << (32 - Math.clz32(o | 63)) : 1024;
+          if (!page) { ${pages} }
+          else growPages(schema, store, p, capacity);
+        }
         ${writes}
       };
       `
-  )(schema, createPage) as AddAccessor;
+  )(schema, createPage, growPages) as AddAccessor;
 }
 
 /** Prepare one complete value with add semantics without allocating or changing storage. */

@@ -3,6 +3,7 @@
  * - AoS: store[pageId][offset] = instance
  * - SoA: store.key[pageId][offset] = value
  * - SoA tuple: store.key[pageId][offset * stride + element] = value
+ * SoA column capacity may grow in place. Length is capacity, not trait membership.
  */
 export type Store<T extends Schema = any> = T extends AoSFactory
   ? ReturnType<T>[][]
