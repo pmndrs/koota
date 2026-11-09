@@ -159,7 +159,7 @@ world.query(Name('motor'), ChildOf(arm), Position)
 
 // The arm named "arm" under a robot identified by its global ID
 const Motors = createQuery(Name('motor'), ChildOf(Name('arm'), ChildOf(RobotId(101))), Position)
-world.query(Motors).each((position, motor) => {
+world.query(Motors).each((arm, position, motor) => {
   position.x += 1
 })
 

@@ -182,9 +182,12 @@ describe('Scoped identifiers', () => {
     ).toEqual([motor]);
     expect(world.query(query).toArray()).toEqual([motor]);
     expect(world.queryFirst(query)).toBe(motor);
-    world.query(query).each((position, entity) => {
+    // Required relation filters pass their target before the trait records.
+    world.query(query).each((parent, position, entity) => {
+      expectTypeOf(parent).toEqualTypeOf<Entity>();
       expectTypeOf(position).toEqualTypeOf<{ x: number }>();
       expectTypeOf(entity).toEqualTypeOf<Entity>();
+      expect(parent).toBe(arm);
       position.x = 7;
     });
     expect(motor.get(Position)?.x).toBe(7);
