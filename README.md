@@ -485,7 +485,7 @@ const containsSilver = world.query(Contains(silver)) // Returns [inventory]
 const containsAnything = world.query(Contains('*')) // Returns [inventory, chest]
 ```
 
-`each` passes relation targets in query order before the entity. A pair that selects one target, an exclusive relation or a concrete `R(entity)`, passes an `Entity`. Other pairs pass a read only array of the matching targets.
+`each` passes targets discovered by `R('*')` and `R(query)` in query order before the source entity. Exclusive relations pass an `Entity`. Non-exclusive relations pass a read only array of the matching targets. Concrete `R(entity)` pairs only filter and contribute no callback argument.
 
 ```js
 world.query(Targeting('*')).each((target, entity) => {

@@ -178,7 +178,7 @@ describe('relation targets in each', () => {
     world.destroy();
   });
 
-  it('passes concrete targets and filters target query arrays, leaving modifier pairs out', () => {
+  it('projects matching targets, leaving concrete targets and modifier pairs out', () => {
     const world = createWorld();
     const Active = trait();
     const Missing = trait();
@@ -195,22 +195,20 @@ describe('relation targets in each', () => {
       Not(Parent(Missing))
     );
     const seen: unknown[][] = [];
-    world.query(query).each((parent, active, idleTarget, current, index) => {
-      expectTypeOf(parent).toEqualTypeOf<Entity>();
+    world.query(query).each((active, current, index) => {
       expectTypeOf(active).toEqualTypeOf<readonly Entity[]>();
-      expectTypeOf(idleTarget).toEqualTypeOf<Entity>();
       expectTypeOf(current).toEqualTypeOf<Entity>();
       expectTypeOf(index).toEqualTypeOf<number>();
-      seen.push([parent, active.slice(), idleTarget, current, index]);
+      seen.push([active.slice(), current, index]);
     });
-    expect(seen).toEqual([[target, [target], idle, entity, 0]]);
+    expect(seen).toEqual([[[target], entity, 0]]);
 
     // The filtered array follows the target query as targets enter and leave it.
     const other = world.spawn(Active);
     entity.add(Contains(other));
     target.remove(Active);
     seen.length = 0;
-    world.query(query).each((_parent, active) => seen.push(active.slice()));
+    world.query(query).each((active) => seen.push(active.slice()));
     expect(seen).toEqual([[other]]);
     expect(entity.targetsFor(Contains)).toEqual([target, idle, other]);
     world.destroy();
@@ -307,8 +305,8 @@ describe('relation targets in each', () => {
     });
     for (const target of [parent, '*' as const]) {
       world.query(Parent(target)).each((...args) => {
-        expectTypeOf(args).toEqualTypeOf<[Entity, Entity, number]>();
-        expect(args).toEqual([parent, child, 0]);
+        expectTypeOf(args).toEqualTypeOf<[Entity, number] | [Entity, Entity, number]>();
+        expect(args).toEqual(target === '*' ? [parent, child, 0] : [child, 0]);
       });
     }
     world.query(Dynamic(Tag)).each((...args) => {

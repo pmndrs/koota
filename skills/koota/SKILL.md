@@ -331,7 +331,7 @@ A query result is a live view. Regular query views expose a read-only, zero-copy
 
 A thrown error aborts `each` without rollback or guaranteed delivery of pending change notifications.
 
-**Note:** `each` only passes data-bearing traits (SoA/AoS). Tags, `Not()`, and relation filters are **excluded**:
+**Note:** `each` passes data-bearing traits (SoA/AoS) and targets discovered by `R('*')` or `R(query)`. Exclusive relations pass an `Entity`, otherwise a read-only target array. Tags, `Not()`, concrete `R(entity)` pairs, and relation pairs inside modifiers contribute no arguments:
 
 ```typescript
 world.query(IsPlayer, Position, Velocity).each((pos, vel) => {

@@ -160,17 +160,21 @@ These target-query filters stay live. If a target gains or loses the traits requ
 
 ### Read targets with each
 
-`each` passes required relation targets in query order alongside trait records, followed by the source entity and index.
+`each` passes targets discovered by required wildcard and target-query pairs in query order alongside trait records, followed by the source entity and index.
 
 - `R('*')` passes an `Entity` when `R` is exclusive, or a reusable `readonly Entity[]` snapshot otherwise.
 - `R(Trait, ...)` and `R(query)` pass the single target when `R` is exclusive, otherwise a `readonly Entity[]` of the targets that match the target query.
-- Concrete `R(entity)` passes that target as an `Entity`, exclusive or not.
+- Concrete `R(entity)` only filters and contributes no callback argument, exclusive or not.
 - Pairs inside modifiers pass no target argument.
 - Relation pairs with stores do not contribute a store record.
 
 ```typescript
 const Targeting = relation({ exclusive: true })
 const Contains = relation()
+
+world.query(Position, ChildOf(parent)).each((position, child) => {
+  // parent is already known, so the callback receives position and child
+})
 
 world.query(Targeting('*')).each((target, entity) => {
   entity.remove(Targeting(target))
