@@ -13,7 +13,7 @@ export interface EntityView<T extends QueryParameter[] = QueryParameter[]> {
   forEach(callback: (entity: Entity, index: number) => void): void;
   /** Returns a new array of callback results in view order. */
   map<U>(callback: (entity: Entity, index: number) => U): U[];
-  /** Relation target arrays are borrowed and read only. Copy them before changing the relation. */
+  /** Relation target arrays are reusable read-only snapshots, stable until the callback returns. */
   each(callback: (...args: [...InstancesFromParameters<T>, Entity, number]) => void): this;
   /** @deprecated Use each. Reads cost the same and writes are dropped. */
   readEach(

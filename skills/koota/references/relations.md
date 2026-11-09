@@ -162,7 +162,7 @@ These target-query filters stay live. If a target gains or loses the traits requ
 
 `each` projects top-level required relation pairs in parameter order alongside trait records, followed by the source entity and index:
 
-- `R('*')` passes an `Entity` when `R` is exclusive, or a borrowed `readonly Entity[]` otherwise.
+- `R('*')` passes an `Entity` when `R` is exclusive, or a reusable `readonly Entity[]` snapshot otherwise.
 - Exclusive `R(Trait, ...)` and `R(query)` pass their single target.
 - Concrete `R(entity)`, non-exclusive target-query pairs, and pairs inside modifiers pass no target argument.
 - Relation pairs with stores do not contribute a store record.
@@ -178,9 +178,9 @@ world
   })
 ```
 
-The array is live backing storage and must never be mutated. Copy it before retaining a snapshot or changing the relation. `targetsFor()` keeps returning an independent snapshot. Keep selected relations present until their row is visited, including when an earlier callback changes another entity.
+The array snapshots targets at callback entry and stays unchanged during structural commands and nested walks. Keep it read only. Its storage is reused for later entities and walks, so copy it before retaining it after the callback returns. `targetsFor()` keeps returning an independent snapshot. Snapshots are per callback, so earlier callbacks can change later rows. Keep selected relations present until their row is visited.
 
-`.select(Position)` excludes target reads from the iterator. `.forEach` visits source entities without reading trait records or targets. The deprecated `readEach` and `updateEach` methods and `getPages` keep their trait-only layouts.
+`.select(Position)` excludes target reads and copies from the iterator. `.forEach` visits source entities without reading trait records or targets. The deprecated `readEach` and `updateEach` methods and `getPages` keep their trait-only layouts.
 
 ### Get targets from an entity
 

@@ -56,6 +56,8 @@ export type QueryIterationBuffers = {
       }
     | undefined
   )[];
+  /** Reusable target arrays for this active walk, indexed by projection position. */
+  targetSnapshots: Entity[][];
   iterators: QueryIterators | undefined;
   /** Removed walks can read dead entities until their retained history is evicted. */
   retains: boolean;

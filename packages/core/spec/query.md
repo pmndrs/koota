@@ -88,18 +88,18 @@ The caller receives a `QueryView`, a live view over the instance's entity set wi
 
 Matching and projection are separate. A binding keeps trait stores for record access and one ordered projection list containing data traits and relation storage instances. That list supplies callback order, binding comparison and iterator cache keys. Required wildcards project their backing slot, which holds one entity for exclusive relations or the target array otherwise. Exclusive target-query pairs project the same slot. Other pairs remain filters.
 
-The generated positional iterator hoists the target storage references outside the entity loop and reads each selected slot directly into a callback argument. When trait cursors already track page changes, target pages share that page switch. It adds no per-entity policy branch, copied array, target lookup call, or relation writeback. Unselected targets generate no reads. Trait-only iterators keep their existing loop bodies.
+The generated positional iterator hoists the target storage references outside the entity loop and reads each selected slot into a callback argument. Non-exclusive slots are copied into reusable arrays before the callback. When trait cursors already track page changes, target pages share that page switch. The relation policy is resolved at compilation, without a per-entity policy branch or target lookup call. Unselected targets generate no reads or copies. Trait-only iterators keep their existing loop bodies.
 
-`targetsFor` retains its snapshot behavior. Arrays passed to `each` are borrowed and read only by contract. Structural changes can mutate them, and callers must preserve the selected membership until a row is visited. Legacy state-array iterators and page stores continue to expose trait data only.
+`targetsFor` retains its snapshot behavior. Arrays passed to `each` are reusable read-only snapshots. The iteration-buffer pool owns one array per non-exclusive projection and active walk, so structural commands and nested walks cannot alter the current callback's snapshot. Arrays are reused for later rows and calls. Callers must preserve selected membership until a row is visited. Legacy state-array iterators and page stores continue to expose trait data only.
 
 ### Validation and performance
 
-`query-relation-targets.test.ts` covers callback order and tracking, borrowed arrays, selection,
+`query-relation-targets.test.ts` covers callback order and tracking, snapshot stability, buffer reuse, selection,
 query references, excluded pairs, legacy layouts, derived views, world isolation and widened types.
 Explicit-schema inference is checked alongside the exclusive and non-exclusive behavior tests.
 
-`query-relation-inline.bench.ts` keeps eight cases. One exclusive relation measures unused,
-selected and consumed targets. One non-exclusive relation measures borrowed array consumption.
+`query-relation-inline.bench.ts` keeps ten cases. One exclusive relation measures unused,
+selected and consumed targets. Non-exclusive relations measure consumed and unused snapshots, including 32 targets to expose copy cost.
 Three relations cover unused argument scaling and consuming multiple arrays on scattered pages.
 A plain-trait control checks unrelated iteration, and a concrete lookup with target selection
 checks iterator reuse for views outside cached queries. Existing `query-api` benchmarks cover
@@ -110,15 +110,21 @@ binding before timing. Timed runs perform `world.query(...).each(...)`. Results 
 independent expected values outside timing. Arrays passed to callbacks are consumed directly.
 
 ```sh
-pnpm bench --against ../koota-relation-each-canary '@relation-each-inline' --blocks 6 -n relation-each-canary
+pnpm bench --against ../koota-relation-each-canary '@relation-each-inline' --blocks 6 -n relation-each-snapshots
 ```
 
-The six-block comparison against canary `1e0d99a7`, using the assertion-free build on Node 24.14.0 and
-an Apple M4 Pro, is saved locally as `relation-each-canary`. Unused targets add about 0.6 ns per
-entity for one relation and 1.5 ns for three. Consumed targets are 3.1–5.2 times faster than getter
-calls, while selection and plain-trait controls show no detected slowdown. The concrete lookup
-and selection case improves from 102.44 to 27.60 microseconds per 10,000 entities. Warm inline
-queries use the existing parameter-identity cache and skip hashing.
+The six-block comparison against canary `1e0d99a7`, using the assertion-free build on Node 24.14.0
+and an Apple M4 Pro, is saved locally as `relation-each-snapshots`. Consuming a two-target snapshot
+improves from 134.85 to 48.57 microseconds per 10,000 entities, and consuming three such snapshots
+improves from 404.04 to 141.25 microseconds. Unused two-target snapshots add about 2.7 ns per entity
+versus canary, growing to 27 ns with 32 targets. Selection and plain-trait controls show no detected
+slowdown. Exclusive targets retain their direct-read performance.
+
+The separate `relation-each-snapshot-cost` comparison against the borrowed-array implementation
+at `edad709f` isolates the copy cost. Consuming one two-target array rises from 33.55 to 50.36
+microseconds per 10,000 entities, and an unused array rises from 24.64 to 46.11 microseconds.
+Snapshot cost grows with the number of targets. Warm inline queries still use the existing
+parameter-identity cache and skip hashing.
 
 ### Inlining
 
@@ -127,18 +133,17 @@ Measured bytecode on Node 24.14.0, using the emitted bundle and generated iterat
 | Function or iterator                        | Bytes |
 | ------------------------------------------- | ----- |
 | Plain trait or targets excluded with select | 185   |
-| One trait and one target                    | 214   |
-| One trait and three targets                 | 281   |
-| Three targets without trait records         | 215   |
-| Tracked trait and three targets             | 364   |
-| Binding comparison                          | 435   |
-| Binding construction                        | 398   |
-| Iterator cache lookup                       | 121   |
+| One trait and one exclusive target          | 214   |
+| One trait and one target array              | 243   |
+| One trait and three target arrays           | 354   |
+| Three target arrays without trait records   | 284   |
+| Tracked trait and three target arrays       | 436   |
+| Buffer preparation                          | 424   |
+| Target snapshot copy                        | 53    |
 
-The binding loops use indexed array access to avoid iterator protocol machinery. These paths fit
-the 460-byte per-function budget. V8's `--trace-turbo-inlining` confirmed that small callbacks
-inline into all audited generated loops. Exclusive and non-exclusive projections generate the
-same loop structure. Trait-only and selected iteration bytecode is unchanged.
+These paths fit the 460-byte per-function budget. V8's `--trace-turbo-inlining` confirmed that
+the snapshot copy helper and small callbacks inline into the generated loops. Exclusive targets
+keep their direct slot reads. Trait-only and selected iteration bytecode is unchanged.
 
 ## Important details
 

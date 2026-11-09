@@ -118,11 +118,11 @@ world
   })
 ```
 
-Non-exclusive wildcard arrays borrow the relation's backing storage. They are read only by contract, without a runtime freeze or proxy. Do not mutate them. Copy with `contents.slice()` before keeping a snapshot or changing that relation. `entity.targetsFor(R)` continues to return a snapshot.
+Non-exclusive wildcard arrays snapshot the targets before each entity's callback. Adding or removing relations, destroying entities, and nested walks do not change that callback's array. The arrays are reused for later entities and walks. Keep them read only and copy with `contents.slice()` to retain them after the callback returns. `entity.targetsFor(R)` continues to return an independent snapshot.
 
-Keep selected relations present until their row is visited. An earlier callback can remove a later entity's relation while that entity remains in the current walk. Target arguments do not add membership checks or preserve historical targets.
+Keep selected relations present until their row is visited. An earlier callback can remove a later entity's relation while that entity remains in the current walk. Snapshots are taken per callback, so earlier callbacks can change the targets observed by later rows. Target arguments do not add membership checks.
 
-Target reads are eager. Use `.select(Position)` to omit them, or `.forEach((entity) => ...)` for entity-only access. Relation pairs with stores contribute only their target values, without a store record. `getPages()`, `readEach`, and `updateEach` retain their existing trait-only data layouts.
+Target reads and array copies are eager. Use `.select(Position)` to omit them, or `.forEach((entity) => ...)` for entity-only access. Relation pairs with stores contribute only their target values, without a store record. `getPages()`, `readEach`, and `updateEach` retain their existing trait-only data layouts.
 
 This changes the positions of the source entity and index in existing `each` callbacks with projecting pairs. Add the new arguments or select only the trait records the callback needs.
 

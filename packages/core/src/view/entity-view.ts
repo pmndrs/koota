@@ -418,6 +418,7 @@ function createIterationBuffers(): QueryIterationBuffers {
     state: [],
     binding: undefined,
     records: [],
+    targetSnapshots: [],
     iterators: undefined,
     retains: false,
     modes: [],
@@ -428,7 +429,7 @@ function createIterationBuffers(): QueryIterationBuffers {
   };
 }
 
-/** Checks out buffers from the pool, preparing them when the trait list differs. */
+/** Checks out buffers from the pool, preparing them when the projection differs. */
 function takeIterationBuffers(
   ctx: WorldContext,
   pool: QueryInstance | WorldContext,
@@ -444,7 +445,7 @@ function takeIterationBuffers(
 }
 
 /**
- * Points the buffers at a new trait list. Records already built for the same trait are kept. A
+ * Prepares buffers for a projection. Records already built for the same trait are kept. A
  * query binding compiles its own iterators, since every generated function with the same source
  * would otherwise share one feedback vector and its callback site would turn megamorphic across
  * queries. Views without a query share iterators per projection.
@@ -480,6 +481,12 @@ function prepareIterationBuffers(
         : undefined;
   }
   state.length = records.length = traits.length;
+  for (let i = 0; i < projection.length; i++) {
+    const part = projection[i];
+    if (typeof part !== 'function' && !part.trait[$internal].relation![$internal].exclusive) {
+      buffers.targetSnapshots[i] ??= [];
+    }
+  }
   buffers.binding = binding;
   buffers.iterators =
     pool === ctx

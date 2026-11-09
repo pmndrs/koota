@@ -222,7 +222,10 @@ export function compileQueryIterators(
     if (typeof part === 'function') return args[traitIndex++];
     targetHoist.push(`var rt${j} = projection[${j}].relationTargets${cursors ? `, rp${j}` : ''};`);
     if (cursors) targetRebind.push(`rp${j} = rt${j}[pg];`);
-    return cursors ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
+    const slot = cursors ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
+    if (part.trait[$internal].relation![$internal].exclusive) return slot;
+    targetHoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
+    return `copyTargetSnapshot(${slot}, ts${j})`;
   });
 
   // Structural changes can invalidate later entries. Removed walks accept retained dead entities,
@@ -279,6 +282,7 @@ export function compileQueryIterators(
     'snapshotAtomic',
     'atomicChanged',
     'machineRevision',
+    'copyTargetSnapshot',
     `'use strict';
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
@@ -308,8 +312,17 @@ export function compileQueryIterators(
     isEntityReadable,
     snapshotAtomic,
     atomicChanged,
-    machineRevision
+    machineRevision,
+    copyTargetSnapshot
   ) as QueryIterators;
+}
+
+/** Copies before the callback so structural commands cannot change its target list. */
+function copyTargetSnapshot(targets: readonly Entity[], snapshot: Entity[]): Entity[] {
+  const length = targets.length;
+  for (let i = 0; i < length; i++) snapshot[i] = targets[i];
+  if (snapshot.length !== length) snapshot.length = length;
+  return snapshot;
 }
 
 function isIterationEntityAlive(index: WorldContext['entityIndex'], entity: Entity): boolean {

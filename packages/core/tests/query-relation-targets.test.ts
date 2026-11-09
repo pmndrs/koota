@@ -44,35 +44,66 @@ describe('relation targets in each', () => {
     world.destroy();
   });
 
-  it('borrows non-exclusive target arrays while targetsFor keeps returning snapshots', () => {
+  it('reuses target snapshots without exposing them to structural commands or nested walks', () => {
     const world = createWorld();
+    const Position = trait({ x: 0 });
     const Contains = relation<{ amount: number }>({ store: { amount: 0 } });
+    const Likes = relation();
     const gold = world.spawn();
     const silver = world.spawn();
-    const inventory = world.spawn(Contains(gold, { amount: 2 }));
-    const query = world.query(Contains('*'));
-    const snapshot = inventory.targetsFor(Contains);
-    let borrowed: readonly Entity[] = [];
+    const copper = world.spawn();
+    const inventory = world.spawn(
+      Position,
+      Contains(gold, { amount: 2 }),
+      Contains(silver),
+      Likes(gold)
+    );
+    const pouch = world.spawn(Position, Contains(copper), Likes(gold));
+    const query = world.query(Position, Contains('*'), Likes('*'));
+    const saved = inventory.targetsFor(Contains);
+    const changed = vi.fn();
+    world.onChange(Position, changed);
+    const visited: Entity[] = [];
+    let scratch: readonly Entity[] | undefined;
 
-    query.each((targets, entity, index) => {
+    query.each((position, targets, likedTargets, entity, index) => {
       expectTypeOf(targets).toEqualTypeOf<readonly Entity[]>();
-      expect([entity, index]).toEqual([inventory, 0]);
-      expect(targets).not.toBe(snapshot);
-      borrowed = targets;
+      expect(likedTargets).toEqual([gold]);
+      expect(index).toBe(visited.length);
+      visited.push(entity);
+      position.x++;
+      if (entity === inventory) {
+        scratch = targets;
+        for (const target of targets) {
+          if (target === silver) target.destroy();
+          else entity.remove(Contains(target));
+        }
+        expect(entity.targetsFor(Contains)).toEqual([]);
+        entity.add(Contains(copper));
+        const nested: Entity[] = [];
+        query.each((_position, innerTargets, innerLiked, innerEntity) => {
+          expect(innerTargets).not.toBe(targets);
+          expect(innerTargets).toEqual([copper]);
+          expect(innerLiked).not.toBe(likedTargets);
+          expect(innerLiked).toEqual([gold]);
+          nested.push(innerEntity);
+        });
+        expect(nested).toEqual([inventory, pouch]);
+        expect(targets).toEqual([gold, silver]);
+        expect(likedTargets).toEqual([gold]);
+      } else {
+        expect(targets).toBe(scratch);
+        expect(targets).toEqual([copper]);
+      }
     });
-    expect(borrowed).toEqual([gold]);
-    inventory.add(Contains(silver));
-    query.each((targets) => {
-      expect(targets).toBe(borrowed);
-      expect(targets).toEqual([gold, silver]);
+    expect(visited).toEqual([inventory, pouch]);
+    expect(changed).toHaveBeenCalledTimes(2);
+    expect(saved).toEqual([gold, silver]);
+    expect(inventory.get(Contains(copper))).toEqual({ amount: 0 });
+    query.each((_position, targets) => {
+      expect(targets).toBe(scratch);
+      expect(targets).toEqual([copper]);
     });
-    inventory.remove(Contains(gold));
-    query.each((targets) => {
-      expect(targets).toBe(borrowed);
-      expect(targets).toEqual([silver]);
-    });
-    expect(snapshot).toEqual([gold]);
-    expect(inventory.get(Contains(silver))).toEqual({ amount: 0 });
     world.destroy();
   });
 

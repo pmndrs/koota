@@ -3,21 +3,22 @@ import { bench, group } from '@pmndrs/labs';
 import { createWorld, relation, trait, type Entity } from 'koota';
 
 // One relation covers each policy, three exercise projection scaling and scattered pages.
-for (const [exclusive, count, modes] of [
-  [true, 1, ['unused', 'selected', 'consumed']],
-  [false, 1, ['consumed']],
-  [true, 3, ['unused']],
-  [false, 3, ['consumed']],
+for (const [exclusive, count, targetCount, modes] of [
+  [true, 1, 1, ['unused', 'selected', 'consumed']],
+  [false, 1, 2, ['unused', 'consumed']],
+  [true, 3, 1, ['unused']],
+  [false, 3, 2, ['consumed']],
+  [false, 1, 32, ['unused']],
 ] as const) {
   group(
-    `inline ${exclusive ? 'exclusive' : 'multiple'} ${count} relations 10k @relation-each-inline`,
+    `inline ${exclusive ? 'exclusive' : 'multiple'} ${count} relations ${targetCount} targets 10k @relation-each-inline`,
     () => {
       for (const mode of modes) {
         bench(mode, function* () {
           const world = createWorld();
           const Position = trait({ x: 0 });
           const relations = Array.from({ length: count }, () => relation({ exclusive }));
-          const targets = [world.spawn(), world.spawn()];
+          const targets = Array.from({ length: targetCount }, () => world.spawn());
           const entities: Entity[] = [];
           for (let i = 0; i < 10_000; i++) {
             entities.push(world.spawn());
@@ -27,8 +28,7 @@ for (const [exclusive, count, modes] of [
             const entity = entities[count === 3 ? (i * 7919) % 10_000 : i];
             entity.add(Position({ x: i }));
             for (const relation of relations) {
-              entity.add(relation(targets[0]));
-              if (!exclusive) entity.add(relation(targets[1]));
+              for (const target of targets) entity.add(relation(target));
             }
           }
 
@@ -75,7 +75,7 @@ for (const [exclusive, count, modes] of [
           const expected =
             49_995_000 +
             (mode === 'consumed'
-              ? 10_000 * count * (exclusive ? targets[0] : 2 + targets[0] + targets[1])
+              ? 10_000 * count * (exclusive ? targets[0] : targets.length + targets[0] + targets[1])
               : 0);
           assert.equal(run(), expected);
           const result = yield run;
