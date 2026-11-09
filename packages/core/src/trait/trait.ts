@@ -5,6 +5,9 @@ import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
+import { isEntityDestroying } from '../entity/entity';
+import { isEntityAlive } from '../entity/utils/entity-index';
+import { getScopeTarget, validateScopeMove } from '../identifier/scoped-identifier';
 import { getEntityId } from '../entity/utils/pack-entity';
 import {
   addIdentifierPair,
@@ -23,6 +26,7 @@ import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
+  commitScopedRelationTarget,
   assertRequiredParams,
   detachRelationTargets,
   reconcileRelationQueries,
@@ -116,6 +120,7 @@ export function createTraitContext<S extends Schema>(
     machine: undefined,
     relation: null,
     kind: 'trait',
+    identifier: undefined,
     type,
     required: (isRequired(schema) || Object.values(schema).some(isRequired)) as RequiresInit<S>,
     cursor:
@@ -180,6 +185,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
     queries: [],
     trackingQueries: [],
     relationQueries: [],
+    relationQueryIdentifiers: undefined,
     anchorRelations: [],
     schema: trait.schema,
     changeSubscriptions: createSubscriptions(),
@@ -188,10 +194,17 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
     machine: traitCtx.machine?.trait === trait ? createMachineInstance() : undefined,
-    identifier:
-      traitCtx.kind === 'identifier'
-        ? { targets: [], owners: new Map(), positions: undefined, queries: new Map() }
-        : undefined,
+    identifier: traitCtx.identifier
+      ? {
+          targets: [],
+          owners: new Map(),
+          scopes: traitCtx.identifier[$internal].scope ? new Map() : undefined,
+          scopeTargets: traitCtx.identifier[$internal].scope ? [] : undefined,
+          scopeOwners: traitCtx.identifier[$internal].scope ? [] : undefined,
+          positions: undefined,
+          queries: new Map(),
+        }
+      : undefined,
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
@@ -244,7 +257,7 @@ export /* @inline */ function addTraitsToAliveEntity(
       trait = config[0];
       params = config[1];
     } else {
-      addPair(ctx, entity, config);
+      addPair(ctx, entity, config, traits, i);
       continue;
     }
 
@@ -269,9 +282,37 @@ export /* @inline */ function addTraitsToAliveEntity(
 }
 
 /** Pairs are the only configs that are neither a trait nor a tuple. Kept out of line as the rare case. */
-export function addPair(ctx: WorldContext, entity: Entity, pair: RelationPair | IdentifierPair) {
+export function addPair(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: RelationPair | IdentifierPair,
+  traits: ConfigurableTrait[],
+  offset: number
+) {
   if (isRelationPair(pair)) addRelationPair(ctx, entity, pair);
-  else addIdentifierPair(ctx, entity, pair);
+  else if (pair.identifier[$internal].scope !== undefined) {
+    addScopedIdentifierPair(ctx, entity, pair, traits, offset);
+  } else addIdentifierPair(ctx, entity, pair);
+}
+
+/** Apply a following parent pair before a name can claim a temporary root key. */
+export function addScopedIdentifierPair(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: IdentifierPair,
+  traits: ConfigurableTrait[],
+  offset: number
+) {
+  const scope = pair.identifier[$internal].scope!;
+  for (let i = offset + 1; i < traits.length; i++) {
+    const next = traits[i];
+    if (isRelationPair(next) && next.relation === scope) {
+      addRelationPair(ctx, entity, next);
+      if (getScopeTarget(ctx, scope, entity) !== next.target) return;
+      break;
+    }
+  }
+  addIdentifierPair(ctx, entity, pair);
 }
 
 /** Set the value where the trait or pair is present and add it with the value where it is absent. */
@@ -325,6 +366,11 @@ export /* @inline */ function upsertTrait(
     if (relationTrait[$internal].required) assertRequiredParams(relationTrait.schema, params);
   }
 
+  if (relationCtx.scopedIdentifiers !== undefined) {
+    setScopedRelationPair(ctx, entity, relation, target, params);
+    return;
+  }
+
   if (relationCtx.exclusive) {
     const oldTarget = getFirstRelationTarget(ctx, relation, entity);
     if (oldTarget !== undefined && oldTarget !== target) {
@@ -346,6 +392,54 @@ export /* @inline */ function upsertTrait(
   }
   emit(instance.addSubscriptions, entity, target);
   notifyTraitAdded(ctx, entity, instance, target);
+}
+
+/** A scope edge and all of its identifier mappings change as one observable operation. */
+export function setScopedRelationPair(
+  ctx: WorldContext,
+  entity: Entity,
+  relation: Relation,
+  target: Entity | undefined,
+  params: Record<string, any> | undefined
+): boolean {
+  if (isEntityDestroying(entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
+  const trait = relation[$internal].trait;
+  let instance = getTraitInstance(ctx.traitInstances, trait);
+  if (instance === undefined) instance = registerTrait(ctx, trait);
+  if (isEntityDestroying(entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
+  const previous = getScopeTarget(ctx, relation, entity);
+  if (previous === target) return true;
+  if (!validateScopeMove(ctx, relation, entity, target)) return false;
+
+  const present = hasTrait(ctx, entity, trait);
+  commitScopedRelationTarget(ctx, relation, entity, target);
+  if (target !== undefined) {
+    initRelationData(ctx, entity, relation, instance, 0, params);
+    if (!present) grantTraitMembership(ctx, entity, instance);
+  }
+  if (previous !== undefined) {
+    reconcileRelationQueries(ctx, instance, entity, previous, 'remove', false);
+  }
+  if (target !== undefined) {
+    reconcileRelationQueries(ctx, instance, entity, target, 'add', false);
+    if (present && instance.trackingQueries.length !== 0) {
+      reconcileTrackingQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
+    }
+  } else if (getScopeTarget(ctx, relation, entity) === undefined) {
+    removeTraitFromEntity(ctx, entity, trait);
+  }
+  if (previous !== undefined) emit(instance.removeSubscriptions, entity, previous);
+  if (
+    target !== undefined &&
+    isEntityAlive(ctx.entityIndex, entity) &&
+    getScopeTarget(ctx, relation, entity) === target
+  ) {
+    emit(instance.addSubscriptions, entity, target);
+    if (isEntityAlive(ctx.entityIndex, entity) && getScopeTarget(ctx, relation, entity) === target) {
+      notifyTraitAdded(ctx, entity, instance, target);
+    }
+  }
+  return true;
 }
 
 export function removeTrait(
@@ -396,7 +490,6 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
       releaseIdentifierTrait(ctx, entity, instance);
     } else {
       releaseRelationTargets(ctx, entity, trait, traitCtx.relation!);
-      removeTraitFromEntity(ctx, entity, trait);
     }
     return;
   }
@@ -420,12 +513,17 @@ export function releaseRelationTargets(
   trait: Trait,
   relation: Relation<Trait>
 ) {
+  if (relation[$internal].scopedIdentifiers !== undefined) {
+    setScopedRelationPair(ctx, entity, relation, undefined, undefined);
+    return;
+  }
   const instance = getTraitInstance(ctx.traitInstances, trait);
   if (instance) {
     const targets = getRelationTargets(ctx, relation, entity);
     for (const t of targets) emit(instance.removeSubscriptions, entity, t);
   }
   removeAllRelationTargets(ctx, relation, entity);
+  removeTraitFromEntity(ctx, entity, trait);
 }
 
 /**
@@ -522,6 +620,10 @@ function leaveStaticQueries(ctx: WorldContext, entity: Entity, queries: QueryIns
   const relationTrait = relation[$internal].trait;
 
   if (!hasTrait(ctx, entity, relationTrait)) return;
+  if (relation[$internal].scopedIdentifiers !== undefined) {
+    removeScopedRelationPair(ctx, entity, pair);
+    return;
+  }
 
   const instance = getTraitInstance(ctx.traitInstances, relationTrait);
 
@@ -543,12 +645,23 @@ function leaveStaticQueries(ctx: WorldContext, entity: Entity, queries: QueryIns
   }
 }
 
+/** A concrete removal only changes scope when it names the current parent. */
+export function removeScopedRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
+  if (pair.target === '*' || getScopeTarget(ctx, pair.relation, entity) === pair.target) {
+    setScopedRelationPair(ctx, entity, pair.relation, undefined, undefined);
+  }
+}
+
 export function cleanupRelationTarget(
   ctx: WorldContext,
   relation: Relation<Trait>,
   entity: Entity,
   target: Entity
 ): void {
+  if (relation[$internal].scopedIdentifiers !== undefined) {
+    setScopedRelationPair(ctx, entity, relation, undefined, undefined);
+    return;
+  }
   const relationTrait = relation[$internal].trait;
 
   const instance = getTraitInstance(ctx.traitInstances, relationTrait);

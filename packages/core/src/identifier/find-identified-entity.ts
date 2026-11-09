@@ -1,3 +1,4 @@
+import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { IsExcluded } from '../query/query';
 import type { QueryParameter } from '../query/types';
@@ -19,7 +20,7 @@ export function findIdentifiedEntity(
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
     if (typeof param === 'function') continue;
-    if (!isIdentifierPair(param)) return null;
+    if (!isIdentifierPair(param) || param.identifier[$internal].scope !== undefined) return null;
     const owner = ctx.traitInstances[param.identifier.id]?.identifier?.owners.get(param.target);
     if (typeof owner === 'object') return null;
     // Inspect every term even after a miss so tracking modifiers still initialize their query.
