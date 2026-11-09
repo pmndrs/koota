@@ -3,6 +3,7 @@ import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
+import { moveScopedIdentifiers } from '../identifier/scoped-identifier';
 import { getEntityId } from '../entity/utils/pack-entity';
 import type { EventType, QueryParameter } from '../query/types';
 import {
@@ -57,6 +58,7 @@ function createRelation<S extends TraitSchema = Record<string, never>>(definitio
     trait: relationTrait,
     exclusive: definition?.exclusive ?? false,
     autoDestroy,
+    scopedIdentifiers: undefined,
   };
 
   // A wildcard pair holds nothing of its own, so every call returns this one.
@@ -382,6 +384,31 @@ export function addRelationTarget(
   return targetIndex;
 }
 
+/** Commit the forward edge, reverse edge and names before any query or subscriber runs. */
+export function commitScopedRelationTarget(
+  ctx: WorldContext,
+  relation: Relation,
+  entity: Entity,
+  target: Entity | undefined
+): Entity | undefined {
+  const trait = relation[$internal].trait;
+  const data = ctx.traitInstances[trait.id]!;
+  const eid = getEntityId(entity);
+  const page = ((data.relationTargets ??= [])[eid >>> 10] ??= []);
+  const previous = page[eid & 1023] as Entity | undefined;
+  if (previous !== undefined) {
+    removeFromRelationSources(data, entity, previous);
+    clearRelationDataInternal(data.store, trait[$internal].type, eid, 0, true);
+    if (ctx.retain !== 0) recordPairRemoval(ctx, entity, trait.id, previous);
+  }
+  page[eid & 1023] = target;
+  if (target !== undefined) addToRelationSources(data, entity, target);
+  moveScopedIdentifiers(ctx, relation, entity, target);
+  data.version++;
+  if (assertsEnabled) ctx.structuralRevision++;
+  return previous;
+}
+
 /** Returns how many targets remain on the entity, or -1 when the pair was not present. */
 export function removeRelationTarget(
   ctx: WorldContext,
@@ -505,6 +532,41 @@ export function reconcileRelationQueries(
       addEntityToQuery(query, entity);
     } else {
       removeEntityFromQuery(ctx, query, entity);
+    }
+  }
+  if (!trackingOnly && instance.relationQueryIdentifiers !== undefined) {
+    reconcileIdentifiedRelationQueries(ctx, instance, entity);
+  }
+}
+
+/** A required local key rules out relation queries for every other name. */
+function reconcileIdentifiedRelationQueries(
+  ctx: WorldContext,
+  instance: TraitInstance,
+  entity: Entity
+) {
+  const eid = getEntityId(entity);
+  for (const identifier of instance.relationQueryIdentifiers!) {
+    const index = ctx.traitInstances[identifier.id]?.identifier;
+    const key = index?.targets[eid >>> 10]?.[eid & 1023];
+    if (key === undefined) continue;
+    const queries = index!.queries.get(key);
+    if (queries === undefined) continue;
+    for (const query of queries) {
+      const first = query.identifierFilters![0];
+      if (query.dropped || first.identifier !== identifier || first.target !== key) continue;
+      const pairs = query.filters?.pairs;
+      if (pairs === undefined) continue;
+      let required = false;
+      for (let i = 0; i < pairs.length; i++) {
+        if (pairs[i].term === 1 && pairs[i].relation[$internal].trait === instance.trait) {
+          required = true;
+          break;
+        }
+      }
+      if (!required) continue;
+      if (checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
+      else removeEntityFromQuery(ctx, query, entity);
     }
   }
 }

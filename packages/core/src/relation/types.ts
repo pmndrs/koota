@@ -1,5 +1,6 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
+import type { Identifier } from '../identifier/types';
 import type { Query, QueryParameter } from '../query/types';
 import type { AoSFactory, RequiredField, Schema } from '../storage';
 import type { Trait, TraitInit } from '../trait/types';
@@ -75,6 +76,7 @@ export type Relation<T extends Trait = Trait> = {
     trait: T;
     exclusive: boolean;
     autoDestroy: 'source' | 'target' | false;
+    scopedIdentifiers: Identifier[] | undefined;
   };
 } & RelationCall<T>;
 

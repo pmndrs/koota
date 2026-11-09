@@ -112,10 +112,12 @@ export type World = {
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
   spawn(...traits: ConfigurableTrait[]): Entity;
-  /** Resolve one current owner, including excluded entities, or undefined if absent. */
-  lookup<K extends IdentifierKey>(pair: IdentifierPair<K>): Entity | undefined;
-  /** Return a snapshot of every current owner, including excluded entities. */
-  lookupAll<K extends IdentifierKey>(pair: IdentifierPair<K>): Entity[];
+  /** Resolve a root key or a path of keys from outer scope to local key. */
+  lookup(pair: IdentifierPair, ...path: IdentifierPair[]): Entity | undefined;
+  lookup(scope: Entity, first: IdentifierPair, ...path: IdentifierPair[]): Entity | undefined;
+  /** Resolve the path prefix and return a snapshot of every owner of its final key. */
+  lookupAll(pair: IdentifierPair, ...path: IdentifierPair[]): Entity[];
+  lookupAll(scope: Entity, first: IdentifierPair, ...path: IdentifierPair[]): Entity[];
   has(entity: Entity): boolean;
   has(trait: Trait | Identifier | IdentifierPair): boolean;
   has(target: Entity | Trait | Identifier | IdentifierPair): boolean;

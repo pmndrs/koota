@@ -7,7 +7,7 @@ import {
   isIdentifierPair,
   joinKeyQueries,
   leaveKeyQueries,
-  lookupAllIdentifiers,
+  lookupAllIdentifierScopes,
 } from '../identifier/identifier';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
 import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
@@ -730,7 +730,16 @@ export function createQueryInstance<T extends QueryParameter[]>(
       relationTraitInstance &&
       relationSlot(query, relationTraitInstance) === all.length + k
     ) {
-      joinList(relationTraitInstance.relationQueries, query, all.length + k);
+      if (
+        keyFilters !== undefined &&
+        relationFilters.some((filter) => filter.relation === pair.relation && filter.term === 1)
+      ) {
+        const identifiers = (relationTraitInstance.relationQueryIdentifiers ??= []);
+        if (!identifiers.includes(keyFilters[0].identifier))
+          identifiers.push(keyFilters[0].identifier);
+      } else {
+        joinList(relationTraitInstance.relationQueries, query, all.length + k);
+      }
     }
 
     if (typeof pair.target === 'number') {
@@ -791,7 +800,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
   let candidateCount: number;
   if (query.identifierFilters !== undefined) {
     // A key bounds the candidates. The matcher checks every remaining term.
-    candidates = lookupAllIdentifiers(ctx, query.identifierFilters[0]);
+    candidates = lookupAllIdentifierScopes(ctx, query.identifierFilters[0]);
     candidateCount = candidates.length;
   } else if (targetCandidates !== undefined && !query.isTracking) {
     candidates = targetCandidates;

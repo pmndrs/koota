@@ -17,6 +17,7 @@ import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findIdentifiedEntity } from '../identifier/find-identified-entity';
 import { isIdentifierPair, lookupAllIdentifiers, lookupIdentifier } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
+import { lookupIdentifierPath, lookupShortIdentifierPath } from '../identifier/scoped-identifier';
 import {
   IsExcluded,
   createQueryInstance,
@@ -222,12 +223,25 @@ export function createWorld(options?: WorldOptions): World {
       return createEntity(ctx, spawnTraits);
     },
 
-    lookup(pair: IdentifierPair): Entity | undefined {
-      return lookupIdentifier(world[$internal], pair);
+    lookup(
+      start: IdentifierPair | Entity,
+      second?: IdentifierPair,
+      third?: IdentifierPair,
+      ...rest: IdentifierPair[]
+    ): Entity | undefined {
+      if (second === undefined) {
+        return typeof start === 'number' ? undefined : lookupIdentifier(world[$internal], start);
+      }
+      return lookupShortIdentifierPath(world[$internal], start, second, third, rest);
     },
 
-    lookupAll(pair: IdentifierPair): Entity[] {
-      return lookupAllIdentifiers(world[$internal], pair);
+    lookupAll(start: IdentifierPair | Entity, ...path: IdentifierPair[]): Entity[] {
+      const ctx = world[$internal];
+      if (path.length === 0) {
+        return typeof start === 'number' ? [] : lookupAllIdentifiers(ctx, start, undefined);
+      }
+      const scope = lookupIdentifierPath(ctx, start, path, path.length - 1);
+      return scope === undefined ? [] : lookupAllIdentifiers(ctx, path[path.length - 1], scope);
     },
 
     has(target: Entity | Trait | Identifier | IdentifierPair): boolean {

@@ -88,6 +88,8 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   relation: Relation<any> | null;
   /** Membership cleanup dispatch, separate from the storage layout. */
   kind: 'trait' | 'relation' | 'identifier' | 'machine';
+  /** The trait tracks identifier presence. Keys live in the world-local identifier index. */
+  identifier: Identifier | undefined;
 };
 
 export type Trait<TSchema extends Schema = any> = {
@@ -175,6 +177,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   trackingQueries: QueryInstance[];
   /** Queries that filter by this relation (only for relation traits) */
   relationQueries: QueryInstance[];
+  /** Required identifier keys narrow the static queries that read this relation. */
+  relationQueryIdentifiers: Identifier[] | undefined;
   /** Relations whose targets lead to the anchored queries that read this trait. */
   anchorRelations: TraitInstance[];
   schema: S;
