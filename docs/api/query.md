@@ -98,13 +98,13 @@ world
 
 ## Relation targets in each
 
-`each` passes relation targets in query order, alongside trait records and before the entity and index. A pair that selects one target passes an `Entity`. A pair that can select several passes a read only array.
+`each` passes targets discovered by wildcard and target-query pairs in query order, alongside trait records and before the source entity and index. Exclusive relations pass an `Entity`. Non-exclusive relations pass a read only array. Concrete `R(entity)` pairs only filter and contribute no callback argument.
 
 | Pair                          | Exclusive | Non-exclusive                           |
 | ----------------------------- | --------- | --------------------------------------- |
 | `R('*')`                      | `Entity`  | `readonly Entity[]`                     |
 | `R(Trait, ...)` or `R(query)` | `Entity`  | `readonly Entity[]` of matching targets |
-| `R(entity)`                   | `Entity`  | `Entity`                                |
+| `R(entity)`                   | none      | none                                    |
 | Pair inside a modifier        | none      | none                                    |
 
 ```ts
@@ -113,6 +113,10 @@ const Contains = relation()
 
 world.query(Position, ChildOf('*'), Contains('*')).each((position, parent, contents, entity) => {
   // parent is an Entity, contents is a readonly Entity[]
+})
+
+world.query(Position, ChildOf(parent)).each((position, child) => {
+  // parent is already known, so the callback receives position and child
 })
 ```
 

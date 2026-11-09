@@ -299,7 +299,10 @@ export function getQueryBinding(
 ): QueryViewBinding {
   if (
     query === null &&
-    (params.length === 0 || (params.length === 1 && isIdentifierPair(params[0])))
+    (params.length === 0 ||
+      (params.length === 1 &&
+        (isIdentifierPair(params[0]) ||
+          (isRelationPair(params[0]) && typeof params[0].target === 'number'))))
   ) {
     return entityBinding;
   }
@@ -338,6 +341,7 @@ export function matchesQueryBinding(
     const param = params[i];
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
     if (isRelationPair(param)) {
+      if (typeof param.target === 'number') continue;
       if (!matchesPairProjection(ctx, query, param, projection[argument], targets[argument])) {
         return false;
       }
@@ -375,16 +379,15 @@ function fillQueryBinding(
   ctx: WorldContext,
   query: QueryInstance | null,
   params: QueryParameter[],
-  { traits, stores, projection, targets }: QueryViewBinding
+  binding: QueryViewBinding
 ) {
+  const { traits, stores, projection, targets } = binding;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
     if (isRelationPair(param)) {
-      const instance = ensureTraitInstance(ctx, param.relation[$internal].trait);
-      const entry = pairProjection(query, instance, param);
-      projection.push(entry);
-      targets.push(pairTarget(query, param, entry.mode));
+      if (typeof param.target === 'number') continue;
+      bindPairProjection(ctx, query, param, binding);
       continue;
     }
     if (isModifier(param)) {
@@ -408,6 +411,23 @@ function fillQueryBinding(
   }
 }
 
+/** Registers relation storage and resolves its target query once when a binding is created. */
+export function bindPairProjection(
+  ctx: WorldContext,
+  query: QueryInstance | null,
+  pair: RelationPair,
+  binding: QueryViewBinding
+) {
+  const instance = ensureTraitInstance(ctx, pair.relation[$internal].trait);
+  const exclusive = pair.relation[$internal].exclusive;
+  const matches =
+    !exclusive && pair.targetQuery !== undefined ? findTargetQueryMatches(query, pair) : undefined;
+  binding.projection.push(
+    targetProjection(instance, exclusive ? 'slot' : matches === undefined ? 'copy' : 'filter')
+  );
+  binding.targets.push(matches);
+}
+
 const targetProjections = new WeakMap<
   TraitInstance,
   Partial<Record<TargetProjection['mode'], TargetProjection>>
@@ -420,52 +440,24 @@ function targetProjection(instance: TraitInstance, mode: TargetProjection['mode'
   return (modes[mode] ??= { instance, mode });
 }
 
-/** A pair matches a stored projection when it resolves to the same entry and the same target. */
+/** A pair matches a stored projection by relation instance, read mode and target query match set. */
 function matchesPairProjection(
   ctx: WorldContext,
   query: QueryInstance | null,
   pair: RelationPair,
   entry: Trait | TargetProjection | undefined,
-  target: Entity | SparseSet | undefined
+  target: SparseSet | undefined
 ): boolean {
+  if (entry === undefined || typeof entry === 'function') return false;
   const instance = getTraitInstance(ctx.traitInstances, pair.relation[$internal].trait);
-  if (instance === undefined || entry === undefined || typeof entry === 'function') return false;
-  return (
-    pairProjection(query, instance, pair) === entry && pairTarget(query, pair, entry.mode) === target
-  );
-}
-
-/**
- * Decides how a required pair reaches the callback. A concrete target is passed as it is. A
- * wildcard or target query reads the exclusive slot, or snapshots the target array, narrowed to
- * the target query's match set when the walked query resolved one.
- */
-function pairProjection(
-  query: QueryInstance | null,
-  instance: TraitInstance,
-  pair: RelationPair
-): TargetProjection {
+  if (instance !== entry.instance) return false;
   const exclusive = pair.relation[$internal].exclusive;
-  if (pair.targetQuery === undefined) {
-    if (pair.target !== '*') return targetProjection(instance, 'constant');
-    return targetProjection(instance, exclusive ? 'slot' : 'copy');
-  }
-  if (exclusive) return targetProjection(instance, 'slot');
-  return targetProjection(
-    instance,
-    findTargetQueryMatches(query, pair) === undefined ? 'copy' : 'filter'
+  const matches =
+    !exclusive && pair.targetQuery !== undefined ? findTargetQueryMatches(query, pair) : undefined;
+  return (
+    entry.mode === (exclusive ? 'slot' : matches === undefined ? 'copy' : 'filter') &&
+    matches === target
   );
-}
-
-/** The value a projection reads from the binding: the concrete target or the match set. */
-function pairTarget(
-  query: QueryInstance | null,
-  pair: RelationPair,
-  mode: TargetProjection['mode']
-): Entity | SparseSet | undefined {
-  if (mode === 'constant') return pair.target as Entity;
-  if (mode === 'filter') return findTargetQueryMatches(query, pair);
-  return undefined;
 }
 
 /**

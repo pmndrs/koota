@@ -216,16 +216,12 @@ export function compileQueryIterators(
   }
 
   // Target values stay in positional arguments and never enter trait writeback or tracking.
-  // Constants and match sets belong to the binding, so shared iterators read them per walk.
+  // Match sets belong to the binding, so shared iterators read them per walk.
   const targetHoist: string[] = [];
   const targetRebind: string[] = [];
   let traitIndex = 0;
   const projectedArgs = projection.map((part, j) => {
     if (typeof part === 'function') return args[traitIndex++];
-    if (part.mode === 'constant') {
-      targetHoist.push(`var tc${j} = buffers.binding.targets[${j}];`);
-      return `tc${j}`;
-    }
     targetHoist.push(`var rt${j} = instances[${j}].relationTargets${cursors ? `, rp${j}` : ''};`);
     if (cursors) targetRebind.push(`rp${j} = rt${j}[pg];`);
     const slot = cursors ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;

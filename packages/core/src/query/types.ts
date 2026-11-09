@@ -36,8 +36,8 @@ export type QueryViewBinding = {
   stores: Store<any>[];
   /** Data traits and target projections in each's callback argument order. */
   projection: (Trait | TargetProjection)[];
-  /** Per projection position, the constant target or target query match set a pair reads, else undefined. */
-  targets: (Entity | SparseSet | undefined)[];
+  /** Per projection position, the target query match set a pair reads, else undefined. */
+  targets: (SparseSet | undefined)[];
   /** Live view over the query for these traits, created on first use. */
   view: QueryView<any> | null;
   /** Iterators compiled for this binding alone, so its callback site stays monomorphic. */
@@ -47,12 +47,12 @@ export type QueryViewBinding = {
 /**
  * How a required pair reaches the callback. Entries are interned per instance and mode so
  * bindings and iterator caches can compare them by identity. Slot reads the one target an
- * exclusive relation holds, copy snapshots every target, constant passes the pair's own target,
- * filter snapshots the targets inside the pair's target query match set.
+ * exclusive relation holds, copy snapshots every target, filter snapshots the targets inside
+ * the pair's target query match set.
  */
 export type TargetProjection = {
   instance: TraitInstance;
-  mode: 'slot' | 'copy' | 'constant' | 'filter';
+  mode: 'slot' | 'copy' | 'filter';
 };
 
 export type QueryIterationBuffers = {
@@ -147,11 +147,11 @@ export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
   StoresFromParameters<T>
 >;
 
-// A pair that can select one target passes it, a pair that can select several passes an array.
+// Concrete targets only filter. Discovered targets pass one entity or an array by relation policy.
 type RelationInstances<
   Exclusive extends boolean,
   Target extends RelationTarget | undefined,
-> = Target extends Entity ? [Entity] : [Exclusive extends true ? Entity : readonly Entity[]];
+> = Target extends Entity ? [] : [Exclusive extends true ? Entity : readonly Entity[]];
 
 export type InstancesFromParameters<
   T extends QueryParameter[],
