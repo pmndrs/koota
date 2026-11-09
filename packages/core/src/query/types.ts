@@ -75,6 +75,10 @@ export type QueryLayout = {
 
 export type QueryLayoutCache = QueryLayout & { version: number };
 
+/**
+ * Direct column views whose capacity is internal and may grow in place. Use indices to visit
+ * entities and access only traits they hold or retain. Do not resize or replace columns.
+ */
 export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
   readonly index: number;
   readonly stores: PageStoresFromParameters<T>;
