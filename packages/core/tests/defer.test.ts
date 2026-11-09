@@ -209,6 +209,30 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
+  it.each(['next', 'return'] as const)(
+    'closes a manual iterator once when %s drains a throwing hook',
+    (close) => {
+      const world = createWorld();
+      const entity = world.spawn(Position);
+      const iterator = world.query(Position)[Symbol.iterator]();
+      expect(iterator.next()).toEqual({ value: entity, done: false });
+      const stop = world.onRemove(Position, () => {
+        throw new Error('hook failed');
+      });
+      entity.remove(Position);
+      expect(entity.has(Position)).toBe(true);
+
+      expect(() => iterator[close]!()).toThrow('hook failed');
+      expect(iterator.next().done).toBe(true);
+      expect(iterator.return!().done).toBe(true);
+
+      stop();
+      entity.remove(Position);
+      expect(entity.has(Position)).toBe(false);
+      world.destroy();
+    }
+  );
+
   it('runs a function with structural changes deferred through world.defer', () => {
     const world = createWorld();
     const entities = [world.spawn(Position), world.spawn(Position), world.spawn(Position)];
