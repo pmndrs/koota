@@ -1117,22 +1117,20 @@ export function subscribeExit(
 
 let queryId = 0;
 
-// References preserve projection order while query instances share unordered membership.
-const queryKeys = new Map<string, { id: number; refs: Map<string, Query<any>> }>();
+// References are keyed by parameter order so a repeat call finds its ref with one hash. Query
+// instances share one id per unordered membership, resolved only when a new ref is made.
+const queryRefs = new Map<string, Query<any>>();
+const queryIds = new Map<string, number>();
 
 export function createQuery<T extends QueryParameter[]>(...parameters: T): Query<T> {
-  const hash = createQueryHash(parameters);
-  let shared = queryKeys.get(hash);
-  if (shared === undefined) {
-    shared = { id: queryId++, refs: new Map() };
-    queryKeys.set(hash, shared);
-  }
   const key = createQueryHash(parameters, 0, true);
-
-  const existing = shared.refs.get(key);
+  const existing = queryRefs.get(key);
   if (existing) return existing as Query<T>;
 
-  const id = shared.id;
+  const hash = createQueryHash(parameters);
+  let id = queryIds.get(hash);
+  if (id === undefined) queryIds.set(hash, (id = queryId++));
+
   const queryRef = Object.freeze({
     [$queryRef]: true,
     id,
@@ -1140,7 +1138,7 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
     parameters,
   }) as Query<T>;
 
-  shared.refs.set(key, queryRef);
+  queryRefs.set(key, queryRef);
 
   return queryRef;
 }
