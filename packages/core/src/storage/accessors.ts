@@ -242,9 +242,16 @@ export const createGetIntoFunction: Record<StoreType, (schema: Schema) => GetInt
   tag: () => noop,
 };
 
-// An AoS factory already builds its default record. A required value and a tag have none.
+function noRecord(): never {
+  throw new Error(
+    'Koota: [NO_RECORD] A required trait or relation value has no default, so it has no record.'
+  );
+}
+
+// An AoS factory already builds its default record, and a tag has none. A required value has no
+// default to build, so asking for its record throws in every build.
 export const createRecordFunction: Record<StoreType, (schema: Schema) => () => any> = {
   soa: createSoARecordFunction,
-  aos: (schema) => (isRequired(schema) ? noop : (schema as () => unknown)),
+  aos: (schema) => (isRequired(schema) ? noRecord : (schema as () => unknown)),
   tag: () => noop,
 };

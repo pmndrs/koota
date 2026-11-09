@@ -505,10 +505,13 @@ describe('Trait', () => {
       // A tag has no data, so like get it has no record.
       expect(trait().record()).toBeUndefined();
 
-      // A required value has no default, so it has no record either.
+      // A required value has no default, so asking for its record is a mistake.
       const MeshRef = trait(required<{ visible: boolean }>());
-      expect(MeshRef.record()).toBeUndefined();
-      expectTypeOf(MeshRef.record()).toEqualTypeOf<undefined>();
+      const Owns = relation({ store: required<{ visible: boolean }>() });
+      // @ts-expect-error - a required trait value has no record
+      expect(() => MeshRef.record()).toThrow('[NO_RECORD]');
+      // @ts-expect-error - nor does a relation with a required store
+      expect(() => Owns.record()).toThrow('[NO_RECORD]');
     });
 
     it.each([false, true])(
