@@ -4,9 +4,9 @@ import type { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { ENTITY_ID_MASK } from '../../entity/utils/pack-entity';
 import type { Store } from '../../storage';
-import type { Trait } from '../../trait/types';
+import type { Trait, TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
-import type { QueryIterationBuffers } from '../types';
+import type { QueryIterationBuffers, QueryViewBinding } from '../types';
 
 type Callback = (state: any, entity: Entity, index: number) => void;
 type Iterate<R = void> = (
@@ -32,12 +32,12 @@ export type QueryIterators = {
 };
 
 type IteratorCache = {
-  traits: WeakMap<Trait, IteratorCache>;
+  keys: WeakMap<Trait | TraitInstance, IteratorCache>;
   iterators: QueryIterators | undefined;
 };
 
-// Weak keys at every position share iterators across worlds without retaining unused traits.
-const iteratorCache: IteratorCache = { traits: new WeakMap(), iterators: undefined };
+// Weak projection keys share iterators without retaining unused traits or world relation storage.
+const iteratorCache: IteratorCache = { keys: new WeakMap(), iterators: undefined };
 
 type CursorClass = new () => { o: number; changed: boolean };
 /** write diffs and flags changes for tracked walks, plain stores bare, read drops writes. */
@@ -106,18 +106,21 @@ function compileCursorClass(keys: string[], kind: CursorKind): CursorClass {
   )() as CursorClass;
 }
 
-export function getQueryIterators(traits: Trait[]): QueryIterators {
+export function getQueryIterators(
+  traits: Trait[],
+  projection: QueryViewBinding['projection']
+): QueryIterators {
   let cache = iteratorCache;
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-    let next = cache.traits.get(trait);
+  for (let i = 0; i < projection.length; i++) {
+    const key = projection[i];
+    let next = cache.keys.get(key);
     if (next === undefined) {
-      next = { traits: new WeakMap(), iterators: undefined };
-      cache.traits.set(trait, next);
+      next = { keys: new WeakMap(), iterators: undefined };
+      cache.keys.set(key, next);
     }
     cache = next;
   }
-  return (cache.iterators ??= compileQueryIterators(traits));
+  return (cache.iterators ??= compileQueryIterators(traits, projection));
 }
 
 /**
@@ -127,7 +130,10 @@ export function getQueryIterators(traits: Trait[]): QueryIterators {
  * the accessors no matter how many traits the app iterates elsewhere. Plain SoA traits bind a
  * cursor to the entity's page and offset instead of copying a record in and out.
  */
-export function compileQueryIterators(traits: Trait[]): QueryIterators {
+export function compileQueryIterators(
+  traits: Trait[],
+  projection: QueryViewBinding['projection']
+): QueryIterators {
   const accessors: unknown[] = [];
   const bind: string[] = [];
   const hoist: string[] = [];
@@ -208,21 +214,32 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     }
   }
 
+  // Target values stay in positional arguments and never enter trait writeback or tracking.
+  const targetHoist: string[] = [];
+  const targetRebind: string[] = [];
+  let traitIndex = 0;
+  const projectedArgs = projection.map((part, j) => {
+    if (typeof part === 'function') return args[traitIndex++];
+    targetHoist.push(`var rt${j} = projection[${j}].relationTargets${cursors ? `, rp${j}` : ''};`);
+    if (cursors) targetRebind.push(`rp${j} = rt${j}[pg];`);
+    return cursors ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
+  });
+
   // Structural changes can invalidate later entries. Removed walks accept retained dead entities,
   // but skip evicted handles before reading a recycled slot. The check costs one compare until
   // the first release of the walk. Every cursor rebinds its pages together when the page changes,
   // which is one compare per entity however many traits the walk reads.
-  const setup = (cursor: 'value' | 'plain' | 'reader') => `
+  const setup = (cursor: 'value' | 'plain' | 'reader', positional = false) => `
     var state = buffers.state, records = buffers.records, index = ctx.entityIndex;
     var releases = index.releases, retains = buffers.retains;${cursors ? ' var lastPg = -1;' : ''}
-    ${hoist.join('\n    ').replace(/__CURSOR__/g, cursor)}`;
-  const loop = (body: string) => `
+    ${hoist.join('\n    ').replace(/__CURSOR__/g, cursor)}${positional && targetHoist.length ? '\n    ' + targetHoist.join('\n    ') : ''}`;
+  const loop = (body: string, positional = false) => `
     for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
       if (index.releases !== releases && !(retains ? isEntityReadable(index, entity) : isEntityAlive(index, entity))) continue;${
         cursors
           ? ` var pg = eid >>> 10, off = eid & 1023;
-      if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')} }`
+      if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')}${positional && targetRebind.length ? ' ' + targetRebind.join(' ') : ''} }`
           : ''
       }
       ${read.join('\n      ')}
@@ -232,24 +249,31 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
   const alive = writeback ? 'if (!isEntityAlive(index, entity)) continue;' : '';
   // Positional callbacks take the trait values in registers instead of through the state array.
   const arrayCall = 'callback(state, entity, i);';
-  const argsCall = `callback(${[...args, 'entity', 'i'].join(', ')});`;
-  const update = (call: string) =>
-    `${setup('plain')}${loop(`${call}
+  const argsCall = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
+  const update = (call: string, positional = false) =>
+    `${setup('plain', positional)}${loop(
+      `${call}
       ${alive}
-      ${write.join('\n      ')}`)}`;
-  const track = (call: string) => `${setup('value')}
+      ${write.join('\n      ')}`,
+      positional
+    )}`;
+  const track = (call: string, positional = false) => `${setup('value', positional)}
     var modes = buffers.modes${modes.length ? ', ' + modes.join(', ') : ''};
     var snapshots = buffers.atomicSnapshots, changedEntities = buffers.changedEntities;
-    var changedTraits = buffers.changedTraits, changed = 0;${loop(`${snapshot.join('\n      ')}
+    var changedTraits = buffers.changedTraits, changed = 0;${loop(
+      `${snapshot.join('\n      ')}
       ${reset.join(' ')}
       ${call}
       ${alive}
-      ${trackLines.join('\n      ')}`)}
+      ${trackLines.join('\n      ')}`,
+      positional
+    )}
       return changed;`;
 
   return new Function(
     'a',
     'traits',
+    'projection',
     'isEntityAlive',
     'isEntityReadable',
     'snapshotAtomic',
@@ -267,9 +291,9 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
     },
     trackEach: function track(ctx, entities, length, callback, buffers, stores) {${track(arrayCall)}
     },
-    each: function each(ctx, entities, length, callback, buffers, stores) {${update(argsCall)}
+    each: function each(ctx, entities, length, callback, buffers, stores) {${update(argsCall, true)}
     },
-    trackArgs: function trackArgs(ctx, entities, length, callback, buffers, stores) {${track(argsCall)}
+    trackArgs: function trackArgs(ctx, entities, length, callback, buffers, stores) {${track(argsCall, true)}
     },
     release: function release(buffers) {
       var state = buffers.state, records = buffers.records;
@@ -279,6 +303,7 @@ export function compileQueryIterators(traits: Trait[]): QueryIterators {
   )(
     accessors,
     traits.slice(),
+    projection,
     isIterationEntityAlive,
     isEntityReadable,
     snapshotAtomic,

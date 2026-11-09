@@ -4,6 +4,7 @@ import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
+import type { RelationPair } from '../relation/types';
 import type { Store } from '../storage';
 import { registerTrait } from '../trait/trait';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -277,6 +278,7 @@ const entityBinding: QueryViewBinding = {
   params: [],
   traits: [],
   stores: [],
+  projection: [],
   view: null,
   iterators: null,
 };
@@ -285,7 +287,7 @@ const entityBinding: QueryViewBinding = {
  * Finds or builds the trait and store lists for a parameter list. Bindings are cached on the query
  * and never mutated, so views share them and select swaps references. A query ref passes the
  * same parameters array every run, so identity settles the common case before any walk. The cache
- * holds one binding per distinct trait list, which stays small since trait lists are static code.
+ * holds one binding per distinct projection, which stays small since selections are static code.
  */
 export function getQueryBinding(
   ctx: WorldContext,
@@ -295,7 +297,8 @@ export function getQueryBinding(
   if (
     query === null &&
     (params.length === 0 ||
-      (params.length === 1 && (isRelationPair(params[0]) || isIdentifierPair(params[0]))))
+      (params.length === 1 &&
+        (isIdentifierPair(params[0]) || (isRelationPair(params[0]) && !projectsTarget(params[0])))))
   ) {
     return entityBinding;
   }
@@ -307,7 +310,14 @@ export function getQueryBinding(
         return binding;
     }
   }
-  const binding: QueryViewBinding = { params, traits: [], stores: [], view: null, iterators: null };
+  const binding: QueryViewBinding = {
+    params,
+    traits: [],
+    stores: [],
+    projection: [],
+    view: null,
+    iterators: null,
+  };
   fillQueryBinding(ctx, params, binding);
   if (cache) cache.push(binding);
   return binding;
@@ -317,18 +327,30 @@ export function getQueryBinding(
 export function matchesQueryBinding(
   ctx: WorldContext,
   params: QueryParameter[],
-  { traits, stores }: QueryViewBinding
+  { stores, projection }: QueryViewBinding
 ): boolean {
   let index = 0;
+  let argument = 0;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
-    if (isIdentifierPair(param) || isIdentifier(param) || isRelationPair(param)) continue;
+    if (isIdentifierPair(param) || isIdentifier(param)) continue;
+    if (isRelationPair(param)) {
+      if (projectsTarget(param)) {
+        if (
+          projection[argument++] !==
+          getTraitInstance(ctx.traitInstances, param.relation[$internal].trait)
+        )
+          return false;
+      }
+      continue;
+    }
     if (isModifier(param)) {
       if (param.type === 'not') continue;
-      for (const trait of param.traits) {
+      for (let j = 0; j < param.traits.length; j++) {
+        const trait = param.traits[j];
         if (trait[$internal].type === 'tag' || trait[$internal].relation) continue;
         if (
-          traits[index] !== trait ||
+          projection[argument++] !== trait ||
           getTraitInstance(ctx.traitInstances, trait)?.store !== stores[index]
         )
           return false;
@@ -338,45 +360,63 @@ export function matchesQueryBinding(
       const trait = param as Trait;
       if (trait[$internal].type === 'tag') continue;
       if (
-        traits[index] !== trait ||
+        projection[argument++] !== trait ||
         getTraitInstance(ctx.traitInstances, trait)?.store !== stores[index]
       )
         return false;
       index++;
     }
   }
-  return index === traits.length;
+  return argument === projection.length;
 }
 
 /** Collects the stored traits of a parameter list in order, registering any that are new. */
 function fillQueryBinding(
   ctx: WorldContext,
   params: QueryParameter[],
-  { traits, stores }: QueryViewBinding
+  { traits, stores, projection }: QueryViewBinding
 ) {
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
-    if (isIdentifierPair(param) || isIdentifier(param) || isRelationPair(param)) continue;
+    if (isIdentifierPair(param) || isIdentifier(param)) continue;
+    if (isRelationPair(param)) {
+      if (projectsTarget(param)) {
+        const trait = param.relation[$internal].trait;
+        if (!getTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
+        projection.push(getTraitInstance(ctx.traitInstances, trait)!);
+      }
+      continue;
+    }
     if (isModifier(param)) {
       if (param.type === 'not') continue;
-      for (const trait of param.traits) {
+      for (let j = 0; j < param.traits.length; j++) {
+        const trait = param.traits[j];
         if (trait[$internal].type === 'tag' || trait[$internal].relation) continue;
         traits.push(trait);
+        projection.push(trait);
         stores.push(getQueryStore(ctx, trait));
       }
     } else {
       const trait = param as Trait;
       if (trait[$internal].type === 'tag') continue;
       traits.push(trait);
+      projection.push(trait);
       stores.push(getQueryStore(ctx, trait));
     }
   }
 }
 
+/** Only required wildcards and exclusive target queries project a target value. */
+function projectsTarget(pair: RelationPair): boolean {
+  return (
+    pair.target === '*' || (pair.targetQuery !== undefined && pair.relation[$internal].exclusive)
+  );
+}
+
 function createIterationBuffers(): QueryIterationBuffers {
   return {
     state: [],
-    traits: [],
+    binding: undefined,
     records: [],
     iterators: undefined,
     retains: false,
@@ -397,7 +437,7 @@ function takeIterationBuffers(
 ): QueryIterationBuffers {
   const buffers = pool.iterationBuffers ?? createIterationBuffers();
   pool.iterationBuffers = buffers.next;
-  if (buffers.traits !== binding.traits) {
+  if (buffers.binding !== binding) {
     prepareIterationBuffers(ctx, buffers, entities, binding, pool);
   }
   return buffers;
@@ -407,7 +447,7 @@ function takeIterationBuffers(
  * Points the buffers at a new trait list. Records already built for the same trait are kept. A
  * query binding compiles its own iterators, since every generated function with the same source
  * would otherwise share one feedback vector and its callback site would turn megamorphic across
- * queries. Views without a query share iterators per trait list.
+ * queries. Views without a query share iterators per projection.
  */
 function prepareIterationBuffers(
   ctx: WorldContext,
@@ -416,17 +456,17 @@ function prepareIterationBuffers(
   binding: QueryViewBinding,
   pool: QueryInstance | WorldContext
 ) {
-  const { traits, stores } = binding;
+  const { traits, stores, projection } = binding;
   const { state, records } = buffers;
-  const prepared = buffers.traits;
-  if (buffers.iterators !== undefined && sameParams(prepared, traits)) {
-    buffers.traits = traits;
+  const prepared = buffers.binding?.traits;
+  if (buffers.iterators !== undefined && sameParams(buffers.binding!.projection, projection)) {
+    buffers.binding = binding;
     return;
   }
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
     state[i] = undefined;
-    if (prepared[i] === trait) continue;
+    if (prepared?.[i] === trait) continue;
     const traitCtx = trait[$internal];
     records[i] = traitCtx.cursor
       ? {
@@ -440,9 +480,11 @@ function prepareIterationBuffers(
         : undefined;
   }
   state.length = records.length = traits.length;
-  buffers.traits = traits;
+  buffers.binding = binding;
   buffers.iterators =
-    pool === ctx ? getQueryIterators(traits) : (binding.iterators ??= compileQueryIterators(traits));
+    pool === ctx
+      ? getQueryIterators(traits, projection)
+      : (binding.iterators ??= compileQueryIterators(traits, projection));
 }
 
 /** Releases references to user objects, then returns the buffers to the pool. */

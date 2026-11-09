@@ -1,8 +1,9 @@
 import type { EntityComparator, EntityView, OrderedView } from '../view/types';
+import type { $internal } from '../common';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { Identifier, IdentifierPair } from '../identifier/types';
-import type { RelationPair } from '../relation/types';
+import type { RelationPair, RelationTarget } from '../relation/types';
 import { AoSFactory, type Store } from '../storage';
 import type { QueryIterators } from './utils/compile-iterators';
 import type {
@@ -33,6 +34,8 @@ export type QueryViewBinding = {
   params: QueryParameter[];
   traits: Trait[];
   stores: Store<any>[];
+  /** Data traits and relation storage in each's callback argument order. */
+  projection: (Trait | TraitInstance)[];
   /** Live view over the query for these traits, created on first use. */
   view: QueryView<any> | null;
   /** Iterators compiled for this binding alone, so its callback site stays monomorphic. */
@@ -41,8 +44,8 @@ export type QueryViewBinding = {
 
 export type QueryIterationBuffers = {
   state: any[];
-  /** Traits the records and iterators were prepared for. */
-  traits: Trait[];
+  /** Projection the records and iterators were prepared for. */
+  binding: QueryViewBinding | undefined;
   /** SoA records with their owned tuple arrays, or a cursor set, undefined for other traits. */
   records: (
     | {
@@ -127,10 +130,21 @@ export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
   StoresFromParameters<T>
 >;
 
-export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
-  infer First,
-  ...infer Rest,
-]
+type RelationInstances<
+  Exclusive extends boolean,
+  Target extends RelationTarget | undefined,
+> = Target extends Entity
+  ? []
+  : Target extends '*'
+    ? [Exclusive extends true ? Entity : readonly Entity[]]
+    : Exclusive extends true
+      ? [Entity]
+      : [];
+
+export type InstancesFromParameters<
+  T extends QueryParameter[],
+  Targets extends boolean = true,
+> = T extends [infer First, ...infer Rest]
   ? [
       ...(First extends Trait
         ? IsTag<First> extends false
@@ -141,9 +155,13 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
         : First extends Modifier
           ? IsNotModifier<First> extends true
             ? []
-            : InstancesFromParameters<UnwrapModifierData<First>>
-          : []),
-      ...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest> : []),
+            : InstancesFromParameters<UnwrapModifierData<First>, false>
+          : Targets extends true
+            ? First extends RelationPair
+              ? RelationInstances<First['relation'][typeof $internal]['exclusive'], First['target']>
+              : []
+            : []),
+      ...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest, Targets> : []),
     ]
   : [];
 

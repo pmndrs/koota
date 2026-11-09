@@ -96,6 +96,36 @@ world
   })
 ```
 
+## Relation targets in each
+
+Required relation pairs contribute arguments in parameter order, alongside trait records and before the source entity and index:
+
+| Pair                          | Exclusive relation | Non-exclusive relation |
+| ----------------------------- | ------------------ | ---------------------- |
+| `R('*')`                      | `Entity`           | `readonly Entity[]`    |
+| `R(Trait, ...)` or `R(query)` | `Entity`           | No argument            |
+| `R(entity)`                   | No argument        | No argument            |
+| Pair inside a modifier        | No target argument | No target argument     |
+
+```ts
+const ChildOf = relation({ exclusive: true })
+const Contains = relation()
+
+world
+  .query(Position, ChildOf('*'), Contains('*'))
+  .each((position, parent, contents, entity, index) => {
+    // parent is an Entity and contents is a readonly Entity[]
+  })
+```
+
+Non-exclusive wildcard arrays borrow the relation's backing storage. They are read only by contract, without a runtime freeze or proxy. Do not mutate them. Copy with `contents.slice()` before keeping a snapshot or changing that relation. `entity.targetsFor(R)` continues to return a snapshot.
+
+Keep selected relations present until their row is visited. An earlier callback can remove a later entity's relation while that entity remains in the current walk. Target arguments do not add membership checks or preserve historical targets.
+
+Target reads are eager. Use `.select(Position)` to omit them, or `.forEach((entity) => ...)` for entity-only access. Relation pairs with stores contribute only their target values, without a store record. `getPages()`, `readEach`, and `updateEach` retain their existing trait-only data layouts.
+
+This changes the positions of the source entity and index in existing `each` callbacks with projecting pairs. Add the new arguments or select only the trait records the callback needs.
+
 ## Direct entity access
 
 Read `query.entities` once to borrow the query's backing array without copying. Both indexed loops and `for...of` use native array traversal.

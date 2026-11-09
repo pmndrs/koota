@@ -82,7 +82,63 @@ Flushes any deferred removals, then snapshots the instance's entity set. For tra
 return bindQueryView(ctx, query, params)
 ```
 
-The caller receives a `QueryView`, a live view over the instance's entity set with methods for iterating with trait data. The view is cached per trait list, so a run allocates nothing.
+The caller receives a `QueryView`, a live view over the instance's entity set with methods for iterating with trait data. The view is cached per ordered trait and target projection, so a run allocates nothing.
+
+## Target projection
+
+Matching and projection are separate. A binding keeps trait stores for record access and one ordered projection list containing data traits and relation storage instances. That list supplies callback order, binding comparison and iterator cache keys. Required wildcards project their backing slot, which holds one entity for exclusive relations or the target array otherwise. Exclusive target-query pairs project the same slot. Other pairs remain filters.
+
+The generated positional iterator hoists the target storage references outside the entity loop and reads each selected slot directly into a callback argument. When trait cursors already track page changes, target pages share that page switch. It adds no per-entity policy branch, copied array, target lookup call, or relation writeback. Unselected targets generate no reads. Trait-only iterators keep their existing loop bodies.
+
+`targetsFor` retains its snapshot behavior. Arrays passed to `each` are borrowed and read only by contract. Structural changes can mutate them, and callers must preserve the selected membership until a row is visited. Legacy state-array iterators and page stores continue to expose trait data only.
+
+### Validation and performance
+
+`query-relation-targets.test.ts` covers callback order and tracking, borrowed arrays, selection,
+query references, excluded pairs, legacy layouts, derived views, world isolation and widened types.
+Explicit-schema inference is checked alongside the exclusive and non-exclusive behavior tests.
+
+`query-relation-inline.bench.ts` keeps eight cases. One exclusive relation measures unused,
+selected and consumed targets. One non-exclusive relation measures borrowed array consumption.
+Three relations cover unused argument scaling and consuming multiple arrays on scattered pages.
+A plain-trait control checks unrelated iteration, and a concrete lookup with target selection
+checks iterator reuse for views outside cached queries. Existing `query-api` benchmarks cover
+warm inline lookup costs, including target-query filters.
+
+The fixture generates literal relation arguments and detects the callback shape through a separate
+binding before timing. Timed runs perform `world.query(...).each(...)`. Results are checked against
+independent expected values outside timing. Arrays passed to callbacks are consumed directly.
+
+```sh
+pnpm bench --against ../koota-relation-each-canary '@relation-each-inline' --blocks 6 -n relation-each-canary
+```
+
+The six-block comparison against canary `1e0d99a7`, using the assertion-free build on Node 24.14.0 and
+an Apple M4 Pro, is saved locally as `relation-each-canary`. Unused targets add about 0.6 ns per
+entity for one relation and 1.5 ns for three. Consumed targets are 3.1–5.2 times faster than getter
+calls, while selection and plain-trait controls show no detected slowdown. The concrete lookup
+and selection case improves from 102.44 to 27.60 microseconds per 10,000 entities. Warm inline
+queries use the existing parameter-identity cache and skip hashing.
+
+### Inlining
+
+Measured bytecode on Node 24.14.0, using the emitted bundle and generated iterators:
+
+| Function or iterator                        | Bytes |
+| ------------------------------------------- | ----- |
+| Plain trait or targets excluded with select | 185   |
+| One trait and one target                    | 214   |
+| One trait and three targets                 | 281   |
+| Three targets without trait records         | 215   |
+| Tracked trait and three targets             | 364   |
+| Binding comparison                          | 435   |
+| Binding construction                        | 398   |
+| Iterator cache lookup                       | 121   |
+
+The binding loops use indexed array access to avoid iterator protocol machinery. These paths fit
+the 460-byte per-function budget. V8's `--trace-turbo-inlining` confirmed that small callbacks
+inline into all audited generated loops. Exclusive and non-exclusive projections generate the
+same loop structure. Trait-only and selected iteration bytecode is unchanged.
 
 ## Important details
 

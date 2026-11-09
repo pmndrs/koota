@@ -485,6 +485,16 @@ const containsSilver = world.query(Contains(silver)) // Returns [inventory]
 const containsAnything = world.query(Contains('*')) // Returns [inventory, chest]
 ```
 
+`each` passes wildcard targets in parameter order: an `Entity` for exclusive relations or a borrowed `readonly Entity[]` for non-exclusive relations.
+
+```ts
+world.query(Contains('*')).each((contents, inventory) => {
+  // contents is the live backing array. Copy it before changing Contains.
+})
+```
+
+`targetsFor()` still returns a snapshot. Use `.select(...)` to omit target reads or `.forEach(...)` for entity-only access. Exclusive target-query pairs also pass their target. Concrete pairs and pairs inside modifiers pass no target argument. See [relation targets in each](docs/api/query.md#relation-targets-in-each) for callback ordering and lifetime rules.
+
 #### Relation filters
 
 A query nested in a relation can be used to filter target entities instead of naming one specific target. Use them when you want to ask for relations pointing at "any player", "any active parent", or "any rare item".

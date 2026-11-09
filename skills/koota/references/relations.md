@@ -158,6 +158,30 @@ const cachedChildren = world.query(ChildOf(activePlayers))
 
 These target-query filters stay live. If a target gains or loses the traits required by the filter, cached queries and `onEnter`/`onExit` subscriptions update automatically.
 
+### Read targets with each
+
+`each` projects top-level required relation pairs in parameter order alongside trait records, followed by the source entity and index:
+
+- `R('*')` passes an `Entity` when `R` is exclusive, or a borrowed `readonly Entity[]` otherwise.
+- Exclusive `R(Trait, ...)` and `R(query)` pass their single target.
+- Concrete `R(entity)`, non-exclusive target-query pairs, and pairs inside modifiers pass no target argument.
+- Relation pairs with stores do not contribute a store record.
+
+```typescript
+const ChildOf = relation({ exclusive: true })
+const Contains = relation()
+
+world
+  .query(Position, ChildOf('*'), Contains('*'))
+  .each((position, parent, contents, entity, index) => {
+    // Read parent and contents directly
+  })
+```
+
+The array is live backing storage and must never be mutated. Copy it before retaining a snapshot or changing the relation. `targetsFor()` keeps returning an independent snapshot. Keep selected relations present until their row is visited, including when an earlier callback changes another entity.
+
+`.select(Position)` excludes target reads from the iterator. `.forEach` visits source entities without reading trait records or targets. The deprecated `readEach` and `updateEach` methods and `getPages` keep their trait-only layouts.
+
 ### Get targets from an entity
 
 ```typescript
