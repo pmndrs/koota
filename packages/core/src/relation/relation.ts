@@ -30,13 +30,26 @@ function ensureRelPage(arr: any[], pageId: number): any[] {
   return arr[pageId];
 }
 
-function createRelation<S extends TraitSchema = Record<string, never>>(definition?: {
+type RelationDefinition<S extends TraitSchema> = {
   exclusive?: boolean;
   autoDestroy?: 'orphan' | 'source' | 'target';
   /** @deprecated Use `autoDestroy: 'orphan'` instead */
   autoRemoveTarget?: boolean;
   store?: S;
-}): Relation<Trait<S>> {
+};
+
+function createRelation<S extends TraitSchema = Record<string, never>>(
+  definition: RelationDefinition<S> & { exclusive: true }
+): Relation<Trait<S>, true>;
+function createRelation<S extends TraitSchema = Record<string, never>>(
+  definition?: RelationDefinition<S> & { exclusive?: false }
+): Relation<Trait<S>, false>;
+function createRelation<S extends TraitSchema = Record<string, never>>(
+  definition?: RelationDefinition<S>
+): Relation<Trait<S>>;
+function createRelation<S extends TraitSchema = Record<string, never>>(
+  definition?: RelationDefinition<S>
+): Relation<Trait<S>> {
   const relationTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
   const traitCtx = relationTrait[$internal];
 

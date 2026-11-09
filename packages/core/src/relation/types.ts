@@ -25,17 +25,21 @@ export type RelationInit<T extends Trait = Trait> =
         : TraitInit<S>
     : never;
 
-export interface ConcreteRelationPair<T extends Trait = Trait> {
+export interface ConcreteRelationPair<
+  T extends Trait = Trait,
+  Exclusive extends boolean = boolean,
+  Target extends RelationTarget = RelationTarget,
+> {
   readonly [$relationPair]: true;
-  readonly relation: Relation<T>;
-  readonly target: RelationTarget;
+  readonly relation: Relation<T, Exclusive>;
+  readonly target: Target;
   readonly targetQuery?: undefined;
   readonly params?: RelationInit<T>;
 }
 
-export interface QueryRelationPair<T extends Trait = Trait> {
+export interface QueryRelationPair<T extends Trait = Trait, Exclusive extends boolean = boolean> {
   readonly [$relationPair]: true;
-  readonly relation: Relation<T>;
+  readonly relation: Relation<T, Exclusive>;
   readonly target?: undefined;
   readonly targetQuery: Query<QueryParameter[]> | readonly QueryParameter[];
   readonly params?: undefined;
@@ -58,27 +62,43 @@ export type ConfigurablePair<T extends Trait = Trait> =
     })
   | (ConcreteRelationPair<T> & { readonly params: object });
 
-type RelationCall<T extends Trait = Trait> = {
+type RelationCall<T extends Trait, Exclusive extends boolean> = {
+  (
+    target: '*',
+    params: RelationInit<T>
+  ): ConcreteRelationPair<T, Exclusive, '*'> & {
+    readonly params: RelationInit<T>;
+  };
+  (
+    target: Entity,
+    params: RelationInit<T>
+  ): ConcreteRelationPair<T, Exclusive, Entity> & {
+    readonly params: RelationInit<T>;
+  };
   (
     target: RelationTarget,
     params: RelationInit<T>
-  ): ConcreteRelationPair<T> & { readonly params: RelationInit<T> };
-  (target: RelationTarget, params?: RelationInit<T>): ConcreteRelationPair<T>;
-  (targetQuery: Query<QueryParameter[]>): QueryRelationPair<T>;
-  (...targetQuery: [QueryParameter, ...QueryParameter[]]): QueryRelationPair<T>;
+  ): ConcreteRelationPair<T, Exclusive> & {
+    readonly params: RelationInit<T>;
+  };
+  (target: '*', params?: RelationInit<T>): ConcreteRelationPair<T, Exclusive, '*'>;
+  (target: Entity, params?: RelationInit<T>): ConcreteRelationPair<T, Exclusive, Entity>;
+  (target: RelationTarget, params?: RelationInit<T>): ConcreteRelationPair<T, Exclusive>;
+  (targetQuery: Query<QueryParameter[]>): QueryRelationPair<T, Exclusive>;
+  (...targetQuery: [QueryParameter, ...QueryParameter[]]): QueryRelationPair<T, Exclusive>;
 };
 
-export type Relation<T extends Trait = Trait> = {
+export type Relation<T extends Trait = Trait, Exclusive extends boolean = boolean> = {
   readonly [$relation]: true;
   /** Create a record of the relation store defaults, such as a scratch record for get to fill. */
   readonly record: T['record'];
   [$internal]: {
     trait: T;
-    exclusive: boolean;
+    exclusive: Exclusive;
     autoDestroy: 'source' | 'target' | false;
     scopedIdentifiers: Identifier[] | undefined;
   };
-} & RelationCall<T>;
+} & RelationCall<T, Exclusive>;
 
 export interface OrderedRelation<T extends Trait = Trait> extends Trait<
   () => MutableOrderedView<[]>

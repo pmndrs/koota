@@ -473,7 +473,8 @@ describe('Relation', () => {
 
     const visited: number[] = [];
 
-    world.query(ChildOf(parent)).each((entity, index) => {
+    world.query(ChildOf(parent)).each((target, entity, index) => {
+      expect(target).toBe(parent);
       visited.push(entity);
       expect(index).toBe(visited.length - 1);
     });
@@ -510,9 +511,9 @@ describe('Relation', () => {
     const child3 = world.spawn(ChildOf(parent));
 
     const visited: number[] = [];
-    world.query(ChildOf(parent)).each((entity) => {
+    world.query(ChildOf(parent)).each((target, entity) => {
       visited.push(entity);
-      entity.remove(ChildOf(parent));
+      entity.remove(ChildOf(target));
     });
 
     expect(visited).toHaveLength(3);

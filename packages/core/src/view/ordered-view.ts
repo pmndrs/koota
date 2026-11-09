@@ -1,8 +1,6 @@
 import type { Entity } from '../entity/types';
-import { commitQueryRemovals } from '../query/query';
+import { commitQueryRemovals, ensureTraitInstance } from '../query/query';
 import type { QueryInstance, QueryParameter, QueryViewBinding } from '../query/types';
-import { registerTrait } from '../trait/trait';
-import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
 import { sameParams } from '../query/utils/same-params';
@@ -52,7 +50,10 @@ export class ListView extends EntityView {
   select(...params: QueryParameter[]): ListView {
     const { ctx, source, query } = this;
     for (const view of source.views) {
-      if (sameParams(view.binding.params, params) || matchesQueryBinding(ctx, params, view.binding))
+      if (
+        sameParams(view.binding.params, params) ||
+        matchesQueryBinding(ctx, query, params, view.binding)
+      )
         return view;
     }
     // A selection shares the sequence. Only the relation owner can edit it.
@@ -95,10 +96,7 @@ class SortedSource extends OrderedSource {
     this.base = base;
     this.compare = compare;
     this.traits = traits.slice();
-    this.instances = this.traits.map((trait) => {
-      if (!getTraitInstance(base.ctx.traitInstances, trait)) registerTrait(base.ctx, trait);
-      return getTraitInstance(base.ctx.traitInstances, trait)!;
-    });
+    this.instances = this.traits.map((trait) => ensureTraitInstance(base.ctx, trait));
     this.revisions = this.traits.map(() => -1);
   }
 

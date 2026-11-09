@@ -196,6 +196,8 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
   const toRemove = query.toRemove;
   if (toRemove !== null && toRemove.has(entity)) return;
 
+  // Walks in progress, over this query or a copy of it, re-check their rows once this moves.
+  ctx.entityIndex.revision++;
   if (query.iterating === 0) {
     query.entities.remove(entity);
   } else {
@@ -385,7 +387,7 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
   }
 }
 
-function ensureTraitInstance(ctx: WorldContext, trait: Trait): TraitInstance {
+export function ensureTraitInstance(ctx: WorldContext, trait: Trait): TraitInstance {
   return (
     getTraitInstance(ctx.traitInstances, trait) ??
     (registerTrait(ctx, trait), getTraitInstance(ctx.traitInstances, trait)!)
@@ -1126,16 +1128,20 @@ export function subscribeExit(
 
 let queryId = 0;
 
-// Keys are hash consed so equal parameter lists share one id across every world.
-const queryKeys = new Map<string, Query<any>>();
+// References are keyed by parameter order so a repeat call finds its ref with one hash. Query
+// instances share one id per unordered membership, resolved only when a new ref is made.
+const queryRefs = new Map<string, Query<any>>();
+const queryIds = new Map<string, number>();
 
 export function createQuery<T extends QueryParameter[]>(...parameters: T): Query<T> {
-  const hash = createQueryHash(parameters);
-
-  const existing = queryKeys.get(hash);
+  const key = createQueryHash(parameters, 0, true);
+  const existing = queryRefs.get(key);
   if (existing) return existing as Query<T>;
 
-  const id = queryId++;
+  const hash = createQueryHash(parameters);
+  let id = queryIds.get(hash);
+  if (id === undefined) queryIds.set(hash, (id = queryId++));
+
   const queryRef = Object.freeze({
     [$queryRef]: true,
     id,
@@ -1143,7 +1149,7 @@ export function createQuery<T extends QueryParameter[]>(...parameters: T): Query
     parameters,
   }) as Query<T>;
 
-  queryKeys.set(hash, queryRef);
+  queryRefs.set(key, queryRef);
 
   return queryRef;
 }

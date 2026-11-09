@@ -84,7 +84,11 @@ function hashModifierExtras(param: Modifier, cursor: number, pairKeys: string[])
   return cursor;
 }
 
-export const createQueryHash = (parameters: readonly QueryParameter[], base = 0): QueryHash => {
+export const createQueryHash = (
+  parameters: readonly QueryParameter[],
+  base = 0,
+  ordered = false
+): QueryHash => {
   let cursor = base;
   let identifier: string | undefined;
   let identifiers: string[] | undefined;
@@ -138,7 +142,10 @@ export const createQueryHash = (parameters: readonly QueryParameter[], base = 0)
 
   let hash = '';
   if (cursor === base + 1) hash = `${sortBuf[base]}`;
-  else if (cursor > base + 1) hash = sortBuf.subarray(base, cursor).sort().join(',');
+  else if (cursor > base + 1) {
+    const keys = sortBuf.subarray(base, cursor);
+    hash = (ordered ? keys : keys.sort()).join(',');
+  }
 
   // Pairs inside modifiers follow the numeric entries, each keyed by its modifier id.
   if (pairKeys !== undefined && pairKeys.length !== 0) hash += `~${pairKeys.sort().join(',')}`;

@@ -158,6 +158,35 @@ const cachedChildren = world.query(ChildOf(activePlayers))
 
 These target-query filters stay live. If a target gains or loses the traits required by the filter, cached queries and `onEnter`/`onExit` subscriptions update automatically.
 
+### Read targets with each
+
+`each` passes required relation targets in query order alongside trait records, followed by the source entity and index.
+
+- `R('*')` passes an `Entity` when `R` is exclusive, or a reusable `readonly Entity[]` snapshot otherwise.
+- `R(Trait, ...)` and `R(query)` pass the single target when `R` is exclusive, otherwise a `readonly Entity[]` of the targets that match the target query.
+- Concrete `R(entity)` passes that target as an `Entity`, exclusive or not.
+- Pairs inside modifiers pass no target argument.
+- Relation pairs with stores do not contribute a store record.
+
+```typescript
+const Targeting = relation({ exclusive: true })
+const Contains = relation()
+
+world.query(Targeting('*')).each((target, entity) => {
+  entity.remove(Targeting(target))
+})
+
+world.query(Contains('*')).each((contents, inventory) => {
+  for (const item of contents) {
+    inventory.remove(Contains(item))
+  }
+})
+```
+
+The array snapshots targets at callback entry and stays unchanged during structural commands and nested walks. Keep it read only. Its storage is reused for later entities and walks. Use `contents.slice()` to keep a copy after the callback returns. `targetsFor()` keeps returning an independent snapshot. Snapshots are per callback. Changing another entity's relations during a walk is unsupported, so remove pairs from the current entity only.
+
+`.select(Position)` excludes target reads and copies from the iterator. `.forEach` visits source entities without reading trait records or targets. The deprecated `readEach` and `updateEach` methods and `getPages` keep their trait-only layouts.
+
 ### Get targets from an entity
 
 ```typescript
