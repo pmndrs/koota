@@ -160,7 +160,7 @@ These target-query filters stay live. If a target gains or loses the traits requ
 
 ### Read targets with each
 
-`each` projects top-level required relation pairs in parameter order alongside trait records, followed by the source entity and index:
+`each` passes required relation targets in query order alongside trait records, followed by the source entity and index.
 
 - `R('*')` passes an `Entity` when `R` is exclusive, or a reusable `readonly Entity[]` snapshot otherwise.
 - Exclusive `R(Trait, ...)` and `R(query)` pass their single target.
@@ -168,17 +168,21 @@ These target-query filters stay live. If a target gains or loses the traits requ
 - Relation pairs with stores do not contribute a store record.
 
 ```typescript
-const ChildOf = relation({ exclusive: true })
+const Targeting = relation({ exclusive: true })
 const Contains = relation()
 
-world
-  .query(Position, ChildOf('*'), Contains('*'))
-  .each((position, parent, contents, entity, index) => {
-    // Read parent and contents directly
-  })
+world.query(Targeting('*')).each((target, entity) => {
+  entity.remove(Targeting(target))
+})
+
+world.query(Contains('*')).each((contents, inventory) => {
+  for (const item of contents) {
+    inventory.remove(Contains(item))
+  }
+})
 ```
 
-The array snapshots targets at callback entry and stays unchanged during structural commands and nested walks. Keep it read only. Its storage is reused for later entities and walks, so copy it before retaining it after the callback returns. `targetsFor()` keeps returning an independent snapshot. Snapshots are per callback, so earlier callbacks can change later rows. Keep selected relations present until their row is visited.
+The array snapshots targets at callback entry and stays unchanged during structural commands and nested walks. Keep it read only. Its storage is reused for later entities and walks. Use `contents.slice()` to keep a copy after the callback returns. `targetsFor()` keeps returning an independent snapshot. Snapshots are per callback, so earlier callbacks can change later rows. Keep selected relations present until their row is visited.
 
 `.select(Position)` excludes target reads and copies from the iterator. `.forEach` visits source entities without reading trait records or targets. The deprecated `readEach` and `updateEach` methods and `getPages` keep their trait-only layouts.
 

@@ -485,16 +485,23 @@ const containsSilver = world.query(Contains(silver)) // Returns [inventory]
 const containsAnything = world.query(Contains('*')) // Returns [inventory, chest]
 ```
 
-`each` passes wildcard targets in parameter order: an `Entity` for exclusive relations or a reusable `readonly Entity[]` snapshot for non-exclusive relations.
+`each` passes wildcard targets in query order before the entity. Exclusive relations pass one target. Other relations pass a read only array.
 
-```ts
+```js
+world.query(Targeting('*')).each((target, entity) => {
+  entity.remove(Targeting(target))
+})
+
 world.query(Contains('*')).each((contents, inventory) => {
-  // Structural changes leave contents unchanged during this callback.
-  for (const target of contents) inventory.remove(Contains(target))
+  for (const item of contents) {
+    inventory.remove(Contains(item))
+  }
 })
 ```
 
-Target arrays are reused after the callback returns. Copy with `contents.slice()` to retain one. `targetsFor()` still returns an independent snapshot. Use `.select(...)` to omit target reads or `.forEach(...)` for entity-only access. Exclusive target-query pairs also pass their target. Concrete pairs and pairs inside modifiers pass no target argument. See [relation targets in each](docs/api/query.md#relation-targets-in-each) for callback ordering and lifetime rules.
+Adding or removing relations during the callback leaves the array unchanged. The array is reused after the callback. Use `contents.slice()` to keep a copy.
+
+Use `select` to skip reading targets. See [relation targets in each](docs/api/query.md#relation-targets-in-each) for more examples.
 
 #### Relation filters
 
