@@ -187,7 +187,7 @@ world.query(Contains('*')).each((contents, inventory) => {
 })
 ```
 
-The array snapshots targets at callback entry and stays unchanged during structural commands and nested walks. Keep it read only. Its storage is reused for later entities and walks. Use `contents.slice()` to keep a copy after the callback returns. `targetsFor()` keeps returning an independent snapshot. Snapshots are per callback. Changing another entity's relations during a walk is unsupported, so remove pairs from the current entity only.
+The array snapshots targets at callback entry and stays unchanged during structural commands and nested walks. Keep it read only. Its storage is reused for later entities and walks. Use `contents.slice()` to keep a copy after the callback returns. `targetsFor()` keeps returning an independent snapshot. Structural changes to any entity's relations are deferred until the outermost walk ends, so nested walks keep seeing the original targets.
 
 `.select(Position)` excludes target reads and copies from the iterator. `.forEach` visits source entities without reading trait records or targets. The deprecated `readEach` and `updateEach` methods and `getPages` keep their trait-only layouts.
 
@@ -312,6 +312,8 @@ children.clear() // Removes all ChildOf(parent) pairs
 ```
 
 Adding the ordered trait collects existing children. Removing it leaves their relations intact. Each walk keeps the sequence it started with.
+
+Inside a walk, hook or `world.defer`, all view edits apply in call order when the scope ends, including `moveTo`, `sort` and `reverse`. Membership is checked when an edit applies. `remove(child)` returns whether the child is present at call time, but still queues the removal when it returns false, so a queued `add(child)` followed by `remove(child)` leaves the child absent. Edits to a view detached before they apply are dropped.
 
 Ordering work happens when children are added, removed, or reordered. Use [sorted queries](queries.md#ordered-views) when trait values determine the order.
 

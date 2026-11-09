@@ -6,7 +6,7 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. `each` walks the membership present when it starts. Structural changes to other entities during a walk are unsupported, so keep adds, removes and destroys to the current entity. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
+Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Every walk, `each`, `forEach` and `for...of`, defers structural changes. Adds, removes, destroys and machine transitions made inside apply in call order when the outermost walk ends, so each row keeps its entity, traits and relation targets while it is visited. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities, so `has` still reports a trait whose removal is pending and `isAlive` still reports an entity whose destroy is pending. Spawning is immediate and the new entity joins the next run. Wrap indexed loops over `query.entities` in `world.defer` for the same guarantee. Guard stale handles with `entity.isAlive()` when retaining a copy.
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
 
@@ -120,7 +120,7 @@ world.query(Position, ChildOf(parent)).each((position, child) => {
 })
 ```
 
-Arrays are snapshots reused between callbacks. Copy with `contents.slice()` to keep one. Structural changes to other entities during a walk are unsupported.
+Arrays are snapshots reused between callbacks. Copy with `contents.slice()` to keep one. Structural changes to any entity wait until the outermost walk ends.
 
 Use `select` to skip reading targets, or `forEach` for entities only. Pairs with stores pass their targets, not a record. `getPages`, `readEach` and `updateEach` keep their trait only layouts.
 
