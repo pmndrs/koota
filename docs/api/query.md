@@ -6,7 +6,7 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. `each` leaves handle validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
+Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. `each` walks the membership present when it starts. In plain and sorted walks, a row that an earlier callback destroyed or removed from the query is skipped rather than read. Tracking walks such as `Added` only skip destroyed rows. Keep structural changes to the current entity where you can. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
 
@@ -120,7 +120,7 @@ world
 
 Non-exclusive wildcard arrays snapshot the targets before each entity's callback. Adding or removing relations, destroying entities, and nested walks do not change that callback's array. The arrays are reused for later entities and walks. Keep them read only and copy with `contents.slice()` to retain them after the callback returns. `entity.targetsFor(R)` continues to return an independent snapshot.
 
-Keep selected relations present until their row is visited. An earlier callback can remove a later entity's relation while that entity remains in the current walk. Snapshots are taken per callback, so earlier callbacks can change the targets observed by later rows. Target arguments do not add membership checks.
+Snapshots are taken per callback, so an earlier callback that adds or removes a later entity's relations changes the targets that entity's row observes. In plain and sorted walks, a later entity that loses a selected pair leaves the query and its row is skipped, like a destroyed entity. Tracking walks still visit that row, so remove pairs from the current entity only.
 
 Target reads and array copies are eager. Use `.select(Position)` to omit them, or `.forEach((entity) => ...)` for entity-only access. Relation pairs with stores contribute only their target values, without a store record. `getPages()`, `readEach`, and `updateEach` retain their existing trait-only data layouts.
 

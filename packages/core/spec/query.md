@@ -90,7 +90,9 @@ Matching and projection are separate. A binding keeps trait stores for record ac
 
 The generated positional iterator hoists the target storage references outside the entity loop and reads each selected slot into a callback argument. Non-exclusive slots are copied into reusable arrays before the callback. When trait cursors already track page changes, target pages share that page switch. The relation policy is resolved at compilation, without a per-entity policy branch or target lookup call. Unselected targets generate no reads or copies. Trait-only iterators keep their existing loop bodies.
 
-`targetsFor` retains its snapshot behavior. Arrays passed to `each` are reusable read-only snapshots. The iteration-buffer pool owns one array per non-exclusive projection and active walk, so structural commands and nested walks cannot alter the current callback's snapshot. Arrays are reused for later rows and calls. Callers must preserve selected membership until a row is visited. Legacy state-array iterators and page stores continue to expose trait data only.
+`targetsFor` retains its snapshot behavior. Arrays passed to `each` are reusable read-only snapshots. The iteration-buffer pool owns one array per non-exclusive projection and active walk, so structural commands and nested walks cannot alter the current callback's snapshot. Arrays are reused for later rows and calls. Legacy state-array iterators and page stores continue to expose trait data only.
+
+The walk visits the membership captured when it started. Removals are deferred while a query is iterating, so a row whose entity left the query, through a relation or trait removal or destroy in an earlier callback, is skipped instead of reading storage the removal already cleared. The entity index revision moves on every handle release and every deferred removal, so the generated loop compares it once per row and only calls the skip helper after it has changed during the walk. A walk whose callbacks remove rows from the query pays one skip check for every later row, a few nanoseconds each. Sorted and owned views walk a copy, so their removals apply at once, and the skip helper also drops rows no longer in the query's exposed set. Tracking walks consume a batch that removals never touch, so they only skip destroyed rows. This gate is an interim measure. Deferring structural changes until the outermost walk ends, as Flecs does, is the planned replacement.
 
 ### Validation and performance
 
@@ -113,18 +115,7 @@ independent expected values outside timing. Arrays passed to callbacks are consu
 pnpm bench --against ../koota-relation-each-canary '@relation-each-inline' --blocks 6 -n relation-each-snapshots
 ```
 
-The six-block comparison against canary `1e0d99a7`, using the assertion-free build on Node 24.14.0
-and an Apple M4 Pro, is saved locally as `relation-each-snapshots`. Consuming a two-target snapshot
-improves from 134.85 to 48.57 microseconds per 10,000 entities, and consuming three such snapshots
-improves from 404.04 to 141.25 microseconds. Unused two-target snapshots add about 2.7 ns per entity
-versus canary, growing to 27 ns with 32 targets. Selection and plain-trait controls show no detected
-slowdown. Exclusive targets retain their direct-read performance.
-
-The separate `relation-each-snapshot-cost` comparison against the borrowed-array implementation
-at `edad709f` isolates the copy cost. Consuming one two-target array rises from 33.55 to 50.36
-microseconds per 10,000 entities, and an unused array rises from 24.64 to 46.11 microseconds.
-Snapshot cost grows with the number of targets. Warm inline queries still use the existing
-parameter-identity cache and skip hashing.
+Compare the relation each benches against the merge base before and after changes to the generated loop. Consumed snapshots should stay well ahead of the per entity `targetsFor` allocation they replace, unused snapshots should cost a few nanoseconds per entity that grow with the target count, and the selection and plain trait controls should show no change.
 
 ### Inlining
 
@@ -132,14 +123,14 @@ Measured bytecode on Node 24.14.0, using the emitted bundle and generated iterat
 
 | Function or iterator                        | Bytes |
 | ------------------------------------------- | ----- |
-| Plain trait or targets excluded with select | 185   |
-| One trait and one exclusive target          | 214   |
-| One trait and one target array              | 243   |
-| One trait and three target arrays           | 354   |
-| Three target arrays without trait records   | 284   |
-| Tracked trait and three target arrays       | 436   |
+| Plain trait or targets excluded with select | 189   |
+| One trait and one exclusive target          | 216   |
+| One trait and one target array              | 241   |
+| One trait and three target arrays           | 357   |
+| Three target arrays without trait records   | 270   |
+| Tracked trait and three target arrays       | 443   |
 | Buffer preparation                          | 424   |
-| Target snapshot copy                        | 53    |
+| Target snapshot copy                        | 55    |
 
 These paths fit the 460-byte per-function budget. V8's `--trace-turbo-inlining` confirmed that
 the snapshot copy helper and small callbacks inline into the generated loops. Exclusive targets
