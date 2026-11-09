@@ -499,8 +499,6 @@ world.query(Contains('*')).each((contents, inventory) => {
 })
 ```
 
-Adding or removing relations during the callback leaves the array unchanged. The array is reused after the callback. Use `contents.slice()` to keep a copy.
-
 Use `select` to skip reading targets. See [relation targets in each](docs/api/query.md#relation-targets-in-each) for more examples.
 
 #### Relation filters
