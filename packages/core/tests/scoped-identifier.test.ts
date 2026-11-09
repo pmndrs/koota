@@ -262,6 +262,35 @@ describe('Scoped identifiers', () => {
     expect(mixed).toHaveLength(0);
   });
 
+  it('allows a keyed query callback to drop its target and reparent again', () => {
+    const first = world.spawn();
+    const second = world.spawn();
+    const third = world.spawn();
+    const motor = world.spawn(ChildOf(first), Name('motor'));
+    const leaving = createQuery(Name('motor'), ChildOf(first));
+    const middle = createQuery(Name('motor'), ChildOf(second));
+    const arriving = createQuery(Name('motor'), ChildOf(third));
+    const firstView = world.query(leaving);
+    const middleAdded = vi.fn();
+    const arrived = vi.fn();
+    world.onEnter(middle, middleAdded);
+    world.onEnter(arriving, arrived);
+    world.onExit(leaving, () => {
+      first.destroy();
+      motor.add(ChildOf(third));
+    });
+
+    motor.add(ChildOf(second));
+    expect(motor.targetFor(ChildOf)).toBe(third);
+    expect(firstView).toHaveLength(0);
+    expect(world.query(middle)).toHaveLength(0);
+    expect(world.query(arriving).toArray()).toEqual([motor]);
+    expect(world.lookup(third, Name('motor'))).toBe(motor);
+    // The callback's reparent is deferred, so the entity passes through the middle parent first.
+    expect(middleAdded.mock.calls).toEqual([[motor]]);
+    expect(arrived.mock.calls).toEqual([[motor]]);
+  });
+
   it('keeps shared keys and lookupAll inside their requested scope', () => {
     const Label = identifier({ scope: ChildOf, exclusive: false });
     const a = world.spawn(Name('a'));
@@ -400,6 +429,33 @@ describe('Scoped identifiers', () => {
     expect(world.lookup(second, Name('motor'))).toBeUndefined();
     expect(world.lookup(third, Name('motor'))).toBe(motor);
     expect(secondView).toHaveLength(0);
+    expect(world.query(Changed(ChildOf)).toArray()).toEqual([motor]);
+  });
+
+  it('rejects a child deferred onto a parent once its destruction completes', () => {
+    const parent = world.spawn(Name('robot'));
+    const child = world.spawn(Name('motor'));
+    world.onEntityDestroy((entity) => {
+      if (entity === parent) child.add(ChildOf(parent));
+    });
+    expect(() => parent.destroy()).toThrow(/ENTITY_ALIVE/);
+    expect(parent.isAlive()).toBe(false);
+    expect(child.targetFor(ChildOf)).toBeUndefined();
+    expect(world.lookup(Name('motor'))).toBe(child);
+  });
+
+  it('tracks a replacement parent added by a query-removal callback', () => {
+    const Changed = createChanged();
+    const first = world.spawn();
+    const second = world.spawn();
+    const motor = world.spawn(ChildOf(first), Name('motor'));
+    world.query(Changed(ChildOf));
+    const stop = world.onExit([ChildOf(first)], (entity) => entity.add(ChildOf(second)));
+    motor.remove(ChildOf(first));
+    stop();
+    expect(motor.targetFor(ChildOf)).toBe(second);
+    expect(world.lookup(Name('motor'))).toBeUndefined();
+    expect(world.lookup(second, Name('motor'))).toBe(motor);
     expect(world.query(Changed(ChildOf)).toArray()).toEqual([motor]);
   });
 });

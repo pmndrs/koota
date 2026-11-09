@@ -1,7 +1,6 @@
-import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import { assertsEnabled } from '../assert-config';
-import { commitQueryRemovals, ensureTraitInstance } from '../query/query';
+import { ensureTraitInstance } from '../query/query';
 import type {
   QueryInstance,
   QueryIterationBuffers,
@@ -112,19 +111,18 @@ class SortedSource extends OrderedSource {
     if (this.iterating !== 0 || this.refreshing) return this.dense;
     const { base } = this;
     const liveQuery = base.live ? base.query : null;
-    if (liveQuery && base.ctx.dirtyQueries.length !== 0) commitQueryRemovals(base.ctx);
     const revision = liveQuery?.version ?? 0;
     const rebuild = revision !== this.revision;
     let dirty = rebuild || this.dirty || this.instances.length === 0;
     for (let i = 0; i < this.instances.length; i++) {
       if (this.instances[i].version !== this.revisions[i]) dirty = true;
     }
-    if (dirty) this.refresh(revision, rebuild, liveQuery);
+    if (dirty) this.refresh(revision, rebuild);
     return this.dense;
   }
 
   /** Keep copying and sorting outside the cache check that traversal callers inline. */
-  private refresh(revision: number, rebuild: boolean, liveQuery: QueryInstance | null) {
+  private refresh(revision: number, rebuild: boolean) {
     this.refreshing = true;
     try {
       // Capture before user callbacks, so writes inside them invalidate the next access.
@@ -134,24 +132,11 @@ class SortedSource extends OrderedSource {
       let entities: Entity[];
       const { sorter } = this;
       if (typeof sorter !== 'function') {
-        entities = sorter.sort(
-          rebuild ? this.base.source : this,
-          this.dense,
-          rebuild ? liveQuery?.toRemove : undefined
-        );
+        entities = sorter.sort(rebuild ? this.base.source : this, this.dense);
       } else {
         if (rebuild) {
           const source = this.base.source;
-          const pending = liveQuery?.toRemove;
-          if (pending && pending.length !== 0) {
-            entities = [];
-            for (let i = 0; i < source.length; i++) {
-              const entity = source.dense[i] as Entity;
-              if (!pending.has(entity)) entities.push(entity);
-            }
-          } else {
-            entities = source.dense.slice(0, source.length) as Entity[];
-          }
+          entities = source.dense.slice(0, source.length) as Entity[];
         } else {
           entities = this.dense.slice();
         }
@@ -200,14 +185,10 @@ class SortedKeys implements EntitySource {
   }
 
   /** Returns the next order without modifying published, which becomes scratch only on success. */
-  sort(source: EntitySource, published: Entity[], pending: SparseSet | null | undefined): Entity[] {
+  sort(source: EntitySource, published: Entity[]): Entity[] {
     const entities = this.dense;
-    const { dense, length } = source;
-    let count = 0;
-    for (let i = 0; i < length; i++) {
-      const entity = dense[i] as Entity;
-      if (!pending?.has(entity)) entities[count++] = entity;
-    }
+    const { dense, length: count } = source;
+    for (let i = 0; i < count; i++) entities[i] = dense[i] as Entity;
     while (entities.length > count) entities.pop();
     // Read-only traversal neither writes trait data nor invalidates the dependency version.
     this.reader.readEach(this.collect, this);

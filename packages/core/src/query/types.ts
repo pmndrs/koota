@@ -72,10 +72,6 @@ export type QueryIterationBuffers = {
   /** Reusable target arrays for this active walk, indexed by projection position. */
   targetSnapshots: Entity[][];
   iterators: QueryIterators | undefined;
-  /** Removed walks can read dead entities until their retained history is evicted. */
-  retains: boolean;
-  /** The query behind the walked view, whose rows the walk skips once they leave it, or null. */
-  query: QueryInstance | null;
   /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
   modes: number[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
@@ -286,7 +282,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   entities: SparseSet;
   /** The set results read. Aliases entities for plain queries, swaps with it for tracking ones. */
   exposed: SparseSet;
-  /** Walks in progress over the results. Removals stay pending while it is nonzero. */
+  /** Walks in progress over the results. A nested run keeps the exposed batch while it is nonzero. */
   iterating: number;
   isTracking: boolean;
   /**
@@ -306,10 +302,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   } | null;
   /** Changed terms indexed by mask generation, for direct write dispatch. */
   changedMasks: number[];
-  /** Removals deferred by a walk in progress, created on the first one. */
-  toRemove: SparseSet | null;
-  /** Listed in the world's dirty queries until its deferred removals commit. */
-  dirty: boolean;
   /** Position in the world's list of queries that spawn and destroy visit, or -1 when not listed. */
   notIndex: number;
   /** An active dispatch may still hold a list containing a dropped query. */

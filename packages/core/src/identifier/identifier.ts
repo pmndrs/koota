@@ -1,7 +1,6 @@
 import { $internal, type Brand } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
-import { isEntityDestroying } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { getEntityId } from '../entity/utils/pack-entity';
@@ -131,7 +130,6 @@ export /* @inline */ function getIdentifierTarget<K extends IdentifierKey>(
 
 /** Validate ownership before committing both directions, then notify the core. */
 export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: IdentifierPair) {
-  if (isEntityDestroying(entity)) return;
   const trait = pair.identifier[$internal].trait;
   let data = getTraitInstance(ctx.traitInstances, trait);
   if (!data) {
@@ -323,9 +321,9 @@ function refreshTrackingQueries(ctx: WorldContext, entity: Entity, data: TraitIn
     if (query.identifierFilters === undefined) continue;
     // A zero event mask checks existing history without recording another event.
     const matches = checkQueryTracking(ctx, query, entity, 'change', -1, 0);
-    if (!matches) removeEntityFromQuery(ctx, query, entity);
+    if (!matches) removeEntityFromQuery(query, entity);
     // Replacement is not a tracked event, so an entity already in the batch is not added again.
-    else if (!query.entities.has(entity) || query.toRemove?.has(entity)) {
+    else if (!query.entities.has(entity)) {
       addEntityToQuery(query, entity);
     }
   }

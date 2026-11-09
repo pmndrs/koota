@@ -1,9 +1,10 @@
-import { endStructuralChanges, observeSettled } from './settled';
+import { observeSettled } from './settled';
+import { assertOutsideDefer, beginDefer, endDefer, runDeferred } from './defer';
 import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
 import { assertsEnabled } from '../assert-config';
-import { createEntity, destroyEntity, entityHas } from '../entity/entity';
+import { applyDestroyEntity, createEntity, entityHas } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -57,7 +58,7 @@ import type {
   TraitValue,
 } from '../trait/types';
 import type { InlineQueryNode, World, WorldContext, WorldOptions } from './types';
-import type { Subscriber } from '../trait/subscriptions';
+import { subscribeAll, type Subscriber } from '../trait/subscriptions';
 import { resolveHookCallback, resolveHookTrait, type HookInput } from './utils/resolve-hook';
 
 let nextWorldId = 0;
@@ -182,6 +183,63 @@ export function createWorld(options?: WorldOptions): World {
     registered: false,
   };
 
+  /** Destroys every entity and clears registrations. Callers assert the scope first. */
+  function resetWorld() {
+    const ctx = world[$internal];
+    beginDefer(ctx);
+    try {
+      if (assertsEnabled) ctx.structuralRevision++;
+      world.entities.forEach((entity) => {
+        if (isEntityAlive(ctx.entityIndex, entity)) {
+          applyDestroyEntity(ctx, entity);
+        }
+      });
+
+      releaseOwnedPages(ctx.entityIndex);
+      ctx.entityIndex = createEntityIndex(addressSpace, ctx);
+      // Re-link shared ownedPages for the cleanup token.
+      ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
+
+      ctx.entityMasks = [createEmptyMaskGeneration()];
+      ctx.traitsByBit = [[]];
+      ctx.bitflag = 1;
+      ctx.defersChanges = false;
+
+      for (const query of ctx.queriesHashMap.values()) {
+        query.inlineNodes = null;
+        if (query.cleanup === null) continue;
+        for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
+      }
+
+      clearTraitInstance(ctx.traitInstances);
+      ctx.traits.clear();
+      ctx.relations.length = 0;
+
+      ctx.queriesHashMap.clear();
+      ctx.internalQuerySubscriptions = undefined;
+      ctx.inlineQueries = { next: null, params: null, query: null, parent: null, key: null };
+      ctx.queryInstances.length = 0;
+      ctx.tombstones.head = 0;
+      ctx.tombstones.ids.length = 0;
+      ctx.pairRemovals.head = 0;
+      ctx.pairRemovals.entries.length = 0;
+      ctx.iterationBuffers = undefined;
+      ctx.actionInstances.length = 0;
+      ctx.notQueries.length = 0;
+      ctx.targetQueries.length = 0;
+
+      ctx.entitySubscribedInstances.clear();
+
+      ctx.worldEntity = createEntity(ctx, [IsExcluded]);
+
+      for (const sub of ctx.resetSubscriptions) {
+        sub();
+      }
+    } finally {
+      endDefer(ctx);
+    }
+  }
+
   const world = {
     [$internal]: {
       entityIndex: null! as ReturnType<typeof createEntityIndex>,
@@ -203,13 +261,16 @@ export function createWorld(options?: WorldOptions): World {
       queryCallbackDepth: 0,
       queryBatch: undefined,
       internalQuerySubscriptions: undefined,
-      machineMutations: undefined,
       defersChanges: false,
       targetQueries: [],
-      dirtyQueries: [],
+      commands: [],
+      commandCount: 0,
+      unsettled: false,
+      destroyQueue: [],
+      destroying: undefined,
       worldEntity: null!,
       entitySubscribedInstances: new Set(),
-      structuralDepth: 0,
+      deferDepth: 0,
       settledQueue: new Set(),
       observeSettled,
       resetSubscriptions: new Set(),
@@ -225,6 +286,10 @@ export function createWorld(options?: WorldOptions): World {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
       return createEntity(ctx, spawnTraits);
+    },
+
+    defer<T>(fn: () => T): T {
+      return runDeferred(world[$internal], fn);
     },
 
     // Only the single key form is spliced in. A larger method stops inlining into callers and
@@ -295,14 +360,15 @@ export function createWorld(options?: WorldOptions): World {
     destroy() {
       const ctx = world[$internal];
       if (ctx.isRegistered) {
+        assertOutsideDefer(ctx, 'world.destroy');
         // Settle while the world is still registered so an observer that reads it cannot revive it.
-        ctx.structuralDepth++;
+        beginDefer(ctx);
         try {
-          destroyEntity(ctx, ctx.worldEntity);
+          applyDestroyEntity(ctx, ctx.worldEntity);
           ctx.worldEntity = null!;
-          world.reset();
+          resetWorld();
         } finally {
-          endStructuralChanges(ctx);
+          endDefer(ctx);
         }
       }
       ctx.isRegistered = false;
@@ -312,60 +378,8 @@ export function createWorld(options?: WorldOptions): World {
     reset() {
       const ctx = world[$internal];
       if (!ctx.isRegistered) return;
-      ctx.structuralDepth++;
-      try {
-        if (assertsEnabled) ctx.structuralRevision++;
-
-        world.entities.forEach((entity) => {
-          if (isEntityAlive(ctx.entityIndex, entity)) {
-            destroyEntity(ctx, entity);
-          }
-        });
-
-        releaseOwnedPages(ctx.entityIndex);
-        ctx.entityIndex = createEntityIndex(addressSpace, ctx);
-        // Re-link shared ownedPages for the cleanup token.
-        ctx.entityIndex.ownedPages = cleanupToken.ownedPages;
-
-        ctx.entityMasks = [createEmptyMaskGeneration()];
-        ctx.traitsByBit = [[]];
-        ctx.bitflag = 1;
-        ctx.defersChanges = false;
-
-        for (const query of ctx.queriesHashMap.values()) {
-          query.inlineNodes = null;
-          if (query.cleanup === null) continue;
-          for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
-        }
-
-        clearTraitInstance(ctx.traitInstances);
-        ctx.traits.clear();
-        ctx.relations.length = 0;
-
-        ctx.queriesHashMap.clear();
-        ctx.internalQuerySubscriptions = undefined;
-        ctx.inlineQueries = { next: null, params: null, query: null, parent: null, key: null };
-        ctx.queryInstances.length = 0;
-        ctx.tombstones.head = 0;
-        ctx.tombstones.ids.length = 0;
-        ctx.pairRemovals.head = 0;
-        ctx.pairRemovals.entries.length = 0;
-        ctx.iterationBuffers = undefined;
-        ctx.actionInstances.length = 0;
-        ctx.dirtyQueries.length = 0;
-        ctx.notQueries.length = 0;
-        ctx.targetQueries.length = 0;
-
-        ctx.entitySubscribedInstances.clear();
-
-        ctx.worldEntity = createEntity(ctx, [IsExcluded]);
-
-        for (const sub of ctx.resetSubscriptions) {
-          sub();
-        }
-      } finally {
-        endStructuralChanges(ctx);
-      }
+      assertOutsideDefer(ctx, 'world.reset');
+      resetWorld();
     },
 
     query(...args: any[]) {
@@ -492,9 +506,7 @@ export function createWorld(options?: WorldOptions): World {
         data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
       }
 
-      data.addSubscriptions.all.add(resolvedCallback);
-
-      return () => data.addSubscriptions.all.delete(resolvedCallback);
+      return subscribeAll(data.addSubscriptions, resolvedCallback);
     },
 
     onRemove(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
@@ -510,9 +522,7 @@ export function createWorld(options?: WorldOptions): World {
         data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
       }
 
-      data.removeSubscriptions.all.add(resolvedCallback);
-
-      return () => data.removeSubscriptions.all.delete(resolvedCallback);
+      return subscribeAll(data.removeSubscriptions, resolvedCallback);
     },
 
     onChange(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
@@ -524,9 +534,7 @@ export function createWorld(options?: WorldOptions): World {
       if (!hasTraitInstance(ctx.traitInstances, resolvedTrait)) registerTrait(ctx, resolvedTrait);
 
       const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      data.changeSubscriptions.all.add(resolvedCallback);
-
-      return () => data.changeSubscriptions.all.delete(resolvedCallback);
+      return subscribeAll(data.changeSubscriptions, resolvedCallback);
     },
 
     onTransition(machine: Machine, callback: TransitionSubscriber) {

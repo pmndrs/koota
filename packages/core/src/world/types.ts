@@ -64,13 +64,20 @@ export type WorldContext = {
   queryBatch: QueryNotification[] | undefined;
   internalQuerySubscriptions:
     WeakMap<QueryInstance, { add: Set<QuerySubscriber>; remove: Set<QuerySubscriber> }> | undefined;
-  machineMutations: Set<Entity> | undefined;
   /** Some entity may hold a pending bit, so membership changes clear the pending word. */
   defersChanges: boolean;
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
-  /** Queries holding removals deferred by a walk, each listed once. */
-  dirtyQueries: QueryInstance[];
+  /** Deferred structural changes as flat entries of command, entity and two arguments. */
+  commands: unknown[];
+  /** Entries in use. The array keeps its store between flushes and is cleared in bulk. */
+  commandCount: number;
+  /** Set when a command or a settled observer is queued, so a scope end reads one field. */
+  unsettled: boolean;
+  /** Pending entities in this world's current destruction cascade. */
+  destroyQueue: Entity[];
+  /** The entity being destroyed cannot accept new scope children from an immediate spawn. */
+  destroying: Entity | undefined;
   /** Maximum destroyed entities whose data and query history remain readable. */
   readonly retain: number;
   /** Retained destroyed entities in destroy order. Overflow evicts the oldest. */
@@ -82,7 +89,8 @@ export type WorldContext = {
   pairRemovals: { entries: number[]; head: number };
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
-  structuralDepth: number;
+  /** Open defer scopes. Structural changes join the command log while it is nonzero. See defer. */
+  deferDepth: number;
   settledQueue: Set<() => void>;
   observeSettled: typeof observeSettled;
   resetSubscriptions: Set<() => void>;
@@ -130,6 +138,12 @@ export type World = {
   set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
   destroy(): void;
   reset(): void;
+  /**
+   * Runs the function with structural changes deferred, as a walk does, and returns its result.
+   * Adds, removes, destroys and machine transitions made inside apply in call order when the
+   * outermost scope ends. Use it around indexed loops over query entities.
+   */
+  defer<T>(fn: () => T): T;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
   query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
   queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;

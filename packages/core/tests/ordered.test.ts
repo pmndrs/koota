@@ -5,6 +5,92 @@ describe('Ordered relation views', () => {
   const world = createWorld();
   beforeEach(() => world.reset());
 
+  it('applies removals and clears after earlier queued additions', () => {
+    const ChildOf = relation();
+    const Children = ordered(ChildOf);
+    const parent = world.spawn(Children);
+    const children = parent.get(Children)!;
+    const child = world.spawn();
+
+    world.defer(() => {
+      children.add(child);
+      expect(children.remove(child)).toBe(false);
+    });
+    expect(children.toArray()).toEqual([]);
+    expect(child.has(ChildOf(parent))).toBe(false);
+
+    world.defer(() => {
+      children.add(child);
+      children.clear();
+    });
+    expect(children.toArray()).toEqual([]);
+    expect(child.has(ChildOf(parent))).toBe(false);
+  });
+
+  it('decides whether to insert or move when the command applies', () => {
+    const ChildOf = relation();
+    const Children = ordered(ChildOf);
+    const parent = world.spawn(Children);
+    const children = parent.get(Children)!;
+    const a = world.spawn(ChildOf(parent));
+    const b = world.spawn(ChildOf(parent));
+    const c = world.spawn();
+
+    world.defer(() => {
+      expect(children.remove(a)).toBe(true);
+      children.insert(a, 1);
+      children.insert(c, 0);
+      children.insert(c, 2);
+      expect(children.toArray()).toEqual([a, b]);
+    });
+
+    expect(children.toArray()).toEqual([b, a, c]);
+    expect([a, b, c].every((child) => child.has(ChildOf(parent)))).toBe(true);
+  });
+
+  it('replays reordering with membership edits in call order', () => {
+    const Children = ordered(relation());
+    const parent = world.spawn(Children);
+    const children = parent.get(Children)!;
+    const a = world.spawn();
+    const b = world.spawn();
+    const c = world.spawn();
+
+    world.defer(() => {
+      children.add(a).add(b).add(c);
+      children.moveTo(c, 0);
+      children.reverse();
+      children.sort((left, right) => left.id() - right.id());
+      children.insert(b, 0);
+      expect(children.length).toBe(0);
+    });
+
+    expect(children.toArray()).toEqual([b, a, c]);
+  });
+
+  it('drops edits to a view detached before its commands apply', () => {
+    const ChildOf = relation();
+    const Children = ordered(ChildOf);
+    const parent = world.spawn(Children);
+    const children = parent.get(Children)!;
+    const existing = world.spawn(ChildOf(parent));
+    const added = world.spawn();
+
+    world.defer(() => {
+      parent.remove(Children);
+      parent.add(Children);
+      children.remove(existing);
+      children.add(added);
+      children.insert(added, 0);
+      children.clear();
+      children.reverse();
+    });
+
+    expect(parent.get(Children)!.toArray()).toEqual([existing]);
+    expect(existing.has(ChildOf(parent))).toBe(true);
+    expect(added.has(ChildOf(parent))).toBe(false);
+  });
+
   it('initializes the view before query observers run', () => {
     const ChildOf = relation();
     const Children = ordered(ChildOf);

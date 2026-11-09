@@ -166,7 +166,7 @@ describe('Query', () => {
     expect(entities.length).toBe(0);
   });
 
-  it('skips pending changes for a trait removed during each', () => {
+  it('defers a trait removal made during each and reports every row written', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);
     const changed = vi.fn();
@@ -177,11 +177,11 @@ describe('Query', () => {
       if (current === second) first.remove(Position);
     });
 
-    expect(changed).toHaveBeenCalledExactlyOnceWith(second);
+    expect(changed.mock.calls).toEqual([[first], [second]]);
     expect(first.has(Position)).toBe(false);
   });
 
-  it('skips pending changes for an entity recycled during each', () => {
+  it('defers a destroy made during each so no id is recycled under the walk', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);
     let replacement = first;
@@ -196,7 +196,9 @@ describe('Query', () => {
       }
     });
 
-    expect(changed.mock.calls).toEqual([[replacement], [second]]);
+    expect(replacement).not.toBe(first);
+    expect(first.isAlive()).toBe(false);
+    expect(changed.mock.calls).toEqual([[replacement], [first], [second]]);
     expect(replacement.get(Position)?.x).toBe(7);
   });
 
@@ -671,7 +673,7 @@ describe('Query', () => {
   });
 
   it.each([false, true])(
-    'skips destroyed entities during a nested each walk (tracked: %s)',
+    'defers a destroy made during each until the walk ends (tracked: %s)',
     (tracked) => {
       const first = world.spawn(Position({ x: 1 }));
       const second = world.spawn(Position({ x: 2 }));
@@ -690,14 +692,15 @@ describe('Query', () => {
         inner = [...world.query(Position)];
       });
 
-      // The starting membership is walked once and an entity destroyed during the walk is skipped,
-      // the nested run skips the pending removal and the replacement waits for the next run.
-      expect(visited).toEqual([first]);
-      expect(inner).toEqual([first, replacement]);
+      // The starting membership is walked once with every row intact. The destroy applies when
+      // the walk ends and the spawned replacement joins the next run.
+      expect(visited).toEqual([first, second]);
+      expect(inner).toEqual([first, second, replacement]);
       expect(first.get(Position)?.x).toBe(11);
+      expect(second.isAlive()).toBe(false);
       expect(replacement.get(Position)?.x).toBe(7);
       expect([...world.query(Position)]).toEqual([first, replacement]);
-      if (tracked) expect(changed.mock.calls).toEqual([[replacement], [first]]);
+      if (tracked) expect(changed.mock.calls).toEqual([[replacement], [first], [second]]);
     }
   );
 
@@ -716,8 +719,8 @@ describe('Query', () => {
       });
       replacement = world.spawn(Position);
       const nested = world.query(Position);
-      expect(nested.entities).toEqual([first, replacement]);
-      expect([...nested]).toEqual([first, replacement]);
+      expect(nested.entities).toEqual([first, second, replacement]);
+      expect([...nested]).toEqual([first, second, replacement]);
     }
 
     expect(visited).toEqual([first, second]);

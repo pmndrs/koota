@@ -79,12 +79,13 @@ describe('relation targets in each', () => {
           if (target === silver) target.destroy();
           else entity.remove(Contains(target));
         }
-        expect(entity.targetsFor(Contains)).toEqual([]);
+        expect(entity.targetsFor(Contains)).toEqual([gold, silver]);
+        expect(silver.isAlive()).toBe(true);
         entity.add(Contains(copper));
         const nested: Entity[] = [];
         query.each((_position, innerTargets, innerLiked, innerEntity) => {
           expect(innerTargets).not.toBe(targets);
-          expect(innerTargets).toEqual([copper]);
+          expect(innerTargets).toEqual(innerEntity === inventory ? [gold, silver] : [copper]);
           expect(innerLiked).not.toBe(likedTargets);
           expect(innerLiked).toEqual([gold]);
           nested.push(innerEntity);
@@ -100,6 +101,8 @@ describe('relation targets in each', () => {
     expect(visited).toEqual([inventory, pouch]);
     expect(changed).toHaveBeenCalledTimes(2);
     expect(saved).toEqual([gold, silver]);
+    expect(silver.isAlive()).toBe(false);
+    expect(inventory.targetsFor(Contains)).toEqual([copper]);
     expect(inventory.get(Contains(copper))).toEqual({ amount: 0 });
     query.each((_position, targets) => {
       expect(targets).toBe(scratch);
@@ -316,7 +319,7 @@ describe('relation targets in each', () => {
     world.destroy();
   });
 
-  it('skips rows that leave the query before they are visited', () => {
+  it('preserves rows and their targets until the walk ends', () => {
     const world = createWorld();
     const Position = trait({ x: 0 });
     const ChildOf = relation({ exclusive: true });
@@ -335,7 +338,7 @@ describe('relation targets in each', () => {
     query.each((_position, parent, contents, entity) => {
       visited.push([entity, parent, contents.slice()]);
       if (entity !== first) return;
-      // Later rows lose their pair, their parent or their trait while this walk is in progress.
+      // Later rows keep their pair, parent and trait until this walk finishes.
       unparented.remove(ChildOf(parentB));
       parentB.destroy();
       stripped.remove(Position);
@@ -345,6 +348,9 @@ describe('relation targets in each', () => {
 
     expect(visited).toEqual([
       [first, parentA, [parentA]],
+      [unparented, parentB, [parentB]],
+      [orphaned, parentB, [parentB]],
+      [stripped, parentA, [parentA]],
       [readded, parentA, [parentA]],
       [last, parentA, [parentA]],
     ]);
@@ -356,7 +362,7 @@ describe('relation targets in each', () => {
     ]);
     expect(orphaned.has(ChildOf(parentB))).toBe(false);
 
-    // A sorted view walks its own copy, so removals apply at once and still skip the row.
+    // A sorted view holds the same defer scope while walking its own sequence.
     const sortedVisited: Entity[] = [];
     world
       .query(Position, ChildOf('*'))
@@ -368,7 +374,7 @@ describe('relation targets in each', () => {
           if (other !== entity) other.remove(ChildOf(parentA));
         }
       });
-    expect(sortedVisited).toHaveLength(1);
+    expect(sortedVisited).toEqual([first, readded, last]);
     world.destroy();
   });
 

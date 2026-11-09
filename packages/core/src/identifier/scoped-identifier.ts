@@ -1,5 +1,4 @@
 import { $internal } from '../common';
-import { isEntityDestroying } from '../entity/entity';
 import { assertsEnabled } from '../assert-config';
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
@@ -50,7 +49,7 @@ export function validateScopeMove(
   // The relation add already asserted the target. A dying scope would only leak its bucket.
   if (
     target !== undefined &&
-    (!isEntityAlive(ctx.entityIndex, target) || isEntityDestroying(target))
+    (!isEntityAlive(ctx.entityIndex, target) || ctx.destroying === target)
   ) {
     return false;
   }

@@ -402,7 +402,7 @@ describe('Identifiers', () => {
   });
 
   it.each(['onAdd', 'Changed query'])(
-    'reports only the current assignment when a subscriber to %s replaces the key',
+    'reports each assignment when a subscriber to %s replaces the key',
     (event) => {
       const Changed = createChanged();
       const player = world.spawn(WireId(1));
@@ -419,7 +419,10 @@ describe('Identifiers', () => {
 
       expect(world.lookup(WireId(2))).toBeUndefined();
       expect(world.lookup(WireId(3))).toBe(player);
-      expect(changed.mock.calls).toEqual([[player, 3]]);
+      expect(changed.mock.calls).toEqual([
+        [player, 2],
+        [player, 3],
+      ]);
       expect(world.query(Changed(WireId)).toArray()).toEqual([player]);
     }
   );
@@ -658,14 +661,17 @@ describe('Identifiers', () => {
       expect(world.lookupAll(DisplayName('kris'))).toEqual([hidden, visible]);
     });
 
-    it('publishes only the current assignment when callbacks replace a shared key', () => {
+    it('publishes each assignment when callbacks replace a shared key', () => {
       const first = world.spawn(DisplayName('kris'));
       const second = world.spawn(DisplayName('sam'));
       const changed = vi.fn();
       second.onChange(DisplayName, changed);
       second.onAdd(DisplayName('kris'), () => second.add(DisplayName('alex')));
       second.add(DisplayName('kris'));
-      expect(changed.mock.calls).toEqual([[second, 'alex']]);
+      expect(changed.mock.calls).toEqual([
+        [second, 'kris'],
+        [second, 'alex'],
+      ]);
       expect(world.lookupAll(DisplayName('kris'))).toEqual([first]);
       expect(world.lookupAll(DisplayName('alex'))).toEqual([second]);
       second.onRemove(DisplayName('alex'), () => second.add(DisplayName('kris')));

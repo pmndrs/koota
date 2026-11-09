@@ -3,7 +3,6 @@ import { isIdentifier, isIdentifierPair } from '../identifier/identifier';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { RelationPair } from '../relation/types';
 import type { Store } from '../storage';
@@ -13,6 +12,7 @@ import type { Trait, TraitInstance } from '../trait/types';
 import { hasSubscribers } from '../trait/subscriptions';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
+import { beginDefer, endDefer } from '../world/defer';
 import { isModifier } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
@@ -42,8 +42,10 @@ type Callback = (...args: any[]) => void;
 type IterationBufferPool = { iterationBuffers: QueryIterationBuffers | undefined };
 
 /**
- * Shared traversal over entity sequences. Queries guard pending removals, and ordered sources
- * retain the arrays read by active walks. toArray returns a plain array the caller owns.
+ * Shared traversal over entity sequences. Every walk opens a defer scope, so structural changes
+ * made by callbacks apply when the outermost walk ends and no row loses its data under it.
+ * Ordered sources retain the arrays read by active walks. toArray returns a plain array the
+ * caller owns.
  */
 export class EntityView {
   ctx: WorldContext;
@@ -101,6 +103,7 @@ export class EntityView {
     if (dense.length !== source.length) dense.length = source.length;
     const guard = this.getGuard();
     if (guard) guard.iterating++;
+    beginDefer(this.ctx);
     // A local cursor can be eliminated by V8. Reuse its result to avoid per-entity allocations.
     return {
       index: 0,
@@ -109,7 +112,7 @@ export class EntityView {
       guard,
       ctx: this.ctx,
       result: { value: 0 as Entity, done: false },
-      next: this.query?.retains ? nextRetainedViewIterator : nextViewIterator,
+      next: nextViewIterator,
       return: returnViewIterator,
       [Symbol.iterator]: iterateViewIterator,
     } as ViewIterator;
@@ -124,14 +127,12 @@ export class EntityView {
     const { dense, length } = this.getSource();
     const guard = this.getGuard();
     if (guard) guard.iterating++;
+    beginDefer(this.ctx);
     try {
-      for (let i = 0; i < length; i++) {
-        const entity = dense[i] as Entity;
-        if (this.query?.retains && !isEntityReadable(this.ctx.entityIndex, entity)) continue;
-        callback(entity, i);
-      }
+      for (let i = 0; i < length; i++) callback(dense[i] as Entity, i);
     } finally {
       if (guard) guard.iterating--;
+      endDefer(this.ctx);
     }
   }
 
@@ -149,11 +150,13 @@ export class EntityView {
     const { stores } = this.binding;
     const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding, query);
     if (guard) guard.iterating++;
+    beginDefer(ctx);
     try {
       buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
     } finally {
       if (guard) guard.iterating--;
       releaseIterationBuffers(pool, buffers);
+      endDefer(ctx);
     }
     return this;
   }
@@ -181,6 +184,7 @@ export class EntityView {
     const buffers = takeIterationBuffers(ctx, pool, entities, this.binding, query);
     const iterators = buffers.iterators!;
     if (guard) guard.iterating++;
+    beginDefer(ctx);
     try {
       if (trackTraits(ctx, traits, buffers.modes, options?.changeDetection) === 0) {
         (positional ? iterators.each : iterators.updateEach)(
@@ -202,8 +206,7 @@ export class EntityView {
         );
         const { changedEntities, changedTraits } = buffers;
         for (let i = 0; i < changedCount; i++) {
-          const entity = changedEntities[i];
-          if (isEntityAlive(ctx.entityIndex, entity)) notifyChanged(ctx, entity, changedTraits[i]);
+          notifyChanged(ctx, changedEntities[i], changedTraits[i]);
         }
       }
     } finally {
@@ -214,6 +217,8 @@ export class EntityView {
         if (instance) instance.version++;
       }
       releaseIterationBuffers(pool, buffers);
+      // Changes are reported before the deferred structural changes apply.
+      endDefer(ctx);
     }
     return this;
   }
@@ -245,19 +250,6 @@ function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
   return this.result as IteratorResult<Entity>;
 }
 
-/** Retained walks skip entries evicted while a callback holds the original array. */
-function nextRetainedViewIterator(this: ViewIterator): IteratorResult<Entity> {
-  while (this.index < this.length) {
-    const entity = this.dense[this.index++] as Entity;
-    if (!isEntityReadable(this.ctx.entityIndex, entity)) continue;
-    this.result.value = entity;
-    return this.result as IteratorResult<Entity>;
-  }
-  finishViewIterator(this);
-  this.result.value = 0 as Entity;
-  return this.result as IteratorResult<Entity>;
-}
-
 function returnViewIterator(this: ViewIterator): IteratorResult<Entity> {
   finishViewIterator(this);
   return this.result as IteratorResult<Entity>;
@@ -272,6 +264,7 @@ function finishViewIterator(iterator: ViewIterator) {
     iterator.result.done = true;
     iterator.index = iterator.length;
     if (iterator.guard) iterator.guard.iterating--;
+    endDefer(iterator.ctx);
   }
 }
 
@@ -501,8 +494,6 @@ function createIterationBuffers(): QueryIterationBuffers {
     records: [],
     targetSnapshots: [],
     iterators: undefined,
-    retains: false,
-    query: null,
     modes: [],
     atomicSnapshots: [],
     changedEntities: [],
@@ -524,8 +515,6 @@ function takeIterationBuffers(
   if (buffers.binding !== binding) {
     prepareIterationBuffers(ctx, buffers, entities, binding, query);
   }
-  buffers.retains = query?.retains ?? false;
-  buffers.query = query;
   return buffers;
 }
 
