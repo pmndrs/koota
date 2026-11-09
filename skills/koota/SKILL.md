@@ -118,26 +118,26 @@ const AssetMachine = machine({
 })
 ```
 
-Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state.
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state. Both take the world first, since an entity is only an id.
 
 ```typescript
 const entity = world.spawn(AssetMachine) // Starts in Pending
-AssetMachine.enter(entity, Loading({ progress: 0 })) // Checks the transition
-AssetMachine.current(entity) === Loading // true
+AssetMachine.enter(world, entity, Loading({ progress: 0 })) // Checks the transition
+AssetMachine.current(world, entity) === Loading // true
 world.query(Loading) // All assets currently loading
-AssetMachine.enter(entity, Loaded) // Transitions to Loaded
+AssetMachine.enter(world, entity, Loaded) // Transitions to Loaded
 entity.add(Pending) // Transitions to Pending
 entity.remove(AssetMachine) // Clears this entity's asset loading state
-AssetMachine.current(entity) // undefined
+AssetMachine.current(world, entity) // undefined
 ```
 
 - `world.spawn(Machine)` enters the initial state. An explicit member overrides a bare machine in the same call.
-- `Machine.enter(entity, Loading({ progress }))` checks the transition table. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces its data with supplied values and defaults.
+- `Machine.enter(world, entity, Loading({ progress }))` checks the transition table. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces its data with supplied values and defaults.
 - `entity.add(member)` checks the transition table, with duplicate adds remaining no-ops. `upsert` writes the current state or checks the table before swapping when absent.
 - Illegal transitions throw `[MACHINE_ILLEGAL_TRANSITION]` with assertions enabled and otherwise leave the machine unchanged without firing callbacks.
-- `Machine.current(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
+- `Machine.current(world, entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.
-- `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition. `previous` contains the old value. `get` only reads current data.
+- `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition, and `world.onTransition(entity, Machine, callback)` only this entity's. `previous` contains the old value. `get` only reads current data.
 - Transition listeners must be registered when the transition starts. Unsubscribing before delivery cancels it. Listeners added during callbacks start with later transitions.
 - `Added` and `Removed` coalesce changes. `Changed` includes state additions. These queries are not transition event logs.
 - Stop using borrowed `each` state values after transitioning. Membership changes immediately.

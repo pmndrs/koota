@@ -7,7 +7,7 @@ import {
   type World,
 } from '@koota/core';
 import { useEffect, useRef } from 'react';
-import { resolveEntity } from '../utils/use-entity-value';
+import { resolveEntity, useResolvedWorld } from '../utils/use-entity-value';
 import { attachTrait, readTrait } from './use-trait';
 
 export function useTraitEffect<T extends Trait>(
@@ -25,6 +25,7 @@ export function useTraitEffect<T extends Trait>(
   trait: T | RelationPair<T>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
+  const world = useResolvedWorld(target)!;
   const entity = resolveEntity(target)!;
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
@@ -36,11 +37,11 @@ export function useTraitEffect<T extends Trait>(
 
   useEffect(() => {
     const currentEntity = resolveEntity(target);
-    if (currentEntity === undefined || !currentEntity.isAlive()) return;
+    if (currentEntity === undefined || !world.isAlive(currentEntity)) return;
     const notify = (value: unknown) => callbackRef.current(value as TraitRecord<T> | undefined);
-    const detach = attachTrait(currentEntity, trait, notify);
-    notify(readTrait(currentEntity, trait));
+    const detach = attachTrait(world, currentEntity, trait, notify);
+    notify(readTrait(world, currentEntity, trait));
     return detach;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entity, relation, pairTarget]);
+  }, [world, entity, relation, pairTarget]);
 }

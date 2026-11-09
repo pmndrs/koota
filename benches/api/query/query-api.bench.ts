@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
-import { createQuery, createWorld, Not, relation, trait } from 'koota';
+import { createQuery, Not, relation, trait } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ x: 0, y: 0, z: 0 });

@@ -15,10 +15,20 @@ import {
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
-import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
-import { hasIdentifier, isIdentifierPair } from '../identifier/identifier';
+import {
+  clearRelationEntity,
+  getFirstRelationTarget,
+  getRelationTargets,
+  hasRelationPair,
+} from '../relation/relation';
+import {
+  getIdentifierTarget,
+  hasIdentifier,
+  isIdentifier,
+  isIdentifierPair,
+} from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
-import type { RelationPair } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
   addTraitsToAliveEntity,
@@ -41,10 +51,6 @@ import {
 } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
 import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
-import { addressSpace } from './utils/address-space';
-
-// Ensure entity methods are patched.
-import './entity-methods-patch';
 
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
@@ -80,20 +86,20 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
   return entity;
 }
 
-// Entities already visited by the destroy in progress, keyed by id and stamped per outer call so
-// nothing is cleared between destroys. The packed entity is kept so a recycled id is not mistaken
-// for the entity that was destroyed before it.
-const processedStamp: number[] = [];
-const processedEntity: number[] = [];
-let destroyStamp = 0;
-const cachedQueue = [] as Entity[];
-let isDestroying = false;
-
 /** An entity being destroyed cannot acquire a new identifier owner entry. */
-export function isEntityDestroying(entity: Entity): boolean {
-  if (!isDestroying) return false;
-  const eid = getEntityId(entity);
-  return processedStamp[eid] === destroyStamp && processedEntity[eid] === entity;
+export function isEntityDestroying(ctx: WorldContext, entity: Entity): boolean {
+  if (!ctx.isDestroying) return false;
+  return isDestroyMarked(ctx.destroyMarks, getEntityId(entity) << 1, entity, ctx.destroyStamp);
+}
+
+/** The destroy stamped by this outer call already visited the entity, whose mark is at twice its id. */
+/* @inline @pure */ function isDestroyMarked(
+  marks: Uint32Array,
+  mark: number,
+  entity: Entity,
+  stamp: number
+) {
+  return marks[mark] === stamp && marks[mark + 1] === entity;
 }
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
@@ -104,13 +110,13 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
   // Subscribers run inside the loop below and may destroy entities themselves. A nested
   // call takes its own queue so it cannot wipe the cascade the outer call is still
   // walking, and shares the processed stamp so neither call destroys the same entity twice.
-  const nested = isDestroying;
-  const entityQueue = nested ? [entity] : cachedQueue;
-  const stamp = nested ? destroyStamp : ++destroyStamp;
+  const nested = ctx.isDestroying;
+  const entityQueue = nested ? [entity] : ctx.destroyQueue;
+  const stamp = nested ? ctx.destroyStamp : ++ctx.destroyStamp;
 
   if (!nested) entityQueue.push(entity);
 
-  isDestroying = true;
+  ctx.isDestroying = true;
   ctx.structuralDepth++;
 
   try {
@@ -118,7 +124,7 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
       destroyQueuedEntity(ctx, entityQueue.pop()!, entityQueue, stamp);
     }
   } finally {
-    isDestroying = nested;
+    ctx.isDestroying = nested;
     // Only a throw leaves entries behind. Trimming the length reallocates, so do it only then.
     if (!nested && entityQueue.length !== 0) entityQueue.length = 0;
     endStructuralChanges(ctx);
@@ -136,11 +142,11 @@ export function destroyQueuedEntity(
     assertMachineIdle(ctx, entity);
   }
   const eid = getEntityId(entity);
-  if (processedStamp[eid] === stamp && processedEntity[eid] === entity) {
-    return;
-  }
-  processedStamp[eid] = stamp;
-  processedEntity[eid] = entity;
+  const marks = ctx.destroyMarks;
+  const mark = eid << 1;
+  if (isDestroyMarked(marks, mark, entity, stamp)) return;
+  marks[mark] = stamp;
+  marks[mark + 1] = entity;
 
   if (ctx.relations.length !== 0) {
     cleanupDestroyedRelations(ctx, entity, eid, entityQueue, stamp);
@@ -223,10 +229,10 @@ function cleanupDestroyedRelations(
 
     if (relationCtx.autoDestroy === 'target') {
       const targets = getRelationTargets(ctx, relation, entity);
+      const marks = ctx.destroyMarks;
       for (const target of targets) {
         if (!isEntityAlive(ctx.entityIndex, target)) continue;
-        const targetId = getEntityId(target);
-        if (processedStamp[targetId] === stamp && processedEntity[targetId] === target) continue;
+        if (isDestroyMarked(marks, getEntityId(target) << 1, target, stamp)) continue;
         entityQueue.push(target);
       }
     }
@@ -345,11 +351,6 @@ function evictEntity(ctx: WorldContext, entity: Entity) {
   releaseRetainedEntity(ctx.entityIndex, entity);
 }
 
-/** The world that owns a live entity. Used by entity methods. */
-export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
-  return addressSpace.pageOwners[getEntityId(entity) >>> 10]!;
-}
-
 export /* @inline */ function entityHas(
   ctx: WorldContext,
   entity: Entity,
@@ -365,6 +366,29 @@ export /* @inline */ function entityHas(
   }
   // An identifier shares the id of its backing trait, so presence reads it directly.
   return hasTrait(ctx, entity, trait as Trait);
+}
+
+/** The key an identifier gives the entity, or the first target of a relation. */
+export /* @inline */ function entityTargetFor(
+  ctx: WorldContext,
+  entity: Entity,
+  relation: Relation<any> | Identifier
+) {
+  if (isIdentifier(relation)) return getIdentifierTarget(ctx, entity, relation);
+  return getFirstRelationTarget(ctx, relation, entity);
+}
+
+/** Every target of a relation, or the one key of an identifier as a list. */
+export /* @inline */ function entityTargetsFor(
+  ctx: WorldContext,
+  entity: Entity,
+  relation: Relation<any> | Identifier
+) {
+  if (isIdentifier(relation)) {
+    const target = getIdentifierTarget(ctx, entity, relation);
+    return target === undefined ? [] : [target];
+  }
+  return getRelationTargets(ctx, relation, entity);
 }
 
 /**

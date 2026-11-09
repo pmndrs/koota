@@ -72,7 +72,7 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     this.ctx.structuralDepth++;
     try {
       this.source.write().splice(index, 1);
-      removeTrait(this.ctx, entity, this.relation(this.parent));
+      removeTrait(this.ctx, entity, [this.relation(this.parent)]);
       this.changed();
     } finally {
       endStructuralChanges(this.ctx);
@@ -87,7 +87,7 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     this.source.dense = [];
     this.ctx.structuralDepth++;
     try {
-      for (const entity of entities) removeTrait(this.ctx, entity, this.relation(this.parent));
+      for (const entity of entities) removeTrait(this.ctx, entity, [this.relation(this.parent)]);
       this.changed();
     } finally {
       endStructuralChanges(this.ctx);

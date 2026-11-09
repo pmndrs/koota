@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createQuery, createWorld, relation, trait, type Entity } from 'koota';
+import { createQuery, relation, trait, type Entity } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const IsPlayer = trait();

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createChanged, createWorld, ordered, relation, trait, type Entity } from '../src';
+import { createChanged, ordered, relation, trait, type Entity } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('Ordered relation views', () => {
   const world = createWorld();

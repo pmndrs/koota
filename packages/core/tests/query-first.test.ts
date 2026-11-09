@@ -1,14 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import {
-  createAdded,
-  createChanged,
-  createQuery,
-  createRemoved,
-  createWorld,
-  Not,
-  relation,
-  trait,
-} from '../src';
+import { createAdded, createChanged, createQuery, createRemoved, Not, relation, trait } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('queryFirst', () => {
   const world = createWorld();

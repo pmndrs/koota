@@ -10,7 +10,7 @@ import {
   lookupAllIdentifierScopes,
 } from '../identifier/identifier';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
-import { EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
+import { EMPTY_MASK_PAGE, createPageTable, getPageLimit } from '../entity/utils/paged-mask';
 import { getEntitiesWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -448,6 +448,7 @@ function processTrackingModifier(
 
       const genId = instance.generationId;
       group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
+      group.trackers[genId] ??= createPageTable(getPageLimit(ctx));
 
       if (trackingType === 'change') {
         query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
@@ -477,6 +478,7 @@ function processTrackingModifier(
         getTraitInstance(ctx.traitInstances, filter.relation[$internal].trait)!
       );
       group.bitmasks[0] = (group.bitmasks[0] || 0) | (1 << tracked.length);
+      group.trackers[0] ??= createPageTable(getPageLimit(ctx));
       tracked.push(filter);
     }
   }
@@ -621,7 +623,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
-  forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
+  forbidden.push(ensureTraitInstance(ctx, IsExcluded));
 
   const hasNegatedOr = query.filters !== null && query.filters.not.length !== 0;
   if (
@@ -783,16 +785,26 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
       const cleanup = (query.cleanup ??= []);
       cleanup.push(
-        subscribeEnter(ctx, pair.targetQueryRef, (target) => {
-          pair.targetQueryMatches!.add(target);
-          refreshSourcesForTarget(target);
-        })
+        subscribeInternal(
+          ctx,
+          pair.targetQueryRef,
+          (target) => {
+            pair.targetQueryMatches!.add(target);
+            refreshSourcesForTarget(target);
+          },
+          true
+        )
       );
       cleanup.push(
-        subscribeExit(ctx, pair.targetQueryRef, (target) => {
-          pair.targetQueryMatches!.remove(target);
-          refreshSourcesForTarget(target);
-        })
+        subscribeInternal(
+          ctx,
+          pair.targetQueryRef,
+          (target) => {
+            pair.targetQueryMatches!.remove(target);
+            refreshSourcesForTarget(target);
+          },
+          false
+        )
       );
     }
   }
@@ -1080,49 +1092,43 @@ function internalQuerySubscriptions(ctx: WorldContext, query: QueryInstance) {
   return subscriptions;
 }
 
-/**
- * Subscribe to query entries. Internal equivalent of world.onEnter().
- */
-export function subscribeEnter(
+/** The instance behind a query ref or a parameter list, created on first use. */
+function resolveQueryArgs(ctx: WorldContext, args: Query<QueryParameter[]> | QueryParameter[]) {
+  return isQuery(args)
+    ? resolveQueryInstanceFromRef(ctx, args)
+    : resolveQueryInstance(ctx, args as QueryParameter[]);
+}
+
+/** Observe entities entering or leaving a query. Backs world.onEnter() and world.onExit(). */
+export function subscribeQuery(
   ctx: WorldContext,
   args: Query<QueryParameter[]> | QueryParameter[],
-  callback: (entity: Entity) => void
+  callback: (entity: Entity) => void,
+  added: boolean
 ): () => void {
-  let query: QueryInstance;
-  if (isQuery(args)) {
-    query = resolveQueryInstanceFromRef(ctx, args);
-  } else {
-    query = resolveQueryInstance(ctx, args as QueryParameter[]);
-  }
-  const subscriptions = internalQuerySubscriptions(ctx, query);
-  subscriptions.add.add(callback);
-  (query.addSubscriptions ??= new Set()).add(callback);
-  return () => {
-    subscriptions.add.delete(callback);
-    query.addSubscriptions!.delete(callback);
-  };
+  const query = resolveQueryArgs(ctx, args);
+  const key = added ? 'addSubscriptions' : 'removeSubscriptions';
+  (query[key] ??= new Set()).add(callback);
+  return () => query[key]!.delete(callback);
 }
 
 /**
- * Subscribe to query exits. Internal equivalent of world.onExit().
+ * Internal query subscriptions keep derived membership current. They run before any public
+ * callback of the same batch, so a public callback never sees a query mid update.
  */
-export function subscribeExit(
+function subscribeInternal(
   ctx: WorldContext,
-  args: Query<QueryParameter[]> | QueryParameter[],
-  callback: (entity: Entity) => void
+  query: Query<QueryParameter[]>,
+  callback: (entity: Entity) => void,
+  added: boolean
 ): () => void {
-  let query: QueryInstance;
-  if (isQuery(args)) {
-    query = resolveQueryInstanceFromRef(ctx, args);
-  } else {
-    query = resolveQueryInstance(ctx, args as QueryParameter[]);
-  }
-  const subscriptions = internalQuerySubscriptions(ctx, query);
-  subscriptions.remove.add(callback);
-  (query.removeSubscriptions ??= new Set()).add(callback);
+  const subscriptions = internalQuerySubscriptions(ctx, resolveQueryInstanceFromRef(ctx, query));
+  const internal = added ? subscriptions.add : subscriptions.remove;
+  internal.add(callback);
+  const unsubscribe = subscribeQuery(ctx, query, callback, added);
   return () => {
-    subscriptions.remove.delete(callback);
-    query.removeSubscriptions!.delete(callback);
+    internal.delete(callback);
+    unsubscribe();
   };
 }
 

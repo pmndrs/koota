@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { $internal, createWorld, trait, type Entity } from 'koota';
+import { $internal, trait, type Entity } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 const Position = trait({ x: 0, y: 0 });
 

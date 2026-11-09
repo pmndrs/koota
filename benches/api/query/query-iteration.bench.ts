@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait } from 'koota';
+import { trait } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 for (const [count, layout] of [
   [2, 'soa'],

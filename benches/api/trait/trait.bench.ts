@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait, type Trait } from 'koota';
+import { trait, type Trait } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 for (const layout of ['soa', 'aos'] as const) {
   group(`${layout} traits 10k @trait @accessor`, () => {

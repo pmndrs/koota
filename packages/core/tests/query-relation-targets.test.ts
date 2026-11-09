@@ -2,7 +2,6 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   createQuery,
   createRemoved,
-  createWorld,
   Not,
   Or,
   ordered,
@@ -11,6 +10,7 @@ import {
   type Entity,
   type Relation,
 } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('relation targets in each', () => {
   it('passes exclusive wildcard and query targets in parameter order', () => {

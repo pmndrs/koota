@@ -39,15 +39,16 @@ describe('World', () => {
     expect(worldTest).toBe(world);
   });
 
-  it('can create a world in useMemo and auto-register on first use', () => {
+  it('can create a world in useMemo and use it across strict effects', () => {
     let worldTest: World = null!;
 
     function Test() {
       worldTest = useMemo(() => createWorld(), []);
 
+      // A world nothing refers to is collected, so the one a discarded render made needs no cleanup.
       useEffect(() => {
-        worldTest.spawn();
-        return () => worldTest.destroy();
+        const entity = worldTest.spawn();
+        return () => worldTest.destroy(entity);
       }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
       return null;
@@ -60,6 +61,6 @@ describe('World', () => {
     );
 
     expect(worldTest).toBeDefined();
-    expect(worldTest!.isRegistered).toBe(true);
+    expect(worldTest!.entities.length).toBe(2);
   });
 });

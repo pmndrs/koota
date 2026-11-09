@@ -4,7 +4,6 @@ import {
   createChanged,
   createQuery,
   createRemoved,
-  createWorld,
   identifier,
   IsExcluded,
   Not,
@@ -14,6 +13,7 @@ import {
   type Entity,
   type World,
 } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('Identifiers', () => {
   const Name = identifier();

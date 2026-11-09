@@ -11,17 +11,17 @@ import { useEntityValue } from '../utils/use-entity-value';
 
 type HasInput = Trait | RelationPair | Identifier | IdentifierPair;
 
-function readHas(entity: Entity, trait: HasInput) {
-  return entity.has(trait);
+function readHas(world: World, entity: Entity, trait: HasInput) {
+  return world.has(entity, trait);
 }
 
-function attachHas(entity: Entity, trait: HasInput, push: (value: boolean) => void) {
-  const observer = entity[$internal].observeSettled(() =>
-    push(entity.isAlive() && entity.has(trait))
+function attachHas(world: World, entity: Entity, trait: HasInput, push: (value: boolean) => void) {
+  const observer = world[$internal].observeSettled(() =>
+    push(world.isAlive(entity) && world.has(entity, trait))
   );
   // The hook overloads take no union. Core resolves every input and filters exact terms by key.
-  const onAdd = entity.onAdd(trait as Trait, observer.invalidate);
-  const onRemove = entity.onRemove(trait as Trait, observer.invalidate);
+  const onAdd = world.onAdd(entity, trait as Trait, observer.invalidate);
+  const onRemove = world.onRemove(entity, trait as Trait, observer.invalidate);
   return () => {
     observer.unsubscribe();
     onAdd();

@@ -38,7 +38,7 @@ describe('useQuery', () => {
     await tick();
     expect(getByTestId('count').textContent).toBe('2');
 
-    entityToDestroy.destroy();
+    world.destroy(entityToDestroy);
     await tick();
     expect(getByTestId('count').textContent).toBe('1');
   });
