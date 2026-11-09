@@ -48,7 +48,13 @@ export type {
 } from './identifier/types';
 export { relation } from './relation/relation';
 export { ordered, isOrderedTrait } from './relation/ordered';
-export type { EntityComparator, EntityView, OrderedView, MutableOrderedView } from './view/types';
+export type {
+  EntityComparator,
+  EntityView,
+  OrderedView,
+  MutableOrderedView,
+  SortKeySelector,
+} from './view/types';
 export { $relationPair, $relation } from './relation/symbols';
 export type {
   OrderedRelation as OrderedTrait,

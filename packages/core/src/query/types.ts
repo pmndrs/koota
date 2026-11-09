@@ -1,4 +1,4 @@
-import type { EntityComparator, EntityView, OrderedView } from '../view/types';
+import type { EntityComparator, EntityView, OrderedView, SortKeySelector } from '../view/types';
 import type { $internal } from '../common';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
@@ -118,6 +118,11 @@ export interface QueryView<T extends QueryParameter[] = QueryParameter[]> extend
   select<U extends QueryParameter[]>(...params: U): QueryView<U>;
   /** Caches a derived order. Omit deps or pass [] to sort on every access. */
   sort(compare: EntityComparator, deps?: readonly Trait[]): OrderedView<T>;
+  /**
+   * Stable ascending order by a numeric key other than NaN, read once per entity on refresh.
+   * Tracks the key trait automatically. Every entity must carry it. Reuse the selector to share the view.
+   */
+  sortBy<C extends Trait>(trait: C, selector: SortKeySelector<C>): OrderedView<T>;
 }
 
 type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;

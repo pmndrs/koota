@@ -4,8 +4,8 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import type { WorldContext } from '../world';
 import type { Trait } from '../trait/types';
 import { EntityView, getQueryBinding, type EntitySource } from '../view/entity-view';
-import { sortView } from '../view/ordered-view';
-import type { EntityComparator } from '../view/types';
+import { sortByView, sortView } from '../view/ordered-view';
+import type { EntityComparator, SortKeySelector } from '../view/types';
 import { getQueryPages } from './query-pages';
 import type {
   QueryInstance,
@@ -57,6 +57,10 @@ class View implements QueryView<any> {
 
   sort(compare: EntityComparator, deps: readonly Trait[] = []) {
     return sortView(this, compare, deps);
+  }
+
+  sortBy<C extends Trait>(trait: C, selector: SortKeySelector<C>) {
+    return sortByView(this, trait, selector);
   }
 
   getPages() {
