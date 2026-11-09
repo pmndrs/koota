@@ -23,11 +23,11 @@ type RequiredKeys<TSchema extends Schema> = {
 
 /**
  * Whether add needs a value because the schema has a required field.
- * An untyped schema resolves to any so open Trait references accept and pass as either kind.
+ * An unspecified schema may require input, so it cannot be added bare.
  */
 export type RequiresInit<TSchema extends Schema> =
   IsAny<TSchema> extends true
-    ? any
+    ? boolean
     : TSchema extends Record<string, never>
       ? false
       : TSchema extends RequiredField

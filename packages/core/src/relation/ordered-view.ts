@@ -8,7 +8,7 @@ import { getQueryBinding } from '../view/entity-view';
 import { ListView, OrderedSource } from '../view/ordered-view';
 import type { EntityComparator, MutableOrderedView } from '../view/types';
 import type { WorldContext } from '../world';
-import type { Relation } from './types';
+import type { ConfigurablePair, Relation } from './types';
 
 /** Membership edits update relation pairs. Reordering only changes the owned sequence. */
 export class RelationView extends ListView implements MutableOrderedView<any> {
@@ -45,7 +45,8 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     if (!isEntityAlive(this.ctx.entityIndex, entity)) {
       throw new Error('Koota: Ordered views require live entities in the same world.');
     }
-    addTrait(this.ctx, entity, [this.relation(this.parent)]);
+    // The view erases the store schema. Add validates required values at runtime.
+    addTrait(this.ctx, entity, [this.relation(this.parent) as ConfigurablePair]);
     return this;
   }
 

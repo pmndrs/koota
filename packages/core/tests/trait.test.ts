@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createChanged, createWorld, type Entity, getStore, relation, required, trait } from '../src';
+import {
+  createChanged,
+  createWorld,
+  type Entity,
+  getStore,
+  relation,
+  required,
+  trait,
+  type Trait,
+} from '../src';
 
 class TestClass {
   public name: string;
@@ -280,6 +289,46 @@ describe('Trait', () => {
     // @ts-expect-error the required field is missing
     expect(() => other.add(View({ visible: false }))).toThrow('REQUIRED_VALUE');
     expect(other.has(MeshRef) || other.has(View)).toBe(false);
+  });
+
+  it('requires input when adding a required AoS trait', () => {
+    const Ref = trait(required<{ visible: boolean }>());
+    const entity = world.spawn();
+
+    // @ts-expect-error a required AoS trait cannot be added bare
+    expect(() => entity.add(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error a required AoS trait cannot be added bare
+    expect(() => world.add(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error a required AoS trait cannot be added bare
+    expect(() => world.spawn(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error a required AoS trait needs its value
+    expect(() => entity.add(Ref())).toThrow('REQUIRED_VALUE');
+
+    const value = { visible: true };
+    entity.add(Ref(value));
+    world.add(Ref(value));
+    expect(entity.get(Ref)).toBe(value);
+    expect(world.get(Ref)).toBe(value);
+    expect(world.spawn(Ref(value)).get(Ref)).toBe(value);
+  });
+
+  it('requires input when a required AoS trait is widened to Trait', () => {
+    const Ref: Trait = trait(required<{ visible: boolean }>());
+    const entity = world.spawn();
+
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => entity.add(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => world.add(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => world.spawn(Ref)).toThrow('REQUIRED_VALUE');
+
+    const value = { visible: true };
+    entity.add(Ref(value));
+    world.add(Ref(value));
+    expect(entity.get(Ref)).toBe(value);
+    expect(world.get(Ref)).toBe(value);
+    expect(world.spawn(Ref(value)).get(Ref)).toBe(value);
   });
 
   it('can create atomic traits', () => {
