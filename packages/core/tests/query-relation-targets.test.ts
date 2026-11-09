@@ -296,10 +296,11 @@ describe('relation targets in each', () => {
     const world = createWorld();
     const Parent = relation({ exclusive: true });
     const fromDefinition = (definition?: { exclusive: boolean }) => relation(definition);
-    const Dynamic: Relation = fromDefinition({ exclusive: true });
+    const dynamic = fromDefinition({ exclusive: true });
+    const Dynamic: Relation = dynamic;
     const Tag = trait();
     const parent = world.spawn(Tag);
-    const child = world.spawn(Parent(parent), Dynamic(parent));
+    const child = world.spawn(Parent(parent), dynamic(parent));
     world.query(Dynamic('*')).each((target, entity) => {
       expectTypeOf(target).toEqualTypeOf<Entity | readonly Entity[]>();
       expect([target, entity]).toEqual([parent, child]);
