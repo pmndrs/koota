@@ -920,7 +920,14 @@ world
 
 ### Ordered query views
 
-Use `sort` to read query results in a chosen order.
+Use `sortBy` for ascending numeric keys. It reads each key once per refresh and tracks the key trait automatically.
+
+```ts
+const byX = (position: Readonly<{ x: number }>) => position.x
+const sorted = world.query(Position).sortBy(Position, byX)
+```
+
+Use `sort` for a custom entity comparator.
 
 ```ts
 const query = world.query(Position)

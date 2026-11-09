@@ -341,6 +341,11 @@ world.query(IsPlayer, Position, Velocity).each((pos, vel) => {
 
 Use `query.sortBy(Position, byX)` to sort by a numeric trait key other than `NaN`. The selector reads borrowed data once per entity per refresh and must not mutate or retain it or change the world. Every entity must carry the key trait. Keys sort ascending, so return a negative key for descending order. The key trait is tracked automatically, and `each` walks that include it count as possible writes. Read `sorted.entities` to reuse a clean cached order. Keep the selector function stable to reuse the view, and call `invalidate()` after changing external selector state.
 
+```typescript
+const byX = (position: Readonly<{ x: number }>) => position.x
+const sorted = world.query(Position).sortBy(Position, byX)
+```
+
 Use `query.sort(compare, [Position])` for a custom entity comparator. The dependency array lists the traits read by the comparator. Omit it or pass `[]` to sort on every access.
 
 `sorted.entities` exposes the cached ordered array without an extra copy. Access checks whether the order needs refreshing. Read it once per loop and finish before another view access or changes to membership or sort data.
