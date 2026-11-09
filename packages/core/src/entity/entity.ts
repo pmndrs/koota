@@ -14,10 +14,20 @@ import {
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
-import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
-import { hasIdentifier, isIdentifierPair } from '../identifier/identifier';
+import {
+  clearRelationEntity,
+  getFirstRelationTarget,
+  getRelationTargets,
+  hasRelationPair,
+} from '../relation/relation';
+import {
+  getIdentifierTarget,
+  hasIdentifier,
+  isIdentifier,
+  isIdentifierPair,
+} from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
-import type { RelationPair } from '../relation/types';
+import type { Relation, RelationPair } from '../relation/types';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
   applyAddTrait,
@@ -40,10 +50,6 @@ import {
 } from './utils/entity-index';
 import { getEntityId } from './utils/pack-entity';
 import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
-import { addressSpace } from './utils/address-space';
-
-// Ensure entity methods are patched.
-import './entity-methods-patch';
 
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
@@ -315,11 +321,6 @@ function evictEntity(ctx: WorldContext, entity: Entity) {
   releaseRetainedEntity(ctx.entityIndex, entity);
 }
 
-/** The world that owns a live entity. Used by entity methods. */
-export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
-  return addressSpace.pageOwners[getEntityId(entity) >>> 10]!;
-}
-
 export /* @inline */ function entityHas(
   ctx: WorldContext,
   entity: Entity,
@@ -335,6 +336,29 @@ export /* @inline */ function entityHas(
   }
   // An identifier shares the id of its backing trait, so presence reads it directly.
   return hasTrait(ctx, entity, trait as Trait);
+}
+
+/** The key an identifier gives the entity, or the first target of a relation. */
+export /* @inline */ function entityTargetFor(
+  ctx: WorldContext,
+  entity: Entity,
+  relation: Relation<any> | Identifier
+) {
+  if (isIdentifier(relation)) return getIdentifierTarget(ctx, entity, relation);
+  return getFirstRelationTarget(ctx, relation, entity);
+}
+
+/** Every target of a relation, or the one key of an identifier as a list. */
+export /* @inline */ function entityTargetsFor(
+  ctx: WorldContext,
+  entity: Entity,
+  relation: Relation<any> | Identifier
+) {
+  if (isIdentifier(relation)) {
+    const target = getIdentifierTarget(ctx, entity, relation);
+    return target === undefined ? [] : [target];
+  }
+  return getRelationTargets(ctx, relation, entity);
 }
 
 /**
@@ -375,5 +399,10 @@ export function subscribeEntityEvent(
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
   ctx.entitySubscribedInstances.add(instance);
   if (event === 'changeSubscriptions') ctx.trackingRevision++;
-  return subscribeEntity(instance[event], entity, resolveHookCallback(ctx, input, callback));
+  return subscribeEntity(
+    instance[event],
+    ctx.entityIndex,
+    entity,
+    resolveHookCallback(ctx, input, callback)
+  );
 }

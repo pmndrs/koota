@@ -1,4 +1,5 @@
 import type { Entity } from '../entity/types';
+import type { World } from '../world/types';
 import type { TagTrait, Trait, TraitRecord, TraitTuple } from '../trait/types';
 import type { $internal } from '../common';
 
@@ -16,8 +17,8 @@ export type TransitionSubscriber<T extends Trait = Trait> = (
 
 export type Machine<S extends MachineStates = MachineStates> = TagTrait & {
   readonly states: Readonly<S>;
-  current(entity: Entity): S[keyof S] | undefined;
-  enter(entity: Entity, state: MachineStateInput<S[keyof S]>): void;
+  current(world: World, entity: Entity): S[keyof S] | undefined;
+  enter(world: World, entity: Entity, state: MachineStateInput<S[keyof S]>): void;
 };
 
 export type MachineOptions<S extends MachineStates> = {
@@ -32,7 +33,7 @@ export type MachineContext = {
   initial: Trait;
   transitions: Map<Trait, ReadonlySet<Trait>> | undefined;
   initializers: Map<Trait, (value: unknown) => unknown>;
-  revision(entity: Entity): number;
+  revision(world: World, entity: Entity): number;
 };
 
 export type MachineInstance = {

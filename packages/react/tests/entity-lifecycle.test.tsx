@@ -22,7 +22,7 @@ describe('entity lifecycle', () => {
 
   it('safely renders an entity that has already been destroyed', () => {
     const entity = world.spawn(Position);
-    entity.destroy();
+    world.destroy(entity);
     const notify = vi.fn();
 
     const { result } = renderHook(
@@ -46,14 +46,14 @@ describe('entity lifecycle', () => {
         const position = useTrait(entity, Position);
         useTraitEffect(entity, Position, notify);
         useLayoutEffect(() => {
-          if (entity.isAlive()) entity.destroy();
+          if (world.isAlive(entity)) world.destroy(entity);
         }, []);
         return position;
       },
       { wrapper: Wrapper }
     );
 
-    expect(entity.isAlive()).toBe(false);
+    expect(world.isAlive(entity)).toBe(false);
     expect(notify).not.toHaveBeenCalled();
   });
 });

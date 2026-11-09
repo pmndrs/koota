@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
-import { createWorld, relation, trait, type Entity } from 'koota';
+import { relation, trait, type Entity } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 // One relation covers each policy, three exercise projection scaling and scattered pages.
 for (const [exclusive, count, targetCount, modes] of [

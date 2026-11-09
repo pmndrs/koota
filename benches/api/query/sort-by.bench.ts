@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait, type Entity, type SortKeySelector } from 'koota';
+import { trait, type Entity, type SortKeySelector } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 group('sortBy each @sort-by @sort-by-each', () => {
   for (const count of [100, 400]) {

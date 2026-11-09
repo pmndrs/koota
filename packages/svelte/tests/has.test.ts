@@ -31,7 +31,7 @@ describe('useHas', () => {
     await tick();
     expect(getByTestId('value').textContent).toBe('true');
 
-    entity.remove(Position);
+    world.remove(entity, Position);
     await tick();
     expect(getByTestId('value').textContent).toBe('false');
   });
@@ -110,19 +110,19 @@ describe('useHas', () => {
     flushSync();
     expect(getByTestId('value').textContent).toBe('false');
 
-    child.add(ChildOf(parentB));
+    world.add(child, ChildOf(parentB));
     flushSync();
     expect(getByTestId('value').textContent).toBe('true');
 
-    child.add(ChildOf(parentA));
+    world.add(child, ChildOf(parentA));
     flushSync();
     expect(getByTestId('value').textContent).toBe('true');
 
-    child.remove(ChildOf(parentA));
+    world.remove(child, ChildOf(parentA));
     flushSync();
     expect(getByTestId('value').textContent).toBe('true');
 
-    child.remove(ChildOf(parentB));
+    world.remove(child, ChildOf(parentB));
     flushSync();
     expect(getByTestId('value').textContent).toBe('false');
   });

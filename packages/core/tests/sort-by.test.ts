@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import {
-  createRemoved,
-  createWorld,
-  trait,
-  type Entity,
-  type OrderedView,
-  type SortKeySelector,
-} from '../src';
+import { createRemoved, trait, type Entity, type OrderedView, type SortKeySelector } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('Query sortBy', () => {
   const world = createWorld();

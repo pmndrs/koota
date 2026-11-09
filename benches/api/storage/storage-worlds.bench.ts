@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait } from 'koota';
+import { trait } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 group('small trait-diverse worlds @storage @storage-scene', () => {
   const traits = Array.from({ length: 30 }, () =>

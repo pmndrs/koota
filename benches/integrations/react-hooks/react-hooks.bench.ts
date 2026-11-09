@@ -1,7 +1,8 @@
 /// <reference lib="dom" />
 import './setup-dom';
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, trait, type Entity } from 'koota';
+import { trait, type Entity } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 import { useTrait, WorldProvider } from 'koota/react';
 import { createElement as h } from 'react';
 import { flushSync } from 'react-dom';

@@ -1,18 +1,23 @@
 <script lang="ts">
-  import type { Entity, Trait } from '@koota/core';
-  import { useTrait, useTraitEffect } from '../../src';
+  import type { Entity, Trait, World } from '@koota/core';
+  import { provideWorld, useTrait, useTraitEffect } from '../../src';
 
   let {
+    world,
     target,
     trait,
     beforeEffects,
     onChange,
   }: {
+    world: World;
     target: Entity;
     trait: Trait;
     beforeEffects?: () => void;
     onChange: (value: unknown) => void;
   } = $props();
+
+  // svelte-ignore state_referenced_locally
+  provideWorld(world);
 
   const result = useTrait(
     () => target,

@@ -3,12 +3,7 @@ import { matchesIdentifiers } from '../../identifier/identifier';
 import { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { GENERATION_MASK, getEntityId } from '../../entity/utils/pack-entity';
-import {
-  DESTROYED_WORD,
-  REMOVED_WORD,
-  createEmptyMaskGeneration,
-  ensureMaskPage,
-} from '../../entity/utils/paged-mask';
+import { DESTROYED_WORD, REMOVED_WORD, ensureMaskPage } from '../../entity/utils/paged-mask';
 import { hasRelationToTarget } from '../../relation/relation';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance, ResolvedRelationFilter } from '../types';
@@ -150,43 +145,6 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
 }
 
 /**
- * Record a write in the Changed groups that track the trait, then report whether the tracking
- * groups are satisfied. Every and group must have fired in full and, when or groups exist, at
- * least one of them in part.
- */
-export function recordChangeAndMatch(
-  query: QueryInstance,
-  generationId: number,
-  eid: number,
-  bitflag: number
-): boolean {
-  const trackingGroups = query.trackingGroups;
-  let hasOrGroup = false;
-  let anyOrMatched = false;
-  let matched = true;
-  for (let i = 0; i < trackingGroups.length; i++) {
-    const group = trackingGroups[i];
-    const bitmasks = group.bitmasks;
-    const hit =
-      group.type === 'change' && (bitmasks[generationId]! & bitflag) !== 0 && group.pairs === null;
-    if (hit) recordTrackerHit(group.trackers, generationId, eid, bitflag);
-    if (group.logic === 'or') {
-      hasOrGroup = true;
-      if (!anyOrMatched && (hit || trackersMatchAny(group.trackers, bitmasks, eid))) {
-        anyOrMatched = true;
-      }
-    } else if (
-      matched &&
-      !(hit && group.single) &&
-      !trackersMatchAll(group.trackers, bitmasks, eid)
-    ) {
-      matched = false;
-    }
-  }
-  return matched && (!hasOrGroup || anyOrMatched);
-}
-
-/**
  * Seeds Removed pair terms from the pairs live entities lost before the query existed. An entry
  * counts while its entity is still readable, has not taken the pair back and passes the static
  * terms, as a trait seed does.
@@ -267,7 +225,7 @@ function coversPair(pair: ResolvedRelationFilter, traitId: number, target: Entit
 }
 
 /** Every tracked bit of the group has fired for the entity. */
-function trackersMatchAll(
+export function trackersMatchAll(
   trackers: Uint32Array[][],
   bitmasks: (number | undefined)[],
   eid: number
@@ -275,15 +233,13 @@ function trackersMatchAll(
   for (let genId = 0; genId < bitmasks.length; genId++) {
     const mask = bitmasks[genId];
     if (!mask) continue;
-    const trackerGen = trackers[genId];
-    const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-    if ((tracker & mask) !== mask) return false;
+    if ((trackers[genId][eid >>> 10][eid & 1023] & mask) !== mask) return false;
   }
   return true;
 }
 
 /** At least one tracked bit of the group has fired for the entity. */
-function trackersMatchAny(
+export function trackersMatchAny(
   trackers: Uint32Array[][],
   bitmasks: (number | undefined)[],
   eid: number
@@ -291,9 +247,7 @@ function trackersMatchAny(
   for (let genId = 0; genId < bitmasks.length; genId++) {
     const mask = bitmasks[genId];
     if (!mask) continue;
-    const trackerGen = trackers[genId];
-    const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-    if (tracker & mask) return true;
+    if (trackers[genId][eid >>> 10][eid & 1023] & mask) return true;
   }
   return false;
 }
@@ -338,13 +292,12 @@ function clearTrackerHit(
   if ((hits & bitflag) !== 0) page[eid & 1023] = hits & ~bitflag;
 }
 
-/** Remember that the tracked event fired for the entity, allocating the tracker lazily. */
+/** Remember that the tracked event fired for the entity. A group holds a table for every generation it tracks. */
 export function recordTrackerHit(
   trackers: Uint32Array[][],
   generationId: number,
   eid: number,
   bitflag: number
 ) {
-  if (!trackers[generationId]) trackers[generationId] = createEmptyMaskGeneration();
   ensureMaskPage(trackers[generationId], eid >>> 10)[eid & 1023] |= bitflag;
 }

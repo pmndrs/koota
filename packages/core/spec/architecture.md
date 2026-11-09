@@ -54,7 +54,7 @@ Traits are a user-facing handle for storage. The user never interacts with store
 
 `createWorld(options?: WorldOptions)` fixes world policy at creation. `retain` defaults to 1024, is readable through `world.retain`, and survives reset. It caps destroyed-entity history. Overflow evicts the oldest even if unread, and zero disables retention. Singleton traits are added separately with `world.add(...)`.
 
-Worlds are **lazily registered**. `createWorld()` allocates the facade and internal state, but registers the initial traits and allocates the world entity on first use (`spawn`, `add`, `set`, `query`, hook registration). This keeps world creation cheap and makes React-style memoized world creation safer.
+A world owns everything it allocates and nothing outside refers to it, so dropping the last reference frees it. `createWorld()` creates the world entity at once. `destroy()` is final: it destroys every entity, releases the pages and leaves a world that cannot spawn.
 
 ## Internals
 
@@ -62,19 +62,19 @@ Each trait instance has a bitflag and a generation ID per world. An entity build
 
 Pairs cannot be represented in the bitmask of an entity of query, only the base relation, and therefore are not captured in that comparison. This especially effects change and forbidden masking.
 
-The runtime stores entity identity globally instead of encoding `worldId` into the entity value. Packed entities are now `generation(8) + entityId(24)`. The world/context for an entity is resolved from global page ownership using the entity ID's page, while the packed generation still protects against stale recycled handles.
+An entity is a packed number, `generation(8) + entityId(24)`, that only means something to the world that spawned it. Two worlds hand out the same numbers, so entity operations go through the world: `world.get(entity, Position)`. The packed generation protects against stale recycled handles.
 
-Worlds share a global page address space and entity limit. Each world owns its entity index and leases pages from the allocator.
+Each world owns its page allocator and its entity index, and ids start at zero. The `koota/entity-methods` entry is the exception. Its `createWorld` shares one allocator between its worlds, so the page of an id identifies the owning world and `entity.get(Position)` can find it. That table holds each of those worlds until it is destroyed. A program uses that entry for all of its worlds or for none.
 
-Along with this, most per-entity state is paged. Bitmasks, trait stores, relation targets, and tracking snapshots use page-based arrays keyed by `pageId = entityId >>> 10` and `offset = entityId & 1023`. This keeps large sparse worlds from paying for giant flat arrays and improves locality when entities from the same world are iterated together.
+Most per-entity state is paged. Bitmasks, trait stores, relation targets, and tracking snapshots use page-based arrays keyed by `pageId = entityId >>> 10` and `offset = entityId & 1023`. Mask and tracker tables cover the pages the world has leased and grow when it leases another, so a small world stays small.
 
-Entity allocation is handled by a global page allocator plus a per-world entity index:
+Entity allocation is handled by a page allocator plus a per-world entity index:
 
-- The global allocator owns page generations, page ownership, free pages, and cleanup for abandoned worlds.
+- The allocator owns page generations, page ownership and free pages.
 - Each world owns a dense index partitioned into alive, reusable and retained entries, a sparse lookup, and per-page cursors for fresh allocation.
 - Destroyed data stays available to `Removed` query iteration in a FIFO capped by `retain`. Ordinary entity reads require a live entity. Eviction clears history and stored references, bumps the generation, and moves the slot into the reusable region of the dense index. Allocation takes reusable slots without scanning.
 
-Internals use `WorldContext`, the actual context, instead of `World` handle. That avoids repeated `world[$internal]` lookups in hot paths and lets entity convenience methods resolve context directly from page ownership. In addition, this means that the world context can be held onto while letting the the world handle get garbage collected, allowing us to free global resources in response.
+Internals use `WorldContext`, the actual context, instead of the `World` handle. World methods read it from their closure, which avoids `world[$internal]` lookups in hot paths, and entity methods resolve it from page ownership.
 
 ### Structural Changes
 

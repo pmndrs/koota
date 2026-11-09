@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
-import { createQuery, createWorld, identifier, relation, trait, type Entity } from 'koota';
+import { createQuery, identifier, relation, trait, type Entity } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 function createScene() {
   const ChildOf = relation({ exclusive: true });

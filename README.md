@@ -258,25 +258,26 @@ const AssetMachine = machine({
 })
 ```
 
-Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state.
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state. Both take the world first, since an entity is only an id.
 
 ```ts
 const entity = world.spawn(AssetMachine) // Starts in Pending
-AssetMachine.enter(entity, Loading({ progress: 0 })) // Transitions to Loading
-AssetMachine.current(entity) === Loading // true
+AssetMachine.enter(world, entity, Loading({ progress: 0 })) // Transitions to Loading
+AssetMachine.current(world, entity) === Loading // true
 world.query(Loading) // All assets currently loading
-AssetMachine.enter(entity, Loaded) // Transitions to Loaded
+AssetMachine.enter(world, entity, Loaded) // Transitions to Loaded
 
 entity.add(Pending) // Transitions to Pending
 entity.remove(AssetMachine) // Clears this entity's asset loading state
 ```
 
-Observe each transition with `world.onTransition`.
+Observe each transition with `world.onTransition`, for every entity or for one.
 
 ```ts
 world.onTransition(AssetMachine, (entity, from, to) => {
   console.log('Asset loading state changed', entity, from, to)
 })
+world.onTransition(entity, AssetMachine, (entity, from, to) => {})
 ```
 
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.

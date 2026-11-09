@@ -1,4 +1,5 @@
-import { createChanged, createWorld, ordered, relation, trait, type Entity, type World } from 'koota';
+import { createChanged, ordered, relation, trait, type Entity, type World } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 import { CONFIG } from './config.ts';
 
 /**

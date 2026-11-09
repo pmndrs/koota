@@ -1,6 +1,7 @@
 import {
   $internal,
   createQuery,
+  getEntityId,
   type Entity,
   type Query,
   type QueryInstance,
@@ -39,7 +40,7 @@ function createQueryStore(world: World, ref: Query) {
       if (copiedRevision !== revision) {
         const batch = source?.isTracking ? batches.get(source) : undefined;
         const view = batch && batch.version === source?.version ? batch.view : world.query(ref);
-        entities = view.toArray().sort((a, b) => a.id() - b.id());
+        entities = view.toArray().sort((a, b) => getEntityId(a) - getEntityId(b));
         copiedRevision = revision;
         // Running a tracking query advances its batch and version.
         source = ctx.queriesHashMap.get(ref.hash)!;

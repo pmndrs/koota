@@ -64,7 +64,7 @@ describe('useQuery', () => {
     expect(entities.length).toBe(2);
 
     await act(async () => {
-      entityToDestroy.destroy();
+      world.destroy(entityToDestroy);
     });
 
     expect(entities.length).toBe(1);
@@ -81,7 +81,7 @@ describe('useQuery', () => {
     });
     expect([...result.current]).toEqual([player!]);
     await act(async () => {
-      player!.add(Name('hero'));
+      world.add(player, Name('hero'));
     });
     expect(result.current).toHaveLength(0);
     await act(async () => {
@@ -117,7 +117,7 @@ describe('useQuery', () => {
     function EntityAdder() {
       useLayoutEffect(() => {
         const entity = world.spawn(Position);
-        return () => entity.destroy();
+        return () => world.destroy(entity);
       }, []);
       return null;
     }
@@ -177,7 +177,7 @@ describe('useQuery', () => {
         <div
           ref={() => {
             world.spawn(Position);
-            entity.destroy();
+            world.destroy(entity);
           }}
         />
       );

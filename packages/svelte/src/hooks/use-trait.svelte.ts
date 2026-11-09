@@ -7,18 +7,21 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity } from '../utils/get-target-entity.js';
+import { createTargetResolver } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useTrait<T extends Trait>(
   target: () => Entity | World | undefined | null,
   trait: MaybeGetter<T | RelationPair<T>>
 ): { readonly current: TraitRecord<T> | undefined } {
-  const initialEntity = getTargetEntity(target());
-  const initialTrait = initialEntity === undefined ? undefined : resolve(trait);
+  const resolveTarget = createTargetResolver();
+  const initial = resolveTarget(target());
+  const initialTrait = initial === undefined ? undefined : resolve(trait);
   let value = $state.raw<TraitRecord<T> | undefined>(
-    initialEntity !== undefined && initialTrait !== undefined && initialEntity.has(initialTrait)
-      ? initialEntity.get(initialTrait)
+    initial !== undefined &&
+      initialTrait !== undefined &&
+      initial.world.has(initial.entity, initialTrait)
+      ? initial.world.get(initial.entity, initialTrait)
       : undefined
   );
   // Version counter to force reactivity when the value reference is the same (AoS traits).
@@ -26,21 +29,23 @@ export function useTrait<T extends Trait>(
   let version = $state(0);
 
   $effect(() => {
-    const entity = getTargetEntity(target());
+    const resolved = resolveTarget(target());
 
-    if (entity === undefined) {
+    if (resolved === undefined) {
       value = undefined;
       return;
     }
 
+    const { world, entity } = resolved;
+
     const resolvedTrait = resolve(trait);
     const update = () => {
-      value = entity.isAlive() ? entity.get(resolvedTrait) : undefined;
+      value = world.isAlive(entity) ? world.get(entity, resolvedTrait) : undefined;
       untrack(() => version++);
     };
-    const observer = entity[internal].observeSettled(update);
-    const onChange = entity.onChange(resolvedTrait, observer.invalidate);
-    const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+    const observer = world[internal].observeSettled(update);
+    const onChange = world.onChange(entity, resolvedTrait, observer.invalidate);
+    const onRemove = world.onRemove(entity, resolvedTrait, observer.invalidate);
     update();
     return () => {
       observer.unsubscribe();

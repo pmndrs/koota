@@ -5,7 +5,6 @@ import {
   createChanged,
   createQuery,
   createRemoved,
-  createWorld,
   IsExcluded,
   Not,
   Or,
@@ -13,6 +12,7 @@ import {
   trait,
   type Entity,
 } from '../src';
+import { createWorld } from '../src/entity-methods';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 const Position = trait({ x: 0, y: 0 });

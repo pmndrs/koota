@@ -8,6 +8,18 @@ export function provideWorld(world: World): World {
   return world;
 }
 
+/**
+ * The provided world, or undefined outside a provider. A hook called outside component
+ * initialization has no context to read, which is fine as long as its target is a world.
+ */
+export function getProvidedWorld(): World | undefined {
+  try {
+    return getContext<World | undefined>(WORLD_KEY);
+  } catch {
+    return undefined;
+  }
+}
+
 export function useWorld(): World {
   const world = getContext<World>(WORLD_KEY);
 

@@ -14,11 +14,11 @@ describe('entity lifecycle', () => {
 
   it('safely renders an entity that has already been destroyed', async () => {
     const entity = world.spawn(Position);
-    entity.destroy();
+    world.destroy(entity);
     const notify = vi.fn();
 
     const { getByTestId } = render(EntityLifecycleTest, {
-      props: { target: entity, trait: Position, onChange: notify },
+      props: { world, target: entity, trait: Position, onChange: notify },
     });
     await tick();
 
@@ -32,15 +32,16 @@ describe('entity lifecycle', () => {
 
     const { getByTestId } = render(EntityLifecycleTest, {
       props: {
+        world,
         target: entity,
         trait: Position,
         onChange: notify,
-        beforeEffects: () => entity.destroy(),
+        beforeEffects: () => world.destroy(entity),
       },
     });
     await tick();
 
-    expect(entity.isAlive()).toBe(false);
+    expect(world.isAlive(entity)).toBe(false);
     expect(getByTestId('value').textContent).toBe('undefined');
     expect(notify).not.toHaveBeenCalled();
   });

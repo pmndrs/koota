@@ -1,7 +1,6 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
-import { getEntityContext } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { DESTROYED_WORD, EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
@@ -23,7 +22,7 @@ import { emit } from '../trait/subscriptions';
 import { clearTraitMembership, setTraitMembership } from '../trait/membership';
 import { hasTrait, registerTrait, trait } from '../trait/trait';
 import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
-import type { WorldContext } from '../world/types';
+import type { World, WorldContext } from '../world/types';
 import { runCommand } from '../world/defer';
 import type {
   Machine,
@@ -75,19 +74,19 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
     initial: options.initial,
     transitions,
     initializers: new Map(members.map((member) => [member, createInitializer(member.schema)])),
-    revision(entity) {
-      return machineRevision(getEntityContext(entity), marker, getEntityId(entity));
+    revision(world, entity) {
+      return machineRevision(world[$internal], marker, getEntityId(entity));
     },
   };
   const result = Object.assign(marker, {
     states,
-    current(entity: Entity) {
-      const ctx = getEntityContext(entity);
+    current(world: World, entity: Entity) {
+      const ctx = world[$internal];
       if (assertsEnabled) assertEntityAlive(ctx, entity);
       return currentState(ctx, entity, context);
     },
-    enter(entity: Entity, state: Trait | [Trait, unknown]) {
-      const ctx = getEntityContext(entity);
+    enter(world: World, entity: Entity, state: Trait | [Trait, unknown]) {
+      const ctx = world[$internal];
       if (assertsEnabled) assertEntityAlive(ctx, entity);
       const target = Array.isArray(state) ? state[0] : state;
       if (!members.includes(target))

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { $internal, createChanged, createWorld, ordered, relation, trait, type Entity } from '../src';
+import { $internal, createChanged, ordered, relation, trait, type Entity } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 const Position = trait({ x: 0 });
 const Velocity = trait({ dx: 0 });
@@ -451,7 +452,7 @@ describe('deferred structural changes', () => {
     world.query(Position).each(() => {
       expect(() => world.destroy()).toThrow(/DEFER_SCOPE/);
     });
-    expect(world.isRegistered).toBe(true);
+    expect(world.query(Position).length).toBe(1);
     world.destroy();
   });
 
@@ -522,7 +523,7 @@ describe('deferred structural changes', () => {
 
     world.reset();
     expect(world.has(Tag)).toBe(false);
-    expect(world.isRegistered).toBe(true);
+    expect(world.entities.length).toBe(1);
     world.destroy();
   });
 
