@@ -268,10 +268,12 @@ player.remove(WireId(456)) // Releases the key
 `Name` is application-defined. Use `targetFor` to read and `add` to replace identifiers. Adding the same term is a no-op. Exclusive identifiers refuse conflicting ownership before mutation, with `[IDENTIFIER_TAKEN]` when assertions are enabled. Removal, destruction and reset release that entity's assignment. Queries and subscriptions follow every current owner.
 
 Use `identifier({ scope: ChildOf })` for names unique within each immediate parent. The scoping
-relation must be exclusive, becomes acyclic, and cascades deletion to descendants. Resolve paths
-with `world.lookup(Name('robot'), Name('arm'), Name('motor'))` or start from a parent entity with
-`world.lookup(robot, Name('arm'))`. Local-name queries match across scopes. Reparenting validates
-all scoped keys before committing, and an omitted parent means root scope.
+relation must be exclusive and keeps its own policies. Destroying a parent cascades only with
+`autoDestroy: 'orphan'`, otherwise children move to the root scope and release any key already
+taken there. Resolve paths with `world.lookup(Name('robot'), Name('arm'), Name('motor'))` or start
+from a parent entity with `world.lookup(robot, Name('arm'))`. Local-name queries match across
+scopes. Reparenting validates all scoped keys before committing, and an omitted parent means root
+scope.
 
 Query paths through nested relation filters, for example
 `world.query(Name('motor'), ChildOf(Name('arm'), ChildOf(RobotId(101))), Position)`.

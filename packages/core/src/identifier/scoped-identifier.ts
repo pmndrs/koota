@@ -40,41 +40,6 @@ export function getIdentifierOwners(
   return owners;
 }
 
-/** Detect both a new cycle through the source and cycles predating the identifier definition. */
-export function validateScopeParent(
-  ctx: WorldContext,
-  relation: Relation,
-  entity: Entity,
-  target: Entity | undefined
-): boolean {
-  if (
-    target !== undefined &&
-    (!isEntityAlive(ctx.entityIndex, target) || isEntityDestroying(target))
-  ) {
-    if (assertsEnabled)
-      throw new Error('Koota: [IDENTIFIER_SCOPE] Scope must be alive in this world.');
-    return false;
-  }
-  let slow = target;
-  let fast = target;
-  while (fast !== undefined) {
-    if (fast === entity) return refuseScopeCycle();
-    fast = getScopeTarget(ctx, relation, fast);
-    if (fast === undefined) break;
-    if (fast === entity) return refuseScopeCycle();
-    fast = getScopeTarget(ctx, relation, fast);
-    slow = getScopeTarget(ctx, relation, slow!);
-    if (fast !== undefined && fast === slow) return refuseScopeCycle();
-  }
-  return true;
-}
-
-function refuseScopeCycle(): false {
-  if (assertsEnabled)
-    throw new Error('Koota: [IDENTIFIER_SCOPE_CYCLE] Scope hierarchy cannot contain cycles.');
-  return false;
-}
-
 /** Check every identifier before moving any of them or changing the relation. */
 export function validateScopeMove(
   ctx: WorldContext,
@@ -82,7 +47,13 @@ export function validateScopeMove(
   entity: Entity,
   target: Entity | undefined
 ): boolean {
-  if (!validateScopeParent(ctx, relation, entity, target)) return false;
+  // The relation add already asserted the target. A dying scope would only leak its bucket.
+  if (
+    target !== undefined &&
+    (!isEntityAlive(ctx.entityIndex, target) || isEntityDestroying(target))
+  ) {
+    return false;
+  }
   const eid = getEntityId(entity);
   for (const identifier of relation[$internal].scopedIdentifiers!) {
     if (!identifier[$internal].exclusive) continue;
@@ -125,46 +96,34 @@ export function moveScopedIdentifiers(
   }
 }
 
-/** Each segment is a local lookup under the entity resolved by the preceding segment. */
-export function lookupIdentifierPath(
+/** A path starts at a root key or at an entity, which must be a live handle of this world. */
+export /* @inline @pure */ function lookupScopeStart(
+  ctx: WorldContext,
+  start: IdentifierPair | Entity
+): Entity | undefined {
+  if (typeof start !== 'number') return lookupIdentifier(ctx, start);
+  return ctx.isRegistered && isEntityAlive(ctx.entityIndex, start) ? start : undefined;
+}
+
+/** A scope and one key. Kept as a call so the lookup method stays small enough to inline. */
+export function lookupScopedKey(
   ctx: WorldContext,
   start: IdentifierPair | Entity,
-  path: IdentifierPair[],
+  key: IdentifierPair
+): Entity | undefined {
+  const scope = lookupScopeStart(ctx, start);
+  return scope === undefined ? undefined : lookupScopedIdentifier(ctx, scope, key);
+}
+
+/** Each segment is a local lookup under the entity resolved by the preceding segment. */
+export function lookupArgumentsScope(
+  ctx: WorldContext,
+  args: IArguments,
   length: number
 ): Entity | undefined {
-  let scope: Entity | undefined;
-  if (typeof start === 'number') {
-    if (!ctx.isRegistered || !isEntityAlive(ctx.entityIndex, start)) return;
-    scope = start;
-  } else {
-    scope = lookupIdentifier(ctx, start);
-  }
-  for (let i = 0; i < length && scope !== undefined; i++) {
-    scope = lookupScopedIdentifier(ctx, scope, path[i]);
+  let scope = lookupScopeStart(ctx, args[0] as IdentifierPair | Entity);
+  for (let i = 1; i < length && scope !== undefined; i++) {
+    scope = lookupScopedIdentifier(ctx, scope, args[i] as IdentifierPair);
   }
   return scope;
-}
-
-/** Keep common two- and three-key paths scalar so the JIT can eliminate temporary terms. */
-export /* @inline */ function lookupShortIdentifierPath(
-  ctx: WorldContext,
-  start: IdentifierPair | Entity,
-  second: IdentifierPair,
-  third: IdentifierPair | undefined,
-  rest: IdentifierPair[]
-): Entity | undefined {
-  let scope =
-    typeof start === 'number' ? lookupScopeEntity(ctx, start) : lookupIdentifier(ctx, start);
-  if (scope === undefined) return;
-  scope = lookupScopedIdentifier(ctx, scope, second);
-  if (third !== undefined && scope !== undefined) scope = lookupScopedIdentifier(ctx, scope, third);
-  if (rest.length !== 0 && scope !== undefined) {
-    return lookupIdentifierPath(ctx, scope, rest, rest.length);
-  }
-  return scope;
-}
-
-/** Entity-started lookups reject foreign and recycled handles before reading parent-id buckets. */
-export /* @pure */ function lookupScopeEntity(ctx: WorldContext, entity: Entity): Entity | undefined {
-  return ctx.isRegistered && isEntityAlive(ctx.entityIndex, entity) ? entity : undefined;
 }

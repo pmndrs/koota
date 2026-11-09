@@ -202,8 +202,7 @@ function cleanupDestroyedRelations(
   for (let r = 0; r < relations.length; r++) {
     const relation = relations[r];
     const relationCtx = relation[$internal];
-    const cascade =
-      relationCtx.autoDestroy === 'source' || relationCtx.scopedIdentifiers !== undefined;
+    const cascade = relationCtx.autoDestroy === 'source';
 
     // Cleanup swap-removes the source from this bucket, so walk it from the end.
     const sources = getTraitInstance(ctx.traitInstances, relationCtx.trait)

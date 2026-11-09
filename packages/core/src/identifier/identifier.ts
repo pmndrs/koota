@@ -13,7 +13,7 @@ import { grantTraitMembership, reconcileQueries, registerTrait, trait } from '..
 import { getTraitInstance } from '../trait/trait-instance';
 import type { TraitInstance } from '../trait/types';
 import type { QueryInstance } from '../query/types';
-import { getIdentifierOwners, getScopeTarget, validateScopeParent } from './scoped-identifier';
+import { getIdentifierOwners, getScopeTarget } from './scoped-identifier';
 import type { WorldContext } from '../world';
 import { $identifier, $identifierPair } from './symbols';
 import type {
@@ -147,7 +147,6 @@ export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: Ident
   if (previous === pair.target) return;
   const scopeRelation = pair.identifier[$internal].scope;
   const scope = scopeRelation === undefined ? undefined : getScopeTarget(ctx, scopeRelation, entity);
-  if (scopeRelation !== undefined && !validateScopeParent(ctx, scopeRelation, entity, scope)) return;
   const ownerMap = getIdentifierOwners(index, scope);
   const owners = ownerMap.get(pair.target);
   if (typeof owners === 'number' && pair.identifier[$internal].exclusive) {
@@ -159,13 +158,7 @@ export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: Ident
     return;
   }
 
-  if (previous !== undefined) releaseIdentifierOwner(index, entity, previous);
-  // Releasing the last old key may have removed this scope's bucket.
-  if (scope !== undefined) {
-    index.scopes!.set(scope, ownerMap);
-    const scopeId = getEntityId(scope);
-    (index.scopeOwners![scopeId >>> 10] ??= [])[scopeId & 1023] = ownerMap;
-  }
+  if (previous !== undefined) releaseReplacedIdentifier(index, entity, previous, scope, ownerMap);
   if (index.scopeTargets !== undefined) (index.scopeTargets[eid >>> 10] ??= [])[eid & 1023] = scope;
   if (owners === undefined) {
     ownerMap.set(pair.target, entity);
@@ -175,6 +168,22 @@ export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: Ident
   page[eid & 1023] = pair.target;
 
   notifyIdentifierAssignment(ctx, entity, data, pair, previous);
+}
+
+/** Replacing a key is rare. Releasing the last old key may have removed this scope's bucket. */
+export function releaseReplacedIdentifier(
+  index: IdentifierIndex,
+  entity: Entity,
+  previous: IdentifierKey,
+  scope: Entity | undefined,
+  ownerMap: Map<IdentifierKey, Entity | Entity[]>
+) {
+  releaseIdentifierOwner(index, entity, previous);
+  if (scope !== undefined) {
+    index.scopes!.set(scope, ownerMap);
+    const scopeId = getEntityId(scope);
+    (index.scopeOwners![scopeId >>> 10] ??= [])[scopeId & 1023] = ownerMap;
+  }
 }
 
 /** Shared owners use one paged offset per entity for membership and swap removal. */
