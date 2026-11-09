@@ -90,7 +90,15 @@ entity.add(Ref)
 entity.add(View({ visible: false }))
 ```
 
-A required field has no default, so `Trait.record()` leaves it `undefined` until `get` fills the record.
+`Trait.record()` builds a record from the schema defaults and a required value has none. `View` returns a record with the required value `undefined` so that `get` out can fill it. However, `Ref` is nothing but its required value so no record can be built for it.
+
+```ts
+const view = View.record() // { object: undefined, visible: true }
+entity.get(View, view) // { object: mesh, visible: true }
+
+// ❌ A type error, and throws
+Ref.record()
+```
 
 ## Tuples
 
