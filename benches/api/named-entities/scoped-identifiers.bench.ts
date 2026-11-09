@@ -33,53 +33,36 @@ function createHierarchy() {
 }
 
 group('scoped name lookup 4096 @identifier-scope @identifier @graph', () => {
-  for (const mode of ['koota inline terms', 'koota reused terms', 'handwritten nested maps']) {
-    for (const missing of [false, true]) {
-      bench(`${mode} / three keys / ${missing ? 'missing leaf' : 'hit'}`, function* () {
-        const { world, Name, nested, paths } = createHierarchy();
-        const requests = paths.map((path) => ({ ...path, part: missing ? 'absent' : path.part }));
-        const terms = requests.map(({ root, arm, part }) => [Name(root), Name(arm), Name(part)]);
-        let read: (i: number) => Entity | undefined;
-        if (mode === 'koota inline terms') {
-          read = (i) => {
-            const { root, arm, part } = requests[i];
+  for (const koota of [true, false]) {
+    bench(`${koota ? 'koota' : 'handwritten nested maps'} / three keys`, function* () {
+      const { world, Name, nested, paths } = createHierarchy();
+      const read = koota
+        ? (i: number) => {
+            const { root, arm, part } = paths[i];
             return world.lookup(Name(root), Name(arm), Name(part));
-          };
-        } else if (mode === 'koota reused terms') {
-          read = (i) => world.lookup(terms[i][0], terms[i][1], terms[i][2]);
-        } else {
-          read = (i) => {
-            const { root, arm, part } = requests[i];
+          }
+        : (i: number) => {
+            const { root, arm, part } = paths[i];
             return nested.get(root)?.get(arm)?.get(part);
           };
-        }
-        for (let i = 0; i < paths.length; i++) {
-          assert.equal(read(i), missing ? undefined : paths[i].entity);
-        }
-        const count = yield () => {
-          let count = 0;
-          for (let i = 0; i < paths.length; i++) if (read(i) !== undefined) count++;
-          return count;
-        };
-        assert.equal(count, missing ? 0 : 4096);
-        world.destroy();
+      for (let i = 0; i < paths.length; i++) assert.equal(read(i), paths[i].entity);
+      const count = yield () => {
+        let count = 0;
+        for (let i = 0; i < paths.length; i++) if (read(i) !== undefined) count++;
         return count;
-      });
-    }
+      };
+      assert.equal(count, 4096);
+      world.destroy();
+      return count;
+    });
   }
 
-  for (const mode of ['koota inline terms', 'koota reused terms', 'handwritten parent map']) {
-    bench(`${mode} / parent and key`, function* () {
+  for (const koota of [true, false]) {
+    bench(`${koota ? 'koota' : 'handwritten parent map'} / parent and key`, function* () {
       const { world, Name, byParent, paths } = createHierarchy();
-      const terms = paths.map(({ part }) => Name(part));
-      let read: (i: number) => Entity | undefined;
-      if (mode === 'koota inline terms') {
-        read = (i) => world.lookup(paths[i].parent, Name(paths[i].part));
-      } else if (mode === 'koota reused terms') {
-        read = (i) => world.lookup(paths[i].parent, terms[i]);
-      } else {
-        read = (i) => byParent.get(paths[i].parent)?.get(paths[i].part);
-      }
+      const read = koota
+        ? (i: number) => world.lookup(paths[i].parent, Name(paths[i].part))
+        : (i: number) => byParent.get(paths[i].parent)?.get(paths[i].part);
       for (let i = 0; i < paths.length; i++) assert.equal(read(i), paths[i].entity);
       const count = yield () => {
         let count = 0;

@@ -662,6 +662,27 @@ world.lookupAll(DisplayName('kris')) // [first]
 
 Removing the identifier or destroying the entity frees its key. See [identifiers](docs/api/identifiers.md) for events, tracking and React hooks.
 
+#### Scoped identifiers
+
+Pass an exclusive relation as `scope` to make keys unique per parent instead of per world. A scoped lookup can be done using a path with one key per level, or starting from a known parent entity.
+
+```ts
+// The scoped relation must have exclusive set to true
+const ChildOf = relation({ exclusive: true, autoDestroy: 'orphan' })
+const Name = identifier({ scope: ChildOf })
+
+const robot = world.spawn(Name('robot'))
+const arm = world.spawn(Name('arm'), ChildOf(robot))
+const motor = world.spawn(Name('motor'), ChildOf(arm))
+
+world.lookup(Name('robot'), Name('arm'), Name('motor')) // motor
+world.lookup(arm, Name('motor')) // motor
+world.lookup(Name('motor')) // undefined, only the root scope is searched
+world.query(Name('motor'), ChildOf(arm)) // Local names query across scopes, filter by parent
+```
+
+Scoping changes nothing about the relation. Reparenting moves names with the entity and refuses sibling collisions. Destroying a parent follows the relation's `autoDestroy`, so the subtree is destroyed here, while without it children move to the root scope. See [scoped identifiers](docs/api/identifiers.md#scoped-identifiers) for path queries and collision rules.
+
 ### Query modifiers
 
 Modifiers are used to filter query results enabling powerful patterns. All modifiers can be mixed together.
