@@ -1,12 +1,13 @@
 import { $internal } from '../../common';
+import type { SparseSet } from '@koota/collections';
 import { machineRevision } from '../../machine/machine';
 import type { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { ENTITY_ID_MASK } from '../../entity/utils/pack-entity';
 import type { Store } from '../../storage';
-import type { Trait, TraitInstance } from '../../trait/types';
+import type { Trait } from '../../trait/types';
 import type { WorldContext } from '../../world';
-import type { QueryIterationBuffers, QueryViewBinding } from '../types';
+import type { QueryIterationBuffers, QueryViewBinding, TargetProjection } from '../types';
 
 type Callback = (state: any, entity: Entity, index: number) => void;
 type Iterate<R = void> = (
@@ -32,7 +33,7 @@ export type QueryIterators = {
 };
 
 type IteratorCache = {
-  keys: WeakMap<Trait | TraitInstance, IteratorCache>;
+  keys: WeakMap<Trait | TargetProjection, IteratorCache>;
   iterators: QueryIterators | undefined;
 };
 
@@ -215,17 +216,24 @@ export function compileQueryIterators(
   }
 
   // Target values stay in positional arguments and never enter trait writeback or tracking.
+  // Constants and match sets belong to the binding, so shared iterators read them per walk.
   const targetHoist: string[] = [];
   const targetRebind: string[] = [];
   let traitIndex = 0;
   const projectedArgs = projection.map((part, j) => {
     if (typeof part === 'function') return args[traitIndex++];
-    targetHoist.push(`var rt${j} = projection[${j}].relationTargets${cursors ? `, rp${j}` : ''};`);
+    if (part.mode === 'constant') {
+      targetHoist.push(`var tc${j} = buffers.binding.targets[${j}];`);
+      return `tc${j}`;
+    }
+    targetHoist.push(`var rt${j} = instances[${j}].relationTargets${cursors ? `, rp${j}` : ''};`);
     if (cursors) targetRebind.push(`rp${j} = rt${j}[pg];`);
     const slot = cursors ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
-    if (part.trait[$internal].relation![$internal].exclusive) return slot;
+    if (part.mode === 'slot') return slot;
     targetHoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
-    return `copyTargetSnapshot(${slot}, ts${j})`;
+    if (part.mode === 'copy') return `copyTargetSnapshot(${slot}, ts${j})`;
+    targetHoist.push(`var tf${j} = buffers.binding.targets[${j}];`);
+    return `filterTargetSnapshot(${slot}, ts${j}, tf${j})`;
   });
 
   // Structural changes can invalidate later entries. A row whose entity was evicted, or which
@@ -277,13 +285,14 @@ export function compileQueryIterators(
   return new Function(
     'a',
     'traits',
-    'projection',
+    'instances',
     'skipsEntry',
     'isEntityAlive',
     'snapshotAtomic',
     'atomicChanged',
     'machineRevision',
     'copyTargetSnapshot',
+    'filterTargetSnapshot',
     `'use strict';
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
@@ -308,13 +317,15 @@ export function compileQueryIterators(
   )(
     accessors,
     traits.slice(),
-    projection,
+    // Relation instances by projection position, so the hoists read storage with one load.
+    projection.map((part) => (typeof part === 'function' ? undefined : part.instance)),
     skipsEntry,
     isIterationEntityAlive,
     snapshotAtomic,
     atomicChanged,
     machineRevision,
-    copyTargetSnapshot
+    copyTargetSnapshot,
+    filterTargetSnapshot
   ) as QueryIterators;
 }
 
@@ -322,6 +333,21 @@ export function compileQueryIterators(
 function copyTargetSnapshot(targets: readonly Entity[], snapshot: Entity[]): Entity[] {
   const length = targets.length;
   for (let i = 0; i < length; i++) snapshot[i] = targets[i];
+  if (snapshot.length !== length) trimTargetSnapshot(snapshot, length);
+  return snapshot;
+}
+
+/** Copies only the targets inside the pair's target query, so the callback sees what matched. */
+function filterTargetSnapshot(
+  targets: readonly Entity[],
+  snapshot: Entity[],
+  matches: SparseSet
+): Entity[] {
+  let length = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    if (matches.has(target)) snapshot[length++] = target;
+  }
   if (snapshot.length !== length) trimTargetSnapshot(snapshot, length);
   return snapshot;
 }

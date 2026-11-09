@@ -100,12 +100,14 @@ world
 
 Required relation pairs contribute arguments in parameter order, alongside trait records and before the source entity and index:
 
-| Pair                          | Exclusive relation | Non-exclusive relation |
-| ----------------------------- | ------------------ | ---------------------- |
-| `R('*')`                      | `Entity`           | `readonly Entity[]`    |
-| `R(Trait, ...)` or `R(query)` | `Entity`           | No argument            |
-| `R(entity)`                   | No argument        | No argument            |
-| Pair inside a modifier        | No target argument | No target argument     |
+| Pair                          | Exclusive relation | Non-exclusive relation                |
+| ----------------------------- | ------------------ | ------------------------------------- |
+| `R('*')`                      | `Entity`           | `readonly Entity[]`, every target     |
+| `R(Trait, ...)` or `R(query)` | `Entity`           | `readonly Entity[]`, matching targets |
+| `R(entity)`                   | `Entity`           | `Entity`                              |
+| Pair inside a modifier        | No target argument | No target argument                    |
+
+A pair that can select one target passes it as an `Entity`. A pair that can select several passes a read only array. A concrete `R(entity)` passes the target you gave it, so callbacks keep one shape whether the target is fixed or found.
 
 ```ts
 const ChildOf = relation({ exclusive: true })
@@ -118,7 +120,7 @@ world
   })
 ```
 
-Non-exclusive wildcard arrays snapshot the targets before each entity's callback. Adding or removing relations, destroying entities, and nested walks do not change that callback's array. The arrays are reused for later entities and walks. Keep them read only and copy with `contents.slice()` to retain them after the callback returns. `entity.targetsFor(R)` continues to return an independent snapshot.
+Target arrays snapshot the targets before each entity's callback. Adding or removing relations, destroying entities, and nested walks do not change that callback's array. The arrays are reused for later entities and walks. Keep them read only and copy with `contents.slice()` to retain them after the callback returns. `entity.targetsFor(R)` continues to return an independent snapshot.
 
 Snapshots are taken per callback, so an earlier callback that adds or removes a later entity's relations changes the targets that entity's row observes. In plain and sorted walks, a later entity that loses a selected pair leaves the query and its row is skipped, like a destroyed entity. Tracking walks still visit that row, so remove pairs from the current entity only.
 

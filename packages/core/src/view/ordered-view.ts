@@ -50,7 +50,10 @@ export class ListView extends EntityView {
   select(...params: QueryParameter[]): ListView {
     const { ctx, source, query } = this;
     for (const view of source.views) {
-      if (sameParams(view.binding.params, params) || matchesQueryBinding(ctx, params, view.binding))
+      if (
+        sameParams(view.binding.params, params) ||
+        matchesQueryBinding(ctx, query, params, view.binding)
+      )
         return view;
     }
     // A selection shares the sequence. Only the relation owner can edit it.

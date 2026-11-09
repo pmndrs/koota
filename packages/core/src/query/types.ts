@@ -34,12 +34,25 @@ export type QueryViewBinding = {
   params: QueryParameter[];
   traits: Trait[];
   stores: Store<any>[];
-  /** Data traits and relation storage in each's callback argument order. */
-  projection: (Trait | TraitInstance)[];
+  /** Data traits and target projections in each's callback argument order. */
+  projection: (Trait | TargetProjection)[];
+  /** Per projection position, the constant target or target query match set a pair reads, else undefined. */
+  targets: (Entity | SparseSet | undefined)[];
   /** Live view over the query for these traits, created on first use. */
   view: QueryView<any> | null;
   /** Iterators compiled for this binding alone, so its callback site stays monomorphic. */
   iterators: QueryIterators | null;
+};
+
+/**
+ * How a required pair reaches the callback. Entries are interned per instance and mode so
+ * bindings and iterator caches can compare them by identity. Slot reads the one target an
+ * exclusive relation holds, copy snapshots every target, constant passes the pair's own target,
+ * filter snapshots the targets inside the pair's target query match set.
+ */
+export type TargetProjection = {
+  instance: TraitInstance;
+  mode: 'slot' | 'copy' | 'constant' | 'filter';
 };
 
 export type QueryIterationBuffers = {
@@ -134,16 +147,11 @@ export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
   StoresFromParameters<T>
 >;
 
+// A pair that can select one target passes it, a pair that can select several passes an array.
 type RelationInstances<
   Exclusive extends boolean,
   Target extends RelationTarget | undefined,
-> = Target extends Entity
-  ? []
-  : Target extends '*'
-    ? [Exclusive extends true ? Entity : readonly Entity[]]
-    : Exclusive extends true
-      ? [Entity]
-      : [];
+> = Target extends Entity ? [Entity] : [Exclusive extends true ? Entity : readonly Entity[]];
 
 export type InstancesFromParameters<
   T extends QueryParameter[],

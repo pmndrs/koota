@@ -178,26 +178,41 @@ describe('relation targets in each', () => {
     world.destroy();
   });
 
-  it('leaves concrete targets, modifiers and non-exclusive target queries as filters', () => {
+  it('passes concrete targets and filters target query arrays, leaving modifier pairs out', () => {
     const world = createWorld();
     const Active = trait();
     const Missing = trait();
     const Parent = relation({ exclusive: true });
     const Contains = relation();
     const target = world.spawn(Active);
-    const entity = world.spawn(Parent(target), Contains(target));
-    const query = world.query(
+    const idle = world.spawn();
+    const entity = world.spawn(Parent(target), Contains(target), Contains(idle));
+    const query = createQuery(
       Parent(target),
       Contains(Active),
+      Contains(idle),
       Or(Parent('*'), Missing),
       Not(Parent(Missing))
     );
-    query.each((current, index) => {
+    const seen: unknown[][] = [];
+    world.query(query).each((parent, active, idleTarget, current, index) => {
+      expectTypeOf(parent).toEqualTypeOf<Entity>();
+      expectTypeOf(active).toEqualTypeOf<readonly Entity[]>();
+      expectTypeOf(idleTarget).toEqualTypeOf<Entity>();
       expectTypeOf(current).toEqualTypeOf<Entity>();
       expectTypeOf(index).toEqualTypeOf<number>();
-      expect([current, index]).toEqual([entity, 0]);
+      seen.push([parent, active.slice(), idleTarget, current, index]);
     });
-    expect(query.length).toBe(1);
+    expect(seen).toEqual([[target, [target], idle, entity, 0]]);
+
+    // The filtered array follows the target query as targets enter and leave it.
+    const other = world.spawn(Active);
+    entity.add(Contains(other));
+    target.remove(Active);
+    seen.length = 0;
+    world.query(query).each((_parent, active) => seen.push(active.slice()));
+    expect(seen).toEqual([[other]]);
+    expect(entity.targetsFor(Contains)).toEqual([target, idle, other]);
     world.destroy();
   });
 
@@ -291,11 +306,13 @@ describe('relation targets in each', () => {
     });
     for (const target of [parent, '*' as const]) {
       world.query(Parent(target)).each((...args) => {
-        expectTypeOf(args).toEqualTypeOf<[Entity, number] | [Entity, Entity, number]>();
+        expectTypeOf(args).toEqualTypeOf<[Entity, Entity, number]>();
+        expect(args).toEqual([parent, child, 0]);
       });
     }
     world.query(Dynamic(Tag)).each((...args) => {
-      expectTypeOf(args).toEqualTypeOf<[Entity, number] | [Entity, Entity, number]>();
+      expectTypeOf(args).toEqualTypeOf<[Entity | readonly Entity[], Entity, number]>();
+      expect(args).toEqual([parent, child, 0]);
     });
     world.destroy();
   });
@@ -344,7 +361,7 @@ describe('relation targets in each', () => {
     const sortedVisited: Entity[] = [];
     world
       .query(Position, ChildOf('*'))
-      .sort((a, b) => a.x - b.x, [Position])
+      .sort((a, b) => a - b, [Position])
       .each((_position, parent, entity) => {
         expect(parent).toBe(parentA);
         sortedVisited.push(entity);

@@ -86,7 +86,7 @@ The caller receives a `QueryView`, a live view over the instance's entity set wi
 
 ## Target projection
 
-Matching and projection are separate. A binding keeps trait stores for record access and one ordered projection list containing data traits and relation storage instances. That list supplies callback order, binding comparison and iterator cache keys. Required wildcards project their backing slot, which holds one entity for exclusive relations or the target array otherwise. Exclusive target-query pairs project the same slot. Other pairs remain filters.
+Matching and projection are separate. A binding keeps trait stores for record access and one ordered projection list containing data traits and relation storage instances. That list supplies callback order, binding comparison and iterator cache keys. Every required pair projects one argument. Projections are interned per relation instance and mode. Slot reads the single target an exclusive relation holds, for wildcards and target queries alike. Copy snapshots a non-exclusive wildcard's target array. Constant passes a concrete pair's own target, read from the binding so shared iterators stay correct. Filter snapshots the targets inside the match set the query resolved for a non-exclusive target query, falling back to copy when the walked view has no such filter, as with a selection outside the query. Pairs inside modifiers remain filters.
 
 The generated positional iterator hoists the target storage references outside the entity loop and reads each selected slot into a callback argument. Non-exclusive slots are copied into reusable arrays before the callback. When trait cursors already track page changes, target pages share that page switch. The relation policy is resolved at compilation, without a per-entity policy branch or target lookup call. Unselected targets generate no reads or copies. Trait-only iterators keep their existing loop bodies.
 
@@ -128,12 +128,15 @@ Measured bytecode on Node 24.14.0, using the emitted bundle and generated iterat
 | One trait and one target array              | 241   |
 | One trait and three target arrays           | 357   |
 | Three target arrays without trait records   | 270   |
+| One trait and one constant target           | 208   |
+| One trait and one filtered target array     | 271   |
 | Tracked trait and three target arrays       | 443   |
 | Buffer preparation                          | 424   |
 | Target snapshot copy                        | 55    |
+| Filtered target snapshot copy               | 77    |
 
 These paths fit the 460-byte per-function budget. V8's `--trace-turbo-inlining` confirmed that
-the snapshot copy helper and small callbacks inline into the generated loops. Exclusive targets
+the snapshot copy helpers and small callbacks inline into the generated loops. Exclusive targets
 keep their direct slot reads. Trait-only and selected iteration bytecode is unchanged.
 
 ## Important details

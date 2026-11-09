@@ -1,18 +1,20 @@
 import { $internal } from '../common';
 import { isIdentifier, isIdentifierPair } from '../identifier/identifier';
+import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { RelationPair } from '../relation/types';
 import type { Store } from '../storage';
-import { ensureTraitInstance } from '../query/query';
+import { createQuery, ensureTraitInstance } from '../query/query';
 import { registerTrait } from '../trait/trait';
 import type { Trait, TraitInstance } from '../trait/types';
 import { hasSubscribers } from '../trait/subscriptions';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { WorldContext } from '../world';
 import { isModifier } from '../query/modifier';
+import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
 import { notifyChanged } from '../query/modifiers/changed';
 import {
@@ -26,6 +28,7 @@ import type {
   QueryLayout,
   QueryParameter,
   QueryViewBinding,
+  TargetProjection,
   UpdateEachOptions,
 } from '../query/types';
 
@@ -278,6 +281,7 @@ const entityBinding: QueryViewBinding = {
   traits: [],
   stores: [],
   projection: [],
+  targets: [],
   view: null,
   iterators: null,
 };
@@ -295,9 +299,7 @@ export function getQueryBinding(
 ): QueryViewBinding {
   if (
     query === null &&
-    (params.length === 0 ||
-      (params.length === 1 &&
-        (isIdentifierPair(params[0]) || (isRelationPair(params[0]) && !projectsTarget(params[0])))))
+    (params.length === 0 || (params.length === 1 && isIdentifierPair(params[0])))
   ) {
     return entityBinding;
   }
@@ -305,7 +307,7 @@ export function getQueryBinding(
   if (cache) {
     for (let i = 0; i < cache.length; i++) {
       const binding = cache[i];
-      if (sameParams(binding.params, params) || matchesQueryBinding(ctx, params, binding))
+      if (sameParams(binding.params, params) || matchesQueryBinding(ctx, query, params, binding))
         return binding;
     }
   }
@@ -314,10 +316,11 @@ export function getQueryBinding(
     traits: [],
     stores: [],
     projection: [],
+    targets: [],
     view: null,
     iterators: null,
   };
-  fillQueryBinding(ctx, params, binding);
+  fillQueryBinding(ctx, query, params, binding);
   if (cache) cache.push(binding);
   return binding;
 }
@@ -325,8 +328,9 @@ export function getQueryBinding(
 /** Mirrors fillQueryBinding, comparing each stored trait and its current store in order. */
 export function matchesQueryBinding(
   ctx: WorldContext,
+  query: QueryInstance | null,
   params: QueryParameter[],
-  { stores, projection }: QueryViewBinding
+  { stores, projection, targets }: QueryViewBinding
 ): boolean {
   let index = 0;
   let argument = 0;
@@ -334,13 +338,11 @@ export function matchesQueryBinding(
     const param = params[i];
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
     if (isRelationPair(param)) {
-      if (projectsTarget(param)) {
-        if (
-          projection[argument++] !==
-          getTraitInstance(ctx.traitInstances, param.relation[$internal].trait)
-        )
-          return false;
-      }
+      const instance = getTraitInstance(ctx.traitInstances, param.relation[$internal].trait);
+      if (instance === undefined) return false;
+      const { entry, target } = projectPair(query, instance, param);
+      if (projection[argument] !== entry || targets[argument] !== target) return false;
+      argument++;
       continue;
     }
     if (isModifier(param)) {
@@ -372,16 +374,18 @@ export function matchesQueryBinding(
 /** Collects the stored traits of a parameter list in order, registering any that are new. */
 function fillQueryBinding(
   ctx: WorldContext,
+  query: QueryInstance | null,
   params: QueryParameter[],
-  { traits, stores, projection }: QueryViewBinding
+  { traits, stores, projection, targets }: QueryViewBinding
 ) {
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
     if (isRelationPair(param)) {
-      if (projectsTarget(param)) {
-        projection.push(ensureTraitInstance(ctx, param.relation[$internal].trait));
-      }
+      const instance = ensureTraitInstance(ctx, param.relation[$internal].trait);
+      const { entry, target } = projectPair(query, instance, param);
+      projection.push(entry);
+      targets.push(target);
       continue;
     }
     if (isModifier(param)) {
@@ -391,6 +395,7 @@ function fillQueryBinding(
         if (trait[$internal].type === 'tag' || trait[$internal].relation) continue;
         traits.push(trait);
         projection.push(trait);
+        targets.push(undefined);
         stores.push(getQueryStore(ctx, trait));
       }
     } else {
@@ -398,16 +403,62 @@ function fillQueryBinding(
       if (trait[$internal].type === 'tag') continue;
       traits.push(trait);
       projection.push(trait);
+      targets.push(undefined);
       stores.push(getQueryStore(ctx, trait));
     }
   }
 }
 
-/** Only required wildcards and exclusive target queries project a target value. */
-function projectsTarget(pair: RelationPair): boolean {
-  return (
-    pair.target === '*' || (pair.targetQuery !== undefined && pair.relation[$internal].exclusive)
-  );
+const targetProjections = new WeakMap<
+  TraitInstance,
+  Partial<Record<TargetProjection['mode'], TargetProjection>>
+>();
+
+/** One interned entry per instance and mode, so bindings and iterator caches compare identity. */
+function targetProjection(instance: TraitInstance, mode: TargetProjection['mode']): TargetProjection {
+  let modes = targetProjections.get(instance);
+  if (modes === undefined) targetProjections.set(instance, (modes = {}));
+  return (modes[mode] ??= { instance, mode });
+}
+
+/**
+ * Decides how a required pair reaches the callback. A concrete target is passed as it is. A
+ * wildcard or target query reads the exclusive slot, or snapshots the target array, narrowed to
+ * the target query's match set when the walked query resolved one.
+ */
+function projectPair(
+  query: QueryInstance | null,
+  instance: TraitInstance,
+  pair: RelationPair
+): { entry: TargetProjection; target: Entity | SparseSet | undefined } {
+  const exclusive = pair.relation[$internal].exclusive;
+  if (pair.targetQuery === undefined) {
+    if (pair.target !== '*')
+      return { entry: targetProjection(instance, 'constant'), target: pair.target };
+    return { entry: targetProjection(instance, exclusive ? 'slot' : 'copy'), target: undefined };
+  }
+  if (exclusive) return { entry: targetProjection(instance, 'slot'), target: undefined };
+  const matches = findTargetQueryMatches(query, pair);
+  if (matches === undefined) return { entry: targetProjection(instance, 'copy'), target: undefined };
+  return { entry: targetProjection(instance, 'filter'), target: matches };
+}
+
+/** The match set of the query's own filter for this pair, kept current by the target query. */
+function findTargetQueryMatches(
+  query: QueryInstance | null,
+  pair: RelationPair
+): SparseSet | undefined {
+  const pairs = query?.filters?.pairs;
+  if (pairs === undefined) return undefined;
+  const targetQuery = pair.targetQuery!;
+  const ref = isQuery(targetQuery) ? targetQuery : createQuery(...targetQuery);
+  for (let i = 0; i < pairs.length; i++) {
+    const filter = pairs[i];
+    if (filter.relation === pair.relation && filter.targetQueryRef === ref) {
+      return filter.targetQueryMatches;
+    }
+  }
+  return undefined;
 }
 
 function createIterationBuffers(): QueryIterationBuffers {
@@ -484,7 +535,7 @@ function prepareIterationBuffers(
   state.length = records.length = traits.length;
   for (let i = 0; i < projection.length; i++) {
     const part = projection[i];
-    if (typeof part !== 'function' && !part.trait[$internal].relation![$internal].exclusive) {
+    if (typeof part !== 'function' && (part.mode === 'copy' || part.mode === 'filter')) {
       buffers.targetSnapshots[i] ??= [];
     }
   }

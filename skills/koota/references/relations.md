@@ -163,8 +163,9 @@ These target-query filters stay live. If a target gains or loses the traits requ
 `each` passes required relation targets in query order alongside trait records, followed by the source entity and index.
 
 - `R('*')` passes an `Entity` when `R` is exclusive, or a reusable `readonly Entity[]` snapshot otherwise.
-- Exclusive `R(Trait, ...)` and `R(query)` pass their single target.
-- Concrete `R(entity)`, non-exclusive target-query pairs, and pairs inside modifiers pass no target argument.
+- `R(Trait, ...)` and `R(query)` pass the single target when `R` is exclusive, otherwise a `readonly Entity[]` of the targets that match the target query.
+- Concrete `R(entity)` passes that target as an `Entity`, exclusive or not.
+- Pairs inside modifiers pass no target argument.
 - Relation pairs with stores do not contribute a store record.
 
 ```typescript
