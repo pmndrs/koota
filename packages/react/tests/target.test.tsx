@@ -13,6 +13,7 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let world: World;
+
 const Marker = trait();
 
 describe('useTarget', () => {
@@ -45,17 +46,17 @@ describe('useTarget', () => {
     expect(target).toBeUndefined();
 
     act(() => {
-      subject.add(Parent(targetA));
+      world.add(subject, Parent(targetA));
     });
     expect(target).toBe(targetA);
 
     act(() => {
-      subject.add(Parent(targetB));
+      world.add(subject, Parent(targetB));
     });
     expect(target).toBe(targetB);
 
     act(() => {
-      subject.remove(Parent(targetB));
+      world.remove(subject, Parent(targetB));
     });
     expect(target).toBeUndefined();
   });
@@ -67,27 +68,27 @@ describe('useTarget', () => {
     const targetC = world.spawn();
     const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC));
     const { result } = renderHook(() => useTarget(subject, Likes), { wrapper: withWorld(world) });
-    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(world.targetFor(subject, Likes));
     act(() => {
-      subject.remove(Likes(targetB));
+      world.remove(subject, Likes(targetB));
     });
-    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(world.targetFor(subject, Likes));
     act(() => {
-      subject.remove(Likes(targetA));
+      world.remove(subject, Likes(targetA));
     });
-    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(world.targetFor(subject, Likes));
     act(() => {
-      subject.remove(Likes(targetC));
+      world.remove(subject, Likes(targetC));
     });
-    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(world.targetFor(subject, Likes));
     act(() => {
-      subject.add(Likes(targetB));
+      world.add(subject, Likes(targetB));
     });
-    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(world.targetFor(subject, Likes));
     act(() => {
-      targetB.destroy();
+      world.destroy(targetB);
     });
-    expect(result.current).toBe(subject.targetFor(Likes));
+    expect(result.current).toBe(world.targetFor(subject, Likes));
   });
 
   it('clears its target when the source is destroyed', () => {
@@ -96,7 +97,7 @@ describe('useTarget', () => {
     const { result } = renderHook(() => useTarget(subject, Likes), { wrapper: withWorld(world) });
 
     act(() => {
-      subject.destroy();
+      world.destroy(subject);
     });
     expect(result.current).toBeUndefined();
   });
@@ -114,7 +115,7 @@ describe('useTarget', () => {
     });
 
     act(() => {
-      first.remove(Likes(targetA));
+      world.remove(first, Likes(targetA));
       rerender({ entity: second });
     });
     expect(result.current).toBe(targetB);
@@ -126,7 +127,7 @@ describe('useTarget', () => {
     const entityB = world.spawn();
     const targetForA = world.spawn();
 
-    entityA.add(Parent(targetForA));
+    world.add(entityA, Parent(targetForA));
 
     let target: Entity | undefined;
     const targets: (Entity | undefined)[] = [];
@@ -176,12 +177,12 @@ describe('useTargets', () => {
     const { result } = renderHook(() => useTargets(subject, Likes), { wrapper: withWorld(world) });
 
     // Subscribe after the hook so B is removed while A is still awaiting cleanup.
-    subject.onRemove(Likes, (entity, target) => {
-      if (target === targetA) entity.remove(Likes(targetB));
+    world.onRemove(subject, Likes, (entity, target) => {
+      if (target === targetA) world.remove(entity, Likes(targetB));
     });
 
     act(() => {
-      subject.remove(Likes(targetA));
+      world.remove(subject, Likes(targetA));
     });
     expect(result.current).toEqual([]);
   });
@@ -211,15 +212,15 @@ describe('useTargets', () => {
     expect(targets).toEqual([]);
 
     act(() => {
-      subject.add(Likes(targetA));
-      subject.add(Likes(targetB));
+      world.add(subject, Likes(targetA));
+      world.add(subject, Likes(targetB));
     });
 
     const byId = (a: number, b: number) => a - b;
     expect([...targets].sort(byId)).toEqual([targetA, targetB].sort(byId));
 
     act(() => {
-      subject.remove(Likes(targetA));
+      world.remove(subject, Likes(targetA));
     });
 
     expect(targets).toEqual([targetB]);

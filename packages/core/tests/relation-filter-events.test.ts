@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createAdded,
-  createChanged,
-  createRemoved,
-  createWorld,
-  relation,
-  trait,
-  type Entity,
-} from '../src';
+import { createAdded, createChanged, createRemoved, relation, trait, type Entity } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('relation filter events', () => {
   const Active = trait();

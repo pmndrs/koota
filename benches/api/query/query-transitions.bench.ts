@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createQuery, createWorld, trait } from 'koota';
+import { createQuery, trait } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 group('add a tag to 10k entities @query-transitions', () => {
   for (const [queryCount, shapes] of [

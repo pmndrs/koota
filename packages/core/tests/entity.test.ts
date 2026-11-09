@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { $internal, createWorld, type Entity, getStore, trait, unpackEntity } from '../src';
+import { $internal, type Entity, getStore, trait, unpackEntity } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });
@@ -274,7 +275,7 @@ describe('Entity', () => {
     expect(world.has(entity)).toBe(false);
 
     // Should work with world entities as well
-    const worldEntity = world[$internal].worldEntity;
+    const worldEntity = world[$internal].worldEntity!;
     expect(world.has(worldEntity)).toBe(true);
   });
 });

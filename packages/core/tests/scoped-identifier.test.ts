@@ -4,7 +4,6 @@ import {
   createChanged,
   createRemoved,
   createQuery,
-  createWorld,
   identifier,
   Not,
   Or,
@@ -13,6 +12,7 @@ import {
   type Entity,
   type World,
 } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('Scoped identifiers', () => {
   const ChildOf = relation({ exclusive: true });

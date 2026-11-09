@@ -1,14 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  createChanged,
-  createQuery,
-  createRemoved,
-  createWorld,
-  Not,
-  Or,
-  relation,
-  trait,
-} from '../src';
+import { createChanged, createQuery, createRemoved, Not, Or, relation, trait } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('Or branches', () => {
   const world = createWorld();

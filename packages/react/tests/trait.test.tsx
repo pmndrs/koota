@@ -55,7 +55,7 @@ describe('useTrait', () => {
     expect(position).toEqual({ x: 0, y: 0 });
 
     await act(async () => {
-      entity.set(Position, { x: 1, y: 1 });
+      world.set(entity, Position, { x: 1, y: 1 });
     });
 
     expect(position).toEqual({ x: 1, y: 1 });
@@ -67,12 +67,12 @@ describe('useTrait', () => {
     const parent = world.spawn(Children);
     const a = world.spawn(ChildOf(parent));
     const b = world.spawn();
-    const children = parent.get(Children)!;
+    const children = world.get(parent, Children)!;
     const { result, rerender } = renderHook(() => useTrait(parent, Children), { wrapper: Wrapper });
     expectTypeOf(result.current).toEqualTypeOf<readonly Entity[] | undefined>();
     const initial = result.current;
 
-    act(() => b.add(ChildOf(parent)));
+    act(() => world.add(b, ChildOf(parent)));
     const added = result.current;
     act(() => {
       children.moveTo(b, 0);
@@ -81,7 +81,7 @@ describe('useTrait', () => {
     expect(initial).toEqual([a]);
     expect(added).toEqual([a, b]);
     expect(moved).toEqual([b, a]);
-    act(() => parent.changed(Children));
+    act(() => world.changed(parent, Children));
     rerender();
     expect(result.current).toBe(moved);
   });
@@ -117,7 +117,7 @@ describe('useTrait', () => {
     expect(position).toEqual({ x: 0, y: 0 });
 
     await act(async () => {
-      entity!.set(Position, { x: 1, y: 1 });
+      world.set(entity!, Position, { x: 1, y: 1 });
     });
 
     expect(position).toEqual({ x: 1, y: 1 });
@@ -237,7 +237,7 @@ describe('useTrait', () => {
         </StrictMode>
       );
 
-      entity.set(Position, { x: 1, y: 1 });
+      world.set(entity, Position, { x: 1, y: 1 });
     });
 
     expect(position).toEqual({ x: 1, y: 1 });
@@ -287,7 +287,7 @@ describe('useTrait', () => {
     // Increment the counter and call entity.changed() to trigger a re-render
     await act(async () => {
       counter?.increment();
-      entity.changed(CounterTrait);
+      world.changed(entity, CounterTrait);
     });
 
     expect(counter?.value).toBe(1);
@@ -325,7 +325,7 @@ describe('useTrait', () => {
     function Test() {
       renderCount++;
       const value = useTrait(entity, AoSTrait);
-      useLayoutEffect(() => other.set(AoSTrait, { value: 10 }), []);
+      useLayoutEffect(() => otherWorld.set(other, AoSTrait, { value: 10 }), []);
       return <span>{value?.value}</span>;
     }
 
@@ -365,7 +365,7 @@ describe('useTrait', () => {
       );
       const view = render(strict ? <StrictMode>{scene}</StrictMode> : scene, { wrapper: Wrapper });
 
-      expect(entity.get(CameraPosition)!.x).toBe(10);
+      expect(world.get(entity, CameraPosition)!.x).toBe(10);
       expect(view.container.textContent).toBe('10');
 
       const initialRenders = renders;
@@ -386,16 +386,16 @@ describe('useTrait', () => {
         useLayoutEffect(() => {
           switch (operation) {
             case 'set':
-              entity.set(Atomic, { x: 10 });
+              world.set(entity, Atomic, { x: 10 });
               break;
             case 'silent set':
-              entity.set(Atomic, { x: 10 }, false);
+              world.set(entity, Atomic, { x: 10 }, false);
               break;
             case 'add':
-              entity.add(Atomic({ x: 10 }));
+              world.add(entity, Atomic({ x: 10 }));
               break;
             case 'remove':
-              entity.remove(Atomic);
+              world.remove(entity, Atomic);
               break;
           }
         }, []);
@@ -414,8 +414,8 @@ describe('useTrait', () => {
     function View() {
       const value = useTrait(entity, Atomic);
       useLayoutEffect(() => {
-        entity.get(Atomic)!.position.x = 10;
-        entity.changed(Atomic);
+        world.get(entity, Atomic)!.position.x = 10;
+        world.changed(entity, Atomic);
       }, []);
       return <span>{value?.position.x}</span>;
     }
@@ -430,7 +430,7 @@ describe('useTrait', () => {
 
     function View() {
       const value = useTrait(child, ChildOf(parent));
-      useLayoutEffect(() => child.set(ChildOf(parent), { order: 10 }), []);
+      useLayoutEffect(() => world.set(child, ChildOf(parent), { order: 10 }), []);
       return <span>{value?.order}</span>;
     }
 
@@ -467,7 +467,7 @@ describe('useTrait', () => {
       const position = useTrait(entity, Position);
       positions.push(position?.x);
       useLayoutEffect(() => {
-        if (entity === next) previous.set(Position, { x: 2 });
+        if (entity === next) world.set(previous, Position, { x: 2 });
       }, [entity]);
       return <span>{position?.x}</span>;
     }
@@ -490,8 +490,8 @@ describe('useTrait', () => {
     expect(positions.every((x) => x === 99)).toBe(true);
 
     await act(async () => {
-      next.set(Position, { x: 100 });
-      previous.set(Position, { x: 3 });
+      world.set(next, Position, { x: 100 });
+      world.set(previous, Position, { x: 3 });
     });
     expect(view.container.textContent).toBe('100');
   });
@@ -521,22 +521,22 @@ describe('useTrait', () => {
     expect(parentAData).toBeUndefined();
 
     await act(async () => {
-      child.add(ChildOf(parentB, { order: 10 }));
+      world.add(child, ChildOf(parentB, { order: 10 }));
     });
     expect(parentAData).toBeUndefined();
 
     await act(async () => {
-      child.add(ChildOf(parentA, { order: 1 }));
+      world.add(child, ChildOf(parentA, { order: 1 }));
     });
     expect(parentAData).toEqual({ order: 1 });
 
     await act(async () => {
-      child.set(ChildOf(parentA), { order: 2 });
+      world.set(child, ChildOf(parentA), { order: 2 });
     });
     expect(parentAData).toEqual({ order: 2 });
 
     await act(async () => {
-      child.remove(ChildOf(parentA));
+      world.remove(child, ChildOf(parentA));
     });
     expect(parentAData).toBeUndefined();
   });
@@ -569,7 +569,7 @@ describe('useTag', () => {
     expect(isTagged).toBe(true);
 
     await act(async () => {
-      entity.remove(IsTagged);
+      world.remove(entity, IsTagged);
     });
 
     expect(isTagged).toBe(false);
@@ -704,7 +704,7 @@ describe('useHas', () => {
     expect(hasPosition).toBe(true);
 
     await act(async () => {
-      entity.remove(Position);
+      world.remove(entity, Position);
     });
 
     expect(hasPosition).toBe(false);
@@ -840,25 +840,25 @@ describe('useHas', () => {
     expect(hasAnyParent).toBe(false);
 
     act(() => {
-      child.add(ChildOf(parentB));
+      world.add(child, ChildOf(parentB));
     });
     expect(hasParentA).toBe(false);
     expect(hasAnyParent).toBe(true);
 
     act(() => {
-      child.add(ChildOf(parentA));
+      world.add(child, ChildOf(parentA));
     });
     expect(hasParentA).toBe(true);
     expect(hasAnyParent).toBe(true);
 
     act(() => {
-      child.remove(ChildOf(parentA));
+      world.remove(child, ChildOf(parentA));
     });
     expect(hasParentA).toBe(false);
     expect(hasAnyParent).toBe(true);
 
     act(() => {
-      child.remove(ChildOf(parentB));
+      world.remove(child, ChildOf(parentB));
     });
     expect(hasParentA).toBe(false);
     expect(hasAnyParent).toBe(false);
@@ -894,7 +894,7 @@ describe('useTraitEffect', () => {
     expect(position).toEqual({ x: 0, y: 0 });
 
     await act(async () => {
-      entity.set(Position, { x: 1, y: 1 });
+      world.set(entity, Position, { x: 1, y: 1 });
     });
 
     expect(position).toEqual({ x: 1, y: 1 });
@@ -924,7 +924,7 @@ describe('useTraitEffect', () => {
     expect(position).toEqual({ x: 0, y: 0 });
 
     await act(async () => {
-      entity.remove(Position);
+      world.remove(entity, Position);
     });
 
     expect(position).toBeUndefined();
@@ -988,22 +988,22 @@ describe('useTraitEffect', () => {
     expect(updates.at(-1)).toBeUndefined();
 
     await act(async () => {
-      child.add(ChildOf(parentB, { order: 10 }));
+      world.add(child, ChildOf(parentB, { order: 10 }));
     });
     expect(updates.at(-1)).toBeUndefined();
 
     await act(async () => {
-      child.add(ChildOf(parentA, { order: 1 }));
+      world.add(child, ChildOf(parentA, { order: 1 }));
     });
     expect(updates.at(-1)).toEqual({ order: 1 });
 
     await act(async () => {
-      child.set(ChildOf(parentA), { order: 2 });
+      world.set(child, ChildOf(parentA), { order: 2 });
     });
     expect(updates.at(-1)).toEqual({ order: 2 });
 
     await act(async () => {
-      child.remove(ChildOf(parentA));
+      world.remove(child, ChildOf(parentA));
     });
     expect(updates.at(-1)).toBeUndefined();
   });

@@ -1,33 +1,45 @@
 import { whenSettled, type Entity, type Machine, type MachineStates, type World } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
-import { useWorld } from '../world/world-context.js';
 
 export function useMachine<S extends MachineStates>(
   target: () => Entity | World | undefined | null,
   machine: MaybeGetter<Machine<S>>
 ): { readonly current: S[keyof S] | undefined } {
-  useWorld();
+  const resolveTarget = createTargetResolver();
   const binding = $derived.by(() => {
     const subject = target();
     const selected = resolve(machine);
-    const entity = getTargetEntity(subject);
-    return { subject, selected, value: entity === undefined ? undefined : selected.current(entity) };
+    const resolved = resolveTarget(subject);
+    return {
+      subject,
+      selected,
+      value: resolved && selected.current(resolved.world, resolved.entity),
+    };
   });
   // Self-transitions replace data while keeping the same member trait.
   let version = $state(0);
 
   $effect(() => {
     const current = binding;
-    return subscribeTarget(current.subject, (entity) => {
+    return observeTarget(resolveTarget, current.subject, (resolved) => {
       const update = () => {
-        current.value = entity?.isAlive() ? current.selected.current(entity) : undefined;
+        current.value =
+          resolved && resolved.world.isAlive(resolved.entity)
+            ? current.selected.current(resolved.world, resolved.entity)
+            : undefined;
         untrack(() => version++);
       };
       update();
-      if (entity === undefined) return;
-      return entity.onTransition(current.selected, whenSettled(update));
+      if (resolved === undefined) return;
+      const { world, entity } = resolved;
+      const observer = world[internal].observeSettled(update);
+      const unsubscribe = world.onTransition(entity, current.selected, observer.invalidate);
+      return () => {
+        observer.unsubscribe();
+        unsubscribe();
+      };
     });
   });
 

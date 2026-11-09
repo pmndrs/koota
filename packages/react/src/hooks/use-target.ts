@@ -9,27 +9,28 @@ import {
   type World,
 } from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
-import { useWorld } from '../world/use-world';
 
 function readTarget(
+  world: World,
   entity: Entity,
   relation: Relation<Trait> | Identifier
 ): IdentifierKey | undefined {
   // The targetFor overloads take no union. Core reads both inputs the same way.
-  return entity.targetFor(relation as Relation<Trait>);
+  return world.targetFor(entity, relation as Relation<Trait>);
 }
 
 function attachTarget(
+  world: World,
   entity: Entity,
   relation: Relation<Trait> | Identifier,
   push: (value: IdentifierKey | undefined) => void
 ) {
-  const refresh = whenSettled(() => {
-    push(entity.isAlive() ? readTarget(entity, relation) : undefined);
+  const observer = world[$internal].observeSettled(() => {
+    push(world.isAlive(entity) ? readTarget(world, entity, relation) : undefined);
   });
   const trait = relation[$internal].trait;
-  const onChange = entity.onChange(trait, refresh);
-  const onRemove = entity.onRemove(trait, refresh);
+  const onChange = world.onChange(entity, trait, observer.invalidate);
+  const onRemove = world.onRemove(entity, trait, observer.invalidate);
   return () => {
     onChange();
     onRemove();
@@ -48,6 +49,5 @@ export function useTarget(
   target: Entity | World | undefined | null,
   relation: Relation<Trait> | Identifier
 ) {
-  useWorld();
   return useEntityValue(target, relation, readTarget, attachTarget);
 }

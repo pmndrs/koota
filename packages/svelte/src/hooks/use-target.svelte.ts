@@ -8,9 +8,8 @@ import {
   type Trait,
   type World,
 } from '@koota/core';
-import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
-import { useWorld } from '../world/world-context.js';
 
 export function useTarget<K extends IdentifierKey>(
   target: () => Entity | World | undefined | null,
@@ -24,27 +23,30 @@ export function useTarget(
   target: () => Entity | World | undefined | null,
   relation: MaybeGetter<Relation<Trait> | Identifier>
 ): { readonly current: IdentifierKey | undefined } {
-  useWorld();
-  const initialEntity = getTargetEntity(target());
+  const resolveTarget = createTargetResolver();
+  const initial = resolveTarget(target());
   let value = $state.raw<IdentifierKey | undefined>(
-    initialEntity?.targetFor(resolve(relation) as Relation<Trait>)
+    initial && initial.world.targetFor(initial.entity, resolve(relation) as Relation<Trait>)
   );
 
   $effect(() => {
     const subject = target();
     const resolvedRelation = resolve(relation);
-    return subscribeTarget(subject, (entity) => {
-      if (entity === undefined) {
+    return observeTarget(resolveTarget, subject, (resolved) => {
+      if (resolved === undefined) {
         value = undefined;
         return;
       }
 
+      const { world, entity } = resolved;
       const update = () => {
-        value = entity.isAlive() ? entity.targetFor(resolvedRelation as Relation<Trait>) : undefined;
+        value = world.isAlive(entity)
+          ? world.targetFor(entity, resolvedRelation as Relation<Trait>)
+          : undefined;
       };
-      const refresh = whenSettled(update);
-      const onChange = entity.onChange(resolvedRelation[internal].trait, refresh);
-      const onRemove = entity.onRemove(resolvedRelation[internal].trait, refresh);
+      const observer = world[internal].observeSettled(update);
+      const onChange = world.onChange(entity, resolvedRelation[internal].trait, observer.invalidate);
+      const onRemove = world.onRemove(entity, resolvedRelation[internal].trait, observer.invalidate);
       update();
       return () => {
         onChange();

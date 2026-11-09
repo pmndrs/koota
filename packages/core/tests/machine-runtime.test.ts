@@ -1,5 +1,6 @@
 import { afterAll, expect, it, vi } from 'vitest';
-import { createWorld, machine, trait } from '../src';
+import { machine, trait } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 vi.hoisted(() => {
   vi.stubGlobal('__KOOTA_ASSERTS__', false);
@@ -24,7 +25,7 @@ it.each(['enter', 'add', 'upsert'] as const)(
     try {
       const entity = world.spawn(Pending({ attempts: 3 }));
       const transition = (state: typeof Pending) => {
-        if (operation === 'enter') Asset.enter(entity, state({ attempts: 9 }));
+        if (operation === 'enter') Asset.enter(world, entity, state({ attempts: 9 }));
         else if (operation === 'add') entity.add(state({ attempts: 9 }));
         else entity.upsert(state, { attempts: 9 });
       };
@@ -35,13 +36,13 @@ it.each(['enter', 'add', 'upsert'] as const)(
 
       transition(Loaded);
       if (operation === 'enter') transition(Pending);
-      expect(Asset.current(entity)).toBe(Pending);
+      expect(Asset.current(world, entity)).toBe(Pending);
       expect(entity.get(Pending)).toEqual({ attempts: 3 });
       expect(entity.has(Loaded)).toBe(false);
       expect(changed).not.toHaveBeenCalled();
 
       transition(Loading);
-      expect(Asset.current(entity)).toBe(Loading);
+      expect(Asset.current(world, entity)).toBe(Loading);
       expect(entity.get(Loading)).toEqual({ attempts: 9 });
     } finally {
       world.destroy();

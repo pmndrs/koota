@@ -51,25 +51,31 @@ export function createClearFunction(
 /** One filled page per default value, shared by creation and growth. */
 const pageTemplates = new Map<unknown, unknown[]>();
 
-/** Array.of gives each template its own elements kind instead of sharing a literal site. */
-function createPageTemplate(field: unknown): unknown[] {
-  const template = Array.of<unknown>();
-  if (Array.isArray(field)) {
-    for (let i = 0; i < PAGE_SIZE; i++) {
-      for (let c = 0; c < field.length; c++) template.push(field[c]);
+/**
+ * The template for a default, built on first use. Array.of gives each template its own elements
+ * kind instead of sharing a literal site. Factory defaults all start undefined and share one
+ * template, since keying by the factory would keep whatever it closes over alive, such as a world.
+ */
+function getPageTemplate(field: unknown): unknown[] {
+  const key = typeof field === 'function' ? undefined : field;
+  let template = pageTemplates.get(key);
+  if (template === undefined) {
+    template = Array.of<unknown>();
+    if (Array.isArray(key)) {
+      for (let i = 0; i < PAGE_SIZE; i++) {
+        for (let c = 0; c < key.length; c++) template.push(key[c]);
+      }
+    } else {
+      for (let i = 0; i < PAGE_SIZE; i++) template.push(key);
     }
-  } else {
-    const value = typeof field === 'function' ? undefined : field;
-    for (let i = 0; i < PAGE_SIZE; i++) template.push(value);
+    pageTemplates.set(key, template);
   }
-  pageTemplates.set(field, template);
   return template;
 }
 
 /** Create a packed column with capacity of 1..PAGE_SIZE entity slots, interleaving tuples. */
 export function createPage(field: unknown, capacity = PAGE_SIZE): unknown[] {
-  const template = pageTemplates.get(field) ?? createPageTemplate(field);
-  return template.slice(0, capacity * (Array.isArray(field) ? field.length : 1));
+  return getPageTemplate(field).slice(0, capacity * (Array.isArray(field) ? field.length : 1));
 }
 
 /**
@@ -85,7 +91,7 @@ export function growPages(
   for (const key in schema) {
     const field = schema[key];
     const page = store[key][pageId];
-    const template = pageTemplates.get(field) ?? createPageTemplate(field);
+    const template = getPageTemplate(field);
     const end = capacity * (Array.isArray(field) ? field.length : 1);
     for (let i = page.length; i < end; i++) page.push(template[i]);
   }

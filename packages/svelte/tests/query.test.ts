@@ -38,7 +38,7 @@ describe('useQuery', () => {
     await tick();
     expect(getByTestId('count').textContent).toBe('2');
 
-    entityToDestroy.destroy();
+    world.destroy(entityToDestroy);
     await tick();
     expect(getByTestId('count').textContent).toBe('1');
   });
@@ -70,13 +70,13 @@ describe('useQuery', () => {
     await tick();
     expect(counts()).toEqual(['2', '2']);
 
-    other.set(Position, { x: 1 });
+    world.set(other, Position, { x: 1 });
     await tick();
     expect(counts()).toEqual(['1', '1']);
 
     world.defer(() => {
-      entity.set(Position, { y: 1 });
-      other.set(Position, { y: 1 });
+      world.set(entity, Position, { y: 1 });
+      world.set(other, Position, { y: 1 });
     });
     await tick();
     expect(counts()).toEqual(['2', '2']);
@@ -87,8 +87,8 @@ describe('useQuery', () => {
       b = world.spawn(Position);
     const { getByTestId } = renderSubject({ params: [createChanged()(Position)] });
     await tick();
-    a.set(Position, { x: 1 });
-    b.set(Position, { x: 1 });
+    world.set(a, Position, { x: 1 });
+    world.set(b, Position, { x: 1 });
     await tick();
     expect(getByTestId('count').textContent).toBe('2');
   });

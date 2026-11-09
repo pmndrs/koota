@@ -34,8 +34,8 @@ const entity = world.spawn(AssetMachine) // Pending
 world.spawn(Loading({ progress: 0 })) // Also has AssetMachine
 world.spawn(AssetMachine, Loading({ progress: 0.25 })) // Loading, without entering Pending
 
-AssetMachine.enter(entity, Loading({ progress: 0.5 }))
-AssetMachine.current(entity) === Loading
+AssetMachine.enter(world, entity, Loading({ progress: 0.5 }))
+AssetMachine.current(world, entity) === Loading
 entity.has(AssetMachine) // true
 entity.get(Loading) // { progress: 0.5 }
 ```

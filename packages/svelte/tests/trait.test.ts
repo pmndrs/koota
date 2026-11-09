@@ -65,20 +65,20 @@ describe('useTrait', () => {
     });
     await tick();
     const initial = read();
-    b.add(ChildOf(parent));
+    world.add(b, ChildOf(parent));
     const added = read();
-    parent.get(Children)!.moveTo(b, 0);
+    world.get(parent, Children)!.moveTo(b, 0);
     const moved = read();
     expect(initial).toEqual([a]);
     expect(added).toEqual([a, b]);
     expect(moved).toEqual([b, a]);
     expect(Object.isFrozen(moved)).toBe(true);
-    parent.changed(Children);
+    world.changed(parent, Children);
     expect(read()).toBe(moved);
-    parent.remove(Children);
+    world.remove(parent, Children);
     expect(read()).toBeUndefined();
     const other = world.spawn(Children);
-    b.add(ChildOf(other));
+    world.add(b, ChildOf(other));
     selected.set(other);
     expect(read()).toEqual([b]);
     unmount();
@@ -95,7 +95,7 @@ describe('useTrait', () => {
     await tick();
     expect(getByTestId('value').textContent).toBe(JSON.stringify({ x: 0, y: 0 }));
 
-    entity.set(Position, { x: 1, y: 1 });
+    world.set(entity, Position, { x: 1, y: 1 });
     await tick();
     expect(getByTestId('value').textContent).toBe(JSON.stringify({ x: 1, y: 1 }));
   });
@@ -178,7 +178,7 @@ describe('useTrait', () => {
     });
 
     await tick();
-    entity.set(Position, { x: 1, y: 1 });
+    world.set(entity, Position, { x: 1, y: 1 });
     await tick();
     expect(getByTestId('value').textContent).toBe(JSON.stringify({ x: 1, y: 1 }));
 
@@ -205,8 +205,8 @@ describe('useTrait', () => {
     await tick();
     const initial = getByTestId('value').textContent;
 
-    entity.get(CounterTrait)?.increment();
-    entity.changed(CounterTrait);
+    world.get(entity, CounterTrait)?.increment();
+    world.changed(entity, CounterTrait);
     await tick();
 
     const updated = getByTestId('value').textContent;
@@ -244,19 +244,19 @@ describe('useTrait', () => {
     await tick();
     expect(getByTestId('value').textContent).toBe('undefined');
 
-    child.add(ChildOf(parentB, { order: 10 }));
+    world.add(child, ChildOf(parentB, { order: 10 }));
     await tick();
     expect(getByTestId('value').textContent).toBe('undefined');
 
-    child.add(ChildOf(parentA, { order: 1 }));
+    world.add(child, ChildOf(parentA, { order: 1 }));
     await tick();
     expect(getByTestId('value').textContent).toBe(JSON.stringify({ order: 1 }));
 
-    child.set(ChildOf(parentA), { order: 2 });
+    world.set(child, ChildOf(parentA), { order: 2 });
     await tick();
     expect(getByTestId('value').textContent).toBe(JSON.stringify({ order: 2 }));
 
-    child.remove(ChildOf(parentA));
+    world.remove(child, ChildOf(parentA));
     await tick();
     expect(getByTestId('value').textContent).toBe('undefined');
   });
@@ -272,7 +272,7 @@ describe('useTrait', () => {
     await tick();
     expect(getByTestId('value').textContent).toBe(JSON.stringify({ x: 0, y: 0 }));
 
-    entity.set(Position, { x: 5, y: 5 });
+    world.set(entity, Position, { x: 5, y: 5 });
     await tick();
     expect(getByTestId('value').textContent).toBe(JSON.stringify({ x: 5, y: 5 }));
   });
@@ -282,8 +282,8 @@ describe('useTrait', () => {
     const parentA = world.spawn();
     const parentB = world.spawn();
     const child = world.spawn();
-    child.add(ChildOf(parentA, { order: 1 }));
-    child.add(ChildOf(parentB, { order: 2 }));
+    world.add(child, ChildOf(parentA, { order: 1 }));
+    world.add(child, ChildOf(parentB, { order: 2 }));
 
     const { getByTestId, rerender } = renderSubject({
       target: child,
@@ -329,7 +329,7 @@ describe('useTraitEffect', () => {
     await tick();
     expect(position).toEqual({ x: 0, y: 0 });
 
-    entity.set(Position, { x: 1, y: 1 });
+    world.set(entity, Position, { x: 1, y: 1 });
     await tick();
     expect(position).toEqual({ x: 1, y: 1 });
   });
@@ -366,7 +366,7 @@ describe('useTraitEffect', () => {
     await tick();
     expect(position).toEqual({ x: 0, y: 0 });
 
-    entity.remove(Position);
+    world.remove(entity, Position);
     await tick();
     expect(position).toBeUndefined();
   });
@@ -421,19 +421,19 @@ describe('useTraitEffect', () => {
     await tick();
     expect(updates.at(-1)).toBeUndefined();
 
-    child.add(ChildOf(parentB, { order: 10 }));
+    world.add(child, ChildOf(parentB, { order: 10 }));
     await tick();
     expect(updates.at(-1)).toBeUndefined();
 
-    child.add(ChildOf(parentA, { order: 1 }));
+    world.add(child, ChildOf(parentA, { order: 1 }));
     await tick();
     expect(updates.at(-1)).toEqual({ order: 1 });
 
-    child.set(ChildOf(parentA), { order: 2 });
+    world.set(child, ChildOf(parentA), { order: 2 });
     await tick();
     expect(updates.at(-1)).toEqual({ order: 2 });
 
-    child.remove(ChildOf(parentA));
+    world.remove(child, ChildOf(parentA));
     await tick();
     expect(updates.at(-1)).toBeUndefined();
   });

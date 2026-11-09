@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createWorld, machine, trait } from 'koota';
+import { machine, trait } from 'koota';
+import { createWorld } from 'koota/entity-methods';
 
 group('machine transitions 10k @machine @mutation', () => {
   for (const observers of ['none', 'queries']) {
@@ -17,12 +18,12 @@ group('machine transitions 10k @machine @mutation', () => {
       yield {
         bench: () => {
           for (const entity of entities) {
-            Download.enter(entity, Loading);
-            Download.enter(entity, Loading);
+            Download.enter(world, entity, Loading);
+            Download.enter(world, entity, Loading);
           }
         },
         snapshot: () => {
-          assert.equal(Download.current(entities[9999]), Loading);
+          assert.equal(Download.current(world, entities[9999]), Loading);
           assert.equal(entities[9999].get(Loading)?.requestId, 0);
           assert.equal(queryEvents, 0);
           return entities.length;
@@ -55,12 +56,12 @@ group('machine transitions 10k @machine @mutation', () => {
       yield {
         bench: () => {
           for (const entity of entities) {
-            Download.enter(entity, Loading);
-            Download.enter(entity, Idle);
+            Download.enter(world, entity, Loading);
+            Download.enter(world, entity, Idle);
           }
         },
         snapshot: () => {
-          assert.equal(Download.current(entities[9999]), Idle);
+          assert.equal(Download.current(world, entities[9999]), Idle);
           assert.equal(entities[9999].has(Loading), false);
           if (observers !== 'none') assert.equal(transitions > 0, true);
           if (observers === 'queries') assert.equal(queryEvents, transitions);
@@ -87,12 +88,12 @@ group('machine transition table 10k @machine @machine-table @mutation', () => {
     yield {
       bench: () => {
         for (const entity of entities) {
-          Download.enter(entity, Loading);
-          Download.enter(entity, Idle);
+          Download.enter(world, entity, Loading);
+          Download.enter(world, entity, Idle);
         }
       },
       snapshot: () => {
-        assert.equal(Download.current(entities[9999]), Idle);
+        assert.equal(Download.current(world, entities[9999]), Idle);
         assert.equal(entities[9999].has(Loading), false);
         return entities.length;
       },

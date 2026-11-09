@@ -1,31 +1,39 @@
-import { whenSettled, type Entity, type Relation, type Trait, type World } from '@koota/core';
-import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
+import {
+  $internal as internal,
+  type Entity,
+  type Relation,
+  type Trait,
+  type World,
+} from '@koota/core';
+import { createTargetResolver, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
-import { useWorld } from '../world/world-context.js';
 
 export function useTargets<T extends Trait>(
   target: () => Entity | World | undefined | null,
   relation: MaybeGetter<Relation<T>>
 ): { readonly current: Entity[] } {
-  useWorld();
-  const initialEntity = getTargetEntity(target());
-  let value = $state.raw<Entity[]>(initialEntity?.targetsFor(resolve(relation)) ?? []);
+  const resolveTarget = createTargetResolver();
+  const initial = resolveTarget(target());
+  let value = $state.raw<Entity[]>(
+    initial === undefined ? [] : initial.world.targetsFor(initial.entity, resolve(relation))
+  );
 
   $effect(() => {
     const subject = target();
     const resolvedRelation = resolve(relation);
-    return subscribeTarget(subject, (entity) => {
-      if (entity === undefined) {
+    return observeTarget(resolveTarget, subject, (resolved) => {
+      if (resolved === undefined) {
         value = [];
         return;
       }
 
+      const { world, entity } = resolved;
       const update = () => {
-        value = entity.isAlive() ? entity.targetsFor(resolvedRelation) : [];
+        value = world.isAlive(entity) ? world.targetsFor(entity, resolvedRelation) : [];
       };
-      const refresh = whenSettled(update);
-      const onChange = entity.onChange(resolvedRelation, refresh);
-      const onRemove = entity.onRemove(resolvedRelation, refresh);
+      const observer = world[internal].observeSettled(update);
+      const onChange = world.onChange(entity, resolvedRelation, observer.invalidate);
+      const onRemove = world.onRemove(entity, resolvedRelation, observer.invalidate);
       update();
       return () => {
         onChange();

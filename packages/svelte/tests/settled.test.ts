@@ -30,20 +30,20 @@ it('refreshes every hook synchronously after removal and child destruction', () 
       onValue: (value: unknown) =>
         effects.push([
           value,
-          parent.isAlive(),
-          child.isAlive(),
-          source.isAlive() ? source.targetsFor(Link) : [],
+          world.isAlive(parent),
+          world.isAlive(child),
+          world.isAlive(source) ? world.targetsFor(source, Link) : [],
         ]),
     },
   });
   flushSync();
-  source.onRemove(Value, () => {
-    parent.destroy();
-    source.remove(Link(a));
+  world.onRemove(source, Value, () => {
+    world.destroy(parent);
+    world.remove(source, Link(a));
   });
-  const off = source.onRemove(Link, () => source.add(Link(b)));
+  const off = world.onRemove(source, Link, () => world.add(source, Link(b)));
   effects.length = 0;
-  source.remove(Value);
+  world.remove(source, Value);
   expect(effects).toEqual([[undefined, false, false, [b]]]);
   expect(read()).toEqual({
     has: true,
@@ -54,7 +54,7 @@ it('refreshes every hook synchronously after removal and child destruction', () 
     first: undefined,
   });
   off();
-  source.destroy();
+  world.destroy(source);
   expect(read()).toEqual({
     has: false,
     target: undefined,
@@ -85,14 +85,14 @@ it('coalesces structural callback writes and preserves immediate ordinary writes
     },
   });
   flushSync();
-  source.onRemove(Trigger, () => {
-    source.set(Value, { x: 1 });
-    source.set(Value, { x: 2 });
+  world.onRemove(source, Trigger, () => {
+    world.set(source, Value, { x: 1 });
+    world.set(source, Value, { x: 2 });
   });
   values.length = 0;
-  source.remove(Trigger);
+  world.remove(source, Trigger);
   expect(values).toEqual([{ x: 2 }]);
-  source.set(Value, { x: 3 });
+  world.set(source, Value, { x: 3 });
   expect(values).toEqual([{ x: 2 }, { x: 3 }]);
   flushSync(() => unmount());
 });

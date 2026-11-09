@@ -4,12 +4,12 @@ import {
   createChanged,
   createQuery,
   createRemoved,
-  createWorld,
   IsExcluded,
   Not,
   relation,
   trait,
 } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('queryFirst', () => {
   const world = createWorld();
