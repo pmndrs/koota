@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Not, createRemoved, createWorld, identifier, relation, trait } from '../src';
+import { Not, createRemoved, identifier, relation, trait } from '../src';
+import { createWorld } from '../src/entity-methods';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
@@ -8,13 +9,12 @@ const IsCold = trait();
 const Name = identifier();
 
 describe('Entity retention', () => {
-  it('sets a fixed retention cap without initializing the world', () => {
+  it('sets a fixed retention cap at creation', () => {
     expect(createWorld().retain).toBe(1024);
     const options = { retain: 8 };
     const world = createWorld(options);
     options.retain = 0;
     expect(world.retain).toBe(8);
-    expect(world.isRegistered).toBe(false);
     expect(() => {
       // @ts-expect-error The creation policy is read-only.
       world.retain = 0;
@@ -203,7 +203,6 @@ describe('Entity retention', () => {
         })
       ).resolves.toBe(true);
       expect(world.query(Removed(Value)).length).toBe(0);
-      expect(world.isRegistered).toBe(true);
       world.destroy();
     }
   );

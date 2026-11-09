@@ -188,9 +188,9 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
     relationQueryIdentifiers: undefined,
     anchorRelations: [],
     schema: trait.schema,
-    changeSubscriptions: createSubscriptions(),
-    addSubscriptions: createSubscriptions(),
-    removeSubscriptions: createSubscriptions(),
+    changeSubscriptions: createSubscriptions(ctx.entityIndex),
+    addSubscriptions: createSubscriptions(ctx.entityIndex),
+    removeSubscriptions: createSubscriptions(ctx.entityIndex),
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
     machine: traitCtx.machine?.trait === trait ? createMachineInstance() : undefined,
@@ -404,11 +404,11 @@ export function setScopedRelationPair(
   target: Entity | undefined,
   params: Record<string, any> | undefined
 ): boolean {
-  if (isEntityDestroying(entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
+  if (isEntityDestroying(ctx, entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
   const trait = relation[$internal].trait;
   let instance = getTraitInstance(ctx.traitInstances, trait);
   if (instance === undefined) instance = registerTrait(ctx, trait);
-  if (isEntityDestroying(entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
+  if (isEntityDestroying(ctx, entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
   const previous = getScopeTarget(ctx, relation, entity);
   if (previous === target) return true;
   if (!validateScopeMove(ctx, relation, entity, target)) return false;
@@ -447,7 +447,7 @@ export function setScopedRelationPair(
 export function removeTrait(
   ctx: WorldContext,
   entity: Entity,
-  ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+  traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
 ) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);

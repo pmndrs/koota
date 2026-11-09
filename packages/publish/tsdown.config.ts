@@ -2,7 +2,7 @@ import { defineConfig } from 'tsdown';
 import inlineFunctions from 'unplugin-inline-functions/rolldown';
 
 export default defineConfig((options) => ({
-  entry: ['src/index.ts', 'src/react.ts'],
+  entry: ['src/index.ts', 'src/entity-methods.ts', 'src/react.ts'],
   tsconfig: '../tsconfig-publish.json',
   format: ['esm', 'cjs'],
   fixedExtension: false,
@@ -14,6 +14,13 @@ export default defineConfig((options) => ({
   // is used in non-conformant environments.
   // See https://262.ecma-international.org/5.1/#sec-C for more details.
   banner: () => ({ js: '"use strict";' }),
-  dts: { tsc: { eager: true }, entry: ['src/index.ts', 'src/react.ts'] },
+  // Keep all of core in one chunk. An entry that held core code of its own would make the chunk
+  // export the constants that code reads, and an exported binding is never constant folded.
+  outputOptions: {
+    codeSplitting: {
+      groups: [{ name: 'core', test: /packages[\\/](core|collections)[\\/]src[\\/].*(?<!\.d)\.ts$/ }],
+    },
+  },
+  dts: { tsc: { eager: true }, entry: ['src/index.ts', 'src/entity-methods.ts', 'src/react.ts'] },
   plugins: [inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'], define: options.define })],
 }));

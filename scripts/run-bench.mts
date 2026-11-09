@@ -82,6 +82,7 @@ async function compile(root: string) {
       compilerOptions: {
         paths: {
           koota: ['./index.js'],
+          'koota/entity-methods': ['./entity-methods.js'],
           'koota/react': ['./react.js'],
         },
       },

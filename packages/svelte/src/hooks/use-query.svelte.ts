@@ -1,9 +1,15 @@
-import { $internal as internal, createQuery, type Entity, type QueryParameter } from '@koota/core';
+import {
+  $internal as internal,
+  createQuery,
+  getEntityId,
+  type Entity,
+  type QueryParameter,
+} from '@koota/core';
 import { untrack } from 'svelte';
 import { useWorld } from '../world/world-context.js';
 
 // Sorted by id so the array order is stable across versions and the DOM stays stable.
-const byId = (a: Entity, b: Entity) => a.id() - b.id();
+const byId = (a: Entity, b: Entity) => getEntityId(a) - getEntityId(b);
 
 export function useQuery<T extends QueryParameter[]>(
   ...args: [...T] | [() => [...T]]
@@ -15,12 +21,10 @@ export function useQuery<T extends QueryParameter[]>(
 
   const world = useWorld();
   let result = $state.raw<Entity[]>(
-    world.isRegistered
-      ? world
-          .query(createQuery(...getParams()))
-          .toArray()
-          .sort(byId)
-      : []
+    world
+      .query(createQuery(...getParams()))
+      .toArray()
+      .sort(byId)
   );
   let resetCount = $state(0);
 

@@ -31,7 +31,7 @@ describe('useTag', () => {
     await tick();
     expect(getByTestId('value').textContent).toBe('true');
 
-    entity.remove(IsTagged);
+    world.remove(entity, IsTagged);
     await tick();
     expect(getByTestId('value').textContent).toBe('false');
   });

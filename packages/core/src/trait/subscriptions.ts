@@ -1,4 +1,5 @@
 import type { Entity } from '../entity/types';
+import { isEntityAlive, type EntityIndex } from '../entity/utils/entity-index';
 import { getEntityId } from '../entity/utils/pack-entity';
 
 export type Subscriber<T extends string | number = Entity> = (entity: Entity, target?: T) => void;
@@ -17,10 +18,12 @@ export type Subscriptions = {
   byEntity: ((Slot | undefined)[] | undefined)[];
   /** Number of entities with at least one subscriber. */
   entityCount: number;
+  /** The index of the world these belong to, which tells whether a subscribed entity still lives. */
+  index: EntityIndex;
 };
 
-export function createSubscriptions(): Subscriptions {
-  return { all: new Set(), byEntity: [], entityCount: 0 };
+export function createSubscriptions(index: EntityIndex): Subscriptions {
+  return { all: new Set(), byEntity: [], entityCount: 0, index };
 }
 
 /** @inline @pure */
@@ -54,7 +57,7 @@ export function subscribeEntity(
 
   return () => {
     // A dead entity was cleared on destroy and its id may now belong to another entity.
-    if (!entity.isAlive()) return;
+    if (!isEntityAlive(subs.index, entity)) return;
     const current = page[offset];
     if (current === undefined) return;
     if (current === callback) {
@@ -114,7 +117,7 @@ export function emitSubscribers(subs: Subscriptions, entity: Entity, target?: st
  */
 /** @inline @pure */
 function getSlot(subs: Subscriptions, entity: Entity): Slot | undefined {
-  if (subs.entityCount === 0 || !entity.isAlive()) return undefined;
+  if (subs.entityCount === 0 || !isEntityAlive(subs.index, entity)) return undefined;
   const eid = getEntityId(entity);
   const page = subs.byEntity[eid >>> 10];
   return page && page[eid & 1023];

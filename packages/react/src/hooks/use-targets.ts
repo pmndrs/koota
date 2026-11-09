@@ -4,16 +4,21 @@ import { useEntityValue } from '../utils/use-entity-value';
 // Keep the empty result stable across renders when no entity is provided.
 const noTargets: Entity[] = [];
 
-function readTargets(entity: Entity, relation: Relation<Trait>) {
-  return entity.targetsFor(relation);
+function readTargets(world: World, entity: Entity, relation: Relation<Trait>) {
+  return world.targetsFor(entity, relation);
 }
 
-function attachTargets(entity: Entity, relation: Relation<Trait>, push: (value: Entity[]) => void) {
-  const observer = entity[$internal].observeSettled(() => {
-    push(entity.isAlive() ? entity.targetsFor(relation) : []);
+function attachTargets(
+  world: World,
+  entity: Entity,
+  relation: Relation<Trait>,
+  push: (value: Entity[]) => void
+) {
+  const observer = world[$internal].observeSettled(() => {
+    push(world.isAlive(entity) ? world.targetsFor(entity, relation) : []);
   });
-  const onChange = entity.onChange(relation, observer.invalidate);
-  const onRemove = entity.onRemove(relation, observer.invalidate);
+  const onChange = world.onChange(entity, relation, observer.invalidate);
+  const onRemove = world.onRemove(entity, relation, observer.invalidate);
   return () => {
     observer.unsubscribe();
     onChange();

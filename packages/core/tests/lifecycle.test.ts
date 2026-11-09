@@ -3,12 +3,12 @@ import {
   $internal,
   createChanged,
   createQuery,
-  createWorld,
   relation,
   trait,
   type Entity,
   type TraitRecord,
 } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 const Position = trait({ x: 0, y: 0 });
 const Name = trait({ name: 'name' });
@@ -447,7 +447,7 @@ describe('Lifecycle Subscriptions', () => {
       const localWorld = createWorld();
       localWorld.add(TimeOfDay);
       const cb = vi.fn();
-      localWorld[$internal].worldEntity.onChange(TimeOfDay, cb);
+      localWorld[$internal].worldEntity!.onChange(TimeOfDay, cb);
 
       localWorld.set(TimeOfDay, { hour: 1 });
       expect(cb).toHaveBeenCalledTimes(1);

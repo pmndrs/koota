@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest';
-import { createWorld, machine, required, trait } from '../src';
+import { machine, required, trait } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 it('prepares defaults and copies supplied tuples before removal callbacks', () => {
   const Idle = trait();
@@ -21,7 +22,7 @@ it('prepares defaults and copies supplied tuples before removal callbacks', () =
     position[0] = 99;
   });
 
-  Download.enter(entity, Loading({ requestId: 2, position, details }));
+  Download.enter(world, entity, Loading({ requestId: 2, position, details }));
   expect(previous).toHaveBeenCalledExactlyOnceWith({
     requestId: 1,
     attempts: 3,
@@ -33,7 +34,7 @@ it('prepares defaults and copies supplied tuples before removal callbacks', () =
   expect(makeDetails).toHaveBeenCalledOnce();
 
   stop();
-  Download.enter(entity, Loading({ requestId: 3 }));
+  Download.enter(world, entity, Loading({ requestId: 3 }));
   expect(entity.get(Loading)).toEqual({
     requestId: 3,
     attempts: 0,
@@ -65,17 +66,17 @@ it('keeps the current value and skips callbacks when preparation fails', () => {
 
   expect(() => {
     // @ts-expect-error Required fields must still be supplied on self-entry.
-    Download.enter(entity, Loading({ attempts: 9 }));
+    Download.enter(world, entity, Loading({ attempts: 9 }));
   }).toThrow('[REQUIRED_VALUE]');
   fail = true;
-  expect(() => Download.enter(entity, Loading({ requestId: 2, attempts: 9 }))).toThrow(
+  expect(() => Download.enter(world, entity, Loading({ requestId: 2, attempts: 9 }))).toThrow(
     'default failed'
   );
   expect(entity.get(Loading)).toEqual({ requestId: 1, attempts: 3, last: 1 });
   expect(removed).not.toHaveBeenCalled();
   expect(transitioned).not.toHaveBeenCalled();
 
-  Download.enter(entity, Loading({ requestId: 3, last: 7 }));
+  Download.enter(world, entity, Loading({ requestId: 3, last: 7 }));
   expect(entity.get(Loading)).toEqual({ requestId: 3, attempts: 0, last: 7 });
   world.destroy();
 });
@@ -90,18 +91,18 @@ it('preserves factory value identity and tag self-transitions', () => {
   const first = entity.get(Value);
   const next = { progress: 1 };
 
-  State.enter(entity, Value(next));
+  State.enter(world, entity, Value(next));
   expect(entity.get(Value)).toBe(next);
   expect(makeValue).toHaveBeenCalledOnce();
-  State.enter(entity, Value);
+  State.enter(world, entity, Value);
   expect(entity.get(Value)).toEqual({ progress: 0 });
   expect(entity.get(Value)).not.toBe(first);
   expect(makeValue).toHaveBeenCalledTimes(2);
 
-  State.enter(entity, Idle);
+  State.enter(world, entity, Idle);
   const changed = vi.fn();
   const stop = entity.onTransition(State, changed);
-  State.enter(entity, Idle);
+  State.enter(world, entity, Idle);
   expect(changed).toHaveBeenCalledExactlyOnceWith(entity, Idle, Idle, undefined);
   stop();
   world.destroy();

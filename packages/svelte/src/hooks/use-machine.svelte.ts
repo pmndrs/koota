@@ -6,7 +6,7 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity } from '../utils/get-target-entity.js';
+import { createTargetResolver } from '../utils/get-target-entity.js';
 import { isWorld } from '../utils/is-world.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
@@ -14,9 +14,10 @@ export function useMachine<S extends MachineStates>(
   target: () => Entity | World | undefined | null,
   machine: MaybeGetter<Machine<S>>
 ): { readonly current: S[keyof S] | undefined } {
-  const initialEntity = getTargetEntity(target());
+  const resolveTarget = createTargetResolver();
+  const initial = resolveTarget(target());
   let value = $state.raw<S[keyof S] | undefined>(
-    initialEntity === undefined ? undefined : resolve(machine).current(initialEntity)
+    initial === undefined ? undefined : resolve(machine).current(initial.world, initial.entity)
   );
   // Self-transitions replace data while keeping the same member trait.
   let version = $state(0);
@@ -25,18 +26,18 @@ export function useMachine<S extends MachineStates>(
     const observedTarget = target();
     const resolvedMachine = resolve(machine);
     const listen = () => {
-      const entity = getTargetEntity(observedTarget);
-      if (entity === undefined) {
+      const resolved = resolveTarget(observedTarget);
+      if (resolved === undefined) {
         value = undefined;
         return;
       }
-
+      const { world, entity } = resolved;
       const update = () => {
-        value = entity.isAlive() ? resolvedMachine.current(entity) : undefined;
+        value = world.isAlive(entity) ? resolvedMachine.current(world, entity) : undefined;
         untrack(() => version++);
       };
-      const observer = entity[internal].observeSettled(update);
-      const unsubscribe = entity.onTransition(resolvedMachine, observer.invalidate);
+      const observer = world[internal].observeSettled(update);
+      const unsubscribe = world.onTransition(entity, resolvedMachine, observer.invalidate);
       update();
       return () => {
         observer.unsubscribe();

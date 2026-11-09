@@ -50,7 +50,7 @@ export function validateScopeMove(
   // The relation add already asserted the target. A dying scope would only leak its bucket.
   if (
     target !== undefined &&
-    (!isEntityAlive(ctx.entityIndex, target) || isEntityDestroying(target))
+    (!isEntityAlive(ctx.entityIndex, target) || isEntityDestroying(ctx, target))
   ) {
     return false;
   }
@@ -102,7 +102,7 @@ export /* @inline @pure */ function lookupScopeStart(
   start: IdentifierPair | Entity
 ): Entity | undefined {
   if (typeof start !== 'number') return lookupIdentifier(ctx, start);
-  return ctx.isRegistered && isEntityAlive(ctx.entityIndex, start) ? start : undefined;
+  return isEntityAlive(ctx.entityIndex, start) ? start : undefined;
 }
 
 /** A scope and one key. Kept as a call so the lookup method stays small enough to inline. */

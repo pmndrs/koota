@@ -1,0 +1,5 @@
+{
+  "main": "../dist/entity-methods.cjs",
+  "module": "../dist/entity-methods.js",
+  "types": "../dist/entity-methods.d.ts"
+}

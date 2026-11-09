@@ -4,13 +4,13 @@ import { PENDING_WORD } from '../../entity/utils/paged-mask';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { addEntityToQuery, removeEntityFromQuery } from '../query';
-import type { QueryInstance } from '../types';
 import { passesQueryFilters } from './check-query-filters';
 import {
   checkQueryTracking,
   passesStaticBitmasks,
-  recordChangeAndMatch,
   recordTrackerHit,
+  trackersMatchAll,
+  trackersMatchAny,
 } from './check-query-tracking';
 
 /** Advance the revision and notify registered Changed queries. */
@@ -27,6 +27,9 @@ export /* @inline */ function markTraitChanged(
  * Re-evaluate the Changed queries of a written trait. A query whose static terms reject the
  * entity only records the write. When every query rejects it, running them again changes nothing
  * until the entity's traits change. The pending bit records that, so later writes return on it.
+ *
+ * One function on purpose. Past the optimizer's inline limit it is always a call from set, which
+ * keeps set small enough to inline into its own callers whatever order the two tier up in.
  */
 export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, data: TraitInstance) {
   const { generationId, bitflag } = data;
@@ -54,15 +57,51 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
       continue;
     }
 
+    const groups = query.trackingGroups;
+
     // A rejected entity left the batch when it lost the static terms, so only the write is kept.
     if (!passesStaticBitmasks(query.masks, entityMasks, pageId, slot, query.retains)) {
-      recordChange(query, generationId, eid, bitflag);
+      for (let g = 0; g < groups.length; g++) {
+        const group = groups[g];
+        if (
+          group.type === 'change' &&
+          (group.bitmasks[generationId]! & bitflag) !== 0 &&
+          group.pairs === null
+        ) {
+          recordTrackerHit(group.trackers, generationId, eid, bitflag);
+        }
+      }
       continue;
     }
 
+    // Record the write in the Changed groups, then match: every and group must have fired in
+    // full and, when or groups exist, at least one of them in part.
     accepted = true;
+    let hasOrGroup = false;
+    let anyOrMatched = false;
+    let matched = true;
+    for (let g = 0; g < groups.length; g++) {
+      const group = groups[g];
+      const bitmasks = group.bitmasks;
+      const hit =
+        group.type === 'change' && (bitmasks[generationId]! & bitflag) !== 0 && group.pairs === null;
+      if (hit) recordTrackerHit(group.trackers, generationId, eid, bitflag);
+      if (group.logic === 'or') {
+        hasOrGroup = true;
+        if (!anyOrMatched && (hit || trackersMatchAny(group.trackers, bitmasks, eid))) {
+          anyOrMatched = true;
+        }
+      } else if (
+        matched &&
+        !(hit && group.single) &&
+        !trackersMatchAll(group.trackers, bitmasks, eid)
+      ) {
+        matched = false;
+      }
+    }
     if (
-      recordChangeAndMatch(query, generationId, eid, bitflag) &&
+      matched &&
+      (!hasOrGroup || anyOrMatched) &&
       (query.filters === null || passesQueryFilters(ctx, query, entity))
     ) {
       addEntityToQuery(query, entity);
@@ -72,21 +111,6 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
   if (!accepted) {
     page[slot + PENDING_WORD] |= bitflag;
     ctx.defersChanges = true;
-  }
-}
-
-/** Mark the trait written in the Changed groups of a query without evaluating it. */
-function recordChange(query: QueryInstance, generationId: number, eid: number, bitflag: number) {
-  const groups = query.trackingGroups;
-  for (let i = 0; i < groups.length; i++) {
-    const group = groups[i];
-    if (
-      group.type === 'change' &&
-      (group.bitmasks[generationId]! & bitflag) !== 0 &&
-      group.pairs === null
-    ) {
-      recordTrackerHit(group.trackers, generationId, eid, bitflag);
-    }
   }
 }
 

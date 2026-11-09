@@ -1,83 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait, IsExcluded, type Entity, type World } from '../src';
-import { hasNativeGc, waitForFinalization } from './utils/gc';
+import { $internal, relation, trait, type Entity, type World } from '../src';
+import { createWorld } from '../src/entity-methods';
 
 describe('World', () => {
-  it('should create a world', () => {
+  it('should create a world with its world entity', () => {
     const world = createWorld();
 
-    expect(world.isRegistered).toBe(false);
+    expect(world.entities).toEqual([world[$internal].worldEntity]);
   });
 
-  it('should auto-register on first mutation', () => {
+  it('is final once destroyed', () => {
+    const Time = trait({ delta: 0 });
     const world = createWorld();
-    expect(world.isRegistered).toBe(false);
-    world.spawn();
-    expect(world.isRegistered).toBe(true);
+    world.add(Time);
+    world.destroy();
+    world.destroy();
+
+    expect(world.entities.length).toBe(0);
+    expect(world.has(Time)).toBe(false);
+    expect(world.get(Time)).toBeUndefined();
+    expect(() => world.spawn()).toThrow(/destroyed/);
+    expect(() => world.add(Time)).toThrow(/destroyed/);
+    expect(() => world.reset()).toThrow(/destroyed/);
   });
 
-  describe('finalization', () => {
-    it.skipIf(!hasNativeGc())(
-      'should finalize an unused abandoned world',
-      async () => {
-        await expect(
-          waitForFinalization((registry) => {
-            (() => {
-              const world = createWorld();
-              registry.register(world, 'world');
-            })();
-          })
-        ).resolves.toBe(true);
-      },
-      20_000
-    );
+  it('releases its pages on destroy so another world can lease them', () => {
+    const world = createWorld();
+    const entity = world.spawn();
+    const allocator = world[$internal].entityIndex.allocator;
+    const ownedPages = [...world[$internal].entityIndex.ownedPages];
+    world.destroy();
 
-    it.skipIf(!hasNativeGc())(
-      'should finalize a used abandoned world',
-      async () => {
-        let ownedPages: number[] = [];
-        let entity: Entity;
-        let addressSpace: World[typeof $internal]['entityIndex']['allocator'];
-
-        await expect(
-          waitForFinalization((registry) => {
-            (() => {
-              const world = createWorld();
-              entity = world.spawn();
-              world.query(IsExcluded);
-              addressSpace = world[$internal].entityIndex.allocator;
-              ownedPages = [...world[$internal].entityIndex.ownedPages];
-              registry.register(world, 'world');
-            })();
-          })
-        ).resolves.toBe(true);
-
-        // Independent finalization registries may run their callbacks in either order.
-        await expect
-          .poll(() => ownedPages.every((pageId) => addressSpace!.pageOwners[pageId] === null), {
-            timeout: 5_000,
-          })
-          .toBe(true);
-
-        for (const pageId of ownedPages) {
-          expect(addressSpace!.pageOwners[pageId]).toBeNull();
-          expect(addressSpace!.freePages).toContain(pageId);
-        }
-
-        // Lease every free page because finalizer order can change which is reused first.
-        const replacementWorlds = Array.from({ length: addressSpace!.freePages.length }, () =>
-          createWorld()
-        );
-        const replacements = replacementWorlds.map((world) => world.spawn());
-        expect(replacements.some((replacement) => replacement.id() === entity!.id())).toBe(true);
-        expect(entity!.isAlive()).toBe(false);
-        for (const world of replacementWorlds) {
-          expect(world.has(entity!)).toBe(false);
-          world.destroy();
-        }
-      },
-      20_000
-    );
+    for (const pageId of ownedPages) {
+      expect(allocator.pageOwners[pageId]).toBeNull();
+      expect(allocator.freePages).toContain(pageId);
+    }
+    expect(entity.isAlive()).toBe(false);
   });
 
   it('should reset the world', () => {
@@ -90,22 +48,30 @@ describe('World', () => {
   });
 
   it.each(['reset', 'destroy'] as const)(
-    '%s invalidates live and retained handles before another world reuses their page',
+    '%s invalidates live and retained handles before their page is reused',
     (operation) => {
       const Value = trait({ value: 0 });
       const world = createWorld();
-      // Two pages let cleanup keep its world entity while returning the first page.
+      // The world entity takes the first slot, so these spill onto a second page.
       const entities = Array.from({ length: 1024 }, () => world.spawn(Value));
       entities[1].destroy();
       world[operation]();
 
+      // The freed pages go to whichever world leases next, so spawn into both and find the ids.
       const replacementWorld = createWorld();
+      const owners = operation === 'reset' ? [world, replacementWorld] : [replacementWorld];
+      const replacements = new Map<number, { entity: Entity; owner: World }>();
+      for (const owner of owners) {
+        for (let i = 0; i < 2047; i++) {
+          const entity = owner.spawn(Value({ value: 9 }));
+          replacements.set(entity.id(), { entity, owner });
+        }
+      }
       for (const stale of entities.slice(0, 2)) {
-        const replacement = replacementWorld.spawn(Value({ value: 9 }));
-        expect(replacement.id()).toBe(stale.id());
+        const { entity: replacement, owner } = replacements.get(stale.id())!;
         expect(replacement).not.toBe(stale);
         expect(stale.isAlive()).toBe(false);
-        expect(replacementWorld.has(stale)).toBe(false);
+        expect(owner.has(stale)).toBe(false);
         expect(() => stale.get(Value)).toThrow();
         expect(() => stale.set(Value, { value: 1 })).toThrow();
         expect(replacement.get(Value)).toEqual({ value: 9 });
