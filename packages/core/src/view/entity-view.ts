@@ -6,6 +6,7 @@ import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { RelationPair } from '../relation/types';
 import type { Store } from '../storage';
+import { ensureTraitInstance } from '../query/query';
 import { registerTrait } from '../trait/trait';
 import type { Trait, TraitInstance } from '../trait/types';
 import { hasSubscribers } from '../trait/subscriptions';
@@ -143,8 +144,7 @@ export class EntityView {
     const guard = this.getGuard();
     const { stores } = this.binding;
     const pool = query ?? ctx;
-    const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding);
-    buffers.retains = query?.retains ?? false;
+    const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding, query);
     if (guard) guard.iterating++;
     try {
       buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
@@ -175,8 +175,7 @@ export class EntityView {
     const { traits, stores } = this.binding;
     const pool = query ?? ctx;
     const entities = dense as Entity[];
-    const buffers = takeIterationBuffers(ctx, pool, entities, this.binding);
-    buffers.retains = query?.retains ?? false;
+    const buffers = takeIterationBuffers(ctx, pool, entities, this.binding, query);
     const iterators = buffers.iterators!;
     if (guard) guard.iterating++;
     try {
@@ -381,9 +380,7 @@ function fillQueryBinding(
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
     if (isRelationPair(param)) {
       if (projectsTarget(param)) {
-        const trait = param.relation[$internal].trait;
-        if (!getTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
-        projection.push(getTraitInstance(ctx.traitInstances, trait)!);
+        projection.push(ensureTraitInstance(ctx, param.relation[$internal].trait));
       }
       continue;
     }
@@ -421,6 +418,7 @@ function createIterationBuffers(): QueryIterationBuffers {
     targetSnapshots: [],
     iterators: undefined,
     retains: false,
+    query: null,
     modes: [],
     atomicSnapshots: [],
     changedEntities: [],
@@ -434,13 +432,16 @@ function takeIterationBuffers(
   ctx: WorldContext,
   pool: QueryInstance | WorldContext,
   entities: Entity[],
-  binding: QueryViewBinding
+  binding: QueryViewBinding,
+  query: QueryInstance | null
 ): QueryIterationBuffers {
   const buffers = pool.iterationBuffers ?? createIterationBuffers();
   pool.iterationBuffers = buffers.next;
   if (buffers.binding !== binding) {
     prepareIterationBuffers(ctx, buffers, entities, binding, pool);
   }
+  buffers.retains = query?.retains ?? false;
+  buffers.query = query;
   return buffers;
 }
 

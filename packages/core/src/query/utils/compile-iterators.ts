@@ -228,18 +228,19 @@ export function compileQueryIterators(
     return `copyTargetSnapshot(${slot}, ts${j})`;
   });
 
-  // Structural changes can invalidate later entries. Removed walks accept retained dead entities,
-  // but skip evicted handles before reading a recycled slot. The check costs one compare until
-  // the first release of the walk. Every cursor rebinds its pages together when the page changes,
-  // which is one compare per entity however many traits the walk reads.
+  // Structural changes can invalidate later entries. A row whose entity was evicted, or which
+  // left the query since the walk began, is skipped before its storage is read. The index
+  // revision moves on either event, so the gate costs one compare per entity until the first
+  // one of the walk. Every cursor rebinds its pages together when the page changes, which is one
+  // compare per entity however many traits the walk reads.
   const setup = (cursor: 'value' | 'plain' | 'reader', positional = false) => `
     var state = buffers.state, records = buffers.records, index = ctx.entityIndex;
-    var releases = index.releases, retains = buffers.retains;${cursors ? ' var lastPg = -1;' : ''}
+    var revision = index.revision;${cursors ? ' var lastPg = -1;' : ''}
     ${hoist.join('\n    ').replace(/__CURSOR__/g, cursor)}${positional && targetHoist.length ? '\n    ' + targetHoist.join('\n    ') : ''}`;
   const loop = (body: string, positional = false) => `
     for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
-      if (index.releases !== releases && !(retains ? isEntityReadable(index, entity) : isEntityAlive(index, entity))) continue;${
+      if (index.revision !== revision && skipsEntry(index, entity, buffers)) continue;${
         cursors
           ? ` var pg = eid >>> 10, off = eid & 1023;
       if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')}${positional && targetRebind.length ? ' ' + targetRebind.join(' ') : ''} }`
@@ -277,8 +278,8 @@ export function compileQueryIterators(
     'a',
     'traits',
     'projection',
+    'skipsEntry',
     'isEntityAlive',
-    'isEntityReadable',
     'snapshotAtomic',
     'atomicChanged',
     'machineRevision',
@@ -308,8 +309,8 @@ export function compileQueryIterators(
     accessors,
     traits.slice(),
     projection,
+    skipsEntry,
     isIterationEntityAlive,
-    isEntityReadable,
     snapshotAtomic,
     atomicChanged,
     machineRevision,
@@ -321,8 +322,34 @@ export function compileQueryIterators(
 function copyTargetSnapshot(targets: readonly Entity[], snapshot: Entity[]): Entity[] {
   const length = targets.length;
   for (let i = 0; i < length; i++) snapshot[i] = targets[i];
-  if (snapshot.length !== length) snapshot.length = length;
+  if (snapshot.length !== length) trimTargetSnapshot(snapshot, length);
   return snapshot;
+}
+
+/** Popping keeps the backing store, which a length write would release. */
+function trimTargetSnapshot(snapshot: Entity[], length: number) {
+  while (snapshot.length > length) snapshot.pop();
+}
+
+/**
+ * Decides whether a walk skips a row once the index revision has moved, that is after a handle
+ * release or a query removal. Removed walks keep retained dead entities but drop evicted ones.
+ * A walk over a query also drops rows that left it since the walk began, whether the removal
+ * was deferred by a live view or applied at once under a sorted or owned copy, so a callback
+ * never reads storage a relation or trait removal already cleared.
+ */
+function skipsEntry(
+  index: WorldContext['entityIndex'],
+  entity: Entity,
+  buffers: QueryIterationBuffers
+): boolean {
+  if (!(buffers.retains ? isEntityReadable(index, entity) : isEntityAlive(index, entity))) {
+    return true;
+  }
+  const query = buffers.query;
+  if (query === null) return false;
+  if (query.toRemove !== null && query.toRemove.has(entity)) return true;
+  return !query.exposed.has(entity);
 }
 
 function isIterationEntityAlive(index: WorldContext['entityIndex'], entity: Entity): boolean {

@@ -61,6 +61,8 @@ export type QueryIterationBuffers = {
   iterators: QueryIterators | undefined;
   /** Removed walks can read dead entities until their retained history is evicted. */
   retains: boolean;
+  /** The query behind the walked view, whose rows the walk skips once they leave it, or null. */
+  query: QueryInstance | null;
   /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
   modes: number[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];

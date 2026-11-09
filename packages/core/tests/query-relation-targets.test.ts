@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   createQuery,
+  createRemoved,
   createWorld,
   Not,
   Or,
@@ -296,6 +297,86 @@ describe('relation targets in each', () => {
     world.query(Dynamic(Tag)).each((...args) => {
       expectTypeOf(args).toEqualTypeOf<[Entity, number] | [Entity, Entity, number]>();
     });
+    world.destroy();
+  });
+
+  it('skips rows that leave the query before they are visited', () => {
+    const world = createWorld();
+    const Position = trait({ x: 0 });
+    const ChildOf = relation({ exclusive: true });
+    const Contains = relation();
+    const parentA = world.spawn();
+    const parentB = world.spawn();
+    const first = world.spawn(Position, ChildOf(parentA), Contains(parentA));
+    const unparented = world.spawn(Position, ChildOf(parentB), Contains(parentB));
+    const orphaned = world.spawn(Position, ChildOf(parentB), Contains(parentB));
+    const stripped = world.spawn(Position, ChildOf(parentA), Contains(parentA));
+    const readded = world.spawn(Position, ChildOf(parentA), Contains(parentA));
+    const last = world.spawn(Position, ChildOf(parentA), Contains(parentA));
+    const query = world.query(Position, ChildOf('*'), Contains('*'));
+    const visited: [Entity, Entity, readonly Entity[]][] = [];
+
+    query.each((_position, parent, contents, entity) => {
+      visited.push([entity, parent, contents.slice()]);
+      if (entity !== first) return;
+      // Later rows lose their pair, their parent or their trait while this walk is in progress.
+      unparented.remove(ChildOf(parentB));
+      parentB.destroy();
+      stripped.remove(Position);
+      readded.remove(ChildOf(parentA));
+      readded.add(ChildOf(parentA));
+    });
+
+    expect(visited).toEqual([
+      [first, parentA, [parentA]],
+      [readded, parentA, [parentA]],
+      [last, parentA, [parentA]],
+    ]);
+    // Re-adding the pair moves the entity to the end of the query.
+    expect(world.query(Position, ChildOf('*'), Contains('*')).toArray()).toEqual([
+      first,
+      last,
+      readded,
+    ]);
+    expect(orphaned.has(ChildOf(parentB))).toBe(false);
+
+    // A sorted view walks its own copy, so removals apply at once and still skip the row.
+    const sortedVisited: Entity[] = [];
+    world
+      .query(Position, ChildOf('*'))
+      .sort((a, b) => a.x - b.x, [Position])
+      .each((_position, parent, entity) => {
+        expect(parent).toBe(parentA);
+        sortedVisited.push(entity);
+        for (const other of [first, last, readded]) {
+          if (other !== entity) other.remove(ChildOf(parentA));
+        }
+      });
+    expect(sortedVisited).toHaveLength(1);
+    world.destroy();
+  });
+
+  it('reads the targets a destroyed entity died with in Removed walks', () => {
+    const world = createWorld();
+    const Removed = createRemoved();
+    const Health = trait({ hp: 1 });
+    const ChildOf = relation({ exclusive: true });
+    const Contains = relation();
+    const parent = world.spawn();
+    const item = world.spawn();
+    const child = world.spawn(Health, ChildOf(parent), Contains(item));
+    const query = createQuery(ChildOf('*'), Contains('*'), Removed(Health));
+    expect(world.query(query).length).toBe(0);
+
+    child.destroy();
+    // The Removed term still passes the record the entity died with, ahead of the entity.
+    const seen: [Entity, readonly Entity[], number, Entity][] = [];
+    world
+      .query(query)
+      .each((target, contents, health, entity) =>
+        seen.push([target, contents.slice(), health.hp, entity])
+      );
+    expect(seen).toEqual([[parent, [item], 1, child]]);
     world.destroy();
   });
 });

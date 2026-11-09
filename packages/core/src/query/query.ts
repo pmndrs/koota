@@ -196,6 +196,8 @@ export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, e
   const toRemove = query.toRemove;
   if (toRemove !== null && toRemove.has(entity)) return;
 
+  // Walks in progress, over this query or a copy of it, re-check their rows once this moves.
+  ctx.entityIndex.revision++;
   if (query.iterating === 0) {
     query.entities.remove(entity);
   } else {
@@ -385,7 +387,7 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
   }
 }
 
-function ensureTraitInstance(ctx: WorldContext, trait: Trait): TraitInstance {
+export function ensureTraitInstance(ctx: WorldContext, trait: Trait): TraitInstance {
   return (
     getTraitInstance(ctx.traitInstances, trait) ??
     (registerTrait(ctx, trait), getTraitInstance(ctx.traitInstances, trait)!)
