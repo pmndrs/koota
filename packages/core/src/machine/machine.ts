@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
-import { getEntityContext, isEntityDestroying } from '../entity/entity';
+import { getEntityContext } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { DESTROYED_WORD, EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
@@ -24,7 +24,7 @@ import { clearTraitMembership, setTraitMembership } from '../trait/membership';
 import { hasTrait, registerTrait, trait } from '../trait/trait';
 import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
-import { endStructuralChanges } from '../world/settled';
+import { beginDefer, deferCommand, endDefer } from '../world/defer';
 import type {
   Machine,
   MachineContext,
@@ -92,7 +92,8 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
       const target = Array.isArray(state) ? state[0] : state;
       if (!members.includes(target))
         throw new Error('Koota: [MACHINE_STATE] The state is not a member.');
-      changeMachine(ctx, entity, context, target, Array.isArray(state) ? state[1] : undefined, true);
+      if (ctx.deferDepth !== 0) deferCommand(ctx, applyEnter, entity, context, state);
+      else applyEnter(ctx, entity, context, state);
     },
   }) as Machine<S>;
   marker[$internal].machine = context;
@@ -102,6 +103,17 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
     member[$internal].kind = 'machine';
   }
   return result;
+}
+
+/** The immediate transition. Inside a defer scope the log holds it until the scope ends. */
+function applyEnter(
+  ctx: WorldContext,
+  entity: Entity,
+  machine: MachineContext,
+  state: Trait | [Trait, unknown]
+) {
+  const target = Array.isArray(state) ? state[0] : state;
+  changeMachine(ctx, entity, machine, target, Array.isArray(state) ? state[1] : undefined, true);
 }
 
 export function createMachineInstance(): MachineInstance {
@@ -195,14 +207,6 @@ export function removeMachineTrait(ctx: WorldContext, entity: Entity, member: Tr
   changeMachine(ctx, entity, machine, undefined, undefined, false, dying);
 }
 
-export function assertMachineIdle(ctx: WorldContext, entity: Entity) {
-  if (ctx.machineMutations?.has(entity)) {
-    throw new Error(
-      "Koota: [MACHINE_REENTRANT] Finish this entity's machine callbacks before changing its machine or destroying it."
-    );
-  }
-}
-
 /** Record both events before matching a tracking query against the final membership. */
 function reconcileMachine(
   ctx: WorldContext,
@@ -240,7 +244,7 @@ function reconcileMachine(
             : checkQueryWithFilters(ctx, query, entity))
         )
           addEntityToQuery(query, entity);
-        else removeEntityFromQuery(ctx, query, entity);
+        else removeEntityFromQuery(query, entity);
       }
     if (tracked)
       for (const query of tracked) {
@@ -258,7 +262,7 @@ function reconcileMachine(
           );
         }
         if (matches) addEntityToQuery(query, entity);
-        else removeEntityFromQuery(ctx, query, entity);
+        else removeEntityFromQuery(query, entity);
       }
     if (anchored)
       for (let i = 0; i < 3; i++) {
@@ -281,9 +285,6 @@ function changeMachine(
   reenter: boolean,
   dying = false
 ) {
-  assertMachineIdle(ctx, entity);
-  if (!dying && isEntityDestroying(entity))
-    throw new Error('Koota: [MACHINE_DESTROYING] Cannot enter a state during destruction.');
   const from = currentState(ctx, entity, machine);
   if (!reenter && from === to) return;
   if (
@@ -297,9 +298,8 @@ function changeMachine(
     }
     return;
   }
-  const mutations = (ctx.machineMutations ??= new Set());
-  mutations.add(entity);
-  ctx.structuralDepth++;
+  // Transitions and destroys made by the callbacks below are deferred until this one completes.
+  beginDefer(ctx);
   try {
     let marker = ctx.traitInstances[machine.trait.id];
     const subscriptionVersion = marker?.machine?.subscriptionVersion ?? 0;
@@ -361,7 +361,6 @@ function changeMachine(
         if (subscribers.get(callback)! <= subscriptionVersion) callback(entity, from, to, previous);
       }
   } finally {
-    mutations.delete(entity);
-    endStructuralChanges(ctx);
+    endDefer(ctx);
   }
 }

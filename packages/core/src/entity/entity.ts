@@ -1,6 +1,5 @@
-import { endStructuralChanges } from '../world/settled';
+import { beginDefer, beginRootDefer, deferCommand, endDefer, endRootDefer } from '../world/defer';
 import { $internal } from '../common';
-import { assertMachineIdle } from '../machine/machine';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import {
@@ -49,7 +48,7 @@ import './entity-methods-patch';
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
 
-  ctx.structuralDepth++;
+  beginDefer(ctx);
   try {
     // Queries that can match without traits need an initial membership check.
     const notQueries = ctx.notQueries;
@@ -74,76 +73,65 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
       for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
     }
   } finally {
-    endStructuralChanges(ctx);
+    endDefer(ctx);
   }
 
   return entity;
-}
-
-// Entities already visited by the destroy in progress, keyed by id and stamped per outer call so
-// nothing is cleared between destroys. The packed entity is kept so a recycled id is not mistaken
-// for the entity that was destroyed before it.
-const processedStamp: number[] = [];
-const processedEntity: number[] = [];
-let destroyStamp = 0;
-const cachedQueue = [] as Entity[];
-let isDestroying = false;
-
-/** An entity being destroyed cannot acquire a new identifier owner entry. */
-export function isEntityDestroying(entity: Entity): boolean {
-  if (!isDestroying) return false;
-  const eid = getEntityId(entity);
-  return processedStamp[eid] === destroyStamp && processedEntity[eid] === entity;
 }
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
+  if (ctx.deferDepth !== 0) /* @cold */ {
+    deferCommand(ctx, applyDestroyEntity, entity, undefined, undefined);
+  } else {
+    beginRootDefer(ctx);
+    try {
+      destroyCascade(ctx, entity);
+    } finally {
+      endRootDefer(ctx);
+    }
+  }
+}
 
-  // Subscribers run inside the loop below and may destroy entities themselves. A nested
-  // call takes its own queue so it cannot wipe the cascade the outer call is still
-  // walking, and shares the processed stamp so neither call destroys the same entity twice.
-  const nested = isDestroying;
-  const entityQueue = nested ? [entity] : cachedQueue;
-  const stamp = nested ? destroyStamp : ++destroyStamp;
+/** The destroy as a command, applied inside the flush once the scope that logged it has ended. */
+export function applyDestroyEntity(ctx: WorldContext, entity: Entity) {
+  beginDefer(ctx);
+  try {
+    destroyCascade(ctx, entity);
+  } finally {
+    endDefer(ctx);
+  }
+}
 
-  if (!nested) entityQueue.push(entity);
-
-  isDestroying = true;
-  ctx.structuralDepth++;
-
+/**
+ * Destroys the entity and everything its relations cascade to. Same-world destroys from hooks
+ * are deferred, so each world walks one cascade at a time even when hooks enter another world.
+ */
+/* @inline */ function destroyCascade(ctx: WorldContext, entity: Entity) {
+  const entityQueue = ctx.destroyQueue;
+  entityQueue.push(entity);
   try {
     while (entityQueue.length > 0) {
-      destroyQueuedEntity(ctx, entityQueue.pop()!, entityQueue, stamp);
+      destroyQueuedEntity(ctx, entityQueue.pop()!, entityQueue);
     }
   } finally {
-    isDestroying = nested;
+    ctx.destroying = undefined;
     // Only a throw leaves entries behind. Trimming the length reallocates, so do it only then.
-    if (!nested && entityQueue.length !== 0) entityQueue.length = 0;
-    endStructuralChanges(ctx);
+    if (entityQueue.length !== 0) entityQueue.length = 0;
   }
 }
 
 /** Keep the destroy worker separate so trait removal and eviction have their own inlining budget. */
-export function destroyQueuedEntity(
-  ctx: WorldContext,
-  entity: Entity,
-  entityQueue: Entity[],
-  stamp: number
-) {
-  if (ctx.machineMutations !== undefined && ctx.machineMutations.size !== 0) /* @cold */ {
-    assertMachineIdle(ctx, entity);
-  }
+export function destroyQueuedEntity(ctx: WorldContext, entity: Entity, entityQueue: Entity[]) {
+  // A cycle or shared descendant can enqueue a handle more than once.
+  if (!isEntityAlive(ctx.entityIndex, entity)) return;
+  ctx.destroying = entity;
   const eid = getEntityId(entity);
-  if (processedStamp[eid] === stamp && processedEntity[eid] === entity) {
-    return;
-  }
-  processedStamp[eid] = stamp;
-  processedEntity[eid] = entity;
 
   if (ctx.relations.length !== 0) {
-    cleanupDestroyedRelations(ctx, entity, eid, entityQueue, stamp);
+    cleanupDestroyedRelations(ctx, entity, eid, entityQueue);
   }
 
   if (ctx.entityDestroySubscriptions.size > 0 && entity !== ctx.worldEntity) {
@@ -195,8 +183,7 @@ function cleanupDestroyedRelations(
   ctx: WorldContext,
   entity: Entity,
   entityId: number,
-  entityQueue: Entity[],
-  stamp: number
+  entityQueue: Entity[]
 ) {
   const relations = ctx.relations;
   for (let r = 0; r < relations.length; r++) {
@@ -225,8 +212,6 @@ function cleanupDestroyedRelations(
       const targets = getRelationTargets(ctx, relation, entity);
       for (const target of targets) {
         if (!isEntityAlive(ctx.entityIndex, target)) continue;
-        const targetId = getEntityId(target);
-        if (processedStamp[targetId] === stamp && processedEntity[targetId] === target) continue;
         entityQueue.push(target);
       }
     }

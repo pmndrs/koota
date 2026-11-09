@@ -146,7 +146,7 @@ describe('Entity retention', () => {
   });
 
   it.each(['soa', 'aos'] as const)(
-    'skips evicted %s entries during a walk without skipping retained ones',
+    'defers destroys made during a Removed %s walk so every retained row is visited',
     (kind) => {
       const Value = kind === 'soa' ? trait({ value: 0 }) : trait(() => ({ value: 0 }));
       const world = createWorld({ retain: 3 });
@@ -159,31 +159,34 @@ describe('Entity retention', () => {
         if (values.length === 1) {
           world.spawn(Value({ value: 4 })).destroy();
           world.spawn(Value({ value: 5 })).destroy();
-          expect(world.query(Removed(Value)).toArray()).toEqual([entities[2]]);
+          expect(world.query(Removed(Value)).toArray()).toEqual(entities);
         }
       });
-      expect(values).toEqual([1, 3]);
+      expect(values).toEqual([1, 2, 3]);
       world.destroy();
     }
   );
 
-  it.each(['forEach', 'iterator'] as const)('skips evicted handles during %s', (method) => {
-    const world = createWorld({ retain: 3 });
-    const entities = [1, 2, 3].map((x) => world.spawn(Position({ x })));
-    for (const entity of entities) entity.destroy();
-    const view = world.query(createRemoved()(Position));
-    const visited: (typeof entities)[number][] = [];
-    const visit = (entity: (typeof entities)[number]) => {
-      visited.push(entity);
-      if (visited.length === 1) {
-        world.spawn().destroy();
-        world.spawn().destroy();
-      }
-    };
-    if (method === 'forEach') view.forEach(visit);
-    else for (const entity of view) visit(entity);
-    expect(visited).toEqual([entities[0], entities[2]]);
-  });
+  it.each(['forEach', 'iterator'] as const)(
+    'defers destroys made during %s so every retained handle is visited',
+    (method) => {
+      const world = createWorld({ retain: 3 });
+      const entities = [1, 2, 3].map((x) => world.spawn(Position({ x })));
+      for (const entity of entities) entity.destroy();
+      const view = world.query(createRemoved()(Position));
+      const visited: (typeof entities)[number][] = [];
+      const visit = (entity: (typeof entities)[number]) => {
+        visited.push(entity);
+        if (visited.length === 1) {
+          world.spawn().destroy();
+          world.spawn().destroy();
+        }
+      };
+      if (method === 'forEach') view.forEach(visit);
+      else for (const entity of view) visit(entity);
+      expect(visited).toEqual(entities);
+    }
+  );
 
   it.skipIf(!hasNativeGc()).each(['soa', 'aos'] as const)(
     'releases evicted %s object data while the world and slow reader stay alive',

@@ -96,7 +96,8 @@ describe('Query sortBy', () => {
     const other = query.sortBy(Other, byX);
     expect(sorted.entities).toEqual([b, a]);
     expect(other.entities).toEqual([a, b]);
-    expect(other).not.toBe(sorted);
+    // Compare identities directly. A matcher walks both views and stops at the first difference.
+    expect(other === sorted).toBe(false);
     expect(query.sortBy(Position, (position) => -position.x).entities).toEqual([a, b]);
   });
 
@@ -137,7 +138,7 @@ describe('Query sortBy', () => {
     expect(sorted.entities).toEqual([a, b]);
   });
 
-  it('excludes pending removals while the base query is being walked', () => {
+  it('defers a removal made while the base query is walked until the walk ends', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
     const c = world.spawn(Position({ x: 0 }));
@@ -147,7 +148,7 @@ describe('Query sortBy', () => {
     query.forEach((entity) => {
       if (entity !== a) return;
       b.remove(Position);
-      expect(sorted.entities).toEqual([c, a]);
+      expect(sorted.entities).toEqual([c, b, a]);
     });
     expect(sorted.entities).toEqual([c, a]);
   });

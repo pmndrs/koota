@@ -36,7 +36,7 @@ describe('Sorted query views', () => {
     expect(sorted.entities).toEqual([c, a]);
   });
 
-  it('excludes pending removals while the base query is being walked', () => {
+  it('defers a removal made while the base query is walked until the walk ends', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
     const c = world.spawn(Position({ x: 0 }));
@@ -47,7 +47,7 @@ describe('Sorted query views', () => {
     query.forEach((entity) => {
       if (entity !== a) return;
       b.remove(Position);
-      expect(sorted.entities).toEqual([c, a]);
+      expect(sorted.entities).toEqual([c, b, a]);
     });
 
     expect(sorted.entities).toEqual([c, a]);

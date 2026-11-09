@@ -1,8 +1,6 @@
 import { $internal } from '../../common';
 import type { SparseSet } from '@koota/collections';
-import { machineRevision } from '../../machine/machine';
 import type { Entity } from '../../entity/types';
-import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { ENTITY_ID_MASK } from '../../entity/utils/pack-entity';
 import type { CursorKind, CursorSource, Store } from '../../storage';
 import type { Trait } from '../../trait/types';
@@ -90,16 +88,9 @@ export function compileQueryIterators(
   const release: string[] = [];
   const args: string[] = [];
   let paged = false;
-  let writeback = false;
-  let writebackArgs = false;
 
   for (let j = 0; j < traits.length; j++) {
     const traitCtx = traits[j][$internal];
-    // A state trait may be swapped out when its machine changes state during the callback, so
-    // its stores and change reports are skipped then. Other walked kinds need no guard.
-    const stable =
-      traitCtx.kind === 'machine' ? `v${j} === machineRevision(ctx, T${j}, eid) && ` : '';
-    if (stable) read.push(`var v${j} = machineRevision(ctx, T${j}, eid);`);
     const record = `{ changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`;
     bind.push(`const T${j} = traits[${j}];`);
     hoist.push(`var s${j} = stores[${j}];`);
@@ -110,21 +101,18 @@ export function compileQueryIterators(
     if (cursor !== undefined) {
       const c = `c${j}`;
       const source = cursor.compile(c, `s${j}`, 'pg', 'off');
-      const guarded = (source: string) =>
-        stable && source ? `if (${stable}true) { ${source} }` : source;
       paged = true;
       args.push(c);
       hoist.push(`var ${c} = cursors[${j}].__KIND__; state[${j}] = ${c}; ${source.init}`);
       rebind.push(source.bind);
       seek.push(source.seek);
       // Scalar fields are written in place. Only tuple copies are stored after the callback.
-      const flush = guarded(source.flush.plain);
+      const flush = source.flush.plain;
       if (flush) {
         write.push(flush);
         writeArgs.push(flush);
-        writeback = writebackArgs = true;
       }
-      const line = `${guarded(source.flush.write)} if (${stable}(${source.changed} || m${j} === 3) && m${j} !== 0) ${record}`;
+      const line = `${source.flush.write} if ((${source.changed} || m${j} === 3) && m${j} !== 0) ${record}`;
       trackLines.push(line);
       trackArgsLines.push(line);
       continue;
@@ -136,17 +124,14 @@ export function compileQueryIterators(
     read.push(`var r${j} = g${j}(ctx, eid, s${j});`);
     stateRead.push(`state[${j}] = r${j};`);
     const writeCall = `w${j}(ctx, eid, s${j}, state[${j}])`;
-    write.push(stable ? `if (${stable}true) ${writeCall};` : `${writeCall};`);
-    writeback = true;
+    write.push(`${writeCall};`);
     // An atomic value mutated in place is the same reference, so compare its snapshot.
     snapshot.push(`if (m${j} === 2) snapshotAtomic(r${j}, snapshots, ${j});`);
-    const line = `if (${stable}(${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}]))) ${record}`;
+    const line = `if (${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}])) ${record}`;
     trackLines.push(line);
     // A positional callback holds the stored value itself and cannot replace it, so there is
     // nothing to set and only the snapshot can report a change.
-    trackArgsLines.push(
-      `if (${stable}m${j} === 2 && atomicChanged(r${j}, snapshots[${j}])) ${record}`
-    );
+    trackArgsLines.push(`if (m${j} === 2 && atomicChanged(r${j}, snapshots[${j}])) ${record}`);
   }
 
   // Target values stay in positional arguments and never enter trait writeback or tracking.
@@ -166,20 +151,15 @@ export function compileQueryIterators(
     return `filterTargetSnapshot(${slot}, ts${j}, tf${j})`;
   });
 
-  // Structural changes can invalidate later entries. A row whose entity was evicted, or which
-  // left the query since the walk began, is skipped before its storage is read. The index
-  // revision moves on either event, so the gate costs one compare per entity until the first
-  // one of the walk. Every cursor rebinds its pages together when the page changes, which is one
-  // compare per entity however many traits the walk reads.
+  // A defer scope keeps every row's entity, traits and pairs alive until the walk ends.
+  // Rebind all cursor pages together when the entity page changes.
   const setup = (kind: CursorKind, positional = false) => `
-    var state = buffers.state, cursors = buffers.cursors, index = ctx.entityIndex;
-    var revision = index.revision;${paged ? ' var lastPg = -1;' : ''}
+    var state = buffers.state, cursors = buffers.cursors;${paged ? ' var lastPg = -1;' : ''}
     ${hoist.join('\n    ').replace(/__KIND__/g, kind)}
     ${positional ? targetHoist.join('\n    ') : ''}`;
   const loop = (body: string, kind: CursorKind, positional = false) => `
     for (var i = 0; i < length; i++) {
-      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
-      if (index.revision !== revision && skipsEntry(index, entity, buffers)) continue;${
+      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};${
         paged
           ? ` var pg = eid >>> 10, off = eid & 1023;
       if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')}${positional && targetRebind.length ? ' ' + targetRebind.join(' ') : ''} }`
@@ -190,19 +170,12 @@ export function compileQueryIterators(
       ${positional ? '' : stateRead.join('\n      ')}
       ${body}
     }`;
-  // Traits that store after the callback need the entity still alive. An entity only dies
-  // through a handle release, which moves the revision, so an unmoved revision skips the lookup.
-  const alive = (positional: boolean) =>
-    (positional ? writebackArgs : writeback)
-      ? 'if (index.revision !== revision && !isEntityAlive(index, entity)) continue;'
-      : '';
   // Positional callbacks take the trait values in registers instead of through the state array.
   const arrayCall = 'callback(state, entity, i);';
   const argsCall = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
   const update = (call: string, positional = false) =>
     `${setup('plain', positional)}${loop(
       `${call}
-      ${alive(positional)}
       ${(positional ? writeArgs : write).join('\n      ')}`,
       'plain',
       positional
@@ -213,7 +186,6 @@ export function compileQueryIterators(
     var changedTraits = buffers.changedTraits, changed = 0;${loop(
       `${snapshot.join('\n      ')}
       ${call}
-      ${alive(positional)}
       ${(positional ? trackArgsLines : trackLines).join('\n      ')}`,
       'write',
       positional
@@ -224,11 +196,8 @@ export function compileQueryIterators(
     'a',
     'traits',
     'instances',
-    'skipsEntry',
-    'isEntityAlive',
     'snapshotAtomic',
     'atomicChanged',
-    'machineRevision',
     'copyTargetSnapshot',
     'filterTargetSnapshot',
     `'use strict';
@@ -258,11 +227,8 @@ export function compileQueryIterators(
     traits.slice(),
     // Relation instances by projection position, so the hoists read storage with one load.
     projection.map((part) => (typeof part === 'function' ? undefined : part.instance)),
-    skipsEntry,
-    isIterationEntityAlive,
     snapshotAtomic,
     atomicChanged,
-    machineRevision,
     copyTargetSnapshot,
     filterTargetSnapshot
   ) as QueryIterators;
@@ -294,31 +260,6 @@ function filterTargetSnapshot(
 /** Popping keeps the backing store, which a length write would release. */
 function trimTargetSnapshot(snapshot: Entity[], length: number) {
   while (snapshot.length > length) snapshot.pop();
-}
-
-/**
- * Decides whether a walk skips a row once the index revision has moved, that is after a handle
- * release or a query removal. Removed walks keep retained dead entities but drop evicted ones.
- * A walk over a query also drops rows that left it since the walk began, whether the removal
- * was deferred by a live view or applied at once under a sorted or owned copy, so a callback
- * never reads storage a relation or trait removal already cleared.
- */
-function skipsEntry(
-  index: WorldContext['entityIndex'],
-  entity: Entity,
-  buffers: QueryIterationBuffers
-): boolean {
-  if (!(buffers.retains ? isEntityReadable(index, entity) : isEntityAlive(index, entity))) {
-    return true;
-  }
-  const query = buffers.query;
-  if (query === null) return false;
-  if (query.toRemove !== null && query.toRemove.has(entity)) return true;
-  return !query.exposed.has(entity);
-}
-
-function isIterationEntityAlive(index: WorldContext['entityIndex'], entity: Entity): boolean {
-  return isEntityAlive(index, entity);
 }
 
 // hasOwnProperty.call inside for-in hits a V8 fast path that Object.hasOwn does not.

@@ -84,7 +84,7 @@ See [structural.md](./structural.md) for detailed code path documentation.
 
 ### Trait Accessors
 
-The schema determines the storage layout (`soa`, `aos` or `tag`) and supplies the default accessors. The trait kind controls membership cleanup. Machine states keep their schema accessors, and walks check the machine revision before writing back. Ordered traits use ordinary membership. `ordered()` supplies accessors that create one view per entity, preserve its identity and deactivate it on removal.
+The schema determines the storage layout (`soa`, `aos` or `tag`) and supplies the default accessors. The trait kind controls membership cleanup. Machine states keep their schema accessors. Callback walks defer machine transitions until after writeback. Ordered traits use ordinary membership. `ordered()` supplies accessors that create one view per entity, preserve its identity and deactivate it on removal.
 
 Every registered trait appears in `world.traits`. Relation and identifier backing traits expose membership through `has` and return `undefined` from `get`. Relation data belongs to individual pairs, and identifier keys live in the world's identifier index.
 
@@ -94,7 +94,7 @@ Cursor objects provide field access. A separate cursor compiler returns initiali
 
 Accessors own values and auxiliary indexes. The core owns membership, queries, revisions, and events. `set` returns whether it changed the value.
 
-This is a type-time contract. Accessors preserve invariants and handle failures. Raw writes bypass hooks. Defer removal of selected ordered traits until query iteration finishes.
+This is a type-time contract. Accessors preserve invariants and handle failures. Raw writes bypass hooks. Callback walks defer removal of selected ordered traits until iteration finishes.
 
 ### Queries
 

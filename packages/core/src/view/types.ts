@@ -40,12 +40,13 @@ export interface OrderedView<T extends QueryParameter[] = QueryParameter[]> exte
   invalidate(): void;
 }
 
-/** Explicit ordering and membership edits, used by ordered relation traits. */
+/** Explicit edits apply in call order when the outermost defer scope ends. */
 export interface MutableOrderedView<T extends QueryParameter[] = []> extends EntityView<T> {
   has(entity: Entity): boolean;
   indexOf(entity: Entity): number;
   add(entity: Entity): this;
   insert(entity: Entity, index: number): this;
+  /** Reports membership at call time. Inside a scope the removal is queued even when absent. */
   remove(entity: Entity): boolean;
   clear(): void;
   moveTo(entity: Entity, index: number): this;

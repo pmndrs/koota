@@ -10,22 +10,36 @@ type Slot = Subscriber<any> | Set<Subscriber<any>>;
  * Subscribers for one trait event. World subscribers fire for every entity.
  * Entity subscribers are paged by entity id like the masks and fire for one
  * entity, so dispatch does not scale with the number of subscribed entities.
- * entityCount lets emit and destroy skip the page lookup when nothing is registered.
+ * count sums both tiers so the hot paths test one field before dispatching, and
+ * entityCount lets dispatch and destroy skip the page lookup when no entity is registered.
  */
 export type Subscriptions = {
   all: Set<Subscriber<any>>;
   byEntity: ((Slot | undefined)[] | undefined)[];
+  /** World subscribers plus entities with at least one subscriber. */
+  count: number;
   /** Number of entities with at least one subscriber. */
   entityCount: number;
 };
 
 export function createSubscriptions(): Subscriptions {
-  return { all: new Set(), byEntity: [], entityCount: 0 };
+  return { all: new Set(), byEntity: [], count: 0, entityCount: 0 };
 }
 
 /** @inline @pure */
 export function hasSubscribers(subs: Subscriptions): boolean {
-  return subs.all.size !== 0 || subs.entityCount !== 0;
+  return subs.count !== 0;
+}
+
+/** Registers a world subscriber and returns the function that removes it. */
+export function subscribeAll(subs: Subscriptions, callback: Subscriber<any>): () => void {
+  if (!subs.all.has(callback)) {
+    subs.all.add(callback);
+    subs.count++;
+  }
+  return () => {
+    if (subs.all.delete(callback)) subs.count--;
+  };
 }
 
 export function subscribeEntity(
@@ -44,6 +58,7 @@ export function subscribeEntity(
   if (slot === undefined) {
     page[offset] = callback;
     subs.entityCount++;
+    subs.count++;
   } else if (typeof slot === 'function') {
     if (slot !== callback) {
       page[offset] = new Set([slot, callback]);
@@ -60,9 +75,11 @@ export function subscribeEntity(
     if (current === callback) {
       page[offset] = undefined;
       subs.entityCount--;
+      subs.count--;
     } else if (typeof current !== 'function' && current.delete(callback) && current.size === 0) {
       page[offset] = undefined;
       subs.entityCount--;
+      subs.count--;
     }
   };
 }
@@ -79,6 +96,7 @@ export function clearEntity(subs: Subscriptions, entity: Entity) {
   if (typeof slot !== 'function') slot.clear();
   page[eid & 1023] = undefined;
   subs.entityCount--;
+  subs.count--;
 }
 
 /**
@@ -91,7 +109,11 @@ export function emit(subs: Subscriptions, entity: Entity, target?: string | numb
   if (hasSubscribers(subs)) emitSubscribers(subs, entity, target);
 }
 
-/** Exported so the inline guard in emit can expand in other modules. */
+/**
+ * Exported so the inline guard in emit can expand in other modules. Callers hold a defer scope,
+ * the operation's own for add, remove and destroy hooks and one opened around change hooks, so
+ * structural changes a hook makes apply once the operation that reached it ends.
+ */
 export function emitSubscribers(subs: Subscriptions, entity: Entity, target?: string | number) {
   if (target === undefined) {
     for (const sub of subs.all) sub(entity);
