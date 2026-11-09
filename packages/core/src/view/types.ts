@@ -1,7 +1,10 @@
 import type { Entity } from '../entity/types';
 import type { InstancesFromParameters, QueryParameter, UpdateEachOptions } from '../query/types';
+import type { Trait, TraitRecord } from '../trait/types';
 
 export type EntityComparator = (a: Entity, b: Entity) => number;
+/** Returns a number other than NaN. Do not mutate or retain the borrowed value or change the world. */
+export type SortKeySelector<T extends Trait = Trait> = (value: Readonly<TraitRecord<T>>) => number;
 
 /** An entity sequence with borrowed access to its trait data. */
 export interface EntityView<T extends QueryParameter[] = QueryParameter[]> {

@@ -145,7 +145,26 @@ Use `query.getPages()` to iterate cached page views and read or write trait arra
 
 ## Ordered views
 
-Use `sort` to read query results in a chosen order.
+Use `sortBy` to order a query by a numeric key from one trait.
+
+```ts
+const byX = (position: Readonly<{ x: number }>) => position.x
+const sorted = world.query(Position, Velocity).sortBy(Position, byX)
+
+sorted.each((position, velocity) => {
+  console.log(position.x, velocity.x)
+})
+```
+
+The selector reads borrowed trait data once per entity per refresh. Treat it as read-only and do not retain it or change the world inside the selector. Every entity must carry the key trait, as with `select`. The view keeps the original query's callback arguments.
+
+Return a number other than `NaN`. Infinities are valid. Invalid keys throw `[SORT_KEY]` when assertions are enabled. Keys sort ascending, so return a negative key for descending order, such as `position => -position.x`. Equal keys keep base-query order after membership changes and the previous sorted order after data-only changes.
+
+The key trait is tracked automatically. Membership changes or possible writes to that trait refresh the order on the next access. An `each` walk that includes the key trait counts as a possible write. Reading `sorted.entities` reuses a clean cached order without calling the selector. If the selector throws, the previous array stays unchanged and the next access retries.
+
+Keep the selector function stable when requesting the view repeatedly. Views are cached by query view, key trait and selector identity. Call `invalidate()` when external state used by the selector changes or after writing directly to stores without change notification.
+
+Use `sort` for a custom entity comparator.
 
 ```ts
 const query = world.query(Position)
