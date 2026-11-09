@@ -6,7 +6,7 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. `each` leaves handle validity and selected trait membership to the caller, including when assertions are enabled. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
+Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. `each` walks the membership present when it starts. Structural changes to other entities during a walk are unsupported, so keep adds, removes and destroys to the current entity. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
 
@@ -95,6 +95,30 @@ world
     mass.value += 1
   })
 ```
+
+## Relation targets in each
+
+`each` passes relation targets in query order, alongside trait records and before the entity and index. A pair that selects one target passes an `Entity`. A pair that can select several passes a read only array.
+
+| Pair                          | Exclusive | Non-exclusive                           |
+| ----------------------------- | --------- | --------------------------------------- |
+| `R('*')`                      | `Entity`  | `readonly Entity[]`                     |
+| `R(Trait, ...)` or `R(query)` | `Entity`  | `readonly Entity[]` of matching targets |
+| `R(entity)`                   | `Entity`  | `Entity`                                |
+| Pair inside a modifier        | none      | none                                    |
+
+```ts
+const ChildOf = relation({ exclusive: true })
+const Contains = relation()
+
+world.query(Position, ChildOf('*'), Contains('*')).each((position, parent, contents, entity) => {
+  // parent is an Entity, contents is a readonly Entity[]
+})
+```
+
+Arrays are snapshots reused between callbacks. Copy with `contents.slice()` to keep one. Structural changes to other entities during a walk are unsupported.
+
+Use `select` to skip reading targets, or `forEach` for entities only. Pairs with stores pass their targets, not a record. `getPages`, `readEach` and `updateEach` keep their trait only layouts.
 
 ## Direct entity access
 

@@ -82,7 +82,62 @@ Flushes any deferred removals, then snapshots the instance's entity set. For tra
 return bindQueryView(ctx, query, params)
 ```
 
-The caller receives a `QueryView`, a live view over the instance's entity set with methods for iterating with trait data. The view is cached per trait list, so a run allocates nothing.
+The caller receives a `QueryView`, a live view over the instance's entity set with methods for iterating with trait data. The view is cached per ordered trait and target projection, so a run allocates nothing.
+
+## Target projection
+
+Matching and projection are separate. A binding keeps trait stores for record access and one ordered projection list containing data traits and relation storage instances. That list supplies callback order, binding comparison and iterator cache keys. Every required pair projects one argument. Projections are interned per relation instance and mode. Slot reads the single target an exclusive relation holds, for wildcards and target queries alike. Copy snapshots a non-exclusive wildcard's target array. Constant passes a concrete pair's own target, read from the binding so shared iterators stay correct. Filter snapshots the targets inside the match set the query resolved for a non-exclusive target query, falling back to copy when the walked view has no such filter, as with a selection outside the query. Pairs inside modifiers remain filters.
+
+The generated positional iterator hoists the target storage references outside the entity loop and reads each selected slot into a callback argument. Non-exclusive slots are copied into reusable arrays before the callback. When trait cursors already track page changes, target pages share that page switch. The relation policy is resolved at compilation, without a per-entity policy branch or target lookup call. Unselected targets generate no reads or copies. Trait-only iterators keep their existing loop bodies.
+
+`targetsFor` retains its snapshot behavior. Arrays passed to `each` are reusable read-only snapshots. The iteration-buffer pool owns one array per non-exclusive projection and active walk, so structural commands and nested walks cannot alter the current callback's snapshot. Arrays are reused for later rows and calls. Legacy state-array iterators and page stores continue to expose trait data only.
+
+The walk visits the membership captured when it started. Removals are deferred while a query is iterating, so a row whose entity left the query, through a relation or trait removal or destroy in an earlier callback, is skipped instead of reading storage the removal already cleared. The entity index revision moves on every handle release and every deferred removal, so the generated loop compares it once per row and only calls the skip helper after it has changed during the walk. A walk whose callbacks remove rows from the query pays one skip check for every later row, a few nanoseconds each. Sorted and owned views walk a copy, so their removals apply at once, and the skip helper also drops rows no longer in the query's exposed set. Tracking walks consume a batch that removals never touch, so they only skip destroyed rows. This gate is an interim measure. Deferring structural changes until the outermost walk ends, as Flecs does, is the planned replacement.
+
+### Validation and performance
+
+`query-relation-targets.test.ts` covers callback order and tracking, snapshot stability, buffer reuse, selection,
+query references, excluded pairs, legacy layouts, derived views, world isolation and widened types.
+Explicit-schema inference is checked alongside the exclusive and non-exclusive behavior tests.
+
+`query-relation-inline.bench.ts` keeps ten cases. One exclusive relation measures unused,
+selected and consumed targets. Non-exclusive relations measure consumed and unused snapshots, including 32 targets to expose copy cost.
+Three relations cover unused argument scaling and consuming multiple arrays on scattered pages.
+A plain-trait control checks unrelated iteration, and a concrete lookup with target selection
+checks iterator reuse for views outside cached queries. Existing `query-api` benchmarks cover
+warm inline lookup costs, including target-query filters.
+
+The fixture generates literal relation arguments and detects the callback shape through a separate
+binding before timing. Timed runs perform `world.query(...).each(...)`. Results are checked against
+independent expected values outside timing. Arrays passed to callbacks are consumed directly.
+
+```sh
+pnpm bench --against ../koota-relation-each-canary '@relation-each-inline' --blocks 6 -n relation-each-snapshots
+```
+
+Compare the relation each benches against the merge base before and after changes to the generated loop. Consumed snapshots should stay well ahead of the per entity `targetsFor` allocation they replace, unused snapshots should cost a few nanoseconds per entity that grow with the target count, and the selection and plain trait controls should show no change.
+
+### Inlining
+
+Measured bytecode on Node 24.14.0, using the emitted bundle and generated iterators:
+
+| Function or iterator                        | Bytes |
+| ------------------------------------------- | ----- |
+| Plain trait or targets excluded with select | 189   |
+| One trait and one exclusive target          | 216   |
+| One trait and one target array              | 241   |
+| One trait and three target arrays           | 357   |
+| Three target arrays without trait records   | 270   |
+| One trait and one constant target           | 208   |
+| One trait and one filtered target array     | 271   |
+| Tracked trait and three target arrays       | 443   |
+| Buffer preparation                          | 416   |
+| Target snapshot copy                        | 55    |
+| Filtered target snapshot copy               | 77    |
+
+These paths fit the 460-byte per-function budget. V8's `--trace-turbo-inlining` confirmed that
+the snapshot copy helpers and small callbacks inline into the generated loops. Exclusive targets
+keep their direct slot reads. Trait-only and selected iteration bytecode is unchanged.
 
 ## Important details
 

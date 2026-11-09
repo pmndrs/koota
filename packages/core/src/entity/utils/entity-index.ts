@@ -16,8 +16,10 @@ export type EntityIndex = {
   aliveCount: number;
   /** Reusable entries immediately after the alive region. Retained entries follow them. */
   freeCount: number;
-  /** Counts every entity that left the alive region, so a walk can tell whether any died. */
+  /** Counts every entity that left the alive region. Removal history reads it as a clock. */
   releases: number;
+  /** Moves on every handle release and deferred query removal, so walks know to re-check rows. */
+  revision: number;
   /**
    * Packed entities in three regions: alive, reusable, retained. Eviction bumps the generation
    * before moving a retained entry into the reusable region.
@@ -41,6 +43,7 @@ export const createEntityIndex = (allocator: PageAllocator, owner: WorldContext)
   aliveCount: 0,
   freeCount: 0,
   releases: 0,
+  revision: 0,
   dense: [],
   sparse: [],
   ownedPages: [],
@@ -103,6 +106,7 @@ export const freeEntity = (index: EntityIndex, entity: Entity): void => {
   if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
   if (assertsEnabled) index.owner.structuralRevision++;
   index.releases++;
+  index.revision++;
   const lastIdx = index.aliveCount - 1;
   const lastEntity = index.dense[lastIdx];
   index.sparse[getEntityId(lastEntity)] = denseIdx;

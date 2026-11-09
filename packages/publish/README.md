@@ -485,6 +485,24 @@ const containsSilver = world.query(Contains(silver)) // Returns [inventory]
 const containsAnything = world.query(Contains('*')) // Returns [inventory, chest]
 ```
 
+`each` passes relation targets in query order before the entity. A pair that selects one target, an exclusive relation or a concrete `R(entity)`, passes an `Entity`. Other pairs pass a read only array of the matching targets.
+
+```js
+world.query(Targeting('*')).each((target, entity) => {
+  entity.remove(Targeting(target))
+})
+
+world.query(Contains('*')).each((contents, inventory) => {
+  for (const item of contents) {
+    inventory.remove(Contains(item))
+  }
+})
+```
+
+Adding or removing relations during the callback leaves the array unchanged. The array is reused after the callback. Use `contents.slice()` to keep a copy.
+
+Use `select` to skip reading targets. See [relation targets in each](docs/api/query.md#relation-targets-in-each) for more examples.
+
 #### Relation filters
 
 A query nested in a relation can be used to filter target entities instead of naming one specific target. Use them when you want to ask for relations pointing at "any player", "any active parent", or "any rare item".

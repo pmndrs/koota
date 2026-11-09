@@ -1,8 +1,9 @@
 import type { EntityComparator, EntityView, OrderedView } from '../view/types';
+import type { $internal } from '../common';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { Identifier, IdentifierPair } from '../identifier/types';
-import type { RelationPair } from '../relation/types';
+import type { RelationPair, RelationTarget } from '../relation/types';
 import { AoSFactory, type Store } from '../storage';
 import type { QueryIterators } from './utils/compile-iterators';
 import type {
@@ -33,16 +34,31 @@ export type QueryViewBinding = {
   params: QueryParameter[];
   traits: Trait[];
   stores: Store<any>[];
+  /** Data traits and target projections in each's callback argument order. */
+  projection: (Trait | TargetProjection)[];
+  /** Per projection position, the constant target or target query match set a pair reads, else undefined. */
+  targets: (Entity | SparseSet | undefined)[];
   /** Live view over the query for these traits, created on first use. */
   view: QueryView<any> | null;
   /** Iterators compiled for this binding alone, so its callback site stays monomorphic. */
   iterators: QueryIterators | null;
 };
 
+/**
+ * How a required pair reaches the callback. Entries are interned per instance and mode so
+ * bindings and iterator caches can compare them by identity. Slot reads the one target an
+ * exclusive relation holds, copy snapshots every target, constant passes the pair's own target,
+ * filter snapshots the targets inside the pair's target query match set.
+ */
+export type TargetProjection = {
+  instance: TraitInstance;
+  mode: 'slot' | 'copy' | 'constant' | 'filter';
+};
+
 export type QueryIterationBuffers = {
   state: any[];
-  /** Traits the records and iterators were prepared for. */
-  traits: Trait[];
+  /** Projection the records and iterators were prepared for. */
+  binding: QueryViewBinding | undefined;
   /** SoA records with their owned tuple arrays, or a cursor set, undefined for other traits. */
   records: (
     | {
@@ -53,9 +69,13 @@ export type QueryIterationBuffers = {
       }
     | undefined
   )[];
+  /** Reusable target arrays for this active walk, indexed by projection position. */
+  targetSnapshots: Entity[][];
   iterators: QueryIterators | undefined;
   /** Removed walks can read dead entities until their retained history is evicted. */
   retains: boolean;
+  /** The query behind the walked view, whose rows the walk skips once they leave it, or null. */
+  query: QueryInstance | null;
   /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
   modes: number[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
@@ -127,10 +147,16 @@ export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
   StoresFromParameters<T>
 >;
 
-export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
-  infer First,
-  ...infer Rest,
-]
+// A pair that can select one target passes it, a pair that can select several passes an array.
+type RelationInstances<
+  Exclusive extends boolean,
+  Target extends RelationTarget | undefined,
+> = Target extends Entity ? [Entity] : [Exclusive extends true ? Entity : readonly Entity[]];
+
+export type InstancesFromParameters<
+  T extends QueryParameter[],
+  Targets extends boolean = true,
+> = T extends [infer First, ...infer Rest]
   ? [
       ...(First extends Trait
         ? IsTag<First> extends false
@@ -141,9 +167,13 @@ export type InstancesFromParameters<T extends QueryParameter[]> = T extends [
         : First extends Modifier
           ? IsNotModifier<First> extends true
             ? []
-            : InstancesFromParameters<UnwrapModifierData<First>>
-          : []),
-      ...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest> : []),
+            : InstancesFromParameters<UnwrapModifierData<First>, false>
+          : Targets extends true
+            ? First extends RelationPair
+              ? RelationInstances<First['relation'][typeof $internal]['exclusive'], First['target']>
+              : []
+            : []),
+      ...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest, Targets> : []),
     ]
   : [];
 
