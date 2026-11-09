@@ -338,10 +338,9 @@ export function matchesQueryBinding(
     const param = params[i];
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
     if (isRelationPair(param)) {
-      const instance = getTraitInstance(ctx.traitInstances, param.relation[$internal].trait);
-      if (instance === undefined) return false;
-      const { entry, target } = projectPair(query, instance, param);
-      if (projection[argument] !== entry || targets[argument] !== target) return false;
+      if (!matchesPairProjection(ctx, query, param, projection[argument], targets[argument])) {
+        return false;
+      }
       argument++;
       continue;
     }
@@ -383,9 +382,9 @@ function fillQueryBinding(
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
     if (isRelationPair(param)) {
       const instance = ensureTraitInstance(ctx, param.relation[$internal].trait);
-      const { entry, target } = projectPair(query, instance, param);
+      const entry = pairProjection(query, instance, param);
       projection.push(entry);
-      targets.push(target);
+      targets.push(pairTarget(query, param, entry.mode));
       continue;
     }
     if (isModifier(param)) {
@@ -421,29 +420,59 @@ function targetProjection(instance: TraitInstance, mode: TargetProjection['mode'
   return (modes[mode] ??= { instance, mode });
 }
 
+/** A pair matches a stored projection when it resolves to the same entry and the same target. */
+function matchesPairProjection(
+  ctx: WorldContext,
+  query: QueryInstance | null,
+  pair: RelationPair,
+  entry: Trait | TargetProjection | undefined,
+  target: Entity | SparseSet | undefined
+): boolean {
+  const instance = getTraitInstance(ctx.traitInstances, pair.relation[$internal].trait);
+  if (instance === undefined || entry === undefined || typeof entry === 'function') return false;
+  return (
+    pairProjection(query, instance, pair) === entry && pairTarget(query, pair, entry.mode) === target
+  );
+}
+
 /**
  * Decides how a required pair reaches the callback. A concrete target is passed as it is. A
  * wildcard or target query reads the exclusive slot, or snapshots the target array, narrowed to
  * the target query's match set when the walked query resolved one.
  */
-function projectPair(
+function pairProjection(
   query: QueryInstance | null,
   instance: TraitInstance,
   pair: RelationPair
-): { entry: TargetProjection; target: Entity | SparseSet | undefined } {
+): TargetProjection {
   const exclusive = pair.relation[$internal].exclusive;
   if (pair.targetQuery === undefined) {
-    if (pair.target !== '*')
-      return { entry: targetProjection(instance, 'constant'), target: pair.target };
-    return { entry: targetProjection(instance, exclusive ? 'slot' : 'copy'), target: undefined };
+    if (pair.target !== '*') return targetProjection(instance, 'constant');
+    return targetProjection(instance, exclusive ? 'slot' : 'copy');
   }
-  if (exclusive) return { entry: targetProjection(instance, 'slot'), target: undefined };
-  const matches = findTargetQueryMatches(query, pair);
-  if (matches === undefined) return { entry: targetProjection(instance, 'copy'), target: undefined };
-  return { entry: targetProjection(instance, 'filter'), target: matches };
+  if (exclusive) return targetProjection(instance, 'slot');
+  return targetProjection(
+    instance,
+    findTargetQueryMatches(query, pair) === undefined ? 'copy' : 'filter'
+  );
 }
 
-/** The match set of the query's own filter for this pair, kept current by the target query. */
+/** The value a projection reads from the binding: the concrete target or the match set. */
+function pairTarget(
+  query: QueryInstance | null,
+  pair: RelationPair,
+  mode: TargetProjection['mode']
+): Entity | SparseSet | undefined {
+  if (mode === 'constant') return pair.target as Entity;
+  if (mode === 'filter') return findTargetQueryMatches(query, pair);
+  return undefined;
+}
+
+/**
+ * The match set of the query's own filter for this pair, kept current by the target query.
+ * Target queries are compared by identity or entry by entry first, and hashed only when
+ * that fails, so a cached binding lookup does not pay for a hash.
+ */
 function findTargetQueryMatches(
   query: QueryInstance | null,
   pair: RelationPair
@@ -451,6 +480,18 @@ function findTargetQueryMatches(
   const pairs = query?.filters?.pairs;
   if (pairs === undefined) return undefined;
   const targetQuery = pair.targetQuery!;
+  for (let i = 0; i < pairs.length; i++) {
+    const filter = pairs[i];
+    if (filter.relation !== pair.relation || filter.targetQuery === undefined) continue;
+    if (
+      filter.targetQuery === targetQuery ||
+      (!isQuery(targetQuery) &&
+        !isQuery(filter.targetQuery) &&
+        sameParams(filter.targetQuery, targetQuery))
+    ) {
+      return filter.targetQueryMatches;
+    }
+  }
   const ref = isQuery(targetQuery) ? targetQuery : createQuery(...targetQuery);
   for (let i = 0; i < pairs.length; i++) {
     const filter = pairs[i];

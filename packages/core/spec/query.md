@@ -131,7 +131,7 @@ Measured bytecode on Node 24.14.0, using the emitted bundle and generated iterat
 | One trait and one constant target           | 208   |
 | One trait and one filtered target array     | 271   |
 | Tracked trait and three target arrays       | 443   |
-| Buffer preparation                          | 424   |
+| Buffer preparation                          | 416   |
 | Target snapshot copy                        | 55    |
 | Filtered target snapshot copy               | 77    |
 
