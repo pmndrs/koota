@@ -90,7 +90,7 @@ entity.add(Ref)
 entity.add(View({ visible: false }))
 ```
 
-`Trait.record()` builds a record from the schema defaults, and a required value has none. `View` still gets a record from its other fields, with `object` left `undefined` until `get` fills it. `Ref` is nothing but its required value, so there is nothing to build.
+`Trait.record()` builds a record from the schema defaults and a required value has none. `View` returns a record with the required value `undefined` so that `get` out can fill it. However, `Ref` is nothing but its required value so no record can be built for it.
 
 ```ts
 View.record() // { object: undefined, visible: true }
