@@ -1,5 +1,6 @@
 import { defineConfig } from 'tsdown';
 import inlineFunctions from 'unplugin-inline-functions/rolldown';
+import { decoupleExports } from './scripts/decouple-exports.ts';
 
 export default defineConfig((options) => ({
   entry: ['src/index.ts', 'src/react.ts'],
@@ -15,5 +16,8 @@ export default defineConfig((options) => ({
   // See https://262.ecma-international.org/5.1/#sec-C for more details.
   banner: () => ({ js: '"use strict";' }),
   dts: { tsc: { eager: true }, entry: ['src/index.ts', 'src/react.ts'] },
-  plugins: [inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'], define: options.define })],
+  plugins: [
+    inlineFunctions({ include: ['src/**/*.{js,ts,jsx,tsx}'], define: options.define }),
+    decoupleExports(),
+  ],
 }));
