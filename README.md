@@ -1200,7 +1200,7 @@ world.reset()
 world.destroy()
 ```
 
-Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled observers wait until all commands finish. A drain that exceeds 100 passes throws and clears pending commands and observers. The limit counts follow-up waves, regardless of batch size, and already-applied changes remain committed. Ordinary command errors allow the remaining work to finish before the first error is rethrown.
+Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled observers wait until all commands finish. A chain of hooks takes one wave per link and can be as long as it needs. A hook that keeps undoing the change it observes is stopped after 100000 waves, and observers that keep invalidating each other after 100 rounds. Either throws and clears pending commands and observers, and already-applied changes remain committed. Ordinary command errors allow the remaining work to finish before the first error is rethrown.
 
 ### Entity
 

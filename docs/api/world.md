@@ -108,7 +108,7 @@ Structural changes are deferred while a defer scope is open. Walks open one arou
 
 Change notification holds one scope across tracking query reconciliation and trait or pair callbacks. Structural changes requested by an `onEnter(Changed(...))` callback wait until the other notifications finish.
 
-Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled observers wait until all commands finish. A drain that exceeds 100 passes throws and clears pending commands and observers. The limit counts follow-up waves, regardless of batch size, and already-applied changes remain committed.
+Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled observers wait until all commands finish. A chain of hooks takes one wave per link and can be as long as it needs. A hook that keeps undoing the change it observes is stopped after 100000 waves, and observers that keep invalidating each other after 100 rounds. Either throws and clears pending commands and observers, and already-applied changes remain committed.
 
 See [query lifecycle](query.md#query-lifecycle) for membership semantics and examples.
 
