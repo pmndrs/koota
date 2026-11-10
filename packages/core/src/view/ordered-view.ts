@@ -2,7 +2,12 @@ import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import { assertsEnabled } from '../assert-config';
 import { commitQueryRemovals, ensureTraitInstance } from '../query/query';
-import type { QueryInstance, QueryParameter, QueryViewBinding } from '../query/types';
+import type {
+  QueryInstance,
+  QueryIterationBuffers,
+  QueryParameter,
+  QueryViewBinding,
+} from '../query/types';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
 import { sameParams } from '../query/utils/same-params';
@@ -163,6 +168,8 @@ class SortedSource extends OrderedSource {
 
 /** Reuses sort buffers while keeping the published order separate until refresh succeeds. */
 class SortedKeys implements EntitySource {
+  /** Key reads keep their projection prepared independently of the sorted view's walks. */
+  iterationBuffers: QueryIterationBuffers | undefined;
   dense: Entity[] = [];
   private output: Entity[] = [];
   values: number[] = [];
@@ -203,7 +210,7 @@ class SortedKeys implements EntitySource {
     }
     while (entities.length > count) entities.pop();
     // Read-only traversal neither writes trait data nor invalidates the dependency version.
-    this.reader.readEach(this.collect);
+    this.reader.readEach(this.collect, this);
     const result = sortKeys(this.values, entities, this.scratch, this.output, this.runs, count);
     while (result.length > count) result.pop();
     // Retain the unused buffer and recycle published for the next refresh.

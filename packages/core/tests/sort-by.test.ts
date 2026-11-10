@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createWorld, trait, type Entity, type OrderedView, type SortKeySelector } from '../src';
+import {
+  createRemoved,
+  createWorld,
+  trait,
+  type Entity,
+  type OrderedView,
+  type SortKeySelector,
+} from '../src';
 
 describe('Query sortBy', () => {
   const world = createWorld();
@@ -27,6 +34,10 @@ describe('Query sortBy', () => {
     sorted.select(Rank).each((rank) => rank.value++);
     expect(sorted.entities).toBe(entities);
     expect(selector).toHaveBeenCalledTimes(2);
+    a.set(Position, { x: 0 });
+    const values: number[] = [];
+    sorted.select(Rank).each((rank) => values.push(rank.value));
+    expect(values).toEqual([2, 1]);
     sorted.each((position) => expectTypeOf(position).toEqualTypeOf<{ x: number }>());
   });
 
@@ -94,6 +105,22 @@ describe('Query sortBy', () => {
     const a = world.spawn(Atomic({ rank: 2 }));
     const b = world.spawn(Atomic({ rank: 1 }));
     expect(world.query(Atomic).sortBy(Atomic, (value) => value.rank).entities).toEqual([b, a]);
+  });
+
+  it('reads retained keys when sorting a different selection after destruction', () => {
+    const Rank = trait({ value: 0 });
+    const Removed = createRemoved();
+    const a = world.spawn(Position({ x: 2 }), Rank({ value: 20 }));
+    const b = world.spawn(Position({ x: 1 }), Rank({ value: 10 }));
+    a.destroy();
+    b.destroy();
+    const sorted = world.query(Removed(Position)).select(Rank).sortBy(Position, byX);
+    const visited: [Entity, number][] = [];
+    sorted.each((rank, entity) => visited.push([entity, rank.value]));
+    expect(visited).toEqual([
+      [b, 10],
+      [a, 20],
+    ]);
   });
 
   it('shares manual invalidation with selections and keeps equal keys in their prior order', () => {

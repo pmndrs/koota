@@ -39,6 +39,7 @@ export type EntitySource = {
 };
 
 type Callback = (...args: any[]) => void;
+type IterationBufferPool = { iterationBuffers: QueryIterationBuffers | undefined };
 
 /**
  * Shared traversal over entity sequences. Queries guard pending removals, and ordered sources
@@ -140,13 +141,12 @@ export class EntityView {
     return result;
   }
 
-  readEach(callback: Callback) {
+  readEach(callback: Callback, pool: IterationBufferPool = this.query ?? this.ctx) {
     const { dense, length } = this.getSource();
     if (length === 0) return this;
     const { ctx, query } = this;
     const guard = this.getGuard();
     const { stores } = this.binding;
-    const pool = query ?? ctx;
     const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding, query);
     if (guard) guard.iterating++;
     try {
@@ -514,7 +514,7 @@ function createIterationBuffers(): QueryIterationBuffers {
 /** Checks out buffers from the pool, preparing them when the projection differs. */
 function takeIterationBuffers(
   ctx: WorldContext,
-  pool: QueryInstance | WorldContext,
+  pool: IterationBufferPool,
   entities: Entity[],
   binding: QueryViewBinding,
   query: QueryInstance | null
@@ -522,7 +522,7 @@ function takeIterationBuffers(
   const buffers = pool.iterationBuffers ?? createIterationBuffers();
   pool.iterationBuffers = buffers.next;
   if (buffers.binding !== binding) {
-    prepareIterationBuffers(ctx, buffers, entities, binding, pool);
+    prepareIterationBuffers(ctx, buffers, entities, binding, query);
   }
   buffers.retains = query?.retains ?? false;
   buffers.query = query;
@@ -540,7 +540,7 @@ function prepareIterationBuffers(
   buffers: QueryIterationBuffers,
   entities: Entity[],
   binding: QueryViewBinding,
-  pool: QueryInstance | WorldContext
+  query: QueryInstance | null
 ) {
   const { traits, stores, projection } = binding;
   const { state, records } = buffers;
@@ -574,13 +574,13 @@ function prepareIterationBuffers(
   }
   buffers.binding = binding;
   buffers.iterators =
-    pool === ctx
+    query === null
       ? getQueryIterators(traits, projection)
       : (binding.iterators ??= compileQueryIterators(traits, projection));
 }
 
 /** Releases references to user objects, then returns the buffers to the pool. */
-function releaseIterationBuffers(pool: QueryInstance | WorldContext, buffers: QueryIterationBuffers) {
+function releaseIterationBuffers(pool: IterationBufferPool, buffers: QueryIterationBuffers) {
   buffers.iterators!.release(buffers);
   const snapshots = buffers.atomicSnapshots;
   for (let s = 0; s < snapshots.length; s++) {
