@@ -15,14 +15,14 @@ describe('deferred structural changes', () => {
     const stopAdd = world.onAdd(Tag, (entity) => {
       observer.invalidate();
       // Keep a broken drain finite so this regression cannot hang the test runner.
-      if (++calls < 1000) entity.remove(Tag);
+      if (++calls < 200000) entity.remove(Tag);
     });
     const stopRemove = world.onRemove(Tag, (entity) => {
-      if (++calls < 1000) entity.add(Tag);
+      if (++calls < 200000) entity.add(Tag);
     });
 
-    expect(() => entity.add(Tag)).toThrow('did not settle after 100 passes');
-    expect(calls).toBeLessThan(1000);
+    expect(() => entity.add(Tag)).toThrow('did not settle after 100000 waves');
+    expect(calls).toBeLessThan(200000);
     expect(observed).not.toHaveBeenCalled();
     stopAdd();
     stopRemove();
@@ -33,6 +33,20 @@ describe('deferred structural changes', () => {
     expect(entity.has(Velocity)).toBe(true);
     expect(observed).not.toHaveBeenCalled();
     world.reset();
+    world.destroy();
+  });
+
+  it('follows a hook chain one wave per link', () => {
+    const world = createWorld();
+    const entities = Array.from({ length: 500 }, () => world.spawn(Tag));
+    world.onRemove(Tag, (entity) => {
+      const next = entities[entities.indexOf(entity) + 1];
+      if (next !== undefined) next.remove(Tag);
+    });
+
+    entities[0].remove(Tag);
+
+    expect(world.query(Tag).length).toBe(0);
     world.destroy();
   });
 

@@ -258,7 +258,6 @@ export function createWorld(options?: WorldOptions): World {
       iterationBuffers: undefined,
       actionInstances: [],
       notQueries: [],
-      queryCallbackDepth: 0,
       queryBatch: undefined,
       internalQuerySubscriptions: undefined,
       defersChanges: false,

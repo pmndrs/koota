@@ -95,14 +95,9 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
   }
 }
 
-/** The destroy as a command, applied inside the flush once the scope that logged it has ended. */
+/** The destroy as a command. */
 export function applyDestroyEntity(ctx: WorldContext, entity: Entity) {
-  beginDefer(ctx);
-  try {
-    destroyCascade(ctx, entity);
-  } finally {
-    endDefer(ctx);
-  }
+  destroyCascade(ctx, entity);
 }
 
 /**
