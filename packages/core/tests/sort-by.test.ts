@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createWorld, trait, type Entity, type OrderedView, type SortKeySelector } from '../src';
+import {
+  createRemoved,
+  createWorld,
+  trait,
+  type Entity,
+  type OrderedView,
+  type SortKeySelector,
+} from '../src';
 
 describe('Query sortBy', () => {
   const world = createWorld();
@@ -52,6 +59,36 @@ describe('Query sortBy', () => {
     expect(sorted.entities).toEqual([c, b]);
   });
 
+  it('reuses warmed records across refreshes with different traits', () => {
+    const Rank = trait({ value: 3 });
+    const entities = Array.from({ length: 4 }, () => world.spawn(Position, Rank));
+    // Weak membership observes reuse without retaining borrowed records.
+    const records = new WeakSet<object>();
+    let warmed = false;
+    const observe = (record: object) => {
+      if (warmed) expect(records.has(record)).toBe(true);
+      else records.add(record);
+    };
+    const sorted = world.query(Rank).sortBy(Position, (position) => {
+      observe(position);
+      return position.x;
+    });
+    let total = 0;
+    const visit = (rank: { value: number }) => {
+      observe(rank);
+      total += rank.value;
+    };
+    sorted.each(visit);
+    warmed = true;
+
+    for (let i = 0; i < 20; i++) {
+      for (const entity of entities) entity.set(Position, { x: 1 });
+      sorted.each(visit);
+    }
+
+    expect(total).toBe(21 * 4 * 3);
+  });
+
   it('sorts fractional keys stably across storage pages in either direction', () => {
     const entities = Array.from({ length: 2050 }, (_, i) =>
       world.spawn(Position({ x: ((i * 7919) % 31) / 10 - 1.5 }))
@@ -96,6 +133,22 @@ describe('Query sortBy', () => {
     expect(world.query(Atomic).sortBy(Atomic, (value) => value.rank).entities).toEqual([b, a]);
   });
 
+  it('reads retained keys when sorting a different selection after destruction', () => {
+    const Rank = trait({ value: 0 });
+    const Removed = createRemoved();
+    const a = world.spawn(Position({ x: 2 }), Rank({ value: 20 }));
+    const b = world.spawn(Position({ x: 1 }), Rank({ value: 10 }));
+    a.destroy();
+    b.destroy();
+    const sorted = world.query(Removed(Position)).select(Rank).sortBy(Position, byX);
+    const visited: [Entity, number][] = [];
+    sorted.each((rank, entity) => visited.push([entity, rank.value]));
+    expect(visited).toEqual([
+      [b, 10],
+      [a, 20],
+    ]);
+  });
+
   it('shares manual invalidation with selections and keeps equal keys in their prior order', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
@@ -126,13 +179,14 @@ describe('Query sortBy', () => {
   });
 
   it('preserves an active walk during invalidation and nested reads', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
-    const c = world.spawn();
-    const sorted = world.query(Position).sortBy(Position, byX);
+    const Rank = trait({ value: 0 });
+    const a = world.spawn(Position({ x: 2 }), Rank({ value: 20 }));
+    const b = world.spawn(Position({ x: 1 }), Rank({ value: 10 }));
+    const c = world.spawn(Rank({ value: 30 }));
+    const sorted = world.query(Position).select(Rank).sortBy(Position, byX);
     const entities = sorted.entities;
     const visited: Entity[] = [];
-    sorted.each((_position, entity) => {
+    sorted.each((rank, entity) => {
       visited.push(entity);
       if (visited.length !== 1) return;
       a.set(Position, { x: 0 });
@@ -140,16 +194,24 @@ describe('Query sortBy', () => {
       sorted.invalidate();
       expect(sorted.select().entities).toBe(entities);
       expect([...sorted]).toEqual([b, a]);
+      const nested: [Entity, number][] = [];
+      sorted.each((inner, entity) => nested.push([entity, inner.value]));
+      expect(nested).toEqual([
+        [b, 10],
+        [a, 20],
+      ]);
+      expect(rank.value).toBe(10);
     });
     expect(visited).toEqual([b, a]);
     expect(sorted.entities).toEqual([a, b, c]);
   });
 
   it('preserves the published order if a selector throws and retries on the next access', () => {
-    const a = world.spawn(Position({ x: 2 }));
-    const b = world.spawn(Position({ x: 1 }));
+    const Rank = trait({ value: 0 });
+    const a = world.spawn(Position({ x: 2 }), Rank({ value: 20 }));
+    const b = world.spawn(Position({ x: 1 }), Rank({ value: 10 }));
     let fail = false;
-    const sorted = world.query(Position).sortBy(Position, (position) => {
+    const sorted = world.query(Rank).sortBy(Position, (position) => {
       if (fail && position.x === 0) {
         expect(sorted.entities).toEqual([b, a]);
         throw new Error('key unavailable');
@@ -157,11 +219,15 @@ describe('Query sortBy', () => {
       return position.x;
     });
     const previous = sorted.entities;
+    sorted.each((rank) => rank.value++);
     a.set(Position, { x: 0 });
     fail = true;
     expect(() => sorted.entities).toThrow('key unavailable');
     expect(previous).toEqual([b, a]);
     fail = false;
     expect(sorted.entities).toEqual([a, b]);
+    const values: number[] = [];
+    sorted.each((rank) => values.push(rank.value));
+    expect(values).toEqual([21, 11]);
   });
 });
