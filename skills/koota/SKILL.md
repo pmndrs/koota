@@ -219,7 +219,7 @@ world.add(Time, Config)
 
 Structural changes made inside a walk, a hook or `world.defer(fn)` are deferred. `add`, `remove`, `destroy` and machine `enter` apply in call order when the outermost scope ends, while `spawn`, `set` and `changed` are immediate. Inside the scope, `has` and `isAlive` still report the state the scope started with. Wrap indexed loops over `query.entities` in `world.defer`. `world.reset` and `world.destroy` cannot run inside a scope.
 
-Commands appended by hooks form the next drain wave. Settled observers wait until all commands finish. The drain permits 100 passes independent of batch size, then throws and clears pending work. Already-applied changes remain committed. Ordinary command errors allow remaining work to finish before the first error is rethrown.
+Commands appended by hooks form the next drain wave. Settled observers wait until all commands finish. A hook chain takes one wave per link. A hook that keeps undoing the change it observes is stopped after 100000 waves, and observers that keep invalidating each other after 100 rounds. Either throws and clears pending work. Already-applied changes remain committed. Ordinary command errors allow remaining work to finish before the first error is rethrown.
 
 Change notification holds one scope across tracking query reconciliation and trait or pair callbacks. An `onEnter(Changed(...))` callback can queue a removal without invalidating later notifications from the same write. Ordered view edits also apply in call order inside a scope, with `remove` reporting membership at call time even when its queued removal follows a pending addition.
 
