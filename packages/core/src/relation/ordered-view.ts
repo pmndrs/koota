@@ -1,4 +1,4 @@
-import { beginDefer, deferCommand, endDefer } from '../world/defer';
+import { runCommand } from '../world/defer';
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { notifyChanged } from '../query/modifiers/changed';
@@ -10,7 +10,10 @@ import type { EntityComparator, MutableOrderedView } from '../view/types';
 import type { WorldContext } from '../world';
 import type { ConfigurablePair, Relation } from './types';
 
-/** Deferred edits decide membership when they apply. A detached view applies nothing. */
+/**
+ * Every edit is a command and applies under a scope. It decides membership when it applies and a
+ * detached view applies nothing.
+ */
 function addNow(ctx: WorldContext, entity: Entity, view: RelationView) {
   if (view.isAttached()) applyAddTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
 }
@@ -24,14 +27,12 @@ function removeNow(ctx: WorldContext, entity: Entity, view: RelationView) {
 function insertNow(ctx: WorldContext, entity: Entity, view: RelationView, index: number) {
   if (!view.isAttached()) return;
   if (view.has(entity)) return moveNow(ctx, entity, view, index);
-  beginDefer(ctx);
   view.inserting = entity;
   view.insertIndex = index;
   try {
     applyAddTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
   } finally {
     view.inserting = undefined;
-    endDefer(ctx);
   }
 }
 
@@ -39,14 +40,9 @@ function clearNow(ctx: WorldContext, _parent: Entity, view: RelationView) {
   if (!view.isAttached() || view.length === 0) return;
   const entities = view.source.dense;
   view.source.dense = [];
-  beginDefer(ctx);
-  try {
-    for (const entity of entities)
-      applyRemoveTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
-    view.changed();
-  } finally {
-    endDefer(ctx);
-  }
+  for (const entity of entities)
+    applyRemoveTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+  view.changed();
 }
 
 function moveNow(_ctx: WorldContext, entity: Entity, view: RelationView, index: number) {
@@ -63,15 +59,10 @@ function moveNow(_ctx: WorldContext, entity: Entity, view: RelationView, index: 
   view.changed();
 }
 
-function sortNow(ctx: WorldContext, _parent: Entity, view: RelationView, compare: EntityComparator) {
+function sortNow(_ctx: WorldContext, _parent: Entity, view: RelationView, compare: EntityComparator) {
   if (!view.isAttached()) return;
-  beginDefer(ctx);
-  try {
-    view.source.write().sort(compare);
-    view.changed();
-  } finally {
-    endDefer(ctx);
-  }
+  view.source.write().sort(compare);
+  view.changed();
 }
 
 function reverseNow(_ctx: WorldContext, _parent: Entity, view: RelationView) {
@@ -113,16 +104,14 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   add(entity: Entity): this {
     this.assertActive();
     this.assertAlive(entity);
-    if (this.ctx.deferDepth !== 0) deferCommand(this.ctx, addNow, entity, this, undefined);
-    else addNow(this.ctx, entity, this);
+    runCommand(this.ctx, addNow, entity, this, undefined);
     return this;
   }
 
   insert(entity: Entity, index: number): this {
     this.assertActive();
     this.assertAlive(entity);
-    if (this.ctx.deferDepth !== 0) deferCommand(this.ctx, insertNow, entity, this, index);
-    else insertNow(this.ctx, entity, this, index);
+    runCommand(this.ctx, insertNow, entity, this, index);
     return this;
   }
 
@@ -130,35 +119,30 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   remove(entity: Entity): boolean {
     this.assertActive();
     const present = this.has(entity);
-    if (this.ctx.deferDepth !== 0) deferCommand(this.ctx, removeNow, entity, this, undefined);
-    else removeNow(this.ctx, entity, this);
+    runCommand(this.ctx, removeNow, entity, this, undefined);
     return present;
   }
 
   clear(): void {
     this.assertActive();
-    if (this.ctx.deferDepth !== 0) deferCommand(this.ctx, clearNow, this.parent, this, undefined);
-    else clearNow(this.ctx, this.parent, this);
+    runCommand(this.ctx, clearNow, this.parent, this, undefined);
   }
 
   moveTo(entity: Entity, index: number): this {
     this.assertActive();
-    if (this.ctx.deferDepth !== 0) deferCommand(this.ctx, moveNow, entity, this, index);
-    else moveNow(this.ctx, entity, this, index);
+    runCommand(this.ctx, moveNow, entity, this, index);
     return this;
   }
 
   sort(compare: EntityComparator): this {
     this.assertActive();
-    if (this.ctx.deferDepth !== 0) deferCommand(this.ctx, sortNow, this.parent, this, compare);
-    else sortNow(this.ctx, this.parent, this, compare);
+    runCommand(this.ctx, sortNow, this.parent, this, compare);
     return this;
   }
 
   reverse(): this {
     this.assertActive();
-    if (this.ctx.deferDepth !== 0) deferCommand(this.ctx, reverseNow, this.parent, this, undefined);
-    else reverseNow(this.ctx, this.parent, this);
+    runCommand(this.ctx, reverseNow, this.parent, this, undefined);
     return this;
   }
 

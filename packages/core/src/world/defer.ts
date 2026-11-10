@@ -65,12 +65,37 @@ export function deferCommand(
 }
 
 /**
- * Each pass applies the commands queued so far. Hooks append to the next wave, so the pass limit
- * bounds feedback without limiting batch size. Observers run only once all command waves drain.
- * Errors are recorded while both queues finish, then the first error is rethrown.
+ * The gate of an entry point off the hot path. Inside a scope the command joins the log. Outside
+ * one it applies under a root scope, so a command always applies with the depth held.
+ */
+export function runCommand(
+  ctx: WorldContext,
+  apply: Command,
+  entity: Entity,
+  a: unknown,
+  b: unknown
+) {
+  if (ctx.deferDepth !== 0) deferCommand(ctx, apply, entity, a, b);
+  else {
+    beginRootDefer(ctx);
+    try {
+      apply(ctx, entity, a, b);
+    } finally {
+      endRootDefer(ctx);
+    }
+  }
+}
+
+/**
+ * Applies the log in waves. A wave is the commands queued so far and hooks append to the next
+ * one, so a chain of hook driven changes costs one wave per link. Observers run once the log is
+ * empty and their changes start the next round. The wave limit only stops a hook that undoes the
+ * change it observes, where a recursive call would have overflowed the stack. Errors are recorded
+ * while both queues finish, then the first error is rethrown.
  */
 export function settleWorld(ctx: WorldContext) {
-  let passes = 0;
+  let waves = 0;
+  let rounds = 0;
   let head = 0;
   let failed = false;
   let failure: unknown;
@@ -78,29 +103,36 @@ export function settleWorld(ctx: WorldContext) {
   ctx.deferDepth++;
   try {
     while (ctx.commandCount !== 0 || ctx.settledQueue.size !== 0) {
-      if (++passes > 100) {
-        throw new Error(
-          'Koota: Deferred changes did not settle after 100 passes. A hook or observer is likely changing the state it observes.'
-        );
-      }
       const end = ctx.commandCount;
-      for (; head < end; head += 4) {
-        const entity = commands[head + 1] as Entity;
-        if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-        try {
-          (commands[head] as Command)(ctx, entity, commands[head + 2], commands[head + 3]);
-        } catch (error) {
-          if (!failed) {
-            failed = true;
-            failure = error;
+      if (head < end) {
+        if (++waves > 100000) {
+          throw new Error(
+            'Koota: Deferred changes did not settle after 100000 waves. A hook is likely undoing the change it observes.'
+          );
+        }
+        for (; head < end; head += 4) {
+          const entity = commands[head + 1] as Entity;
+          if (!isEntityAlive(ctx.entityIndex, entity)) continue;
+          try {
+            (commands[head] as Command)(ctx, entity, commands[head + 2], commands[head + 3]);
+          } catch (error) {
+            if (!failed) {
+              failed = true;
+              failure = error;
+            }
           }
         }
+        continue;
       }
-      if (head < ctx.commandCount) continue;
       clearCommands(ctx);
       head = 0;
+      if (++rounds > 100) {
+        throw new Error(
+          'Koota: Settled observers did not settle after 100 rounds. An observer is likely changing the state it observes.'
+        );
+      }
       try {
-        if (ctx.settledQueue.size !== 0) settle(ctx);
+        settle(ctx);
       } catch (error) {
         if (!failed) {
           failed = true;

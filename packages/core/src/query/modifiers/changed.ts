@@ -1,10 +1,8 @@
-import { $internal } from '../../common';
 import { assertsEnabled } from '../../assert-config';
 import { assertEntityAlive, assertTraitPresent } from '../../asserts';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { isEntityAlive } from '../../entity/utils/entity-index';
-import { hasRelationToTarget, reconcileRelationQueries } from '../../relation/relation';
+import { reconcileRelationQueries } from '../../relation/relation';
 import type { RelationPair } from '../../relation/types';
 import { emit, hasSubscribers } from '../../trait/subscriptions';
 import { getTraitInstance } from '../../trait/trait-instance';
@@ -109,33 +107,15 @@ export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, 
   }
 }
 
-/** Add notifications follow onAdd, once the initial value is available. */
+/**
+ * Add notifications follow onAdd, once the initial value is available. Removals made by onAdd
+ * are deferred, so the trait or pair is still present here.
+ */
 export /* @inline */ function notifyTraitAdded(
   ctx: WorldContext,
   entity: Entity,
   data: TraitInstance,
   target?: Entity
 ) {
-  if (hasSubscribers(data.changeSubscriptions)) {
-    emitAddedChange(ctx, entity, data, target);
-  }
-}
-
-/** An earlier event callback may have removed the trait, pair or entity. */
-export function emitAddedChange(
-  ctx: WorldContext,
-  entity: Entity,
-  data: TraitInstance,
-  target: Entity | undefined
-) {
-  if (!isEntityAlive(ctx.entityIndex, entity)) return;
-  const eid = getEntityId(entity);
-  if ((ctx.entityMasks[data.generationId][eid >>> 10][(eid & 1023) << 2] & data.bitflag) === 0)
-    return;
-  if (
-    target !== undefined &&
-    !hasRelationToTarget(ctx, data.trait[$internal].relation!, entity, target)
-  )
-    return;
   emit(data.changeSubscriptions, entity, target);
 }

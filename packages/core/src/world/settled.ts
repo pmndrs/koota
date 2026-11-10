@@ -1,8 +1,8 @@
 import type { WorldContext } from './types';
 
 /**
- * Runs the observers queued so far. settleWorld holds the defer scope and pass limit, so changes
- * and invalidations from these observers join a later pass. Every observer runs even if one throws.
+ * Runs the observers queued so far. settleWorld holds the defer scope and round limit, so changes
+ * and invalidations from these observers join a later round. Every observer runs even if one throws.
  */
 export function settle(ctx: WorldContext) {
   const queue = ctx.settledQueue;

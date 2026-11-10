@@ -60,7 +60,6 @@ export type WorldContext = {
   actionInstances: (ActionInstance | undefined)[];
   /** Tracking queries, and static queries that an entity holding no traits satisfies. */
   notQueries: QueryInstance[];
-  queryCallbackDepth: number;
   queryBatch: QueryNotification[] | undefined;
   internalQuerySubscriptions:
     WeakMap<QueryInstance, { add: Set<QuerySubscriber>; remove: Set<QuerySubscriber> }> | undefined;

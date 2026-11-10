@@ -1,4 +1,4 @@
-import { beginDefer, beginRootDefer, deferCommand, endDefer, endRootDefer } from '../world/defer';
+import { beginRootDefer, deferCommand, endRootDefer, runCommand } from '../world/defer';
 import type { EventType, QueryInstance } from '../query/types';
 import { addMachineTrait, createMachineInstance, removeMachineTrait } from '../machine/machine';
 import { $internal } from '../common';
@@ -243,14 +243,9 @@ export /* @inline */ function addTrait(
   }
 }
 
-/** The add as a command, applied inside the flush once the scope that logged it has ended. */
+/** The add as a command. Like every command it applies with a scope already held. */
 export function applyAddTrait(ctx: WorldContext, entity: Entity, traits: ConfigurableTrait[]) {
-  beginDefer(ctx);
-  try {
-    addTraitsToAliveEntity(ctx, entity, traits);
-  } finally {
-    endDefer(ctx);
-  }
+  addTraitsToAliveEntity(ctx, entity, traits);
 }
 
 /** The caller must establish entity liveness before adding traits. */
@@ -349,8 +344,7 @@ export /* @inline */ function upsertTrait(
   } else /* @cold */ {
     // Pairs and additions run out of line so the present trait write stays small enough to inline.
     // Inside a scope the whole upsert waits, since whether the trait is present is decided then.
-    if (ctx.deferDepth !== 0) deferCommand(ctx, applyUpsertTrait, entity, trait, value);
-    else applyUpsertTrait(ctx, entity, trait, value);
+    runCommand(ctx, applyUpsertTrait, entity, trait, value);
   }
 }
 
@@ -499,18 +493,13 @@ export function removeTrait(
   }
 }
 
-/** The removal as a command, applied inside the flush once the scope that logged it has ended. */
+/** The removal as a command. */
 export function applyRemoveTrait(
   ctx: WorldContext,
   entity: Entity,
   traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
 ) {
-  beginDefer(ctx);
-  try {
-    removeTraitsFromAliveEntity(ctx, entity, traits);
-  } finally {
-    endDefer(ctx);
-  }
+  removeTraitsFromAliveEntity(ctx, entity, traits);
 }
 
 /** @inline */

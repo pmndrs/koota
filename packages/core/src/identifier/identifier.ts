@@ -2,7 +2,6 @@ import { $internal, type Brand } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
-import { isEntityAlive } from '../entity/utils/entity-index';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
@@ -136,8 +135,7 @@ export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: Ident
     registerTrait(ctx, trait);
     data = getTraitInstance(ctx.traitInstances, trait);
   }
-  // Earlier assignments or registration callbacks may have destroyed the source.
-  if (!data || !isEntityAlive(ctx.entityIndex, entity)) return;
+  if (!data) return;
   const index = data.identifier!;
   const eid = getEntityId(entity);
   const page = (index.targets[eid >>> 10] ??= []);
@@ -227,16 +225,13 @@ export function notifyIdentifierAssignment(
     if (data.trackingQueries.length !== 0) refreshTrackingQueries(ctx, entity, data);
     emit(data.removeSubscriptions, entity, previous);
   }
-  // Query and removal subscribers may have replaced or removed this assignment.
-  if (!hasIdentifier(ctx, entity, pair)) return;
+  // Subscribers run inside the defer scope of the add, so the assignment holds through all of them.
   if (hasSubscribers(data.addSubscriptions)) {
     emitSubscribers(data.addSubscriptions, entity, pair.target);
-    if (!hasIdentifier(ctx, entity, pair)) return;
   }
   // Membership already recorded a first assignment for Changed queries. A replacement is a write.
   if (previous !== undefined) markTraitChanged(ctx, entity, data);
-  // Changed query subscribers can also replace the assignment before onChange runs.
-  if (hasSubscribers(data.changeSubscriptions) && hasIdentifier(ctx, entity, pair)) {
+  if (hasSubscribers(data.changeSubscriptions)) {
     emitSubscribers(data.changeSubscriptions, entity, pair.target);
   }
 }

@@ -219,7 +219,7 @@ function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boo
     }
   } else {
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
-    if (subscribers?.size) emitQuerySubscribers(ctx, subscribers, entity);
+    if (subscribers?.size) emitQuerySubscribers(subscribers, entity);
   }
 }
 
@@ -230,7 +230,7 @@ export function flushQueryBatch(ctx: WorldContext) {
     const { query, entity, added } = events[i];
     const subscriptions = ctx.internalQuerySubscriptions?.get(query);
     const internal = added ? subscriptions?.add : subscriptions?.remove;
-    if (internal?.size) emitQuerySubscribers(ctx, internal, entity);
+    if (internal?.size) emitQuerySubscribers(internal, entity);
   }
   ctx.queryBatch = undefined;
   if (events.length === 0) return;
@@ -250,33 +250,22 @@ export function flushQueryBatch(ctx: WorldContext) {
       if (event === undefined) continue;
       entities.delete(entity);
       if (event.first !== event.last) continue;
-      // Earlier callbacks may invalidate a queued membership change.
-      if (query.dropped || added !== query.entities.has(entity)) continue;
+      if (query.dropped) continue;
     }
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
     const subscriptions = ctx.internalQuerySubscriptions?.get(query);
     const internal = added ? subscriptions?.add : subscriptions?.remove;
     if (subscribers?.size) {
-      ctx.queryCallbackDepth++;
-      try {
-        for (const subscriber of subscribers) {
-          if (!internal?.has(subscriber)) subscriber(entity);
-        }
-      } finally {
-        ctx.queryCallbackDepth--;
+      for (const subscriber of subscribers) {
+        if (!internal?.has(subscriber)) subscriber(entity);
       }
     }
   }
 }
 
-/** A callback can drop queries from any list its caller is still walking. */
-function emitQuerySubscribers(ctx: WorldContext, subscribers: Set<QuerySubscriber>, entity: Entity) {
-  ctx.queryCallbackDepth++;
-  try {
-    for (const sub of subscribers) sub(entity);
-  } finally {
-    ctx.queryCallbackDepth--;
-  }
+/** Out of line so the membership paths that reach it stay small. */
+function emitQuerySubscribers(subscribers: Set<QuerySubscriber>, entity: Entity) {
+  for (const sub of subscribers) sub(entity);
 }
 
 export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
@@ -817,13 +806,6 @@ function leaveList(
 ) {
   const index = query.listSlots[slot];
   if (index === -1) return;
-  // A dispatch keeps its old array when a callback removes a query.
-  if (query.ctx.queryCallbackDepth !== 0) {
-    list = list.slice();
-    if (relation) instance.relationQueries = list;
-    else if (query.isTracking) instance.trackingQueries = list;
-    else instance.queries = list;
-  }
   query.listSlots[slot] = -1;
   const last = list.pop()!;
   if (index < list.length) {
@@ -888,7 +870,6 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   }
 
   if (query.notIndex !== -1) {
-    if (ctx.queryCallbackDepth !== 0) ctx.notQueries = ctx.notQueries.slice();
     const notQueries = ctx.notQueries;
     const last = notQueries.pop()!;
     if (query.notIndex < notQueries.length) {
