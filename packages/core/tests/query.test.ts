@@ -704,7 +704,7 @@ describe('Query', () => {
     }
   );
 
-  it('keeps an outer walk stable across nested updates and query runs', () => {
+  it('keeps a for...of sequence while nested walks change the query', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);
     const query = world.query(Position);
@@ -719,16 +719,17 @@ describe('Query', () => {
       });
       replacement = world.spawn(Position);
       const nested = world.query(Position);
-      expect(nested.entities).toEqual([first, second, replacement]);
-      expect([...nested]).toEqual([first, second, replacement]);
+      expect(nested.entities).toEqual([first, replacement]);
+      expect([...nested]).toEqual([first, replacement]);
     }
 
+    // The loop still yields the entity destroyed under it.
     expect(visited).toEqual([first, second]);
-    world.query(Position);
+    expect(second.isAlive()).toBe(false);
     expect([...query]).toEqual([first, replacement]);
   });
 
-  it('keeps a tracking batch stable during iteration and exposes the next batch', () => {
+  it('keeps a for...of sequence when a nested run consumes the next tracking batch', () => {
     const Added = createAdded();
     const ref = createQuery(Added(Position));
     world.query(ref);
@@ -743,16 +744,28 @@ describe('Query', () => {
       visited.push(entity);
       if (entity !== first) continue;
       third = world.spawn(Position);
-      expect([...world.query(ref)]).toEqual([first, second]);
+      expect([...world.query(ref)]).toEqual([third]);
     }
 
     expect(visited).toEqual([first, second]);
-    expect(world.query(ref).entities).toEqual([third]);
     expect(batch.entities).toEqual([third]);
     expect(world.query(ref).entities).toEqual([]);
   });
 
-  it('releases the iteration guard when a for of loop breaks', () => {
+  it('keeps the zero-copy entities array when a change follows a finished for of loop', () => {
+    const first = world.spawn(Position);
+    world.spawn(Position);
+    const query = world.query(Position);
+    const before = query.entities;
+
+    for (const _entity of query);
+    for (const _entity of query) break;
+    first.remove(Position);
+
+    expect(query.entities).toBe(before);
+  });
+
+  it('applies a destroy made inside a for of loop that breaks', () => {
     const first = world.spawn(Position);
     const second = world.spawn(Position);
 

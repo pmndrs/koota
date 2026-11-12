@@ -96,8 +96,7 @@ describe('Query sortBy', () => {
     const other = query.sortBy(Other, byX);
     expect(sorted.entities).toEqual([b, a]);
     expect(other.entities).toEqual([a, b]);
-    // Compare identities directly. A matcher walks both views and stops at the first difference.
-    expect(other === sorted).toBe(false);
+    expect(other).not.toBe(sorted);
     expect(query.sortBy(Position, (position) => -position.x).entities).toEqual([a, b]);
   });
 
@@ -151,6 +150,24 @@ describe('Query sortBy', () => {
       expect(sorted.entities).toEqual([c, b, a]);
     });
     expect(sorted.entities).toEqual([c, a]);
+  });
+
+  it('keeps a for...of sequence while key writes refresh the view', () => {
+    const a = world.spawn(Position({ x: 2 }));
+    const b = world.spawn(Position({ x: 1 }));
+    const c = world.spawn(Position({ x: 0 }));
+    const sorted = world.query(Position).sortBy(Position, byX);
+    const visited: Entity[] = [];
+
+    for (const entity of sorted) {
+      visited.push(entity);
+      // Each write moves the entity to the front, and the read refreshes the order.
+      entity.set(Position, { x: -visited.length });
+      expect(sorted.first).toBe(entity);
+    }
+
+    expect(visited).toEqual([c, b, a]);
+    expect(sorted.entities).toEqual([a, b, c]);
   });
 
   it('preserves an active walk during invalidation and nested reads', () => {

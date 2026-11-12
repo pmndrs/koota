@@ -140,7 +140,7 @@ export type World = {
   /**
    * Runs the function with structural changes deferred, as a walk does, and returns its result.
    * Adds, removes, destroys and machine transitions made inside apply in call order when the
-   * outermost scope ends. Use it around indexed loops over query entities.
+   * outermost scope ends. Use it around for...of and indexed loops over query entities.
    */
   defer<T>(fn: () => T): T;
   query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;

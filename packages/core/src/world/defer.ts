@@ -8,11 +8,12 @@ export type Command = (ctx: WorldContext, entity: Entity, a: any, b: any) => voi
 
 /**
  * A defer scope holds the world's defer depth. Every structural operation opens one around its
- * work and its hooks, every walk opens one around its callbacks and world.defer opens one around
- * a function. While the depth is nonzero, add, remove, destroy and machine transitions append to
- * the command log instead of running, so an operation completes before the changes its hooks
- * make and a walk never loses a row or the data under it. When the outermost scope ends the log
- * applies in call order and the settled observers run.
+ * work and its hooks, every callback walk opens one around its callbacks and world.defer opens
+ * one around a function. Each owner is a call frame, so every scope ends. A for...of loop has no
+ * such owner and opens none. While the depth is nonzero, add, remove, destroy and machine
+ * transitions append to the command log instead of running, so an operation completes before the
+ * changes its hooks make and a walk never loses a row or the data under it. When the outermost
+ * scope ends the log applies in call order and the settled observers run.
  */
 export /* @inline */ function beginDefer(ctx: WorldContext) {
   ctx.deferDepth++;

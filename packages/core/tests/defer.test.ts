@@ -193,13 +193,13 @@ describe('deferred structural changes', () => {
     const a = world.spawn(Position, Tag);
     const b = world.spawn(Position, Tag);
 
-    for (const entity of world.query(Position)) {
+    world.query(Position).forEach((entity) => {
       world.query(Tag).each((tagged) => {
         if (tagged === entity) tagged.remove(Tag);
       });
       // The nested walk ended, but the outer one still holds the scope.
       expect(entity.has(Tag)).toBe(true);
-    }
+    });
     expect(a.has(Tag)).toBe(false);
     expect(b.has(Tag)).toBe(false);
     world.destroy();
@@ -223,29 +223,63 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
-  it.each(['next', 'return'] as const)(
-    'closes a manual iterator once when %s drains a throwing hook',
-    (close) => {
-      const world = createWorld();
-      const entity = world.spawn(Position);
-      const iterator = world.query(Position)[Symbol.iterator]();
-      expect(iterator.next()).toEqual({ value: entity, done: false });
-      const stop = world.onRemove(Position, () => {
-        throw new Error('hook failed');
-      });
+  it('applies changes made inside for...of at once while the loop keeps its starting sequence', () => {
+    const world = createWorld();
+    const a = world.spawn(Position);
+    const b = world.spawn(Position);
+    const c = world.spawn(Position);
+    const visited: Entity[] = [];
+
+    for (const entity of world.query(Position)) {
+      visited.push(entity);
+      if (entity !== a) continue;
+      a.remove(Position);
+      b.destroy();
+      expect(a.has(Position)).toBe(false);
+      expect(b.isAlive()).toBe(false);
+      expect(world.query(Position).toArray()).toEqual([c]);
+    }
+
+    expect(visited).toEqual([a, b, c]);
+    world.destroy();
+  });
+
+  it('defers changes made inside for...of when world.defer wraps the loop', () => {
+    const world = createWorld();
+    world.spawn(Position);
+    world.spawn(Position);
+
+    world.defer(() => {
+      for (const entity of world.query(Position)) {
+        entity.remove(Position);
+        expect(entity.has(Position)).toBe(true);
+      }
+    });
+
+    expect(world.query(Position).length).toBe(0);
+    world.destroy();
+  });
+
+  it('leaves the world unaffected by an iterator that never finishes', () => {
+    const world = createWorld();
+    const a = world.spawn(Position);
+    const b = world.spawn(Position);
+    const iterator = world.query(Position)[Symbol.iterator]();
+    expect(iterator.next().value).toBe(a);
+
+    a.remove(Position);
+    expect(a.has(Position)).toBe(false);
+    expect(world.query(Position).toArray()).toEqual([b]);
+    world.query(Position).each((_position, entity) => {
       entity.remove(Position);
       expect(entity.has(Position)).toBe(true);
-
-      expect(() => iterator[close]!()).toThrow('hook failed');
-      expect(iterator.next().done).toBe(true);
-      expect(iterator.return!().done).toBe(true);
-
-      stop();
-      entity.remove(Position);
-      expect(entity.has(Position)).toBe(false);
-      world.destroy();
-    }
-  );
+    });
+    expect(world.query(Position).length).toBe(0);
+    // The abandoned iterator still reads the sequence it started with.
+    expect(iterator.next().value).toBe(b);
+    world.reset();
+    world.destroy();
+  });
 
   it('runs a function with structural changes deferred through world.defer', () => {
     const world = createWorld();

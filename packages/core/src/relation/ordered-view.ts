@@ -40,6 +40,7 @@ function clearNow(ctx: WorldContext, _parent: Entity, view: RelationView) {
   if (!view.isAttached() || view.length === 0) return;
   const entities = view.source.dense;
   view.source.dense = [];
+  view.source.readers = 0;
   for (const entity of entities)
     applyRemoveTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
   view.changed();

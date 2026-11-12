@@ -282,8 +282,10 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   entities: SparseSet;
   /** The set results read. Aliases entities for plain queries, swaps with it for tracking ones. */
   exposed: SparseSet;
-  /** Walks in progress over the results. A nested run keeps the exposed batch while it is nonzero. */
+  /** Callback walks in progress over the results. A nested run keeps the exposed batch while it is nonzero. */
   iterating: number;
+  /** Open for...of iterators that read the exposed array. A change detaches it while nonzero. */
+  readers: number;
   isTracking: boolean;
   /**
    * Holds a Removed term. Its other terms read the traits a dead entity died with, and its

@@ -99,6 +99,7 @@ export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity |
  */
 function consumeTrackingBatch(query: QueryInstance) {
   if (query.iterating !== 0) return;
+  if (query.readers !== 0) detachWalkedSet(query);
   const exposed = query.entities;
   const next = query.exposed;
   next.clear();
@@ -117,12 +118,23 @@ function consumeTrackingBatch(query: QueryInstance) {
   }
 }
 
+/**
+ * A for...of iterator reads the exposed array with no defer scope. A change while one may still
+ * read it moves the set to a fresh array instead, so the iterator keeps the sequence it started
+ * with. The readers left behind hold the old array and are no longer counted.
+ */
+function detachWalkedSet(query: QueryInstance) {
+  query.exposed.detach();
+  query.readers = 0;
+}
+
 /** Expired history leaves both batches without emitting a second removal event. */
 export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
   // Tracking queries reset on spawn. Identifier queries are outside that list.
   if (query.identifierFilters !== undefined) {
     resetQueryTrackingBitmasks(query, getEntityId(entity));
   }
+  if (query.readers !== 0) detachWalkedSet(query);
   if (query.entities.length !== 0) query.entities.remove(entity);
   if (query.exposed.length !== 0) query.exposed.remove(entity);
   query.version++;
@@ -143,9 +155,13 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   }
 }
 
-/** Walks defer the structural changes that reach here, so the removal can always apply at once. */
+/**
+ * Callback walks defer the structural changes that reach here, and a for...of reader is detached
+ * first, so the removal can always apply at once.
+ */
 export function removeEntityFromQuery(query: QueryInstance, entity: Entity) {
   if (query.dropped || !query.entities.has(entity)) return;
+  if (query.readers !== 0) detachWalkedSet(query);
   query.entities.remove(entity);
   query.version++;
 
@@ -420,6 +436,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     entities: new SparseSet(),
     exposed: null!,
     iterating: 0,
+    readers: 0,
     isTracking: false,
     retains: false,
     filters: null,

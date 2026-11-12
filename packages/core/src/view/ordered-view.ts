@@ -10,14 +10,23 @@ import type {
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
 import { sameParams } from '../query/utils/same-params';
-import { EntityView, getQueryBinding, matchesQueryBinding, type EntitySource } from './entity-view';
+import {
+  EntityView,
+  getQueryBinding,
+  matchesQueryBinding,
+  readView,
+  type EntitySource,
+} from './entity-view';
 import type { EntityComparator, OrderedView, SortKeySelector } from './types';
 import { sortKeys } from './sort-keys';
 
 /** Owns order independently of trait storage. Active walks retain their original sequence. */
 export class OrderedSource implements EntitySource {
   dense: Entity[];
+  /** Callback walks in progress. */
   iterating = 0;
+  /** Open for...of iterators that read the current array. A write replaces it while nonzero. */
+  readers = 0;
   views: ListView[] = [];
 
   constructor(entities: Entity[] = []) {
@@ -28,9 +37,12 @@ export class OrderedSource implements EntitySource {
     return this.dense.length;
   }
 
-  /** Copy only when an active walk still reads the current array. */
+  /** Copy only when a walk or an iterator may still read the current array. */
   write(): Entity[] {
-    if (this.iterating !== 0) this.dense = this.dense.slice();
+    if (this.iterating !== 0 || this.readers !== 0) {
+      this.dense = this.dense.slice();
+      this.readers = 0;
+    }
     return this.dense;
   }
 }
@@ -132,7 +144,11 @@ class SortedSource extends OrderedSource {
       let entities: Entity[];
       const { sorter } = this;
       if (typeof sorter !== 'function') {
-        entities = sorter.sort(rebuild ? this.base.source : this, this.dense);
+        // The sorter recycles the published array as scratch, which an iterator may still read.
+        entities = sorter.sort(
+          rebuild ? this.base.source : this,
+          this.readers !== 0 ? [] : this.dense
+        );
       } else {
         if (rebuild) {
           const source = this.base.source;
@@ -143,6 +159,7 @@ class SortedSource extends OrderedSource {
         entities.sort(sorter);
       }
       this.dense = entities;
+      this.readers = 0;
       this.revision = revision;
       this.dirty = false;
     } finally {
@@ -191,7 +208,7 @@ class SortedKeys implements EntitySource {
     for (let i = 0; i < count; i++) entities[i] = dense[i] as Entity;
     while (entities.length > count) entities.pop();
     // Read-only traversal neither writes trait data nor invalidates the dependency version.
-    this.reader.readEach(this.collect, this);
+    readView(this.reader, this.collect, this);
     const result = sortKeys(this.values, entities, this.scratch, this.output, this.runs, count);
     while (result.length > count) result.pop();
     // Retain the unused buffer and recycle published for the next refresh.

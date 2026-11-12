@@ -42,10 +42,10 @@ type Callback = (...args: any[]) => void;
 type IterationBufferPool = { iterationBuffers: QueryIterationBuffers | undefined };
 
 /**
- * Shared traversal over entity sequences. Every walk opens a defer scope, so structural changes
- * made by callbacks apply when the outermost walk ends and no row loses its data under it.
- * Ordered sources retain the arrays read by active walks. toArray returns a plain array the
- * caller owns.
+ * Shared traversal over entity sequences. Every callback walk opens a defer scope, so structural
+ * changes made by callbacks apply when the outermost walk ends and no row loses its data under
+ * it. A for...of loop opens none and only keeps its starting sequence. Ordered sources retain the
+ * arrays read by active walks. toArray returns a plain array the caller owns.
  */
 export class EntityView {
   ctx: WorldContext;
@@ -72,7 +72,7 @@ export class EntityView {
     this.layout = undefined;
   }
 
-  getGuard(): { iterating: number } | null {
+  getGuard(): { iterating: number; readers: number } | null {
     return this.live ? this.query : null;
   }
 
@@ -96,21 +96,26 @@ export class EntityView {
     return index >= 0 && index < length ? (dense[index] as Entity) : undefined;
   }
 
+  /**
+   * Walks the sequence present when the loop starts. Nothing bounds an iterator's lifetime, so it
+   * holds no defer scope and changes made by the loop body apply at once. It registers as a reader
+   * of its source instead, and a change to a source with readers moves it to a fresh array.
+   */
   [Symbol.iterator](): IterableIterator<Entity> {
     const source = this.getSource();
     const dense = source.dense as Entity[];
     // Trim retired slots so V8 can share the loop bound with the array access.
     if (dense.length !== source.length) dense.length = source.length;
     const guard = this.getGuard();
-    if (guard) guard.iterating++;
-    beginDefer(this.ctx);
+    if (guard) guard.readers++;
+    // A local cursor can be eliminated by V8. Reuse its result to avoid per-entity allocations.
     return {
       index: 0,
       length: dense.length,
       dense,
+      source,
       guard,
-      ctx: this.ctx,
-      done: false,
+      result: { value: 0 as Entity, done: false },
       next: nextViewIterator,
       return: returnViewIterator,
       [Symbol.iterator]: iterateViewIterator,
@@ -141,22 +146,8 @@ export class EntityView {
     return result;
   }
 
-  readEach(callback: Callback, pool: IterationBufferPool = this.query ?? this.ctx) {
-    const { dense, length } = this.getSource();
-    if (length === 0) return this;
-    const { ctx, query } = this;
-    const guard = this.getGuard();
-    const { stores } = this.binding;
-    const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding, query);
-    if (guard) guard.iterating++;
-    beginDefer(ctx);
-    try {
-      buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
-    } finally {
-      if (guard) guard.iterating--;
-      releaseIterationBuffers(pool, buffers);
-      endDefer(ctx);
-    }
+  readEach(callback: Callback) {
+    readView(this, callback, this.query ?? this.ctx);
     return this;
   }
 
@@ -223,14 +214,38 @@ export class EntityView {
   }
 }
 
+/**
+ * Read only walk over a view. Trait data is neither written back nor marked changed, so the walk
+ * leaves trait versions alone. The pool names where the iteration buffers come from, which lets a
+ * sort key reader keep its projection prepared apart from the view's own walks. Like every
+ * callback walk it holds a defer scope.
+ */
+export function readView(view: EntityView, callback: Callback, pool: IterationBufferPool) {
+  const { dense, length } = view.getSource();
+  if (length === 0) return;
+  const { ctx, query } = view;
+  const guard = view.getGuard();
+  const { stores } = view.binding;
+  const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], view.binding, query);
+  if (guard) guard.iterating++;
+  beginDefer(ctx);
+  try {
+    buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
+  } finally {
+    if (guard) guard.iterating--;
+    releaseIterationBuffers(pool, buffers);
+    endDefer(ctx);
+  }
+}
+
 /** Walks the membership present when the loop started. */
 interface ViewIterator extends IterableIterator<Entity> {
   index: number;
-  done: boolean;
   readonly length: number;
   readonly dense: readonly number[];
-  readonly guard: { iterating: number } | null;
-  readonly ctx: WorldContext;
+  readonly source: EntitySource;
+  readonly guard: { readers: number } | null;
+  readonly result: { value: Entity; done: boolean };
 }
 
 function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
@@ -244,31 +259,32 @@ function nextViewIterator(this: ViewIterator): IteratorResult<Entity> {
   } else {
     finishViewIterator(this);
   }
-  // A local result lets V8 eliminate it independently of the cursor.
-  return { value, done };
+  this.result.value = value;
+  this.result.done = done;
+  return this.result as IteratorResult<Entity>;
 }
 
 function returnViewIterator(this: ViewIterator): IteratorResult<Entity> {
   finishViewIterator(this);
-  return { value: 0 as Entity, done: true };
+  return this.result as IteratorResult<Entity>;
 }
 
 function iterateViewIterator(this: ViewIterator) {
   return this;
 }
 
-/* @inline */ function finishViewIterator(iterator: ViewIterator) {
-  if (!iterator.done) {
-    iterator.done = true;
+/**
+ * Closes the walk once. The source stops counting this reader only while it still holds the
+ * array the reader walked. Once a change has detached it there is nothing left to release, and
+ * an iterator that never finishes costs its source one copy.
+ */
+function finishViewIterator(iterator: ViewIterator) {
+  if (!iterator.result.done) {
+    iterator.result.done = true;
     iterator.index = iterator.length;
-    endViewIteration(iterator.ctx, iterator.guard);
+    const guard = iterator.guard;
+    if (guard !== null && iterator.source.dense === iterator.dense) guard.readers--;
   }
-}
-
-/** Keep scope cleanup outside the per-entity next method's inlining budget. */
-function endViewIteration(ctx: WorldContext, guard: ViewIterator['guard']) {
-  if (guard) guard.iterating--;
-  endDefer(ctx);
 }
 
 /** Handle-only snapshots need no world-specific stores or query-owned view cache. */
