@@ -21,7 +21,9 @@ Queries fetch entities that share specific traits (archetypes).
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
-A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes during view traversal with `for...of`, `forEach`, or `each` are deferred. Adds, removes, destroys and machine transitions made inside a walk apply in call order when the outermost walk ends, so every row keeps its entity, traits and relation targets until then. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities. Spawning is immediate and the new entity shows up on the next run.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Callback walks, `each`, `forEach` and `map`, defer structural changes. Adds, removes, destroys and machine transitions made inside one apply in call order when the outermost walk ends, so every row keeps its entity, traits and relation targets until then. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities. Spawning is immediate and the new entity shows up on the next run. A trait added inside a walk is not present until the walk ends, so pass its value to `add` or use `upsert` instead of following `add` with `set`. A deferred call reads its arguments when it applies, so give each deferred `add` its own value object.
+
+A `for...of` loop is your own loop and defers nothing. Changes made in its body apply at once and the loop keeps the sequence it started with, so it can reach an entity destroyed earlier in the loop. Wrap a `for...of` or indexed loop in `world.defer` to defer its changes the way a walk does.
 
 ```typescript
 // Returns a QueryView, a live borrowed view
@@ -31,14 +33,13 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// Entities destroyed during a walk stay alive until it ends, entities spawned
-// show up on the next run. Finish every for of loop you start, a suspended
-// iterator holds every structural change in the world.
+// A for of loop keeps its starting sequence and its changes apply at once,
+// so a later entity may already be destroyed when the loop reaches it
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
 
-// Indexed loops over query.entities get the same guarantee from world.defer
+// world.defer gives a for of or indexed loop the guarantees of a walk
 world.defer(() => {
   const dense = entities.entities
   for (let i = 0; i < dense.length; i++) if (dense[i].has(IsDead)) dense[i].destroy()
@@ -381,7 +382,7 @@ sorted.each((position) => {
 
 Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
 
-Active view walks keep their starting order. Re-enter the view after they finish to refresh it.
+Active view walks keep their starting order. Re-enter the view after they finish to refresh it. A `for...of` loop keeps its own sequence while the view refreshes on the next access.
 
 `sorted.entities` checks whether the order needs refreshing, then returns the cached array without an extra copy. Read it once before the loop:
 
