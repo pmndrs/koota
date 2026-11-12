@@ -204,7 +204,7 @@ export function addSharedIdentifierOwner(
   }
 }
 
-/** Publish the committed mapping, allowing callbacks to replace or remove it. */
+/** Publish the committed mapping to queries and subscribers. */
 export function notifyIdentifierAssignment(
   ctx: WorldContext,
   entity: Entity,

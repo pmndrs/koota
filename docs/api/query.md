@@ -6,7 +6,7 @@ nav: 5
 
 A Koota query is a lot like a database query. Parameters define how to find entities and efficiently process them in batches. Queries are the primary way to update and transform your app state, similar to how you'd use SQL to filter and modify database records.
 
-Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Every walk, `each`, `forEach` and `for...of`, defers structural changes. Adds, removes, destroys and machine transitions made inside apply in call order when the outermost walk ends, so each row keeps its entity, traits and relation targets while it is visited. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities, so `has` still reports a trait whose removal is pending and `isAlive` still reports an entity whose destroy is pending. Spawning is immediate and the new entity joins the next run. Wrap indexed loops over `query.entities` in `world.defer` for the same guarantee. Guard stale handles with `entity.isAlive()` when retaining a copy.
+Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Callback walks, `each`, `forEach` and `map`, defer structural changes. Adds, removes, destroys and machine transitions made inside apply in call order when the outermost walk ends, so each row keeps its entity, traits and relation targets while it is visited. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities, so `has` still reports a trait whose removal is pending and `isAlive` still reports an entity whose destroy is pending. Spawning is immediate and the new entity joins the next run. A trait added inside a walk is not present until the walk ends, so pass its value to `add` or use `upsert` instead of following `add` with `set`. A deferred call reads its arguments when it applies, so give each deferred `add` its own value object. A `for...of` loop is your own loop and defers nothing. Changes made in its body apply at once and the loop keeps the sequence it started with, so it can reach an entity destroyed earlier in the loop. Wrap a `for...of` or indexed loop in `world.defer` to defer its changes the way a walk does. Guard stale handles with `entity.isAlive()` when retaining a copy.
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
 
@@ -180,7 +180,7 @@ sorted.each((position) => {
 
 Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
 
-Active view walks keep their starting order. Re-enter the view after they finish to refresh it.
+Active view walks keep their starting order. Re-enter the view after they finish to refresh it. A `for...of` loop keeps its own sequence while the view refreshes on the next access.
 
 `sorted.entities` checks whether the order needs refreshing, then returns the cached array without an extra copy. Read it once before the loop:
 

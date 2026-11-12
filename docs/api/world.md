@@ -104,7 +104,7 @@ world.reset()
 world.destroy()
 ```
 
-Structural changes are deferred while a defer scope is open. Walks open one around their callbacks, every structural operation opens one around its hooks, and `world.defer` opens one around a function. While it is open, `add`, `remove`, `upsert`, `destroy` and machine `enter` are logged and apply in call order when the outermost scope ends. `spawn`, `set` and `changed` are immediate. A logged command whose entity was destroyed earlier in the log is dropped. If a command throws, the rest still apply and the first error is rethrown.
+Structural changes are deferred while a defer scope is open. Callback walks such as `each` and `forEach` open one around their callbacks, every structural operation opens one around its hooks, and `world.defer` opens one around a function. A `for...of` or indexed loop opens none, so wrap it in `world.defer` to defer its changes. While it is open, `add`, `remove`, `upsert`, `destroy` and machine `enter` are logged and apply in call order when the outermost scope ends. `spawn`, `set` and `changed` are immediate. A logged command whose entity was destroyed earlier in the log is dropped. If a command throws, the rest still apply and the first error is rethrown.
 
 Change notification holds one scope across tracking query reconciliation and trait or pair callbacks. Structural changes requested by an `onEnter(Changed(...))` callback wait until the other notifications finish.
 
