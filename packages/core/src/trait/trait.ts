@@ -231,8 +231,11 @@ export /* @inline */ function addTrait(
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
-  if (ctx.deferDepth !== 0) /* @cold */ {
-    deferCommand(ctx, applyAddTrait, entity, traits, undefined);
+  if (ctx.deferDepth !== 0) {
+    // One trait is logged as it is. More are spread again instead of handing over the rest array,
+    // which would make every immediate add allocate it once this branch has run.
+    if (traits.length === 1) deferAddOne(ctx, entity, traits[0]);
+    else deferAddTrait(ctx, entity, ...traits);
   } else {
     beginRootDefer(ctx);
     try {
@@ -243,9 +246,24 @@ export /* @inline */ function addTrait(
   }
 }
 
+/** Logs the add of one trait, the common case, with no argument array. */
+export function deferAddOne(ctx: WorldContext, entity: Entity, config: ConfigurableTrait) {
+  deferCommand(ctx, applyAddOne, entity, config, undefined);
+}
+
+/** Logs the add of several traits. The rest parameter is the array the command keeps. */
+export function deferAddTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
+  deferCommand(ctx, applyAddTrait, entity, traits, undefined);
+}
+
 /** The add as a command. Like every command it applies with a scope already held. */
 export function applyAddTrait(ctx: WorldContext, entity: Entity, traits: ConfigurableTrait[]) {
   addTraitsToAliveEntity(ctx, entity, traits);
+}
+
+/** The add of one trait as a command, the common case, which keeps argument arrays out of the log. */
+export function applyAddOne(ctx: WorldContext, entity: Entity, config: ConfigurableTrait) {
+  addTraitsToAliveEntity(ctx, entity, [config]);
 }
 
 /** The caller must establish entity liveness before adding traits. */
@@ -486,10 +504,9 @@ export function removeTrait(
     assertEntityAlive(ctx, entity);
   }
   if (ctx.deferDepth !== 0) {
-    // Copy by index so only the command's array escapes. A helper or slice retains the rest array.
-    const deferred: typeof traits = [];
-    for (let i = 0; i < traits.length; i++) deferred[i] = traits[i];
-    deferCommand(ctx, applyRemoveTrait, entity, deferred, undefined);
+    // Spread again so the command gets an array of its own and the rest array never escapes. A
+    // single trait path like the one in addTrait does not fit the inline budget of this function.
+    deferRemoveTrait(ctx, entity, ...traits);
   } else {
     beginRootDefer(ctx);
     try {
@@ -498,6 +515,15 @@ export function removeTrait(
       endRootDefer(ctx);
     }
   }
+}
+
+/** Logs the removal. The rest parameter is the array the command keeps. */
+export function deferRemoveTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+) {
+  deferCommand(ctx, applyRemoveTrait, entity, traits, undefined);
 }
 
 /** The removal as a command. */
