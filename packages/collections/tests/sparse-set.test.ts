@@ -98,6 +98,22 @@ describe('SparseSet', () => {
     }
   );
 
+  it('detaches to a fresh array and leaves the old one untouched', () => {
+    set.add(1);
+    set.add(2);
+    set.add(3);
+    const before = set.dense;
+
+    set.detach();
+    set.remove(1);
+    set.add(4);
+
+    expect(before).toEqual([1, 2, 3]);
+    expect(set.dense).not.toBe(before);
+    expect(set.toArray()).toEqual([3, 2, 4]);
+    expect(set.has(1)).toBe(false);
+  });
+
   it('reads live storage without copying and creates independent array snapshots', () => {
     set.add(1);
     set.add(2);
