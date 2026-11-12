@@ -1,6 +1,6 @@
 export class SparseSet {
-  /** Zero-copy backing storage. Only entries below length are live. */
-  readonly dense: number[] = [];
+  /** Zero-copy backing storage. Only entries below length are live. Replaced only by detach. */
+  dense: number[] = [];
   /** Low 24 bits select a bucket. Full values remain distinct in dense. */
   readonly sparse: number[] = [];
   length = 0;
@@ -89,6 +89,11 @@ export class SparseSet {
       if (this.dense[index] === val) return index;
     }
     return -1;
+  }
+
+  /** Moves the live entries to a fresh array, so a reader holding the old one keeps its contents. */
+  detach(): void {
+    this.dense = this.dense.slice(0, this.length);
   }
 
   /** Copies the current contents into an independent array. */

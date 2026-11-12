@@ -1,7 +1,7 @@
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
-import { getEntityContext, isEntityDestroying } from '../entity/entity';
+import { getEntityContext } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { DESTROYED_WORD, EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
@@ -24,7 +24,7 @@ import { clearTraitMembership, setTraitMembership } from '../trait/membership';
 import { hasTrait, registerTrait, trait } from '../trait/trait';
 import type { ConfigurableTrait, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
-import { endStructuralChanges } from '../world/settled';
+import { runCommand } from '../world/defer';
 import type {
   Machine,
   MachineContext,
@@ -92,7 +92,7 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
       const target = Array.isArray(state) ? state[0] : state;
       if (!members.includes(target))
         throw new Error('Koota: [MACHINE_STATE] The state is not a member.');
-      changeMachine(ctx, entity, context, target, Array.isArray(state) ? state[1] : undefined, true);
+      runCommand(ctx, applyEnter, entity, context, state);
     },
   }) as Machine<S>;
   marker[$internal].machine = context;
@@ -102,6 +102,17 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
     member[$internal].kind = 'machine';
   }
   return result;
+}
+
+/** The immediate transition. Inside a defer scope the log holds it until the scope ends. */
+function applyEnter(
+  ctx: WorldContext,
+  entity: Entity,
+  machine: MachineContext,
+  state: Trait | [Trait, unknown]
+) {
+  const target = Array.isArray(state) ? state[0] : state;
+  changeMachine(ctx, entity, machine, target, Array.isArray(state) ? state[1] : undefined, true);
 }
 
 export function createMachineInstance(): MachineInstance {
@@ -195,14 +206,6 @@ export function removeMachineTrait(ctx: WorldContext, entity: Entity, member: Tr
   changeMachine(ctx, entity, machine, undefined, undefined, false, dying);
 }
 
-export function assertMachineIdle(ctx: WorldContext, entity: Entity) {
-  if (ctx.machineMutations?.has(entity)) {
-    throw new Error(
-      "Koota: [MACHINE_REENTRANT] Finish this entity's machine callbacks before changing its machine or destroying it."
-    );
-  }
-}
-
 /** Record both events before matching a tracking query against the final membership. */
 function reconcileMachine(
   ctx: WorldContext,
@@ -240,7 +243,7 @@ function reconcileMachine(
             : checkQueryWithFilters(ctx, query, entity))
         )
           addEntityToQuery(query, entity);
-        else removeEntityFromQuery(ctx, query, entity);
+        else removeEntityFromQuery(query, entity);
       }
     if (tracked)
       for (const query of tracked) {
@@ -258,7 +261,7 @@ function reconcileMachine(
           );
         }
         if (matches) addEntityToQuery(query, entity);
-        else removeEntityFromQuery(ctx, query, entity);
+        else removeEntityFromQuery(query, entity);
       }
     if (anchored)
       for (let i = 0; i < 3; i++) {
@@ -281,9 +284,6 @@ function changeMachine(
   reenter: boolean,
   dying = false
 ) {
-  assertMachineIdle(ctx, entity);
-  if (!dying && isEntityDestroying(entity))
-    throw new Error('Koota: [MACHINE_DESTROYING] Cannot enter a state during destruction.');
   const from = currentState(ctx, entity, machine);
   if (!reenter && from === to) return;
   if (
@@ -297,71 +297,64 @@ function changeMachine(
     }
     return;
   }
-  const mutations = (ctx.machineMutations ??= new Set());
-  mutations.add(entity);
-  ctx.structuralDepth++;
-  try {
-    let marker = ctx.traitInstances[machine.trait.id];
-    const subscriptionVersion = marker?.machine?.subscriptionVersion ?? 0;
-    if (marker === undefined) marker = registerTrait(ctx, machine.trait);
-    const data = marker.machine!;
-    if (to !== undefined && ctx.traitInstances[to.id] === undefined) registerTrait(ctx, to);
-    const before = from === undefined ? undefined : ctx.traitInstances[from.id]!;
-    const after = to === undefined ? undefined : ctx.traitInstances[to.id]!;
-    const eid = getEntityId(entity);
-    const subscribed = data.subscribers.size !== 0 || data.byEntity.has(entity);
-    const previous = subscribed && before ? from![$internal].get(ctx, eid, before.store) : undefined;
-    let prepared: unknown;
-    if (after) {
-      if (from === to) prepared = machine.initializers.get(to!)!(value);
-      else to![$internal].add(ctx, eid, after.store, value);
-    }
-    // Removal hooks see the old state. No membership or query changes have happened yet.
-    if (before) emit(before.removeSubscriptions, entity);
-    if (to === undefined) emit(marker.removeSubscriptions, entity);
-    if (before) from![$internal].remove(ctx, eid, before.store);
-    if (from === to && after) to![$internal].set(ctx, eid, after.store, prepared);
-    if (dying) {
-      for (const generation of ctx.entityMasks) {
-        const page = generation[eid >>> 10];
-        if (page !== EMPTY_MASK_PAGE)
-          page[((eid & 1023) << 2) + DESTROYED_WORD] |= page[(eid & 1023) << 2];
-      }
-    }
-    if (before) clearTraitMembership(ctx, entity, before);
-    if (after) setTraitMembership(ctx, entity, after);
-    if (from === undefined) setTraitMembership(ctx, entity, marker);
-    if (to === undefined) clearTraitMembership(ctx, entity, marker);
-    const revisions = (data.revisions[eid >>> 10] ??= []);
-    revisions[eid & 1023] = (revisions[eid & 1023] ?? 0) + 1;
-    reconcileMachine(
-      ctx,
-      entity,
-      before,
-      after,
-      from === undefined || to === undefined ? marker : undefined,
-      dying
-    );
-    if (after) {
-      emit(after.addSubscriptions, entity);
-      notifyTraitAdded(ctx, entity, after);
-    }
-    if (from === undefined) {
-      emit(marker.addSubscriptions, entity);
-      notifyTraitAdded(ctx, entity, marker);
-    }
-    // Registration numbers exclude late listeners without copying the subscriber lists.
-    for (const callback of data.subscribers.keys()) {
-      if (data.subscribers.get(callback)! <= subscriptionVersion)
-        callback(entity, from, to, previous);
-    }
-    const subscribers = data.byEntity.get(entity);
-    if (subscribers)
-      for (const callback of subscribers.keys()) {
-        if (subscribers.get(callback)! <= subscriptionVersion) callback(entity, from, to, previous);
-      }
-  } finally {
-    mutations.delete(entity);
-    endStructuralChanges(ctx);
+  // Every caller holds a defer scope, so transitions and destroys made by the callbacks below
+  // wait until this one completes.
+  let marker = ctx.traitInstances[machine.trait.id];
+  const subscriptionVersion = marker?.machine?.subscriptionVersion ?? 0;
+  if (marker === undefined) marker = registerTrait(ctx, machine.trait);
+  const data = marker.machine!;
+  if (to !== undefined && ctx.traitInstances[to.id] === undefined) registerTrait(ctx, to);
+  const before = from === undefined ? undefined : ctx.traitInstances[from.id]!;
+  const after = to === undefined ? undefined : ctx.traitInstances[to.id]!;
+  const eid = getEntityId(entity);
+  const subscribed = data.subscribers.size !== 0 || data.byEntity.has(entity);
+  const previous = subscribed && before ? from![$internal].get(ctx, eid, before.store) : undefined;
+  let prepared: unknown;
+  if (after) {
+    if (from === to) prepared = machine.initializers.get(to!)!(value);
+    else to![$internal].add(ctx, eid, after.store, value);
   }
+  // Removal hooks see the old state. No membership or query changes have happened yet.
+  if (before) emit(before.removeSubscriptions, entity);
+  if (to === undefined) emit(marker.removeSubscriptions, entity);
+  if (before) from![$internal].remove(ctx, eid, before.store);
+  if (from === to && after) to![$internal].set(ctx, eid, after.store, prepared);
+  if (dying) {
+    for (const generation of ctx.entityMasks) {
+      const page = generation[eid >>> 10];
+      if (page !== EMPTY_MASK_PAGE)
+        page[((eid & 1023) << 2) + DESTROYED_WORD] |= page[(eid & 1023) << 2];
+    }
+  }
+  if (before) clearTraitMembership(ctx, entity, before);
+  if (after) setTraitMembership(ctx, entity, after);
+  if (from === undefined) setTraitMembership(ctx, entity, marker);
+  if (to === undefined) clearTraitMembership(ctx, entity, marker);
+  const revisions = (data.revisions[eid >>> 10] ??= []);
+  revisions[eid & 1023] = (revisions[eid & 1023] ?? 0) + 1;
+  reconcileMachine(
+    ctx,
+    entity,
+    before,
+    after,
+    from === undefined || to === undefined ? marker : undefined,
+    dying
+  );
+  if (after) {
+    emit(after.addSubscriptions, entity);
+    notifyTraitAdded(ctx, entity, after);
+  }
+  if (from === undefined) {
+    emit(marker.addSubscriptions, entity);
+    notifyTraitAdded(ctx, entity, marker);
+  }
+  // Registration numbers exclude late listeners without copying the subscriber lists.
+  for (const callback of data.subscribers.keys()) {
+    if (data.subscribers.get(callback)! <= subscriptionVersion) callback(entity, from, to, previous);
+  }
+  const subscribers = data.byEntity.get(entity);
+  if (subscribers)
+    for (const callback of subscribers.keys()) {
+      if (subscribers.get(callback)! <= subscriptionVersion) callback(entity, from, to, previous);
+    }
 }

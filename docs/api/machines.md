@@ -75,7 +75,7 @@ A swap commits the old and new membership together. A query matching both states
 
 Trackers retain their ordinary semantics. `Changed` includes additions and writes. Trackers coalesce changes and do not record an event history. Entering then leaving a state before reading `Added` removes that pending match. Re-entering a state clears its pending `Removed` match. Use transition callbacks to observe each transition.
 
-Inside `each`, membership changes immediately, including for `has`, `current` and nested queries. Only removal from the active query's backing collection is deferred. The walk keeps its starting sequence and does not revisit a transitioned entity. Stop using a state's borrowed callback value after transitioning away or re-entering it. Iterator writeback will not overwrite a replacement state.
+Inside `each`, a transition is deferred like any other structural change. `has`, `current` and nested queries keep reporting the state the walk started with, and the transition applies when the outermost walk ends. The state's borrowed callback value stays valid for the whole callback and writes to it land in the old state before the swap.
 
 ## Query lifecycle
 
@@ -111,9 +111,7 @@ Only listeners registered when a transition starts are eligible for that transit
 
 The order is destination preparation, old member `onRemove`, machine `onRemove` on detachment, membership and query reconciliation, query `onEnter` and `onExit` callbacks, new member `onAdd` and `onChange`, machine addition callbacks on attachment, then world and entity transition callbacks. Removal callbacks can still read the old member. Post-commit callbacks see the new membership, including relation-target query filters.
 
-Before delivering a queued static-query notification, its membership is checked again. An earlier callback that destroys an entity or changes whether it matches can invalidate a pending notification, which is then skipped. Tracking queries retain their existing event semantics.
-
-Machine changes or destruction of the same entity during these callbacks throw `[MACHINE_REENTRANT]`. Other entities can transition. Perform follow-up transitions after the current call returns. Entering a state during that entity's destruction is rejected.
+Structural changes made by these callbacks, including transitions and destroys of the same entity, are deferred and apply in call order once the transition completes. A callback that enters another state therefore observes the state it was called for, and the follow-up transition runs its own callbacks afterwards. A deferred transition is checked against the transition table when it applies, so an illegal one throws from the end of the walk or operation that requested it.
 
 Initialization failure or a throwing removal callback leaves the old membership intact. A callback throwing after the commit leaves the new membership intact and stops subsequent callback delivery. There is no rollback of user callback effects.
 
@@ -151,7 +149,5 @@ The binding follows the same transitions as the React hook. Pass the entity or w
 | `[MACHINE_INITIAL]`            | The initial state is not a member with defaults.                |
 | `[MACHINE_TRANSITIONS]`        | A table source or target is not a member.                       |
 | `[MACHINE_STATE]`              | `enter` receives a nonmember.                                   |
-| `[MACHINE_REENTRANT]`          | A callback changes a machine or destroys the same entity.       |
-| `[MACHINE_DESTROYING]`         | An entity being destroyed attempts to enter a state.            |
 
 Machines provide no clocks, predicate guards or effects. Keep timed conditions and transition decisions in systems and actions.

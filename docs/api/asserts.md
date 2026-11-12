@@ -12,7 +12,7 @@ Koota makes common ECS assumptions executable when assertions are enabled:
 
 Errors include a stable code such as `[ENTITY_ALIVE]`, `[TRAIT_PRESENT]`, or `[RELATION_PRESENT]`, plus the relevant entity, target, or trait identifiers. The thrown `Error` supplies the call stack. Applications can attach that information to a bug report with their build revision and replay.
 
-Assertions check preconditions and writeback boundaries. They do not roll back callback side effects or mutations made through shared object references. Checks required for normal behavior, such as skipping an entity destroyed inside an `each` callback, remain enabled in every build.
+Assertions check preconditions and writeback boundaries. They do not roll back callback side effects or mutations made through shared object references. Deferral of structural changes inside walks and hooks is part of normal behavior and stays on in every build.
 
 Missing-trait `get` returns `undefined`, duplicate adds and absent-trait removals remain valid, and `isAlive()` and `world.has(entity)` remain safe lifetime probes. `Removed` query selections intentionally expose historical data and do not require current trait membership. Entity subscriptions on dead handles retain their existing no-op behavior.
 

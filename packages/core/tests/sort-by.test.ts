@@ -137,7 +137,7 @@ describe('Query sortBy', () => {
     expect(sorted.entities).toEqual([a, b]);
   });
 
-  it('excludes pending removals while the base query is being walked', () => {
+  it('defers a removal made while the base query is walked until the walk ends', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
     const c = world.spawn(Position({ x: 0 }));
@@ -147,9 +147,27 @@ describe('Query sortBy', () => {
     query.forEach((entity) => {
       if (entity !== a) return;
       b.remove(Position);
-      expect(sorted.entities).toEqual([c, a]);
+      expect(sorted.entities).toEqual([c, b, a]);
     });
     expect(sorted.entities).toEqual([c, a]);
+  });
+
+  it('keeps a for...of sequence while key writes refresh the view', () => {
+    const a = world.spawn(Position({ x: 2 }));
+    const b = world.spawn(Position({ x: 1 }));
+    const c = world.spawn(Position({ x: 0 }));
+    const sorted = world.query(Position).sortBy(Position, byX);
+    const visited: Entity[] = [];
+
+    for (const entity of sorted) {
+      visited.push(entity);
+      // Each write moves the entity to the front, and the read refreshes the order.
+      entity.set(Position, { x: -visited.length });
+      expect(sorted.first).toBe(entity);
+    }
+
+    expect(visited).toEqual([c, b, a]);
+    expect(sorted.entities).toEqual([a, b, c]);
   });
 
   it('preserves an active walk during invalidation and nested reads', () => {

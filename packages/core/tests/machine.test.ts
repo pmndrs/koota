@@ -247,7 +247,7 @@ describe('machines', () => {
   );
 
   it.each([false, true])(
-    'skips queued additions for entities destroyed by an earlier callback (walking: %s)',
+    'delivers queued additions before a destroy deferred by an earlier callback (walking: %s)',
     (walking) => {
       const { Wanted, Loading, Download } = download();
       const world = createWorld();
@@ -263,13 +263,13 @@ describe('machines', () => {
       if (walking) world.query(RefersTo(Loading)).each(() => Download.enter(target, Loading));
       else Download.enter(target, Loading);
       expect(source.isAlive()).toBe(false);
-      expect(events).toEqual(['remove']);
+      expect(events).toEqual(['add', 'remove']);
       stop();
       world.destroy();
     }
   );
 
-  it('skips queued removals when an earlier callback restores query membership', () => {
+  it('reports a removal and the membership a callback restores in order', () => {
     const { Wanted, Loading, Download } = download();
     const world = createWorld();
     const RefersTo = relation();
@@ -283,7 +283,7 @@ describe('machines', () => {
 
     Download.enter(target, Loading);
     expect(world.query(RefersTo(Wanted)).toArray()).toContain(source);
-    expect(events).toEqual(['add']);
+    expect(events).toEqual(['remove', 'add']);
     world.destroy();
   });
 
@@ -338,7 +338,7 @@ describe('machines', () => {
     world.destroy();
   });
 
-  it('updates membership during a walk and visits each starting entity once', () => {
+  it('defers transitions made during a walk until it ends', () => {
     const { Wanted, Loading, Download } = download();
     const world = createWorld();
     const entities = Array.from({ length: 3 }, () => world.spawn(Download));
@@ -346,9 +346,9 @@ describe('machines', () => {
     world.query(Wanted).each((entity) => {
       visited.push(entity);
       Download.enter(entity, Loading);
-      expect(entity.has(Wanted)).toBe(false);
-      expect(Download.current(entity)).toBe(Loading);
-      expect(world.query(Wanted).toArray()).not.toContain(entity);
+      expect(entity.has(Wanted)).toBe(true);
+      expect(Download.current(entity)).toBe(Wanted);
+      expect(world.query(Wanted).toArray()).toContain(entity);
     });
     expect(visited).toEqual(entities);
     expect(world.query(Loading).toArray()).toEqual(entities);
@@ -371,23 +371,28 @@ describe('machines', () => {
     world.destroy();
   });
 
-  it('rejects reentrant mutation, releases the lock after errors, and permits other entities', () => {
-    const { Loading, Failed, Download } = download();
+  it('defers transitions and destroys made by transition callbacks until the transition completes', () => {
+    const { Wanted, Loading, Failed, Download } = download();
     const world = createWorld();
     const entity = world.spawn(Download);
     const other = world.spawn(Download);
-    const stop = entity.onTransition(Download, () => {
-      expect(() => Download.enter(entity, Failed)).toThrow('[MACHINE_REENTRANT]');
-      expect(() => entity.destroy()).toThrow('[MACHINE_REENTRANT]');
+    const seen: unknown[] = [];
+    entity.onTransition(Download, (_, _from, to) => {
+      seen.push(to);
+      if (to !== Loading) return;
+      Download.enter(entity, Failed);
       Download.enter(other, Loading);
-      throw new Error('subscriber');
+      expect(Download.current(entity)).toBe(Loading);
+      expect(Download.current(other)).toBe(Wanted);
     });
-    expect(() => Download.enter(entity, Loading)).toThrow('subscriber');
-    expect(Download.current(entity)).toBe(Loading);
-    expect(Download.current(other)).toBe(Loading);
-    stop();
-    entity.add(Failed);
+    Download.enter(entity, Loading);
+    expect(seen).toEqual([Loading, Failed]);
     expect(Download.current(entity)).toBe(Failed);
+    expect(Download.current(other)).toBe(Loading);
+
+    other.onTransition(Download, () => other.destroy());
+    Download.enter(other, Failed);
+    expect(other.isAlive()).toBe(false);
     world.destroy();
   });
 

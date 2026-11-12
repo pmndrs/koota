@@ -203,15 +203,18 @@ describe('Lifecycle Subscriptions', () => {
       }
     );
 
-    it('skips an addition removed by an earlier onAdd callback', () => {
+    it('defers a removal made by an onAdd callback until the add completes', () => {
       const entity = world.spawn();
       const changed = vi.fn();
-      entity.onAdd(Position, () => entity.remove(Position));
+      entity.onAdd(Position, () => {
+        entity.remove(Position);
+        expect(entity.has(Position)).toBe(true);
+      });
       entity.onChange(Position, changed);
 
       entity.add(Position);
       expect(entity.has(Position)).toBe(false);
-      expect(changed).not.toHaveBeenCalled();
+      expect(changed).toHaveBeenCalledExactlyOnceWith(entity);
     });
   });
 
@@ -372,7 +375,7 @@ describe('Lifecycle Subscriptions', () => {
       expect(cb).toHaveBeenCalledTimes(1);
     });
 
-    it('does not invoke a listener removed or destroyed during dispatch', () => {
+    it('does not invoke a listener removed during dispatch', () => {
       const entity = world.spawn(Position);
       const removed = vi.fn();
       const unsub = entity.onChange(Position, removed);
@@ -381,14 +384,17 @@ describe('Lifecycle Subscriptions', () => {
       entity.set(Position, { x: 1, y: 1 });
       expect(removed).not.toHaveBeenCalled();
       worldUnsub();
+    });
 
+    it('defers a destroy made during dispatch so later listeners still run', () => {
       const victim = world.spawn(Position);
       const late = vi.fn();
       victim.onChange(Position, () => victim.destroy());
       victim.onChange(Position, late);
 
       victim.set(Position, { x: 1, y: 1 });
-      expect(late).not.toHaveBeenCalled();
+      expect(late).toHaveBeenCalledExactlyOnceWith(victim);
+      expect(victim.isAlive()).toBe(false);
     });
 
     it('registers nothing for a destroyed handle', () => {
@@ -405,19 +411,20 @@ describe('Lifecycle Subscriptions', () => {
       unsub();
     });
 
-    it('does not deliver a dead generation event to a replacement on the same id', () => {
+    it('defers a destroy made during dispatch so a replacement never shares the id', () => {
       const original = world.spawn(Position);
       const replacementCb = vi.fn();
       const worldUnsub = world.onChange(Position, (e) => {
         if (e !== original) return;
         e.destroy();
         const replacement = world.spawn(Position);
-        expect(replacement.id()).toBe(original.id());
+        expect(replacement.id()).not.toBe(original.id());
         replacement.onChange(Position, replacementCb);
       });
 
       original.set(Position, { x: 1, y: 1 });
       expect(replacementCb).not.toHaveBeenCalled();
+      expect(original.isAlive()).toBe(false);
       worldUnsub();
     });
 

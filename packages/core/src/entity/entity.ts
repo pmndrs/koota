@@ -1,6 +1,5 @@
-import { endStructuralChanges } from '../world/settled';
+import { beginDefer, beginRootDefer, deferCommand, endDefer, endRootDefer } from '../world/defer';
 import { $internal } from '../common';
-import { assertMachineIdle } from '../machine/machine';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import {
@@ -49,7 +48,7 @@ import './entity-methods-patch';
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);
 
-  ctx.structuralDepth++;
+  beginDefer(ctx);
   try {
     // Queries that can match without traits need an initial membership check.
     const notQueries = ctx.notQueries;
@@ -74,120 +73,98 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
       for (const sub of ctx.entitySpawnSubscriptions) sub(entity);
     }
   } finally {
-    endStructuralChanges(ctx);
+    endDefer(ctx);
   }
 
   return entity;
-}
-
-// Entities already visited by the destroy in progress, keyed by id and stamped per outer call so
-// nothing is cleared between destroys. The packed entity is kept so a recycled id is not mistaken
-// for the entity that was destroyed before it.
-const processedStamp: number[] = [];
-const processedEntity: number[] = [];
-let destroyStamp = 0;
-const cachedQueue = [] as Entity[];
-let isDestroying = false;
-
-/** An entity being destroyed cannot acquire a new identifier owner entry. */
-export function isEntityDestroying(entity: Entity): boolean {
-  if (!isDestroying) return false;
-  const eid = getEntityId(entity);
-  return processedStamp[eid] === destroyStamp && processedEntity[eid] === entity;
 }
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
-
-  // Subscribers run inside the loop below and may destroy entities themselves. A nested
-  // call takes its own queue so it cannot wipe the cascade the outer call is still
-  // walking, and shares the processed stamp so neither call destroys the same entity twice.
-  const nested = isDestroying;
-  const entityQueue = nested ? [entity] : cachedQueue;
-  const stamp = nested ? destroyStamp : ++destroyStamp;
-
-  if (!nested) entityQueue.push(entity);
-
-  isDestroying = true;
-  ctx.structuralDepth++;
-
-  try {
-    while (entityQueue.length > 0) {
-      destroyQueuedEntity(ctx, entityQueue.pop()!, entityQueue, stamp);
+  if (ctx.deferDepth !== 0) /* @cold */ {
+    deferCommand(ctx, applyDestroyEntity, entity, undefined, undefined);
+  } else {
+    beginRootDefer(ctx);
+    try {
+      applyDestroyEntity(ctx, entity);
+    } finally {
+      endRootDefer(ctx);
     }
-  } finally {
-    isDestroying = nested;
-    // Only a throw leaves entries behind. Trimming the length reallocates, so do it only then.
-    if (!nested && entityQueue.length !== 0) entityQueue.length = 0;
-    endStructuralChanges(ctx);
   }
 }
 
-/** Keep the destroy worker separate so trait removal and eviction have their own inlining budget. */
-export function destroyQueuedEntity(
-  ctx: WorldContext,
-  entity: Entity,
-  entityQueue: Entity[],
-  stamp: number
-) {
-  if (ctx.machineMutations !== undefined && ctx.machineMutations.size !== 0) /* @cold */ {
-    assertMachineIdle(ctx, entity);
-  }
-  const eid = getEntityId(entity);
-  if (processedStamp[eid] === stamp && processedEntity[eid] === entity) {
-    return;
-  }
-  processedStamp[eid] = stamp;
-  processedEntity[eid] = entity;
+/**
+ * The destroy as a command. Destroys the entity and everything its relations cascade to.
+ * Same-world destroys from hooks are deferred, so each world walks one cascade at a time even
+ * when hooks enter another world. The loop body is written in place on purpose. It keeps this
+ * function above the 460 bytes TurboFan inlines, so it compiles on its own and trait removal and
+ * eviction get an inlining budget that the caller's loop does not share.
+ */
+export function applyDestroyEntity(ctx: WorldContext, root: Entity) {
+  const entityQueue = ctx.destroyQueue;
+  entityQueue.push(root);
+  try {
+    while (entityQueue.length > 0) {
+      const entity = entityQueue.pop()!;
+      // A cycle or shared descendant can enqueue a handle more than once.
+      if (!isEntityAlive(ctx.entityIndex, entity)) continue;
+      ctx.destroying = entity;
+      const eid = getEntityId(entity);
 
-  if (ctx.relations.length !== 0) {
-    cleanupDestroyedRelations(ctx, entity, eid, entityQueue, stamp);
-  }
+      if (ctx.relations.length !== 0) {
+        cleanupDestroyedRelations(ctx, entity, eid, entityQueue);
+      }
 
-  if (ctx.entityDestroySubscriptions.size > 0 && entity !== ctx.worldEntity) {
-    emitEntityDestroy(ctx, entity);
-  }
-  // Remove every trait the masks still hold. A removal may cascade into others, so the word
-  // is read again after each one. Record the held word first so Removed query filters
-  // match the traits the entity held at destruction.
-  const pageId = eid >>> 10;
-  const offset = eid & 1023;
-  const slot = offset << 2;
-  const entityMasks = ctx.entityMasks;
-  for (let g = 0; g < entityMasks.length; g++) {
-    const page = entityMasks[g][pageId];
-    if (page === EMPTY_MASK_PAGE) continue;
-    const traitsByBit = ctx.traitsByBit[g];
-    let word = page[slot];
-    page[slot + DESTROYED_WORD] |= word;
-    while (word !== 0) {
-      const low = word & -word;
-      const instance = traitsByBit[31 - Math.clz32(low)];
-      removeTraitFromDyingEntity(ctx, entity, instance);
-      // Clear the bit by hand in case removal declined, so the walk always ends.
-      word = page[slot] & ~low;
+      if (ctx.entityDestroySubscriptions.size > 0 && entity !== ctx.worldEntity) {
+        emitEntityDestroy(ctx, entity);
+      }
+      // Remove every trait the masks still hold. A removal may cascade into others, so the word
+      // is read again after each one. Record the held word first so Removed query filters
+      // match the traits the entity held at destruction.
+      const pageId = eid >>> 10;
+      const offset = eid & 1023;
+      const slot = offset << 2;
+      const entityMasks = ctx.entityMasks;
+      for (let g = 0; g < entityMasks.length; g++) {
+        const page = entityMasks[g][pageId];
+        if (page === EMPTY_MASK_PAGE) continue;
+        const traitsByBit = ctx.traitsByBit[g];
+        let word = page[slot];
+        page[slot + DESTROYED_WORD] |= word;
+        while (word !== 0) {
+          const low = word & -word;
+          const instance = traitsByBit[31 - Math.clz32(low)];
+          removeTraitFromDyingEntity(ctx, entity, instance);
+          // Clear the bit by hand in case removal declined, so the walk always ends.
+          word = page[slot] & ~low;
+        }
+      }
+
+      // Keep the data and id for Removed queries until eviction.
+      freeEntity(ctx.entityIndex, entity);
+
+      const targetQueries = ctx.targetQueries[pageId]?.[offset];
+      if (targetQueries) dropTargetQueries(ctx, targetQueries, entity, false);
+
+      if (ctx.notQueries.length !== 0) leaveTraitlessQueries(ctx, entity);
+
+      if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, entity);
+
+      // A removal that declined leaves its bit held. Clear what remains, keeping history.
+      for (let i = 0; i < entityMasks.length; i++) {
+        const page = entityMasks[i][pageId];
+        if (page === EMPTY_MASK_PAGE) continue;
+        page[slot] = 0;
+      }
+      retainDestroyedEntity(ctx, entity);
     }
+  } finally {
+    ctx.destroying = undefined;
+    // Only a throw leaves entries behind. Trimming the length reallocates, so do it only then.
+    if (entityQueue.length !== 0) entityQueue.length = 0;
   }
-
-  // Keep the data and id for Removed queries until eviction.
-  freeEntity(ctx.entityIndex, entity);
-
-  const targetQueries = ctx.targetQueries[pageId]?.[offset];
-  if (targetQueries) dropTargetQueries(ctx, targetQueries, entity, false);
-
-  if (ctx.notQueries.length !== 0) leaveTraitlessQueries(ctx, entity);
-
-  if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, entity);
-
-  // Callbacks may have added traits during removal. Clear any remaining held bits, keeping history.
-  for (let i = 0; i < entityMasks.length; i++) {
-    const page = entityMasks[i][pageId];
-    if (page === EMPTY_MASK_PAGE) continue;
-    page[slot] = 0;
-  }
-  retainDestroyedEntity(ctx, entity);
 }
 
 /** Detach every relation that points at the dying entity and queue its auto destroy cascade. */
@@ -195,8 +172,7 @@ function cleanupDestroyedRelations(
   ctx: WorldContext,
   entity: Entity,
   entityId: number,
-  entityQueue: Entity[],
-  stamp: number
+  entityQueue: Entity[]
 ) {
   const relations = ctx.relations;
   for (let r = 0; r < relations.length; r++) {
@@ -225,8 +201,6 @@ function cleanupDestroyedRelations(
       const targets = getRelationTargets(ctx, relation, entity);
       for (const target of targets) {
         if (!isEntityAlive(ctx.entityIndex, target)) continue;
-        const targetId = getEntityId(target);
-        if (processedStamp[targetId] === stamp && processedEntity[targetId] === target) continue;
         entityQueue.push(target);
       }
     }

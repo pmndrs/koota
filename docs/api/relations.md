@@ -190,6 +190,8 @@ children.clear() // Removes all ChildOf(parent) pairs
 
 Adding the ordered trait collects existing children. Removing it leaves their relations intact. Each walk keeps the sequence it started with.
 
+Inside a walk, hook or `world.defer`, all view edits apply in call order when the scope ends, including `moveTo`, `sort` and `reverse`. Membership is checked when an edit applies. `remove(child)` returns whether the child is present at call time, but still queues the removal when it returns false, so a queued `add(child)` followed by `remove(child)` leaves the child absent. Edits to a view detached before they apply are dropped.
+
 Ordering work happens when children are added, removed, or reordered. For order derived from trait values, use a [sorted query](query.md#ordered-views).
 
 ## Querying relations

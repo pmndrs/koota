@@ -19,7 +19,7 @@ import { getTraitInstance } from '../trait/trait-instance';
 import type { TagTrait, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isTrackingModifier } from './modifier';
-import { bindQueryView, createOwnedView, exposeQuerySet } from './query-view';
+import { bindQueryView, exposeQuerySet } from './query-view';
 import { $queryRef } from './symbols';
 import {
   type Modifier,
@@ -80,49 +80,15 @@ export function runQuery<T extends QueryParameter[]>(
   query: QueryInstance<T>,
   params: QueryParameter[]
 ): QueryView<T> {
-  if (ctx.dirtyQueries.length !== 0) commitQueryRemovals(ctx);
   if (query.isTracking) consumeTrackingBatch(query);
-  if (query.iterating !== 0 && query.toRemove !== null && query.toRemove.length !== 0) {
-    return retained(ctx, query, params);
-  }
   return bindQueryView(ctx, query, params) as QueryView<T>;
 }
 
-/** A run nested in a walk cannot commit removals, so it gets a copy without the pending ones. */
-function retained<T extends QueryParameter[]>(
-  ctx: WorldContext,
-  query: QueryInstance,
-  params: QueryParameter[]
-): QueryView<T> {
-  const { dense, length } = query.exposed;
-  const toRemove = query.toRemove!;
-  const entities: Entity[] = [];
-  for (let i = 0; i < length; i++) {
-    if (!toRemove.has(dense[i])) entities.push(dense[i] as Entity);
-  }
-  return createOwnedView<T>(ctx, entities, query, params);
-}
-
 export function runQueryFirst(ctx: WorldContext, query: QueryInstance): Entity | undefined {
-  if (ctx.dirtyQueries.length !== 0) commitQueryRemovals(ctx);
   // Reading one entity still consumes the entire tracking batch.
   if (query.isTracking) consumeTrackingBatch(query);
   const { dense, length } = query.exposed;
-  if (length === 0) return undefined;
-  if (query.iterating !== 0 && query.toRemove !== null && query.toRemove.length !== 0) {
-    return firstRetained(query);
-  }
-  return dense[0] as Entity;
-}
-
-/** Removals wait while the query is walked, so skip the pending ones by hand. */
-function firstRetained(query: QueryInstance): Entity | undefined {
-  const { dense, length } = query.exposed;
-  const toRemove = query.toRemove!;
-  for (let i = 0; i < length; i++) {
-    if (!toRemove.has(dense[i])) return dense[i] as Entity;
-  }
-  return undefined;
+  return length !== 0 ? (dense[0] as Entity) : undefined;
 }
 
 /**
@@ -133,6 +99,7 @@ function firstRetained(query: QueryInstance): Entity | undefined {
  */
 function consumeTrackingBatch(query: QueryInstance) {
   if (query.iterating !== 0) return;
+  if (query.readers !== 0) detachWalkedSet(query);
   const exposed = query.entities;
   const next = query.exposed;
   next.clear();
@@ -151,37 +118,35 @@ function consumeTrackingBatch(query: QueryInstance) {
   }
 }
 
+/**
+ * A for...of iterator reads the exposed array with no defer scope. A change while one may still
+ * read it moves the set to a fresh array instead, so the iterator keeps the sequence it started
+ * with. The readers left behind hold the old array and are no longer counted.
+ */
+function detachWalkedSet(query: QueryInstance) {
+  query.exposed.detach();
+  query.readers = 0;
+}
+
 /** Expired history leaves both batches without emitting a second removal event. */
 export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
   // Tracking queries reset on spawn. Identifier queries are outside that list.
   if (query.identifierFilters !== undefined) {
     resetQueryTrackingBitmasks(query, getEntityId(entity));
   }
+  if (query.readers !== 0) detachWalkedSet(query);
   if (query.entities.length !== 0) query.entities.remove(entity);
-  query.toRemove?.remove(entity);
-  if (query.exposed.length !== 0 && query.exposed.has(entity)) {
-    /* @cold */ if (query.iterating !== 0) {
-      // An active walk keeps its array and skips expired handles. Later reads see the new set.
-      const next = new SparseSet();
-      const { dense, length } = query.exposed;
-      for (let i = 0; i < length; i++) if (dense[i] !== entity) next.add(dense[i]);
-      exposeQuerySet(query, next);
-    } else {
-      query.exposed.remove(entity);
-    }
-  }
+  if (query.exposed.length !== 0) query.exposed.remove(entity);
   query.version++;
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   if (query.dropped) return;
-  const toRemove = query.toRemove;
   if (
     (query.identifierFilters !== undefined || query.ctx.queryBatch !== undefined) &&
     hasStaticMembership(query, entity)
   )
     return;
-  if (toRemove !== null && toRemove.length !== 0) toRemove.remove(entity);
   query.entities.add(entity);
   query.version++;
 
@@ -190,23 +155,14 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   }
 }
 
-/** Removes at once unless a walk is in progress, which keeps the removal pending until it ends. */
-export function removeEntityFromQuery(ctx: WorldContext, query: QueryInstance, entity: Entity) {
+/**
+ * Callback walks defer the structural changes that reach here, and a for...of reader is detached
+ * first, so the removal can always apply at once.
+ */
+export function removeEntityFromQuery(query: QueryInstance, entity: Entity) {
   if (query.dropped || !query.entities.has(entity)) return;
-  const toRemove = query.toRemove;
-  if (toRemove !== null && toRemove.has(entity)) return;
-
-  // Walks in progress, over this query or a copy of it, re-check their rows once this moves.
-  ctx.entityIndex.revision++;
-  if (query.iterating === 0) {
-    query.entities.remove(entity);
-  } else {
-    (query.toRemove ??= new SparseSet()).add(entity);
-    if (!query.dirty) {
-      query.dirty = true;
-      ctx.dirtyQueries.push(query);
-    }
-  }
+  if (query.readers !== 0) detachWalkedSet(query);
+  query.entities.remove(entity);
   query.version++;
 
   if (query.removeSubscriptions !== null || query.addSubscriptions !== null) {
@@ -219,9 +175,9 @@ export function leaveTraitlessQueries(ctx: WorldContext, entity: Entity) {
   const queries = ctx.notQueries;
   for (let i = 0; i < queries.length; i++) {
     const query = queries[i];
-    if (!query.isTracking) removeEntityFromQuery(ctx, query, entity);
+    if (!query.isTracking) removeEntityFromQuery(query, entity);
     else if (query.filters?.tracking && !checkQueryTracking(ctx, query, entity, 'change', -1, 0)) {
-      removeEntityFromQuery(ctx, query, entity);
+      removeEntityFromQuery(query, entity);
     }
   }
 }
@@ -263,16 +219,12 @@ export function reconcileTargetQueries(
     const query = queries[i];
     if (query === undefined || !query.anchored) continue;
     if (!dying && checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
-    else removeEntityFromQuery(ctx, query, entity);
+    else removeEntityFromQuery(query, entity);
   }
 }
 
 function hasStaticMembership(query: QueryInstance, entity: Entity) {
-  return (
-    !query.isTracking &&
-    query.entities.has(entity) &&
-    (query.toRemove === null || !query.toRemove.has(entity))
-  );
+  return !query.isTracking && query.entities.has(entity);
 }
 
 function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
@@ -283,7 +235,7 @@ function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boo
     }
   } else {
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
-    if (subscribers?.size) emitQuerySubscribers(ctx, subscribers, entity);
+    if (subscribers?.size) emitQuerySubscribers(subscribers, entity);
   }
 }
 
@@ -294,7 +246,7 @@ export function flushQueryBatch(ctx: WorldContext) {
     const { query, entity, added } = events[i];
     const subscriptions = ctx.internalQuerySubscriptions?.get(query);
     const internal = added ? subscriptions?.add : subscriptions?.remove;
-    if (internal?.size) emitQuerySubscribers(ctx, internal, entity);
+    if (internal?.size) emitQuerySubscribers(internal, entity);
   }
   ctx.queryBatch = undefined;
   if (events.length === 0) return;
@@ -314,61 +266,22 @@ export function flushQueryBatch(ctx: WorldContext) {
       if (event === undefined) continue;
       entities.delete(entity);
       if (event.first !== event.last) continue;
-      // Earlier callbacks may invalidate a queued membership change.
-      if (
-        query.dropped ||
-        added !==
-          (query.entities.has(entity) && (query.toRemove === null || !query.toRemove.has(entity)))
-      )
-        continue;
+      if (query.dropped) continue;
     }
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
     const subscriptions = ctx.internalQuerySubscriptions?.get(query);
     const internal = added ? subscriptions?.add : subscriptions?.remove;
     if (subscribers?.size) {
-      ctx.queryCallbackDepth++;
-      try {
-        for (const subscriber of subscribers) {
-          if (!internal?.has(subscriber)) subscriber(entity);
-        }
-      } finally {
-        ctx.queryCallbackDepth--;
+      for (const subscriber of subscribers) {
+        if (!internal?.has(subscriber)) subscriber(entity);
       }
     }
   }
 }
 
-/** A callback can drop queries from any list its caller is still walking. */
-function emitQuerySubscribers(ctx: WorldContext, subscribers: Set<QuerySubscriber>, entity: Entity) {
-  ctx.queryCallbackDepth++;
-  try {
-    for (const sub of subscribers) sub(entity);
-  } finally {
-    ctx.queryCallbackDepth--;
-  }
-}
-
-export function commitQueryRemovals(ctx: WorldContext) {
-  const dirty = ctx.dirtyQueries;
-  let kept = 0;
-  for (let q = 0; q < dirty.length; q++) {
-    const query = dirty[q];
-    // A query being walked keeps its removals pending so the walk sees a stable list.
-    if (query.iterating !== 0) {
-      dirty[kept++] = query;
-      continue;
-    }
-    query.dirty = false;
-    const toRemove = query.toRemove!;
-    const { dense, length } = toRemove;
-    for (let i = length - 1; i >= 0; i--) {
-      const eid = dense[i];
-      toRemove.remove(eid);
-      query.entities.remove(eid);
-    }
-  }
-  // Popping keeps the backing store, which a length write would release.
-  while (dirty.length > kept) dirty.pop();
+/** Out of line so the membership paths that reach it stay small. */
+function emitQuerySubscribers(subscribers: Set<QuerySubscriber>, entity: Entity) {
+  for (const sub of subscribers) sub(entity);
 }
 
 export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
@@ -523,12 +436,11 @@ export function createQueryInstance<T extends QueryParameter[]>(
     entities: new SparseSet(),
     exposed: null!,
     iterating: 0,
+    readers: 0,
     isTracking: false,
     retains: false,
     filters: null,
     changedMasks: [],
-    toRemove: null,
-    dirty: false,
     notIndex: -1,
     dropped: false,
     inlineNodes: null,
@@ -776,7 +688,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
           if (match) {
             addEntityToQuery(query, source);
           } else {
-            removeEntityFromQuery(ctx, query, source);
+            removeEntityFromQuery(query, source);
           }
         }
       };
@@ -911,13 +823,6 @@ function leaveList(
 ) {
   const index = query.listSlots[slot];
   if (index === -1) return;
-  // A dispatch keeps its old array when a callback removes a query.
-  if (query.ctx.queryCallbackDepth !== 0) {
-    list = list.slice();
-    if (relation) instance.relationQueries = list;
-    else if (query.isTracking) instance.trackingQueries = list;
-    else instance.queries = list;
-  }
   query.listSlots[slot] = -1;
   const last = list.pop()!;
   if (index < list.length) {
@@ -982,7 +887,6 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
   }
 
   if (query.notIndex !== -1) {
-    if (ctx.queryCallbackDepth !== 0) ctx.notQueries = ctx.notQueries.slice();
     const notQueries = ctx.notQueries;
     const last = notQueries.pop()!;
     if (query.notIndex < notQueries.length) {
@@ -1005,10 +909,6 @@ export function dropQuery(ctx: WorldContext, query: QueryInstance) {
     if (targetQueries.length === 0) page[eid & 1023] = undefined;
   }
 
-  if (query.dirty) {
-    query.dirty = false;
-    ctx.dirtyQueries.splice(ctx.dirtyQueries.indexOf(query), 1);
-  }
   if (ctx.queriesHashMap.get(query.hash) === query) ctx.queriesHashMap.delete(query.hash);
 
   if (query.refId >= 0 && ctx.queryInstances[query.refId] === query) {

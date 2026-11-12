@@ -86,13 +86,29 @@ world.entities
 // Return number
 const id = world.id()
 
+// Run a function with structural changes deferred, as a walk does
+// Adds, removes, destroys and transitions apply in call order when it returns
+// Return the function's result
+const count = world.defer(() => {
+  const dense = world.query(IsDead).entities
+  for (let i = 0; i < dense.length; i++) dense[i].destroy()
+  return dense.length
+})
+
 // Resets the world as if it were just created
 // The world ID and reference is preserved
+// Cannot run inside a walk, a hook or world.defer
 world.reset()
 
 // Nukes the world and releases its ID
 world.destroy()
 ```
+
+Structural changes are deferred while a defer scope is open. Callback walks such as `each` and `forEach` open one around their callbacks, every structural operation opens one around its hooks, and `world.defer` opens one around a function. A `for...of` or indexed loop opens none, so wrap it in `world.defer` to defer its changes. While it is open, `add`, `remove`, `upsert`, `destroy` and machine `enter` are logged and apply in call order when the outermost scope ends. `spawn`, `set` and `changed` are immediate. A logged command whose entity was destroyed earlier in the log is dropped. If a command throws, the rest still apply and the first error is rethrown.
+
+Change notification holds one scope across tracking query reconciliation and trait or pair callbacks. Structural changes requested by an `onEnter(Changed(...))` callback wait until the other notifications finish.
+
+Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled observers wait until all commands finish. A chain of hooks takes one wave per link and can be as long as it needs. A hook that keeps undoing the change it observes is stopped after 100000 waves, and observers that keep invalidating each other after 100 rounds. Either throws and clears pending commands and observers, and already-applied changes remain committed.
 
 See [query lifecycle](query.md#query-lifecycle) for membership semantics and examples.
 

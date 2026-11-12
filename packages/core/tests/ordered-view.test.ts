@@ -36,7 +36,7 @@ describe('Sorted query views', () => {
     expect(sorted.entities).toEqual([c, a]);
   });
 
-  it('excludes pending removals while the base query is being walked', () => {
+  it('defers a removal made while the base query is walked until the walk ends', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
     const c = world.spawn(Position({ x: 0 }));
@@ -47,7 +47,7 @@ describe('Sorted query views', () => {
     query.forEach((entity) => {
       if (entity !== a) return;
       b.remove(Position);
-      expect(sorted.entities).toEqual([c, a]);
+      expect(sorted.entities).toEqual([c, b, a]);
     });
 
     expect(sorted.entities).toEqual([c, a]);
@@ -76,7 +76,7 @@ describe('Sorted query views', () => {
     expect(sorted.entities).toEqual([a, b]);
   });
 
-  it.each(['each', 'forEach', 'for...of'] as const)(
+  it.each(['each', 'forEach'] as const)(
     'defers sorting until re-entry after active walks finish (%s)',
     (mode) => {
       const a = world.spawn(Position({ x: 2 }));
@@ -105,9 +105,6 @@ describe('Sorted query views', () => {
         case 'forEach':
           sorted.forEach(visit);
           break;
-        case 'for...of':
-          for (const entity of sorted) visit(entity);
-          break;
       }
 
       expect(visited).toEqual([b, a]);
@@ -115,16 +112,23 @@ describe('Sorted query views', () => {
     }
   );
 
-  it('allows sorting after a loop exits early', () => {
+  it('refreshes inside for...of while the loop keeps its starting sequence', () => {
     const a = world.spawn(Position({ x: 2 }));
     const b = world.spawn(Position({ x: 1 }));
+    const c = world.spawn();
     const sorted = world.query(Position).sort(ascending, [Position]);
-    for (const _entity of sorted) {
+    const visited: Entity[] = [];
+
+    for (const entity of sorted) {
+      visited.push(entity);
+      if (visited.length !== 1) continue;
       a.set(Position, { x: 0 });
-      expect(sorted.first).toBe(b);
-      break;
+      c.add(Position({ x: 3 }));
+      expect(sorted.entities).toEqual([a, b, c]);
     }
-    expect([...sorted]).toEqual([a, b]);
+
+    expect(visited).toEqual([b, a]);
+    expect([...sorted]).toEqual([a, b, c]);
   });
 
   it('tracks every dependency and reuses views for equivalent arrays', () => {

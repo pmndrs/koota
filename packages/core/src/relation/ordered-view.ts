@@ -1,14 +1,76 @@
-import { endStructuralChanges } from '../world/settled';
+import { runCommand } from '../world/defer';
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { notifyChanged } from '../query/modifiers/changed';
-import { addTrait, getTraitForTrait, removeTrait } from '../trait/trait';
+import { applyAddTrait, applyRemoveTrait, getTraitForTrait } from '../trait/trait';
 import type { Trait } from '../trait/types';
 import { getQueryBinding } from '../view/entity-view';
 import { ListView, OrderedSource } from '../view/ordered-view';
 import type { EntityComparator, MutableOrderedView } from '../view/types';
 import type { WorldContext } from '../world';
 import type { ConfigurablePair, Relation } from './types';
+
+/**
+ * Every edit is a command and applies under a scope. It decides membership when it applies and a
+ * detached view applies nothing.
+ */
+function addNow(ctx: WorldContext, entity: Entity, view: RelationView) {
+  if (view.isAttached()) applyAddTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+}
+
+function removeNow(ctx: WorldContext, entity: Entity, view: RelationView) {
+  if (view.isAttached() && view.has(entity)) {
+    applyRemoveTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+  }
+}
+
+function insertNow(ctx: WorldContext, entity: Entity, view: RelationView, index: number) {
+  if (!view.isAttached()) return;
+  if (view.has(entity)) return moveNow(ctx, entity, view, index);
+  view.inserting = entity;
+  view.insertIndex = index;
+  try {
+    applyAddTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+  } finally {
+    view.inserting = undefined;
+  }
+}
+
+function clearNow(ctx: WorldContext, _parent: Entity, view: RelationView) {
+  if (!view.isAttached() || view.length === 0) return;
+  const entities = view.source.dense;
+  view.source.dense = [];
+  view.source.readers = 0;
+  for (const entity of entities)
+    applyRemoveTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+  view.changed();
+}
+
+function moveNow(_ctx: WorldContext, entity: Entity, view: RelationView, index: number) {
+  if (!view.isAttached()) return;
+  const from = view.indexOf(entity);
+  if (from === -1) throw new Error('Koota: Entity is not in the ordered view.');
+  index = Math.trunc(index) || 0;
+  index = index < 0 ? Math.max(0, view.length + index) : Math.min(index, view.length - 1);
+  if (from === index) return;
+  const entities = view.source.write();
+  if (from < index) entities.copyWithin(from, from + 1, index + 1);
+  else entities.copyWithin(index + 1, index, from);
+  entities[index] = entity;
+  view.changed();
+}
+
+function sortNow(_ctx: WorldContext, _parent: Entity, view: RelationView, compare: EntityComparator) {
+  if (!view.isAttached()) return;
+  view.source.write().sort(compare);
+  view.changed();
+}
+
+function reverseNow(_ctx: WorldContext, _parent: Entity, view: RelationView) {
+  if (!view.isAttached()) return;
+  view.source.write().reverse();
+  view.changed();
+}
 
 /** Membership edits update relation pairs. Reordering only changes the owned sequence. */
 export class RelationView extends ListView implements MutableOrderedView<any> {
@@ -42,85 +104,46 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
 
   add(entity: Entity): this {
     this.assertActive();
-    if (!isEntityAlive(this.ctx.entityIndex, entity)) {
-      throw new Error('Koota: Ordered views require live entities in the same world.');
-    }
-    // The view erases the store schema. Add validates required values at runtime.
-    addTrait(this.ctx, entity, [this.relation(this.parent) as ConfigurablePair]);
+    this.assertAlive(entity);
+    runCommand(this.ctx, addNow, entity, this, undefined);
     return this;
   }
 
   insert(entity: Entity, index: number): this {
     this.assertActive();
-    if (this.has(entity)) return this.moveTo(entity, index);
-    const previous = this.inserting;
-    const previousIndex = this.insertIndex;
-    this.inserting = entity;
-    this.insertIndex = index;
-    try {
-      this.add(entity);
-    } finally {
-      this.inserting = previous;
-      this.insertIndex = previousIndex;
-    }
+    this.assertAlive(entity);
+    runCommand(this.ctx, insertNow, entity, this, index);
     return this;
   }
 
+  /** Reports current membership even when the removal is queued after an unseen addition. */
   remove(entity: Entity): boolean {
     this.assertActive();
-    const index = this.indexOf(entity);
-    if (index === -1) return false;
-    this.ctx.structuralDepth++;
-    try {
-      this.source.write().splice(index, 1);
-      removeTrait(this.ctx, entity, this.relation(this.parent));
-      this.changed();
-    } finally {
-      endStructuralChanges(this.ctx);
-    }
-    return true;
+    const present = this.has(entity);
+    runCommand(this.ctx, removeNow, entity, this, undefined);
+    return present;
   }
 
   clear(): void {
     this.assertActive();
-    if (this.length === 0) return;
-    const entities = this.source.dense;
-    this.source.dense = [];
-    this.ctx.structuralDepth++;
-    try {
-      for (const entity of entities) removeTrait(this.ctx, entity, this.relation(this.parent));
-      this.changed();
-    } finally {
-      endStructuralChanges(this.ctx);
-    }
+    runCommand(this.ctx, clearNow, this.parent, this, undefined);
   }
 
   moveTo(entity: Entity, index: number): this {
     this.assertActive();
-    const from = this.indexOf(entity);
-    if (from === -1) throw new Error('Koota: Entity is not in the ordered view.');
-    index = Math.trunc(index) || 0;
-    index = index < 0 ? Math.max(0, this.length + index) : Math.min(index, this.length - 1);
-    if (from === index) return this;
-    const entities = this.source.write();
-    if (from < index) entities.copyWithin(from, from + 1, index + 1);
-    else entities.copyWithin(index + 1, index, from);
-    entities[index] = entity;
-    this.changed();
+    runCommand(this.ctx, moveNow, entity, this, index);
     return this;
   }
 
   sort(compare: EntityComparator): this {
     this.assertActive();
-    this.source.write().sort(compare);
-    this.changed();
+    runCommand(this.ctx, sortNow, this.parent, this, compare);
     return this;
   }
 
   reverse(): this {
     this.assertActive();
-    this.source.write().reverse();
-    this.changed();
+    runCommand(this.ctx, reverseNow, this.parent, this, undefined);
     return this;
   }
 
@@ -138,23 +161,27 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     this.changed();
   }
 
+  isAttached() {
+    return (
+      this.active &&
+      isEntityAlive(this.ctx.entityIndex, this.parent) &&
+      getTraitForTrait(this.ctx, this.parent, this.trait, undefined) === this
+    );
+  }
+
   private assertActive() {
-    if (
-      !this.active ||
-      !isEntityAlive(this.ctx.entityIndex, this.parent) ||
-      getTraitForTrait(this.ctx, this.parent, this.trait, undefined) !== this
-    ) {
+    if (!this.isAttached()) {
       throw new Error('Koota: The ordered view is no longer attached to its owner.');
     }
   }
 
-  private changed() {
-    if (
-      this.active &&
-      isEntityAlive(this.ctx.entityIndex, this.parent) &&
-      getTraitForTrait(this.ctx, this.parent, this.trait, undefined) === this
-    ) {
-      notifyChanged(this.ctx, this.parent, this.trait);
+  private assertAlive(entity: Entity) {
+    if (!isEntityAlive(this.ctx.entityIndex, entity)) {
+      throw new Error('Koota: Ordered views require live entities in the same world.');
     }
+  }
+
+  changed() {
+    if (this.isAttached()) notifyChanged(this.ctx, this.parent, this.trait);
   }
 }

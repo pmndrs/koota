@@ -1,9 +1,7 @@
 import { $internal, type Brand } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
-import { isEntityDestroying } from '../entity/entity';
 import type { Entity } from '../entity/types';
-import { isEntityAlive } from '../entity/utils/entity-index';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
@@ -131,15 +129,13 @@ export /* @inline */ function getIdentifierTarget<K extends IdentifierKey>(
 
 /** Validate ownership before committing both directions, then notify the core. */
 export function addIdentifierPair(ctx: WorldContext, entity: Entity, pair: IdentifierPair) {
-  if (isEntityDestroying(entity)) return;
   const trait = pair.identifier[$internal].trait;
   let data = getTraitInstance(ctx.traitInstances, trait);
   if (!data) {
     registerTrait(ctx, trait);
     data = getTraitInstance(ctx.traitInstances, trait);
   }
-  // Earlier assignments or registration callbacks may have destroyed the source.
-  if (!data || !isEntityAlive(ctx.entityIndex, entity)) return;
+  if (!data) return;
   const index = data.identifier!;
   const eid = getEntityId(entity);
   const page = (index.targets[eid >>> 10] ??= []);
@@ -208,7 +204,7 @@ export function addSharedIdentifierOwner(
   }
 }
 
-/** Publish the committed mapping, allowing callbacks to replace or remove it. */
+/** Publish the committed mapping to queries and subscribers. */
 export function notifyIdentifierAssignment(
   ctx: WorldContext,
   entity: Entity,
@@ -229,16 +225,13 @@ export function notifyIdentifierAssignment(
     if (data.trackingQueries.length !== 0) refreshTrackingQueries(ctx, entity, data);
     emit(data.removeSubscriptions, entity, previous);
   }
-  // Query and removal subscribers may have replaced or removed this assignment.
-  if (!hasIdentifier(ctx, entity, pair)) return;
+  // Subscribers run inside the defer scope of the add, so the assignment holds through all of them.
   if (hasSubscribers(data.addSubscriptions)) {
     emitSubscribers(data.addSubscriptions, entity, pair.target);
-    if (!hasIdentifier(ctx, entity, pair)) return;
   }
   // Membership already recorded a first assignment for Changed queries. A replacement is a write.
   if (previous !== undefined) markTraitChanged(ctx, entity, data);
-  // Changed query subscribers can also replace the assignment before onChange runs.
-  if (hasSubscribers(data.changeSubscriptions) && hasIdentifier(ctx, entity, pair)) {
+  if (hasSubscribers(data.changeSubscriptions)) {
     emitSubscribers(data.changeSubscriptions, entity, pair.target);
   }
 }
@@ -323,9 +316,9 @@ function refreshTrackingQueries(ctx: WorldContext, entity: Entity, data: TraitIn
     if (query.identifierFilters === undefined) continue;
     // A zero event mask checks existing history without recording another event.
     const matches = checkQueryTracking(ctx, query, entity, 'change', -1, 0);
-    if (!matches) removeEntityFromQuery(ctx, query, entity);
+    if (!matches) removeEntityFromQuery(query, entity);
     // Replacement is not a tracked event, so an entity already in the batch is not added again.
-    else if (!query.entities.has(entity) || query.toRemove?.has(entity)) {
+    else if (!query.entities.has(entity)) {
       addEntityToQuery(query, entity);
     }
   }

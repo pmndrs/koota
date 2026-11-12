@@ -14,7 +14,12 @@ it('settles once after nested removals and observes the remaining target', () =>
   });
   source.remove(Link(a));
   expect(observed).toEqual([source.targetFor(Link)]);
-  expect(observed).toEqual([c]);
+  expect(
+    source
+      .targetsFor(Link)
+      .slice()
+      .sort((x, y) => x - y)
+  ).toEqual([c, d]);
 });
 
 it('settles after the entire destruction cascade', () => {

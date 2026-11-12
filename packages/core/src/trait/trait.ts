@@ -1,11 +1,10 @@
-import { endStructuralChanges } from '../world/settled';
+import { beginRootDefer, deferCommand, endRootDefer, runCommand } from '../world/defer';
 import type { EventType, QueryInstance } from '../query/types';
 import { addMachineTrait, createMachineInstance, removeMachineTrait } from '../machine/machine';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
-import { isEntityDestroying } from '../entity/entity';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { getScopeTarget, validateScopeMove } from '../identifier/scoped-identifier';
 import { getEntityId } from '../entity/utils/pack-entity';
@@ -232,12 +231,39 @@ export /* @inline */ function addTrait(
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
-  ctx.structuralDepth++;
-  try {
-    addTraitsToAliveEntity(ctx, entity, traits);
-  } finally {
-    endStructuralChanges(ctx);
+  if (ctx.deferDepth !== 0) {
+    // One trait is logged as it is. More are spread again instead of handing over the rest array,
+    // which would make every immediate add allocate it once this branch has run.
+    if (traits.length === 1) deferAddOne(ctx, entity, traits[0]);
+    else deferAddTrait(ctx, entity, ...traits);
+  } else {
+    beginRootDefer(ctx);
+    try {
+      addTraitsToAliveEntity(ctx, entity, traits);
+    } finally {
+      endRootDefer(ctx);
+    }
   }
+}
+
+/** Logs the add of one trait, the common case, with no argument array. */
+export function deferAddOne(ctx: WorldContext, entity: Entity, config: ConfigurableTrait) {
+  deferCommand(ctx, applyAddOne, entity, config, undefined);
+}
+
+/** Logs the add of several traits. The rest parameter is the array the command keeps. */
+export function deferAddTrait(ctx: WorldContext, entity: Entity, ...traits: ConfigurableTrait[]) {
+  deferCommand(ctx, applyAddTrait, entity, traits, undefined);
+}
+
+/** The add as a command. Like every command it applies with a scope already held. */
+export function applyAddTrait(ctx: WorldContext, entity: Entity, traits: ConfigurableTrait[]) {
+  addTraitsToAliveEntity(ctx, entity, traits);
+}
+
+/** The add of one trait as a command, the common case, which keeps argument arrays out of the log. */
+export function applyAddOne(ctx: WorldContext, entity: Entity, config: ConfigurableTrait) {
+  addTraitsToAliveEntity(ctx, entity, [config]);
 }
 
 /** The caller must establish entity liveness before adding traits. */
@@ -328,24 +354,41 @@ export /* @inline */ function upsertTrait(
     assertEntityAlive(ctx, entity);
   }
 
-  if (typeof trait === 'function' && hasTrait(ctx, entity, trait)) {
+  if (ctx.deferDepth === 0 && typeof trait === 'function' && hasTrait(ctx, entity, trait)) {
     // Upsert takes no callback, so the value is written as given.
     const instance = getTraitInstance(ctx.traitInstances, trait)!;
     trait[$internal].set(ctx, getEntityId(entity), instance.store, value);
     notifyTraitChanged(ctx, entity, instance);
   } else /* @cold */ {
     // Pairs and additions run out of line so the present trait write stays small enough to inline.
-    if (typeof trait === 'function') {
-      addTrait(ctx, entity, [[trait, value]]);
-    } else if (
-      typeof trait.target === 'number' &&
-      hasRelationToTarget(ctx, trait.relation, entity, trait.target)
-    ) {
-      setTraitForPair(ctx, entity, trait, value, true);
+    // Inside a scope the whole upsert waits, since whether the trait is present is decided then.
+    runCommand(ctx, applyUpsertTrait, entity, trait, value);
+  }
+}
+
+/** The upsert as a command. Presence is checked when it applies, so the last upsert wins. */
+export function applyUpsertTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  trait: Trait | RelationPair,
+  value: any
+) {
+  if (typeof trait === 'function') {
+    const instance = getTraitInstance(ctx.traitInstances, trait);
+    if (instance !== undefined && hasTrait(ctx, entity, trait)) {
+      trait[$internal].set(ctx, getEntityId(entity), instance.store, value);
+      notifyTraitChanged(ctx, entity, instance);
     } else {
-      // The relation call validates the target and builds the pair that carries the value.
-      addTrait(ctx, entity, [trait.relation(trait.target!, value)]);
+      applyAddTrait(ctx, entity, [[trait, value]]);
     }
+  } else if (
+    typeof trait.target === 'number' &&
+    hasRelationToTarget(ctx, trait.relation, entity, trait.target)
+  ) {
+    setTraitForPair(ctx, entity, trait, value, true);
+  } else {
+    // The relation call validates the target and builds the pair that carries the value.
+    applyAddTrait(ctx, entity, [trait.relation(trait.target!, value)]);
   }
 }
 
@@ -356,7 +399,15 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   if (assertsEnabled) {
     assertRelationTarget(ctx, target);
   }
-  if (typeof target !== 'number') return;
+  // A deferred add can apply after its target died, and a destroy hook can spawn onto the entity
+  // being destroyed after its relations were detached. Like a command on a dead entity, the pair
+  // is dropped.
+  if (
+    typeof target !== 'number' ||
+    !isEntityAlive(ctx.entityIndex, target) ||
+    ctx.destroying === target
+  )
+    return;
 
   const params = pair.params;
   const relationCtx = relation[$internal];
@@ -404,11 +455,11 @@ export function setScopedRelationPair(
   target: Entity | undefined,
   params: Record<string, any> | undefined
 ): boolean {
-  if (isEntityDestroying(entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
+  if (ctx.destroying === entity || !isEntityAlive(ctx.entityIndex, entity)) return false;
   const trait = relation[$internal].trait;
   let instance = getTraitInstance(ctx.traitInstances, trait);
   if (instance === undefined) instance = registerTrait(ctx, trait);
-  if (isEntityDestroying(entity) || !isEntityAlive(ctx.entityIndex, entity)) return false;
+  if (ctx.destroying === entity || !isEntityAlive(ctx.entityIndex, entity)) return false;
   const previous = getScopeTarget(ctx, relation, entity);
   if (previous === target) return true;
   if (!validateScopeMove(ctx, relation, entity, target)) return false;
@@ -452,26 +503,58 @@ export function removeTrait(
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
   }
-
-  ctx.structuralDepth++;
-  try {
-    for (let i = 0; i < traits.length; i++) {
-      const trait = traits[i];
-
-      if (typeof trait !== 'function') /* @cold */ {
-        if (isRelationPair(trait)) {
-          removeRelationPair(ctx, entity, trait);
-        } else if (hasIdentifier(ctx, entity, trait)) {
-          removeTraitFromAliveEntity(ctx, entity, trait.identifier[$internal].trait);
-        }
-      } else if (isIdentifier(trait)) /* @cold */ {
-        removeTraitFromAliveEntity(ctx, entity, trait[$internal].trait);
-      } else {
-        removeTraitFromAliveEntity(ctx, entity, trait);
-      }
+  if (ctx.deferDepth !== 0) {
+    // Spread again so the command gets an array of its own and the rest array never escapes. A
+    // single trait path like the one in addTrait does not fit the inline budget of this function.
+    deferRemoveTrait(ctx, entity, ...traits);
+  } else {
+    beginRootDefer(ctx);
+    try {
+      removeTraitsFromAliveEntity(ctx, entity, traits);
+    } finally {
+      endRootDefer(ctx);
     }
-  } finally {
-    endStructuralChanges(ctx);
+  }
+}
+
+/** Logs the removal. The rest parameter is the array the command keeps. */
+export function deferRemoveTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+) {
+  deferCommand(ctx, applyRemoveTrait, entity, traits, undefined);
+}
+
+/** The removal as a command. */
+export function applyRemoveTrait(
+  ctx: WorldContext,
+  entity: Entity,
+  traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+) {
+  removeTraitsFromAliveEntity(ctx, entity, traits);
+}
+
+/** @inline */
+function removeTraitsFromAliveEntity(
+  ctx: WorldContext,
+  entity: Entity,
+  traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+) {
+  for (let i = 0; i < traits.length; i++) {
+    const trait = traits[i];
+
+    if (typeof trait !== 'function') /* @cold */ {
+      if (isRelationPair(trait)) {
+        removeRelationPair(ctx, entity, trait);
+      } else if (hasIdentifier(ctx, entity, trait)) {
+        removeTraitFromAliveEntity(ctx, entity, trait.identifier[$internal].trait);
+      }
+    } else if (isIdentifier(trait)) /* @cold */ {
+      removeTraitFromAliveEntity(ctx, entity, trait[$internal].trait);
+    } else {
+      removeTraitFromAliveEntity(ctx, entity, trait);
+    }
   }
 }
 
@@ -612,7 +695,7 @@ export function reconcileDyingTraitQueries(
 
 function leaveStaticQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
   for (let i = 0; i < queries.length; i++) {
-    if (!queries[i].isTracking) removeEntityFromQuery(ctx, queries[i], entity);
+    if (!queries[i].isTracking) removeEntityFromQuery(queries[i], entity);
   }
 }
 
@@ -943,10 +1026,10 @@ export function reconcileQueries(ctx: WorldContext, entity: Entity, queries: Que
     const query = queries[i];
     if (query.filters !== null) {
       if (checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
-      else removeEntityFromQuery(ctx, query, entity);
+      else removeEntityFromQuery(query, entity);
     } else {
       if (checkQuery(ctx, query, entity)) addEntityToQuery(query, entity);
-      else removeEntityFromQuery(ctx, query, entity);
+      else removeEntityFromQuery(query, entity);
     }
   }
 }
@@ -966,7 +1049,7 @@ export function reconcileTrackingQueries(
     const query = queries[i];
     const match = checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
     if (match) addEntityToQuery(query, entity);
-    else removeEntityFromQuery(ctx, query, entity);
+    else removeEntityFromQuery(query, entity);
   }
 }
 

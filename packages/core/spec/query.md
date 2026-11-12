@@ -23,7 +23,7 @@ flowchart TD
     D -- miss --> F[Create & populate instance]
     F --> G[Cache instance]
     G --> E
-    E --> H[Flush pending removals]
+    E --> H[Consume the tracking batch]
     H --> I[Snapshot matching entities]
     I --> J["Return the live QueryView"]
 ```
@@ -74,7 +74,7 @@ The hash looks up an existing `QueryInstance`. On a miss a new instance is creat
 query.run(ctx, params)
 ```
 
-Flushes any deferred removals, then snapshots the instance's entity set. For tracking queries (e.g. `Added`, `Removed`, `Changed`) the set is cleared and bitmasks reset so changes can accumulate again before the next call.
+Snapshots the instance's entity set. For tracking queries (e.g. `Added`, `Removed`, `Changed`) the set is cleared and bitmasks reset so changes can accumulate again before the next call. Membership never changes under a walk, because walks defer structural changes, see `defer.md`.
 
 **6. Return result**
 
@@ -92,7 +92,7 @@ The generated positional iterator hoists the target storage references outside t
 
 `targetsFor` retains its snapshot behavior. Arrays passed to `each` are reusable read-only snapshots. The iteration-buffer pool owns one array per non-exclusive projection and active walk, so structural commands and nested walks cannot alter the current callback's snapshot. Arrays are reused for later rows and calls. Legacy state-array iterators and page stores continue to expose trait data only.
 
-The walk visits the membership captured when it started. Removals are deferred while a query is iterating, so a row whose entity left the query, through a relation or trait removal or destroy in an earlier callback, is skipped instead of reading storage the removal already cleared. The entity index revision moves on every handle release and every deferred removal, so the generated loop compares it once per row and only calls the skip helper after it has changed during the walk. A walk whose callbacks remove rows from the query pays one skip check for every later row, a few nanoseconds each. Sorted and owned views walk a copy, so their removals apply at once, and the skip helper also drops rows no longer in the query's exposed set. Tracking walks consume a batch that removals never touch, so they only skip destroyed rows. This gate is an interim measure. Deferring structural changes until the outermost walk ends, as Flecs does, is the planned replacement.
+The walk visits the membership captured when it started. Structural changes made by callbacks join the world's command log and apply when the outermost walk ends, so later rows keep their traits and relation targets. Sorted and owned views hold the same scope. Generated loops need no per-row liveness or membership checks. See `defer.md`.
 
 ### Validation and performance
 
