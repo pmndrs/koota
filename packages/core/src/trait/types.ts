@@ -81,7 +81,7 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   readonly type: StoreType;
   /** True when the schema has a required field, so add needs a value. */
   readonly required: RequiresInit<S>;
-  /** True for a plain paged SoA trait with scalar fields, which iteration can read in place. */
+  /** True for a SoA schema with only scalar fields, which iteration reads in place. */
   readonly cursor: boolean;
   registered: boolean;
   machine: MachineContext | undefined;

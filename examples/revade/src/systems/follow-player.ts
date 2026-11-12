@@ -7,11 +7,9 @@ const acceleration = new THREE.Vector3();
 export function followPlayer(world: World) {
   world
     .query(IsEnemy, Transform, Movement, Targeting('*'))
-    .each((transform, { velocity, thrust, damping }, entity) => {
-      // Get the target from the Targeting relation
-      const targets = entity.targetsFor(Targeting);
-      const target = targets[0];
-      if (!target || typeof target === 'string' || !target.has(Transform)) return;
+    .each((transform, { velocity, thrust, damping }, target) => {
+      // The exclusive Targeting relation passes its target
+      if (!target.has(Transform)) return;
 
       const targetTransform = target.get(Transform)!;
 

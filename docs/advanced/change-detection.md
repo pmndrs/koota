@@ -6,16 +6,15 @@ nav: 12
 
 ## `each`
 
-By default, `each` turns on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. The deprecated `updateEach` accepts an options config to silence it or force it to always run.
+`each` turns on change detection for traits that are being tracked via `onChange` or the `Changed` modifier. Walks over traits that nothing tracks skip it.
 
 ```js
-// Suppress change notifications
-world.query(Position, Velocity).updateEach(([position, velocity]) => {}, { changeDetection: 'never' })
+world.onChange(Position, (entity) => {})
 
-// Notify for every accepted write, including unchanged values
-world
-  .query(Position, Velocity)
-  .updateEach(([position, velocity]) => {}, { changeDetection: 'always' })
+// Position is tracked, so entities whose position changed are reported
+world.query(Position, Velocity).each((position, velocity) => {
+  position.x += velocity.x
+})
 ```
 
 A thrown error aborts `each`. Earlier writes remain committed, and pending change notifications are not guaranteed.

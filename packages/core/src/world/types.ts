@@ -67,6 +67,11 @@ export type WorldContext = {
   machineMutations: Set<Entity> | undefined;
   /** Some entity may hold a pending bit, so membership changes clear the pending word. */
   defersChanges: boolean;
+  /**
+   * Moves when a change subscriber or a Changed query is added. A binding found untracked at the
+   * current value walks without change detection until it moves again.
+   */
+  trackingRevision: number;
   /** Queries indexed by target entity page and offset. */
   targetQueries: (QueryInstance[] | undefined)[][];
   /** Queries holding removals deferred by a walk, each listed once. */

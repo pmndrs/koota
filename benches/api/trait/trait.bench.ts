@@ -56,14 +56,14 @@ for (const layout of ['soa', 'aos'] as const) {
       world.destroy();
     });
 
-    bench('query.readEach', function* () {
+    bench('query.each read', function* () {
       const world = createWorld();
       for (let x = 0; x < 10_000; x++) world.spawn(Position({ x, y: 0, z: 0 }));
       const query = world.query(Position);
 
       const sum = yield () => {
         let sum = 0;
-        query.readEach(([position]) => (sum += position.x));
+        query.each((position) => (sum += position.x));
         return sum;
       };
 
@@ -85,27 +85,6 @@ for (const layout of ['soa', 'aos'] as const) {
             query.each((position) => {
               position.x++;
             });
-          },
-          snapshot: () => {
-            const x = query.first!.get(Position)!.x;
-            assert.equal(query.at(9999)!.get(Position), { x, y: 0, z: 0 });
-            if (tracked) assert.equal(notifications, x * query.length);
-            return query.length;
-          },
-        };
-        world.destroy();
-      });
-
-      bench(`query.updateEach ${tracked ? 'tracked' : 'untracked'}`, function* () {
-        const world = createWorld();
-        for (let i = 0; i < 10_000; i++) world.spawn(Position);
-        const query = world.query(Position);
-        let notifications = 0;
-        if (tracked) world.onChange(Position, () => notifications++);
-
-        yield {
-          bench: () => {
-            query.updateEach(([position]) => position.x++);
           },
           snapshot: () => {
             const x = query.first!.get(Position)!.x;
