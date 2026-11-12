@@ -33,6 +33,8 @@ export type UpdateEachOptions = {
 export type QueryViewBinding = {
   params: QueryParameter[];
   traits: Trait[];
+  /** The world's instance of each trait, parallel to traits. */
+  instances: TraitInstance[];
   stores: Store<any>[];
   /** Data traits and target projections in each's callback argument order. */
   projection: (Trait | TargetProjection)[];
@@ -42,6 +44,8 @@ export type QueryViewBinding = {
   view: QueryView<any> | null;
   /** Iterators compiled for this binding alone, so its callback site stays monomorphic. */
   iterators: QueryIterators | null;
+  /** The world tracking revision at which no trait here had a change observer, else -1. */
+  untracked: number;
 };
 
 /**

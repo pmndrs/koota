@@ -125,7 +125,6 @@ export function createTraitContext<S extends Schema>(
     required: (isRequired(schema) || Object.values(schema).some(isRequired)) as RequiresInit<S>,
     cursor:
       type === 'soa' &&
-      accessors === undefined &&
       Object.keys(schema).every((key) => !Array.isArray((schema as Record<string, unknown>)[key])),
   };
 }

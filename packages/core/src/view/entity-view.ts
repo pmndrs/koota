@@ -141,7 +141,11 @@ export class EntityView {
     return result;
   }
 
-  readEach(callback: Callback, pool: IterationBufferPool = this.query ?? this.ctx) {
+  /**
+   * Read only walk that passes the state array. Trait data is never written back and the trait
+   * versions stay put, so cached orders that depend on them remain valid.
+   */
+  read(callback: Callback, pool: IterationBufferPool) {
     const { dense, length } = this.getSource();
     if (length === 0) return this;
     const { ctx, query } = this;
@@ -150,7 +154,7 @@ export class EntityView {
     const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding, query);
     if (guard) guard.iterating++;
     try {
-      buffers.iterators!.readEach(ctx, dense as Entity[], length, callback, buffers, stores);
+      buffers.iterators!.read(ctx, dense as Entity[], length, callback, buffers, stores);
     } finally {
       if (guard) guard.iterating--;
       releaseIterationBuffers(pool, buffers);
@@ -158,65 +162,115 @@ export class EntityView {
     return this;
   }
 
-  updateEach(callback: Callback, options?: UpdateEachOptions) {
-    return this.walk(callback, options, false);
+  /** @deprecated Use each. */
+  readEach(callback: Callback) {
+    return this.read(callback, this.query ?? this.ctx);
   }
 
-  each(callback: Callback) {
-    return this.walk(callback, undefined, true);
+  /** @deprecated Use each. */
+  updateEach(callback: Callback, options?: UpdateEachOptions) {
+    const { dense, length } = this.getSource();
+    if (length === 0) return this;
+    const { ctx, query, binding } = this;
+    const guard = this.getGuard();
+    const pool = query ?? ctx;
+    const entities = dense as Entity[];
+    const buffers = takeIterationBuffers(ctx, pool, entities, binding, query);
+    if (guard) guard.iterating++;
+    try {
+      walkDetecting(ctx, binding, entities, length, callback, buffers, options, false);
+    } finally {
+      if (guard) guard.iterating--;
+      bumpVersions(binding.instances);
+      releaseIterationBuffers(pool, buffers);
+    }
+    return this;
   }
 
   /**
-   * Shared body of updateEach and each. This call boundary leaves V8 room to inline the
-   * generated iterator and trait accessors together.
+   * The untracked walk is the whole hot body. It stays small so V8 can inline it together with
+   * the generated iterator into the calling function, where the callback is a known constant.
+   * Everything a change observer needs is one call away.
    */
-  walk(callback: Callback, options: UpdateEachOptions | undefined, positional: boolean) {
+  each(callback: Callback) {
     const { dense, length } = this.getSource();
     if (length === 0) return this;
-    const { ctx, query } = this;
+    const { ctx, query, binding } = this;
     const guard = this.getGuard();
-    const { traits, stores } = this.binding;
     const pool = query ?? ctx;
     const entities = dense as Entity[];
-    const buffers = takeIterationBuffers(ctx, pool, entities, this.binding, query);
-    const iterators = buffers.iterators!;
+    const buffers = takeIterationBuffers(ctx, pool, entities, binding, query);
     if (guard) guard.iterating++;
     try {
-      if (trackTraits(ctx, traits, buffers.modes, options?.changeDetection) === 0) {
-        (positional ? iterators.each : iterators.updateEach)(
-          ctx,
-          entities,
-          length,
-          callback,
-          buffers,
-          stores
-        );
-      } else /* @cold */ {
-        const changedCount = (positional ? iterators.trackArgs : iterators.trackEach)(
-          ctx,
-          entities,
-          length,
-          callback,
-          buffers,
-          stores
-        );
-        const { changedEntities, changedTraits } = buffers;
-        for (let i = 0; i < changedCount; i++) {
-          const entity = changedEntities[i];
-          if (isEntityAlive(ctx.entityIndex, entity)) notifyChanged(ctx, entity, changedTraits[i]);
-        }
+      if (binding.untracked === ctx.trackingRevision) {
+        buffers.iterators!.each(ctx, entities, length, callback, buffers, binding.stores);
+      } else {
+        walkDetecting(ctx, binding, entities, length, callback, buffers, undefined, true);
       }
     } finally {
       if (guard) guard.iterating--;
-      // A nested read may cache an order before the walk's last write.
-      for (let i = 0; i < traits.length; i++) {
-        const instance = getTraitInstance(ctx.traitInstances, traits[i]);
-        if (instance) instance.version++;
-      }
+      bumpVersions(binding.instances);
       releaseIterationBuffers(pool, buffers);
     }
     return this;
   }
+}
+
+/**
+ * Resolves change detection for a walk and runs the matching iterator. A positional walk that
+ * finds nothing tracked records the world's tracking revision on the binding, so later walks
+ * skip this check until a change observer is added.
+ */
+function walkDetecting(
+  ctx: WorldContext,
+  binding: QueryViewBinding,
+  entities: Entity[],
+  length: number,
+  callback: Callback,
+  buffers: QueryIterationBuffers,
+  options: UpdateEachOptions | undefined,
+  positional: boolean
+) {
+  const { traits, stores } = binding;
+  const iterators = buffers.iterators!;
+  if (trackTraits(ctx, traits, buffers.modes, options?.changeDetection) === 0) {
+    if (positional) binding.untracked = ctx.trackingRevision;
+    (positional ? iterators.each : iterators.updateEach)(
+      ctx,
+      entities,
+      length,
+      callback,
+      buffers,
+      stores
+    );
+    return;
+  }
+  let changedCount = 0;
+  try {
+    changedCount = (positional ? iterators.trackArgs : iterators.trackEach)(
+      ctx,
+      entities,
+      length,
+      callback,
+      buffers,
+      stores
+    );
+  } finally {
+    clearAtomicSnapshots(buffers.atomicSnapshots);
+  }
+  const { changedEntities, changedTraits } = buffers;
+  for (let i = 0; i < changedCount; i++) {
+    const entity = changedEntities[i];
+    if (isEntityAlive(ctx.entityIndex, entity)) notifyChanged(ctx, entity, changedTraits[i]);
+  }
+}
+
+/**
+ * Marks every walked trait as possibly written. Version readers have no change events to rely
+ * on, and a nested read may cache an order before the walk's last write, so this runs after it.
+ */
+function bumpVersions(instances: TraitInstance[]) {
+  for (let i = 0; i < instances.length; i++) instances[i].version++;
 }
 
 /** Walks the membership present when the loop started. */
@@ -279,11 +333,13 @@ function finishViewIterator(iterator: ViewIterator) {
 const entityBinding: QueryViewBinding = {
   params: [],
   traits: [],
+  instances: [],
   stores: [],
   projection: [],
   targets: [],
   view: null,
   iterators: null,
+  untracked: -1,
 };
 
 /**
@@ -317,11 +373,13 @@ export function getQueryBinding(
   const binding: QueryViewBinding = {
     params,
     traits: [],
+    instances: [],
     stores: [],
     projection: [],
     targets: [],
     view: null,
     iterators: null,
+    untracked: -1,
   };
   fillQueryBinding(ctx, query, params, binding);
   if (cache) cache.push(binding);
@@ -381,7 +439,7 @@ function fillQueryBinding(
   params: QueryParameter[],
   binding: QueryViewBinding
 ) {
-  const { traits, stores, projection, targets } = binding;
+  const { traits, instances, stores, projection, targets } = binding;
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
     if (isIdentifierPair(param) || isIdentifier(param)) continue;
@@ -398,7 +456,9 @@ function fillQueryBinding(
         traits.push(trait);
         projection.push(trait);
         targets.push(undefined);
-        stores.push(getQueryStore(ctx, trait));
+        const instance = getQueryInstance(ctx, trait);
+        instances.push(instance);
+        stores.push(instance.store);
       }
     } else {
       const trait = param as Trait;
@@ -406,7 +466,9 @@ function fillQueryBinding(
       traits.push(trait);
       projection.push(trait);
       targets.push(undefined);
-      stores.push(getQueryStore(ctx, trait));
+      const instance = getQueryInstance(ctx, trait);
+      instances.push(instance);
+      stores.push(instance.store);
     }
   }
 }
@@ -494,15 +556,15 @@ function findTargetQueryMatches(
   return undefined;
 }
 
-function createIterationBuffers(): QueryIterationBuffers {
+function createIterationBuffers(query: QueryInstance | null): QueryIterationBuffers {
   return {
     state: [],
     binding: undefined,
     records: [],
     targetSnapshots: [],
     iterators: undefined,
-    retains: false,
-    query: null,
+    retains: query?.retains ?? false,
+    query,
     modes: [],
     atomicSnapshots: [],
     changedEntities: [],
@@ -511,7 +573,10 @@ function createIterationBuffers(): QueryIterationBuffers {
   };
 }
 
-/** Checks out buffers from the pool, preparing them when the projection differs. */
+/**
+ * Checks out buffers from the pool, preparing them when the projection differs. A pool serves
+ * one query for its whole life, so the query is recorded when its buffers are created.
+ */
 function takeIterationBuffers(
   ctx: WorldContext,
   pool: IterationBufferPool,
@@ -519,13 +584,10 @@ function takeIterationBuffers(
   binding: QueryViewBinding,
   query: QueryInstance | null
 ): QueryIterationBuffers {
-  const buffers = pool.iterationBuffers ?? createIterationBuffers();
-  pool.iterationBuffers = buffers.next;
-  if (buffers.binding !== binding) {
-    prepareIterationBuffers(ctx, buffers, entities, binding, query);
-  }
-  buffers.retains = query?.retains ?? false;
-  buffers.query = query;
+  let buffers = pool.iterationBuffers;
+  if (buffers === undefined) buffers = createIterationBuffers(query);
+  else pool.iterationBuffers = buffers.next;
+  if (buffers.binding !== binding) prepareIterationBuffers(ctx, buffers, entities, binding, query);
   return buffers;
 }
 
@@ -582,7 +644,12 @@ function prepareIterationBuffers(
 /** Releases references to user objects, then returns the buffers to the pool. */
 function releaseIterationBuffers(pool: IterationBufferPool, buffers: QueryIterationBuffers) {
   buffers.iterators!.release(buffers);
-  const snapshots = buffers.atomicSnapshots;
+  buffers.next = pool.iterationBuffers;
+  pool.iterationBuffers = buffers;
+}
+
+/** Only tracked walks take atomic snapshots, so only they drop the user objects held in them. */
+function clearAtomicSnapshots(snapshots: QueryIterationBuffers['atomicSnapshots']) {
   for (let s = 0; s < snapshots.length; s++) {
     const snapshot = snapshots[s];
     if (snapshot === undefined) continue;
@@ -593,8 +660,6 @@ function releaseIterationBuffers(pool: IterationBufferPool, buffers: QueryIterat
       }
     }
   }
-  buffers.next = pool.iterationBuffers;
-  pool.iterationBuffers = buffers;
 }
 
 /** Fills modes and returns how many traits are tracked. */
@@ -642,9 +707,9 @@ function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait
   return { value, tuples };
 }
 
-function getQueryStore(ctx: WorldContext, trait: Trait): Store<any> {
+function getQueryInstance(ctx: WorldContext, trait: Trait): TraitInstance {
   const instance = getTraitInstance(ctx.traitInstances, trait);
-  if (instance) return instance.store;
+  if (instance) return instance;
   registerTrait(ctx, trait);
-  return getTraitInstance(ctx.traitInstances, trait)!.store;
+  return getTraitInstance(ctx.traitInstances, trait)!;
 }

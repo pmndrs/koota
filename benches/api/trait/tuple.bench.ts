@@ -47,19 +47,25 @@ group('vec3 tuple fields 10k @trait @tuple', () => {
     world.destroy();
   });
 
-  bench('updateEach integrate', function* () {
+  bench('each integrate', function* () {
     const world = createWorld();
     for (let i = 0; i < 10_000; i++) world.spawn(TuplePosition, TupleVelocity);
     const query = world.query(TuplePosition, TupleVelocity);
 
     yield {
       bench: () =>
-        query.updateEach(([position, velocity]) => {
+        query.each((position, velocity) => {
           vec3.scaleAndAdd(position.value, position.value, velocity.value, dt);
         }),
+      // Read through pages so the measured walk stays the only callback on this query.
       snapshot: () => {
         let y = 0;
-        query.readEach(([position]) => (y += position.value[1]));
+        for (const {
+          stores: [position],
+          indices,
+        } of query.getPages()) {
+          for (let i = 0; i < indices.length; i++) y += position.value[indices[i] * 3 + 1];
+        }
         assert.equal(y, integrated);
         return y;
       },
@@ -88,7 +94,7 @@ group('vec3 tuple fields 10k @trait @tuple', () => {
       },
       snapshot: () => {
         let y = 0;
-        query.readEach(([position]) => (y += position.value[1]));
+        query.each((position) => (y += position.value[1]));
         assert.equal(y, integrated);
         return y;
       },

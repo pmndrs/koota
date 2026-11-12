@@ -75,7 +75,7 @@ group('named entities 1k @name @identifier @entity', () => {
     yield {
       bench: () => {
         for (const update of updates) {
-          world.query(Name(update.id), Position).updateEach(([position]) => {
+          world.query(Name(update.id), Position).each((position) => {
             position.x = update.x;
           });
         }

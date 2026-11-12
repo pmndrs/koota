@@ -205,6 +205,7 @@ export function createWorld(options?: WorldOptions): World {
       internalQuerySubscriptions: undefined,
       machineMutations: undefined,
       defersChanges: false,
+      trackingRevision: 0,
       targetQueries: [],
       dirtyQueries: [],
       worldEntity: null!,
@@ -525,6 +526,7 @@ export function createWorld(options?: WorldOptions): World {
 
       const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
       data.changeSubscriptions.all.add(resolvedCallback);
+      ctx.trackingRevision++;
 
       return () => data.changeSubscriptions.all.delete(resolvedCallback);
     },

@@ -5,9 +5,7 @@ import { CONFIG } from '../config';
 export const updateSeparation = ({ world }: { world: World }) => {
   const { separationFactor } = CONFIG;
 
-  world.query(Forces, Position, NeighborOf('*')).each(({ separation }, position, entity) => {
-    const neighbors = entity.targetsFor(NeighborOf);
-
+  world.query(Forces, Position, NeighborOf('*')).each(({ separation }, position, neighbors) => {
     separation.x = 0;
     separation.y = 0;
     separation.z = 0;

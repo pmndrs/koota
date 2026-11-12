@@ -20,7 +20,8 @@ type Iterate<R = void> = (
 ) => R;
 
 export type QueryIterators = {
-  readEach: Iterate;
+  /** Passes the state array. Cursor writes are dropped and nothing is written back. */
+  read: Iterate;
   /** Writes every trait back without change detection. */
   updateEach: Iterate;
   /** Writes every trait back and records changes for traits whose mode is not 0. Returns the count. */
@@ -51,7 +52,7 @@ const cursorClasses = new Map<string, Record<CursorKind, CursorClass>>();
  * at the current offset, so nothing is copied in or out per entity. The write cursor marks itself
  * changed when a value differs, which tracked walks read after the callback. Untracked walks use
  * the plain cursor, whose setter is a bare store. The read cursor drops writes, which keeps
- * readEach read only. Traits with the same field names share a class, so a callback site that
+ * read walks read only. Traits with the same field names share a class, so a callback site that
  * handles several such traits stays monomorphic, as it did with plain record objects.
  */
 export function createIterationCursor(trait: Trait, kind: CursorKind): object {
@@ -143,12 +144,15 @@ export function compileQueryIterators(
   const rebind: string[] = [];
   const reset: string[] = [];
   const write: string[] = [];
+  const writeArgs: string[] = [];
   const trackLines: string[] = [];
+  const trackArgsLines: string[] = [];
   const snapshot: string[] = [];
   const release: string[] = [];
   const args: string[] = [];
-  let cursors = false;
+  let paged = false;
   let writeback = false;
+  let writebackArgs = false;
 
   for (let j = 0; j < traits.length; j++) {
     const traitCtx = traits[j][$internal];
@@ -164,20 +168,28 @@ export function compileQueryIterators(
 
     args.push(traitCtx.cursor && traitCtx.relation === null ? `c${j}` : `state[${j}]`);
     if (traitCtx.cursor && traitCtx.relation === null) {
-      cursors = true;
+      paged = true;
       const keys = Object.keys(traits[j].schema as object);
       rebind.push(keys.map((key, k) => `c${j}.$${k} = s${j}.${key}[pg];`).join(' '));
       hoist.push(`var c${j} = records[${j}].__CURSOR__; state[${j}] = c${j};`);
       read.push(`c${j}.o = off;`);
       reset.push(`c${j}.changed = false;`);
-      trackLines.push(
-        `if (${stable}(c${j}.changed || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
-      );
+      const line = `if (${stable}(c${j}.changed || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`;
+      trackLines.push(line);
+      trackArgsLines.push(line);
       continue;
     }
     writeback = true;
+    const writeCall = `w${j}(ctx, eid, s${j}, state[${j}])`;
+    const record = `{ changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`;
+    write.push(stable ? `if (${stable}true) ${writeCall};` : `${writeCall};`);
 
     if (isSoA) {
+      // The schema fixes the page layout, so a record is filled from pages hoisted like a
+      // cursor's instead of through getInto. A positional callback cannot replace the record,
+      // so an untracked walk stores its fields back as they are. Tracked walks diff through set.
+      const direct = traitCtx.relation === null && traitCtx.machine === undefined;
+      const copyOut: string[] = [];
       hoist.push(`var r${j} = records[${j}].value;`);
       release.push(`var r${j} = records[${j}].value;`);
       const schema = traits[j].schema as Record<string, unknown>;
@@ -185,33 +197,67 @@ export function compileQueryIterators(
       for (const key in schema) {
         const field = schema[key];
         const name = JSON.stringify(key);
+        const page = `q${j}_${k}`;
+        if (direct) {
+          hoist.push(`var ${page};`);
+          rebind.push(`${page} = s${j}[${name}][pg];`);
+        }
         if (Array.isArray(field)) {
           // A callback may replace a tuple array, and the next read must not write into the replacement.
-          hoist.push(`var t${j}_${k} = records[${j}].tuples[${name}];`);
-          read.push(`r${j}[${name}] = t${j}_${k};`);
+          const tuple = `t${j}_${k}`;
+          hoist.push(`var ${tuple} = records[${j}].tuples[${name}];`);
+          read.push(`r${j}[${name}] = ${tuple};`);
           release.push(`r${j}[${name}] = records[${j}].tuples[${name}];`);
-          k++;
-        } else if (field == null || typeof field === 'function') {
-          release.push(`r${j}[${name}] = undefined;`);
+          if (direct) {
+            const base = `b${j}_${k}`;
+            read.push(
+              `var ${base} = off * ${field.length}; ${field.map((_, c) => `${tuple}[${c}] = ${page}[${base}${c ? ` + ${c}` : ''}];`).join(' ')}`
+            );
+            copyOut.push(
+              `var u${j}_${k} = r${j}[${name}]; ${field.map((_, c) => `${page}[${base}${c ? ` + ${c}` : ''}] = u${j}_${k}[${c}];`).join(' ')}`
+            );
+          }
+        } else {
+          if (field == null || typeof field === 'function') {
+            release.push(`r${j}[${name}] = undefined;`);
+          }
+          if (direct) {
+            read.push(`r${j}[${name}] = ${page}[off];`);
+            copyOut.push(`${page}[off] = r${j}[${name}];`);
+          }
         }
+        k++;
       }
-      read.push(`state[${j}] = g${j}(ctx, eid, s${j}, r${j});`);
-    } else {
-      read.push(`state[${j}] = g${j}(ctx, eid, s${j});`);
+      if (direct) {
+        paged = true;
+        read.push(`state[${j}] = r${j};`);
+        args[args.length - 1] = `r${j}`;
+        writeArgs.push(...copyOut);
+      } else {
+        read.push(`state[${j}] = g${j}(ctx, eid, s${j}, r${j});`);
+        writeArgs.push(write[write.length - 1]);
+      }
+      const line = `if (${stable}(${writeCall} || m${j} === 3) && m${j} !== 0) ${record}`;
+      trackLines.push(line);
+      trackArgsLines.push(line);
+      writebackArgs = true;
+      continue;
     }
-
-    const writeCall = `w${j}(ctx, eid, s${j}, state[${j}])`;
-    write.push(stable ? `if (${stable}true) ${writeCall};` : `${writeCall};`);
-    if (isSoA) {
-      trackLines.push(
-        `if (${stable}(${writeCall} || m${j} === 3) && m${j} !== 0) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
+    read.push(`state[${j}] = g${j}(ctx, eid, s${j});`);
+    // An atomic value mutated in place is the same reference, so compare its snapshot.
+    snapshot.push(`if (m${j} === 2) snapshotAtomic(state[${j}], snapshots, ${j});`);
+    const line = `if (${stable}(${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}]))) ${record}`;
+    trackLines.push(line);
+    // A positional callback holds the stored value itself and cannot replace it, so an AoS
+    // trait has nothing to write back and only its snapshot can report a change.
+    if (traitCtx.machine === undefined && traitCtx.relation === null) {
+      trackArgsLines.push(
+        `if (m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}])) ${record}`
       );
     } else {
-      // An atomic value mutated in place is the same reference, so compare its snapshot.
-      snapshot.push(`if (m${j} === 2) snapshotAtomic(state[${j}], snapshots, ${j});`);
-      trackLines.push(
-        `if (${stable}(${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}]))) { changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`
-      );
+      writeArgs.push(write[write.length - 1]);
+      trackArgsLines.push(line);
+      writebackArgs = true;
     }
   }
 
@@ -222,9 +268,9 @@ export function compileQueryIterators(
   let traitIndex = 0;
   const projectedArgs = projection.map((part, j) => {
     if (typeof part === 'function') return args[traitIndex++];
-    targetHoist.push(`var rt${j} = instances[${j}].relationTargets${cursors ? `, rp${j}` : ''};`);
-    if (cursors) targetRebind.push(`rp${j} = rt${j}[pg];`);
-    const slot = cursors ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
+    targetHoist.push(`var rt${j} = instances[${j}].relationTargets${paged ? `, rp${j}` : ''};`);
+    if (paged) targetRebind.push(`rp${j} = rt${j}[pg];`);
+    const slot = paged ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
     if (part.mode === 'slot') return slot;
     targetHoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
     if (part.mode === 'copy') return `copyTargetSnapshot(${slot}, ts${j})`;
@@ -239,13 +285,13 @@ export function compileQueryIterators(
   // compare per entity however many traits the walk reads.
   const setup = (cursor: 'value' | 'plain' | 'reader', positional = false) => `
     var state = buffers.state, records = buffers.records, index = ctx.entityIndex;
-    var revision = index.revision;${cursors ? ' var lastPg = -1;' : ''}
+    var revision = index.revision;${paged ? ' var lastPg = -1;' : ''}
     ${hoist.join('\n    ').replace(/__CURSOR__/g, cursor)}${positional && targetHoist.length ? '\n    ' + targetHoist.join('\n    ') : ''}`;
   const loop = (body: string, positional = false) => `
     for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
       if (index.revision !== revision && skipsEntry(index, entity, buffers)) continue;${
-        cursors
+        paged
           ? ` var pg = eid >>> 10, off = eid & 1023;
       if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')}${positional && targetRebind.length ? ' ' + targetRebind.join(' ') : ''} }`
           : ''
@@ -253,16 +299,20 @@ export function compileQueryIterators(
       ${read.join('\n      ')}
       ${body}
     }`;
-  // Record and AoS traits write back after the callback, which needs the entity still alive.
-  const alive = writeback ? 'if (!isEntityAlive(index, entity)) continue;' : '';
+  // Traits that write back after the callback need the entity still alive. An entity only dies
+  // through a handle release, which moves the revision, so an unmoved revision skips the lookup.
+  const alive = (positional: boolean) =>
+    (positional ? writebackArgs : writeback)
+      ? 'if (index.revision !== revision && !isEntityAlive(index, entity)) continue;'
+      : '';
   // Positional callbacks take the trait values in registers instead of through the state array.
   const arrayCall = 'callback(state, entity, i);';
   const argsCall = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
   const update = (call: string, positional = false) =>
     `${setup('plain', positional)}${loop(
       `${call}
-      ${alive}
-      ${write.join('\n      ')}`,
+      ${alive(positional)}
+      ${(positional ? writeArgs : write).join('\n      ')}`,
       positional
     )}`;
   const track = (call: string, positional = false) => `${setup('value', positional)}
@@ -272,8 +322,8 @@ export function compileQueryIterators(
       `${snapshot.join('\n      ')}
       ${reset.join(' ')}
       ${call}
-      ${alive}
-      ${trackLines.join('\n      ')}`,
+      ${alive(positional)}
+      ${(positional ? trackArgsLines : trackLines).join('\n      ')}`,
       positional
     )}
       return changed;`;
@@ -293,7 +343,7 @@ export function compileQueryIterators(
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
   return {
-    readEach: function read(ctx, entities, length, callback, buffers, stores) {${setup('reader')}${loop(
+    read: function read(ctx, entities, length, callback, buffers, stores) {${setup('reader')}${loop(
       'callback(state, entity, i);'
     )}
     },

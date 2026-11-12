@@ -404,5 +404,6 @@ export function subscribeEntityEvent(
   if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
   ctx.entitySubscribedInstances.add(instance);
+  if (event === 'changeSubscriptions') ctx.trackingRevision++;
   return subscribeEntity(instance[event], entity, resolveHookCallback(ctx, input, callback));
 }

@@ -46,7 +46,7 @@ group('React useTrait, 5000 entities @react @hooks', () => {
         flushSync(() => {
           if (step === 0) render();
           else {
-            world.query(Position).updateEach(([position], _entity, i) => {
+            world.query(Position).each((position, _entity, i) => {
               if (i % step === 0) position.x++;
             });
           }

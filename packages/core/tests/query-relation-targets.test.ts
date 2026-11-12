@@ -214,24 +214,15 @@ describe('relation targets in each', () => {
     world.destroy();
   });
 
-  it('preserves legacy iterator state and page stores', () => {
+  it('keeps page stores trait only', () => {
     const world = createWorld();
     const Position = trait({ x: 1 });
     const Parent = relation({ exclusive: true });
     const target = world.spawn();
-    const entity = world.spawn(Position, Parent(target));
+    world.spawn(Position, Parent(target));
     const query = world.query(Parent('*'), Position);
-    query.readEach(([position], current) => {
-      expectTypeOf(position).toEqualTypeOf<{ x: number }>();
-      expect(current).toBe(entity);
-      expect(position.x).toBe(1);
-    });
-    query.updateEach(([position], current) => {
-      expect(current).toBe(entity);
-      position.x++;
-    });
     query.each((parent, position) => {
-      expect([parent, position.x]).toEqual([target, 2]);
+      expect([parent, position.x]).toEqual([target, 1]);
     });
     expect(query.getPages()[0].stores).toHaveLength(1);
     world.destroy();

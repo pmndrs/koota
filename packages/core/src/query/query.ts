@@ -451,6 +451,7 @@ function processTrackingModifier(
 
       if (trackingType === 'change') {
         query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
+        ctx.trackingRevision++;
       }
     }
 

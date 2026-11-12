@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   $internal,
   createAdded,
+  createChanged,
   createQuery,
   createRemoved,
   createWorld,
@@ -445,6 +446,37 @@ describe('Query', () => {
     query.each(() => {});
     expect(positionChanged).toHaveBeenCalledTimes(2);
     expect(velocityChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it('each detects changes for observers added after an untracked walk', () => {
+    const Changed = createChanged();
+    const entity = world.spawn(Position);
+    const query = world.query(Position);
+    const move = () => query.each((position) => position.x++);
+    move();
+
+    const worldChanged = vi.fn();
+    const unsubscribe = world.onChange(Position, worldChanged);
+    move();
+    expect(worldChanged).toHaveBeenCalledExactlyOnceWith(entity);
+    unsubscribe();
+    move();
+
+    const entityChanged = vi.fn();
+    entity.onChange(Position, entityChanged);
+    move();
+    expect(entityChanged).toHaveBeenCalledExactlyOnceWith(entity);
+    expect(worldChanged).toHaveBeenCalledTimes(1);
+
+    const other = world.spawn(Name);
+    const names = world.query(Name);
+    const rename = () => names.each((name) => (name.name = `${name.name}!`));
+    rename();
+    // Registering reports the current members once.
+    world.query(Changed(Name));
+    expect(world.query(Changed(Name)).length).toBe(0);
+    rename();
+    expect(world.query(Changed(Name)).toArray()).toEqual([other]);
   });
 
   it('each passes each trait as an argument followed by the entity and index', () => {

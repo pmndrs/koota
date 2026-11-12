@@ -210,7 +210,7 @@ class SortedKeys implements EntitySource {
     }
     while (entities.length > count) entities.pop();
     // Read-only traversal neither writes trait data nor invalidates the dependency version.
-    this.reader.readEach(this.collect, this);
+    this.reader.read(this.collect, this);
     const result = sortKeys(this.values, entities, this.scratch, this.output, this.runs, count);
     while (result.length > count) result.pop();
     // Retain the unused buffer and recycle published for the next refresh.
