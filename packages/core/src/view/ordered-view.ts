@@ -17,7 +17,10 @@ import { sortKeys } from './sort-keys';
 /** Owns order independently of trait storage. Active walks retain their original sequence. */
 export class OrderedSource implements EntitySource {
   dense: Entity[];
+  /** Callback walks in progress. */
   iterating = 0;
+  /** Open for...of iterators that read the current array. A write replaces it while nonzero. */
+  readers = 0;
   views: ListView[] = [];
   dropped: Entity | undefined = undefined;
   droppedSet: Set<Entity> | undefined = undefined;
@@ -31,10 +34,13 @@ export class OrderedSource implements EntitySource {
     return this.dense.length;
   }
 
-  /** Copy only when an active walk still reads the current array. */
+  /** Copy only when a walk or an iterator may still read the current array. */
   write(): Entity[] {
     if (this.dropped !== undefined) this.compact();
-    if (this.iterating !== 0) this.dense = this.dense.slice();
+    if (this.iterating !== 0 || this.readers !== 0) {
+      this.dense = this.dense.slice();
+      this.readers = 0;
+    }
     return this.dense;
   }
 
@@ -61,13 +67,17 @@ export class OrderedSource implements EntitySource {
     if (droppedSet === undefined) {
       const index = this.dense.indexOf(dropped);
       if (index === -1) return;
-      if (this.iterating !== 0) this.dense = this.dense.slice();
+      if (this.iterating !== 0 || this.readers !== 0) {
+        this.dense = this.dense.slice();
+        this.readers = 0;
+      }
       this.dense.splice(index, 1);
       return;
     }
     const entities = this.dense;
-    if (this.iterating !== 0) {
+    if (this.iterating !== 0 || this.readers !== 0) {
       this.dense = entities.filter((entity) => !droppedSet.has(entity));
+      this.readers = 0;
       return;
     }
     let kept = 0;
@@ -181,7 +191,11 @@ class SortedSource extends OrderedSource {
       let entities: Entity[];
       const { sorter } = this;
       if (typeof sorter !== 'function') {
-        entities = sorter.sort(rebuild ? this.base.source : this, this.dense);
+        // The sorter recycles the published array as scratch, which an iterator may still read.
+        entities = sorter.sort(
+          rebuild ? this.base.source : this,
+          this.readers !== 0 ? [] : this.dense
+        );
       } else {
         if (rebuild) {
           const source = this.base.source;
@@ -192,6 +206,7 @@ class SortedSource extends OrderedSource {
         entities.sort(sorter);
       }
       this.dense = entities;
+      this.readers = 0;
       this.revision = revision;
       this.dirty = false;
     } finally {
