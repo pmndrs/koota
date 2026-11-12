@@ -103,7 +103,7 @@ export function settleWorld(ctx: WorldContext) {
   const commands = ctx.commands;
   ctx.deferDepth++;
   try {
-    while (ctx.commandCount !== 0 || ctx.settledQueue.size !== 0) {
+    for (;;) {
       const end = ctx.commandCount;
       if (head < end) {
         if (++waves > 100000) {
@@ -125,8 +125,12 @@ export function settleWorld(ctx: WorldContext) {
         }
         continue;
       }
-      clearCommands(ctx);
-      head = 0;
+      if (end !== 0) {
+        clearCommands(ctx);
+        head = 0;
+      }
+      // Most drains queue no observer, so they end here without a round.
+      if (ctx.settledQueue.size === 0) break;
       if (++rounds > 100) {
         throw new Error(
           'Koota: Settled observers did not settle after 100 rounds. An observer is likely changing the state it observes.'
@@ -142,8 +146,10 @@ export function settleWorld(ctx: WorldContext) {
       }
     }
   } finally {
-    clearCommands(ctx);
-    ctx.settledQueue.clear();
+    // Only a limit error leaves work behind. Clearing a Set allocates a new table, so the usual
+    // empty queue is skipped.
+    if (ctx.commandCount !== 0) clearCommands(ctx);
+    if (ctx.settledQueue.size !== 0) ctx.settledQueue.clear();
     ctx.unsettled = false;
     ctx.deferDepth--;
   }
