@@ -467,6 +467,24 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
+  it('drops a pair that a destroy hook spawns onto the dying entity', () => {
+    const world = createWorld();
+    const Link = relation();
+    const dying = world.spawn(Tag);
+    let spawned: Entity | undefined;
+    world.onRemove(Tag, (entity) => {
+      spawned = world.spawn(Link(entity));
+    });
+
+    dying.destroy();
+
+    expect(spawned!.isAlive()).toBe(true);
+    expect(spawned!.targetsFor(Link)).toEqual([]);
+    const recycled = world.spawn();
+    expect(world.query(Link(recycled)).length).toBe(0);
+    world.destroy();
+  });
+
   it('drops changes that teardown hooks log during a reset', () => {
     const world = createWorld();
     const Config = trait({ ready: false });

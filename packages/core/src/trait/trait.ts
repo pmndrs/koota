@@ -381,8 +381,15 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   if (assertsEnabled) {
     assertRelationTarget(ctx, target);
   }
-  // A deferred add can apply after its target died. Like a command on a dead entity, it is dropped.
-  if (typeof target !== 'number' || !isEntityAlive(ctx.entityIndex, target)) return;
+  // A deferred add can apply after its target died, and a destroy hook can spawn onto the entity
+  // being destroyed after its relations were detached. Like a command on a dead entity, the pair
+  // is dropped.
+  if (
+    typeof target !== 'number' ||
+    !isEntityAlive(ctx.entityIndex, target) ||
+    ctx.destroying === target
+  )
+    return;
 
   const params = pair.params;
   const relationCtx = relation[$internal];
