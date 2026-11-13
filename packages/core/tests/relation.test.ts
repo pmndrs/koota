@@ -113,6 +113,23 @@ describe('Relation', () => {
     expect(world.has(childChildC)).toBe(false);
   });
 
+  it('tracks the sources of a target with many of them', () => {
+    const ChildOf = relation({ autoDestroy: 'orphan' });
+    const parent = world.spawn();
+    const children = Array.from({ length: 300 }, () => world.spawn(ChildOf(parent)));
+
+    for (let index = 0; index < children.length; index += 2) children[index].destroy();
+    for (let index = 1; index < children.length; index += 4) children[index].remove(ChildOf(parent));
+    const late = world.spawn(ChildOf(parent));
+
+    const kept = children.filter((_, index) => index % 4 === 3);
+    expect(world.query(ChildOf(parent)).toArray().sort()).toEqual([...kept, late].sort());
+
+    parent.destroy();
+    expect(kept.every((child) => !child.isAlive())).toBe(true);
+    expect(late.isAlive()).toBe(false);
+  });
+
   it('should destroy targets when autoDestroy is target', () => {
     const Contains = relation({ autoDestroy: 'target' });
 

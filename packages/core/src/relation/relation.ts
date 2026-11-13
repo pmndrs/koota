@@ -20,7 +20,7 @@ import { sameParams } from '../query/utils/same-params';
 import { isRequired, pairTraitAccessors, type Schema, type TraitSchema } from '../storage';
 import { defineTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
-import type { Trait, TraitInstance } from '../trait/types';
+import type { RelationSources, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
 import type { Relation, RelationPair } from './types';
 import { $relation, $relationPair } from './symbols';
@@ -164,6 +164,15 @@ function addToRelationSources(traitData: TraitInstance, entity: Entity, target: 
   const buckets = (traitData.relationSourcesByTarget ??= []);
   const bucket = (buckets[getEntityId(target)] ??= []);
   bucket.push(entity);
+  bucket.positions?.set(entity, bucket.length - 1);
+}
+
+/** Indexes a bucket once it is large enough that scanning it for one source is slow. */
+function indexRelationSources(bucket: RelationSources): Map<Entity, number> {
+  const positions = new Map<Entity, number>();
+  for (let i = 0; i < bucket.length; i++) positions.set(bucket[i], i);
+  bucket.positions = positions;
+  return positions;
 }
 
 function removeFromRelationSources(traitData: TraitInstance, entity: Entity, target: Entity): void {
@@ -176,7 +185,17 @@ function removeFromRelationSources(traitData: TraitInstance, entity: Entity, tar
     }
     return;
   }
-  const idx = bucket.indexOf(entity);
+  const last = bucket.length - 1;
+  let positions = bucket.positions;
+  let idx: number;
+  // A dying target walks its sources from the end, so the last slot is checked first.
+  if (bucket[last] === entity) idx = last;
+  else if (positions !== undefined) idx = positions.get(entity) ?? -1;
+  else if (last < 64) idx = bucket.indexOf(entity);
+  else {
+    positions = indexRelationSources(bucket);
+    idx = positions.get(entity) ?? -1;
+  }
   if (idx === -1) {
     if (assertsEnabled) {
       throw new Error(
@@ -185,9 +204,16 @@ function removeFromRelationSources(traitData: TraitInstance, entity: Entity, tar
     }
     return;
   }
-  const last = bucket.length - 1;
-  if (idx !== last) bucket[idx] = bucket[last];
+  if (idx !== last) {
+    const moved = bucket[last];
+    bucket[idx] = moved;
+    positions?.set(moved, idx);
+  }
   bucket.pop();
+  if (positions !== undefined) {
+    if (last === 0) bucket.positions = undefined;
+    else positions.delete(entity);
+  }
 }
 
 /**

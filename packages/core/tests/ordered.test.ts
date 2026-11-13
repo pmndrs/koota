@@ -111,6 +111,31 @@ describe('Ordered relation views', () => {
     expect(world.query(Changed(Children)).toArray()).toEqual([parent]);
   });
 
+  it('keeps child order when many children leave in a row', () => {
+    const ChildOf = relation();
+    const Tagged = trait();
+    const Children = ordered(ChildOf);
+    const parent = world.spawn(Children);
+    const children = parent.get(Children)!;
+    const all = Array.from({ length: 200 }, () => world.spawn(ChildOf(parent), Tagged));
+    const tagged = children.select(Tagged);
+    const walk = children[Symbol.iterator]();
+    expect(walk.next().value).toBe(all[0]);
+
+    for (let index = 0; index < all.length; index += 3) all[index].destroy();
+    all[1].remove(ChildOf(parent));
+    all[1].add(ChildOf(parent));
+
+    const kept = all.filter((_, index) => index % 3 !== 0 && index !== 1);
+    expect(children).toHaveLength(kept.length + 1);
+    expect(children.toArray()).toEqual([...kept, all[1]]);
+    expect(tagged.toArray()).toEqual([...kept, all[1]]);
+    expect(children.indexOf(all[3])).toBe(-1);
+    // The walk that began earlier still reads the sequence it started on.
+    expect(walk.next().value).toBe(all[1]);
+    walk.return?.();
+  });
+
   it('follows exclusive reparenting and entity destruction', () => {
     const ChildOf = relation({ exclusive: true, autoDestroy: 'orphan' });
     const Children = ordered(ChildOf);
