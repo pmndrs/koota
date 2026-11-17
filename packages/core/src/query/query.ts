@@ -214,10 +214,9 @@ export function reconcileTargetQueries(
   const targetId = getEntityId(target);
   const queries = ctx.targetQueries[targetId >>> 10]?.[targetId & 1023];
   if (queries === undefined) return;
-  // A subscriber can drop queries from the list, which swaps the last one into the freed slot.
   for (let i = queries.length - 1; i >= 0; i--) {
     const query = queries[i];
-    if (query === undefined || !query.anchored) continue;
+    if (!query.anchored) continue;
     if (!dying && checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
     else removeEntityFromQuery(query, entity);
   }

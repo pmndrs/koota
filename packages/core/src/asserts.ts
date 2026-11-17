@@ -40,6 +40,18 @@ export /* @inline */ function assertRelationTarget(
   }
 }
 
+/**
+ * World wide operations cannot run while a defer scope may still hold commands. Unlike the
+ * assertions above this is checked in every build, since a reset under a walk corrupts the walk.
+ */
+export function assertOutsideDefer(ctx: WorldContext, operation: string) {
+  if (ctx.deferDepth !== 0) {
+    throw new Error(
+      `Koota: [DEFER_SCOPE] ${operation} cannot run inside a walk, a hook or world.defer. Finish the scope first.`
+    );
+  }
+}
+
 // Variable bindings let the inlining plugin retain these cold dependencies.
 export const createEntityNotAliveError = (entity: Entity): Error => {
   return new Error(

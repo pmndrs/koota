@@ -293,7 +293,6 @@ export function leaveKeyQueries(ctx: WorldContext, query: QueryInstance, pair: I
   const queries = ctx.traitInstances[pair.identifier.id]?.identifier?.queries;
   const list = queries?.get(pair.target);
   if (list === undefined) return;
-  // A dispatch keeps its old array when a callback removes a query.
   const rest = list.filter((other) => other !== query);
   if (rest.length === 0) queries!.delete(pair.target);
   else queries!.set(pair.target, rest);

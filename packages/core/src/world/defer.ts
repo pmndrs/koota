@@ -39,7 +39,7 @@ export /* @inline */ function endRootDefer(ctx: WorldContext) {
 
 /** Runs a function inside a defer scope and returns its result. */
 export function runDeferred<T>(ctx: WorldContext, fn: () => T): T {
-  ctx.deferDepth++;
+  beginDefer(ctx);
   try {
     return fn();
   } finally {
@@ -162,13 +162,4 @@ function clearCommands(ctx: WorldContext) {
   const count = ctx.commandCount;
   for (let i = 0; i < count; i++) commands[i] = undefined;
   ctx.commandCount = 0;
-}
-
-/** World wide operations cannot run while a scope may still hold commands. */
-export function assertOutsideDefer(ctx: WorldContext, operation: string) {
-  if (ctx.deferDepth !== 0) {
-    throw new Error(
-      `Koota: [DEFER_SCOPE] ${operation} cannot run inside a walk, a hook or world.defer. Finish the scope first.`
-    );
-  }
 }

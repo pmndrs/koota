@@ -432,7 +432,6 @@ export function setScopedRelationPair(
   const trait = relation[$internal].trait;
   let instance = getTraitInstance(ctx.traitInstances, trait);
   if (instance === undefined) instance = registerTrait(ctx, trait);
-  if (ctx.destroying === entity || !isEntityAlive(ctx.entityIndex, entity)) return false;
   const previous = getScopeTarget(ctx, relation, entity);
   if (previous === target) return true;
   if (!validateScopeMove(ctx, relation, entity, target)) return false;
@@ -451,19 +450,14 @@ export function setScopedRelationPair(
     if (present && instance.trackingQueries.length !== 0) {
       reconcileTrackingQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
     }
-  } else if (getScopeTarget(ctx, relation, entity) === undefined) {
+  } else {
     removeTraitFromEntity(ctx, entity, trait);
   }
   if (previous !== undefined) emit(instance.removeSubscriptions, entity, previous);
-  if (
-    target !== undefined &&
-    isEntityAlive(ctx.entityIndex, entity) &&
-    getScopeTarget(ctx, relation, entity) === target
-  ) {
+  // Subscribers run inside the defer scope of the move, so the edge holds through all of them.
+  if (target !== undefined) {
     emit(instance.addSubscriptions, entity, target);
-    if (isEntityAlive(ctx.entityIndex, entity) && getScopeTarget(ctx, relation, entity) === target) {
-      notifyTraitAdded(ctx, entity, instance, target);
-    }
+    notifyTraitAdded(ctx, entity, instance, target);
   }
   return true;
 }

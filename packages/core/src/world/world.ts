@@ -1,9 +1,10 @@
 import { observeSettled } from './settled';
-import { assertOutsideDefer, beginDefer, endDefer, runDeferred } from './defer';
+import { beginDefer, endDefer, runDeferred } from './defer';
 import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
 import { assertsEnabled } from '../assert-config';
+import { assertOutsideDefer } from '../asserts';
 import { applyDestroyEntity, createEntity, entityHas } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import {
