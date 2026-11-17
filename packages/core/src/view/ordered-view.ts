@@ -20,9 +20,7 @@ export class OrderedSource implements EntitySource {
   dense: Entity[];
   iterating = 0;
   views: ListView[] = [];
-  /** An entity dropped since the sequence was last read. */
   dropped: Entity | undefined = undefined;
-  /** Every such entity once a second one is dropped before the next read. */
   droppedSet: Set<Entity> | undefined = undefined;
 
   constructor(entities: Entity[] = []) {

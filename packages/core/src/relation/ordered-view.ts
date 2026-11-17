@@ -18,7 +18,6 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   active = true;
   inserting: Entity | undefined = undefined;
   insertIndex = 0;
-  /** The entity remove has already dropped while it ends that pair. */
   detaching: Entity | undefined = undefined;
 
   constructor(
@@ -137,8 +136,8 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   }
 
   removeFromRelation(entity: Entity): void {
-    if (this.detaching === entity) return;
-    if (this.source.drop(entity)) this.changed();
+    if (this.detaching === entity) this.detaching = undefined;
+    else if (this.source.drop(entity)) this.changed();
   }
 
   private assertActive() {

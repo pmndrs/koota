@@ -56,7 +56,7 @@ import {
 } from '../storage';
 import type { World, WorldContext } from '../world';
 import { incrementWorldBitflag } from '../world/utils/increment-world-bit-flag';
-import { createSubscriptions, emit } from './subscriptions';
+import { createSubscriptions, emit, emitSubscribers, hasSubscribers } from './subscriptions';
 import { getTraitInstance, hasTraitInstance, setTraitInstance } from './trait-instance';
 import { createClearFunction } from '../storage/stores';
 import type {
@@ -613,7 +613,11 @@ function leaveStaticQueries(ctx: WorldContext, entity: Entity, queries: QueryIns
   }
 
   if (typeof target === 'number') {
-    if (instance) emit(instance.removeSubscriptions, entity, target);
+    if (instance && hasSubscribers(instance.removeSubscriptions)) /* @cold */ {
+      if (hasRelationToTarget(ctx, relation, entity, target)) {
+        emitSubscribers(instance.removeSubscriptions, entity, target);
+      }
+    }
 
     const remaining = removeRelationTarget(ctx, relation, entity, target);
     if (remaining === 0) removeTraitFromEntity(ctx, entity, relationTrait);
