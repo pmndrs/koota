@@ -18,6 +18,7 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   active = true;
   inserting: Entity | undefined = undefined;
   insertIndex = 0;
+  detaching: Entity | undefined = undefined;
 
   constructor(
     ctx: WorldContext,
@@ -33,11 +34,11 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   }
 
   has(entity: Entity) {
-    return this.source.dense.includes(entity);
+    return this.getSource().dense.includes(entity);
   }
 
   indexOf(entity: Entity) {
-    return this.source.dense.indexOf(entity);
+    return this.getSource().dense.indexOf(entity);
   }
 
   add(entity: Entity): this {
@@ -71,11 +72,14 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     const index = this.indexOf(entity);
     if (index === -1) return false;
     this.ctx.structuralDepth++;
+    const previous = this.detaching;
+    this.detaching = entity;
     try {
       this.source.write().splice(index, 1);
       removeTrait(this.ctx, entity, this.relation(this.parent));
       this.changed();
     } finally {
+      this.detaching = previous;
       endStructuralChanges(this.ctx);
     }
     return true;
@@ -84,7 +88,7 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   clear(): void {
     this.assertActive();
     if (this.length === 0) return;
-    const entities = this.source.dense;
+    const entities = this.getSource().dense;
     this.source.dense = [];
     this.ctx.structuralDepth++;
     try {
@@ -132,10 +136,8 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
   }
 
   removeFromRelation(entity: Entity): void {
-    const index = this.indexOf(entity);
-    if (index === -1) return;
-    this.source.write().splice(index, 1);
-    this.changed();
+    if (this.detaching === entity) this.detaching = undefined;
+    else if (this.source.drop(entity)) this.changed();
   }
 
   private assertActive() {

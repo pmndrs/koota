@@ -113,6 +113,26 @@ describe('Relation', () => {
     expect(world.has(childChildC)).toBe(false);
   });
 
+  it('destroys only the children still attached when a parent is destroyed', () => {
+    const ChildOf = relation({ autoDestroy: 'orphan' });
+    const parent = world.spawn();
+    const pair = ChildOf(parent);
+    const children = Array.from({ length: 300 }, () => world.spawn(pair));
+    const detached = children.filter((_, index) => index % 4 === 1);
+    const attached = children.filter((_, index) => index % 4 === 3);
+
+    for (let index = 0; index < children.length; index += 2) children[index].destroy();
+    for (const child of detached) child.remove(pair);
+    attached.push(world.spawn(pair));
+    const matches = world.query(pair).toArray();
+    expect(matches).toHaveLength(attached.length);
+    expect(matches).toEqual(expect.arrayContaining(attached));
+
+    parent.destroy();
+    expect(attached.every((child) => !child.isAlive())).toBe(true);
+    expect(detached.every((child) => child.isAlive())).toBe(true);
+  });
+
   it('should destroy targets when autoDestroy is target', () => {
     const Contains = relation({ autoDestroy: 'target' });
 

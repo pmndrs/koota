@@ -30,7 +30,13 @@ describe('Ordered relation views', () => {
     expect(children.has(c)).toBe(true);
     expect(children.indexOf(c)).toBe(1);
     expect(c.has(ChildOf(parent))).toBe(true);
+    const onChange = vi.fn().mockImplementationOnce(() => {
+      c.add(ChildOf(parent));
+      c.remove(ChildOf(parent));
+    });
+    parent.onChange(Children, onChange);
     expect(children.remove(c)).toBe(true);
+    expect(onChange).toHaveBeenCalled();
     expect(c.has(ChildOf(parent))).toBe(false);
     a.remove(ChildOf(parent));
     expect([...children]).toEqual([b]);
@@ -98,7 +104,8 @@ describe('Ordered relation views', () => {
 
   it('notifies changes to membership and order', () => {
     const Changed = createChanged();
-    const Children = ordered(relation());
+    const ChildOf = relation();
+    const Children = ordered(ChildOf);
     const parent = world.spawn(Children);
     const children = parent.get(Children)!;
     const child = world.spawn();
@@ -109,6 +116,29 @@ describe('Ordered relation views', () => {
     expect(world.query(Changed(Children)).toArray()).toEqual([parent]);
     children.remove(child);
     expect(world.query(Changed(Children)).toArray()).toEqual([parent]);
+    child.add(ChildOf(world.spawn()));
+    child.remove(ChildOf(parent));
+    expect(world.query(Changed(Children)).toArray()).toEqual([]);
+  });
+
+  it('keeps the current walk in order when children leave and rejoin', () => {
+    const ChildOf = relation();
+    const Children = ordered(ChildOf);
+    const parent = world.spawn(Children);
+    const children = parent.get(Children)!;
+    const pair = ChildOf(parent);
+    const [a, b, c] = Array.from({ length: 3 }, () => world.spawn(pair));
+    const visited = children.map((child) => {
+      if (child === a) {
+        a.destroy();
+        b.remove(pair);
+        b.add(pair);
+      }
+      return child;
+    });
+
+    expect(visited).toEqual([a, b, c]);
+    expect([...children]).toEqual([c, b]);
   });
 
   it('follows exclusive reparenting and entity destruction', () => {

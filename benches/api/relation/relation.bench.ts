@@ -1,5 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createQuery, createWorld, relation, trait, type Entity } from 'koota';
+import { createQuery, createWorld, ordered, relation, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const IsPlayer = trait();
@@ -379,6 +379,30 @@ group('relation target lifecycle 1k @relation @lifecycle', () => {
 
     world.destroy();
   });
+});
+
+group('children of one parent 10k @relation @lifecycle', () => {
+  for (const mode of ['relation', 'ordered'] as const) {
+    bench(`spawn + destroy children, ${mode}`, function* () {
+      const world = createWorld();
+      const ChildOf = relation();
+      const Children = ordered(ChildOf);
+      const parent = mode === 'ordered' ? world.spawn(Children) : world.spawn();
+      const children: Entity[] = [];
+
+      yield {
+        bench: () => {
+          for (let i = 0; i < 10_000; i++) children[i] = world.spawn(ChildOf(parent));
+          for (let i = 0; i < 10_000; i++) children[i].destroy();
+        },
+        snapshot: () => {
+          assert.equal(world.query(ChildOf(parent)).length, 0);
+          return children.length;
+        },
+      };
+      world.destroy();
+    });
+  }
 });
 
 group('relation membership 10k @relation @accessor', () => {

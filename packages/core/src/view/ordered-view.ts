@@ -20,19 +20,63 @@ export class OrderedSource implements EntitySource {
   dense: Entity[];
   iterating = 0;
   views: ListView[] = [];
+  dropped: Entity | undefined = undefined;
+  droppedSet: Set<Entity> | undefined = undefined;
 
   constructor(entities: Entity[] = []) {
     this.dense = entities;
   }
 
   get length() {
+    if (this.dropped !== undefined) this.compact();
     return this.dense.length;
   }
 
   /** Copy only when an active walk still reads the current array. */
   write(): Entity[] {
+    if (this.dropped !== undefined) this.compact();
     if (this.iterating !== 0) this.dense = this.dense.slice();
     return this.dense;
+  }
+
+  /**
+   * Notes an entity to leave the sequence when it is next read, so dropping many in a row
+   * costs one pass. Returns false when the sequence is empty and holds nothing to drop.
+   */
+  drop(entity: Entity): boolean {
+    if (this.dropped === undefined) {
+      if (this.dense.length === 0) return false;
+      this.dropped = entity;
+    } else {
+      (this.droppedSet ??= new Set([this.dropped])).add(entity);
+    }
+    return true;
+  }
+
+  /** Removes the noted entities. An array an active walk still reads is replaced, not edited. */
+  compact(): void {
+    const { droppedSet } = this;
+    const dropped = this.dropped!;
+    this.dropped = undefined;
+    this.droppedSet = undefined;
+    if (droppedSet === undefined) {
+      const index = this.dense.indexOf(dropped);
+      if (index === -1) return;
+      if (this.iterating !== 0) this.dense = this.dense.slice();
+      this.dense.splice(index, 1);
+      return;
+    }
+    const entities = this.dense;
+    if (this.iterating !== 0) {
+      this.dense = entities.filter((entity) => !droppedSet.has(entity));
+      return;
+    }
+    let kept = 0;
+    for (let i = 0; i < entities.length; i++) {
+      const entity = entities[i];
+      if (!droppedSet.has(entity)) entities[kept++] = entity;
+    }
+    entities.length = kept;
   }
 }
 
@@ -50,6 +94,11 @@ export class ListView extends EntityView {
   }
 
   override getGuard() {
+    return this.source;
+  }
+
+  override getSource(): OrderedSource {
+    if (this.source.dropped !== undefined) this.source.compact();
     return this.source;
   }
 
