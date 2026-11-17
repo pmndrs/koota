@@ -4,7 +4,7 @@ import type { Identifier, IdentifierIndex, IdentifierPair } from '../identifier/
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
 import type { ConfigurablePair, Relation, RelationPair } from '../relation/types';
-import type { AoSFactory, RequiredField, Schema, Store, StoreType } from '../storage';
+import type { AoSFactory, CursorCompiler, RequiredField, Schema, Store, StoreType } from '../storage';
 import type { WorldContext } from '../world';
 import type { Subscriptions } from './subscriptions';
 
@@ -71,7 +71,12 @@ export type TraitAccessors<S extends Schema = any> = {
   getInto(ctx: WorldContext, index: number, store: Store<S>, out: TraitRecord<S>): TraitRecord<S>;
   /** Release auxiliary state before membership is removed. Cleanup must not throw. */
   remove(ctx: WorldContext, index: number, store: Store<S>): void;
+  /** Compiles cursor construction and iteration for SoA storage. */
+  cursor: CursorCompiler | undefined;
 };
+
+/** Membership lifecycle. Ordered views use ordinary trait membership. */
+export type TraitKind = 'trait' | 'machine' | 'relation' | 'identifier';
 
 export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> & {
   readonly id: number;
@@ -81,13 +86,11 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   readonly type: StoreType;
   /** True when the schema has a required field, so add needs a value. */
   readonly required: RequiresInit<S>;
-  /** True for a SoA schema with only scalar fields, which iteration reads in place. */
-  readonly cursor: boolean;
   registered: boolean;
   machine: MachineContext | undefined;
   relation: Relation<any> | null;
-  /** Membership cleanup dispatch, separate from the storage layout. */
-  kind: 'trait' | 'relation' | 'identifier' | 'machine';
+  /** Given at creation. A state machine claims its states afterwards, which keep their accessors. */
+  kind: TraitKind;
   /** The trait tracks identifier presence. Keys live in the world-local identifier index. */
   identifier: Identifier | undefined;
 };

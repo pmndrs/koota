@@ -1,20 +1,16 @@
+import type { TraitAccessors } from '../trait/types';
 import type { WorldContext } from '../world';
-import { isRequired } from './schema';
+import { createCursorCompiler } from './cursor-compiler';
+import { getStride, isRequired } from './schema';
 import { createPage, growPages } from './stores';
 import type { Schema, StoreType } from './types';
 
-// Accessors share the (ctx, index, store) prefix so a trait with custom storage can replace any of them.
+// Accessors share the (ctx, index, store) prefix whatever kind of trait they belong to.
 export type AddAccessor = (ctx: WorldContext, index: number, store: any, value?: any) => void;
 export type SetAccessor = (ctx: WorldContext, index: number, store: any, value: any) => boolean;
 export type GetAccessor = (ctx: WorldContext, index: number, store: any) => any;
 export type GetIntoAccessor = (ctx: WorldContext, index: number, store: any, out: any) => any;
 export type RemoveAccessor = (ctx: WorldContext, index: number, store: any) => void;
-
-/** A tuple field stores `stride` interleaved values per entity. Scalar fields have stride 0. */
-function getStride(schema: Schema, key: string): number {
-  const field = (schema as Record<string, unknown>)[key];
-  return Array.isArray(field) ? field.length : 0;
-}
 
 /** Unrolls a statement for each tuple element, since the stride is fixed per trait. */
 function unroll(stride: number, statement: (c: number) => string): string {
@@ -215,28 +211,28 @@ function createAoSGetFunction(_schema: Schema): GetAccessor {
   return (_ctx, index, store) => store[index >>> 10][index & 1023];
 }
 
-const noop = () => {};
+const noop = () => undefined;
 
-export const createAddFunction: Record<StoreType, (schema: Schema) => AddAccessor> = {
+const createAddFunction: Record<StoreType, (schema: Schema) => AddAccessor> = {
   soa: createSoAAddFunction,
   aos: createAoSAddFunction,
   tag: () => noop,
 };
 
-export const createSetFunction: Record<StoreType, (schema: Schema) => SetAccessor> = {
+const createSetFunction: Record<StoreType, (schema: Schema) => SetAccessor> = {
   soa: createSoASetFunction,
   aos: createAoSSetFunction,
   tag: () => () => false,
 };
 
-export const createGetFunction: Record<StoreType, (schema: Schema) => GetAccessor> = {
+const createGetFunction: Record<StoreType, (schema: Schema) => GetAccessor> = {
   soa: createSoAGetFunction,
   aos: createAoSGetFunction,
   tag: () => noop,
 };
 
 // AoS records are the stored values themselves, so they have nothing to copy into out.
-export const createGetIntoFunction: Record<StoreType, (schema: Schema) => GetIntoAccessor> = {
+const createGetIntoFunction: Record<StoreType, (schema: Schema) => GetIntoAccessor> = {
   soa: createSoAGetIntoFunction,
   aos: createAoSGetFunction,
   tag: () => noop,
@@ -254,4 +250,30 @@ export const createRecordFunction: Record<StoreType, (schema: Schema) => () => a
   soa: createSoARecordFunction,
   aos: (schema) => (isRequired(schema) ? noRecord : (schema as () => unknown)),
   tag: () => noop,
+};
+
+/** The accessors compiled from a schema for its storage type. */
+export function createSchemaAccessors(schema: Schema, type: StoreType): TraitAccessors {
+  return {
+    add: createAddFunction[type](schema),
+    set: createSetFunction[type](schema),
+    get: createGetFunction[type](schema),
+    getInto: createGetIntoFunction[type](schema),
+    remove: noop,
+    cursor: type === 'soa' ? createCursorCompiler(schema) : undefined,
+  };
+}
+
+function requirePair(): never {
+  throw new Error('Koota: [NO_ACCESSORS] Use a pair to write a relation or identifier.');
+}
+
+/** The backing trait represents membership. Data belongs to the pair. */
+export const pairTraitAccessors: TraitAccessors = {
+  add: requirePair,
+  set: requirePair,
+  get: noop,
+  getInto: noop,
+  remove: requirePair,
+  cursor: undefined,
 };

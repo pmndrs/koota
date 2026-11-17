@@ -540,7 +540,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     addSubscriptions: null,
     removeSubscriptions: null,
     layoutCache: null,
-    iterationBuffers: undefined,
     viewBindings: [],
   };
 

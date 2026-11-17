@@ -45,15 +45,11 @@ import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import { clearTraitMembership, setTraitMembership } from './membership';
 import {
-  createAddFunction,
-  createGetFunction,
-  createGetIntoFunction,
   createRecordFunction,
-  createSetFunction,
+  createSchemaAccessors,
   createStore,
   isRequired,
   Norm,
-  Schema,
   StoreType,
   TraitSchema,
   validateSchema,
@@ -73,72 +69,64 @@ import type {
   TraitContext,
   TraitInit,
   TraitInstance,
+  TraitKind,
 } from './types';
 
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-/**
- * Create standard paged storage accessors, then allow typed overrides to delegate to them.
- * Storage layout and allocation stay with the core.
- */
-export function createTraitContext<S extends Schema>(
+function createTrait(schema?: undefined | Record<string, never>): TagTrait;
+function createTrait<S extends TraitSchema>(schema: S): Trait<Norm<S>>;
+function createTrait<S extends TraitSchema>(schema: S = tagSchema as S): Trait<Norm<S>> {
+  return defineTrait(schema, 'trait');
+}
+
+export const trait = createTrait;
+
+/** The kind controls membership. The schema supplies storage accessors unless the caller provides them. */
+export function defineTrait<S extends TraitSchema>(
   schema: S,
-  customize?: (defaults: Readonly<TraitAccessors<S>>) => Partial<TraitAccessors<S>>
-): TraitContext<S> {
+  kind: Exclude<TraitKind, 'machine'>,
+  accessors?: TraitAccessors<S>
+): Trait<Norm<S>> {
   const isAoS = typeof schema === 'function';
   const isTag = !isAoS && Object.keys(schema).length === 0;
   const type: StoreType = isAoS ? 'aos' : isTag ? 'tag' : 'soa';
 
   validateSchema(schema);
 
-  const defaults: TraitAccessors<S> = {
-    add: createAddFunction[type](schema),
-    set: createSetFunction[type](schema),
-    get: createGetFunction[type](schema),
-    getInto: createGetIntoFunction[type](schema),
-    remove: () => {},
-  };
-  const accessors = customize?.(defaults);
-  const get = accessors?.get;
-
-  return {
+  const { add, set, get, getInto, remove, cursor } = accessors ?? createSchemaAccessors(schema, type);
+  const context: TraitContext<S> = {
     id: traitId++,
     createStore: () => createStore(schema),
     clear: createClearFunction(schema),
-    add: accessors?.add ?? defaults.add,
-    set: accessors?.set ?? defaults.set,
-    get: get ?? defaults.get,
-    // A custom get owns how values are read, so without a custom getInto, out is filled from its record.
-    getInto:
-      accessors?.getInto ??
-      (get
-        ? (ctx, index, store, out) => Object.assign(out, get(ctx, index, store))
-        : defaults.getInto),
-    remove: accessors?.remove ?? defaults.remove,
+    add,
+    set,
+    get,
+    getInto,
+    remove,
+    cursor,
     registered: false,
     machine: undefined,
     relation: null,
-    kind: 'trait',
+    kind,
     identifier: undefined,
     type,
     required: (isRequired(schema) || Object.values(schema).some(isRequired)) as RequiresInit<S>,
-    cursor:
-      type === 'soa' &&
-      Object.keys(schema).every((key) => !Array.isArray((schema as Record<string, unknown>)[key])),
   };
-}
+  const Trait = Object.assign(
+    (params: TraitInit<Norm<S>>): [Trait<Norm<S>>, TraitInit<Norm<S>>] => [Trait, params],
+    { [$internal]: context }
+  ) as unknown as Trait<Norm<S>>;
 
-/** Define the public id, schema and record builder as read-only properties on a trait object. */
-export function defineTraitProperties(target: object, context: TraitContext, schema: Schema) {
-  Object.defineProperty(target, 'id', {
+  Object.defineProperty(Trait, 'id', {
     value: context.id,
     writable: false,
     enumerable: true,
     configurable: false,
   });
 
-  Object.defineProperty(target, 'schema', {
+  Object.defineProperty(Trait, 'schema', {
     value: schema,
     writable: false,
     enumerable: true,
@@ -147,29 +135,15 @@ export function defineTraitProperties(target: object, context: TraitContext, sch
 
   // Most traits never build a record, so the builder compiles on first use.
   let create: (() => unknown) | undefined;
-  Object.defineProperty(target, 'record', {
+  Object.defineProperty(Trait, 'record', {
     value: () => (create ??= createRecordFunction[context.type](schema))(),
     writable: false,
     enumerable: false,
     configurable: false,
   });
-}
-
-function createTrait(schema?: undefined | Record<string, never>): TagTrait;
-function createTrait<S extends TraitSchema>(schema: S): Trait<Norm<S>>;
-function createTrait<S extends TraitSchema>(schema: S = tagSchema as S): Trait<Norm<S>> {
-  const context = createTraitContext(schema);
-  const Trait = Object.assign(
-    (params: TraitInit<Norm<S>>): [Trait<Norm<S>>, TraitInit<Norm<S>>] => [Trait, params],
-    { [$internal]: context }
-  ) as unknown as Trait<Norm<S>>;
-
-  defineTraitProperties(Trait, context, schema);
 
   return Trait;
 }
-
-export const trait = createTrait;
 
 export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   const traitCtx = trait[$internal];

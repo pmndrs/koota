@@ -1,18 +1,8 @@
 export { createPage, createStore } from './stores';
-export {
-  createAddFunction,
-  createSetFunction,
-  createGetFunction,
-  createGetIntoFunction,
-  createRecordFunction,
-} from './accessors';
-export type {
-  AddAccessor,
-  SetAccessor,
-  GetAccessor,
-  GetIntoAccessor,
-  RemoveAccessor,
-} from './accessors';
+export { createRecordFunction, createSchemaAccessors, pairTraitAccessors } from './accessors';
+
+export type { CursorCompiler, CursorSource } from './cursor-compiler';
+export type { CursorKind, CursorSet } from './cursors';
 
 export { isRequired, required, validateSchema } from './schema';
 

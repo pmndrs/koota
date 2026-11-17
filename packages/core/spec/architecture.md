@@ -84,11 +84,17 @@ See [structural.md](./structural.md) for detailed code path documentation.
 
 ### Trait Accessors
 
-Traits use core-owned paged SoA or AoS storage. `createTraitContext` allows overrides of `add`, `get`, `set`, and `remove` typed to the schema, with default accessors for delegation.
+The schema determines the storage layout (`soa`, `aos` or `tag`) and supplies the default accessors. The trait kind controls membership cleanup. Machine states keep their schema accessors, and walks check the machine revision before writing back. Ordered traits use ordinary membership. `ordered()` supplies accessors that create one view per entity, preserve its identity and deactivate it on removal.
+
+Every registered trait appears in `world.traits`. Relation and identifier backing traits expose membership through `has` and return `undefined` from `get`. Relation data belongs to individual pairs, and identifier keys live in the world's identifier index.
+
+A SoA trait compiles a cursor from its schema. A walk binds it to a page of every field, moves it per entity, and passes it to the callback. The cursor exposes the schema fields as enumerable own properties. Scalar fields read and write the page directly. Tuple fields use borrowed arrays filled when the cursor moves and stored back after a write callback. An AoS trait is read with `get`, which returns the stored value.
+
+Cursor objects provide field access. A separate cursor compiler returns initialization, bind, seek, flush and change expressions together for one generated walk. It chooses internal slot names outside the schema's field names. Cursor-owned tuple arrays are captured once per walk, while storage pages are rebound as needed. Positional `each` callbacks receive AoS values from locals without writing them through the shared state array. The iterator compiler holds no layout code. Splicing the source avoids calls but adds bytecode to the iterator, so its size still matters to V8 inlining.
 
 Accessors own values and auxiliary indexes. The core owns membership, queries, revisions, and events. `set` returns whether it changed the value.
 
-This is a type-time contract. Accessors preserve invariants and handle failures. Raw writes bypass hooks. Defer removal or replacement of selected custom traits until query iteration finishes.
+This is a type-time contract. Accessors preserve invariants and handle failures. Raw writes bypass hooks. Defer removal of selected ordered traits until query iteration finishes.
 
 ### Queries
 

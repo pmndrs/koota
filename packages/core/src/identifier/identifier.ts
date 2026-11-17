@@ -9,7 +9,8 @@ import { addEntityToQuery, removeEntityFromQuery } from '../query/query';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { markTraitChanged } from '../query/utils/mark-tracked-trait-changed';
 import { emit, emitSubscribers, hasSubscribers } from '../trait/subscriptions';
-import { grantTraitMembership, reconcileQueries, registerTrait, trait } from '../trait/trait';
+import { pairTraitAccessors } from '../storage';
+import { defineTrait, grantTraitMembership, reconcileQueries, registerTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { TraitInstance } from '../trait/types';
 import type { QueryInstance } from '../query/types';
@@ -31,7 +32,7 @@ export function identifier<K extends IdentifierKey = string>(
   if (scope !== undefined && !scope[$internal].exclusive) {
     throw new Error('Koota: [IDENTIFIER_SCOPE] A scoping relation must be exclusive.');
   }
-  const backing = trait();
+  const backing = defineTrait({}, 'identifier', pairTraitAccessors);
   const Identifier = Object.assign(
     (target: K): IdentifierPair<K> => {
       if (typeof target !== 'string' && (typeof target !== 'number' || !Number.isFinite(target))) {
@@ -45,7 +46,6 @@ export function identifier<K extends IdentifierKey = string>(
     [$identifier]: { value: true },
     id: { value: backing.id, enumerable: true },
   });
-  backing[$internal].kind = 'identifier';
   backing[$internal].identifier = Identifier;
   if (scope !== undefined) (scope[$internal].scopedIdentifiers ??= []).push(Identifier);
   return Identifier;

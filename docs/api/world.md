@@ -15,6 +15,8 @@ World's can also have their own traits, which function as singletons.
 
 `createWorld(options?: WorldOptions)` sets policy at creation. Add singleton traits afterward with `world.add(...)`. The `retain` option must be a non-negative safe integer.
 
+`world.traits` contains every registered trait, including the backing traits for relations and identifiers. `world.onTraitRegistered` reports each new registration. Use `entity.has(trait)` to inspect membership. Reading a backing trait with `entity.get(trait)` returns `undefined`. Read relation data with `entity.get(Link(target))` and identifier keys with `entity.targetFor(Name)` or `entity.targetsFor(Name)`.
+
 ```js
 // Set world policy once. Options are optional and retain defaults to 1024
 const world = createWorld({ retain: 1024 })

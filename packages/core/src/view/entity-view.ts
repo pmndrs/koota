@@ -2,11 +2,9 @@ import { $internal } from '../common';
 import { isIdentifier, isIdentifierPair } from '../identifier/identifier';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
-import { getEntityId } from '../entity/utils/pack-entity';
 import { isEntityAlive, isEntityReadable } from '../entity/utils/entity-index';
 import { isRelationPair } from '../relation/utils/is-relation';
 import type { RelationPair } from '../relation/types';
-import type { Store } from '../storage';
 import { createQuery, ensureTraitInstance } from '../query/query';
 import { registerTrait } from '../trait/trait';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -17,11 +15,7 @@ import { isModifier } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
 import { notifyChanged } from '../query/modifiers/changed';
-import {
-  compileQueryIterators,
-  createIterationCursor,
-  getQueryIterators,
-} from '../query/utils/compile-iterators';
+import { compileQueryIterators, getQueryIterators } from '../query/utils/compile-iterators';
 import type {
   QueryInstance,
   QueryIterationBuffers,
@@ -151,12 +145,13 @@ export class EntityView {
     const { ctx, query } = this;
     const guard = this.getGuard();
     const { stores } = this.binding;
-    const buffers = takeIterationBuffers(ctx, pool, dense as Entity[], this.binding, query);
+    const buffers = takeIterationBuffers(pool, this.binding, query);
     if (guard) guard.iterating++;
     try {
       buffers.iterators!.read(ctx, dense as Entity[], length, callback, buffers, stores);
     } finally {
       if (guard) guard.iterating--;
+      buffers.iterators!.release(buffers);
       releaseIterationBuffers(pool, buffers);
     }
     return this;
@@ -164,7 +159,7 @@ export class EntityView {
 
   /** @deprecated Use each. */
   readEach(callback: Callback) {
-    return this.read(callback, this.query ?? this.ctx);
+    return this.read(callback, this.query === null ? this.ctx : this.binding);
   }
 
   /** @deprecated Use each. */
@@ -173,15 +168,16 @@ export class EntityView {
     if (length === 0) return this;
     const { ctx, query, binding } = this;
     const guard = this.getGuard();
-    const pool = query ?? ctx;
+    const pool = query === null ? ctx : binding;
     const entities = dense as Entity[];
-    const buffers = takeIterationBuffers(ctx, pool, entities, binding, query);
+    const buffers = takeIterationBuffers(pool, binding, query);
     if (guard) guard.iterating++;
     try {
       walkDetecting(ctx, binding, entities, length, callback, buffers, options, false);
     } finally {
       if (guard) guard.iterating--;
       bumpVersions(binding.instances);
+      buffers.iterators!.release(buffers);
       releaseIterationBuffers(pool, buffers);
     }
     return this;
@@ -197,9 +193,9 @@ export class EntityView {
     if (length === 0) return this;
     const { ctx, query, binding } = this;
     const guard = this.getGuard();
-    const pool = query ?? ctx;
+    const pool = query === null ? ctx : binding;
     const entities = dense as Entity[];
-    const buffers = takeIterationBuffers(ctx, pool, entities, binding, query);
+    const buffers = takeIterationBuffers(pool, binding, query);
     if (guard) guard.iterating++;
     try {
       if (binding.untracked === ctx.trackingRevision) {
@@ -331,6 +327,7 @@ function finishViewIterator(iterator: ViewIterator) {
 
 /** Handle-only snapshots need no world-specific stores or query-owned view cache. */
 const entityBinding: QueryViewBinding = {
+  iterationBuffers: undefined,
   params: [],
   traits: [],
   instances: [],
@@ -371,6 +368,7 @@ export function getQueryBinding(
     }
   }
   const binding: QueryViewBinding = {
+    iterationBuffers: undefined,
     params,
     traits: [],
     instances: [],
@@ -560,7 +558,7 @@ function createIterationBuffers(query: QueryInstance | null): QueryIterationBuff
   return {
     state: [],
     binding: undefined,
-    records: [],
+    cursors: [],
     targetSnapshots: [],
     iterators: undefined,
     retains: query?.retains ?? false,
@@ -574,38 +572,34 @@ function createIterationBuffers(query: QueryInstance | null): QueryIterationBuff
 }
 
 /**
- * Checks out buffers from the pool, preparing them when the projection differs. A pool serves
- * one query for its whole life, so the query is recorded when its buffers are created.
+ * Each active walk checks out its own buffers. Cached query selections keep their prepared
+ * cursors. Views without a query share the world pool and may need to rebind its buffers.
  */
 function takeIterationBuffers(
-  ctx: WorldContext,
   pool: IterationBufferPool,
-  entities: Entity[],
   binding: QueryViewBinding,
   query: QueryInstance | null
 ): QueryIterationBuffers {
   let buffers = pool.iterationBuffers;
   if (buffers === undefined) buffers = createIterationBuffers(query);
   else pool.iterationBuffers = buffers.next;
-  if (buffers.binding !== binding) prepareIterationBuffers(ctx, buffers, entities, binding, query);
+  if (buffers.binding !== binding) prepareIterationBuffers(buffers, binding, query);
   return buffers;
 }
 
 /**
- * Prepares buffers for a projection. Records already built for the same trait are kept. A
+ * Prepares buffers for a projection. Cursors already created for the same trait are kept. A
  * query binding compiles its own iterators, since every generated function with the same source
  * would otherwise share one feedback vector and its callback site would turn megamorphic across
  * queries. Views without a query share iterators per projection.
  */
 function prepareIterationBuffers(
-  ctx: WorldContext,
   buffers: QueryIterationBuffers,
-  entities: Entity[],
   binding: QueryViewBinding,
   query: QueryInstance | null
 ) {
-  const { traits, stores, projection } = binding;
-  const { state, records } = buffers;
+  const { traits, projection } = binding;
+  const { state, cursors } = buffers;
   const prepared = buffers.binding?.traits;
   if (buffers.iterators !== undefined && sameParams(buffers.binding!.projection, projection)) {
     buffers.binding = binding;
@@ -615,19 +609,9 @@ function prepareIterationBuffers(
     const trait = traits[i];
     state[i] = undefined;
     if (prepared?.[i] === trait) continue;
-    const traitCtx = trait[$internal];
-    records[i] = traitCtx.cursor
-      ? {
-          value: createIterationCursor(trait, 'write'),
-          tuples: undefined,
-          plain: createIterationCursor(trait, 'plain'),
-          reader: createIterationCursor(trait, 'read'),
-        }
-      : traitCtx.type === 'soa'
-        ? createIterationRecord(ctx, getEntityId(entities[0]), trait, stores[i])
-        : undefined;
+    cursors[i] = trait[$internal].cursor?.create();
   }
-  state.length = records.length = traits.length;
+  state.length = cursors.length = traits.length;
   for (let i = 0; i < projection.length; i++) {
     const part = projection[i];
     if (typeof part !== 'function' && (part.mode === 'copy' || part.mode === 'filter')) {
@@ -641,9 +625,8 @@ function prepareIterationBuffers(
       : (binding.iterators ??= compileQueryIterators(traits, projection));
 }
 
-/** Releases references to user objects, then returns the buffers to the pool. */
+/** Returns buffers to the pool. Array walks clear their borrowed state before returning them. */
 function releaseIterationBuffers(pool: IterationBufferPool, buffers: QueryIterationBuffers) {
-  buffers.iterators!.release(buffers);
   buffers.next = pool.iterationBuffers;
   pool.iterationBuffers = buffers;
 }
@@ -696,15 +679,6 @@ function hasChangedQuery(instance: TraitInstance) {
     if ((trackingQueries[i].changedMasks[generationId] & bitflag) !== 0) return true;
   }
   return false;
-}
-
-function createIterationRecord(ctx: WorldContext, entityId: number, trait: Trait, store: Store<any>) {
-  const value = trait[$internal].get(ctx, entityId, store);
-  let tuples: Record<string, unknown[]> | undefined;
-  for (const key in trait.schema) {
-    if (Array.isArray(trait.schema[key])) (tuples ??= {})[key] = value[key];
-  }
-  return { value, tuples };
 }
 
 function getQueryInstance(ctx: WorldContext, trait: Trait): TraitInstance {

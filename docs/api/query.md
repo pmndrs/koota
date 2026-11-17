@@ -8,7 +8,7 @@ A Koota query is a lot like a database query. Parameters define how to find enti
 
 Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. `each` walks the membership present when it starts. Structural changes to other entities during a walk are unsupported, so keep adds, removes and destroys to the current entity. Guard stale handles with `entity.isAlive()` when retaining a copy, and preserve selected traits until update callbacks finish writing back.
 
-`each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot. `readEach` and `updateEach` are deprecated, `each` reads at the same cost and writes land directly.
+`each` passes each selected trait as its own argument followed by the entity and index. On a schema trait, `Object.keys(value)` lists its fields and `{ ...value }` reads their current values. The record and its tuple arrays are borrowed for the callback. Use `entity.get(Trait)` to keep a snapshot with independent tuple arrays. `readEach` and `updateEach` are deprecated.
 
 ## Defining queries
 
