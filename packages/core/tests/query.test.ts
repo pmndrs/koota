@@ -235,6 +235,70 @@ describe('Query', () => {
     expect(second.get(Transform)).toEqual({ position: replacement, mass: 10 });
   });
 
+  it('each reads and writes fields whatever they are named', () => {
+    const Flags = trait({ o: 5, changed: 7, seek: [1, 2] });
+    world.spawn();
+    const entity = world.spawn(Flags);
+
+    world.query(Flags).each((flags) => {
+      expect([flags.o, flags.changed, flags.seek]).toEqual([5, 7, [1, 2]]);
+      flags.o = 6;
+      flags.changed = 8;
+      flags.seek[1] = 3;
+    });
+
+    expect(entity.get(Flags)).toEqual({ o: 6, changed: 8, seek: [1, 3] });
+  });
+
+  it.each([false, true])('enumerates the schema fields of each row (tracked: %s)', (tracked) => {
+    const Transform = trait({ xy: [0, 0], mass: 0 });
+    world.spawn(Position({ x: 1 }), Transform({ xy: [1, 2], mass: 3 }));
+    world.spawn(Position({ x: 4 }), Transform({ xy: [4, 5], mass: 6 }));
+    if (tracked) world.onChange(Transform, () => {});
+
+    world.query(Position, Transform).each((position, transform, entity) => {
+      expect(Object.keys(position)).toEqual(['x', 'y']);
+      expect(Object.keys(transform)).toEqual(['xy', 'mass']);
+      expect({ ...position }).toEqual(entity.get(Position));
+      expect({ ...transform }).toEqual(entity.get(Transform));
+    });
+  });
+
+  it.each([false, true])('keeps cursor slots separate from fields (tracked: %s)', (tracked) => {
+    const Fields = trait({ $o: 5, $changed: 7, $0: 9, $t3: [1, 2], $$o: 13, toJSON: 11 });
+    const entity = world.spawn(Fields);
+    const changed = vi.fn();
+    if (tracked) world.onChange(Fields, changed);
+    const query = world.query(Fields);
+
+    query.each((fields) => {
+      expect([fields.$o, fields.$changed, fields.$0, fields.$t3, fields.$$o, fields.toJSON]).toEqual([
+        5,
+        7,
+        9,
+        [1, 2],
+        13,
+        11,
+      ]);
+      fields.$o++;
+      fields.$changed++;
+      fields.$0++;
+      fields.$t3 = [3, 4];
+      fields.$$o++;
+      fields.toJSON++;
+    });
+
+    expect(entity.get(Fields)).toEqual({
+      $o: 6,
+      $changed: 8,
+      $0: 10,
+      $t3: [3, 4],
+      $$o: 14,
+      toJSON: 12,
+    });
+    if (tracked) expect(changed).toHaveBeenCalledExactlyOnceWith(entity);
+  });
+
   it('keeps outer callback data intact during nested each iteration', () => {
     const first = world.spawn(Position({ x: 1 }));
     const second = world.spawn(Position({ x: 2 }));

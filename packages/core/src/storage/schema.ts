@@ -25,6 +25,12 @@ export function isRequired(field: unknown): boolean {
   return field === missing;
 }
 
+/** A tuple field stores `stride` interleaved values per entity. Scalar fields have stride 0. */
+export function getStride(schema: Schema, key: string): number {
+  const field = (schema as Record<string, unknown>)[key];
+  return Array.isArray(field) ? field.length : 0;
+}
+
 export function validateSchema(schema: Schema) {
   for (const key in schema) {
     const value: unknown = schema[key as keyof Schema];

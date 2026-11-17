@@ -4,9 +4,11 @@ import {
   createChanged,
   createQuery,
   createWorld,
+  identifier,
   relation,
   trait,
   type Entity,
+  type Trait,
   type TraitRecord,
 } from '../src';
 
@@ -770,6 +772,30 @@ describe('Lifecycle Subscriptions', () => {
   });
 
   describe('onTraitRegistered', () => {
+    it('exposes every registered trait for entity inspection', () => {
+      const Label = identifier();
+      const Parent = relation();
+      const Link = relation({ store: { weight: 0 } });
+      const parent = world.spawn();
+      const registered: Trait[] = [];
+      world.onTraitRegistered((trait) => registered.push(trait));
+      const entity = world.spawn(
+        Position({ x: 3 }),
+        Label('child'),
+        Parent(parent),
+        Link(parent, { weight: 5 })
+      );
+
+      const present = [...world.traits].filter((trait) => entity.has(trait));
+      expect(present).toHaveLength(4);
+      expect(new Set(present)).toEqual(new Set(registered));
+      for (const trait of present) {
+        expect(entity.get(trait)).toEqual(trait === Position ? { x: 3, y: 0 } : undefined);
+      }
+      expect(entity.targetFor(Label)).toBe('child');
+      expect(entity.get(Link(parent))).toEqual({ weight: 5 });
+    });
+
     it('should fire when a trait is first registered', () => {
       const cb = vi.fn();
       world.onTraitRegistered(cb);

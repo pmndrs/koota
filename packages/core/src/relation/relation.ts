@@ -17,8 +17,8 @@ import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isStableParameter } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
-import { isRequired, type Schema, type TraitSchema } from '../storage';
-import { trait } from '../trait/trait';
+import { isRequired, pairTraitAccessors, type Schema, type TraitSchema } from '../storage';
+import { defineTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
@@ -50,10 +50,12 @@ function createRelation<S extends TraitSchema = Record<string, never>>(
 function createRelation<S extends TraitSchema = Record<string, never>>(
   definition?: RelationDefinition<S>
 ): Relation<Trait<S>> {
-  const relationTrait = trait(definition?.store ?? ({} as S)) as unknown as Trait<S>;
+  const relationTrait = defineTrait(
+    definition?.store ?? ({} as S),
+    'relation',
+    pairTraitAccessors
+  ) as unknown as Trait<S>;
   const traitCtx = relationTrait[$internal];
-
-  traitCtx.relation = null!;
 
   let autoDestroy: 'source' | 'target' | false = false;
   if (definition?.autoDestroy === 'orphan' || definition?.autoDestroy === 'source') {
@@ -150,7 +152,6 @@ function createRelation<S extends TraitSchema = Record<string, never>>(
   });
 
   traitCtx.relation = relation;
-  traitCtx.kind = 'relation';
 
   return relation;
 }

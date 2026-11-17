@@ -1,9 +1,10 @@
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { createTraitContext, defineTraitProperties, registerTrait } from '../trait/trait';
+import { createSchemaAccessors } from '../storage';
+import { defineTrait, registerTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
-import type { Trait, TraitValue } from '../trait/types';
+import type { Trait } from '../trait/types';
 import type { MutableOrderedView } from '../view/types';
 import { getEntitiesWithRelationTo } from './relation';
 import type { WorldContext } from '../world';
@@ -15,11 +16,12 @@ export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation
   const schema = (): MutableOrderedView<[]> => {
     throw new Error('Koota: Add an ordered trait to an entity to create its view.');
   };
-  const context = createTraitContext(schema, (defaults) => ({
-    // Each entity gets a list bound to itself, so the default is built per add.
+  const defaults = createSchemaAccessors(schema, 'aos');
+  const orderedTrait = defineTrait(schema, 'trait', {
+    ...defaults,
     add: (ctx, index, store, value) => {
-      const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[index]];
       if (value !== undefined) throw new Error('Koota: Ordered traits create their own views.');
+      const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[index]];
       const existing = getEntitiesWithRelationTo(ctx, relation, entity);
       const entities = existing.length === 0 ? [] : (existing as Entity[]);
       defaults.add(
@@ -38,21 +40,9 @@ export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation
     remove: (ctx, index, store) => {
       (defaults.get(ctx, index, store) as RelationView).active = false;
     },
-  }));
-
-  const orderedTrait = Object.assign((params?: TraitValue<any>) => [orderedTrait, params], {
-    [$internal]: context,
   }) as unknown as OrderedRelation<T>;
 
-  defineTraitProperties(orderedTrait, context, schema);
-
-  Object.defineProperty(orderedTrait, $orderedTargetsTrait, {
-    value: { relation },
-    writable: false,
-    enumerable: false,
-    configurable: false,
-  });
-
+  Object.defineProperty(orderedTrait, $orderedTargetsTrait, { value: { relation } });
   return orderedTrait;
 }
 

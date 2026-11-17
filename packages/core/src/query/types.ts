@@ -4,7 +4,7 @@ import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair, RelationTarget } from '../relation/types';
-import { AoSFactory, type Store } from '../storage';
+import { AoSFactory, type CursorSet, type Store } from '../storage';
 import type { QueryIterators } from './utils/compile-iterators';
 import type {
   ExtractSchema,
@@ -31,6 +31,8 @@ export type UpdateEachOptions = {
 };
 
 export type QueryViewBinding = {
+  /** Reusable buffers for simultaneous walks of this selection. */
+  iterationBuffers: QueryIterationBuffers | undefined;
   params: QueryParameter[];
   traits: Trait[];
   /** The world's instance of each trait, parallel to traits. */
@@ -63,16 +65,8 @@ export type QueryIterationBuffers = {
   state: any[];
   /** Projection the records and iterators were prepared for. */
   binding: QueryViewBinding | undefined;
-  /** SoA records with their owned tuple arrays, or a cursor set, undefined for other traits. */
-  records: (
-    | {
-        value: any;
-        tuples: Record<string, unknown[]> | undefined;
-        plain?: object;
-        reader?: object;
-      }
-    | undefined
-  )[];
+  /** The cursors of each SoA trait by kind, undefined for other traits. */
+  cursors: (CursorSet | undefined)[];
   /** Reusable target arrays for this active walk, indexed by projection position. */
   targetSnapshots: Entity[][];
   iterators: QueryIterators | undefined;
@@ -331,7 +325,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   addSubscriptions: Set<QuerySubscriber> | null;
   removeSubscriptions: Set<QuerySubscriber> | null;
   layoutCache: QueryLayoutCache | null;
-  iterationBuffers: QueryIterationBuffers | undefined;
   viewBindings: QueryViewBinding[];
 };
 
