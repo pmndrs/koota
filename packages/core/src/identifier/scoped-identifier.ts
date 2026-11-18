@@ -46,13 +46,6 @@ export function validateScopeMove(
   entity: Entity,
   target: Entity | undefined
 ): boolean {
-  // The relation add already asserted the target. A dying scope would only leak its bucket.
-  if (
-    target !== undefined &&
-    (!isEntityAlive(ctx.entityIndex, target) || ctx.destroying === target)
-  ) {
-    return false;
-  }
   const eid = getEntityId(entity);
   for (const identifier of relation[$internal].scopedIdentifiers!) {
     if (!identifier[$internal].exclusive) continue;

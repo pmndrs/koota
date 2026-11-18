@@ -141,7 +141,6 @@ export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
-  if (query.dropped) return;
   if (
     (query.identifierFilters !== undefined || query.ctx.queryBatch !== undefined) &&
     hasStaticMembership(query, entity)
@@ -160,7 +159,7 @@ export function addEntityToQuery(query: QueryInstance, entity: Entity) {
  * first, so the removal can always apply at once.
  */
 export function removeEntityFromQuery(query: QueryInstance, entity: Entity) {
-  if (query.dropped || !query.entities.has(entity)) return;
+  if (!query.entities.has(entity)) return;
   if (query.readers !== 0) detachWalkedSet(query);
   query.entities.remove(entity);
   query.version++;
@@ -265,7 +264,6 @@ export function flushQueryBatch(ctx: WorldContext) {
       if (event === undefined) continue;
       entities.delete(entity);
       if (event.first !== event.last) continue;
-      if (query.dropped) continue;
     }
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
     const subscriptions = ctx.internalQuerySubscriptions?.get(query);
@@ -442,7 +440,6 @@ export function createQueryInstance<T extends QueryParameter[]>(
     filters: null,
     changedMasks: [],
     notIndex: -1,
-    dropped: false,
     inlineNodes: null,
     anchored: false,
     listSlots: [],
@@ -847,8 +844,6 @@ function relationSlot(query: QueryInstance, instance: TraitInstance): number {
 
 /** Remove a cached query and its subscriptions when its relation target is destroyed. */
 export function dropQuery(ctx: WorldContext, query: QueryInstance) {
-  if (query.dropped) return;
-  query.dropped = true;
   if (query.inlineNodes !== null) {
     for (let node of query.inlineNodes) {
       node.query = null;

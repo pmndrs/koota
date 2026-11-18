@@ -45,7 +45,7 @@ describe('relation targets in each', () => {
     world.destroy();
   });
 
-  it('reuses target snapshots without exposing them to structural commands or nested walks', () => {
+  it('keeps target arrays unchanged through structural commands and nested walks', () => {
     const world = createWorld();
     const Position = trait({ x: 0 });
     const Contains = relation<{ amount: number }>({ store: { amount: 0 } });
@@ -65,7 +65,7 @@ describe('relation targets in each', () => {
     const changed = vi.fn();
     world.onChange(Position, changed);
     const visited: Entity[] = [];
-    let scratch: readonly Entity[] | undefined;
+    let first: readonly Entity[] | undefined;
 
     query.each((position, targets, likedTargets, entity, index) => {
       expectTypeOf(targets).toEqualTypeOf<readonly Entity[]>();
@@ -74,7 +74,7 @@ describe('relation targets in each', () => {
       visited.push(entity);
       position.x++;
       if (entity === inventory) {
-        scratch = targets;
+        first = targets;
         for (const target of targets) {
           if (target === silver) target.destroy();
           else entity.remove(Contains(target));
@@ -84,9 +84,7 @@ describe('relation targets in each', () => {
         entity.add(Contains(copper));
         const nested: Entity[] = [];
         query.each((_position, innerTargets, innerLiked, innerEntity) => {
-          expect(innerTargets).not.toBe(targets);
           expect(innerTargets).toEqual(innerEntity === inventory ? [gold, silver] : [copper]);
-          expect(innerLiked).not.toBe(likedTargets);
           expect(innerLiked).toEqual([gold]);
           nested.push(innerEntity);
         });
@@ -94,8 +92,9 @@ describe('relation targets in each', () => {
         expect(targets).toEqual([gold, silver]);
         expect(likedTargets).toEqual([gold]);
       } else {
-        expect(targets).toBe(scratch);
         expect(targets).toEqual([copper]);
+        // The changes the first row queued wait for the walk, so its list still holds.
+        expect(first).toEqual([gold, silver]);
       }
     });
     expect(visited).toEqual([inventory, pouch]);
@@ -105,7 +104,6 @@ describe('relation targets in each', () => {
     expect(inventory.targetsFor(Contains)).toEqual([copper]);
     expect(inventory.get(Contains(copper))).toEqual({ amount: 0 });
     query.each((_position, targets) => {
-      expect(targets).toBe(scratch);
       expect(targets).toEqual([copper]);
     });
     world.destroy();

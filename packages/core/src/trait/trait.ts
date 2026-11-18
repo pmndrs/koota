@@ -403,7 +403,6 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   const added = addTraitToEntity(ctx, entity, relationTrait);
 
   const targetIndex = addRelationTarget(ctx, relation, entity, target);
-  if (targetIndex === -1) return;
 
   const instance = added ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
   initRelationData(ctx, entity, relation, instance, targetIndex, params);
@@ -851,21 +850,15 @@ export function setTraitForPairWithAsserts(
   }
 
   if (typeof value === 'function') {
-    // An unchanged revision preserves the validated pair and its target index.
-    const structuralRevision = ctx.structuralRevision;
     value = value(getRelationData(ctx, entity, relation, target));
-    if (
-      structuralRevision !== ctx.structuralRevision ||
-      structuralRevision >= Number.MAX_SAFE_INTEGER
-    ) {
-      assertEntityAlive(ctx, entity);
-      assertRelationTarget(ctx, target);
-      targetIndex = getTargetIndex(ctx, relation, entity, target);
-      if (targetIndex === -1) {
-        throw new Error(
-          `Koota: [RELATION_PRESENT] The relation pair was removed during its set callback. Entity ${entity}, target ${target}, trait ${relation[$internal].trait.id}.`
-        );
-      }
+    // The callback holds no defer scope, so the pair is validated again and may have moved.
+    assertEntityAlive(ctx, entity);
+    assertRelationTarget(ctx, target);
+    targetIndex = getTargetIndex(ctx, relation, entity, target);
+    if (targetIndex === -1) {
+      throw new Error(
+        `Koota: [RELATION_PRESENT] The relation pair was removed during its set callback. Wrap the set in world.defer to apply the removal after the write. Entity ${entity}, target ${target}, trait ${relation[$internal].trait.id}.`
+      );
     }
   }
 
@@ -905,8 +898,9 @@ export /* @inline */ function setTraitForTrait(
 }
 
 /**
- * An unchanged revision preserves validated liveness and membership.
- * Keep callback work separate so ordinary value writes can inline.
+ * The callback holds no defer scope, so a structural change it makes applies before the write.
+ * Assertions validate the entity and its membership again. Keep callback work separate so
+ * ordinary value writes can inline.
  */
 export function resolveTraitSetCallback(
   ctx: WorldContext,
@@ -916,19 +910,17 @@ export function resolveTraitSetCallback(
   data: TraitInstance,
   index: number
 ) {
-  const structuralRevision = assertsEnabled ? ctx.structuralRevision : 0;
   const value = callback(trait[$internal].get(ctx, index, data.store));
-  if (
-    assertsEnabled &&
-    (structuralRevision !== ctx.structuralRevision || structuralRevision >= Number.MAX_SAFE_INTEGER)
-  ) {
+  if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
-    // Trait removal retains the instance. Read membership again after the callback.
+    // Trait removal retains the instance, so membership is read from the mask.
     if (
       (ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) ===
       0
     ) {
-      throw createTraitNotPresentError(entity, trait);
+      throw new Error(
+        `Koota: [TRAIT_PRESENT] The trait was removed during its set callback. Wrap the set in world.defer to apply the removal after the write. Entity ${entity}, trait ${trait.id}.`
+      );
     }
   }
   return value;

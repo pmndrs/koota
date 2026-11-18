@@ -1,5 +1,4 @@
 import type { WorldContext } from '../../world/types';
-import { assertsEnabled } from '../../assert-config';
 import type { Entity } from '../types';
 import {
   GENERATION_MASK,
@@ -67,7 +66,6 @@ function enterAlive(index: EntityIndex, entity: Entity, entityId: number) {
 
 /** A fresh id from the page cursor. */
 export const allocateFreshEntity = (index: EntityIndex): Entity => {
-  if (assertsEnabled) index.owner.structuralRevision++;
   const entity = takeFreshId(index);
   enterAlive(index, entity, getEntityId(entity));
   return entity;
@@ -75,7 +73,6 @@ export const allocateFreshEntity = (index: EntityIndex): Entity => {
 
 export const allocateEntity = (index: EntityIndex): Entity => {
   if (index.freeCount === 0) return allocateFreshEntity(index);
-  if (assertsEnabled) index.owner.structuralRevision++;
   index.freeCount--;
   return index.dense[index.aliveCount++];
 };
@@ -101,7 +98,6 @@ export const freeEntity = (index: EntityIndex, entity: Entity): void => {
   const entityId = getEntityId(entity);
   const denseIdx = index.sparse[entityId];
   if (denseIdx === undefined || denseIdx >= index.aliveCount) return;
-  if (assertsEnabled) index.owner.structuralRevision++;
   index.releases++;
   const lastIdx = index.aliveCount - 1;
   const lastEntity = index.dense[lastIdx];
@@ -120,7 +116,6 @@ export const freeEntity = (index: EntityIndex, entity: Entity): void => {
 
 /** Invalidate an evicted handle and put its slot at the end of the reusable region. */
 export const releaseRetainedEntity = (index: EntityIndex, entity: Entity): void => {
-  if (assertsEnabled) index.owner.structuralRevision++;
   const entityId = getEntityId(entity);
   const denseIdx = index.sparse[entityId];
   const firstIdx = index.aliveCount + index.freeCount;

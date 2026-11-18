@@ -52,13 +52,13 @@ export type QueryViewBinding = {
 
 /**
  * How a required pair reaches the callback. Entries are interned per instance and mode so
- * bindings and iterator caches can compare them by identity. Slot reads the one target an
- * exclusive relation holds, copy snapshots every target, filter snapshots the targets inside
- * the pair's target query match set.
+ * bindings and iterator caches can compare them by identity. Slot passes what the relation
+ * stores for the entity, the one target of an exclusive relation or the live target list of any
+ * other. Filter snapshots the targets inside the pair's target query match set.
  */
 export type TargetProjection = {
   instance: TraitInstance;
-  mode: 'slot' | 'copy' | 'filter';
+  mode: 'slot' | 'filter';
 };
 
 export type QueryIterationBuffers = {
@@ -67,7 +67,7 @@ export type QueryIterationBuffers = {
   binding: QueryViewBinding | undefined;
   /** The cursors of each SoA trait by kind, undefined for other traits. */
   cursors: (CursorSet | undefined)[];
-  /** Reusable target arrays for this active walk, indexed by projection position. */
+  /** Reusable filtered target arrays for this active walk, indexed by projection position. */
   targetSnapshots: Entity[][];
   iterators: QueryIterators | undefined;
   /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
@@ -304,8 +304,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   changedMasks: number[];
   /** Position in the world's list of queries that spawn and destroy visit, or -1 when not listed. */
   notIndex: number;
-  /** An active dispatch may still hold a list containing a dropped query. */
-  dropped: boolean;
   /** Inline tree entries to prune when a concrete relation target destroys this query. */
   inlineNodes: InlineQueryNode[] | null;
   /**

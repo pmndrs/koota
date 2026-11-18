@@ -120,7 +120,7 @@ world.query(Position, ChildOf(parent)).each((position, child) => {
 })
 ```
 
-Arrays are snapshots reused between callbacks. Copy with `contents.slice()` to keep one. Structural changes to any entity wait until the outermost walk ends.
+Arrays are read only and hold until the callback returns. A wildcard pair passes the relation's own list, so writing to it corrupts the relation. Copy with `contents.slice()` to keep one. Structural changes to any entity wait until the outermost walk ends.
 
 Use `select` to skip reading targets, or `forEach` for entities only. Pairs with stores pass their targets, not a record. `getPages`, `readEach` and `updateEach` keep their trait only layouts.
 

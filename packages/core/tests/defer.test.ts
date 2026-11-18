@@ -260,6 +260,33 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
+  it('applies a removal made by a set callback after the write when world.defer wraps the set', () => {
+    const world = createWorld();
+    const Link = relation({ store: { weight: 0 } });
+    const target = world.spawn();
+    const entity = world.spawn(Position({ x: 1 }), Link(target, { weight: 1 }));
+    const changed = vi.fn();
+    world.onChange(Position, (changedEntity) => changed(changedEntity.get(Position)!.x));
+
+    world.defer(() => {
+      entity.set(Position, () => {
+        entity.remove(Position);
+        return { x: 99 };
+      });
+      entity.set(Link(target), () => {
+        entity.remove(Link(target));
+        return { weight: 9 };
+      });
+      expect(entity.get(Position)).toEqual({ x: 99 });
+      expect(entity.get(Link(target))).toEqual({ weight: 9 });
+    });
+
+    expect(changed).toHaveBeenCalledExactlyOnceWith(99);
+    expect(entity.has(Position)).toBe(false);
+    expect(entity.has(Link(target))).toBe(false);
+    world.destroy();
+  });
+
   it('leaves the world unaffected by an iterator that never finishes', () => {
     const world = createWorld();
     const a = world.spawn(Position);

@@ -144,9 +144,9 @@ export function compileQueryIterators(
     targetHoist.push(`var rt${j} = instances[${j}].relationTargets${paged ? `, rp${j}` : ''};`);
     if (paged) targetRebind.push(`rp${j} = rt${j}[pg];`);
     const slot = paged ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
+    // The walk's defer scope keeps every target list as it is, so the stored value is passed as is.
     if (part.mode === 'slot') return slot;
     targetHoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
-    if (part.mode === 'copy') return `copyTargetSnapshot(${slot}, ts${j})`;
     targetHoist.push(`var tf${j} = buffers.binding.targets[${j}];`);
     return `filterTargetSnapshot(${slot}, ts${j}, tf${j})`;
   });
@@ -198,7 +198,6 @@ export function compileQueryIterators(
     'instances',
     'snapshotAtomic',
     'atomicChanged',
-    'copyTargetSnapshot',
     'filterTargetSnapshot',
     `'use strict';
   // iterators ${iteratorSerial++}
@@ -229,17 +228,8 @@ export function compileQueryIterators(
     projection.map((part) => (typeof part === 'function' ? undefined : part.instance)),
     snapshotAtomic,
     atomicChanged,
-    copyTargetSnapshot,
     filterTargetSnapshot
   ) as QueryIterators;
-}
-
-/** Copies before the callback so structural commands cannot change its target list. */
-function copyTargetSnapshot(targets: readonly Entity[], snapshot: Entity[]): Entity[] {
-  const length = targets.length;
-  for (let i = 0; i < length; i++) snapshot[i] = targets[i];
-  if (snapshot.length !== length) trimTargetSnapshot(snapshot, length);
-  return snapshot;
 }
 
 /** Copies only the targets inside the pair's target query, so the callback sees what matched. */
