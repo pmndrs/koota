@@ -180,14 +180,13 @@ function cleanupDestroyedRelations(
     const relationCtx = relation[$internal];
     const cascade = relationCtx.autoDestroy === 'source';
 
-    // Cleanup swap-removes the source from this bucket, so walk it from the end.
+    // Cleanup swap-removes the source from this bucket, so walk it from the end. A destroyed
+    // entity leaves the buckets of its targets at once, so every source here is alive.
     const sources = getTraitInstance(ctx.traitInstances, relationCtx.trait)
       ?.relationSourcesByTarget?.[entityId];
     if (sources !== undefined) {
       for (let i = sources.length - 1; i >= 0; i--) {
-        if (i >= sources.length) continue;
         const source = sources[i];
-        if (!isEntityAlive(ctx.entityIndex, source)) continue;
         // A source that dies with its target keeps the pair until eviction and cleans up on destroy.
         if (cascade) {
           entityQueue.push(source);
@@ -199,10 +198,7 @@ function cleanupDestroyedRelations(
 
     if (relationCtx.autoDestroy === 'target') {
       const targets = getRelationTargets(ctx, relation, entity);
-      for (const target of targets) {
-        if (!isEntityAlive(ctx.entityIndex, target)) continue;
-        entityQueue.push(target);
-      }
+      for (const target of targets) entityQueue.push(target);
     }
   }
 }

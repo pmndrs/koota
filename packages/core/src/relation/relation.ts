@@ -376,6 +376,7 @@ export /* @inline @pure */ function hasRelationToTarget(
   }
 }
 
+/** The caller has checked that the pair is absent. Returns the index of the new target. */
 export function addRelationTarget(
   ctx: WorldContext,
   relation: Relation<Trait>,
@@ -385,9 +386,8 @@ export function addRelationTarget(
   const relationCtx = relation[$internal];
   const baseTrait = relationCtx.trait;
 
-  const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
+  const traitData = getTraitInstance(ctx.traitInstances, baseTrait)!;
   if (assertsEnabled) assertRelationMembership(ctx, entity, traitData);
-  if (!traitData) return -1;
 
   if (!traitData.relationTargets) {
     traitData.relationTargets = [];
@@ -401,16 +401,12 @@ export function addRelationTarget(
   let targetIndex: number;
 
   if (relationCtx.exclusive) {
-    if (page[o] === target) return -1;
     if (assertsEnabled) ctx.structuralRevision++;
     page[o] = target;
     targetIndex = 0;
   } else {
     if (!page[o]) page[o] = [];
     const entityTargets = page[o] as number[];
-
-    const existingIndex = entityTargets.indexOf(target);
-    if (existingIndex !== -1) return -1;
 
     targetIndex = entityTargets.length;
     if (assertsEnabled) ctx.structuralRevision++;
@@ -594,7 +590,7 @@ function reconcileIdentifiedRelationQueries(
     if (queries === undefined) continue;
     for (const query of queries) {
       const first = query.identifierFilters![0];
-      if (query.dropped || first.identifier !== identifier || first.target !== key) continue;
+      if (first.identifier !== identifier || first.target !== key) continue;
       const pairs = query.filters?.pairs;
       if (pairs === undefined) continue;
       let required = false;

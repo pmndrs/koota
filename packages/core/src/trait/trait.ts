@@ -403,7 +403,6 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   const added = addTraitToEntity(ctx, entity, relationTrait);
 
   const targetIndex = addRelationTarget(ctx, relation, entity, target);
-  if (targetIndex === -1) return;
 
   const instance = added ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
   initRelationData(ctx, entity, relation, instance, targetIndex, params);

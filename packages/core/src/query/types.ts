@@ -304,8 +304,6 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   changedMasks: number[];
   /** Position in the world's list of queries that spawn and destroy visit, or -1 when not listed. */
   notIndex: number;
-  /** An active dispatch may still hold a list containing a dropped query. */
-  dropped: boolean;
   /** Inline tree entries to prune when a concrete relation target destroys this query. */
   inlineNodes: InlineQueryNode[] | null;
   /**

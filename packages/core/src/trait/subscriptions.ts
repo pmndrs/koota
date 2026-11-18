@@ -90,8 +90,6 @@ export function clearEntity(subs: Subscriptions, entity: Entity) {
   if (!page) return;
   const slot = page[eid & 1023];
   if (slot === undefined) return;
-  // Stops an in-flight dispatch that is still iterating this set.
-  if (typeof slot !== 'function') slot.clear();
   page[eid & 1023] = undefined;
   subs.entityCount--;
   subs.count--;
@@ -128,13 +126,10 @@ export function emitSubscribers(subs: Subscriptions, entity: Entity, target?: st
   }
 }
 
-/**
- * A world subscriber may have destroyed the entity and spawned a replacement on
- * the same id, so the slot is only read for the generation the event belongs to.
- */
+/** A destroy made by a subscriber is deferred, so the entity still owns its slot here. */
 /** @inline @pure */
 function getSlot(subs: Subscriptions, entity: Entity): Slot | undefined {
-  if (subs.entityCount === 0 || !entity.isAlive()) return undefined;
+  if (subs.entityCount === 0) return undefined;
   const eid = getEntityId(entity);
   const page = subs.byEntity[eid >>> 10];
   return page && page[eid & 1023];
