@@ -103,7 +103,6 @@ export type WorldContext = {
   traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
   isRegistered: boolean;
   cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
-  structuralRevision: number;
 };
 
 export type WorldOptions = {

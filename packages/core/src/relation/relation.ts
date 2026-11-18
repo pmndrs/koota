@@ -401,7 +401,6 @@ export function addRelationTarget(
   let targetIndex: number;
 
   if (relationCtx.exclusive) {
-    if (assertsEnabled) ctx.structuralRevision++;
     page[o] = target;
     targetIndex = 0;
   } else {
@@ -409,7 +408,6 @@ export function addRelationTarget(
     const entityTargets = page[o] as number[];
 
     targetIndex = entityTargets.length;
-    if (assertsEnabled) ctx.structuralRevision++;
     entityTargets.push(target);
   }
 
@@ -441,7 +439,6 @@ export function commitScopedRelationTarget(
   if (target !== undefined) addToRelationSources(data, entity, target);
   moveScopedIdentifiers(ctx, relation, entity, target);
   data.version++;
-  if (assertsEnabled) ctx.structuralRevision++;
   return previous;
 }
 
@@ -468,7 +465,6 @@ export function removeRelationTarget(
 
   if (relationCtx.exclusive) {
     if (page[o] === target) {
-      if (assertsEnabled) ctx.structuralRevision++;
       removeFromRelationSources(data, entity, target);
       page[o] = undefined;
       remaining = 0;
@@ -479,7 +475,6 @@ export function removeRelationTarget(
     if (entityTargets) {
       const idx = entityTargets.indexOf(target);
       if (idx !== -1) {
-        if (assertsEnabled) ctx.structuralRevision++;
         const lastIdx = entityTargets.length - 1;
         removeFromRelationSources(data, entity, target);
         if (idx !== lastIdx) entityTargets[idx] = entityTargets[lastIdx];

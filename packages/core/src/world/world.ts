@@ -3,7 +3,6 @@ import { beginDefer, endDefer, runDeferred } from './defer';
 import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
-import { assertsEnabled } from '../assert-config';
 import { assertOutsideDefer } from '../asserts';
 import { applyDestroyEntity, createEntity, entityHas } from '../entity/entity';
 import type { Entity } from '../entity/types';
@@ -189,7 +188,6 @@ export function createWorld(options?: WorldOptions): World {
     const ctx = world[$internal];
     beginDefer(ctx);
     try {
-      if (assertsEnabled) ctx.structuralRevision++;
       world.entities.forEach((entity) => {
         if (isEntityAlive(ctx.entityIndex, entity)) {
           applyDestroyEntity(ctx, entity);
@@ -280,7 +278,6 @@ export function createWorld(options?: WorldOptions): World {
       traitRegisteredSubscriptions: new Set(),
       isRegistered: false,
       cleanupToken,
-      ...(assertsEnabled ? { structuralRevision: 0 } : {}),
     } as WorldContext,
 
     spawn(...spawnTraits: ConfigurableTrait[]): Entity {

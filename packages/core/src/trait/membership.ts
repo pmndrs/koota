@@ -1,4 +1,3 @@
-import { assertsEnabled } from '../assert-config';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
 import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../entity/utils/paged-mask';
@@ -14,7 +13,6 @@ export function setTraitMembership(ctx: WorldContext, entity: Entity, instance: 
   if (page === EMPTY_MASK_PAGE) page = materializeMaskPage(generation, eid >>> 10);
   page[(eid & 1023) << 2] |= instance.bitflag;
   instance.version++;
-  if (assertsEnabled) ctx.structuralRevision++;
 }
 
 /** Clear held membership and retain its removal without reconciling queries. */
@@ -26,5 +24,4 @@ export function clearTraitMembership(ctx: WorldContext, entity: Entity, instance
   page[slot] &= ~instance.bitflag;
   page[slot + REMOVED_WORD] |= instance.bitflag;
   instance.version++;
-  if (assertsEnabled) ctx.structuralRevision++;
 }
