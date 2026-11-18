@@ -38,6 +38,7 @@ import {
   isEntityAlive,
   releaseRetainedEntity,
 } from './utils/entity-index';
+import { AWAITING_BIT, isAwaitingDestroy } from './utils/target-flags';
 import { getEntityId } from './utils/pack-entity';
 import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
 import { addressSpace } from './utils/address-space';
@@ -96,7 +97,8 @@ export function destroyEntity(ctx: WorldContext, entity: Entity) {
 }
 
 /**
- * The destroy as a command. Destroys the entity and everything its relations cascade to.
+ * The destroy as a command. Destroys the entity and everything its relations cascade to. A source
+ * is destroyed before its target, so its hooks never see a pair that points at a dead entity.
  * Same-world destroys from hooks are deferred, so each world walks one cascade at a time even
  * when hooks enter another world. The loop body is written in place on purpose. It keeps this
  * function above the 460 bytes TurboFan inlines, so it compiles on its own and trait removal and
@@ -110,12 +112,18 @@ export function applyDestroyEntity(ctx: WorldContext, root: Entity) {
       const entity = entityQueue.pop()!;
       // A cycle or shared descendant can enqueue a handle more than once.
       if (!isEntityAlive(ctx.entityIndex, entity)) continue;
-      ctx.destroying = entity;
       const eid = getEntityId(entity);
 
-      if (ctx.relations.length !== 0) {
-        cleanupDestroyedRelations(ctx, entity, eid, entityQueue);
-      }
+      // Only an id something has pointed at has sources to settle. Sources that die with the
+      // entity go first, so it waits on the stack under them.
+      const flags = ctx.targetFlags[eid >>> 10];
+      if (
+        flags !== undefined &&
+        flags[eid & 1023] !== 0 &&
+        releaseDependents(ctx, entity, eid, entityQueue, flags)
+      )
+        continue;
+      ctx.destroying = entity;
 
       if (ctx.entityDestroySubscriptions.size > 0 && entity !== ctx.worldEntity) {
         emitEntityDestroy(ctx, entity);
@@ -163,45 +171,66 @@ export function applyDestroyEntity(ctx: WorldContext, root: Entity) {
   } finally {
     ctx.destroying = undefined;
     // Only a throw leaves entries behind. Trimming the length reallocates, so do it only then.
-    if (entityQueue.length !== 0) entityQueue.length = 0;
+    if (entityQueue.length !== 0) {
+      for (let i = 0; i < entityQueue.length; i++) {
+        const id = getEntityId(entityQueue[i]);
+        const flags = ctx.targetFlags[id >>> 10];
+        if (flags !== undefined) flags[id & 1023] &= ~AWAITING_BIT;
+      }
+      entityQueue.length = 0;
+    }
   }
 }
 
-/** Detach every relation that points at the dying entity and queue its auto destroy cascade. */
-function cleanupDestroyedRelations(
+/**
+ * A source dies before its target, so no hook sees a pair that points at a dead entity. Returns
+ * true when the entity went back on the stack under the sources that die with it. Otherwise the
+ * sources that outlive it let go of it.
+ */
+export function releaseDependents(
   ctx: WorldContext,
   entity: Entity,
   entityId: number,
-  entityQueue: Entity[]
-) {
+  entityQueue: Entity[],
+  flags: Uint8Array
+): boolean {
   const relations = ctx.relations;
-  for (let r = 0; r < relations.length; r++) {
-    const relation = relations[r];
-    const relationCtx = relation[$internal];
-    const cascade = relationCtx.autoDestroy === 'source';
-
-    // A destroyed entity leaves the buckets of its targets at once, so every source here is alive.
-    const sources = getTraitInstance(ctx.traitInstances, relationCtx.trait)
-      ?.relationSourcesByTarget?.[entityId];
-    if (sources !== undefined) {
-      if (cascade) {
-        // A source that dies with its target keeps the pair until eviction and cleans up on
-        // destroy. The queue is a stack, so pushing in bucket order destroys the last source
-        // first and each one leaves this bucket from its last slot.
-        for (let i = 0; i < sources.length; i++) entityQueue.push(sources[i]);
-      } else {
-        // Cleanup swap-removes the source from this bucket, so walk it from the end.
-        for (let i = sources.length - 1; i >= 0; i--) {
-          cleanupRelationTarget(ctx, relation, sources[i], entity);
-        }
+  const offset = entityId & 1023;
+  if ((flags[offset] & AWAITING_BIT) === 0) {
+    // Awaiting entities are skipped below, which covers a pair to itself and any cycle.
+    const base = entityQueue.length;
+    flags[offset] |= AWAITING_BIT;
+    entityQueue.push(entity);
+    for (let r = 0; r < relations.length; r++) {
+      const relationCtx = relations[r][$internal];
+      if (relationCtx.autoDestroy !== 'source') continue;
+      const sources = getTraitInstance(ctx.traitInstances, relationCtx.trait)
+        ?.relationSourcesByTarget?.[entityId];
+      if (sources === undefined) continue;
+      // The queue is a stack, so pushing in bucket order destroys the last source first and each
+      // one leaves this bucket from its last slot.
+      for (let i = 0; i < sources.length; i++) {
+        if (!isAwaitingDestroy(ctx, sources[i])) entityQueue.push(sources[i]);
       }
     }
-
-    if (relationCtx.autoDestroy === 'target') {
-      const targets = getRelationTargets(ctx, relation, entity);
-      for (const target of targets) entityQueue.push(target);
+    if (entityQueue.length !== base + 1) return true;
+    entityQueue.pop();
+  }
+  // Its cascading sources are gone, or it had none.
+  flags[offset] &= ~AWAITING_BIT;
+  for (let r = 0; r < relations.length; r++) {
+    const relation = relations[r];
+    // A source that dies with its target keeps the pair until eviction and cleans up on destroy.
+    if (relation[$internal].autoDestroy === 'source') continue;
+    const sources = getTraitInstance(ctx.traitInstances, relation[$internal].trait)
+      ?.relationSourcesByTarget?.[entityId];
+    if (sources === undefined) continue;
+    // Cleanup swap-removes the source from this bucket, so walk it from the end.
+    for (let i = sources.length - 1; i >= 0; i--) {
+      cleanupRelationTarget(ctx, relation, sources[i], entity);
     }
   }
+  return false;
 }
 
 function emitEntityDestroy(ctx: WorldContext, entity: Entity) {

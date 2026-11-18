@@ -50,7 +50,15 @@ export class OrderedSource implements EntitySource {
    */
   drop(entity: Entity): boolean {
     if (this.dropped === undefined) {
-      if (this.dense.length === 0) return false;
+      const dense = this.dense;
+      const last = dense.length - 1;
+      if (last === -1) return false;
+      // A destroy cascade drops from the end. The last entity leaves at once with nothing noted,
+      // unless a walk or an iterator may still read this array.
+      if (dense[last] === entity && this.iterating === 0 && this.readers === 0) {
+        dense.pop();
+        return true;
+      }
       this.dropped = entity;
     } else {
       (this.droppedSet ??= new Set([this.dropped])).add(entity);

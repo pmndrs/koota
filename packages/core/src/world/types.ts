@@ -80,6 +80,8 @@ export type WorldContext = {
   unsettled: boolean;
   /** Pending entities in this world's current destruction cascade. */
   destroyQueue: Entity[];
+  /** Target and awaiting bits paged by entity id. See target-flags. */
+  targetFlags: (Uint8Array | undefined)[];
   /** The entity being destroyed cannot accept new scope children from an immediate spawn. */
   destroying: Entity | undefined;
   /** Maximum destroyed entities whose data and query history remain readable. */

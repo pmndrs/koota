@@ -92,9 +92,11 @@ parent.destroy()
 world.has(child) // False, the child and grandchild are destroyed too
 ```
 
+A source is always destroyed before its target, so a child's `onRemove` hook can still read its parent. Siblings are destroyed newest first, and each is followed by its own children.
+
 ### Destroy targets
 
-When a source is destroyed, destroy all its targets.
+When a source is destroyed, destroy all its targets. The source is destroyed first, then what it targets.
 
 ```js
 const Contains = relation({ autoDestroy: 'target' })
