@@ -2,7 +2,6 @@ import { useWorld } from 'koota/react';
 import { useEffect } from 'react';
 import { useAnimationFrame } from './utils/use-animation-frame';
 import { applyInput } from './systems/apply-input';
-import { cleanupSpatialHashMap } from './systems/cleanup-spatial-hash-map';
 import { dampPlayerMovement } from './systems/damp-player-movement';
 import { followPlayer } from './systems/follow-player';
 import { handleShooting } from './systems/handle-shooting';
@@ -39,7 +38,6 @@ export function Frameloop() {
     updateBulletCollisions(world);
     updateAutoRotate(world);
     updateSpatialHashing(world);
-    cleanupSpatialHashMap(world);
     tickShieldVisibility(world);
     tickExplosion(world);
   });
