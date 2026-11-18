@@ -187,7 +187,7 @@ world.query(Contains('*')).each((contents, inventory) => {
 })
 ```
 
-The array snapshots targets at callback entry and stays unchanged during structural commands and nested walks. Keep it read only. Its storage is reused for later entities and walks. Use `contents.slice()` to keep a copy after the callback returns. `targetsFor()` keeps returning an independent snapshot. Structural changes to any entity's relations are deferred until the outermost walk ends, so nested walks keep seeing the original targets.
+The array stays unchanged during structural commands and nested walks, because structural changes to any entity's relations are deferred until the outermost walk ends. Keep it read only. A wildcard pair passes the relation's own target list, so writing to it corrupts the relation. Use `contents.slice()` to keep a copy after the callback returns. `targetsFor()` keeps returning an independent snapshot.
 
 `.select(Position)` excludes target reads and copies from the iterator. `.forEach` visits source entities without reading trait records or targets. The deprecated `readEach` and `updateEach` methods and `getPages` keep their trait-only layouts.
 

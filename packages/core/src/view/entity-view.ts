@@ -487,9 +487,7 @@ export function bindPairProjection(
   const exclusive = pair.relation[$internal].exclusive;
   const matches =
     !exclusive && pair.targetQuery !== undefined ? findTargetQueryMatches(query, pair) : undefined;
-  binding.projection.push(
-    targetProjection(instance, exclusive ? 'slot' : matches === undefined ? 'copy' : 'filter')
-  );
+  binding.projection.push(targetProjection(instance, matches === undefined ? 'slot' : 'filter'));
   binding.targets.push(matches);
 }
 
@@ -519,10 +517,7 @@ function matchesPairProjection(
   const exclusive = pair.relation[$internal].exclusive;
   const matches =
     !exclusive && pair.targetQuery !== undefined ? findTargetQueryMatches(query, pair) : undefined;
-  return (
-    entry.mode === (exclusive ? 'slot' : matches === undefined ? 'copy' : 'filter') &&
-    matches === target
-  );
+  return entry.mode === (matches === undefined ? 'slot' : 'filter') && matches === target;
 }
 
 /**
@@ -617,7 +612,7 @@ function prepareIterationBuffers(
   state.length = cursors.length = traits.length;
   for (let i = 0; i < projection.length; i++) {
     const part = projection[i];
-    if (typeof part !== 'function' && (part.mode === 'copy' || part.mode === 'filter')) {
+    if (typeof part !== 'function' && part.mode === 'filter') {
       buffers.targetSnapshots[i] ??= [];
     }
   }
