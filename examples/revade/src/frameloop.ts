@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { useAnimationFrame } from './utils/use-animation-frame';
 import { applyInput } from './systems/apply-input';
 import { dampPlayerMovement } from './systems/damp-player-movement';
+import { destroyDying } from './systems/destroy-dying';
+import { explodeDyingEnemies } from './systems/explode-dying-enemies';
 import { followPlayer } from './systems/follow-player';
 import { handleShooting } from './systems/handle-shooting';
 import { pollKeyboard } from './systems/poll-keyboard';
@@ -36,6 +38,8 @@ export function Frameloop() {
     updateMovement(world);
     updateBullets(world);
     updateBulletCollisions(world);
+    explodeDyingEnemies(world);
+    destroyDying(world);
     updateAutoRotate(world);
     updateSpatialHashing(world);
     tickShieldVisibility(world);
