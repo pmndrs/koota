@@ -80,7 +80,7 @@ Internals use `WorldContext`, the actual context, instead of `World` handle. Tha
 
 Structural changes are updates that change the structure and layout of memory as opposed to mutations which update values in memory.
 
-See [structural.md](./structural.md) for detailed code path documentation.
+See [structural.md](./structural.md) for detailed code path documentation and [defer.md](./defer.md) for deferral inside walks and hooks.
 
 ### Trait Accessors
 

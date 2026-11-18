@@ -74,7 +74,7 @@ The hash looks up an existing `QueryInstance`. On a miss a new instance is creat
 query.run(ctx, params)
 ```
 
-Snapshots the instance's entity set. For tracking queries (e.g. `Added`, `Removed`, `Changed`) the set is cleared and bitmasks reset so changes can accumulate again before the next call. Membership never changes under a walk, because walks defer structural changes, see `defer.md`.
+Snapshots the instance's entity set. For tracking queries (e.g. `Added`, `Removed`, `Changed`) the set is cleared and bitmasks reset so changes can accumulate again before the next call.
 
 **6. Return result**
 
@@ -92,7 +92,7 @@ The generated positional iterator hoists the target storage references outside t
 
 `targetsFor` retains its snapshot behavior. Arrays passed to `each` are reusable read-only snapshots. The iteration-buffer pool owns one array per non-exclusive projection and active walk, so structural commands and nested walks cannot alter the current callback's snapshot. Arrays are reused for later rows and calls. Legacy state-array iterators and page stores continue to expose trait data only.
 
-The walk visits the membership captured when it started. Structural changes made by callbacks join the world's command log and apply when the outermost walk ends, so later rows keep their traits and relation targets. Sorted and owned views hold the same scope. Generated loops need no per-row liveness or membership checks. See `defer.md`.
+The walk visits the membership captured when it started. Structural changes made by callbacks apply when the outermost walk ends, so later rows keep their traits and relation targets. See [defer.md](./defer.md).
 
 ### Validation and performance
 

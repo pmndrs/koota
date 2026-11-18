@@ -868,8 +868,6 @@ entity.remove(Position)
 
 Hooks run inside the operation that reached them. Structural changes a hook makes, such as removing another relation from an `onRemove` callback, are deferred and apply in call order once that operation completes, so a hook always sees the operation it observes in a consistent state. Data writes with `set` are immediate.
 
-Change notification holds one scope across query callbacks and trait callbacks. A removal queued by `onEnter([Changed(Position)], ...)` therefore waits until the remaining query and `onChange(Position, ...)` callbacks finish.
-
 ```js
 // Removing Link(a) runs the hook, which queues the removal of Link(b).
 // Link(b) leaves after Link(a) has fully left, and the hook runs again for it.
@@ -1033,9 +1031,9 @@ function updateMovement(world) {
 
 #### Query results are live views
 
-A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Callback walks, `each`, `forEach` and `map`, defer structural changes. Adds, removes, destroys and machine transitions made inside one apply in call order when the outermost walk ends, so every row keeps its entity, traits and relation targets until then. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities. Spawning is immediate and the new entity shows up on the next run. A trait added inside a walk is not present until the walk ends, so pass its value to `add` or use `upsert` instead of following `add` with `set`. A deferred call reads its arguments when it applies, so give each deferred `add` its own value object.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities.
 
-A `for...of` loop is your own loop and defers nothing. Changes made in its body apply at once and the loop keeps the sequence it started with, so it can reach an entity destroyed earlier in the loop. Wrap a `for...of` or indexed loop in `world.defer` to defer its changes the way a walk does.
+Structural changes made inside `each`, `forEach` or `map` are deferred until the walk ends, so every entity is visited with its traits intact. A `for...of` loop defers nothing and its changes apply at once. Wrap it in `world.defer` to defer them.
 
 ```js
 const entities = world.query(Position)
@@ -1045,13 +1043,12 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// A for of loop keeps its starting sequence and its changes apply at once,
-// so a later entity may already be destroyed when the loop reaches it
+// Changes in a for of loop apply at once
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
 
-// world.defer gives a for of or indexed loop the guarantees of a walk
+// world.defer holds them until the function returns
 world.defer(() => {
   const dense = entities.entities
   for (let i = 0; i < dense.length; i++) if (dense[i].has(IsDead)) dense[i].destroy()
@@ -1200,8 +1197,6 @@ world.reset()
 // Destroys the world, releasing all pages and entities
 world.destroy()
 ```
-
-Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled observers wait until all commands finish. A chain of hooks takes one wave per link and can be as long as it needs. A hook that keeps undoing the change it observes is stopped after 100000 waves, and observers that keep invalidating each other after 100 rounds. Either throws and clears pending commands and observers, and already-applied changes remain committed. Ordinary command errors allow the remaining work to finish before the first error is rethrown.
 
 ### Entity
 

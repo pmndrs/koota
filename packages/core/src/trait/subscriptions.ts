@@ -16,9 +16,7 @@ type Slot = Subscriber<any> | Set<Subscriber<any>>;
 export type Subscriptions = {
   all: Set<Subscriber<any>>;
   byEntity: ((Slot | undefined)[] | undefined)[];
-  /** World subscribers plus entities with at least one subscriber. */
   count: number;
-  /** Number of entities with at least one subscriber. */
   entityCount: number;
 };
 

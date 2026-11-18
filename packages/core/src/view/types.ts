@@ -46,11 +46,9 @@ export interface MutableOrderedView<T extends QueryParameter[] = []> extends Ent
   indexOf(entity: Entity): number;
   add(entity: Entity): this;
   insert(entity: Entity, index: number): this;
-  /** Reports membership at call time. Inside a scope the removal is queued even when absent. */
   remove(entity: Entity): boolean;
   clear(): void;
   moveTo(entity: Entity, index: number): this;
-  /** Sorts this sequence once, in place. */
   sort(compare: EntityComparator): this;
   reverse(): this;
 }

@@ -21,9 +21,9 @@ Queries fetch entities that share specific traits (archetypes).
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
-A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Callback walks, `each`, `forEach` and `map`, defer structural changes. Adds, removes, destroys and machine transitions made inside one apply in call order when the outermost walk ends, so every row keeps its entity, traits and relation targets until then. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities. Spawning is immediate and the new entity shows up on the next run. A trait added inside a walk is not present until the walk ends, so pass its value to `add` or use `upsert` instead of following `add` with `set`. A deferred call reads its arguments when it applies, so give each deferred `add` its own value object.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities.
 
-A `for...of` loop is your own loop and defers nothing. Changes made in its body apply at once and the loop keeps the sequence it started with, so it can reach an entity destroyed earlier in the loop. Wrap a `for...of` or indexed loop in `world.defer` to defer its changes the way a walk does.
+Structural changes made inside `each`, `forEach` or `map` are deferred until the walk ends, so every entity is visited with its traits intact. A `for...of` loop defers nothing and its changes apply at once. Wrap it in `world.defer` to defer them. A trait added inside a walk is not present until the walk ends, so pass its value to `add` or use `upsert` instead of following `add` with `set`.
 
 ```typescript
 // Returns a QueryView, a live borrowed view
@@ -33,13 +33,12 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// A for of loop keeps its starting sequence and its changes apply at once,
-// so a later entity may already be destroyed when the loop reaches it
+// Changes in a for of loop apply at once
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
 
-// world.defer gives a for of or indexed loop the guarantees of a walk
+// world.defer holds them until the function returns
 world.defer(() => {
   const dense = entities.entities
   for (let i = 0; i < dense.length; i++) if (dense[i].has(IsDead)) dense[i].destroy()
