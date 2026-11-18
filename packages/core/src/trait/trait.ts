@@ -408,7 +408,7 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   const instance = added ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
   initRelationData(ctx, entity, relation, instance, targetIndex, params);
   if (added === undefined && instance.trackingQueries.length !== 0) {
-    reconcileTrackingQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
+    reconcileTrackingQueries(ctx, entity, instance, 'add');
   }
   notifyTraitAdded(entity, instance, target);
 }
@@ -441,7 +441,7 @@ export function setScopedRelationPair(
   if (target !== undefined) {
     reconcileRelationQueries(ctx, instance, entity, target, 'add', false);
     if (present && instance.trackingQueries.length !== 0) {
-      reconcileTrackingQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
+      reconcileTrackingQueries(ctx, entity, instance, 'add');
     }
   } else {
     removeTraitFromEntity(ctx, entity, trait);
@@ -627,14 +627,7 @@ export function reconcileDyingTraitQueries(
   if (targets !== undefined) leaveStaticQueries(ctx, entity, instance.relationQueries);
   if (instance.anchorRelations.length !== 0) reconcileAnchoredQueries(ctx, entity, instance, true);
   if (instance.trackingQueries.length !== 0) {
-    reconcileTrackingQueries(
-      ctx,
-      entity,
-      instance,
-      'remove',
-      instance.generationId,
-      instance.bitflag
-    );
+    reconcileTrackingQueries(ctx, entity, instance, 'remove');
   }
   if (targets !== undefined && instance.relationQueries.length !== 0) {
     for (const t of targets) reconcileRelationQueries(ctx, instance, entity, t, 'remove', true);
@@ -958,7 +951,7 @@ export function resolveTraitSetCallback(
 /** Flip the membership bit and reconcile every query that includes the trait. */
 export function grantTraitMembership(ctx: WorldContext, entity: Entity, instance: TraitInstance) {
   setTraitMembership(ctx, entity, instance);
-  reconcileTraitQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
+  reconcileTraitQueries(ctx, entity, instance, 'add');
 }
 
 /** Re-evaluate the queries that include a trait after its membership bit changed. */
@@ -966,14 +959,12 @@ export function reconcileTraitQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,
-  eventType: EventType,
-  generationId: number,
-  bitflag: number
+  eventType: EventType
 ) {
   if (instance.queries.length !== 0) reconcileQueries(ctx, entity, instance.queries);
   if (instance.anchorRelations.length !== 0) reconcileAnchoredQueries(ctx, entity, instance, false);
   if (instance.trackingQueries.length !== 0) {
-    reconcileTrackingQueries(ctx, entity, instance, eventType, generationId, bitflag);
+    reconcileTrackingQueries(ctx, entity, instance, eventType);
   }
 }
 
@@ -994,15 +985,13 @@ export function reconcileTrackingQueries(
   ctx: WorldContext,
   entity: Entity,
   instance: TraitInstance,
-  eventType: EventType,
-  generationId: number,
-  bitflag: number
+  eventType: EventType
 ) {
   // The entity may now pass a static term that deferred its writes.
   if (ctx.defersChanges) clearPendingChanges(ctx, getEntityId(entity));
-  const queries = instance.trackingQueries;
-  for (let i = 0; i < queries.length; i++) {
-    const query = queries[i];
+  const { trackingQueries, generationId, bitflag } = instance;
+  for (let i = 0; i < trackingQueries.length; i++) {
+    const query = trackingQueries[i];
     const match = checkQueryTracking(ctx, query, entity, eventType, generationId, bitflag);
     if (match) addEntityToQuery(query, entity);
     else removeEntityFromQuery(query, entity);
@@ -1025,5 +1014,5 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
     }
   }
   clearTraitMembership(ctx, entity, instance);
-  reconcileTraitQueries(ctx, entity, instance, 'remove', instance.generationId, instance.bitflag);
+  reconcileTraitQueries(ctx, entity, instance, 'remove');
 }
