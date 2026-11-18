@@ -212,7 +212,7 @@ export /* @inline */ function addTrait(
   } else {
     beginRootDefer(ctx);
     try {
-      addTraitsToAliveEntity(ctx, entity, traits);
+      applyAddTrait(ctx, entity, traits);
     } finally {
       endRootDefer(ctx);
     }
@@ -229,18 +229,13 @@ export function deferAddTrait(ctx: WorldContext, entity: Entity, ...traits: Conf
   deferCommand(ctx, applyAddTrait, entity, traits, undefined);
 }
 
-/** The add as a command. Like every command it applies with a scope already held. */
-export function applyAddTrait(ctx: WorldContext, entity: Entity, traits: ConfigurableTrait[]) {
-  addTraitsToAliveEntity(ctx, entity, traits);
-}
-
 /** The add of one trait as a command, the common case, which keeps argument arrays out of the log. */
 export function applyAddOne(ctx: WorldContext, entity: Entity, config: ConfigurableTrait) {
-  addTraitsToAliveEntity(ctx, entity, [config]);
+  applyAddTrait(ctx, entity, [config]);
 }
 
-/** The caller must establish entity liveness before adding traits. */
-export /* @inline */ function addTraitsToAliveEntity(
+/** Adds traits to a live entity inside the caller's defer scope. */
+export /* @inline */ function applyAddTrait(
   ctx: WorldContext,
   entity: Entity,
   traits: ConfigurableTrait[]
@@ -274,8 +269,7 @@ export /* @inline */ function addTraitsToAliveEntity(
       // Initialize before membership. Accessors own rollback of their storage and auxiliary state.
       trait[$internal].add(ctx, eid, instance.store, params);
       grantTraitMembership(ctx, entity, instance);
-      emit(instance.addSubscriptions, entity);
-      notifyTraitAdded(ctx, entity, instance);
+      notifyTraitAdded(entity, instance);
     }
   }
 }
@@ -361,7 +355,7 @@ export function applyUpsertTrait(
     setTraitForPair(ctx, entity, trait, value, true);
   } else {
     // The relation call validates the target and builds the pair that carries the value.
-    applyAddTrait(ctx, entity, [trait.relation(trait.target!, value)]);
+    addRelationPair(ctx, entity, trait.relation(trait.target!, value));
   }
 }
 
@@ -416,8 +410,7 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   if (added === undefined && instance.trackingQueries.length !== 0) {
     reconcileTrackingQueries(ctx, entity, instance, 'add', instance.generationId, instance.bitflag);
   }
-  emit(instance.addSubscriptions, entity, target);
-  notifyTraitAdded(ctx, entity, instance, target);
+  notifyTraitAdded(entity, instance, target);
 }
 
 /** A scope edge and all of its identifier mappings change as one observable operation. */
@@ -455,10 +448,7 @@ export function setScopedRelationPair(
   }
   if (previous !== undefined) emit(instance.removeSubscriptions, entity, previous);
   // Subscribers run inside the defer scope of the move, so the edge holds through all of them.
-  if (target !== undefined) {
-    emit(instance.addSubscriptions, entity, target);
-    notifyTraitAdded(ctx, entity, instance, target);
-  }
+  if (target !== undefined) notifyTraitAdded(entity, instance, target);
   return true;
 }
 
@@ -477,7 +467,7 @@ export function removeTrait(
   } else {
     beginRootDefer(ctx);
     try {
-      removeTraitsFromAliveEntity(ctx, entity, traits);
+      applyRemoveTrait(ctx, entity, traits);
     } finally {
       endRootDefer(ctx);
     }
@@ -493,17 +483,8 @@ export function deferRemoveTrait(
   deferCommand(ctx, applyRemoveTrait, entity, traits, undefined);
 }
 
-/** The removal as a command. */
-export function applyRemoveTrait(
-  ctx: WorldContext,
-  entity: Entity,
-  traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
-) {
-  removeTraitsFromAliveEntity(ctx, entity, traits);
-}
-
-/** @inline */
-function removeTraitsFromAliveEntity(
+/** Removes traits from a live entity inside the caller's defer scope. */
+export /* @inline */ function applyRemoveTrait(
   ctx: WorldContext,
   entity: Entity,
   traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
@@ -666,7 +647,11 @@ function leaveStaticQueries(ctx: WorldContext, entity: Entity, queries: QueryIns
   }
 }
 
-/* @inline */ function removeRelationPair(ctx: WorldContext, entity: Entity, pair: RelationPair) {
+export /* @inline */ function removeRelationPair(
+  ctx: WorldContext,
+  entity: Entity,
+  pair: RelationPair
+) {
   const relation = pair.relation;
   const target = pair.target;
   const relationTrait = relation[$internal].trait;

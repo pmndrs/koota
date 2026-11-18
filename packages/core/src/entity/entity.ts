@@ -20,7 +20,7 @@ import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair } from '../relation/types';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
-  addTraitsToAliveEntity,
+  applyAddTrait,
   cleanupRelationTarget,
   hasTrait,
   registerTrait,
@@ -67,7 +67,7 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
     }
 
     // Spawn is create then add in argument order. A trait that throws leaves the earlier ones in place.
-    addTraitsToAliveEntity(ctx, entity, traits);
+    applyAddTrait(ctx, entity, traits);
 
     /* @cold */ if (ctx.entitySpawnSubscriptions.size > 0 && !hasTrait(ctx, entity, IsExcluded)) {
       for (const sub of ctx.entitySpawnSubscriptions) sub(entity);

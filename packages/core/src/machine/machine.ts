@@ -340,14 +340,8 @@ function changeMachine(
     from === undefined || to === undefined ? marker : undefined,
     dying
   );
-  if (after) {
-    emit(after.addSubscriptions, entity);
-    notifyTraitAdded(ctx, entity, after);
-  }
-  if (from === undefined) {
-    emit(marker.addSubscriptions, entity);
-    notifyTraitAdded(ctx, entity, marker);
-  }
+  if (after) notifyTraitAdded(entity, after);
+  if (from === undefined) notifyTraitAdded(entity, marker);
   // Registration numbers exclude late listeners without copying the subscriber lists.
   for (const callback of data.subscribers.keys()) {
     if (data.subscribers.get(callback)! <= subscriptionVersion) callback(entity, from, to, previous);

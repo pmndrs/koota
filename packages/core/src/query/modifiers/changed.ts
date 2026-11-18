@@ -108,14 +108,9 @@ export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, 
 }
 
 /**
- * Add notifications follow onAdd, once the initial value is available. Removals made by onAdd
- * are deferred, so the trait or pair is still present here.
+ * Add hooks see the initial value first. The defer scope keeps it present for change hooks.
  */
-export /* @inline */ function notifyTraitAdded(
-  ctx: WorldContext,
-  entity: Entity,
-  data: TraitInstance,
-  target?: Entity
-) {
+export /* @inline */ function notifyTraitAdded(entity: Entity, data: TraitInstance, target?: Entity) {
+  emit(data.addSubscriptions, entity, target);
   emit(data.changeSubscriptions, entity, target);
 }

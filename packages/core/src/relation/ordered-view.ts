@@ -2,25 +2,25 @@ import { runCommand } from '../world/defer';
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { notifyChanged } from '../query/modifiers/changed';
-import { applyAddTrait, applyRemoveTrait, getTraitForTrait } from '../trait/trait';
+import { addRelationPair, getTraitForTrait, removeRelationPair } from '../trait/trait';
 import type { Trait } from '../trait/types';
 import { getQueryBinding } from '../view/entity-view';
 import { ListView, OrderedSource } from '../view/ordered-view';
 import type { EntityComparator, MutableOrderedView } from '../view/types';
 import type { WorldContext } from '../world';
-import type { ConfigurablePair, Relation } from './types';
+import type { Relation } from './types';
 
 /**
  * Every edit is a command and applies under a scope. It decides membership when it applies and a
  * detached view applies nothing.
  */
 function addNow(ctx: WorldContext, entity: Entity, view: RelationView) {
-  if (view.isAttached()) applyAddTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+  if (view.isAttached()) addRelationPair(ctx, entity, view.relation(view.parent));
 }
 
 function removeNow(ctx: WorldContext, entity: Entity, view: RelationView) {
   if (view.isAttached() && view.has(entity)) {
-    applyRemoveTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+    removeRelationPair(ctx, entity, view.relation(view.parent));
   }
 }
 
@@ -30,19 +30,20 @@ function insertNow(ctx: WorldContext, entity: Entity, view: RelationView, index:
   view.inserting = entity;
   view.insertIndex = index;
   try {
-    applyAddTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+    addRelationPair(ctx, entity, view.relation(view.parent));
   } finally {
     view.inserting = undefined;
   }
 }
 
 function clearNow(ctx: WorldContext, _parent: Entity, view: RelationView) {
-  if (!view.isAttached() || view.length === 0) return;
+  if (!view.isAttached()) return;
   const entities = view.getSource().dense;
+  if (entities.length === 0) return;
+  const pair = view.relation(view.parent);
   view.source.dense = [];
   view.source.readers = 0;
-  for (const entity of entities)
-    applyRemoveTrait(ctx, entity, [view.relation(view.parent) as ConfigurablePair]);
+  for (const entity of entities) removeRelationPair(ctx, entity, pair);
   view.changed();
 }
 
