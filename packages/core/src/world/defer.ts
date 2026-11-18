@@ -1,6 +1,5 @@
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
-import { settle } from './settled';
 import type { WorldContext } from './types';
 
 /** Applies one structural change. The log stores it with its entity and two arguments. */
@@ -97,63 +96,58 @@ export function runCommand(
 export function settleWorld(ctx: WorldContext) {
   let waves = 0;
   let rounds = 0;
-  let head = 0;
-  let failed = false;
-  let failure: unknown;
-  const commands = ctx.commands;
+  let failure: { error: unknown } | undefined;
+  const { commands, settledQueue } = ctx;
   ctx.deferDepth++;
   try {
     for (;;) {
-      const end = ctx.commandCount;
-      if (head < end) {
+      let head = 0;
+      while (head < ctx.commandCount) {
         if (++waves > 100000) {
           throw new Error(
             'Koota: Deferred changes did not settle after 100000 waves. A hook is likely undoing the change it observes.'
           );
         }
+        const end = ctx.commandCount;
         for (; head < end; head += 4) {
           const entity = commands[head + 1] as Entity;
           if (!isEntityAlive(ctx.entityIndex, entity)) continue;
           try {
             (commands[head] as Command)(ctx, entity, commands[head + 2], commands[head + 3]);
           } catch (error) {
-            if (!failed) {
-              failed = true;
-              failure = error;
-            }
+            failure ??= { error };
           }
         }
-        continue;
       }
-      if (end !== 0) {
-        clearCommands(ctx);
-        head = 0;
-      }
-      // Most drains queue no observer, so they end here without a round.
-      if (ctx.settledQueue.size === 0) break;
+      if (head !== 0) clearCommands(ctx);
+
+      let remaining = settledQueue.size;
+      if (remaining === 0) break;
       if (++rounds > 100) {
         throw new Error(
           'Koota: Settled observers did not settle after 100 rounds. An observer is likely changing the state it observes.'
         );
       }
-      try {
-        settle(ctx);
-      } catch (error) {
-        if (!failed) {
-          failed = true;
-          failure = error;
+      // Deleting before notification lets an observer queue itself again for the next round.
+      for (const notify of settledQueue) {
+        settledQueue.delete(notify);
+        try {
+          notify();
+        } catch (error) {
+          failure ??= { error };
         }
+        if (--remaining === 0) break;
       }
     }
   } finally {
     // Only a limit error leaves work behind. Clearing a Set allocates a new table, so the usual
     // empty queue is skipped.
     if (ctx.commandCount !== 0) clearCommands(ctx);
-    if (ctx.settledQueue.size !== 0) ctx.settledQueue.clear();
+    if (settledQueue.size !== 0) settledQueue.clear();
     ctx.unsettled = false;
     ctx.deferDepth--;
   }
-  if (failed) throw failure;
+  if (failure) throw failure.error;
 }
 
 /** Clearing in place drops the references and keeps the store a length write would release. */

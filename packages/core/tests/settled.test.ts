@@ -110,6 +110,31 @@ it('delivers queued updates when a structural callback throws', () => {
   expect(observed).toEqual([true, true]);
 });
 
+it('runs the remaining observers and their queued changes before rethrowing an observer error', () => {
+  const world = createWorld();
+  const Tag = trait();
+  const entity = world.spawn();
+  const seen: boolean[] = [];
+  const first = world[$internal].observeSettled(() => {
+    entity.add(Tag);
+    throw new Error('first observer');
+  });
+  const second = world[$internal].observeSettled(() => {
+    seen.push(entity.has(Tag));
+    throw new Error('second observer');
+  });
+
+  expect(() =>
+    world.defer(() => {
+      first.invalidate();
+      second.invalidate();
+    })
+  ).toThrow('first observer');
+  expect(seen).toEqual([false]);
+  expect(entity.has(Tag)).toBe(true);
+  world.destroy();
+});
+
 it('throws when an observer keeps invalidating itself', () => {
   const world = createWorld();
   const Value = trait({ value: 0 });
