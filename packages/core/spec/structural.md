@@ -107,4 +107,4 @@ Fire `onAdd` subscriptions for this trait, letting listeners react to the struct
 
 `set` and direct trait value updates are mutative. They usually do not change whether an entity belongs to a query unless a tracking modifier such as `Changed(...)` is involved.
 
-Structural changes update query membership immediately, while ordinary mutations mostly stay within existing storage.
+Structural changes update query membership immediately, while ordinary mutations mostly stay within existing storage. Inside a walk, a hook or `world.defer` structural changes other than `spawn` apply when the scope ends. See [defer.md](./defer.md).

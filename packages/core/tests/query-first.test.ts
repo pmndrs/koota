@@ -91,7 +91,7 @@ describe('queryFirst', () => {
     expect(world.queryFirst(ChildOf('*'))).toBeUndefined();
   });
 
-  it('shares an inline relation query and skips pending removals during a walk', () => {
+  it('shares an inline relation query and defers a removal made during a walk', () => {
     const Position = trait({ x: 0 });
     const ChildOf = relation();
     const parent = world.spawn();
@@ -103,7 +103,7 @@ describe('queryFirst', () => {
     view.forEach((entity) => {
       if (entity === a) {
         a.remove(Position);
-        expect(world.queryFirst(Position, ChildOf(parent))).toBe(b);
+        expect(world.queryFirst(Position, ChildOf(parent))).toBe(a);
       }
     });
     expect(world.queryFirst(Position, ChildOf(parent))).toBe(b);

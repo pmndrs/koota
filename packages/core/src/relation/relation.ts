@@ -571,7 +571,7 @@ export function reconcileRelationQueries(
     if (match) {
       addEntityToQuery(query, entity);
     } else {
-      removeEntityFromQuery(ctx, query, entity);
+      removeEntityFromQuery(query, entity);
     }
   }
   if (!trackingOnly && instance.relationQueryIdentifiers !== undefined) {
@@ -606,7 +606,7 @@ function reconcileIdentifiedRelationQueries(
       }
       if (!required) continue;
       if (checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
-      else removeEntityFromQuery(ctx, query, entity);
+      else removeEntityFromQuery(query, entity);
     }
   }
 }

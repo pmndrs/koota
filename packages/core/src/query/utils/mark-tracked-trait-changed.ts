@@ -50,7 +50,7 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
       accepted = true;
       if (checkQueryTracking(ctx, query, entity, 'change', generationId, bitflag)) {
         addEntityToQuery(query, entity);
-      } else removeEntityFromQuery(ctx, query, entity);
+      } else removeEntityFromQuery(query, entity);
       continue;
     }
 
@@ -66,7 +66,7 @@ export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, 
       (query.filters === null || passesQueryFilters(ctx, query, entity))
     ) {
       addEntityToQuery(query, entity);
-    } else removeEntityFromQuery(ctx, query, entity);
+    } else removeEntityFromQuery(query, entity);
   }
 
   if (!accepted) {

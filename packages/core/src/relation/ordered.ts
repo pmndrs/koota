@@ -4,6 +4,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import { createSchemaAccessors } from '../storage';
 import { defineTrait, registerTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
+import { subscribeAll } from '../trait/subscriptions';
 import type { Trait } from '../trait/types';
 import type { MutableOrderedView } from '../view/types';
 import { getEntitiesWithRelationTo } from './relation';
@@ -82,15 +83,15 @@ export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRe
 
   type RelationSub = (entity: Entity, target: Entity) => void;
 
-  (relationInstance.addSubscriptions.all as Set<RelationSub>).add((child, parent) => {
+  subscribeAll(relationInstance.addSubscriptions, ((child, parent) => {
     getList(parent)?.appendFromRelation(child);
-  });
+  }) as RelationSub);
 
-  (relationInstance.removeSubscriptions.all as Set<RelationSub>).add((child, parent) => {
+  subscribeAll(relationInstance.removeSubscriptions, ((child, parent) => {
     const eid = getEntityId(parent);
     const denseIdx = entityIndex.sparse[eid];
     if (denseIdx !== undefined && getEntityId(entityIndex.dense[denseIdx]) === eid) {
       getList(parent)?.removeFromRelation(child);
     }
-  });
+  }) as RelationSub);
 }

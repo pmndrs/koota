@@ -50,6 +50,7 @@ export const Transform = trait({
 
 export const IsEnemy = trait();
 export const IsPlayer = trait();
+export const IsDying = trait();
 
 export const IsShieldVisible = trait();
 export const ShieldVisibility = trait({ duration: 1400, current: 0 });

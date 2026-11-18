@@ -21,7 +21,9 @@ Queries fetch entities that share specific traits (archetypes).
 
 `each` is a zero-copy interface for reading and writing trait data. It passes each trait as its own argument followed by the entity and index. To keep a copy, call `entity.get(Trait)` for a snapshot.
 
-A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes during view traversal with `for...of`, `forEach`, or `each` are safe.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities.
+
+Structural changes made inside `each`, `forEach` or `map` are deferred until the walk ends, so every entity is visited with its traits intact. A `for...of` loop defers nothing and its changes apply at once. Wrap it in `world.defer` to defer them. A trait added inside a walk is not present until the walk ends, so pass its value to `add` or use `upsert` instead of following `add` with `set`.
 
 ```typescript
 // Returns a QueryView, a live borrowed view
@@ -31,12 +33,16 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// Entities destroyed during a walk stay in the view until it ends and are
-// skipped by each, entities spawned show up on the next run.
-// Finish every for of loop you start, a suspended iterator keeps removals pending.
+// Changes in a for of loop apply at once
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
+
+// world.defer holds them until the function returns
+world.defer(() => {
+  const dense = entities.entities
+  for (let i = 0; i < dense.length; i++) if (dense[i].has(IsDead)) dense[i].destroy()
+})
 
 // The view changes with the world, copy it to keep it
 const kept = entities.toArray()
@@ -375,7 +381,7 @@ sorted.each((position) => {
 
 Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
 
-Active view walks keep their starting order. Re-enter the view after they finish to refresh it.
+Active view walks keep their starting order. Re-enter the view after they finish to refresh it. A `for...of` loop keeps its own sequence while the view refreshes on the next access.
 
 `sorted.entities` checks whether the order needs refreshing, then returns the cached array without an extra copy. Read it once before the loop:
 

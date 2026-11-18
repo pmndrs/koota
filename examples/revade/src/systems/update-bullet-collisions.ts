@@ -1,6 +1,5 @@
 import type { World } from 'koota';
-import { Bullet, Explosion, IsEnemy, SpatialHashMap, Transform } from '../traits';
-import { between } from '../utils/between';
+import { Bullet, IsDying, IsEnemy, SpatialHashMap, Transform } from '../traits';
 
 export function updateBulletCollisions(world: World) {
   const spatialHashMap = world.get(SpatialHashMap)!;
@@ -16,15 +15,9 @@ export function updateBulletCollisions(world: World) {
       );
 
       if (hitEnemy !== undefined) {
-        // Spawn explosion in enemy's position.
-        world.spawn(
-          Explosion({ count: Math.floor(between(12, 20)) }),
-          Transform({ position: hitEnemy.get(Transform)!.position.clone() })
-        );
-
-        // Destroy bullet and enemy.
-        hitEnemy.destroy();
-        entity.destroy();
+        // Mark the bullet and the enemy, later systems react and destroy them
+        hitEnemy.add(IsDying);
+        entity.add(IsDying);
       }
     });
 }

@@ -14,7 +14,12 @@ it('settles once after nested removals and observes the remaining target', () =>
   });
   source.remove(Link(a));
   expect(observed).toEqual([source.targetFor(Link)]);
-  expect(observed).toEqual([c]);
+  expect(
+    source
+      .targetsFor(Link)
+      .slice()
+      .sort((x, y) => x - y)
+  ).toEqual([c, d]);
 });
 
 it('settles after the entire destruction cascade', () => {
@@ -103,6 +108,31 @@ it('delivers queued updates when a structural callback throws', () => {
   // The operation is closed, so a later invalidation is not left waiting for it.
   observer.invalidate();
   expect(observed).toEqual([true, true]);
+});
+
+it('runs the remaining observers and their queued changes before rethrowing an observer error', () => {
+  const world = createWorld();
+  const Tag = trait();
+  const entity = world.spawn();
+  const seen: boolean[] = [];
+  const first = world[$internal].observeSettled(() => {
+    entity.add(Tag);
+    throw new Error('first observer');
+  });
+  const second = world[$internal].observeSettled(() => {
+    seen.push(entity.has(Tag));
+    throw new Error('second observer');
+  });
+
+  expect(() =>
+    world.defer(() => {
+      first.invalidate();
+      second.invalidate();
+    })
+  ).toThrow('first observer');
+  expect(seen).toEqual([false]);
+  expect(entity.has(Tag)).toBe(true);
+  world.destroy();
 });
 
 it('throws when an observer keeps invalidating itself', () => {

@@ -466,6 +466,8 @@ children.clear() // Removes all ChildOf(parent) pairs
 
 Adding the ordered trait collects existing children. Removing it leaves their relations intact. Each walk keeps the sequence it started with.
 
+Inside a walk, hook or `world.defer`, all view edits apply in call order when the scope ends, including `moveTo`, `sort` and `reverse`. Membership is checked when an edit applies. `remove(child)` returns whether the child is present at call time, but still queues the removal when it returns false, so a queued `add(child)` followed by `remove(child)` leaves the child absent. Edits to a view detached before they apply are dropped.
+
 Ordering work happens when children are added, removed, or reordered. For order derived from trait values, use a [sorted query](docs/api/query.md#ordered-views).
 
 #### Querying relations
@@ -864,6 +866,16 @@ entity.set(Position, { x: 10, y: 20 })
 entity.remove(Position)
 ```
 
+Hooks run inside the operation that reached them. Structural changes a hook makes, such as removing another relation from an `onRemove` callback, are deferred and apply in call order once that operation completes, so a hook always sees the operation it observes in a consistent state. Data writes with `set` are immediate.
+
+```js
+// Removing Link(a) runs the hook, which queues the removal of Link(b).
+// Link(b) leaves after Link(a) has fully left, and the hook runs again for it.
+world.onRemove(Link, (entity, target) => {
+  if (target === a) entity.remove(Link(b))
+})
+```
+
 When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events report pair additions and writes to relation store data.
 
 ```js
@@ -943,7 +955,7 @@ sorted.each((position) => {
 
 Pass the traits read by the comparator in the dependency array. The order refreshes on the next access after membership changes or writes to those traits. Omit the array or pass `[]` to sort on every access.
 
-Active view walks keep their starting order. Re-enter the view after they finish to refresh it.
+Active view walks keep their starting order. Re-enter the view after they finish to refresh it. A `for...of` loop keeps its own sequence while the view refreshes on the next access.
 
 `sorted.entities` checks whether the order needs refreshing, then returns the cached array without an extra copy. Read it once before the loop:
 
@@ -1019,7 +1031,9 @@ function updateMovement(world) {
 
 #### Query results are live views
 
-A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Structural changes during view traversal with `for...of`, `forEach`, or `each` are safe.
+A query result is a cached live view over the query's entities. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities.
+
+Structural changes made inside `each`, `forEach` or `map` are deferred until the walk ends, so every entity is visited with its traits intact. A `for...of` loop defers nothing and its changes apply at once. Wrap it in `world.defer` to defer them.
 
 ```js
 const entities = world.query(Position)
@@ -1029,12 +1043,16 @@ entities.first
 // Negative indices count from the end
 entities.at(-1)
 
-// Entities destroyed during a walk stay in the view until it ends and are
-// skipped by each, entities spawned show up on the next run.
-// Finish every for of loop you start, a suspended iterator keeps removals pending.
+// Changes in a for of loop apply at once
 for (const entity of entities) {
   if (entity.has(IsDead)) entity.destroy()
 }
+
+// world.defer holds them until the function returns
+world.defer(() => {
+  const dense = entities.entities
+  for (let i = 0; i < dense.length; i++) if (dense[i].has(IsDead)) dense[i].destroy()
+})
 
 // The view changes with the world, copy it to keep it
 const kept = entities.toArray()
@@ -1163,8 +1181,17 @@ world.entities
 // Return number
 const id = world.id
 
+// Run a function with structural changes deferred, as a walk does
+// Adds, removes, destroys and transitions apply in call order when it returns
+// Return the function's result
+world.defer(() => {
+  const dense = world.query(IsDead).entities
+  for (let i = 0; i < dense.length; i++) dense[i].destroy()
+})
+
 // Resets the world as if it were just created
 // The world reference is preserved
+// Cannot run inside a walk, a hook or world.defer
 world.reset()
 
 // Destroys the world, releasing all pages and entities
