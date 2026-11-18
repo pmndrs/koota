@@ -1,4 +1,5 @@
 import type { SparseSet } from '@koota/collections';
+import { flagTarget } from '../entity/utils/target-flags';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
@@ -160,9 +161,20 @@ export const relation = createRelation;
 
 const EMPTY_ENTITY_ARRAY: readonly Entity[] = Object.freeze([]) as readonly Entity[];
 
-function addToRelationSources(traitData: TraitInstance, entity: Entity, target: Entity): void {
+function addToRelationSources(
+  ctx: WorldContext,
+  traitData: TraitInstance,
+  entity: Entity,
+  target: Entity
+): void {
+  const targetId = getEntityId(target);
   const buckets = (traitData.relationSourcesByTarget ??= []);
-  const bucket = (buckets[getEntityId(target)] ??= []);
+  let bucket = buckets[targetId];
+  if (bucket === undefined) {
+    // A bucket outlives its entity, so the id keeps the flag that sends destroy to its sources.
+    bucket = buckets[targetId] = [];
+    flagTarget(ctx, targetId);
+  }
   bucket.push(entity);
   bucket.positions?.set(entity, bucket.length - 1);
 }
@@ -413,7 +425,7 @@ export function addRelationTarget(
 
   traitData.version++;
   reconcileRelationQueries(ctx, traitData, entity, target, 'add', false);
-  addToRelationSources(traitData, entity, target);
+  addToRelationSources(ctx, traitData, entity, target);
 
   return targetIndex;
 }
@@ -436,7 +448,7 @@ export function commitScopedRelationTarget(
     if (ctx.retain !== 0) recordPairRemoval(ctx, entity, trait.id, previous);
   }
   page[eid & 1023] = target;
-  if (target !== undefined) addToRelationSources(data, entity, target);
+  if (target !== undefined) addToRelationSources(ctx, data, entity, target);
   moveScopedIdentifiers(ctx, relation, entity, target);
   data.version++;
   return previous;

@@ -275,7 +275,7 @@ describe('Relation retention', () => {
     }
   );
 
-  it('keeps the parent on children destroyed with it at the retention cap', () => {
+  it('keeps the parent at the retention cap, since its children are destroyed first', () => {
     const world = createWorld({ retain: 1 });
     const parent = world.spawn();
     const child = world.spawn(ChildOf(parent));
@@ -283,6 +283,16 @@ describe('Relation retention', () => {
 
     expect(world.has(child)).toBe(false);
     expect(() => child.targetFor(ChildOf)).toThrow(/\[ENTITY_ALIVE\]/);
+    // The parent took the one retained slot and evicted the child's removal.
+    expect(world.query(createRemoved()(ChildOf), ChildOf(parent)).toArray()).toEqual([]);
+  });
+
+  it('keeps the parent on children destroyed with it while both are retained', () => {
+    const world = createWorld({ retain: 2 });
+    const parent = world.spawn();
+    const child = world.spawn(ChildOf(parent));
+    parent.destroy();
+
     expect(world.query(createRemoved()(ChildOf), ChildOf(parent)).toArray()).toEqual([child]);
   });
 

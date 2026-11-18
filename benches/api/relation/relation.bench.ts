@@ -402,6 +402,26 @@ group('children of one parent 10k @relation @lifecycle', () => {
       };
       world.destroy();
     });
+
+    bench(`spawn children + destroy the parent, ${mode}`, function* () {
+      const world = createWorld();
+      const ChildOf = relation({ autoDestroy: 'orphan' });
+      const Children = ordered(ChildOf);
+
+      yield {
+        bench: () => {
+          const parent = mode === 'ordered' ? world.spawn(Children) : world.spawn();
+          for (let i = 0; i < 10_000; i++) world.spawn(ChildOf(parent));
+          parent.destroy();
+        },
+        snapshot: () => {
+          const count = world.query(ChildOf('*')).length;
+          assert.equal(count, 0);
+          return count;
+        },
+      };
+      world.destroy();
+    });
   }
 });
 

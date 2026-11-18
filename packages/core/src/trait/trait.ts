@@ -5,6 +5,7 @@ import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
 import type { Entity } from '../entity/types';
+import { isAwaitingDestroy, isDyingTarget } from '../entity/utils/target-flags';
 import { isEntityAlive } from '../entity/utils/entity-index';
 import { getScopeTarget, validateScopeMove } from '../identifier/scoped-identifier';
 import { getEntityId } from '../entity/utils/pack-entity';
@@ -372,7 +373,7 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   if (
     typeof target !== 'number' ||
     !isEntityAlive(ctx.entityIndex, target) ||
-    ctx.destroying === target
+    (ctx.destroying !== undefined && isDyingTarget(ctx, target))
   )
     return;
 
@@ -589,6 +590,14 @@ export function removeSpecialDyingTrait(ctx: WorldContext, entity: Entity, insta
     for (const target of targets) emit(instance.removeSubscriptions, entity, target);
     detachRelationTargets(instance, entity);
     finishDyingTraitRemoval(ctx, entity, instance, targets);
+    if (context.relation![$internal].autoDestroy === 'target') queueOwnedTargets(ctx, targets);
+  }
+}
+
+/** What an owner targets dies after it. A target that already waits on the stack stays there. */
+export function queueOwnedTargets(ctx: WorldContext, targets: readonly Entity[]) {
+  for (const target of targets) {
+    if (!isAwaitingDestroy(ctx, target)) ctx.destroyQueue.push(target);
   }
 }
 

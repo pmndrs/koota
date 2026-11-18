@@ -266,6 +266,7 @@ export function createWorld(options?: WorldOptions): World {
       commandCount: 0,
       unsettled: false,
       destroyQueue: [],
+      targetFlags: [],
       destroying: undefined,
       worldEntity: null!,
       entitySubscribedInstances: new Set(),

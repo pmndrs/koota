@@ -148,15 +148,17 @@ export class RelationView extends ListView implements MutableOrderedView<any> {
     return this;
   }
 
+  /** The relation sync found this view on its live parent, so it is attached. */
   appendFromRelation(entity: Entity): void {
     const entities = this.source.write();
     if (this.inserting === entity) entities.splice(this.insertIndex, 0, entity);
     else entities.push(entity);
-    this.changed();
+    notifyChanged(this.ctx, this.parent, this.trait);
   }
 
+  /** The relation sync found this view on its live parent, so it is attached. */
   removeFromRelation(entity: Entity): void {
-    if (this.source.drop(entity)) this.changed();
+    if (this.source.drop(entity)) notifyChanged(this.ctx, this.parent, this.trait);
   }
 
   isAttached() {

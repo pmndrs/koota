@@ -17,27 +17,31 @@ describe('world isolation', () => {
           else entities[i - 1].add(Link(entities[i]));
         }
       }
+      // A source dies before its target, so a chain of sources is destroyed from its far end.
+      const order = (entities: Entity[]) =>
+        autoDestroy === 'source' ? [...entities].reverse() : entities;
+      const lastA = order(first)[2];
       const seenA: Entity[] = [];
       const seenB: Entity[] = [];
       a.onEntityDestroy((entity) => {
         seenA.push(entity);
-        if (entity !== first[0]) return;
+        if (seenA.length !== 1) return;
         second[0].destroy();
         expect(b.query(Tag).length).toBe(0);
         expect(a.query(Tag).length).toBe(3);
       });
       b.onEntityDestroy((entity) => {
         seenB.push(entity);
-        if (entity !== second[0]) return;
+        if (seenB.length !== 1) return;
         // Returning to the first world joins its still-open scope.
-        first[2].destroy();
-        expect(first[2].isAlive()).toBe(true);
+        lastA.destroy();
+        expect(lastA.isAlive()).toBe(true);
       });
 
       first[0].destroy();
 
-      expect(seenA).toEqual(first);
-      expect(seenB).toEqual(second);
+      expect(seenA).toEqual(order(first));
+      expect(seenB).toEqual(order(second));
       expect(a.query(Tag).length).toBe(0);
       expect(b.query(Tag).length).toBe(0);
       expect([...first, ...second].every((entity) => !entity.isAlive())).toBe(true);

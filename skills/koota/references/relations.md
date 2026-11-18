@@ -352,6 +352,8 @@ entity.has(Likes(banana)) // false
 | `autoDestroy` | `'target'`               | Destroy targets when source destroyed |
 | `exclusive`   | `true`                   | Entity can only have one target       |
 
+A cascade destroys a source before its target, so with `'orphan'` a child's `onRemove` hook can still read its parent. Siblings go newest first and each is followed by its own children. With `'target'` the owner goes first, then what it owns.
+
 ## React Hooks
 
 ```typescript

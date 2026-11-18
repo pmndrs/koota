@@ -133,6 +133,29 @@ describe('Relation', () => {
     expect(detached.every((child) => child.isAlive())).toBe(true);
   });
 
+  it('destroys a source before its target, so remove hooks read a live target', () => {
+    const Health = trait({ value: 0 });
+    const ChildOf = relation({ autoDestroy: 'orphan' });
+    const Owns = relation({ autoDestroy: 'target' });
+    const root = world.spawn(Health({ value: 7 }));
+    const older = world.spawn(ChildOf(root));
+    const newer = world.spawn(ChildOf(root));
+    const grandchild = world.spawn(ChildOf(older));
+    const item = world.spawn();
+    root.add(Owns(item));
+    const destroyed: number[] = [];
+    const parentHealth: (number | undefined)[] = [];
+    world.onEntityDestroy((entity) => destroyed.push(entity));
+    world.onRemove(ChildOf, (_child, parent) => parentHealth.push(parent.get(Health)?.value));
+
+    root.destroy();
+
+    // Children go newest first and each follows its own children. An owner goes before what it owns.
+    expect(destroyed).toEqual([newer, grandchild, older, root, item]);
+    expect(parentHealth).toEqual([7, undefined, 7]);
+    expect(world.query(ChildOf('*')).length).toBe(0);
+  });
+
   it('should destroy targets when autoDestroy is target', () => {
     const Contains = relation({ autoDestroy: 'target' });
 
