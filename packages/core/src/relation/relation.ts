@@ -4,6 +4,7 @@ import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
+import { isEntityAlive } from '../entity/utils/entity-index';
 import { moveScopedIdentifiers } from '../identifier/scoped-identifier';
 import { getEntityId } from '../entity/utils/pack-entity';
 import type { EventType, QueryParameter } from '../query/types';
@@ -670,6 +671,16 @@ export function removeAllRelationTargets(
   }
 }
 
+function getRelationSources(
+  ctx: WorldContext,
+  relation: Relation<Trait>,
+  target: Entity
+): RelationSources | undefined {
+  if (!isEntityAlive(ctx.entityIndex, target)) return undefined;
+  const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
+  return traitData?.relationSourcesByTarget?.[getEntityId(target)];
+}
+
 /**
  * Get all entities that have a specific relation targeting a specific entity.
  * Returns a fresh snapshot so callers can safely iterate while relations mutate.
@@ -679,10 +690,7 @@ export function getEntitiesWithRelationTo(
   relation: Relation<Trait>,
   target: Entity
 ): readonly Entity[] {
-  const baseTrait = relation[$internal].trait;
-  const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
-  if (!traitData?.relationSourcesByTarget) return EMPTY_ENTITY_ARRAY;
-  return traitData.relationSourcesByTarget[getEntityId(target)]?.slice() ?? EMPTY_ENTITY_ARRAY;
+  return getRelationSources(ctx, relation, target)?.slice() ?? EMPTY_ENTITY_ARRAY;
 }
 
 export function getFirstEntityWithRelationTo(
@@ -690,8 +698,7 @@ export function getFirstEntityWithRelationTo(
   relation: Relation<Trait>,
   target: Entity
 ): Entity | undefined {
-  const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
-  return traitData?.relationSourcesByTarget?.[getEntityId(target)]?.[0];
+  return getRelationSources(ctx, relation, target)?.[0];
 }
 
 export function hasRelationTargetInSet(

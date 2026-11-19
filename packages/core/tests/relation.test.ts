@@ -287,6 +287,23 @@ describe('Relation', () => {
     expect(childrenOfChild2).toContain(leaf);
   });
 
+  it.each(['destroy', 'reset'] as const)('ignores a stale relation target after %s', (operation) => {
+    const ChildOf = relation();
+    const oldParent = world.spawn();
+    if (operation === 'destroy') oldParent.destroy();
+    else world.reset();
+
+    const newParent = world.spawn();
+    expect(newParent.id()).toBe(oldParent.id());
+    expect(newParent).not.toBe(oldParent);
+    const child = world.spawn(ChildOf(newParent));
+
+    expect(world.query(ChildOf(oldParent))).toHaveLength(0);
+    expect(world.queryFirst(ChildOf(oldParent))).toBeUndefined();
+    expect(world.query(ChildOf(newParent)).toArray()).toEqual([child]);
+    expect(world.queryFirst(ChildOf(newParent))).toBe(child);
+  });
+
   it('should correctly remove targets when they are destroyed', () => {
     const Likes = relation();
 
