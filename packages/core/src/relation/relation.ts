@@ -175,6 +175,7 @@ function addToRelationSources(
     bucket = buckets[targetId] = [];
     flagTarget(ctx, targetId);
   }
+  bucket.target = target;
   bucket.push(entity);
   bucket.positions?.set(entity, bucket.length - 1);
 }
@@ -670,6 +671,15 @@ export function removeAllRelationTargets(
   }
 }
 
+/* @inline */ function getRelationSourceBucket(
+  ctx: WorldContext,
+  relation: Relation<Trait>,
+  target: Entity
+): RelationSources | undefined {
+  const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
+  return traitData?.relationSourcesByTarget?.[getEntityId(target)];
+}
+
 /**
  * Get all entities that have a specific relation targeting a specific entity.
  * Returns a fresh snapshot so callers can safely iterate while relations mutate.
@@ -679,10 +689,8 @@ export function getEntitiesWithRelationTo(
   relation: Relation<Trait>,
   target: Entity
 ): readonly Entity[] {
-  const baseTrait = relation[$internal].trait;
-  const traitData = getTraitInstance(ctx.traitInstances, baseTrait);
-  if (!traitData?.relationSourcesByTarget) return EMPTY_ENTITY_ARRAY;
-  return traitData.relationSourcesByTarget[getEntityId(target)]?.slice() ?? EMPTY_ENTITY_ARRAY;
+  const bucket = getRelationSourceBucket(ctx, relation, target);
+  return bucket !== undefined && bucket.target === target ? bucket.slice() : EMPTY_ENTITY_ARRAY;
 }
 
 export function getFirstEntityWithRelationTo(
@@ -690,8 +698,8 @@ export function getFirstEntityWithRelationTo(
   relation: Relation<Trait>,
   target: Entity
 ): Entity | undefined {
-  const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
-  return traitData?.relationSourcesByTarget?.[getEntityId(target)]?.[0];
+  const bucket = getRelationSourceBucket(ctx, relation, target);
+  return bucket !== undefined && bucket.target === target ? bucket[0] : undefined;
 }
 
 export function hasRelationTargetInSet(

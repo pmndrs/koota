@@ -209,7 +209,7 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
 }
 
 /** The sources of one target. A large bucket also indexes where each source sits. */
-export type RelationSources = Entity[] & { positions?: Map<Entity, number> };
+export type RelationSources = Entity[] & { target?: Entity; positions?: Map<Entity, number> };
 
 /** A type whose presence can be queried or observed through a trait. */
 export type TraitInput = Trait | Relation<Trait> | Identifier;
