@@ -131,4 +131,4 @@ async function generateTests() {
   }
 }
 
-generateTests();
+await generateTests();

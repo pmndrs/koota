@@ -22,7 +22,7 @@ const executeExample = (directoryPath: string) => {
   }
 };
 
-const runSuites = async (example: string) => {
+const runSuites = (example: string) => {
   const rootPath = process.cwd();
   const baseDir = join(rootPath, 'examples');
   const exampleDir = join(baseDir, example);

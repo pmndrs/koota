@@ -762,7 +762,8 @@ describe('Relation', () => {
       { entity: subject, target: targetA },
       { entity: subject, target: targetB },
     ]);
-    expect(subject.targetsFor(Likes).sort()).toEqual([targetA, targetB].sort());
+    const byId = (a: number, b: number) => a - b;
+    expect(subject.targetsFor(Likes).sort(byId)).toEqual([targetA, targetB].sort(byId));
 
     // Remove one target: fires remove event for pair (subject, a)
     subject.remove(Likes(targetA));

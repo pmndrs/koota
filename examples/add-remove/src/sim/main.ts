@@ -7,8 +7,8 @@ import { schedule } from './systems/schedule';
 import { world } from './world';
 
 // Start the simulation.
-const main = () => {
-  measure(() => schedule.run({ world }));
+const main = async () => {
+  await measure(() => schedule.run({ world }));
   requestAnimationFrame(main);
 };
 

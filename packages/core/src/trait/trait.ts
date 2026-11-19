@@ -75,7 +75,7 @@ import type {
 const tagSchema = Object.freeze({});
 let traitId = 0;
 
-function createTrait(schema?: undefined | Record<string, never>): TagTrait;
+function createTrait(schema?: Record<string, never>): TagTrait;
 function createTrait<S extends TraitSchema>(schema: S): Trait<Norm<S>>;
 function createTrait<S extends TraitSchema>(schema: S = tagSchema as S): Trait<Norm<S>> {
   return defineTrait(schema, 'trait');

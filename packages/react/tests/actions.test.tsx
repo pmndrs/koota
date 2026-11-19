@@ -1,3 +1,4 @@
+// oxlint-disable react/globals -- Test components expose hook values to assertions.
 import { createActions, createWorld, type Entity, trait, type World } from '@koota/core';
 import { render } from '@testing-library/react';
 import { act, StrictMode } from 'react';

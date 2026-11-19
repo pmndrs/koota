@@ -66,8 +66,8 @@ for (let i = 0; i < CONFIG.initialCount; i++) {
 
 // Run the simulation
 const main = async () => {
-  measure(async () => {
-    schedule.run({ world });
+  await measure(async () => {
+    await schedule.run({ world });
     render({ world });
     updateStats();
   });

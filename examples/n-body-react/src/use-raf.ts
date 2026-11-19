@@ -8,7 +8,7 @@ export function useRaf(callback: () => void | Promise<void>, deps: readonly unkn
       await callback();
       rafRef.current = requestAnimationFrame(loop);
     };
-    loop();
+    void loop();
 
     return () => {
       cancelAnimationFrame(rafRef.current);

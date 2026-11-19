@@ -40,7 +40,7 @@ async function compileBindings() {
 async function collectFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
   const files = await Promise.all(
-    entries.map((entry) => {
+    entries.map(async (entry) => {
       const path = join(dir, entry.name);
       return entry.isDirectory() ? collectFiles(path) : [path];
     })

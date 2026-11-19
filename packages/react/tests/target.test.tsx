@@ -1,3 +1,4 @@
+// oxlint-disable react/globals -- Test components expose hook values to assertions.
 import { createWorld, relation, trait, type Entity, type World } from '@koota/core';
 import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
@@ -212,7 +213,8 @@ describe('useTargets', () => {
       subject.add(Likes(targetB));
     });
 
-    expect([...targets].sort()).toEqual([targetA, targetB].sort());
+    const byId = (a: number, b: number) => a - b;
+    expect([...targets].sort(byId)).toEqual([targetA, targetB].sort(byId));
 
     act(() => {
       subject.remove(Likes(targetA));

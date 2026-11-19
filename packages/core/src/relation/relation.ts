@@ -895,7 +895,7 @@ export function getRelationData(
     const result: Record<string, unknown> = out ?? {};
     const storeRecord = store as Record<string, any[]>;
     const schema = traitData.schema as Record<string, unknown>;
-    for (const key in store) {
+    for (const key in storeRecord) {
       const kPage = storeRecord[key][p];
       if (!kPage) continue;
       const field = relationCtx.exclusive

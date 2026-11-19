@@ -70,8 +70,8 @@ create();
 
 // Run the simulation
 const main = async () => {
-  measure(async () => {
-    schedule.run({ world });
+  await measure(async () => {
+    await schedule.run({ world });
     render({ world });
     updateStats();
   });

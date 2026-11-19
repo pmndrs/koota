@@ -103,9 +103,7 @@ function Simulation() {
   const statsApi = useStats({ Bodies: () => CONSTANTS.NBODIES });
 
   useFrame(() => {
-    statsApi.measure(() => {
-      schedule.run({ world });
-    });
+    void statsApi.measure(() => schedule.run({ world }));
     statsApi.updateStats();
   });
 

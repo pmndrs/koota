@@ -81,7 +81,6 @@ describe('Query modifiers', () => {
   });
 
   it('should correctly populate Not queries when relations are added and removed', () => {
-    const ctx = world[$internal];
     const ChildOf = relation();
     const parent = world.spawn();
     const child = world.spawn();

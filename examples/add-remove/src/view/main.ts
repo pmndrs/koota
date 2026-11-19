@@ -60,9 +60,9 @@ const { updateStats, measure, create } = initStats({
 create();
 
 // Run the simulation
-const main = () => {
-  measure(() => {
-    schedule.run({ world });
+const main = async () => {
+  await measure(async () => {
+    await schedule.run({ world });
     renderer.render(scene, camera);
     updateStats();
   });

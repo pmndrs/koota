@@ -26,4 +26,4 @@ async function copyReadme() {
   }
 }
 
-copyReadme();
+await copyReadme();
