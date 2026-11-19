@@ -124,112 +124,146 @@ export type World = {
   readonly entities: Entity[];
   readonly traits: Set<Trait>;
   [$internal]: WorldContext;
-  spawn(...traits: ConfigurableTrait[]): Entity;
+  spawn(this: void, ...traits: ConfigurableTrait[]): Entity;
   /** Resolve a root key or a path of keys from outer scope to local key. */
-  lookup(pair: IdentifierPair, ...path: IdentifierPair[]): Entity | undefined;
-  lookup(scope: Entity, first: IdentifierPair, ...path: IdentifierPair[]): Entity | undefined;
+  lookup(this: void, pair: IdentifierPair, ...path: IdentifierPair[]): Entity | undefined;
+  lookup(
+    this: void,
+    scope: Entity,
+    first: IdentifierPair,
+    ...path: IdentifierPair[]
+  ): Entity | undefined;
   /** Resolve the path prefix and return a snapshot of every owner of its final key. */
-  lookupAll(pair: IdentifierPair, ...path: IdentifierPair[]): Entity[];
-  lookupAll(scope: Entity, first: IdentifierPair, ...path: IdentifierPair[]): Entity[];
-  has(entity: Entity): boolean;
-  has(trait: Trait | Identifier | IdentifierPair): boolean;
-  has(target: Entity | Trait | Identifier | IdentifierPair): boolean;
-  add(...traits: ConfigurableTrait[]): void;
+  lookupAll(this: void, pair: IdentifierPair, ...path: IdentifierPair[]): Entity[];
+  lookupAll(this: void, scope: Entity, first: IdentifierPair, ...path: IdentifierPair[]): Entity[];
+  has(this: void, entity: Entity): boolean;
+  has(this: void, trait: Trait | Identifier | IdentifierPair): boolean;
+  has(this: void, target: Entity | Trait | Identifier | IdentifierPair): boolean;
+  add(this: void, ...traits: ConfigurableTrait[]): void;
   /** Set the value if the world has the trait, or add the trait with the value if it does not. */
-  upsert<T extends Trait>(trait: T, value: TraitInit<ExtractSchema<T>>): void;
-  remove(...traits: (Trait | Identifier | IdentifierPair)[]): void;
-  get<T extends Trait>(trait: T): TraitRecord<ExtractSchema<T>> | undefined;
-  get<T extends Trait, O extends TraitOut<T>>(trait: T, out: O): O | undefined;
-  set<T extends Trait>(trait: T, value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>): void;
-  destroy(): void;
-  reset(): void;
+  upsert<T extends Trait>(this: void, trait: T, value: TraitInit<ExtractSchema<T>>): void;
+  remove(this: void, ...traits: (Trait | Identifier | IdentifierPair)[]): void;
+  get<T extends Trait>(this: void, trait: T): TraitRecord<ExtractSchema<T>> | undefined;
+  get<T extends Trait, O extends TraitOut<T>>(this: void, trait: T, out: O): O | undefined;
+  set<T extends Trait>(
+    this: void,
+    trait: T,
+    value: TraitValue<ExtractSchema<T>> | SetTraitCallback<T>
+  ): void;
+  destroy(this: void): void;
+  reset(this: void): void;
   /**
    * Runs the function with structural changes deferred, as a walk does, and returns its result.
    * Adds, removes, destroys and machine transitions made inside apply in call order when the
    * outermost scope ends. Use it around for...of and indexed loops over query entities.
    */
-  defer<T>(fn: () => T): T;
-  query<T extends QueryParameter[]>(key: Query<T>): QueryView<T>;
-  query<T extends QueryParameter[]>(...parameters: T): QueryView<T>;
-  queryFirst<T extends QueryParameter[]>(key: Query<T>): Entity | undefined;
-  queryFirst<T extends QueryParameter[]>(...parameters: T): Entity | undefined;
+  defer<T>(this: void, fn: () => T): T;
+  query<T extends QueryParameter[]>(this: void, key: Query<T>): QueryView<T>;
+  query<T extends QueryParameter[]>(this: void, ...parameters: T): QueryView<T>;
+  queryFirst<T extends QueryParameter[]>(this: void, key: Query<T>): Entity | undefined;
+  queryFirst<T extends QueryParameter[]>(this: void, ...parameters: T): Entity | undefined;
   /** Observe future entries into a query. Existing matches are not replayed. */
   onEnter<T extends QueryParameter[]>(
+    this: void,
     key: Query<T>,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
   /** Observe future entries into a query. Existing matches are not replayed. */
   onEnter<T extends QueryParameter[]>(
+    this: void,
     parameters: T,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
   /** Observe entities leaving a query. */
   onExit<T extends QueryParameter[]>(
+    this: void,
     key: Query<T>,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
   /** Observe entities leaving a query. */
   onExit<T extends QueryParameter[]>(
+    this: void,
     parameters: T,
     callback: (entity: Entity) => void
   ): QueryUnsubscriber;
   onAdd<K extends IdentifierKey>(
+    this: void,
     input: Identifier<K> | IdentifierPair<K>,
     callback: (entity: Entity, key: K) => void
   ): QueryUnsubscriber;
-  onAdd<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
+  onAdd<T extends Trait>(this: void, trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onAdd<T extends Trait>(
+    this: void,
     relation: Relation<T>,
     callback: (entity: Entity, target: Entity) => void
   ): QueryUnsubscriber;
   onAdd<T extends Trait>(
+    this: void,
     pair: RelationPair<T>,
     callback: (entity: Entity, target: Entity) => void
   ): QueryUnsubscriber;
   onAdd(
+    this: void,
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
   ): QueryUnsubscriber;
   onRemove<K extends IdentifierKey>(
+    this: void,
     input: Identifier<K> | IdentifierPair<K>,
     callback: (entity: Entity, key: K) => void
   ): QueryUnsubscriber;
-  onRemove<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onRemove<T extends Trait>(
+    this: void,
+    trait: T,
+    callback: (entity: Entity) => void
+  ): QueryUnsubscriber;
+  onRemove<T extends Trait>(
+    this: void,
     relation: Relation<T>,
     callback: (entity: Entity, target: Entity) => void
   ): QueryUnsubscriber;
   onRemove<T extends Trait>(
+    this: void,
     pair: RelationPair<T>,
     callback: (entity: Entity, target: Entity) => void
   ): QueryUnsubscriber;
   onRemove(
+    this: void,
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
   ): QueryUnsubscriber;
   onChange<K extends IdentifierKey>(
+    this: void,
     input: Identifier<K> | IdentifierPair<K>,
     callback: (entity: Entity, key: K) => void
   ): QueryUnsubscriber;
   /** Reports future additions and writes. Removals use onRemove. */
-  onChange<T extends Trait>(trait: T, callback: (entity: Entity) => void): QueryUnsubscriber;
   onChange<T extends Trait>(
+    this: void,
+    trait: T,
+    callback: (entity: Entity) => void
+  ): QueryUnsubscriber;
+  onChange<T extends Trait>(
+    this: void,
     relation: Relation<T>,
     callback: (entity: Entity, target: Entity) => void
   ): QueryUnsubscriber;
   onChange<T extends Trait>(
+    this: void,
     pair: RelationPair<T>,
     callback: (entity: Entity, target: Entity) => void
   ): QueryUnsubscriber;
   onChange(
+    this: void,
     input: Trait | Relation<Trait> | RelationPair,
     callback: (entity: Entity, target?: Entity) => void
   ): QueryUnsubscriber;
   onTransition<S extends MachineStates>(
+    this: void,
     machine: Machine<S>,
     callback: TransitionSubscriber<S[keyof S]>
   ): QueryUnsubscriber;
-  onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber;
-  onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber;
-  onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber;
+  onEntitySpawn(this: void, callback: (entity: Entity) => void): QueryUnsubscriber;
+  onEntityDestroy(this: void, callback: (entity: Entity) => void): QueryUnsubscriber;
+  onTraitRegistered(this: void, callback: (trait: Trait) => void): QueryUnsubscriber;
 };

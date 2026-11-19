@@ -62,15 +62,21 @@ export type TraitAccessors<S extends Schema = any> = {
   /**
    * Initialize while membership is absent. On failure, undo any partial writes or indexes.
    */
-  add(ctx: WorldContext, index: number, store: Store<S>, value?: TraitValue<S>): void;
+  add(this: void, ctx: WorldContext, index: number, store: Store<S>, value?: TraitValue<S>): void;
   /** Runs only for members. Commit the value and return whether this call changed it. */
-  set(ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
+  set(this: void, ctx: WorldContext, index: number, store: Store<S>, value: TraitValue<S>): boolean;
   /** Runs only for members. Read without side effects. SoA returns a snapshot with copied tuples and AoS returns the stored value. */
-  get(ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;
+  get(this: void, ctx: WorldContext, index: number, store: Store<S>): TraitRecord<S>;
   /** Runs only for members. Read like get, but fill a caller-owned record and return it without allocating. */
-  getInto(ctx: WorldContext, index: number, store: Store<S>, out: TraitRecord<S>): TraitRecord<S>;
+  getInto(
+    this: void,
+    ctx: WorldContext,
+    index: number,
+    store: Store<S>,
+    out: TraitRecord<S>
+  ): TraitRecord<S>;
   /** Release auxiliary state before membership is removed. Cleanup must not throw. */
-  remove(ctx: WorldContext, index: number, store: Store<S>): void;
+  remove(this: void, ctx: WorldContext, index: number, store: Store<S>): void;
   /** Compiles cursor construction and iteration for SoA storage. */
   cursor: CursorCompiler | undefined;
 };

@@ -474,10 +474,10 @@ describe('Lifecycle Subscriptions', () => {
         const parent = world.spawn();
         const child = world.spawn(ChildOf(parent));
         if (event === 'remove') child.add(Tag);
-        const subscribe = event === 'add' ? world.onEnter : world.onExit;
+        const on = event === 'add' ? 'onEnter' : 'onExit';
         const notified = vi.fn();
-        subscribe([Tag, ChildOf(parent)], () => parent.destroy());
-        subscribe([Tag], notified);
+        world[on]([Tag, ChildOf(parent)], () => parent.destroy());
+        world[on]([Tag], notified);
 
         child[event](Tag);
 
