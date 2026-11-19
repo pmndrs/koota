@@ -671,14 +671,13 @@ export function removeAllRelationTargets(
   }
 }
 
-function getRelationSources(
+/* @inline */ function getRelationSourceBucket(
   ctx: WorldContext,
   relation: Relation<Trait>,
   target: Entity
 ): RelationSources | undefined {
   const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
-  const bucket = traitData?.relationSourcesByTarget?.[getEntityId(target)];
-  return bucket?.target === target ? bucket : undefined;
+  return traitData?.relationSourcesByTarget?.[getEntityId(target)];
 }
 
 /**
@@ -690,7 +689,8 @@ export function getEntitiesWithRelationTo(
   relation: Relation<Trait>,
   target: Entity
 ): readonly Entity[] {
-  return getRelationSources(ctx, relation, target)?.slice() ?? EMPTY_ENTITY_ARRAY;
+  const bucket = getRelationSourceBucket(ctx, relation, target);
+  return bucket !== undefined && bucket.target === target ? bucket.slice() : EMPTY_ENTITY_ARRAY;
 }
 
 export function getFirstEntityWithRelationTo(
@@ -698,7 +698,8 @@ export function getFirstEntityWithRelationTo(
   relation: Relation<Trait>,
   target: Entity
 ): Entity | undefined {
-  return getRelationSources(ctx, relation, target)?.[0];
+  const bucket = getRelationSourceBucket(ctx, relation, target);
+  return bucket !== undefined && bucket.target === target ? bucket[0] : undefined;
 }
 
 export function hasRelationTargetInSet(
