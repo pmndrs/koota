@@ -15,6 +15,7 @@
       }
     ],
     "no-useless-escape": "off",
+    "typescript/no-implied-eval": "off",
     "no-unused-expressions": [
       "warn",
       {

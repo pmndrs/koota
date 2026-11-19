@@ -56,7 +56,6 @@ for (const [exclusive, count, targetCount, modes] of [
                   .join('\n')
               : '';
           // Compile literal query arguments and an inline callback before timing.
-          // oxlint-disable-next-line typescript/no-implied-eval -- Generates the old or new API shape.
           const run = new Function(
             'world',
             'Position',

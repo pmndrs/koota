@@ -20,7 +20,6 @@ for (const [count, layout] of [
         const args = traits.map((_, i) => `t${i}`);
         const values = args.map((arg) => (mode.endsWith('read') ? `${arg}.value` : `++${arg}.value`));
         // Compile one positional parameter per trait, since a rest parameter allocates per entity.
-        // oxlint-disable-next-line typescript/no-implied-eval -- The trait count sets the arity.
         const run = new Function(
           'query',
           `return function run() {
