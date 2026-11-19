@@ -290,6 +290,7 @@ describe('Relation', () => {
   it.each(['destroy', 'reset'] as const)('ignores a stale relation target after %s', (operation) => {
     const ChildOf = relation();
     const oldParent = world.spawn();
+    world.spawn(ChildOf(oldParent));
     if (operation === 'destroy') oldParent.destroy();
     else world.reset();
 

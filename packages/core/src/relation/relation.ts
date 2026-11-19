@@ -4,7 +4,6 @@ import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
-import { isEntityAlive } from '../entity/utils/entity-index';
 import { moveScopedIdentifiers } from '../identifier/scoped-identifier';
 import { getEntityId } from '../entity/utils/pack-entity';
 import type { EventType, QueryParameter } from '../query/types';
@@ -176,6 +175,7 @@ function addToRelationSources(
     bucket = buckets[targetId] = [];
     flagTarget(ctx, targetId);
   }
+  bucket.target = target;
   bucket.push(entity);
   bucket.positions?.set(entity, bucket.length - 1);
 }
@@ -676,9 +676,9 @@ function getRelationSources(
   relation: Relation<Trait>,
   target: Entity
 ): RelationSources | undefined {
-  if (!isEntityAlive(ctx.entityIndex, target)) return undefined;
   const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
-  return traitData?.relationSourcesByTarget?.[getEntityId(target)];
+  const bucket = traitData?.relationSourcesByTarget?.[getEntityId(target)];
+  return bucket?.target === target ? bucket : undefined;
 }
 
 /**
