@@ -4,7 +4,6 @@ import { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { GENERATION_MASK, getEntityId } from '../../entity/utils/pack-entity';
 import {
-  DESTROYED_WORD,
   REMOVED_WORD,
   createEmptyMaskGeneration,
   ensureMaskPage,
@@ -12,6 +11,7 @@ import {
 import { hasRelationToTarget } from '../../relation/relation';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance, ResolvedRelationFilter } from '../types';
+import { matchesStaticMasks } from './check-query';
 import { holdsFilterPair, passesQueryFilters } from './check-query-filters';
 
 export function checkQueryTracking(
@@ -298,11 +298,6 @@ function trackersMatchAny(
   return false;
 }
 
-/**
- * The entity satisfies every static required, forbidden and or mask of the query. Static terms
- * read the traits an entity holds. A Removed query also reads the traits a dead entity or an
- * event died with, so its other terms describe the row as it ended.
- */
 export function passesStaticBitmasks(
   masks: number[],
   entityMasks: Uint32Array[][],
@@ -310,18 +305,7 @@ export function passesStaticBitmasks(
   slot: number,
   retained: boolean
 ): boolean {
-  for (let i = 0; i < masks.length; i += 4) {
-    const required = masks[i + 1];
-    const forbidden = masks[i + 2];
-    const or = masks[i + 3];
-    const page = entityMasks[masks[i]][pageId];
-    const entityMask = retained ? page[slot] | page[slot + DESTROYED_WORD] : page[slot];
-
-    if (forbidden && (entityMask & forbidden) !== 0) return false;
-    if (required && (entityMask & required) !== required) return false;
-    if (or !== 0 && (entityMask & or) === 0) return false;
-  }
-  return true;
+  return matchesStaticMasks(masks, entityMasks, pageId, slot, retained);
 }
 
 function clearTrackerHit(

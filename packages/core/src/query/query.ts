@@ -773,7 +773,11 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
   const single = masks.length === 4;
   const required = masks[1];
   const forbidden = masks[2];
-  const or = masks[3];
+  // The first word can reject an Or miss if it holds every alternative.
+  let or = masks[3];
+  for (let i = 7; or !== 0 && i < masks.length; i += 4) {
+    if (masks[i] !== 0) or = 0;
+  }
 
   for (let p = 0; p < ownedPages.length; p++) {
     const pageId = ownedPages[p];
