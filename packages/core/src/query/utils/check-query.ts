@@ -19,6 +19,8 @@ export function passesStaticMasks(masks: number[], entityMasks: Uint32Array[][],
   if (masks.length === 0) return false;
   const pageId = eid >>> 10;
   const offset = (eid & 1023) << 2;
+  let hasOr = false;
+  let orMatched = false;
   for (let i = 0; i < masks.length; i += 4) {
     const entityMask = entityMasks[masks[i]][pageId][offset];
     const required = masks[i + 1];
@@ -26,7 +28,10 @@ export function passesStaticMasks(masks: number[], entityMasks: Uint32Array[][],
     const or = masks[i + 3];
     if (forbidden !== 0 && (entityMask & forbidden) !== 0) return false;
     if (required !== 0 && (entityMask & required) !== required) return false;
-    if (or !== 0 && (entityMask & or) === 0) return false;
+    if (or !== 0) {
+      hasOr = true;
+      if ((entityMask & or) !== 0) orMatched = true;
+    }
   }
-  return true;
+  return !hasOr || orMatched;
 }

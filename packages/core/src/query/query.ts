@@ -773,7 +773,9 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
   const single = masks.length === 4;
   const required = masks[1];
   const forbidden = masks[2];
-  const or = masks[3];
+  // A multi-generation Or spans mask groups; only one generation's bits live here, so the
+  // per-generation check in passesStaticMasks decides it instead.
+  const or = single ? masks[3] : 0;
 
   for (let p = 0; p < ownedPages.length; p++) {
     const pageId = ownedPages[p];

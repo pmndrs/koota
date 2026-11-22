@@ -310,6 +310,8 @@ export function passesStaticBitmasks(
   slot: number,
   retained: boolean
 ): boolean {
+  let hasOr = false;
+  let orMatched = false;
   for (let i = 0; i < masks.length; i += 4) {
     const required = masks[i + 1];
     const forbidden = masks[i + 2];
@@ -319,9 +321,12 @@ export function passesStaticBitmasks(
 
     if (forbidden && (entityMask & forbidden) !== 0) return false;
     if (required && (entityMask & required) !== required) return false;
-    if (or !== 0 && (entityMask & or) === 0) return false;
+    if (or !== 0) {
+      hasOr = true;
+      if ((entityMask & or) !== 0) orMatched = true;
+    }
   }
-  return true;
+  return !hasOr || orMatched;
 }
 
 function clearTrackerHit(

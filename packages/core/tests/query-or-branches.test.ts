@@ -192,4 +192,29 @@ describe('Or branches', () => {
     counts.push(world.query(query).length, world.query(query).length);
     expect(counts).toEqual([1, 0, 1, 0, 1, 0]);
   });
+
+  it('matches an Or whose traits span bitmask generations', () => {
+    const local = createWorld();
+    const early = trait();
+    local.spawn(early);
+    for (let i = 0; i < 40; i++) local.spawn(trait());
+    const late = trait();
+    local.spawn(late);
+
+    // Created before the three matches so they reach it through the incremental path.
+    local.query(Or(early, late));
+    const onlyEarly = local.spawn(early);
+    const onlyLate = local.spawn(late);
+    const both = local.spawn(early, late);
+
+    for (const entity of [onlyEarly, onlyLate, both]) {
+      expect(local.query(Or(early, late)).toArray()).toContain(entity);
+    }
+
+    const sentinel = trait();
+    const populated = local.query(Or(early, late), Not(sentinel)).toArray();
+    for (const entity of [onlyEarly, onlyLate, both]) {
+      expect(populated).toContain(entity);
+    }
+  });
 });
