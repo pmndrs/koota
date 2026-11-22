@@ -193,28 +193,40 @@ describe('Or branches', () => {
     expect(counts).toEqual([1, 0, 1, 0, 1, 0]);
   });
 
-  it('matches an Or whose traits span bitmask generations', () => {
-    const local = createWorld();
+  it('matches either generation during population and after membership changes', () => {
     const early = trait();
-    local.spawn(early);
-    for (let i = 0; i < 40; i++) local.spawn(trait());
     const late = trait();
-    local.spawn(late);
+    const onlyEarly = world.spawn(early);
+    const neither = world.spawn(...Array.from({ length: 40 }, () => trait()));
+    const onlyLate = world.spawn(late);
+    const both = world.spawn(early, late);
+    const query = createQuery(Or(early, late));
 
-    // Created before the three matches so they reach it through the incremental path.
-    local.query(Or(early, late));
-    const onlyEarly = local.spawn(early);
-    const onlyLate = local.spawn(late);
-    const both = local.spawn(early, late);
+    expect(new Set(world.query(query))).toEqual(new Set([onlyEarly, onlyLate, both]));
+    onlyEarly.remove(early);
+    neither.add(late);
+    expect(new Set(world.query(query))).toEqual(new Set([onlyLate, both, neither]));
+  });
 
-    for (const entity of [onlyEarly, onlyLate, both]) {
-      expect(local.query(Or(early, late)).toArray()).toContain(entity);
-    }
+  it('filters live changes and retained removals by an Or spanning generations', () => {
+    const early = trait();
+    const late = trait();
+    const value = trait({ x: 0 });
+    const first = world.spawn(early, value);
+    world.spawn(...Array.from({ length: 40 }, () => trait()));
+    const last = world.spawn(late, value);
+    const neither = world.spawn(value);
+    const changes = createQuery(createChanged()(value), Or(early, late));
+    const removals = createQuery(createRemoved()(value), Or(early, late));
 
-    const sentinel = trait();
-    const populated = local.query(Or(early, late), Not(sentinel)).toArray();
-    for (const entity of [onlyEarly, onlyLate, both]) {
-      expect(populated).toContain(entity);
-    }
+    expect(new Set(world.query(changes))).toEqual(new Set([first, last]));
+    expect(world.query(removals)).toHaveLength(0);
+    last.set(value, { x: 1 });
+    neither.set(value, { x: 1 });
+    expect(world.query(changes).toArray()).toEqual([last]);
+    last.destroy();
+    neither.destroy();
+    expect(world.query(removals).toArray()).toEqual([last]);
+    expect(world.query(removals)).toHaveLength(0);
   });
 });
