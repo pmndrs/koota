@@ -16,7 +16,7 @@ import { addressSpace } from '../entity/utils/address-space';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findIdentifiedEntity } from '../identifier/find-identified-entity';
-import { isIdentifierPair, lookupAllIdentifiers, lookupIdentifier } from '../identifier/identifier';
+import { lookupAllIdentifiers, lookupIdentifier } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import {
   lookupArgumentsScope,
@@ -31,12 +31,11 @@ import {
   runQuery,
   runQueryFirst,
 } from '../query/query';
-import { createOwnedView } from '../query/query-view';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { isStableParameter } from '../query/modifier';
-import { getEntitiesWithRelationTo, getFirstEntityWithRelationTo } from '../relation/relation';
+import { getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import {
@@ -74,21 +73,14 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 }
 
-/**
- * Runs a query written inline. A lone pair with a target entity reads the relation's sources
- * directly. Parameters that are the same objects as on an earlier call find their query by
- * identity, which skips building and hashing a key.
- */
+/** Inline and compiled queries share the live view for their membership and projection. */
 export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
-  const first = params[0];
-  if (params.length === 1 && isRelationPair(first) && typeof first.target === 'number') {
-    const entities = getEntitiesWithRelationTo(ctx, first.relation as Relation<Trait>, first.target);
-    return createOwnedView(ctx, entities as Entity[], null, params);
-  }
-
   const node = findInlineQuery(ctx, params);
-  if (node === null) return resolveInlineQuery(ctx, params);
-  return runQuery(ctx, node.query!, node.params!);
+  if (node !== null) return runQuery(ctx, node.query!, node.params!);
+
+  const query = resolveQueryInstance(ctx, params);
+  rememberInlineQuery(ctx, params, query);
+  return runQuery(ctx, query, params);
 }
 
 /** One lookup per parameter, shared by full queries and first-match queries. */
@@ -108,25 +100,6 @@ function findInlineQuery(ctx: WorldContext, params: QueryParameter[]): InlineQue
     node = next;
   }
   return node.query === null ? null : node;
-}
-
-/** Resolves parameters seen for the first time, or ones that are new objects on every call. */
-export function resolveInlineQuery(ctx: WorldContext, params: QueryParameter[]) {
-  const identified = findIdentifiedEntity(ctx, params);
-  if (identified !== null) {
-    // Shared-key views need subscriptions even when empty or owned by one entity.
-    for (let i = 0; i < params.length; i++) {
-      const param = params[i];
-      if (isIdentifierPair(param) && !param.identifier[$internal].exclusive) {
-        return runQuery(ctx, resolveQueryInstance(ctx, params), params);
-      }
-    }
-    return createOwnedView(ctx, identified === undefined ? [] : [identified], null, params);
-  }
-
-  const query = resolveQueryInstance(ctx, params);
-  rememberInlineQuery(ctx, params, query);
-  return runQuery(ctx, query, params);
 }
 
 /**

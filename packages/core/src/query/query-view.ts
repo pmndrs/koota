@@ -22,25 +22,17 @@ interface View extends EntityView {}
 
 class View implements QueryView<any> {
   ctx: WorldContext;
-  query: QueryInstance | null;
+  query: QueryInstance;
   binding: QueryViewBinding;
   source: EntitySource;
   live: boolean;
-  layout: QueryLayout | undefined;
 
-  constructor(
-    ctx: WorldContext,
-    query: QueryInstance | null,
-    binding: QueryViewBinding,
-    source: EntitySource,
-    live: boolean
-  ) {
+  constructor(ctx: WorldContext, query: QueryInstance, binding: QueryViewBinding) {
     this.ctx = ctx;
     this.query = query;
     this.binding = binding;
-    this.source = source;
-    this.live = live;
-    this.layout = undefined;
+    this.source = query.exposed;
+    this.live = true;
   }
 
   get length() {
@@ -66,9 +58,7 @@ class View implements QueryView<any> {
   getPages() {
     const { query, binding } = this;
     const { dense, length } = this.source;
-    let layout: QueryLayout;
-    if (!this.live) layout = this.layout ??= createQueryLayout(dense, length);
-    else layout = getCachedQueryLayout(query!, dense, length);
+    const layout = getCachedQueryLayout(query, dense, length);
     return getQueryPages(binding.traits, binding.stores, layout) as QueryPage<any>[];
   }
 
@@ -76,10 +66,7 @@ class View implements QueryView<any> {
   select<U extends QueryParameter[]>(...params: U): QueryView<U> {
     const binding = getQueryBinding(this.ctx, this.query, params);
     if (binding === this.binding) return this as unknown as QueryView<U>;
-    const view = this.live
-      ? getLiveView(this.ctx, this.query!, binding)
-      : new View(this.ctx, this.query, binding, this.source, false);
-    return view as unknown as QueryView<U>;
+    return getLiveView(this.ctx, this.query, binding) as unknown as QueryView<U>;
   }
 }
 
@@ -90,7 +77,7 @@ Object.setPrototypeOf(View.prototype, EntityView.prototype);
 function getLiveView(ctx: WorldContext, query: QueryInstance, binding: QueryViewBinding) {
   let view = binding.view as View | null;
   if (view === null) {
-    view = new View(ctx, query, binding, query.exposed, true);
+    view = new View(ctx, query, binding);
     binding.view = view;
   }
   return view;
@@ -120,23 +107,6 @@ export function exposeQuerySet(query: QueryInstance, set: SparseSet) {
     const view = bindings[i].view as View | null;
     if (view !== null) view.source = set;
   }
-}
-
-/** Wraps an entity array the caller owns, such as a lookup result, as a view that never changes. */
-export function createOwnedView<T extends QueryParameter[]>(
-  ctx: WorldContext,
-  entities: Entity[],
-  query: QueryInstance | null,
-  params: QueryParameter[]
-): QueryView<T> {
-  const binding = getQueryBinding(ctx, query, params);
-  return new View(
-    ctx,
-    query,
-    binding,
-    { dense: entities, length: entities.length },
-    false
-  ) as unknown as QueryView<T>;
 }
 
 type QueryPageBuilder = {
@@ -172,7 +142,7 @@ function getCachedQueryLayout(
 function createQueryLayout(
   entities: readonly number[],
   length: number,
-  version = EMPTY_LAYOUT_CACHE.version
+  version: number
 ): QueryLayoutCache {
   if (length === 0) return EMPTY_LAYOUT_CACHE;
 
