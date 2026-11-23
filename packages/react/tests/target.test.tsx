@@ -4,6 +4,7 @@ import { render, renderHook } from '@testing-library/react';
 import { act, StrictMode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTarget, useTargets, WorldProvider } from '../src';
+import { withWorld } from './with-world';
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -65,7 +66,7 @@ describe('useTarget', () => {
     const targetB = world.spawn();
     const targetC = world.spawn();
     const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC));
-    const { result } = renderHook(() => useTarget(subject, Likes));
+    const { result } = renderHook(() => useTarget(subject, Likes), { wrapper: withWorld(world) });
     expect(result.current).toBe(subject.targetFor(Likes));
     act(() => {
       subject.remove(Likes(targetB));
@@ -92,7 +93,7 @@ describe('useTarget', () => {
   it('clears its target when the source is destroyed', () => {
     const Likes = relation();
     const subject = world.spawn(Likes(world.spawn()), Likes(world.spawn()));
-    const { result } = renderHook(() => useTarget(subject, Likes));
+    const { result } = renderHook(() => useTarget(subject, Likes), { wrapper: withWorld(world) });
 
     act(() => {
       subject.destroy();
@@ -108,7 +109,8 @@ describe('useTarget', () => {
     const second = world.spawn(Likes(targetB));
     const { result, rerender } = renderHook(({ entity }) => useTarget(entity, Likes), {
       initialProps: { entity: first },
-      wrapper: StrictMode,
+      wrapper: withWorld(world),
+      reactStrictMode: true,
     });
 
     act(() => {
@@ -171,7 +173,7 @@ describe('useTargets', () => {
     const targetA = world.spawn();
     const targetB = world.spawn();
     const subject = world.spawn(Likes(targetA), Likes(targetB));
-    const { result } = renderHook(() => useTargets(subject, Likes));
+    const { result } = renderHook(() => useTargets(subject, Likes), { wrapper: withWorld(world) });
 
     // Subscribe after the hook so B is removed while A is still awaiting cleanup.
     subject.onRemove(Likes, (entity, target) => {

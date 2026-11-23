@@ -9,6 +9,7 @@ import {
 import { untrack } from 'svelte';
 import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
+import { useWorld } from '../world/world-context.js';
 
 export function useTrait<T extends Trait>(
   target: () => Entity | World | undefined | null,
@@ -22,6 +23,7 @@ export function useTrait<T extends Trait>(
   target: () => Entity | World | undefined | null,
   trait: MaybeGetter<T | RelationPair<T>>
 ): { readonly current: TraitRecord<T> | undefined } {
+  useWorld();
   const initialEntity = getTargetEntity(target());
   const initialTrait = initialEntity === undefined ? undefined : resolve(trait);
   let value = $state.raw<TraitRecord<T> | undefined>(

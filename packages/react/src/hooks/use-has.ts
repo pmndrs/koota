@@ -8,6 +8,7 @@ import {
   type World,
 } from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
+import { useWorld } from '../world/use-world';
 
 type HasInput = Trait | RelationPair | Identifier | IdentifierPair;
 
@@ -20,5 +21,6 @@ function attachHas(entity: Entity, trait: HasInput, push: (value: boolean) => vo
 }
 
 export function useHas(target: Entity | World | undefined | null, trait: HasInput): boolean {
+  useWorld();
   return useEntityValue(target, trait, readHas, attachHas) ?? false;
 }

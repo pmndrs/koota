@@ -9,6 +9,7 @@ import {
 } from '@koota/core';
 import { useEffect, useRef } from 'react';
 import { attachTrait, readTrait } from './use-trait';
+import { useWorld } from '../world/use-world';
 
 export function useTraitEffect<T extends Trait>(
   target: Entity | World,
@@ -25,6 +26,7 @@ export function useTraitEffect<T extends Trait>(
   trait: T | RelationPair<T>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
+  useWorld();
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 

@@ -3,6 +3,7 @@ import { cleanup, render } from '@testing-library/svelte';
 import { flushSync, tick } from 'svelte';
 import { afterEach, expect, it } from 'vitest';
 import MachineTest from './components/machine-test.svelte';
+import { WORLD_KEY } from '../src/world/world-context';
 
 afterEach(cleanup);
 
@@ -14,6 +15,7 @@ it('observes entry, self-transitions, removal and destruction', () => {
   const entity = world.spawn();
   let result!: { readonly current: Trait | undefined };
   const { getByTestId, unmount } = render(MachineTest, {
+    context: new Map([[WORLD_KEY, world]]),
     props: {
       target: entity,
       machine: Asset,
@@ -57,6 +59,7 @@ it('switches targets and machines and unsubscribes on unmount', async () => {
   const second = world.spawn(Loading, Activity);
   let result!: { readonly current: Trait | undefined };
   const { rerender, unmount } = render(MachineTest, {
+    context: new Map([[WORLD_KEY, world]]),
     props: {
       target: first,
       machine: Asset,
@@ -99,6 +102,7 @@ it('observes a lazy world singleton through reset and reattachment', () => {
   const world = createWorld();
   let result!: { readonly current: Trait | undefined };
   const { unmount } = render(MachineTest, {
+    context: new Map([[WORLD_KEY, world]]),
     props: {
       target: world,
       machine: Asset,
@@ -132,6 +136,7 @@ it('catches a self-transition between initialization and subscribing', async () 
   const world = createWorld();
   const entity = world.spawn(Asset);
   const { getByTestId, unmount } = render(MachineTest, {
+    context: new Map([[WORLD_KEY, world]]),
     props: {
       target: entity,
       machine: Asset,
@@ -159,6 +164,7 @@ it.each([false, true])(
     const entity = world.spawn(Asset);
     if (beforeRender) entity.destroy();
     const { getByTestId, unmount } = render(MachineTest, {
+      context: new Map([[WORLD_KEY, world]]),
       props: {
         target: entity,
         machine: Asset,

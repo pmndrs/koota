@@ -3,6 +3,7 @@ import { render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import EntityLifecycleTest from './components/entity-lifecycle-test.svelte';
+import { WORLD_KEY } from '../src/world/world-context';
 
 describe('entity lifecycle', () => {
   let world: World;
@@ -18,6 +19,7 @@ describe('entity lifecycle', () => {
     const notify = vi.fn();
 
     const { getByTestId } = render(EntityLifecycleTest, {
+      context: new Map([[WORLD_KEY, world]]),
       props: { target: entity, trait: Position, onChange: notify },
     });
     await tick();
@@ -31,6 +33,7 @@ describe('entity lifecycle', () => {
     const notify = vi.fn();
 
     const { getByTestId } = render(EntityLifecycleTest, {
+      context: new Map([[WORLD_KEY, world]]),
       props: {
         target: entity,
         trait: Position,

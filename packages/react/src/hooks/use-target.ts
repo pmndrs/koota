@@ -8,6 +8,7 @@ import {
   type World,
 } from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
+import { useWorld } from '../world/use-world';
 
 function readTarget(
   entity: Entity,
@@ -47,5 +48,6 @@ export function useTarget(
   target: Entity | World | undefined | null,
   relation: Relation<Trait> | Identifier
 ) {
+  useWorld();
   return useEntityValue(target, relation, readTarget, attachTarget);
 }
