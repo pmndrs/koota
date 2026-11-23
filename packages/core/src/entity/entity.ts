@@ -9,7 +9,6 @@ import {
   evictEntityFromQuery,
   IsExcluded,
   leaveTraitlessQueries,
-  queryInternal,
   resetQueryTrackingBitmasks,
   resolveQueryInstanceFromRef,
 } from '../query/query';
@@ -18,12 +17,7 @@ import { checkQuery } from '../query/utils/check-query';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { subscribeRelationFilter } from '../relation/filter-hooks';
-import {
-  clearRelationEntity,
-  getRelationTargets,
-  hasRelationPair,
-  hasRelationTargetInSet,
-} from '../relation/relation';
+import { clearRelationEntity, hasRelationPair, hasRelationTargetInSet } from '../relation/relation';
 import { hasIdentifier, isIdentifierPair } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair } from '../relation/types';
@@ -398,16 +392,14 @@ export function hasEntityRelationPair(
     if (!hasTrait(ctx, entity, pair.relation[$internal].trait)) return false;
     const filter = pair.targetQuery;
     const ref = isQuery(filter) ? filter : createQuery(...filter);
-    const query = resolveQueryInstanceFromRef(ctx, ref);
     // The entity's own targets are checked against the filter's members, so the cost follows
     // the targets of one entity and not every match of the filter.
-    if (!query.isTracking) return hasRelationTargetInSet(ctx, pair.relation, entity, query.entities);
-    // Reading a tracking filter consumes its batch, so it is read as a query would read it.
-    const targets = getRelationTargets(ctx, pair.relation, entity);
-    for (const match of queryInternal(ctx, ref)) {
-      if (targets.includes(match)) return true;
-    }
-    return false;
+    return hasRelationTargetInSet(
+      ctx,
+      pair.relation,
+      entity,
+      resolveQueryInstanceFromRef(ctx, ref).entities
+    );
   }
   return hasRelationPair(ctx, entity, pair);
 }
