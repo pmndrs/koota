@@ -452,6 +452,24 @@ group('relation membership 10k @relation @accessor', () => {
       );
     }
   }
+  bench('multiple targets, filter has', function* () {
+    const Link = relation();
+    const world = createWorld();
+    const targets = Array.from({ length: 100 }, (_, i) =>
+      i % 2 ? world.spawn() : world.spawn(IsActive)
+    );
+    const entities = Array.from({ length: 10_000 }, (_, i) => world.spawn(Link(targets[i % 100])));
+    const pair = Link(IsActive);
+    const count = yield () => {
+      let count = 0;
+      for (let i = 0; i < entities.length; i++) {
+        if (entities[i].has(pair)) count++;
+      }
+      return count;
+    };
+    assert.equal(count, 5000);
+    world.destroy();
+  });
 });
 
 group('relation data 10k @relation @accessor', () => {
