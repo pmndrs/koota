@@ -124,7 +124,10 @@ describe('Query pages', () => {
     const createReference = vi.fn(() => ({ value: 1 }));
     const Value = trait({ scalar: 0.25, vector: [0.5, 1.5, 2.5], ref: createReference });
     const first = world.spawn(Value({ scalar: 42, vector: [4, 5, 6] }));
-    const columns = world.query(Value).getPages()[0].stores[0];
+    const {
+      stores: [columns],
+      indices: [offset],
+    } = world.query(Value).getPages()[0];
 
     const entities = Array.from({ length: 1100 }, () => world.spawn(Value));
     expect(createReference).toHaveBeenCalledTimes(entities.length + 1);
@@ -135,10 +138,9 @@ describe('Query pages', () => {
       ref: { value: 1 },
     });
 
-    const current = world.query(Value).getPages()[0];
-    columns.scalar[current.indices[0]] = 44;
-    columns.vector[current.indices[0] * 3] = 7;
-    expect(current.entities[0].get(Value)!.scalar).toBe(44);
-    expect(current.entities[0].get(Value)!.vector[0]).toBe(7);
+    columns.scalar[offset] = 44;
+    columns.vector[offset * 3] = 7;
+    expect(first.get(Value)!.scalar).toBe(44);
+    expect(first.get(Value)!.vector[0]).toBe(7);
   });
 });

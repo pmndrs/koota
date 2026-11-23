@@ -33,7 +33,7 @@ describe('World', () => {
     );
 
     it.skipIf(!hasNativeGc())(
-      'should finalize a used abandoned world',
+      'should finalize an abandoned world after it registers again',
       async () => {
         let ownedPages: number[] = [];
         let entity: Entity;
@@ -43,6 +43,8 @@ describe('World', () => {
           waitForFinalization((registry) => {
             (() => {
               const world = createWorld();
+              world.spawn();
+              world.destroy();
               entity = world.spawn();
               world.query(IsExcluded);
               addressSpace = world[$internal].entityIndex.allocator;
@@ -80,6 +82,25 @@ describe('World', () => {
     );
   });
 
+  it('returns its page on destroy and can register again on its next spawn', () => {
+    const world = createWorld();
+    const first = world.spawn();
+    world.destroy();
+    expect(world.entities).toEqual([]);
+    expect(world.isRegistered).toBe(false);
+
+    const other = createWorld();
+    const replacement = other.spawn();
+    expect(replacement.id()).toBe(first.id());
+    expect(first.isAlive()).toBe(false);
+    other.destroy();
+
+    const next = world.spawn();
+    expect(world.entities).toHaveLength(2);
+    expect(world.has(next)).toBe(true);
+    world.destroy();
+  });
+
   it('should reset the world', () => {
     const world = createWorld();
     world.spawn();
@@ -94,8 +115,10 @@ describe('World', () => {
     (operation) => {
       const Value = trait({ value: 0 });
       const world = createWorld();
-      // Two pages let cleanup keep its world entity while returning the first page.
-      const entities = Array.from({ length: 1024 }, () => world.spawn(Value));
+      // Reset keeps one page for its new world entity. Destroy returns even the last page.
+      const entities = Array.from({ length: operation === 'reset' ? 1024 : 2 }, () =>
+        world.spawn(Value)
+      );
       entities[1].destroy();
       world[operation]();
 
