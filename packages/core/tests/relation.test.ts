@@ -5,6 +5,7 @@ import {
   createChanged,
   createQuery,
   createWorld,
+  identifier,
   Not,
   Or,
   relation,
@@ -692,6 +693,7 @@ describe('Relation', () => {
     const Added = createAdded();
     const Unit = trait();
     const unit = world.spawn(Unit);
+    const Name = identifier();
     const cached = world[$internal].queriesHashMap.size;
     let team = world.spawn();
 
@@ -700,9 +702,11 @@ describe('Relation', () => {
       world.query(Unit, Not(ChildOf(team)));
       world.query(Unit, Or(ChildOf(team), Unit));
       world.query(Added(ChildOf(team)));
+      world.query(Name(String(i)), ChildOf(team));
       team.destroy();
       // The world retains nothing, so the queries go with their target.
       expect(world[$internal].queriesHashMap.size).toBe(cached);
+      expect(world[$internal].inlineQueries.next!.get(Name)!.next!.size).toBe(0);
     }
 
     expect(world.query(Unit, Not(ChildOf(team))).toArray()).toEqual([unit]);
