@@ -27,6 +27,36 @@ export function App() {
 }
 ```
 
+### Creating a world in a component
+
+When a component owns the world, create it in a layout effect and destroy it in the cleanup. Clear the state in the same cleanup.
+
+```jsx
+import { useLayoutEffect, useState } from 'react'
+import { createWorld } from 'koota'
+import { WorldProvider } from 'koota/react'
+
+export function Game({ children }) {
+  const [world, setWorld] = useState(null)
+
+  useLayoutEffect(() => {
+    const world = createWorld()
+    setWorld(world)
+    return () => {
+      setWorld(null)
+      world.destroy()
+    }
+  }, [])
+
+  if (!world) return null
+  return <WorldProvider world={world}>{children}</WorldProvider>
+}
+```
+
+React runs the cleanup on unmount, when Strict Mode replays effects and when an `<Activity>` hides the subtree. The effect then makes a new world, which starts empty. Destroying a world is final, so the cleared state is what keeps children from running against the destroyed world until the next one exists. For the same reason, never destroy a world in the cleanup of an effect that did not create it.
+
+Children can still clean up after the world is gone. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing on a destroyed world. Entity methods from `koota/entity-methods` cannot find a destroyed world and throw, so use the world forms in cleanups.
+
 ## `useWorld`
 
 Returns the world from the nearest `WorldProvider`. It throws if no world has been provided.

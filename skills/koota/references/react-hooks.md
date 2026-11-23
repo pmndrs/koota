@@ -49,6 +49,29 @@ export const world = createWorld()
 world.add(Time, Pointer, Viewport)
 ```
 
+**World owned by a component:** create it in a layout effect, destroy it in the cleanup and clear the state there too. The cleanup runs on unmount, on Strict Mode replays and when an `<Activity>` hides the subtree, and the next world starts empty. Never destroy a world in the cleanup of an effect that did not create it, because `world.destroy()` is final.
+
+```typescript
+export function Game({ children }: { children: React.ReactNode }) {
+  const [world, setWorld] = useState<World | null>(null)
+
+  useLayoutEffect(() => {
+    const world = createWorld()
+    setWorld(world)
+    return () => {
+      // Clearing the state keeps children off the destroyed world
+      setWorld(null)
+      world.destroy()
+    }
+  }, [])
+
+  if (!world) return null
+  return <WorldProvider world={world}>{children}</WorldProvider>
+}
+```
+
+Child cleanups may run after the world is destroyed. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing there. Entity methods from `koota/entity-methods` throw, so use the world forms in cleanups.
+
 ## useQuery
 
 Reactively updates when entities matching the query change (added/removed). Returns a plain array of entities sorted by id, copied when membership changes, so array methods work and the reference is stable between changes.

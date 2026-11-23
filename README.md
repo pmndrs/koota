@@ -1207,9 +1207,12 @@ world.defer(() => {
 // Cannot run inside a walk, a hook or world.defer
 world.reset()
 
-// Destroys the world, releasing all pages and entities
+// Destroys the world and everything in it
+// The world cannot be used again
 world.destroy()
 ```
+
+Destroying a world is final, and calling it again does nothing. A destroyed world has no entities and no world traits, and its queries are empty. `spawn` and `reset` throw, as does adding a world trait. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing, since destroying the world already destroyed the entity, so cleanup code is safe to run after the world is gone. To empty a world and keep using it, call `world.reset()`.
 
 ### Entity
 
