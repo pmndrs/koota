@@ -12,6 +12,16 @@ import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useTraitEffect<T extends Trait>(
   target: () => Entity | World,
+  trait: T,
+  callback: (value: TraitRecord<T> | undefined) => void
+): void;
+export function useTraitEffect<T extends Trait>(
+  target: () => Entity | World,
+  trait: MaybeGetter<T | RelationPair<T>>,
+  callback: (value: TraitRecord<T> | undefined) => void
+): void;
+export function useTraitEffect<T extends Trait>(
+  target: () => Entity | World,
   trait: MaybeGetter<T | RelationPair<T>>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
