@@ -35,7 +35,7 @@ export type InlineQueryNode = {
   next: Map<QueryParameter | Relation<Trait> | IdentifierKey, InlineQueryNode> | null;
   params: QueryParameter[] | null;
   query: QueryInstance | null;
-  /** Pruning stops at the stable prefix before the first concrete target. */
+  /** Pruning stops at the stable prefix before the first identifier key or concrete target. */
   parent: InlineQueryNode | null;
   key: QueryParameter | Relation<Trait> | IdentifierKey | null;
 };

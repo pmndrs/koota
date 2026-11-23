@@ -127,18 +127,14 @@ function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query:
     }
     const pair = param as RelationPair;
     const relationStep = inlineStep(node, pair.relation as Relation<Trait>);
-    node = inlineStep(relationStep, pair.target as Entity, true);
+    node = inlineStep(relationStep, pair.target as Entity);
   }
   node.params = params;
   node.query = query;
   if (node.parent !== null) (query.inlineNodes ??= []).push(node);
 }
 
-function inlineStep(
-  node: InlineQueryNode,
-  key: QueryParameter | Relation<Trait> | IdentifierKey,
-  target = false
-) {
+function inlineStep(node: InlineQueryNode, key: QueryParameter | Relation<Trait> | IdentifierKey) {
   const next = (node.next ??= new Map());
   let child = next.get(key);
   if (child === undefined) {
@@ -146,7 +142,8 @@ function inlineStep(
       next: null,
       params: null,
       query: null,
-      parent: node.parent !== null || target ? node : null,
+      parent:
+        node.parent !== null || typeof key === 'number' || typeof key === 'string' ? node : null,
       key,
     };
     next.set(key, child);
