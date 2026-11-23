@@ -173,6 +173,24 @@ it('settles world destruction before the world unregisters', () => {
   expect(world.isRegistered).toBe(false);
 });
 
+it('releases entities spawned by a settled observer during world destruction', () => {
+  const world = createWorld();
+  const Tag = trait();
+  const original = world.spawn(Tag);
+  let spawned = original;
+  const observer = world[$internal].observeSettled(() => {
+    spawned = world.spawn(Tag);
+  });
+  world.onExit([Tag], observer.invalidate);
+
+  world.destroy();
+  expect(world.entities).toEqual([]);
+  expect(spawned).not.toBe(original);
+  expect(spawned.isAlive()).toBe(false);
+  expect(world.query(Tag).toArray()).toEqual([]);
+  world.destroy();
+});
+
 it('runs value invalidations at once outside structural changes', () => {
   const world = createWorld();
   const Value = trait({ value: 0 });

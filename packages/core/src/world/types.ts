@@ -104,7 +104,6 @@ export type WorldContext = {
   entityDestroySubscriptions: Set<(entity: Entity) => void>;
   traitRegisteredSubscriptions: Set<(trait: Trait) => void>;
   isRegistered: boolean;
-  cleanupToken: import('../entity/utils/page-allocator').PageCleanupToken | null;
 };
 
 export type WorldOptions = {

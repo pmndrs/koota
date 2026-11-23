@@ -1,11 +1,6 @@
 import type { WorldContext } from '../../world/types';
 import { MAX_PAGES, PAGE_SIZE } from './pack-entity';
 
-export type PageCleanupToken = {
-  ownedPages: number[];
-  registered: boolean;
-};
-
 export type PageAllocator = {
   /** Per-page generation values (pageId -> Uint8Array(PAGE_SIZE)). */
   generations: (Uint8Array | null)[];
@@ -16,7 +11,7 @@ export type PageAllocator = {
   /** Maps pageId -> owning WorldContext. */
   pageOwners: (WorldContext | null)[];
   /** Safety-net cleanup for GC'd worlds. */
-  worldFinalizer: FinalizationRegistry<PageCleanupToken>;
+  worldFinalizer: FinalizationRegistry<number[]>;
 };
 
 export function createPageAllocator(): PageAllocator {
@@ -28,12 +23,11 @@ export function createPageAllocator(): PageAllocator {
     worldFinalizer: null!,
   };
 
-  allocator.worldFinalizer = new FinalizationRegistry<PageCleanupToken>((token) => {
-    if (!token.registered) return;
-    for (const pageId of token.ownedPages) {
+  allocator.worldFinalizer = new FinalizationRegistry<number[]>((ownedPages) => {
+    for (const pageId of ownedPages) {
       releasePage(allocator, pageId);
     }
-    token.ownedPages.length = 0;
+    ownedPages.length = 0;
   });
 
   return allocator;

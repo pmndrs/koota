@@ -529,7 +529,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     }
   }
 
-  forbidden.push(getTraitInstance(ctx.traitInstances, IsExcluded)!);
+  forbidden.push(ensureTraitInstance(ctx, IsExcluded));
 
   const hasNegatedOr = query.filters !== null && query.filters.not.length !== 0;
   if (
