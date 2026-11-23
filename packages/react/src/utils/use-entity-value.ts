@@ -124,24 +124,13 @@ function subscribe<T, I>(
   if (typeof target !== 'object' || !target)
     return observeEntity(binding, dispatch, read, attach, getVersionSource);
   // A reset replaces the world entity even when the observed trait was absent.
-  const listen = () => {
-    const entity = resolveEntity(target);
+  return target[$internal].observeWorldEntity((entity) => {
     if (entity !== binding.entity) {
       binding.entity = entity;
       binding.version = -1;
     }
     return observeEntity(binding, dispatch, read, attach, getVersionSource);
-  };
-  let detach = listen();
-  const reset = () => {
-    detach?.();
-    detach = listen();
-  };
-  target[$internal].resetSubscriptions.add(reset);
-  return () => {
-    target[$internal].resetSubscriptions.delete(reset);
-    detach?.();
-  };
+  });
 }
 
 function reducer<T, I>(state: Snapshot<T, I>, next: Action<T, I>) {

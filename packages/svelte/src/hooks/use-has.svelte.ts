@@ -5,7 +5,7 @@ import {
   type Trait,
   type World,
 } from '@koota/core';
-import { getTargetEntity } from '../utils/get-target-entity.js';
+import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useHas(
@@ -16,26 +16,27 @@ export function useHas(
   let value = $state(initialEntity?.has(resolve(trait)) ?? false);
 
   $effect(() => {
-    const entity = getTargetEntity(target());
-
-    if (entity === undefined) {
-      value = false;
-      return;
-    }
-
+    const subject = target();
     const resolvedTrait = resolve(trait);
-    const update = () => {
-      value = entity.isAlive() && entity.has(resolvedTrait);
-    };
-    const observer = entity[internal].observeSettled(update);
-    const onAdd = entity.onAdd(resolvedTrait, observer.invalidate);
-    const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
-    update();
-    return () => {
-      observer.unsubscribe();
-      onAdd();
-      onRemove();
-    };
+    return observeTarget(subject, (entity) => {
+      if (entity === undefined) {
+        value = false;
+        return;
+      }
+
+      const update = () => {
+        value = entity.isAlive() && entity.has(resolvedTrait);
+      };
+      const observer = entity[internal].observeSettled(update);
+      const onAdd = entity.onAdd(resolvedTrait, observer.invalidate);
+      const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+      update();
+      return () => {
+        observer.unsubscribe();
+        onAdd();
+        onRemove();
+      };
+    });
   });
 
   return {
