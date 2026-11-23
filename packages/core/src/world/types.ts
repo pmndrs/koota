@@ -1,3 +1,4 @@
+import type { createQueryStore } from '../query/query-store';
 import type { observeSettled } from './settled';
 import { ActionInstance } from '../actions/types';
 import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
@@ -99,6 +100,7 @@ export type WorldContext = {
   deferDepth: number;
   settledQueue: Set<() => void>;
   observeSettled: typeof observeSettled;
+  createQueryStore: typeof createQueryStore;
   resetSubscriptions: Set<() => void>;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
   entityDestroySubscriptions: Set<(entity: Entity) => void>;
