@@ -1,6 +1,8 @@
 import {
   $internal as internal,
   type Entity,
+  type Identifier,
+  type IdentifierPair,
   type RelationPair,
   type Trait,
   type World,
@@ -10,7 +12,7 @@ import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useHas(
   target: () => Entity | World | undefined | null,
-  trait: MaybeGetter<Trait | RelationPair>
+  trait: MaybeGetter<Trait | RelationPair | Identifier | IdentifierPair>
 ): { readonly current: boolean } {
   const initialEntity = getTargetEntity(target());
   let value = $state(initialEntity?.has(resolve(trait)) ?? false);

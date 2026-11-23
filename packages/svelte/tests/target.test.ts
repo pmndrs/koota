@@ -1,7 +1,8 @@
-import { createWorld, relation, trait } from '@koota/core';
+import { useHas, useTarget } from '../src';
+import { createWorld, identifier, relation, trait, type Entity } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { flushSync } from 'svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import TargetTest from './components/TargetTest.svelte';
 import TargetsTest from './components/TargetsTest.svelte';
 import { WORLD_KEY } from '../src/world/world-context';
@@ -20,6 +21,26 @@ describe('useTarget', () => {
 
   beforeEach(() => {
     world = createWorld();
+  });
+
+  it('follows identifier assignment, replacement and removal', () => {
+    const Name = identifier();
+    const subject = world.spawn(Name('alpha'));
+    expectTypeOf(() => useTarget(() => subject, Name).current).returns.toEqualTypeOf<
+      string | undefined
+    >();
+    expectTypeOf(() => useTarget(() => subject, relation()).current).returns.toEqualTypeOf<
+      Entity | undefined
+    >();
+    expectTypeOf(() => useHas(() => subject, Name('beta')).current).returns.toBeBoolean();
+    const { getByTestId } = renderSubject({ target: subject, relation: Name });
+    expect(getByTestId('value').textContent).toBe('alpha');
+    subject.add(Name('beta'));
+    flushSync();
+    expect(getByTestId('value').textContent).toBe('beta');
+    subject.remove(Name);
+    flushSync();
+    expect(getByTestId('value').textContent).toBe('undefined');
   });
 
   it('handles an unregistered world', () => {
