@@ -190,7 +190,6 @@ export function createWorldWithAllocator(allocator: PageAllocator, options?: Wor
   }
   const id = nextWorldId++;
 
-  // Methods read the context from their closure, which skips a load through the world object.
   const ctx = {
     entityIndex: null! as ReturnType<typeof createEntityIndex>,
     entityMasks: [createPageTable(0)],
@@ -236,279 +235,287 @@ export function createWorldWithAllocator(allocator: PageAllocator, options?: Wor
   ctx.entityIndex = createEntityIndex(allocator, ctx);
   ctx.worldEntity = createEntity(ctx, [IsExcluded]);
 
-  // Every entity operation takes the entity first. Without one it applies to the world itself.
-  const world = {
-    [$internal]: ctx,
+  // Every world has the same properties in the same order, so all worlds share one hidden class.
+  return Object.create(worldMethods, {
+    [$internal]: { value: ctx },
+    id: { value: id, enumerable: true },
+    retain: { value: retain, enumerable: true },
+    traits: { value: ctx.traits, enumerable: true },
+    entities: { get: getEntities, enumerable: true },
+  }) as World;
+}
 
-    spawn(...spawnTraits: ConfigurableTrait[]): Entity {
-      return createEntity(ctx, spawnTraits);
-    },
+function getEntities(this: World): Entity[] {
+  return getAliveEntities(this[$internal].entityIndex);
+}
 
-    defer<T>(fn: () => T): T {
-      return runDeferred(ctx, fn);
-    },
+/**
+ * The methods of every world. They are one set of functions that find the context through the
+ * world they are called on, so a call site that serves several worlds still sees one function.
+ * A method must be called on its world and does not work once detached from it. Every entity
+ * operation takes the entity first. Without one it applies to the world itself.
+ */
+const worldMethods: ThisType<World> = {
+  spawn(...spawnTraits: ConfigurableTrait[]): Entity {
+    const ctx = this[$internal];
+    return createEntity(ctx, spawnTraits);
+  },
 
-    // Only the single key form is spliced in. A larger method stops inlining into callers and
-    // the key pair then escapes into a real allocation.
-    lookup(start: IdentifierPair | Entity, second?: IdentifierPair): Entity | undefined {
-      if (second === undefined) {
-        return typeof start === 'number' ? undefined : lookupIdentifier(ctx, start);
-      }
-      if (arguments.length === 2) return lookupScopedKey(ctx, start, second);
-      return lookupArgumentsScope(ctx, arguments, arguments.length);
-    },
+  defer<T>(fn: () => T): T {
+    return runDeferred(this[$internal], fn);
+  },
 
-    lookupAll(start: IdentifierPair | Entity, second?: IdentifierPair): Entity[] {
-      if (second === undefined) {
-        return typeof start === 'number' ? [] : lookupAllIdentifiers(ctx, start, undefined);
-      }
-      const last = arguments.length - 1;
-      const scope =
-        last === 1 ? lookupScopeStart(ctx, start) : lookupArgumentsScope(ctx, arguments, last);
-      return scope === undefined
-        ? []
-        : lookupAllIdentifiers(ctx, arguments[last] as IdentifierPair, scope);
-    },
-
-    isAlive(entity: Entity): boolean {
-      return isEntityAlive(ctx.entityIndex, entity);
-    },
-
-    has(
-      target: Entity | Trait | RelationPair | Identifier | IdentifierPair,
-      trait?: Trait | RelationPair | Identifier | IdentifierPair
-    ): boolean {
-      if (typeof target === 'number') {
-        if (trait === undefined) return isEntityAlive(ctx.entityIndex, target);
-        return entityHas(ctx, target, trait);
-      }
-      return hasOnWorld(ctx, target);
-    },
-
-    add(first?: Entity | ConfigurableTrait, ...traits: ConfigurableTrait[]) {
-      if (typeof first === 'number') addTrait(ctx, first, traits);
-      else addToWorld(ctx, first, traits);
-    },
-
-    upsert(first: Entity | Trait, second: any, value?: any) {
-      if (typeof first === 'number') upsertTrait(ctx, first, second, value);
-      else upsertOnWorld(ctx, first, second);
-    },
-
-    remove(
-      first?: Entity | Trait | RelationPair | Identifier | IdentifierPair,
-      ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
-    ) {
-      if (typeof first === 'number') removeTrait(ctx, first, traits);
-      else removeFromWorld(ctx, first, traits);
-    },
-
-    get(
-      first: Entity | Trait,
-      second?: Trait | RelationPair | Record<string, unknown>,
-      out?: Record<string, unknown>
-    ) {
-      if (typeof first === 'number') return getTrait(ctx, first, second as Trait | RelationPair, out);
-      return getFromWorld(ctx, first, second as Record<string, unknown> | undefined);
-    },
-
-    set(first: Entity | Trait, second: any, value?: any, flagChanged = true) {
-      if (typeof first === 'number') setTrait(ctx, first, second, value, flagChanged);
-      else setOnWorld(ctx, first, second);
-    },
-
-    changed(first: Entity | Trait, trait?: Trait) {
-      if (typeof first === 'number') setChanged(ctx, first, trait!);
-      else changeOnWorld(ctx, first);
-    },
-
-    targetFor(entity: Entity, relation: Relation<Trait> | Identifier) {
-      return entityTargetFor(ctx, entity, relation);
-    },
-
-    targetsFor(entity: Entity, relation: Relation<Trait> | Identifier) {
-      return entityTargetsFor(ctx, entity, relation);
-    },
-
-    // The argument count tells the two forms apart, so an undefined entity never destroys the world.
-    destroy(entity?: Entity) {
-      if (typeof entity === 'number') {
-        destroyEntity(ctx, entity);
-        return;
-      }
-      if (arguments.length !== 0) throw createEntityNotAliveError(entity!);
-      // Destroying is final. A second call finds nothing left to do.
-      if (ctx.worldEntity === null) return;
-      assertOutsideDefer(ctx, 'world.destroy');
-      clear(false);
-    },
-
-    reset() {
-      assertNotDestroyed(ctx);
-      assertOutsideDefer(ctx, 'world.reset');
-      clear(true);
-    },
-
-    query(...args: any[]) {
-      if (args.length === 1 && isQuery(args[0])) {
-        const queryRef = args[0];
-        const query = ctx.queryInstances[queryRef.id] ?? resolveQueryInstanceFromRef(ctx, queryRef);
-        return runQuery(ctx, query, queryRef.parameters);
-      }
-      return queryWithParameters(ctx, args);
-    },
-
-    queryFirst(...args: [Query<QueryParameter[]>] | QueryParameter[]) {
-      if (args.length === 1) {
-        const arg = args[0];
-        if (isQuery(arg)) return runQueryFirst(ctx, resolveQueryInstanceFromRef(ctx, arg));
-        if (isRelationPair(arg) && typeof arg.target === 'number') {
-          const id = getEntityId(arg.target);
-          // An existing query may have reordered its members as sources entered or left.
-          if (!ctx.targetQueries[id >>> 10]?.[id & 1023]?.length) {
-            return getFirstEntityWithRelationTo(ctx, arg.relation as Relation<Trait>, arg.target);
-          }
-        }
-      }
-
-      const node = findInlineQuery(ctx, args as QueryParameter[]);
-      if (node !== null) return runQueryFirst(ctx, node.query!);
-
-      const identified = findIdentifiedEntity(ctx, args as QueryParameter[]);
-      if (identified !== null) return identified;
-
-      const query = resolveQueryInstance(ctx, args as QueryParameter[]);
-      rememberInlineQuery(ctx, args as QueryParameter[], query);
-      return runQueryFirst(ctx, query);
-    },
-
-    onEnter(
-      args: Query<QueryParameter[]> | QueryParameter[],
-      callback: (entity: Entity) => void
-    ): QueryUnsubscriber {
-      return subscribeQuery(ctx, args, callback, true);
-    },
-
-    onExit(
-      args: Query<QueryParameter[]> | QueryParameter[],
-      callback: (entity: Entity) => void
-    ): QueryUnsubscriber {
-      return subscribeQuery(ctx, args, callback, false);
-    },
-
-    onAdd(first: Entity | HookInput, second: any, callback?: Subscriber<any>): QueryUnsubscriber {
-      return subscribe(ctx, 'addSubscriptions', first, second, callback);
-    },
-
-    onRemove(first: Entity | HookInput, second: any, callback?: Subscriber<any>): QueryUnsubscriber {
-      return subscribe(ctx, 'removeSubscriptions', first, second, callback);
-    },
-
-    onChange(first: Entity | HookInput, second: any, callback?: Subscriber<any>): QueryUnsubscriber {
-      return subscribe(ctx, 'changeSubscriptions', first, second, callback);
-    },
-
-    onTransition(first: Entity | Machine, second: any, callback?: TransitionSubscriber) {
-      if (typeof first === 'number') return subscribeMachine(ctx, second, callback!, first);
-      return subscribeMachine(ctx, first, second);
-    },
-
-    onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
-      ctx.entitySpawnSubscriptions.add(callback);
-      return () => ctx.entitySpawnSubscriptions.delete(callback);
-    },
-
-    onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
-      ctx.entityDestroySubscriptions.add(callback);
-      return () => ctx.entityDestroySubscriptions.delete(callback);
-    },
-
-    onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber {
-      ctx.traitRegisteredSubscriptions.add(callback);
-      return () => ctx.traitRegisteredSubscriptions.delete(callback);
-    },
-  } as unknown as World;
-
-  /** Drops every entity, trait instance and query. Reset then starts over with a new world entity. */
-  function clear(recreate: boolean) {
-    beginDefer(ctx);
-    try {
-      world.entities.forEach((entity) => {
-        if (isEntityAlive(ctx.entityIndex, entity)) {
-          applyDestroyEntity(ctx, entity);
-        }
-      });
-
-      releaseOwnedPages(ctx.entityIndex);
-      ctx.entityIndex = createEntityIndex(
-        recreate ? ctx.entityIndex.allocator : closedAllocator,
-        ctx
-      );
-
-      // The tables keep their extent, so an id from before the reset still reads a page.
-      ctx.entityMasks = [createPageTable(getPageLimit(ctx))];
-      ctx.traitsByBit = [[]];
-      ctx.bitflag = 1;
-      ctx.defersChanges = false;
-
-      for (const query of ctx.queriesHashMap.values()) {
-        query.inlineNodes = null;
-        if (query.cleanup === null) continue;
-        for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
-      }
-
-      clearTraitInstance(ctx.traitInstances);
-      ctx.traits.clear();
-      ctx.relations.length = 0;
-
-      ctx.queriesHashMap.clear();
-      ctx.internalQuerySubscriptions = undefined;
-      ctx.inlineQueries = { next: null, params: null, query: null, parent: null, key: null };
-      ctx.queryInstances.length = 0;
-      ctx.tombstones.head = 0;
-      ctx.tombstones.ids.length = 0;
-      ctx.pairRemovals.head = 0;
-      ctx.pairRemovals.entries.length = 0;
-      ctx.iterationBuffers = undefined;
-      ctx.actionInstances.length = 0;
-      ctx.notQueries.length = 0;
-      ctx.targetQueries.length = 0;
-
-      ctx.entitySubscribedInstances.clear();
-
-      // A destroyed world has no world entity, so it holds no page another world could use.
-      ctx.worldEntity = recreate ? createEntity(ctx, [IsExcluded]) : null;
-
-      for (const sub of ctx.resetSubscriptions) {
-        sub();
-      }
-    } finally {
-      endDefer(ctx);
+  // Only the single key form is spliced in. A larger method stops inlining into callers and
+  // the key pair then escapes into a real allocation.
+  lookup(start: IdentifierPair | Entity, second?: IdentifierPair): Entity | undefined {
+    const ctx = this[$internal];
+    if (second === undefined) {
+      return typeof start === 'number' ? undefined : lookupIdentifier(ctx, start);
     }
+    if (arguments.length === 2) return lookupScopedKey(ctx, start, second);
+    return lookupArgumentsScope(ctx, arguments, arguments.length);
+  },
+
+  lookupAll(start: IdentifierPair | Entity, second?: IdentifierPair): Entity[] {
+    const ctx = this[$internal];
+    if (second === undefined) {
+      return typeof start === 'number' ? [] : lookupAllIdentifiers(ctx, start, undefined);
+    }
+    const last = arguments.length - 1;
+    const scope =
+      last === 1 ? lookupScopeStart(ctx, start) : lookupArgumentsScope(ctx, arguments, last);
+    return scope === undefined
+      ? []
+      : lookupAllIdentifiers(ctx, arguments[last] as IdentifierPair, scope);
+  },
+
+  isAlive(entity: Entity): boolean {
+    return isEntityAlive(this[$internal].entityIndex, entity);
+  },
+
+  has(
+    target: Entity | Trait | RelationPair | Identifier | IdentifierPair,
+    trait?: Trait | RelationPair | Identifier | IdentifierPair
+  ): boolean {
+    const ctx = this[$internal];
+    if (typeof target === 'number') {
+      if (trait === undefined) return isEntityAlive(ctx.entityIndex, target);
+      return entityHas(ctx, target, trait);
+    }
+    return hasOnWorld(ctx, target);
+  },
+
+  add(first?: Entity | ConfigurableTrait, ...traits: ConfigurableTrait[]) {
+    const ctx = this[$internal];
+    if (typeof first === 'number') addTrait(ctx, first, traits);
+    else addToWorld(ctx, first, traits);
+  },
+
+  upsert(first: Entity | Trait, second: any, value?: any) {
+    const ctx = this[$internal];
+    if (typeof first === 'number') upsertTrait(ctx, first, second, value);
+    else upsertOnWorld(ctx, first, second);
+  },
+
+  remove(
+    first?: Entity | Trait | RelationPair | Identifier | IdentifierPair,
+    ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+  ) {
+    const ctx = this[$internal];
+    if (typeof first === 'number') removeTrait(ctx, first, traits);
+    else removeFromWorld(ctx, first, traits);
+  },
+
+  get(
+    first: Entity | Trait,
+    second?: Trait | RelationPair | Record<string, unknown>,
+    out?: Record<string, unknown>
+  ) {
+    const ctx = this[$internal];
+    if (typeof first === 'number') return getTrait(ctx, first, second as Trait | RelationPair, out);
+    return getFromWorld(ctx, first, second as Record<string, unknown> | undefined);
+  },
+
+  set(first: Entity | Trait, second: any, value?: any, flagChanged = true) {
+    const ctx = this[$internal];
+    if (typeof first === 'number') setTrait(ctx, first, second, value, flagChanged);
+    else setOnWorld(ctx, first, second);
+  },
+
+  changed(first: Entity | Trait, trait?: Trait) {
+    const ctx = this[$internal];
+    if (typeof first === 'number') setChanged(ctx, first, trait!);
+    else changeOnWorld(ctx, first);
+  },
+
+  targetFor(entity: Entity, relation: Relation<Trait> | Identifier) {
+    return entityTargetFor(this[$internal], entity, relation);
+  },
+
+  targetsFor(entity: Entity, relation: Relation<Trait> | Identifier) {
+    return entityTargetsFor(this[$internal], entity, relation);
+  },
+
+  // The argument count tells the two forms apart, so an undefined entity never destroys the world.
+  destroy(entity?: Entity) {
+    const ctx = this[$internal];
+    if (typeof entity === 'number') {
+      destroyEntity(ctx, entity);
+      return;
+    }
+    if (arguments.length !== 0) throw createEntityNotAliveError(entity!);
+    // Destroying is final. A second call finds nothing left to do.
+    if (ctx.worldEntity === null) return;
+    assertOutsideDefer(ctx, 'world.destroy');
+    clearWorld(ctx, false);
+  },
+
+  reset() {
+    const ctx = this[$internal];
+    assertNotDestroyed(ctx);
+    assertOutsideDefer(ctx, 'world.reset');
+    clearWorld(ctx, true);
+  },
+
+  query(...args: any[]) {
+    const ctx = this[$internal];
+    if (args.length === 1 && isQuery(args[0])) {
+      const queryRef = args[0];
+      const query = ctx.queryInstances[queryRef.id] ?? resolveQueryInstanceFromRef(ctx, queryRef);
+      return runQuery(ctx, query, queryRef.parameters);
+    }
+    return queryWithParameters(ctx, args);
+  },
+
+  queryFirst(...args: [Query<QueryParameter[]>] | QueryParameter[]) {
+    const ctx = this[$internal];
+    if (args.length === 1) {
+      const arg = args[0];
+      if (isQuery(arg)) return runQueryFirst(ctx, resolveQueryInstanceFromRef(ctx, arg));
+      if (isRelationPair(arg) && typeof arg.target === 'number') {
+        const id = getEntityId(arg.target);
+        // An existing query may have reordered its members as sources entered or left.
+        if (!ctx.targetQueries[id >>> 10]?.[id & 1023]?.length) {
+          return getFirstEntityWithRelationTo(ctx, arg.relation as Relation<Trait>, arg.target);
+        }
+      }
+    }
+
+    const node = findInlineQuery(ctx, args as QueryParameter[]);
+    if (node !== null) return runQueryFirst(ctx, node.query!);
+
+    const identified = findIdentifiedEntity(ctx, args as QueryParameter[]);
+    if (identified !== null) return identified;
+
+    const query = resolveQueryInstance(ctx, args as QueryParameter[]);
+    rememberInlineQuery(ctx, args as QueryParameter[], query);
+    return runQueryFirst(ctx, query);
+  },
+
+  onEnter(
+    args: Query<QueryParameter[]> | QueryParameter[],
+    callback: (entity: Entity) => void
+  ): QueryUnsubscriber {
+    return subscribeQuery(this[$internal], args, callback, true);
+  },
+
+  onExit(
+    args: Query<QueryParameter[]> | QueryParameter[],
+    callback: (entity: Entity) => void
+  ): QueryUnsubscriber {
+    return subscribeQuery(this[$internal], args, callback, false);
+  },
+
+  onAdd(first: Entity | HookInput, second: any, callback?: Subscriber<any>): QueryUnsubscriber {
+    return subscribe(this[$internal], 'addSubscriptions', first, second, callback);
+  },
+
+  onRemove(first: Entity | HookInput, second: any, callback?: Subscriber<any>): QueryUnsubscriber {
+    return subscribe(this[$internal], 'removeSubscriptions', first, second, callback);
+  },
+
+  onChange(first: Entity | HookInput, second: any, callback?: Subscriber<any>): QueryUnsubscriber {
+    return subscribe(this[$internal], 'changeSubscriptions', first, second, callback);
+  },
+
+  onTransition(first: Entity | Machine, second: any, callback?: TransitionSubscriber) {
+    const ctx = this[$internal];
+    if (typeof first === 'number') return subscribeMachine(ctx, second, callback!, first);
+    return subscribeMachine(ctx, first, second);
+  },
+
+  onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
+    const subscriptions = this[$internal].entitySpawnSubscriptions;
+    subscriptions.add(callback);
+    return () => subscriptions.delete(callback);
+  },
+
+  onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
+    const subscriptions = this[$internal].entityDestroySubscriptions;
+    subscriptions.add(callback);
+    return () => subscriptions.delete(callback);
+  },
+
+  onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber {
+    const subscriptions = this[$internal].traitRegisteredSubscriptions;
+    subscriptions.add(callback);
+    return () => subscriptions.delete(callback);
+  },
+};
+
+/** Drops every entity, trait instance and query. Reset then starts over with a new world entity. */
+function clearWorld(ctx: WorldContext, recreate: boolean) {
+  beginDefer(ctx);
+  try {
+    getAliveEntities(ctx.entityIndex).forEach((entity) => {
+      if (isEntityAlive(ctx.entityIndex, entity)) {
+        applyDestroyEntity(ctx, entity);
+      }
+    });
+
+    releaseOwnedPages(ctx.entityIndex);
+    ctx.entityIndex = createEntityIndex(recreate ? ctx.entityIndex.allocator : closedAllocator, ctx);
+
+    // The tables keep their extent, so an id from before the reset still reads a page.
+    ctx.entityMasks = [createPageTable(getPageLimit(ctx))];
+    ctx.traitsByBit = [[]];
+    ctx.bitflag = 1;
+    ctx.defersChanges = false;
+
+    for (const query of ctx.queriesHashMap.values()) {
+      query.inlineNodes = null;
+      if (query.cleanup === null) continue;
+      for (let i = 0; i < query.cleanup.length; i++) query.cleanup[i]();
+    }
+
+    clearTraitInstance(ctx.traitInstances);
+    ctx.traits.clear();
+    ctx.relations.length = 0;
+
+    ctx.queriesHashMap.clear();
+    ctx.internalQuerySubscriptions = undefined;
+    ctx.inlineQueries = { next: null, params: null, query: null, parent: null, key: null };
+    ctx.queryInstances.length = 0;
+    ctx.tombstones.head = 0;
+    ctx.tombstones.ids.length = 0;
+    ctx.pairRemovals.head = 0;
+    ctx.pairRemovals.entries.length = 0;
+    ctx.iterationBuffers = undefined;
+    ctx.actionInstances.length = 0;
+    ctx.notQueries.length = 0;
+    ctx.targetQueries.length = 0;
+
+    ctx.entitySubscribedInstances.clear();
+
+    // A destroyed world has no world entity, so it holds no page another world could use.
+    ctx.worldEntity = recreate ? createEntity(ctx, [IsExcluded]) : null;
+
+    for (const sub of ctx.resetSubscriptions) {
+      sub();
+    }
+  } finally {
+    endDefer(ctx);
   }
-
-  // Accessors are added after the literal. Redefining a literal data property
-  // as a getter would drop the world into V8 dictionary mode.
-  Object.defineProperty(world, 'retain', {
-    get: () => ctx.retain,
-    enumerable: true,
-  });
-
-  Object.defineProperty(world, 'traits', {
-    get: () => ctx.traits,
-    enumerable: true,
-  });
-
-  Object.defineProperty(world, 'id', {
-    get: () => id,
-    enumerable: true,
-  });
-  Object.defineProperty(world, 'entities', {
-    get: () => getAliveEntities(ctx.entityIndex),
-    enumerable: true,
-  });
-
-  return world;
 }
 
 // The forms without an entity apply to the world entity. They stay out of line so the entity
