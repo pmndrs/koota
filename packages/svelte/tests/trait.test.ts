@@ -1,8 +1,10 @@
 import { useTrait, useTraitEffect } from '../src';
-import { createWorld, relation, trait, type Entity, type TraitRecord } from '@koota/core';
+import { createWorld, ordered, relation, trait, type Entity, type TraitRecord } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { ComponentProps, tick } from 'svelte';
+import { fromStore, writable } from 'svelte/store';
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
+import HookConsumer from './components/hook-consumer.svelte';
 import TraitEffectTest from './components/TraitEffectTest.svelte';
 import TraitTest from './components/TraitTest.svelte';
 import { WORLD_KEY } from '../src/world/world-context';
@@ -40,6 +42,46 @@ describe('useTrait', () => {
 
   beforeEach(() => {
     world = createWorld();
+  });
+
+  it('keeps frozen ordered snapshots stable until membership or order changes', async () => {
+    const ChildOf = relation(),
+      Children = ordered(ChildOf);
+    const parent = world.spawn(Children);
+    const a = world.spawn(ChildOf(parent)),
+      b = world.spawn();
+    const selected = writable(parent);
+    const target = fromStore(selected);
+    let read!: () => readonly Entity[] | undefined;
+    const { unmount } = render(HookConsumer, {
+      context: new Map([[WORLD_KEY, world]]),
+      props: {
+        read: () => {
+          const children = useTrait(() => target.current, Children);
+          expectTypeOf(children.current).toEqualTypeOf<readonly Entity[] | undefined>();
+          read = () => children.current;
+        },
+      },
+    });
+    await tick();
+    const initial = read();
+    b.add(ChildOf(parent));
+    const added = read();
+    parent.get(Children)!.moveTo(b, 0);
+    const moved = read();
+    expect(initial).toEqual([a]);
+    expect(added).toEqual([a, b]);
+    expect(moved).toEqual([b, a]);
+    expect(Object.isFrozen(moved)).toBe(true);
+    parent.changed(Children);
+    expect(read()).toBe(moved);
+    parent.remove(Children);
+    expect(read()).toBeUndefined();
+    const other = world.spawn(Children);
+    b.add(ChildOf(other));
+    selected.set(other);
+    expect(read()).toEqual([b]);
+    unmount();
   });
 
   it('reactively returns the trait value for an entity', async () => {

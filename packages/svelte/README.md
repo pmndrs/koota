@@ -232,6 +232,8 @@ Works like `useQuery`, but `current` contains only the first matching entity or 
 
 Observes a trait on an entity or world. `current` updates when the trait is added, removed, or changed, and is `undefined` when the target is nullish or does not have the trait.
 
+For an ordered relation trait, `useTrait(() => parent, OrderedChildren).current` is a frozen `readonly Entity[]` in relation order. It keeps the same array while the sequence is unchanged. Add, remove, or reorder children through `parent.get(OrderedChildren)`.
+
 The target must be a getter. The trait or relation pair can be direct or returned by a getter:
 
 ```svelte

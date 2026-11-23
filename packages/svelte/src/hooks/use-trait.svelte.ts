@@ -1,6 +1,8 @@
 import {
   $internal as internal,
+  isOrderedTrait,
   type Entity,
+  type OrderedTrait,
   type RelationPair,
   type Trait,
   type TraitRecord,
@@ -11,46 +13,53 @@ import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 import { useWorld } from '../world/world-context.js';
 
+type TraitSnapshot<T extends Trait> =
+  (T extends OrderedTrait ? readonly Entity[] : TraitRecord<T>) | undefined;
+
 export function useTrait<T extends Trait>(
   target: () => Entity | World | undefined | null,
   trait: T
-): { readonly current: TraitRecord<T> | undefined };
+): { readonly current: TraitSnapshot<T> };
 export function useTrait<T extends Trait>(
   target: () => Entity | World | undefined | null,
   trait: MaybeGetter<T | RelationPair<T>>
-): { readonly current: TraitRecord<T> | undefined };
-export function useTrait<T extends Trait>(
+): { readonly current: TraitSnapshot<T> };
+export function useTrait(
   target: () => Entity | World | undefined | null,
-  trait: MaybeGetter<T | RelationPair<T>>
-): { readonly current: TraitRecord<T> | undefined } {
-  useWorld();
-  const initialEntity = getTargetEntity(target());
-  const initialTrait = initialEntity === undefined ? undefined : resolve(trait);
-  let value = $state.raw<TraitRecord<T> | undefined>(
-    initialEntity !== undefined && initialTrait !== undefined && initialEntity.has(initialTrait)
-      ? initialEntity.get(initialTrait)
-      : undefined
-  );
-  // Version counter to force reactivity when the value reference is the same (AoS traits).
-  // Only read in the getter, never in the effect.
+  trait: MaybeGetter<Trait | RelationPair>
+) {
+  const { getOrderedSnapshot } = useWorld()[internal];
+  const binding = $derived.by(() => {
+    const subject = target();
+    if (subject == null) return;
+    const input = resolve(trait);
+    const ordered = isOrderedTrait(input);
+    const read = (entity: Entity | undefined) => {
+      const record = entity?.isAlive() ? entity.get(input) : undefined;
+      return ordered ? getOrderedSnapshot(record) : record;
+    };
+    return { subject, input, ordered, read, value: read(getTargetEntity(subject)) };
+  });
+  // In-place AoS writes need a notification even when the record is the same object.
   let version = $state(0);
 
   $effect(() => {
-    const subject = target();
-    const resolvedTrait = resolve(trait);
-    return observeTarget(subject, (entity) => {
-      if (entity === undefined) {
-        value = undefined;
-        return;
-      }
-
+    const current = binding;
+    if (!current) return;
+    return observeTarget(current.subject, (entity) => {
       const update = () => {
-        value = entity.isAlive() ? entity.get(resolvedTrait) : undefined;
+        const next = current.read(entity);
+        if (current.ordered && next === current.value) return;
+        current.value = next;
         untrack(() => version++);
       };
+      if (entity === undefined) {
+        update();
+        return;
+      }
       const observer = entity[internal].observeSettled(update);
-      const onChange = entity.onChange(resolvedTrait, observer.invalidate);
-      const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+      const onChange = entity.onChange(current.input, observer.invalidate);
+      const onRemove = entity.onRemove(current.input, observer.invalidate);
       update();
       return () => {
         observer.unsubscribe();
@@ -63,7 +72,7 @@ export function useTrait<T extends Trait>(
   return {
     get current() {
       void version;
-      return value;
+      return binding?.value;
     },
   };
 }
