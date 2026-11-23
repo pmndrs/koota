@@ -12,6 +12,14 @@ import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useTrait<T extends Trait>(
   target: () => Entity | World | undefined | null,
+  trait: T
+): { readonly current: TraitRecord<T> | undefined };
+export function useTrait<T extends Trait>(
+  target: () => Entity | World | undefined | null,
+  trait: MaybeGetter<T | RelationPair<T>>
+): { readonly current: TraitRecord<T> | undefined };
+export function useTrait<T extends Trait>(
+  target: () => Entity | World | undefined | null,
   trait: MaybeGetter<T | RelationPair<T>>
 ): { readonly current: TraitRecord<T> | undefined } {
   const initialEntity = getTargetEntity(target());

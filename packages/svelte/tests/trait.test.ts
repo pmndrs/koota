@@ -1,12 +1,32 @@
+import { useTrait, useTraitEffect } from '../src';
 import { createWorld, relation, trait, type Entity, type TraitRecord } from '@koota/core';
 import { render } from '@testing-library/svelte';
 import { ComponentProps, tick } from 'svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import TraitEffectTest from './components/TraitEffectTest.svelte';
 import TraitTest from './components/TraitTest.svelte';
 import { WORLD_KEY } from '../src/world/world-context';
 
 const Position = trait({ x: 0, y: 0 });
+
+it('infers records from direct traits and getters', () => {
+  const target = (): Entity | undefined => undefined;
+  expectTypeOf(() => useTrait(target, Position).current).returns.toEqualTypeOf<
+    { x: number; y: number } | undefined
+  >();
+  expectTypeOf(() => useTrait(target, () => Position).current).returns.toEqualTypeOf<
+    { x: number; y: number } | undefined
+  >();
+  expectTypeOf(() =>
+    useTraitEffect(
+      () => createWorld(),
+      Position,
+      (value) => {
+        expectTypeOf(value).toEqualTypeOf<{ x: number; y: number } | undefined>();
+      }
+    )
+  ).toBeFunction();
+});
 
 describe('useTrait', () => {
   let world = createWorld();
