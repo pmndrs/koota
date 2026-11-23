@@ -71,6 +71,23 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
 
   ctx.worldEntity = createEntity(ctx, [IsExcluded]);
+  for (const notify of ctx.resetSubscriptions) notify();
+}
+
+function observeWorldEntity(
+  this: WorldContext,
+  listen: (entity: Entity | undefined) => (() => void) | void
+) {
+  let detach = listen(this.worldEntity ?? undefined);
+  const rebind = () => {
+    detach?.();
+    detach = listen(this.worldEntity ?? undefined);
+  };
+  this.resetSubscriptions.add(rebind);
+  return () => {
+    this.resetSubscriptions.delete(rebind);
+    detach?.();
+  };
 }
 
 /** Inline and compiled queries share the live view for their membership and projection. */
@@ -253,6 +270,7 @@ export function createWorld(options?: WorldOptions): World {
       observeSettled,
       createQueryStore,
       resetSubscriptions: new Set(),
+      observeWorldEntity,
       entitySpawnSubscriptions: new Set(),
       entityDestroySubscriptions: new Set(),
       traitRegisteredSubscriptions: new Set(),

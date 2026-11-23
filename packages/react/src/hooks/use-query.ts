@@ -5,7 +5,7 @@ import { useWorld } from '../world/use-world';
 export function useQuery<T extends QueryParameter[]>(...parameters: T): Entity[] {
   const world = useWorld();
   const ref = createQuery(...parameters);
-  const store = useMemo(() => world[$internal].createQueryStore(world, ref), [world, ref]);
+  const store = useMemo(() => world[$internal].createQueryStore(ref), [world, ref]);
   const revision = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   return store.read(revision);
 }

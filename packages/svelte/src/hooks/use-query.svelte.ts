@@ -11,14 +11,12 @@ export function useQuery<T extends QueryParameter[]>(
       : () => args as unknown as [...T];
 
   const world = useWorld();
-  const store = $derived(world[internal].createQueryStore(world, createQuery(...getParams())));
+  const store = $derived(world[internal].createQueryStore(createQuery(...getParams())));
   let revision = $state(0);
 
   $effect(() => {
     const notify = () => untrack(() => revision++);
-    const detach = store.subscribe(notify);
-    notify();
-    return detach;
+    return store.subscribe(notify);
   });
 
   return {
