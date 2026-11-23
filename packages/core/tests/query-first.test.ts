@@ -84,12 +84,12 @@ describe('queryFirst', () => {
     const visible = world.spawn(pair);
     const query = createQuery(pair);
 
-    expect(world.query(pair).toArray()).toEqual([visible]);
     expect(world.queryFirst(pair)).toBe(visible);
-    expect(world.queryFirst(query)).toBe(visible);
-
+    const view = world.query(query);
+    expect(view.toArray()).toEqual([visible]);
     hidden.remove(IsExcluded);
-    expect(world.queryFirst(pair)).toBe(world.query(query).first);
+    expect(world.queryFirst(pair)).toBe(view.first);
+    expect(world.query(pair).toArray()).toEqual(view.toArray());
     visible.add(IsExcluded);
     expect(world.queryFirst(pair)).toBe(hidden);
     hidden.add(IsExcluded);
