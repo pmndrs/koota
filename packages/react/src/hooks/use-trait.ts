@@ -4,7 +4,6 @@ import {
   isOrderedTrait,
   type Entity,
   type ExtractSchema,
-  type MutableOrderedView,
   type OrderedTrait,
   type RelationPair,
   type Trait,
@@ -35,28 +34,18 @@ export function attachTrait<T extends Trait | RelationPair>(
   };
 }
 
-const orderedSnapshots = new WeakMap<MutableOrderedView, readonly Entity[]>();
-
-function orderedSnapshot(view: MutableOrderedView | undefined) {
-  if (!view) return undefined;
-  const previous = orderedSnapshots.get(view);
-  if (previous?.length === view.length && previous.every((entity, i) => view.at(i) === entity)) {
-    return previous;
-  }
-  const snapshot = Object.freeze(view.toArray());
-  orderedSnapshots.set(view, snapshot);
-  return snapshot;
-}
-
 function readSnapshot(entity: Entity, trait: Trait | RelationPair) {
-  return isOrderedTrait(trait) ? orderedSnapshot(entity.get(trait)) : readTrait(entity, trait);
+  return isOrderedTrait(trait)
+    ? entity[$internal].getOrderedSnapshot(entity.get(trait))
+    : readTrait(entity, trait);
 }
 
 function attachSnapshot(entity: Entity, trait: Trait | RelationPair, push: (value: unknown) => void) {
   if (!isOrderedTrait(trait)) return attachTrait(entity, trait, push);
-  let previous = orderedSnapshot(entity.get(trait));
+  const { getOrderedSnapshot } = entity[$internal];
+  let previous = getOrderedSnapshot(entity.get(trait));
   return attachTrait(entity, trait, (view) => {
-    const next = orderedSnapshot(view);
+    const next = getOrderedSnapshot(view);
     if (next !== previous) {
       previous = next;
       push(next);

@@ -13,6 +13,20 @@ import { RelationView } from './ordered-view';
 import { $orderedTargetsTrait } from './symbols';
 import type { OrderedRelation, Relation, RelationPair } from './types';
 
+const orderedSnapshots = new WeakMap<MutableOrderedView, readonly Entity[]>();
+
+export function getOrderedSnapshot(view: MutableOrderedView | undefined) {
+  if (!view) return undefined;
+  const entities = (view as RelationView).getSource().dense;
+  const previous = orderedSnapshots.get(view);
+  if (previous?.length === entities.length && entities.every((entity, i) => entity === previous[i])) {
+    return previous;
+  }
+  const snapshot = Object.freeze(entities.slice());
+  orderedSnapshots.set(view, snapshot);
+  return snapshot;
+}
+
 export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation<T> {
   const schema = (): MutableOrderedView<[]> => {
     throw new Error('Koota: Add an ordered trait to an entity to create its view.');

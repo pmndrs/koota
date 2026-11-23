@@ -382,6 +382,8 @@ For the public integration API, see the [React API documentation](../../docs/rea
 
 Svelte bindings return objects with a reactive `current` property. Call `provideWorld(world)` during component initialization before using bindings in that component or its descendants. Target arguments are getters; pass trait, tag, and relation constants directly, but wrap relation pairs in a getter when their target is reactive.
 
+For an ordered relation trait, `useTrait(() => parent, OrderedChildren).current` is a frozen `readonly Entity[]` in relation order. It keeps the same array while the sequence is unchanged. Add, remove, or reorder children through `parent.get(OrderedChildren)`.
+
 `useMachine(() => entity, Machine)` exposes the current member as `state.current`. It updates on transitions, including self-transitions, removal and destruction. It accepts entity or world getters, including nullish targets, and a direct machine or getter. Use `useTrait` for data-only writes within a state.
 
 ```svelte

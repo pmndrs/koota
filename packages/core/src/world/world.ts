@@ -1,3 +1,4 @@
+import { getOrderedSnapshot } from '../relation/ordered';
 import { observeHas } from './observe-has';
 import { createQueryStore } from '../query/query-store';
 import { observeSettled } from './settled';
@@ -286,6 +287,7 @@ export function createWorld(options?: WorldOptions): World {
       settledQueue: new Set(),
       observeSettled,
       observeHas,
+      getOrderedSnapshot,
       createQueryStore,
       resetSubscriptions: new Set(),
       observeWorldEntity,
