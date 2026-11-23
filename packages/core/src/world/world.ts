@@ -71,6 +71,10 @@ function ensureWorldRegistered(ctx: WorldContext): void {
   if (!hasTraitInstance(ctx.traitInstances, IsExcluded)) registerTrait(ctx, IsExcluded);
 
   ctx.worldEntity = createEntity(ctx, [IsExcluded]);
+  notifyWorldEntityChanged(ctx);
+}
+
+function notifyWorldEntityChanged(ctx: WorldContext) {
   for (const notify of ctx.resetSubscriptions) notify();
 }
 
@@ -226,9 +230,7 @@ export function createWorld(options?: WorldOptions): World {
       clearStorage(ctx);
       ctx.worldEntity = recreate ? createEntity(ctx, [IsExcluded]) : null!;
 
-      for (const sub of ctx.resetSubscriptions) {
-        sub();
-      }
+      notifyWorldEntityChanged(ctx);
     } finally {
       endDefer(ctx);
     }
