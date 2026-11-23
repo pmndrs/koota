@@ -10,7 +10,8 @@ import {
   lookupAllIdentifierScopes,
 } from '../identifier/identifier';
 import { PAGE_SIZE } from '../entity/utils/pack-entity';
-import { EMPTY_MASK_PAGE, createPageTable, getPageLimit } from '../entity/utils/paged-mask';
+import { createPageTable } from '../utils/page-table';
+import { getPageLimit } from '../world/utils/page-tables';
 import { getEntitiesWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -44,6 +45,7 @@ import { checkQueryWithFilters, passesQueryFilters } from './utils/check-query-f
 import { createQueryHash } from './utils/create-query-hash';
 import { isQuery } from './utils/is-query';
 import { clearPendingChanges } from './utils/mark-tracked-trait-changed';
+import { EMPTY_TRACKER_PAGE } from './utils/tracker-pages';
 
 export const IsExcluded: TagTrait = trait();
 
@@ -248,9 +250,9 @@ export function flushQueryBatch(ctx: WorldContext) {
   const events = ctx.queryBatch!;
   for (let i = 0; i < events.length; i++) {
     const { query, entity, added } = events[i];
-    const subscriptions = ctx.internalQuerySubscriptions?.get(query);
-    const internal = added ? subscriptions?.add : subscriptions?.remove;
-    if (internal?.size) emitQuerySubscribers(internal, entity);
+    const subscriptions = ctx.targetQuerySubscriptions?.get(query);
+    const targetSubscribers = added ? subscriptions?.add : subscriptions?.remove;
+    if (targetSubscribers?.size) emitQuerySubscribers(targetSubscribers, entity);
   }
   ctx.queryBatch = undefined;
   if (events.length === 0) return;
@@ -272,11 +274,11 @@ export function flushQueryBatch(ctx: WorldContext) {
       if (event.first !== event.last) continue;
     }
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
-    const subscriptions = ctx.internalQuerySubscriptions?.get(query);
-    const internal = added ? subscriptions?.add : subscriptions?.remove;
+    const subscriptions = ctx.targetQuerySubscriptions?.get(query);
+    const targetSubscribers = added ? subscriptions?.add : subscriptions?.remove;
     if (subscribers?.size) {
       for (const subscriber of subscribers) {
-        if (!internal?.has(subscriber)) subscriber(entity);
+        if (!targetSubscribers?.has(subscriber)) subscriber(entity);
       }
     }
   }
@@ -298,7 +300,7 @@ export function resetQueryTrackingBitmasks(query: QueryInstance, eid: number) {
     for (let j = 0; j < trackersLen; j++) {
       if (!trackers[j]) continue;
       const page = trackers[j][pageId];
-      if (page !== EMPTY_MASK_PAGE) page[offset] = 0;
+      if (page !== EMPTY_TRACKER_PAGE) page[offset] = 0;
     }
   }
 }
@@ -364,7 +366,7 @@ function processTrackingModifier(
 
       const genId = instance.generationId;
       group.bitmasks[genId] = (group.bitmasks[genId] || 0) | instance.bitflag;
-      group.trackers[genId] ??= createPageTable(getPageLimit(ctx));
+      group.trackers[genId] ??= createPageTable(getPageLimit(ctx), EMPTY_TRACKER_PAGE);
 
       if (trackingType === 'change') {
         query.changedMasks[genId] = (query.changedMasks[genId] || 0) | instance.bitflag;
@@ -395,7 +397,7 @@ function processTrackingModifier(
         getTraitInstance(ctx.traitInstances, filter.relation[$internal].trait)!
       );
       group.bitmasks[0] = (group.bitmasks[0] || 0) | (1 << tracked.length);
-      group.trackers[0] ??= createPageTable(getPageLimit(ctx));
+      group.trackers[0] ??= createPageTable(getPageLimit(ctx), EMPTY_TRACKER_PAGE);
       tracked.push(filter);
     }
   }
@@ -705,7 +707,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
       const cleanup = (query.cleanup ??= []);
       cleanup.push(
-        subscribeInternal(
+        subscribeTargetQuery(
           ctx,
           pair.targetQueryRef,
           (target) => {
@@ -716,7 +718,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
         )
       );
       cleanup.push(
-        subscribeInternal(
+        subscribeTargetQuery(
           ctx,
           pair.targetQueryRef,
           (target) => {
@@ -987,9 +989,8 @@ export function queryInternal<T extends QueryParameter[]>(
   return runQuery(ctx, instance, params) as QueryView<T>;
 }
 
-/** Only relation target filters need separate bookkeeping for their internal callbacks. */
-function internalQuerySubscriptions(ctx: WorldContext, query: QueryInstance) {
-  const index = (ctx.internalQuerySubscriptions ??= new WeakMap());
+function ensureTargetQuerySubscriptions(ctx: WorldContext, query: QueryInstance) {
+  const index = (ctx.targetQuerySubscriptions ??= new WeakMap());
   let subscriptions = index.get(query);
   if (subscriptions === undefined) {
     subscriptions = { add: new Set<QuerySubscriber>(), remove: new Set<QuerySubscriber>() };
@@ -1019,21 +1020,24 @@ export function subscribeQuery(
 }
 
 /**
- * Internal query subscriptions keep derived membership current. They run before any public
- * callback of the same batch, so a public callback never sees a query mid update.
+ * Follow targets entering or leaving a relation filter's target query. During a batch these
+ * callbacks update source membership before public query callbacks run.
  */
-export function subscribeInternal(
+export function subscribeTargetQuery(
   ctx: WorldContext,
-  query: Query<QueryParameter[]>,
+  targetQuery: Query<QueryParameter[]>,
   callback: (entity: Entity) => void,
   added: boolean
 ): () => void {
-  const subscriptions = internalQuerySubscriptions(ctx, resolveQueryInstanceFromRef(ctx, query));
-  const internal = added ? subscriptions.add : subscriptions.remove;
-  internal.add(callback);
-  const unsubscribe = subscribeQuery(ctx, query, callback, added);
+  const subscriptions = ensureTargetQuerySubscriptions(
+    ctx,
+    resolveQueryInstanceFromRef(ctx, targetQuery)
+  );
+  const subscribers = added ? subscriptions.add : subscriptions.remove;
+  subscribers.add(callback);
+  const unsubscribe = subscribeQuery(ctx, targetQuery, callback, added);
   return () => {
-    internal.delete(callback);
+    subscribers.delete(callback);
     unsubscribe();
   };
 }

@@ -9,7 +9,7 @@ import {
 } from './pack-entity';
 import type { PageAllocator } from './page-allocator';
 import { leasePage, releasePage } from './page-allocator';
-import { getPageLimit, growPageTables } from './paged-mask';
+import { getPageLimit, growPageTables } from '../../world/utils/page-tables';
 
 export type EntityIndex = {
   /** The number of currently alive entities. */

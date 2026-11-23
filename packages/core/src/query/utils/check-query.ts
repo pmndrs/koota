@@ -1,7 +1,7 @@
 import { matchesIdentifiers } from '../../identifier/identifier';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { DESTROYED_WORD } from '../../entity/utils/paged-mask';
+import { DESTROYED_WORD } from '../../world/utils/entity-masks';
 import type { WorldContext } from '../../world';
 import type { QueryInstance } from '../types';
 

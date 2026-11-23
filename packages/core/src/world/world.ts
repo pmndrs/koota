@@ -1,7 +1,6 @@
 import { getOrderedSnapshot } from '../relation/ordered';
 import { createQueryStore } from '../query/query-store';
-import { subscribeSet } from './settled';
-import { beginDefer, endDefer, runDeferred } from './defer';
+import { beginDefer, endDefer, observeSettled, runDeferred } from './defer';
 import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
@@ -28,7 +27,9 @@ import {
   type PageAllocator,
 } from '../entity/utils/page-allocator';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { createPageTable, getPageLimit } from '../entity/utils/paged-mask';
+import { createPageTable } from '../utils/page-table';
+import { EMPTY_MASK_PAGE } from './utils/entity-masks';
+import { getPageLimit } from './utils/page-tables';
 import { findIdentifiedEntity } from '../identifier/find-identified-entity';
 import { isIdentifierPair, lookupAllIdentifiers, lookupIdentifier } from '../identifier/identifier';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
@@ -192,7 +193,7 @@ export function createWorldWithAllocator(allocator: PageAllocator, options?: Wor
 
   const ctx = {
     entityIndex: null! as ReturnType<typeof createEntityIndex>,
-    entityMasks: [createPageTable(0)],
+    entityMasks: [createPageTable(0, EMPTY_MASK_PAGE)],
     retain,
     tombstones: { ids: [], head: 0 },
     pairRemovals: { entries: [], head: 0 },
@@ -208,7 +209,7 @@ export function createWorldWithAllocator(allocator: PageAllocator, options?: Wor
     actionInstances: [],
     notQueries: [],
     queryBatch: undefined,
-    internalQuerySubscriptions: undefined,
+    targetQuerySubscriptions: undefined,
     defersChanges: false,
     trackingRevision: 0,
     targetQueries: [],
@@ -477,7 +478,7 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
     ctx.entityIndex = createEntityIndex(recreate ? ctx.entityIndex.allocator : closedAllocator, ctx);
 
     // The tables keep their extent, so an id from before the reset still reads a page.
-    ctx.entityMasks = [createPageTable(getPageLimit(ctx))];
+    ctx.entityMasks = [createPageTable(getPageLimit(ctx), EMPTY_MASK_PAGE)];
     ctx.traitsByBit = [[]];
     ctx.bitflag = 1;
     ctx.defersChanges = false;
@@ -493,7 +494,7 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
     ctx.relations.length = 0;
 
     ctx.queriesHashMap.clear();
-    ctx.internalQuerySubscriptions = undefined;
+    ctx.targetQuerySubscriptions = undefined;
     ctx.inlineQueries = { next: null, params: null, query: null, parent: null, key: null };
     ctx.queryInstances.length = 0;
     ctx.tombstones.head = 0;

@@ -1,6 +1,6 @@
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { PENDING_WORD } from '../../entity/utils/paged-mask';
+import { PENDING_WORD } from '../../world/utils/entity-masks';
 import type { TraitInstance } from '../../trait/types';
 import type { WorldContext } from '../../world';
 import { addEntityToQuery, removeEntityFromQuery } from '../query';

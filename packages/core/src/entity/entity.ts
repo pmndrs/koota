@@ -56,7 +56,7 @@ import {
 } from './utils/entity-index';
 import { AWAITING_BIT, isAwaitingDestroy } from './utils/target-flags';
 import { getEntityId } from './utils/pack-entity';
-import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from './utils/paged-mask';
+import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from '../world/utils/entity-masks';
 
 export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): Entity {
   const entity = allocateEntity(ctx.entityIndex);

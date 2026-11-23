@@ -1,6 +1,7 @@
 import type { getOrderedSnapshot } from '../relation/ordered';
 import type { SettledCallback } from './settled';
 import type { createQueryStore } from '../query/query-store';
+import type { observeSettled } from './defer';
 import { ActionInstance } from '../actions/types';
 import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { QueryNotification, QuerySubscriber } from '../query/types';
@@ -45,7 +46,7 @@ export type InlineQueryNode = {
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   /**
-   * Membership and removal history by mask generation and page. See paged-mask.
+   * Membership and removal history by mask generation and page. See entity-masks.
    */
   entityMasks: Uint32Array[][];
   bitflag: number;
@@ -63,7 +64,7 @@ export type WorldContext = {
   /** Tracking queries, and static queries that an entity holding no traits satisfies. */
   notQueries: QueryInstance[];
   queryBatch: QueryNotification[] | undefined;
-  internalQuerySubscriptions:
+  targetQuerySubscriptions:
     WeakMap<QueryInstance, { add: Set<QuerySubscriber>; remove: Set<QuerySubscriber> }> | undefined;
   /** Some entity may hold a pending bit, so membership changes clear the pending word. */
   defersChanges: boolean;

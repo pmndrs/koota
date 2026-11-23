@@ -3,7 +3,8 @@ import { matchesIdentifiers } from '../../identifier/identifier';
 import { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { GENERATION_MASK, getEntityId } from '../../entity/utils/pack-entity';
-import { REMOVED_WORD, ensureMaskPage } from '../../entity/utils/paged-mask';
+import { REMOVED_WORD } from '../../world/utils/entity-masks';
+import { ensureTrackerPage } from './tracker-pages';
 import { hasRelationToTarget } from '../../relation/relation';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance, ResolvedRelationFilter } from '../types';
@@ -351,5 +352,5 @@ export function recordTrackerHit(
   eid: number,
   bitflag: number
 ) {
-  ensureMaskPage(trackers[generationId], eid >>> 10)[eid & 1023] |= bitflag;
+  ensureTrackerPage(trackers[generationId], eid >>> 10)[eid & 1023] |= bitflag;
 }

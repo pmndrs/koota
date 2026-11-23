@@ -1,6 +1,6 @@
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../entity/utils/paged-mask';
+import { EMPTY_MASK_PAGE, REMOVED_WORD, materializeMaskPage } from '../world/utils/entity-masks';
 import type { WorldContext } from '../world/types';
 import type { TraitInstance } from './types';
 

@@ -4,7 +4,7 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { DESTROYED_WORD, EMPTY_MASK_PAGE } from '../entity/utils/paged-mask';
+import { DESTROYED_WORD, EMPTY_MASK_PAGE } from '../world/utils/entity-masks';
 import {
   addEntityToQuery,
   flushQueryBatch,
