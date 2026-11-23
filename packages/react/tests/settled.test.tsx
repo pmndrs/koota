@@ -115,15 +115,17 @@ it('updates filtered relation presence when an existing target enters or leaves 
   const target = world.spawn(),
     source = world.spawn(Link(target));
   const filter = createQuery(Enabled);
+  world.add(Link(target));
+  // Queries skip the world entity, so a world target follows the filter another way.
   const { result, unmount } = renderHook(
-    () => [useHas(source, Link(Enabled)), useHas(source, Link(filter))],
+    () => [useHas(source, Link(Enabled)), useHas(source, Link(filter)), useHas(world, Link(Enabled))],
     { wrapper: withWorld(world) }
   );
-  expect(result.current).toEqual([false, false]);
+  expect(result.current).toEqual([false, false, false]);
   act(() => target.add(Enabled));
-  expect(result.current).toEqual([true, true]);
+  expect(result.current).toEqual([true, true, true]);
   act(() => target.remove(Enabled));
-  expect(result.current).toEqual([false, false]);
+  expect(result.current).toEqual([false, false, false]);
   unmount();
   world.destroy();
 });

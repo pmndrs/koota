@@ -4,6 +4,7 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import {
   addEntityToQuery,
+  clearEntityQuerySubscriptions,
   dropQuery,
   evictEntityFromQuery,
   IsExcluded,
@@ -160,6 +161,7 @@ export function applyDestroyEntity(ctx: WorldContext, root: Entity) {
       if (ctx.notQueries.length !== 0) leaveTraitlessQueries(ctx, entity);
 
       if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, entity);
+      if (ctx.entitySubscribedQueries.size !== 0) clearEntityQuerySubscriptions(ctx, entity);
 
       // A removal that declined leaves its bit held. Clear what remains, keeping history.
       for (let i = 0; i < entityMasks.length; i++) {

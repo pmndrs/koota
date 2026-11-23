@@ -86,6 +86,8 @@ stopExit()
 
 Adding `Hidden` makes an entity exit the visibility query, and removing it makes the entity enter. Relations and identifiers use the same lifecycle. Trait `onAdd` and `onRemove` hooks retain their lifecycle timing. Tracking queries retain their tracking semantics.
 
+To watch one entity, use `entity.onEnter(query, callback)` and `entity.onExit(query, callback)`. They fire only for that entity, with no cost when other entities enter or leave. A relation filter such as `child.onEnter([ChildOf(IsActive)], cb)` also fires when the parent gains `IsActive`. Queries skip excluded entities such as the world entity, so these hooks never fire for one.
+
 ## Iterating entities
 
 Use `for...of` to iterate entities directly. For the fastest possible iteration, index `query.entities`, with the same performance as a native array.

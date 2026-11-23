@@ -1,6 +1,7 @@
 import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
 import type { Entity } from '../entity/types';
+import { isEntityAlive } from '../entity/utils/entity-index';
 import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import {
   isIdentifier,
@@ -228,13 +229,25 @@ function hasStaticMembership(query: QueryInstance, entity: Entity) {
 function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
   const ctx = query.ctx;
   if (ctx.queryBatch !== undefined) /* @cold */ {
-    if (query.addSubscriptions?.size || query.removeSubscriptions?.size) {
+    if (
+      query.addSubscriptions?.size ||
+      query.removeSubscriptions?.size ||
+      query.entityAddSubscriptions !== null
+    ) {
       ctx.queryBatch.push({ query, entity, added });
     }
   } else {
     const subscribers = added ? query.addSubscriptions : query.removeSubscriptions;
     if (subscribers?.size) emitQuerySubscribers(subscribers, entity);
+    emitEntityQuerySubscribers(query, entity, added);
   }
+}
+
+/** The subscribers of one entity are found by key, so entities nobody observes cost one lookup. */
+function emitEntityQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
+  const index = added ? query.entityAddSubscriptions : query.entityRemoveSubscriptions;
+  const subscribers = index?.get(entity);
+  if (subscribers !== undefined) emitQuerySubscribers(subscribers, entity);
 }
 
 /** Finish derived query membership before delivering any public query callback. */
@@ -273,6 +286,7 @@ export function flushQueryBatch(ctx: WorldContext) {
         if (!internal?.has(subscriber)) subscriber(entity);
       }
     }
+    emitEntityQuerySubscribers(query, entity, added);
   }
 }
 
@@ -447,6 +461,8 @@ export function createQueryInstance<T extends QueryParameter[]>(
 
     addSubscriptions: null,
     removeSubscriptions: null,
+    entityAddSubscriptions: null,
+    entityRemoveSubscriptions: null,
     layoutCache: null,
     viewBindings: [],
   };
@@ -1022,6 +1038,51 @@ export function subscribeExit(
     subscriptions.remove.delete(callback);
     query.removeSubscriptions!.delete(callback);
   };
+}
+
+/**
+ * Observe one entity entering or leaving a query. Backs entity.onEnter() and entity.onExit().
+ * Subscribers are keyed by entity, so a membership change costs one lookup however many entities
+ * are observed. A dead handle registers nothing.
+ */
+export function subscribeEntityQuery(
+  ctx: WorldContext,
+  entity: Entity,
+  args: Query<QueryParameter[]> | QueryParameter[],
+  callback: (entity: Entity) => void,
+  added: boolean
+): () => void {
+  if (!isEntityAlive(ctx.entityIndex, entity)) return () => {};
+  const query = isQuery(args)
+    ? resolveQueryInstanceFromRef(ctx, args)
+    : resolveQueryInstance(ctx, args as QueryParameter[]);
+  // Membership changes notify only once the world level set exists.
+  query.addSubscriptions ??= new Set();
+  query.entityAddSubscriptions ??= new Map();
+  query.entityRemoveSubscriptions ??= new Map();
+  ctx.entitySubscribedQueries.add(query);
+  const index = added ? query.entityAddSubscriptions : query.entityRemoveSubscriptions;
+  let subscribers = index.get(entity);
+  if (subscribers === undefined) index.set(entity, (subscribers = new Set()));
+  subscribers.add(callback);
+  return () => {
+    subscribers.delete(callback);
+    if (subscribers.size === 0 && index.get(entity) === subscribers) index.delete(entity);
+  };
+}
+
+/**
+ * Drop the keyed subscribers of a destroyed entity so a reused handle never inherits them.
+ * Queries that no longer hold any are pruned from the index here.
+ */
+export function clearEntityQuerySubscriptions(ctx: WorldContext, entity: Entity) {
+  for (const query of ctx.entitySubscribedQueries) {
+    const add = query.entityAddSubscriptions!;
+    const remove = query.entityRemoveSubscriptions!;
+    add.delete(entity);
+    remove.delete(entity);
+    if (add.size === 0 && remove.size === 0) ctx.entitySubscribedQueries.delete(query);
+  }
 }
 
 let queryId = 0;

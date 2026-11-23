@@ -316,6 +316,9 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   cleanup: QueryUnsubscriber[] | null;
   addSubscriptions: Set<QuerySubscriber> | null;
   removeSubscriptions: Set<QuerySubscriber> | null;
+  /** Enter and exit subscribers of single entities, keyed by entity. See subscribeEntityQuery. */
+  entityAddSubscriptions: Map<Entity, Set<QuerySubscriber>> | null;
+  entityRemoveSubscriptions: Map<Entity, Set<QuerySubscriber>> | null;
   layoutCache: QueryLayoutCache | null;
   viewBindings: QueryViewBinding[];
 };

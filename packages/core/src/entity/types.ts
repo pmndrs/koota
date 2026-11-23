@@ -2,6 +2,7 @@ import type { $internal } from '../common';
 import type { WorldContext } from '../world';
 import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
+import type { Query, QueryParameter } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
   ConfigurableTrait,
@@ -18,6 +19,11 @@ import type {
  * Entity scoped lifecycle hooks. Same inputs and callbacks as the world hooks,
  * but only fire for this entity so the callback needs no identity check.
  */
+type EntityQueryHook = {
+  <T extends QueryParameter[]>(key: Query<T>, callback: (entity: Entity) => void): () => void;
+  <T extends QueryParameter[]>(parameters: T, callback: (entity: Entity) => void): () => void;
+};
+
 type EntityHook = {
   <K extends IdentifierKey>(
     input: Identifier<K> | IdentifierPair<K>,
@@ -72,6 +78,10 @@ export type Entity = number & {
   ) => () => void;
   onAdd: EntityHook;
   onRemove: EntityHook;
+  /** Observe this entity entering a query. Like world.onEnter, but only fires for this entity. */
+  onEnter: EntityQueryHook;
+  /** Observe this entity leaving a query. Like world.onExit, but only fires for this entity. */
+  onExit: EntityQueryHook;
   /** Reports future additions and writes. Removals use onRemove. */
   onChange: EntityHook;
   id: () => number;

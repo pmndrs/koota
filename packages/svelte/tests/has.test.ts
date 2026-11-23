@@ -126,4 +126,28 @@ describe('useHas', () => {
     flushSync();
     expect(getByTestId('value').textContent).toBe('false');
   });
+
+  it('follows a target entering and leaving a relation filter', async () => {
+    const Enabled = trait();
+    const Link = relation();
+    const target = world.spawn();
+    const entity = world.spawn(Link(target));
+    world.add(Link(target));
+
+    renderSubject({ target: entity, trait: Link(Enabled) });
+    // Queries skip the world entity, so a world target follows the filter another way.
+    const { getAllByTestId } = renderSubject({ target: world, trait: Link(Enabled) });
+    const values = () => getAllByTestId('value').map((node) => node.textContent);
+
+    await tick();
+    expect(values()).toEqual(['false', 'false']);
+
+    target.add(Enabled);
+    await tick();
+    expect(values()).toEqual(['true', 'true']);
+
+    target.remove(Enabled);
+    await tick();
+    expect(values()).toEqual(['false', 'false']);
+  });
 });

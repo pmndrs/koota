@@ -50,6 +50,15 @@ stopEnter()
 stopExit()
 ```
 
+Entities have the same two hooks. `entity.onEnter` and `entity.onExit` fire only for that entity, so the callback needs no identity check and other entities entering or leaving cost nothing. Queries skip excluded entities such as the world entity, so these hooks never fire for one.
+
+```ts
+// Fires when this child starts or stops having an active parent,
+// including when the parent itself gains or loses IsActive
+child.onEnter([ChildOf(IsActive)], (entity) => show(entity))
+child.onExit([ChildOf(IsActive)], (entity) => hide(entity))
+```
+
 Entry and exit describe query membership. Adding `Hidden` makes an entity exit `[Renderable, Not(Hidden)]`, and removing `Hidden` makes it enter. Trait changes, relation target changes and identifier changes can all affect membership.
 
 Trait `onAdd` and `onRemove` hooks retain their own lifecycle timing.

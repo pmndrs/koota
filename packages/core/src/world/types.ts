@@ -1,5 +1,4 @@
 import type { getOrderedSnapshot } from '../relation/ordered';
-import type { observeHas } from './observe-has';
 import type { createQueryStore } from '../query/query-store';
 import type { observeSettled } from './settled';
 import { ActionInstance } from '../actions/types';
@@ -98,11 +97,12 @@ export type WorldContext = {
   pairRemovals: { entries: number[]; head: number };
   worldEntity: Entity;
   entitySubscribedInstances: Set<TraitInstance>;
+  /** Queries that hold subscribers keyed by entity. Destroy clears an entity from each. */
+  entitySubscribedQueries: Set<QueryInstance>;
   /** Open defer scopes. Structural changes join the command log while it is nonzero. See defer. */
   deferDepth: number;
   settledQueue: Set<() => void>;
   observeSettled: typeof observeSettled;
-  observeHas: typeof observeHas;
   getOrderedSnapshot: typeof getOrderedSnapshot;
   createQueryStore: typeof createQueryStore;
   /** Notifies after registration, reset or destruction changes the backing entity. */

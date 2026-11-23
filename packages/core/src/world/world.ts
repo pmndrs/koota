@@ -1,5 +1,4 @@
 import { getOrderedSnapshot } from '../relation/ordered';
-import { observeHas } from './observe-has';
 import { createQueryStore } from '../query/query-store';
 import { observeSettled } from './settled';
 import { beginDefer, endDefer, runDeferred } from './defer';
@@ -230,6 +229,7 @@ export function createWorld(options?: WorldOptions): World {
     ctx.targetQueries.length = 0;
 
     ctx.entitySubscribedInstances.clear();
+    ctx.entitySubscribedQueries.clear();
   }
 
   /** Destroys every entity and clears registrations. Callers assert the scope first. */
@@ -283,10 +283,10 @@ export function createWorld(options?: WorldOptions): World {
       destroying: undefined,
       worldEntity: null!,
       entitySubscribedInstances: new Set(),
+      entitySubscribedQueries: new Set(),
       deferDepth: 0,
       settledQueue: new Set(),
       observeSettled,
-      observeHas,
       getOrderedSnapshot,
       createQueryStore,
       resetSubscriptions: new Set(),

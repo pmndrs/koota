@@ -2,6 +2,8 @@ import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
 import { setChanged } from '../query/modifiers/changed';
+import { subscribeEntityQuery } from '../query/query';
+import type { Query, QueryParameter } from '../query/types';
 import { getFirstRelationTarget, getRelationTargets } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isIdentifier, getIdentifierTarget } from '../identifier/identifier';
@@ -92,6 +94,24 @@ Number.prototype.onRemove = function (this: Entity, input: HookInput, callback: 
 // @ts-expect-error
 Number.prototype.onChange = function (this: Entity, input: HookInput, callback: Subscriber<any>) {
   return subscribeEntityEvent(getEntityContext(this), this, 'changeSubscriptions', input, callback);
+};
+
+// @ts-expect-error
+Number.prototype.onEnter = function (
+  this: Entity,
+  args: Query<QueryParameter[]> | QueryParameter[],
+  callback: (entity: Entity) => void
+) {
+  return subscribeEntityQuery(getEntityContext(this), this, args, callback, true);
+};
+
+// @ts-expect-error
+Number.prototype.onExit = function (
+  this: Entity,
+  args: Query<QueryParameter[]> | QueryParameter[],
+  callback: (entity: Entity) => void
+) {
+  return subscribeEntityQuery(getEntityContext(this), this, args, callback, false);
 };
 
 //@ts-expect-error
