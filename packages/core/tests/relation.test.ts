@@ -5,6 +5,7 @@ import {
   createChanged,
   createQuery,
   createWorld,
+  identifier,
   Not,
   Or,
   relation,
@@ -523,7 +524,6 @@ describe('Relation', () => {
     expect(container.get(Contains(item))?.amount).toBe(5);
   });
 
-  // There is a hotpath for relation-only queries so this is a sanity check
   it('should support relation-only query with each', () => {
     const ChildOf = relation();
 
@@ -545,21 +545,20 @@ describe('Relation', () => {
     expect(visited).toContain(child3);
   });
 
-  it('copies the sources of a concrete target on each query', () => {
+  it('keeps a concrete target view live as sources join and leave', () => {
     const ChildOf = relation();
-
     const parent = world.spawn();
-    const otherParent = world.spawn();
-    const child = world.spawn(ChildOf(parent));
+    const children = world.query(ChildOf(parent));
+    const first = world.spawn(ChildOf(parent));
+    const second = world.spawn(ChildOf(parent));
+    const snapshot = children.toArray();
 
-    // The relation index is copied, so the result does not change under the caller.
-    const first = world.query(ChildOf(parent));
-    const second = world.query(ChildOf(parent));
-    expect(first).not.toBe(second);
-    child.remove(ChildOf(parent));
-    expect([...first]).toEqual([child]);
-
-    expect(world.query(ChildOf(otherParent))).toHaveLength(0);
+    expect(snapshot).toEqual([first, second]);
+    first.remove(ChildOf(parent));
+    expect(children.toArray()).toEqual([second]);
+    second.destroy();
+    expect(children.toArray()).toEqual([]);
+    expect(snapshot).toEqual([first, second]);
   });
 
   it('relation-only queries should tolerate relation removal during iteration', () => {
@@ -694,6 +693,7 @@ describe('Relation', () => {
     const Added = createAdded();
     const Unit = trait();
     const unit = world.spawn(Unit);
+    const Name = identifier();
     const cached = world[$internal].queriesHashMap.size;
     let team = world.spawn();
 
@@ -702,9 +702,11 @@ describe('Relation', () => {
       world.query(Unit, Not(ChildOf(team)));
       world.query(Unit, Or(ChildOf(team), Unit));
       world.query(Added(ChildOf(team)));
+      world.query(Name(String(i)), ChildOf(team));
       team.destroy();
       // The world retains nothing, so the queries go with their target.
       expect(world[$internal].queriesHashMap.size).toBe(cached);
+      expect(world[$internal].inlineQueries.next!.get(Name)!.next!.size).toBe(0);
     }
 
     expect(world.query(Unit, Not(ChildOf(team))).toArray()).toEqual([unit]);

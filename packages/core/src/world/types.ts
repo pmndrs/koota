@@ -29,15 +29,15 @@ import type {
 
 /**
  * A step in the tree of resolved inline parameter lists. The list ending here holds its query. A
- * pair naming a target entity takes two steps, its relation and then its target.
+ * concrete relation or identifier pair takes two steps, its definition and then its target.
  */
 export type InlineQueryNode = {
-  next: Map<QueryParameter | Relation<Trait> | Entity, InlineQueryNode> | null;
+  next: Map<QueryParameter | Relation<Trait> | IdentifierKey, InlineQueryNode> | null;
   params: QueryParameter[] | null;
   query: QueryInstance | null;
-  /** Pruning stops at the stable prefix before the first concrete target. */
+  /** Pruning stops at the stable prefix before the first identifier key or concrete target. */
   parent: InlineQueryNode | null;
-  key: QueryParameter | Relation<Trait> | Entity | null;
+  key: QueryParameter | Relation<Trait> | IdentifierKey | null;
 };
 
 export type WorldContext = {

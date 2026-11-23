@@ -19,7 +19,6 @@ import { compileQueryIterators, getQueryIterators } from '../query/utils/compile
 import type {
   QueryInstance,
   QueryIterationBuffers,
-  QueryLayout,
   QueryParameter,
   QueryViewBinding,
   TargetProjection,
@@ -43,13 +42,11 @@ type IterationBufferPool = { iterationBuffers: QueryIterationBuffers | undefined
  */
 export class EntityView {
   ctx: WorldContext;
-  /** Null for lookups that bypass a query instance, such as identifier and relation fast paths. */
+  /** Null for views backed by an ordered relation. */
   query: QueryInstance | null;
   binding: QueryViewBinding;
   source: EntitySource;
   live: boolean;
-  /** Owned query views memoize their page layout. */
-  layout: QueryLayout | undefined;
 
   constructor(
     ctx: WorldContext,
@@ -63,7 +60,6 @@ export class EntityView {
     this.binding = binding;
     this.source = source;
     this.live = live;
-    this.layout = undefined;
   }
 
   getGuard(): { iterating: number; readers: number } | null {

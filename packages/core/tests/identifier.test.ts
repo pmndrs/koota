@@ -50,6 +50,19 @@ describe('Identifiers', () => {
     expect(player.get(Position)).toEqual({ x: 7 });
   });
 
+  it('keeps an inline key and trait view live as ownership and membership change', () => {
+    const player = world.query(Name('player'), Position);
+    const first = world.spawn(Name('player'));
+    expect(player.toArray()).toEqual([]);
+    first.add(Position);
+    expect(player.toArray()).toEqual([first]);
+    first.remove(Name);
+    const second = world.spawn(Name('player'), Position);
+    expect(player.toArray()).toEqual([second]);
+    second.remove(Position);
+    expect(player.toArray()).toEqual([]);
+  });
+
   it('keeps namespaces separate by identifier type, key type and world', () => {
     const First = identifier<string | number>();
     const Second = identifier<string | number>();
