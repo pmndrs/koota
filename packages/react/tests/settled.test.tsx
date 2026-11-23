@@ -9,8 +9,8 @@ import {
   useTargets,
   useTrait,
   useTraitEffect,
-  WorldProvider,
 } from '../src';
+import { withWorld } from './with-world';
 
 it('refreshes all entity and query hooks after removal side effects synchronously', () => {
   const world = createWorld({ retain: 0 });
@@ -36,7 +36,7 @@ it('refreshes all entity and query hooks after removal side effects synchronousl
       });
       return { has, target, targets, value, query, first };
     },
-    { wrapper: ({ children }) => <WorldProvider world={world}>{children}</WorldProvider> }
+    { wrapper: withWorld(world) }
   );
   source.onRemove(Value, () => {
     parent.destroy();
@@ -65,7 +65,9 @@ it('coalesces writes inside structural callbacks and still delivers ordinary wri
   const Trigger = trait();
   const source = world.spawn(Value, Trigger);
   const values: unknown[] = [];
-  const { unmount } = renderHook(() => useTraitEffect(source, Value, (v) => values.push(v?.x)));
+  const { unmount } = renderHook(() => useTraitEffect(source, Value, (v) => values.push(v?.x)), {
+    wrapper: withWorld(world),
+  });
   source.onRemove(Trigger, () => {
     source.set(Value, { x: 1 });
     source.set(Value, { x: 2 });
@@ -92,7 +94,7 @@ it('clears every hook when the source is destroyed and when the world resets', (
       value: useTrait(source, Value),
       query: useQuery(Value),
     }),
-    { wrapper: ({ children }) => <WorldProvider world={world}>{children}</WorldProvider> }
+    { wrapper: withWorld(world) }
   );
   act(() => source.destroy());
   expect(result.current).toEqual({
@@ -113,10 +115,10 @@ it('updates filtered relation presence when an existing target enters or leaves 
   const target = world.spawn(),
     source = world.spawn(Link(target));
   const filter = createQuery(Enabled);
-  const { result, unmount } = renderHook(() => [
-    useHas(source, Link(Enabled)),
-    useHas(source, Link(filter)),
-  ]);
+  const { result, unmount } = renderHook(
+    () => [useHas(source, Link(Enabled)), useHas(source, Link(filter))],
+    { wrapper: withWorld(world) }
+  );
   expect(result.current).toEqual([false, false]);
   act(() => target.add(Enabled));
   expect(result.current).toEqual([true, true]);

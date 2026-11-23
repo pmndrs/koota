@@ -8,11 +8,13 @@ import {
 import { untrack } from 'svelte';
 import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
+import { useWorld } from '../world/world-context.js';
 
 export function useMachine<S extends MachineStates>(
   target: () => Entity | World | undefined | null,
   machine: MaybeGetter<Machine<S>>
 ): { readonly current: S[keyof S] | undefined } {
+  useWorld();
   const binding = $derived.by(() => {
     const subject = target();
     const selected = resolve(machine);

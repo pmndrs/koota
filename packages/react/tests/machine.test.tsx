@@ -1,8 +1,9 @@
 import { createWorld, machine, trait, type Entity } from '@koota/core';
 import { cleanup, renderHook } from '@testing-library/react';
-import { act, StrictMode, useLayoutEffect } from 'react';
+import { act, useLayoutEffect } from 'react';
 import { afterEach, expect, expectTypeOf, it } from 'vitest';
 import { useMachine, useTraitEffect } from '../src';
+import { withWorld } from './with-world';
 
 afterEach(cleanup);
 
@@ -18,7 +19,11 @@ it('observes entry, re-entry, removal, destruction and target changes', () => {
       const state = useMachine(target, Download);
       return { state, requestId: state === Loading ? target?.get(Loading)?.requestId : undefined };
     },
-    { initialProps: { target: first as Entity | null }, wrapper: StrictMode }
+    {
+      initialProps: { target: first as Entity | null },
+      wrapper: withWorld(world),
+      reactStrictMode: true,
+    }
   );
   expectTypeOf(result.current.state).toEqualTypeOf<typeof Idle | typeof Loading | undefined>();
   expect(result.current.state).toBeUndefined();
@@ -46,12 +51,15 @@ it('catches transitions before subscribing and follows a world through reset', (
   const Download = machine({ states: { Idle, Loading }, initial: Idle });
   const world = createWorld();
   world.add(Download);
-  const { result, unmount } = renderHook(() => {
-    useLayoutEffect(() => {
-      world.add(Loading);
-    }, []);
-    return useMachine(world, Download);
-  });
+  const { result, unmount } = renderHook(
+    () => {
+      useLayoutEffect(() => {
+        world.add(Loading);
+      }, []);
+      return useMachine(world, Download);
+    },
+    { wrapper: withWorld(world) }
+  );
   expect(result.current).toBe(Loading);
   act(() => world.reset());
   expect(result.current).toBeUndefined();
@@ -67,14 +75,17 @@ it('catches a round trip to the same state before subscribing', () => {
   const State = machine({ states: { Active, Idle }, initial: Active });
   const world = createWorld();
   const entity = world.spawn(State);
-  const { result, unmount } = renderHook(() => {
-    useMachine(entity, State);
-    useLayoutEffect(() => {
-      State.enter(entity, Idle);
-      State.enter(entity, Active({ value: 2 }));
-    }, []);
-    return entity.get(Active)?.value;
-  });
+  const { result, unmount } = renderHook(
+    () => {
+      useMachine(entity, State);
+      useLayoutEffect(() => {
+        State.enter(entity, Idle);
+        State.enter(entity, Active({ value: 2 }));
+      }, []);
+      return entity.get(Active)?.value;
+    },
+    { wrapper: withWorld(world) }
+  );
   expect(result.current).toBe(2);
   unmount();
   world.destroy();
@@ -87,15 +98,17 @@ it('runs trait effects once after re-entry and state changes', () => {
   const world = createWorld();
   const entity = world.spawn(AssetMachine);
   const observations: unknown[] = [];
-  const { unmount } = renderHook(() =>
-    useTraitEffect(entity, Loading, (value) => {
-      observations.push([
-        value,
-        AssetMachine.current(entity),
-        entity.has(Loading),
-        world.query(Loaded).toArray(),
-      ]);
-    })
+  const { unmount } = renderHook(
+    () =>
+      useTraitEffect(entity, Loading, (value) => {
+        observations.push([
+          value,
+          AssetMachine.current(entity),
+          entity.has(Loading),
+          world.query(Loaded).toArray(),
+        ]);
+      }),
+    { wrapper: withWorld(world) }
   );
   observations.length = 0;
 
@@ -114,8 +127,9 @@ it('keeps a world trait effect subscribed across reset', () => {
   const Progress = trait({ value: 0 });
   world.add(Progress);
   const seen: (number | undefined)[] = [];
-  const { unmount } = renderHook(() =>
-    useTraitEffect(world, Progress, (value) => seen.push(value?.value))
+  const { unmount } = renderHook(
+    () => useTraitEffect(world, Progress, (value) => seen.push(value?.value)),
+    { wrapper: withWorld(world) }
   );
   act(() => world.reset());
   act(() => world.add(Progress({ value: 2 })));

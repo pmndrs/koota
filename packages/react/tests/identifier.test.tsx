@@ -7,9 +7,10 @@ import {
   type World,
 } from '@koota/core';
 import { cleanup, renderHook } from '@testing-library/react';
-import { act, StrictMode, useLayoutEffect } from 'react';
+import { act, useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { useHas, useQuery, useTarget, WorldProvider } from '../src';
+import { useHas, useQuery, useTarget } from '../src';
+import { withWorld } from './with-world';
 
 describe('identifier hooks', () => {
   const Name = identifier();
@@ -33,7 +34,7 @@ describe('identifier hooks', () => {
         present: useHas(entity, WireId),
         exact: useHas(entity, WireId(123)),
       }),
-      { wrapper: StrictMode }
+      { wrapper: withWorld(world), reactStrictMode: true }
     );
     expectTypeOf(result.current.name).toEqualTypeOf<string | undefined>();
     expectTypeOf(result.current.wireId).toEqualTypeOf<number | undefined>();
@@ -74,7 +75,8 @@ describe('identifier hooks', () => {
       }),
       {
         initialProps: { target: first as Entity | null | undefined, type: Name },
-        wrapper: StrictMode,
+        wrapper: withWorld(world),
+        reactStrictMode: true,
       }
     );
     expect(result.current).toEqual({ value: 'kris', present: true });
@@ -104,11 +106,8 @@ describe('identifier hooks', () => {
         matches: useHas(second, DisplayName('kris')),
       }),
       {
-        wrapper: ({ children }) => (
-          <StrictMode>
-            <WorldProvider world={world}>{children}</WorldProvider>
-          </StrictMode>
-        ),
+        wrapper: withWorld(world),
+        reactStrictMode: true,
       }
     );
     expect(result.current).toEqual({ entities: [first, second], name: 'kris', matches: true });
@@ -129,7 +128,11 @@ describe('identifier hooks', () => {
     const { result, rerender } = renderHook(
       ({ type, key }: { type: Identifier<IdentifierKey>; key: IdentifierKey }) =>
         useHas(entity, type(key)),
-      { initialProps: { type: First, key: 1 as IdentifierKey }, wrapper: StrictMode }
+      {
+        initialProps: { type: First, key: 1 as IdentifierKey },
+        wrapper: withWorld(world),
+        reactStrictMode: true,
+      }
     );
     expect(result.current).toBe(true);
     rerender({ type: Second, key: 1 });
@@ -150,7 +153,7 @@ describe('identifier hooks', () => {
         present: useHas(world, WireId),
         exact: useHas(world, WireId(123)),
       }),
-      { wrapper: StrictMode }
+      { wrapper: withWorld(world), reactStrictMode: true }
     );
     expect(result.current).toEqual({ value: 123, present: true, exact: true });
     act(() => world.reset());
@@ -170,7 +173,7 @@ describe('identifier hooks', () => {
         useLayoutEffect(() => entity.add(WireId(456)), []);
         return { value, exact };
       },
-      { wrapper: StrictMode }
+      { wrapper: withWorld(world), reactStrictMode: true }
     );
     expect(result.current).toEqual({ value: 456, exact: false });
   });
@@ -185,7 +188,7 @@ describe('identifier hooks', () => {
         replaced: useHas(entity, WireId(456)),
         current: useHas(entity, WireId(789)),
       }),
-      { wrapper: StrictMode }
+      { wrapper: withWorld(world), reactStrictMode: true }
     );
     act(() => entity.add(WireId(456)));
     expect(result.current).toEqual({ value: 789, present: true, replaced: false, current: true });

@@ -9,6 +9,7 @@ import {
 } from '@koota/core';
 import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
+import { useWorld } from '../world/world-context.js';
 
 export function useTarget<K extends IdentifierKey>(
   target: () => Entity | World | undefined | null,
@@ -22,6 +23,7 @@ export function useTarget(
   target: () => Entity | World | undefined | null,
   relation: MaybeGetter<Relation<Trait> | Identifier>
 ): { readonly current: IdentifierKey | undefined } {
+  useWorld();
   const initialEntity = getTargetEntity(target());
   let value = $state.raw<IdentifierKey | undefined>(
     initialEntity?.targetFor(resolve(relation) as Relation<Trait>)

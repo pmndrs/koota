@@ -9,6 +9,7 @@ import {
 import { untrack } from 'svelte';
 import { observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
+import { useWorld } from '../world/world-context.js';
 
 export function useTraitEffect<T extends Trait>(
   target: () => Entity | World,
@@ -25,6 +26,7 @@ export function useTraitEffect<T extends Trait>(
   trait: MaybeGetter<T | RelationPair<T>>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
+  useWorld();
   const notify = (value: TraitRecord<T> | undefined) => untrack(() => callback(value));
 
   $effect(() => {

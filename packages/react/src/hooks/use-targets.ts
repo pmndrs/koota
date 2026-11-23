@@ -1,5 +1,6 @@
 import { $internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
+import { useWorld } from '../world/use-world';
 
 // Keep the empty result stable across renders when no entity is provided.
 const noTargets: Entity[] = [];
@@ -25,5 +26,6 @@ export function useTargets<T extends Trait>(
   target: Entity | World | undefined | null,
   relation: Relation<T>
 ): Entity[] {
+  useWorld();
   return useEntityValue(target, relation as Relation<Trait>, readTargets, attachTargets) ?? noTargets;
 }

@@ -9,11 +9,13 @@ import {
 } from '@koota/core';
 import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
+import { useWorld } from '../world/world-context.js';
 
 export function useHas(
   target: () => Entity | World | undefined | null,
   trait: MaybeGetter<Trait | RelationPair | Identifier | IdentifierPair>
 ): { readonly current: boolean } {
+  useWorld();
   const initialEntity = getTargetEntity(target());
   let value = $state(initialEntity?.has(resolve(trait)) ?? false);
 
