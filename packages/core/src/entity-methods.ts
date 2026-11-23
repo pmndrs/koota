@@ -33,7 +33,8 @@ let installed = false;
 
 /**
  * Creates a world whose entities carry methods, so entity.get(Position) works without the
- * world at hand. Call destroy when done with it. The methods are installed on first use.
+ * world at hand. Call destroy when done with it. Only one copy of this entry can install the
+ * methods on a given Number.prototype.
  *
  * A program creates all of its worlds here or none of them. Ids are not marked by the kind of
  * world they came from, so a method called on an entity of a world from the main entry is not
@@ -41,8 +42,8 @@ let installed = false;
  */
 export function createWorld(options?: WorldOptions): World {
   if (!installed) {
-    installed = true;
     installEntityMethods();
+    installed = true;
   }
   return createWorldWithAllocator(allocator, options);
 }
@@ -141,9 +142,18 @@ function installEntityMethods() {
     },
   } as EntityMethods;
 
-  for (const key in methods) {
+  // Check every name before installing any method so one prototype always uses one allocator.
+  const keys = Object.keys(methods) as (keyof EntityMethods)[];
+  for (const key of keys) {
+    if (Object.hasOwn(Number.prototype, key)) {
+      throw new Error(
+        `Koota: Number.prototype.${key} already exists. Use one copy of koota/entity-methods per realm.`
+      );
+    }
+  }
+  for (const key of keys) {
     Object.defineProperty(Number.prototype, key, {
-      value: methods[key as keyof EntityMethods],
+      value: methods[key],
       configurable: true,
       writable: true,
     });
