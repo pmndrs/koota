@@ -1,3 +1,4 @@
+import { observeHas } from './observe-has';
 import { createQueryStore } from '../query/query-store';
 import { observeSettled } from './settled';
 import { beginDefer, endDefer, runDeferred } from './defer';
@@ -282,6 +283,7 @@ export function createWorld(options?: WorldOptions): World {
       deferDepth: 0,
       settledQueue: new Set(),
       observeSettled,
+      observeHas,
       createQueryStore,
       resetSubscriptions: new Set(),
       observeWorldEntity,

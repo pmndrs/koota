@@ -1,4 +1,4 @@
-import { createWorld, relation, trait } from '@koota/core';
+import { createQuery, createWorld, relation, trait } from '@koota/core';
 import { act, renderHook } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import {
@@ -104,4 +104,24 @@ it('clears every hook when the source is destroyed and when the world resets', (
   });
   act(() => world.reset());
   expect(result.current.query).toEqual([]);
+});
+
+it('updates filtered relation presence when an existing target enters or leaves the filter', () => {
+  const world = createWorld(),
+    Enabled = trait(),
+    Link = relation();
+  const target = world.spawn(),
+    source = world.spawn(Link(target));
+  const filter = createQuery(Enabled);
+  const { result, unmount } = renderHook(() => [
+    useHas(source, Link(Enabled)),
+    useHas(source, Link(filter)),
+  ]);
+  expect(result.current).toEqual([false, false]);
+  act(() => target.add(Enabled));
+  expect(result.current).toEqual([true, true]);
+  act(() => target.remove(Enabled));
+  expect(result.current).toEqual([false, false]);
+  unmount();
+  world.destroy();
 });
