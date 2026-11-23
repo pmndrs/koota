@@ -55,7 +55,7 @@ export function Game({ children }) {
 
 React runs the cleanup on unmount, when Strict Mode replays effects and when an `<Activity>` hides the subtree. The effect then makes a new world, which starts empty. Destroying a world is final, so the cleared state is what keeps children from running against the destroyed world until the next one exists. For the same reason, never destroy a world in the cleanup of an effect that did not create it.
 
-Children can still clean up after the world is gone. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing on a destroyed world. Entity methods from `koota/entity-methods` cannot find a destroyed world and throw, so use the world forms in cleanups.
+Children can still clean up after the world is gone. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing on a destroyed world, and neither do `entity.destroy()` and `entity.remove(Trait)` from `koota/entity-methods`. Prefer the world forms in cleanups. An entity method finds its world through the entity id, so once a newer world reuses that id the old entity reads as a stale handle and the call throws.
 
 ## `useWorld`
 

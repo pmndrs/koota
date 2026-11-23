@@ -1212,7 +1212,7 @@ world.reset()
 world.destroy()
 ```
 
-Destroying a world is final, and calling it again does nothing. A destroyed world has no entities and no world traits, and its queries are empty. `spawn` and `reset` throw, as does adding a world trait. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing, since destroying the world already destroyed the entity, so cleanup code is safe to run after the world is gone. To empty a world and keep using it, call `world.reset()`.
+Destroying a world is final, and calling it again does nothing. A destroyed world has no entities and no world traits, and its queries are empty. `spawn` and `reset` throw, as does adding a world trait. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing, as do the entity methods `entity.destroy()` and `entity.remove(Trait)`, since destroying the world already destroyed the entity, so cleanup code is safe to run after the world is gone. To empty a world and keep using it, call `world.reset()`.
 
 ### Entity
 

@@ -70,7 +70,7 @@ export function Game({ children }: { children: React.ReactNode }) {
 }
 ```
 
-Child cleanups may run after the world is destroyed. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing there. Entity methods from `koota/entity-methods` throw, so use the world forms in cleanups.
+Child cleanups may run after the world is destroyed. `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing there, and neither do `entity.destroy()` and `entity.remove(Trait)` from `koota/entity-methods`. Prefer the world forms in cleanups, since an entity method throws once a newer world reuses the entity id.
 
 ## useQuery
 
