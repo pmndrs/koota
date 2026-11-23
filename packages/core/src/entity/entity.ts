@@ -15,10 +15,12 @@ import { isQuery } from '../query/utils/is-query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
+import { subscribeRelationFilter } from '../relation/filter-hooks';
 import { clearRelationEntity, getRelationTargets, hasRelationPair } from '../relation/relation';
 import { hasIdentifier, isIdentifierPair } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair } from '../relation/types';
+import { isRelationPair } from '../relation/utils/is-relation';
 import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
   applyAddTrait,
@@ -290,7 +292,15 @@ function clearEntitySubscriptions(ctx: WorldContext, entity: Entity) {
     clearEntity(instance.removeSubscriptions, entity);
     clearEntity(instance.changeSubscriptions, entity);
     instance.machine?.byEntity.delete(entity);
+    const filters = instance.relationFilterHooks;
+    if (filters !== null) {
+      for (const hooks of filters.values()) {
+        clearEntity(hooks.added, entity);
+        clearEntity(hooks.removed, entity);
+      }
+    }
     if (
+      (filters === null || filters.size === 0) &&
       instance.addSubscriptions.entityCount === 0 &&
       instance.removeSubscriptions.entityCount === 0 &&
       instance.changeSubscriptions.entityCount === 0 &&
@@ -409,5 +419,24 @@ export function subscribeEntityEvent(
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
   ctx.entitySubscribedInstances.add(instance);
   if (event === 'changeSubscriptions') ctx.trackingRevision++;
-  return subscribeEntity(instance[event], entity, resolveHookCallback(ctx, input, callback));
+  const unsubscribe = subscribeEntity(
+    instance[event],
+    entity,
+    resolveHookCallback(ctx, input, callback)
+  );
+  if (event === 'changeSubscriptions' || !isRelationPair(input) || !input.targetQuery) {
+    return unsubscribe;
+  }
+  const stop = subscribeRelationFilter(
+    ctx,
+    instance,
+    input,
+    event === 'addSubscriptions',
+    callback,
+    entity
+  );
+  return () => {
+    unsubscribe();
+    stop();
+  };
 }

@@ -164,6 +164,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
     changeSubscriptions: createSubscriptions(),
     addSubscriptions: createSubscriptions(),
     removeSubscriptions: createSubscriptions(),
+    relationFilterHooks: null,
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
     machine: traitCtx.machine?.trait === trait ? createMachineInstance() : undefined,

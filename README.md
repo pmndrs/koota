@@ -620,6 +620,17 @@ world.onAdd(ChildOf(parent), (entity, target) => {})
 world.onAdd(ChildOf('*'), (entity, target) => {})
 ```
 
+A relation filter such as `ChildOf(IsActive)` fires for pairs whose target matches the filter. An entity holds such a pair while its target matches, so the hooks also fire when a target it already links to enters or leaves the filter.
+
+```js
+world.onAdd(ChildOf(IsActive), (entity, target) => {})
+world.onRemove(ChildOf(IsActive), (entity, target) => {})
+
+child.add(ChildOf(parent)) // Nothing yet, the parent is not active
+parent.add(IsActive) // onAdd(child, parent)
+parent.remove(IsActive) // onRemove(child, parent)
+```
+
 ### Identifiers
 
 `identifier()` defines a namespace for scalar keys, such as names or network ids. Within each world, an entity has at most one key per namespace. Keys are exclusive by default, so each key has at most one owner. Keys are strings by default, or finite numbers with `identifier<number>()`.

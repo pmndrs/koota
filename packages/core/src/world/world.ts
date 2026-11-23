@@ -1,5 +1,4 @@
 import { getOrderedSnapshot } from '../relation/ordered';
-import { observeHas } from './observe-has';
 import { createQueryStore } from '../query/query-store';
 import { observeSettled } from './settled';
 import { beginDefer, endDefer, runDeferred } from './defer';
@@ -38,6 +37,7 @@ import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '..
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { isStableParameter } from '../query/modifier';
+import { subscribeRelationFilter } from '../relation/filter-hooks';
 import { getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -286,7 +286,6 @@ export function createWorld(options?: WorldOptions): World {
       deferDepth: 0,
       settledQueue: new Set(),
       observeSettled,
-      observeHas,
       getOrderedSnapshot,
       createQueryStore,
       resetSubscriptions: new Set(),
@@ -516,7 +515,13 @@ export function createWorld(options?: WorldOptions): World {
         data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
       }
 
-      return subscribeAll(data.addSubscriptions, resolvedCallback);
+      const unsubscribe = subscribeAll(data.addSubscriptions, resolvedCallback);
+      if (!isRelationPair(trait) || !trait.targetQuery) return unsubscribe;
+      const stop = subscribeRelationFilter(ctx, data, trait, true, callback);
+      return () => {
+        unsubscribe();
+        stop();
+      };
     },
 
     onRemove(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
@@ -532,7 +537,13 @@ export function createWorld(options?: WorldOptions): World {
         data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
       }
 
-      return subscribeAll(data.removeSubscriptions, resolvedCallback);
+      const unsubscribe = subscribeAll(data.removeSubscriptions, resolvedCallback);
+      if (!isRelationPair(trait) || !trait.targetQuery) return unsubscribe;
+      const stop = subscribeRelationFilter(ctx, data, trait, false, callback);
+      return () => {
+        unsubscribe();
+        stop();
+      };
     },
 
     onChange(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {

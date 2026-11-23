@@ -156,7 +156,7 @@ const activePlayers = createQuery(IsPlayer, IsActive)
 const cachedChildren = world.query(ChildOf(activePlayers))
 ```
 
-These target-query filters stay live. If a target gains or loses the traits required by the filter, cached queries and `onEnter`/`onExit` subscriptions update automatically.
+These target-query filters stay live. If a target gains or loses the traits required by the filter, cached queries and `onEnter`/`onExit` subscriptions update automatically. The same change counts as the filtered pair being added or removed, so `onAdd(ChildOf(IsActive))`, `onRemove(ChildOf(IsActive))` and the `Added`, `Removed` and `Changed` modifiers on a relation filter report it too.
 
 ### Read targets with each
 

@@ -28,11 +28,18 @@ export function useHas(
         return;
       }
 
-      const detach = entity[internal].observeHas(entity, resolvedTrait, (present) => {
-        value = present;
+      const observer = entity[internal].observeSettled(() => {
+        value = entity.isAlive() && entity.has(resolvedTrait);
       });
+      // The hook overloads take no union. Core resolves every input and filters exact terms by key.
+      const onAdd = entity.onAdd(resolvedTrait as Trait, observer.invalidate);
+      const onRemove = entity.onRemove(resolvedTrait as Trait, observer.invalidate);
       value = entity.has(resolvedTrait);
-      return detach;
+      return () => {
+        observer.unsubscribe();
+        onAdd();
+        onRemove();
+      };
     });
   });
 

@@ -292,6 +292,8 @@ const updatedChildren = world.query(Changed(ChildOf(parent)))
 const newPlayerChildren = world.query(Added(ChildOf(IsPlayer, IsActive)))
 ```
 
+With a relation filter, a target entering or leaving the filter counts as the pair being added or removed, the same as adding or removing the pair itself. `Added(ChildOf(IsActive))` reports a child when its parent becomes active.
+
 > [!IMPORTANT]  
 > `Changed(ChildOf), ChildOf(parent)` is a different query. It tracks a change to any `ChildOf` pair of an entity and then filters by the entities that have `parent` as a target.
 
@@ -326,4 +328,15 @@ world.onAdd(ChildOf(parent), (entity, target) => {})
 
 // Fires for any ChildOf addition, the same as passing the ChildOf trait
 world.onAdd(ChildOf('*'), (entity, target) => {})
+```
+
+A relation filter such as `ChildOf(IsActive)` fires for pairs whose target matches the filter. An entity holds such a pair while its target matches, so the hooks also fire when a target it already links to enters or leaves the filter.
+
+```js
+world.onAdd(ChildOf(IsActive), (entity, target) => {})
+world.onRemove(ChildOf(IsActive), (entity, target) => {})
+
+child.add(ChildOf(parent)) // Nothing yet, the parent is not active
+parent.add(IsActive) // onAdd(child, parent)
+parent.remove(IsActive) // onRemove(child, parent)
 ```

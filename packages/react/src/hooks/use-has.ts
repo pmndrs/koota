@@ -17,7 +17,17 @@ function readHas(entity: Entity, trait: HasInput) {
 }
 
 function attachHas(entity: Entity, trait: HasInput, push: (value: boolean) => void) {
-  return entity[$internal].observeHas(entity, trait, push);
+  const observer = entity[$internal].observeSettled(() =>
+    push(entity.isAlive() && entity.has(trait))
+  );
+  // The hook overloads take no union. Core resolves every input and filters exact terms by key.
+  const onAdd = entity.onAdd(trait as Trait, observer.invalidate);
+  const onRemove = entity.onRemove(trait as Trait, observer.invalidate);
+  return () => {
+    observer.unsubscribe();
+    onAdd();
+    onRemove();
+  };
 }
 
 export function useHas(target: Entity | World | undefined | null, trait: HasInput): boolean {
