@@ -1,5 +1,5 @@
-import { createWorld, relation, trait, type Entity } from '@koota/core';
-import { render } from '@testing-library/svelte';
+import { createChanged, createWorld, relation, trait, type Entity } from '@koota/core';
+import { render, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { beforeEach, describe, expect, it } from 'vitest';
 import QueryTest from './components/QueryTest.svelte';
@@ -55,6 +55,31 @@ describe('useQuery', () => {
     });
 
     expect(initialCount).toBe(1);
+  });
+
+  it('keeps the initial tracked batch through mount and shares later batches between readers', async () => {
+    const Changed = createChanged();
+    const params = [Changed(Position)];
+    const entity = world.spawn(Position);
+    const other = world.spawn(Position);
+    const first = renderSubject({ params });
+    const second = renderSubject({ params });
+    const counts = () =>
+      [first, second].map(({ container }) => within(container).getByTestId('count').textContent);
+
+    await tick();
+    expect(counts()).toEqual(['2', '2']);
+
+    other.set(Position, { x: 1 });
+    await tick();
+    expect(counts()).toEqual(['1', '1']);
+
+    world.defer(() => {
+      entity.set(Position, { y: 1 });
+      other.set(Position, { y: 1 });
+    });
+    await tick();
+    expect(counts()).toEqual(['2', '2']);
   });
 
   it('reactively updates when the world is reset', async () => {
