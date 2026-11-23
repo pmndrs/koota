@@ -67,7 +67,12 @@ it('switches targets and machines and unsubscribes on unmount', async () => {
   });
   flushSync();
   expect(result.current).toBe(Idle);
-  await rerender({ target: second });
+  await rerender({
+    target: second,
+    data: (state: Trait | undefined) => {
+      if (state === Idle) throw new Error('Rendered the previous entity state');
+    },
+  });
   expect(result.current).toBe(Loading);
   first.remove(Asset);
   expect(result.current).toBe(Loading);
