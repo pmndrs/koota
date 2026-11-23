@@ -143,12 +143,12 @@ export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
-  if (
-    (query.identifierFilters !== undefined || query.ctx.queryBatch !== undefined) &&
-    hasStaticMembership(query, entity)
-  )
-    return;
-  query.entities.add(entity);
+  const entities = query.entities;
+  // Only a query an event can reach twice for one entity can already hold it. The set ignores a
+  // repeated add, so an unchanged length is what tells one apart.
+  const held = query.rechecks || query.ctx.queryBatch !== undefined ? entities.length : -1;
+  entities.add(entity);
+  if (entities.length === held && !query.isTracking) return;
   query.version++;
 
   if (query.addSubscriptions !== null || query.removeSubscriptions !== null) {
@@ -221,10 +221,6 @@ export function reconcileTargetQueries(
     if (!dying && checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
     else removeEntityFromQuery(query, entity);
   }
-}
-
-function hasStaticMembership(query: QueryInstance, entity: Entity) {
-  return !query.isTracking && query.entities.has(entity);
 }
 
 function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
@@ -427,6 +423,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     ctx,
     parameters,
     identifierFilters: undefined,
+    rechecks: false,
     hash: '',
     refId: -1,
     traits: [],
@@ -579,6 +576,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     all.push(or[i]);
     addMaskBits(orMasks ?? masks, or[i].generationId, or[i].bitflag, 3);
   }
+  query.rechecks = or.length !== 0 || query.filters !== null || query.identifierFilters !== undefined;
   query.hash = createQueryHash(parameters);
 
   ctx.queriesHashMap.set(query.hash, query);

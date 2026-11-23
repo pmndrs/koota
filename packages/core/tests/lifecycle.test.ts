@@ -5,6 +5,7 @@ import {
   createQuery,
   createWorld,
   identifier,
+  Or,
   relation,
   trait,
   type Entity,
@@ -540,6 +541,32 @@ describe('Lifecycle Subscriptions', () => {
       entity.add(Position({ x: 11, y: 21 }));
 
       expect(values).toEqual([10, 5, 11]);
+    });
+
+    it('reports an entity once while it keeps matching in more than one way', () => {
+      const Link = relation();
+      const events: string[] = [];
+      const either = world.spawn();
+      world.onEnter([Or(Foo, Bar)], () => events.push('or enter'));
+      world.onExit([Or(Foo, Bar)], () => events.push('or exit'));
+
+      either.add(Foo);
+      either.add(Bar);
+      either.remove(Foo);
+      either.remove(Bar);
+      expect(events.splice(0)).toEqual(['or enter', 'or exit']);
+
+      const first = world.spawn();
+      const second = world.spawn();
+      world.spawn(Link(first), Link(second));
+      world.onEnter([Link(Position)], () => events.push('filter enter'));
+      world.onExit([Link(Position)], () => events.push('filter exit'));
+
+      first.add(Position);
+      second.add(Position);
+      first.remove(Position);
+      second.remove(Position);
+      expect(events).toEqual(['filter enter', 'filter exit']);
     });
   });
 
