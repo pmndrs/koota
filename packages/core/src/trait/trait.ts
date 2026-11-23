@@ -3,7 +3,12 @@ import type { EventType, QueryInstance } from '../query/types';
 import { addMachineTrait, createMachineInstance, removeMachineTrait } from '../machine/machine';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { assertEntityAlive, assertRelationTarget, createTraitNotPresentError } from '../asserts';
+import {
+  assertAliveOrWorldDestroyed,
+  assertEntityAlive,
+  assertRelationTarget,
+  createTraitNotPresentError,
+} from '../asserts';
 import type { Entity } from '../entity/types';
 import { isAwaitingDestroy, isDyingTarget } from '../entity/utils/target-flags';
 import { isEntityAlive } from '../entity/utils/entity-index';
@@ -465,7 +470,7 @@ export function removeTrait(
   traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
 ) {
   if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
+    assertAliveOrWorldDestroyed(ctx, entity);
   }
   if (ctx.deferDepth !== 0) {
     // Spread again so the command gets an array of its own and the rest array never escapes. A

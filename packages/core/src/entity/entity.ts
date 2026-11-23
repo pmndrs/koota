@@ -2,7 +2,7 @@ import { subscribeHook } from '../world/settled';
 import { beginDefer, beginRootDefer, deferCommand, endDefer, endRootDefer } from '../world/defer';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
-import { assertEntityAlive } from '../asserts';
+import { assertAliveOrWorldDestroyed, assertEntityAlive } from '../asserts';
 import {
   addEntityToQuery,
   createQuery,
@@ -94,7 +94,7 @@ export function createEntity(ctx: WorldContext, traits: ConfigurableTrait[]): En
 
 export function destroyEntity(ctx: WorldContext, entity: Entity) {
   if (assertsEnabled) {
-    assertEntityAlive(ctx, entity);
+    assertAliveOrWorldDestroyed(ctx, entity);
   }
   if (ctx.deferDepth !== 0) /* @cold */ {
     deferCommand(ctx, applyDestroyEntity, entity, undefined, undefined);

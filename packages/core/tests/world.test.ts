@@ -24,6 +24,19 @@ describe('World', () => {
     expect(() => world.reset()).toThrow(/destroyed/);
   });
 
+  it('finds nothing left to destroy or remove on an entity once destroyed', () => {
+    const Tag = trait();
+    const Link = relation();
+    const world = createWorld();
+    const target = world.spawn();
+    const entity = world.spawn(Tag, Link(target));
+    world.destroy();
+
+    expect(() => world.destroy(entity)).not.toThrow();
+    expect(() => world.remove(entity, Tag, Link(target), Link('*'))).not.toThrow();
+    expect(() => world.add(entity, Tag)).toThrow(/does not exist/);
+  });
+
   it('releases its pages on destroy so another world can lease them', () => {
     const world = createWorld();
     const entity = world.spawn();

@@ -19,6 +19,28 @@ export /* @inline */ function assertEntityAlive(
   }
 }
 
+/**
+ * The alive check for destroy and remove. A destroyed world passes, since destroying it already
+ * destroyed its entities and the call then finds nothing to do. A dead entity of a live world
+ * is a stale handle and still throws.
+ */
+export /* @inline */ function assertAliveOrWorldDestroyed(
+  ctx: WorldContext | undefined | null,
+  entity: Entity
+): void {
+  if (ctx === undefined || ctx === null) {
+    throw createEntityNotAliveError(entity);
+  }
+  const index = ctx.entityIndex;
+  const denseIdx = index.sparse[getEntityId(entity)];
+  if (
+    (denseIdx === undefined || denseIdx >= index.aliveCount || index.dense[denseIdx] !== entity) &&
+    ctx.worldEntity !== null
+  ) {
+    throw createEntityNotAliveError(entity);
+  }
+}
+
 export /* @inline */ function assertTraitPresent(ctx: WorldContext, entity: Entity, trait: Trait) {
   const instance = getTraitInstance(ctx.traitInstances, trait);
   const eid = getEntityId(entity);
