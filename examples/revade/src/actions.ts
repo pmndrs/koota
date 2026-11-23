@@ -30,12 +30,12 @@ export const actions = createActions((world) => ({
     );
 
     if (options.position) {
-      enemy.set(Transform, (prev) => ({
+      world.set(enemy, Transform, (prev) => ({
         position: prev.position.set(...options.position!),
       }));
     }
 
-    if (options.target) enemy.add(Targeting(options.target));
+    if (options.target) world.add(enemy, Targeting(options.target));
 
     return enemy;
   },
@@ -47,13 +47,13 @@ export const actions = createActions((world) => ({
       Transform({ position: position.clone(), quaternion: rotation.clone() }),
       Bullet({ direction })
     );
-    if (firedBy) bullet.add(FiredBy(firedBy));
+    if (firedBy) world.add(bullet, FiredBy(firedBy));
 
     return bullet;
   },
   destroyAllEnemies: () => {
     world.query(IsEnemy).forEach((enemy) => {
-      enemy.destroy();
+      world.destroy(enemy);
     });
   },
 }));

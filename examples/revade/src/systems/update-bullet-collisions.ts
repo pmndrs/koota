@@ -11,13 +11,15 @@ export function updateBulletCollisions(world: World) {
       const nearbyEntities = spatialHashMap.getNearbyEntities(position.x, position.y, position.z, 2);
 
       const hitEnemy = nearbyEntities.find(
-        (entity) => entity.has(IsEnemy) && entity.get(Transform)!.position.distanceTo(position) < 1
+        (entity) =>
+          world.has(entity, IsEnemy) &&
+          world.get(entity, Transform)!.position.distanceTo(position) < 1
       );
 
       if (hitEnemy !== undefined) {
         // Mark the bullet and the enemy, later systems react and destroy them
-        hitEnemy.add(IsDying);
-        entity.add(IsDying);
+        world.add(hitEnemy, IsDying);
+        world.add(entity, IsDying);
       }
     });
 }

@@ -1,4 +1,4 @@
-import { World } from 'koota';
+import { World, getEntityId } from 'koota';
 import { NeighborOf, Position } from '../traits';
 
 const radius = 40;
@@ -11,7 +11,7 @@ export function updateNeighbors({ world }: { world: World }) {
 
   // Remove all neighbors
   for (const entity of entities) {
-    entity.remove(NeighborOf('*'));
+    world.remove(entity, NeighborOf('*'));
   }
 
   for (const entityA of entities) {
@@ -19,10 +19,10 @@ export function updateNeighbors({ world }: { world: World }) {
 
     // For each entity, find all entities within a radius
     for (const entityB of entities) {
-      if (entityA.id() === entityB.id()) continue;
+      if (getEntityId(entityA) === getEntityId(entityB)) continue;
 
-      const positionA = entityA.get(Position)!;
-      const positionB = entityB.get(Position)!;
+      const positionA = world.get(entityA, Position)!;
+      const positionB = world.get(entityB, Position)!;
 
       const distance = Math.sqrt(
         (positionA.x - positionB.x) ** 2 +
@@ -31,8 +31,8 @@ export function updateNeighbors({ world }: { world: World }) {
       );
 
       if (distance < radius) {
-        entityA.add(NeighborOf(entityB));
-        // entityB.add(NeighborOf(entityA));
+        world.add(entityA, NeighborOf(entityB));
+        // world.add(entityB, NeighborOf(entityA));
 
         neighbors++;
         if (neighbors >= maxNeighbors) break;

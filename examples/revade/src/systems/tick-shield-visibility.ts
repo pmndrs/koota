@@ -7,7 +7,7 @@ export function tickShieldVisibility(world: World) {
     shield.current += delta * 1000;
 
     if (shield.current >= shield.duration) {
-      entity.remove(ShieldVisibility, IsShieldVisible);
+      world.remove(entity, ShieldVisibility, IsShieldVisible);
     } else {
       // // Calculate remaining time percentage
       // const remainingPercent = 1 - shield.current / shield.duration;
@@ -19,9 +19,9 @@ export function tickShieldVisibility(world: World) {
       const shouldBeVisible = Math.sin((shield.current / blinkFrequency) * Math.PI * 2) > 0;
 
       if (shouldBeVisible) {
-        entity.add(IsShieldVisible);
+        world.add(entity, IsShieldVisible);
       } else {
-        entity.remove(IsShieldVisible);
+        world.remove(entity, IsShieldVisible);
       }
     }
   });

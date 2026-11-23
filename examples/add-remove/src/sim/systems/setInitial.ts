@@ -23,7 +23,7 @@ export const setInitial = ({ world }: { world: World }) => {
     // Add a random number of components to the body
     const numComponents = Math.floor(Math.random() * CONSTANTS.MAX_COMPS_PER_ENTITY);
     for (let j = 0; j < numComponents; j++) {
-      entity.add(DummyComponents[Math.floor(Math.random() * DummyComponents.length)]);
+      world.add(entity, DummyComponents[Math.floor(Math.random() * DummyComponents.length)]);
     }
 
     // Set mass and radius based on the number of components

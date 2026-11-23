@@ -1,5 +1,5 @@
 import { Position } from '../../sim';
-import type { World } from 'koota';
+import { getEntityId, type World } from 'koota';
 import * as THREE from 'three';
 import { InstancedMesh } from '../traits/InstancedMesh';
 
@@ -10,17 +10,17 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
   const instanceEnt = world.queryFirst(InstancedMesh);
   if (instanceEnt === undefined) return;
 
-  const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
+  const instancedMesh = world.get(instanceEnt, InstancedMesh)!.object;
 
   world.query(Position).each((position, entity) => {
     dummy.position.set(position.x, position.y, 0);
     dummy.scale.set(1, 1, 1);
 
     dummy.updateMatrix();
-    instancedMesh.setMatrixAt(entity.id(), dummy.matrix);
+    instancedMesh.setMatrixAt(getEntityId(entity), dummy.matrix);
 
     dummyColor.setRGB(0.5, 0.5, 0.5);
-    instancedMesh.setColorAt(entity.id(), dummyColor);
+    instancedMesh.setColorAt(getEntityId(entity), dummyColor);
   });
 
   instancedMesh.instanceMatrix.needsUpdate = true;

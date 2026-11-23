@@ -89,7 +89,7 @@ function Bodies() {
 
           entity = world.spawn(InstancedMesh({ object: node }));
         } else if (entity) {
-          entity.destroy();
+          world.destroy(entity);
         }
       }}
       args={[geo, mat, CONSTANTS.NBODIES + 500]}

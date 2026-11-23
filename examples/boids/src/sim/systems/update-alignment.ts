@@ -13,7 +13,7 @@ export const updateAlignment = ({ world }: { world: World }) => {
     if (neighbors.length === 0) return;
 
     for (const neighbor of neighbors) {
-      const neighborVelocity = neighbor.get(Velocity)!;
+      const neighborVelocity = world.get(neighbor, Velocity)!;
       alignment.x += neighborVelocity.x;
       alignment.y += neighborVelocity.y;
       alignment.z += neighborVelocity.z;

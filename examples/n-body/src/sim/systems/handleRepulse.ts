@@ -19,7 +19,7 @@ export const handleRepulse = ({ world }: { world: World }) => {
     }
 
     if (circle.radius <= 5) {
-      entity.destroy();
+      world.destroy(entity);
       return;
     }
 

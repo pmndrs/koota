@@ -13,7 +13,7 @@ export function syncToDOM(world: World) {
     .each((_card, position, rotation, scale, ref, zIndex, entity) => {
       if (!ref) return;
 
-      const isDragging = entity.has(Dragging);
+      const isDragging = world.has(entity, Dragging);
 
       // Override z-index for dragging cards
       const finalZIndex = isDragging ? 1000 : zIndex.value;

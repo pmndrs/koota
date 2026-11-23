@@ -11,7 +11,7 @@ export const init = ({ world }: { world: World }) => {
     const entity = world.spawn(Position, Velocity, Mass, Circle, Color, Acceleration);
 
     // Make the first entity the central mass.
-    if (i === 0) entity.add(IsCentralMass);
+    if (i === 0) world.add(entity, IsCentralMass);
   }
 
   inited = true;

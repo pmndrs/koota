@@ -5,7 +5,7 @@ export function updateTransform(world: World) {
   world
     .query(Velocity, Position, Rotation, Scale)
     .each((velocity, position, rotation, scale, entity) => {
-      const isDragging = entity.has(Dragging);
+      const isDragging = world.has(entity, Dragging);
 
       // Derive transforms from velocity
       const speedSq = velocity.x * velocity.x + velocity.y * velocity.y;

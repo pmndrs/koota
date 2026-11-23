@@ -11,7 +11,7 @@ export const actions = createActions((world) => ({
     return world.spawn(Ball, Position, Velocity, Scale, ScaleSpring);
   },
   wobbleBall: (entity: Entity, options: WobbleOptions = {}) => {
-    const velocity = entity.get(ScaleSpring)?.velocity ?? 0;
-    entity.upsert(ScaleSpring, { velocity: velocity + (options.strength ?? 0.25) });
+    const velocity = world.get(entity, ScaleSpring)?.velocity ?? 0;
+    world.upsert(entity, ScaleSpring, { velocity: velocity + (options.strength ?? 0.25) });
   },
 }));

@@ -9,9 +9,9 @@ export function followPlayer(world: World) {
     .query(IsEnemy, Transform, Movement, Targeting('*'))
     .each((transform, { velocity, thrust, damping }, target) => {
       // The exclusive Targeting relation passes its target
-      if (!target.has(Transform)) return;
+      if (!world.has(target, Transform)) return;
 
-      const targetTransform = target.get(Transform)!;
+      const targetTransform = world.get(target, Transform)!;
 
       // Apply damping to current velocity
       velocity.multiplyScalar(damping);

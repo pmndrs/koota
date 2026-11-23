@@ -40,7 +40,7 @@ export function handleShooting(world: World) {
   if (keys.space && canShoot) {
     const player = world.queryFirst(IsPlayer, Transform);
     if (player) {
-      const playerTransform = player.get(Transform)!;
+      const playerTransform = world.get(player, Transform)!;
       spawnBullet(playerTransform.position, playerTransform.quaternion, player);
       canShoot = false;
     }

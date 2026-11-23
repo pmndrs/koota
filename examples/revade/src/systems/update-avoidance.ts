@@ -19,8 +19,8 @@ export function updateAvoidance(world: World) {
     // Only avoid other avoidance entities
     neighbors = neighbors.filter((neighbor) => {
       return (
-        neighbor.has(Avoidance) &&
-        neighbor.get(Transform)!.position.distanceTo(position) <= avoidance.range
+        world.has(neighbor, Avoidance) &&
+        world.get(neighbor, Transform)!.position.distanceTo(position) <= avoidance.range
       );
     });
 
@@ -28,7 +28,7 @@ export function updateAvoidance(world: World) {
       acceleration.setScalar(0);
 
       for (const neighbor of neighbors) {
-        acceleration.add(neighbor.get(Transform)!.position).sub(position);
+        acceleration.add(world.get(neighbor, Transform)!.position).sub(position);
       }
 
       acceleration.divideScalar(-neighbors.length).normalize().multiplyScalar(2);

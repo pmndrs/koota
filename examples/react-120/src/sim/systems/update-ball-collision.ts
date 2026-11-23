@@ -20,7 +20,7 @@ export function updateBallCollision(world: World) {
 
       const xA = aPosX[offsetA];
       const yA = aPosY[offsetA];
-      const scaleA = entityA.get(Scale)?.value ?? 1;
+      const scaleA = world.get(entityA, Scale)?.value ?? 1;
       const radiusA = aRadius[offsetA] * scaleA;
       const massA = radiusA * radiusA * Math.PI;
 
@@ -40,7 +40,7 @@ export function updateBallCollision(world: World) {
 
           const xB = bPosX[offsetB];
           const yB = bPosY[offsetB];
-          const scaleB = entityB.get(Scale)?.value ?? 1;
+          const scaleB = world.get(entityB, Scale)?.value ?? 1;
           const radiusB = bRadius[offsetB] * scaleB;
 
           const rsum = radiusA + radiusB;

@@ -14,7 +14,7 @@ export const recycleBodiesSim = ({ world }: { world: World }) => {
   entities.select(Position).each((position, entity) => {
     if (position.y < CONSTANTS.FLOOR) {
       // Remove the entity
-      entity.destroy();
+      world.destroy(entity);
 
       if (!CONSTANTS.DRAIN) addBody(world);
     }

@@ -1,5 +1,5 @@
 import { Circle, Color, Position } from '../../sim';
-import { createRemoved, type World } from 'koota';
+import { createRemoved, type World, getEntityId } from 'koota';
 import { Points } from '../trait/Points';
 
 const normalize = (x: number, min: number, max: number) => (x - min) / (max - min);
@@ -12,7 +12,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
   const particlesEntity = world.queryFirst(Points);
   if (!particlesEntity) return;
 
-  const particles = particlesEntity.get(Points)!.object;
+  const particles = world.get(particlesEntity, Points)!.object;
 
   const positions = particles.geometry.attributes.position.array;
   const colors = particles.geometry.attributes.color.array;
@@ -32,7 +32,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
     const colorB = color.b;
 
     for (let i = 0; i < indices.length; i++) {
-      const eid = pageEntities[i].id();
+      const eid = getEntityId(pageEntities[i]);
       const offset = indices[i];
 
       // Update positions
@@ -54,7 +54,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
   }
 
   for (let i = 0; i < removedEntities.length; i++) {
-    const eid = removedEntities.at(i)!.id();
+    const eid = getEntityId(removedEntities.at(i)!);
     sizes[eid] = 0;
   }
 

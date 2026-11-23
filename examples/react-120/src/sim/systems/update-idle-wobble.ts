@@ -8,6 +8,6 @@ export function updateIdleWobble(world: World) {
   world.query(WobblesOnIdle, IsIdle, Not(Timer)).each((wobblesOnIdle, entity) => {
     const { cooldown, strength } = wobblesOnIdle;
     wobbleBall(entity, { strength });
-    entity.add(Timer({ duration: cooldown, remaining: cooldown }));
+    world.add(entity, Timer({ duration: cooldown, remaining: cooldown }));
   });
 }
