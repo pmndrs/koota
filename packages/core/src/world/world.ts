@@ -35,7 +35,6 @@ import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '..
 import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { isStableParameter } from '../query/modifier';
-import { getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
 import {
@@ -370,16 +369,8 @@ export function createWorld(options?: WorldOptions): World {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
 
-      if (args.length === 1) {
-        const arg = args[0];
-        if (isQuery(arg)) return runQueryFirst(ctx, resolveQueryInstanceFromRef(ctx, arg));
-        if (isRelationPair(arg) && !arg.targetQuery && typeof arg.target === 'number') {
-          return getFirstEntityWithRelationTo(
-            ctx,
-            arg.relation as Relation<Trait>,
-            arg.target as Entity
-          );
-        }
+      if (args.length === 1 && isQuery(args[0])) {
+        return runQueryFirst(ctx, resolveQueryInstanceFromRef(ctx, args[0]));
       }
 
       const node = findInlineQuery(ctx, args as QueryParameter[]);
