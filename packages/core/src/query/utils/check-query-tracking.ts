@@ -146,6 +146,43 @@ export function checkQueryTrackingSeed(ctx: WorldContext, query: QueryInstance, 
 }
 
 /**
+ * Record a write in the Changed groups that track the trait, then report whether the tracking
+ * groups are satisfied. Every and group must have fired in full and, when or groups exist, at
+ * least one of them in part.
+ */
+export function recordChangeAndMatch(
+  query: QueryInstance,
+  generationId: number,
+  eid: number,
+  bitflag: number
+): boolean {
+  const trackingGroups = query.trackingGroups;
+  let hasOrGroup = false;
+  let anyOrMatched = false;
+  let matched = true;
+  for (let i = 0; i < trackingGroups.length; i++) {
+    const group = trackingGroups[i];
+    const bitmasks = group.bitmasks;
+    const hit =
+      group.type === 'change' && (bitmasks[generationId]! & bitflag) !== 0 && group.pairs === null;
+    if (hit) recordTrackerHit(group.trackers, generationId, eid, bitflag);
+    if (group.logic === 'or') {
+      hasOrGroup = true;
+      if (!anyOrMatched && (hit || trackersMatchAny(group.trackers, bitmasks, eid))) {
+        anyOrMatched = true;
+      }
+    } else if (
+      matched &&
+      !(hit && group.single) &&
+      !trackersMatchAll(group.trackers, bitmasks, eid)
+    ) {
+      matched = false;
+    }
+  }
+  return matched && (!hasOrGroup || anyOrMatched);
+}
+
+/**
  * Seeds Removed pair terms from the pairs live entities lost before the query existed. An entry
  * counts while its entity is still readable, has not taken the pair back and passes the static
  * terms, as a trait seed does.
@@ -256,7 +293,7 @@ function coversPair(pair: ResolvedRelationFilter, traitId: number, target: Entit
 }
 
 /** Every tracked bit of the group has fired for the entity. */
-export function trackersMatchAll(
+function trackersMatchAll(
   trackers: Uint32Array[][],
   bitmasks: (number | undefined)[],
   eid: number
@@ -270,7 +307,7 @@ export function trackersMatchAll(
 }
 
 /** At least one tracked bit of the group has fired for the entity. */
-export function trackersMatchAny(
+function trackersMatchAny(
   trackers: Uint32Array[][],
   bitmasks: (number | undefined)[],
   eid: number
