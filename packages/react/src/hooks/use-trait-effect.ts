@@ -1,4 +1,5 @@
 import {
+  $internal,
   $relationPair,
   type Entity,
   type RelationPair,
@@ -7,7 +8,6 @@ import {
   type World,
 } from '@koota/core';
 import { useEffect, useRef } from 'react';
-import { resolveEntity } from '../utils/use-entity-value';
 import { attachTrait, readTrait } from './use-trait';
 
 export function useTraitEffect<T extends Trait>(
@@ -25,7 +25,6 @@ export function useTraitEffect<T extends Trait>(
   trait: T | RelationPair<T>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
-  const entity = resolveEntity(target)!;
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
@@ -35,12 +34,18 @@ export function useTraitEffect<T extends Trait>(
   const pairTarget = pair[$relationPair] ? pair.target : undefined;
 
   useEffect(() => {
-    const currentEntity = resolveEntity(target);
-    if (currentEntity === undefined || !currentEntity.isAlive()) return;
     const notify = (value: unknown) => callbackRef.current(value as TraitRecord<T> | undefined);
-    const detach = attachTrait(currentEntity, trait, notify);
-    notify(readTrait(currentEntity, trait));
-    return detach;
+    const listen = (entity: Entity | undefined) => {
+      if (entity === undefined) {
+        notify(undefined);
+        return;
+      }
+      if (!entity.isAlive()) return;
+      const detach = attachTrait(entity, trait, notify);
+      notify(readTrait(entity, trait));
+      return detach;
+    };
+    return typeof target === 'number' ? listen(target) : target[$internal].observeWorldEntity(listen);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entity, relation, pairTarget]);
+  }, [target, relation, pairTarget, pair.targetQuery]);
 }

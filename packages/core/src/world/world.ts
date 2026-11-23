@@ -78,16 +78,30 @@ function observeWorldEntity(
   this: WorldContext,
   listen: (entity: Entity | undefined) => (() => void) | void
 ) {
-  let detach = listen(this.worldEntity ?? undefined);
+  let detach: (() => void) | void;
+  let revision = 0;
   const rebind = () => {
+    const current = ++revision;
     detach?.();
-    detach = listen(this.worldEntity ?? undefined);
+    detach = undefined;
+    const next = listen(this.worldEntity ?? undefined);
+    // The initial trait effect can register or reset its own world.
+    if (current === revision) detach = next;
+    else next?.();
+  };
+  const stop = () => {
+    this.resetSubscriptions.delete(rebind);
+    revision++;
+    detach?.();
   };
   this.resetSubscriptions.add(rebind);
-  return () => {
-    this.resetSubscriptions.delete(rebind);
-    detach?.();
-  };
+  try {
+    rebind();
+  } catch (error) {
+    stop();
+    throw error;
+  }
+  return stop;
 }
 
 /** Inline and compiled queries share the live view for their membership and projection. */

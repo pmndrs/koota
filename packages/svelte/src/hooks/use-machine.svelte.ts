@@ -6,8 +6,7 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity } from '../utils/get-target-entity.js';
-import { isWorld } from '../utils/is-world.js';
+import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useMachine<S extends MachineStates>(
@@ -24,8 +23,7 @@ export function useMachine<S extends MachineStates>(
   $effect(() => {
     const observedTarget = target();
     const resolvedMachine = resolve(machine);
-    const listen = () => {
-      const entity = getTargetEntity(observedTarget);
+    return observeTarget(observedTarget, (entity) => {
       if (entity === undefined) {
         value = undefined;
         return;
@@ -42,22 +40,7 @@ export function useMachine<S extends MachineStates>(
         observer.unsubscribe();
         unsubscribe();
       };
-    };
-    let detach = listen();
-    // Reset replaces the world entity even when the machine was absent.
-    const resets =
-      observedTarget != null && isWorld(observedTarget)
-        ? observedTarget[internal].resetSubscriptions
-        : undefined;
-    const reset = () => {
-      detach?.();
-      detach = listen();
-    };
-    resets?.add(reset);
-    return () => {
-      resets?.delete(reset);
-      detach?.();
-    };
+    });
   });
 
   return {

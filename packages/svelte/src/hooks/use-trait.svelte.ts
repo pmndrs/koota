@@ -7,7 +7,7 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity } from '../utils/get-target-entity.js';
+import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useTrait<T extends Trait>(
@@ -26,27 +26,28 @@ export function useTrait<T extends Trait>(
   let version = $state(0);
 
   $effect(() => {
-    const entity = getTargetEntity(target());
-
-    if (entity === undefined) {
-      value = undefined;
-      return;
-    }
-
+    const subject = target();
     const resolvedTrait = resolve(trait);
-    const update = () => {
-      value = entity.isAlive() ? entity.get(resolvedTrait) : undefined;
-      untrack(() => version++);
-    };
-    const observer = entity[internal].observeSettled(update);
-    const onChange = entity.onChange(resolvedTrait, observer.invalidate);
-    const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
-    update();
-    return () => {
-      observer.unsubscribe();
-      onChange();
-      onRemove();
-    };
+    return observeTarget(subject, (entity) => {
+      if (entity === undefined) {
+        value = undefined;
+        return;
+      }
+
+      const update = () => {
+        value = entity.isAlive() ? entity.get(resolvedTrait) : undefined;
+        untrack(() => version++);
+      };
+      const observer = entity[internal].observeSettled(update);
+      const onChange = entity.onChange(resolvedTrait, observer.invalidate);
+      const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+      update();
+      return () => {
+        observer.unsubscribe();
+        onChange();
+        onRemove();
+      };
+    });
   });
 
   return {

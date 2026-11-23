@@ -114,6 +114,9 @@ it('observes a lazy world singleton through reset and reattachment', () => {
   expect(result.current).toBeUndefined();
   world.add(Asset);
   expect(result.current).toBe(Idle);
+  world.destroy();
+  expect(result.current).toBeUndefined();
+  expect(world.isRegistered).toBe(false);
   flushSync(() => unmount());
   world.destroy();
 });
