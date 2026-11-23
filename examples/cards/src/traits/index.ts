@@ -34,5 +34,6 @@ export const ZIndex = trait({ value: 0 });
 
 export const Ref = trait(required<HTMLDivElement>());
 
-export const HeldBy = relation();
+// A card does not outlive the hand that holds it.
+export const HeldBy = relation({ autoDestroy: 'orphan' });
 export const OrderedCards = ordered(HeldBy);
