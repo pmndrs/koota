@@ -5,6 +5,7 @@ import {
   createQuery,
   createRemoved,
   createWorld,
+  IsExcluded,
   Not,
   relation,
   trait,
@@ -73,6 +74,26 @@ describe('queryFirst', () => {
     expect(first()).toBe(c);
     parent.destroy();
     expect(first()).toBeUndefined();
+  });
+
+  it('skips excluded sources of a concrete relation, including the world entity', () => {
+    const ChildOf = relation();
+    const pair = ChildOf(world.spawn());
+    world.add(pair);
+    const hidden = world.spawn(IsExcluded, pair);
+    const visible = world.spawn(pair);
+    const query = createQuery(pair);
+
+    expect(world.queryFirst(pair)).toBe(visible);
+    const view = world.query(query);
+    expect(view.toArray()).toEqual([visible]);
+    hidden.remove(IsExcluded);
+    expect(world.queryFirst(pair)).toBe(view.first);
+    expect(world.query(pair).toArray()).toEqual(view.toArray());
+    visible.add(IsExcluded);
+    expect(world.queryFirst(pair)).toBe(hidden);
+    hidden.add(IsExcluded);
+    expect(world.queryFirst(pair)).toBeUndefined();
   });
 
   it('supports wildcard relations and changing target filters', () => {

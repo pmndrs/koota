@@ -12,6 +12,7 @@ import {
   isEntityAlive,
   releaseOwnedPages,
 } from '../entity/utils/entity-index';
+import { getEntityId } from '../entity/utils/pack-entity';
 import { addressSpace } from '../entity/utils/address-space';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findIdentifiedEntity } from '../identifier/find-identified-entity';
@@ -370,12 +371,12 @@ export function createWorld(options?: WorldOptions): World {
       if (args.length === 1) {
         const arg = args[0];
         if (isQuery(arg)) return runQueryFirst(ctx, resolveQueryInstanceFromRef(ctx, arg));
-        if (isRelationPair(arg) && !arg.targetQuery && typeof arg.target === 'number') {
-          return getFirstEntityWithRelationTo(
-            ctx,
-            arg.relation as Relation<Trait>,
-            arg.target as Entity
-          );
+        if (isRelationPair(arg) && typeof arg.target === 'number') {
+          const id = getEntityId(arg.target);
+          // An existing query may have reordered its members as sources entered or left.
+          if (!ctx.targetQueries[id >>> 10]?.[id & 1023]?.length) {
+            return getFirstEntityWithRelationTo(ctx, arg.relation as Relation<Trait>, arg.target);
+          }
         }
       }
 

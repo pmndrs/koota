@@ -9,6 +9,7 @@ import { getEntityId } from '../entity/utils/pack-entity';
 import type { EventType, QueryParameter } from '../query/types';
 import {
   addEntityToQuery,
+  IsExcluded,
   reconcileAnchoredQueries,
   reconcileTargetQueries,
   removeEntityFromQuery,
@@ -19,7 +20,7 @@ import { isStableParameter } from '../query/modifier';
 import { isQuery } from '../query/utils/is-query';
 import { sameParams } from '../query/utils/same-params';
 import { isRequired, pairTraitAccessors, type Schema, type TraitSchema } from '../storage';
-import { defineTrait } from '../trait/trait';
+import { defineTrait, hasTrait } from '../trait/trait';
 import { getTraitInstance } from '../trait/trait-instance';
 import type { RelationSources, Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world';
@@ -671,13 +672,10 @@ export function removeAllRelationTargets(
   }
 }
 
-/* @inline */ function getRelationSourceBucket(
-  ctx: WorldContext,
-  relation: Relation<Trait>,
-  target: Entity
-): RelationSources | undefined {
+function getRelationSourceBucket(ctx: WorldContext, relation: Relation<Trait>, target: Entity) {
   const traitData = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
-  return traitData?.relationSourcesByTarget?.[getEntityId(target)];
+  const bucket = traitData?.relationSourcesByTarget?.[getEntityId(target)];
+  if (bucket?.target === target) return bucket;
 }
 
 /**
@@ -689,17 +687,20 @@ export function getEntitiesWithRelationTo(
   relation: Relation<Trait>,
   target: Entity
 ): readonly Entity[] {
-  const bucket = getRelationSourceBucket(ctx, relation, target);
-  return bucket !== undefined && bucket.target === target ? bucket.slice() : EMPTY_ENTITY_ARRAY;
+  return getRelationSourceBucket(ctx, relation, target)?.slice() ?? EMPTY_ENTITY_ARRAY;
 }
 
+/** A one-off first match can stop at the first visible source in the query's seed order. */
 export function getFirstEntityWithRelationTo(
   ctx: WorldContext,
   relation: Relation<Trait>,
   target: Entity
-): Entity | undefined {
+) {
   const bucket = getRelationSourceBucket(ctx, relation, target);
-  return bucket !== undefined && bucket.target === target ? bucket[0] : undefined;
+  if (bucket === undefined) return;
+  for (let i = 0; i < bucket.length; i++) {
+    if (!hasTrait(ctx, bucket[i], IsExcluded)) return bucket[i];
+  }
 }
 
 export function hasRelationTargetInSet(
