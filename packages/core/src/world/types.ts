@@ -1,3 +1,4 @@
+import type { observeHas } from './observe-has';
 import type { createQueryStore } from '../query/query-store';
 import type { observeSettled } from './settled';
 import { ActionInstance } from '../actions/types';
@@ -100,6 +101,7 @@ export type WorldContext = {
   deferDepth: number;
   settledQueue: Set<() => void>;
   observeSettled: typeof observeSettled;
+  observeHas: typeof observeHas;
   createQueryStore: typeof createQueryStore;
   /** Notifies after registration, reset or destruction changes the backing entity. */
   resetSubscriptions: Set<() => void>;

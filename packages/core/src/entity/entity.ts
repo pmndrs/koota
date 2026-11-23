@@ -11,6 +11,7 @@ import {
   queryInternal,
   resetQueryTrackingBitmasks,
 } from '../query/query';
+import { isQuery } from '../query/utils/is-query';
 import { checkQuery } from '../query/utils/check-query';
 import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
@@ -379,7 +380,10 @@ export function hasEntityRelationPair(
   /* @cold */ if (pair.targetQuery) {
     if (!hasTrait(ctx, entity, pair.relation[$internal].trait)) return false;
     const targets = getRelationTargets(ctx, pair.relation, entity);
-    for (const match of queryInternal(ctx, ...(pair.targetQuery as any))) {
+    const matches = isQuery(pair.targetQuery)
+      ? queryInternal(ctx, pair.targetQuery)
+      : queryInternal(ctx, ...pair.targetQuery);
+    for (const match of matches) {
       if (targets.includes(match)) return true;
     }
     return false;

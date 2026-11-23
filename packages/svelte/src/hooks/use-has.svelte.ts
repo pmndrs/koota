@@ -24,18 +24,11 @@ export function useHas(
         return;
       }
 
-      const update = () => {
-        value = entity.isAlive() && entity.has(resolvedTrait);
-      };
-      const observer = entity[internal].observeSettled(update);
-      const onAdd = entity.onAdd(resolvedTrait, observer.invalidate);
-      const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
-      update();
-      return () => {
-        observer.unsubscribe();
-        onAdd();
-        onRemove();
-      };
+      const detach = entity[internal].observeHas(entity, resolvedTrait, (present) => {
+        value = present;
+      });
+      value = entity.has(resolvedTrait);
+      return detach;
     });
   });
 
