@@ -35,6 +35,9 @@ describe('World', () => {
     expect(() => world.destroy(entity)).not.toThrow();
     expect(() => world.remove(entity, Tag, Link(target), Link('*'))).not.toThrow();
     expect(() => world.add(entity, Tag)).toThrow(/does not exist/);
+    expect(() => entity.destroy()).not.toThrow();
+    expect(() => entity.remove(Tag, Link(target))).not.toThrow();
+    expect(() => entity.add(Tag)).toThrow(/does not exist/);
   });
 
   it('releases its pages on destroy so another world can lease them', () => {

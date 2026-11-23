@@ -64,7 +64,9 @@ function installEntityMethods() {
     },
 
     remove(this: Entity, ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]) {
-      return removeTrait(getEntityContext(this), this, traits);
+      const ctx = pageOwners[getEntityId(this) >>> 10];
+      // A released page has no owner. Its world was destroyed, so nothing is left to remove.
+      if (ctx !== null) removeTrait(ctx, this, traits);
     },
 
     has(this: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair) {
@@ -72,7 +74,9 @@ function installEntityMethods() {
     },
 
     destroy(this: Entity) {
-      return destroyEntity(getEntityContext(this), this);
+      const ctx = pageOwners[getEntityId(this) >>> 10];
+      // A released page has no owner. Its world was destroyed and the entity with it.
+      if (ctx !== null) destroyEntity(ctx, this);
     },
 
     changed(this: Entity, trait: Trait) {
