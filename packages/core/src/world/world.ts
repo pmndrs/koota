@@ -1,3 +1,4 @@
+import { createQueryStore } from '../query/query-store';
 import { observeSettled } from './settled';
 import { beginDefer, endDefer, runDeferred } from './defer';
 import { $internal } from '../common';
@@ -250,6 +251,7 @@ export function createWorld(options?: WorldOptions): World {
       deferDepth: 0,
       settledQueue: new Set(),
       observeSettled,
+      createQueryStore,
       resetSubscriptions: new Set(),
       entitySpawnSubscriptions: new Set(),
       entityDestroySubscriptions: new Set(),

@@ -82,6 +82,17 @@ describe('useQuery', () => {
     expect(counts()).toEqual(['2', '2']);
   });
 
+  it('preserves changes to multiple entities until the next component read', async () => {
+    const a = world.spawn(Position),
+      b = world.spawn(Position);
+    const { getByTestId } = renderSubject({ params: [createChanged()(Position)] });
+    await tick();
+    a.set(Position, { x: 1 });
+    b.set(Position, { x: 1 });
+    await tick();
+    expect(getByTestId('count').textContent).toBe('2');
+  });
+
   it('reactively updates when the world is reset', async () => {
     const { getByTestId } = renderSubject({
       params: [Position],
