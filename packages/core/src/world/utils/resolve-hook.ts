@@ -2,7 +2,7 @@ import { $internal } from '../../common';
 import { isIdentifierPair } from '../../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../../identifier/types';
 import type { Entity } from '../../entity/types';
-import { createQuery, queryInternal } from '../../query/query';
+import { createQuery, queryInternal, resolveQueryInstanceFromRef } from '../../query/query';
 import { isQuery } from '../../query/utils/is-query';
 import type { Relation, RelationPair } from '../../relation/types';
 import { isRelationPair } from '../../relation/utils/is-relation';
@@ -38,11 +38,14 @@ export function resolveHookCallback(
     const targetQuery = isQuery(pairTargetQuery) ? pairTargetQuery : createQuery(...pairTargetQuery);
 
     return (entity: Entity, target?: Entity) => {
-      /**
-       * @todo This should be using the same caching logic as the query system
-       * instead of searching with `includes`.
-       */
       if (target === undefined) return;
+      // The filter's member set answers for one target, so the cost does not follow its matches.
+      const query = resolveQueryInstanceFromRef(ctx, targetQuery);
+      if (!query.isTracking) {
+        if (query.entities.has(target)) callback(entity, target);
+        return;
+      }
+      // Reading a tracking filter consumes its batch, so it is read as a query would read it.
       for (const match of queryInternal(ctx, targetQuery)) {
         if (match === target) {
           callback(entity, target);
