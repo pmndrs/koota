@@ -259,6 +259,36 @@ export function checkQueryTrackingPair(
   return checkQueryTracking(ctx, query, entity, 'change', 0, 0);
 }
 
+/**
+ * A target entering or leaving the filter of a tracked pair adds or removes that pair for each of
+ * its sources. The event is recorded on that term alone, since another term of the same relation
+ * has its own filter, and then the query is rechecked.
+ */
+export function checkQueryTrackingFilter(
+  ctx: WorldContext,
+  query: QueryInstance,
+  entity: Entity,
+  filter: ResolvedRelationFilter,
+  eventType: 'add' | 'remove'
+): boolean {
+  const groups = query.trackingGroups;
+  const eid = getEntityId(entity);
+
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i];
+    const p = group.pairs === null ? -1 : group.pairs.indexOf(filter);
+    if (p === -1) continue;
+    const type = group.type;
+    if (type === eventType || (type === 'change' && eventType === 'add')) {
+      recordTrackerHit(group.trackers, 0, eid, 1 << p);
+    } else {
+      clearTrackerHit(group.trackers, 0, eid, 1 << p);
+    }
+  }
+
+  return checkQueryTracking(ctx, query, entity, 'change', 0, 0);
+}
+
 /** The tracked pair is this relation with this target, or with a target its target query matches. */
 function coversPair(pair: ResolvedRelationFilter, traitId: number, target: Entity): boolean {
   if (pair.relation[$internal].trait.id !== traitId) return false;

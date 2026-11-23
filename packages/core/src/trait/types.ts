@@ -3,6 +3,7 @@ import type { MachineContext, MachineInstance } from '../machine/types';
 import type { Identifier, IdentifierIndex, IdentifierPair } from '../identifier/types';
 import type { Entity } from '../entity/types';
 import type { QueryInstance } from '../query/types';
+import type { RelationFilterHooks } from '../relation/filter-hooks';
 import type { ConfigurablePair, Relation, RelationPair } from '../relation/types';
 import type { AoSFactory, CursorCompiler, RequiredField, Schema, Store, StoreType } from '../storage';
 import type { WorldContext } from '../world';
@@ -197,6 +198,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   changeSubscriptions: Subscriptions;
   addSubscriptions: Subscriptions;
   removeSubscriptions: Subscriptions;
+  /** Hooks of the relation filters subscribed on this relation, by pair. See filter-hooks. */
+  relationFilterHooks: Map<RelationPair, RelationFilterHooks> | null;
   /**
    * Paged relation targets.
    * For exclusive: relationTargets[pageId][offset] = targetId (number)

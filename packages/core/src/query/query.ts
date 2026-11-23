@@ -35,6 +35,7 @@ import {
 import { checkQuery, passesStaticMasks } from './utils/check-query';
 import {
   checkQueryTracking,
+  checkQueryTrackingFilter,
   checkQueryTrackingSeed,
   seedPairRemovals,
 } from './utils/check-query-tracking';
@@ -673,14 +674,18 @@ export function createQueryInstance<T extends QueryParameter[]>(
         pair.targetQueryMatches.add(target);
       }
 
-      const refreshSourcesForTarget = (target: Entity) => {
+      const refreshSourcesForTarget = (target: Entity, eventType: 'add' | 'remove') => {
         const sources = getEntitiesWithRelationTo(ctx, pair.relation as Relation<Trait>, target);
         for (let i = 0; i < sources.length; i++) {
           const source = sources[i];
-          // A target entering or leaving the target query is not an event for a tracking query.
-          const match = query.isTracking
-            ? checkQueryTracking(ctx, query, source, 'change', 0, 0)
-            : checkQueryWithFilters(ctx, query, source);
+          // A source holds the filtered pair while its target matches, so for a tracked pair the
+          // target entering or leaving is the pair's add or remove event. For any other term it
+          // only changes whether the source passes.
+          const match = !query.isTracking
+            ? checkQueryWithFilters(ctx, query, source)
+            : pair.term === 4
+              ? checkQueryTrackingFilter(ctx, query, source, pair, eventType)
+              : checkQueryTracking(ctx, query, source, 'change', 0, 0);
           if (match) {
             addEntityToQuery(query, source);
           } else {
@@ -693,13 +698,13 @@ export function createQueryInstance<T extends QueryParameter[]>(
       cleanup.push(
         subscribeEnter(ctx, pair.targetQueryRef, (target) => {
           pair.targetQueryMatches!.add(target);
-          refreshSourcesForTarget(target);
+          refreshSourcesForTarget(target, 'add');
         })
       );
       cleanup.push(
         subscribeExit(ctx, pair.targetQueryRef, (target) => {
           pair.targetQueryMatches!.remove(target);
-          refreshSourcesForTarget(target);
+          refreshSourcesForTarget(target, 'remove');
         })
       );
     }
