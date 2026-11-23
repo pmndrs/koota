@@ -71,9 +71,8 @@ group('relation queries 10k @relation', () => {
     }
 
     const result = yield () => world.query(ChildOf(parent));
-
+    assert.equal(result.length, 10_000);
     world.destroy();
-    return result.length;
   });
 
   bench('new parent, direct lookup ChildOf(parent) @relation-new-target', function* () {
