@@ -1,5 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { $internal, createWorld, relation, trait, type Entity } from 'koota';
+import { $internal, createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0 });
 
@@ -73,36 +73,4 @@ group('structural subscriptions per entity @subscription @settled', () => {
       return hits;
     });
   }
-
-  bench(`relation filter onAdd + onRemove, ${count} subscribers, ${count} toggled`, function* () {
-    const Active = trait();
-    const Link = relation();
-    const world = createWorld();
-    // Half of the targets pass the filter, so half of the toggled pairs are reported.
-    const pairs = Array.from({ length: 100 }, (_, i) =>
-      Link(i % 2 ? world.spawn() : world.spawn(Active))
-    );
-    const entities: Entity[] = [];
-    let hits = 0;
-    const notify = () => hits++;
-
-    for (let i = 0; i < count; i++) {
-      const entity = world.spawn();
-      entities.push(entity);
-      entity.onAdd(Link(Active), notify);
-      entity.onRemove(Link(Active), notify);
-    }
-
-    yield () => {
-      hits = 0;
-      for (let i = 0; i < count; i++) {
-        entities[i].add(pairs[i % 100]);
-        entities[i].remove(pairs[i % 100]);
-      }
-    };
-
-    world.destroy();
-    assert.equal(hits, count);
-    return hits;
-  });
 });
