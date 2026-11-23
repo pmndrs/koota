@@ -195,6 +195,21 @@ describe('useQuery', () => {
     expect(renderCount).toBe(2);
   });
 
+  it('stays empty after destruction and observes explicit reuse of the world', () => {
+    world.spawn(Position);
+    const { result } = renderHook(() => useQuery(Position), {
+      wrapper: ({ children }) => <WorldProvider world={world}>{children}</WorldProvider>,
+    });
+    act(() => world.destroy());
+    expect(result.current).toEqual([]);
+    expect(world.isRegistered).toBe(false);
+    let next!: Entity;
+    act(() => {
+      next = world.spawn(Position);
+    });
+    expect(result.current).toEqual([next]);
+  });
+
   it('reactively updates when the world is reset', async () => {
     let entities: Entity[] = null!;
 

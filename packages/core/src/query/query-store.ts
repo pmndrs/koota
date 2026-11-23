@@ -1,65 +1,68 @@
-import { $internal } from '../common';
 import type { Entity } from '../entity/types';
-import type { World } from '../world/types';
+import type { WorldContext } from '../world/types';
+import { queryInternal, resolveQueryInstanceFromRef } from './query';
 import type { Query, QueryInstance, QueryView } from './types';
 
 // A tracking query consumes its batch on read. All hook readers of that revision share the view.
 const batches = new WeakMap<QueryInstance, { version: number; view: QueryView }>();
 
-export function createQueryStore(world: World, ref: Query) {
-  const ctx = world[$internal];
+export function createQueryStore(this: WorldContext, ref: Query) {
   let source: QueryInstance | undefined;
   let version: number | undefined;
   let revision = 0;
   let copiedRevision = -1;
   let entities: Entity[] = [];
 
-  function getSnapshot() {
-    const current = ctx.queriesHashMap.get(ref.hash);
+  const getSnapshot = () => {
+    const current = this.queriesHashMap.get(ref.hash);
     if (source !== current || version !== current?.version) {
       source = current;
       version = current?.version;
       revision++;
     }
     return revision;
-  }
+  };
 
   return {
     getSnapshot,
     // Copy in render so a burst of membership changes only materializes the final list.
-    read(revision: number) {
+    read: (revision: number) => {
       if (copiedRevision !== revision) {
+        if (this.worldEntity == null) {
+          copiedRevision = revision;
+          entities = [];
+          return entities;
+        }
+
         const batch = source?.isTracking ? batches.get(source) : undefined;
-        const view = batch && batch.version === source?.version ? batch.view : world.query(ref);
+        const view =
+          batch && batch.version === source?.version ? batch.view : queryInternal(this, ref);
         entities = view.toArray().sort((a, b) => a.id() - b.id());
-        copiedRevision = revision;
         // Running a tracking query advances its batch and version.
-        source = ctx.queriesHashMap.get(ref.hash)!;
+        source = this.queriesHashMap.get(ref.hash)!;
+        copiedRevision = revision;
         version = source.version;
         if (source.isTracking) batches.set(source, { version, view });
       }
       return entities;
     },
     subscribe: (notify: () => void) => {
-      const observer = ctx.observeSettled(notify);
-      function listen() {
-        const offEnter = world.onEnter(ref, observer.invalidate);
-        const offExit = world.onExit(ref, observer.invalidate);
-        return () => {
-          offEnter();
-          offExit();
-        };
-      }
-      let detach = listen();
-      const reset = () => {
-        detach();
-        detach = listen();
+      const observer = this.observeSettled(notify);
+      const detach = this.observeWorldEntity((entity) => {
         observer.invalidate();
-      };
-      ctx.resetSubscriptions.add(reset);
+        if (entity === undefined) return;
+        const query = resolveQueryInstanceFromRef(this, ref);
+        const enter = (query.addSubscriptions ??= new Set());
+        const exit = (query.removeSubscriptions ??= new Set());
+        enter.add(observer.invalidate);
+        exit.add(observer.invalidate);
+        return () => {
+          enter.delete(observer.invalidate);
+          exit.delete(observer.invalidate);
+        };
+      });
       return () => {
         observer.unsubscribe();
-        ctx.resetSubscriptions.delete(reset);
         detach();
       };
     },
