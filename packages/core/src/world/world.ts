@@ -16,8 +16,8 @@ import { addressSpace } from '../entity/utils/address-space';
 import type { PageCleanupToken } from '../entity/utils/page-allocator';
 import { createEmptyMaskGeneration } from '../entity/utils/paged-mask';
 import { findIdentifiedEntity } from '../identifier/find-identified-entity';
-import { lookupAllIdentifiers, lookupIdentifier } from '../identifier/identifier';
-import type { Identifier, IdentifierPair } from '../identifier/types';
+import { isIdentifierPair, lookupAllIdentifiers, lookupIdentifier } from '../identifier/identifier';
+import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import {
   lookupArgumentsScope,
   lookupScopedKey,
@@ -89,11 +89,12 @@ function findInlineQuery(ctx: WorldContext, params: QueryParameter[]): InlineQue
     const param = params[i];
     let next = node.next?.get(param);
     if (next === undefined) {
-      // A pair naming a target entity is a new object on every call, found by what it names.
-      if (!isRelationPair(param) || typeof param.target !== 'number') {
-        return null;
-      }
-      next = node.next?.get(param.relation as Relation<Trait>)?.next?.get(param.target);
+      // Fresh pair objects share a path by definition and target.
+      if (isIdentifierPair(param)) {
+        next = node.next?.get(param.identifier)?.next?.get(param.target);
+      } else if (isRelationPair(param) && typeof param.target === 'number') {
+        next = node.next?.get(param.relation as Relation<Trait>)?.next?.get(param.target);
+      } else return null;
       if (next === undefined) return null;
     }
     node = next;
@@ -102,13 +103,13 @@ function findInlineQuery(ctx: WorldContext, params: QueryParameter[]): InlineQue
 }
 
 /**
- * Lists a query under stable parameters and concrete relation targets. Queries that name a
+ * Lists a query under stable parameters, identifier keys and concrete relation targets. Queries that name a
  * target keep their tree entries so dropping the query can prune every path that reaches it.
  */
 function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query: QueryInstance) {
   for (let i = 0; i < params.length; i++) {
     const param = params[i];
-    if (isStableParameter(param)) continue;
+    if (isStableParameter(param) || isIdentifierPair(param)) continue;
     if (!isRelationPair(param) || typeof param.target !== 'number') return;
   }
   let node = ctx.inlineQueries;
@@ -118,16 +119,24 @@ function rememberInlineQuery(ctx: WorldContext, params: QueryParameter[], query:
       node = inlineStep(node, param);
       continue;
     }
+    if (isIdentifierPair(param)) {
+      node = inlineStep(inlineStep(node, param.identifier), param.target);
+      continue;
+    }
     const pair = param as RelationPair;
     const relationStep = inlineStep(node, pair.relation as Relation<Trait>);
-    node = inlineStep(relationStep, pair.target as Entity);
+    node = inlineStep(relationStep, pair.target as Entity, true);
   }
   node.params = params;
   node.query = query;
   if (node.parent !== null) (query.inlineNodes ??= []).push(node);
 }
 
-function inlineStep(node: InlineQueryNode, key: QueryParameter | Relation<Trait> | Entity) {
+function inlineStep(
+  node: InlineQueryNode,
+  key: QueryParameter | Relation<Trait> | IdentifierKey,
+  target = false
+) {
   const next = (node.next ??= new Map());
   let child = next.get(key);
   if (child === undefined) {
@@ -135,7 +144,7 @@ function inlineStep(node: InlineQueryNode, key: QueryParameter | Relation<Trait>
       next: null,
       params: null,
       query: null,
-      parent: node.parent !== null || typeof key === 'number' ? node : null,
+      parent: node.parent !== null || target ? node : null,
       key,
     };
     next.set(key, child);
