@@ -48,6 +48,71 @@ describe('Query', () => {
     20_000
   );
 
+  it('keeps overlapping queries current as new trait and target filters are registered', () => {
+    const visible = world.query(IsActive);
+    const moving = world.query(IsActive, Position);
+    const players = world.query(IsActive, Or(IsPlayer, Name));
+    const unnamed = world.query(IsActive, Not(Name));
+    const parent = world.spawn(IsPlayer);
+    const otherParent = world.spawn();
+    const first = world.spawn(Position, ChildOf(parent));
+    const second = world.spawn(Position, ChildOf(otherParent));
+
+    first.add(IsActive);
+    second.add(IsActive);
+    expect(visible.toArray()).toEqual([first, second]);
+    expect(moving.toArray()).toEqual([first, second]);
+    expect(unnamed.toArray()).toEqual([first, second]);
+    expect(players.toArray()).toEqual([]);
+
+    const children = world.query(IsActive, ChildOf(IsPlayer));
+    first.remove(IsActive);
+    second.remove(IsActive);
+    second.add(IsActive);
+    first.add(IsActive);
+    expect(children.toArray()).toEqual([first]);
+    expect(moving.toArray()).toEqual([second, first]);
+
+    second.add(Name);
+    expect(unnamed.toArray()).toEqual([first]);
+    expect(players.toArray()).toEqual([second]);
+  });
+
+  it.each([0, 256])(
+    'visits a query registered during the same add after %i distinct trait combinations',
+    (combinations) => {
+      const entity = world.spawn(Name);
+      const entered = vi.fn();
+      world.onEnter([IsActive], (match) => {
+        if (match === entity) world.onEnter([IsActive, Name], entered);
+      });
+      const flags = Array.from({ length: 8 }, () => trait());
+      for (const flag of flags) world.query(IsActive, flag);
+      for (let mask = 0; mask < combinations; mask++) {
+        world.spawn(...flags.filter((_, bit) => (mask & (1 << bit)) !== 0)).add(IsActive);
+      }
+      entity.add(IsActive);
+      expect(entered.mock.calls).toEqual([[entity]]);
+    }
+  );
+
+  it('reconciles a live view after a subscriber interrupts a previous removal', () => {
+    const stop = world.onExit([Position], () => {
+      throw new Error('interrupted');
+    });
+    const moving = world.query(IsActive, Position);
+    world.query(IsActive, Name);
+    world.query(IsActive, IsPlayer);
+    world.query(IsActive);
+
+    world.spawn(IsActive).remove(IsActive);
+    const entity = world.spawn(Position, IsActive);
+    expect(() => entity.remove(Position)).toThrow('interrupted');
+    stop();
+    entity.remove(IsActive);
+    expect(moving.toArray()).toEqual([]);
+  });
+
   it('should query entities that match the parameters', () => {
     const entityA = world.spawn();
     const entityB = world.spawn();

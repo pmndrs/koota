@@ -21,6 +21,7 @@ import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isTrackingModifier } from './modifier';
 import { bindQueryView, exposeQuerySet } from './query-view';
 import { $queryRef } from './symbols';
+import { invalidateQueryTransitions } from './reconcile-queries';
 import {
   type Modifier,
   type Query,
@@ -32,7 +33,7 @@ import {
   type EventType,
   type TrackingGroup,
 } from './types';
-import { checkQuery, passesStaticMasks } from './utils/check-query';
+import { checkQuery, matchesMaskWord, passesStaticMasks } from './utils/check-query';
 import {
   checkQueryTracking,
   checkQueryTrackingFilter,
@@ -791,13 +792,7 @@ function scanMaskPages(ctx: WorldContext, query: QueryInstance) {
     const page = entityMasks[masks[0]][pageId];
     for (let offset = 0; offset < end; offset++) {
       const word = page[offset << 2];
-      if (
-        (word & forbidden) !== 0 ||
-        (word & required) !== required ||
-        (or !== 0 && (word & or) === 0)
-      ) {
-        continue;
-      }
+      if (!matchesMaskWord(word, required, forbidden, or)) continue;
       const eid = pageId * PAGE_SIZE + offset;
       if (!single && !passesStaticMasks(masks, entityMasks, eid)) continue;
       addEntityToQuery(query, packEntity(gens[offset], eid));
@@ -817,6 +812,7 @@ function queryList(query: QueryInstance, instance: TraitInstance): QueryInstance
 function joinList(list: QueryInstance[], query: QueryInstance, slot: number) {
   query.listSlots[slot] = list.length;
   list.push(query);
+  invalidateQueryTransitions(list);
 }
 
 function leaveList(
@@ -834,6 +830,7 @@ function leaveList(
     list[index] = last;
     last.listSlots[relation ? relationSlot(last, instance) : traitSlot(last, instance)] = index;
   }
+  invalidateQueryTransitions(list);
 }
 
 /** A trait repeated in a query joins its list once, under the first occurrence. */

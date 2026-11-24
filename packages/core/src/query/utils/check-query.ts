@@ -20,6 +20,18 @@ export function passesStaticMasks(masks: number[], entityMasks: Uint32Array[][],
   return matchesStaticMasks(masks, entityMasks, eid >>> 10, (eid & 1023) << 2, false);
 }
 
+/** Tests the required, forbidden and alternative bits in a single membership word. */
+export /* @inline @pure */ function matchesMaskWord(
+  word: number,
+  required: number,
+  forbidden: number,
+  or: number
+) {
+  return (
+    (word & required) === required && (word & forbidden) === 0 && (or === 0 || (word & or) !== 0)
+  );
+}
+
 /** All required bits, no forbidden bits, and any Or bit across generations. Retained rows include the traits held at destruction. */
 export /* @inline @pure */ function matchesStaticMasks(
   masks: number[],
