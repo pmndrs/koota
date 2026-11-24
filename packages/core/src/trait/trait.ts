@@ -19,10 +19,9 @@ import {
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import { notifyTraitAdded, notifyTraitChanged, setPairChanged } from '../query/modifiers/changed';
 import { addEntityToQuery, reconcileAnchoredQueries, removeEntityFromQuery } from '../query/query';
-import { checkQuery } from '../query/utils/check-query';
+import { reconcileQueries } from '../query/reconcile-queries';
 import { checkQueryTracking } from '../query/utils/check-query-tracking';
 import { clearPendingChanges } from '../query/utils/mark-tracked-trait-changed';
-import { checkQueryWithFilters } from '../query/utils/check-query-filters';
 import { isOrderedTrait, setupOrderedTraitSync } from '../relation/ordered';
 import {
   addRelationTarget,
@@ -967,19 +966,6 @@ export function reconcileTraitQueries(
   if (instance.anchorRelations.length !== 0) reconcileAnchoredQueries(ctx, entity, instance, false);
   if (instance.trackingQueries.length !== 0) {
     reconcileTrackingQueries(ctx, entity, instance, eventType);
-  }
-}
-
-export function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
-  for (let i = 0; i < queries.length; i++) {
-    const query = queries[i];
-    if (query.filters !== null) {
-      if (checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
-      else removeEntityFromQuery(query, entity);
-    } else {
-      if (checkQuery(ctx, query, entity)) addEntityToQuery(query, entity);
-      else removeEntityFromQuery(query, entity);
-    }
   }
 }
 

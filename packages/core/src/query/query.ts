@@ -21,6 +21,7 @@ import type { WorldContext } from '../world';
 import { getTrackingType, isModifier, isTrackingModifier } from './modifier';
 import { bindQueryView, exposeQuerySet } from './query-view';
 import { $queryRef } from './symbols';
+import { invalidateQueryTransitions } from './reconcile-queries';
 import {
   type Modifier,
   type Query,
@@ -605,8 +606,10 @@ export function createQueryInstance<T extends QueryParameter[]>(
     if (all.indexOf(instance) !== i) continue;
     // The key lists reconcile a static query for every identifier it filters by key.
     if (keyFilters?.some((pair) => pair.identifier.id === instance.trait.id)) continue;
-    if (anchorRelation === undefined) joinList(queryList(query, instance), query, i);
-    else if (!instance.anchorRelations.includes(anchorRelation)) {
+    if (anchorRelation === undefined) {
+      joinList(queryList(query, instance), query, i);
+      if (!query.isTracking) invalidateQueryTransitions(instance.queries);
+    } else if (!instance.anchorRelations.includes(anchorRelation)) {
       instance.anchorRelations.push(anchorRelation);
     }
   }
@@ -834,6 +837,7 @@ function leaveList(
     list[index] = last;
     last.listSlots[relation ? relationSlot(last, instance) : traitSlot(last, instance)] = index;
   }
+  if (list === instance.queries) invalidateQueryTransitions(list);
 }
 
 /** A trait repeated in a query joins its list once, under the first occurrence. */

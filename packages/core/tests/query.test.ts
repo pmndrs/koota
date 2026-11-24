@@ -48,6 +48,64 @@ describe('Query', () => {
     20_000
   );
 
+  it('keeps overlapping queries current as new trait and target filters are registered', () => {
+    const visible = world.query(IsActive);
+    const moving = world.query(IsActive, Position);
+    const players = world.query(IsActive, Or(IsPlayer, Name));
+    const unnamed = world.query(IsActive, Not(Name));
+    const parent = world.spawn(IsPlayer);
+    const otherParent = world.spawn();
+    const first = world.spawn(Position, ChildOf(parent));
+    const second = world.spawn(Position, ChildOf(otherParent));
+
+    first.add(IsActive);
+    second.add(IsActive);
+    expect(visible.toArray()).toEqual([first, second]);
+    expect(moving.toArray()).toEqual([first, second]);
+    expect(unnamed.toArray()).toEqual([first, second]);
+    expect(players.toArray()).toEqual([]);
+
+    const children = world.query(IsActive, ChildOf(IsPlayer));
+    first.remove(IsActive);
+    second.remove(IsActive);
+    second.add(IsActive);
+    first.add(IsActive);
+    expect(children.toArray()).toEqual([first]);
+    expect(moving.toArray()).toEqual([second, first]);
+
+    second.add(Name);
+    expect(unnamed.toArray()).toEqual([first]);
+    expect(players.toArray()).toEqual([second]);
+  });
+
+  it('visits a query registered by an earlier enter subscriber during the same add', () => {
+    const entered = vi.fn();
+    world.onEnter([IsActive], () => world.onEnter([IsActive, Name], entered));
+    world.query(IsActive, Position);
+    world.query(IsActive, Not(Foo));
+    world.query(IsActive, Or(Bar, Foo));
+    const entity = world.spawn(Name);
+    entity.add(IsActive);
+    expect(entered.mock.calls).toEqual([[entity]]);
+  });
+
+  it('reconciles a live view after a subscriber interrupts a previous removal', () => {
+    const stop = world.onExit([Position], () => {
+      throw new Error('interrupted');
+    });
+    const moving = world.query(IsActive, Position);
+    world.query(IsActive, Name);
+    world.query(IsActive, IsPlayer);
+    world.query(IsActive);
+
+    world.spawn(IsActive).remove(IsActive);
+    const entity = world.spawn(Position, IsActive);
+    expect(() => entity.remove(Position)).toThrow('interrupted');
+    stop();
+    entity.remove(IsActive);
+    expect(moving.toArray()).toEqual([]);
+  });
+
   it('should query entities that match the parameters', () => {
     const entityA = world.spawn();
     const entityB = world.spawn();
