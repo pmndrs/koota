@@ -78,16 +78,23 @@ describe('Query', () => {
     expect(players.toArray()).toEqual([second]);
   });
 
-  it('visits a query registered by an earlier enter subscriber during the same add', () => {
-    const entered = vi.fn();
-    world.onEnter([IsActive], () => world.onEnter([IsActive, Name], entered));
-    world.query(IsActive, Position);
-    world.query(IsActive, Not(Foo));
-    world.query(IsActive, Or(Bar, Foo));
-    const entity = world.spawn(Name);
-    entity.add(IsActive);
-    expect(entered.mock.calls).toEqual([[entity]]);
-  });
+  it.each([0, 256])(
+    'visits a query registered during the same add after %i distinct trait combinations',
+    (combinations) => {
+      const entity = world.spawn(Name);
+      const entered = vi.fn();
+      world.onEnter([IsActive], (match) => {
+        if (match === entity) world.onEnter([IsActive, Name], entered);
+      });
+      const flags = Array.from({ length: 8 }, () => trait());
+      for (const flag of flags) world.query(IsActive, flag);
+      for (let mask = 0; mask < combinations; mask++) {
+        world.spawn(...flags.filter((_, bit) => (mask & (1 << bit)) !== 0)).add(IsActive);
+      }
+      entity.add(IsActive);
+      expect(entered.mock.calls).toEqual([[entity]]);
+    }
+  );
 
   it('reconciles a live view after a subscriber interrupts a previous removal', () => {
     const stop = world.onExit([Position], () => {
