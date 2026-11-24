@@ -79,12 +79,16 @@ describe('Query', () => {
   });
 
   it.each([0, 256])(
-    'visits a query registered during the same add after %i distinct trait combinations',
+    'reports nothing to a query subscribed during the same add after %i distinct trait combinations',
     (combinations) => {
       const entity = world.spawn(Name);
       const entered = vi.fn();
+      let held: Entity[] = [];
       world.onEnter([IsActive], (match) => {
-        if (match === entity) world.onEnter([IsActive, Name], entered);
+        if (match !== entity) return;
+        // The entity is already a member when the subscription is made.
+        held = world.query(IsActive, Name).toArray();
+        world.onEnter([IsActive, Name], entered);
       });
       const flags = Array.from({ length: 8 }, () => trait());
       for (const flag of flags) world.query(IsActive, flag);
@@ -92,7 +96,8 @@ describe('Query', () => {
         world.spawn(...flags.filter((_, bit) => (mask & (1 << bit)) !== 0)).add(IsActive);
       }
       entity.add(IsActive);
-      expect(entered.mock.calls).toEqual([[entity]]);
+      expect(held).toEqual([entity]);
+      expect(entered).not.toHaveBeenCalled();
     }
   );
 

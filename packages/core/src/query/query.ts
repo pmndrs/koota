@@ -144,8 +144,8 @@ export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
   const entities = query.entities;
-  // Only a query an event can reach twice for one entity can already hold it. The set ignores a
-  // repeated add, so an unchanged length is what tells one apart.
+  // Only a query that rechecks, or any query in a machine transition, can already hold the entity.
+  // The set ignores a repeated add, so an unchanged length means nothing entered.
   const held = query.rechecks || query.ctx.queryBatch !== undefined ? entities.length : -1;
   entities.add(entity);
   if (entities.length === held && !query.isTracking) return;

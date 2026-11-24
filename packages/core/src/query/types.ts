@@ -269,7 +269,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   identifierFilters: IdentifierPair[] | undefined;
   /**
    * An event can reach the query for an entity it already holds, through an or term, a relation
-   * filter or an identifier. Queries of plain required traits never see one.
+   * filter or an identifier. A query of plain traits is only reached when one of its bits flips.
    */
   rechecks: boolean;
   hash: QueryHash;
