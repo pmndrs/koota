@@ -143,12 +143,9 @@ export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
-  const entities = query.entities;
-  // Only a query that rechecks, or any query in a machine transition, can already hold the entity.
-  // The set ignores a repeated add, so an unchanged length means nothing entered.
-  const held = query.rechecks || query.ctx.queryBatch !== undefined ? entities.length : -1;
-  entities.add(entity);
-  if (entities.length === held && !query.isTracking) return;
+  if ((query.rechecks || query.ctx.queryBatch !== undefined) && hasStaticMembership(query, entity))
+    return;
+  query.entities.add(entity);
   query.version++;
 
   if (query.addSubscriptions !== null || query.removeSubscriptions !== null) {
@@ -221,6 +218,10 @@ export function reconcileTargetQueries(
     if (!dying && checkQueryWithFilters(ctx, query, entity)) addEntityToQuery(query, entity);
     else removeEntityFromQuery(query, entity);
   }
+}
+
+function hasStaticMembership(query: QueryInstance, entity: Entity) {
+  return !query.isTracking && query.entities.has(entity);
 }
 
 function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
