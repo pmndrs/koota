@@ -143,12 +143,9 @@ export function evictEntityFromQuery(query: QueryInstance, entity: Entity) {
 }
 
 export function addEntityToQuery(query: QueryInstance, entity: Entity) {
-  if (
-    (query.identifierFilters !== undefined || query.ctx.queryBatch !== undefined) &&
-    hasStaticMembership(query, entity)
-  )
-    return;
-  query.entities.add(entity);
+  if (query.rechecks || query.ctx.queryBatch !== undefined) {
+    if (!enterQuery(query, entity)) return;
+  } else query.entities.add(entity);
   query.version++;
 
   if (query.addSubscriptions !== null || query.removeSubscriptions !== null) {
@@ -223,8 +220,15 @@ export function reconcileTargetQueries(
   }
 }
 
-function hasStaticMembership(query: QueryInstance, entity: Entity) {
-  return !query.isTracking && query.entities.has(entity);
+/**
+ * Adds to a query that can already hold the entity. The set ignores a repeated add, so an
+ * unchanged length means nothing entered. Tracking queries collect every event.
+ */
+function enterQuery(query: QueryInstance, entity: Entity) {
+  const entities = query.entities;
+  const held = entities.length;
+  entities.add(entity);
+  return entities.length !== held || query.isTracking;
 }
 
 function notifyQuerySubscribers(query: QueryInstance, entity: Entity, added: boolean) {
@@ -427,6 +431,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     ctx,
     parameters,
     identifierFilters: undefined,
+    rechecks: false,
     hash: '',
     refId: -1,
     traits: [],
@@ -579,6 +584,7 @@ export function createQueryInstance<T extends QueryParameter[]>(
     all.push(or[i]);
     addMaskBits(orMasks ?? masks, or[i].generationId, or[i].bitflag, 3);
   }
+  query.rechecks = or.length !== 0 || query.filters !== null || query.identifierFilters !== undefined;
   query.hash = createQueryHash(parameters);
 
   ctx.queriesHashMap.set(query.hash, query);

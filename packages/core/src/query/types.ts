@@ -267,6 +267,11 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   parameters: T;
   /** The candidate entity must own the key in every identifier term. */
   identifierFilters: IdentifierPair[] | undefined;
+  /**
+   * An event can reach the query for an entity it already holds, through an or term, a relation
+   * filter or an identifier. A query of plain traits is only reached when one of its bits flips.
+   */
+  rechecks: boolean;
   hash: QueryHash;
   refId: number;
   traits: Trait[];

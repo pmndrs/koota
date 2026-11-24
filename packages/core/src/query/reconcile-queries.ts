@@ -110,10 +110,14 @@ function reconcileMaskWord(queries: QueryInstance[], entity: Entity, held: numbe
 }
 
 export function reconcileQueries(ctx: WorldContext, entity: Entity, queries: QueryInstance[]) {
-  const start = queries.length < 4 ? 0 : reconcileCachedQueries(ctx, entity, queries);
-  // A subscriber can append queries while the cached prefix is being walked.
-  for (let i = start; i < queries.length; i++) {
+  // A query a subscriber registers during the walk is filled as it is made, so the walk covers only
+  // the queries the list held when the event arrived.
+  const count = queries.length;
+  const start = count < 4 ? 0 : reconcileCachedQueries(ctx, entity, queries);
+  for (let i = start; i < count; i++) {
     const query = queries[i];
+    // A subscriber can also drop a query, which shortens the list.
+    if (query === undefined) return;
     if (
       checkQuery(ctx, query, entity) &&
       (query.filters === null || passesQueryFilters(ctx, query, entity))
