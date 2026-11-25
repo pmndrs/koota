@@ -14,6 +14,7 @@ import {
   entityTargetsFor,
   subscribeEntityEvent,
 } from '../entity/entity';
+import { installEntityMethods } from '../entity/entity-methods';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -27,6 +28,7 @@ import {
   type PageAllocator,
 } from '../entity/utils/page-allocator';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { sharedAllocator } from '../entity/utils/shared-allocator';
 import { createPageTable } from '../utils/page-table';
 import { EMPTY_MASK_PAGE } from './utils/entity-masks';
 import { getPageLimit } from './utils/page-tables';
@@ -176,15 +178,30 @@ function inlineStep(node: InlineQueryNode, key: QueryParameter | Relation<Trait>
 }
 
 /**
- * A world owns everything it allocates. Nothing outside the world refers to it, so dropping the
- * last reference frees it. Its entities are plain numbers that only mean something to this world.
+ * Creates a world whose entities carry methods, so entity.get(Position) works without the world
+ * at hand. Worlds created here share one id space, which is how a method finds the world that
+ * owns its entity. That table holds a world until it is destroyed.
  */
 export function createWorld(options?: WorldOptions): World {
+  installEntityMethods();
+  return createWorldWithAllocator(sharedAllocator, options);
+}
+
+/**
+ * Creates a world that owns everything it allocates. Nothing outside the world refers to it, so
+ * dropping the last reference frees it. Its entities are plain numbers that only mean something
+ * to this world, and only the world can act on them.
+ *
+ * A program creates all of its worlds here or none of them. Ids are not marked by the kind of
+ * world they came from, so an entity method called on an entity of an isolated world is not
+ * caught and reaches whichever world with entity methods holds that id.
+ */
+export function createIsolatedWorld(options?: WorldOptions): World {
   return createWorldWithAllocator(createPageAllocator([]), options);
 }
 
-/** Supplies where entity ids come from, so worlds with entity methods can share one allocator. */
-export function createWorldWithAllocator(allocator: PageAllocator, options?: WorldOptions): World {
+/** The allocator decides where entity ids come from, shared between worlds or owned by this one. */
+function createWorldWithAllocator(allocator: PageAllocator, options?: WorldOptions): World {
   const retain = options?.retain ?? 1024;
   if (!Number.isSafeInteger(retain) || retain < 0) {
     throw new RangeError('Koota: retain must be a non-negative safe integer.');

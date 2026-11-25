@@ -1,6 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { trait } from 'koota';
-import { createWorld } from 'koota/entity-methods';
+import { createWorld, trait } from 'koota';
 import { vec3 } from 'math';
 
 // vec3 data stored as one interleaved tuple column.

@@ -1,6 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { trait, type World } from 'koota';
-import { createWorld } from 'koota/entity-methods';
+import { createWorld, trait, type World } from 'koota';
 import { mulberry32 } from 'math/random';
 
 const Position = trait({ x: 0, y: 0 });

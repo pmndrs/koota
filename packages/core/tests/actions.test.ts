@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createActions, trait } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { createActions, createWorld, trait } from '../src';
 
 const IsPlayer = trait();
 

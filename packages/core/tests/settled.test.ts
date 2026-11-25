@@ -1,6 +1,5 @@
 import { expect, it } from 'vitest';
-import { $internal, relation, trait } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { $internal, createWorld, relation, trait } from '../src';
 
 it('settles once after nested removals and reads the remaining target', () => {
   const world = createWorld();

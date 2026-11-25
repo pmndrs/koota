@@ -1,4 +1,4 @@
-import type { Entity } from '../entity/types';
+import type { Entity, WithEntityMethods } from '../entity/types';
 import type { World } from '../world/types';
 import type { TagTrait, Trait, TraitRecord, TraitTuple } from '../trait/types';
 import type { $internal } from '../common';
@@ -15,11 +15,18 @@ export type TransitionSubscriber<T extends Trait = Trait> = (
   previous: TraitRecord<T> | undefined
 ) => void;
 
-export type Machine<S extends MachineStates = MachineStates> = TagTrait & {
-  readonly states: Readonly<S>;
-  current(world: World, entity: Entity): S[keyof S] | undefined;
-  enter(world: World, entity: Entity, state: MachineStateInput<S[keyof S]>): void;
+/** The calls that take the entity alone. An entity that carries methods finds its world by itself. */
+type EntityFirstMachine<S extends MachineStates> = {
+  current(entity: Entity): S[keyof S] | undefined;
+  enter(entity: Entity, state: MachineStateInput<S[keyof S]>): void;
 };
+
+export type Machine<S extends MachineStates = MachineStates> = TagTrait &
+  WithEntityMethods<EntityFirstMachine<S>> & {
+    readonly states: Readonly<S>;
+    current(world: World, entity: Entity): S[keyof S] | undefined;
+    enter(world: World, entity: Entity, state: MachineStateInput<S[keyof S]>): void;
+  };
 
 export type MachineOptions<S extends MachineStates> = {
   states: S;

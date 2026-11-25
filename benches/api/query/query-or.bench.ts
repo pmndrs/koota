@@ -1,6 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createChanged, createQuery, Not, Or, trait } from 'koota';
-import { createWorld } from 'koota/entity-methods';
+import { createChanged, createQuery, createWorld, Not, Or, trait } from 'koota';
 
 group('or query maintenance 10k @query-or', () => {
   bench('trait or not', function* () {

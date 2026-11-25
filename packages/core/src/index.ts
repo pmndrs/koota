@@ -9,7 +9,7 @@ export type {
 export { createActions } from './actions/create-actions';
 export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
 export { $internal } from './common';
-export type { Entity, EntityExtensions, EntityMethods } from './entity/types';
+export type { Entity, EntityMethods, Register } from './entity/types';
 export { getEntityId, unpackEntity } from './entity/utils/pack-entity';
 export { shallowEqual } from './utils/shallow-equal';
 export { createAdded } from './query/modifiers/added';

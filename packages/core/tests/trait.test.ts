@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createChanged, type Entity, getStore, relation, required, trait, type Trait } from '../src';
-import { createWorld } from '../src/entity-methods';
+import {
+  createChanged,
+  createWorld,
+  type Entity,
+  getStore,
+  relation,
+  required,
+  trait,
+  type Trait,
+} from '../src';
 
 class TestClass {
   public name: string;

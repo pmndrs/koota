@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
-import { relation, trait } from 'koota';
-import { createWorld } from 'koota/entity-methods';
+import { createWorld, relation, trait } from 'koota';
 
 const Position = trait({ x: 0 });
 const ChildOf = relation();

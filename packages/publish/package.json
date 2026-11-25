@@ -15,9 +15,9 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
-    "./entity-methods": {
-      "types": "./src/entity-methods.ts",
-      "import": "./src/entity-methods.ts"
+    "./isolated": {
+      "types": "./src/isolated.ts",
+      "import": "./src/isolated.ts"
     },
     "./react": {
       "types": "./src/react.ts",
@@ -31,7 +31,7 @@
   },
   "files": [
     "dist",
-    "entity-methods",
+    "isolated",
     "react",
     "svelte",
     "docs",
@@ -54,14 +54,14 @@
           "default": "./dist/index.cjs"
         }
       },
-      "./entity-methods": {
+      "./isolated": {
         "import": {
-          "types": "./dist/entity-methods.d.ts",
-          "default": "./dist/entity-methods.js"
+          "types": "./dist/isolated.d.ts",
+          "default": "./dist/isolated.js"
         },
         "require": {
-          "types": "./dist/entity-methods.d.cts",
-          "default": "./dist/entity-methods.cjs"
+          "types": "./dist/isolated.d.cts",
+          "default": "./dist/isolated.cjs"
         }
       },
       "./react": {

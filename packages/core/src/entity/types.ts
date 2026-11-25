@@ -44,16 +44,22 @@ export type Hook<P extends unknown[] = []> = {
 type EntityHook = Hook;
 
 /**
- * Methods every entity gains once the program imports the entity methods entry. Empty otherwise,
- * so an entity is a bare id and its world does the work.
+ * Program wide settings that a module augmentation can set. The isolated entry registers
+ * entityMethods as false, so every type in a program that imports it follows.
  */
 // oxlint-disable-next-line typescript/no-empty-object-type
-export interface EntityExtensions {}
+export interface Register {}
+
+/** T in a program whose entities carry methods, and nothing in one that registered them off. */
+export type WithEntityMethods<T> = Register extends { entityMethods: false } ? unknown : T;
 
 declare const $entityBrand: unique symbol;
 
-/** A packed numeric identity that only means something to the world that spawned it. */
-export type Entity = number & { readonly [$entityBrand]: true } & EntityExtensions;
+/**
+ * A packed numeric identity that only means something to the world that spawned it. It carries
+ * methods that find that world, unless the program creates isolated worlds.
+ */
+export type Entity = number & { readonly [$entityBrand]: true } & WithEntityMethods<EntityMethods>;
 
 /** Trait and relation reads require liveness. Read retained values through Removed query iteration. */
 export type EntityMethods = {

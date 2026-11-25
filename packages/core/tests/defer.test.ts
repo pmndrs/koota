@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { $internal, createChanged, ordered, relation, trait, type Entity } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { $internal, createChanged, createWorld, ordered, relation, trait, type Entity } from '../src';
 
 const Position = trait({ x: 0 });
 const Velocity = trait({ dx: 0 });

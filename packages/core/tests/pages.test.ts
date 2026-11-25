@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { createRemoved, Not, relation, trait } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { createRemoved, createWorld, Not, relation, trait } from '../src';
 
 describe('Query pages', () => {
   let world: ReturnType<typeof createWorld>;

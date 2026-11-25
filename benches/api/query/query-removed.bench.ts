@@ -1,6 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { createQuery, createRemoved, trait } from 'koota';
-import { createWorld } from 'koota/entity-methods';
+import { createQuery, createRemoved, createWorld, trait } from 'koota';
 
 group('Removed remove + read 10k @removed', () => {
   for (const readers of [1, 16]) {

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { $internal, relation, trait, type Entity, type World } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { $internal, createWorld, relation, trait, type Entity, type World } from '../src';
 
 describe('World', () => {
   it('should create a world with its world entity', () => {

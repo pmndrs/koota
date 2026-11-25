@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Not, createRemoved, identifier, relation, trait } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { createWorld, Not, createRemoved, identifier, relation, trait } from '../src';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 const Position = trait({ x: 0, y: 0 });

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { trait, type Entity } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { createWorld, trait, type Entity } from '../src';
 
 describe('Sorted query views', () => {
   const world = createWorld();

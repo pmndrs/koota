@@ -4,6 +4,7 @@ import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
+import { getEntityContext } from '../entity/utils/shared-allocator';
 import { DESTROYED_WORD, EMPTY_MASK_PAGE } from '../world/utils/entity-masks';
 import {
   addEntityToQuery,
@@ -81,13 +82,23 @@ export function machine<const S extends MachineStates>(options: MachineOptions<S
   };
   const result = Object.assign(marker, {
     states,
-    current(world: World, entity: Entity) {
-      const ctx = world[$internal];
+    // Both calls take the world first, or the entity alone when its world has entity methods.
+    current(first: World | Entity, second?: Entity) {
+      const alone = typeof first === 'number';
+      const ctx = alone ? getEntityContext(first) : first[$internal];
+      const entity = alone ? first : second!;
       if (assertsEnabled) assertEntityAlive(ctx, entity);
       return currentState(ctx, entity, context);
     },
-    enter(world: World, entity: Entity, state: Trait | [Trait, unknown]) {
-      const ctx = world[$internal];
+    enter(
+      first: World | Entity,
+      second: Entity | Trait | [Trait, unknown],
+      third?: Trait | [Trait, unknown]
+    ) {
+      const alone = typeof first === 'number';
+      const ctx = alone ? getEntityContext(first) : first[$internal];
+      const entity = (alone ? first : second) as Entity;
+      const state = (alone ? second : third) as Trait | [Trait, unknown];
       if (assertsEnabled) assertEntityAlive(ctx, entity);
       const target = Array.isArray(state) ? state[0] : state;
       if (!members.includes(target))

@@ -31,12 +31,12 @@ it('observes entry, self-transitions, removal and destruction', () => {
   expect(result.current).toBeUndefined();
   world.add(entity, Asset);
   expect(result.current).toBe(Idle);
-  Asset.enter(world, entity, Loading({ progress: 0.5 }));
+  Asset.enter(entity, Loading({ progress: 0.5 }));
   expect(result.current).toBe(Loading);
   flushSync();
   expect(getByTestId('data').textContent).toBe('{"progress":0.5}');
 
-  Asset.enter(world, entity, Loading({ progress: 1 }));
+  Asset.enter(entity, Loading({ progress: 1 }));
   flushSync();
   expect(getByTestId('data').textContent).toBe('{"progress":1}');
   world.remove(entity, Asset);
@@ -82,16 +82,16 @@ it('switches targets and machines and unsubscribes on unmount', async () => {
   expect(result.current).toBe(Loading);
   await rerender({ machine: Activity });
   expect(result.current).toBe(Active);
-  Asset.enter(world, second, Idle);
+  Asset.enter(second, Idle);
   expect(result.current).toBe(Active);
   await rerender({ target: null });
   expect(result.current).toBeUndefined();
-  Activity.enter(world, second, Inactive);
+  Activity.enter(second, Inactive);
   expect(result.current).toBeUndefined();
   await rerender({ target: second });
   expect(result.current).toBe(Inactive);
   flushSync(() => unmount());
-  Activity.enter(world, second, Active);
+  Activity.enter(second, Active);
   expect(result.current).toBe(Inactive);
   world.destroy();
 });
@@ -144,7 +144,7 @@ it('catches a self-transition between initialization and subscribing', async () 
         expect(result.current).toBe(Loading);
       },
       beforeEffects: () => {
-        Asset.enter(world, entity, Loading({ progress: 1 }));
+        Asset.enter(entity, Loading({ progress: 1 }));
       },
       data: (state: Trait | undefined) =>
         state === Loading ? world.get(entity, Loading) : undefined,

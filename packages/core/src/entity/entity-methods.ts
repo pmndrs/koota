@@ -1,60 +1,36 @@
+import { setChanged } from '../query/modifiers/changed';
+import type { Identifier, IdentifierPair } from '../identifier/types';
+import { subscribeMachine } from '../machine/machine';
+import type { Machine, TransitionSubscriber } from '../machine/types';
+import type { Relation, RelationPair } from '../relation/types';
+import type { Subscriber } from '../trait/subscriptions';
+import { addTrait, getTrait, removeTrait, setTrait, upsertTrait } from '../trait/trait';
+import type { ConfigurableTrait, Trait } from '../trait/types';
+import { warningsEnabled } from '../warning-config';
+import type { HookInput } from '../world/utils/resolve-hook';
 import {
   destroyEntity,
   entityHas,
   entityTargetFor,
   entityTargetsFor,
   subscribeEntityEvent,
-} from './entity/entity';
-import type { Entity, EntityMethods } from './entity/types';
-import { isEntityAlive } from './entity/utils/entity-index';
-import { createPageAllocator } from './entity/utils/page-allocator';
-import { getEntityGeneration, getEntityId } from './entity/utils/pack-entity';
-import type { Identifier, IdentifierPair } from './identifier/types';
-import { subscribeMachine } from './machine/machine';
-import type { Machine, TransitionSubscriber } from './machine/types';
-import { setChanged } from './query/modifiers/changed';
-import type { Relation, RelationPair } from './relation/types';
-import type { Subscriber } from './trait/subscriptions';
-import { addTrait, getTrait, removeTrait, setTrait, upsertTrait } from './trait/trait';
-import type { ConfigurableTrait, Trait } from './trait/types';
-import type { World, WorldContext, WorldOptions } from './world';
-import type { HookInput } from './world/utils/resolve-hook';
-import { createWorldWithAllocator } from './world/world';
-
-/**
- * The one structure worlds created here share. An entity is a number, so the page that holds
- * its id is how its methods find the world that owns it. The table holds each world until it is
- * destroyed, which is what a world from the main entry avoids by owning its ids.
- */
-const pageOwners: (WorldContext | null)[] = [];
-const allocator = /* @__PURE__ */ createPageAllocator(pageOwners);
+} from './entity';
+import type { Entity, EntityMethods } from './types';
+import { isEntityAlive } from './utils/entity-index';
+import { getEntityGeneration, getEntityId } from './utils/pack-entity';
+import { getEntityContext, sharedPageOwners } from './utils/shared-allocator';
 
 let installed = false;
 
 /**
- * Creates a world whose entities carry methods, so entity.get(Position) works without the
- * world at hand. Call destroy when done with it. Only one copy of this entry can install the
- * methods on a given Number.prototype.
- *
- * A program creates all of its worlds here or none of them. Ids are not marked by the kind of
- * world they came from, so a method called on an entity of a world from the main entry is not
- * caught and reaches whichever world here holds that id.
+ * Puts the methods on Number.prototype, so entity.get(Position) works without the world at hand.
+ * It runs when the first world that shares the allocator is created, so a program that only
+ * creates isolated worlds never touches the prototype.
  */
-export function createWorld(options?: WorldOptions): World {
-  if (!installed) {
-    installEntityMethods();
-    installed = true;
-  }
-  return createWorldWithAllocator(allocator, options);
-}
+export function installEntityMethods() {
+  if (installed) return;
+  installed = true;
 
-/** The world that owns a live entity. */
-/* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
-  return pageOwners[getEntityId(entity) >>> 10]!;
-}
-
-/** Built on first use, so a program that never creates a world here pays nothing for them. */
-function installEntityMethods() {
   const methods = {
     add(this: Entity, ...traits: ConfigurableTrait[]) {
       addTrait(getEntityContext(this), this, traits);
@@ -65,7 +41,7 @@ function installEntityMethods() {
     },
 
     remove(this: Entity, ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]) {
-      const ctx = pageOwners[getEntityId(this) >>> 10];
+      const ctx = sharedPageOwners[getEntityId(this) >>> 10];
       // A released page has no owner. Its world was destroyed, so nothing is left to remove.
       if (ctx !== null) removeTrait(ctx, this, ...traits);
     },
@@ -75,7 +51,7 @@ function installEntityMethods() {
     },
 
     destroy(this: Entity) {
-      const ctx = pageOwners[getEntityId(this) >>> 10];
+      const ctx = sharedPageOwners[getEntityId(this) >>> 10];
       // A released page has no owner. Its world was destroyed and the entity with it.
       if (ctx !== null) destroyEntity(ctx, this);
     },
@@ -137,21 +113,19 @@ function installEntityMethods() {
     },
 
     isAlive(this: Entity) {
-      const owner = pageOwners[getEntityId(this) >>> 10];
+      const owner = sharedPageOwners[getEntityId(this) >>> 10];
       return owner != null && isEntityAlive(owner.entityIndex, this);
     },
   } as EntityMethods;
 
-  // Check every name before installing any method so one prototype always uses one allocator.
-  const keys = Object.keys(methods) as (keyof EntityMethods)[];
-  for (const key of keys) {
-    if (Object.hasOwn(Number.prototype, key)) {
-      throw new Error(
-        `Koota: Number.prototype.${key} already exists. Use one copy of koota/entity-methods per realm.`
-      );
-    }
+  // Methods already there belong to another copy of koota. A realm has one Number.prototype, so
+  // this copy takes them over and the entities of the earlier copy reach the wrong worlds.
+  if (warningsEnabled && Object.hasOwn(Number.prototype, 'targetsFor')) {
+    console.warn(
+      'Koota: Entity methods are already installed, so more than one copy of koota is loaded. Entities of the earlier copy now reach the wrong worlds. Load one copy, or create the worlds of one of them with koota/isolated.'
+    );
   }
-  for (const key of keys) {
+  for (const key of Object.keys(methods) as (keyof EntityMethods)[]) {
     Object.defineProperty(Number.prototype, key, {
       value: methods[key],
       configurable: true,

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createActions, createWorld, identifier, relation, trait, type Entity } from '../src';
+import { createActions, identifier, machine, relation, trait, type Entity } from '../src';
+import { createWorld } from '../src/isolated';
 import { hasNativeGc, waitForFinalization } from './utils/gc';
 
 const Position = trait({ x: 0, y: 0 });
@@ -124,6 +125,19 @@ describe('World-first entities', () => {
     world.changed(watched, Position);
     expect(onEntity).toHaveBeenCalledTimes(1);
     expect(onWorld).toHaveBeenCalledTimes(3);
+  });
+
+  it('runs a machine through the world', () => {
+    const Idle = trait();
+    const Busy = trait({ job: 0 });
+    const Work = machine({ states: { Idle, Busy }, initial: Idle });
+    const world = createWorld();
+    const entity = world.spawn(Work);
+
+    expect(Work.current(world, entity)).toBe(Idle);
+    Work.enter(world, entity, Busy({ job: 3 }));
+    expect(Work.current(world, entity)).toBe(Busy);
+    expect(world.get(entity, Busy)).toEqual({ job: 3 });
   });
 
   it('walks a query and writes through the world inside it', () => {

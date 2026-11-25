@@ -37,9 +37,9 @@ it('observes entry, re-entry, removal, destruction and target changes', () => {
   expect(result.current.state).toBeUndefined();
   act(() => world.add(first, Download));
   expect(result.current.state).toBe(Idle);
-  act(() => Download.enter(world, first, Loading));
+  act(() => Download.enter(first, Loading));
   expect(result.current).toEqual({ state: Loading, requestId: 0 });
-  act(() => Download.enter(world, first, Loading({ requestId: 2 })));
+  act(() => Download.enter(first, Loading({ requestId: 2 })));
   expect(result.current).toEqual({ state: Loading, requestId: 2 });
   act(() => world.remove(first, Download));
   expect(result.current.state).toBeUndefined();
@@ -87,8 +87,8 @@ it('catches a round trip to the same state before subscribing', () => {
     () => {
       useMachine(entity, State);
       useLayoutEffect(() => {
-        State.enter(world, entity, Idle);
-        State.enter(world, entity, Active({ value: 2 }));
+        State.enter(entity, Idle);
+        State.enter(entity, Active({ value: 2 }));
       }, []);
       return world.get(entity, Active)?.value;
     },
@@ -111,7 +111,7 @@ it('runs trait effects once after re-entry and state changes', () => {
       useTraitEffect(entity, Loading, (value) => {
         observations.push([
           value,
-          AssetMachine.current(world, entity),
+          AssetMachine.current(entity),
           world.has(entity, Loading),
           world.query(Loaded).toArray(),
         ]);
@@ -120,11 +120,11 @@ it('runs trait effects once after re-entry and state changes', () => {
   );
   observations.length = 0;
 
-  act(() => AssetMachine.enter(world, entity, Loading({ progress: 0.5 })));
+  act(() => AssetMachine.enter(entity, Loading({ progress: 0.5 })));
   expect(observations).toEqual([[{ progress: 0.5 }, Loading, true, []]]);
   observations.length = 0;
 
-  act(() => AssetMachine.enter(world, entity, Loaded));
+  act(() => AssetMachine.enter(entity, Loaded));
   expect(observations).toEqual([[undefined, Loaded, false, [entity]]]);
   unmount();
   world.destroy();

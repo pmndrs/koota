@@ -1,6 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createQuery, createWorld, trait, type Entity, type World } from 'koota';
-import { createWorld as createMethodWorld } from 'koota/entity-methods';
 
 const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ x: 0, y: 0, z: 0 });
@@ -27,7 +26,7 @@ group('world-first accessors 10k @world-first @accessor', () => {
   });
 
   bench('entity.has', function* () {
-    const world = createMethodWorld();
+    const world = createWorld();
     const entities = Array.from({ length: 10_000 }, () => world.spawn(Position));
 
     const result = yield () => {
@@ -60,7 +59,7 @@ group('world-first accessors 10k @world-first @accessor', () => {
   });
 
   bench('entity.get out', function* () {
-    const world = createMethodWorld();
+    const world = createWorld();
     const entities = Array.from({ length: 10_000 }, (_, i) => world.spawn(Position({ x: i })));
     const out = Position.record();
 
@@ -93,7 +92,7 @@ group('world-first accessors 10k @world-first @accessor', () => {
   });
 
   bench('entity.set', function* () {
-    const world = createMethodWorld();
+    const world = createWorld();
     const entities = Array.from({ length: 10_000 }, () => world.spawn(Position));
 
     yield {
@@ -135,7 +134,7 @@ group('world-first mutations 10k @world-first @mutation', () => {
 
   bench('entity.add + remove, 1 query', function* () {
     const Tag = trait();
-    const world = createMethodWorld();
+    const world = createWorld();
     const entities = Array.from({ length: 10_000 }, () => world.spawn());
     const ref = createQuery(Tag);
     world.query(ref);
@@ -173,7 +172,7 @@ group('world-first mutations 10k @world-first @mutation', () => {
   });
 
   bench('entity spawn + destroy, 3 traits', function* () {
-    const world = createMethodWorld();
+    const world = createWorld();
     const entities: Entity[] = [];
 
     yield {
@@ -194,8 +193,8 @@ group('world-first mutations 10k @world-first @mutation', () => {
 // either as a constant.
 
 group('world-first across two worlds 10k @world-first @multi-world', () => {
-  const populate = (create: typeof createWorld) =>
-    [create(), create()].map((world) => ({
+  const populate = () =>
+    [createWorld(), createWorld()].map((world) => ({
       world,
       entities: Array.from({ length: 5_000 }, () => world.spawn(Position)),
     }));
@@ -229,7 +228,7 @@ group('world-first across two worlds 10k @world-first @multi-world', () => {
   };
 
   bench('world.has', function* () {
-    const worlds = populate(createWorld);
+    const worlds = populate();
 
     const result = yield () => {
       let matches = 0;
@@ -244,7 +243,7 @@ group('world-first across two worlds 10k @world-first @multi-world', () => {
   });
 
   bench('entity.has', function* () {
-    const worlds = populate(createMethodWorld);
+    const worlds = populate();
 
     const result = yield () => {
       let matches = 0;
@@ -257,7 +256,7 @@ group('world-first across two worlds 10k @world-first @multi-world', () => {
   });
 
   bench('world.set', function* () {
-    const worlds = populate(createWorld);
+    const worlds = populate();
 
     yield {
       bench: () => {
@@ -272,7 +271,7 @@ group('world-first across two worlds 10k @world-first @multi-world', () => {
   });
 
   bench('entity.set', function* () {
-    const worlds = populate(createMethodWorld);
+    const worlds = populate();
 
     yield {
       bench: () => {

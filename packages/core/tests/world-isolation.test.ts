@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { identifier, relation, trait, type Entity } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { createWorld, identifier, relation, trait, type Entity } from '../src';
 
 describe('world isolation', () => {
   it.each(['source', 'target'] as const)(

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
-import { createQuery, identifier, trait } from 'koota';
-import { createWorld } from 'koota/entity-methods';
+import { createQuery, createWorld, identifier, trait } from 'koota';
 
 const Name = identifier();
 const Position = trait({ x: 0, y: 0, z: 0 });

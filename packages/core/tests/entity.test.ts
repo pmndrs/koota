@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
-import { $internal, type Entity, getStore, trait, unpackEntity } from '../src';
-import { createWorld } from '../src/entity-methods';
+import { $internal, createWorld, type Entity, getStore, trait, unpackEntity } from '../src';
 
 const Foo = trait();
 const Bar = trait({ value: 0 });

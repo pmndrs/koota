@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRemoved, getStore, identifier, relation, trait, type World } from '../src';
-import { createWorld } from '../src/entity-methods';
+import {
+  createRemoved,
+  createWorld,
+  getStore,
+  identifier,
+  relation,
+  trait,
+  type World,
+} from '../src';
 
 describe('Assertions', () => {
   let world: World;

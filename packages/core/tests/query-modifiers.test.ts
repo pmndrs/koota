@@ -4,6 +4,7 @@ import {
   createAdded,
   createChanged,
   createRemoved,
+  createWorld,
   getStore,
   Not,
   Or,
@@ -11,7 +12,6 @@ import {
   trait,
   type QueryView,
 } from '../src';
-import { createWorld } from '../src/entity-methods';
 
 const Position = trait({ x: 0, y: 0 });
 const IsActive = trait();

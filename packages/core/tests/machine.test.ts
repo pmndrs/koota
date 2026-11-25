@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
+  createWorld,
   trait,
   machine,
   createAdded,
@@ -10,7 +11,6 @@ import {
   relation,
   required,
 } from '../src';
-import { createWorld } from '../src/entity-methods';
 
 function download() {
   const Wanted = trait();
@@ -25,6 +25,18 @@ function download() {
 }
 
 describe('machines', () => {
+  it('takes the world first as well as the entity alone', () => {
+    const { Wanted, Loading, Download } = download();
+    const world = createWorld();
+    const entity = world.spawn(Download);
+
+    expect(Download.current(world, entity)).toBe(Wanted);
+    Download.enter(world, entity, Loading({ requestId: 7 }));
+    expect(Download.current(world, entity)).toBe(Loading);
+    expect(Download.current(entity)).toBe(Loading);
+    expect(entity.get(Loading)).toEqual({ requestId: 7, attempts: 0 });
+  });
+
   it('keeps machines independent across entities, worlds and resets', () => {
     const { Wanted, Loading, Download } = download();
     const Visible = trait(),
@@ -34,11 +46,11 @@ describe('machines', () => {
       secondWorld = createWorld();
     const first = firstWorld.spawn(Download, Visibility);
     const second = secondWorld.spawn(Download);
-    Download.enter(firstWorld, first, Loading);
-    Visibility.enter(firstWorld, first, Hidden);
-    expect(Download.current(firstWorld, first)).toBe(Loading);
-    expect(Visibility.current(firstWorld, first)).toBe(Hidden);
-    expect(Download.current(secondWorld, second)).toBe(Wanted);
+    Download.enter(first, Loading);
+    Visibility.enter(first, Hidden);
+    expect(Download.current(first)).toBe(Loading);
+    expect(Visibility.current(first)).toBe(Hidden);
+    expect(Download.current(second)).toBe(Wanted);
     const removed = vi.fn();
     firstWorld.add(Download);
     firstWorld.onTransition(Download, removed);
@@ -47,8 +59,8 @@ describe('machines', () => {
       [Wanted, undefined],
       [Loading, undefined],
     ]);
-    expect(Download.current(firstWorld, firstWorld.spawn(Download))).toBe(Wanted);
-    expect(Download.current(secondWorld, second)).toBe(Wanted);
+    expect(Download.current(firstWorld.spawn(Download))).toBe(Wanted);
+    expect(Download.current(second)).toBe(Wanted);
     firstWorld.destroy();
     secondWorld.destroy();
   });
@@ -62,7 +74,7 @@ describe('machines', () => {
     const second = world.spawn(Download, Loading({ requestId: 7 }));
     const third = world.spawn(Loading({ requestId: 8 }), Download);
     const tile = world.spawn(Tile({ id: 1 }));
-    expect(Download.current(world, first)).toBe(Wanted);
+    expect(Download.current(first)).toBe(Wanted);
     expect(second.get(Loading)).toEqual({ requestId: 7, attempts: 0 });
     expect(third.get(Loading)?.requestId).toBe(8);
     expect(world.query(Download).toArray()).toEqual([first, second, third]);
@@ -80,7 +92,7 @@ describe('machines', () => {
     second.set(Loading, { requestId: 9 });
     expect(second.get(Loading)).toEqual({ requestId: 9, attempts: 0 });
     expect(entered).toHaveBeenCalledTimes(3);
-    expectTypeOf(Download.current(world, first)).toEqualTypeOf<
+    expectTypeOf(Download.current(first)).toEqualTypeOf<
       typeof Wanted | typeof Loading | (typeof Download.states)['Failed'] | undefined
     >();
     world.destroy();
@@ -90,13 +102,13 @@ describe('machines', () => {
     const { Wanted, Loading, Failed, Download } = download();
     const world = createWorld();
     const entity = world.spawn(Download);
-    expect(() => Download.enter(world, entity, Failed)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
-    expect(() => Download.enter(world, entity, Wanted)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+    expect(() => Download.enter(entity, Failed)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
+    expect(() => Download.enter(entity, Wanted)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
     expect(() => entity.add(Failed)).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
     expect(() => entity.upsert(Failed, { retryAt: 20 })).toThrow('[MACHINE_ILLEGAL_TRANSITION]');
-    expect(Download.current(world, entity)).toBe(Wanted);
-    Download.enter(world, entity, Loading({ requestId: 7, attempts: 3 }));
-    Download.enter(world, entity, Loading({ requestId: 8 }));
+    expect(Download.current(entity)).toBe(Wanted);
+    Download.enter(entity, Loading({ requestId: 7, attempts: 3 }));
+    Download.enter(entity, Loading({ requestId: 8 }));
     expect(entity.get(Loading)).toEqual({ requestId: 8, attempts: 0 });
     entity.upsert(Failed, { retryAt: 20 });
     expect(entity.has(Wanted)).toBe(false);
@@ -106,11 +118,11 @@ describe('machines', () => {
     expect(() => entity.remove(Failed)).toThrow('[MACHINE_STATE_REQUIRED]');
     entity.remove(Loading);
     entity.remove(Download);
-    expect(Download.current(world, entity)).toBeUndefined();
+    expect(Download.current(entity)).toBeUndefined();
     expect(entity.has(Download)).toBe(false);
-    Download.enter(world, entity, Failed);
-    expect(Download.current(world, entity)).toBe(Failed);
-    expect(() => Download.enter(world, entity, trait())).toThrow('[MACHINE_STATE]');
+    Download.enter(entity, Failed);
+    expect(Download.current(entity)).toBe(Failed);
+    expect(() => Download.enter(entity, trait())).toThrow('[MACHINE_STATE]');
     world.destroy();
   });
 
@@ -122,10 +134,10 @@ describe('machines', () => {
     const events: unknown[] = [];
     world.onRemove(Loading, (entity) => removed.push([entity.has(Loading), entity.get(Loading)]));
     const unsubscribe = entity.onTransition(Download, (entity, from, to, previous) => {
-      events.push([from, to, previous, entity.get(Loading), Download.current(world, entity)]);
+      events.push([from, to, previous, entity.get(Loading), Download.current(entity)]);
     });
-    Download.enter(world, entity, Loading({ requestId: 8 }));
-    Download.enter(world, entity, Failed({ retryAt: 20 }));
+    Download.enter(entity, Loading({ requestId: 8 }));
+    Download.enter(entity, Failed({ retryAt: 20 }));
     expect(removed).toEqual([
       [true, { requestId: 7, attempts: 0 }],
       [true, { requestId: 8, attempts: 0 }],
@@ -150,10 +162,10 @@ describe('machines', () => {
     const stopWorld = world.onTransition(Download, worldListener);
     const stopEntity = entity.onTransition(Download, entityListener);
 
-    Download.enter(world, other, Loading);
+    Download.enter(other, Loading);
     expect(worldListener).toHaveBeenCalledOnce();
     expect(entityListener).not.toHaveBeenCalled();
-    Download.enter(world, entity, Loading);
+    Download.enter(entity, Loading);
     expect(worldListener).toHaveBeenCalledTimes(2);
     expect(entityListener).toHaveBeenCalledOnce();
 
@@ -163,12 +175,12 @@ describe('machines', () => {
     const currentEntity = entity.onTransition(Download, entityListener);
     stopWorld();
     stopEntity();
-    Download.enter(world, entity, Loading);
+    Download.enter(entity, Loading);
     expect(worldListener).toHaveBeenCalledTimes(3);
     expect(entityListener).toHaveBeenCalledTimes(2);
     currentWorld();
     currentEntity();
-    Download.enter(world, entity, Loading);
+    Download.enter(entity, Loading);
     expect(worldListener).toHaveBeenCalledTimes(3);
     expect(entityListener).toHaveBeenCalledTimes(2);
     world.destroy();
@@ -187,14 +199,14 @@ describe('machines', () => {
       entity.onTransition(Download, entityListener);
     });
 
-    Download.enter(world, entity, Failed({ retryAt: 20 }));
+    Download.enter(entity, Failed({ retryAt: 20 }));
     for (const callback of [worldListener, entityListener]) expect(callback).not.toHaveBeenCalled();
-    Download.enter(world, entity, Wanted);
+    Download.enter(entity, Wanted);
     for (const callback of [worldListener, entityListener]) {
       expect(callback).toHaveBeenCalledExactlyOnceWith(entity, Failed, Wanted, { retryAt: 20 });
     }
     for (const callback of [nextWorld, nextEntity]) expect(callback).not.toHaveBeenCalled();
-    Download.enter(world, entity, Loading);
+    Download.enter(entity, Loading);
     for (const callback of [nextWorld, nextEntity]) {
       expect(callback).toHaveBeenCalledExactlyOnceWith(entity, Wanted, Loading, undefined);
     }
@@ -227,7 +239,7 @@ describe('machines', () => {
         ])
       );
       world.query(RefersTo(Loading));
-      Download.enter(world, entity, Loading);
+      Download.enter(entity, Loading);
       expect(observations).toEqual([[[], [entity], [source]]]);
       expect(world.query(Or(RefersTo(Wanted), RefersTo(Loading))).toArray()).toEqual([source]);
       expect(machineAdded).not.toHaveBeenCalled();
@@ -237,7 +249,7 @@ describe('machines', () => {
 
       const reentered = vi.fn();
       world[hook]([Loading], reentered);
-      Download.enter(world, entity, Loading({ requestId: 9 }));
+      Download.enter(entity, Loading({ requestId: 9 }));
       expect(entity.get(Loading)?.requestId).toBe(9);
       expect(reentered).not.toHaveBeenCalled();
       expect(observations).toHaveLength(1);
@@ -260,8 +272,8 @@ describe('machines', () => {
       world.onEnter([RefersTo(Loading)], () => events.push('add'));
       world.onExit([RefersTo(Loading)], () => events.push('remove'));
 
-      if (walking) world.query(RefersTo(Loading)).each(() => Download.enter(world, target, Loading));
-      else Download.enter(world, target, Loading);
+      if (walking) world.query(RefersTo(Loading)).each(() => Download.enter(target, Loading));
+      else Download.enter(target, Loading);
       expect(source.isAlive()).toBe(false);
       expect(events).toEqual(['add', 'remove']);
       stop();
@@ -281,7 +293,7 @@ describe('machines', () => {
     world.onEnter([RefersTo(Wanted)], () => events.push('add'));
     world.onExit([RefersTo(Wanted)], () => events.push('remove'));
 
-    Download.enter(world, target, Loading);
+    Download.enter(target, Loading);
     expect(world.query(RefersTo(Wanted)).toArray()).toContain(source);
     expect(events).toEqual(['remove', 'add']);
     world.destroy();
@@ -299,18 +311,18 @@ describe('machines', () => {
     world.query(Changed(Loading));
     world.query(Added(Download));
     world.query(Removed(Download));
-    Download.enter(world, entity, Loading);
+    Download.enter(entity, Loading);
     expect(world.query(Added(Loading)).toArray()).toEqual([entity]);
     expect(world.query(Changed(Loading)).toArray()).toEqual([entity]);
     expect(world.query(Removed(Wanted)).toArray()).toEqual([entity]);
     expect(world.query(Added(Download)).length).toBe(0);
     expect(world.query(Removed(Download)).length).toBe(0);
     world.query(Removed(Loading));
-    Download.enter(world, entity, Loading({ requestId: 9 }));
+    Download.enter(entity, Loading({ requestId: 9 }));
     expect(world.query(Removed(Loading)).length).toBe(0);
     expect(world.query(Added(Loading)).toArray()).toEqual([entity]);
-    Download.enter(world, entity, Loading);
-    Download.enter(world, entity, Failed);
+    Download.enter(entity, Loading);
+    Download.enter(entity, Failed);
     expect(world.query(Added(Loading)).length).toBe(0);
     entity.remove(Download);
     expect(world.query(Removed(Download)).toArray()).toEqual([entity]);
@@ -327,12 +339,12 @@ describe('machines', () => {
       world.query(createChanged()(Value));
       world.query(createChanged()(Tuple));
     }
-    world.query(Value).each((_value, entity) => State.enter(world, entity, Value({ n: 7 })));
+    world.query(Value).each((_value, entity) => State.enter(entity, Value({ n: 7 })));
     expect(entity.get(Value)).toEqual({ n: 7 });
-    State.enter(world, entity, Tuple);
+    State.enter(entity, Tuple);
     world.query(Tuple).each((_tuple, entity) => {
-      State.enter(world, entity, Value);
-      State.enter(world, entity, Tuple({ xy: [8, 9] }));
+      State.enter(entity, Value);
+      State.enter(entity, Tuple({ xy: [8, 9] }));
     });
     expect(entity.get(Tuple)).toEqual({ xy: [8, 9] });
     world.destroy();
@@ -345,9 +357,9 @@ describe('machines', () => {
     const visited: unknown[] = [];
     world.query(Wanted).each((entity) => {
       visited.push(entity);
-      Download.enter(world, entity, Loading);
+      Download.enter(entity, Loading);
       expect(entity.has(Wanted)).toBe(true);
-      expect(Download.current(world, entity)).toBe(Wanted);
+      expect(Download.current(entity)).toBe(Wanted);
       expect(world.query(Wanted).toArray()).toContain(entity);
     });
     expect(visited).toEqual(entities);
@@ -366,8 +378,8 @@ describe('machines', () => {
     const State = machine({ states: { Idle, Value }, initial: Idle });
     const world = createWorld();
     const entity = world.spawn(State);
-    expect(() => State.enter(world, entity, Value)).toThrow('failed');
-    expect(State.current(world, entity)).toBe(Idle);
+    expect(() => State.enter(entity, Value)).toThrow('failed');
+    expect(State.current(entity)).toBe(Idle);
     world.destroy();
   });
 
@@ -380,18 +392,18 @@ describe('machines', () => {
     entity.onTransition(Download, (_, _from, to) => {
       seen.push(to);
       if (to !== Loading) return;
-      Download.enter(world, entity, Failed);
-      Download.enter(world, other, Loading);
-      expect(Download.current(world, entity)).toBe(Loading);
-      expect(Download.current(world, other)).toBe(Wanted);
+      Download.enter(entity, Failed);
+      Download.enter(other, Loading);
+      expect(Download.current(entity)).toBe(Loading);
+      expect(Download.current(other)).toBe(Wanted);
     });
-    Download.enter(world, entity, Loading);
+    Download.enter(entity, Loading);
     expect(seen).toEqual([Loading, Failed]);
-    expect(Download.current(world, entity)).toBe(Failed);
-    expect(Download.current(world, other)).toBe(Loading);
+    expect(Download.current(entity)).toBe(Failed);
+    expect(Download.current(other)).toBe(Loading);
 
     other.onTransition(Download, () => other.destroy());
-    Download.enter(world, other, Failed);
+    Download.enter(other, Failed);
     expect(other.isAlive()).toBe(false);
     world.destroy();
   });
@@ -421,7 +433,7 @@ describe('machines', () => {
     const world = createWorld();
     const entity = world.spawn(Download);
     expect(() => entity.add(Loading, Wanted)).toThrow('[MACHINE_MULTIPLE_STATES]');
-    expect(Download.current(world, entity)).toBe(Wanted);
+    expect(Download.current(entity)).toBe(Wanted);
     expect(() => machine({ states: { Wanted }, initial: Wanted })).toThrow('[MACHINE_MEMBER_TAKEN]');
     const Used = trait();
     world.query(Used);
@@ -435,13 +447,13 @@ describe('machines', () => {
     // @ts-expect-error Initial states need defaults.
     expect(() => machine({ states: { Required }, initial: Required })).toThrow('[MACHINE_INITIAL]');
     const State = machine({ states: { A, Required }, initial: A });
-    State.enter(world, entity, Required({ value: 4 }));
+    State.enter(entity, Required({ value: 4 }));
     expect(entity.get(Required)).toEqual({ value: 4 });
     expectTypeOf(() => {
       // @ts-expect-error Required fields must be supplied on entry.
-      State.enter(world, entity, Required);
+      State.enter(entity, Required);
       // @ts-expect-error State schemas are preserved.
-      Download.enter(world, entity, Loading({ requestId: 'wrong' }));
+      Download.enter(entity, Loading({ requestId: 'wrong' }));
     }).toBeFunction();
     world.destroy();
   });
