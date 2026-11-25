@@ -162,6 +162,13 @@ export const relation = createRelation;
 
 const EMPTY_ENTITY_ARRAY: readonly Entity[] = Object.freeze([]) as readonly Entity[];
 
+/**
+ * Appends the entity to the sources of a target. The target is already in the entity's own list.
+ *
+ * A relation starts out unindexed, and a source is found in a bucket by scanning it. Once a large
+ * bucket needs a scan the relation is indexed for good. relationSlots then records where each
+ * entity sits in the bucket of every target it holds, so a removal needs no search.
+ */
 function addToRelationSources(
   ctx: WorldContext,
   traitData: TraitInstance,
@@ -178,39 +185,77 @@ function addToRelationSources(
   }
   bucket.target = target;
   bucket.push(entity);
-  bucket.positions?.set(entity, bucket.length - 1);
+  if (traitData.relationSlots !== undefined) {
+    recordRelationSlot(traitData, entity, target, bucket.length - 1);
+  }
 }
 
-/** Indexes a bucket once it is large enough that scanning it for one source is slow. */
-function indexRelationSources(bucket: RelationSources): Map<Entity, number> {
-  const positions = new Map<Entity, number>();
-  for (let i = 0; i < bucket.length; i++) positions.set(bucket[i], i);
-  bucket.positions = positions;
-  return positions;
+/** Records where an entity sits in the bucket of a target it holds. */
+function recordRelationSlot(
+  traitData: TraitInstance,
+  entity: Entity,
+  target: Entity,
+  slot: number
+): void {
+  const eid = getEntityId(entity);
+  const held = traitData.relationTargets![eid >>> 10][eid & 1023];
+  const page = ensureRelPage(traitData.relationSlots!, eid >>> 10);
+  // An exclusive relation keeps one target per entity and any other a list of them. A target
+  // that was just added is the last of its list, so the search starts there.
+  if (typeof held === 'number') page[eid & 1023] = slot;
+  else (page[eid & 1023] ??= [])[(held as Entity[]).lastIndexOf(target)] = slot;
 }
 
-function removeFromRelationSources(traitData: TraitInstance, entity: Entity, target: Entity): void {
-  const bucket = traitData.relationSourcesByTarget?.[getEntityId(target)];
-  if (!bucket) {
-    if (assertsEnabled) {
-      throw new Error(
-        `Koota: [RELATION_INDEX] A forward relation has no reverse source bucket. Entity ${entity}, target ${target}, trait ${traitData.trait.id}.`
-      );
+/** Indexes every pair of a relation. Runs once, when a large bucket first needs a scan. */
+function indexRelationSources(traitData: TraitInstance): void {
+  traitData.relationSlots = [];
+  const buckets = traitData.relationSourcesByTarget!;
+  // Buckets are keyed by target id, so the list has a hole for every entity that was never one.
+  for (let targetId = 0; targetId < buckets.length; targetId++) {
+    const bucket = buckets[targetId];
+    if (bucket === undefined) continue;
+    for (let slot = 0; slot < bucket.length; slot++) {
+      recordRelationSlot(traitData, bucket[slot], bucket.target!, slot);
     }
-    return;
   }
+}
+
+/**
+ * The slot an indexed relation recorded for an entity under the target at an index of its list,
+ * or -1 when the entity no longer sits there. Indexes the relation on first use.
+ */
+function findRelationSlot(
+  traitData: TraitInstance,
+  bucket: RelationSources,
+  entity: Entity,
+  targetIndex: number
+): number {
+  if (traitData.relationSlots === undefined) indexRelationSources(traitData);
+  const eid = getEntityId(entity);
+  const held = traitData.relationSlots![eid >>> 10]?.[eid & 1023];
+  const slot: number | undefined = typeof held === 'number' ? held : held?.[targetIndex];
+  return slot !== undefined && bucket[slot] === entity ? slot : -1;
+}
+
+/**
+ * Takes the entity out of the sources of a target. `targetIndex` is where the target sits in the
+ * entity's own list. The last source moves into the gap.
+ */
+function removeFromRelationSources(
+  traitData: TraitInstance,
+  entity: Entity,
+  target: Entity,
+  targetIndex: number
+): void {
+  const bucket: RelationSources =
+    traitData.relationSourcesByTarget?.[getEntityId(target)] ?? (EMPTY_ENTITY_ARRAY as Entity[]);
   const last = bucket.length - 1;
-  let positions = bucket.positions;
-  let idx: number;
+  let slot: number;
   // A dying target walks its sources from the end, so the last slot is checked first.
-  if (bucket[last] === entity) idx = last;
-  else if (positions !== undefined) idx = positions.get(entity) ?? -1;
-  else if (last < 64) idx = bucket.indexOf(entity);
-  else {
-    positions = indexRelationSources(bucket);
-    idx = positions.get(entity) ?? -1;
-  }
-  if (idx === -1) {
+  if (bucket[last] === entity) slot = last;
+  else if (traitData.relationSlots === undefined && last < 64) slot = bucket.indexOf(entity);
+  else slot = findRelationSlot(traitData, bucket, entity, targetIndex);
+  if (slot === -1) {
     if (assertsEnabled) {
       throw new Error(
         `Koota: [RELATION_INDEX] A forward relation is missing its reverse source. Entity ${entity}, target ${target}, trait ${traitData.trait.id}.`
@@ -218,16 +263,12 @@ function removeFromRelationSources(traitData: TraitInstance, entity: Entity, tar
     }
     return;
   }
-  if (idx !== last) {
+  if (slot !== last) {
     const moved = bucket[last];
-    bucket[idx] = moved;
-    positions?.set(moved, idx);
+    bucket[slot] = moved;
+    if (traitData.relationSlots !== undefined) recordRelationSlot(traitData, moved, target, slot);
   }
   bucket.pop();
-  if (positions !== undefined) {
-    if (last === 0) bucket.positions = undefined;
-    else positions.delete(entity);
-  }
 }
 
 /**
@@ -239,10 +280,12 @@ export function detachRelationTargets(instance: TraitInstance, entity: Entity): 
   const entry = instance.relationTargets?.[eid >>> 10]?.[eid & 1023];
   if (entry === undefined) return;
   if (typeof entry === 'number') {
-    removeFromRelationSources(instance, entity, entry as Entity);
+    removeFromRelationSources(instance, entity, entry as Entity, 0);
   } else {
     const targets = entry as Entity[];
-    for (let i = 0; i < targets.length; i++) removeFromRelationSources(instance, entity, targets[i]);
+    for (let i = 0; i < targets.length; i++) {
+      removeFromRelationSources(instance, entity, targets[i], i);
+    }
   }
   instance.version++;
 }
@@ -261,7 +304,10 @@ export function clearRelationEntity(instance: TraitInstance, eid: number): void 
   const traitCtx = instance.trait[$internal];
   const exclusive = traitCtx.relation![$internal].exclusive;
   if (exclusive) page[o] = undefined;
-  else popAll(entry as unknown[]);
+  else {
+    popAll(entry as unknown[]);
+    popAll(instance.relationSlots?.[p]?.[o]);
+  }
   if (traitCtx.type === 'tag') return;
   const store = instance.store as any;
   if (traitCtx.type === 'aos') {
@@ -456,7 +502,7 @@ export function commitScopedRelationTarget(
   const page = ((data.relationTargets ??= [])[eid >>> 10] ??= []);
   const previous = page[eid & 1023] as Entity | undefined;
   if (previous !== undefined) {
-    removeFromRelationSources(data, entity, previous);
+    removeFromRelationSources(data, entity, previous, 0);
     clearRelationDataInternal(data.store, trait[$internal].type, eid, 0, true);
     if (ctx.retain !== 0) recordPairRemoval(ctx, entity, trait.id, previous);
   }
@@ -486,37 +532,60 @@ export function removeRelationTarget(
   const page = data.relationTargets[p];
   if (!page) return -1;
 
-  let remaining = -1;
+  let remaining = 0;
 
   if (relationCtx.exclusive) {
-    if (page[o] === target) {
-      removeFromRelationSources(data, entity, target);
-      page[o] = undefined;
-      remaining = 0;
-      clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
-    }
+    if (page[o] !== target) return -1;
+    removeFromRelationSources(data, entity, target, 0);
+    page[o] = undefined;
+    clearRelationDataInternal(data.store, relationTrait[$internal].type, eid, 0, true);
   } else {
-    const entityTargets = page[o] as number[] | undefined;
-    if (entityTargets) {
-      const idx = entityTargets.indexOf(target);
-      if (idx !== -1) {
-        const lastIdx = entityTargets.length - 1;
-        removeFromRelationSources(data, entity, target);
-        if (idx !== lastIdx) entityTargets[idx] = entityTargets[lastIdx];
-        entityTargets.pop();
-        swapAndPopRelationData(data.store, relationTrait[$internal].type, eid, idx, lastIdx);
-        remaining = entityTargets.length;
-      }
-    }
+    const entityTargets = page[o] as Entity[] | undefined;
+    if (!entityTargets) return -1;
+    const idx = entityTargets.indexOf(target);
+    if (idx === -1) return -1;
+    removeTargetAt(data, entity, eid, entityTargets, idx);
+    remaining = entityTargets.length;
   }
 
-  if (remaining !== -1) {
-    data.version++;
-    if (ctx.retain !== 0) recordPairRemoval(ctx, entity, relationTrait.id, target);
-    reconcileRelationQueries(ctx, data, entity, target, 'remove', false);
-  }
-
+  finishPairRemoval(ctx, data, entity, target);
   return remaining;
+}
+
+/**
+ * Drops the target at an index of an entity's list. The last target moves into the gap, along
+ * with its pair data and the slot an indexed relation recorded for it.
+ */
+/* @inline */ function removeTargetAt(
+  data: TraitInstance,
+  entity: Entity,
+  eid: number,
+  targets: Entity[],
+  idx: number
+): void {
+  const lastIdx = targets.length - 1;
+  removeFromRelationSources(data, entity, targets[idx], idx);
+  if (idx !== lastIdx) targets[idx] = targets[lastIdx];
+  targets.pop();
+  if (data.relationSlots !== undefined) {
+    const slots = data.relationSlots[eid >>> 10][eid & 1023] as number[];
+    if (idx !== lastIdx) slots[idx] = slots[lastIdx];
+    slots.pop();
+  }
+  const type = data.trait[$internal].type;
+  if (type !== 'tag') swapAndPopRelationData(data.store, type, eid, idx, lastIdx);
+}
+
+/** Records a pair a live entity lost and tells the queries that watch the relation. */
+/* @inline */ function finishPairRemoval(
+  ctx: WorldContext,
+  data: TraitInstance,
+  entity: Entity,
+  target: Entity
+): void {
+  data.version++;
+  if (ctx.retain !== 0) recordPairRemoval(ctx, entity, data.trait.id, target);
+  reconcileRelationQueries(ctx, data, entity, target, 'remove', false);
 }
 
 /** Forward edges require base trait membership until their final removal. */
@@ -560,7 +629,26 @@ function recordPairRemoval(ctx: WorldContext, entity: Entity, traitId: number, t
  * Re-evaluate the queries that filter on or track the pairs of a relation after a pair event. A
  * pair write or a dying entity leaves static membership alone and only concerns tracking queries.
  */
-export function reconcileRelationQueries(
+export /* @inline */ function reconcileRelationQueries(
+  ctx: WorldContext,
+  instance: TraitInstance,
+  entity: Entity,
+  target: Entity,
+  eventType: EventType,
+  trackingOnly: boolean
+): void {
+  // Most relations have no such query, so the check stays with the caller and the work is a call.
+  if (
+    instance.relationQueries.length !== 0 ||
+    instance.anchorRelations.length !== 0 ||
+    instance.relationQueryIdentifiers !== undefined
+  ) {
+    reconcilePairQueries(ctx, instance, entity, target, eventType, trackingOnly);
+  }
+}
+
+/** Exported so the inline guard in reconcileRelationQueries can expand in other modules. */
+export function reconcilePairQueries(
   ctx: WorldContext,
   instance: TraitInstance,
   entity: Entity,
@@ -660,7 +748,7 @@ function clearRelationDataInternal(
   _idx: number,
   exclusive: boolean
 ): void {
-  if (!exclusive) return;
+  if (!exclusive || type === 'tag') return;
   const p = eid >>> 10,
     o = eid & 1023;
   if (type === 'aos') {
@@ -677,9 +765,21 @@ export function removeAllRelationTargets(
   relation: Relation<Trait>,
   entity: Entity
 ): void {
-  const targets = getRelationTargets(ctx, relation, entity);
-  for (const target of targets) {
-    removeRelationTarget(ctx, relation, entity, target);
+  const relationCtx = relation[$internal];
+  const data = getTraitInstance(ctx.traitInstances, relationCtx.trait);
+  const eid = getEntityId(entity);
+  const entry = data?.relationTargets?.[eid >>> 10]?.[eid & 1023];
+  if (entry === undefined) return;
+  if (relationCtx.exclusive) {
+    removeRelationTarget(ctx, relation, entity, entry as Entity);
+    return;
+  }
+  const targets = entry as Entity[];
+  // The last target leaves each time, so nothing moves and the list needs no copy.
+  for (let idx = targets.length - 1; idx >= 0; idx--) {
+    const target = targets[idx];
+    removeTargetAt(data!, entity, eid, targets, idx);
+    finishPairRemoval(ctx, data!, entity, target);
   }
 }
 
