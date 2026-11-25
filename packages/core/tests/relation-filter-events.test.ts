@@ -56,6 +56,24 @@ describe('relation filter events', () => {
     expect(events).toEqual(['add', 'remove', 'add', 'remove']);
   });
 
+  it('reports every source when a hook changes the relation as its target enters', () => {
+    const world = createWorld();
+    const parent = world.spawn();
+    const children = [world.spawn(ChildOf(parent)), world.spawn(ChildOf(parent))];
+    const late = world.spawn();
+    const reported: Entity[] = [];
+    world.onAdd(ChildOf(Active), (entity) => {
+      reported.push(entity);
+      children[0].remove(ChildOf(parent));
+      late.add(ChildOf(parent));
+    });
+
+    parent.add(Active);
+
+    expect(reported).toEqual([...children, late]);
+    expect(world.query(ChildOf(Active)).toArray()).toEqual([children[1], late]);
+  });
+
   it('stops reporting after unsubscribing', () => {
     const world = createWorld();
     const parent = world.spawn();

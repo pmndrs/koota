@@ -37,8 +37,7 @@ export function ordered<T extends Trait>(relation: Relation<T>): OrderedRelation
     add: (ctx, index, store, value) => {
       if (value !== undefined) throw new Error('Koota: Ordered traits create their own views.');
       const entity = ctx.entityIndex.dense[ctx.entityIndex.sparse[index]];
-      const existing = getEntitiesWithRelationTo(ctx, relation, entity);
-      const entities = existing.length === 0 ? [] : (existing as Entity[]);
+      const entities = getEntitiesWithRelationTo(ctx, relation, entity).slice();
       defaults.add(
         ctx,
         index,

@@ -317,6 +317,17 @@ export /* @inline */ function getRelationTargets(
   }
 }
 
+/**
+ * The targets an entity holds, as the relation stores them. A dying entity keeps them until it is
+ * evicted. An exclusive relation stores one target, which gets a list of its own.
+ */
+export function getStoredRelationTargets(instance: TraitInstance, entity: Entity): readonly Entity[] {
+  const eid = getEntityId(entity);
+  const entry = instance.relationTargets?.[eid >>> 10]?.[eid & 1023];
+  if (entry === undefined) return EMPTY_ENTITY_ARRAY;
+  return typeof entry === 'number' ? [entry as Entity] : (entry as Entity[]);
+}
+
 export /* @inline */ function getFirstRelationTarget(
   ctx: WorldContext,
   relation: Relation<Trait>,
@@ -679,15 +690,15 @@ function getRelationSourceBucket(ctx: WorldContext, relation: Relation<Trait>, t
 }
 
 /**
- * Get all entities that have a specific relation targeting a specific entity.
- * Returns a fresh snapshot so callers can safely iterate while relations mutate.
+ * The entities that hold a relation to a target, as the reverse index stores them. A walk runs
+ * inside a defer scope, so the list holds still while hooks run. Copy it to keep it.
  */
 export function getEntitiesWithRelationTo(
   ctx: WorldContext,
   relation: Relation<Trait>,
   target: Entity
 ): readonly Entity[] {
-  return getRelationSourceBucket(ctx, relation, target)?.slice() ?? EMPTY_ENTITY_ARRAY;
+  return getRelationSourceBucket(ctx, relation, target) ?? EMPTY_ENTITY_ARRAY;
 }
 
 /** A one-off first match can stop at the first visible source in the query's seed order. */
