@@ -206,13 +206,20 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
    * For non-exclusive: relationTargets[pageId][offset] = [targetId1, targetId2, ...] (number[])
    */
   relationTargets?: any[][];
+  /**
+   * Where the entity sits in the sources of each target, laid out like relationTargets. Only an
+   * indexed relation has it, see addToRelationSources.
+   * For exclusive: relationSlots[pageId][offset] = position (number)
+   * For non-exclusive: relationSlots[pageId][offset] = [position1, position2, ...] (number[])
+   */
+  relationSlots?: any[][];
   identifier: IdentifierIndex | undefined;
   machine: MachineInstance | undefined;
   relationSourcesByTarget?: RelationSources[];
 }
 
-/** The sources of one target. A large bucket also indexes where each source sits. */
-export type RelationSources = Entity[] & { target?: Entity; positions?: Map<Entity, number> };
+/** The sources of one target, tagged with the handle of that target. */
+export type RelationSources = Entity[] & { target?: Entity };
 
 /** A type whose presence can be queried or observed through a trait. */
 export type TraitInput = Trait | Relation<Trait> | Identifier;

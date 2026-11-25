@@ -29,9 +29,7 @@ import {
   assertRequiredParams,
   detachRelationTargets,
   reconcileRelationQueries,
-  getFirstRelationTarget,
   getRelationData,
-  getRelationTargets,
   getStoredRelationTargets,
   getTargetIndex,
   hasRelationToTarget,
@@ -167,6 +165,8 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
     relationFilterHooks: null,
     // Declared up front so relation and plain trait instances share one hidden class.
     relationTargets: undefined,
+    relationSlots: undefined,
+    relationSourcesByTarget: undefined,
     machine: traitCtx.machine?.trait === trait ? createMachineInstance() : undefined,
     identifier: traitCtx.identifier
       ? {
@@ -382,7 +382,12 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
   const relationCtx = relation[$internal];
   const relationTrait = relationCtx.trait;
 
-  if (hasRelationToTarget(ctx, relation, entity, target)) return;
+  // One read of what the entity holds tells whether it has the pair and, for an exclusive
+  // relation, which target the new one replaces.
+  const eid = getEntityId(entity);
+  const known = getTraitInstance(ctx.traitInstances, relationTrait);
+  const held = known?.relationTargets?.[eid >>> 10]?.[eid & 1023];
+  if (relationCtx.exclusive ? held === target : held !== undefined && held.includes(target)) return;
 
   if (assertsEnabled) {
     if (relationTrait[$internal].required) assertRequiredParams(relationTrait.schema, params);
@@ -393,21 +398,22 @@ export /* @inline */ function addRelationPair(ctx: WorldContext, entity: Entity,
     return;
   }
 
-  if (relationCtx.exclusive) {
-    const oldTarget = getFirstRelationTarget(ctx, relation, entity);
-    if (oldTarget !== undefined && oldTarget !== target) {
-      const instance = getTraitInstance(ctx.traitInstances, relationTrait);
-      if (instance) emit(instance.removeSubscriptions, entity, oldTarget);
-      removeRelationTarget(ctx, relation, entity, oldTarget);
-    }
+  // Moving to another target is a whole removal, so it runs out of line.
+  if (relationCtx.exclusive && held !== undefined) /* @cold */ {
+    emit(known!.removeSubscriptions, entity, held);
+    removeRelationTarget(ctx, relation, entity, held);
   }
 
   const added = addTraitToEntity(ctx, entity, relationTrait);
 
   const targetIndex = addRelationTarget(ctx, relation, entity, target);
 
-  const instance = added ?? getTraitInstance(ctx.traitInstances, relationTrait)!;
-  initRelationData(ctx, entity, relation, instance, targetIndex, params);
+  // An entity that already had the relation had its instance before this call.
+  const instance = added ?? known!;
+  // Most relations carry no data, so the check stays here and the work is a call.
+  if (relationTrait[$internal].type !== 'tag') {
+    initRelationData(ctx, entity, relation, instance, targetIndex, params);
+  }
   if (added === undefined && instance.trackingQueries.length !== 0) {
     reconcileTrackingQueries(ctx, entity, instance, 'add');
   }
@@ -552,12 +558,19 @@ export function releaseRelationTargets(
     return;
   }
   const instance = getTraitInstance(ctx.traitInstances, trait);
-  if (instance) {
-    const targets = getRelationTargets(ctx, relation, entity);
-    for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-  }
+  if (instance) emitPairRemovals(instance, entity);
   removeAllRelationTargets(ctx, relation, entity);
   removeTraitFromEntity(ctx, entity, trait);
+}
+
+/** Tells the pair subscribers of every target the entity holds, before the targets are dropped. */
+function emitPairRemovals(instance: TraitInstance, entity: Entity) {
+  if (!hasSubscribers(instance.removeSubscriptions)) return;
+  // Subscribers run inside a defer scope, so the stored list holds still through the walk.
+  const targets = getStoredRelationTargets(instance, entity);
+  for (let i = 0; i < targets.length; i++) {
+    emitSubscribers(instance.removeSubscriptions, entity, targets[i]);
+  }
 }
 
 /**
@@ -667,10 +680,7 @@ export /* @inline */ function removeRelationPair(
   const instance = getTraitInstance(ctx.traitInstances, relationTrait);
 
   if (target === '*') {
-    if (instance) {
-      const targets = getRelationTargets(ctx, relation, entity);
-      for (const t of targets) emit(instance.removeSubscriptions, entity, t);
-    }
+    if (instance) emitPairRemovals(instance, entity);
     removeAllRelationTargets(ctx, relation, entity);
     removeTraitFromEntity(ctx, entity, relationTrait);
     return;
