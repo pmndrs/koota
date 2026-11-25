@@ -467,7 +467,7 @@ export function setScopedRelationPair(
 export function removeTrait(
   ctx: WorldContext,
   entity: Entity,
-  traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
+  ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
 ) {
   if (assertsEnabled) {
     assertAliveOrWorldDestroyed(ctx, entity);

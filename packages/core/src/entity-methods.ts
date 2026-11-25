@@ -67,7 +67,7 @@ function installEntityMethods() {
     remove(this: Entity, ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]) {
       const ctx = pageOwners[getEntityId(this) >>> 10];
       // A released page has no owner. Its world was destroyed, so nothing is left to remove.
-      if (ctx !== null) removeTrait(ctx, this, traits);
+      if (ctx !== null) removeTrait(ctx, this, ...traits);
     },
 
     has(this: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair) {

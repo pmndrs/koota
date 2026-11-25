@@ -323,7 +323,7 @@ const worldMethods: ThisType<World> = {
     ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
   ) {
     const ctx = this[$internal];
-    if (typeof first === 'number') removeTrait(ctx, first, traits);
+    if (typeof first === 'number') removeTrait(ctx, first, ...traits);
     else removeFromWorld(ctx, first, traits);
   },
 
@@ -580,7 +580,7 @@ function removeFromWorld(
 ) {
   if (!assertTraitOrEmpty(first, traits) || ctx.worldEntity === null) return;
   traits.unshift(first!);
-  removeTrait(ctx, ctx.worldEntity, traits);
+  removeTrait(ctx, ctx.worldEntity, ...traits);
 }
 
 function getFromWorld(ctx: WorldContext, trait: Trait, out: Record<string, unknown> | undefined) {
