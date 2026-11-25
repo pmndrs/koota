@@ -7,10 +7,9 @@ type Resolved = { world: World; entity: Entity };
 type TargetResolver = (target: Target) => Resolved | undefined;
 
 /**
- * Returns a function that resolves a target to the world it is read through and the entity to
- * read, or undefined when there is nothing live to read. Every hook needs a provided world,
- * captured here during component initialization. An entity is a bare id, so it is read through
- * the provided world. A world target is read through itself.
+ * Returns a function that resolves a target to the world and entity to read, or undefined when
+ * nothing live is there. An entity is read through the provided world, which is captured here
+ * during component initialization. A world target is read through itself.
  */
 export function createTargetResolver(): TargetResolver {
   const provided = useWorld();

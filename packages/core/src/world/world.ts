@@ -188,13 +188,10 @@ export function createWorld(options?: WorldOptions): World {
 }
 
 /**
- * Creates a world that owns everything it allocates. Nothing outside the world refers to it, so
- * dropping the last reference frees it. Its entities are plain numbers that only mean something
- * to this world, and only the world can act on them.
- *
- * A program creates all of its worlds here or none of them. Ids are not marked by the kind of
- * world they came from, so an entity method called on an entity of an isolated world is not
- * caught and reaches whichever world with entity methods holds that id.
+ * Creates a world that owns its allocator. Nothing outside the world refers to it, so dropping
+ * the last reference frees it. Its entities carry no methods and only mean something to this
+ * world. A program must not mix these with worlds from createWorld, since an entity method
+ * cannot tell the two apart and reaches whichever shared world holds that id.
  */
 export function createIsolatedWorld(options?: WorldOptions): World {
   return createWorldWithAllocator(createPageAllocator([]), options);

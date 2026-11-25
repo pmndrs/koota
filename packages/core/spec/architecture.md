@@ -54,7 +54,7 @@ Traits are a user-facing handle for storage. The user never interacts with store
 
 `createWorld(options?: WorldOptions)` fixes world policy at creation. `retain` defaults to 1024, is readable through `world.retain`, and survives reset. It caps destroyed-entity history. Overflow evicts the oldest even if unread, and zero disables retention. Singleton traits are added separately with `world.add(...)`.
 
-A world owns everything it allocates and nothing outside refers to it, so dropping the last reference frees it. `createWorld()` creates the world entity at once. `destroy()` is final: it destroys every entity, releases the pages and leaves a world that cannot spawn.
+`createWorld()` creates the world entity at once. `destroy()` is final: it destroys every entity, releases the pages and leaves a world that cannot spawn.
 
 ## Internals
 

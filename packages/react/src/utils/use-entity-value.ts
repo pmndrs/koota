@@ -20,8 +20,8 @@ export function resolveEntity(target: Entity | World | undefined | null): Entity
 }
 
 /**
- * Every hook needs a provider. An entity is a bare id, so it is read through the provided world.
- * A world target is read through itself.
+ * Every hook needs a provider. An entity is read through the provided world and a world target
+ * through itself.
  */
 export function useResolvedWorld(target: Entity | World | undefined | null): World | undefined {
   const provided = useWorld();

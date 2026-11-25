@@ -66,7 +66,6 @@ describe('World', () => {
     function Test() {
       worldTest = useMemo(() => createWorld(), []);
 
-      // A world nothing refers to is collected, so the one a discarded render made needs no cleanup.
       useEffect(() => {
         const entity = worldTest.spawn();
         return () => worldTest.destroy(entity);
