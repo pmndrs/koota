@@ -13,7 +13,7 @@ export const updateSeparation = ({ world }: { world: World }) => {
     if (neighbors.length === 0) return;
 
     for (const neighbor of neighbors) {
-      const neighborPosition = world.get(neighbor, Position)!;
+      const neighborPosition = neighbor.get(Position)!;
       const dx = position.x - neighborPosition.x;
       const dy = position.y - neighborPosition.y;
       const dz = position.z - neighborPosition.z;

@@ -6,7 +6,7 @@ export function tickExplosion(world: World) {
   world.query(Explosion).each((explosion, entity) => {
     explosion.current += delta * 1000;
     if (explosion.current >= explosion.duration) {
-      world.destroy(entity);
+      entity.destroy();
     }
   });
 }

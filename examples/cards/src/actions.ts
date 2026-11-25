@@ -9,7 +9,7 @@ export const actions = createActions((world) => ({
     const card = world.spawn(Card(config), Position, Rotation, Scale, Velocity, ZIndex);
 
     // Add card to hand's ordered list
-    const cards = world.get(hand, OrderedCards);
+    const cards = hand.get(OrderedCards);
     // Use the ordered list to add the card to the hand.
     //  The HeldBy relation is automatically added to the card.
     if (cards) cards.add(card);

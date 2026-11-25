@@ -12,12 +12,11 @@ export const actions = createActions((world) => ({
   },
   destroyRandomBoid: () => {
     const entities = world.query(Position, Velocity);
-    const entity = entities.at(Math.floor(Math.random() * entities.length));
-    if (entity !== undefined) world.destroy(entity);
+    entities.at(Math.floor(Math.random() * entities.length))?.destroy();
   },
   destroyAllBoids: () => {
     for (const entity of world.query(Position, Velocity)) {
-      world.destroy(entity);
+      entity.destroy();
     }
   },
 }));

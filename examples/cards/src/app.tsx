@@ -1,5 +1,5 @@
-import { getEntityId, type Entity } from 'koota';
-import { useHas, useQueryFirst, useTrait, useWorld } from 'koota/react';
+import type { Entity } from 'koota';
+import { useHas, useQueryFirst, useTrait } from 'koota/react';
 import { useCallback } from 'react';
 import { Frameloop } from './frameloop';
 import { Startup } from './startup';
@@ -30,14 +30,13 @@ function HandRenderer() {
     <div className="hand-container">
       {/* Map each card to a view */}
       {cards.map((card) => (
-        <CardView key={getEntityId(card)} entity={card} />
+        <CardView key={card.id()} entity={card} />
       ))}
     </div>
   );
 }
 
 function CardView({ entity }: { entity: Entity }) {
-  const world = useWorld();
   const card = useTrait(entity, Card);
   const isDragging = useHas(entity, Dragging);
 
@@ -46,10 +45,10 @@ function CardView({ entity }: { entity: Entity }) {
   const handleInit = useCallback(
     (div: HTMLDivElement | null) => {
       if (!div) return;
-      world.add(entity, Ref(div));
-      return () => world.remove(entity, Ref);
+      entity.add(Ref(div));
+      return () => entity.remove(Ref);
     },
-    [world, entity]
+    [entity]
   );
 
   const handlePointerDown = useCallback(
@@ -63,26 +62,26 @@ function CardView({ entity }: { entity: Entity }) {
         y: event.clientY - centerY,
       };
 
-      world.set(entity, Position, { x: centerX, y: centerY });
-      world.set(entity, Velocity, { x: 0, y: 0 });
-      world.add(entity, Dragging({ offset }));
+      entity.set(Position, { x: centerX, y: centerY });
+      entity.set(Velocity, { x: 0, y: 0 });
+      entity.add(Dragging({ offset }));
 
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [world, entity]
+    [entity]
   );
 
   const handlePointerUp = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      world.remove(entity, Dragging);
+      entity.remove(Dragging);
       event.currentTarget.releasePointerCapture(event.pointerId);
     },
-    [world, entity]
+    [entity]
   );
 
   const handlePointerCancel = useCallback(() => {
-    world.remove(entity, Dragging);
-  }, [world, entity]);
+    entity.remove(Dragging);
+  }, [entity]);
 
   /**
    * We only remove dragging when the mouse buttons are released.
@@ -91,9 +90,9 @@ function CardView({ entity }: { entity: Entity }) {
    */
   const handleLostPointerCapture = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.buttons === 0) world.remove(entity, Dragging);
+      if (event.buttons === 0) entity.remove(Dragging);
     },
-    [world, entity]
+    [entity]
   );
 
   if (!card) return null;

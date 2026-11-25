@@ -52,7 +52,7 @@ export const actions = createActions((world) => ({
   },
   destroyAllBodies: () => {
     world.query(Position, Velocity, Mass, Circle, Color, Acceleration).forEach((entity) => {
-      world.destroy(entity);
+      entity.destroy();
     });
   },
 }));

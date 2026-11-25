@@ -22,10 +22,10 @@ export function updateHandLayout(world: World) {
       const card = cards.at(i)!;
 
       // Assign z-index based on card order
-      world.set(card, ZIndex, { value: i });
+      card.set(ZIndex, { value: i });
 
       // Skip cards being dragged - they're positioned by updateDragging
-      if (world.has(card, Dragging)) continue;
+      if (card.has(Dragging)) continue;
 
       const angle = (i - centerIndex) * angleStep;
       const angleRad = (angle * Math.PI) / 180;
@@ -33,13 +33,13 @@ export function updateHandLayout(world: World) {
       const targetX = centerX + Math.sin(angleRad) * fanRadius;
       const targetY = centerY - Math.cos(angleRad) * fanRadius;
 
-      const pos = world.get(card, Position)!;
+      const pos = card.get(Position)!;
 
       // If no position set yet (first frame), snap to target
       if (pos.x === 0 && pos.y === 0) {
-        world.set(card, Position, { x: targetX, y: targetY, z: 0 });
+        card.set(Position, { x: targetX, y: targetY, z: 0 });
       } else {
-        world.set(card, Position, {
+        card.set(Position, {
           x: dampedLerp(pos.x, targetX, POSITION_DAMPING, delta),
           y: dampedLerp(pos.y, targetY, POSITION_DAMPING, delta),
           z: pos.z,

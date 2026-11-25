@@ -10,7 +10,7 @@ export function updateCardOrder(world: World) {
     const draggingCard = world.queryFirst(Dragging, HeldBy(handEntity));
     if (!draggingCard) return;
 
-    const draggingPos = world.get(draggingCard, Position)!;
+    const draggingPos = draggingCard.get(Position)!;
     const currentIndex = cards.indexOf(draggingCard);
 
     const relativeX = draggingPos.x - viewport.width / 2;

@@ -1,9 +1,8 @@
-import { useActions, useWorld } from 'koota/react';
+import { useActions } from 'koota/react';
 import { useEffect } from 'react';
 import { actions } from './actions';
 
 export function Startup() {
-  const world = useWorld();
   const { spawnHand, spawnCard } = useActions(actions);
 
   useEffect(() => {
@@ -25,9 +24,9 @@ export function Startup() {
     });
 
     return () => {
-      world.destroy(hand);
+      hand?.destroy();
     };
-  }, [world, spawnHand, spawnCard]);
+  }, [spawnHand, spawnCard]);
 
   return null;
 }

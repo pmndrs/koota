@@ -9,7 +9,7 @@ export function updateTimers(world: World) {
 
     if (timer.remaining <= 0) {
       timer.completed = true;
-      world.remove(entity, Timer);
+      entity.remove(Timer);
     }
   });
 }

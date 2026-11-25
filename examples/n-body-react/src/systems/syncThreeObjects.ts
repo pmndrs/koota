@@ -1,5 +1,5 @@
 import { Circle, Color, Position } from '@examples/n-body';
-import { getEntityId, type World } from 'koota';
+import type { World } from 'koota';
 import * as THREE from 'three';
 import { InstancedMesh } from '../traits/InstancedMesh';
 
@@ -12,7 +12,7 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
   const instanceEnt = world.queryFirst(InstancedMesh);
   if (instanceEnt === undefined) return;
 
-  const instancedMesh = world.get(instanceEnt, InstancedMesh)!.object;
+  const instancedMesh = instanceEnt.get(InstancedMesh)!.object;
 
   world.query(Position, Circle, Color).each((position, circle, color, entity) => {
     dummy.position.set(position.x, position.y, 0);
@@ -21,14 +21,14 @@ export const syncThreeObjects = ({ world }: { world: World }) => {
     dummy.scale.set(radius, radius, radius);
 
     dummy.updateMatrix();
-    instancedMesh.setMatrixAt(getEntityId(entity), dummy.matrix);
+    instancedMesh.setMatrixAt(entity.id(), dummy.matrix);
 
     dummyColor.setRGB(
       normalize(color.r, 0, 255),
       normalize(color.g, 0, 255),
       normalize(color.b, 0, 255)
     );
-    instancedMesh.setColorAt(getEntityId(entity), dummyColor);
+    instancedMesh.setColorAt(entity.id(), dummyColor);
   });
 
   instancedMesh.instanceMatrix.needsUpdate = true;

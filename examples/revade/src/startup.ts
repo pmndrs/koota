@@ -1,21 +1,20 @@
-import { useActions, useWorld } from 'koota/react';
+import { useActions } from 'koota/react';
 import { useEffect } from 'react';
 import { actions } from './actions';
 import { Movement } from './traits';
 
 export function Startup() {
-  const world = useWorld();
   const { spawnPlayer, destroyAllEnemies } = useActions(actions);
 
   useEffect(() => {
     const player = spawnPlayer();
-    world.set(player, Movement, { maxSpeed: 50, damping: 0.99, thrust: 2 });
+    player.set(Movement, { maxSpeed: 50, damping: 0.99, thrust: 2 });
 
     return () => {
-      world.destroy(player);
+      player?.destroy();
       destroyAllEnemies();
     };
-  }, [world, spawnPlayer, destroyAllEnemies]);
+  }, [spawnPlayer, destroyAllEnemies]);
 
   return null;
 }

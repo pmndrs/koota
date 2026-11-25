@@ -13,7 +13,7 @@ export const updateCoherence = ({ world }: { world: World }) => {
     if (neighbors.length === 0) return;
 
     for (const neighbor of neighbors) {
-      const neighborPosition = world.get(neighbor, Position)!;
+      const neighborPosition = neighbor.get(Position)!;
       coherence.x += neighborPosition.x;
       coherence.y += neighborPosition.y;
       coherence.z += neighborPosition.z;

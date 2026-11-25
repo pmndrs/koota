@@ -2,8 +2,8 @@
 
 import { PerspectiveCamera } from '@react-three/drei';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Not, type Entity, getEntityId } from 'koota';
-import { useQuery, useQueryFirst, useTrait, useTraitEffect, useWorld } from 'koota/react';
+import { Not, type Entity } from 'koota';
+import { useQuery, useQueryFirst, useTrait, useTraitEffect } from 'koota/react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Frameloop } from './frameloop';
@@ -34,27 +34,26 @@ export function App() {
 
 function EnemyRenderer() {
   const enemies = useQuery(IsEnemy, Transform, Not(Explosion));
-  return enemies.map((enemy) => <EnemyView key={getEntityId(enemy)} entity={enemy} />);
+  return enemies.map((enemy) => <EnemyView key={enemy.id()} entity={enemy} />);
 }
 
 const EnemyView = ({ entity }: { entity: Entity }) => {
-  const world = useWorld();
   const groupRef = useRef<THREE.Group>(null);
   const scaleRef = useRef(0);
 
   const handleInit = useCallback(
     (group: THREE.Group | null) => {
-      if (!world.isAlive(entity) || !group) return;
+      if (!entity.isAlive() || !group) return;
 
       groupRef.current = group;
 
-      world.set(entity, Transform, (prev) => ({
+      entity.set(Transform, (prev) => ({
         position: group.position.copy(prev.position),
         rotation: group.rotation.copy(prev.rotation),
         quaternion: group.quaternion.copy(prev.quaternion),
       }));
     },
-    [world, entity]
+    [entity]
   );
 
   useFrame((_, delta) => {
@@ -81,7 +80,6 @@ function PlayerRenderer() {
 }
 
 const PlayerView = ({ entity }: { entity: Entity }) => {
-  const world = useWorld();
   const [isThrusting, setIsThrusting] = useState(false);
 
   useTraitEffect(entity, Input, (input) => {
@@ -93,15 +91,15 @@ const PlayerView = ({ entity }: { entity: Entity }) => {
 
   const handleInit = useCallback(
     (group: THREE.Group | null) => {
-      if (!world.isAlive(entity) || !group) return;
+      if (!entity.isAlive() || !group) return;
 
-      world.set(entity, Transform, {
+      entity.set(Transform, {
         position: group.position,
         rotation: group.rotation,
         quaternion: group.quaternion,
       });
     },
-    [world, entity]
+    [entity]
   );
 
   return (
@@ -148,41 +146,38 @@ function ThrusterView() {
 
 function ExplosionRenderer() {
   const explosions = useQuery(Explosion, Transform);
-  return explosions.map((explosion) => (
-    <ExplosionView key={getEntityId(explosion)} entity={explosion} />
-  ));
+  return explosions.map((explosion) => <ExplosionView key={explosion.id()} entity={explosion} />);
 }
 
 function ExplosionView({ entity }: { entity: Entity }) {
-  const world = useWorld();
   const groupRef = useRef<THREE.Group>(null);
-  const particleCount = world.get(entity, Explosion)!.count;
+  const particleCount = entity.get(Explosion)!.count;
 
   const handleInit = useCallback(
     (group: THREE.Group | null) => {
-      if (!world.isAlive(entity) || !group) return;
+      if (!entity.isAlive() || !group) return;
       groupRef.current = group;
-      group.position.copy(world.get(entity, Transform)!.position);
+      group.position.copy(entity.get(Transform)!.position);
     },
-    [world, entity]
+    [entity]
   );
 
   // Create particles once with their initial state
   const particles = useMemo(() => {
-    const velocities = world.get(entity, Explosion)!.velocities;
+    const velocities = entity.get(Explosion)!.velocities;
     const randomOffset = Math.random() * Math.PI * 2;
 
     return Array.from({ length: particleCount }, (_, i) => {
       const angle = randomOffset + (i / particleCount) * Math.PI * 2;
       velocities.push(new THREE.Vector3(Math.cos(angle), Math.sin(angle), 0));
 
-      return { id: `${getEntityId(entity)}-${i}` };
+      return { id: `${entity.id()}-${i}` };
     });
   }, []);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    const explosion = world.get(entity, Explosion);
+    const explosion = entity.get(Explosion);
     if (!explosion) return;
     const { duration, current, velocities } = explosion;
     const progress = current / duration;
@@ -213,22 +208,21 @@ function ExplosionView({ entity }: { entity: Entity }) {
 
 function BulletRenderer() {
   const bullets = useQuery(Bullet, Transform, Not(Explosion));
-  return bullets.map((bullet) => <BulletView key={getEntityId(bullet)} entity={bullet} />);
+  return bullets.map((bullet) => <BulletView key={bullet.id()} entity={bullet} />);
 }
 
 const BulletView = memo(({ entity }: { entity: Entity }) => {
-  const world = useWorld();
   const handleInit = useCallback(
     (group: THREE.Group | null) => {
-      if (!world.isAlive(entity) || !group) return;
+      if (!entity.isAlive() || !group) return;
 
-      world.set(entity, Transform, (prev) => ({
+      entity.set(Transform, (prev) => ({
         position: group.position.copy(prev.position),
         quaternion: group.quaternion.copy(prev.quaternion),
         rotation: group.rotation.copy(prev.rotation),
       }));
     },
-    [world, entity]
+    [entity]
   );
 
   return (

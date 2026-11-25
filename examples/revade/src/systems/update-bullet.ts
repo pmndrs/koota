@@ -14,7 +14,7 @@ export function updateBullets(world: World) {
     // Update lifetime
     bullet.timeAlive += delta;
     if (bullet.timeAlive >= bullet.lifetime) {
-      world.destroy(entity);
+      entity.destroy();
       return;
     }
   });

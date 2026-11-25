@@ -21,15 +21,14 @@ export function pushEnemies(world: World) {
     // Filter for enemies within collision range
     const collidingEnemies: Entity[] = nearbyEntities.filter((entity) => {
       return (
-        world.has(entity, IsEnemy) &&
-        world.get(entity, Transform)!.position.distanceTo(position) <= collisionRadius
+        entity.has(IsEnemy) && entity.get(Transform)!.position.distanceTo(position) <= collisionRadius
       );
     });
 
     // Apply push force to colliding enemies
     for (const enemy of collidingEnemies) {
-      const enemyTransform = world.get(enemy, Transform);
-      const enemyMovement = world.get(enemy, Movement);
+      const enemyTransform = enemy.get(Transform);
+      const enemyMovement = enemy.get(Movement);
 
       if (!enemyTransform || !enemyMovement) continue;
 
@@ -45,8 +44,8 @@ export function pushEnemies(world: World) {
     }
 
     if (collidingEnemies.length > 0) {
-      if (!world.has(player, ShieldVisibility)) world.add(player, ShieldVisibility);
-      else world.set(player, ShieldVisibility, { current: 0 });
+      if (!player.has(ShieldVisibility)) player.add(ShieldVisibility);
+      else player.set(ShieldVisibility, { current: 0 });
     }
   });
 }
