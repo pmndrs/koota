@@ -1,5 +1,5 @@
 import type { Entity } from '../entity/types';
-import { createQuery, queryInternal, subscribeEnter, subscribeExit } from '../query/query';
+import { createQuery, subscribeEnter, subscribeExit } from '../query/query';
 import type { QueryParameter } from '../query/types';
 import { isQuery } from '../query/utils/is-query';
 import {
@@ -40,21 +40,13 @@ function ensureRelationFilterHooks(
   const ref = isQuery(filter) ? filter : createQuery(...(filter as QueryParameter[]));
   const added = createSubscriptions();
   const removed = createSubscriptions();
-  // A query can report an entry for an entity it already holds, so the matches are kept here
-  // and only a real change is passed on.
-  const matches = new Set<Entity>(queryInternal(ctx, ref));
+  // The filter reports a target once as it enters and once as it leaves.
   const notify = (subs: Subscriptions, target: Entity) => {
     const sources = getEntitiesWithRelationTo(ctx, pair.relation as Relation<Trait>, target);
     for (let i = 0; i < sources.length; i++) emit(subs, sources[i], target);
   };
-  const stopEnter = subscribeEnter(ctx, ref, (target) => {
-    if (matches.has(target)) return;
-    matches.add(target);
-    notify(added, target);
-  });
-  const stopExit = subscribeExit(ctx, ref, (target) => {
-    if (matches.delete(target)) notify(removed, target);
-  });
+  const stopEnter = subscribeEnter(ctx, ref, (target) => notify(added, target));
+  const stopExit = subscribeExit(ctx, ref, (target) => notify(removed, target));
 
   hooks = {
     added,

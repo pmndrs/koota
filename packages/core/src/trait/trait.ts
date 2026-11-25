@@ -32,6 +32,7 @@ import {
   getFirstRelationTarget,
   getRelationData,
   getRelationTargets,
+  getStoredRelationTargets,
   getTargetIndex,
   hasRelationToTarget,
   initRelationData,
@@ -586,7 +587,7 @@ export function removeSpecialDyingTrait(ctx: WorldContext, entity: Entity, insta
   } else if (context.kind === 'identifier') {
     releaseIdentifierTrait(ctx, entity, instance);
   } else {
-    const targets = getRelationTargets(ctx, context.relation!, entity);
+    const targets = getStoredRelationTargets(instance, entity);
     for (const target of targets) emit(instance.removeSubscriptions, entity, target);
     detachRelationTargets(instance, entity);
     finishDyingTraitRemoval(ctx, entity, instance, targets);
