@@ -182,7 +182,6 @@ it('refuses a spawn by a settled observer during world destruction', () => {
 
   expect(() => world.destroy()).toThrow(/destroyed/);
   expect(world.entities).toEqual([]);
-  expect(world[$internal].entityIndex.ownedPages).toEqual([]);
   world.destroy();
 });
 

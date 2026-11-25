@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait, type Entity, type World } from '../src';
+import { createWorld, relation, trait, type Entity, type World } from '../src';
 
 describe('World', () => {
   it('should create a world with its world entity', () => {
     const world = createWorld();
 
-    expect(world.entities).toEqual([world[$internal].worldEntity]);
+    expect(world.entities.length).toBe(1);
   });
 
   it('is final once destroyed', () => {
@@ -39,18 +39,16 @@ describe('World', () => {
     expect(() => entity.add(Tag)).toThrow(/does not exist/);
   });
 
-  it('releases its pages on destroy so another world can lease them', () => {
+  it('gives its ids back on destroy', () => {
     const world = createWorld();
-    const entity = world.spawn();
-    const allocator = world[$internal].entityIndex.allocator;
-    const ownedPages = [...world[$internal].entityIndex.ownedPages];
+    const first = world.spawn();
     world.destroy();
 
-    for (const pageId of ownedPages) {
-      expect(allocator.pageOwners[pageId]).toBeNull();
-      expect(allocator.freePages).toContain(pageId);
-    }
-    expect(entity.isAlive()).toBe(false);
+    const other = createWorld();
+    const replacement = other.spawn();
+    expect(replacement.id()).toBe(first.id());
+    expect(first.isAlive()).toBe(false);
+    other.destroy();
   });
 
   it('should reset the world', () => {

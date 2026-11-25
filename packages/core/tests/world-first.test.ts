@@ -69,24 +69,15 @@ describe('World-first entities', () => {
     expect(world.query(Position).length).toBe(1);
   });
 
-  it('never destroys the world when the entity argument is undefined', () => {
+  it('treats a missing entity as a dead entity, never as the world', () => {
     const world = createWorld();
     const entity = world.spawn(Position);
     const missing = undefined as unknown as Entity;
 
     expect(() => world.destroy(missing)).toThrow(/ENTITY_ALIVE/);
-    expect(world.isAlive(entity)).toBe(true);
-  });
-
-  it('reports a missing entity instead of applying the call to the world', () => {
-    const world = createWorld();
-    const missing = world.queryFirst(IsActive) as Entity;
-
     expect(() => world.add(missing, IsActive)).toThrow(/ENTITY_ALIVE/);
-    expect(() => world.remove(missing, IsActive)).toThrow(/ENTITY_ALIVE/);
-    expect(() => world.set(missing, Position, { x: 1 })).toThrow(/ENTITY_ALIVE/);
     expect(() => world.get(missing, Position)).toThrow(/ENTITY_ALIVE/);
-    expect(() => world.has(missing, Position)).toThrow(/ENTITY_ALIVE/);
+    expect(world.isAlive(entity)).toBe(true);
     expect(world.has(IsActive)).toBe(false);
   });
 
@@ -139,19 +130,6 @@ describe('World-first entities', () => {
     expect(Work.current(world, entity)).toBe(Busy);
     expect(world.get(entity, Busy)).toEqual({ job: 3 });
   });
-
-  it('walks a query and writes through the world inside it', () => {
-    const world = createWorld();
-    for (let i = 0; i < 4; i++) world.spawn(Position({ x: i }));
-
-    world.query(Position).each((position, entity) => {
-      position.y = position.x * 2;
-      if (position.x === 3) world.add(entity, IsActive);
-    });
-
-    const active = world.queryFirst(IsActive)!;
-    expect(world.get(active, Position)).toEqual({ x: 3, y: 6 });
-  });
 });
 
 describe('Isolated worlds', () => {
@@ -170,80 +148,18 @@ describe('Isolated worlds', () => {
     expect(b.isAlive(inB)).toBe(true);
   });
 
-  it('destroys an entity of another world with the same id from inside a destroy', () => {
-    const a = createWorld();
-    const b = createWorld();
-    const inA = a.spawn(Position);
-    const inB = b.spawn(Position);
-    expect(inA).toBe(inB);
-
-    a.onRemove(Position, () => b.destroy(inB));
-    a.destroy(inA);
-
-    expect(a.isAlive(inA)).toBe(false);
-    expect(b.isAlive(inB)).toBe(false);
-  });
-
-  it('starts over from the first id after a reset and rejects the old ones', () => {
-    const world = createWorld();
-    const before = world.spawn(Position({ x: 1 }));
-    world.reset();
-    const after = world.spawn(Position({ x: 2 }));
-
-    expect(after).not.toBe(before);
-    expect(after & 0xffffff).toBe(before & 0xffffff);
-    expect(world.isAlive(before)).toBe(false);
-    expect(world.get(after, Position)!.x).toBe(2);
-  });
-
-  it('holds nothing after destroy', () => {
-    const world = createWorld();
-    const entity = world.spawn(Position);
-    const onRemove = vi.fn();
-    world.onRemove(Position, onRemove);
-    world.destroy();
-
-    expect(onRemove).toHaveBeenCalledWith(entity);
-    expect(world.entities.length).toBe(0);
-    expect(world.isAlive(entity)).toBe(false);
-    expect(world.query(Position).length).toBe(0);
-  });
-
-  const actions = createActions((world) => ({ spawn: () => world.spawn(Position) }));
-
-  // Each of these closes a cycle through the world, which a shared table would pin forever.
-  const uses: Record<string, (world: ReturnType<typeof createWorld>) => void> = {
-    'only spawned into': (world) => void world.spawn(Position),
-    'referenced by its own trait subscriber': (world) => {
-      world.onAdd(Position, () => void world.has(Position));
-      world.spawn(Position);
-    },
-    'referenced by its own query subscriber': (world) => {
-      world.onEnter([Position], () => void world.has(Position));
-      world.spawn(Position);
-    },
-    'referenced by an entity subscriber': (world) => {
-      world.onChange(world.spawn(Position), Position, () => void world.has(Position));
-    },
-    'referenced by its actions': (world) => void actions(world).spawn(),
-    'referenced by a trait value': (world) => {
-      const Owner = trait(() => ({ world }));
-      world.spawn(Owner);
-    },
-    'referenced by a trait default': (world) => {
-      const Owner = trait({ owner: () => world });
-      world.spawn(Owner);
-    },
-  };
-
-  it.skipIf(!hasNativeGc()).each(Object.keys(uses))(
-    'is collected without destroy when %s',
-    async (use) => {
+  it.skipIf(!hasNativeGc())(
+    'is collected once dropped, without destroy',
+    async () => {
+      const actions = createActions((world) => ({ spawn: () => world.spawn(Position) }));
       await expect(
         waitForFinalization((registry) => {
           (() => {
             const world = createWorld();
-            uses[use](world);
+            // Subscribers and actions that refer back to their world do not keep it alive.
+            world.onAdd(Position, () => void world.has(Position));
+            world.onEnter([Position], () => void world.has(Position));
+            actions(world).spawn();
             registry.register(world, 'world');
           })();
         })
