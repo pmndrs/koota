@@ -1,6 +1,6 @@
 # koota/svelte
 
-Svelte 5 bindings for [Koota](https://github.com/pmndrs/koota), an ECS-based state management library for real-time apps, games, and XR experiences.
+Svelte 5 bindings for [Koota](https://github.com/pmndrs/koota), an ECS for real-time apps, games, and XR experiences.
 
 ## Installation
 

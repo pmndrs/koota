@@ -2,7 +2,7 @@
 
 <img src="docs/logo.svg" alt="Koota" width="100%" />
 
-Koota is an ECS-based state management library optimized for real-time apps, games, and XR experiences. Use as much or as little as you need.
+Koota is an ECS optimized for real-time apps, games, and XR experiences. Use as much or as little as you need.
 
 ```bash
 npm i koota
@@ -13,6 +13,9 @@ The official AI agent skill can be installed from this repo. [Read more about sk
 ```bash
 npx skills add pmndrs/koota
 ```
+
+> 👉 **Don't like globals?**<br>
+> Koota adds entity methods to `Number.prototype` and keeps a shared table of worlds so those methods can find them. If that does not suit your project, use [isolated worlds](#isolated-worlds).
 
 ### First, define traits
 
