@@ -4,7 +4,7 @@ description: Entity API
 nav: 3
 ---
 
-An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instead be decoded with `entity.id()`.
+An entity is a number encoded with a generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instead be decoded with `entity.id()`.
 
 ```js
 // Add a trait to the entity
@@ -64,10 +64,55 @@ entity.destroy()
 For introspection, `unpackEntity` can be used to get all of the encoded values. This can be useful for debugging.
 
 ```js
-const { entityId, generation, worldId } = unpackEntity(entity)
+const { entityId, generation } = unpackEntity(entity)
 ```
 
 See [assertion configuration](asserts.md) for development checks and production overrides.
+
+## World-first calls
+
+Every entity method has a world form that takes the entity first. Both do the same work, so use whichever reads better where you are. The world form needs no lookup from the entity to its world.
+
+```js
+world.add(entity, Position)
+world.remove(entity, Position)
+world.has(entity, Position)
+world.get(entity, Position)
+world.set(entity, Position, { x: 10, y: 10 })
+world.upsert(entity, Position, { x: 10 })
+world.changed(entity, Position)
+world.targetFor(entity, Contains)
+world.targetsFor(entity, Contains)
+world.isAlive(entity)
+world.destroy(entity)
+
+// Hooks take the entity first to listen to that entity alone
+world.onChange(entity, Position, (entity) => {})
+```
+
+## Isolated worlds
+
+Entity methods are installed on `Number.prototype` when the first world is created, and worlds share one table that maps each entity to its world. That table holds a world until `world.destroy()` is called. When your code cannot touch globals, such as a library running inside someone else's app, or when a world should be garbage collected by dropping it, create your worlds from `koota/isolated` instead.
+
+```js
+import { trait } from 'koota'
+import { createWorld } from 'koota/isolated'
+
+const world = createWorld()
+const entity = world.spawn(Position)
+
+// An entity is a bare id, so the world does the work
+world.get(entity, Position)
+AssetMachine.enter(world, entity, Loaded)
+
+// ❌ Entities have no methods, in the types or at runtime
+entity.get(Position)
+```
+
+- An isolated world owns everything it allocates. Nothing global refers to it, so it is freed when you drop the last reference.
+- Each isolated world numbers its entities from zero, so an entity only means something to the world that spawned it.
+- Importing `koota/isolated` removes the methods from the `Entity` type across the whole program. Everything else is imported from `koota` as usual, and the React and Svelte bindings work unchanged.
+- Create all of your worlds from `koota/isolated` or none of them. An entity method called on an entity of an isolated world is not caught, and reaches whichever world from `createWorld` holds that id.
 
 ## Identifiers
 

@@ -118,24 +118,24 @@ const AssetMachine = machine({
 })
 ```
 
-Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state. Both take the world first, since an entity is only an id.
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state.
 
 ```typescript
 const entity = world.spawn(AssetMachine) // Starts in Pending
-AssetMachine.enter(world, entity, Loading({ progress: 0 })) // Checks the transition
-AssetMachine.current(world, entity) === Loading // true
+AssetMachine.enter(entity, Loading({ progress: 0 })) // Checks the transition
+AssetMachine.current(entity) === Loading // true
 world.query(Loading) // All assets currently loading
-AssetMachine.enter(world, entity, Loaded) // Transitions to Loaded
+AssetMachine.enter(entity, Loaded) // Transitions to Loaded
 entity.add(Pending) // Transitions to Pending
 entity.remove(AssetMachine) // Clears this entity's asset loading state
-AssetMachine.current(world, entity) // undefined
+AssetMachine.current(entity) // undefined
 ```
 
 - `world.spawn(Machine)` enters the initial state. An explicit member overrides a bare machine in the same call.
-- `Machine.enter(world, entity, Loading({ progress }))` checks the transition table. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces its data with supplied values and defaults.
+- `Machine.enter(entity, Loading({ progress }))` checks the transition table. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces its data with supplied values and defaults.
 - `entity.add(member)` checks the transition table, with duplicate adds remaining no-ops. `upsert` writes the current state or checks the table before swapping when absent.
 - Illegal transitions throw `[MACHINE_ILLEGAL_TRANSITION]` with assertions enabled and otherwise leave the machine unchanged without firing callbacks.
-- `Machine.current(world, entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
+- `Machine.current(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.
 - `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition, and `world.onTransition(entity, Machine, callback)` only this entity's. `previous` contains the old value. `get` only reads current data.
 - Transition listeners must be registered when the transition starts. Unsubscribing before delivery cancels it. Listeners added during callbacks start with later transitions.
@@ -248,12 +248,34 @@ entity.destroy()
 
 **Entity IDs**
 
-An entity is internally a 32-bit number packed with generation (12 bits) and entity ID (20 bits). Safe to store directly for persistence or networking.
+An entity is internally a 32-bit number packed with generation (8 bits) and entity ID (24 bits). Safe to store directly for persistence or networking.
 
 ```typescript
 entity.id() // Just the entity ID (reused after destroy)
 entity // Full packed number (unique forever)
 ```
+
+**World-first calls**
+
+Every entity method has a world form that takes the entity first: `world.get(entity, Position)`, `world.set(entity, Position, value)`, `world.add(entity, Trait)`, `world.remove(entity, Trait)`, `world.has(entity, Trait)`, `world.upsert(entity, Trait, value)`, `world.changed(entity, Trait)`, `world.targetFor(entity, Relation)`, `world.targetsFor(entity, Relation)`, `world.isAlive(entity)` and `world.destroy(entity)`. Hooks take the entity first to listen to one entity, as in `world.onChange(entity, Position, callback)`. Both forms do the same work. Default to entity methods and use the world form where the world is already at hand.
+
+**Isolated worlds**
+
+Entity methods live on `Number.prototype` and worlds share a table that holds each world until `world.destroy()`. Only when the code cannot touch globals, such as a library inside a host app, or a world must be garbage collected by dropping it, create worlds from `koota/isolated`:
+
+```typescript
+import { trait } from 'koota'
+import { createWorld } from 'koota/isolated'
+
+const world = createWorld()
+const entity = world.spawn(Position)
+world.get(entity, Position) // The world does the work
+AssetMachine.enter(world, entity, Loaded) // Machines take the world first
+```
+
+- Entities are bare ids with no methods, in the types and at runtime. Importing `koota/isolated` removes the methods from the `Entity` type across the whole program.
+- Create all worlds from `koota/isolated` or none of them. Never mix the two in one program.
+- Each isolated world numbers its entities from zero, so an entity only means something to its own world.
 
 **Identifiers**
 

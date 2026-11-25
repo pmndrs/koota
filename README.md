@@ -258,14 +258,14 @@ const AssetMachine = machine({
 })
 ```
 
-Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state. Both take the world first, since an entity is only an id.
+Spawn with the machine to enter its initial state. Use `enter` to transition between states and `current` to read the current state.
 
 ```ts
 const entity = world.spawn(AssetMachine) // Starts in Pending
-AssetMachine.enter(world, entity, Loading({ progress: 0 })) // Transitions to Loading
-AssetMachine.current(world, entity) === Loading // true
+AssetMachine.enter(entity, Loading({ progress: 0 })) // Transitions to Loading
+AssetMachine.current(entity) === Loading // true
 world.query(Loading) // All assets currently loading
-AssetMachine.enter(world, entity, Loaded) // Transitions to Loaded
+AssetMachine.enter(entity, Loaded) // Transitions to Loaded
 
 entity.add(Pending) // Transitions to Pending
 entity.remove(AssetMachine) // Clears this entity's asset loading state
@@ -1216,7 +1216,7 @@ Destroying a world is final, and calling it again does nothing. A destroyed worl
 
 ### Entity
 
-An entity is a number encoded with a world, generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instead be decoded with `entity.id()`.
+An entity is a number encoded with a generation and ID. Every entity is unique even if they have the same ID since they will have different generations. This makes automatic-recycling possible without reference errors. Because of this, the number of an entity won't give you its ID but will have to instead be decoded with `entity.id()`.
 
 ```js
 // Add a trait to the entity
@@ -1279,6 +1279,51 @@ For introspection, `unpackEntity` can be used to get all of the encoded values. 
 const { entityId, generation } = unpackEntity(entity)
 ```
 
+#### World-first calls
+
+Every entity method has a world form that takes the entity first. Both do the same work, so use whichever reads better where you are. The world form needs no lookup from the entity to its world.
+
+```js
+world.add(entity, Position)
+world.remove(entity, Position)
+world.has(entity, Position)
+world.get(entity, Position)
+world.set(entity, Position, { x: 10, y: 10 })
+world.upsert(entity, Position, { x: 10 })
+world.changed(entity, Position)
+world.targetFor(entity, Contains)
+world.targetsFor(entity, Contains)
+world.isAlive(entity)
+world.destroy(entity)
+
+// Hooks take the entity first to listen to that entity alone
+world.onChange(entity, Position, (entity) => {})
+```
+
+#### Isolated worlds
+
+Entity methods are installed on `Number.prototype` when the first world is created, and worlds share one table that maps each entity to its world. That table holds a world until `world.destroy()` is called. When your code cannot touch globals, such as a library running inside someone else's app, or when a world should be garbage collected by dropping it, create your worlds from `koota/isolated` instead.
+
+```js
+import { trait } from 'koota'
+import { createWorld } from 'koota/isolated'
+
+const world = createWorld()
+const entity = world.spawn(Position)
+
+// An entity is a bare id, so the world does the work
+world.get(entity, Position)
+AssetMachine.enter(world, entity, Loaded)
+
+// ❌ Entities have no methods, in the types or at runtime
+entity.get(Position)
+```
+
+- An isolated world owns everything it allocates. Nothing global refers to it, so it is freed when you drop the last reference.
+- Each isolated world numbers its entities from zero, so an entity only means something to the world that spawned it.
+- Importing `koota/isolated` removes the methods from the `Entity` type across the whole program. Everything else is imported from `koota` as usual, and the React and Svelte bindings work unchanged.
+- Create all of your worlds from `koota/isolated` or none of them. An entity method called on an entity of an isolated world is not caught, and reaches whichever world from `createWorld` holds that id.
+
 ### Assertions
 
 Development builds assert that the various API contracts hold such as entity lifetime, trait membership, relation consistency. They cost about 10% overhead on the various call paths, but are compiled out of production builds by default.
@@ -1287,7 +1332,7 @@ Define `__KOOTA_ASSERTS__` as `true` to retain them in production, or `false` to
 
 ### Warnings
 
-Development builds warn about patterns that work but are slow, such as a tuple that mixes numbers with other values. Warnings are separate from assertions and compiled out of production builds by default.
+Development builds warn about patterns that work but are slow, such as a tuple that mixes numbers with other values. They also warn when a second copy of koota takes over the entity methods. Warnings are separate from assertions and compiled out of production builds by default.
 
 Define `__KOOTA_WARNINGS__` as `true` to retain them in production, or `false` to remove them completely from the application bundle.
 

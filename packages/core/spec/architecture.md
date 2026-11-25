@@ -62,9 +62,9 @@ Each trait instance has a bitflag and a generation ID per world. An entity build
 
 Pairs cannot be represented in the bitmask of an entity of query, only the base relation, and therefore are not captured in that comparison. This especially effects change and forbidden masking.
 
-An entity is a packed number, `generation(8) + entityId(24)`, that only means something to the world that spawned it. Two worlds hand out the same numbers, so entity operations go through the world: `world.get(entity, Position)`. The packed generation protects against stale recycled handles.
+An entity is a packed number, `generation(8) + entityId(24)`. The packed generation protects against stale recycled handles.
 
-Each world owns its page allocator and its entity index, and ids start at zero. The `koota/entity-methods` entry is the exception. Its `createWorld` shares one allocator between its worlds, so the page of an id identifies the owning world and `entity.get(Position)` can find it. That table holds each of those worlds until it is destroyed. A program uses that entry for all of its worlds or for none.
+Worlds from `createWorld` share one page allocator, so the page of an id identifies the owning world and `entity.get(Position)` can find it. That table holds each world until it is destroyed. A world from the `koota/isolated` entry owns its page allocator and its entity index instead, its ids start at zero, and its entities carry no methods. Two isolated worlds hand out the same numbers, so entity operations go through the world: `world.get(entity, Position)`. A program creates all of its worlds one way or the other.
 
 Most per-entity state is paged. Bitmasks, trait stores, relation targets, and tracking snapshots use page-based arrays keyed by `pageId = entityId >>> 10` and `offset = entityId & 1023`. Mask and tracker tables cover the pages the world has leased and grow when it leases another, so a small world stays small.
 

@@ -1,8 +1,10 @@
 # Warnings
 
-Koota warns when code works but takes a slow path. Warnings never change behavior.
+Koota warns when code works but takes a slow path, and when a setup is likely to go wrong. Warnings never change behavior.
 
 - **Mixed tuples:** a trait whose tuple mixes numbers with other values, such as an Euler with its rotation order, warns once when the trait is created. Its pages store values generically, so every number written to them allocates. Move the other values to their own field to keep the tuple fast. See [tuples](trait.md#Tuples).
+
+- **More than one copy of koota:** entity methods live on the one `Number.prototype` of a page or process. When a second copy of koota creates a world it takes the methods over, and entities of the first copy reach the wrong worlds. This comes from duplicate installs, mixing `import` and `require`, or resetting modules in tests. Load one copy, or create the worlds of one copy from [`koota/isolated`](entity.md#isolated-worlds).
 
 Warnings are separate from [assertions](asserts.md). By default, they are enabled unless `process.env.NODE_ENV` is `'production'`. Bundlers normally replace this expression. Direct browser imports without a build step keep warnings enabled.
 
