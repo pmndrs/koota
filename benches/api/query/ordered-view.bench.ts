@@ -76,43 +76,49 @@ group('ordered trait access 10k @ordered-view', () => {
       const world = createWorld();
       const Position = trait({ x: 0 });
       const Velocity = trait({ x: 0 });
+      // The walks sum into this trait, as a system would. It starts at a fraction so its column
+      // holds floats from the first write.
+      const Total = trait({ value: 0.5 });
       const ChildOf = relation();
       const Children = ordered(ChildOf);
       const parent = world.spawn(Children);
+      let probe = parent;
+      let probed = 0;
       for (let i = 0; i < 10_000; i++) {
         // Permute sort keys so ordered reads cross storage pages.
         const x = (i * 8191) % 10_000;
-        world.spawn(
+        probed = x;
+        probe = world.spawn(
           Position({ x }),
           Velocity({ x }),
+          Total,
           ...(mode === 'relation' ? [ChildOf(parent)] : [])
         );
       }
-      const query = world.query(Position, Velocity);
+      const query = world.query(Position, Velocity, Total);
       const selected =
         mode === 'query'
-          ? query.select(Velocity)
+          ? query.select(Velocity, Total)
           : mode === 'relation'
-            ? parent.get(Children)!.select(Velocity)
+            ? parent.get(Children)!.select(Velocity, Total)
             : query
                 .sort(
                   (a, b) => a.get(Position)!.x - b.get(Position)!.x,
                   mode === 'sorted untracked' ? [] : [Position]
                 )
-                .select(mode === 'sorted dependency' ? Position : Velocity);
+                .select(mode === 'sorted dependency' ? Position : Velocity, Total);
       assert.equal(selected.length, 10_000);
-      let sum = 0;
+      let frames = 0;
       yield {
         bench: () => {
-          let result = 0;
-          selected.each((value) => {
-            result = (result + value.x) | 0;
+          frames++;
+          selected.each((value, total) => {
+            total.value += value.x;
           });
-          sum = result;
         },
         snapshot: () => {
-          assert.equal(sum, (10_000 * 9999) / 2);
-          return sum;
+          assert.equal(probe.get(Total), { value: 0.5 + probed * frames });
+          return selected.length;
         },
       };
       world.destroy();

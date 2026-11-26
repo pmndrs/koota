@@ -54,19 +54,18 @@ group('N-body 2k @n-body @pages', () => {
 
 function each(world: World) {
   const sources = world.query(Position);
+  // The pull adds up in the trait itself, as a system would write it.
   world.query(Position, Acceleration).each((position, acceleration) => {
-    let x = 0;
-    let y = 0;
+    acceleration.x = 0;
+    acceleration.y = 0;
     sources.each((other) => {
       const dx = other.x - position.x;
       const dy = other.y - position.y;
       const inverseDistance = 1 / Math.sqrt(dx * dx + dy * dy + 1);
       const force = inverseDistance * inverseDistance * inverseDistance;
-      x += dx * force;
-      y += dy * force;
+      acceleration.x += dx * force;
+      acceleration.y += dy * force;
     });
-    acceleration.x = x;
-    acceleration.y = y;
   });
 }
 

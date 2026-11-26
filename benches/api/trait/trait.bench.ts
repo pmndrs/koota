@@ -7,6 +7,9 @@ for (const layout of ['soa', 'aos'] as const) {
     const Position = (
       layout === 'soa' ? trait({ x: 0, y: 0, z: 0 }) : trait(() => ({ x: 0, y: 0, z: 0 }))
     ) as Trait<{ x: number; y: number; z: number }>;
+    // The walks sum into this trait, as a system would. It starts at a fraction so its column
+    // holds floats from the first write.
+    const Total = trait({ value: 0.5 });
 
     bench('entity.get', function* () {
       const world = createWorld();
@@ -58,18 +61,23 @@ for (const layout of ['soa', 'aos'] as const) {
 
     bench('query.each read', function* () {
       const world = createWorld();
-      for (let x = 0; x < 10_000; x++) world.spawn(Position({ x, y: 0, z: 0 }));
-      const query = world.query(Position);
+      for (let x = 0; x < 10_000; x++) world.spawn(Position({ x, y: 0, z: 0 }), Total);
+      const query = world.query(Position, Total);
+      let frames = 0;
 
-      const sum = yield () => {
-        let sum = 0;
-        query.each((position) => (sum += position.x));
-        return sum;
+      yield {
+        bench: () => {
+          frames++;
+          query.each((position, total) => {
+            total.value += position.x;
+          });
+        },
+        snapshot: () => {
+          assert.equal(query.at(9999)!.get(Total), { value: 0.5 + 9999 * frames });
+          return query.length;
+        },
       };
-
-      assert.equal(sum, 49_995_000);
       world.destroy();
-      return sum;
     });
 
     for (const tracked of [false, true]) {
