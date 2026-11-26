@@ -304,10 +304,6 @@ const worldMethods: ThisType<World> = {
       : lookupAllIdentifiers(ctx, arguments[last] as IdentifierPair, scope);
   },
 
-  isAlive(entity: Entity): boolean {
-    return isEntityAlive(this[$internal].entityIndex, entity);
-  },
-
   has(
     target: Entity | Trait | RelationPair | Identifier | IdentifierPair,
     trait?: Trait | RelationPair | Identifier | IdentifierPair

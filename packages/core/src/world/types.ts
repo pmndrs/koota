@@ -140,7 +140,6 @@ export type World = {
   /** Resolve the path prefix and return a snapshot of every owner of its final key. */
   lookupAll(pair: IdentifierPair, ...path: IdentifierPair[]): Entity[];
   lookupAll(scope: Entity, first: IdentifierPair, ...path: IdentifierPair[]): Entity[];
-  isAlive(entity: Entity): boolean;
   /** With an entity alone, whether it is alive. With a trait alone, whether the world has it. */
   has(entity: Entity): boolean;
   has(entity: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair): boolean;

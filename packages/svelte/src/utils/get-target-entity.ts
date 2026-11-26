@@ -21,7 +21,7 @@ export function createTargetResolver(): TargetResolver {
       const entity = target[internal].worldEntity;
       return entity === null ? undefined : { world: target, entity };
     }
-    return provided.isAlive(target) ? { world: provided, entity: target } : undefined;
+    return provided.has(target) ? { world: provided, entity: target } : undefined;
   };
 }
 

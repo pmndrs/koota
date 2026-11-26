@@ -63,9 +63,9 @@ describe('World-first entities', () => {
     const other = world.spawn(Position);
 
     world.destroy(entity);
-    expect(world.isAlive(entity)).toBe(false);
     expect(world.has(entity)).toBe(false);
-    expect(world.isAlive(other)).toBe(true);
+    expect(world.has(entity)).toBe(false);
+    expect(world.has(other)).toBe(true);
     expect(world.query(Position).length).toBe(1);
   });
 
@@ -77,7 +77,7 @@ describe('World-first entities', () => {
     expect(() => world.destroy(missing)).toThrow(/ENTITY_ALIVE/);
     expect(() => world.add(missing, IsActive)).toThrow(/ENTITY_ALIVE/);
     expect(() => world.get(missing, Position)).toThrow(/ENTITY_ALIVE/);
-    expect(world.isAlive(entity)).toBe(true);
+    expect(world.has(entity)).toBe(true);
     expect(world.has(IsActive)).toBe(false);
   });
 
@@ -93,7 +93,7 @@ describe('World-first entities', () => {
     expect(world.query(ChildOf(parent)).toArray()).toEqual([child]);
 
     world.destroy(parent);
-    expect(world.isAlive(child)).toBe(false);
+    expect(world.has(child)).toBe(false);
   });
 
   it('subscribes to one entity when the entity comes first', () => {
@@ -144,8 +144,8 @@ describe('Isolated worlds', () => {
     expect(b.get(inB, Position)!.x).toBe(2);
 
     a.destroy(inA);
-    expect(a.isAlive(inA)).toBe(false);
-    expect(b.isAlive(inB)).toBe(true);
+    expect(a.has(inA)).toBe(false);
+    expect(b.has(inB)).toBe(true);
   });
 
   it.skipIf(!hasNativeGc())(

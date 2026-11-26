@@ -26,7 +26,7 @@ export function useMachine<S extends MachineStates>(
     return observeTarget(resolveTarget, current.subject, (resolved) => {
       const update = () => {
         current.value =
-          resolved && resolved.world.isAlive(resolved.entity)
+          resolved && resolved.world.has(resolved.entity)
             ? current.selected.current(resolved.world, resolved.entity)
             : undefined;
         untrack(() => version++);

@@ -32,12 +32,7 @@ it('refreshes all entity and query hooks after removal side effects synchronousl
       const query = useQuery(ChildOf('*'));
       const first = useQueryFirst(ChildOf('*'));
       useTraitEffect(source, Value, (value) => {
-        effects.push([
-          value,
-          world.isAlive(parent),
-          world.isAlive(child),
-          world.targetsFor(source, Link),
-        ]);
+        effects.push([value, world.has(parent), world.has(child), world.targetsFor(source, Link)]);
       });
       return { has, target, targets, value, query, first };
     },

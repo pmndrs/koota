@@ -41,7 +41,7 @@ export function useTraitEffect<T extends Trait>(
         notify(undefined);
         return;
       }
-      if (!world.isAlive(entity)) return;
+      if (!world.has(entity)) return;
       const detach = attachTrait(world, entity, trait, notify);
       notify(readTrait(world, entity, trait));
       return detach;

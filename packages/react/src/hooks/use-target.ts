@@ -26,7 +26,7 @@ function attachTarget(
   push: (value: IdentifierKey | undefined) => void
 ) {
   const observer = world[$internal].observeSettled(() => {
-    push(world.isAlive(entity) ? readTarget(world, entity, relation) : undefined);
+    push(world.has(entity) ? readTarget(world, entity, relation) : undefined);
   });
   const trait = relation[$internal].trait;
   const onChange = world.onChange(entity, trait, observer.invalidate);

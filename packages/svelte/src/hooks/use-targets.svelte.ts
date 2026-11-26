@@ -29,7 +29,7 @@ export function useTargets<T extends Trait>(
 
       const { world, entity } = resolved;
       const update = () => {
-        value = world.isAlive(entity) ? world.targetsFor(entity, resolvedRelation) : [];
+        value = world.has(entity) ? world.targetsFor(entity, resolvedRelation) : [];
       };
       const observer = world[internal].observeSettled(update);
       const onChange = world.onChange(entity, resolvedRelation, observer.invalidate);

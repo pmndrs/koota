@@ -257,7 +257,7 @@ entity // Full packed number (unique forever)
 
 **World-first calls**
 
-Every entity method has a world form that takes the entity first: `world.get(entity, Position)`, `world.set(entity, Position, value)`, `world.add(entity, Trait)`, `world.remove(entity, Trait)`, `world.has(entity, Trait)`, `world.upsert(entity, Trait, value)`, `world.changed(entity, Trait)`, `world.targetFor(entity, Relation)`, `world.targetsFor(entity, Relation)`, `world.isAlive(entity)` and `world.destroy(entity)`. Hooks take the entity first to listen to one entity, as in `world.onChange(entity, Position, callback)`. Both forms do the same work. Default to entity methods and use the world form where the world is already at hand.
+Entity methods have a world form that takes the entity first: `world.get(entity, Position)`, `world.set(entity, Position, value)`, `world.add(entity, Trait)`, `world.remove(entity, Trait)`, `world.has(entity, Trait)`, `world.upsert(entity, Trait, value)`, `world.changed(entity, Trait)`, `world.targetFor(entity, Relation)`, `world.targetsFor(entity, Relation)` and `world.destroy(entity)`. `world.has(entity)` with the entity alone checks that it is alive. Hooks take the entity first to listen to one entity, as in `world.onChange(entity, Position, callback)`. Both forms do the same work. Default to entity methods and use the world form where the world is already at hand.
 
 **Isolated worlds**
 

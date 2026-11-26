@@ -38,8 +38,7 @@ export function useTraitEffect<T extends Trait>(
       }
 
       const { world, entity } = resolved;
-      const update = () =>
-        notify(world.isAlive(entity) ? world.get(entity, resolvedTrait) : undefined);
+      const update = () => notify(world.has(entity) ? world.get(entity, resolvedTrait) : undefined);
       const observer = world[internal].observeSettled(update);
       const onChange = world.onChange(entity, resolvedTrait, observer.invalidate);
       const onRemove = world.onRemove(entity, resolvedTrait, observer.invalidate);

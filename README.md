@@ -1284,7 +1284,7 @@ const { entityId, generation } = unpackEntity(entity)
 
 #### World-first calls
 
-Every entity method has a world form that takes the entity first. Both do the same work, so use whichever reads better where you are. The world form needs no lookup from the entity to its world.
+Entity methods have a world form that takes the entity first. Both do the same work, so use whichever reads better where you are. The world form needs no lookup from the entity to its world.
 
 ```js
 world.add(entity, Position)
@@ -1296,8 +1296,10 @@ world.upsert(entity, Position, { x: 10 })
 world.changed(entity, Position)
 world.targetFor(entity, Contains)
 world.targetsFor(entity, Contains)
-world.isAlive(entity)
 world.destroy(entity)
+
+// entity.isAlive() is world.has with the entity alone
+world.has(entity)
 
 // Hooks take the entity first to listen to that entity alone
 world.onChange(entity, Position, (entity) => {})

@@ -15,7 +15,7 @@ function attachTargets(
   push: (value: Entity[]) => void
 ) {
   const observer = world[$internal].observeSettled(() => {
-    push(world.isAlive(entity) ? world.targetsFor(entity, relation) : []);
+    push(world.has(entity) ? world.targetsFor(entity, relation) : []);
   });
   const onChange = world.onChange(entity, relation, observer.invalidate);
   const onRemove = world.onRemove(entity, relation, observer.invalidate);

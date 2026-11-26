@@ -31,7 +31,7 @@ export function useHas(
 
       const { world, entity } = resolved;
       const observer = world[internal].observeSettled(() => {
-        value = world.isAlive(entity) && world.has(entity, resolvedTrait);
+        value = world.has(entity) && world.has(entity, resolvedTrait);
       });
       // The hook overloads take no union. Core resolves every input and filters exact terms by key.
       const onAdd = world.onAdd(entity, resolvedTrait as Trait, observer.invalidate);

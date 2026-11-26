@@ -80,7 +80,7 @@ function createSnapshot<T, I>(
   getVersionSource?: GetVersionSource<I>
 ): Snapshot<T, I> {
   const entity = resolveEntity(target);
-  const alive = world !== undefined && entity !== undefined && world.isAlive(entity);
+  const alive = world !== undefined && entity !== undefined && world.has(entity);
   const value = alive ? read(world, entity, input) : undefined;
   const source = alive ? getVersionSource?.(world, entity, input) : undefined;
   const binding: Binding<T, I> = {
@@ -111,7 +111,7 @@ function subscribeEntity<T, I>(
   getVersionSource?: GetVersionSource<I>
 ) {
   const { world, entity, input } = binding;
-  if (world === undefined || entity === undefined || !world.isAlive(entity)) {
+  if (world === undefined || entity === undefined || !world.has(entity)) {
     if (binding.value !== undefined) {
       binding.value = undefined;
       publish({ binding, value: undefined });

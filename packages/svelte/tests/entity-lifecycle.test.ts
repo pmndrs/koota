@@ -43,7 +43,7 @@ describe('entity lifecycle', () => {
     });
     await tick();
 
-    expect(world.isAlive(entity)).toBe(false);
+    expect(world.has(entity)).toBe(false);
     expect(getByTestId('value').textContent).toBe('undefined');
     expect(notify).not.toHaveBeenCalled();
   });

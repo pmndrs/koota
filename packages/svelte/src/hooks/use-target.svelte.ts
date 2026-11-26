@@ -40,7 +40,7 @@ export function useTarget(
 
       const { world, entity } = resolved;
       const update = () => {
-        value = world.isAlive(entity)
+        value = world.has(entity)
           ? world.targetFor(entity, resolvedRelation as Relation<Trait>)
           : undefined;
       };

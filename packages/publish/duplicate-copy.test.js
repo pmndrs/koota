@@ -20,7 +20,7 @@ it('warns when a second copy of koota takes over the entity methods', () => {
   // The methods now belong to the copy that installed last.
   expect(entity.isAlive()).toBe(true);
   entity.destroy();
-  expect(second.isAlive(entity)).toBe(false);
+  expect(second.has(entity)).toBe(false);
 
   commonjs.createWorld();
   expect(warn).toHaveBeenCalledOnce();

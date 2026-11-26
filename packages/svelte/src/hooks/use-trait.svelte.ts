@@ -38,7 +38,7 @@ export function useTrait(
     const ordered = isOrderedTrait(input);
     const read = (resolved: ReturnType<typeof resolveTarget>) => {
       const record =
-        resolved && resolved.world.isAlive(resolved.entity)
+        resolved && resolved.world.has(resolved.entity)
           ? resolved.world.get(resolved.entity, input)
           : undefined;
       return ordered ? getOrderedSnapshot(record) : record;

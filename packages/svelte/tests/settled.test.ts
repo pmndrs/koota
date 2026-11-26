@@ -30,9 +30,9 @@ it('refreshes every hook synchronously after removal and child destruction', () 
       onValue: (value: unknown) =>
         effects.push([
           value,
-          world.isAlive(parent),
-          world.isAlive(child),
-          world.isAlive(source) ? world.targetsFor(source, Link) : [],
+          world.has(parent),
+          world.has(child),
+          world.has(source) ? world.targetsFor(source, Link) : [],
         ]),
     },
   });

@@ -46,14 +46,14 @@ describe('entity lifecycle', () => {
         const position = useTrait(entity, Position);
         useTraitEffect(entity, Position, notify);
         useLayoutEffect(() => {
-          if (world.isAlive(entity)) world.destroy(entity);
+          if (world.has(entity)) world.destroy(entity);
         }, []);
         return position;
       },
       { wrapper: Wrapper }
     );
 
-    expect(world.isAlive(entity)).toBe(false);
+    expect(world.has(entity)).toBe(false);
     expect(notify).not.toHaveBeenCalled();
   });
 });

@@ -17,7 +17,7 @@ function readHas(world: World, entity: Entity, trait: HasInput) {
 
 function attachHas(world: World, entity: Entity, trait: HasInput, push: (value: boolean) => void) {
   const observer = world[$internal].observeSettled(() =>
-    push(world.isAlive(entity) && world.has(entity, trait))
+    push(world.has(entity) && world.has(entity, trait))
   );
   // The hook overloads take no union. Core resolves every input and filters exact terms by key.
   const onAdd = world.onAdd(entity, trait as Trait, observer.invalidate);

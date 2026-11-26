@@ -21,7 +21,7 @@ describe('World', () => {
 
     expect(worldTest).toBe(world);
     const entity = worldTest!.spawn();
-    expect(worldTest!.isAlive(entity)).toBe(true);
+    expect(worldTest!.has(entity)).toBe(true);
   });
 });
 
