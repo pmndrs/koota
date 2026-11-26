@@ -108,7 +108,17 @@ world.destroy()
 
 Structural changes are deferred while a defer scope is open. Callback walks such as `each` and `forEach` open one around their callbacks, every structural operation opens one around its hooks, and `world.defer` opens one around a function. A `for...of` or indexed loop opens none, so wrap it in `world.defer` to defer its changes. While it is open, `add`, `remove`, `upsert`, `destroy` and machine `enter` are logged and apply in call order when the outermost scope ends. `spawn`, `set` and `changed` are immediate. A logged command whose entity was destroyed earlier in the log is dropped. If a command throws, the rest still apply and the first error is rethrown.
 
-Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled observers wait until all commands finish. A chain of hooks takes one wave per link and can be as long as it needs. A hook that keeps undoing the change it observes is stopped after 100000 waves, and observers that keep invalidating each other after 100 rounds. Either throws and clears pending commands and observers, and already-applied changes remain committed.
+Pass `whenSettled(fn)` to a world or entity subscription to read the resulting state after pending structural changes finish. Reuse the same wrapper to combine notifications from several subscriptions in the same world. `fn` receives no arguments. A notification outside a defer scope runs immediately. Inside one, the world calls `fn` synchronously after its pending commands finish and before the outermost operation returns. Unsubscribing withdraws that subscription's pending notification.
+
+```js
+import { whenSettled } from 'koota'
+
+const refresh = whenSettled(() => renderParent(child.targetFor(ChildOf)))
+child.onRemove(ChildOf, refresh)
+child.onAdd(ChildOf, refresh)
+```
+
+Deferred work drains in waves. Commands appended by hooks run in the next wave, and settled callbacks wait until all commands finish. A chain of hooks takes one wave per link. If it exceeds 100000 command waves or 100 rounds of settled callbacks, the world clears pending work and throws. Changes already applied stay committed.
 
 See [query lifecycle](query.md#query-lifecycle) for membership semantics and examples.
 

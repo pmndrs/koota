@@ -1,10 +1,4 @@
-import {
-  $internal as internal,
-  type Entity,
-  type Machine,
-  type MachineStates,
-  type World,
-} from '@koota/core';
+import { whenSettled, type Entity, type Machine, type MachineStates, type World } from '@koota/core';
 import { untrack } from 'svelte';
 import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
@@ -33,12 +27,7 @@ export function useMachine<S extends MachineStates>(
       };
       update();
       if (entity === undefined) return;
-      const observer = entity[internal].observeSettled(update);
-      const unsubscribe = entity.onTransition(current.selected, observer.invalidate);
-      return () => {
-        observer.unsubscribe();
-        unsubscribe();
-      };
+      return entity.onTransition(current.selected, whenSettled(update));
     });
   });
 

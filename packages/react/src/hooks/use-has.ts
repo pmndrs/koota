@@ -1,5 +1,5 @@
 import {
-  $internal,
+  whenSettled,
   type Entity,
   type Identifier,
   type IdentifierPair,
@@ -17,14 +17,11 @@ function readHas(entity: Entity, trait: HasInput) {
 }
 
 function attachHas(entity: Entity, trait: HasInput, push: (value: boolean) => void) {
-  const observer = entity[$internal].observeSettled(() =>
-    push(entity.isAlive() && entity.has(trait))
-  );
+  const refresh = whenSettled(() => push(entity.isAlive() && entity.has(trait)));
   // The hook overloads take no union. Core resolves every input and filters exact terms by key.
-  const onAdd = entity.onAdd(trait as Trait, observer.invalidate);
-  const onRemove = entity.onRemove(trait as Trait, observer.invalidate);
+  const onAdd = entity.onAdd(trait as Trait, refresh);
+  const onRemove = entity.onRemove(trait as Trait, refresh);
   return () => {
-    observer.unsubscribe();
     onAdd();
     onRemove();
   };

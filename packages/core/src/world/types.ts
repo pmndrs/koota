@@ -1,6 +1,6 @@
 import type { getOrderedSnapshot } from '../relation/ordered';
+import type { SettledCallback } from './settled';
 import type { createQueryStore } from '../query/query-store';
-import type { observeSettled } from './settled';
 import { ActionInstance } from '../actions/types';
 import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { QueryNotification, QuerySubscriber } from '../query/types';
@@ -78,7 +78,7 @@ export type WorldContext = {
   commands: unknown[];
   /** Entries in use. The array keeps its store between flushes and is cleared in bulk. */
   commandCount: number;
-  /** Set when a command or a settled observer is queued, so a scope end reads one field. */
+  /** Set when a command or a settled callback is queued, so a scope end reads one field. */
   unsettled: boolean;
   /** Pending entities in this world's current destruction cascade. */
   destroyQueue: Entity[];
@@ -99,8 +99,10 @@ export type WorldContext = {
   entitySubscribedInstances: Set<TraitInstance>;
   /** Open defer scopes. Structural changes join the command log while it is nonzero. See defer. */
   deferDepth: number;
-  settledQueue: Set<() => void>;
-  observeSettled: typeof observeSettled;
+  settledCallbacks: WeakMap<() => void, SettledCallback> | undefined;
+  settledQueue: (SettledCallback | undefined)[];
+  settledCount: number;
+  settledRound: number;
   getOrderedSnapshot: typeof getOrderedSnapshot;
   createQueryStore: typeof createQueryStore;
   /** Notifies after registration, reset or destruction changes the backing entity. */

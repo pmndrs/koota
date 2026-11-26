@@ -1,5 +1,5 @@
 import {
-  $internal as internal,
+  whenSettled,
   type Entity,
   type Identifier,
   type IdentifierPair,
@@ -28,15 +28,14 @@ export function useHas(
         return;
       }
 
-      const observer = entity[internal].observeSettled(() => {
+      const refresh = whenSettled(() => {
         value = entity.isAlive() && entity.has(resolvedTrait);
       });
       // The hook overloads take no union. Core resolves every input and filters exact terms by key.
-      const onAdd = entity.onAdd(resolvedTrait as Trait, observer.invalidate);
-      const onRemove = entity.onRemove(resolvedTrait as Trait, observer.invalidate);
+      const onAdd = entity.onAdd(resolvedTrait as Trait, refresh);
+      const onRemove = entity.onRemove(resolvedTrait as Trait, refresh);
       value = entity.has(resolvedTrait);
       return () => {
-        observer.unsubscribe();
         onAdd();
         onRemove();
       };

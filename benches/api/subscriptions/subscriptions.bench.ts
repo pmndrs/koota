@@ -1,5 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { $internal, createWorld, trait, type Entity } from 'koota';
+import { whenSettled, createWorld, trait, type Entity } from 'koota';
 
 const Position = trait({ x: 0, y: 0 });
 
@@ -40,7 +40,7 @@ group('change subscriptions per entity @change @subscription', () => {
   }
 });
 
-// One observer per entity on add and remove, the shape framework hooks produce for structural
+// One callback per entity on add and remove, the shape framework hooks produce for structural
 // changes. The direct row is the control. The settled row adds the queue and the settlement.
 group('structural subscriptions per entity @subscription @settled', () => {
   const count = 1000;
@@ -54,8 +54,7 @@ group('structural subscriptions per entity @subscription @settled', () => {
       for (let i = 0; i < count; i++) {
         const entity = world.spawn();
         entities.push(entity);
-        const notify =
-          mode === 'direct' ? () => hits++ : world[$internal].observeSettled(() => hits++).invalidate;
+        const notify = mode === 'direct' ? () => hits++ : whenSettled(() => hits++);
         entity.onAdd(Tag, notify);
         entity.onRemove(Tag, notify);
       }

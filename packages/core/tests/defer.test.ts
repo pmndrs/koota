@@ -1,19 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
-import { $internal, createChanged, createWorld, ordered, relation, trait, type Entity } from '../src';
+import {
+  whenSettled,
+  createChanged,
+  createWorld,
+  ordered,
+  relation,
+  trait,
+  type Entity,
+} from '../src';
 
 const Position = trait({ x: 0 });
 const Velocity = trait({ dx: 0 });
 const Tag = trait();
 
 describe('deferred structural changes', () => {
-  it('bounds hook-generated waves and recovers without pending commands or observers', () => {
+  it('bounds hook-generated waves and recovers without pending commands or callbacks', () => {
     const world = createWorld();
     const entity = world.spawn();
     const observed = vi.fn();
-    const observer = world[$internal].observeSettled(observed);
+    world.onAdd(Tag, whenSettled(observed));
     let calls = 0;
     const stopAdd = world.onAdd(Tag, (entity) => {
-      observer.invalidate();
       // Keep a broken drain finite so this regression cannot hang the test runner.
       if (++calls < 200000) entity.remove(Tag);
     });
@@ -32,6 +39,9 @@ describe('deferred structural changes', () => {
     expect(entity.has(Tag)).toBe(present);
     expect(entity.has(Velocity)).toBe(true);
     expect(observed).not.toHaveBeenCalled();
+    entity.remove(Tag);
+    entity.add(Tag);
+    expect(observed).toHaveBeenCalledTimes(1);
     world.reset();
     world.destroy();
   });
@@ -62,15 +72,17 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
-  it('finishes command waves in call order before observers even when a command throws', () => {
+  it('finishes command waves in call order before settled callbacks even when a command throws', () => {
     const world = createWorld();
     const entities = Array.from({ length: 4 }, () => world.spawn());
     const events: Entity[] = [];
     const observed: number[] = [];
-    const observer = world[$internal].observeSettled(() => observed.push(world.query(Tag).length));
+    world.onAdd(
+      Tag,
+      whenSettled(() => observed.push(world.query(Tag).length))
+    );
     world.onAdd(Tag, (entity) => {
       events.push(entity);
-      observer.invalidate();
       if (entity === entities[0]) {
         entities[2].add(Tag);
         throw new Error('first wave');
@@ -526,16 +538,16 @@ describe('deferred structural changes', () => {
     world.destroy();
   });
 
-  it('drains both queues when a command throws, so observers still run', () => {
+  it('drains both queues when a command throws, so settled callbacks still run', () => {
     const world = createWorld();
     const a = world.spawn();
     const b = world.spawn();
     const observed: number[] = [];
-    const observer = world[$internal].observeSettled(() => {
-      observed.push(world.query(Tag).length);
-    });
+    world.onAdd(
+      Tag,
+      whenSettled(() => observed.push(world.query(Tag).length))
+    );
     world.onAdd(Tag, (entity) => {
-      observer.invalidate();
       if (entity === a) throw new Error('hook failed');
     });
 

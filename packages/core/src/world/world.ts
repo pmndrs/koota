@@ -1,12 +1,12 @@
 import { getOrderedSnapshot } from '../relation/ordered';
 import { createQueryStore } from '../query/query-store';
-import { observeSettled } from './settled';
+import { subscribeSet } from './settled';
 import { beginDefer, endDefer, runDeferred } from './defer';
 import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
 import { assertOutsideDefer } from '../asserts';
-import { applyDestroyEntity, createEntity, entityHas } from '../entity/entity';
+import { applyDestroyEntity, createEntity, entityHas, subscribeTraitEvent } from '../entity/entity';
 import type { Entity } from '../entity/types';
 import {
   createEntityIndex,
@@ -27,17 +27,14 @@ import {
 } from '../identifier/scoped-identifier';
 import {
   IsExcluded,
-  createQueryInstance,
   resolveQueryInstance,
   resolveQueryInstanceFromRef,
   runQuery,
   runQueryFirst,
 } from '../query/query';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
-import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { isStableParameter } from '../query/modifier';
-import { subscribeRelationFilter } from '../relation/filter-hooks';
 import { getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
@@ -49,7 +46,7 @@ import {
   setTrait,
   upsertTrait,
 } from '../trait/trait';
-import { clearTraitInstance, getTraitInstance, hasTraitInstance } from '../trait/trait-instance';
+import { clearTraitInstance, hasTraitInstance } from '../trait/trait-instance';
 import type {
   ConfigurableTrait,
   ExtractSchema,
@@ -60,8 +57,8 @@ import type {
   TraitValue,
 } from '../trait/types';
 import type { InlineQueryNode, World, WorldContext, WorldOptions } from './types';
-import { subscribeAll, type Subscriber } from '../trait/subscriptions';
-import { resolveHookCallback, resolveHookTrait, type HookInput } from './utils/resolve-hook';
+import type { Subscriber } from '../trait/subscriptions';
+import type { HookInput } from './utils/resolve-hook';
 
 let nextWorldId = 0;
 
@@ -254,8 +251,10 @@ export function createWorld(options?: WorldOptions): World {
       worldEntity: null!,
       entitySubscribedInstances: new Set(),
       deferDepth: 0,
-      settledQueue: new Set(),
-      observeSettled,
+      settledCallbacks: undefined,
+      settledQueue: [],
+      settledCount: 0,
+      settledRound: 0,
       getOrderedSnapshot,
       createQueryStore,
       resetSubscriptions: new Set(),
@@ -344,7 +343,7 @@ export function createWorld(options?: WorldOptions): World {
       try {
         clearWorld(false);
       } finally {
-        // Reads by settled observers use the empty world until teardown finishes.
+        // Reads by settled callbacks use the empty world until teardown finishes.
         if (ctx.worldEntity === null) {
           ctx.isRegistered = false;
           // A settled callback can spawn after the original pages were released.
@@ -405,34 +404,10 @@ export function createWorld(options?: WorldOptions): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      let query: QueryInstance;
-
-      if (isQuery(args)) {
-        const queryRef = args;
-        query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-          query.refId = queryRef.id;
-        }
-      } else {
-        const hash = createQueryHash(args as QueryParameter[]);
-        query = ctx.queriesHashMap.get(hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, args as QueryParameter[]);
-          ctx.queriesHashMap.set(hash, query);
-        }
-      }
-
-      (query.addSubscriptions ??= new Set()).add(callback);
-
-      return () => query.addSubscriptions!.delete(callback);
+      const query = isQuery(args)
+        ? resolveQueryInstanceFromRef(ctx, args)
+        : resolveQueryInstance(ctx, args);
+      return subscribeSet(ctx, (query.addSubscriptions ??= new Set()), callback);
     },
 
     onExit(
@@ -441,91 +416,28 @@ export function createWorld(options?: WorldOptions): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      let query: QueryInstance;
-
-      if (isQuery(args)) {
-        const queryRef = args;
-        query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-          query.refId = queryRef.id;
-        }
-      } else {
-        const hash = createQueryHash(args as QueryParameter[]);
-        query = ctx.queriesHashMap.get(hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, args as QueryParameter[]);
-          ctx.queriesHashMap.set(hash, query);
-        }
-      }
-
-      (query.removeSubscriptions ??= new Set()).add(callback);
-
-      return () => query.removeSubscriptions!.delete(callback);
+      const query = isQuery(args)
+        ? resolveQueryInstanceFromRef(ctx, args)
+        : resolveQueryInstance(ctx, args);
+      return subscribeSet(ctx, (query.removeSubscriptions ??= new Set()), callback);
     },
 
     onAdd(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
-
-      let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
-
-      if (!data) {
-        registerTrait(ctx, resolvedTrait);
-        data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      }
-
-      const unsubscribe = subscribeAll(data.addSubscriptions, resolvedCallback);
-      if (!isRelationPair(trait) || !trait.targetQuery) return unsubscribe;
-      const stop = subscribeRelationFilter(ctx, data, trait, true, callback);
-      return () => {
-        unsubscribe();
-        stop();
-      };
+      return subscribeTraitEvent(ctx, undefined, 'addSubscriptions', trait, callback);
     },
 
     onRemove(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
-
-      let data = getTraitInstance(ctx.traitInstances, resolvedTrait);
-
-      if (!data) {
-        registerTrait(ctx, resolvedTrait);
-        data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      }
-
-      const unsubscribe = subscribeAll(data.removeSubscriptions, resolvedCallback);
-      if (!isRelationPair(trait) || !trait.targetQuery) return unsubscribe;
-      const stop = subscribeRelationFilter(ctx, data, trait, false, callback);
-      return () => {
-        unsubscribe();
-        stop();
-      };
+      return subscribeTraitEvent(ctx, undefined, 'removeSubscriptions', trait, callback);
     },
 
     onChange(trait: HookInput, callback: Subscriber<any>): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      const resolvedTrait = resolveHookTrait(trait);
-      const resolvedCallback = resolveHookCallback(ctx, trait, callback);
-
-      if (!hasTraitInstance(ctx.traitInstances, resolvedTrait)) registerTrait(ctx, resolvedTrait);
-
-      const data = getTraitInstance(ctx.traitInstances, resolvedTrait)!;
-      ctx.trackingRevision++;
-      return subscribeAll(data.changeSubscriptions, resolvedCallback);
+      return subscribeTraitEvent(ctx, undefined, 'changeSubscriptions', trait, callback);
     },
 
     onTransition(machine: Machine, callback: TransitionSubscriber) {
@@ -536,20 +448,17 @@ export function createWorld(options?: WorldOptions): World {
 
     onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
       const ctx = world[$internal];
-      ctx.entitySpawnSubscriptions.add(callback);
-      return () => ctx.entitySpawnSubscriptions.delete(callback);
+      return subscribeSet(ctx, ctx.entitySpawnSubscriptions, callback);
     },
 
     onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
       const ctx = world[$internal];
-      ctx.entityDestroySubscriptions.add(callback);
-      return () => ctx.entityDestroySubscriptions.delete(callback);
+      return subscribeSet(ctx, ctx.entityDestroySubscriptions, callback);
     },
 
     onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber {
       const ctx = world[$internal];
-      ctx.traitRegisteredSubscriptions.add(callback);
-      return () => ctx.traitRegisteredSubscriptions.delete(callback);
+      return subscribeSet(ctx, ctx.traitRegisteredSubscriptions, callback);
     },
   } as World;
 

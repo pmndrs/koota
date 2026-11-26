@@ -10,7 +10,7 @@ import { addTrait, getTrait, removeTrait, setTrait, upsertTrait } from '../trait
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { Subscriber } from '../trait/subscriptions';
 import type { HookInput } from '../world/utils/resolve-hook';
-import { destroyEntity, entityHas, getEntityContext, subscribeEntityEvent } from './entity';
+import { destroyEntity, entityHas, getEntityContext, subscribeTraitEvent } from './entity';
 import type { Entity } from './types';
 import { getEntityGeneration, getEntityId } from './utils/pack-entity';
 import { addressSpace } from './utils/address-space';
@@ -81,17 +81,17 @@ Number.prototype.onTransition = function (
 
 // @ts-expect-error
 Number.prototype.onAdd = function (this: Entity, input: HookInput, callback: Subscriber<any>) {
-  return subscribeEntityEvent(getEntityContext(this), this, 'addSubscriptions', input, callback);
+  return subscribeTraitEvent(getEntityContext(this), this, 'addSubscriptions', input, callback);
 };
 
 // @ts-expect-error
 Number.prototype.onRemove = function (this: Entity, input: HookInput, callback: Subscriber<any>) {
-  return subscribeEntityEvent(getEntityContext(this), this, 'removeSubscriptions', input, callback);
+  return subscribeTraitEvent(getEntityContext(this), this, 'removeSubscriptions', input, callback);
 };
 
 // @ts-expect-error
 Number.prototype.onChange = function (this: Entity, input: HookInput, callback: Subscriber<any>) {
-  return subscribeEntityEvent(getEntityContext(this), this, 'changeSubscriptions', input, callback);
+  return subscribeTraitEvent(getEntityContext(this), this, 'changeSubscriptions', input, callback);
 };
 
 //@ts-expect-error

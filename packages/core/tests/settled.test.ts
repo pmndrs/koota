@@ -1,19 +1,19 @@
-import { expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait } from '../src';
+import { expect, it, vi } from 'vitest';
+import { whenSettled, createWorld, relation, trait } from '../src';
 
-it('settles once after nested removals and observes the remaining target', () => {
+it('settles once after nested removals and reads the remaining target', () => {
   const world = createWorld();
   const Link = relation();
   const [a, b, c, d] = [world.spawn(), world.spawn(), world.spawn(), world.spawn()];
   const source = world.spawn(Link(a), Link(b), Link(c), Link(d));
-  const observed: unknown[] = [];
-  const observer = world[$internal].observeSettled(() => observed.push(source.targetFor(Link)));
-  source.onRemove(Link, observer.invalidate);
+  const values: unknown[] = [];
+  const refresh = whenSettled(() => values.push(source.targetFor(Link)));
+  source.onRemove(Link, refresh);
   source.onRemove(Link, (_, target) => {
     if (target === a) source.remove(Link(b));
   });
   source.remove(Link(a));
-  expect(observed).toEqual([source.targetFor(Link)]);
+  expect(values).toEqual([source.targetFor(Link)]);
   expect(
     source
       .targetsFor(Link)
@@ -28,14 +28,14 @@ it('settles after the entire destruction cascade', () => {
   const parent = world.spawn();
   const child = world.spawn(ChildOf(parent));
   const grandchild = world.spawn(ChildOf(child));
-  const observed: boolean[][] = [];
-  const observer = world[$internal].observeSettled(() => {
-    observed.push([parent.isAlive(), child.isAlive(), grandchild.isAlive()]);
+  const values: boolean[][] = [];
+  const refresh = whenSettled(() => {
+    values.push([parent.isAlive(), child.isAlive(), grandchild.isAlive()]);
     expect(world.query(ChildOf('*')).length).toBe(0);
   });
-  world.onExit([ChildOf('*')], observer.invalidate);
+  world.onExit([ChildOf('*')], refresh);
   parent.destroy();
-  expect(observed).toEqual([[false, false, false]]);
+  expect(values).toEqual([[false, false, false]]);
 });
 
 it('settles after bulk additions, exclusive replacement, and query reconciliation', () => {
@@ -47,15 +47,15 @@ it('settles after bulk additions, exclusive replacement, and query reconciliatio
   const b = world.spawn();
   const source = world.spawn(Link(a));
   const query = world.query(A, B);
-  const observed: unknown[] = [];
-  const observer = world[$internal].observeSettled(() => {
-    observed.push([source.has(A), source.has(B), source.targetFor(Link), query.toArray()]);
+  const values: unknown[] = [];
+  const refresh = whenSettled(() => {
+    values.push([source.has(A), source.has(B), source.targetFor(Link), query.toArray()]);
   });
-  source.onAdd(A, observer.invalidate);
-  source.onAdd(B, observer.invalidate);
-  source.onAdd(Link, observer.invalidate);
+  source.onAdd(A, refresh);
+  source.onAdd(B, refresh);
+  source.onAdd(Link, refresh);
   source.add(A, B, Link(b));
-  expect(observed).toEqual([[true, true, b, [source]]]);
+  expect(values).toEqual([[true, true, b, [source]]]);
 });
 
 it('settles an upsert that replaces an exclusive target', () => {
@@ -64,12 +64,12 @@ it('settles an upsert that replaces an exclusive target', () => {
   const a = world.spawn();
   const b = world.spawn();
   const source = world.spawn(Link(a));
-  const observed: unknown[] = [];
-  const observer = world[$internal].observeSettled(() => observed.push(source.targetFor(Link)));
-  source.onRemove(Link, observer.invalidate);
-  source.onAdd(Link, observer.invalidate);
+  const values: unknown[] = [];
+  const refresh = whenSettled(() => values.push(source.targetFor(Link)));
+  source.onRemove(Link, refresh);
+  source.onAdd(Link, refresh);
   source.upsert(Link(b), { weight: 1 });
-  expect(observed).toEqual([b]);
+  expect(values).toEqual([b]);
 });
 
 it('processes structural work from settled callbacks without recursive notification', () => {
@@ -78,18 +78,18 @@ it('processes structural work from settled callbacks without recursive notificat
   const Trigger = trait();
   const source = world.spawn();
   let inside = false;
-  const observed: boolean[] = [];
-  const observer = world[$internal].observeSettled(() => {
+  const values: boolean[] = [];
+  const refresh = whenSettled(() => {
     expect(inside).toBe(false);
     inside = true;
-    observed.push(source.has(A));
+    values.push(source.has(A));
     if (!source.has(A)) source.add(A);
     inside = false;
   });
-  source.onAdd(Trigger, observer.invalidate);
-  source.onAdd(A, observer.invalidate);
+  source.onAdd(Trigger, refresh);
+  source.onAdd(A, refresh);
   source.add(Trigger);
-  expect(observed).toEqual([false, true]);
+  expect(values).toEqual([false, true]);
 });
 
 it('delivers queued updates when a structural callback throws', () => {
@@ -97,52 +97,50 @@ it('delivers queued updates when a structural callback throws', () => {
   const A = trait();
   const B = trait();
   const source = world.spawn();
-  const observed: boolean[] = [];
-  const observer = world[$internal].observeSettled(() => observed.push(source.has(A)));
-  source.onAdd(A, observer.invalidate);
+  const values: boolean[] = [];
+  const refresh = whenSettled(() => values.push(source.has(A)));
+  source.onAdd(A, refresh);
   source.onAdd(B, () => {
     throw new Error('stop');
   });
   expect(() => source.add(A, B)).toThrow('stop');
-  expect(observed).toEqual([true]);
-  // The operation is closed, so a later invalidation is not left waiting for it.
-  observer.invalidate();
-  expect(observed).toEqual([true, true]);
+  expect(values).toEqual([true]);
+  source.remove(A);
+  source.add(A);
+  expect(values).toEqual([true, true]);
 });
 
-it('runs the remaining observers and their queued changes before rethrowing an observer error', () => {
+it('runs the remaining callbacks and their queued changes before rethrowing a callback error', () => {
   const world = createWorld();
   const Tag = trait();
   const entity = world.spawn();
   const seen: boolean[] = [];
-  const first = world[$internal].observeSettled(() => {
+  const first = whenSettled(() => {
     entity.add(Tag);
-    throw new Error('first observer');
+    throw new Error('first callback');
   });
-  const second = world[$internal].observeSettled(() => {
+  const second = whenSettled(() => {
     seen.push(entity.has(Tag));
-    throw new Error('second observer');
+    throw new Error('second callback');
   });
 
-  expect(() =>
-    world.defer(() => {
-      first.invalidate();
-      second.invalidate();
-    })
-  ).toThrow('first observer');
+  const Trigger = trait();
+  entity.onAdd(Trigger, first);
+  entity.onAdd(Trigger, second);
+  expect(() => entity.add(Trigger)).toThrow('first callback');
   expect(seen).toEqual([false]);
   expect(entity.has(Tag)).toBe(true);
   world.destroy();
 });
 
-it('throws when an observer keeps invalidating itself', () => {
+it('throws when a callback keeps triggering itself', () => {
   const world = createWorld();
   const Value = trait({ value: 0 });
   const source = world.spawn();
-  const observer = world[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     source.set(Value, (prev) => ({ value: prev.value + 1 }));
   });
-  source.onChange(Value, observer.invalidate);
+  source.onChange(Value, refresh);
   expect(() => source.add(Value)).toThrow('did not settle');
   // The queue is dropped, so the world keeps working.
   expect(() => world.spawn(Value)).not.toThrow();
@@ -152,36 +150,36 @@ it('settles reset after every entity is gone', () => {
   const world = createWorld();
   const A = trait();
   const source = world.spawn(A);
-  const observed: unknown[] = [];
-  const observer = world[$internal].observeSettled(() => {
-    observed.push([source.isAlive(), world.query(A).length]);
+  const values: unknown[] = [];
+  const refresh = whenSettled(() => {
+    values.push([source.isAlive(), world.query(A).length]);
   });
-  source.onRemove(A, observer.invalidate);
+  source.onRemove(A, refresh);
   world.reset();
-  expect(observed).toEqual([[false, 0]]);
+  expect(values).toEqual([[false, 0]]);
 });
 
 it('settles world destruction before the world unregisters', () => {
   const world = createWorld();
   const A = trait();
   world.spawn(A);
-  const observed: number[] = [];
-  const observer = world[$internal].observeSettled(() => observed.push(world.query(A).length));
-  world.onExit([A], observer.invalidate);
+  const values: number[] = [];
+  const refresh = whenSettled(() => values.push(world.query(A).length));
+  world.onExit([A], refresh);
   world.destroy();
-  expect(observed).toEqual([0]);
+  expect(values).toEqual([0]);
   expect(world.isRegistered).toBe(false);
 });
 
-it('releases entities spawned by a settled observer during world destruction', () => {
+it('releases entities spawned by a settled callback during world destruction', () => {
   const world = createWorld();
   const Tag = trait();
   const original = world.spawn(Tag);
   let spawned = original;
-  const observer = world[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     spawned = world.spawn(Tag);
   });
-  world.onExit([Tag], observer.invalidate);
+  world.onExit([Tag], refresh);
 
   world.destroy();
   expect(world.entities).toEqual([]);
@@ -195,10 +193,137 @@ it('runs value invalidations at once outside structural changes', () => {
   const world = createWorld();
   const Value = trait({ value: 0 });
   const source = world.spawn(Value);
-  const observed: number[] = [];
-  const observer = world[$internal].observeSettled(() => observed.push(source.get(Value)!.value));
-  source.onChange(Value, observer.invalidate);
+  const values: number[] = [];
+  const refresh = whenSettled(() => values.push(source.get(Value)!.value));
+  source.onChange(Value, refresh);
   source.set(Value, { value: 1 });
   source.set(Value, { value: 2 });
-  expect(observed).toEqual([1, 2]);
+  expect(values).toEqual([1, 2]);
+});
+
+it('coalesces by wrapper when subscriptions use the same function', () => {
+  const world = createWorld();
+  const Tag = trait();
+  const entity = world.spawn();
+  const notify = vi.fn();
+  const refresh = whenSettled(notify);
+  entity.onAdd(Tag, notify);
+  entity.onAdd(Tag, refresh);
+  world.onEnter([Tag], refresh);
+  world.onEnter([Tag], whenSettled(notify));
+
+  entity.add(Tag);
+  expect(notify.mock.calls).toEqual([[entity], [], []]);
+  world.destroy();
+});
+
+it('withdraws the pending notification only for the hook that unsubscribes', () => {
+  const world = createWorld();
+  const A = trait({ x: 0 });
+  const B = trait({ x: 0 });
+  const entity = world.spawn(A, B);
+  const calls = vi.fn();
+  const refresh = whenSettled(calls);
+  const stopA = entity.onChange(A, refresh);
+  const stopB = world.onChange(B, refresh);
+
+  world.defer(() => {
+    entity.changed(A);
+    entity.changed(A);
+    stopA();
+  });
+  expect(calls).not.toHaveBeenCalled();
+
+  const stopAgain = entity.onChange(A, refresh);
+  world.defer(() => {
+    entity.changed(A);
+    entity.changed(B);
+    stopAgain();
+    stopAgain();
+    expect(calls).not.toHaveBeenCalled();
+  });
+  expect(calls.mock.calls).toEqual([[]]);
+  stopB();
+  world.destroy();
+});
+
+it.each(['before', 'during'] as const)(
+  'waits for structural changes when a notification withdrawn %s delivery is scheduled again',
+  (timing) => {
+    const world = createWorld();
+    const Start = trait();
+    const Old = trait();
+    const Current = trait();
+    const Ready = trait();
+    const entity = world.spawn(Start, Old, Current);
+    const values: boolean[] = [];
+    const refresh = whenSettled(() => values.push(entity.has(Ready)));
+    const stop = entity.onChange(Old, refresh);
+    entity.onChange(Current, refresh);
+    entity.onChange(
+      Start,
+      whenSettled(() => {
+        if (timing === 'during') stop();
+        entity.add(Ready);
+        entity.changed(Current);
+      })
+    );
+
+    world.defer(() => {
+      entity.changed(Start);
+      entity.changed(Old);
+      if (timing === 'before') stop();
+    });
+
+    expect(values).toEqual([true]);
+    world.destroy();
+  }
+);
+
+it('schedules a shared wrapper independently in nested worlds', () => {
+  const first = createWorld();
+  const second = createWorld();
+  const Tag = trait();
+  const sizes: number[][] = [];
+  const refresh = whenSettled(() => sizes.push([first.query(Tag).length, second.query(Tag).length]));
+  first.onEnter([Tag], refresh);
+  second.onEntitySpawn(refresh);
+  first.defer(() => {
+    first.spawn(Tag);
+    second.spawn(Tag);
+    expect(sizes).toEqual([[1, 1]]);
+    first.spawn(Tag);
+  });
+  expect(sizes).toEqual([
+    [1, 1],
+    [2, 1],
+  ]);
+  first.destroy();
+  second.destroy();
+});
+
+it('schedules a filtered relation callback only for matching targets', () => {
+  const world = createWorld();
+  const Tagged = trait();
+  const Link = relation();
+  const target = world.spawn();
+  const other = world.spawn();
+  const source = world.spawn(Link(target));
+  const calls = vi.fn();
+  const refresh = whenSettled(calls);
+  source.onAdd(Link(Tagged), refresh);
+  world.onAdd(Link(target), refresh);
+
+  source.add(Link(other));
+  expect(calls).not.toHaveBeenCalled();
+  world.defer(() => {
+    source.remove(Link(target));
+    target.add(Tagged);
+    source.add(Link(target));
+  });
+  expect(calls.mock.calls).toEqual([[]]);
+  target.remove(Tagged);
+  target.add(Tagged);
+  expect(calls.mock.calls).toEqual([[], []]);
+  world.destroy();
 });

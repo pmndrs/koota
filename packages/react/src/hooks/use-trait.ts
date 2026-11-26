@@ -1,4 +1,5 @@
 import {
+  whenSettled,
   $internal,
   $relationPair,
   isOrderedTrait,
@@ -22,13 +23,12 @@ export function attachTrait<T extends Trait | RelationPair>(
   trait: T,
   push: (value: TraitRecord<ExtractSchema<T>> | undefined) => void
 ) {
-  const observer = entity[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     push(entity.isAlive() ? entity.get(trait) : undefined);
   });
-  const onChange = entity.onChange(trait, observer.invalidate);
-  const onRemove = entity.onRemove(trait, observer.invalidate);
+  const onChange = entity.onChange(trait, refresh);
+  const onRemove = entity.onRemove(trait, refresh);
   return () => {
-    observer.unsubscribe();
     onChange();
     onRemove();
   };

@@ -1,4 +1,4 @@
-import { $internal, type Entity, type Relation, type Trait, type World } from '@koota/core';
+import { whenSettled, type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
 import { useWorld } from '../world/use-world';
 
@@ -10,13 +10,12 @@ function readTargets(entity: Entity, relation: Relation<Trait>) {
 }
 
 function attachTargets(entity: Entity, relation: Relation<Trait>, push: (value: Entity[]) => void) {
-  const observer = entity[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     push(entity.isAlive() ? entity.targetsFor(relation) : []);
   });
-  const onChange = entity.onChange(relation, observer.invalidate);
-  const onRemove = entity.onRemove(relation, observer.invalidate);
+  const onChange = entity.onChange(relation, refresh);
+  const onRemove = entity.onRemove(relation, refresh);
   return () => {
-    observer.unsubscribe();
     onChange();
     onRemove();
   };
