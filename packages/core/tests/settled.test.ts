@@ -201,6 +201,22 @@ it('runs value invalidations at once outside structural changes', () => {
   expect(values).toEqual([1, 2]);
 });
 
+it('coalesces by wrapper when subscriptions use the same function', () => {
+  const world = createWorld();
+  const Tag = trait();
+  const entity = world.spawn();
+  const notify = vi.fn();
+  const refresh = whenSettled(notify);
+  entity.onAdd(Tag, notify);
+  entity.onAdd(Tag, refresh);
+  world.onEnter([Tag], refresh);
+  world.onEnter([Tag], whenSettled(notify));
+
+  entity.add(Tag);
+  expect(notify.mock.calls).toEqual([[entity], [], []]);
+  world.destroy();
+});
+
 it('withdraws the pending notification only for the hook that unsubscribes', () => {
   const world = createWorld();
   const A = trait({ x: 0 });

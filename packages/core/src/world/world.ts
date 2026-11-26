@@ -27,14 +27,12 @@ import {
 } from '../identifier/scoped-identifier';
 import {
   IsExcluded,
-  createQueryInstance,
   resolveQueryInstance,
   resolveQueryInstanceFromRef,
   runQuery,
   runQueryFirst,
 } from '../query/query';
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
-import { createQueryHash } from '../query/utils/create-query-hash';
 import { isQuery } from '../query/utils/is-query';
 import { isStableParameter } from '../query/modifier';
 import { getFirstEntityWithRelationTo } from '../relation/relation';
@@ -405,31 +403,9 @@ export function createWorld(options?: WorldOptions): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      let query: QueryInstance;
-
-      if (isQuery(args)) {
-        const queryRef = args;
-        query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-          query.refId = queryRef.id;
-        }
-      } else {
-        const hash = createQueryHash(args as QueryParameter[]);
-        query = ctx.queriesHashMap.get(hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, args as QueryParameter[]);
-          ctx.queriesHashMap.set(hash, query);
-        }
-      }
-
+      const query = isQuery(args)
+        ? resolveQueryInstanceFromRef(ctx, args)
+        : resolveQueryInstance(ctx, args);
       return subscribeSet(ctx, (query.addSubscriptions ??= new Set()), callback);
     },
 
@@ -439,31 +415,9 @@ export function createWorld(options?: WorldOptions): World {
     ): QueryUnsubscriber {
       const ctx = world[$internal];
       ensureWorldRegistered(ctx);
-      let query: QueryInstance;
-
-      if (isQuery(args)) {
-        const queryRef = args;
-        query = ctx.queryInstances[queryRef.id] || ctx.queriesHashMap.get(queryRef.hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, queryRef.parameters);
-          ctx.queriesHashMap.set(queryRef.hash, query);
-          if (queryRef.id >= ctx.queryInstances.length) {
-            ctx.queryInstances.length = queryRef.id + 1;
-          }
-          ctx.queryInstances[queryRef.id] = query;
-          query.refId = queryRef.id;
-        }
-      } else {
-        const hash = createQueryHash(args as QueryParameter[]);
-        query = ctx.queriesHashMap.get(hash)!;
-
-        if (!query) {
-          query = createQueryInstance(ctx, args as QueryParameter[]);
-          ctx.queriesHashMap.set(hash, query);
-        }
-      }
-
+      const query = isQuery(args)
+        ? resolveQueryInstanceFromRef(ctx, args)
+        : resolveQueryInstance(ctx, args);
       return subscribeSet(ctx, (query.removeSubscriptions ??= new Set()), callback);
     },
 

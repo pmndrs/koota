@@ -15,7 +15,13 @@ export type SettledCallback = {
  * Reuse the same wrapper across subscriptions to coalesce their notifications per world.
  */
 export function whenSettled(update: () => void): () => void {
-  return Object.assign(() => update(), { [$whenSettled]: true });
+  const callback = () => update();
+  callback[$whenSettled] = update;
+  return callback;
+}
+
+function isSettledHook(callback: object): callback is (() => void) & { [$whenSettled]: () => void } {
+  return $whenSettled in callback;
 }
 
 /** Bind at registration so ordinary hooks keep their direct dispatch and event arguments. */
@@ -24,13 +30,13 @@ export function subscribeHook<Args extends unknown[]>(
   callback: (...args: Args) => void,
   subscribe: (listener: (...args: Args) => void) => () => void
 ): () => void {
-  if (!($whenSettled in callback)) return subscribe(callback);
-  const update = callback as () => void;
+  if (!isSettledHook(callback)) return subscribe(callback);
+  const update = callback[$whenSettled];
   const callbacks = (ctx.settledCallbacks ??= new WeakMap());
-  let settled = callbacks.get(update);
+  let settled = callbacks.get(callback);
   if (settled === undefined) {
     settled = { update, version: 0, pending: 0, queued: false };
-    callbacks.set(update, settled);
+    callbacks.set(callback, settled);
   }
   // Each subscription can contribute and withdraw one notification per delivery.
   let pendingVersion = -1;
