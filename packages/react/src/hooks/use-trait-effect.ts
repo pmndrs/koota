@@ -37,17 +37,31 @@ export function useTraitEffect<T extends Trait>(
 
   useEffect(() => {
     const notify = (value: unknown) => callbackRef.current(value as TraitRecord<T> | undefined);
-    const listen = (entity: Entity | undefined) => {
-      if (entity === undefined) {
-        notify(undefined);
-        return;
-      }
+    const ctx = typeof target === 'number' ? undefined : target[$internal];
+    let detach: (() => void) | undefined;
+    const reset = () => {
+      detach?.();
+      detach = undefined;
+      const entity = typeof target === 'number' ? target : target[$internal].worldEntity;
+      if (entity == null) return notify(undefined);
       if (!entity.isAlive()) return;
-      const detach = attachTrait(entity, trait, notify);
+      const next = attachTrait(entity, trait, notify);
+      if (ctx && (ctx.worldEntity !== entity || !ctx.resetSubscriptions.has(reset))) return next();
+      detach = next;
       notify(readTrait(entity, trait));
-      return detach;
     };
-    return typeof target === 'number' ? listen(target) : target[$internal].observeWorldEntity(listen);
+    const stop = () => {
+      ctx?.resetSubscriptions.delete(reset);
+      detach?.();
+    };
+    ctx?.resetSubscriptions.add(reset);
+    try {
+      reset();
+    } catch (error) {
+      stop();
+      throw error;
+    }
+    return stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, relation, pairTarget, pair.targetQuery]);
 }

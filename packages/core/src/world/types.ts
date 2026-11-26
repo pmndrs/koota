@@ -105,7 +105,6 @@ export type WorldContext = {
   createQueryStore: typeof createQueryStore;
   /** Notifies after registration, reset or destruction changes the backing entity. */
   resetSubscriptions: Set<() => void>;
-  observeWorldEntity: (listen: (entity: Entity | undefined) => (() => void) | void) => () => void;
   entitySpawnSubscriptions: Set<(entity: Entity) => void>;
   entityDestroySubscriptions: Set<(entity: Entity) => void>;
   traitRegisteredSubscriptions: Set<(trait: Trait) => void>;

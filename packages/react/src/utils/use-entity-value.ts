@@ -123,14 +123,36 @@ function subscribe<T, I>(
   const { target } = binding;
   if (typeof target !== 'object' || !target)
     return observeEntity(binding, dispatch, read, attach, getVersionSource);
+  const ctx = target[$internal];
+  let detach: (() => void) | undefined;
+  let revision = 0;
   // A reset replaces the world entity even when the observed trait was absent.
-  return target[$internal].observeWorldEntity((entity) => {
+  const reset = () => {
+    const current = ++revision;
+    detach?.();
+    detach = undefined;
+    const entity = ctx.worldEntity ?? undefined;
     if (entity !== binding.entity) {
       binding.entity = entity;
       binding.version = -1;
     }
-    return observeEntity(binding, dispatch, read, attach, getVersionSource);
-  });
+    const next = observeEntity(binding, dispatch, read, attach, getVersionSource);
+    if (current === revision) detach = next;
+    else next?.();
+  };
+  const stop = () => {
+    ctx.resetSubscriptions.delete(reset);
+    revision++;
+    detach?.();
+  };
+  ctx.resetSubscriptions.add(reset);
+  try {
+    reset();
+  } catch (error) {
+    stop();
+    throw error;
+  }
+  return stop;
 }
 
 function reducer<T, I>(state: Snapshot<T, I>, next: Action<T, I>) {

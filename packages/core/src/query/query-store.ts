@@ -48,23 +48,36 @@ export function createQueryStore(this: WorldContext, ref: Query) {
     },
     subscribe: (notify: () => void) => {
       const observer = this.observeSettled(notify);
-      const detach = this.observeWorldEntity((entity) => {
+      let query: QueryInstance | undefined;
+      const detach = () => {
+        query?.addSubscriptions?.delete(observer.invalidate);
+        query?.removeSubscriptions?.delete(observer.invalidate);
+        query = undefined;
+      };
+      const reset = () => {
+        detach();
+        const entity = this.worldEntity;
         observer.invalidate();
-        if (entity === undefined) return;
-        const query = resolveQueryInstanceFromRef(this, ref);
-        const enter = (query.addSubscriptions ??= new Set());
-        const exit = (query.removeSubscriptions ??= new Set());
-        enter.add(observer.invalidate);
-        exit.add(observer.invalidate);
-        return () => {
-          enter.delete(observer.invalidate);
-          exit.delete(observer.invalidate);
-        };
-      });
-      return () => {
+        if (entity == null || entity !== this.worldEntity) return;
+        const next = resolveQueryInstanceFromRef(this, ref);
+        if (entity !== this.worldEntity || !this.resetSubscriptions.has(reset)) return;
+        query = next;
+        (query.addSubscriptions ??= new Set()).add(observer.invalidate);
+        (query.removeSubscriptions ??= new Set()).add(observer.invalidate);
+      };
+      const stop = () => {
+        this.resetSubscriptions.delete(reset);
         observer.unsubscribe();
         detach();
       };
+      this.resetSubscriptions.add(reset);
+      try {
+        reset();
+      } catch (error) {
+        stop();
+        throw error;
+      }
+      return stop;
     },
   };
 }

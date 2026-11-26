@@ -375,7 +375,7 @@ describe('useTraitEffect', () => {
     const TimeOfDay = trait({ hour: 0 });
     let timeOfDay: TraitRecord<typeof TimeOfDay> | undefined;
 
-    renderSubject({
+    const { unmount } = renderSubject({
       target: world,
       trait: TimeOfDay,
       callback: (value: TraitRecord<typeof TimeOfDay> | undefined) => {
@@ -389,6 +389,10 @@ describe('useTraitEffect', () => {
 
     world.set(TimeOfDay, { hour: 1 });
     await tick();
+    expect(timeOfDay).toEqual({ hour: 1 });
+
+    unmount();
+    world.set(TimeOfDay, { hour: 2 });
     expect(timeOfDay).toEqual({ hour: 1 });
   });
 
