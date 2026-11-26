@@ -216,7 +216,7 @@ export type World = {
   onRemove: WorldHook;
   /** Reports future additions and writes. Removals use onRemove. */
   onChange: WorldHook;
-  /** Observe transitions of one entity, or of every entity with the machine. */
+  /** Reports transitions of one entity, or of every entity with the machine. */
   onTransition<S extends MachineStates>(
     entity: Entity,
     machine: Machine<S>,

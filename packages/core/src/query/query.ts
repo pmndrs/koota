@@ -1007,7 +1007,7 @@ function resolveQueryArgs(ctx: WorldContext, args: Query<QueryParameter[]> | Que
     : resolveQueryInstance(ctx, args as QueryParameter[]);
 }
 
-/** Observe entities entering or leaving a query. Backs world.onEnter() and world.onExit(). */
+/** Subscribes to entities entering or leaving a query. Backs world.onEnter() and world.onExit(). */
 export function subscribeQuery(
   ctx: WorldContext,
   args: Query<QueryParameter[]> | QueryParameter[],

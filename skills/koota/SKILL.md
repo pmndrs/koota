@@ -137,7 +137,7 @@ AssetMachine.current(entity) // undefined
 - Illegal transitions throw `[MACHINE_ILLEGAL_TRANSITION]` with assertions enabled and otherwise leave the machine unchanged without firing callbacks.
 - `Machine.current(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.
-- `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition, and `world.onTransition(entity, Machine, callback)` only this entity's. `previous` contains the old value. `get` only reads current data.
+- `world.onTransition(Machine, (entity, from, to, previous) => {})` reports each transition, and `world.onTransition(entity, Machine, callback)` only this entity's. `previous` contains the old value. `get` only reads current data.
 - Transition listeners must be registered when the transition starts. Unsubscribing before delivery cancels it. Listeners added during callbacks start with later transitions.
 - `Added` and `Removed` coalesce changes. `Changed` includes state additions. These queries are not transition event logs.
 - Transitions inside `each` apply when the outermost scope ends. Borrowed state values remain valid for the callback and writes land before the transition.

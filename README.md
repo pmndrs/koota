@@ -274,7 +274,7 @@ entity.add(Pending) // Transitions to Pending
 entity.remove(AssetMachine) // Clears this entity's asset loading state
 ```
 
-Observe each transition with `world.onTransition`, for every entity or for one.
+Subscribe to each transition with `world.onTransition`, for every entity or for one.
 
 ```ts
 world.onTransition(AssetMachine, (entity, from, to) => {
