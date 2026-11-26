@@ -6,7 +6,7 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
+import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 import { useWorld } from '../world/world-context.js';
 
@@ -26,7 +26,7 @@ export function useMachine<S extends MachineStates>(
 
   $effect(() => {
     const current = binding;
-    return observeTarget(current.subject, (entity) => {
+    return subscribeTarget(current.subject, (entity) => {
       const update = () => {
         current.value = entity?.isAlive() ? current.selected.current(entity) : undefined;
         untrack(() => version++);

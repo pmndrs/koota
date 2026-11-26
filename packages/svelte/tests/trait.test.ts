@@ -1,7 +1,7 @@
 import { useTrait, useTraitEffect } from '../src';
 import { createWorld, ordered, relation, trait, type Entity, type TraitRecord } from '@koota/core';
 import { render } from '@testing-library/svelte';
-import { ComponentProps, tick } from 'svelte';
+import { ComponentProps, flushSync, tick } from 'svelte';
 import { fromStore, writable } from 'svelte/store';
 import { beforeEach, describe, expect, expectTypeOf, it } from 'vitest';
 import HookConsumer from './components/hook-consumer.svelte';
@@ -371,26 +371,37 @@ describe('useTraitEffect', () => {
     expect(position).toBeUndefined();
   });
 
-  it('works with a world trait', async () => {
-    const TimeOfDay = trait({ hour: 0 });
-    let timeOfDay: TraitRecord<typeof TimeOfDay> | undefined;
-
-    renderSubject({
-      target: world,
-      trait: TimeOfDay,
-      callback: (value: TraitRecord<typeof TimeOfDay> | undefined) => {
-        timeOfDay = value;
-        world.add(TimeOfDay);
-      },
-    });
-
-    await tick();
-    expect(timeOfDay).toEqual({ hour: 0 });
-
-    world.set(TimeOfDay, { hour: 1 });
-    await tick();
-    expect(timeOfDay).toEqual({ hour: 1 });
-  });
+  it.each(['register', 'reset'] as const)(
+    'can %s the world in the initial trait effect',
+    (action) => {
+      const Progress = trait({ value: 0 });
+      if (action === 'reset') world.add(Progress);
+      const seen: (number | undefined)[] = [];
+      const callback = (progress: { value: number } | undefined) => {
+        seen.push(progress?.value);
+        if (seen.length === 1) {
+          if (action === 'reset') world.reset();
+          else world.add(Progress);
+        }
+      };
+      const { unmount } = renderSubject({ target: world, trait: Progress, callback });
+      flushSync();
+      const initial = action === 'reset' ? [0, undefined] : [undefined, undefined, 0];
+      expect(seen).toEqual(initial);
+      world.reset();
+      world.add(Progress({ value: 1 }));
+      world.set(Progress, { value: 2 });
+      world.destroy();
+      expect(world.isRegistered).toBe(false);
+      world.add(Progress({ value: 3 }));
+      unmount();
+      world.set(Progress, { value: 4 });
+      world.reset();
+      world.add(Progress({ value: 5 }));
+      expect(seen).toEqual([...initial, undefined, 1, 2, undefined, undefined, 3]);
+      world.destroy();
+    }
+  );
 
   it('supports relation pair subscriptions', async () => {
     const ChildOf = relation({ store: { order: 0 } });

@@ -80,36 +80,6 @@ function notifyWorldEntityChanged(ctx: WorldContext) {
   for (const notify of ctx.resetSubscriptions) notify();
 }
 
-function observeWorldEntity(
-  this: WorldContext,
-  listen: (entity: Entity | undefined) => (() => void) | void
-) {
-  let detach: (() => void) | void;
-  let revision = 0;
-  const rebind = () => {
-    const current = ++revision;
-    detach?.();
-    detach = undefined;
-    const next = listen(this.worldEntity ?? undefined);
-    // The initial trait effect can register or reset its own world.
-    if (current === revision) detach = next;
-    else next?.();
-  };
-  const stop = () => {
-    this.resetSubscriptions.delete(rebind);
-    revision++;
-    detach?.();
-  };
-  this.resetSubscriptions.add(rebind);
-  try {
-    rebind();
-  } catch (error) {
-    stop();
-    throw error;
-  }
-  return stop;
-}
-
 /** Inline and compiled queries share the live view for their membership and projection. */
 export function queryWithParameters(ctx: WorldContext, params: QueryParameter[]) {
   const node = findInlineQuery(ctx, params);
@@ -289,7 +259,6 @@ export function createWorld(options?: WorldOptions): World {
       getOrderedSnapshot,
       createQueryStore,
       resetSubscriptions: new Set(),
-      observeWorldEntity,
       entitySpawnSubscriptions: new Set(),
       entityDestroySubscriptions: new Set(),
       traitRegisteredSubscriptions: new Set(),

@@ -9,7 +9,7 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
+import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 import { useWorld } from '../world/world-context.js';
 
@@ -46,7 +46,7 @@ export function useTrait(
   $effect(() => {
     const current = binding;
     if (!current) return;
-    return observeTarget(current.subject, (entity) => {
+    return subscribeTarget(current.subject, (entity) => {
       const update = () => {
         const next = current.read(entity);
         if (current.ordered && next === current.value) return;

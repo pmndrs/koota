@@ -9,11 +9,24 @@ export function getTargetEntity(target: Entity | World | undefined | null): Enti
   return target[internal].worldEntity ?? undefined;
 }
 
-/** World targets follow their backing entity through reset and destruction. */
-export function observeTarget(
+/** Attach to the new world entity before notifying a trait effect. */
+export function subscribeTarget(
   target: Entity | World | null | undefined,
-  listen: (entity: Entity | undefined) => (() => void) | void
+  attach: (entity: Entity | undefined) => (() => void) | void,
+  afterReset?: () => void
 ) {
-  if (target != null && isWorld(target)) return target[internal].observeWorldEntity(listen);
-  return listen(getTargetEntity(target));
+  if (target == null || !isWorld(target)) return attach(getTargetEntity(target));
+  const ctx = target[internal];
+  const bind = () => attach(ctx.worldEntity ?? undefined);
+  let detach = bind();
+  const reset = () => {
+    detach?.();
+    detach = bind();
+    afterReset?.();
+  };
+  ctx.resetSubscriptions.add(reset);
+  return () => {
+    ctx.resetSubscriptions.delete(reset);
+    detach?.();
+  };
 }

@@ -48,9 +48,8 @@ export function createQueryStore(this: WorldContext, ref: Query) {
     },
     subscribe: (notify: () => void) => {
       const observer = this.observeSettled(notify);
-      const detach = this.observeWorldEntity((entity) => {
-        observer.invalidate();
-        if (entity === undefined) return;
+      const bind = () => {
+        if (this.worldEntity == null) return;
         const query = resolveQueryInstanceFromRef(this, ref);
         const enter = (query.addSubscriptions ??= new Set());
         const exit = (query.removeSubscriptions ??= new Set());
@@ -60,10 +59,19 @@ export function createQueryStore(this: WorldContext, ref: Query) {
           enter.delete(observer.invalidate);
           exit.delete(observer.invalidate);
         };
-      });
+      };
+      observer.invalidate();
+      let detach = bind();
+      const reset = () => {
+        detach?.();
+        detach = bind();
+        observer.invalidate();
+      };
+      this.resetSubscriptions.add(reset);
       return () => {
+        this.resetSubscriptions.delete(reset);
         observer.unsubscribe();
-        detach();
+        detach?.();
       };
     },
   };

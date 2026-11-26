@@ -74,12 +74,19 @@ function createSnapshot<T, I>(
     value,
     source,
     version: source?.version ?? 0,
-    subscribe: (publish) => subscribe(binding, publish, read, attach, getVersionSource),
+    subscribe: (publish) =>
+      subscribeTarget(target, (entity) => {
+        if (entity !== binding.entity) {
+          binding.entity = entity;
+          binding.version = -1;
+        }
+        return subscribeEntity(binding, publish, read, attach, getVersionSource);
+      }),
   };
   return { binding, value };
 }
 
-function observeEntity<T, I>(
+function subscribeEntity<T, I>(
   binding: Binding<T, I>,
   publish: (next: Snapshot<T, I>) => void,
   read: (entity: Entity, input: I) => T,
@@ -113,24 +120,25 @@ function observeEntity<T, I>(
   return detach;
 }
 
-function subscribe<T, I>(
-  binding: Binding<T, I>,
-  dispatch: (next: Snapshot<T, I>) => void,
-  read: (entity: Entity, input: I) => T,
-  attach: Attach<T, I>,
-  getVersionSource?: GetVersionSource<I>
+export function subscribeTarget(
+  target: Target,
+  attach: (entity: Entity | undefined) => (() => void) | undefined,
+  afterReset?: () => void
 ) {
-  const { target } = binding;
-  if (typeof target !== 'object' || !target)
-    return observeEntity(binding, dispatch, read, attach, getVersionSource);
-  // A reset replaces the world entity even when the observed trait was absent.
-  return target[$internal].observeWorldEntity((entity) => {
-    if (entity !== binding.entity) {
-      binding.entity = entity;
-      binding.version = -1;
-    }
-    return observeEntity(binding, dispatch, read, attach, getVersionSource);
-  });
+  if (typeof target === 'number' || target == null) return attach(target ?? undefined);
+  const ctx = target[$internal];
+  const bind = () => attach(ctx.worldEntity ?? undefined);
+  let detach = bind();
+  const reset = () => {
+    detach?.();
+    detach = bind();
+    afterReset?.();
+  };
+  ctx.resetSubscriptions.add(reset);
+  return () => {
+    ctx.resetSubscriptions.delete(reset);
+    detach?.();
+  };
 }
 
 function reducer<T, I>(state: Snapshot<T, I>, next: Action<T, I>) {
