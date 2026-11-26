@@ -1,7 +1,7 @@
 // oxlint-disable react/globals -- Test components expose hook values to assertions.
 import { createWorld, relation, trait, type Entity, type World } from '@koota/core';
 import { render, renderHook } from '@testing-library/react';
-import { act, StrictMode } from 'react';
+import { act, StrictMode, useEffect, useLayoutEffect } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useTarget, useTargets, WorldProvider } from '../src';
 import { withWorld } from './with-world';
@@ -168,6 +168,41 @@ describe('useTargets', () => {
   beforeEach(() => {
     world = createWorld();
   });
+
+  it.each([false, true])(
+    'keeps a stable snapshot unless target order changes before subscribing (reorder: %s)',
+    (reorder) => {
+      const Likes = relation();
+      const first = world.spawn();
+      const second = world.spawn();
+      const subject = world.spawn(Likes(first), Likes(second));
+      const seen: Entity[][] = [];
+      renderHook(
+        () => {
+          const targets = useTargets(subject, Likes);
+          useLayoutEffect(() => {
+            if (reorder) {
+              world.remove(subject, Likes(first));
+              world.add(subject, Likes(first));
+            }
+          }, []);
+          useEffect(() => {
+            seen.push(targets);
+          }, [targets]);
+        },
+        { wrapper: withWorld(world) }
+      );
+
+      expect(seen).toEqual(
+        reorder
+          ? [
+              [first, second],
+              [second, first],
+            ]
+          : [[first, second]]
+      );
+    }
+  );
 
   it('drops every target when one removal triggers another', () => {
     const Likes = relation();
