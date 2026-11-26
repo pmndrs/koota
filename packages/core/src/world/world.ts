@@ -4,6 +4,7 @@ import { beginDefer, endDefer, observeSettled, runDeferred } from './defer';
 import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
+import { assertsEnabled } from '../assert-config';
 import { assertOutsideDefer, createEntityNotAliveError } from '../asserts';
 import {
   applyDestroyEntity,
@@ -310,8 +311,12 @@ const worldMethods: ThisType<World> = {
   ): boolean {
     const ctx = this[$internal];
     if (typeof target === 'number') {
-      if (trait === undefined) return isEntityAlive(ctx.entityIndex, target);
-      return entityHas(ctx, target, trait);
+      // A lone entity is a liveness check. Assertions count the arguments, so a trait that is
+      // undefined by mistake reaches the trait check and throws.
+      if (trait === undefined && (!assertsEnabled || arguments.length === 1)) {
+        return isEntityAlive(ctx.entityIndex, target);
+      }
+      return entityHas(ctx, target, trait!);
     }
     return hasOnWorld(ctx, target);
   },

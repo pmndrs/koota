@@ -81,6 +81,15 @@ describe('World-first entities', () => {
     expect(world.has(IsActive)).toBe(false);
   });
 
+  it('never reads a missing trait as a liveness check', () => {
+    const world = createWorld();
+    const entity = world.spawn(Position);
+    const missing = undefined as unknown as typeof Position;
+
+    expect(world.has(entity)).toBe(true);
+    expect(() => world.has(entity, missing)).toThrow();
+  });
+
   it('reads relation targets and identifiers through the world', () => {
     const world = createWorld();
     const parent = world.spawn(Name('root'));
