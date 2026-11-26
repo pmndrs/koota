@@ -1,4 +1,5 @@
 import {
+  whenSettled,
   $internal as internal,
   isOrderedTrait,
   type Entity,
@@ -57,12 +58,11 @@ export function useTrait(
         update();
         return;
       }
-      const observer = entity[internal].observeSettled(update);
-      const onChange = entity.onChange(current.input, observer.invalidate);
-      const onRemove = entity.onRemove(current.input, observer.invalidate);
+      const refresh = whenSettled(update);
+      const onChange = entity.onChange(current.input, refresh);
+      const onRemove = entity.onRemove(current.input, refresh);
       update();
       return () => {
-        observer.unsubscribe();
         onChange();
         onRemove();
       };

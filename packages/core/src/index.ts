@@ -84,6 +84,7 @@ export type { AoSFactory, Norm, RequiredField, Schema, Store, StoreType } from '
 export type { TraitType } from './trait/types';
 export type { World, WorldOptions } from './world';
 export { createWorld } from './world';
+export { whenSettled } from './world/settled';
 
 /**
  * Deprecations. To be removed in v0.7.0.

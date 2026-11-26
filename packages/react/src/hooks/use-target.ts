@@ -1,4 +1,5 @@
 import {
+  whenSettled,
   $internal,
   type Entity,
   type Identifier,
@@ -23,14 +24,13 @@ function attachTarget(
   relation: Relation<Trait> | Identifier,
   push: (value: IdentifierKey | undefined) => void
 ) {
-  const observer = entity[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     push(entity.isAlive() ? readTarget(entity, relation) : undefined);
   });
   const trait = relation[$internal].trait;
-  const onChange = entity.onChange(trait, observer.invalidate);
-  const onRemove = entity.onRemove(trait, observer.invalidate);
+  const onChange = entity.onChange(trait, refresh);
+  const onRemove = entity.onRemove(trait, refresh);
   return () => {
-    observer.unsubscribe();
     onChange();
     onRemove();
   };

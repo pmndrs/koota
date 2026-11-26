@@ -1,5 +1,6 @@
 import type { Entity } from '../entity/types';
 import { isEntityAlive } from '../entity/utils/entity-index';
+import type { SettledCallback } from './settled';
 import type { WorldContext } from './types';
 
 /** Applies one structural change. The log stores it with its entity and two arguments. */
@@ -12,13 +13,13 @@ export type Command = (ctx: WorldContext, entity: Entity, a: any, b: any) => voi
  * such owner and opens none. While the depth is nonzero, add, remove, destroy and machine
  * transitions append to the command log instead of running, so an operation completes before the
  * changes its hooks make and a walk never loses a row or the data under it. When the outermost
- * scope ends the log applies in call order and the settled observers run.
+ * scope ends the log applies in call order and the settled callbacks run.
  */
 export /* @inline */ function beginDefer(ctx: WorldContext) {
   ctx.deferDepth++;
 }
 
-/** Commands and queued observers both raise unsettled, so a scope end reads one field. */
+/** Commands and queued callbacks both raise unsettled, so a scope end reads one field. */
 export /* @inline */ function endDefer(ctx: WorldContext) {
   if (--ctx.deferDepth === 0 && ctx.unsettled) settleWorld(ctx);
 }
@@ -88,7 +89,7 @@ export function runCommand(
 
 /**
  * Applies the log in waves. A wave is the commands queued so far and hooks append to the next
- * one, so a chain of hook driven changes costs one wave per link. Observers run once the log is
+ * one, so a chain of hook driven changes costs one wave per link. Callbacks run once the log is
  * empty and their changes start the next round. The wave limit only stops a hook that undoes the
  * change it observes, where a recursive call would have overflowed the stack. Errors are recorded
  * while both queues finish, then the first error is rethrown.
@@ -96,6 +97,7 @@ export function runCommand(
 export function settleWorld(ctx: WorldContext) {
   let waves = 0;
   let rounds = 0;
+  let nextCallback = 0;
   let failure: { error: unknown } | undefined;
   const { commands, settledQueue } = ctx;
   ctx.deferDepth++;
@@ -121,33 +123,42 @@ export function settleWorld(ctx: WorldContext) {
       }
       if (head !== 0) clearCommands(ctx);
 
-      let remaining = settledQueue.size;
-      if (remaining === 0) break;
+      const end = ctx.settledCount;
+      if (nextCallback === end) break;
       if (++rounds > 100) {
         throw new Error(
-          'Koota: Settled observers did not settle after 100 rounds. An observer is likely changing the state it observes.'
+          'Koota: Callbacks did not settle after 100 rounds. A callback is likely triggering itself.'
         );
       }
-      // Deleting before notification lets an observer queue itself again for the next round.
-      for (const notify of settledQueue) {
-        settledQueue.delete(notify);
+      while (nextCallback < end) {
+        const update = takeSettledCallback(settledQueue, nextCallback++);
         try {
-          notify();
+          update?.();
         } catch (error) {
           failure ??= { error };
         }
-        if (--remaining === 0) break;
       }
     }
   } finally {
-    // Only a limit error leaves work behind. Clearing a Set allocates a new table, so the usual
-    // empty queue is skipped.
     if (ctx.commandCount !== 0) clearCommands(ctx);
-    if (settledQueue.size !== 0) settledQueue.clear();
+    // A limit error can leave callbacks queued for a round that never ran.
+    while (nextCallback < ctx.settledCount) takeSettledCallback(settledQueue, nextCallback++);
+    ctx.settledCount = 0;
     ctx.unsettled = false;
     ctx.deferDepth--;
   }
   if (failure) throw failure.error;
+}
+
+/** Release the slot before calling user code so the callback can queue another round. */
+function takeSettledCallback(queue: (SettledCallback | undefined)[], index: number) {
+  const callback = queue[index]!;
+  queue[index] = undefined;
+  const update = callback.pending > 0 ? callback.update : undefined;
+  callback.queued = false;
+  callback.pending = 0;
+  callback.version++;
+  return update;
 }
 
 /** Clearing in place drops the references and keeps the store a length write would release. */

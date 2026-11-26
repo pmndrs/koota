@@ -1,3 +1,4 @@
+import { subscribeHook, whenSettled } from '../world/settled';
 import type { Entity } from '../entity/types';
 import type { WorldContext } from '../world/types';
 import { queryInternal, resolveQueryInstanceFromRef } from './query';
@@ -46,33 +47,32 @@ export function createQueryStore(this: WorldContext, ref: Query) {
       }
       return entities;
     },
-    subscribe: (notify: () => void) => {
-      const observer = this.observeSettled(notify);
-      const bind = () => {
-        if (this.worldEntity == null) return;
-        const query = resolveQueryInstanceFromRef(this, ref);
-        const enter = (query.addSubscriptions ??= new Set());
-        const exit = (query.removeSubscriptions ??= new Set());
-        enter.add(observer.invalidate);
-        exit.add(observer.invalidate);
-        return () => {
-          enter.delete(observer.invalidate);
-          exit.delete(observer.invalidate);
+    subscribe: (notify: () => void) =>
+      subscribeHook(this, whenSettled(notify), (refresh) => {
+        const bind = () => {
+          if (this.worldEntity == null) return;
+          const query = resolveQueryInstanceFromRef(this, ref);
+          const enter = (query.addSubscriptions ??= new Set());
+          const exit = (query.removeSubscriptions ??= new Set());
+          enter.add(refresh);
+          exit.add(refresh);
+          return () => {
+            enter.delete(refresh);
+            exit.delete(refresh);
+          };
         };
-      };
-      observer.invalidate();
-      let detach = bind();
-      const reset = () => {
-        detach?.();
-        detach = bind();
-        observer.invalidate();
-      };
-      this.resetSubscriptions.add(reset);
-      return () => {
-        this.resetSubscriptions.delete(reset);
-        observer.unsubscribe();
-        detach?.();
-      };
-    },
+        refresh();
+        let detach = bind();
+        const reset = () => {
+          detach?.();
+          detach = bind();
+          refresh();
+        };
+        this.resetSubscriptions.add(reset);
+        return () => {
+          this.resetSubscriptions.delete(reset);
+          detach?.();
+        };
+      }),
   };
 }

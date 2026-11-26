@@ -1,10 +1,4 @@
-import {
-  $internal as internal,
-  type Entity,
-  type Relation,
-  type Trait,
-  type World,
-} from '@koota/core';
+import { whenSettled, type Entity, type Relation, type Trait, type World } from '@koota/core';
 import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 import { useWorld } from '../world/world-context.js';
@@ -29,12 +23,11 @@ export function useTargets<T extends Trait>(
       const update = () => {
         value = entity.isAlive() ? entity.targetsFor(resolvedRelation) : [];
       };
-      const observer = entity[internal].observeSettled(update);
-      const onChange = entity.onChange(resolvedRelation, observer.invalidate);
-      const onRemove = entity.onRemove(resolvedRelation, observer.invalidate);
+      const refresh = whenSettled(update);
+      const onChange = entity.onChange(resolvedRelation, refresh);
+      const onRemove = entity.onRemove(resolvedRelation, refresh);
       update();
       return () => {
-        observer.unsubscribe();
         onChange();
         onRemove();
       };

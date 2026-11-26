@@ -878,6 +878,16 @@ world.onRemove(Link, (entity, target) => {
 })
 ```
 
+Wrap a subscription callback with `whenSettled` to read the result after pending structural changes finish. Reuse the same wrapper across subscriptions to run it once per world for the pending events. The callback receives no event arguments and runs synchronously before the outer operation returns.
+
+```js
+import { whenSettled } from 'koota'
+
+const refresh = whenSettled(() => renderParent(child.targetFor(ChildOf)))
+child.onAdd(ChildOf, refresh)
+child.onRemove(ChildOf, refresh)
+```
+
 When subscribing to relations, callbacks receive `(entity, target)` so you know which relation pair changed. Relation `onChange` events report pair additions and writes to relation store data.
 
 ```js

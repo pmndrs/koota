@@ -1,5 +1,5 @@
 import {
-  $internal as internal,
+  whenSettled,
   type Entity,
   type RelationPair,
   type Trait,
@@ -40,11 +40,10 @@ export function useTraitEffect<T extends Trait>(
     const attach = (entity: Entity | undefined) => {
       current = entity;
       if (entity === undefined) return;
-      const observer = entity[internal].observeSettled(update);
-      const onChange = entity.onChange(resolvedTrait, observer.invalidate);
-      const onRemove = entity.onRemove(resolvedTrait, observer.invalidate);
+      const refresh = whenSettled(update);
+      const onChange = entity.onChange(resolvedTrait, refresh);
+      const onRemove = entity.onRemove(resolvedTrait, refresh);
       return () => {
-        observer.unsubscribe();
         onChange();
         onRemove();
       };

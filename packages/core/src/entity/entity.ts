@@ -1,3 +1,4 @@
+import { subscribeHook } from '../world/settled';
 import { beginDefer, beginRootDefer, deferCommand, endDefer, endRootDefer } from '../world/defer';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
@@ -22,7 +23,7 @@ import { hasIdentifier, isIdentifierPair } from '../identifier/identifier';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import type { RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { clearEntity, subscribeEntity, type Subscriber } from '../trait/subscriptions';
+import { clearEntity, subscribeAll, subscribeEntity, type Subscriber } from '../trait/subscriptions';
 import {
   applyAddTrait,
   cleanupRelationTarget,
@@ -404,42 +405,40 @@ export function hasEntityRelationPair(
   return hasRelationPair(ctx, entity, pair);
 }
 
-/**
- * Subscribe to a trait event for one entity. The instance is indexed on the
- * world so destroy only visits traits that hold entity subscribers.
- * A dead handle registers nothing, since its id may already belong to another entity.
- */
-export function subscribeEntityEvent(
+/** Install a trait hook after resolving its entity, exact target or relation filter. */
+export function subscribeTraitEvent(
   ctx: WorldContext,
-  entity: Entity,
+  entity: Entity | undefined,
   event: 'addSubscriptions' | 'removeSubscriptions' | 'changeSubscriptions',
   input: HookInput,
   callback: Subscriber<any>
 ) {
-  if (!isEntityAlive(ctx.entityIndex, entity)) return () => {};
+  if (entity !== undefined && !isEntityAlive(ctx.entityIndex, entity)) return () => {};
   const trait = resolveHookTrait(input);
   if (!hasTraitInstance(ctx.traitInstances, trait)) registerTrait(ctx, trait);
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
-  ctx.entitySubscribedInstances.add(instance);
+  if (entity !== undefined) ctx.entitySubscribedInstances.add(instance);
   if (event === 'changeSubscriptions') ctx.trackingRevision++;
-  const unsubscribe = subscribeEntity(
-    instance[event],
-    entity,
-    resolveHookCallback(ctx, input, callback)
-  );
-  if (event === 'changeSubscriptions' || !isRelationPair(input) || !input.targetQuery) {
-    return unsubscribe;
-  }
-  const stop = subscribeRelationFilter(
-    ctx,
-    instance,
-    input,
-    event === 'addSubscriptions',
-    callback,
-    entity
-  );
-  return () => {
-    unsubscribe();
-    stop();
-  };
+  return subscribeHook(ctx, callback, (listener) => {
+    const resolved = resolveHookCallback(ctx, input, listener);
+    const unsubscribe =
+      entity === undefined
+        ? subscribeAll(instance[event], resolved)
+        : subscribeEntity(instance[event], entity, resolved);
+    if (event === 'changeSubscriptions' || !isRelationPair(input) || !input.targetQuery) {
+      return unsubscribe;
+    }
+    const stop = subscribeRelationFilter(
+      ctx,
+      instance,
+      input,
+      event === 'addSubscriptions',
+      listener,
+      entity
+    );
+    return () => {
+      unsubscribe();
+      stop();
+    };
+  });
 }

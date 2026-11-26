@@ -1,4 +1,5 @@
 import {
+  whenSettled,
   $internal as internal,
   type Entity,
   type Identifier,
@@ -41,12 +42,11 @@ export function useTarget(
       const update = () => {
         value = entity.isAlive() ? entity.targetFor(resolvedRelation as Relation<Trait>) : undefined;
       };
-      const observer = entity[internal].observeSettled(update);
-      const onChange = entity.onChange(resolvedRelation[internal].trait, observer.invalidate);
-      const onRemove = entity.onRemove(resolvedRelation[internal].trait, observer.invalidate);
+      const refresh = whenSettled(update);
+      const onChange = entity.onChange(resolvedRelation[internal].trait, refresh);
+      const onRemove = entity.onRemove(resolvedRelation[internal].trait, refresh);
       update();
       return () => {
-        observer.unsubscribe();
         onChange();
         onRemove();
       };

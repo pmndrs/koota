@@ -33,20 +33,20 @@ flowchart TD
     A[Outermost scope ends] --> B{Commands logged?}
     B -- yes --> C[Apply in call order]
     C --> B
-    B -- no --> D{Observers queued?}
-    D -- yes --> E[Run observers]
+    B -- no --> D{Callbacks queued?}
+    D -- yes --> E[Run callbacks]
     E --> B
     D -- no --> F[Settled]
 ```
 
-Commands logged by hooks while the log applies form the next wave. Observers run once the log is empty, and their changes start the next round.
+Commands logged by hooks while the log applies form the next wave. Callbacks run once the log is empty, and their changes start the next round.
 
 ## Important details
 
 - A command whose entity died earlier in the log is dropped.
 - A command holds its arguments by reference. A value passed to `add` is read when the command applies.
 - `set` on a trait whose `add` is still pending throws with assertions on. Pass the value through `add` or use `upsert`.
-- An error thrown by a command or observer lets the drain finish, then the first error is rethrown.
-- The drain throws after 100000 waves or 100 observer rounds. Changes already applied stay committed.
+- An error thrown by a command or callback lets the drain finish, then the first error is rethrown.
+- The drain throws after 100000 waves or 100 callback rounds. Changes already applied stay committed.
 - `world.reset` and `world.destroy` throw inside a scope.
 - Scopes belong to one world. A hook can change another world immediately unless that world has its own scope open.

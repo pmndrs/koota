@@ -1,3 +1,4 @@
+import { subscribeHook } from '../world/settled';
 import { $internal } from '../common';
 import { assertsEnabled } from '../assert-config';
 import { assertEntityAlive } from '../asserts';
@@ -149,18 +150,20 @@ export function subscribeMachine(
     if (subscriptions === undefined) data.byEntity.set(entity, (subscriptions = new Map()));
     ctx.entitySubscribedInstances.add(instance);
   }
-  const version = subscriptions.get(callback) ?? ++data.subscriptionVersion;
-  subscriptions.set(callback, version);
-  return () => {
-    if (subscriptions.get(callback) !== version) return;
-    subscriptions.delete(callback);
-    if (
-      entity !== undefined &&
-      subscriptions.size === 0 &&
-      data.byEntity.get(entity) === subscriptions
-    )
-      data.byEntity.delete(entity);
-  };
+  return subscribeHook(ctx, callback, (listener) => {
+    const version = subscriptions.get(listener) ?? ++data.subscriptionVersion;
+    subscriptions.set(listener, version);
+    return () => {
+      if (subscriptions.get(listener) !== version) return;
+      subscriptions.delete(listener);
+      if (
+        entity !== undefined &&
+        subscriptions.size === 0 &&
+        data.byEntity.get(entity) === subscriptions
+      )
+        data.byEntity.delete(entity);
+    };
+  });
 }
 
 /** Explicit members override a bare machine in the same argument list. */

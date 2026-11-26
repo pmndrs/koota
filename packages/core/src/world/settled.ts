@@ -1,26 +1,66 @@
 import type { WorldContext } from './types';
 
+const $whenSettled = Symbol.for('koota.whenSettled');
+
+/** Shared by subscriptions using one wrapper in one world. */
+export type SettledCallback = {
+  update: () => void;
+  version: number;
+  pending: number;
+  queued: boolean;
+};
+
 /**
- * Experimental and hidden. Reached only as world[$internal].observeSettled, so framework hooks can
- * read world state once it is consistent. Invalidating inside a defer scope queues the update
- * until the outermost scope ends and its deferred changes have applied, and several invalidations
- * collapse into one update. Outside one the update runs at once.
+ * Wrap a hook callback to read the world once its pending structural changes have applied.
+ * Reuse the same wrapper across subscriptions to coalesce their notifications per world.
  */
-export function observeSettled(this: WorldContext, update: () => void) {
-  let active = true;
-  const notify = () => {
-    if (active) update();
+export function whenSettled(update: () => void): () => void {
+  return Object.assign(() => update(), { [$whenSettled]: true });
+}
+
+/** Bind at registration so ordinary hooks keep their direct dispatch and event arguments. */
+export function subscribeHook<Args extends unknown[]>(
+  ctx: WorldContext,
+  callback: (...args: Args) => void,
+  subscribe: (listener: (...args: Args) => void) => () => void
+): () => void {
+  if (!($whenSettled in callback)) return subscribe(callback);
+  const update = callback as () => void;
+  const callbacks = (ctx.settledCallbacks ??= new WeakMap());
+  let settled = callbacks.get(update);
+  if (settled === undefined) {
+    settled = { update, version: 0, pending: 0, queued: false };
+    callbacks.set(update, settled);
+  }
+  // Each subscription can contribute and withdraw one notification per delivery.
+  let pendingVersion = -1;
+  const unsubscribe = subscribe(() => {
+    if (ctx.deferDepth === 0) return update();
+    if (pendingVersion === settled.version) return;
+    pendingVersion = settled.version;
+    settled.pending++;
+    if (!settled.queued) {
+      settled.queued = true;
+      ctx.settledQueue[ctx.settledCount++] = settled;
+      ctx.unsettled = true;
+    }
+  });
+  return () => {
+    unsubscribe();
+    if (pendingVersion === settled.version) {
+      settled.pending--;
+      pendingVersion = -1;
+    }
   };
-  return {
-    invalidate: () => {
-      if (this.deferDepth === 0) notify();
-      else {
-        this.settledQueue.add(notify);
-        this.unsettled = true;
-      }
-    },
-    unsubscribe: () => {
-      active = false;
-    },
-  };
+}
+
+export function subscribeSet<Args extends unknown[]>(
+  ctx: WorldContext,
+  subscriptions: Set<(...args: Args) => void>,
+  callback: (...args: Args) => void
+) {
+  return subscribeHook(ctx, callback, (listener) => {
+    subscriptions.add(listener);
+    return () => subscriptions.delete(listener);
+  });
 }
