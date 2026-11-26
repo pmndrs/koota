@@ -32,20 +32,20 @@ it('refreshes all entity and query hooks after removal side effects synchronousl
       const query = useQuery(ChildOf('*'));
       const first = useQueryFirst(ChildOf('*'));
       useTraitEffect(source, Value, (value) => {
-        effects.push([value, parent.isAlive(), child.isAlive(), source.targetsFor(Link)]);
+        effects.push([value, world.has(parent), world.has(child), world.targetsFor(source, Link)]);
       });
       return { has, target, targets, value, query, first };
     },
     { wrapper: withWorld(world) }
   );
-  source.onRemove(Value, () => {
-    parent.destroy();
-    source.remove(Link(a));
+  world.onRemove(source, Value, () => {
+    world.destroy(parent);
+    world.remove(source, Link(a));
   });
-  source.onRemove(Link, () => source.add(Link(b)));
+  world.onRemove(source, Link, () => world.add(source, Link(b)));
   effects.length = 0;
   act(() => {
-    source.remove(Value);
+    world.remove(source, Value);
     expect(effects).toEqual([[undefined, false, false, [b]]]);
   });
   expect(result.current).toEqual({
@@ -68,14 +68,14 @@ it('coalesces writes inside structural callbacks and still delivers ordinary wri
   const { unmount } = renderHook(() => useTraitEffect(source, Value, (v) => values.push(v?.x)), {
     wrapper: withWorld(world),
   });
-  source.onRemove(Trigger, () => {
-    source.set(Value, { x: 1 });
-    source.set(Value, { x: 2 });
+  world.onRemove(source, Trigger, () => {
+    world.set(source, Value, { x: 1 });
+    world.set(source, Value, { x: 2 });
   });
   values.length = 0;
-  source.remove(Trigger);
+  world.remove(source, Trigger);
   expect(values).toEqual([2]);
-  source.set(Value, { x: 3 });
+  world.set(source, Value, { x: 3 });
   expect(values).toEqual([2, 3]);
   unmount();
 });
@@ -96,7 +96,7 @@ it('clears every hook when the source is destroyed and when the world resets', (
     }),
     { wrapper: withWorld(world) }
   );
-  act(() => source.destroy());
+  act(() => world.destroy(source));
   expect(result.current).toEqual({
     has: false,
     target: undefined,
@@ -121,9 +121,9 @@ it('updates filtered relation presence when an existing target enters or leaves 
     { wrapper: withWorld(world) }
   );
   expect(result.current).toEqual([false, false, false]);
-  act(() => target.add(Enabled));
+  act(() => world.add(target, Enabled));
   expect(result.current).toEqual([true, true, true]);
-  act(() => target.remove(Enabled));
+  act(() => world.remove(target, Enabled));
   expect(result.current).toEqual([false, false, false]);
   unmount();
   world.destroy();

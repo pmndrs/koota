@@ -457,7 +457,7 @@ describe('Lifecycle Subscriptions', () => {
       const localWorld = createWorld();
       localWorld.add(TimeOfDay);
       const cb = vi.fn();
-      localWorld[$internal].worldEntity.onChange(TimeOfDay, cb);
+      localWorld[$internal].worldEntity!.onChange(TimeOfDay, cb);
 
       localWorld.set(TimeOfDay, { hour: 1 });
       expect(cb).toHaveBeenCalledTimes(1);

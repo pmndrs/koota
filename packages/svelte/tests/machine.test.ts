@@ -23,12 +23,13 @@ it('observes entry, self-transitions, removal and destruction', () => {
       onInitial: (value: { readonly current: Trait | undefined }) => {
         result = value;
       },
-      data: (state: Trait | undefined) => (state === Loading ? entity.get(Loading) : undefined),
+      data: (state: Trait | undefined) =>
+        state === Loading ? world.get(entity, Loading) : undefined,
     },
   });
   flushSync();
   expect(result.current).toBeUndefined();
-  entity.add(Asset);
+  world.add(entity, Asset);
   expect(result.current).toBe(Idle);
   Asset.enter(entity, Loading({ progress: 0.5 }));
   expect(result.current).toBe(Loading);
@@ -38,10 +39,10 @@ it('observes entry, self-transitions, removal and destruction', () => {
   Asset.enter(entity, Loading({ progress: 1 }));
   flushSync();
   expect(getByTestId('data').textContent).toBe('{"progress":1}');
-  entity.remove(Asset);
+  world.remove(entity, Asset);
   expect(result.current).toBeUndefined();
-  entity.add(Asset);
-  entity.destroy();
+  world.add(entity, Asset);
+  world.destroy(entity);
   expect(result.current).toBeUndefined();
   flushSync(() => unmount());
   world.destroy();
@@ -77,7 +78,7 @@ it('switches targets and machines and unsubscribes on unmount', async () => {
     },
   });
   expect(result.current).toBe(Loading);
-  first.remove(Asset);
+  world.remove(first, Asset);
   expect(result.current).toBe(Loading);
   await rerender({ machine: Activity });
   expect(result.current).toBe(Active);
@@ -125,7 +126,6 @@ it('observes a lazy world singleton through reset and reattachment', () => {
   expect(result.current).toBe(Idle);
   world.destroy();
   expect(result.current).toBeUndefined();
-  expect(world.isRegistered).toBe(false);
   flushSync(() => unmount());
   world.destroy();
 });
@@ -146,7 +146,8 @@ it('catches a self-transition between initialization and subscribing', async () 
       beforeEffects: () => {
         Asset.enter(entity, Loading({ progress: 1 }));
       },
-      data: (state: Trait | undefined) => (state === Loading ? entity.get(Loading) : undefined),
+      data: (state: Trait | undefined) =>
+        state === Loading ? world.get(entity, Loading) : undefined,
     },
   });
   await tick();
@@ -162,14 +163,14 @@ it.each([false, true])(
     const Asset = machine({ states: { Idle }, initial: Idle });
     const world = createWorld();
     const entity = world.spawn(Asset);
-    if (beforeRender) entity.destroy();
+    if (beforeRender) world.destroy(entity);
     const { getByTestId, unmount } = render(MachineTest, {
       context: new Map([[WORLD_KEY, world]]),
       props: {
         target: entity,
         machine: Asset,
         onInitial: () => {
-          if (!beforeRender) entity.destroy();
+          if (!beforeRender) world.destroy(entity);
         },
       },
     });

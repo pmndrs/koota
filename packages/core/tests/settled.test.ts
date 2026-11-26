@@ -168,24 +168,20 @@ it('settles world destruction before the world unregisters', () => {
   world.onExit([A], refresh);
   world.destroy();
   expect(values).toEqual([0]);
-  expect(world.isRegistered).toBe(false);
+  expect(world.entities.length).toBe(0);
 });
 
-it('releases entities spawned by a settled callback during world destruction', () => {
+it('refuses a spawn by a settled callback during world destruction', () => {
   const world = createWorld();
   const Tag = trait();
-  const original = world.spawn(Tag);
-  let spawned = original;
+  world.spawn(Tag);
   const refresh = whenSettled(() => {
-    spawned = world.spawn(Tag);
+    world.spawn(Tag);
   });
   world.onExit([Tag], refresh);
 
-  world.destroy();
+  expect(() => world.destroy()).toThrow(/destroyed/);
   expect(world.entities).toEqual([]);
-  expect(spawned).not.toBe(original);
-  expect(spawned.isAlive()).toBe(false);
-  expect(world.query(Tag).toArray()).toEqual([]);
   world.destroy();
 });
 

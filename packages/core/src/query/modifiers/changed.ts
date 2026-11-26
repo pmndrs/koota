@@ -34,8 +34,7 @@ function getPresentTrait(ctx: WorldContext, entity: Entity, trait: Trait) {
   const data = getTraitInstance(ctx.traitInstances, trait);
   if (data === undefined) return;
   const index = getEntityId(entity);
-  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
-    return;
+  if ((data.masks[index >>> 10][(index & 1023) << 2] & data.bitflag) === 0) return;
   return data;
 }
 
@@ -99,8 +98,7 @@ export function setPairChanged(ctx: WorldContext, entity: Entity, trait: Trait, 
   const data = getTraitInstance(ctx.traitInstances, trait);
   if (data === undefined) return;
   const index = getEntityId(entity);
-  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
-    return;
+  if ((data.masks[index >>> 10][(index & 1023) << 2] & data.bitflag) === 0) return;
   data.version++;
   if (data.trackingQueries.length !== 0 || hasSubscribers(data.changeSubscriptions)) {
     notifyChangeSubscribers(ctx, entity, data, target);

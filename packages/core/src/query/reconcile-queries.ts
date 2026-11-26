@@ -1,6 +1,6 @@
 import type { Entity } from '../entity/types';
 import { getEntityId } from '../entity/utils/pack-entity';
-import { REMOVED_WORD } from '../entity/utils/paged-mask';
+import { REMOVED_WORD } from '../world/utils/entity-masks';
 import type { WorldContext } from '../world/types';
 import type { QueryInstance } from './types';
 import { addEntityToQuery, removeEntityFromQuery } from './query';

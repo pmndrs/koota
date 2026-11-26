@@ -94,7 +94,7 @@ export /* @inline @pure */ function lookupScopeStart(
   start: IdentifierPair | Entity
 ): Entity | undefined {
   if (typeof start !== 'number') return lookupIdentifier(ctx, start);
-  return ctx.isRegistered && isEntityAlive(ctx.entityIndex, start) ? start : undefined;
+  return isEntityAlive(ctx.entityIndex, start) ? start : undefined;
 }
 
 /** A scope and one key. Kept as a call so the lookup method stays small enough to inline. */

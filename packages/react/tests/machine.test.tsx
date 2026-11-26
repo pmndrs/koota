@@ -17,7 +17,15 @@ it('observes entry, re-entry, removal, destruction and target changes', () => {
   const { result, rerender, unmount } = renderHook(
     ({ target }: { target: Entity | null }) => {
       const state = useMachine(target, Download);
-      return { state, requestId: state === Loading ? target?.get(Loading)?.requestId : undefined };
+      return {
+        state,
+        requestId:
+          state === Loading
+            ? target == null
+              ? undefined
+              : world.get(target, Loading)?.requestId
+            : undefined,
+      };
     },
     {
       initialProps: { target: first as Entity | null },
@@ -27,17 +35,17 @@ it('observes entry, re-entry, removal, destruction and target changes', () => {
   );
   expectTypeOf(result.current.state).toEqualTypeOf<typeof Idle | typeof Loading | undefined>();
   expect(result.current.state).toBeUndefined();
-  act(() => first.add(Download));
+  act(() => world.add(first, Download));
   expect(result.current.state).toBe(Idle);
   act(() => Download.enter(first, Loading));
   expect(result.current).toEqual({ state: Loading, requestId: 0 });
   act(() => Download.enter(first, Loading({ requestId: 2 })));
   expect(result.current).toEqual({ state: Loading, requestId: 2 });
-  act(() => first.remove(Download));
+  act(() => world.remove(first, Download));
   expect(result.current.state).toBeUndefined();
   rerender({ target: second });
   expect(result.current.state).toBe(Idle);
-  act(() => second.destroy());
+  act(() => world.destroy(second));
   expect(result.current.state).toBeUndefined();
   rerender({ target: null });
   expect(result.current.state).toBeUndefined();
@@ -82,7 +90,7 @@ it('catches a round trip to the same state before subscribing', () => {
         State.enter(entity, Idle);
         State.enter(entity, Active({ value: 2 }));
       }, []);
-      return entity.get(Active)?.value;
+      return world.get(entity, Active)?.value;
     },
     { wrapper: withWorld(world) }
   );
@@ -104,7 +112,7 @@ it('runs trait effects once after re-entry and state changes', () => {
         observations.push([
           value,
           AssetMachine.current(entity),
-          entity.has(Loading),
+          world.has(entity, Loading),
           world.query(Loaded).toArray(),
         ]);
       }),
@@ -122,7 +130,7 @@ it('runs trait effects once after re-entry and state changes', () => {
   world.destroy();
 });
 
-it.each(['register', 'reset'] as const)('can %s the world in the initial trait effect', (action) => {
+it.each(['add to', 'reset'] as const)('can %s the world in the initial trait effect', (action) => {
   const world = createWorld();
   const Progress = trait({ value: 0 });
   if (action === 'reset') world.add(Progress);
@@ -137,18 +145,12 @@ it.each(['register', 'reset'] as const)('can %s the world in the initial trait e
   const { unmount } = renderHook(() => useTraitEffect(world, Progress, callback), {
     wrapper: withWorld(world),
   });
-  const initial = action === 'reset' ? [0, undefined] : [undefined, undefined, 0];
+  const initial = action === 'reset' ? [0, undefined] : [undefined, 0];
   expect(seen).toEqual(initial);
   world.reset();
   world.add(Progress({ value: 1 }));
   world.set(Progress, { value: 2 });
   world.destroy();
-  expect(world.isRegistered).toBe(false);
-  world.add(Progress({ value: 3 }));
   unmount();
-  world.set(Progress, { value: 4 });
-  world.reset();
-  world.add(Progress({ value: 5 }));
-  expect(seen).toEqual([...initial, undefined, 1, 2, undefined, undefined, 3]);
-  world.destroy();
+  expect(seen).toEqual([...initial, undefined, 1, 2, undefined]);
 });

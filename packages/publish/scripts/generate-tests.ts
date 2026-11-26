@@ -42,13 +42,19 @@ function transformImports(
   pkg: (typeof PACKAGES)[number],
   targetPath: string
 ): string {
-  // Replace imports from other packages with their publish import paths.
-  content = content.replace(/from ['"]@koota\/([^'"]+)['"]/g, (_, pkgName) => {
-    const targetPkg = PACKAGES.find((p) => p.name === pkgName);
-    return targetPkg
-      ? `from '${getImportPath(targetPath, targetPkg.outputPath)}'`
-      : `from '@koota/${pkgName}'`;
-  });
+  // Replace imports from other packages with their publish import paths. A source module of
+  // another package, such as @koota/core/src/isolated, maps to the built file of the same name.
+  content = content.replace(
+    /from ['"]@koota\/([^'"/]+)(?:\/src\/([^'"]+))?['"]/g,
+    (match, pkgName: string, sourcePath: string | undefined) => {
+      const targetPkg = PACKAGES.find((p) => p.name === pkgName);
+      if (!targetPkg) return match;
+      const outputPath = sourcePath
+        ? join(dirname(targetPkg.outputPath), `${sourcePath}.js`)
+        : targetPkg.outputPath;
+      return `from '${getImportPath(targetPath, outputPath)}'`;
+    }
+  );
 
   // Replace local source imports with the corresponding built module. Most
   // tests import the public entry; Svelte's context fixture imports one emitted

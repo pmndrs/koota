@@ -1,5 +1,3 @@
-import type { $internal } from '../common';
-import type { WorldContext } from '../world';
 import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
 import type { Relation, RelationPair } from '../relation/types';
@@ -15,32 +13,56 @@ import type {
 } from '../trait/types';
 
 /**
- * Entity scoped lifecycle hooks. Same inputs and callbacks as the world hooks,
- * but only fire for this entity so the callback needs no identity check.
+ * A trait event subscription. The leading parameters scope it, so the world form takes an
+ * optional entity first while an entity method takes none.
  */
-type EntityHook = {
+export type Hook<P extends unknown[] = []> = {
   <K extends IdentifierKey>(
-    input: Identifier<K> | IdentifierPair<K>,
-    callback: (entity: Entity, key: K) => void
+    ...args: [
+      ...P,
+      input: Identifier<K> | IdentifierPair<K>,
+      callback: (entity: Entity, key: K) => void,
+    ]
   ): () => void;
-  <T extends Trait>(trait: T, callback: (entity: Entity) => void): () => void;
+  <T extends Trait>(...args: [...P, trait: T, callback: (entity: Entity) => void]): () => void;
   <T extends Trait>(
-    relation: Relation<T>,
-    callback: (entity: Entity, target: Entity) => void
+    ...args: [...P, relation: Relation<T>, callback: (entity: Entity, target: Entity) => void]
   ): () => void;
   <T extends Trait>(
-    pair: RelationPair<T>,
-    callback: (entity: Entity, target: Entity) => void
+    ...args: [...P, pair: RelationPair<T>, callback: (entity: Entity, target: Entity) => void]
   ): () => void;
   (
-    input: Trait | Relation<Trait> | RelationPair,
-    callback: (entity: Entity, target?: Entity) => void
+    ...args: [
+      ...P,
+      input: Trait | Relation<Trait> | RelationPair,
+      callback: (entity: Entity, target?: Entity) => void,
+    ]
   ): () => void;
 };
 
+/** Entity scoped hooks only fire for this entity, so the callback needs no identity check. */
+type EntityHook = Hook;
+
+/**
+ * Program wide settings that a module augmentation can set. The isolated entry registers
+ * entityMethods as false, so every type in a program that imports it follows.
+ */
+// oxlint-disable-next-line typescript/no-empty-object-type
+export interface Register {}
+
+/** T in a program whose entities carry methods, and nothing in one that registered them off. */
+export type WithEntityMethods<T> = Register extends { entityMethods: false } ? unknown : T;
+
+declare const $entityBrand: unique symbol;
+
+/**
+ * A packed numeric identity that only means something to the world that spawned it. It carries
+ * methods that find that world, unless the program creates isolated worlds.
+ */
+export type Entity = number & { readonly [$entityBrand]: true } & WithEntityMethods<EntityMethods>;
+
 /** Trait and relation reads require liveness. Read retained values through Removed query iteration. */
-export type Entity = number & {
-  readonly [$internal]: WorldContext;
+export type EntityMethods = {
   add: (...traits: ConfigurableTrait[]) => void;
   /** Set the value if the entity has the trait or pair, or add it with the value if it does not. */
   upsert: <T extends Trait | RelationPair>(trait: T, value: TraitInit<ExtractSchema<T>>) => void;

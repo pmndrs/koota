@@ -10,7 +10,7 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 import { useWorld } from '../world/world-context.js';
 
@@ -30,16 +30,20 @@ export function useTrait(
   trait: MaybeGetter<Trait | RelationPair>
 ) {
   const { getOrderedSnapshot } = useWorld()[internal];
+  const resolveTarget = createTargetResolver();
   const binding = $derived.by(() => {
     const subject = target();
     if (subject == null) return;
     const input = resolve(trait);
     const ordered = isOrderedTrait(input);
-    const read = (entity: Entity | undefined) => {
-      const record = entity?.isAlive() ? entity.get(input) : undefined;
+    const read = (resolved: ReturnType<typeof resolveTarget>) => {
+      const record =
+        resolved && resolved.world.has(resolved.entity)
+          ? resolved.world.get(resolved.entity, input)
+          : undefined;
       return ordered ? getOrderedSnapshot(record) : record;
     };
-    return { subject, input, ordered, read, value: read(getTargetEntity(subject)) };
+    return { subject, input, ordered, read, value: read(resolveTarget(subject)) };
   });
   // In-place AoS writes need a notification even when the record is the same object.
   let version = $state(0);
@@ -47,20 +51,21 @@ export function useTrait(
   $effect(() => {
     const current = binding;
     if (!current) return;
-    return subscribeTarget(current.subject, (entity) => {
+    return subscribeTarget(resolveTarget, current.subject, (resolved) => {
       const update = () => {
-        const next = current.read(entity);
+        const next = current.read(resolved);
         if (current.ordered && next === current.value) return;
         current.value = next;
         untrack(() => version++);
       };
-      if (entity === undefined) {
+      if (resolved === undefined) {
         update();
         return;
       }
+      const { world, entity } = resolved;
       const refresh = whenSettled(update);
-      const onChange = entity.onChange(current.input, refresh);
-      const onRemove = entity.onRemove(current.input, refresh);
+      const onChange = world.onChange(entity, current.input, refresh);
+      const onRemove = world.onRemove(entity, current.input, refresh);
       update();
       return () => {
         onChange();

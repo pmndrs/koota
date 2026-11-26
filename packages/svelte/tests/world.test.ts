@@ -20,8 +20,8 @@ describe('World', () => {
     });
 
     expect(worldTest).toBe(world);
-    worldTest!.spawn();
-    expect(worldTest!.isRegistered).toBe(true);
+    const entity = worldTest!.spawn();
+    expect(worldTest!.has(entity)).toBe(true);
   });
 });
 
@@ -46,5 +46,4 @@ it('requires a provider before reading explicit or nullish targets', () => {
   ];
   for (const read of reads)
     expect(() => render(HookConsumer, { props: { read } })).toThrow('called provideWorld');
-  expect(world.isRegistered).toBe(false);
 });

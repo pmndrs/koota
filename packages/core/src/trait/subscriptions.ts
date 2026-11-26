@@ -1,4 +1,5 @@
 import type { Entity } from '../entity/types';
+import { isEntityAlive, type EntityIndex } from '../entity/utils/entity-index';
 import { getEntityId } from '../entity/utils/pack-entity';
 
 export type Subscriber<T extends string | number = Entity> = (entity: Entity, target?: T) => void;
@@ -40,8 +41,13 @@ export function subscribeAll(subs: Subscriptions, callback: Subscriber<any>): ()
   };
 }
 
+/**
+ * Registers a subscriber for one entity. The index is the world's own, which tells the returned
+ * function whether the entity still lives.
+ */
 export function subscribeEntity(
   subs: Subscriptions,
+  index: EntityIndex,
   entity: Entity,
   callback: Subscriber<any>
 ): () => void {
@@ -67,7 +73,7 @@ export function subscribeEntity(
 
   return () => {
     // A dead entity was cleared on destroy and its id may now belong to another entity.
-    if (!entity.isAlive()) return;
+    if (!isEntityAlive(index, entity)) return;
     const current = page[offset];
     if (current === undefined) return;
     if (current === callback) {

@@ -137,7 +137,7 @@ AssetMachine.current(entity) // undefined
 - Illegal transitions throw `[MACHINE_ILLEGAL_TRANSITION]` with assertions enabled and otherwise leave the machine unchanged without firing callbacks.
 - `Machine.current(entity)` returns the current member without allocating. `entity.has(Machine)` and `world.query(Machine)` match any state.
 - Removing the current state trait throws. Remove the machine itself to leave it. Removing an absent state is a no-op.
-- `world.onTransition(Machine, (entity, from, to, previous) => {})` observes each transition. `previous` contains the old value. `get` only reads current data.
+- `world.onTransition(Machine, (entity, from, to, previous) => {})` reports each transition, and `world.onTransition(entity, Machine, callback)` only this entity's. `previous` contains the old value. `get` only reads current data.
 - Transition listeners must be registered when the transition starts. Unsubscribing before delivery cancels it. Listeners added during callbacks start with later transitions.
 - `Added` and `Removed` coalesce changes. `Changed` includes state additions. These queries are not transition event logs.
 - Transitions inside `each` apply when the outermost scope ends. Borrowed state values remain valid for the callback and writes land before the transition.
@@ -219,6 +219,8 @@ world.add(Time, Config)
 
 Structural changes made inside a callback walk such as `each`, a hook or `world.defer(fn)` are deferred. `add`, `remove`, `destroy` and machine `enter` apply in call order when the outermost scope ends, while `spawn`, `set` and `changed` are immediate. Inside the scope, `has` and `isAlive` still report the state the scope started with. Wrap `for...of` and indexed loops in `world.defer`. `world.reset` and `world.destroy` cannot run inside a scope.
 
+`world.destroy()` is final and idempotent. A destroyed world reads as empty, `spawn`, `reset` and adding a world trait throw, and `world.destroy(entity)` and `world.remove(entity, Trait)` do nothing, as do `entity.destroy()` and `entity.remove(Trait)`, so cleanup that runs after the world is gone is safe. Use `world.reset()` to empty a world and keep it.
+
 Pass `whenSettled(() => readState())` from `koota` to a world or entity subscription to read state after pending structural changes finish. Reuse the same wrapper on several subscriptions to coalesce their notifications per world. Its callback receives no arguments and runs synchronously. Unsubscribing withdraws that subscription's queued notification.
 
 Commands appended by hooks form the next drain wave. Settled callbacks wait until all commands finish. A hook chain takes one wave per link. If the drain exceeds 100000 command waves or 100 rounds of settled callbacks, the world clears pending work and throws. Already-applied changes remain committed. Ordinary command errors allow remaining work to finish before the first error is rethrown.
@@ -248,12 +250,34 @@ entity.destroy()
 
 **Entity IDs**
 
-An entity is internally a 32-bit number packed with generation (12 bits) and entity ID (20 bits). Safe to store directly for persistence or networking.
+An entity is internally a 32-bit number packed with generation (8 bits) and entity ID (24 bits). Safe to store directly for persistence or networking.
 
 ```typescript
 entity.id() // Just the entity ID (reused after destroy)
 entity // Full packed number (unique forever)
 ```
+
+**World-first calls**
+
+Entity methods have a world form that takes the entity first: `world.get(entity, Position)`, `world.set(entity, Position, value)`, `world.add(entity, Trait)`, `world.remove(entity, Trait)`, `world.has(entity, Trait)`, `world.upsert(entity, Trait, value)`, `world.changed(entity, Trait)`, `world.targetFor(entity, Relation)`, `world.targetsFor(entity, Relation)` and `world.destroy(entity)`. `world.has(entity)` with the entity alone checks that it is alive. Hooks take the entity first to listen to one entity, as in `world.onChange(entity, Position, callback)`. Both forms do the same work. Default to entity methods and use the world form where the world is already at hand.
+
+**Isolated worlds**
+
+Entity methods live on `Number.prototype` and worlds share a table that holds each world until `world.destroy()`. Only when the code cannot touch globals, such as a library inside a host app, or a world must be garbage collected by dropping it, create worlds from `koota/isolated`:
+
+```typescript
+import { trait } from 'koota'
+import { createWorld } from 'koota/isolated'
+
+const world = createWorld()
+const entity = world.spawn(Position)
+world.get(entity, Position) // The world does the work
+AssetMachine.enter(world, entity, Loaded) // Machines take the world first
+```
+
+- Entities are bare ids with no methods, in the types and at runtime. Importing `koota/isolated` removes the methods from the `Entity` type across the whole program.
+- Create all worlds from `koota/isolated` or none of them. Never mix the two in one program.
+- Each isolated world numbers its entities from zero, so an entity only means something to its own world.
 
 **Identifiers**
 

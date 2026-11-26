@@ -7,9 +7,8 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { subscribeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
-import { useWorld } from '../world/world-context.js';
 
 export function useTraitEffect<T extends Trait>(
   target: () => Entity | World,
@@ -26,29 +25,34 @@ export function useTraitEffect<T extends Trait>(
   trait: MaybeGetter<T | RelationPair<T>>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
-  useWorld();
+  const resolveTarget = createTargetResolver();
   const notify = (value: TraitRecord<T> | undefined) => untrack(() => callback(value));
 
   $effect(() => {
     const subject = target();
     const resolvedTrait = resolve(trait);
-    let current: Entity | undefined;
+    let current: ReturnType<typeof resolveTarget>;
     const update = () => {
-      if (current !== undefined) notify(current.isAlive() ? current.get(resolvedTrait) : undefined);
-      else if (typeof subject === 'object') notify(undefined);
+      if (current !== undefined) {
+        const { world, entity } = current;
+        notify(world.has(entity) ? world.get(entity, resolvedTrait) : undefined);
+      } else if (typeof subject === 'object') {
+        notify(undefined);
+      }
     };
-    const attach = (entity: Entity | undefined) => {
-      current = entity;
-      if (entity === undefined) return;
+    const attach = (resolved: ReturnType<typeof resolveTarget>) => {
+      current = resolved;
+      if (resolved === undefined) return;
+      const { world, entity } = resolved;
       const refresh = whenSettled(update);
-      const onChange = entity.onChange(resolvedTrait, refresh);
-      const onRemove = entity.onRemove(resolvedTrait, refresh);
+      const onChange = world.onChange(entity, resolvedTrait, refresh);
+      const onRemove = world.onRemove(entity, resolvedTrait, refresh);
       return () => {
         onChange();
         onRemove();
       };
     };
-    const stop = subscribeTarget(subject, attach, update);
+    const stop = subscribeTarget(resolveTarget, subject, attach, update);
     try {
       update();
     } catch (error) {

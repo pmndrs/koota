@@ -35,10 +35,10 @@ describe('useTarget', () => {
     expectTypeOf(() => useHas(() => subject, Name('beta')).current).returns.toBeBoolean();
     const { getByTestId } = renderSubject({ target: subject, relation: Name });
     expect(getByTestId('value').textContent).toBe('alpha');
-    subject.add(Name('beta'));
+    world.add(subject, Name('beta'));
     flushSync();
     expect(getByTestId('value').textContent).toBe('beta');
-    subject.remove(Name);
+    world.remove(subject, Name);
     flushSync();
     expect(getByTestId('value').textContent).toBe('undefined');
   });
@@ -65,15 +65,15 @@ describe('useTarget', () => {
     flushSync();
     expect(getByTestId('value').textContent).toBe('undefined');
 
-    subject.add(Parent(targetA));
+    world.add(subject, Parent(targetA));
     flushSync();
     expect(getByTestId('value').textContent).toBe(String(targetA));
 
-    subject.add(Parent(targetB));
+    world.add(subject, Parent(targetB));
     flushSync();
     expect(getByTestId('value').textContent).toBe(String(targetB));
 
-    subject.remove(Parent(targetB));
+    world.remove(subject, Parent(targetB));
     flushSync();
     expect(getByTestId('value').textContent).toBe('undefined');
   });
@@ -86,7 +86,7 @@ describe('useTarget', () => {
     const { getByTestId } = renderSubject({ target: subject, relation: Parent });
 
     flushSync();
-    subject.remove(Parent(removedTarget));
+    world.remove(subject, Parent(removedTarget));
     flushSync();
     expect(getByTestId('value').textContent).toBe(String(remainingTarget));
   });
@@ -99,22 +99,34 @@ describe('useTarget', () => {
     const subject = world.spawn(Likes(targetA), Likes(targetB), Likes(targetC));
     const { getByTestId } = renderSubject({ target: subject, relation: Likes });
     flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-    subject.remove(Likes(targetB));
+    expect(getByTestId('value').textContent).toBe(
+      String(world.targetFor(subject, Likes) ?? 'undefined')
+    );
+    world.remove(subject, Likes(targetB));
     flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-    subject.remove(Likes(targetA));
+    expect(getByTestId('value').textContent).toBe(
+      String(world.targetFor(subject, Likes) ?? 'undefined')
+    );
+    world.remove(subject, Likes(targetA));
     flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-    subject.remove(Likes(targetC));
+    expect(getByTestId('value').textContent).toBe(
+      String(world.targetFor(subject, Likes) ?? 'undefined')
+    );
+    world.remove(subject, Likes(targetC));
     flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-    subject.add(Likes(targetB));
+    expect(getByTestId('value').textContent).toBe(
+      String(world.targetFor(subject, Likes) ?? 'undefined')
+    );
+    world.add(subject, Likes(targetB));
     flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
-    targetB.destroy();
+    expect(getByTestId('value').textContent).toBe(
+      String(world.targetFor(subject, Likes) ?? 'undefined')
+    );
+    world.destroy(targetB);
     flushSync();
-    expect(getByTestId('value').textContent).toBe(String(subject.targetFor(Likes) ?? 'undefined'));
+    expect(getByTestId('value').textContent).toBe(
+      String(world.targetFor(subject, Likes) ?? 'undefined')
+    );
   });
 
   it('clears its target when the source is destroyed', () => {
@@ -123,7 +135,7 @@ describe('useTarget', () => {
     const { getByTestId } = renderSubject({ target: subject, relation: Likes });
 
     flushSync();
-    subject.destroy();
+    world.destroy(subject);
     flushSync();
     expect(getByTestId('value').textContent).toBe('undefined');
   });
@@ -137,7 +149,7 @@ describe('useTarget', () => {
     const { getByTestId, rerender } = renderSubject({ target: first, relation: Likes });
 
     flushSync();
-    first.remove(Likes(targetA));
+    world.remove(first, Likes(targetA));
     flushSync(() => {
       void rerender({ target: second, relation: Likes });
     });
@@ -149,7 +161,7 @@ describe('useTarget', () => {
     const entityA = world.spawn();
     const entityB = world.spawn();
     const targetForA = world.spawn();
-    entityA.add(Parent(targetForA));
+    world.add(entityA, Parent(targetForA));
 
     const { getByTestId, rerender } = renderSubject({
       target: entityA,
@@ -202,12 +214,12 @@ describe('useTargets', () => {
     flushSync();
     expect(getByTestId('count').textContent).toBe('0');
 
-    subject.add(Likes(targetA));
-    subject.add(Likes(targetB));
+    world.add(subject, Likes(targetA));
+    world.add(subject, Likes(targetB));
     flushSync();
     expect(getByTestId('count').textContent).toBe('2');
 
-    subject.remove(Likes(targetA));
+    world.remove(subject, Likes(targetA));
     flushSync();
     expect(getByTestId('count').textContent).toBe('1');
   });
@@ -224,7 +236,7 @@ describe('useTargets', () => {
       relation: Likes,
       onEffect: () => {
         runs++;
-        subject.remove(Likes(targetA));
+        world.remove(subject, Likes(targetA));
       },
     });
 

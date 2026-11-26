@@ -274,7 +274,7 @@ describe('Entity', () => {
     expect(world.has(entity)).toBe(false);
 
     // Should work with world entities as well
-    const worldEntity = world[$internal].worldEntity;
+    const worldEntity = world[$internal].worldEntity!;
     expect(world.has(worldEntity)).toBe(true);
   });
 });

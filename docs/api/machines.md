@@ -40,7 +40,7 @@ entity.has(AssetMachine) // true
 entity.get(Loading) // { progress: 0.5 }
 ```
 
-`current` returns the current member or `undefined`, using membership masks without allocating. An explicit member overrides a bare machine in the same `spawn` or `add` call, regardless of argument order. Different members of one machine in a single call are rejected before changing that machine. Other arguments retain ordinary argument-order mutation behavior.
+`current` returns the current member or `undefined`, using membership masks without allocating. In an [isolated world](entity.md#isolated-worlds) an entity cannot find its world, so both take the world first there, as in `AssetMachine.enter(world, entity, Loaded)`. An explicit member overrides a bare machine in the same `spawn` or `add` call, regardless of argument order. Different members of one machine in a single call are rejected before changing that machine. Other arguments retain ordinary argument-order mutation behavior.
 
 `enter` can attach a missing machine directly in any member. The initial state is used only when adding a bare machine. To enable re-entry with a transition table, include the state in its own list, such as `Loading: [Loading, Loaded]`. Re-entry replaces state data, using defaults for omitted fields. `set` updates data without a transition.
 

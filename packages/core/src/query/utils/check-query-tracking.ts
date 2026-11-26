@@ -3,11 +3,8 @@ import { matchesIdentifiers } from '../../identifier/identifier';
 import { Entity } from '../../entity/types';
 import { isEntityAlive, isEntityReadable } from '../../entity/utils/entity-index';
 import { GENERATION_MASK, getEntityId } from '../../entity/utils/pack-entity';
-import {
-  REMOVED_WORD,
-  createEmptyMaskGeneration,
-  ensureMaskPage,
-} from '../../entity/utils/paged-mask';
+import { REMOVED_WORD } from '../../world/utils/entity-masks';
+import { ensureTrackerPage } from './tracker-pages';
 import { hasRelationToTarget } from '../../relation/relation';
 import { WorldContext } from '../../world';
 import { EventType, QueryInstance, ResolvedRelationFilter } from '../types';
@@ -305,9 +302,7 @@ function trackersMatchAll(
   for (let genId = 0; genId < bitmasks.length; genId++) {
     const mask = bitmasks[genId];
     if (!mask) continue;
-    const trackerGen = trackers[genId];
-    const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-    if ((tracker & mask) !== mask) return false;
+    if ((trackers[genId][eid >>> 10][eid & 1023] & mask) !== mask) return false;
   }
   return true;
 }
@@ -321,9 +316,7 @@ function trackersMatchAny(
   for (let genId = 0; genId < bitmasks.length; genId++) {
     const mask = bitmasks[genId];
     if (!mask) continue;
-    const trackerGen = trackers[genId];
-    const tracker = trackerGen ? trackerGen[eid >>> 10][eid & 1023] : 0;
-    if (tracker & mask) return true;
+    if (trackers[genId][eid >>> 10][eid & 1023] & mask) return true;
   }
   return false;
 }
@@ -352,13 +345,12 @@ function clearTrackerHit(
   if ((hits & bitflag) !== 0) page[eid & 1023] = hits & ~bitflag;
 }
 
-/** Remember that the tracked event fired for the entity, allocating the tracker lazily. */
+/** Remember that the tracked event fired for the entity. A group holds a table for every generation it tracks. */
 export function recordTrackerHit(
   trackers: Uint32Array[][],
   generationId: number,
   eid: number,
   bitflag: number
 ) {
-  if (!trackers[generationId]) trackers[generationId] = createEmptyMaskGeneration();
-  ensureMaskPage(trackers[generationId], eid >>> 10)[eid & 1023] |= bitflag;
+  ensureTrackerPage(trackers[generationId], eid >>> 10)[eid & 1023] |= bitflag;
 }

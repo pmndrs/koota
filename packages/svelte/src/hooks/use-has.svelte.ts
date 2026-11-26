@@ -7,34 +7,36 @@ import {
   type Trait,
   type World,
 } from '@koota/core';
-import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
-import { useWorld } from '../world/world-context.js';
 
 export function useHas(
   target: () => Entity | World | undefined | null,
   trait: MaybeGetter<Trait | RelationPair | Identifier | IdentifierPair>
 ): { readonly current: boolean } {
-  useWorld();
-  const initialEntity = getTargetEntity(target());
-  let value = $state(initialEntity?.has(resolve(trait)) ?? false);
+  const resolveTarget = createTargetResolver();
+  const initial = resolveTarget(target());
+  let value = $state(
+    initial === undefined ? false : initial.world.has(initial.entity, resolve(trait))
+  );
 
   $effect(() => {
     const subject = target();
     const resolvedTrait = resolve(trait);
-    return subscribeTarget(subject, (entity) => {
-      if (entity === undefined) {
+    return subscribeTarget(resolveTarget, subject, (resolved) => {
+      if (resolved === undefined) {
         value = false;
         return;
       }
 
+      const { world, entity } = resolved;
       const refresh = whenSettled(() => {
-        value = entity.isAlive() && entity.has(resolvedTrait);
+        value = world.has(entity) && world.has(entity, resolvedTrait);
       });
       // The hook overloads take no union. Core resolves every input and filters exact terms by key.
-      const onAdd = entity.onAdd(resolvedTrait as Trait, refresh);
-      const onRemove = entity.onRemove(resolvedTrait as Trait, refresh);
-      value = entity.has(resolvedTrait);
+      const onAdd = world.onAdd(entity, resolvedTrait as Trait, refresh);
+      const onRemove = world.onRemove(entity, resolvedTrait as Trait, refresh);
+      value = world.has(entity, resolvedTrait);
       return () => {
         onAdd();
         onRemove();

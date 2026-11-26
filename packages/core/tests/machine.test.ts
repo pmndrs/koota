@@ -25,6 +25,18 @@ function download() {
 }
 
 describe('machines', () => {
+  it('takes the world first as well as the entity alone', () => {
+    const { Wanted, Loading, Download } = download();
+    const world = createWorld();
+    const entity = world.spawn(Download);
+
+    expect(Download.current(world, entity)).toBe(Wanted);
+    Download.enter(world, entity, Loading({ requestId: 7 }));
+    expect(Download.current(world, entity)).toBe(Loading);
+    expect(Download.current(entity)).toBe(Loading);
+    expect(entity.get(Loading)).toEqual({ requestId: 7, attempts: 0 });
+  });
+
   it('keeps machines independent across entities, worlds and resets', () => {
     const { Wanted, Loading, Download } = download();
     const Visible = trait(),

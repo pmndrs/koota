@@ -45,17 +45,17 @@ describe('identifier hooks', () => {
       exact: false,
     });
 
-    act(() => entity.add(Name('kris'), WireId(123)));
+    act(() => world.add(entity, Name('kris'), WireId(123)));
     expect(result.current).toEqual({ name: 'kris', wireId: 123, present: true, exact: true });
     rerender();
     expect(result.current).toEqual({ name: 'kris', wireId: 123, present: true, exact: true });
-    act(() => entity.add(WireId(456)));
+    act(() => world.add(entity, WireId(456)));
     expect(result.current).toEqual({ name: 'kris', wireId: 456, present: true, exact: false });
-    act(() => entity.remove(WireId));
+    act(() => world.remove(entity, WireId));
     expect(result.current).toEqual({ name: 'kris', wireId: undefined, present: false, exact: false });
-    act(() => entity.add(WireId(123)));
+    act(() => world.add(entity, WireId(123)));
     expect(result.current).toEqual({ name: 'kris', wireId: 123, present: true, exact: true });
-    act(() => entity.destroy());
+    act(() => world.destroy(entity));
     expect(result.current).toEqual({
       name: undefined,
       wireId: undefined,
@@ -82,7 +82,7 @@ describe('identifier hooks', () => {
     expect(result.current).toEqual({ value: 'kris', present: true });
     rerender({ target: second, type: Name });
     expect(result.current).toEqual({ value: 'sam', present: true });
-    act(() => first.add(Name('other')));
+    act(() => world.add(first, Name('other')));
     expect(result.current).toEqual({ value: 'sam', present: true });
     rerender({ target: second, type: Alias });
     expect(result.current).toEqual({ value: 's', present: true });
@@ -90,7 +90,7 @@ describe('identifier hooks', () => {
     expect(result.current).toEqual({ value: undefined, present: false });
     rerender({ target: undefined, type: Alias });
     expect(result.current).toEqual({ value: undefined, present: false });
-    act(() => first.destroy());
+    act(() => world.destroy(first));
     rerender({ target: first, type: Name });
     expect(result.current).toEqual({ value: undefined, present: false });
   });
@@ -111,13 +111,13 @@ describe('identifier hooks', () => {
       }
     );
     expect(result.current).toEqual({ entities: [first, second], name: 'kris', matches: true });
-    act(() => second.add(DisplayName('sam')));
+    act(() => world.add(second, DisplayName('sam')));
     expect(result.current).toEqual({ entities: [first], name: 'sam', matches: false });
-    act(() => first.destroy());
+    act(() => world.destroy(first));
     expect(result.current.entities).toEqual([]);
-    act(() => second.add(DisplayName('kris')));
+    act(() => world.add(second, DisplayName('kris')));
     expect(result.current).toEqual({ entities: [second], name: 'kris', matches: true });
-    act(() => second.remove(DisplayName));
+    act(() => world.remove(second, DisplayName));
     expect(result.current).toEqual({ entities: [], name: undefined, matches: false });
   });
 
@@ -141,7 +141,7 @@ describe('identifier hooks', () => {
     expect(result.current).toBe(true);
     rerender({ type: Second, key: '2' });
     expect(result.current).toBe(false);
-    act(() => entity.add(Second('2')));
+    act(() => world.add(entity, Second('2')));
     expect(result.current).toBe(true);
   });
 
@@ -170,7 +170,7 @@ describe('identifier hooks', () => {
       () => {
         const value = useTarget(entity, WireId);
         const exact = useHas(entity, WireId(123));
-        useLayoutEffect(() => entity.add(WireId(456)), []);
+        useLayoutEffect(() => world.add(entity, WireId(456)), []);
         return { value, exact };
       },
       { wrapper: withWorld(world), reactStrictMode: true }
@@ -180,7 +180,7 @@ describe('identifier hooks', () => {
 
   it('reads the current mapping when a removal subscriber replaces it again', () => {
     const entity = world.spawn(WireId(123));
-    entity.onRemove(WireId(123), () => entity.add(WireId(789)));
+    world.onRemove(entity, WireId(123), () => world.add(entity, WireId(789)));
     const { result } = renderHook(
       () => ({
         value: useTarget(entity, WireId),
@@ -190,7 +190,7 @@ describe('identifier hooks', () => {
       }),
       { wrapper: withWorld(world), reactStrictMode: true }
     );
-    act(() => entity.add(WireId(456)));
+    act(() => world.add(entity, WireId(456)));
     expect(result.current).toEqual({ value: 789, present: true, replaced: false, current: true });
   });
 });

@@ -1,5 +1,5 @@
 import type { Entity } from '../entity/types';
-import { createQuery, subscribeEnter, subscribeExit } from '../query/query';
+import { createQuery, subscribeTargetQuery } from '../query/query';
 import type { QueryParameter } from '../query/types';
 import { isQuery } from '../query/utils/is-query';
 import {
@@ -45,8 +45,8 @@ function ensureRelationFilterHooks(
     const sources = getEntitiesWithRelationTo(ctx, pair.relation as Relation<Trait>, target);
     for (let i = 0; i < sources.length; i++) emit(subs, sources[i], target);
   };
-  const stopEnter = subscribeEnter(ctx, ref, (target) => notify(added, target));
-  const stopExit = subscribeExit(ctx, ref, (target) => notify(removed, target));
+  const stopEnter = subscribeTargetQuery(ctx, ref, (target) => notify(added, target), true);
+  const stopExit = subscribeTargetQuery(ctx, ref, (target) => notify(removed, target), false);
 
   hooks = {
     added,
@@ -75,7 +75,9 @@ export function subscribeRelationFilter(
   const hooks = ensureRelationFilterHooks(ctx, instance, pair);
   const subs = added ? hooks.added : hooks.removed;
   const unsubscribe =
-    entity === undefined ? subscribeAll(subs, callback) : subscribeEntity(subs, entity, callback);
+    entity === undefined
+      ? subscribeAll(subs, callback)
+      : subscribeEntity(subs, ctx.entityIndex, entity, callback);
   return () => {
     unsubscribe();
     const index = instance.relationFilterHooks!;

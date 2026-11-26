@@ -1,11 +1,20 @@
 // oxlint-disable react/globals -- Test components expose hook values to assertions.
 import { createWorld, machine, relation, trait, type World } from '@koota/core';
 import { render, renderHook } from '@testing-library/react';
-import { act, StrictMode, useEffect, useMemo } from 'react';
+import {
+  Activity,
+  act,
+  StrictMode,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   useHas,
   useMachine,
+  useQuery,
   useTag,
   useTarget,
   useTargets,
@@ -49,30 +58,56 @@ describe('World', () => {
 
     expect(worldTest).toBe(world);
   });
+});
 
-  it('can create a world in useMemo and auto-register on first use', () => {
-    let worldTest: World = null!;
+it('owns a world created and destroyed in a layout effect', () => {
+  const Tag = trait();
+  const worlds: World[] = [];
+  let count = 0;
 
-    function Test() {
-      worldTest = useMemo(() => createWorld(), []);
+  function Owner({ children }: { children: ReactNode }) {
+    const [world, setWorld] = useState<World | null>(null);
+    useLayoutEffect(() => {
+      const world = createWorld();
+      worlds.push(world);
+      // oxlint-disable-next-line react/set-state-in-effect -- The effect publishes the world it owns.
+      setWorld(world);
+      return () => {
+        // Clearing the state keeps children off the destroyed world.
+        setWorld(null);
+        world.destroy();
+      };
+    }, []);
+    return world ? <WorldProvider world={world}>{children}</WorldProvider> : null;
+  }
 
-      useEffect(() => {
-        worldTest.spawn();
-        return () => worldTest.destroy();
-      }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  function Child() {
+    const world = useWorld();
+    count = useQuery(Tag).length;
+    useEffect(() => {
+      const entity = world.spawn(Tag);
+      return () => world.destroy(entity);
+    }, [world]);
+    return null;
+  }
 
-      return null;
-    }
-
-    render(
-      <StrictMode>
-        <Test />
-      </StrictMode>
-    );
-
-    expect(worldTest).toBeDefined();
-    expect(worldTest!.isRegistered).toBe(true);
-  });
+  const tree = (mode: 'visible' | 'hidden') => (
+    <StrictMode>
+      <Activity mode={mode}>
+        <Owner>
+          <Child />
+        </Owner>
+      </Activity>
+    </StrictMode>
+  );
+  const view = render(tree('visible'));
+  expect(count).toBe(1);
+  act(() => view.rerender(tree('hidden')));
+  act(() => view.rerender(tree('visible')));
+  expect(count).toBe(1);
+  view.unmount();
+  // Every world an effect made was destroyed by its cleanup.
+  expect(worlds.every((world) => world.entities.length === 0)).toBe(true);
 });
 
 it('requires a provider before reading explicit or nullish targets', () => {
@@ -90,5 +125,4 @@ it('requires a provider before reading explicit or nullish targets', () => {
     () => useMachine(world, State),
   ];
   for (const read of reads) expect(() => renderHook(read)).toThrow('within a WorldProvider');
-  expect(world.isRegistered).toBe(false);
 });

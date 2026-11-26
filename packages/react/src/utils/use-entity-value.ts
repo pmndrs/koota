@@ -10,23 +10,38 @@ import {
   type World,
 } from '@koota/core';
 import { useEffect, useReducer } from 'react';
+import { useWorld } from '../world/use-world';
 
-/** A world resolves to its world entity, registering a lazy world so it exists. */
+/** A world resolves to its world entity, which a destroyed world no longer has. */
 export function resolveEntity(target: Entity | World | undefined | null): Entity | undefined {
   if (typeof target === 'number') return target;
   if (!target) return undefined;
-  if (!target.isRegistered) target.add();
-  return target[$internal].worldEntity;
+  return target[$internal].worldEntity ?? undefined;
+}
+
+/**
+ * Every hook needs a provider. An entity is read through the provided world and a world target
+ * through itself.
+ */
+export function useResolvedWorld(target: Entity | World | undefined | null): World | undefined {
+  const provided = useWorld();
+  return typeof target === 'number' ? provided : (target ?? undefined);
 }
 
 type Target = Entity | World | undefined | null;
-type Attach<T, I> = (entity: Entity, input: I, push: (value: T) => void) => () => void;
-type GetVersionSource<I> = (entity: Entity, input: I) => { version: number } | undefined;
+type Read<T, I> = (world: World, entity: Entity, input: I) => T;
+type Attach<T, I> = (world: World, entity: Entity, input: I, push: (value: T) => void) => () => void;
+type GetVersionSource<I> = (
+  world: World,
+  entity: Entity,
+  input: I
+) => { version: number } | undefined;
 /** Snapshots share one subscription for the lifetime of a target and input. */
 type Snapshot<T, I> = { binding: Binding<T, I>; value: T | undefined };
 type Action<T, I> = Snapshot<T, I> | { replace: Snapshot<T, I> };
 type Binding<T, I> = {
   target: Target;
+  world: World | undefined;
   input: I;
   subscribe: (publish: (snapshot: Snapshot<T, I>) => void) => (() => void) | undefined;
   entity: Entity | undefined;
@@ -58,17 +73,19 @@ function sameInput(a: unknown, b: unknown) {
 
 function createSnapshot<T, I>(
   target: Target,
+  world: World | undefined,
   input: I,
-  read: (entity: Entity, input: I) => T,
+  read: Read<T, I>,
   attach: Attach<T, I>,
   getVersionSource?: GetVersionSource<I>
 ): Snapshot<T, I> {
   const entity = resolveEntity(target);
-  const alive = entity !== undefined && entity.isAlive();
-  const value = alive ? read(entity, input) : undefined;
-  const source = alive ? getVersionSource?.(entity, input) : undefined;
+  const alive = world !== undefined && entity !== undefined && world.has(entity);
+  const value = alive ? read(world, entity, input) : undefined;
+  const source = alive ? getVersionSource?.(world, entity, input) : undefined;
   const binding: Binding<T, I> = {
     target,
+    world,
     input,
     entity,
     value,
@@ -89,12 +106,12 @@ function createSnapshot<T, I>(
 function subscribeEntity<T, I>(
   binding: Binding<T, I>,
   publish: (next: Snapshot<T, I>) => void,
-  read: (entity: Entity, input: I) => T,
+  read: Read<T, I>,
   attach: Attach<T, I>,
   getVersionSource?: GetVersionSource<I>
 ) {
-  const { entity, input } = binding;
-  if (!entity?.isAlive()) {
+  const { world, entity, input } = binding;
+  if (world === undefined || entity === undefined || !world.has(entity)) {
     if (binding.value !== undefined) {
       binding.value = undefined;
       publish({ binding, value: undefined });
@@ -106,15 +123,15 @@ function subscribeEntity<T, I>(
     binding.version = binding.source?.version ?? 0;
     publish({ binding, value });
   };
-  const detach = attach(entity, input, push);
+  const detach = attach(world, entity, input, push);
   // Catch writes before the subscription attached, including changes to an AoS object in place.
   if (getVersionSource) {
-    const source = getVersionSource(entity, input);
+    const source = getVersionSource(world, entity, input);
     const replaced = binding.source !== undefined && binding.source !== source;
     binding.source = source;
-    if (replaced || (source?.version ?? 0) !== binding.version) push(read(entity, input));
+    if (replaced || (source?.version ?? 0) !== binding.version) push(read(world, entity, input));
   } else {
-    const latest = read(entity, input);
+    const latest = read(world, entity, input);
     if (!shallowEqual(latest, binding.value)) push(latest);
   }
   return detach;
@@ -150,16 +167,21 @@ function reducer<T, I>(state: Snapshot<T, I>, next: Action<T, I>) {
 export function useEntityValue<T, I>(
   target: Target,
   input: I,
-  read: (entity: Entity, input: I) => T,
+  read: Read<T, I>,
   attach: Attach<T, I>,
   getVersionSource?: GetVersionSource<I>
 ): T | undefined {
+  const world = useResolvedWorld(target);
   const [current, dispatch] = useReducer(reducer<T, I>, undefined, () =>
-    createSnapshot(target, input, read, attach, getVersionSource)
+    createSnapshot(target, world, input, read, attach, getVersionSource)
   );
   let snapshot = current;
-  if (current.binding.target !== target || !sameInput(current.binding.input, input)) {
-    snapshot = createSnapshot(target, input, read, attach, getVersionSource);
+  if (
+    current.binding.target !== target ||
+    current.binding.world !== world ||
+    !sameInput(current.binding.input, input)
+  ) {
+    snapshot = createSnapshot(target, world, input, read, attach, getVersionSource);
     dispatch({ replace: snapshot });
   }
   const binding = snapshot.binding;

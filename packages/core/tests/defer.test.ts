@@ -463,7 +463,7 @@ describe('deferred structural changes', () => {
     world.query(Position).each(() => {
       expect(() => world.destroy()).toThrow(/DEFER_SCOPE/);
     });
-    expect(world.isRegistered).toBe(true);
+    expect(world.query(Position).length).toBe(1);
     world.destroy();
   });
 
@@ -534,7 +534,7 @@ describe('deferred structural changes', () => {
 
     world.reset();
     expect(world.has(Tag)).toBe(false);
-    expect(world.isRegistered).toBe(true);
+    expect(world.entities.length).toBe(1);
     world.destroy();
   });
 

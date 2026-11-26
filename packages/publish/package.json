@@ -15,6 +15,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./isolated": {
+      "types": "./src/isolated.ts",
+      "import": "./src/isolated.ts"
+    },
     "./react": {
       "types": "./src/react.ts",
       "import": "./src/react.ts"
@@ -27,6 +31,7 @@
   },
   "files": [
     "dist",
+    "isolated",
     "react",
     "svelte",
     "docs",
@@ -47,6 +52,16 @@
         "require": {
           "types": "./dist/index.d.cts",
           "default": "./dist/index.cjs"
+        }
+      },
+      "./isolated": {
+        "import": {
+          "types": "./dist/isolated.d.ts",
+          "default": "./dist/isolated.js"
+        },
+        "require": {
+          "types": "./dist/isolated.d.cts",
+          "default": "./dist/isolated.cjs"
         }
       },
       "./react": {

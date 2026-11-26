@@ -1,7 +1,7 @@
 import { isEntityAlive } from '../../entity/utils/entity-index';
 import type { Entity } from '../../entity/types';
 import { getEntityId } from '../../entity/utils/pack-entity';
-import { DESTROYED_WORD } from '../../entity/utils/paged-mask';
+import { DESTROYED_WORD } from '../../world/utils/entity-masks';
 import { hasRelationPair, hasRelationTargetInSet } from '../../relation/relation';
 import type { WorldContext } from '../../world';
 import type { QueryInstance, ResolvedRelationFilter } from '../types';

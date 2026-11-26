@@ -7,9 +7,8 @@ import {
   type World,
 } from '@koota/core';
 import { useEffect, useRef } from 'react';
+import { subscribeTarget, useResolvedWorld } from '../utils/use-entity-value';
 import { attachTrait, readTrait } from './use-trait';
-import { subscribeTarget } from '../utils/use-entity-value';
-import { useWorld } from '../world/use-world';
 
 export function useTraitEffect<T extends Trait>(
   target: Entity | World,
@@ -26,7 +25,7 @@ export function useTraitEffect<T extends Trait>(
   trait: T | RelationPair<T>,
   callback: (value: TraitRecord<T> | undefined) => void
 ) {
-  useWorld();
+  const world = useResolvedWorld(target)!;
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
@@ -40,11 +39,13 @@ export function useTraitEffect<T extends Trait>(
     let current: Entity | undefined;
     const update = () => {
       if (current === undefined) notify(undefined);
-      else if (current.isAlive()) notify(readTrait(current, trait));
+      else if (world.has(current)) notify(readTrait(world, current, trait));
     };
     const attach = (entity: Entity | undefined) => {
       current = entity;
-      if (entity?.isAlive()) return attachTrait(entity, trait, notify);
+      if (entity !== undefined && world.has(entity)) {
+        return attachTrait(world, entity, trait, notify);
+      }
     };
     const stop = subscribeTarget(target, attach, update);
     try {
@@ -55,5 +56,5 @@ export function useTraitEffect<T extends Trait>(
     }
     return stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, relation, pairTarget, pair.targetQuery]);
+  }, [world, target, relation, pairTarget, pair.targetQuery]);
 }

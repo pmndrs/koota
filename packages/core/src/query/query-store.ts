@@ -1,5 +1,6 @@
 import { subscribeHook, whenSettled } from '../world/settled';
 import type { Entity } from '../entity/types';
+import { getEntityId } from '../entity/utils/pack-entity';
 import type { WorldContext } from '../world/types';
 import { queryInternal, resolveQueryInstanceFromRef } from './query';
 import type { Query, QueryInstance, QueryView } from './types';
@@ -38,7 +39,7 @@ export function createQueryStore(this: WorldContext, ref: Query) {
         const batch = source?.isTracking ? batches.get(source) : undefined;
         const view =
           batch && batch.version === source?.version ? batch.view : queryInternal(this, ref);
-        entities = view.toArray().sort((a, b) => a.id() - b.id());
+        entities = view.toArray().sort((a, b) => getEntityId(a) - getEntityId(b));
         // Running a tracking query advances its batch and version.
         source = this.queriesHashMap.get(ref.hash)!;
         copiedRevision = revision;
