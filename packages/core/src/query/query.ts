@@ -1,5 +1,6 @@
 import { SparseSet } from '@koota/collections';
 import { $internal } from '../common';
+import { subscribeSet } from '../world/settled';
 import type { Entity } from '../entity/types';
 import { getEntityId, packEntity } from '../entity/utils/pack-entity';
 import {
@@ -1015,8 +1016,7 @@ export function subscribeQuery(
 ): () => void {
   const query = resolveQueryArgs(ctx, args);
   const key = added ? 'addSubscriptions' : 'removeSubscriptions';
-  (query[key] ??= new Set()).add(callback);
-  return () => query[key]!.delete(callback);
+  return subscribeSet(ctx, (query[key] ??= new Set()), callback);
 }
 
 /**

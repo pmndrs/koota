@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { $internal, createChanged, createWorld, ordered, relation, trait, type Entity } from '../src';
+import {
+  whenSettled,
+  createChanged,
+  createWorld,
+  ordered,
+  relation,
+  trait,
+  type Entity,
+} from '../src';
 
 const Position = trait({ x: 0 });
 const Velocity = trait({ dx: 0 });

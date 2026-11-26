@@ -14,11 +14,11 @@ function attachTargets(
   relation: Relation<Trait>,
   push: (value: Entity[]) => void
 ) {
-  const observer = world[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     push(world.has(entity) ? world.targetsFor(entity, relation) : []);
   });
-  const onChange = world.onChange(entity, relation, observer.invalidate);
-  const onRemove = world.onRemove(entity, relation, observer.invalidate);
+  const onChange = world.onChange(entity, relation, refresh);
+  const onRemove = world.onRemove(entity, relation, refresh);
   return () => {
     onChange();
     onRemove();

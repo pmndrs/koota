@@ -13,7 +13,7 @@ import {
   entityHas,
   entityTargetFor,
   entityTargetsFor,
-  subscribeEntityEvent,
+  subscribeTraitEvent,
 } from './entity';
 import type { Entity, EntityMethods } from './types';
 import { isEntityAlive } from './utils/entity-index';
@@ -73,11 +73,11 @@ export function installEntityMethods() {
     },
 
     onAdd(this: Entity, input: HookInput, callback: Subscriber<any>) {
-      return subscribeEntityEvent(getEntityContext(this), this, 'addSubscriptions', input, callback);
+      return subscribeTraitEvent(getEntityContext(this), this, 'addSubscriptions', input, callback);
     },
 
     onRemove(this: Entity, input: HookInput, callback: Subscriber<any>) {
-      return subscribeEntityEvent(
+      return subscribeTraitEvent(
         getEntityContext(this),
         this,
         'removeSubscriptions',
@@ -87,7 +87,7 @@ export function installEntityMethods() {
     },
 
     onChange(this: Entity, input: HookInput, callback: Subscriber<any>) {
-      return subscribeEntityEvent(
+      return subscribeTraitEvent(
         getEntityContext(this),
         this,
         'changeSubscriptions',

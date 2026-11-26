@@ -63,9 +63,9 @@ export function useTrait(
         return;
       }
       const { world, entity } = resolved;
-      const observer = world[internal].observeSettled(update);
-      const onChange = world.onChange(entity, current.input, observer.invalidate);
-      const onRemove = world.onRemove(entity, current.input, observer.invalidate);
+      const refresh = whenSettled(update);
+      const onChange = world.onChange(entity, current.input, refresh);
+      const onRemove = world.onRemove(entity, current.input, refresh);
       update();
       return () => {
         onChange();

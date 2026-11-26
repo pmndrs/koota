@@ -23,11 +23,11 @@ export function attachTrait<T extends Trait | RelationPair>(
   trait: T,
   push: (value: TraitRecord<ExtractSchema<T>> | undefined) => void
 ) {
-  const observer = world[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     push(world.has(entity) ? world.get(entity, trait) : undefined);
   });
-  const onChange = world.onChange(entity, trait, observer.invalidate);
-  const onRemove = world.onRemove(entity, trait, observer.invalidate);
+  const onChange = world.onChange(entity, trait, refresh);
+  const onRemove = world.onRemove(entity, trait, refresh);
   return () => {
     onChange();
     onRemove();

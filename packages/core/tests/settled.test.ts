@@ -1,5 +1,5 @@
-import { expect, it } from 'vitest';
-import { $internal, createWorld, relation, trait } from '../src';
+import { expect, it, vi } from 'vitest';
+import { whenSettled, createWorld, relation, trait } from '../src';
 
 it('settles once after nested removals and reads the remaining target', () => {
   const world = createWorld();
@@ -167,15 +167,15 @@ it('settles world destruction before the world unregisters', () => {
   const refresh = whenSettled(() => values.push(world.query(A).length));
   world.onExit([A], refresh);
   world.destroy();
-  expect(observed).toEqual([0]);
+  expect(values).toEqual([0]);
   expect(world.entities.length).toBe(0);
 });
 
-it('refuses a spawn by a settled observer during world destruction', () => {
+it('refuses a spawn by a settled callback during world destruction', () => {
   const world = createWorld();
   const Tag = trait();
   world.spawn(Tag);
-  const observer = world[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     world.spawn(Tag);
   });
   world.onExit([Tag], refresh);

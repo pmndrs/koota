@@ -88,31 +88,6 @@ export function runCommand(
 }
 
 /**
- * Experimental and hidden. Reached only as world[$internal].observeSettled, so framework hooks can
- * read world state once it is consistent. Invalidating inside a defer scope queues the update
- * until the outermost scope ends and its deferred changes have applied, and several invalidations
- * collapse into one update. Outside one the update runs at once.
- */
-export function observeSettled(this: WorldContext, update: () => void) {
-  let active = true;
-  const notify = () => {
-    if (active) update();
-  };
-  return {
-    invalidate: () => {
-      if (this.deferDepth === 0) notify();
-      else {
-        this.settledQueue.add(notify);
-        this.unsettled = true;
-      }
-    },
-    unsubscribe: () => {
-      active = false;
-    },
-  };
-}
-
-/**
  * Applies the log in waves. A wave is the commands queued so far and hooks append to the next
  * one, so a chain of hook driven changes costs one wave per link. Callbacks run once the log is
  * empty and their changes start the next round. The wave limit only stops a hook that undoes the

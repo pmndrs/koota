@@ -34,12 +34,7 @@ export function useMachine<S extends MachineStates>(
       update();
       if (resolved === undefined) return;
       const { world, entity } = resolved;
-      const observer = world[internal].observeSettled(update);
-      const unsubscribe = world.onTransition(entity, current.selected, observer.invalidate);
-      return () => {
-        observer.unsubscribe();
-        unsubscribe();
-      };
+      return world.onTransition(entity, current.selected, whenSettled(update));
     });
   });
 

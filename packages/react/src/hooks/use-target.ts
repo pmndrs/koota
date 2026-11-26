@@ -25,12 +25,12 @@ function attachTarget(
   relation: Relation<Trait> | Identifier,
   push: (value: IdentifierKey | undefined) => void
 ) {
-  const observer = world[$internal].observeSettled(() => {
+  const refresh = whenSettled(() => {
     push(world.has(entity) ? readTarget(world, entity, relation) : undefined);
   });
   const trait = relation[$internal].trait;
-  const onChange = world.onChange(entity, trait, observer.invalidate);
-  const onRemove = world.onRemove(entity, trait, observer.invalidate);
+  const onChange = world.onChange(entity, trait, refresh);
+  const onRemove = world.onRemove(entity, trait, refresh);
   return () => {
     onChange();
     onRemove();

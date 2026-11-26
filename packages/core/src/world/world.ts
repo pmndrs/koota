@@ -1,6 +1,7 @@
 import { getOrderedSnapshot } from '../relation/ordered';
 import { createQueryStore } from '../query/query-store';
-import { beginDefer, endDefer, observeSettled, runDeferred } from './defer';
+import { subscribeSet } from './settled';
+import { beginDefer, endDefer, runDeferred } from './defer';
 import { $internal } from '../common';
 import { subscribeMachine } from '../machine/machine';
 import type { Machine, TransitionSubscriber } from '../machine/types';
@@ -13,7 +14,7 @@ import {
   entityHas,
   entityTargetFor,
   entityTargetsFor,
-  subscribeEntityEvent,
+  subscribeTraitEvent,
 } from '../entity/entity';
 import { installEntityMethods } from '../entity/entity-methods';
 import type { Entity } from '../entity/types';
@@ -43,7 +44,6 @@ import {
 } from '../identifier/scoped-identifier';
 import {
   IsExcluded,
-  ensureTraitInstance,
   resolveQueryInstance,
   resolveQueryInstanceFromRef,
   runQuery,
@@ -53,7 +53,6 @@ import {
 import type { Query, QueryInstance, QueryParameter, QueryUnsubscriber } from '../query/types';
 import { isQuery } from '../query/utils/is-query';
 import { isStableParameter } from '../query/modifier';
-import { subscribeRelationFilter } from '../relation/filter-hooks';
 import { setChanged } from '../query/modifiers/changed';
 import { getFirstEntityWithRelationTo } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
@@ -203,8 +202,10 @@ function createWorldWithAllocator(allocator: PageAllocator, options?: WorldOptio
     worldEntity: null,
     entitySubscribedInstances: new Set(),
     deferDepth: 0,
-    settledQueue: new Set(),
-    observeSettled,
+    settledCallbacks: undefined,
+    settledQueue: [],
+    settledCount: 0,
+    settledRound: 0,
     getOrderedSnapshot,
     createQueryStore,
     resetSubscriptions: new Set(),
@@ -426,21 +427,18 @@ const worldMethods: ThisType<World> = {
   },
 
   onEntitySpawn(callback: (entity: Entity) => void): QueryUnsubscriber {
-    const subscriptions = this[$internal].entitySpawnSubscriptions;
-    subscriptions.add(callback);
-    return () => subscriptions.delete(callback);
+    const ctx = this[$internal];
+    return subscribeSet(ctx, ctx.entitySpawnSubscriptions, callback);
   },
 
   onEntityDestroy(callback: (entity: Entity) => void): QueryUnsubscriber {
-    const subscriptions = this[$internal].entityDestroySubscriptions;
-    subscriptions.add(callback);
-    return () => subscriptions.delete(callback);
+    const ctx = this[$internal];
+    return subscribeSet(ctx, ctx.entityDestroySubscriptions, callback);
   },
 
   onTraitRegistered(callback: (trait: Trait) => void): QueryUnsubscriber {
-    const subscriptions = this[$internal].traitRegisteredSubscriptions;
-    subscriptions.add(callback);
-    return () => subscriptions.delete(callback);
+    const ctx = this[$internal];
+    return subscribeSet(ctx, ctx.traitRegisteredSubscriptions, callback);
   },
 };
 
@@ -587,26 +585,8 @@ function subscribe(
   callback: Subscriber<any> | undefined
 ): QueryUnsubscriber {
   if (typeof first === 'number') {
-    return subscribeEntityEvent(ctx, first, event, second as HookInput, callback!);
+    return subscribeTraitEvent(ctx, first, event, second as HookInput, callback!);
   }
   assertTrait(first);
-  const trait = resolveHookTrait(first);
-  const resolved = resolveHookCallback(ctx, first, second as Subscriber<any>);
-  if (event === 'changeSubscriptions') ctx.trackingRevision++;
-  const instance = ensureTraitInstance(ctx, trait);
-  const unsubscribe = subscribeAll(instance[event], resolved);
-  if (event === 'changeSubscriptions' || !isRelationPair(first) || !first.targetQuery) {
-    return unsubscribe;
-  }
-  const stop = subscribeRelationFilter(
-    ctx,
-    instance,
-    first,
-    event === 'addSubscriptions',
-    second as Subscriber<any>
-  );
-  return () => {
-    unsubscribe();
-    stop();
-  };
+  return subscribeTraitEvent(ctx, undefined, event, first, second as Subscriber<any>);
 }

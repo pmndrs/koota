@@ -1,7 +1,6 @@
 import type { getOrderedSnapshot } from '../relation/ordered';
 import type { SettledCallback } from './settled';
 import type { createQueryStore } from '../query/query-store';
-import type { observeSettled } from './defer';
 import { ActionInstance } from '../actions/types';
 import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { QueryNotification, QuerySubscriber } from '../query/types';

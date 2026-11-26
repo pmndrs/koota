@@ -44,9 +44,9 @@ export function useTarget(
           ? world.targetFor(entity, resolvedRelation as Relation<Trait>)
           : undefined;
       };
-      const observer = world[internal].observeSettled(update);
-      const onChange = world.onChange(entity, resolvedRelation[internal].trait, observer.invalidate);
-      const onRemove = world.onRemove(entity, resolvedRelation[internal].trait, observer.invalidate);
+      const refresh = whenSettled(update);
+      const onChange = world.onChange(entity, resolvedRelation[internal].trait, refresh);
+      const onRemove = world.onRemove(entity, resolvedRelation[internal].trait, refresh);
       update();
       return () => {
         onChange();

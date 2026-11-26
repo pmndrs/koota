@@ -444,25 +444,26 @@ export function subscribeTraitEvent(
   const instance = getTraitInstance(ctx.traitInstances, trait)!;
   if (entity !== undefined) ctx.entitySubscribedInstances.add(instance);
   if (event === 'changeSubscriptions') ctx.trackingRevision++;
-  const unsubscribe = subscribeEntity(
-    instance[event],
-    ctx.entityIndex,
-    entity,
-    resolveHookCallback(ctx, input, callback)
-  );
-  if (event === 'changeSubscriptions' || !isRelationPair(input) || !input.targetQuery) {
-    return unsubscribe;
-  }
-  const stop = subscribeRelationFilter(
-    ctx,
-    instance,
-    input,
-    event === 'addSubscriptions',
-    callback,
-    entity
-  );
-  return () => {
-    unsubscribe();
-    stop();
-  };
+  return subscribeHook(ctx, callback, (listener) => {
+    const resolved = resolveHookCallback(ctx, input, listener);
+    const unsubscribe =
+      entity === undefined
+        ? subscribeAll(instance[event], resolved)
+        : subscribeEntity(instance[event], ctx.entityIndex, entity, resolved);
+    if (event === 'changeSubscriptions' || !isRelationPair(input) || !input.targetQuery) {
+      return unsubscribe;
+    }
+    const stop = subscribeRelationFilter(
+      ctx,
+      instance,
+      input,
+      event === 'addSubscriptions',
+      listener,
+      entity
+    );
+    return () => {
+      unsubscribe();
+      stop();
+    };
+  });
 }
