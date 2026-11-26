@@ -3,7 +3,6 @@ import {
   $identifierPair,
   $relationPair,
   createQuery,
-  shallowEqual,
   type Entity,
   type IdentifierPair,
   type RelationPair,
@@ -29,7 +28,7 @@ export function useResolvedWorld(target: Entity | World | undefined | null): Wor
 }
 
 type Target = Entity | World | undefined | null;
-type Read<T, I> = (world: World, entity: Entity, input: I) => T;
+type Read<T, I> = (world: World, entity: Entity, input: I, previous?: T) => T;
 type Attach<T, I> = (world: World, entity: Entity, input: I, push: (value: T) => void) => () => void;
 type GetVersionSource<I> = (
   world: World,
@@ -131,8 +130,8 @@ function subscribeEntity<T, I>(
     binding.source = source;
     if (replaced || (source?.version ?? 0) !== binding.version) push(read(world, entity, input));
   } else {
-    const latest = read(world, entity, input);
-    if (!shallowEqual(latest, binding.value)) push(latest);
+    const latest = read(world, entity, input, binding.value);
+    if (latest !== binding.value) push(latest);
   }
   return detach;
 }

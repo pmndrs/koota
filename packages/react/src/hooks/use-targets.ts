@@ -4,8 +4,12 @@ import { useEntityValue } from '../utils/use-entity-value';
 // Keep the empty result stable across renders when no entity is provided.
 const noTargets: Entity[] = [];
 
-function readTargets(world: World, entity: Entity, relation: Relation<Trait>) {
-  return world.targetsFor(entity, relation);
+function readTargets(world: World, entity: Entity, relation: Relation<Trait>, previous?: Entity[]) {
+  const targets = world.targetsFor(entity, relation);
+  if (previous?.length === targets.length && targets.every((target, i) => target === previous[i])) {
+    return previous;
+  }
+  return targets;
 }
 
 function attachTargets(

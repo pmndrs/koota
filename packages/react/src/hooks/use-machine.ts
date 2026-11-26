@@ -1,18 +1,28 @@
-import { $internal, type Entity, type Machine, type MachineStates, type World } from '@koota/core';
+import {
+  $internal,
+  type Entity,
+  type Machine,
+  type MachineStates,
+  type Trait,
+  type World,
+} from '@koota/core';
 import { useEntityValue } from '../utils/use-entity-value';
 
-function readMachine(world: World, entity: Entity, machine: Machine) {
-  return {
-    state: machine.current(world, entity),
-    revision: machine[$internal].machine!.revision(world, entity),
-  };
+type MachineSnapshot = { state: Trait | undefined; revision: number };
+
+function readMachine(world: World, entity: Entity, machine: Machine, previous?: MachineSnapshot) {
+  const state = machine.current(world, entity);
+  const revision = machine[$internal].machine!.revision(world, entity);
+  return previous && previous.state === state && previous.revision === revision
+    ? previous
+    : { state, revision };
 }
 
 function attachMachine(
   world: World,
   entity: Entity,
   machine: Machine,
-  push: (value: ReturnType<typeof readMachine>) => void
+  push: (value: MachineSnapshot) => void
 ) {
   return world.onTransition(entity, machine, (_entity, _from, to) => {
     push({ state: to, revision: machine[$internal].machine!.revision(world, entity) });
