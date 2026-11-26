@@ -1,6 +1,6 @@
 import { whenSettled, type Entity, type Machine, type MachineStates, type World } from '@koota/core';
 import { untrack } from 'svelte';
-import { createTargetResolver, observeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useMachine<S extends MachineStates>(
@@ -23,7 +23,7 @@ export function useMachine<S extends MachineStates>(
 
   $effect(() => {
     const current = binding;
-    return observeTarget(resolveTarget, current.subject, (resolved) => {
+    return subscribeTarget(resolveTarget, current.subject, (resolved) => {
       const update = () => {
         current.value =
           resolved && resolved.world.has(resolved.entity)

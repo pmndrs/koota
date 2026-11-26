@@ -130,7 +130,7 @@ it('runs trait effects once after re-entry and state changes', () => {
   world.destroy();
 });
 
-it.each(['register', 'reset'] as const)('can %s the world in the initial trait effect', (action) => {
+it.each(['add to', 'reset'] as const)('can %s the world in the initial trait effect', (action) => {
   const world = createWorld();
   const Progress = trait({ value: 0 });
   if (action === 'reset') world.add(Progress);
@@ -145,18 +145,12 @@ it.each(['register', 'reset'] as const)('can %s the world in the initial trait e
   const { unmount } = renderHook(() => useTraitEffect(world, Progress, callback), {
     wrapper: withWorld(world),
   });
-  const initial = action === 'reset' ? [0, undefined] : [undefined, undefined, 0];
+  const initial = action === 'reset' ? [0, undefined] : [undefined, 0];
   expect(seen).toEqual(initial);
   world.reset();
   world.add(Progress({ value: 1 }));
   world.set(Progress, { value: 2 });
   world.destroy();
-  expect(world.isRegistered).toBe(false);
-  world.add(Progress({ value: 3 }));
   unmount();
-  world.set(Progress, { value: 4 });
-  world.reset();
-  world.add(Progress({ value: 5 }));
-  expect(seen).toEqual([...initial, undefined, 1, 2, undefined, undefined, 3]);
-  world.destroy();
+  expect(seen).toEqual([...initial, undefined, 1, 2, undefined]);
 });

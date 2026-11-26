@@ -137,12 +137,10 @@ function subscribeEntity<T, I>(
   return detach;
 }
 
-function subscribe<T, I>(
-  binding: Binding<T, I>,
-  dispatch: (next: Snapshot<T, I>) => void,
-  read: Read<T, I>,
-  attach: Attach<T, I>,
-  getVersionSource?: GetVersionSource<I>
+export function subscribeTarget(
+  target: Target,
+  attach: (entity: Entity | undefined) => (() => void) | undefined,
+  afterReset?: () => void
 ) {
   if (typeof target === 'number' || target == null) return attach(target ?? undefined);
   const ctx = target[$internal];

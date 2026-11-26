@@ -7,7 +7,7 @@ import {
   type World,
 } from '@koota/core';
 import { untrack } from 'svelte';
-import { createTargetResolver, observeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useTraitEffect<T extends Trait>(
@@ -31,24 +31,28 @@ export function useTraitEffect<T extends Trait>(
   $effect(() => {
     const subject = target();
     const resolvedTrait = resolve(trait);
-    return observeTarget(resolveTarget, subject, (resolved) => {
-      if (resolved === undefined) {
-        if (typeof subject === 'object') notify(undefined);
-        return;
+    let current: ReturnType<typeof resolveTarget>;
+    const update = () => {
+      if (current !== undefined) {
+        const { world, entity } = current;
+        notify(world.has(entity) ? world.get(entity, resolvedTrait) : undefined);
+      } else if (typeof subject === 'object') {
+        notify(undefined);
       }
-
+    };
+    const attach = (resolved: ReturnType<typeof resolveTarget>) => {
+      current = resolved;
+      if (resolved === undefined) return;
       const { world, entity } = resolved;
-      const update = () => notify(world.has(entity) ? world.get(entity, resolvedTrait) : undefined);
       const observer = world[internal].observeSettled(update);
       const onChange = world.onChange(entity, resolvedTrait, observer.invalidate);
       const onRemove = world.onRemove(entity, resolvedTrait, observer.invalidate);
-      update();
       return () => {
         onChange();
         onRemove();
       };
     };
-    const stop = subscribeTarget(subject, attach, update);
+    const stop = subscribeTarget(resolveTarget, subject, attach, update);
     try {
       update();
     } catch (error) {

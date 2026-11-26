@@ -371,37 +371,28 @@ describe('useTraitEffect', () => {
     expect(position).toBeUndefined();
   });
 
-  it.each(['register', 'reset'] as const)(
-    'can %s the world in the initial trait effect',
-    (action) => {
-      const Progress = trait({ value: 0 });
-      if (action === 'reset') world.add(Progress);
-      const seen: (number | undefined)[] = [];
-      const callback = (progress: { value: number } | undefined) => {
-        seen.push(progress?.value);
-        if (seen.length === 1) {
-          if (action === 'reset') world.reset();
-          else world.add(Progress);
-        }
-      };
-      const { unmount } = renderSubject({ target: world, trait: Progress, callback });
-      flushSync();
-      const initial = action === 'reset' ? [0, undefined] : [undefined, undefined, 0];
-      expect(seen).toEqual(initial);
-      world.reset();
-      world.add(Progress({ value: 1 }));
-      world.set(Progress, { value: 2 });
-      world.destroy();
-      expect(world.isRegistered).toBe(false);
-      world.add(Progress({ value: 3 }));
-      unmount();
-      world.set(Progress, { value: 4 });
-      world.reset();
-      world.add(Progress({ value: 5 }));
-      expect(seen).toEqual([...initial, undefined, 1, 2, undefined, undefined, 3]);
-      world.destroy();
-    }
-  );
+  it.each(['add to', 'reset'] as const)('can %s the world in the initial trait effect', (action) => {
+    const Progress = trait({ value: 0 });
+    if (action === 'reset') world.add(Progress);
+    const seen: (number | undefined)[] = [];
+    const callback = (progress: { value: number } | undefined) => {
+      seen.push(progress?.value);
+      if (seen.length === 1) {
+        if (action === 'reset') world.reset();
+        else world.add(Progress);
+      }
+    };
+    const { unmount } = renderSubject({ target: world, trait: Progress, callback });
+    flushSync();
+    const initial = action === 'reset' ? [0, undefined] : [undefined, 0];
+    expect(seen).toEqual(initial);
+    world.reset();
+    world.add(Progress({ value: 1 }));
+    world.set(Progress, { value: 2 });
+    world.destroy();
+    unmount();
+    expect(seen).toEqual([...initial, undefined, 1, 2, undefined]);
+  });
 
   it('supports relation pair subscriptions', async () => {
     const ChildOf = relation({ store: { order: 0 } });

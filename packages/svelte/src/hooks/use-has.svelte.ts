@@ -7,7 +7,7 @@ import {
   type Trait,
   type World,
 } from '@koota/core';
-import { createTargetResolver, observeTarget } from '../utils/get-target-entity.js';
+import { createTargetResolver, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 
 export function useHas(
@@ -23,7 +23,7 @@ export function useHas(
   $effect(() => {
     const subject = target();
     const resolvedTrait = resolve(trait);
-    return observeTarget(resolveTarget, subject, (resolved) => {
+    return subscribeTarget(resolveTarget, subject, (resolved) => {
       if (resolved === undefined) {
         value = false;
         return;

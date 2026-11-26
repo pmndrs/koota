@@ -7,7 +7,7 @@ import {
   type World,
 } from '@koota/core';
 import { useEffect, useRef } from 'react';
-import { useResolvedWorld } from '../utils/use-entity-value';
+import { subscribeTarget, useResolvedWorld } from '../utils/use-entity-value';
 import { attachTrait, readTrait } from './use-trait';
 
 export function useTraitEffect<T extends Trait>(
@@ -36,19 +36,16 @@ export function useTraitEffect<T extends Trait>(
 
   useEffect(() => {
     const notify = (value: unknown) => callbackRef.current(value as TraitRecord<T> | undefined);
-    const listen = (entity: Entity | undefined) => {
-      if (entity === undefined) {
-        notify(undefined);
-        return;
-      }
-      if (!world.has(entity)) return;
-      const detach = attachTrait(world, entity, trait, notify);
-      notify(readTrait(world, entity, trait));
-      return detach;
+    let current: Entity | undefined;
+    const update = () => {
+      if (current === undefined) notify(undefined);
+      else if (world.has(current)) notify(readTrait(world, current, trait));
     };
     const attach = (entity: Entity | undefined) => {
       current = entity;
-      if (entity?.isAlive()) return attachTrait(entity, trait, notify);
+      if (entity !== undefined && world.has(entity)) {
+        return attachTrait(world, entity, trait, notify);
+      }
     };
     const stop = subscribeTarget(target, attach, update);
     try {

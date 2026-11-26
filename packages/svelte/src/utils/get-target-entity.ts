@@ -25,14 +25,25 @@ export function createTargetResolver(): TargetResolver {
   };
 }
 
-/** Calls listen with the resolved target. A world target is followed through reset and destruction. */
-export function observeTarget(
+/** Attach to the new world entity before notifying a trait effect. */
+export function subscribeTarget(
   resolveTarget: TargetResolver,
   target: Target,
-  listen: (resolved: Resolved | undefined) => (() => void) | void
+  attach: (resolved: Resolved | undefined) => (() => void) | void,
+  afterReset?: () => void
 ) {
-  if (target != null && isWorld(target)) {
-    return target[internal].observeWorldEntity(() => listen(resolveTarget(target)));
-  }
-  return listen(resolveTarget(target));
+  if (target == null || !isWorld(target)) return attach(resolveTarget(target));
+  const ctx = target[internal];
+  const bind = () => attach(resolveTarget(target));
+  let detach = bind();
+  const reset = () => {
+    detach?.();
+    detach = bind();
+    afterReset?.();
+  };
+  ctx.resetSubscriptions.add(reset);
+  return () => {
+    ctx.resetSubscriptions.delete(reset);
+    detach?.();
+  };
 }
