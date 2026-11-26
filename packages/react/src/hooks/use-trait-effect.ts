@@ -1,5 +1,4 @@
 import {
-  $internal,
   $relationPair,
   type Entity,
   type RelationPair,
@@ -9,6 +8,7 @@ import {
 } from '@koota/core';
 import { useEffect, useRef } from 'react';
 import { attachTrait, readTrait } from './use-trait';
+import { subscribeTarget } from '../utils/use-entity-value';
 import { useWorld } from '../world/use-world';
 
 export function useTraitEffect<T extends Trait>(
@@ -37,28 +37,20 @@ export function useTraitEffect<T extends Trait>(
 
   useEffect(() => {
     const notify = (value: unknown) => callbackRef.current(value as TraitRecord<T> | undefined);
-    const ctx = typeof target === 'number' ? undefined : target[$internal];
-    let detach: (() => void) | undefined;
-    const reset = () => {
-      detach?.();
-      detach = undefined;
-      const entity = typeof target === 'number' ? target : target[$internal].worldEntity;
-      if (entity == null) return notify(undefined);
-      if (!entity.isAlive()) return;
-      const next = attachTrait(entity, trait, notify);
-      if (ctx && (ctx.worldEntity !== entity || !ctx.resetSubscriptions.has(reset))) return next();
-      detach = next;
-      notify(readTrait(entity, trait));
+    let current: Entity | undefined;
+    const update = () => {
+      if (current === undefined) notify(undefined);
+      else if (current.isAlive()) notify(readTrait(current, trait));
     };
-    const stop = () => {
-      ctx?.resetSubscriptions.delete(reset);
-      detach?.();
+    const attach = (entity: Entity | undefined) => {
+      current = entity;
+      if (entity?.isAlive()) return attachTrait(entity, trait, notify);
     };
-    ctx?.resetSubscriptions.add(reset);
+    const stop = subscribeTarget(target, attach, update);
     try {
-      reset();
+      update();
     } catch (error) {
-      stop();
+      stop?.();
       throw error;
     }
     return stop;

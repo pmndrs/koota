@@ -122,18 +122,22 @@ it('runs trait effects once after re-entry and state changes', () => {
   world.destroy();
 });
 
-it('keeps a world trait effect subscribed across reset', () => {
+it('keeps a world trait effect subscribed when its initial callback resets the world', () => {
   const world = createWorld();
   const Progress = trait({ value: 0 });
   world.add(Progress);
   const seen: (number | undefined)[] = [];
   const { unmount } = renderHook(
-    () => useTraitEffect(world, Progress, (value) => seen.push(value?.value)),
+    () =>
+      useTraitEffect(world, Progress, (value) => {
+        seen.push(value?.value);
+        if (value?.value === 0) world.reset();
+      }),
     { wrapper: withWorld(world) }
   );
-  act(() => world.reset());
   act(() => world.add(Progress({ value: 2 })));
-  expect(seen).toEqual([0, undefined, 2]);
   unmount();
+  world.set(Progress, { value: 3 });
+  expect(seen).toEqual([0, undefined, 2]);
   world.destroy();
 });

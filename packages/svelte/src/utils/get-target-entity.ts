@@ -9,35 +9,24 @@ export function getTargetEntity(target: Entity | World | undefined | null): Enti
   return target[internal].worldEntity ?? undefined;
 }
 
-/** World targets follow their backing entity through reset and destruction. */
-export function observeTarget(
+/** Attach to the new world entity before notifying a trait effect. */
+export function subscribeTarget(
   target: Entity | World | null | undefined,
-  listen: (entity: Entity | undefined) => (() => void) | void
+  attach: (entity: Entity | undefined) => (() => void) | void,
+  afterReset?: () => void
 ) {
-  if (target == null || !isWorld(target)) return listen(getTargetEntity(target));
+  if (target == null || !isWorld(target)) return attach(getTargetEntity(target));
   const ctx = target[internal];
-  let detach: (() => void) | void;
-  let revision = 0;
+  const bind = () => attach(ctx.worldEntity ?? undefined);
+  let detach = bind();
   const reset = () => {
-    const current = ++revision;
     detach?.();
-    detach = undefined;
-    const next = listen(ctx.worldEntity ?? undefined);
-    // An initial trait effect can register or reset its own world.
-    if (current === revision) detach = next;
-    else next?.();
-  };
-  const stop = () => {
-    ctx.resetSubscriptions.delete(reset);
-    revision++;
-    detach?.();
+    detach = bind();
+    afterReset?.();
   };
   ctx.resetSubscriptions.add(reset);
-  try {
-    reset();
-  } catch (error) {
-    stop();
-    throw error;
-  }
-  return stop;
+  return () => {
+    ctx.resetSubscriptions.delete(reset);
+    detach?.();
+  };
 }

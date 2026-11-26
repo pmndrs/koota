@@ -5,7 +5,7 @@ import {
   type Trait,
   type World,
 } from '@koota/core';
-import { getTargetEntity, observeTarget } from '../utils/get-target-entity.js';
+import { getTargetEntity, subscribeTarget } from '../utils/get-target-entity.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
 import { useWorld } from '../world/world-context.js';
 
@@ -20,7 +20,7 @@ export function useTargets<T extends Trait>(
   $effect(() => {
     const subject = target();
     const resolvedRelation = resolve(relation);
-    return observeTarget(subject, (entity) => {
+    return subscribeTarget(subject, (entity) => {
       if (entity === undefined) {
         value = [];
         return;
