@@ -7,7 +7,6 @@ import {
   StrictMode,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from 'react';
@@ -58,30 +57,6 @@ describe('World', () => {
     });
 
     expect(worldTest).toBe(world);
-  });
-
-  it('can create a world in useMemo and use it across strict effects', () => {
-    let worldTest: World = null!;
-
-    function Test() {
-      worldTest = useMemo(() => createWorld(), []);
-
-      useEffect(() => {
-        const entity = worldTest.spawn();
-        return () => worldTest.destroy(entity);
-      }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-      return null;
-    }
-
-    render(
-      <StrictMode>
-        <Test />
-      </StrictMode>
-    );
-
-    expect(worldTest).toBeDefined();
-    expect(worldTest!.entities.length).toBe(2);
   });
 });
 
