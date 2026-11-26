@@ -102,6 +102,7 @@ export type WorldContext = {
   settledCallbacks: WeakMap<() => void, SettledCallback> | undefined;
   settledQueue: (SettledCallback | undefined)[];
   settledCount: number;
+  settledRound: number;
   getOrderedSnapshot: typeof getOrderedSnapshot;
   createQueryStore: typeof createQueryStore;
   /** Notifies after registration, reset or destruction changes the backing entity. */

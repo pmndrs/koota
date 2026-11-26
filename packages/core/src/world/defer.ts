@@ -96,7 +96,6 @@ export function runCommand(
  */
 export function settleWorld(ctx: WorldContext) {
   let waves = 0;
-  let rounds = 0;
   let nextCallback = 0;
   let failure: { error: unknown } | undefined;
   const { commands, settledQueue } = ctx;
@@ -125,13 +124,16 @@ export function settleWorld(ctx: WorldContext) {
 
       const end = ctx.settledCount;
       if (nextCallback === end) break;
-      if (++rounds > 100) {
+      const round = ctx.settledRound;
+      if (round === 100) {
         throw new Error(
           'Koota: Callbacks did not settle after 100 rounds. A callback is likely triggering itself.'
         );
       }
+      // A withdrawn callback scheduled again during delivery belongs to the next round.
+      ctx.settledRound = round + 1;
       while (nextCallback < end) {
-        const update = takeSettledCallback(settledQueue, nextCallback++);
+        const update = takeSettledCallback(settledQueue, nextCallback++, round);
         try {
           update?.();
         } catch (error) {
@@ -142,8 +144,11 @@ export function settleWorld(ctx: WorldContext) {
   } finally {
     if (ctx.commandCount !== 0) clearCommands(ctx);
     // A limit error can leave callbacks queued for a round that never ran.
-    while (nextCallback < ctx.settledCount) takeSettledCallback(settledQueue, nextCallback++);
+    while (nextCallback < ctx.settledCount) {
+      takeSettledCallback(settledQueue, nextCallback++, ctx.settledRound);
+    }
     ctx.settledCount = 0;
+    ctx.settledRound = 0;
     ctx.unsettled = false;
     ctx.deferDepth--;
   }
@@ -151,11 +156,12 @@ export function settleWorld(ctx: WorldContext) {
 }
 
 /** Release the slot before calling user code so the callback can queue another round. */
-function takeSettledCallback(queue: (SettledCallback | undefined)[], index: number) {
+function takeSettledCallback(queue: (SettledCallback | undefined)[], index: number, round: number) {
   const callback = queue[index]!;
   queue[index] = undefined;
+  if (callback.round !== round) return;
   const update = callback.pending > 0 ? callback.update : undefined;
-  callback.queued = false;
+  callback.round = -1;
   callback.pending = 0;
   callback.version++;
   return update;

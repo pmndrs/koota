@@ -7,7 +7,8 @@ export type SettledCallback = {
   update: () => void;
   version: number;
   pending: number;
-  queued: boolean;
+  /** The round that owns the queue entry, or -1 when idle. */
+  round: number;
 };
 
 /**
@@ -35,7 +36,7 @@ export function subscribeHook<Args extends unknown[]>(
   const callbacks = (ctx.settledCallbacks ??= new WeakMap());
   let settled = callbacks.get(callback);
   if (settled === undefined) {
-    settled = { update, version: 0, pending: 0, queued: false };
+    settled = { update, version: 0, pending: 0, round: -1 };
     callbacks.set(callback, settled);
   }
   // Each subscription can contribute and withdraw one notification per delivery.
@@ -44,9 +45,8 @@ export function subscribeHook<Args extends unknown[]>(
     if (ctx.deferDepth === 0) return update();
     if (pendingVersion === settled.version) return;
     pendingVersion = settled.version;
-    settled.pending++;
-    if (!settled.queued) {
-      settled.queued = true;
+    if (settled.pending++ === 0 && settled.round !== ctx.settledRound) {
+      settled.round = ctx.settledRound;
       ctx.settledQueue[ctx.settledCount++] = settled;
       ctx.unsettled = true;
     }

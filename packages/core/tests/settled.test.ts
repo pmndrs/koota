@@ -247,6 +247,39 @@ it('withdraws the pending notification only for the hook that unsubscribes', () 
   world.destroy();
 });
 
+it.each(['before', 'during'] as const)(
+  'waits for structural changes when a notification withdrawn %s delivery is scheduled again',
+  (timing) => {
+    const world = createWorld();
+    const Start = trait();
+    const Old = trait();
+    const Current = trait();
+    const Ready = trait();
+    const entity = world.spawn(Start, Old, Current);
+    const values: boolean[] = [];
+    const refresh = whenSettled(() => values.push(entity.has(Ready)));
+    const stop = entity.onChange(Old, refresh);
+    entity.onChange(Current, refresh);
+    entity.onChange(
+      Start,
+      whenSettled(() => {
+        if (timing === 'during') stop();
+        entity.add(Ready);
+        entity.changed(Current);
+      })
+    );
+
+    world.defer(() => {
+      entity.changed(Start);
+      entity.changed(Old);
+      if (timing === 'before') stop();
+    });
+
+    expect(values).toEqual([true]);
+    world.destroy();
+  }
+);
+
 it('schedules a shared wrapper independently in nested worlds', () => {
   const first = createWorld();
   const second = createWorld();

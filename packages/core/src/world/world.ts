@@ -254,6 +254,7 @@ export function createWorld(options?: WorldOptions): World {
       settledCallbacks: undefined,
       settledQueue: [],
       settledCount: 0,
+      settledRound: 0,
       getOrderedSnapshot,
       createQueryStore,
       resetSubscriptions: new Set(),
