@@ -29,23 +29,32 @@ for (const count of [1, 10_000]) {
       const Contains = relation();
       const Active = trait();
       const Position = trait({ x: 1 });
+      // The walks sum into this trait, as a system would. It starts at a fraction so its column
+      // holds floats from the first write.
+      const Total = trait({ value: 0.5 });
       const parent = world.spawn();
       const active = world.spawn(Active);
       const idle = world.spawn();
       for (let i = 0; i < count; i++) {
-        world.spawn(Parent(parent), Position, Contains(active), Contains(idle));
+        world.spawn(Parent(parent), Position, Total, Contains(active), Contains(idle));
       }
-      const query = world.query(Parent(parent), Position, Contains(Active));
+      const query = world.query(Parent(parent), Position, Total, Contains(Active));
+      let frames = 0;
 
-      const result = yield () => {
-        let sum = 0;
-        query.select(Parent(parent), Position, Contains(Active)).each((position, targets) => {
-          sum += position.x + targets[0];
-        });
-        return sum;
+      yield {
+        bench: () => {
+          frames++;
+          query
+            .select(Parent(parent), Position, Total, Contains(Active))
+            .each((position, total, targets) => {
+              total.value += position.x + targets[0];
+            });
+        },
+        snapshot: () => {
+          assert.equal(query.at(count - 1)!.get(Total)!.value, 0.5 + (1 + active) * frames);
+          return query.length;
+        },
       };
-
-      assert.equal(result, count * (1 + active));
       world.destroy();
     });
   });

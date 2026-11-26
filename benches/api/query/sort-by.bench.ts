@@ -8,25 +8,28 @@ group('sortBy each @sort-by @sort-by-each', () => {
         const world = createWorld();
         const Revision = trait({ current: 0 });
         const Tile = trait({ z: 18, x: 0, y: 0, width: 1, height: 1 });
-        for (let i = 0; i < count; i++) world.spawn(Revision, Tile);
-        const query = world.query(Tile);
+        // The walk sums into this trait, as a system would. It starts at a fraction so its
+        // column holds floats from the first write.
+        const Total = trait({ value: 0.5 });
+        for (let i = 0; i < count; i++) world.spawn(Revision, Tile, Total);
+        const query = world.query(Tile, Total);
         const first = query.first!;
         const view = query.sortBy(Revision, (revision) => revision.current);
-        let total = 0;
-        const visit = (tile: { z: number }) => {
-          total += tile.z;
+        let frames = 1;
+        const visit = (tile: { z: number }, total: { value: number }) => {
+          total.value += tile.z;
         };
         view.each(visit);
         yield {
           bench: () => {
             // One same-value write invalidates all keys without measuring a full write pass.
             if (refresh) first.set(Revision, { current: 1 });
-            total = 0;
+            frames++;
             view.each(visit);
           },
           snapshot: () => {
-            assert.equal(total, count * 18);
-            return total;
+            assert.equal(first.get(Total), { value: 0.5 + 18 * frames });
+            return count;
           },
         };
         world.destroy();

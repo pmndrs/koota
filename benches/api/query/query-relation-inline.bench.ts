@@ -17,6 +17,9 @@ for (const [exclusive, count, targetCount, modes] of [
         bench(mode, function* () {
           const world = createWorld();
           const Position = trait({ x: 0 });
+          // The walk sums into this trait, as a system would. It starts at a fraction so its
+          // column holds floats from the first write.
+          const Total = trait({ value: 0.5 });
           const relations = Array.from({ length: count }, () => relation({ exclusive }));
           const targets = Array.from({ length: targetCount }, () => world.spawn());
           const entities: Entity[] = [];
@@ -24,9 +27,12 @@ for (const [exclusive, count, targetCount, modes] of [
             entities.push(world.spawn());
             if (count === 3) for (let gap = 0; gap < 3; gap++) world.spawn();
           }
+          // The last entity to get its traits, whose total the checks read.
+          let probe = entities[0];
           for (let i = 0; i < 10_000; i++) {
             const entity = entities[count === 3 ? (i * 7919) % 10_000 : i];
-            entity.add(Position({ x: i }));
+            probe = entity;
+            entity.add(Position({ x: i }), Total);
             for (const relation of relations) {
               for (const target of targets) entity.add(relation(target));
             }
@@ -37,10 +43,11 @@ for (const [exclusive, count, targetCount, modes] of [
           world.query(relations[0]('*')).each((...args: unknown[]) => {
             projected = args.length === 3;
           });
-          const sink = { value: 0 };
+          const frames = { count: 0 };
           const parameters = relations.map((_, i) => `relations[${i}]('*')`);
           const args = [
             'position',
+            'total',
             ...(projected && mode !== 'selected' ? relations.map((_, i) => `target${i}`) : []),
             'entity',
           ];
@@ -51,7 +58,7 @@ for (const [exclusive, count, targetCount, modes] of [
                     const target = projected
                       ? `target${i}`
                       : `entity.${exclusive ? 'targetFor' : 'targetsFor'}(relations[${i}])`;
-                    return `var t${i} = ${target}; sink.value += ${exclusive ? `t${i}` : `t${i}.length + t${i}[0] + t${i}[1]`};`;
+                    return `var t${i} = ${target}; total.value += ${exclusive ? `t${i}` : `t${i}.length + t${i}[0] + t${i}[1]`};`;
                   })
                   .join('\n')
               : '';
@@ -59,26 +66,33 @@ for (const [exclusive, count, targetCount, modes] of [
           const run = new Function(
             'world',
             'Position',
+            'Total',
             'relations',
-            'sink',
+            'frames',
             `return function run() {
-              sink.value = 0;
-              world.query(Position, ${parameters.join(', ')})${mode === 'selected' ? '.select(Position)' : ''}
+              frames.count++;
+              world.query(Position, Total, ${parameters.join(', ')})${mode === 'selected' ? '.select(Position, Total)' : ''}
                 .each(function callback(${args.join(', ')}) {
-                  sink.value += position.x;
+                  total.value += position.x;
                   ${reads}
                 });
-              return sink.value;
             };`
-          )(world, Position, relations, sink);
-          const expected =
-            49_995_000 +
+          )(world, Position, Total, relations, frames) as () => void;
+          // What one walk adds to the total of the probed entity, which holds x 9999.
+          const step =
+            9999 +
             (mode === 'consumed'
-              ? 10_000 * count * (exclusive ? targets[0] : targets.length + targets[0] + targets[1])
+              ? count * (exclusive ? targets[0] : targets.length + targets[0] + targets[1])
               : 0);
-          assert.equal(run(), expected);
-          const result = yield run;
-          assert.equal(result, expected);
+          run();
+          assert.equal(probe.get(Total)!.value, 0.5 + step);
+          yield {
+            bench: run,
+            snapshot: () => {
+              assert.equal(probe.get(Total)!.value, 0.5 + step * frames.count);
+              return 10_000;
+            },
+          };
           world.destroy();
         });
       }
@@ -90,15 +104,24 @@ group('inline plain trait 10k @relation-each-inline', () => {
   bench('no relations', function* () {
     const world = createWorld();
     const Position = trait({ x: 0 });
-    for (let i = 0; i < 10_000; i++) world.spawn(Position({ x: i }));
-    const result = yield () => {
-      let sum = 0;
-      world.query(Position).each((position) => {
-        sum += position.x;
-      });
-      return sum;
+    // The walks sum into this trait, as a system would. It starts at a fraction so its column
+    // holds floats from the first write.
+    const Total = trait({ value: 0.5 });
+    for (let i = 0; i < 10_000; i++) world.spawn(Position({ x: i }), Total);
+    let frames = 0;
+    yield {
+      bench: () => {
+        frames++;
+        world.query(Position, Total).each((position, total) => {
+          total.value += position.x;
+        });
+      },
+      snapshot: () => {
+        const last = world.query(Position, Total).at(9999)!;
+        assert.equal(last.get(Total)!.value, 0.5 + 9999 * frames);
+        return 10_000;
+      },
     };
-    assert.equal(result, 49_995_000);
     world.destroy();
   });
 });
