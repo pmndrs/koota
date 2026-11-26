@@ -46,7 +46,7 @@ export /* @inline */ function assertTraitPresent(ctx: WorldContext, entity: Enti
   const eid = getEntityId(entity);
   if (
     instance === undefined ||
-    (ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2] & instance.bitflag) === 0
+    (instance.masks[eid >>> 10][(eid & 1023) << 2] & instance.bitflag) === 0
   ) {
     throw createTraitNotPresentError(entity, trait);
   }

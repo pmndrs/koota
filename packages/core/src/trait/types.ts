@@ -181,6 +181,8 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   /** Revision for possible writes and membership changes, even without change events. */
   version: number;
   generationId: number;
+  /** The mask table of this generation, held here so a membership read skips ctx.entityMasks. */
+  masks: Uint32Array[];
   bitflag: number;
   trait: Trait;
   store: Store<S>;

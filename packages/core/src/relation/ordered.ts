@@ -83,13 +83,13 @@ export function setupOrderedTraitSync(ctx: WorldContext, orderedTrait: OrderedRe
     relationInstance = getTraitInstance(ctx.traitInstances, relationTrait)!;
   }
 
-  const { generationId, bitflag, store } = orderedInstance;
-  const { entityMasks, entityIndex } = ctx;
+  const { masks, bitflag, store } = orderedInstance;
+  const { entityIndex } = ctx;
   const traitCtx = orderedTrait[$internal];
 
   const getList = (parent: Entity): RelationView | undefined => {
     const eid = getEntityId(parent);
-    return entityMasks[generationId][eid >>> 10][(eid & 1023) << 2] & bitflag
+    return masks[eid >>> 10][(eid & 1023) << 2] & bitflag
       ? (traitCtx.get(ctx, eid, store) as RelationView)
       : undefined;
   };

@@ -46,7 +46,7 @@ import {
 } from '../relation/relation';
 import type { Relation, RelationPair } from '../relation/types';
 import { isRelationPair } from '../relation/utils/is-relation';
-import { clearTraitMembership, setTraitMembership } from './membership';
+import { clearDyingTraitMembership, clearTraitMembership, setTraitMembership } from './membership';
 import {
   createRecordFunction,
   createSchemaAccessors,
@@ -155,6 +155,7 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   const data: TraitInstance = {
     version: 0,
     generationId: ctx.entityMasks.length - 1,
+    masks: ctx.entityMasks[ctx.entityMasks.length - 1],
     bitflag: ctx.bitflag,
     trait,
     store: traitCtx.createStore(),
@@ -266,7 +267,7 @@ export /* @inline */ function applyAddTrait(
     let instance = getTraitInstance(ctx.traitInstances, trait);
     if (
       instance !== undefined &&
-      (ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2] & instance.bitflag) !== 0
+      (instance.masks[eid >>> 10][(eid & 1023) << 2] & instance.bitflag) !== 0
     )
       continue;
     if (trait[$internal].kind === 'machine') /* @cold */ {
@@ -524,7 +525,7 @@ export function removeTraitFromAliveEntity(ctx: WorldContext, entity: Entity, tr
   const instance = getTraitInstance(ctx.traitInstances, trait);
   if (instance === undefined) return;
   const eid = getEntityId(entity);
-  const mask = ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2];
+  const mask = instance.masks[eid >>> 10][(eid & 1023) << 2];
   if ((mask & instance.bitflag) === 0) return;
 
   const traitCtx = trait[$internal];
@@ -627,7 +628,7 @@ export function finishDyingTraitRemoval(
   instance: TraitInstance,
   targets: readonly Entity[] | undefined
 ) {
-  clearTraitMembership(ctx, entity, instance);
+  clearDyingTraitMembership(ctx, entity, instance);
 
   // Most traits have no query to leave, so the check stays here and the work is a call.
   if (
@@ -753,9 +754,9 @@ export /* @inline @pure */ function hasTrait(
   const instance = getTraitInstance(ctx.traitInstances, trait);
   if (!instance) return false;
 
-  const { generationId, bitflag } = instance;
+  const { masks, bitflag } = instance;
   const eid = getEntityId(entity);
-  const mask = ctx.entityMasks[generationId][eid >>> 10][(eid & 1023) << 2];
+  const mask = masks[eid >>> 10][(eid & 1023) << 2];
 
   return (mask & bitflag) === bitflag;
 }
@@ -827,8 +828,7 @@ export /* @inline @pure */ function getTraitForTrait(
   const data = getTraitInstance(ctx.traitInstances, trait);
   if (data === undefined) return undefined;
   const index = getEntityId(entity);
-  if ((ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
-    return undefined;
+  if ((data.masks[index >>> 10][(index & 1023) << 2] & data.bitflag) === 0) return undefined;
   const traitCtx = trait[$internal];
   return out === undefined
     ? traitCtx.get(ctx, index, data.store)
@@ -903,8 +903,7 @@ export /* @inline */ function setTraitForTrait(
 
   if (
     assertsEnabled &&
-    (data === undefined ||
-      (ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
+    (data === undefined || (data.masks[index >>> 10][(index & 1023) << 2] & data.bitflag) === 0)
   ) {
     throw createTraitNotPresentError(entity, trait, true);
   }
@@ -939,10 +938,7 @@ export function resolveTraitSetCallback(
   if (assertsEnabled) {
     assertEntityAlive(ctx, entity);
     // Trait removal retains the instance, so membership is read from the mask.
-    if (
-      (ctx.entityMasks[data.generationId][index >>> 10][(index & 1023) << 2] & data.bitflag) ===
-      0
-    ) {
+    if ((data.masks[index >>> 10][(index & 1023) << 2] & data.bitflag) === 0) {
       throw new Error(
         `Koota: [TRAIT_PRESENT] The trait was removed during its set callback. Wrap the set in world.defer to apply the removal after the write. Entity ${entity}, trait ${trait.id}.`
       );
@@ -1006,7 +1002,7 @@ function removeTraitFromEntity(ctx: WorldContext, entity: Entity, trait: Trait):
   const instance = getTraitInstance(ctx.traitInstances, trait);
   if (instance === undefined) return;
   const eid = getEntityId(entity);
-  const mask = ctx.entityMasks[instance.generationId][eid >>> 10][(eid & 1023) << 2];
+  const mask = instance.masks[eid >>> 10][(eid & 1023) << 2];
   if ((mask & instance.bitflag) === 0) return;
 
   /* @cold */ if (assertsEnabled && trait[$internal].relation) {

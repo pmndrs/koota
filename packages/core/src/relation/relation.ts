@@ -595,10 +595,7 @@ export function removeRelationTarget(
   data: TraitInstance | undefined
 ) {
   const eid = getEntityId(entity);
-  if (
-    data === undefined ||
-    (ctx.entityMasks[data.generationId][eid >>> 10][(eid & 1023) << 2] & data.bitflag) === 0
-  ) {
+  if (data === undefined || (data.masks[eid >>> 10][(eid & 1023) << 2] & data.bitflag) === 0) {
     throw new Error(
       `Koota: [RELATION_INDEX] Relation targets require their base trait membership. Entity ${entity}, trait ${data?.trait.id}.`
     );

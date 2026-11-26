@@ -30,15 +30,15 @@ export /* @inline */ function markTraitChanged(
  */
 export function notifyChangedTrackingQueries(ctx: WorldContext, entity: Entity, data: TraitInstance) {
   const { generationId, bitflag } = data;
-  const entityMasks = ctx.entityMasks;
   const eid = getEntityId(entity);
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
-  const page = entityMasks[generationId][pageId];
+  const page = data.masks[pageId];
   if ((page[slot + PENDING_WORD] & bitflag) !== 0) return;
   // An unchecked write can reach here without the trait, on a page that may be the shared sentinel.
   if ((page[slot] & bitflag) === 0) return;
 
+  const entityMasks = ctx.entityMasks;
   const queries = data.trackingQueries;
   let accepted = false;
   for (let i = 0; i < queries.length; i++) {
