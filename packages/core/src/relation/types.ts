@@ -98,6 +98,7 @@ export type Relation<T extends Trait = Trait, Exclusive extends boolean = boolea
     exclusive: Exclusive;
     /** Forward target pages of worlds that share entity ids. */
     sharedTargets: RelationTargetPages | undefined;
+    sharedTargetPageCount: number;
     autoDestroy: 'source' | 'target' | false;
     scopedIdentifiers: Identifier[] | undefined;
   };

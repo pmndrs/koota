@@ -16,7 +16,9 @@ export function createTargetPage(
   const page: (Entity | Entity[] | undefined)[] = [];
   (instance.relationTargets ??= [])[pageId] = page;
   if (ctx.entityIndex.allocator === sharedAllocator) {
-    (relation[$internal].sharedTargets ??= [])[pageId] = page;
+    const def = relation[$internal];
+    (def.sharedTargets ??= [])[pageId] = page;
+    def.sharedTargetPageCount++;
   }
   return page;
 }
@@ -25,14 +27,15 @@ export function createTargetPage(
 export function clearSharedTargetPages(ctx: WorldContext) {
   for (const relation of ctx.relations) {
     const def = relation[$internal];
-    const pages = def.sharedTargets;
-    if (!pages) continue;
-    if (def.trait[$internal].sharedMask.users === 1) {
+    const owned = ctx.traitInstances[def.trait.id]?.relationTargets;
+    if (!owned) continue;
+    const pageIds = Object.keys(owned);
+    def.sharedTargetPageCount -= pageIds.length;
+    if (def.sharedTargetPageCount === 0) {
       def.sharedTargets = undefined;
-    } else if (ctx.traitInstances[def.trait.id]?.relationTargets) {
-      for (const pageId of ctx.entityIndex.ownedPages) {
-        if (pages[pageId] !== undefined) pages[pageId] = undefined;
-      }
+    } else {
+      const pages = def.sharedTargets!;
+      for (const pageId of pageIds) pages[Number(pageId)] = undefined;
     }
   }
 }
