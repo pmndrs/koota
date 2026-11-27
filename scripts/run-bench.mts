@@ -1,6 +1,5 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, symlinkSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -50,11 +49,9 @@ function run(args: string[], env = process.env) {
 }
 
 /**
- * Compile koota from a checkout into that checkout's bench build directory. The tsconfig written
- * beside it maps koota to the bundle with relative paths, so a bench process started in any
- * checkout's bench directory loads the code of that checkout.
+ * Compile Koota into the build directory that the benchmark worker resolves in its own checkout.
  */
-async function compile(root: string) {
+function compile(root: string) {
   const outDir = join(root, 'benches', '.labs', 'build', `asserts-${asserts}`);
 
   if (root !== repoDir) linkDependencies(root);
@@ -74,20 +71,6 @@ async function compile(root: string) {
   );
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
-
-  await writeFile(
-    join(outDir, 'tsconfig.json'),
-    JSON.stringify({
-      extends: '../../../tsconfig.json',
-      compilerOptions: {
-        paths: {
-          koota: ['./index.js'],
-          'koota/isolated': ['./isolated.js'],
-          'koota/react': ['./react.js'],
-        },
-      },
-    })
-  );
 }
 
 /**
@@ -124,7 +107,7 @@ function linkDependencies(root: string) {
  * and handed to labs as an absolute path. A git revision would be checked out by labs after this
  * script runs, and its bench processes would then resolve koota to this tree's source instead.
  */
-async function compileSide(flag: string) {
+function compileSide(flag: string) {
   const i = args.indexOf(flag);
   if (i === -1) return;
   const spec = args[i + 1];
@@ -137,7 +120,7 @@ async function compileSide(flag: string) {
   }
   args[i + 1] = dir;
   console.log(`Koota benchmarks: compiling ${flag} ${dir}`);
-  await compile(dir);
+  compile(dir);
 }
 
 if (['baseline', 'compare', 'list', 'clear', 'delete', 'prune'].includes(args[0])) {
@@ -145,11 +128,11 @@ if (['baseline', 'compare', 'list', 'clear', 'delete', 'prune'].includes(args[0]
 } else {
   console.log(`Koota benchmarks: asserts ${asserts} (compiled)`);
   // A candidate directory stands in for the working tree, which then has nothing to compile.
-  if (!args.includes('--candidate')) await compile(repoDir);
-  await compileSide('--against');
-  await compileSide('--candidate');
+  if (!args.includes('--candidate')) compile(repoDir);
+  compileSide('--against');
+  compileSide('--candidate');
   run(['exec', 'labs', ...args], {
     ...process.env,
-    TSX_TSCONFIG_PATH: join('.labs', 'build', `asserts-${asserts}`, 'tsconfig.json'),
+    KOOTA_BENCH_BUILD: join('.labs', 'build', `asserts-${asserts}`),
   });
 }

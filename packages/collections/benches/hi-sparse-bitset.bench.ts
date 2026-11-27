@@ -1,5 +1,5 @@
 import { assert, bench, group } from '@pmndrs/labs';
-import { HiSparseBitSet, forEachIntersection, forEachQuery } from '../src';
+import { HiSparseBitSet, forEachIntersection, forEachQuery } from '../src/hi-sparse-bitset.ts';
 
 // --- Constants ---
 // All benchmarks use 10k elements so per-element cost is directly comparable.
