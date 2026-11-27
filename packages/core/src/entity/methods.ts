@@ -1,10 +1,11 @@
 import { assertsEnabled, warningsEnabled } from '../build-flags';
-import { isIdentifier, isIdentifierPair } from '../identifier/identifier';
+import { isIdentifier } from '../identifier/identifier';
 import { getIdentifierTarget, hasIdentifier } from '../identifier/ownership';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import { $internal } from '../internal';
 import { subscribeTransition } from '../machine/hooks';
 import type { Machine, TransitionSubscriber } from '../machine/types';
+import { isRelationPair } from '../relation/relation';
 import { firstTargetInPages, hasTargetInPages } from '../relation/target-pages';
 import type { Relation, RelationPair } from '../relation/types';
 import { subscribeAdd, subscribeChange, subscribeRemove } from '../trait/hooks';
@@ -29,9 +30,13 @@ let installed = false;
 
 // Keep pair dispatch out of the bytecode for repeated plain trait checks.
 function hasPair(entity: Entity, pair: RelationPair | IdentifierPair) {
-  if (isIdentifierPair(pair)) return hasIdentifier(getEntityContext(entity), entity, pair);
-  if (pair.target === undefined) return hasEntityRelationPair(getEntityContext(entity), entity, pair);
-  return hasTargetInPages(pair.relation[$internal].sharedTargets, entity, pair.target);
+  if (isRelationPair(pair)) {
+    if (pair.target === undefined)
+      return hasEntityRelationPair(getEntityContext(entity), entity, pair);
+    const def = pair.relation[$internal];
+    return hasTargetInPages(def.sharedTargets, entity, pair.target, def.exclusive);
+  }
+  return hasIdentifier(getEntityContext(entity), entity, pair);
 }
 
 /**

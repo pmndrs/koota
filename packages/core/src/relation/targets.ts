@@ -345,6 +345,7 @@ export /* @inline @pure */ function hasRelationPair(
 ): boolean {
   const target = pair.target;
   if (target === undefined) return false;
-  const instance = getTraitInstance(ctx.traitInstances, pair.relation[$internal].trait);
-  return hasTargetInPages(instance?.relationTargets, entity, target);
+  const def = pair.relation[$internal];
+  const instance = getTraitInstance(ctx.traitInstances, def.trait);
+  return hasTargetInPages(instance?.relationTargets, entity, target, def.exclusive);
 }

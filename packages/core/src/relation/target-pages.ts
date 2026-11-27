@@ -49,11 +49,13 @@ export /* @inline @pure */ function firstTargetInPages(
 export /* @inline @pure */ function hasTargetInPages(
   pages: RelationTargetPages | undefined,
   entity: Entity,
-  target: RelationTarget
+  target: RelationTarget,
+  exclusive: boolean
 ): boolean {
   const eid = getEntityId(entity);
   const entry = pages?.[eid >>> 10]?.[eid & 1023];
   if (entry === undefined) return false;
-  if (typeof entry === 'number') return target === '*' || entry === target;
-  return target === '*' ? entry.length !== 0 : entry.includes(target);
+  if (exclusive) return target === '*' || entry === target;
+  const targets = entry as Entity[];
+  return target === '*' ? targets.length !== 0 : targets.includes(target);
 }
