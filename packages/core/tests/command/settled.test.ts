@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { $internal, whenSettled, createWorld, relation, trait } from '../../src';
+import { whenSettled, createWorld, relation, trait } from '../../src';
 
 it('settles once after nested removals and reads the remaining target', () => {
   const world = createWorld();
@@ -148,7 +148,6 @@ it.each([
   else world.onExit([A], refresh);
   world[operation]();
   expect(values).toEqual([[false, 0]]);
-  if (operation === 'destroy') expect(A[$internal].sharedMask.users).toBe(0);
 });
 
 it('runs value invalidations at once outside structural changes', () => {

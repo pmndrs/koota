@@ -124,6 +124,30 @@ group('entity.has dispatch 10k @entity @has', () => {
     world.destroy();
     return result;
   });
+
+  bench('entity.has with two required traits', function* () {
+    const world = createWorld();
+    const entities: Entity[] = [];
+    for (let i = 0; i < 2_500; i++) {
+      entities.push(
+        world.spawn(),
+        world.spawn(Position),
+        world.spawn(Velocity),
+        world.spawn(Position, Velocity)
+      );
+    }
+
+    const matches = yield () => {
+      let count = 0;
+      for (const entity of entities) {
+        if (entity.has(Position) && entity.has(Velocity)) count++;
+      }
+      return count;
+    };
+
+    assert.equal(matches, 2_500);
+    world.destroy();
+  });
 });
 
 group('entity.destroy 10k @entity @lifecycle', () => {

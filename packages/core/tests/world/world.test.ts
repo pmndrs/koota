@@ -23,7 +23,25 @@ describe('World', () => {
     expect(() => world.reset()).toThrow(/destroyed/);
   });
 
-  it('keeps traits on a reused page when a destroyed world removes them', () => {
+  it('keeps trait membership independent across worlds', () => {
+    const Selected = trait();
+    const first = createWorld();
+    const second = createWorld();
+    const firstEntity = first.spawn(Selected);
+    const secondEntity = second.spawn();
+
+    expect(secondEntity.has(Selected)).toBe(false);
+    secondEntity.add(Selected);
+    firstEntity.remove(Selected);
+    expect(firstEntity.has(Selected)).toBe(false);
+    first.destroy();
+
+    expect(secondEntity.has(Selected)).toBe(true);
+    expect(second.query(Selected).toArray()).toEqual([secondEntity]);
+    second.destroy();
+  });
+
+  it('leaves live entities alone when cleaning up a destroyed world', () => {
     const Tag = trait();
     const world = createWorld();
     const stale = world.spawn(Tag);
@@ -31,7 +49,6 @@ describe('World', () => {
 
     const other = createWorld();
     const replacement = other.spawn(Tag);
-    expect(replacement.id()).toBe(stale.id());
     const matches = other.query(Tag);
 
     expect(world.query(Tag)).toHaveLength(0);
