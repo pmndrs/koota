@@ -11,7 +11,6 @@ import type {
   Callback,
   EntitySource,
   IterationBufferPool,
-  UpdateEachOptions,
   ViewBinding,
   ViewIterator,
   WalkGuard,
@@ -117,7 +116,7 @@ export class EntityView {
   }
 
   /**
-   * Read only walk that passes the state array. Trait data is never written back and the trait
+   * Read only walk for internal readers. Writes through a cursor are dropped and the trait
    * versions stay put, so cached orders that depend on them remain valid.
    */
   read(callback: Callback) {
@@ -133,36 +132,7 @@ export class EntityView {
       buffers.iterators!.read(ctx, dense as Entity[], length, callback, buffers, stores);
     } finally {
       if (guard) guard.iterating--;
-      buffers.iterators!.release(buffers);
       releaseIterationBuffers(pool, buffers);
-      endDefer(ctx);
-    }
-    return this;
-  }
-
-  /** @deprecated Use each. */
-  readEach(callback: Callback) {
-    return this.read(callback);
-  }
-
-  /** @deprecated Use each. */
-  updateEach(callback: Callback, options?: UpdateEachOptions) {
-    const { dense, length } = this.getSource();
-    if (length === 0) return this;
-    const { ctx, binding, pool } = this;
-    const guard = this.guard;
-    const entities = dense as Entity[];
-    const buffers = takeIterationBuffers(pool, binding);
-    if (guard) guard.iterating++;
-    beginDefer(ctx);
-    try {
-      walkDetecting(ctx, binding, entities, length, callback, buffers, options, false);
-    } finally {
-      if (guard) guard.iterating--;
-      bumpVersions(binding.instances);
-      buffers.iterators!.release(buffers);
-      releaseIterationBuffers(pool, buffers);
-      // Changes are reported before the deferred structural changes apply.
       endDefer(ctx);
     }
     return this;
@@ -186,7 +156,7 @@ export class EntityView {
       if (binding.untracked === ctx.trackingRevision) {
         buffers.iterators!.each(ctx, entities, length, callback, buffers, binding.stores);
       } else {
-        walkDetecting(ctx, binding, entities, length, callback, buffers, undefined, true);
+        walkDetecting(ctx, binding, entities, length, callback, buffers);
       }
     } finally {
       if (guard) guard.iterating--;

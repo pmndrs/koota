@@ -237,7 +237,7 @@ class SortedKeys implements EntitySource {
   scratch: number[] = [];
   runs: number[] = [];
   reader: EntityView;
-  collect: (state: any[], entity: Entity, index: number) => void;
+  collect: (value: any, entity: Entity, index: number) => void;
 
   constructor(base: EntityView, trait: Trait, selector: SortKeySelector, scope: ViewScope | null) {
     // The reader walks this object's own array and keeps its buffers here.
@@ -248,8 +248,8 @@ class SortedKeys implements EntitySource {
       null,
       this
     );
-    this.collect = (state, _entity, index) => {
-      const key = selector(state[0]);
+    this.collect = (value, _entity, index) => {
+      const key = selector(value);
       if (assertsEnabled && (typeof key !== 'number' || Number.isNaN(key))) {
         throw new Error('Koota: [SORT_KEY] A sortBy selector must return a number other than NaN.');
       }

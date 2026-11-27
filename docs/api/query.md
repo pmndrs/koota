@@ -8,7 +8,7 @@ A Koota query is a lot like a database query. Parameters define how to find enti
 
 Query results are live views of entity handles. Use `map((entity, index) => value)` to build a new array in view order, or `toArray()` to copy the entities. Callback walks, `each`, `forEach` and `map`, defer structural changes. Adds, removes, destroys and machine transitions made inside apply in call order when the outermost walk ends, so each row keeps its entity, traits and relation targets while it is visited. Reads inside the walk see the world as it was when the walk started plus any data writes and spawned entities, so `has` still reports a trait whose removal is pending and `isAlive` still reports an entity whose destroy is pending. Spawning is immediate and the new entity joins the next run. A trait added inside a walk is not present until the walk ends, so pass its value to `add` or use `upsert` instead of following `add` with `set`. A deferred call reads its arguments when it applies, so give each deferred `add` its own value object. A `for...of` loop is your own loop and defers nothing. Changes made in its body apply at once and the loop keeps the sequence it started with, so it can reach an entity destroyed earlier in the loop. Wrap a `for...of` or indexed loop in `world.defer` to defer its changes the way a walk does. Guard stale handles with `entity.isAlive()` when retaining a copy.
 
-`each` passes each selected trait as its own argument followed by the entity and index. On a schema trait, `Object.keys(value)` lists its fields and `{ ...value }` reads their current values. The record and its tuple arrays are borrowed for the callback. Use `entity.get(Trait)` to keep a snapshot with independent tuple arrays. `readEach` and `updateEach` are deprecated.
+`each` passes each selected trait as its own argument followed by the entity and index. On a schema trait, `Object.keys(value)` lists its fields and `{ ...value }` reads their current values. The record and its tuple arrays are borrowed for the callback. Use `entity.get(Trait)` to keep a snapshot with independent tuple arrays.
 
 ## Defining queries
 
@@ -118,7 +118,7 @@ world.query(Position, ChildOf(parent)).each((position, child) => {
 
 Arrays are read only and hold until the callback returns. A wildcard pair passes the relation's own list, so writing to it corrupts the relation. Copy with `contents.slice()` to keep one. Structural changes to any entity wait until the outermost walk ends.
 
-Use `select` to skip reading targets, or `forEach` for entities only. Pairs with stores pass their targets, not a record. `getPages`, `readEach` and `updateEach` keep their trait only layouts.
+Use `select` to skip reading targets, or `forEach` for entities only. Pairs with stores pass their targets, not a record. `getPages` keeps its trait only layout.
 
 ## Direct entity access
 
