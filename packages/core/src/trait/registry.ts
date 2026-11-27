@@ -1,21 +1,36 @@
+import { sharedAllocator } from '../entity/page-allocator';
+import { createPageTable } from '../entity/page-table';
 import { $internal } from '../internal';
 import type { World, WorldContext } from '../world/types';
 import { createSubscriptions } from './hooks';
-import { claimMaskSlot, ensureMaskTable } from './mask-table';
+import { claimMaskSlot, EMPTY_MASK_PAGE } from './mask-table';
 import type { ExtractStore, Trait, TraitInstance, TraitInstanceArray } from './types';
 
 export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   const traitCtx = trait[$internal];
   traitCtx.registered = true;
 
-  // The slot is the trait's in every world. This world keeps the generation's table and bit.
-  const slot = claimMaskSlot(trait.id);
-  const generationId = (slot / 31) | 0;
+  let slot: number;
+  let generationId: number;
+  if (ctx.entityIndex.allocator === sharedAllocator) {
+    slot = claimMaskSlot(traitCtx.sharedMask);
+    // Each world walks only the shared tables its own traits use.
+    const table = traitCtx.sharedMask.table;
+    generationId = (slot / 31) | 0;
+    if (ctx.entityMasks[generationId] !== table) {
+      generationId = ctx.entityMasks.indexOf(table);
+      if (generationId === -1) generationId = ctx.entityMasks.push(table) - 1;
+    }
+  } else {
+    slot = ctx.traits.size;
+    generationId = (slot / 31) | 0;
+    ctx.entityMasks[generationId] ??= createPageTable(ctx.pageLimit, EMPTY_MASK_PAGE);
+  }
 
   const data: TraitInstance = {
     version: 0,
     generationId,
-    masks: ensureMaskTable(ctx.entityMasks, ctx.emptyMaskTable, generationId),
+    masks: ctx.entityMasks[generationId],
     bitflag: 1 << (slot % 31),
     trait,
     store: traitCtx.createStore(),

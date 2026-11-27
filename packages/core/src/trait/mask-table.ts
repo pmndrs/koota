@@ -1,15 +1,18 @@
 import { PAGE_SIZE } from '../entity/handle';
-import { createPageTable, growPageTable } from '../entity/page-table';
+import { sharedAllocator } from '../entity/page-allocator';
+import { growPageTable } from '../entity/page-table';
+import { $internal } from '../internal';
+import type { WorldContext } from '../world/types';
+import type { Trait } from './types';
 
 /**
  * The layout of ctx.entityMasks. Four words per entity hold current traits, removed traits,
  * traits held at destruction and traits with a write pending for their Changed queries. Entity
  * slots are shift-indexed as (eid & 1023) << 2. A word covers 31 traits, one mask generation.
  *
- * A generation has one page table for every world that shares entity ids. A page of ids belongs
- * to one world, so the table needs no world to read it. A trait has the same slot in every world,
- * a generation and a bit. So a membership test of an entity needs neither its world nor that
- * world's trait instance.
+ * Worlds with entity methods share one table per generation and one slot per trait. A page of
+ * ids has one owner, so an entity method can read the trait's bit directly. Isolated worlds
+ * assign slots in local registration order and keep their own tables.
  */
 const MASK_STRIDE = 4;
 export const REMOVED_WORD = 1;
@@ -28,60 +31,55 @@ export const sharedMaskTables: Uint32Array[][] = [];
  */
 export const sharedEmptyMaskTable: Uint32Array[] = [];
 
-/** By trait id, the shared table of the trait's generation and its bit. */
-export const slotTables: Uint32Array[][] = [];
-export const slotBits: number[] = [];
+/** Held by the trait definition. Only worlds with entity methods count as users. */
+export type SharedMaskSlot = {
+  slot: number;
+  users: number;
+  table: Uint32Array[];
+  bit: number;
+};
 
-/** By trait id, the slot a trait holds while a world has it registered, or -1. */
-const slots: number[] = [];
-const slotUsers: number[] = [];
+let nextSlot = 0;
 const freeSlots: number[] = [];
 
-/** Gives a new trait id its entries. A trait no world has registered tests false everywhere. */
-export function addMaskSlot(traitId: number) {
-  slots[traitId] = -1;
-  slotTables[traitId] = sharedEmptyMaskTable;
-  slotBits[traitId] = 0;
-}
-
-/** A world registers a trait. Returns the slot, which the trait keeps while any world uses it. */
-export function claimMaskSlot(traitId: number): number {
-  let slot = slots[traitId];
-  if (slot === -1) {
-    slot = freeSlots.length > 0 ? freeSlots.pop()! : slotUsers.length;
-    slots[traitId] = slot;
-    slotUsers[slot] = 0;
-    slotTables[traitId] = ensureMaskTable(sharedMaskTables, sharedEmptyMaskTable, (slot / 31) | 0);
-    slotBits[traitId] = 1 << (slot % 31);
+export function claimMaskSlot(mask: SharedMaskSlot): number {
+  if (mask.users++ === 0) {
+    const slot = freeSlots.length > 0 ? freeSlots.pop()! : nextSlot++;
+    mask.slot = slot;
+    mask.table = sharedMaskTables[(slot / 31) | 0] ??= sharedEmptyMaskTable.slice();
+    mask.bit = 1 << (slot % 31);
   }
-  slotUsers[slot]++;
-  return slot;
+  return mask.slot;
 }
 
-/** A world lets go of a trait. The slot is free for another trait once no world uses it. */
-export function releaseMaskSlot(traitId: number) {
-  const slot = slots[traitId];
-  if (--slotUsers[slot] !== 0) return;
-  freeSlots.push(slot);
-  addMaskSlot(traitId);
-}
-
-/** The table of a generation, created on first use to cover the pages its id space has leased. */
-export function ensureMaskTable(
-  tables: Uint32Array[][],
-  empty: Uint32Array[],
-  generation: number
-): Uint32Array[] {
-  for (let g = tables.length; g <= generation; g++) {
-    tables.push(createPageTable(empty.length, EMPTY_MASK_PAGE));
+export function releaseMaskSlots(traits: Set<Trait>, lastWorld: boolean) {
+  for (const trait of traits) {
+    const mask = trait[$internal].sharedMask;
+    if (--mask.users !== 0) continue;
+    if (!lastWorld) freeSlots.push(mask.slot);
+    mask.slot = -1;
+    mask.table = sharedEmptyMaskTable;
+    mask.bit = 0;
   }
-  return tables[generation];
+  // The next shared world packs its traits from slot zero and sizes the tables to its pages.
+  if (lastWorld) {
+    nextSlot = 0;
+    freeSlots.length = 0;
+    sharedMaskTables.length = 0;
+    sharedEmptyMaskTable.length = 0;
+  }
 }
 
-/** Extend the mask tables of an id space when a world leases a page past the ones they cover. */
-export function growMaskTables(tables: Uint32Array[][], empty: Uint32Array[], pageLimit: number) {
-  growPageTable(empty, pageLimit, EMPTY_MASK_PAGE);
-  for (let g = 0; g < tables.length; g++) growPageTable(tables[g], pageLimit, EMPTY_MASK_PAGE);
+/** Extend the mask tables that this world reads when it leases another page. */
+export function growMaskTables(ctx: WorldContext, pageLimit: number) {
+  if (ctx.entityIndex.allocator === sharedAllocator) {
+    if (pageLimit > sharedEmptyMaskTable.length) {
+      growPageTable(sharedEmptyMaskTable, pageLimit, EMPTY_MASK_PAGE);
+      for (const table of sharedMaskTables) growPageTable(table, pageLimit, EMPTY_MASK_PAGE);
+    }
+  } else {
+    for (const table of ctx.entityMasks) growPageTable(table, pageLimit, EMPTY_MASK_PAGE);
+  }
 }
 
 /** Materialize an entity mask page on first membership write. Returns the writable page. */

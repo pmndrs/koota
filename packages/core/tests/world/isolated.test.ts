@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createActions, identifier, machine, relation, trait, type Entity } from '../../src';
+import {
+  $internal,
+  createActions,
+  identifier,
+  machine,
+  relation,
+  trait,
+  type Entity,
+} from '../../src';
 import { createWorld } from '../../src/isolated';
 import { hasNativeGc, waitForFinalization } from '../utils/gc';
 
@@ -136,6 +144,39 @@ describe('World-first entities', () => {
 });
 
 describe('Isolated worlds', () => {
+  it('drops unused mask generations on reset', () => {
+    const world = createWorld();
+    const tags = Array.from({ length: 62 }, () => trait());
+    world.spawn(...tags);
+    world.reset();
+
+    expect(world[$internal].entityMasks).toHaveLength(1);
+    const entity = world.spawn(tags[61]);
+    expect(world.query(tags[61]).toArray()).toEqual([entity]);
+    world.destroy();
+  });
+
+  it.skipIf(!hasNativeGc())(
+    'releases mask storage without destroy and assigns slots locally in the next world',
+    async () => {
+      const Tag = trait();
+      await expect(
+        waitForFinalization((registry) => {
+          const world = createWorld();
+          world.spawn(...Array.from({ length: 31 }, () => trait()), Tag);
+          registry.register(world[$internal].traitInstances[Tag.id]!.masks[0], 'mask page');
+        })
+      ).resolves.toBe(true);
+
+      const next = createWorld();
+      const entity = next.spawn(Tag);
+      expect(next.has(entity, Tag)).toBe(true);
+      expect(next[$internal].entityMasks).toHaveLength(1);
+      next.destroy();
+    },
+    20_000
+  );
+
   it('gives each world its own ids', () => {
     const a = createWorld();
     const b = createWorld();

@@ -115,8 +115,4 @@ export type PageAllocator = {
    * a cycle nothing else refers to. Worlds that share one are found through it by entity methods.
    */
   pageOwners: (WorldContext | null)[];
-  /** Mask tables by generation, for the worlds that take their ids from here. See trait/mask-table.ts. */
-  maskTables: Uint32Array[][];
-  /** A table of empty pages as long as the mask tables, which a new generation starts from. */
-  emptyMaskTable: Uint32Array[];
 };

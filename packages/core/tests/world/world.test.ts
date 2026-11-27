@@ -23,6 +23,25 @@ describe('World', () => {
     expect(() => world.reset()).toThrow(/destroyed/);
   });
 
+  it('keeps traits on a reused page when a destroyed world removes them', () => {
+    const Tag = trait();
+    const world = createWorld();
+    const stale = world.spawn(Tag);
+    world.destroy();
+
+    const other = createWorld();
+    const replacement = other.spawn(Tag);
+    expect(replacement.id()).toBe(stale.id());
+    const matches = other.query(Tag);
+
+    expect(world.query(Tag)).toHaveLength(0);
+    world.remove(stale, Tag);
+
+    expect(replacement.has(Tag)).toBe(true);
+    expect(matches.toArray()).toEqual([replacement]);
+    other.destroy();
+  });
+
   it('finds nothing left to destroy or remove on an entity once destroyed', () => {
     const Tag = trait();
     const Link = relation();

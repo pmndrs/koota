@@ -1,22 +1,10 @@
-import { sharedEmptyMaskTable, sharedMaskTables } from '../trait/mask-table';
 import type { WorldContext } from '../world/types';
 import { getEntityId, MAX_PAGES, PAGE_SIZE } from './handle';
 import type { Entity, PageAllocator } from './types';
 
 /** A world passes a table of its own. Worlds that share an allocator share the table. */
-export function createPageAllocator(
-  pageOwners: (WorldContext | null)[],
-  maskTables: Uint32Array[][],
-  emptyMaskTable: Uint32Array[]
-): PageAllocator {
-  return {
-    generations: [],
-    freePages: [],
-    pageCursor: 0,
-    pageOwners,
-    maskTables,
-    emptyMaskTable,
-  };
+export function createPageAllocator(pageOwners: (WorldContext | null)[]): PageAllocator {
+  return { generations: [], freePages: [], pageCursor: 0, pageOwners };
 }
 
 /** The allocator of a destroyed world. It hands out no page, so nothing can be spawned there. */
@@ -25,8 +13,6 @@ export const closedAllocator: PageAllocator = {
   freePages: [],
   pageCursor: MAX_PAGES,
   pageOwners: [],
-  maskTables: [],
-  emptyMaskTable: [],
 };
 
 export function leasePage(allocator: PageAllocator, owner: WorldContext): number {
@@ -60,16 +46,11 @@ export function releasePage(allocator: PageAllocator, pageId: number): void {
 }
 
 /**
- * The one structure worlds with entity methods share. An entity is a number, so the page that
- * holds its id is how a method finds the world that owns it. The table holds each world until it
- * is destroyed, which is what an isolated world avoids by owning its ids.
+ * An entity method can find its world through the page that holds its id. The table holds
+ * shared worlds until they are destroyed. Isolated worlds own their pages separately.
  */
 export const sharedPageOwners: (WorldContext | null)[] = [];
-export const sharedAllocator = /* @__PURE__ */ createPageAllocator(
-  sharedPageOwners,
-  sharedMaskTables,
-  sharedEmptyMaskTable
-);
+export const sharedAllocator = /* @__PURE__ */ createPageAllocator(sharedPageOwners);
 
 /** The world that owns a live entity of a world with entity methods. */
 export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {

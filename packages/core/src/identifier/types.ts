@@ -2,6 +2,7 @@ import type { Entity } from '../entity/types';
 import type { $internal } from '../internal';
 import type { QueryInstance } from '../query/types';
 import type { Relation } from '../relation/types';
+import type { SharedMaskSlot } from '../trait/mask-table';
 import type { TagTrait } from '../trait/types';
 import { $identifier, $identifierPair } from './identifier';
 
@@ -20,6 +21,7 @@ export type Identifier<K extends IdentifierKey = any> = {
   readonly id: number;
   readonly [$internal]: {
     readonly trait: TagTrait;
+    readonly sharedMask: SharedMaskSlot;
     readonly exclusive: boolean;
     readonly scope: Relation | undefined;
   };

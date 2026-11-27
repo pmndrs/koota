@@ -31,7 +31,7 @@ import {
   subscribeRemove,
   subscribeTraitRegistered,
 } from '../trait/hooks';
-import { clearMaskPages, growMaskTables, releaseMaskSlot } from '../trait/mask-table';
+import { clearMaskPages, growMaskTables, releaseMaskSlots } from '../trait/mask-table';
 import {
   addTrait,
   hasTrait,
@@ -66,7 +66,7 @@ export function createWorld(options?: WorldOptions): World {
  * cannot tell the two apart and reaches whichever shared world holds that id.
  */
 export function createIsolatedWorld(options?: WorldOptions): World {
-  return createWorldWithAllocator(createPageAllocator([], [], []), options);
+  return createWorldWithAllocator(createPageAllocator([]), options);
 }
 
 /** The allocator decides where entity ids come from, shared between worlds or owned by this one. */
@@ -91,8 +91,7 @@ function createWorldContext(allocator: PageAllocator, options?: WorldOptions): W
 
   const ctx = {
     entityIndex: null! as ReturnType<typeof createEntityIndex>,
-    entityMasks: allocator.maskTables,
-    emptyMaskTable: allocator.emptyMaskTable,
+    entityMasks: [],
     pageLimit: 0,
     retain,
     tombstones: { ids: [], head: 0 },
@@ -119,6 +118,7 @@ function createWorldContext(allocator: PageAllocator, options?: WorldOptions): W
     targetFlags: [],
     destroying: undefined,
     worldEntity: null,
+    destroyed: false,
     entitySubscribedInstances: new Set(),
     deferDepth: 0,
     settledCallbacks: undefined,
@@ -215,8 +215,10 @@ const worldMethods: ThisType<World> = {
     ...traits: (Trait | RelationPair | Identifier | IdentifierPair)[]
   ) {
     const ctx = this[$internal];
-    if (typeof first === 'number') removeTrait(ctx, first, ...traits);
-    else removeWorldTrait(ctx, first, traits);
+    if (typeof first === 'number') {
+      if (ctx.destroyed) return;
+      removeTrait(ctx, first, ...traits);
+    } else removeWorldTrait(ctx, first, traits);
   },
 
   get(
@@ -258,7 +260,7 @@ const worldMethods: ThisType<World> = {
     }
     if (arguments.length !== 0) throw createEntityNotAliveError(entity!);
     // Destroying is final. A second call finds nothing left to do.
-    if (ctx.worldEntity === null) return;
+    if (ctx.destroyed) return;
     assertOutsideDefer(ctx, 'world.destroy');
     clearWorld(ctx, false);
   },
@@ -329,7 +331,7 @@ const worldMethods: ThisType<World> = {
 
 /** Each domain that keeps tables by page extends its own to the world's new page limit. */
 function growPageTables(ctx: WorldContext, pageLimit: number) {
-  growMaskTables(ctx.entityMasks, ctx.emptyMaskTable, pageLimit);
+  growMaskTables(ctx, pageLimit);
   growTrackerTables(ctx, pageLimit);
 }
 
@@ -343,10 +345,15 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
       }
     });
 
-    // The world lets go of its mask pages while its pages of ids are still listed. The tables
-    // keep their extent, so an id from before the reset still reads a page, an empty one.
-    clearMaskPages(ctx.entityMasks, ctx.entityIndex.ownedPages);
-    for (const trait of ctx.traits) releaseMaskSlot(trait.id);
+    // Clear shared pages before their ids can be leased by another world.
+    if (ctx.entityIndex.allocator === sharedAllocator) {
+      clearMaskPages(ctx.entityMasks, ctx.entityIndex.ownedPages);
+      // Every shared world registers IsExcluded for its world entity.
+      releaseMaskSlots(ctx.traits, IsExcluded[$internal].sharedMask.users === 1);
+      // Reset leases its pages again and grows the new tables to match.
+      if (recreate) ctx.pageLimit = 0;
+    }
+    ctx.entityMasks = [];
     ctx.traitsByBit = [];
 
     releaseOwnedPages(ctx.entityIndex);
@@ -385,6 +392,7 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
 
     // A destroyed world has no world entity, so it holds no page another world could use.
     ctx.worldEntity = recreate ? createEntity(ctx, [IsExcluded]) : null;
+    ctx.destroyed = !recreate;
 
     for (const sub of ctx.resetSubscriptions) {
       sub();
@@ -398,7 +406,7 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
 // forms above keep their inlining budget. A destroyed world has no world entity, so reads and
 // removals find nothing and writes throw.
 function assertNotDestroyed(ctx: WorldContext) {
-  if (ctx.worldEntity === null) throw new Error('Koota: The world was destroyed.');
+  if (ctx.destroyed) throw new Error('Koota: The world was destroyed.');
 }
 
 function getWorldEntity(ctx: WorldContext): Entity {
