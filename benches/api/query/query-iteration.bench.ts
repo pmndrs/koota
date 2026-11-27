@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, trait } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 for (const [count, layout] of [
   [2, 'soa'],
@@ -8,6 +9,7 @@ for (const [count, layout] of [
   group(`${count} ${layout} trait accessors 10k @query @trait @accessor @query-accessor`, () => {
     for (const mode of ['read', 'update', 'tracked read', 'tracked update'] as const) {
       bench(`each ${mode}`, function* () {
+        warmWalks();
         const traits = Array.from({ length: count }, (_, i) =>
           layout === 'mixed' && i % 2 ? trait(() => ({ value: 0 })) : trait({ value: 0 })
         );
@@ -51,6 +53,7 @@ for (const [count, layout] of [
 
 group('alternating query selections 100 entities @query @query-selection', () => {
   bench('walk both traits then select one', function* () {
+    warmWalks();
     const Position = trait({ x: 1, y: 0, z: 0 });
     const Velocity = trait({ x: 2, y: 0, z: 0 });
     // The walks sum into this trait, as a system would. It starts at a fraction so its column

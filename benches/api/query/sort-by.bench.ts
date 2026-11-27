@@ -1,10 +1,12 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, trait, type Entity, type SortKeySelector } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 group('sortBy each @sort-by @sort-by-each', () => {
   for (const count of [100, 400]) {
     for (const refresh of [true, false]) {
       bench(`${count} different projection ${refresh ? 'refresh' : 'cached'}`, function* () {
+        warmWalks();
         const world = createWorld();
         const Revision = trait({ current: 0 });
         const Tile = trait({ z: 18, x: 0, y: 0, width: 1, height: 1 });
@@ -47,6 +49,7 @@ group('sortBy @sort-by', () => {
     [10_000, 'churn'],
   ] as const) {
     bench(`${count} ${workload}`, function* () {
+      warmWalks();
       const world = createWorld();
       const Value = trait({ key: 0, x: 0, y: 0, z: 0 });
       let serial = 0;

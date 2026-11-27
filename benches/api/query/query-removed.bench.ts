@@ -1,9 +1,11 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createQuery, createRemoved, createWorld, trait } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 group('Removed remove + read 10k @removed', () => {
   for (const readers of [1, 16]) {
     bench(`${readers} readers`, function* () {
+      warmWalks();
       const Position = trait({ x: 1 });
       // The walks sum into this trait, as a system would. It starts at a fraction so its column
       // holds floats from the first write.
@@ -47,6 +49,7 @@ group('Removed destroy + read + recycle 10k @removed', () => {
     [1024, 16],
   ]) {
     bench(`retain ${retain}, ${readers} readers`, function* () {
+      warmWalks();
       const Position = trait({ x: 1 });
       // The walks sum into this trait, as a system would. It starts at a fraction so its column
       // holds floats from the first write.

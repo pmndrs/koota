@@ -1,29 +1,38 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
 import { createWorld, relation, trait } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 for (const count of [1, 10_000]) {
   group(`relation binding ${count} sources @query-binding`, () => {
     bench('concrete target each', function* () {
+      warmWalks();
       const world = createWorld();
       const Parent = relation({ exclusive: true });
       const parent = world.spawn();
       let expected = 0;
       for (let i = 0; i < count; i++) expected += world.spawn(Parent(parent));
 
-      const result = yield () => {
-        let sum = 0;
-        world.query(Parent(parent)).each((entity) => {
-          sum += entity;
-        });
-        return sum;
+      // The walk records each entity by its place in the list. A total kept in a variable outside
+      // the callback would make every step wait on the one before it and hide the walk.
+      const seen: number[] = Array.from({ length: count }, () => 0);
+      yield {
+        bench: () => {
+          world.query(Parent(parent)).each((entity, i) => {
+            seen[i] = entity;
+          });
+        },
+        snapshot: () => {
+          const sum = seen.reduce((sum, entity) => sum + entity, 0);
+          assert.equal(sum, expected);
+          return sum;
+        },
       };
-
-      assert.equal(result, expected);
       world.destroy();
     });
 
     bench('equivalent filtered selection each', function* () {
+      warmWalks();
       const world = createWorld();
       const Parent = relation({ exclusive: true });
       const Contains = relation();

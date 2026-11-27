@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, trait, type Trait } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 for (const layout of ['soa', 'aos'] as const) {
   group(`${layout} traits 10k @trait @accessor`, () => {
@@ -60,6 +61,7 @@ for (const layout of ['soa', 'aos'] as const) {
     });
 
     bench('query.each read', function* () {
+      warmWalks();
       const world = createWorld();
       for (let x = 0; x < 10_000; x++) world.spawn(Position({ x, y: 0, z: 0 }), Total);
       const query = world.query(Position, Total);
@@ -82,6 +84,7 @@ for (const layout of ['soa', 'aos'] as const) {
 
     for (const tracked of [false, true]) {
       bench(`query.each ${tracked ? 'tracked' : 'untracked'}`, function* () {
+        warmWalks();
         const world = createWorld();
         for (let i = 0; i < 10_000; i++) world.spawn(Position);
         const query = world.query(Position);

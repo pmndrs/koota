@@ -1,6 +1,7 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, trait } from 'koota';
 import { vec3 } from 'math';
+import { warmWalks } from '../../warm-walks';
 
 // vec3 data stored as one interleaved tuple column.
 const TuplePosition = trait({ value: vec3.create() });
@@ -48,6 +49,7 @@ group('vec3 tuple fields 10k @trait @tuple', () => {
   });
 
   bench('each integrate', function* () {
+    warmWalks();
     const world = createWorld();
     for (let i = 0; i < 10_000; i++) world.spawn(TuplePosition, TupleVelocity);
     const query = world.query(TuplePosition, TupleVelocity);

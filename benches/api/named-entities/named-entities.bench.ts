@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
 import { createQuery, createWorld, identifier, trait } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 const Name = identifier();
 const Position = trait({ x: 0, y: 0, z: 0 });
@@ -69,6 +70,7 @@ group('named entities 1k @name @identifier @entity', () => {
   });
 
   bench('apply 1k named query updates', function* () {
+    warmWalks();
     const world = createWorld();
     for (let i = 0; i < 1_000; i++) world.spawn(Name(`object-${i}`), Position);
     const updates = Array.from({ length: 1_000 }, (_, i) => ({ id: `object-${i}`, x: i + 1 }));
