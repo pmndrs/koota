@@ -12,23 +12,19 @@ Query results are live views of entity handles. Use `map((entity, index) => valu
 
 ## Defining queries
 
-Inline queries are great for readability and are optimized to be as fast as possible, but there is still some small overhead in hashing the query each time it is called.
+Pass traits and other conditions directly to query a world.
 
 ```js
-// Every time this query runs a hash for the query parameters (Position, Velocity)
-// is created and then used to get the cached query internally
 function updateMovement(world) {
   world.query(Position, Velocity).each((pos, vel) => {})
 }
 ```
 
-While this is not likely to be a bottleneck in your code compared to the actual update function, if you want to save these CPU cycles you can cache the query ahead of time and use the returned ref. This will have the additional effect of creating the internal query immediately on all worlds, otherwise it will get created the first time it is run.
+Use `createQuery` to define a query once and reuse it across worlds. Each world creates its own instance on first use.
 
 ```js
-// The internal query is created immediately before it is invoked
 const movementQuery = createQuery(Position, Velocity)
 
-// The query ref is used for fast array-based lookup
 function updateMovement(world) {
   world.query(movementQuery).each((pos, vel) => {})
 }
@@ -36,7 +32,7 @@ function updateMovement(world) {
 
 ## Query lifecycle
 
-`world.onEnter(query, callback)` observes entities starting to match a query. `world.onExit(query, callback)` observes entities stopping matching. Both accept a query reference or an array of query parameters and return an unsubscribe function. Subscriptions report future events and do not replay existing matches.
+`world.onEnter(query, callback)` observes entities starting to match a query. `world.onExit(query, callback)` observes entities stopping matching. Both accept a query or an array of query parameters and return an unsubscribe function. Subscriptions report future events and do not replay existing matches.
 
 ```ts
 const moving = createQuery(Position, Velocity)

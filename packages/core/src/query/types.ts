@@ -1,23 +1,17 @@
-import type { EntityComparator, EntityView, OrderedView, SortKeySelector } from '../view/types';
-import type { $internal } from '../common';
 import type { SparseSet } from '@koota/collections';
 import type { Entity } from '../entity/types';
-import type { Identifier, IdentifierPair } from '../identifier/types';
-import type { RelationPair, RelationTarget } from '../relation/types';
-import { AoSFactory, type CursorSet, type Store } from '../storage';
-import type { QueryIterators } from './utils/compile-iterators';
+import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
+import type { Relation, RelationPair } from '../relation/types';
+import type { ExtractStore, IsTag, Trait, TraitInput, TraitInstance } from '../trait/types';
 import type {
-  ExtractSchema,
-  ExtractStore,
-  IsTag,
-  Trait,
-  TraitInput,
-  TraitInstance,
-  TraitRecord,
-} from '../trait/types';
-import type { InlineQueryNode, WorldContext } from '../world/types';
-import { $modifier } from './modifier';
-import { $parameters, $queryRef } from './symbols';
+  EntityComparator,
+  EntityView,
+  OrderedView,
+  SortKeySelector,
+  ViewBinding,
+} from '../view/types';
+import type { WorldContext } from '../world/types';
+import type { $modifier, $parameters, $query } from './query';
 
 export type QueryModifier = (...components: Trait[]) => Modifier;
 export type QueryParameter =
@@ -25,80 +19,6 @@ export type QueryParameter =
 export type QuerySubscriber = (entity: Entity) => void;
 export type QueryNotification = { query: QueryInstance; entity: Entity; added: boolean };
 export type QueryUnsubscriber = () => void;
-
-export type UpdateEachOptions = {
-  changeDetection?: 'always' | 'auto' | 'never';
-};
-
-export type QueryViewBinding = {
-  /** Reusable buffers for simultaneous walks of this selection. */
-  iterationBuffers: QueryIterationBuffers | undefined;
-  params: QueryParameter[];
-  traits: Trait[];
-  /** The world's instance of each trait, parallel to traits. */
-  instances: TraitInstance[];
-  stores: Store<any>[];
-  /** Data traits and target projections in each's callback argument order. */
-  projection: (Trait | TargetProjection)[];
-  /** Per projection position, the target query match set a pair reads, else undefined. */
-  targets: (SparseSet | undefined)[];
-  /** Live view over the query for these traits, created on first use. */
-  view: QueryView<any> | null;
-  /** Iterators compiled for this binding alone, so its callback site stays monomorphic. */
-  iterators: QueryIterators | null;
-  /** The world tracking revision at which no trait here had a change observer, else -1. */
-  untracked: number;
-};
-
-/**
- * How a required pair reaches the callback. Entries are interned per instance and mode so
- * bindings and iterator caches can compare them by identity. Slot passes what the relation
- * stores for the entity, the one target of an exclusive relation or the live target list of any
- * other. Filter snapshots the targets inside the pair's target query match set.
- */
-export type TargetProjection = {
-  instance: TraitInstance;
-  mode: 'slot' | 'filter';
-};
-
-export type QueryIterationBuffers = {
-  state: any[];
-  /** Projection the records and iterators were prepared for. */
-  binding: QueryViewBinding | undefined;
-  /** The cursors of each SoA trait by kind, undefined for other traits. */
-  cursors: (CursorSet | undefined)[];
-  /** Reusable filtered target arrays for this active walk, indexed by projection position. */
-  targetSnapshots: Entity[][];
-  iterators: QueryIterators | undefined;
-  /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
-  modes: number[];
-  atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
-  changedEntities: Entity[];
-  changedTraits: Trait[];
-  next: QueryIterationBuffers | undefined;
-};
-
-export type QueryLayout = {
-  pageCount: number;
-  pageIds: Uint32Array;
-  pageStarts: Uint32Array;
-  pageCounts: Uint16Array;
-  offsets: Uint16Array;
-  entities: readonly Entity[];
-};
-
-export type QueryLayoutCache = QueryLayout & { version: number };
-
-/**
- * Direct column views whose capacity is internal and may grow in place. Use indices to visit
- * entities and access only traits they hold or retain. Do not resize or replace columns.
- */
-export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
-  readonly index: number;
-  readonly stores: PageStoresFromParameters<T>;
-  readonly indices: Uint16Array;
-  readonly entities: readonly Entity[];
-};
 
 /**
  * Live view over the entities matching a query. A view returned by a world query reads the query's
@@ -119,62 +39,7 @@ export interface QueryView<T extends QueryParameter[] = QueryParameter[]> extend
   sortBy<C extends Trait>(trait: C, selector: SortKeySelector<C>): OrderedView<T>;
 }
 
-type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
-
-export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
-  ? [
-      ...(First extends Trait
-        ? IsTag<First> extends true
-          ? []
-          : [ExtractStore<First>]
-        : First extends Modifier
-          ? IsNotModifier<First> extends true
-            ? []
-            : StoresFromParameters<UnwrapModifierData<First>>
-          : []),
-      ...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : []),
-    ]
-  : [];
-
-type PageStores<T extends unknown[]> = {
-  [K in keyof T]: T[K] extends unknown[][]
-    ? T[K][number]
-    : { [P in keyof T[K]]: T[K][P] extends unknown[] ? T[K][P][number] : never };
-};
-
-export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
-  StoresFromParameters<T>
->;
-
-// Concrete targets only filter. Discovered targets pass one entity or an array by relation policy.
-type RelationInstances<
-  Exclusive extends boolean,
-  Target extends RelationTarget | undefined,
-> = Target extends Entity ? [] : [Exclusive extends true ? Entity : readonly Entity[]];
-
-export type InstancesFromParameters<
-  T extends QueryParameter[],
-  Targets extends boolean = true,
-> = T extends [infer First, ...infer Rest]
-  ? [
-      ...(First extends Trait
-        ? IsTag<First> extends false
-          ? ExtractSchema<First> extends AoSFactory
-            ? [ReturnType<ExtractSchema<First>>]
-            : [TraitRecord<First>]
-          : []
-        : First extends Modifier
-          ? IsNotModifier<First> extends true
-            ? []
-            : InstancesFromParameters<UnwrapModifierData<First>, false>
-          : Targets extends true
-            ? First extends RelationPair
-              ? RelationInstances<First['relation'][typeof $internal]['exclusive'], First['target']>
-              : []
-            : []),
-      ...(Rest extends QueryParameter[] ? InstancesFromParameters<Rest, Targets> : []),
-    ]
-  : [];
+export type UnwrapModifierData<T> = T extends Modifier<infer C> ? C : never;
 
 export type IsNotModifier<T> =
   T extends Modifier<Trait[], infer TType> ? (TType extends 'not' ? true : false) : false;
@@ -182,7 +47,7 @@ export type IsNotModifier<T> =
 export type QueryHash = string;
 
 export type Query<T extends QueryParameter[] = QueryParameter[]> = {
-  readonly [$queryRef]: true;
+  readonly [$query]: true;
   /** Public read-only ID for fast array lookups */
   readonly id: number;
   /** Hash string for deduplication */
@@ -198,7 +63,7 @@ export type ResolvedRelationFilter = RelationPair & {
    * with term 4 belongs to a tracking modifier. Term 5 belongs to a negated or branch.
    */
   term: 1 | 2 | 3 | 4 | 5;
-  targetQueryRef: Query<QueryParameter[]> | undefined;
+  resolvedTargetQuery: Query<QueryParameter[]> | undefined;
   targetQueryMatches: SparseSet | undefined;
 };
 
@@ -273,7 +138,7 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
    */
   rechecks: boolean;
   hash: QueryHash;
-  refId: number;
+  queryId: number;
   traits: Trait[];
   /** Every trait instance the query joins, deduplicated when registering its list slots. */
   traitInstances: TraitInstance[];
@@ -322,7 +187,87 @@ export type QueryInstance<T extends QueryParameter[] = QueryParameter[]> = {
   addSubscriptions: Set<QuerySubscriber> | null;
   removeSubscriptions: Set<QuerySubscriber> | null;
   layoutCache: QueryLayoutCache | null;
-  viewBindings: QueryViewBinding[];
+  viewBindings: ViewBinding[];
 };
 
 export type EventType = 'add' | 'remove' | 'change';
+
+export type ModifierInput = TraitInput | RelationPair | Modifier;
+
+/** Modifiers shared by every call with the same inputs, listed under their first input. */
+export type ModifierCache = WeakMap<object, Modifier[]>;
+
+export type QueryLayout = {
+  pageCount: number;
+  pageIds: Uint32Array;
+  pageStarts: Uint32Array;
+  pageCounts: Uint16Array;
+  offsets: Uint16Array;
+  entities: readonly Entity[];
+};
+
+export type QueryLayoutCache = QueryLayout & { version: number };
+
+/**
+ * Direct column views whose capacity is internal and may grow in place. Use indices to visit
+ * entities and access only traits they hold or retain. Do not resize or replace columns.
+ */
+export type QueryPage<T extends QueryParameter[] = QueryParameter[]> = {
+  readonly index: number;
+  readonly stores: PageStoresFromParameters<T>;
+  readonly indices: Uint16Array;
+  readonly entities: readonly Entity[];
+};
+
+export type StoresFromParameters<T extends QueryParameter[]> = T extends [infer First, ...infer Rest]
+  ? [
+      ...(First extends Trait
+        ? IsTag<First> extends true
+          ? []
+          : [ExtractStore<First>]
+        : First extends Modifier
+          ? IsNotModifier<First> extends true
+            ? []
+            : StoresFromParameters<UnwrapModifierData<First>>
+          : []),
+      ...(Rest extends QueryParameter[] ? StoresFromParameters<Rest> : []),
+    ]
+  : [];
+
+export type PageStores<T extends unknown[]> = {
+  [K in keyof T]: T[K] extends unknown[][]
+    ? T[K][number]
+    : { [P in keyof T[K]]: T[K][P] extends unknown[] ? T[K][P][number] : never };
+};
+
+export type PageStoresFromParameters<T extends QueryParameter[]> = PageStores<
+  StoresFromParameters<T>
+>;
+
+export type QueryPageBuilder = {
+  pageId: number;
+  offsets: number[];
+  entities: Entity[];
+};
+
+/** Actions follow the trait's query list in order. An index adds and its bitwise complement removes. */
+export type Transition = { everHeld: number; actions: number[] };
+
+export type TransitionCache = {
+  generation: number;
+  mask: number;
+  byWord: Map<number, Transition> | null;
+};
+
+/**
+ * A step in the tree of resolved inline parameter lists. The list ending here holds its query. A
+ * concrete relation or identifier pair takes two steps, its definition and then its target.
+ */
+export type InlineQueryNode = {
+  next: Map<QueryParameter | Relation<Trait> | IdentifierKey, InlineQueryNode> | null;
+  params: QueryParameter[] | null;
+  query: QueryInstance | null;
+  /** Pruning stops at the stable prefix before the first identifier key or concrete target. */
+  parent: InlineQueryNode | null;
+  key: QueryParameter | Relation<Trait> | IdentifierKey | null;
+};

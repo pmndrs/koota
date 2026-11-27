@@ -1,47 +1,21 @@
-import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
+import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
   ConfigurableTrait,
   ExtractSchema,
   SetTraitCallback,
   Trait,
+  TraitHook,
   TraitInit,
   TraitOut,
   TraitRecord,
   TraitValue,
 } from '../trait/types';
-
-/**
- * A trait event subscription. The leading parameters scope it, so the world form takes an
- * optional entity first while an entity method takes none.
- */
-export type Hook<P extends unknown[] = []> = {
-  <K extends IdentifierKey>(
-    ...args: [
-      ...P,
-      input: Identifier<K> | IdentifierPair<K>,
-      callback: (entity: Entity, key: K) => void,
-    ]
-  ): () => void;
-  <T extends Trait>(...args: [...P, trait: T, callback: (entity: Entity) => void]): () => void;
-  <T extends Trait>(
-    ...args: [...P, relation: Relation<T>, callback: (entity: Entity, target: Entity) => void]
-  ): () => void;
-  <T extends Trait>(
-    ...args: [...P, pair: RelationPair<T>, callback: (entity: Entity, target: Entity) => void]
-  ): () => void;
-  (
-    ...args: [
-      ...P,
-      input: Trait | Relation<Trait> | RelationPair,
-      callback: (entity: Entity, target?: Entity) => void,
-    ]
-  ): () => void;
-};
+import type { WorldContext } from '../world/types';
 
 /** Entity scoped hooks only fire for this entity, so the callback needs no identity check. */
-type EntityHook = Hook;
+type EntityHook = TraitHook;
 
 /**
  * Program wide settings that a module augmentation can set. The isolated entry registers
@@ -99,4 +73,46 @@ export type EntityMethods = {
   id: () => number;
   generation: () => number;
   isAlive: () => boolean;
+};
+
+export type EntityIndex = {
+  /** The number of currently alive entities. */
+  aliveCount: number;
+  /** Reusable entries immediately after the alive region. Retained entries follow them. */
+  freeCount: number;
+  /** Counts every entity that left the alive region. Removal history reads it as a clock. */
+  releases: number;
+  /**
+   * Packed entities in three regions: alive, reusable, retained. Eviction bumps the generation
+   * before moving a retained entry into the reusable region.
+   */
+  dense: Entity[];
+  /** Sparse: entityId -> index in dense (or undefined). */
+  sparse: number[];
+  /** Dense list of leased page IDs. */
+  ownedPages: number[];
+  /** Per-page cursor: next fresh offset to allocate from (parallel to ownedPages). */
+  pageCursors: number[];
+  /** Index into ownedPages of the page we're currently filling. */
+  currentPageIdx: number;
+  /** The world's own allocator, or the one worlds with entity methods share. */
+  allocator: PageAllocator;
+  /** The context recorded as the owner of every page the index leases. */
+  owner: WorldContext;
+  /** Extends the owner's page tables after the index leases a page past the ones they cover. */
+  growTables: (owner: WorldContext, pageLimit: number) => void;
+};
+
+export type PageAllocator = {
+  /** Per-page generation values (pageId -> Uint8Array(PAGE_SIZE)). */
+  generations: (Uint8Array | undefined)[];
+  /** Stack of released page IDs available for leasing. */
+  freePages: number[];
+  /** Next fresh page ID to allocate. */
+  pageCursor: number;
+  /**
+   * Maps pageId -> owning WorldContext. A world that owns its allocator only finds itself here,
+   * a cycle nothing else refers to. Worlds that share one are found through it by entity methods.
+   */
+  pageOwners: (WorldContext | null)[];
 };

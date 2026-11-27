@@ -11,6 +11,7 @@ import {
   type TraitRecord,
   type World,
 } from '@koota/core';
+import { getOrderedSnapshot } from '../utils/ordered-snapshot';
 import { useEntityValue } from '../utils/use-entity-value';
 
 export function readTrait(world: World, entity: Entity, trait: Trait | RelationPair) {
@@ -36,7 +37,7 @@ export function attachTrait<T extends Trait | RelationPair>(
 
 function readSnapshot(world: World, entity: Entity, trait: Trait | RelationPair) {
   return isOrderedTrait(trait)
-    ? world[$internal].getOrderedSnapshot(world.get(entity, trait))
+    ? getOrderedSnapshot(world.get(entity, trait))
     : readTrait(world, entity, trait);
 }
 
@@ -47,7 +48,6 @@ function attachSnapshot(
   push: (value: unknown) => void
 ) {
   if (!isOrderedTrait(trait)) return attachTrait(world, entity, trait, push);
-  const { getOrderedSnapshot } = world[$internal];
   let previous = getOrderedSnapshot(world.get(entity, trait));
   return attachTrait(world, entity, trait, (view) => {
     const next = getOrderedSnapshot(view);

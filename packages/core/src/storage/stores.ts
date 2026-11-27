@@ -1,6 +1,5 @@
-import { PAGE_SIZE } from '../entity/utils/pack-entity';
-import type { Schema } from './types';
-import type { Store } from './types';
+import { PAGE_SIZE } from '../entity/handle';
+import type { Schema, Store } from './types';
 
 export function createStore<T extends Schema>(schema: T): Store<T>;
 export function createStore(schema: Schema): unknown {
@@ -49,16 +48,16 @@ export function createClearFunction(
 }
 
 /** One filled page per default value, shared by creation and growth. */
-const pageTemplates = new Map<unknown, unknown[]>();
+const columnTemplates = new Map<unknown, unknown[]>();
 
 /**
  * The template for a default, built on first use. Array.of gives each template its own elements
  * kind instead of sharing a literal site. Factory defaults all start undefined and share one
  * template, since keying by the factory would keep whatever it closes over alive, such as a world.
  */
-function getPageTemplate(field: unknown): unknown[] {
+function ensureColumnTemplate(field: unknown): unknown[] {
   const key = typeof field === 'function' ? undefined : field;
-  let template = pageTemplates.get(key);
+  let template = columnTemplates.get(key);
   if (template === undefined) {
     template = Array.of<unknown>();
     if (Array.isArray(key)) {
@@ -68,21 +67,21 @@ function getPageTemplate(field: unknown): unknown[] {
     } else {
       for (let i = 0; i < PAGE_SIZE; i++) template.push(key);
     }
-    pageTemplates.set(key, template);
+    columnTemplates.set(key, template);
   }
   return template;
 }
 
 /** Create a packed column with capacity of 1..PAGE_SIZE entity slots, interleaving tuples. */
-export function createPage(field: unknown, capacity = PAGE_SIZE): unknown[] {
-  return getPageTemplate(field).slice(0, capacity * (Array.isArray(field) ? field.length : 1));
+export function createColumn(field: unknown, capacity = PAGE_SIZE): unknown[] {
+  return ensureColumnTemplate(field).slice(0, capacity * (Array.isArray(field) ? field.length : 1));
 }
 
 /**
  * Extend existing columns to at most PAGE_SIZE entity slots, preserving their identity and values.
  * Every field must already have a column at pageId with the same entity capacity.
  */
-export function growPages(
+export function growColumns(
   schema: Record<string, unknown>,
   store: Record<string, unknown[][]>,
   pageId: number,
@@ -91,7 +90,7 @@ export function growPages(
   for (const key in schema) {
     const field = schema[key];
     const page = store[key][pageId];
-    const template = getPageTemplate(field);
+    const template = ensureColumnTemplate(field);
     const end = capacity * (Array.isArray(field) ? field.length : 1);
     for (let i = page.length; i < end; i++) page.push(template[i]);
   }

@@ -1,7 +1,7 @@
 import type { Entity, WithEntityMethods } from '../entity/types';
-import type { World } from '../world/types';
+import type { $internal } from '../internal';
 import type { TagTrait, Trait, TraitRecord, TraitTuple } from '../trait/types';
-import type { $internal } from '../common';
+import type { World } from '../world/types';
 
 export type MachineStates = Record<string, Trait>;
 

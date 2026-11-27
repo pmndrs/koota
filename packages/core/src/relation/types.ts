@@ -1,11 +1,11 @@
-import { $internal } from '../common';
 import type { Entity } from '../entity/types';
 import type { Identifier } from '../identifier/types';
+import type { $internal } from '../internal';
 import type { Query, QueryParameter } from '../query/types';
-import type { AoSFactory, RequiredField, Schema } from '../storage';
+import type { AoSFactory, RequiredField, Schema, TraitSchema } from '../storage/types';
 import type { Trait, TraitInit } from '../trait/types';
 import type { MutableOrderedView } from '../view/types';
-import { $orderedTargetsTrait, $relation, $relationPair } from './symbols';
+import type { $orderedTargetsTrait, $relation, $relationPair } from './relation';
 
 export type RelationTarget = Entity | '*';
 export type RelationInputTarget =
@@ -16,7 +16,7 @@ export type RelationInputTarget =
  * defaults. A factory store lays the values over its own record, and a required store takes the
  * record itself.
  */
-export type RelationInit<T extends Trait = Trait> =
+type RelationInit<T extends Trait = Trait> =
   T extends Trait<infer S extends Schema>
     ? S extends RequiredField
       ? ReturnType<S>
@@ -25,7 +25,7 @@ export type RelationInit<T extends Trait = Trait> =
         : TraitInit<S>
     : never;
 
-export interface ConcreteRelationPair<
+interface ConcreteRelationPair<
   T extends Trait = Trait,
   Exclusive extends boolean = boolean,
   Target extends RelationTarget = RelationTarget,
@@ -107,3 +107,14 @@ export interface OrderedRelation<T extends Trait = Trait> extends Trait<
     relation: Relation<T>;
   };
 }
+
+export type RelationDefinition<S extends TraitSchema> = {
+  exclusive?: boolean;
+  autoDestroy?: 'orphan' | 'source' | 'target';
+  /** @deprecated Use `autoDestroy: 'orphan'` instead */
+  autoRemoveTarget?: boolean;
+  store?: S;
+};
+
+/** The sources of one target, tagged with the handle of that target. */
+export type RelationSources = Entity[] & { target?: Entity };

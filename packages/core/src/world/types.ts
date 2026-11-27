@@ -1,20 +1,20 @@
-import type { getOrderedSnapshot } from '../relation/ordered';
-import type { SettledCallback } from './settled';
-import type { createQueryStore } from '../query/query-store';
-import { ActionInstance } from '../actions/types';
-import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
-import type { QueryNotification, QuerySubscriber } from '../query/types';
-import type { $internal } from '../common';
+import type { ActionInstance } from '../actions';
+import type { SettledCallback } from '../command/types';
+import type { createEntityIndex } from '../entity/entity-index';
+import type { Entity } from '../entity/types';
 import type { Identifier, IdentifierKey, IdentifierPair } from '../identifier/types';
-import type { Entity, Hook } from '../entity/types';
-import type { createEntityIndex } from '../entity/utils/entity-index';
+import type { $internal } from '../internal';
+import type { Machine, MachineStates, TransitionSubscriber } from '../machine/types';
+import type { createQueryStore } from '../query/store';
 import type {
+  InlineQueryNode,
   Query,
   QueryInstance,
-  QueryIterationBuffers,
+  QueryNotification,
   QueryParameter,
-  QueryView,
+  QuerySubscriber,
   QueryUnsubscriber,
+  QueryView,
 } from '../query/types';
 import type { Relation, RelationPair } from '../relation/types';
 import type {
@@ -22,32 +22,26 @@ import type {
   ExtractSchema,
   SetTraitCallback,
   Trait,
+  TraitHook,
   TraitInit,
   TraitInstance,
   TraitOut,
   TraitRecord,
   TraitValue,
 } from '../trait/types';
-
-/**
- * A step in the tree of resolved inline parameter lists. The list ending here holds its query. A
- * concrete relation or identifier pair takes two steps, its definition and then its target.
- */
-export type InlineQueryNode = {
-  next: Map<QueryParameter | Relation<Trait> | IdentifierKey, InlineQueryNode> | null;
-  params: QueryParameter[] | null;
-  query: QueryInstance | null;
-  /** Pruning stops at the stable prefix before the first identifier key or concrete target. */
-  parent: InlineQueryNode | null;
-  key: QueryParameter | Relation<Trait> | IdentifierKey | null;
-};
+import type { IterationBuffers } from '../view/types';
 
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   /**
-   * Membership and removal history by mask generation and page. See entity-masks.
+   * Membership and removal history by mask generation and page. See trait/membership.ts.
    */
   entityMasks: Uint32Array[][];
+  /**
+   * The number of pages every mask and tracker table in the world covers. It follows the highest
+   * page the world has leased, so a read for any of its entities finds a page. A reset keeps it.
+   */
+  pageLimit: number;
   bitflag: number;
   traitInstances: (TraitInstance | undefined)[];
   /** Trait instances by mask generation and bit index, so a mask word can be walked back to its traits. */
@@ -58,7 +52,7 @@ export type WorldContext = {
   /** Inline parameter lists already resolved, as a tree with one level per parameter. */
   inlineQueries: InlineQueryNode;
   queryInstances: (QueryInstance | undefined)[];
-  iterationBuffers: QueryIterationBuffers | undefined;
+  iterationBuffers: IterationBuffers | undefined;
   actionInstances: (ActionInstance | undefined)[];
   /** Tracking queries, and static queries that an entity holding no traits satisfies. */
   notQueries: QueryInstance[];
@@ -82,7 +76,7 @@ export type WorldContext = {
   unsettled: boolean;
   /** Pending entities in this world's current destruction cascade. */
   destroyQueue: Entity[];
-  /** Target and awaiting bits paged by entity id. See target-flags. */
+  /** Target and awaiting bits paged by entity id. See relation/cascade.ts. */
   targetFlags: (Uint8Array | undefined)[];
   /** The entity being destroyed cannot accept new scope children from an immediate spawn. */
   destroying: Entity | undefined;
@@ -98,13 +92,12 @@ export type WorldContext = {
   /** The entity that carries the world's own traits. Null once the world is destroyed. */
   worldEntity: Entity | null;
   entitySubscribedInstances: Set<TraitInstance>;
-  /** Open defer scopes. Structural changes join the command log while it is nonzero. See defer. */
+  /** Open defer scopes. Structural changes join the command log while it is nonzero. See command/buffer.ts. */
   deferDepth: number;
   settledCallbacks: WeakMap<() => void, SettledCallback> | undefined;
   settledQueue: (SettledCallback | undefined)[];
   settledCount: number;
   settledRound: number;
-  getOrderedSnapshot: typeof getOrderedSnapshot;
   createQueryStore: typeof createQueryStore;
   /** Notifies after registration, reset or destruction changes the backing entity. */
   resetSubscriptions: Set<() => void>;
@@ -123,7 +116,7 @@ export type WorldOptions = {
 };
 
 /** A trait event subscription. With an entity first it only fires for that entity. */
-export type WorldHook = Hook & Hook<[entity: Entity]>;
+type WorldHook = TraitHook & TraitHook<[entity: Entity]>;
 
 export type World = {
   /** The retention cap set at creation. Read-only and preserved by reset. */

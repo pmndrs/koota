@@ -139,8 +139,8 @@ relation's broad query list, including queries for unrelated robots. Nested targ
 membership changes also revisit children. The reparent optimization below narrows the first
 part of that work.
 
-For repeated reads, retain a `createQuery(...)` reference and call `world.query(ref)` or
-`world.queryFirst(ref)`. Direct lookup suits changing or occasional paths. Inline query key
+For repeated reads, define a query with `createQuery(...)` and call `world.query(query)` or
+`world.queryFirst(query)`. Direct lookup suits changing or occasional paths. Inline query key
 reuse remains a separate optimization opportunity.
 
 The run reported 0.2% clock drift and about ±3.9% overall comparison resolution. All correctness

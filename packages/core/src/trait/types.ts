@@ -1,13 +1,18 @@
-import { $internal } from '../common';
-import type { MachineContext, MachineInstance } from '../machine/types';
-import type { Identifier, IdentifierIndex, IdentifierPair } from '../identifier/types';
 import type { Entity } from '../entity/types';
+import type { Identifier, IdentifierIndex, IdentifierKey, IdentifierPair } from '../identifier/types';
+import type { $internal } from '../internal';
+import type { MachineContext, MachineInstance } from '../machine/types';
 import type { QueryInstance } from '../query/types';
-import type { RelationFilterHooks } from '../relation/filter-hooks';
-import type { ConfigurablePair, Relation, RelationPair } from '../relation/types';
-import type { AoSFactory, CursorCompiler, RequiredField, Schema, Store, StoreType } from '../storage';
-import type { WorldContext } from '../world';
-import type { Subscriptions } from './subscriptions';
+import type { ConfigurablePair, Relation, RelationPair, RelationSources } from '../relation/types';
+import type {
+  AoSFactory,
+  CursorCompiler,
+  RequiredField,
+  Schema,
+  Store,
+  StoreType,
+} from '../storage/types';
+import type { WorldContext } from '../world/types';
 
 // Backwards-compatible alias (the trait "type" is the storage layout).
 export type TraitType = StoreType;
@@ -94,6 +99,8 @@ export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> &
   /** True when the schema has a required field, so add needs a value. */
   readonly required: RequiresInit<S>;
   registered: boolean;
+  /** Initialize domain-specific state after the instance is installed and before observers run. */
+  onRegister?: (ctx: WorldContext, instance: TraitInstance) => void;
   machine: MachineContext | undefined;
   relation: Relation<any> | null;
   /** Given at creation. A state machine claims its states afterwards, which keep their accessors. */
@@ -159,7 +166,6 @@ export type TraitOut<T extends Trait | RelationPair> =
   ExtractSchema<T> extends AoSFactory ? never : TraitRecord<ExtractSchema<T>>;
 
 // Type Utils
-
 export type ExtractSchema<T extends Trait | Relation<Trait> | RelationPair> =
   T extends RelationPair<infer R>
     ? ExtractSchema<R>
@@ -184,7 +190,7 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   /** The mask table of this generation, held here so a membership read skips ctx.entityMasks. */
   masks: Uint32Array[];
   bitflag: number;
-  trait: Trait;
+  trait: T;
   store: Store<S>;
   /** Non-tracking queries that include this trait */
   queries: QueryInstance[];
@@ -200,7 +206,7 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   changeSubscriptions: Subscriptions;
   addSubscriptions: Subscriptions;
   removeSubscriptions: Subscriptions;
-  /** Hooks of the relation filters subscribed on this relation, by pair. See filter-hooks. */
+  /** Hooks of the relation filters subscribed on this relation, by pair. */
   relationFilterHooks: Map<RelationPair, RelationFilterHooks> | null;
   /**
    * Paged relation targets.
@@ -220,14 +226,11 @@ export interface TraitInstance<T extends Trait = Trait, S extends Schema = Extra
   relationSourcesByTarget?: RelationSources[];
 }
 
-/** The sources of one target, tagged with the handle of that target. */
-export type RelationSources = Entity[] & { target?: Entity };
-
 /** A type whose presence can be queried or observed through a trait. */
 export type TraitInput = Trait | Relation<Trait> | Identifier;
 
 /** Resolve a type to its backing trait. Identifiers carry no trait data. */
-export type ExtractTrait<T> = T extends Identifier
+type ExtractTrait<T> = T extends Identifier
   ? TagTrait
   : T extends Relation<infer TTrait>
     ? TTrait
@@ -242,7 +245,60 @@ export type ExtractModifierTraits<T extends unknown[]> = T extends [infer First,
     ? []
     : ExtractTrait<Exclude<T[number], RelationPair>>[];
 
-/** Resolve a tuple of types to their backing traits. */
-export type ExtractTraits<T extends TraitInput[]> = {
-  [K in keyof T]: ExtractTrait<T[K]>;
+export type Subscriber<T extends string | number = Entity> = (entity: Entity, target?: T) => void;
+
+/** A slot holds one subscriber directly and only becomes a Set on the second subscriber. */
+export type Slot = Subscriber<any> | Set<Subscriber<any>>;
+
+/**
+ * Subscribers for one trait event. World subscribers fire for every entity.
+ * Entity subscribers are paged by entity id like the masks and fire for one
+ * entity, so dispatch does not scale with the number of subscribed entities.
+ * count sums both tiers so the hot paths test one field before dispatching, and
+ * entityCount lets dispatch and destroy skip the page lookup when no entity is registered.
+ */
+export type Subscriptions = {
+  all: Set<Subscriber<any>>;
+  byEntity: ((Slot | undefined)[] | undefined)[];
+  count: number;
+  entityCount: number;
 };
+
+export type RelationFilterHooks = {
+  added: Subscriptions;
+  removed: Subscriptions;
+  stop: () => void;
+};
+
+export type TraitHookInput =
+  Trait | Relation<Trait> | RelationPair<Trait> | Identifier | IdentifierPair;
+
+/**
+ * The call shape of onAdd, onRemove and onChange. The leading parameters scope it, so the world form takes an
+ * optional entity first while an entity method takes none.
+ */
+export type TraitHook<P extends unknown[] = []> = {
+  <K extends IdentifierKey>(
+    ...args: [
+      ...P,
+      input: Identifier<K> | IdentifierPair<K>,
+      callback: (entity: Entity, key: K) => void,
+    ]
+  ): () => void;
+  <T extends Trait>(...args: [...P, trait: T, callback: (entity: Entity) => void]): () => void;
+  <T extends Trait>(
+    ...args: [...P, relation: Relation<T>, callback: (entity: Entity, target: Entity) => void]
+  ): () => void;
+  <T extends Trait>(
+    ...args: [...P, pair: RelationPair<T>, callback: (entity: Entity, target: Entity) => void]
+  ): () => void;
+  (
+    ...args: [
+      ...P,
+      input: Trait | Relation<Trait> | RelationPair,
+      callback: (entity: Entity, target?: Entity) => void,
+    ]
+  ): () => void;
+};
+
+export type TraitInstanceArray = (TraitInstance | undefined)[];

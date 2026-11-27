@@ -1,6 +1,5 @@
 import {
   whenSettled,
-  $internal as internal,
   isOrderedTrait,
   type Entity,
   type OrderedTrait,
@@ -11,8 +10,8 @@ import {
 } from '@koota/core';
 import { untrack } from 'svelte';
 import { createTargetResolver, subscribeTarget } from '../utils/get-target-entity.js';
+import { getOrderedSnapshot } from '../utils/ordered-snapshot.js';
 import { type MaybeGetter, resolve } from '../utils/resolve.js';
-import { useWorld } from '../world/world-context.js';
 
 type TraitSnapshot<T extends Trait> =
   (T extends OrderedTrait ? readonly Entity[] : TraitRecord<T>) | undefined;
@@ -29,7 +28,6 @@ export function useTrait(
   target: () => Entity | World | undefined | null,
   trait: MaybeGetter<Trait | RelationPair>
 ) {
-  const { getOrderedSnapshot } = useWorld()[internal];
   const resolveTarget = createTargetResolver();
   const binding = $derived.by(() => {
     const subject = target();
