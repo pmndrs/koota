@@ -5,6 +5,7 @@ import type { Entity } from '../entity/types';
 import { $internal } from '../internal';
 import { sameParams } from '../query/query';
 import { hasChangedQuery } from '../query/tracking';
+import { compilePageLoop } from '../storage/cursors';
 import type { CursorKind, CursorSource } from '../storage/types';
 import { hasSubscribers, notifyChanged } from '../trait/hooks';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -73,7 +74,7 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     const cursor = traitCtx.cursor;
     if (cursor !== undefined) {
       const c = `c${j}`;
-      const source = cursor.compile(c, `s${j}`, 'pg', 'off');
+      const source = cursor.compile(c, `s${j}`);
       paged = true;
       args.push(c);
       hoist.push(`var ${c} = cursors[${j}].__KIND__; ${source.init}`);
@@ -117,15 +118,22 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   // Each trait is passed as its own argument, so the values stay in registers.
   const call = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
   // The loop comes from the storage the walked traits live in. Every stored trait is kept in
-  // sparse pages, so a walk with cursors runs the page loop and any other the list loop.
+  // sparse pages, so a walk with cursors runs the page loop and any other the list loop. The
+  // cursors, the callback and change tracking are the same under either and form the step.
+  // A guarded step ends the walk itself when it throws, so each needs no try block. Around the
+  // whole walk a try would keep V8 from moving checks and loads out of the loop once the walk is
+  // inlined. Around one step it costs nothing.
   const loop = (kind: CursorKind, before: string[], after: string[], guarded = false) => {
-    const step = `
+    let step = `
       ${seek.map((source) => source[kind]).join('\n      ')}
       ${read.join('\n      ')}
       ${before.join('\n      ')}
       ${call}
       ${after.join('\n      ')}`;
-    return paged ? compilePageLoop(rebind.join(' '), step, guarded) : compileListLoop(step, guarded);
+    if (guarded)
+      step = `try {${step}
+      } catch (error) { endEach(ctx, buffers); throw error; }`;
+    return paged ? compilePageLoop(rebind.join(' '), step) : compileListLoop(step);
   };
 
   return new Function(
@@ -161,54 +169,12 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   ) as ViewIterators;
 }
 
-/**
- * The loop of a compiled walk enumerates the entities and decides when storage is bound, so it
- * belongs to the storage the walked traits live in. The cursors, the callback and change tracking
- * are the same under every loop and arrive as the step for one entity.
- *
- * A guarded loop ends the walk itself when a step throws, so its caller needs no try block. The
- * try sits inside the loop, where it costs nothing. Around the whole walk it would keep V8 from
- * moving checks and loads out of the loop once the walk is inlined.
- */
-function guard(source: string, guarded: boolean): string {
-  return guarded
-    ? `try {${source}
-      } catch (error) { endEach(ctx, buffers); throw error; }`
-    : source;
-}
-
-/**
- * The loop over sparse pages. An entity id names a page and a slot in it, and the cursors are
- * bound per page. Each stretch of entities on one page runs in an inner loop, where the bound
- * pages never change, so V8 reads them once per stretch instead of once per entity. The entity
- * that ends a stretch is carried into the next one, which keeps scattered lists cheap. Walks are
- * only started with at least one entity. The index is kept an integer so stepping it needs no
- * overflow check. The bind and the step read the locals pg and off.
- */
-function compilePageLoop(bind: string, step: string, guarded: boolean): string {
-  return `
-    var i = 0, entity = entities[0], eid = entity & ${ENTITY_ID_MASK};
-    walk: for (;;) {
-      var pg = eid >>> 10;
-      ${bind}
-      ${guard(
-        `
-      do {
-        var off = eid & 1023;${step}
-        if ((i = (i + 1) | 0) === length) break walk;
-        entity = entities[i]; eid = entity & ${ENTITY_ID_MASK};
-      } while (eid >>> 10 === pg);`,
-        guarded
-      )}
-    }`;
-}
-
-/** The loop for a walk that binds no storage. Each step reads its values by entity id. */
-function compileListLoop(step: string, guarded: boolean): string {
+/** Source for the loop of a walk that binds no storage. Each step reads its values by entity id. */
+function compileListLoop(step: string): string {
   return `
     for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
-      ${guard(step, guarded)}
+      ${step}
     }`;
 }
 

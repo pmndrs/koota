@@ -122,7 +122,8 @@ export type GetIntoAccessor = (ctx: WorldContext, index: number, store: any, out
 
 /**
  * Source for one cursor in one generated walk. Initialize once, bind before seek, seek before flush.
- * The fragments share locals derived from the cursor name, which must be unique in the walk.
+ * The fragments share locals derived from the cursor name, which must be unique in the walk, and
+ * read the page and slot locals of the page loop that runs them.
  */
 export type CursorSource = {
   /** Statements that capture cursor-owned data once per walk. */
@@ -143,7 +144,7 @@ export type CursorCompiler = {
     store: Store<any>,
     visit: (record: object, index: number) => void
   ): (entities: readonly Entity[]) => void;
-  compile(cursor: string, store: string, page: string, offset: string): CursorSource;
+  compile(cursor: string, store: string): CursorSource;
 };
 
 /** A write cursor detects changes. A plain cursor skips the checks. */
