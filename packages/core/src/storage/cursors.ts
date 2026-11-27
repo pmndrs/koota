@@ -2,6 +2,30 @@ import { ENTITY_ID_MASK } from '../entity/handle';
 import { getStride } from './schema';
 import type { CursorCompiler, CursorKind, CursorSet, Schema } from './types';
 
+/**
+ * Source for the loop over sparse pages, which belongs to this storage along with the cursors it
+ * drives. An entity id names a page and a slot in it, kept in the locals pg and off, and the bind
+ * and the step are written against them. Each stretch of entities on one page runs in an inner
+ * loop, where whatever the bind bound never changes, so V8 reads it once per stretch instead of
+ * once per entity. The entity that ends a stretch is carried into the next one, which keeps
+ * scattered lists cheap. The index is kept an integer so stepping it needs no overflow check.
+ * The source walks `entities` up to `length`, which must be at least one.
+ */
+export function compilePageLoop(bind: string, step: string): string {
+  return `
+    var i = 0, entity = entities[0], eid = entity & ${ENTITY_ID_MASK};
+    walk: for (;;) {
+      var pg = eid >>> 10;
+      ${bind}
+      do {
+        var off = eid & 1023;
+        ${step}
+        if ((i = (i + 1) | 0) === length) break walk;
+        entity = entities[i]; eid = entity & ${ENTITY_ID_MASK};
+      } while (eid >>> 10 === pg);
+    }`;
+}
+
 export function createCursorCompiler(schema: Schema): CursorCompiler {
   const keys = Object.keys(schema);
   const strides = keys.map((key) => getStride(schema, key));
@@ -18,36 +42,32 @@ export function createCursorCompiler(schema: Schema): CursorCompiler {
     },
     createReader(store, visit) {
       if (reader === undefined) {
-        const source = this.compile('record', 'store', 'pg', 'off');
+        const source = this.compile('record', 'store');
         reader = new Function(`'use strict';
           ${createCursorClassSource('Read', keys, strides, prefix, 'read')}
           return function (store, visit) {
             var record = new Read();
             return function read(entities) {
-              var lastPg = -1;
+              var length = entities.length;
+              if (length === 0) return;
               ${source.init}
-              for (var i = 0; i < entities.length; i++) {
-                var id = entities[i] & ${ENTITY_ID_MASK}, pg = id >>> 10, off = id & 1023;
-                if (pg !== lastPg) { lastPg = pg; ${source.bind} }
-                ${source.seek.plain}
-                visit(record, i);
-              }
+              ${compilePageLoop(source.bind, `${source.seek.plain} visit(record, i);`)}
             };
           };`)() as CursorCompiler['createReader'];
       }
       return reader(store, visit);
     },
-    compile(cursor, store, page, offset) {
+    compile(cursor, store) {
       const init: string[] = [];
       const bind: string[] = [];
       const seek: string[] = [];
       const plain: string[] = [];
       const write: string[] = [];
       const changed = `${cursor}.${prefix}changed`;
-      if (strides.some((stride) => stride === 0)) seek.push(`${cursor}.${prefix}o = ${offset};`);
+      if (strides.some((stride) => stride === 0)) seek.push(`${cursor}.${prefix}o = off;`);
 
       keys.forEach((key, k) => {
-        const column = `${store}[${JSON.stringify(key)}][${page}]`;
+        const column = `${store}[${JSON.stringify(key)}][pg]`;
         const stride = strides[k];
         if (stride === 0) {
           bind.push(`${cursor}.${prefix}${k} = ${column};`);
@@ -56,7 +76,7 @@ export function createCursorCompiler(schema: Schema): CursorCompiler {
         // Tuple copies keep their identity throughout the walk, including tuple assignments.
         init.push(`var ${cursor}t${k} = ${cursor}.${prefix}t${k};`);
         bind.push(`var ${cursor}p${k} = ${column};`);
-        seek.push(`var ${cursor}b${k} = ${offset} * ${stride};`);
+        seek.push(`var ${cursor}b${k} = off * ${stride};`);
         for (let c = 0; c < stride; c++) {
           const stored = `${cursor}p${k}[${cursor}b${k}${c ? ` + ${c}` : ''}]`;
           const copy = `${cursor}t${k}[${c}]`;
@@ -108,7 +128,7 @@ function createCursorClassSource(
     `Object.defineProperty(this, '${slot}', { value: ${value}, writable: true, enumerable: false, configurable: false });`;
 
   // Schema fields are enumerable own properties. Every cursor of this kind shares their accessors.
-  const slots = [hidden(`${prefix}o`, '0'), hidden(`${prefix}changed`, 'false')];
+  const slots: string[] = [];
   const accessors = keys.map((key, k) => {
     let get = `return this.${prefix}${k}[this.${prefix}o];`;
     let set =
@@ -130,6 +150,10 @@ function createCursorClassSource(
     }`;
   });
 
+  // The slots a walk writes for every entity come second and third. A cursor's first slot sits
+  // where an array keeps its length, and V8 takes a write there as a write to the length of every
+  // array it reads in the loop, which makes it load them all again for each entity.
+  slots.splice(1, 0, hidden(`${prefix}o`, '0'), hidden(`${prefix}changed`, 'false'));
   return `var ${Cursor}Fields = { ${accessors.join(', ')} };
     function ${Cursor}() {
       ${slots.join(' ')}

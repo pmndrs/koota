@@ -215,6 +215,29 @@ describe('Query', () => {
     expect(entity.get(Position)).toEqual({ x: 101, y: 0 });
   });
 
+  it('ends every walk a throw passes through', () => {
+    const entity = world.spawn(Position, Name);
+    world.onChange(Position, () => {});
+    const stop = new Error('stop');
+
+    expect(() =>
+      world.query(Name).each(() => {
+        world.query(Position).each((position, walked) => {
+          // Deferred by the walk, so it only applies once the walk has ended.
+          walked.add(IsPlayer);
+          position.x = 5;
+          throw stop;
+        });
+      })
+    ).toThrow(stop);
+
+    expect(entity.has(IsPlayer)).toBe(true);
+    // Outside a walk a change applies at once.
+    entity.remove(IsPlayer);
+    expect(entity.has(IsPlayer)).toBe(false);
+    expect(world.query(Position).length).toBe(1);
+  });
+
   it('each visits entities of a tag-only query', () => {
     const first = world.spawn(IsPlayer);
     const second = world.spawn(IsPlayer);

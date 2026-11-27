@@ -205,6 +205,10 @@ export type IterationBuffers = {
   changedEntities: Entity[];
   changedTraits: Trait[];
   next: IterationBuffers | undefined;
+  /** The pool the buffers were created for and return to. */
+  pool: IterationBufferPool;
+  /** The sequence guard of the walk in progress. */
+  guard: WalkGuard | null;
 };
 
 export type IterationBufferPool = { iterationBuffers: IterationBuffers | undefined };
