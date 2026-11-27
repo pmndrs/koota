@@ -11,7 +11,6 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   // The slot is the trait's in every world. This world keeps the generation's table and bit.
   const slot = claimMaskSlot(trait.id);
   const generationId = (slot / 31) | 0;
-  if (!ctx.generations.includes(generationId)) ctx.generations.push(generationId);
 
   const data: TraitInstance = {
     version: 0,

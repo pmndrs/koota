@@ -92,9 +92,8 @@ export function createMaskPage(gen: Uint32Array[], pageId: number): Uint32Array 
 }
 
 /** Lets go of the mask pages a world wrote for the pages of ids it owns. */
-export function clearMaskPages(tables: Uint32Array[][], generations: number[], ownedPages: number[]) {
-  for (const generation of generations) {
-    const table = tables[generation];
+export function clearMaskPages(tables: Uint32Array[][], ownedPages: number[]) {
+  for (const table of tables) {
     for (const pageId of ownedPages) table[pageId] = EMPTY_MASK_PAGE;
   }
 }

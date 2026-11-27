@@ -108,9 +108,7 @@ export function applyDestroyEntity(ctx: WorldContext, root: Entity) {
       const offset = eid & 1023;
       const slot = offset << 2;
       const entityMasks = ctx.entityMasks;
-      const generations = ctx.generations;
-      for (let i = 0; i < generations.length; i++) {
-        const g = generations[i];
+      for (let g = 0; g < entityMasks.length; g++) {
         const page = entityMasks[g][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
         const traitsByBit = ctx.traitsByBit[g];
@@ -136,8 +134,8 @@ export function applyDestroyEntity(ctx: WorldContext, root: Entity) {
       if (ctx.entitySubscribedInstances.size !== 0) clearEntitySubscriptions(ctx, entity);
 
       // A removal that declined leaves its bit held. Clear what remains, keeping history.
-      for (let i = 0; i < generations.length; i++) {
-        const page = entityMasks[generations[i]][pageId];
+      for (let i = 0; i < entityMasks.length; i++) {
+        const page = entityMasks[i][pageId];
         if (page === EMPTY_MASK_PAGE) continue;
         page[slot] = 0;
       }
@@ -235,9 +233,7 @@ function evictEntity(ctx: WorldContext, entity: Entity) {
   const pageId = eid >>> 10;
   const slot = (eid & 1023) << 2;
   const entityMasks = ctx.entityMasks;
-  const generations = ctx.generations;
-  for (let i = 0; i < generations.length; i++) {
-    const g = generations[i];
+  for (let g = 0; g < entityMasks.length; g++) {
     const page = entityMasks[g][pageId];
     if (page === EMPTY_MASK_PAGE) continue;
     let word = page[slot + REMOVED_WORD] | page[slot + DESTROYED_WORD];

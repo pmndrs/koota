@@ -129,8 +129,8 @@ function changeMachine(
   if (before) from![$internal].remove(ctx, eid, before.store);
   if (from === to && after) to![$internal].set(ctx, eid, after.store, prepared);
   if (dying) {
-    for (const generation of ctx.generations) {
-      const page = ctx.entityMasks[generation][eid >>> 10];
+    for (const generation of ctx.entityMasks) {
+      const page = generation[eid >>> 10];
       if (page !== EMPTY_MASK_PAGE)
         page[((eid & 1023) << 2) + DESTROYED_WORD] |= page[(eid & 1023) << 2];
     }

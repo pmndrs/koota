@@ -40,8 +40,6 @@ export type WorldContext = {
   entityMasks: Uint32Array[][];
   /** A table of empty pages as long as the mask tables, which a new generation starts from. */
   emptyMaskTable: Uint32Array[];
-  /** The mask generations that hold a trait of this world. */
-  generations: number[];
   /** Pages of ids the world's tracker tables cover. */
   pageLimit: number;
   traitInstances: (TraitInstance | undefined)[];

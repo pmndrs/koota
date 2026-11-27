@@ -93,7 +93,6 @@ function createWorldContext(allocator: PageAllocator, options?: WorldOptions): W
     entityIndex: null! as ReturnType<typeof createEntityIndex>,
     entityMasks: allocator.maskTables,
     emptyMaskTable: allocator.emptyMaskTable,
-    generations: [],
     pageLimit: 0,
     retain,
     tombstones: { ids: [], head: 0 },
@@ -346,9 +345,8 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
 
     // The world lets go of its mask pages while its pages of ids are still listed. The tables
     // keep their extent, so an id from before the reset still reads a page, an empty one.
-    clearMaskPages(ctx.entityMasks, ctx.generations, ctx.entityIndex.ownedPages);
+    clearMaskPages(ctx.entityMasks, ctx.entityIndex.ownedPages);
     for (const trait of ctx.traits) releaseMaskSlot(trait.id);
-    ctx.generations = [];
     ctx.traitsByBit = [];
 
     releaseOwnedPages(ctx.entityIndex);
