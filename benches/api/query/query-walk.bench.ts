@@ -1,5 +1,6 @@
 import { bench, group } from '@pmndrs/labs';
 import { createQuery, createWorld, trait, type Entity } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 const Position = trait({ x: 0, y: 0 });
 const Velocity = trait({ x: 0, y: 0 });
@@ -26,16 +27,18 @@ group('entity walk 10k @query @query-walk', () => {
   });
 
   bench('view each', function* () {
+    warmWalks();
     const { world, query } = setup();
-    let sum = 0;
+    // The walk records each entity by its place in the list. A total kept in a variable outside
+    // the callback would make every step wait on the one before it and hide the walk.
+    const seen: number[] = Array.from({ length: 10_000 }, () => 0);
     yield () => {
-      sum = 0;
-      world.query(query).each((_position, _velocity, entity) => {
-        sum = (sum + entity) | 0;
+      world.query(query).each((_position, _velocity, entity, i) => {
+        seen[i] = entity;
       });
     };
     world.destroy();
-    return sum;
+    return seen.reduce((sum, entity) => (sum + entity) | 0, 0);
   });
 });
 
@@ -70,6 +73,7 @@ group('movement 10k @query @query-walk @movement', () => {
   });
 
   bench('each', function* () {
+    warmWalks();
     const { world, query, checksum } = setup();
     yield () => {
       world.query(query).each((position, velocity) => {
@@ -103,6 +107,7 @@ group('shed tag in each @query @query-walk @removal', () => {
     [1000, 1],
   ] as const) {
     bench(`${count} per walk x${walks}`, function* () {
+      warmWalks();
       const world = createWorld();
       const entities = Array.from({ length: count }, () => world.spawn(Position, Dirty));
       const query = createQuery(Position, Dirty);

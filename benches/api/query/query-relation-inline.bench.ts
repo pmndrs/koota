@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { bench, group } from '@pmndrs/labs';
 import { createWorld, relation, trait, type Entity } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 // One relation covers each policy, three exercise projection scaling and scattered pages.
 for (const [exclusive, count, targetCount, modes] of [
@@ -15,6 +16,7 @@ for (const [exclusive, count, targetCount, modes] of [
     () => {
       for (const mode of modes) {
         bench(mode, function* () {
+          warmWalks();
           const world = createWorld();
           const Position = trait({ x: 0 });
           // The walk sums into this trait, as a system would. It starts at a fraction so its
@@ -102,6 +104,7 @@ for (const [exclusive, count, targetCount, modes] of [
 
 group('inline plain trait 10k @relation-each-inline', () => {
   bench('no relations', function* () {
+    warmWalks();
     const world = createWorld();
     const Position = trait({ x: 0 });
     // The walks sum into this trait, as a system would. It starts at a fraction so its column
@@ -128,6 +131,7 @@ group('inline plain trait 10k @relation-each-inline', () => {
 
 group('owned relation selection 10k @relation-each-inline', () => {
   bench('repeated concrete lookup and target selection', function* () {
+    warmWalks();
     const world = createWorld();
     const Parent = relation({ exclusive: true });
     const Contains = relation();
@@ -138,20 +142,26 @@ group('owned relation selection 10k @relation-each-inline', () => {
     world.query(Contains('*')).each((...args: unknown[]) => {
       projected = args.length === 3;
     });
-    let sum = 0;
+    // The walk records each target by its entity's place in the list. A total kept in a variable
+    // outside the callback would make every step wait on the one before it and hide the walk.
+    const seen: number[] = Array.from({ length: 10_000 }, () => 0);
     const consume = projected
-      ? (value: Entity | readonly Entity[]) => {
-          sum += (value as readonly Entity[])[0];
+      ? (value: Entity | readonly Entity[], _entity: Entity, i: number) => {
+          seen[i] = (value as readonly Entity[])[0];
         }
-      : (value: Entity | readonly Entity[]) => {
-          sum += (value as Entity).targetsFor(Contains)[0];
+      : (value: Entity | readonly Entity[], i: number) => {
+          seen[i] = (value as Entity).targetsFor(Contains)[0];
         };
-    const result = yield () => {
-      sum = 0;
-      world.query(Parent(parent)).select(Contains('*')).each(consume);
-      return sum;
+    yield {
+      bench: () => {
+        world.query(Parent(parent)).select(Contains('*')).each(consume);
+      },
+      snapshot: () => {
+        const sum = seen.reduce((sum, target) => sum + target, 0);
+        assert.equal(sum, item * 10_000);
+        return sum;
+      },
     };
-    assert.equal(result, item * 10_000);
     world.destroy();
   });
 });

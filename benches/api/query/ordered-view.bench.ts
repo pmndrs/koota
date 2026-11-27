@@ -1,5 +1,6 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, ordered, relation, trait, type Entity } from 'koota';
+import { warmWalks } from '../../warm-walks';
 
 group('ordered view cache hit @ordered-view-cache', () => {
   bench('tracked sort', function* () {
@@ -73,6 +74,7 @@ group('ordered trait access 10k @ordered-view', () => {
     'relation',
   ] as const) {
     bench(mode, function* () {
+      warmWalks();
       const world = createWorld();
       const Position = trait({ x: 0 });
       const Velocity = trait({ x: 0 });

@@ -1,6 +1,7 @@
 import { assert, bench, group } from '@pmndrs/labs';
 import { createWorld, trait, type World } from 'koota';
 import { mulberry32 } from 'math/random';
+import { warmWalks } from '../../warm-walks';
 
 const Position = trait({ x: 0, y: 0 });
 const Acceleration = trait({ x: 0, y: 0 });
@@ -8,6 +9,7 @@ const Acceleration = trait({ x: 0, y: 0 });
 group('N-body 2k @n-body @pages', () => {
   for (const run of [each, getPages]) {
     bench(run.name, function* () {
+      warmWalks();
       const world = createWorld();
       const random = mulberry32.create(42);
       for (let i = 0; i < 2000; i++) {
