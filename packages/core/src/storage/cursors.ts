@@ -108,7 +108,7 @@ function createCursorClassSource(
     `Object.defineProperty(this, '${slot}', { value: ${value}, writable: true, enumerable: false, configurable: false });`;
 
   // Schema fields are enumerable own properties. Every cursor of this kind shares their accessors.
-  const slots = [hidden(`${prefix}o`, '0'), hidden(`${prefix}changed`, 'false')];
+  const slots: string[] = [];
   const accessors = keys.map((key, k) => {
     let get = `return this.${prefix}${k}[this.${prefix}o];`;
     let set =
@@ -130,6 +130,10 @@ function createCursorClassSource(
     }`;
   });
 
+  // The slots a walk writes for every entity come second and third. A cursor's first slot sits
+  // where an array keeps its length, and V8 takes a write there as a write to the length of every
+  // array it reads in the loop, which makes it load them all again for each entity.
+  slots.splice(1, 0, hidden(`${prefix}o`, '0'), hidden(`${prefix}changed`, 'false'));
   return `var ${Cursor}Fields = { ${accessors.join(', ')} };
     function ${Cursor}() {
       ${slots.join(' ')}
