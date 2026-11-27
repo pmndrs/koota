@@ -1,7 +1,7 @@
 import { beginDefer, endDefer } from '../command/buffer';
 import type { Entity } from '../entity/types';
 import type { WorldContext } from '../world/types';
-import { endEach, takeIterationBuffers, walkEachDetecting } from './iteration';
+import { endEach, takeIterationBuffers, walkDetecting } from './iteration';
 import type {
   Callback,
   EntitySource,
@@ -122,16 +122,15 @@ export class EntityView {
     const guard = this.guard;
     const entities = dense as Entity[];
     const buffers = takeIterationBuffers(pool, binding);
-    buffers.pool = pool;
     buffers.guard = guard;
     if (guard) guard.iterating++;
     beginDefer(ctx);
     if (binding.untracked === ctx.trackingRevision) {
-      // The compiled walk ends the walk itself when the callback throws.
+      // The untracked walk ends itself when the callback throws.
       buffers.iterators!.each(ctx, entities, length, callback, buffers, binding.stores);
       endEach(ctx, buffers);
     } else {
-      walkEachDetecting(ctx, binding, entities, length, callback, buffers);
+      walkDetecting(ctx, binding, entities, length, callback, buffers);
     }
     return this;
   }

@@ -1,6 +1,6 @@
 import type { SparseSet } from '@koota/collections';
-import { ENTITY_ID_MASK } from '../entity/handle';
 import { endDefer } from '../command/buffer';
+import { ENTITY_ID_MASK } from '../entity/handle';
 import type { Entity } from '../entity/types';
 import { $internal } from '../internal';
 import { sameParams } from '../query/query';
@@ -117,24 +117,29 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     ${hoist.join('\n    ').replace(/__KIND__/g, kind)}`;
   // Each trait is passed as its own argument, so the values stay in registers.
   const call = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
-  // The loop comes from the storage the walked traits live in. Every stored trait is kept in
-  // sparse pages, so a walk with cursors runs the page loop and any other the list loop. The
-  // cursors, the callback and change tracking are the same under either and form the step.
-  // A guarded step ends the walk itself when it throws, so each needs no try block. Around the
-  // whole walk a try would keep V8 from moving checks and loads out of the loop once the walk is
-  // inlined. Around one step it costs nothing.
-  const loop = (kind: CursorKind, before: string[], after: string[], guarded = false) => {
-    let step = `
+  // The step for one entity is the same under every loop.
+  const step = (kind: CursorKind, before: string[], after: string[]) => `
       ${seek.map((source) => source[kind]).join('\n      ')}
       ${read.join('\n      ')}
       ${before.join('\n      ')}
       ${call}
       ${after.join('\n      ')}`;
-    if (guarded)
-      step = `try {${step}
+  // The loop comes from the storage the walked traits live in. Every stored trait is kept in
+  // sparse pages, so a walk with cursors runs the page loop. Any other binds nothing and steps
+  // through the list.
+  const loop = (body: string) =>
+    paged
+      ? compilePageLoop(rebind.join(' '), body)
+      : `
+    for (var i = 0; i < length; i++) {
+      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
+      ${body}
+    }`;
+  // A guarded step ends the walk when it throws, so the caller needs no try block. Around the
+  // whole walk a try keeps V8 from moving checks and loads out of the loop once the walk is
+  // inlined. Around one step it costs nothing.
+  const guard = (body: string) => `try {${body}
       } catch (error) { endEach(ctx, buffers); throw error; }`;
-    return paged ? compilePageLoop(rebind.join(' '), step) : compileListLoop(step);
-  };
 
   return new Function(
     'a',
@@ -148,12 +153,12 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
   return {
-    each: function each(ctx, entities, length, callback, buffers, stores) {${setup('plain')}${loop('plain', [], write, true)}
+    each: function each(ctx, entities, length, callback, buffers, stores) {${setup('plain')}${loop(guard(step('plain', [], write)))}
     },
     track: function track(ctx, entities, length, callback, buffers, stores) {${setup('write')}
     ${tracked.join('\n    ')}
     var snapshots = buffers.atomicSnapshots, changedEntities = buffers.changedEntities;
-    var changedTraits = buffers.changedTraits, changed = 0;${loop('write', snapshot, detect)}
+    var changedTraits = buffers.changedTraits, changed = 0;${loop(step('write', snapshot, detect))}
       return changed;
     },
   };`
@@ -167,15 +172,6 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     filterTargetSnapshot,
     endEach
   ) as ViewIterators;
-}
-
-/** Source for the loop of a walk that binds no storage. Each step reads its values by entity id. */
-function compileListLoop(step: string): string {
-  return `
-    for (var i = 0; i < length; i++) {
-      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
-      ${step}
-    }`;
 }
 
 /** Copies only the targets inside the pair's target query, so the callback sees what matched. */
@@ -227,9 +223,9 @@ function atomicChanged(value: any, snapshot: IterationBuffers['atomicSnapshots']
 }
 
 /**
- * Resolves change detection for a walk and runs the matching iterator. A walk that finds nothing
- * tracked records the world's tracking revision on the binding, so later walks skip this check
- * until a change observer is added.
+ * The each walk when a change observer may have appeared. A walk that finds nothing tracked
+ * records the world's tracking revision on the binding, so later walks skip this check until
+ * an observer is added. Kept apart so each itself holds no try block.
  */
 export function walkDetecting(
   ctx: WorldContext,
@@ -243,61 +239,46 @@ export function walkDetecting(
   const iterators = buffers.iterators!;
   if (!trackTraits(instances, buffers.tracked)) {
     binding.untracked = ctx.trackingRevision;
+    // The untracked walk ends itself when the callback throws.
     iterators.each(ctx, entities, length, callback, buffers, stores);
+    endEach(ctx, buffers);
     return;
   }
-  let changedCount = 0;
   try {
-    changedCount = iterators.track(ctx, entities, length, callback, buffers, stores);
+    const changedCount = iterators.track(ctx, entities, length, callback, buffers, stores);
+    const { changedEntities, changedTraits } = buffers;
+    for (let i = 0; i < changedCount; i++) {
+      notifyChanged(ctx, changedEntities[i], changedTraits[i]);
+    }
   } finally {
     clearAtomicSnapshots(buffers.atomicSnapshots);
-  }
-  const { changedEntities, changedTraits } = buffers;
-  for (let i = 0; i < changedCount; i++) {
-    notifyChanged(ctx, changedEntities[i], changedTraits[i]);
+    endEach(ctx, buffers);
   }
 }
 
 /**
- * Ends an each walk, once. The compiled walk calls it when a callback throws and each calls it
- * when the walk returns. Changes are reported before the deferred structural changes apply.
+ * Ends an each walk and returns its buffers to their pool. The untracked walk calls it when a
+ * callback throws, and whoever started that walk calls it when it returns. Changes are reported
+ * before the deferred structural changes apply.
  */
 export function endEach(ctx: WorldContext, buffers: IterationBuffers) {
-  const pool = buffers.pool;
-  if (pool === undefined) return;
-  buffers.pool = undefined;
-  const guard = buffers.guard;
+  const { guard, pool } = buffers;
   if (guard) guard.iterating--;
   bumpVersions(buffers.binding!.instances);
-  releaseIterationBuffers(pool, buffers);
+  buffers.next = pool.iterationBuffers;
+  pool.iterationBuffers = buffers;
   endDefer(ctx);
-}
-
-/** The each walk when something may observe its writes. Kept apart so each holds no try block. */
-export function walkEachDetecting(
-  ctx: WorldContext,
-  binding: ViewBinding,
-  entities: Entity[],
-  length: number,
-  callback: Callback,
-  buffers: IterationBuffers
-) {
-  try {
-    walkDetecting(ctx, binding, entities, length, callback, buffers);
-  } finally {
-    endEach(ctx, buffers);
-  }
 }
 
 /**
  * Marks every walked trait as possibly written. Version readers have no change events to rely
  * on, and a nested read may cache an order before the walk's last write, so this runs after it.
  */
-export function bumpVersions(instances: TraitInstance[]) {
+function bumpVersions(instances: TraitInstance[]) {
   for (let i = 0; i < instances.length; i++) instances[i].version++;
 }
 
-function createIterationBuffers(): IterationBuffers {
+function createIterationBuffers(pool: IterationBufferPool): IterationBuffers {
   return {
     binding: undefined,
     cursors: [],
@@ -308,21 +289,22 @@ function createIterationBuffers(): IterationBuffers {
     changedEntities: [],
     changedTraits: [],
     next: undefined,
-    pool: undefined,
-    guard: undefined,
+    pool,
+    guard: null,
   };
 }
 
 /**
- * Each active walk checks out its own buffers. A pool that belongs to one binding keeps its
- * prepared cursors. Views that share the world pool may need to rebind its buffers.
+ * Each active walk checks out its own buffers, which go back to the pool they came from. A pool
+ * that belongs to one binding keeps its prepared cursors. Views that share the world pool may
+ * need to rebind its buffers.
  */
 export function takeIterationBuffers(
   pool: IterationBufferPool,
   binding: ViewBinding
 ): IterationBuffers {
   let buffers = pool.iterationBuffers;
-  if (buffers === undefined) buffers = createIterationBuffers();
+  if (buffers === undefined) buffers = createIterationBuffers(pool);
   else pool.iterationBuffers = buffers.next;
   if (buffers.binding !== binding) prepareIterationBuffers(buffers, binding);
   return buffers;
@@ -357,12 +339,6 @@ function prepareIterationBuffers(buffers: IterationBuffers, binding: ViewBinding
   }
   buffers.binding = binding;
   buffers.iterators = binding.iterators ??= compileViewIterators(traits, projection);
-}
-
-/** Returns buffers to the pool. */
-export function releaseIterationBuffers(pool: IterationBufferPool, buffers: IterationBuffers) {
-  buffers.next = pool.iterationBuffers;
-  pool.iterationBuffers = buffers;
 }
 
 /** Only tracked walks take atomic snapshots, so only they drop the user objects held in them. */
