@@ -154,10 +154,7 @@ group('owned relation selection 10k @relation-each-inline', () => {
         };
     yield {
       bench: () => {
-        world
-          .query(Parent(parent))
-          .select(Contains('*'))
-          .each(consume);
+        world.query(Parent(parent)).select(Contains('*')).each(consume);
       },
       snapshot: () => {
         const sum = seen.reduce((sum, target) => sum + target, 0);
