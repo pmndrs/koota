@@ -6,7 +6,6 @@ import { sameParams } from '../query/query';
 import { hasChangedQuery } from '../query/tracking';
 import type { CursorKind, CursorSource } from '../storage/types';
 import { hasSubscribers, notifyChanged } from '../trait/hooks';
-import { getTraitInstance } from '../trait/registry';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
 import type {
@@ -53,7 +52,7 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   const accessors: unknown[] = [];
   const bind: string[] = [];
   const hoist: string[] = [];
-  const modes: string[] = [];
+  const tracked: string[] = [];
   const read: string[] = [];
   const rebind: string[] = [];
   const seek: CursorSource['seek'][] = [];
@@ -68,7 +67,7 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     const record = `{ changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`;
     bind.push(`const T${j} = traits[${j}];`);
     hoist.push(`var s${j} = stores[${j}];`);
-    modes.push(`m${j} = modes[${j}]`);
+    tracked.push(`var observed${j} = buffers.tracked[${j}];`);
 
     const cursor = traitCtx.cursor;
     if (cursor !== undefined) {
@@ -81,7 +80,7 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
       seek.push(source.seek);
       // Scalar fields are written in place. Only tuple copies are stored after the callback.
       if (source.flush.plain) write.push(source.flush.plain);
-      detect.push(`${source.flush.write} if (${source.changed} && m${j} !== 0) ${record}`);
+      detect.push(`${source.flush.write} if (${source.changed} && observed${j}) ${record}`);
       continue;
     }
 
@@ -91,24 +90,22 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     accessors.push(traitCtx.get);
     args.push(`r${j}`);
     read.push(`var r${j} = g${j}(ctx, eid, s${j});`);
-    snapshot.push(`if (m${j} === 2) snapshotAtomic(r${j}, snapshots, ${j});`);
-    detect.push(`if (m${j} === 2 && atomicChanged(r${j}, snapshots[${j}])) ${record}`);
+    snapshot.push(`if (observed${j}) snapshotAtomic(r${j}, snapshots, ${j});`);
+    detect.push(`if (observed${j} && atomicChanged(r${j}, snapshots[${j}])) ${record}`);
   }
 
   // Target values are passed as arguments and never enter trait writeback or tracking.
   // Match sets belong to the binding, so shared iterators read them per walk.
-  const targetHoist: string[] = [];
-  const targetRebind: string[] = [];
   let traitIndex = 0;
   const projectedArgs = projection.map((part, j) => {
     if (typeof part === 'function') return args[traitIndex++];
-    targetHoist.push(`var rt${j} = instances[${j}].relationTargets${paged ? `, rp${j}` : ''};`);
-    if (paged) targetRebind.push(`rp${j} = rt${j}[pg];`);
+    hoist.push(`var rt${j} = instances[${j}].relationTargets${paged ? `, rp${j}` : ''};`);
+    if (paged) rebind.push(`rp${j} = rt${j}[pg];`);
     const slot = paged ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
     // The walk's defer scope keeps every target list as it is, so the stored value is passed as is.
     if (part.mode === 'slot') return slot;
-    targetHoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
-    targetHoist.push(`var tf${j} = buffers.binding.targets[${j}];`);
+    hoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
+    hoist.push(`var tf${j} = buffers.binding.targets[${j}];`);
     return `filterTargetSnapshot(${slot}, ts${j}, tf${j})`;
   });
 
@@ -116,8 +113,7 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   // Rebind all cursor pages together when the entity page changes.
   const setup = (kind: CursorKind) => `
     var cursors = buffers.cursors;${paged ? ' var lastPg = -1;' : ''}
-    ${hoist.join('\n    ').replace(/__KIND__/g, kind)}
-    ${targetHoist.join('\n    ')}`;
+    ${hoist.join('\n    ').replace(/__KIND__/g, kind)}`;
   // Each trait is passed as its own argument, so the values stay in registers.
   const call = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
   const loop = (kind: CursorKind, before: string[], after: string[]) => `
@@ -125,7 +121,7 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};${
         paged
           ? ` var pg = eid >>> 10, off = eid & 1023;
-      if (pg !== lastPg) { lastPg = pg; ${[...rebind, ...targetRebind].join(' ')} }`
+      if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')} }`
           : ''
       }
       ${seek.map((source) => source[kind]).join('\n      ')}
@@ -146,12 +142,10 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
   return {
-    read: function read(ctx, entities, length, callback, buffers, stores) {${setup('read')}${loop('read', [], [])}
-    },
     each: function each(ctx, entities, length, callback, buffers, stores) {${setup('plain')}${loop('plain', [], write)}
     },
     track: function track(ctx, entities, length, callback, buffers, stores) {${setup('write')}
-    var modes = buffers.modes${modes.length ? ', ' + modes.join(', ') : ''};
+    ${tracked.join('\n    ')}
     var snapshots = buffers.atomicSnapshots, changedEntities = buffers.changedEntities;
     var changedTraits = buffers.changedTraits, changed = 0;${loop('write', snapshot, detect)}
       return changed;
@@ -229,9 +223,9 @@ export function walkDetecting(
   callback: Callback,
   buffers: IterationBuffers
 ) {
-  const { traits, stores } = binding;
+  const { instances, stores } = binding;
   const iterators = buffers.iterators!;
-  if (trackTraits(ctx, traits, buffers.modes) === 0) {
+  if (!trackTraits(instances, buffers.tracked)) {
     binding.untracked = ctx.trackingRevision;
     iterators.each(ctx, entities, length, callback, buffers, stores);
     return;
@@ -262,7 +256,7 @@ function createIterationBuffers(): IterationBuffers {
     cursors: [],
     targetSnapshots: [],
     iterators: undefined,
-    modes: [],
+    tracked: [],
     atomicSnapshots: [],
     changedEntities: [],
     changedTraits: [],
@@ -336,19 +330,13 @@ function clearAtomicSnapshots(snapshots: IterationBuffers['atomicSnapshots']) {
   }
 }
 
-/** Fills modes and returns how many traits are tracked. */
-function trackTraits(ctx: WorldContext, traits: Trait[], modes: number[]) {
-  let trackedCount = 0;
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-    const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    // Notifying costs a deferred pass per entity, so skip it when nothing can observe the change.
-    if (!hasSubscribers(instance.changeSubscriptions) && !hasChangedQuery(instance)) {
-      modes[i] = 0;
-      continue;
-    }
-    modes[i] = trait[$internal].type === 'aos' ? 2 : 1;
-    trackedCount++;
+/** Records which traits have a change observer for this walk. */
+function trackTraits(instances: TraitInstance[], tracked: boolean[]) {
+  let anyTracked = false;
+  for (let i = 0; i < instances.length; i++) {
+    const instance = instances[i];
+    tracked[i] = hasSubscribers(instance.changeSubscriptions) || hasChangedQuery(instance);
+    if (tracked[i]) anyTracked = true;
   }
-  return trackedCount;
+  return anyTracked;
 }

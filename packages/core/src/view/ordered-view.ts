@@ -1,5 +1,8 @@
 import { assertsEnabled } from '../build-flags';
+import { beginDefer, endDefer } from '../command/buffer';
+import { getEntityId } from '../entity/handle';
 import type { Entity } from '../entity/types';
+import { $internal } from '../internal';
 import type { QueryParameter } from '../query/types';
 import { ensureTraitInstance } from '../trait/registry';
 import type { Trait, TraitInstance } from '../trait/types';
@@ -9,7 +12,6 @@ import { EntityView } from './entity-view';
 import type {
   EntityComparator,
   EntitySource,
-  IterationBuffers,
   OrderedView,
   SortKeySelector,
   ViewBinding,
@@ -228,37 +230,36 @@ class SortedSource extends OrderedSource {
 }
 
 /** Reuses sort buffers while keeping the published order separate until refresh succeeds. */
-class SortedKeys implements EntitySource {
-  /** Key reads keep their projection prepared independently of the sorted view's walks. */
-  iterationBuffers: IterationBuffers | undefined;
+class SortedKeys {
   dense: Entity[] = [];
   private output: Entity[] = [];
   values: number[] = [];
   scratch: number[] = [];
   runs: number[] = [];
-  reader: EntityView;
-  collect: (value: any, entity: Entity, index: number) => void;
+  ctx: WorldContext;
+  collect: (entities: readonly Entity[]) => void;
 
-  constructor(base: EntityView, trait: Trait, selector: SortKeySelector, scope: ViewScope | null) {
-    // The reader walks this object's own array and keeps its buffers here.
-    this.reader = new EntityView(
-      base.ctx,
-      ensureViewBinding(base.ctx, scope, [trait]),
-      this,
-      null,
-      this
-    );
-    this.collect = (value, _entity, index) => {
+  constructor(ctx: WorldContext, trait: Trait, selector: SortKeySelector) {
+    this.ctx = ctx;
+    const { store } = ensureTraitInstance(ctx, trait);
+    const { cursor, get } = trait[$internal];
+    const visit = (value: Parameters<SortKeySelector>[0], index: number) => {
       const key = selector(value);
       if (assertsEnabled && (typeof key !== 'number' || Number.isNaN(key))) {
         throw new Error('Koota: [SORT_KEY] A sortBy selector must return a number other than NaN.');
       }
       this.values[index] = key;
     };
-  }
-
-  get length() {
-    return this.dense.length;
+    this.collect = (entities) => {
+      // Compile the schema reader on the first nonempty refresh.
+      if (cursor && entities.length !== 0) {
+        this.collect = cursor.createReader(store, visit);
+        return this.collect(entities);
+      }
+      for (let i = 0; i < entities.length; i++) {
+        visit(get(ctx, getEntityId(entities[i]), store), i);
+      }
+    };
   }
 
   /** Returns the next order without modifying published, which becomes scratch only on success. */
@@ -267,8 +268,12 @@ class SortedKeys implements EntitySource {
     const { dense, length: count } = source;
     for (let i = 0; i < count; i++) entities[i] = dense[i] as Entity;
     while (entities.length > count) entities.pop();
-    // Read-only traversal neither writes trait data nor invalidates the dependency version.
-    this.reader.read(this.collect);
+    beginDefer(this.ctx);
+    try {
+      this.collect(entities);
+    } finally {
+      endDefer(this.ctx);
+    }
     const result = sortKeys(this.values, entities, this.scratch, this.output, this.runs, count);
     while (result.length > count) result.pop();
     // Retain the unused buffer and recycle published for the next refresh.
@@ -307,7 +312,7 @@ export function createKeyedView<C extends Trait>(
   if (!cache) keyedViews.set(base, (cache = new WeakMap()));
   let views = cache.get(trait);
   if (!views) cache.set(trait, (views = new WeakMap()));
-  const source = new SortedSource(base, new SortedKeys(base, trait, selector, scope), [trait], scope);
+  const source = new SortedSource(base, new SortedKeys(base.ctx, trait, selector), [trait], scope);
   const view = new SortedView(base.ctx, source, base.binding, scope);
   source.views.push(view);
   views.set(selector, view);

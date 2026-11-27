@@ -1,3 +1,4 @@
+import { ENTITY_ID_MASK } from '../entity/handle';
 import { getStride } from './schema';
 import type { CursorCompiler, CursorKind, CursorSet, Schema } from './types';
 
@@ -9,10 +10,32 @@ export function createCursorCompiler(schema: Schema): CursorCompiler {
   while (keys.some((key) => key.startsWith(prefix))) prefix += '$';
 
   let Cursors: (new () => CursorSet) | undefined;
+  let reader: CursorCompiler['createReader'] | undefined;
   return {
     create() {
       Cursors ??= compileCursorSetClass(keys, strides, prefix);
       return new Cursors();
+    },
+    createReader(store, visit) {
+      if (reader === undefined) {
+        const source = this.compile('record', 'store', 'pg', 'off');
+        reader = new Function(`'use strict';
+          ${createCursorClassSource('Read', keys, strides, prefix, 'read')}
+          return function (store, visit) {
+            var record = new Read();
+            return function read(entities) {
+              var lastPg = -1;
+              ${source.init}
+              for (var i = 0; i < entities.length; i++) {
+                var id = entities[i] & ${ENTITY_ID_MASK}, pg = id >>> 10, off = id & 1023;
+                if (pg !== lastPg) { lastPg = pg; ${source.bind} }
+                ${source.seek.plain}
+                visit(record, i);
+              }
+            };
+          };`)() as CursorCompiler['createReader'];
+      }
+      return reader(store, visit);
     },
     compile(cursor, store, page, offset) {
       const init: string[] = [];
@@ -47,8 +70,8 @@ export function createCursorCompiler(schema: Schema): CursorCompiler {
       return {
         init: init.join(' '),
         bind: bind.join(' '),
-        seek: { read: move, plain: move, write: `${changed} = false; ${move}` },
-        flush: { read: '', plain: plain.join(' '), write: write.join(' ') },
+        seek: { plain: move, write: `${changed} = false; ${move}` },
+        flush: { plain: plain.join(' '), write: write.join(' ') },
         changed,
       };
     },
@@ -69,8 +92,7 @@ function compileCursorSetClass(
     `'use strict';
     ${createCursorClassSource('Write', keys, strides, prefix, 'write')}
     ${createCursorClassSource('Plain', keys, strides, prefix, 'plain')}
-    ${createCursorClassSource('Read', keys, strides, prefix, 'read')}
-    function Cursors() { this.write = new Write(); this.plain = new Plain(); this.read = new Read(); }
+    function Cursors() { this.write = new Write(); this.plain = new Plain(); }
     return Cursors;`
   )();
 }
@@ -80,7 +102,7 @@ function createCursorClassSource(
   keys: string[],
   strides: number[],
   prefix: string,
-  kind: CursorKind
+  kind: CursorKind | 'read'
 ) {
   const hidden = (slot: string, value: string) =>
     `Object.defineProperty(this, '${slot}', { value: ${value}, writable: true, enumerable: false, configurable: false });`;

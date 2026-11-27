@@ -180,11 +180,9 @@ export type Iterate<R = void> = (
 ) => R;
 
 export type ViewIterators = {
-  /** Cursor writes are dropped and nothing is written back. */
-  read: Iterate;
-  /** Writes every trait back without change detection. */
+  /** Flushes borrowed tuples after each callback. */
   each: Iterate;
-  /** Writes every trait back and records changes for traits whose mode is not 0. Returns the count. */
+  /** Also records changes to observed traits and returns the number of changes. */
   track: Iterate<number>;
 };
 
@@ -201,8 +199,8 @@ export type IterationBuffers = {
   /** Reusable filtered target arrays for this active walk, indexed by projection position. */
   targetSnapshots: Entity[][];
   iterators: ViewIterators | undefined;
-  /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic. */
-  modes: number[];
+  /** Whether each data trait has a change observer for this walk. */
+  tracked: boolean[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
   changedEntities: Entity[];
   changedTraits: Trait[];

@@ -116,29 +116,6 @@ export class EntityView {
   }
 
   /**
-   * Read only walk for internal readers. Writes through a cursor are dropped and the trait
-   * versions stay put, so cached orders that depend on them remain valid.
-   */
-  read(callback: Callback) {
-    const { dense, length } = this.getSource();
-    if (length === 0) return this;
-    const { ctx, pool } = this;
-    const guard = this.guard;
-    const { stores } = this.binding;
-    const buffers = takeIterationBuffers(pool, this.binding);
-    if (guard) guard.iterating++;
-    beginDefer(ctx);
-    try {
-      buffers.iterators!.read(ctx, dense as Entity[], length, callback, buffers, stores);
-    } finally {
-      if (guard) guard.iterating--;
-      releaseIterationBuffers(pool, buffers);
-      endDefer(ctx);
-    }
-    return this;
-  }
-
-  /**
    * The untracked walk is the whole hot body. It stays small so V8 can inline it together with
    * the generated iterator into the calling function, where the callback is a known constant.
    * Everything a change observer needs is one call away.
