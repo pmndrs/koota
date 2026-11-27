@@ -1,5 +1,6 @@
 import type { SparseSet } from '@koota/collections';
 import { ENTITY_ID_MASK } from '../entity/handle';
+import { endDefer } from '../command/buffer';
 import type { Entity } from '../entity/types';
 import { $internal } from '../internal';
 import { sameParams } from '../query/query';
@@ -110,26 +111,22 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   });
 
   // A defer scope keeps every row's entity, traits and pairs alive until the walk ends.
-  // Rebind all cursor pages together when the entity page changes.
   const setup = (kind: CursorKind) => `
-    var cursors = buffers.cursors;${paged ? ' var lastPg = -1;' : ''}
+    var cursors = buffers.cursors;
     ${hoist.join('\n    ').replace(/__KIND__/g, kind)}`;
   // Each trait is passed as its own argument, so the values stay in registers.
   const call = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
-  const loop = (kind: CursorKind, before: string[], after: string[]) => `
-    for (var i = 0; i < length; i++) {
-      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};${
-        paged
-          ? ` var pg = eid >>> 10, off = eid & 1023;
-      if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')} }`
-          : ''
-      }
+  // The loop comes from the storage the walked traits live in. Every stored trait is kept in
+  // sparse pages, so a walk with cursors runs the page loop and any other the list loop.
+  const loop = (kind: CursorKind, before: string[], after: string[], guarded = false) => {
+    const step = `
       ${seek.map((source) => source[kind]).join('\n      ')}
       ${read.join('\n      ')}
       ${before.join('\n      ')}
       ${call}
-      ${after.join('\n      ')}
-    }`;
+      ${after.join('\n      ')}`;
+    return paged ? compilePageLoop(rebind.join(' '), step, guarded) : compileListLoop(step, guarded);
+  };
 
   return new Function(
     'a',
@@ -138,11 +135,12 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     'snapshotAtomic',
     'atomicChanged',
     'filterTargetSnapshot',
+    'endEach',
     `'use strict';
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
   return {
-    each: function each(ctx, entities, length, callback, buffers, stores) {${setup('plain')}${loop('plain', [], write)}
+    each: function each(ctx, entities, length, callback, buffers, stores) {${setup('plain')}${loop('plain', [], write, true)}
     },
     track: function track(ctx, entities, length, callback, buffers, stores) {${setup('write')}
     ${tracked.join('\n    ')}
@@ -158,8 +156,60 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     projection.map((part) => (typeof part === 'function' ? undefined : part.instance)),
     snapshotAtomic,
     atomicChanged,
-    filterTargetSnapshot
+    filterTargetSnapshot,
+    endEach
   ) as ViewIterators;
+}
+
+/**
+ * The loop of a compiled walk enumerates the entities and decides when storage is bound, so it
+ * belongs to the storage the walked traits live in. The cursors, the callback and change tracking
+ * are the same under every loop and arrive as the step for one entity.
+ *
+ * A guarded loop ends the walk itself when a step throws, so its caller needs no try block. The
+ * try sits inside the loop, where it costs nothing. Around the whole walk it would keep V8 from
+ * moving checks and loads out of the loop once the walk is inlined.
+ */
+function guard(source: string, guarded: boolean): string {
+  return guarded
+    ? `try {${source}
+      } catch (error) { endEach(ctx, buffers); throw error; }`
+    : source;
+}
+
+/**
+ * The loop over sparse pages. An entity id names a page and a slot in it, and the cursors are
+ * bound per page. Each stretch of entities on one page runs in an inner loop, where the bound
+ * pages never change, so V8 reads them once per stretch instead of once per entity. The entity
+ * that ends a stretch is carried into the next one, which keeps scattered lists cheap. Walks are
+ * only started with at least one entity. The index is kept an integer so stepping it needs no
+ * overflow check. The bind and the step read the locals pg and off.
+ */
+function compilePageLoop(bind: string, step: string, guarded: boolean): string {
+  return `
+    var i = 0, entity = entities[0], eid = entity & ${ENTITY_ID_MASK};
+    walk: for (;;) {
+      var pg = eid >>> 10;
+      ${bind}
+      ${guard(
+        `
+      do {
+        var off = eid & 1023;${step}
+        if ((i = (i + 1) | 0) === length) break walk;
+        entity = entities[i]; eid = entity & ${ENTITY_ID_MASK};
+      } while (eid >>> 10 === pg);`,
+        guarded
+      )}
+    }`;
+}
+
+/** The loop for a walk that binds no storage. Each step reads its values by entity id. */
+function compileListLoop(step: string, guarded: boolean): string {
+  return `
+    for (var i = 0; i < length; i++) {
+      var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};
+      ${guard(step, guarded)}
+    }`;
 }
 
 /** Copies only the targets inside the pair's target query, so the callback sees what matched. */
@@ -243,6 +293,37 @@ export function walkDetecting(
 }
 
 /**
+ * Ends an each walk, once. The compiled walk calls it when a callback throws and each calls it
+ * when the walk returns. Changes are reported before the deferred structural changes apply.
+ */
+export function endEach(ctx: WorldContext, buffers: IterationBuffers) {
+  const pool = buffers.pool;
+  if (pool === undefined) return;
+  buffers.pool = undefined;
+  const guard = buffers.guard;
+  if (guard) guard.iterating--;
+  bumpVersions(buffers.binding!.instances);
+  releaseIterationBuffers(pool, buffers);
+  endDefer(ctx);
+}
+
+/** The each walk when something may observe its writes. Kept apart so each holds no try block. */
+export function walkEachDetecting(
+  ctx: WorldContext,
+  binding: ViewBinding,
+  entities: Entity[],
+  length: number,
+  callback: Callback,
+  buffers: IterationBuffers
+) {
+  try {
+    walkDetecting(ctx, binding, entities, length, callback, buffers);
+  } finally {
+    endEach(ctx, buffers);
+  }
+}
+
+/**
  * Marks every walked trait as possibly written. Version readers have no change events to rely
  * on, and a nested read may cache an order before the walk's last write, so this runs after it.
  */
@@ -261,6 +342,8 @@ function createIterationBuffers(): IterationBuffers {
     changedEntities: [],
     changedTraits: [],
     next: undefined,
+    pool: undefined,
+    guard: undefined,
   };
 }
 

@@ -1,12 +1,7 @@
 import { beginDefer, endDefer } from '../command/buffer';
 import type { Entity } from '../entity/types';
 import type { WorldContext } from '../world/types';
-import {
-  bumpVersions,
-  releaseIterationBuffers,
-  takeIterationBuffers,
-  walkDetecting,
-} from './iteration';
+import { endEach, takeIterationBuffers, walkEachDetecting } from './iteration';
 import type {
   Callback,
   EntitySource,
@@ -127,20 +122,16 @@ export class EntityView {
     const guard = this.guard;
     const entities = dense as Entity[];
     const buffers = takeIterationBuffers(pool, binding);
+    buffers.pool = pool;
+    buffers.guard = guard;
     if (guard) guard.iterating++;
     beginDefer(ctx);
-    try {
-      if (binding.untracked === ctx.trackingRevision) {
-        buffers.iterators!.each(ctx, entities, length, callback, buffers, binding.stores);
-      } else {
-        walkDetecting(ctx, binding, entities, length, callback, buffers);
-      }
-    } finally {
-      if (guard) guard.iterating--;
-      bumpVersions(binding.instances);
-      releaseIterationBuffers(pool, buffers);
-      // Changes are reported before the deferred structural changes apply.
-      endDefer(ctx);
+    if (binding.untracked === ctx.trackingRevision) {
+      // The compiled walk ends the walk itself when the callback throws.
+      buffers.iterators!.each(ctx, entities, length, callback, buffers, binding.stores);
+      endEach(ctx, buffers);
+    } else {
+      walkEachDetecting(ctx, binding, entities, length, callback, buffers);
     }
     return this;
   }
