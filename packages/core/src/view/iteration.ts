@@ -6,7 +6,6 @@ import { sameParams } from '../query/query';
 import { hasChangedQuery } from '../query/tracking';
 import type { CursorKind, CursorSource } from '../storage/types';
 import { hasSubscribers, notifyChanged } from '../trait/hooks';
-import { getTraitInstance } from '../trait/registry';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
 import type {
@@ -14,7 +13,6 @@ import type {
   IterationBufferPool,
   IterationBuffers,
   IteratorCache,
-  UpdateEachOptions,
   ViewBinding,
   ViewIterators,
 } from './types';
@@ -54,18 +52,13 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   const accessors: unknown[] = [];
   const bind: string[] = [];
   const hoist: string[] = [];
-  const modes: string[] = [];
+  const tracked: string[] = [];
   const read: string[] = [];
-  // Only array callbacks write AoS values through the shared state array.
-  const stateRead: string[] = [];
   const rebind: string[] = [];
   const seek: CursorSource['seek'][] = [];
   const write: string[] = [];
-  const writeArgs: string[] = [];
-  const trackLines: string[] = [];
-  const trackArgsLines: string[] = [];
+  const detect: string[] = [];
   const snapshot: string[] = [];
-  const release: string[] = [];
   const args: string[] = [];
   let paged = false;
 
@@ -74,8 +67,7 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
     const record = `{ changedEntities[changed] = entity; changedTraits[changed++] = T${j}; }`;
     bind.push(`const T${j} = traits[${j}];`);
     hoist.push(`var s${j} = stores[${j}];`);
-    modes.push(`m${j} = modes[${j}]`);
-    release.push(`state[${j}] = undefined;`);
+    tracked.push(`var observed${j} = buffers.tracked[${j}];`);
 
     const cursor = traitCtx.cursor;
     if (cursor !== undefined) {
@@ -83,94 +75,61 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
       const source = cursor.compile(c, `s${j}`, 'pg', 'off');
       paged = true;
       args.push(c);
-      hoist.push(`var ${c} = cursors[${j}].__KIND__; state[${j}] = ${c}; ${source.init}`);
+      hoist.push(`var ${c} = cursors[${j}].__KIND__; ${source.init}`);
       rebind.push(source.bind);
       seek.push(source.seek);
       // Scalar fields are written in place. Only tuple copies are stored after the callback.
-      const flush = source.flush.plain;
-      if (flush) {
-        write.push(flush);
-        writeArgs.push(flush);
-      }
-      const line = `${source.flush.write} if ((${source.changed} || m${j} === 3) && m${j} !== 0) ${record}`;
-      trackLines.push(line);
-      trackArgsLines.push(line);
+      if (source.flush.plain) write.push(source.flush.plain);
+      detect.push(`${source.flush.write} if (${source.changed} && observed${j}) ${record}`);
       continue;
     }
 
-    bind.push(`const g${j} = a[${accessors.length}], w${j} = a[${accessors.length + 1}];`);
-    accessors.push(traitCtx.get, traitCtx.set);
+    // The callback holds the stored value itself and cannot replace it, so there is nothing to
+    // write back. A value mutated in place is the same reference, so its snapshot is compared.
+    bind.push(`const g${j} = a[${accessors.length}];`);
+    accessors.push(traitCtx.get);
     args.push(`r${j}`);
     read.push(`var r${j} = g${j}(ctx, eid, s${j});`);
-    stateRead.push(`state[${j}] = r${j};`);
-    const writeCall = `w${j}(ctx, eid, s${j}, state[${j}])`;
-    write.push(`${writeCall};`);
-    // An atomic value mutated in place is the same reference, so compare its snapshot.
-    snapshot.push(`if (m${j} === 2) snapshotAtomic(r${j}, snapshots, ${j});`);
-    const line = `if (${writeCall} ? m${j} !== 0 : m${j} === 3 || m${j} === 2 && atomicChanged(state[${j}], snapshots[${j}])) ${record}`;
-    trackLines.push(line);
-    // A positional callback holds the stored value itself and cannot replace it, so there is
-    // nothing to set and only the snapshot can report a change.
-    trackArgsLines.push(`if (m${j} === 2 && atomicChanged(r${j}, snapshots[${j}])) ${record}`);
+    snapshot.push(`if (observed${j}) snapshotAtomic(r${j}, snapshots, ${j});`);
+    detect.push(`if (observed${j} && atomicChanged(r${j}, snapshots[${j}])) ${record}`);
   }
 
-  // Target values stay in positional arguments and never enter trait writeback or tracking.
+  // Target values are passed as arguments and never enter trait writeback or tracking.
   // Match sets belong to the binding, so shared iterators read them per walk.
-  const targetHoist: string[] = [];
-  const targetRebind: string[] = [];
   let traitIndex = 0;
   const projectedArgs = projection.map((part, j) => {
     if (typeof part === 'function') return args[traitIndex++];
-    targetHoist.push(`var rt${j} = instances[${j}].relationTargets${paged ? `, rp${j}` : ''};`);
-    if (paged) targetRebind.push(`rp${j} = rt${j}[pg];`);
+    hoist.push(`var rt${j} = instances[${j}].relationTargets${paged ? `, rp${j}` : ''};`);
+    if (paged) rebind.push(`rp${j} = rt${j}[pg];`);
     const slot = paged ? `rp${j}[off]` : `rt${j}[eid >>> 10][eid & 1023]`;
     // The walk's defer scope keeps every target list as it is, so the stored value is passed as is.
     if (part.mode === 'slot') return slot;
-    targetHoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
-    targetHoist.push(`var tf${j} = buffers.binding.targets[${j}];`);
+    hoist.push(`var ts${j} = buffers.targetSnapshots[${j}];`);
+    hoist.push(`var tf${j} = buffers.binding.targets[${j}];`);
     return `filterTargetSnapshot(${slot}, ts${j}, tf${j})`;
   });
 
   // A defer scope keeps every row's entity, traits and pairs alive until the walk ends.
   // Rebind all cursor pages together when the entity page changes.
-  const setup = (kind: CursorKind, positional = false) => `
-    var state = buffers.state, cursors = buffers.cursors;${paged ? ' var lastPg = -1;' : ''}
-    ${hoist.join('\n    ').replace(/__KIND__/g, kind)}
-    ${positional ? targetHoist.join('\n    ') : ''}`;
-  const loop = (body: string, kind: CursorKind, positional = false) => `
+  const setup = (kind: CursorKind) => `
+    var cursors = buffers.cursors;${paged ? ' var lastPg = -1;' : ''}
+    ${hoist.join('\n    ').replace(/__KIND__/g, kind)}`;
+  // Each trait is passed as its own argument, so the values stay in registers.
+  const call = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
+  const loop = (kind: CursorKind, before: string[], after: string[]) => `
     for (var i = 0; i < length; i++) {
       var entity = entities[i], eid = entity & ${ENTITY_ID_MASK};${
         paged
           ? ` var pg = eid >>> 10, off = eid & 1023;
-      if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')}${positional && targetRebind.length ? ' ' + targetRebind.join(' ') : ''} }`
+      if (pg !== lastPg) { lastPg = pg; ${rebind.join(' ')} }`
           : ''
       }
       ${seek.map((source) => source[kind]).join('\n      ')}
       ${read.join('\n      ')}
-      ${positional ? '' : stateRead.join('\n      ')}
-      ${body}
-    }`;
-  // Positional callbacks take the trait values in registers instead of through the state array.
-  const arrayCall = 'callback(state, entity, i);';
-  const argsCall = `callback(${[...projectedArgs, 'entity', 'i'].join(', ')});`;
-  const update = (call: string, positional = false) =>
-    `${setup('plain', positional)}${loop(
-      `${call}
-      ${(positional ? writeArgs : write).join('\n      ')}`,
-      'plain',
-      positional
-    )}`;
-  const track = (call: string, positional = false) => `${setup('write', positional)}
-    var modes = buffers.modes${modes.length ? ', ' + modes.join(', ') : ''};
-    var snapshots = buffers.atomicSnapshots, changedEntities = buffers.changedEntities;
-    var changedTraits = buffers.changedTraits, changed = 0;${loop(
-      `${snapshot.join('\n      ')}
+      ${before.join('\n      ')}
       ${call}
-      ${(positional ? trackArgsLines : trackLines).join('\n      ')}`,
-      'write',
-      positional
-    )}
-      return changed;`;
+      ${after.join('\n      ')}
+    }`;
 
   return new Function(
     'a',
@@ -183,22 +142,13 @@ function compileViewIterators(traits: Trait[], projection: ViewBinding['projecti
   // iterators ${iteratorSerial++}
   ${bind.join('\n  ')}
   return {
-    read: function read(ctx, entities, length, callback, buffers, stores) {${setup('read')}${loop(
-      'callback(state, entity, i);',
-      'read'
-    )}
+    each: function each(ctx, entities, length, callback, buffers, stores) {${setup('plain')}${loop('plain', [], write)}
     },
-    updateEach: function update(ctx, entities, length, callback, buffers, stores) {${update(arrayCall)}
-    },
-    trackEach: function track(ctx, entities, length, callback, buffers, stores) {${track(arrayCall)}
-    },
-    each: function each(ctx, entities, length, callback, buffers, stores) {${update(argsCall, true)}
-    },
-    trackArgs: function trackArgs(ctx, entities, length, callback, buffers, stores) {${track(argsCall, true)}
-    },
-    release: function release(buffers) {
-      var state = buffers.state;
-      ${release.join('\n      ')}
+    track: function track(ctx, entities, length, callback, buffers, stores) {${setup('write')}
+    ${tracked.join('\n    ')}
+    var snapshots = buffers.atomicSnapshots, changedEntities = buffers.changedEntities;
+    var changedTraits = buffers.changedTraits, changed = 0;${loop('write', snapshot, detect)}
+      return changed;
     },
   };`
   )(
@@ -261,9 +211,9 @@ function atomicChanged(value: any, snapshot: IterationBuffers['atomicSnapshots']
 }
 
 /**
- * Resolves change detection for a walk and runs the matching iterator. A positional walk that
- * finds nothing tracked records the world's tracking revision on the binding, so later walks
- * skip this check until a change observer is added.
+ * Resolves change detection for a walk and runs the matching iterator. A walk that finds nothing
+ * tracked records the world's tracking revision on the binding, so later walks skip this check
+ * until a change observer is added.
  */
 export function walkDetecting(
   ctx: WorldContext,
@@ -271,34 +221,18 @@ export function walkDetecting(
   entities: Entity[],
   length: number,
   callback: Callback,
-  buffers: IterationBuffers,
-  options: UpdateEachOptions | undefined,
-  positional: boolean
+  buffers: IterationBuffers
 ) {
-  const { traits, stores } = binding;
+  const { instances, stores } = binding;
   const iterators = buffers.iterators!;
-  if (trackTraits(ctx, traits, buffers.modes, options?.changeDetection) === 0) {
-    if (positional) binding.untracked = ctx.trackingRevision;
-    (positional ? iterators.each : iterators.updateEach)(
-      ctx,
-      entities,
-      length,
-      callback,
-      buffers,
-      stores
-    );
+  if (!trackTraits(instances, buffers.tracked)) {
+    binding.untracked = ctx.trackingRevision;
+    iterators.each(ctx, entities, length, callback, buffers, stores);
     return;
   }
   let changedCount = 0;
   try {
-    changedCount = (positional ? iterators.trackArgs : iterators.trackEach)(
-      ctx,
-      entities,
-      length,
-      callback,
-      buffers,
-      stores
-    );
+    changedCount = iterators.track(ctx, entities, length, callback, buffers, stores);
   } finally {
     clearAtomicSnapshots(buffers.atomicSnapshots);
   }
@@ -318,12 +252,11 @@ export function bumpVersions(instances: TraitInstance[]) {
 
 function createIterationBuffers(): IterationBuffers {
   return {
-    state: [],
     binding: undefined,
     cursors: [],
     targetSnapshots: [],
     iterators: undefined,
-    modes: [],
+    tracked: [],
     atomicSnapshots: [],
     changedEntities: [],
     changedTraits: [],
@@ -355,7 +288,7 @@ export function takeIterationBuffers(
  */
 function prepareIterationBuffers(buffers: IterationBuffers, binding: ViewBinding) {
   const { traits, projection } = binding;
-  const { state, cursors } = buffers;
+  const cursors = buffers.cursors;
   const prepared = buffers.binding?.traits;
   if (buffers.iterators !== undefined && sameParams(buffers.binding!.projection, projection)) {
     buffers.binding = binding;
@@ -363,11 +296,10 @@ function prepareIterationBuffers(buffers: IterationBuffers, binding: ViewBinding
   }
   for (let i = 0; i < traits.length; i++) {
     const trait = traits[i];
-    state[i] = undefined;
     if (prepared?.[i] === trait) continue;
     cursors[i] = trait[$internal].cursor?.create();
   }
-  state.length = cursors.length = traits.length;
+  cursors.length = traits.length;
   for (let i = 0; i < projection.length; i++) {
     const part = projection[i];
     if (typeof part !== 'function' && part.mode === 'filter') {
@@ -378,7 +310,7 @@ function prepareIterationBuffers(buffers: IterationBuffers, binding: ViewBinding
   buffers.iterators = binding.iterators ??= compileViewIterators(traits, projection);
 }
 
-/** Returns buffers to the pool. Array walks clear their borrowed state before returning them. */
+/** Returns buffers to the pool. */
 export function releaseIterationBuffers(pool: IterationBufferPool, buffers: IterationBuffers) {
   buffers.next = pool.iterationBuffers;
   pool.iterationBuffers = buffers;
@@ -398,29 +330,13 @@ function clearAtomicSnapshots(snapshots: IterationBuffers['atomicSnapshots']) {
   }
 }
 
-/** Fills modes and returns how many traits are tracked. */
-function trackTraits(
-  ctx: WorldContext,
-  traits: Trait[],
-  modes: number[],
-  changeDetection: UpdateEachOptions['changeDetection']
-) {
-  let trackedCount = 0;
-  for (let i = 0; i < traits.length; i++) {
-    const trait = traits[i];
-    const instance = getTraitInstance(ctx.traitInstances, trait)!;
-    // Notifying costs a deferred pass per entity, so skip it when nothing can observe the change.
-    const tracked =
-      changeDetection === 'always'
-        ? hasSubscribers(instance.changeSubscriptions) || instance.trackingQueries.length !== 0
-        : changeDetection !== 'never' &&
-          (hasSubscribers(instance.changeSubscriptions) || hasChangedQuery(instance));
-    if (!tracked) {
-      modes[i] = 0;
-      continue;
-    }
-    modes[i] = changeDetection === 'always' ? 3 : trait[$internal].type === 'aos' ? 2 : 1;
-    trackedCount++;
+/** Records which traits have a change observer for this walk. */
+function trackTraits(instances: TraitInstance[], tracked: boolean[]) {
+  let anyTracked = false;
+  for (let i = 0; i < instances.length; i++) {
+    const instance = instances[i];
+    tracked[i] = hasSubscribers(instance.changeSubscriptions) || hasChangedQuery(instance);
+    if (tracked[i]) anyTracked = true;
   }
-  return trackedCount;
+  return anyTracked;
 }

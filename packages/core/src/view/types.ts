@@ -13,10 +13,6 @@ import type { AoSFactory, CursorSet, Store } from '../storage/types';
 import type { ExtractSchema, IsTag, Trait, TraitInstance, TraitRecord } from '../trait/types';
 import type { WorldContext } from '../world/types';
 
-export type UpdateEachOptions = {
-  changeDetection?: 'always' | 'auto' | 'never';
-};
-
 // Concrete targets only filter. Discovered targets pass one entity or an array by relation policy.
 type RelationInstances<
   Exclusive extends boolean,
@@ -66,15 +62,6 @@ export interface EntityView<T extends QueryParameter[] = QueryParameter[]> {
    * passes the relation's own list, so writing to it corrupts the relation.
    */
   each(callback: (...args: [...InstancesFromParameters<T>, Entity, number]) => void): this;
-  /** @deprecated Use each. Reads cost the same and writes are dropped. */
-  readEach(
-    callback: (state: InstancesFromParameters<T, false>, entity: Entity, index: number) => void
-  ): this;
-  /** @deprecated Use each. */
-  updateEach(
-    callback: (state: InstancesFromParameters<T, false>, entity: Entity, index: number) => void,
-    options?: UpdateEachOptions
-  ): this;
   /** Selects accessors without filtering. Every entity must carry the selected traits. */
   select<U extends QueryParameter[]>(...params: U): EntityView<U>;
 }
@@ -183,29 +170,20 @@ export interface ViewIterator extends IterableIterator<Entity> {
   readonly result: { value: Entity; done: boolean };
 }
 
-export type IteratorCallback = (state: any, entity: Entity, index: number) => void;
-
 export type Iterate<R = void> = (
   ctx: WorldContext,
   entities: readonly Entity[],
   length: number,
-  callback: IteratorCallback,
+  callback: Callback,
   buffers: IterationBuffers,
   stores: Store<any>[]
 ) => R;
 
 export type ViewIterators = {
-  /** Passes the state array. Cursor writes are dropped and nothing is written back. */
-  read: Iterate;
-  /** Writes every trait back without change detection. */
-  updateEach: Iterate;
-  /** Writes every trait back and records changes for traits whose mode is not 0. Returns the count. */
-  trackEach: Iterate<number>;
-  /** updateEach and trackEach with each trait passed as its own argument. */
+  /** Flushes borrowed tuples after each callback. */
   each: Iterate;
-  trackArgs: Iterate<number>;
-  /** Drops references to user objects. */
-  release: (buffers: IterationBuffers) => void;
+  /** Also records changes to observed traits and returns the number of changes. */
+  track: Iterate<number>;
 };
 
 export type IteratorCache = {
@@ -214,7 +192,6 @@ export type IteratorCache = {
 };
 
 export type IterationBuffers = {
-  state: any[];
   /** Projection the records and iterators were prepared for. */
   binding: ViewBinding | undefined;
   /** The cursors of each SoA trait by kind, undefined for other traits. */
@@ -222,8 +199,8 @@ export type IterationBuffers = {
   /** Reusable filtered target arrays for this active walk, indexed by projection position. */
   targetSnapshots: Entity[][];
   iterators: ViewIterators | undefined;
-  /** Change detection per trait: 0 untracked, 1 tracked, 2 tracked atomic, 3 always. */
-  modes: number[];
+  /** Whether each data trait has a change observer for this walk. */
+  tracked: boolean[];
   atomicSnapshots: { keys: string[]; values: any[]; count: number }[];
   changedEntities: Entity[];
   changedTraits: Trait[];

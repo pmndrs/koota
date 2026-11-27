@@ -57,20 +57,23 @@ describe('Query sortBy', () => {
   });
 
   it('sorts fractional keys stably across storage pages in either direction', () => {
+    const Point = trait({ xy: [0, 0], scale: 1 });
+    const key: SortKeySelector<typeof Point> = (point) => point.xy[1] * point.scale;
     const entities = Array.from({ length: 2050 }, (_, i) =>
-      world.spawn(Position({ x: ((i * 7919) % 31) / 10 - 1.5 }))
+      world.spawn(Point({ xy: [i, ((i * 7919) % 31) / 10 - 1.5], scale: 1 + (i % 3) }))
     );
-    const query = world.query(Position);
-    const sorted = query.sortBy(Position, byX);
-    const expected = entities.slice().sort((a, b) => a.get(Position)!.x - b.get(Position)!.x);
+    const query = world.query(Point);
+    const sorted = query.sortBy(Point, key);
+    const compare = (a: Entity, b: Entity) => key(a.get(Point)!) - key(b.get(Point)!);
+    const expected = entities.slice().sort(compare);
     expect(sorted.entities).toEqual(expected);
-    expect(query.sortBy(Position, (position) => -position.x).entities).toEqual(
-      entities.slice().sort((a, b) => b.get(Position)!.x - a.get(Position)!.x)
+    expect(query.sortBy(Point, (point) => -key(point)).entities).toEqual(
+      entities.slice().sort((a, b) => compare(b, a))
     );
-    query.each((position) => {
-      position.x = -position.x;
+    query.each((point) => {
+      point.xy[1] = -point.xy[1];
     });
-    expected.sort((a, b) => a.get(Position)!.x - b.get(Position)!.x);
+    expected.sort(compare);
     expect(sorted.entities).toEqual(expected);
   });
 
@@ -98,6 +101,15 @@ describe('Query sortBy', () => {
     const a = world.spawn(Atomic({ rank: 2 }));
     const b = world.spawn(Atomic({ rank: 1 }));
     expect(world.query(Atomic).sortBy(Atomic, (value) => value.rank).entities).toEqual([b, a]);
+  });
+
+  it('passes undefined for a tag key and preserves the order of equal keys', () => {
+    const Tag = trait();
+    const entities = Array.from({ length: 9 }, () => world.spawn(Tag));
+    const selector = vi.fn((_value: undefined) => 0);
+
+    expect(world.query(Tag).sortBy(Tag, selector).entities).toEqual(entities);
+    expect(selector.mock.calls).toEqual(entities.map(() => [undefined]));
   });
 
   it('shares manual invalidation with selections and keeps equal keys in their prior order', () => {

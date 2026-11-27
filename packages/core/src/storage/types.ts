@@ -1,3 +1,4 @@
+import type { Entity } from '../entity/types';
 import type { WorldContext } from '../world/types';
 
 /**
@@ -128,7 +129,7 @@ export type CursorSource = {
   init: string;
   bind: string;
   seek: Record<CursorKind, string>;
-  /** Empty for reads and for schemas whose fields are all written in place. */
+  /** Empty for schemas whose fields are all written in place. */
   flush: Record<CursorKind, string>;
   /** Expression for whether a write cursor changed anything since seek. */
   changed: string;
@@ -137,11 +138,16 @@ export type CursorSource = {
 /** Creates runtime cursors and compiles the storage code that drives them during a walk. */
 export type CursorCompiler = {
   create(): CursorSet;
+  /** Reads one borrowed schema record per entity, in the given order. */
+  createReader(
+    store: Store<any>,
+    visit: (record: object, index: number) => void
+  ): (entities: readonly Entity[]) => void;
   compile(cursor: string, store: string, page: string, offset: string): CursorSource;
 };
 
-/** write diffs and flags changes for tracked walks, plain stores bare, read drops writes. */
-export type CursorKind = 'write' | 'plain' | 'read';
+/** A write cursor detects changes. A plain cursor skips the checks. */
+export type CursorKind = 'write' | 'plain';
 
 /**
  * A cursor stands in for a SoA record during a walk. Scalar fields read and write the bound page

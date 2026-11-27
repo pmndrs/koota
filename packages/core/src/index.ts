@@ -46,7 +46,6 @@ export { $relation, $relationPair, relation } from './relation/relation';
 export { ordered, isOrderedTrait } from './relation/ordered';
 export type {
   InstancesFromParameters,
-  UpdateEachOptions,
   EntityComparator,
   EntityView,
   OrderedView,
