@@ -1,4 +1,5 @@
-import { warningsEnabled } from '../build-flags';
+import { slotBits, slotTables } from '../trait/mask-table';
+import { assertsEnabled, warningsEnabled } from '../build-flags';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import { subscribeTransition } from '../machine/hooks';
 import type { Machine, TransitionSubscriber } from '../machine/types';
@@ -49,7 +50,14 @@ export function installEntityMethods() {
     },
 
     has(this: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair) {
-      return hasTrait(getEntityContext(this), this, trait);
+      if (typeof trait !== 'function' || assertsEnabled) {
+        return hasTrait(getEntityContext(this), this, trait);
+      }
+      // A trait has the same slot in every world and a page of ids has one owner, so the test
+      // reads the entity's word without finding its world. An identifier shares its trait's id.
+      const eid = getEntityId(this);
+      const id = trait.id;
+      return (slotTables[id][eid >>> 10][(eid & 1023) << 2] & slotBits[id]) !== 0;
     },
 
     destroy(this: Entity) {

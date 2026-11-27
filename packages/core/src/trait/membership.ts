@@ -1,10 +1,10 @@
 import { assertsEnabled } from '../build-flags';
-import { getEntityId, PAGE_SIZE } from '../entity/handle';
-import { createPageTable, growPageTable } from '../entity/page-table';
+import { getEntityId } from '../entity/handle';
 import type { Entity } from '../entity/types';
 import { $internal } from '../internal';
 import { reconcileTraitQueries } from '../query/reconciliation';
 import type { WorldContext } from '../world/types';
+import { createMaskPage, EMPTY_MASK_PAGE, REMOVED_WORD } from './mask-table';
 import { getTraitInstance, hasTraitInstance, registerTrait } from './registry';
 import type { Trait, TraitInstance } from './types';
 
@@ -128,44 +128,4 @@ export function revokeTraitMembership(ctx: WorldContext, entity: Entity, trait: 
   }
   clearTraitMembership(ctx, entity, instance);
   reconcileTraitQueries(ctx, entity, instance, 'remove');
-}
-
-/**
- * The layout of ctx.entityMasks. Four words per entity hold current traits, removed traits,
- * traits held at destruction and traits with a write pending for their Changed queries. Entity
- * slots are shift-indexed as (eid & 1023) << 2.
- */
-const MASK_STRIDE = 4;
-export const REMOVED_WORD = 1;
-export const DESTROYED_WORD = 2;
-export const PENDING_WORD = 3;
-
-/** Shared sentinel for unallocated mask pages. Always reads as 0. Never write to it directly. */
-export const EMPTY_MASK_PAGE: Uint32Array = new Uint32Array(PAGE_SIZE * MASK_STRIDE);
-
-/** Materialize an entity mask page on first membership write. Returns the writable page. */
-export function createMaskPage(gen: Uint32Array[], pageId: number): Uint32Array {
-  const page = new Uint32Array(PAGE_SIZE * MASK_STRIDE);
-  gen[pageId] = page;
-  return page;
-}
-
-/** Extend every mask table to cover the world's page limit. */
-export function growMaskTables(ctx: WorldContext, pageLimit: number) {
-  const masks = ctx.entityMasks;
-  for (let g = 0; g < masks.length; g++) growPageTable(masks[g], pageLimit, EMPTY_MASK_PAGE);
-}
-
-/**
- * Moves the world to its next mask bit. A mask word holds 31 traits, so the bit after that
- * starts a new mask generation.
- */
-export function advanceMaskBit(ctx: WorldContext) {
-  ctx.bitflag *= 2;
-
-  if (ctx.bitflag >= 2 ** 31) {
-    ctx.bitflag = 1;
-    ctx.entityMasks.push(createPageTable(ctx.pageLimit, EMPTY_MASK_PAGE));
-    ctx.traitsByBit.push([]);
-  }
 }

@@ -3,7 +3,7 @@ import type { Entity } from '../entity/types';
 import type { IdentifierKey } from '../identifier/types';
 import { $internal } from '../internal';
 import { getRelationSources } from '../relation/targets';
-import { REMOVED_WORD } from '../trait/membership';
+import { REMOVED_WORD } from '../trait/mask-table';
 import type { TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
 import { flushQueryBatch } from './hooks';

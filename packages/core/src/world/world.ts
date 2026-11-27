@@ -11,7 +11,6 @@ import {
 import { subscribeEntityDestroy, subscribeEntitySpawn } from '../entity/hooks';
 import { installEntityMethods } from '../entity/methods';
 import { closedAllocator, createPageAllocator, sharedAllocator } from '../entity/page-allocator';
-import { createPageTable } from '../entity/page-table';
 import type { Entity, PageAllocator } from '../entity/types';
 import { lookupAllIdentifiers, lookupIdentifier } from '../identifier/ownership';
 import { lookupArgumentsScope, lookupScopedKey, lookupScopeStart } from '../identifier/scope';
@@ -32,7 +31,7 @@ import {
   subscribeRemove,
   subscribeTraitRegistered,
 } from '../trait/hooks';
-import { EMPTY_MASK_PAGE, growMaskTables } from '../trait/membership';
+import { clearMaskPages, growMaskTables, releaseMaskSlot } from '../trait/mask-table';
 import {
   addTrait,
   hasTrait,
@@ -67,7 +66,7 @@ export function createWorld(options?: WorldOptions): World {
  * cannot tell the two apart and reaches whichever shared world holds that id.
  */
 export function createIsolatedWorld(options?: WorldOptions): World {
-  return createWorldWithAllocator(createPageAllocator([]), options);
+  return createWorldWithAllocator(createPageAllocator([], [], []), options);
 }
 
 /** The allocator decides where entity ids come from, shared between worlds or owned by this one. */
@@ -92,14 +91,15 @@ function createWorldContext(allocator: PageAllocator, options?: WorldOptions): W
 
   const ctx = {
     entityIndex: null! as ReturnType<typeof createEntityIndex>,
-    entityMasks: [createPageTable(0, EMPTY_MASK_PAGE)],
+    entityMasks: allocator.maskTables,
+    emptyMaskTable: allocator.emptyMaskTable,
+    generations: [],
     pageLimit: 0,
     retain,
     tombstones: { ids: [], head: 0 },
     pairRemovals: { entries: [], head: 0 },
-    bitflag: 1,
     traitInstances: [],
-    traitsByBit: [[]],
+    traitsByBit: [],
     traits: new Set<Trait>(),
     relations: [],
     queriesHashMap: new Map(),
@@ -330,7 +330,7 @@ const worldMethods: ThisType<World> = {
 
 /** Each domain that keeps tables by page extends its own to the world's new page limit. */
 function growPageTables(ctx: WorldContext, pageLimit: number) {
-  growMaskTables(ctx, pageLimit);
+  growMaskTables(ctx.entityMasks, ctx.emptyMaskTable, pageLimit);
   growTrackerTables(ctx, pageLimit);
 }
 
@@ -344,6 +344,13 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
       }
     });
 
+    // The world lets go of its mask pages while its pages of ids are still listed. The tables
+    // keep their extent, so an id from before the reset still reads a page, an empty one.
+    clearMaskPages(ctx.entityMasks, ctx.generations, ctx.entityIndex.ownedPages);
+    for (const trait of ctx.traits) releaseMaskSlot(trait.id);
+    ctx.generations = [];
+    ctx.traitsByBit = [];
+
     releaseOwnedPages(ctx.entityIndex);
     ctx.entityIndex = createEntityIndex(
       recreate ? ctx.entityIndex.allocator : closedAllocator,
@@ -351,10 +358,6 @@ function clearWorld(ctx: WorldContext, recreate: boolean) {
       growPageTables
     );
 
-    // The tables keep their extent, so an id from before the reset still reads a page.
-    ctx.entityMasks = [createPageTable(ctx.pageLimit, EMPTY_MASK_PAGE)];
-    ctx.traitsByBit = [[]];
-    ctx.bitflag = 1;
     ctx.defersChanges = false;
 
     for (const query of ctx.queriesHashMap.values()) {

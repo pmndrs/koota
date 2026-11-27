@@ -1,18 +1,23 @@
 import { $internal } from '../internal';
 import type { World, WorldContext } from '../world/types';
 import { createSubscriptions } from './hooks';
-import { advanceMaskBit } from './membership';
+import { claimMaskSlot, ensureMaskTable } from './mask-table';
 import type { ExtractStore, Trait, TraitInstance, TraitInstanceArray } from './types';
 
 export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   const traitCtx = trait[$internal];
   traitCtx.registered = true;
 
+  // The slot is the trait's in every world. This world keeps the generation's table and bit.
+  const slot = claimMaskSlot(trait.id);
+  const generationId = (slot / 31) | 0;
+  if (!ctx.generations.includes(generationId)) ctx.generations.push(generationId);
+
   const data: TraitInstance = {
     version: 0,
-    generationId: ctx.entityMasks.length - 1,
-    masks: ctx.entityMasks[ctx.entityMasks.length - 1],
-    bitflag: ctx.bitflag,
+    generationId,
+    masks: ensureMaskTable(ctx.entityMasks, ctx.emptyMaskTable, generationId),
+    bitflag: 1 << (slot % 31),
     trait,
     store: traitCtx.createStore(),
     queries: [],
@@ -34,10 +39,8 @@ export function registerTrait(ctx: WorldContext, trait: Trait): TraitInstance {
   };
 
   setTraitInstance(ctx.traitInstances, trait, data);
-  ctx.traitsByBit[data.generationId][31 - Math.clz32(ctx.bitflag)] = data;
+  (ctx.traitsByBit[generationId] ??= [])[slot % 31] = data;
   ctx.traits.add(trait);
-
-  advanceMaskBit(ctx);
 
   traitCtx.onRegister?.(ctx, data);
 

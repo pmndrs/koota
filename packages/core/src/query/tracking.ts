@@ -4,7 +4,7 @@ import { growPageTable } from '../entity/page-table';
 import type { Entity } from '../entity/types';
 import { $internal } from '../internal';
 import { hasRelationToTarget } from '../relation/targets';
-import { PENDING_WORD, REMOVED_WORD } from '../trait/membership';
+import { PENDING_WORD, REMOVED_WORD } from '../trait/mask-table';
 import type { TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
 import {
@@ -493,8 +493,9 @@ export function clearPendingChanges(ctx: WorldContext, eid: number) {
   const entityMasks = ctx.entityMasks;
   const pageId = eid >>> 10;
   const index = ((eid & 1023) << 2) + PENDING_WORD;
-  for (let g = 0; g < entityMasks.length; g++) {
-    const page = entityMasks[g][pageId];
+  const generations = ctx.generations;
+  for (let i = 0; i < generations.length; i++) {
+    const page = entityMasks[generations[i]][pageId];
     if (page[index] !== 0) page[index] = 0;
   }
 }

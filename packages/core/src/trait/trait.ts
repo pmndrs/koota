@@ -3,6 +3,7 @@ import { createRecordFunction, createSchemaAccessors } from '../storage/accessor
 import { isRequired, validateSchema } from '../storage/schema';
 import { createClearFunction, createStore } from '../storage/stores';
 import type { Norm, StoreType, TraitSchema } from '../storage/types';
+import { addMaskSlot } from './mask-table';
 import type {
   RequiresInit,
   TagTrait,
@@ -38,6 +39,7 @@ export function createTraitDefinition<S extends TraitSchema>(
   validateSchema(schema);
 
   const { add, set, get, getInto, remove, cursor } = accessors ?? createSchemaAccessors(schema, type);
+  addMaskSlot(traitId);
   const context: TraitContext<S> = {
     id: traitId++,
     createStore: () => createStore(schema),

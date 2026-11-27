@@ -4,7 +4,7 @@ import type { Entity } from '../entity/types';
 import { hasIdentifier } from '../identifier/ownership';
 import type { IdentifierPair } from '../identifier/types';
 import { hasRelationPair, hasRelationTargetInSet } from '../relation/targets';
-import { DESTROYED_WORD } from '../trait/membership';
+import { DESTROYED_WORD } from '../trait/mask-table';
 import type { WorldContext } from '../world/types';
 import type { QueryInstance, ResolvedRelationFilter } from './types';
 

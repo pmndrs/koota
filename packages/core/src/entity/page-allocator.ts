@@ -1,10 +1,22 @@
+import { sharedEmptyMaskTable, sharedMaskTables } from '../trait/mask-table';
 import type { WorldContext } from '../world/types';
 import { getEntityId, MAX_PAGES, PAGE_SIZE } from './handle';
 import type { Entity, PageAllocator } from './types';
 
 /** A world passes a table of its own. Worlds that share an allocator share the table. */
-export function createPageAllocator(pageOwners: (WorldContext | null)[]): PageAllocator {
-  return { generations: [], freePages: [], pageCursor: 0, pageOwners };
+export function createPageAllocator(
+  pageOwners: (WorldContext | null)[],
+  maskTables: Uint32Array[][],
+  emptyMaskTable: Uint32Array[]
+): PageAllocator {
+  return {
+    generations: [],
+    freePages: [],
+    pageCursor: 0,
+    pageOwners,
+    maskTables,
+    emptyMaskTable,
+  };
 }
 
 /** The allocator of a destroyed world. It hands out no page, so nothing can be spawned there. */
@@ -13,6 +25,8 @@ export const closedAllocator: PageAllocator = {
   freePages: [],
   pageCursor: MAX_PAGES,
   pageOwners: [],
+  maskTables: [],
+  emptyMaskTable: [],
 };
 
 export function leasePage(allocator: PageAllocator, owner: WorldContext): number {
@@ -51,7 +65,11 @@ export function releasePage(allocator: PageAllocator, pageId: number): void {
  * is destroyed, which is what an isolated world avoids by owning its ids.
  */
 export const sharedPageOwners: (WorldContext | null)[] = [];
-export const sharedAllocator = /* @__PURE__ */ createPageAllocator(sharedPageOwners);
+export const sharedAllocator = /* @__PURE__ */ createPageAllocator(
+  sharedPageOwners,
+  sharedMaskTables,
+  sharedEmptyMaskTable
+);
 
 /** The world that owns a live entity of a world with entity methods. */
 export /* @inline @pure */ function getEntityContext(entity: Entity): WorldContext {
