@@ -118,9 +118,8 @@ group('world.queryFirst inline cache hit @query @query-api @query-first', () => 
   });
 });
 
-// The cached Query ref is the ceiling the inline path is chasing. Same world, same results,
-// the only difference is that hashing and the hash lookup are replaced by an id index.
-group('world.query cached ref @query @query-api', () => {
+// A reusable query gives the inline path a baseline for the same world and results.
+group('world.query cached query @query @query-api', () => {
   bench('2 traits', function* () {
     const { world, entity } = setupWorld();
     const query = createQuery(Position, Velocity);

@@ -1,0 +1,499 @@
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { createChanged, createWorld, relation, required, trait, type Trait } from '../../src';
+
+class TestClass {
+  public name: string;
+
+  constructor(name = 'TestClass') {
+    this.name = name;
+  }
+}
+
+const Position = trait({ x: 0, y: 0 });
+
+const Test = trait({
+  current: 1,
+  test: 'hello',
+  bool: true,
+  arr: () => ['a', 'b', 'c'],
+  class: () => new TestClass(),
+  bigInt: 1n,
+});
+
+const Tag = trait();
+
+type Vec3 = [x: number, y: number, z: number];
+
+describe('Trait', () => {
+  const world = createWorld();
+
+  beforeEach(() => {
+    world.reset();
+  });
+
+  it('should throw an error if the schema contains an object', () => {
+    // @ts-expect-error - we want to test the error case
+    expect(() => trait({ object: { a: 1, b: 2 } })).toThrow();
+  });
+
+  it('should add and remove traits to an entity', () => {
+    const entity = world.spawn();
+
+    entity.add(Position);
+    entity.add(Test);
+    expect(entity.has(Position)).toBe(true);
+    expect(entity.has(Test)).toBe(true);
+
+    entity.remove(Position);
+    expect(entity.has(Position)).toBe(false);
+    expect(entity.has(Test)).toBe(true);
+
+    // Add multiple traits at once.
+    entity.add(Position, Test);
+    expect(entity.has(Position)).toBe(true);
+    expect(entity.has(Test)).toBe(true);
+
+    // Remove multiple traits at once.
+    entity.remove(Position, Test);
+    expect(entity.has(Position)).toBe(false);
+    expect(entity.has(Test)).toBe(false);
+
+    // Can still remove multiple traits when one is missing.
+    entity.add(Position, Test);
+    entity.remove(Tag, Position, Test);
+
+    expect(entity.has(Position)).toBe(false);
+    expect(entity.has(Test)).toBe(false);
+    expect(entity.has(Tag)).toBe(false);
+  });
+
+  it('rejects setting an absent or removed trait before invoking its callback', () => {
+    const sibling = world.spawn(Position({ x: 5 }));
+    const entity = world.spawn();
+    const update = vi.fn(() => ({ x: 10 }));
+
+    expect(() => entity.set(Position, update)).toThrow(/Add the trait/);
+    entity.add(Position);
+    entity.set(Position, { x: 1 });
+    entity.remove(Position);
+    expect(() => entity.set(Position, update)).toThrow(/Add the trait/);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(entity.has(Position)).toBe(false);
+    expect(sibling.get(Position)).toEqual({ x: 5, y: 0 });
+  });
+
+  it('should set defaults based on the schema', () => {
+    const entity = world.spawn();
+
+    entity.add(Test);
+    const test = entity.get(Test);
+
+    expect(test).toMatchObject({
+      current: 1,
+      test: 'hello',
+      bool: true,
+      arr: ['a', 'b', 'c'],
+    });
+  });
+
+  it('should override defaults with params', () => {
+    const entity = world.spawn();
+
+    // Partial
+    entity.add(Test({ current: 2, arr: ['d', 'e', 'f'] }));
+    let test = entity.get(Test);
+
+    expect(test).toMatchObject({
+      current: 2,
+      test: 'hello',
+      bool: true,
+      arr: ['d', 'e', 'f'],
+      class: new TestClass(),
+    });
+
+    // Reset
+    entity.remove(Test);
+
+    // Full
+    entity.add(
+      Test({
+        current: 3,
+        test: 'world',
+        bool: false,
+        arr: ['g', 'h', 'i'],
+        class: new TestClass('Me'),
+      })
+    );
+
+    test = entity.get(Test);
+    expect(test).toMatchObject({
+      current: 3,
+      test: 'world',
+      bool: false,
+      arr: ['g', 'h', 'i'],
+      class: new TestClass('Me'),
+    });
+  });
+
+  it('should set trait params', () => {
+    const entity = world.spawn(Test);
+    entity.set(Test, { current: 2, test: 'world' });
+
+    const test = entity.get(Test);
+    expect(test).toMatchObject({
+      current: 2,
+      test: 'world',
+      bool: true,
+      arr: ['a', 'b', 'c'],
+    });
+  });
+
+  it('trait props with callbacks should be called on each add', () => {
+    const mock = vi.fn(() => new TestClass());
+    const Test = trait({ value: mock });
+
+    const entityA = world.spawn(Test);
+
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(entityA.get(Test)!.value).toBeInstanceOf(TestClass);
+
+    const entityB = world.spawn(Test);
+    expect(mock).toHaveBeenCalledTimes(2);
+    expect(entityB.get(Test)!.value).toBeInstanceOf(TestClass);
+  });
+
+  it('only accepts object factories', () => {
+    // @ts-expect-error primitive data belongs in a schema field
+    trait(() => 'idle');
+    // @ts-expect-error primitive data belongs in a schema field
+    trait(() => 0);
+    expect(trait(() => ({ value: 'idle' }))).toBeDefined();
+  });
+
+  it('accepts a null factory for an empty reference', () => {
+    class Mesh {}
+    const MeshRef = trait(() => null as Mesh | null);
+    const world = createWorld();
+    const entity = world.spawn(MeshRef);
+    expect(entity.get(MeshRef)).toBeNull();
+
+    const mesh = new Mesh();
+    entity.set(MeshRef, mesh);
+    expect(entity.get(MeshRef)).toBe(mesh);
+    const value: Mesh | null = entity.get(MeshRef)!;
+    expect(value).toBe(mesh);
+  });
+
+  it('requires a value for required fields', () => {
+    class Mesh {}
+    const MeshRef = trait(required<Mesh>());
+    const View = trait({ object: required<Mesh>(), visible: true });
+    const mesh = new Mesh();
+
+    const entity = world.spawn(MeshRef(mesh), View({ object: mesh }));
+    const ref: Mesh = entity.get(MeshRef)!;
+    expect(ref).toBe(mesh);
+    expect(entity.get(View)).toEqual({ object: mesh, visible: true });
+
+    const other = world.spawn();
+    // @ts-expect-error a required trait cannot be added bare
+    expect(() => other.add(MeshRef)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error the required field is missing
+    expect(() => other.add(View({ visible: false }))).toThrow('REQUIRED_VALUE');
+    expect(other.has(MeshRef) || other.has(View)).toBe(false);
+  });
+
+  it('requires input when adding a required AoS trait, also when widened to Trait', () => {
+    const Ref = trait(required<{ visible: boolean }>());
+    const Widened: Trait = Ref;
+    const entity = world.spawn();
+
+    // @ts-expect-error a required AoS trait cannot be added bare
+    expect(() => entity.add(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error a required AoS trait cannot be added bare
+    expect(() => world.add(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error a required AoS trait cannot be added bare
+    expect(() => world.spawn(Ref)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error a required AoS trait needs its value
+    expect(() => entity.add(Ref())).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => entity.add(Widened)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => world.add(Widened)).toThrow('REQUIRED_VALUE');
+    // @ts-expect-error an unspecified schema may require input
+    expect(() => world.spawn(Widened)).toThrow('REQUIRED_VALUE');
+
+    const value = { visible: true };
+    entity.add(Ref(value));
+    world.add(Ref(value));
+    expect(entity.get(Ref)).toBe(value);
+    expect(world.get(Ref)).toBe(value);
+    expect(world.spawn(Ref(value)).get(Ref)).toBe(value);
+    expect(world.spawn(Widened(value)).get(Widened)).toBe(value);
+  });
+
+  it('can create atomic traits', () => {
+    const object = { a: 1, b: 2 };
+    const AtomicObject = trait(() => object);
+    let entity = world.spawn(AtomicObject);
+
+    // The object is returned by reference.
+    expect(object).toBe(entity.get(AtomicObject));
+    expect(entity.get(AtomicObject)!.a).toBe(1);
+
+    entity.set(AtomicObject, { a: 2, b: 3 });
+
+    // A new object is set making the reference different.
+    expect(object).not.toBe(entity.get(AtomicObject));
+    expect(entity.get(AtomicObject)!.a).toBe(2);
+
+    // Can pass in a custom object into the trait.
+    entity = world.spawn(AtomicObject({ a: 3, b: 4 }));
+    expect(entity.get(AtomicObject)!.a).toBe(3);
+    // Works with arrays too.
+    const AtomicArray = trait(() => [1, 2, 3]);
+    entity = world.spawn(AtomicArray);
+    expect(entity.get(AtomicArray)).toEqual([1, 2, 3]);
+
+    entity.set(AtomicArray, [4, 5, 6]);
+    expect(entity.get(AtomicArray)).toEqual([4, 5, 6]);
+  });
+
+  it('should return undefined for tag traits', () => {
+    const IsTag = trait();
+    const entity = world.spawn();
+
+    entity.add(IsTag);
+    expect(entity.has(IsTag)).toBe(true);
+
+    // Getting a tag trait should not throw
+    expect(entity.get(IsTag)).toBeUndefined();
+  });
+
+  describe('tuples', () => {
+    it('stores tuples by value', () => {
+      const scale: Vec3 = [1, 1, 1];
+      const Transform = trait({ position: [0, 0, 0], rotation: [0, 0, 0, 1], scale, mass: 1 });
+      const a = world.spawn(Transform({ position: [1, 2, 3] }));
+      const b = world.spawn(Transform);
+
+      const transform = a.get(Transform)!;
+      expectTypeOf(transform.position).toEqualTypeOf<[number, number, number]>();
+      expectTypeOf(transform.scale).toEqualTypeOf<Vec3>();
+      expectTypeOf(trait({ value: [0, 0] as const }).schema.value).toEqualTypeOf<[number, number]>();
+      expect(transform).toEqual({
+        position: [1, 2, 3],
+        rotation: [0, 0, 0, 1],
+        scale: [1, 1, 1],
+        mass: 1,
+      });
+
+      // Neither the snapshot nor the value passed to set aliases storage.
+      transform.position[0] = 100;
+      const next: Vec3 = [4, 5, 6];
+      a.set(Transform, { position: next });
+      next[0] = 100;
+      expect(a.get(Transform)!.position).toEqual([4, 5, 6]);
+
+      expect(b.get(Transform)!.position).toEqual([0, 0, 0]);
+      expect(b.get(Transform)!.scale).not.toBe(scale);
+    });
+
+    it('writes tuples mutated in each back and detects changes per component', () => {
+      const Position = trait({ value: [0, 0, 0] });
+      const Velocity = trait({ value: [0, 0, 0] });
+      const Changed = createChanged();
+      const changed = vi.fn();
+      world.onChange(Position, changed);
+      const moving = world.spawn(Position, Velocity({ value: [0, 2, 0] }));
+      world.spawn(Position, Velocity);
+      expect(world.query(Changed(Position)).length).toBe(2);
+      expect(changed).toHaveBeenCalledTimes(2);
+      changed.mockClear();
+
+      world.query(Position, Velocity).each((position, velocity) => {
+        for (let i = 0; i < 3; i++) position.value[i] += velocity.value[i];
+      });
+
+      expect(moving.get(Position)!.value).toEqual([0, 2, 0]);
+      expect(changed.mock.calls).toEqual([[moving]]);
+      expect([...world.query(Changed(Position))]).toEqual([moving]);
+    });
+
+    it('exposes interleaved columns through pages', () => {
+      const Position = trait({ value: [0, 0, 0], mass: 1 });
+      const entities = Array.from({ length: 1500 }, (_, i) =>
+        i % 2 === 0 ? world.spawn(Position({ value: [i, i, i] })) : world.spawn()
+      ).filter((entity) => entity.has(Position));
+
+      const pages = world.query(Position).getPages();
+      expectTypeOf(pages[0].stores).toEqualTypeOf<[{ value: number[]; mass: number[] }]>();
+
+      for (const {
+        stores: [position],
+        indices,
+      } of pages) {
+        for (let i = 0; i < indices.length; i++) {
+          const o = indices[i] * 3;
+          position.value[o + 1] += position.mass[indices[i]];
+        }
+      }
+
+      expect(entities.map((entity) => entity.get(Position)!.value[1])).toEqual(
+        entities.map((_, i) => i * 2 + 1)
+      );
+    });
+
+    it('copies tuples in relation data', () => {
+      const Attached = relation({ store: { offset: [0, 0, 0] } });
+      const parent = world.spawn();
+      const child = world.spawn(Attached(parent));
+      const offset: Vec3 = [1, 2, 3];
+
+      expect(child.get(Attached(parent))!.offset).toEqual([0, 0, 0]);
+
+      child.set(Attached(parent), { offset });
+      offset[0] = 100;
+      child.get(Attached(parent))!.offset[1] = 100;
+      expect(child.get(Attached(parent))!.offset).toEqual([1, 2, 3]);
+    });
+
+    it('stores tuples that mix numbers with other values and warns about their cost', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const euler: [x: number, y: number, z: number, order?: 'xyz' | 'zyx'] = [0, 0, 0, 'xyz'];
+      const Rotation = trait({ value: euler, flags: [true, false] });
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(warn.mock.calls[0][0]).toMatch(/value is a tuple that mixes numbers/);
+      warn.mockRestore();
+
+      const entity = world.spawn(Rotation({ value: [1, 2, 3, 'zyx'] }));
+      const rotation = entity.get(Rotation)!;
+      expectTypeOf(rotation.value).toEqualTypeOf(euler);
+      expectTypeOf(rotation.flags).toEqualTypeOf<[boolean, boolean]>();
+      expect(rotation).toEqual({ value: [1, 2, 3, 'zyx'], flags: [true, false] });
+    });
+
+    it('preserves declared element types in tuples with booleans', () => {
+      type Value = [value: number, mode: 'local' | 'world', enabled: boolean];
+      const value: Value = [0, 'local', true];
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const State = trait({ value });
+      warn.mockRestore();
+
+      const entity = world.spawn(State);
+      expectTypeOf(entity.get(State)!.value).toEqualTypeOf<Value>();
+
+      entity.set(State, (previous) => {
+        expectTypeOf(previous.value).toEqualTypeOf<Value>();
+        return { value: [previous.value[0] + 1, 'world', false] satisfies Value };
+      });
+
+      expect(entity.get(State)!.value).toEqual([1, 'world', false]);
+    });
+
+    it('rejects arrays that are not tuples', () => {
+      // @ts-expect-error - a tuple needs a fixed stride
+      expect(() => trait({ value: [] })).toThrow(/not a valid tuple/);
+      // @ts-expect-error - tuples cannot nest
+      expect(() => trait({ value: [[0, 0]] })).toThrow(/not a valid tuple/);
+      // @ts-expect-error - tuples cannot hold objects
+      expect(() => trait({ value: [0, { order: 'xyz' }] })).toThrow(/not a valid tuple/);
+    });
+  });
+
+  describe('get with out', () => {
+    it('reads into a caller-owned record without allocating', () => {
+      const Transform = trait({ position: [0, 0, 0], mass: 1 });
+      const entity = world.spawn(Transform({ position: [1, 2, 3] }));
+      const out = entity.get(Transform)!;
+      const position = out.position;
+
+      entity.set(Transform, { position: [4, 5, 6], mass: 2 });
+      expect(entity.get(Transform, out)).toBe(out);
+      expect(out).toEqual({ position: [4, 5, 6], mass: 2 });
+      expect(out.position).toBe(position);
+
+      // out is a copy, so writing to it leaves storage alone.
+      out.position[0] = 100;
+      expect(entity.get(Transform)!.position).toEqual([4, 5, 6]);
+
+      // A missing trait leaves out untouched.
+      entity.remove(Transform);
+      expect(entity.get(Transform, out)).toBeUndefined();
+      expect(out.position).toEqual([100, 5, 6]);
+      expect(out.mass).toBe(2);
+
+      const Mesh = trait(() => ({ visible: true }));
+      // @ts-expect-error - AoS traits return their stored value, so they take no out
+      entity.get(Mesh, { visible: false });
+    });
+
+    it('creates records of the schema defaults to fill', () => {
+      const Transform = trait({ position: [0, 0, 0], mass: 1, tags: () => ['static'] });
+      const a = Transform.record();
+      const b = Transform.record();
+
+      expect(a).toEqual({ position: [0, 0, 0], mass: 1, tags: ['static'] });
+      // Every record owns its tuples and factory values, so filling one leaves the rest alone.
+      expect(a.position).not.toBe(b.position);
+      expect(a.tags).not.toBe(b.tags);
+
+      const entity = world.spawn(Transform({ position: [1, 2, 3], mass: 2 }));
+      expect(entity.get(Transform, a)).toBe(a);
+      expect(a).toMatchObject({ position: [1, 2, 3], mass: 2 });
+      expect(world.spawn(Transform).get(Transform)!.position).toEqual([0, 0, 0]);
+
+      const Attached = relation({ store: { offset: [0, 0, 0] } });
+      const child = world.spawn(Attached(entity, { offset: [4, 5, 6] }));
+      const attached = Attached.record();
+      expect(child.get(Attached(entity), attached)).toEqual({ offset: [4, 5, 6] });
+
+      const Mesh = trait(() => ({ visible: true }));
+      expect(Mesh.record()).toEqual({ visible: true });
+      expect(Mesh.record()).not.toBe(Mesh.record());
+
+      // A tag has no data, so like get it has no record.
+      expect(trait().record()).toBeUndefined();
+
+      // A required value has no default, so asking for its record is a mistake.
+      const MeshRef = trait(required<{ visible: boolean }>());
+      const Owns = relation({ store: required<{ visible: boolean }>() });
+      // @ts-expect-error - a required trait value has no record
+      expect(() => MeshRef.record()).toThrow('[NO_RECORD]');
+      // @ts-expect-error - nor does a relation with a required store
+      expect(() => Owns.record()).toThrow('[NO_RECORD]');
+    });
+
+    it.each([false, true])(
+      'reads relation data and world traits into out, exclusive: %s',
+      (exclusive) => {
+        const Attached = relation({ exclusive, store: { offset: [0, 0, 0], weight: 1 } });
+        const parent = world.spawn();
+        const child = world.spawn(Attached(parent, { offset: [1, 2, 3] }));
+        const offset: Vec3 = [0, 0, 0];
+        const attached = { offset, weight: 0 };
+
+        expect(child.get(Attached(parent), attached)).toBe(attached);
+        expect(attached).toEqual({ offset: [1, 2, 3], weight: 1 });
+        expect(attached.offset).toBe(offset);
+        offset[0] = 100;
+        expect(child.get(Attached(parent))!.offset).toEqual([1, 2, 3]);
+
+        const missing = world.spawn();
+        expect(child.get(Attached(missing))).toBeUndefined();
+        expect(child.get(Attached(missing), attached)).toBeUndefined();
+        child.remove(Attached(parent));
+        expect(child.get(Attached(parent))).toBeUndefined();
+        expect(child.get(Attached(parent), attached)).toBeUndefined();
+        expect(attached).toEqual({ offset: [100, 2, 3], weight: 1 });
+
+        const Time = trait({ delta: 0 });
+        world.add(Time({ delta: 0.016 }));
+        const time = { delta: 0 };
+        expect(world.get(Time, time)).toBe(time);
+        expect(time.delta).toBe(0.016);
+      }
+    );
+  });
+});

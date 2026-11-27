@@ -113,8 +113,8 @@ group('world-first mutations 10k @world-first @mutation', () => {
     const Tag = trait();
     const world = createWorld();
     const entities = Array.from({ length: 10_000 }, () => world.spawn());
-    const ref = createQuery(Tag);
-    world.query(ref);
+    const query = createQuery(Tag);
+    world.query(query);
 
     yield {
       bench: () => {
@@ -124,7 +124,7 @@ group('world-first mutations 10k @world-first @mutation', () => {
         }
       },
       snapshot: () => {
-        assert.equal(world.query(ref).length, 0);
+        assert.equal(world.query(query).length, 0);
         return entities.length;
       },
     };
@@ -136,8 +136,8 @@ group('world-first mutations 10k @world-first @mutation', () => {
     const Tag = trait();
     const world = createWorld();
     const entities = Array.from({ length: 10_000 }, () => world.spawn());
-    const ref = createQuery(Tag);
-    world.query(ref);
+    const query = createQuery(Tag);
+    world.query(query);
 
     yield {
       bench: () => {
@@ -147,7 +147,7 @@ group('world-first mutations 10k @world-first @mutation', () => {
         }
       },
       snapshot: () => {
-        assert.equal(world.query(ref).length, 0);
+        assert.equal(world.query(query).length, 0);
         return entities.length;
       },
     };

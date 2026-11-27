@@ -1,9 +1,9 @@
-import type { $internal } from '../common';
 import type { Entity } from '../entity/types';
+import type { $internal } from '../internal';
 import type { QueryInstance } from '../query/types';
 import type { Relation } from '../relation/types';
 import type { TagTrait } from '../trait/types';
-import type { $identifier, $identifierPair } from './symbols';
+import { $identifier, $identifierPair } from './identifier';
 
 export type IdentifierKey = string | number;
 

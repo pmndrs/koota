@@ -1,18 +1,20 @@
+import { assertsEnabled } from '../build-flags';
 import type { Entity } from '../entity/types';
-import { assertsEnabled } from '../assert-config';
-import { ensureTraitInstance } from '../query/query';
-import type {
-  QueryInstance,
-  QueryIterationBuffers,
-  QueryParameter,
-  QueryViewBinding,
-} from '../query/types';
+import type { QueryParameter } from '../query/types';
+import { ensureTraitInstance } from '../trait/registry';
 import type { Trait, TraitInstance } from '../trait/types';
-import type { WorldContext } from '../world';
-import { sameParams } from '../query/utils/same-params';
-import { EntityView, getQueryBinding, matchesQueryBinding, type EntitySource } from './entity-view';
-import type { EntityComparator, OrderedView, SortKeySelector } from './types';
-import { sortKeys } from './sort-keys';
+import type { WorldContext } from '../world/types';
+import { ensureViewBinding, matchesViewBinding } from './binding';
+import { EntityView } from './entity-view';
+import type {
+  EntityComparator,
+  EntitySource,
+  IterationBuffers,
+  OrderedView,
+  SortKeySelector,
+  ViewBinding,
+  ViewScope,
+} from './types';
 
 /** Owns order independently of trait storage. Active walks retain their original sequence. */
 export class OrderedSource implements EntitySource {
@@ -100,18 +102,18 @@ export class OrderedSource implements EntitySource {
 /** The same walker serves sorted queries and the sequence held by an ordered trait. */
 export class ListView extends EntityView {
   declare source: OrderedSource;
+  /** What selections of this view resolve against. Null for a list no query supplies. */
+  scope: ViewScope | null;
 
   constructor(
     ctx: WorldContext,
     source: OrderedSource,
-    binding: QueryViewBinding,
-    query: QueryInstance | null = null
+    binding: ViewBinding,
+    scope: ViewScope | null = null
   ) {
-    super(ctx, query, binding, source, false);
-  }
-
-  override getGuard() {
-    return this.source;
+    // The sequence guards its own walks. A scoped binding keeps its buffers, any other borrows the world's.
+    super(ctx, binding, source, source, scope === null ? ctx : binding);
+    this.scope = scope;
   }
 
   override getSource(): OrderedSource {
@@ -122,17 +124,13 @@ export class ListView extends EntityView {
   select(this: SortedView, ...params: QueryParameter[]): SortedView;
   select(...params: QueryParameter[]): ListView;
   select(...params: QueryParameter[]): ListView {
-    const { ctx, source, query } = this;
+    const { ctx, source, scope } = this;
     for (const view of source.views) {
-      if (
-        sameParams(view.binding.params, params) ||
-        matchesQueryBinding(ctx, query, params, view.binding)
-      )
-        return view;
+      if (matchesViewBinding(ctx, scope, params, view.binding)) return view;
     }
     // A selection shares the sequence. Only the relation owner can edit it.
     const View = source instanceof SortedSource ? SortedView : ListView;
-    const view = new View(ctx, source, getQueryBinding(ctx, query, params), query);
+    const view = new View(ctx, source, ensureViewBinding(ctx, scope, params), scope);
     source.views.push(view);
     return view;
   }
@@ -157,6 +155,8 @@ class SortedView extends ListView implements OrderedView<any> {
 
 class SortedSource extends OrderedSource {
   base: EntityView;
+  /** Its version moves when the base sequence changes membership. */
+  scope: ViewScope | null;
   sorter: EntityComparator | SortedKeys;
   traits: Trait[];
   instances: TraitInstance[];
@@ -165,9 +165,15 @@ class SortedSource extends OrderedSource {
   dirty = true;
   refreshing = false;
 
-  constructor(base: EntityView, sorter: EntityComparator | SortedKeys, traits: readonly Trait[]) {
+  constructor(
+    base: EntityView,
+    sorter: EntityComparator | SortedKeys,
+    traits: readonly Trait[],
+    scope: ViewScope | null
+  ) {
     super();
     this.base = base;
+    this.scope = scope;
     this.sorter = sorter;
     this.traits = traits.slice();
     this.instances = this.traits.map((trait) => ensureTraitInstance(base.ctx, trait));
@@ -176,9 +182,7 @@ class SortedSource extends OrderedSource {
 
   ensure() {
     if (this.iterating !== 0 || this.refreshing) return this.dense;
-    const { base } = this;
-    const liveQuery = base.live ? base.query : null;
-    const revision = liveQuery?.version ?? 0;
+    const revision = this.scope?.version ?? 0;
     const rebuild = revision !== this.revision;
     let dirty = rebuild || this.dirty || this.instances.length === 0;
     for (let i = 0; i < this.instances.length; i++) {
@@ -226,7 +230,7 @@ class SortedSource extends OrderedSource {
 /** Reuses sort buffers while keeping the published order separate until refresh succeeds. */
 class SortedKeys implements EntitySource {
   /** Key reads keep their projection prepared independently of the sorted view's walks. */
-  iterationBuffers: QueryIterationBuffers | undefined;
+  iterationBuffers: IterationBuffers | undefined;
   dense: Entity[] = [];
   private output: Entity[] = [];
   values: number[] = [];
@@ -235,13 +239,14 @@ class SortedKeys implements EntitySource {
   reader: EntityView;
   collect: (state: any[], entity: Entity, index: number) => void;
 
-  constructor(base: EntityView, trait: Trait, selector: SortKeySelector) {
+  constructor(base: EntityView, trait: Trait, selector: SortKeySelector, scope: ViewScope | null) {
+    // The reader walks this object's own array and keeps its buffers here.
     this.reader = new EntityView(
       base.ctx,
-      base.query,
-      getQueryBinding(base.ctx, base.query, [trait]),
+      ensureViewBinding(base.ctx, scope, [trait]),
       this,
-      false
+      null,
+      this
     );
     this.collect = (state, _entity, index) => {
       const key = selector(state[0]);
@@ -263,7 +268,7 @@ class SortedKeys implements EntitySource {
     for (let i = 0; i < count; i++) entities[i] = dense[i] as Entity;
     while (entities.length > count) entities.pop();
     // Read-only traversal neither writes trait data nor invalidates the dependency version.
-    this.reader.read(this.collect, this);
+    this.reader.read(this.collect);
     const result = sortKeys(this.values, entities, this.scratch, this.output, this.runs, count);
     while (result.length > count) result.pop();
     // Retain the unused buffer and recycle published for the next refresh.
@@ -283,23 +288,27 @@ export const keyedViews = new WeakMap<
 export function sortByView<C extends Trait>(
   base: EntityView,
   trait: C,
-  selector: SortKeySelector<C>
+  selector: SortKeySelector<C>,
+  scope: ViewScope | null
 ): OrderedView<any> {
-  return keyedViews.get(base)?.get(trait)?.get(selector) ?? createKeyedView(base, trait, selector);
+  return (
+    keyedViews.get(base)?.get(trait)?.get(selector) ?? createKeyedView(base, trait, selector, scope)
+  );
 }
 
 /** Keep first-use setup outside the repeated cache lookup's inlining budget. */
 export function createKeyedView<C extends Trait>(
   base: EntityView,
   trait: C,
-  selector: SortKeySelector<C>
+  selector: SortKeySelector<C>,
+  scope: ViewScope | null
 ): OrderedView<any> {
   let cache = keyedViews.get(base);
   if (!cache) keyedViews.set(base, (cache = new WeakMap()));
   let views = cache.get(trait);
   if (!views) cache.set(trait, (views = new WeakMap()));
-  const source = new SortedSource(base, new SortedKeys(base, trait, selector), [trait]);
-  const view = new SortedView(base.ctx, source, base.binding, base.query);
+  const source = new SortedSource(base, new SortedKeys(base, trait, selector, scope), [trait], scope);
+  const view = new SortedView(base.ctx, source, base.binding, scope);
   source.views.push(view);
   views.set(selector, view);
   return view;
@@ -309,7 +318,8 @@ export function createKeyedView<C extends Trait>(
 export function sortView(
   base: EntityView,
   compare: EntityComparator,
-  traits: readonly Trait[]
+  traits: readonly Trait[],
+  scope: ViewScope | null
 ): OrderedView<any> {
   let cache = sortedViews.get(base);
   if (!cache) sortedViews.set(base, (cache = new WeakMap()));
@@ -325,11 +335,114 @@ export function sortView(
   }
   const view = new SortedView(
     base.ctx,
-    new SortedSource(base, compare, traits),
+    new SortedSource(base, compare, traits, scope),
     base.binding,
-    base.query
+    scope
   );
   view.source.views.push(view);
   views.push(view);
   return view;
+}
+
+/**
+ * Stably sorts the first length key/entity pairs, using distinct scratch arrays.
+ * Keys must be numbers other than NaN. Returns either entity array with its sorted prefix.
+ */
+function sortKeys(
+  keys: number[],
+  entities: Entity[],
+  scratchKeys: number[],
+  scratchEntities: Entity[],
+  runs: number[],
+  length: number
+): Entity[] {
+  let count = 0;
+  let start = 0;
+  while (start < length) {
+    runs[count++] = start;
+    let end = start + 1;
+    if (end < length && keys[end] < keys[start]) {
+      while (end < length && keys[end] < keys[end - 1]) end++;
+      // Strict descent keeps equal keys in their input order when a run is reversed.
+      for (let left = start, right = end - 1; left < right; left++, right--) {
+        const key = keys[left];
+        const entity = entities[left];
+        keys[left] = keys[right];
+        entities[left] = entities[right];
+        keys[right] = key;
+        entities[right] = entity;
+      }
+    } else {
+      while (end < length && keys[end] >= keys[end - 1]) end++;
+    }
+
+    // Short insertion runs bound the shifts before linear merging takes over.
+    const limit = Math.min(start + 8, length);
+    for (; end < limit; end++) {
+      const key = keys[end];
+      const entity = entities[end];
+      let left = start;
+      let right = end;
+      while (left < right) {
+        const middle = (left + right) >>> 1;
+        if (key < keys[middle]) right = middle;
+        else left = middle + 1;
+      }
+      for (let i = end; i > left; i--) {
+        keys[i] = keys[i - 1];
+        entities[i] = entities[i - 1];
+      }
+      keys[left] = key;
+      entities[left] = entity;
+    }
+    start = end;
+  }
+  runs[count] = length;
+
+  while (count > 1) {
+    let next = 0;
+    for (let run = 0; run < count; run += 2) {
+      const start = runs[run];
+      const middle = runs[run + 1];
+      const end = run + 1 < count ? runs[run + 2] : middle;
+      runs[next++] = start;
+      let left = start;
+      let right = middle;
+      let output = start;
+      if (left < middle && right < end) {
+        let leftKey = keys[left];
+        let rightKey = keys[right];
+        while (true) {
+          if (leftKey <= rightKey) {
+            scratchKeys[output] = leftKey;
+            scratchEntities[output++] = entities[left++];
+            if (left === middle) break;
+            leftKey = keys[left];
+          } else {
+            scratchKeys[output] = rightKey;
+            scratchEntities[output++] = entities[right++];
+            if (right === end) break;
+            rightKey = keys[right];
+          }
+        }
+      }
+      while (left < middle) {
+        scratchKeys[output] = keys[left];
+        scratchEntities[output++] = entities[left++];
+      }
+      while (right < end) {
+        scratchKeys[output] = keys[right];
+        scratchEntities[output++] = entities[right++];
+      }
+    }
+    runs[next] = length;
+    count = next;
+    const previousKeys = keys;
+    keys = scratchKeys;
+    scratchKeys = previousKeys;
+    const previousEntities = entities;
+    entities = scratchEntities;
+    scratchEntities = previousEntities;
+  }
+  return entities;
 }

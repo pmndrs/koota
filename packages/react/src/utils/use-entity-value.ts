@@ -49,7 +49,7 @@ type Binding<T, I> = {
   version: number;
 };
 
-function queryRef(query: RelationPair['targetQuery']) {
+function resolveTargetQuery(query: RelationPair['targetQuery']) {
   return Array.isArray(query) ? createQuery(...query) : query;
 }
 
@@ -66,7 +66,7 @@ function sameInput(a: unknown, b: unknown) {
     left.relation === right.relation &&
     left.target === right.target &&
     (left.targetQuery === right.targetQuery ||
-      queryRef(left.targetQuery) === queryRef(right.targetQuery))
+      resolveTargetQuery(left.targetQuery) === resolveTargetQuery(right.targetQuery))
   );
 }
 

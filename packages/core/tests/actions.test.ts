@@ -27,27 +27,11 @@ describe('Actions', () => {
 
     // Should be the same function
     expect(spawnPlayer2).toBe(spawnPlayer);
-  });
 
-  it('should create multiple memoized actions per world', () => {
-    const actions1 = createActions((world) => ({
+    // A second set of actions is memoized on its own for the same world.
+    const otherActions = createActions((world) => ({
       spawnPlayer: () => world.spawn(IsPlayer),
-      destroyPlayers: () => {
-        for (const e of world.query(IsPlayer)) e.destroy();
-      },
     }));
-
-    const actions2 = createActions((world) => ({
-      spawnPlayer: () => world.spawn(IsPlayer),
-      destroyPlayers: () => {
-        for (const e of world.query(IsPlayer)) e.destroy();
-      },
-    }));
-
-    const { spawnPlayer: spawnPlayer1 } = actions1(world);
-    const { spawnPlayer: spawnPlayer2 } = actions2(world);
-
-    // Should be different functions
-    expect(spawnPlayer1).not.toBe(spawnPlayer2);
+    expect(otherActions(world).spawnPlayer).not.toBe(spawnPlayer);
   });
 });

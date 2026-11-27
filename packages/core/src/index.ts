@@ -1,3 +1,7 @@
+import { createQuery } from './query/query';
+import type { TraitInstance } from './trait/types';
+
+export { $internal } from './internal';
 export { machine } from './machine/machine';
 export type {
   Machine,
@@ -6,55 +10,49 @@ export type {
   MachineStateInput,
   TransitionSubscriber,
 } from './machine/types';
-export { createActions } from './actions/create-actions';
-export type { Actions, ActionsInitializer, ActionRecord } from './actions/types';
-export { $internal } from './common';
+export { createActions } from './actions';
+export type { Actions, ActionsInitializer, ActionRecord } from './actions';
 export type { Entity, EntityMethods, Register } from './entity/types';
-export { getEntityId, unpackEntity } from './entity/utils/pack-entity';
-export { createAdded } from './query/modifiers/added';
-export { createChanged } from './query/modifiers/changed';
-export { Not } from './query/modifiers/not';
-export { Or } from './query/modifiers/or';
-export { createRemoved } from './query/modifiers/removed';
-export { $modifier } from './query/modifier';
-export { createQuery, IsExcluded } from './query/query';
+export { getEntityId, unpackEntity } from './entity/handle';
+export { createAdded, createChanged, createRemoved, Not, Or } from './query/modifiers';
+export { $modifier, $query, createQuery } from './query/query';
+export { IsExcluded } from './query/terms';
 export type {
-  EventType,
-  InstancesFromParameters,
-  IsNotModifier,
-  Modifier,
   QueryLayout,
   QueryPage,
+  StoresFromParameters,
+  PageStoresFromParameters,
+} from './query/types';
+export type {
+  EventType,
+  IsNotModifier,
+  Modifier,
   Query,
   QueryModifier,
   QueryParameter,
   QueryView,
-  UpdateEachOptions,
   QuerySubscriber,
   QueryUnsubscriber,
   QueryHash,
-  StoresFromParameters,
-  PageStoresFromParameters,
 } from './query/types';
-export { $queryRef } from './query/symbols';
-export { identifier } from './identifier/identifier';
-export { $identifier, $identifierPair } from './identifier/symbols';
+export { $identifier, $identifierPair, identifier } from './identifier/identifier';
 export type {
   Identifier,
   IdentifierKey,
   IdentifierOptions,
   IdentifierPair,
 } from './identifier/types';
-export { relation } from './relation/relation';
+export { $relation, $relationPair, relation } from './relation/relation';
 export { ordered, isOrderedTrait } from './relation/ordered';
 export type {
+  InstancesFromParameters,
+  UpdateEachOptions,
   EntityComparator,
   EntityView,
   OrderedView,
   MutableOrderedView,
   SortKeySelector,
 } from './view/types';
-export { $relationPair, $relation } from './relation/symbols';
 export type {
   OrderedRelation as OrderedTrait,
   RelationInputTarget,
@@ -62,7 +60,8 @@ export type {
   RelationPair,
   RelationTarget,
 } from './relation/types';
-export { getStore, trait } from './trait/trait';
+export { getStore } from './trait/registry';
+export { trait } from './trait/trait';
 export { required } from './storage/schema';
 export type {
   ConfigurableTrait,
@@ -81,24 +80,21 @@ export type {
 } from './trait/types';
 export type { AoSFactory, Norm, RequiredField, Schema, Store, StoreType } from './storage/types';
 export type { TraitType } from './trait/types';
-export type { World, WorldOptions } from './world';
-export { createWorld } from './world';
-export { whenSettled } from './world/settled';
+export type { World, WorldOptions } from './world/types';
+export { createWorld } from './world/world';
+export { whenSettled } from './command/settled';
 
-/**
- * Deprecations. To be removed in v0.7.0.
- */
+/** @deprecated Use $query instead. */
+export { $query as $queryRef } from './query/query';
 
-import { createQuery } from './query/query';
 /** @deprecated Use createQuery instead */
 export const cacheQuery = createQuery;
 
-import type { TraitInstance } from './trait/types';
 /** @deprecated Use TraitInstance instead */
 export type TraitData = TraitInstance;
 
-/** @deprecated Will remove this internal type entirely */
+/** @deprecated Will remove this internal type entirely. */
 export type { TraitInstance } from './trait/types';
 
-/** @deprecated Will remove this internal type entirely */
+/** @deprecated Will remove this internal type entirely. */
 export type { QueryInstance } from './query/types';

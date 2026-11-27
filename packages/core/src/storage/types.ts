@@ -1,3 +1,5 @@
+import type { WorldContext } from '../world/types';
+
 /**
  * Paged storage type for trait data.
  * - AoS: store[pageId][offset] = instance
@@ -49,7 +51,7 @@ export type RequiredField<T = unknown> = (() => T) & { readonly required: true }
  * A fixed-length list of primitives, such as a vector, quaternion, matrix or Euler.
  * Its length is the stride of the column that stores it.
  */
-export type Tuple = readonly [TupleElement, ...TupleElement[]];
+type Tuple = readonly [TupleElement, ...TupleElement[]];
 
 type TupleElement = number | bigint | string | boolean | null | undefined;
 
@@ -107,3 +109,43 @@ export type Norm<T extends Schema> =
                   ? WidenTuple<T[K]>
                   : T[K];
             };
+
+// Accessors share the (ctx, index, store) prefix whatever kind of trait they belong to.
+export type AddAccessor = (ctx: WorldContext, index: number, store: any, value?: any) => void;
+
+export type SetAccessor = (ctx: WorldContext, index: number, store: any, value: any) => boolean;
+
+export type GetAccessor = (ctx: WorldContext, index: number, store: any) => any;
+
+export type GetIntoAccessor = (ctx: WorldContext, index: number, store: any, out: any) => any;
+
+/**
+ * Source for one cursor in one generated walk. Initialize once, bind before seek, seek before flush.
+ * The fragments share locals derived from the cursor name, which must be unique in the walk.
+ */
+export type CursorSource = {
+  /** Statements that capture cursor-owned data once per walk. */
+  init: string;
+  bind: string;
+  seek: Record<CursorKind, string>;
+  /** Empty for reads and for schemas whose fields are all written in place. */
+  flush: Record<CursorKind, string>;
+  /** Expression for whether a write cursor changed anything since seek. */
+  changed: string;
+};
+
+/** Creates runtime cursors and compiles the storage code that drives them during a walk. */
+export type CursorCompiler = {
+  create(): CursorSet;
+  compile(cursor: string, store: string, page: string, offset: string): CursorSource;
+};
+
+/** write diffs and flags changes for tracked walks, plain stores bare, read drops writes. */
+export type CursorKind = 'write' | 'plain' | 'read';
+
+/**
+ * A cursor stands in for a SoA record during a walk. Scalar fields read and write the bound page
+ * at the current offset, so nothing is copied per entity. A tuple field is an array the cursor
+ * owns, filled when the cursor moves and stored back after the callback.
+ */
+export type CursorSet = Record<CursorKind, object>;

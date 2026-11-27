@@ -5,15 +5,15 @@ const Position = trait({ x: 0, y: 0, z: 0 });
 const Velocity = trait({ x: 0, y: 0, z: 0 });
 
 group('entity mutations 10k @entity @mutation', () => {
-  for (const queries of [0, 1]) {
-    bench(`entity.add + remove, ${queries} queries`, function* () {
+  for (const queryCount of [0, 1]) {
+    bench(`entity.add + remove, ${queryCount} queries`, function* () {
       const Tag = trait();
       const world = createWorld();
       const entities = Array.from({ length: 10_000 }, () => world.spawn());
-      const refs = Array.from({ length: queries }, (_, i) =>
+      const queries = Array.from({ length: queryCount }, (_, i) =>
         createQuery(Tag, ...(i % 2 ? [Position] : []))
       );
-      for (const ref of refs) world.query(ref);
+      for (const query of queries) world.query(query);
 
       yield {
         bench: () => {
@@ -24,7 +24,7 @@ group('entity mutations 10k @entity @mutation', () => {
         },
         snapshot: () => {
           assert.equal(entities[9999].has(Tag), false);
-          for (const ref of refs) assert.equal(world.query(ref).length, 0);
+          for (const query of queries) assert.equal(world.query(query).length, 0);
           return entities.length;
         },
       };

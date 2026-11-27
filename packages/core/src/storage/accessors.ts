@@ -1,16 +1,15 @@
 import type { TraitAccessors } from '../trait/types';
-import type { WorldContext } from '../world';
-import { createCursorCompiler } from './cursor-compiler';
+import { createCursorCompiler } from './cursors';
 import { getStride, isRequired } from './schema';
-import { createPage, growPages } from './stores';
-import type { Schema, StoreType } from './types';
-
-// Accessors share the (ctx, index, store) prefix whatever kind of trait they belong to.
-export type AddAccessor = (ctx: WorldContext, index: number, store: any, value?: any) => void;
-export type SetAccessor = (ctx: WorldContext, index: number, store: any, value: any) => boolean;
-export type GetAccessor = (ctx: WorldContext, index: number, store: any) => any;
-export type GetIntoAccessor = (ctx: WorldContext, index: number, store: any, out: any) => any;
-export type RemoveAccessor = (ctx: WorldContext, index: number, store: any) => void;
+import { createColumn, growColumns } from './stores';
+import type {
+  AddAccessor,
+  GetAccessor,
+  GetIntoAccessor,
+  Schema,
+  SetAccessor,
+  StoreType,
+} from './types';
 
 /** Unrolls a statement for each tuple element, since the stride is fixed per trait. */
 function unroll(stride: number, statement: (c: number) => string): string {
@@ -55,7 +54,9 @@ function createSoAAddFunction(schema: Schema): AddAccessor {
   const keys = Object.keys(schema);
   // Pages for every key are created together, so the first key stands in for all of them.
   // Only the world's first leased page starts short. Later pages need no growth.
-  const pages = keys.map((key) => `store.${key}[p] = createPage(schema.${key}, capacity);`).join(' ');
+  const pages = keys
+    .map((key) => `store.${key}[p] = createColumn(schema.${key}, capacity);`)
+    .join(' ');
   const writes = keys
     .map((key, k) => {
       const field = (schema as Record<string, unknown>)[key];
@@ -74,8 +75,8 @@ function createSoAAddFunction(schema: Schema): AddAccessor {
 
   return new Function(
     'schema',
-    'createPage',
-    'growPages',
+    'createColumn',
+    'growColumns',
     `
       return function (ctx, index, store, value) {
         var p = index >>> 10, o = index & 1023;
@@ -83,12 +84,12 @@ function createSoAAddFunction(schema: Schema): AddAccessor {
         if (!page || page.length <= o * ${getStride(schema, keys[0]) || 1}) {
           var capacity = p === ctx.entityIndex.ownedPages[0] ? 1 << (32 - Math.clz32(o | 63)) : 1024;
           if (!page) { ${pages} }
-          else growPages(schema, store, p, capacity);
+          else growColumns(schema, store, p, capacity);
         }
         ${writes}
       };
       `
-  )(schema, createPage, growPages) as AddAccessor;
+  )(schema, createColumn, growColumns) as AddAccessor;
 }
 
 /** Prepare one complete value with add semantics without allocating or changing storage. */
@@ -263,17 +264,3 @@ export function createSchemaAccessors(schema: Schema, type: StoreType): TraitAcc
     cursor: type === 'soa' ? createCursorCompiler(schema) : undefined,
   };
 }
-
-function requirePair(): never {
-  throw new Error('Koota: [NO_ACCESSORS] Use a pair to write a relation or identifier.');
-}
-
-/** The backing trait represents membership. Data belongs to the pair. */
-export const pairTraitAccessors: TraitAccessors = {
-  add: requirePair,
-  set: requirePair,
-  get: noop,
-  getInto: noop,
-  remove: requirePair,
-  cursor: undefined,
-};

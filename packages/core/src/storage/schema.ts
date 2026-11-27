@@ -1,5 +1,4 @@
-import { assertsEnabled } from '../assert-config';
-import { warningsEnabled } from '../warning-config';
+import { assertsEnabled, warningsEnabled } from '../build-flags';
 import type { RequiredField, Schema } from './types';
 
 /**

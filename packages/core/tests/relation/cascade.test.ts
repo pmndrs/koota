@@ -1,0 +1,78 @@
+import { describe, expect, it } from 'vitest';
+import { createWorld, relation, trait, type Entity } from '../../src';
+
+describe('world isolation', () => {
+  it.each(['source', 'target'] as const)(
+    'keeps nested %s destruction cascades and their callbacks in their own worlds',
+    (autoDestroy) => {
+      const Link = relation({ autoDestroy });
+      const Tag = trait();
+      const a = createWorld();
+      const b = createWorld();
+      const first = [a.spawn(Tag), a.spawn(Tag), a.spawn(Tag)];
+      const second = [b.spawn(Tag), b.spawn(Tag), b.spawn(Tag)];
+      for (const entities of [first, second]) {
+        for (let i = 1; i < entities.length; i++) {
+          if (autoDestroy === 'source') entities[i].add(Link(entities[i - 1]));
+          else entities[i - 1].add(Link(entities[i]));
+        }
+      }
+      // A source dies before its target, so a chain of sources is destroyed from its far end.
+      const order = (entities: Entity[]) =>
+        autoDestroy === 'source' ? [...entities].reverse() : entities;
+      const lastA = order(first)[2];
+      const seenA: Entity[] = [];
+      const seenB: Entity[] = [];
+      a.onEntityDestroy((entity) => {
+        seenA.push(entity);
+        if (seenA.length !== 1) return;
+        second[0].destroy();
+        expect(b.query(Tag).length).toBe(0);
+        expect(a.query(Tag).length).toBe(3);
+      });
+      b.onEntityDestroy((entity) => {
+        seenB.push(entity);
+        if (seenB.length !== 1) return;
+        // Returning to the first world joins its still-open scope.
+        lastA.destroy();
+        expect(lastA.isAlive()).toBe(true);
+      });
+
+      first[0].destroy();
+
+      expect(seenA).toEqual(order(first));
+      expect(seenB).toEqual(order(second));
+      expect(a.query(Tag).length).toBe(0);
+      expect(b.query(Tag).length).toBe(0);
+      expect([...first, ...second].every((entity) => !entity.isAlive())).toBe(true);
+      a.destroy();
+      b.destroy();
+    }
+  );
+
+  it.each([0, 1024])(
+    'destroys cyclic and duplicate cascade entries once with retain %s',
+    (retain) => {
+      const Link = relation({ autoDestroy: 'target' });
+      const OtherLink = relation({ autoDestroy: 'target' });
+      const world = createWorld({ retain });
+      const seen: Entity[] = [];
+      world.onEntityDestroy((entity) => seen.push(entity));
+
+      for (let run = 0; run < 2; run++) {
+        const parent = world.spawn();
+        const child = world.spawn(Link(parent));
+        parent.add(Link(child), OtherLink(child));
+        seen.length = 0;
+
+        parent.destroy();
+
+        expect(seen).toEqual([parent, child]);
+        expect(parent.isAlive()).toBe(false);
+        expect(child.isAlive()).toBe(false);
+        world.reset();
+      }
+      world.destroy();
+    }
+  );
+});

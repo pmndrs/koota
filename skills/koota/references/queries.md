@@ -70,7 +70,7 @@ const allEntities = world.query()
 
 ## Query lifecycle
 
-Use `world.onEnter` when an entity starts matching and `world.onExit` when it stops matching. Pass a query reference or an array of query parameters. Both return unsubscribe functions and report future events without replaying existing matches.
+Use `world.onEnter` when an entity starts matching and `world.onExit` when it stops matching. Pass a query or an array of query parameters. Both return unsubscribe functions and report future events without replaying existing matches.
 
 ```typescript
 const moving = createQuery(Position, Velocity)
@@ -244,7 +244,7 @@ Static and tracking branches can share an `Or`. For `Or(Changed(Position), IsVis
 
 ## Caching queries
 
-Inline queries hash parameters each call. For hot paths, cache with `createQuery`.
+Use `createQuery` to define a reusable query. Each world creates its own instance on first use.
 
 ```typescript
 import { createQuery } from 'koota'

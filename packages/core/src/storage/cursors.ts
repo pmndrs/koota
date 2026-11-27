@@ -1,24 +1,58 @@
-/** write diffs and flags changes for tracked walks, plain stores bare, read drops writes. */
-export type CursorKind = 'write' | 'plain' | 'read';
+import { getStride } from './schema';
+import type { CursorCompiler, CursorKind, CursorSet, Schema } from './types';
 
-/**
- * A cursor stands in for a SoA record during a walk. Scalar fields read and write the bound page
- * at the current offset, so nothing is copied per entity. A tuple field is an array the cursor
- * owns, filled when the cursor moves and stored back after the callback.
- */
-export type CursorSet = Record<CursorKind, object>;
+export function createCursorCompiler(schema: Schema): CursorCompiler {
+  const keys = Object.keys(schema);
+  const strides = keys.map((key) => getStride(schema, key));
+  // No schema field can shadow an internal slot, including fields that begin with dollars.
+  let prefix = '$';
+  while (keys.some((key) => key.startsWith(prefix))) prefix += '$';
 
-/**
- * Every trait has cursor classes of its own, compiled the first time it is walked. The compiler
- * supplies a prefix outside the schema's field names.
- */
-export function createCursorFactory(
-  keys: string[],
-  strides: number[],
-  prefix: string
-): () => CursorSet {
   let Cursors: (new () => CursorSet) | undefined;
-  return () => new (Cursors ??= compileCursorSetClass(keys, strides, prefix))();
+  return {
+    create() {
+      Cursors ??= compileCursorSetClass(keys, strides, prefix);
+      return new Cursors();
+    },
+    compile(cursor, store, page, offset) {
+      const init: string[] = [];
+      const bind: string[] = [];
+      const seek: string[] = [];
+      const plain: string[] = [];
+      const write: string[] = [];
+      const changed = `${cursor}.${prefix}changed`;
+      if (strides.some((stride) => stride === 0)) seek.push(`${cursor}.${prefix}o = ${offset};`);
+
+      keys.forEach((key, k) => {
+        const column = `${store}[${JSON.stringify(key)}][${page}]`;
+        const stride = strides[k];
+        if (stride === 0) {
+          bind.push(`${cursor}.${prefix}${k} = ${column};`);
+          return;
+        }
+        // Tuple copies keep their identity throughout the walk, including tuple assignments.
+        init.push(`var ${cursor}t${k} = ${cursor}.${prefix}t${k};`);
+        bind.push(`var ${cursor}p${k} = ${column};`);
+        seek.push(`var ${cursor}b${k} = ${offset} * ${stride};`);
+        for (let c = 0; c < stride; c++) {
+          const stored = `${cursor}p${k}[${cursor}b${k}${c ? ` + ${c}` : ''}]`;
+          const copy = `${cursor}t${k}[${c}]`;
+          seek.push(`${copy} = ${stored};`);
+          plain.push(`${stored} = ${copy};`);
+          write.push(`if (${stored} !== ${copy}) { ${stored} = ${copy}; ${changed} = true; }`);
+        }
+      });
+
+      const move = seek.join(' ');
+      return {
+        init: init.join(' '),
+        bind: bind.join(' '),
+        seek: { read: move, plain: move, write: `${changed} = false; ${move}` },
+        flush: { read: '', plain: plain.join(' '), write: write.join(' ') },
+        changed,
+      };
+    },
+  };
 }
 
 /**
@@ -33,15 +67,15 @@ function compileCursorSetClass(
 ): new () => CursorSet {
   return new Function(
     `'use strict';
-    ${cursorClassSource('Write', keys, strides, prefix, 'write')}
-    ${cursorClassSource('Plain', keys, strides, prefix, 'plain')}
-    ${cursorClassSource('Read', keys, strides, prefix, 'read')}
+    ${createCursorClassSource('Write', keys, strides, prefix, 'write')}
+    ${createCursorClassSource('Plain', keys, strides, prefix, 'plain')}
+    ${createCursorClassSource('Read', keys, strides, prefix, 'read')}
     function Cursors() { this.write = new Write(); this.plain = new Plain(); this.read = new Read(); }
     return Cursors;`
   )();
 }
 
-function cursorClassSource(
+function createCursorClassSource(
   Cursor: string,
   keys: string[],
   strides: number[],
