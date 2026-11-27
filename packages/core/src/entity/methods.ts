@@ -1,5 +1,6 @@
-import { warningsEnabled } from '../build-flags';
+import { assertsEnabled, warningsEnabled } from '../build-flags';
 import type { Identifier, IdentifierPair } from '../identifier/types';
+import { $internal } from '../internal';
 import { subscribeTransition } from '../machine/hooks';
 import type { Machine, TransitionSubscriber } from '../machine/types';
 import type { Relation, RelationPair } from '../relation/types';
@@ -23,6 +24,11 @@ import { getEntityContext, sharedPageOwners } from './page-allocator';
 import type { Entity, EntityMethods } from './types';
 
 let installed = false;
+
+// Keep world lookup and pair dispatch out of the bytecode for repeated plain trait checks.
+function hasWithWorld(entity: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair) {
+  return hasTrait(getEntityContext(entity), entity, trait);
+}
 
 /**
  * Puts the methods on Number.prototype, so entity.get(Position) works without the world at hand.
@@ -49,7 +55,13 @@ export function installEntityMethods() {
     },
 
     has(this: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair) {
-      return hasTrait(getEntityContext(this), this, trait);
+      if (typeof trait !== 'function' || assertsEnabled) {
+        return hasWithWorld(this, trait);
+      }
+      // An identifier reads the same mask slot as its backing trait.
+      const eid = getEntityId(this);
+      const mask = trait[$internal].sharedMask;
+      return (mask.table[eid >>> 10][(eid & 1023) << 2] & mask.bit) !== 0;
     },
 
     destroy(this: Entity) {

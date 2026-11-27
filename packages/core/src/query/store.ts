@@ -31,7 +31,7 @@ export function createQueryStore(this: WorldContext, query: Query) {
     // Copy in render so a burst of membership changes only materializes the final list.
     read: (revision: number) => {
       if (copiedRevision !== revision) {
-        if (this.worldEntity == null) {
+        if (this.destroyed) {
           copiedRevision = revision;
           entities = [];
           return entities;
@@ -51,7 +51,7 @@ export function createQueryStore(this: WorldContext, query: Query) {
     subscribe: (notify: () => void) =>
       subscribeHook(this, whenSettled(notify), (refresh) => {
         const bind = () => {
-          if (this.worldEntity == null) return;
+          if (this.destroyed) return;
           const instance = ensureQueryInstance(this, query);
           const enter = (instance.addSubscriptions ??= new Set());
           const exit = (instance.removeSubscriptions ??= new Set());

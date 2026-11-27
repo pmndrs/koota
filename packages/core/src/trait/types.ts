@@ -13,6 +13,7 @@ import type {
   StoreType,
 } from '../storage/types';
 import type { WorldContext } from '../world/types';
+import type { SharedMaskSlot } from './mask-table';
 
 // Backwards-compatible alias (the trait "type" is the storage layout).
 export type TraitType = StoreType;
@@ -92,6 +93,7 @@ export type TraitKind = 'trait' | 'machine' | 'relation' | 'identifier';
 
 export type TraitContext<S extends Schema = any> = Readonly<TraitAccessors<S>> & {
   readonly id: number;
+  readonly sharedMask: SharedMaskSlot;
   readonly createStore: () => Store<S>;
   /** Drop stored references when a destroyed entity is evicted. */
   readonly clear: ((index: number, store: any) => void) | undefined;

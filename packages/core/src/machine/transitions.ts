@@ -4,13 +4,8 @@ import type { Entity } from '../entity/types';
 import { $internal } from '../internal';
 import { reconcileMachine } from '../query/reconciliation';
 import { emit, notifyTraitAdded } from '../trait/hooks';
-import {
-  clearTraitMembership,
-  DESTROYED_WORD,
-  EMPTY_MASK_PAGE,
-  hasTraitMembership,
-  setTraitMembership,
-} from '../trait/membership';
+import { DESTROYED_WORD, EMPTY_MASK_PAGE } from '../trait/mask-table';
+import { clearTraitMembership, hasTraitMembership, setTraitMembership } from '../trait/membership';
 import { registerTrait } from '../trait/registry';
 import type { ConfigurableTrait, Trait } from '../trait/types';
 import type { WorldContext } from '../world/types';

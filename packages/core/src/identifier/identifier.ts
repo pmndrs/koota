@@ -19,7 +19,14 @@ export function identifier<K extends IdentifierKey = string>(
       }
       return { [$identifierPair]: true, identifier: Identifier, target };
     },
-    { [$internal]: { trait: backing, exclusive: options?.exclusive ?? true, scope } }
+    {
+      [$internal]: {
+        trait: backing,
+        sharedMask: backing[$internal].sharedMask,
+        exclusive: options?.exclusive ?? true,
+        scope,
+      },
+    }
   ) as Identifier<K>;
   Object.defineProperties(Identifier, {
     [$identifier]: { value: true },

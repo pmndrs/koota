@@ -15,13 +15,8 @@ import { AWAITING_BIT, queueOwnedTargets, releaseDependents } from '../relation/
 import { clearRetainedPairs } from '../relation/pairs';
 import { detachRelationTargets, getStoredRelationTargets } from '../relation/targets';
 import { clearEntitySubscriptions, emit } from '../trait/hooks';
-import {
-  clearDyingTraitMembership,
-  DESTROYED_WORD,
-  EMPTY_MASK_PAGE,
-  hasTraitMembership,
-  REMOVED_WORD,
-} from '../trait/membership';
+import { DESTROYED_WORD, EMPTY_MASK_PAGE, REMOVED_WORD } from '../trait/mask-table';
+import { clearDyingTraitMembership, hasTraitMembership } from '../trait/membership';
 import { applyAddTrait } from '../trait/ops';
 import type { ConfigurableTrait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';

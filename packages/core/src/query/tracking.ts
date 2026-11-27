@@ -4,7 +4,7 @@ import { growPageTable } from '../entity/page-table';
 import type { Entity } from '../entity/types';
 import { $internal } from '../internal';
 import { hasRelationToTarget } from '../relation/targets';
-import { PENDING_WORD, REMOVED_WORD } from '../trait/membership';
+import { PENDING_WORD, REMOVED_WORD } from '../trait/mask-table';
 import type { TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
 import {

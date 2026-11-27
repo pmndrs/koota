@@ -46,9 +46,8 @@ export function releasePage(allocator: PageAllocator, pageId: number): void {
 }
 
 /**
- * The one structure worlds with entity methods share. An entity is a number, so the page that
- * holds its id is how a method finds the world that owns it. The table holds each world until it
- * is destroyed, which is what an isolated world avoids by owning its ids.
+ * An entity method can find its world through the page that holds its id. The table holds
+ * shared worlds until they are destroyed. Isolated worlds own their pages separately.
  */
 export const sharedPageOwners: (WorldContext | null)[] = [];
 export const sharedAllocator = /* @__PURE__ */ createPageAllocator(sharedPageOwners);

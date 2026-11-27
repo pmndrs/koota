@@ -34,15 +34,12 @@ import type { IterationBuffers } from '../view/types';
 export type WorldContext = {
   entityIndex: ReturnType<typeof createEntityIndex>;
   /**
-   * Membership and removal history by mask generation and page. See trait/membership.ts.
+   * Tables used by this world, indexed by its trait instances' generation ids. Worlds with
+   * entity methods can hold the same table at different indices.
    */
   entityMasks: Uint32Array[][];
-  /**
-   * The number of pages every mask and tracker table in the world covers. It follows the highest
-   * page the world has leased, so a read for any of its entities finds a page. A reset keeps it.
-   */
+  /** Pages of ids the world's tracker tables cover. */
   pageLimit: number;
-  bitflag: number;
   traitInstances: (TraitInstance | undefined)[];
   /** Trait instances by mask generation and bit index, so a mask word can be walked back to its traits. */
   traitsByBit: TraitInstance[][];
@@ -91,6 +88,7 @@ export type WorldContext = {
   pairRemovals: { entries: number[]; head: number };
   /** The entity that carries the world's own traits. Null once the world is destroyed. */
   worldEntity: Entity | null;
+  destroyed: boolean;
   entitySubscribedInstances: Set<TraitInstance>;
   /** Open defer scopes. Structural changes join the command log while it is nonzero. See command/buffer.ts. */
   deferDepth: number;

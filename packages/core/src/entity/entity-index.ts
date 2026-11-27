@@ -177,7 +177,7 @@ export /* @inline */ function assertAliveOrWorldDestroyed(
   const denseIdx = index.sparse[getEntityId(entity)];
   if (
     (denseIdx === undefined || denseIdx >= index.aliveCount || index.dense[denseIdx] !== entity) &&
-    ctx.worldEntity !== null
+    !ctx.destroyed
   ) {
     throw createEntityNotAliveError(entity);
   }
