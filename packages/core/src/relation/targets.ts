@@ -8,6 +8,7 @@ import { getTraitInstance } from '../trait/registry';
 import type { Trait, TraitInstance } from '../trait/types';
 import type { WorldContext } from '../world/types';
 import { flagTarget } from './cascade';
+import { firstTargetInPages, hasTargetInPages } from './target-pages';
 import type { Relation, RelationPair, RelationSources } from './types';
 
 export /* @inline @pure */ function getExclusiveTarget(
@@ -233,20 +234,8 @@ export /* @inline */ function getFirstRelationTarget(
     assertEntityAlive(ctx, entity);
   }
 
-  const relationCtx = relation[$internal];
-
-  const traitData = getTraitInstance(ctx.traitInstances, relationCtx.trait);
-  if (!traitData || !traitData.relationTargets) return undefined;
-
-  const eid = getEntityId(entity);
-  const page = traitData.relationTargets[eid >>> 10];
-  if (!page) return undefined;
-
-  if (relationCtx.exclusive) {
-    return page[eid & 1023] as Entity | undefined;
-  } else {
-    return (page[eid & 1023] as number[] | undefined)?.[0] as Entity | undefined;
-  }
+  const instance = getTraitInstance(ctx.traitInstances, relation[$internal].trait);
+  return firstTargetInPages(instance?.relationTargets, entity);
 }
 
 export /* @inline @pure */ function getTargetIndex(
@@ -356,14 +345,6 @@ export /* @inline @pure */ function hasRelationPair(
 ): boolean {
   const target = pair.target;
   if (target === undefined) return false;
-  const relationCtx = pair.relation[$internal];
-  const instance = getTraitInstance(ctx.traitInstances, relationCtx.trait);
-  const eid = getEntityId(entity);
-  const targets = instance?.relationTargets?.[eid >>> 10]?.[eid & 1023];
-  if (targets === undefined) return false;
-  return relationCtx.exclusive
-    ? target === '*' || targets === target
-    : target === '*'
-      ? targets.length !== 0
-      : targets.includes(target);
+  const instance = getTraitInstance(ctx.traitInstances, pair.relation[$internal].trait);
+  return hasTargetInPages(instance?.relationTargets, entity, target);
 }

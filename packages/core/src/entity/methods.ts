@@ -1,14 +1,16 @@
 import { assertsEnabled, warningsEnabled } from '../build-flags';
+import { isIdentifier, isIdentifierPair } from '../identifier/identifier';
+import { getIdentifierTarget, hasIdentifier } from '../identifier/ownership';
 import type { Identifier, IdentifierPair } from '../identifier/types';
 import { $internal } from '../internal';
 import { subscribeTransition } from '../machine/hooks';
 import type { Machine, TransitionSubscriber } from '../machine/types';
+import { firstTargetInPages, hasTargetInPages } from '../relation/target-pages';
 import type { Relation, RelationPair } from '../relation/types';
 import { subscribeAdd, subscribeChange, subscribeRemove } from '../trait/hooks';
 import {
   addTrait,
-  hasTrait,
-  getTraitTarget,
+  hasEntityRelationPair,
   getTraitTargets,
   getTrait,
   removeTrait,
@@ -18,16 +20,18 @@ import {
 } from '../trait/ops';
 import type { ConfigurableTrait, Subscriber, Trait, TraitHookInput } from '../trait/types';
 import { destroyEntity } from './entity';
-import { isEntityAlive } from './entity-index';
+import { assertEntityAlive, isEntityAlive } from './entity-index';
 import { getEntityGeneration, getEntityId } from './handle';
 import { getEntityContext, sharedPageOwners } from './page-allocator';
 import type { Entity, EntityMethods } from './types';
 
 let installed = false;
 
-// Keep world lookup and pair dispatch out of the bytecode for repeated plain trait checks.
-function hasWithWorld(entity: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair) {
-  return hasTrait(getEntityContext(entity), entity, trait);
+// Keep pair dispatch out of the bytecode for repeated plain trait checks.
+function hasPair(entity: Entity, pair: RelationPair | IdentifierPair) {
+  if (isIdentifierPair(pair)) return hasIdentifier(getEntityContext(entity), entity, pair);
+  if (pair.target === undefined) return hasEntityRelationPair(getEntityContext(entity), entity, pair);
+  return hasTargetInPages(pair.relation[$internal].sharedTargets, entity, pair.target);
 }
 
 /**
@@ -55,9 +59,8 @@ export function installEntityMethods() {
     },
 
     has(this: Entity, trait: Trait | RelationPair | Identifier | IdentifierPair) {
-      if (typeof trait !== 'function' || assertsEnabled) {
-        return hasWithWorld(this, trait);
-      }
+      if (assertsEnabled) assertEntityAlive(getEntityContext(this), this);
+      if (typeof trait !== 'function') return hasPair(this, trait);
       // An identifier reads the same mask slot as its backing trait.
       const eid = getEntityId(this);
       const mask = trait[$internal].sharedMask;
@@ -103,7 +106,9 @@ export function installEntityMethods() {
     },
 
     targetFor(this: Entity, relation: Relation<any> | Identifier) {
-      return getTraitTarget(getEntityContext(this), this, relation);
+      if (isIdentifier(relation)) return getIdentifierTarget(getEntityContext(this), this, relation);
+      if (assertsEnabled) assertEntityAlive(getEntityContext(this), this);
+      return firstTargetInPages(relation[$internal].sharedTargets, this);
     },
 
     id(this: Entity) {

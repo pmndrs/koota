@@ -42,6 +42,7 @@ function createRelation<S extends TraitSchema = Record<string, never>>(
   const relationCtx = {
     trait: relationTrait,
     exclusive: definition?.exclusive ?? false,
+    sharedTargets: undefined,
     autoDestroy,
     scopedIdentifiers: undefined,
   };

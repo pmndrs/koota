@@ -162,7 +162,8 @@ describe('Isolated worlds', () => {
             // Subscribers and actions that refer back to their world do not keep it alive.
             world.onAdd(Position, () => void world.has(Position));
             world.onEnter([Position], () => void world.has(Position));
-            actions(world).spawn();
+            const parent = actions(world).spawn();
+            world.spawn(ChildOf(parent));
             registry.register(world, 'world');
           })();
         })

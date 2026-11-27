@@ -475,6 +475,20 @@ group('relation membership 10k @relation @accessor', () => {
 group('relation data 10k @relation @accessor', () => {
   const Attached = relation({ store: { offset: [0, 0, 0], weight: 1 } });
 
+  bench('exclusive targetFor', function* () {
+    const world = createWorld();
+    const Parent = relation({ exclusive: true });
+    const parents = Array.from({ length: 100 }, () => world.spawn());
+    const children = Array.from({ length: 10_000 }, (_, i) => world.spawn(Parent(parents[i % 100])));
+    const result = yield () => {
+      let sum = 0;
+      for (const child of children) sum += child.targetFor(Parent)!;
+      return sum;
+    };
+    assert.equal(result, parents.reduce((sum, parent) => sum + parent, 0) * 100);
+    world.destroy();
+  });
+
   bench('relation get', function* () {
     const world = createWorld();
     const pair = Attached(world.spawn());
